@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0A2540" />
+    <meta name="description" content="Field inspection and reporting platform" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="BTS Inspect" />
+    <link rel="apple-touch-icon" href="/icon-192.svg" />
+    <title>BTS Inspect</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // Handle stale chunk errors from old service worker caches
+      window.addEventListener('error', (e) => {
+        const isModuleError = e.message?.includes('loading failed') ||
+                            e.message?.includes('importing module script') ||
+                            e.message?.includes('Failed to fetch dynamically imported module') ||
+                            e.message?.includes('error loading dynamically imported module');
+
+        if (isModuleError && !sessionStorage.getItem('chunk_reload')) {
+          sessionStorage.setItem('chunk_reload', '1');
+          // Clear caches then reload so fresh chunks are fetched
+          if ('caches' in window) {
+            caches.keys().then(names => Promise.all(names.map(n => caches.delete(n)))).then(() => {
+              window.location.reload();
+            });
+          } else {
+            window.location.reload();
+          }
+        }
+      }, true);
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

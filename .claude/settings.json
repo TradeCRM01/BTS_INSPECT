@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /tmp/cc-agent/66140643/project && npm run build > /dev/null 2>&1; exit $?",
+            "timeout": 60,
+            "suppressOutput": true
+          }
+        ]
+      }
+    ]
+  }
+}
