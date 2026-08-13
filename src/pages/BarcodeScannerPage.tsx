@@ -148,7 +148,7 @@ export function BarcodeScannerPage() {
       }
       setCameraActive(true);
 
-      // @ts-expect-error — BarcodeDetector is not in standard TS types
+      // @ts-expect-error â€” BarcodeDetector is not in standard TS types
       const detector = new window.BarcodeDetector({ formats: ['code_39', 'code_128', 'ean_13', 'qr_code'] });
       const detect = async () => {
         if (!videoRef.current || !cameraActive) return;
@@ -187,7 +187,7 @@ export function BarcodeScannerPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[900px] mx-auto px-4 py-6">
+      <div className="page-shell">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-[#1A1A1A]">Barcode Scanner</h1>
           <p className="text-sm text-[#4A5568] mt-0.5">Scan barcodes to look up stock items and adjust quantities</p>
@@ -265,7 +265,7 @@ export function BarcodeScannerPage() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-[#1A1A1A]">{scanResult.item.name}</p>
-                        <p className="text-xs text-[#6B7280]">SKU: {scanResult.item.sku ?? '—'} · Barcode: {scanResult.barcode}</p>
+                        <p className="text-xs text-[#6B7280]">SKU: {scanResult.item.sku ?? 'â€”'} Â· Barcode: {scanResult.barcode}</p>
                       </div>
                     </div>
 

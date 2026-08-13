@@ -1,16 +1,19 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Bitcoin, Eye, EyeOff } from 'lucide-react';
 
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const expired = params.get('expired') === '1';
+  const recovered = params.get('recovered') === '1';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,6 +68,17 @@ export function LoginPage() {
         <div className="bg-white rounded-xl shadow-2xl p-6">
           <h1 className="text-lg font-semibold text-[#1A1A1A] mb-1">Sign in</h1>
           <p className="text-sm text-[#4A5568] mb-6">Welcome back. Enter your credentials to continue.</p>
+
+          {expired && (
+            <div className="mb-4 bg-orange-50 border border-orange-200 text-orange-800 px-3 py-2.5 rounded-md text-sm">
+              That email link expired or was already used. Sign in below, or use Forgot password / ask for a new invite.
+            </div>
+          )}
+          {recovered && (
+            <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2.5 rounded-md text-sm">
+              App cache cleared. You can sign in again.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -124,10 +138,17 @@ export function LoginPage() {
         </div>
 
         <p className="text-center text-sm text-white/60 mt-4">
-          Don't have an account?{' '}
-          <Link to="/signup" className="text-[#F7931A] font-medium hover:underline">
-            Create one
+          Invited to a team? Use the link in your invite email to set a password, or{' '}
+          <Link to="/forgot-password" className="text-[#F7931A] font-medium hover:underline">
+            reset password
           </Link>
+          .
+        </p>
+        <p className="text-center text-sm text-white/60 mt-2">
+          Page won’t load?{' '}
+          <a href="/login?clear=1" className="text-[#F7931A] font-medium hover:underline">
+            Clear cache &amp; retry
+          </a>
         </p>
       </div>
     </div>

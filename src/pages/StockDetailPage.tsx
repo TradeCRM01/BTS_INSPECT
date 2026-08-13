@@ -1,19 +1,20 @@
 import { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, Breadcrumbs, useToast } from '../components/ui';
 import { StockItemForm } from './StockPage';
+import { MoveStockModal, toMoveTargets } from '../components/stock/MoveStockModal';
 import type { StockItemWithSupplier, StockMovementWithDetails } from '../types/fsm';
 import {
   getStockLevel, STOCK_LEVEL_STYLES, STOCK_LEVEL_LABELS, formatMoney,
 } from '../types/fsm';
 import { format, parseISO } from 'date-fns';
 import {
-  ArrowLeft, Package, Tag, MapPin, Pencil, AlertTriangle, ArrowUpCircle,
-  ArrowDownCircle, RotateCcw, SlidersHorizontal, TrendingUp,
+  Package, Tag, MapPin, Pencil, AlertTriangle, ArrowUpCircle,
+  ArrowDownCircle, RotateCcw, SlidersHorizontal, TrendingUp, ArrowRightLeft,
 } from 'lucide-react';
 
 const MOVEMENT_META: Record<
@@ -24,6 +25,7 @@ const MOVEMENT_META: Record<
   allocated_to_job: { label: 'Allocated', icon: ArrowDownCircle, qtyClass: 'text-red-600' },
   returned: { label: 'Returned', icon: RotateCcw, qtyClass: 'text-green-600' },
   adjusted: { label: 'Adjusted', icon: SlidersHorizontal, qtyClass: 'text-[#4A5568]' },
+  transferred: { label: 'Transferred', icon: ArrowRightLeft, qtyClass: 'text-[#2E75B6]' },
 };
 
 export function StockDetailPage() {
@@ -31,7 +33,9 @@ export function StockDetailPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [showForm, setShowForm] = useState(false);
+  const [showMove, setShowMove] = useState(false);
   const [adjQty, setAdjQty] = useState('');
   const [adjReason, setAdjReason] = useState('');
 
@@ -137,8 +141,10 @@ export function StockDetailPage() {
                   {item.category && (
                     <span className="flex items-center gap-1"><Tag size={12} className="text-[#9CA3AF]" /> {item.category}</span>
                   )}
-                  {item.storage_location && (
+                  {item.storage_location ? (
                     <span className="flex items-center gap-1"><MapPin size={12} className="text-[#9CA3AF]" /> {item.storage_location}</span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[#9CA3AF]"><MapPin size={12} /> Unassigned</span>
                   )}
                 </div>
               </div>
@@ -147,6 +153,13 @@ export function StockDetailPage() {
               <span className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-medium ${STOCK_LEVEL_STYLES[level]}`}>
                 {STOCK_LEVEL_LABELS[level]}
               </span>
+              <button
+                type="button"
+                onClick={() => setShowMove(true)}
+                className="flex items-center gap-2 border border-[#E5E7EB] bg-white text-[#1A1A1A] px-3 py-2 rounded-md text-sm font-medium hover:bg-[#F9FAFB] transition-colors"
+              >
+                <ArrowRightLeft size={15} /> Move to drive
+              </button>
               <button
                 onClick={() => setShowForm(true)}
                 className="flex items-center gap-2 bg-[#0A2540] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
@@ -239,7 +252,11 @@ export function StockDetailPage() {
                   </thead>
                   <tbody>
                     {(movements ?? []).map(m => {
-                      const meta = MOVEMENT_META[m.movement_type];
+                      const meta = MOVEMENT_META[m.movement_type] ?? {
+                        label: m.movement_type,
+                        icon: ArrowRightLeft,
+                        qtyClass: 'text-[#4A5568]',
+                      };
                       const Icon = meta.icon;
                       return (
                         <tr key={m.id} className="border-b border-[#F3F4F6] last:border-0">
@@ -252,7 +269,9 @@ export function StockDetailPage() {
                             </span>
                           </td>
                           <td className={`px-3 py-3 text-right font-medium ${meta.qtyClass}`}>
-                            {m.quantity > 0 ? '+' : ''}{m.quantity}
+                            {m.movement_type === 'transferred'
+                              ? '—'
+                              : `${m.quantity > 0 ? '+' : ''}${m.quantity}`}
                           </td>
                           <td className="px-3 py-3 text-[#4A5568]">{m.job_title ?? '—'}</td>
                           <td className="px-5 py-3 text-[#4A5568]">{m.reason ?? '—'}</td>
@@ -276,6 +295,13 @@ export function StockDetailPage() {
             queryClient.invalidateQueries({ queryKey: ['stock-items'] });
             showToast('Stock item updated');
           }}
+        />
+      )}
+
+      {showMove && (
+        <MoveStockModal
+          items={toMoveTargets([item])}
+          onClose={() => setShowMove(false)}
         />
       )}
     </AppShell>

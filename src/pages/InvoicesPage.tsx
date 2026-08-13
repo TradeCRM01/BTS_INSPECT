@@ -6,12 +6,19 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import { SummaryCardMoney } from '../components/ui/SummaryCard';
-import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote, StockItem } from '../types/fsm';
+import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineItem } from '../components/invoicing/LineItemEditor';
+import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
+import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
+import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
+import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
+import { asStringList } from '../lib/asStringList';
 import { INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, formatMoney } from '../types/fsm';
-import { Plus, Search, Receipt, X, Download, MoreVertical, AlertCircle } from 'lucide-react';
+import { Plus, Search, Receipt, X, Download, MoreVertical, AlertCircle, Eye } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
+
+const padInv = (n: number | null) => String(n ?? 0).padStart(4, '0');
 
 type StatusFilter = 'all' | InvoiceStatus;
 
@@ -38,7 +45,7 @@ export function InvoicesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, company_id, invoice_number, client_id, job_id, quote_id, status, line_items, subtotal, tax_rate, tax_amount, total, payment_terms, due_date, notes, created_by, created_at, updated_at')
+        .select('id, company_id, invoice_number, client_id, job_id, quote_id, status, line_items, subtotal, tax_rate, tax_amount, total, payment_terms, due_date, notes, inclusions, exclusions, created_by, created_at, updated_at')
         .order('created_at', { ascending: false });
       if (error) throw error;
       const list = (data ?? []) as InvoiceWithDetails[];
@@ -53,6 +60,8 @@ export function InvoicesPage() {
       const jobMap = new Map((jobsRes.data ?? []).map((j: any) => [j.id, j.title]));
       return list.map(i => ({
         ...i,
+        inclusions: asStringList(i.inclusions),
+        exclusions: asStringList(i.exclusions),
         client_name: i.client_id ? clientMap.get(i.client_id) ?? null : null,
         job_title: i.job_id ? jobMap.get(i.job_id) ?? null : null,
       }));
@@ -174,14 +183,14 @@ export function InvoicesPage() {
                     <tr key={inv.id} onClick={() => { setEditingInvoice(inv); setShowForm(true); }}
                       className="hover:bg-[#F9FAFB] cursor-pointer transition-colors">
                       <td className="px-4 py-3 font-medium text-[#2E75B6]">#{String(inv.invoice_number ?? 0).padStart(4, '0')}</td>
-                      <td className="px-4 py-3 text-[#1A1A1A]">{inv.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                      <td className="px-4 py-3 text-[#1A1A1A]">{inv.client_name ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INVOICE_STATUS_STYLES[inv.status]}`}>
                           {INVOICE_STATUS_LABELS[inv.status]}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-[#1A1A1A]">{formatMoney(Number(inv.total))}</td>
-                      <td className="px-4 py-3 text-[#4A5568]">{inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : '—'}</td>
+                      <td className="px-4 py-3 text-[#4A5568]">{inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
                       <td className="px-4 py-3 text-[#4A5568]">{format(parseISO(inv.created_at), 'd MMM yyyy')}</td>
                       <td className="px-4 py-3 text-[#9CA3AF]"><MoreVertical size={15} /></td>
                     </tr>
@@ -202,7 +211,7 @@ export function InvoicesPage() {
                 <p className="text-sm font-medium text-[#1A1A1A] mb-1">{inv.client_name ?? 'No client'}</p>
                 <p className="text-lg font-bold text-[#1A1A1A] mb-2">{formatMoney(Number(inv.total))}</p>
                 <div className="flex items-center justify-between text-xs text-[#4A5568]">
-                  <span>Due: {inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : '—'}</span>
+                  <span>Due: {inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</span>
                   <span>{format(parseISO(inv.created_at), 'd MMM yyyy')}</span>
                 </div>
               </div>
@@ -223,7 +232,7 @@ export function InvoicesPage() {
   );
 }
 
-// ── Summary Card ──────────────────────────────────────────────────
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Summary Card ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 
 function SummaryCard({ label, amount, color, icon }: { label: string; amount: number; color: string; icon?: React.ReactNode }) {
   return (
@@ -236,7 +245,7 @@ function SummaryCard({ label, amount, color, icon }: { label: string; amount: nu
   );
 }
 
-// ── Invoice Editor Modal ──────────────────────────────────────────
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Invoice Editor Modal ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 
 interface EditorState {
   client_id: string;
@@ -248,6 +257,8 @@ interface EditorState {
   payment_terms: string;
   due_date: string;
   notes: string;
+  inclusions: string[];
+  exclusions: string[];
 }
 
 function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
@@ -256,13 +267,15 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { profile } = useAuth();
+  const { profile, company } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [priceBookItems, setPriceBookItems] = useState<PriceBookItem[]>([]);
   const [importing, setImporting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [err, setErr] = useState('');
 
   const [form, setForm] = useState<EditorState>({
@@ -270,24 +283,30 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
     job_id: invoice?.job_id ?? '',
     quote_id: invoice?.quote_id ?? '',
     status: invoice?.status ?? 'draft',
-    line_items: invoice?.line_items?.length ? invoice.line_items.map(toEditLine) : [emptyLineItem()],
+    line_items: invoice?.line_items?.length
+      ? invoice.line_items.map(toEditLine)
+      : [emptyLineItem(company?.default_material_markup ?? 0)],
     tax_rate: String(invoice?.tax_rate ?? defaultTaxRate),
     payment_terms: invoice?.payment_terms ?? 'Net 30',
     due_date: invoice?.due_date ?? format(addDays(new Date(), 30), 'yyyy-MM-dd'),
     notes: invoice?.notes ?? '',
+    inclusions: asStringList(invoice?.inclusions),
+    exclusions: asStringList(invoice?.exclusions),
   });
 
   useEffect(() => {
     if (!profile?.company_id) return;
     (async () => {
-      const [c, j, s] = await Promise.all([
+      const [c, j, s, pb] = await Promise.all([
         supabase.from('clients').select('*').eq('archived', false).order('name'),
         supabase.from('jobs').select('id, company_id, client_id, title').order('created_at', { ascending: false }),
         supabase.from('stock_items').select('*').eq('archived', false).order('name'),
+        supabase.from('price_book_items').select('*').eq('is_active', true).order('description'),
       ]);
       if (c.data) setClients(c.data as Client[]);
       if (j.data) setJobs(j.data as Job[]);
       if (s.data) setStockItems(s.data as StockItem[]);
+      if (pb.data) setPriceBookItems(pb.data as PriceBookItem[]);
     })();
   }, [profile?.company_id]);
 
@@ -301,10 +320,54 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
   }, [form.client_id]);
 
   const clientJobs = useMemo(() => jobs.filter(j => form.client_id && j.client_id === form.client_id), [jobs, form.client_id]);
-
+  const selectedClient = clients.find(c => c.id === form.client_id);
   const subtotal = useMemo(() => calcSubtotal(form.line_items), [form.line_items]);
   const taxAmount = useMemo(() => subtotal * (parseFloat(form.tax_rate) || 0) / 100, [subtotal, form.tax_rate]);
   const grandTotal = subtotal + taxAmount;
+
+  const previewData = useMemo((): CommercialPdfData | null => {
+    if (!company) return null;
+    const cleanLines: InvoiceLineItem[] = form.line_items
+      .filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0)
+      .map(li => ({
+        description: li.description.trim(),
+        quantity: parseFloat(li.quantity) || 0,
+        unit_price: parseFloat(li.unit_price) || 0,
+        charge_type: li.charge_type.trim() || null,
+        unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
+        markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
+        cost_model_id: li.cost_model_id ?? null,
+      }));
+    return {
+      kind: 'invoice',
+      title: 'Invoice charges',
+      docNumber: invoice?.invoice_number != null ? `#${padInv(invoice.invoice_number)}` : 'Draft',
+      dateLabel: 'Date',
+      dateValue: format(new Date(), 'd MMM yyyy'),
+      secondaryLabel: 'Due',
+      secondaryValue: form.due_date ? format(parseISO(form.due_date), 'd MMM yyyy') : 'â€”',
+      clientName: selectedClient?.name ?? 'â€”',
+      clientDetail: selectedClient?.address ?? null,
+      company: {
+        name: company.name,
+        abn: company.abn ?? null,
+        licence_number: company.licence_number ?? null,
+        phone: company.phone ?? null,
+        email: company.email ?? null,
+        website: company.website ?? null,
+        logo_url: company.logo_url ?? null,
+      },
+      inclusions: form.inclusions,
+      exclusions: form.exclusions,
+      lines: linesFromQuoteItems(cleanLines),
+      subtotal,
+      taxRate: parseFloat(form.tax_rate) || 0,
+      taxAmount,
+      total: grandTotal,
+      notes: form.notes.trim() || null,
+      paymentTerms: form.payment_terms.trim() || null,
+    };
+  }, [company, form, invoice, selectedClient, subtotal, taxAmount, grandTotal]);
 
 
 
@@ -316,7 +379,25 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
       if (jcErr) throw jcErr;
       const costs = (data ?? []) as JobCost[];
       if (costs.length === 0) { setErr('No job costs found for this job'); return; }
-      const newLines: EditLineItem[] = costs.map(c => ({ description: c.description, quantity: String(c.quantity), unit_price: String(c.unit_cost), stock_item_id: null, unit_cost: String(c.unit_cost), markup_percent: '0' }));
+      const newLines: EditLineItem[] = costs.map(c => {
+        const unitCost = Number(c.unit_cost) || 0;
+        const unitPrice = Number(c.unit_price) || unitCost;
+        const markup = c.markup_percent != null
+          ? Number(c.markup_percent)
+          : (unitCost > 0 ? Number((((unitPrice / unitCost) - 1) * 100).toFixed(1)) : 0);
+        return {
+          description: c.description,
+          quantity: String(c.quantity),
+          unit_price: String(unitPrice),
+          stock_item_id: c.stock_item_id,
+          price_book_item_id: null,
+          charge_type: c.charge_type
+            || (c.cost_type === 'labor' ? 'Labour' : c.cost_type === 'materials' ? 'Materials' : 'Other'),
+          unit_cost: String(unitCost),
+          markup_percent: String(markup),
+          cost_model_id: c.cost_model_id ?? null,
+        };
+      });
       setForm(f => ({ ...f, line_items: [...f.line_items.filter(li => li.description.trim()), ...newLines] }));
     } catch (e: any) {
       setErr(e.message ?? 'Import failed');
@@ -335,8 +416,11 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
         quantity: parseFloat(li.quantity) || 0,
         unit_price: parseFloat(li.unit_price) || 0,
         stock_item_id: li.stock_item_id ?? null,
+        price_book_item_id: li.price_book_item_id ?? null,
+        charge_type: li.charge_type.trim() || null,
         unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
+        cost_model_id: li.cost_model_id ?? null,
       }));
     if (cleanLines.length === 0) { setErr('Add at least one line item'); return; }
     setSaving(true); setErr('');
@@ -353,6 +437,8 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
       payment_terms: form.payment_terms.trim() || null,
       due_date: form.due_date || null,
       notes: form.notes.trim() || null,
+      inclusions: form.inclusions,
+      exclusions: form.exclusions,
     };
     const { error } = invoice
       ? await supabase.from('invoices').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', invoice.id)
@@ -363,8 +449,8 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[8vh] overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="overlay-backdrop">
+      <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
@@ -381,7 +467,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-auto px-5 py-4 space-y-4">
+        <div className="overlay-body">
           <Field label="Client" required>
             <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value, job_id: '', quote_id: '' }))} className="form-input cursor-pointer">
               <option value="">Select a client...</option>
@@ -399,7 +485,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
             <Field label="Linked Quote">
               <select value={form.quote_id} onChange={e => setForm(f => ({ ...f, quote_id: e.target.value }))} className="form-input cursor-pointer" disabled={!form.client_id}>
                 <option value="">No linked quote</option>
-                {quotes.map(q => <option key={q.id} value={q.id}>#{String(q.quote_number ?? 0).padStart(4, '0')} — {formatMoney(Number(q.total))}</option>)}
+                {quotes.map(q => <option key={q.id} value={q.id}>#{String(q.quote_number ?? 0).padStart(4, '0')} ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â {formatMoney(Number(q.total))}</option>)}
               </select>
             </Field>
           </div>
@@ -411,10 +497,17 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
             </button>
           )}
 
+          <DocumentVariationsEditor
+            inclusions={form.inclusions}
+            exclusions={form.exclusions}
+            onChange={({ inclusions, exclusions }) => setForm(f => ({ ...f, inclusions, exclusions }))}
+          />
+
           {/* Line items */}
           <LineItemEditor
             lines={form.line_items}
             stockItems={stockItems}
+            priceBookItems={priceBookItems}
             defaultMarkup={company?.default_material_markup ?? 0}
             onChange={lines => setForm(f => ({ ...f, line_items: lines }))}
           />
@@ -459,14 +552,28 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-100">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-gray-50">Cancel</button>
-          <button onClick={handleSave} disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">
-            {saving ? 'Saving...' : invoice ? 'Save Changes' : 'Create Invoice'}
+        <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={() => setShowPreview(true)}
+            disabled={!previewData}
+            className="flex items-center gap-1.5 text-sm font-medium text-[#2E75B6] hover:underline disabled:opacity-40 disabled:no-underline"
+          >
+            <Eye size={14} /> Preview PDF
           </button>
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-gray-50">Cancel</button>
+            <button onClick={handleSave} disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">
+              {saving ? 'Saving...' : invoice ? 'Save Changes' : 'Create Invoice'}
+            </button>
+          </div>
         </div>
       </div>
+
+      {showPreview && previewData && (
+        <CommercialPdfPreviewModal data={previewData} onClose={() => setShowPreview(false)} />
+      )}
     </div>
   );
 }

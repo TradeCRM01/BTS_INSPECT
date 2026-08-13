@@ -14,6 +14,7 @@ import {
   type TeamMember,
 } from '../components/crm/BoardViews';
 import { pickEmployeeColor } from '../lib/jobColors';
+import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
 import {
   ChevronLeft, ChevronRight, Plus, Calendar as CalIcon,
   List, LayoutGrid, Columns3, Users, X,
@@ -37,6 +38,7 @@ export function SchedulePage() {
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [presetEmployeeId, setPresetEmployeeId] = useState<string | undefined>(undefined);
   const [filteredEmployeeIds, setFilteredEmployeeIds] = useState<Set<string>>(new Set());
+  const [colorSavingId, setColorSavingId] = useState<string | null>(null);
 
   const preselectClient = searchParams.get('client');
   const preselectJob = searchParams.get('job');
@@ -50,10 +52,37 @@ export function SchedulePage() {
         p_company_id: profile.company_id,
       });
       if (error) throw error;
-      return (data ?? []).map((m: any) => ({ id: m.id, name: m.name, email: m.email }));
+      return (data ?? []).map((m: {
+        id: string; name: string; email: string; schedule_color?: string | null;
+      }) => ({
+        id: m.id,
+        name: m.name,
+        email: m.email,
+        schedule_color: m.schedule_color ?? null,
+      }));
     },
     enabled: !!profile,
   });
+
+  const setScheduleColor = async (memberId: string, color: string | null) => {
+    setColorSavingId(memberId);
+    try {
+      const { error } = await supabase.rpc('set_member_schedule_color', {
+        p_member_id: memberId,
+        p_color: color,
+      });
+      if (error) throw error;
+      queryClient.setQueryData<TeamMember[]>(['team-members-schedule'], prev =>
+        (prev ?? []).map(m => (m.id === memberId ? { ...m, schedule_color: color } : m)),
+      );
+      queryClient.invalidateQueries({ queryKey: ['team-members-schedule'] });
+    } catch (e) {
+      console.error(e);
+      alert(e instanceof Error ? e.message : 'Could not save colour');
+    } finally {
+      setColorSavingId(null);
+    }
+  };
 
   // ── Date range for query ───────────────────────────────────────
   const rangeStart = useMemo(() => {
@@ -282,35 +311,48 @@ export function SchedulePage() {
           </div>
         </div>
 
-        {/* Employee filter pills (day & week views) */}
+        {/* Employee filter pills (day & week views) — click swatch to change colour */}
         {(viewMode === 'day' || viewMode === 'week') && teamMembers && teamMembers.length > 0 && (
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <div className="flex items-center gap-1.5 text-xs font-medium text-[#4A5568]">
-              <Users size={13} /> Filter:
+              <Users size={13} /> Team:
             </div>
+            <span className="text-[10px] text-[#9CA3AF] hidden sm:inline">Click a colour dot to change it</span>
             {filteredEmployeeIds.size > 0 && (
               <button onClick={clearEmployeeFilters}
                 className="flex items-center gap-1 text-xs text-[#2E75B6] hover:underline">
-                <X size={11} /> Clear
+                <X size={11} /> Clear filter
               </button>
             )}
             <div className="flex items-center gap-1.5 flex-wrap">
               {teamMembers.map(m => {
                 const active = filteredEmployeeIds.size === 0 || filteredEmployeeIds.has(m.id);
-                const color = pickEmployeeColor(m.id);
+                const color = pickEmployeeColor(m.id, m.schedule_color);
                 return (
-                  <button
+                  <div
                     key={m.id}
-                    onClick={() => toggleEmployeeFilter(m.id)}
                     className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border transition-all ${
                       active
                         ? 'border-transparent bg-white shadow-sm'
                         : 'border-[#E5E7EB] bg-gray-50 opacity-50 hover:opacity-80'
                     }`}
                   >
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-                    {m.name}
-                  </button>
+                    <EmployeeColorSwatch
+                      name={m.name}
+                      color={color}
+                      savedColor={m.schedule_color}
+                      disabled={colorSavingId === m.id}
+                      onPick={hex => void setScheduleColor(m.id, hex)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleEmployeeFilter(m.id)}
+                      className="hover:underline"
+                      title={active && filteredEmployeeIds.size > 0 ? 'Hide from board' : 'Filter to this person'}
+                    >
+                      {m.name}
+                    </button>
+                  </div>
                 );
               })}
             </div>

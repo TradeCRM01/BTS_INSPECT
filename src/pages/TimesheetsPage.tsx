@@ -129,7 +129,7 @@ export function TimesheetsPage() {
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-semibold text-[#1A1A1A]">Timesheets</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">Week of {format(currentWeek, 'dd MMM')} — {format(addDays(currentWeek, 6), 'dd MMM yyyy')}</p>
+            <p className="text-sm text-[#4A5568] mt-0.5">Week of {format(currentWeek, 'dd MMM')} ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â {format(addDays(currentWeek, 6), 'dd MMM yyyy')}</p>
           </div>
           <div className="flex items-center gap-2">
             {isClockedIn ? (
@@ -164,7 +164,7 @@ export function TimesheetsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <SummaryCard label="Week Total" value={formatDuration(weekTotal)} accentColor="#0A2540" />
           <SummaryCard label="Days Worked" value={`${myTimesheets.filter(t => t.total_minutes > 0).length}`} accentColor="#2E75B6" />
-          <SummaryCard label="Status" value={todayTs ? TIMESHEET_STATUS_LABELS[todayTs.status] : '—'} accentColor="#16A34A" />
+          <SummaryCard label="Status" value={todayTs ? TIMESHEET_STATUS_LABELS[todayTs.status] : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'} accentColor="#16A34A" />
           <SummaryCard label="Clocked In" value={isClockedIn ? 'Yes' : 'No'} accentColor={isClockedIn ? '#16A34A' : '#6B7280'} />
         </div>
 
@@ -207,10 +207,10 @@ export function TimesheetsPage() {
                           <Clock size={18} className="text-[#0A2540]" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-[#1A1A1A]">{ts ? format(parseISO(ts.date), 'dd MMM') : '—'}</p>
+                          <p className="text-sm font-medium text-[#1A1A1A]">{ts ? format(parseISO(ts.date), 'dd MMM') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
                           <p className="text-xs text-[#4A5568]">
                             {format(new Date(entry.start_time), 'HH:mm')}
-                            {entry.end_time ? ` — ${format(new Date(entry.end_time), 'HH:mm')}` : ' — running'}
+                            {entry.end_time ? ` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ${format(new Date(entry.end_time), 'HH:mm')}` : ' ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â running'}
                           </p>
                         </div>
                       </div>
@@ -322,13 +322,13 @@ function EntryForm({ timesheets, onClose, onSaved }: { timesheets: Timesheet[]; 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[8vh] overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="overlay-backdrop">
+      <div className="overlay-panel-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] shrink-0">
           <h2 className="text-lg font-semibold text-[#1A1A1A]">Add Time Entry</h2>
           <button onClick={onClose}><X size={20} className="text-[#6B7280]" /></button>
         </div>
-        <form onSubmit={handleSave} className="flex-1 overflow-auto px-5 py-4 space-y-3">
+        <form onSubmit={handleSave} className="overlay-body">
           <Field label="Date"><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="form-input" /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Start Time"><input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} className="form-input" /></Field>

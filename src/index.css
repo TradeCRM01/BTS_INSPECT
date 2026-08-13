@@ -98,6 +98,108 @@
   .form-label {
     @apply block text-sm font-medium text-[#1A1A1A] mb-1.5;
   }
+
+  /* ── Fullscreen-friendly overlays ─────────────────────────────── */
+  .overlay-backdrop {
+    @apply fixed inset-0 z-50 flex items-stretch sm:items-center justify-center bg-black/50 overflow-y-auto p-0 sm:p-3;
+  }
+
+  /* Wide panels: fill width, grow with content, scroll only when needed */
+  .overlay-panel,
+  .overlay-panel-lg,
+  .overlay-panel-xl {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: 100vh !important;
+    min-height: 0;
+    border-radius: 0;
+  }
+
+  @media (min-width: 640px) {
+    .overlay-panel,
+    .overlay-panel-lg,
+    .overlay-panel-xl {
+      width: 96vw !important;
+      max-width: 96vw !important;
+      max-height: 94vh !important;
+      border-radius: 1rem;
+    }
+  }
+
+  .overlay-panel-sm {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  @media (min-width: 640px) {
+    .overlay-panel-sm {
+      width: min(480px, 96vw) !important;
+      max-width: min(480px, 96vw) !important;
+      max-height: 90vh;
+      border-radius: 1rem;
+    }
+  }
+
+  .overlay-panel-md {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: 100vh !important;
+    border-radius: 0;
+  }
+  @media (min-width: 640px) {
+    .overlay-panel-md {
+      width: min(900px, 92vw) !important;
+      max-width: min(900px, 92vw) !important;
+      max-height: 94vh !important;
+      border-radius: 1rem;
+    }
+  }
+
+  /* Form body inside overlays — fill width with multi-column fields */
+  .overlay-body {
+    @apply flex-1 min-h-0 overflow-y-auto px-5 py-4 md:px-8 md:py-6;
+  }
+
+  .overlay-form-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-4;
+  }
+
+  .overlay-form-span-2 {
+    @apply md:col-span-2;
+  }
+
+  .overlay-form-span-all {
+    @apply md:col-span-2 xl:col-span-3;
+  }
+
+  .page-shell {
+    @apply mx-auto px-4 py-6 w-full;
+    max-width: min(1600px, 100%);
+  }
+
+  .page-shell-narrow {
+    @apply mx-auto px-4 py-6 w-full;
+    max-width: min(1200px, 100%);
+  }
 }
 
 @layer utilities {

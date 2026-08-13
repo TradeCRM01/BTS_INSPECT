@@ -90,14 +90,14 @@ export function CustomerPortalPage() {
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error) return <AppShell><PageError message="Could not load portal tokens" /></AppShell>;
 
-  const portalBase = typeof window !== 'undefined' ? `${window.location.origin}/portal` : '/portal';
+  const portalBase = typeof window !== 'undefined' ? `${window.location.origin}/p` : '/p';
 
   return (
     <AppShell>
       <div className="max-w-[1000px] mx-auto px-4 py-6">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-[#1A1A1A]">Customer Portal</h1>
-          <p className="text-sm text-[#4A5568] mt-0.5">Generate secure links for clients to view their quotes, invoices, and job status</p>
+          <p className="text-sm text-[#4A5568] mt-0.5">Generate secure links for clients to view quotes, invoices, jobs, and issued inspection reports</p>
         </div>
 
         {/* Info banner */}
@@ -108,7 +108,7 @@ export function CustomerPortalPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-blue-900">How it works</p>
-              <p className="text-sm text-blue-700 mt-0.5">Generate a unique portal link for each client. Share the link via email or SMS. Clients can view their active quotes, invoices, and job progress without logging in. Links expire after 1 year and can be revoked anytime.</p>
+              <p className="text-sm text-blue-700 mt-0.5">Generate a unique portal link for each client. Share via email or SMS. Clients open the public link (no login) to see quotes, invoices, job progress, and finished inspection reports. Links expire after 1 year and can be revoked anytime. You can also copy a single-report share link from any issued report.</p>
             </div>
           </div>
         </div>

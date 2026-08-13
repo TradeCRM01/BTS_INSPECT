@@ -265,14 +265,21 @@ export function SignatureBlock({
   name,
   licenceNumber,
   date,
+  roleLabel,
 }: {
   signatureUrl?: string | null;
   name: string;
   licenceNumber?: string;
   date: string;
+  roleLabel?: string;
 }) {
   return (
     <View style={{ marginTop: 8 }}>
+      {roleLabel ? (
+        <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, fontWeight: 700, color: pdfColors.navy, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          {roleLabel}
+        </Text>
+      ) : null}
       <View
         style={{
           width: 280,
@@ -364,6 +371,175 @@ export function SignatureBlock({
           </View>
         </View>
       </View>
+    </View>
+  );
+}
+
+/** Company letterhead for inspection cover pages (logo or navy name plate — no hardcoded brand assets). */
+export function CoverLetterhead({
+  companyName,
+  logoUrl,
+  contactLine,
+}: {
+  companyName: string;
+  logoUrl?: string | null;
+  contactLine?: string;
+}) {
+  return (
+    <View
+      style={{
+        width: '100%',
+        backgroundColor: pdfColors.navy,
+        paddingHorizontal: 40,
+        paddingVertical: 28,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}
+    >
+      <View style={{ flex: 1, paddingRight: 16 }}>
+        {logoUrl ? (
+          <Image src={logoUrl} style={{ width: 160, height: 56, objectFit: 'contain' }} />
+        ) : (
+          <Text style={{ fontFamily: pdfFonts.body, fontSize: 22, fontWeight: 700, color: '#FFFFFF', letterSpacing: 0.4 }}>
+            {companyName}
+          </Text>
+        )}
+        {contactLine ? (
+          <Text style={{ fontFamily: pdfFonts.body, fontSize: 7.5, color: 'rgba(255,255,255,0.55)', marginTop: 8 }}>
+            {contactLine}
+          </Text>
+        ) : null}
+      </View>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={{ fontFamily: pdfFonts.body, fontSize: 7, color: 'rgba(255,255,255,0.45)', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+          Inspection report
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+export function OverallVerdictStamp({
+  verdict,
+  label,
+}: {
+  verdict: 'compliant' | 'non_compliant' | 'limited' | 'not_assessed';
+  label: string;
+}) {
+  const palette =
+    verdict === 'compliant'
+      ? { bg: pdfColors.passBg, border: pdfColors.pass, text: pdfColors.pass }
+      : verdict === 'non_compliant'
+        ? { bg: pdfColors.failBg, border: pdfColors.fail, text: pdfColors.fail }
+        : verdict === 'limited'
+          ? { bg: pdfColors.warningBg, border: pdfColors.warning, text: pdfColors.warning }
+          : { bg: pdfColors.ruleLight, border: pdfColors.textMuted, text: pdfColors.textMuted };
+
+  return (
+    <View
+      style={{
+        alignSelf: 'flex-start',
+        backgroundColor: palette.bg,
+        borderWidth: 1.5,
+        borderColor: palette.border,
+        borderRadius: 4,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        marginBottom: 18,
+      }}
+    >
+      <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: palette.text, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 2 }}>
+        Overall result
+      </Text>
+      <Text style={{ fontFamily: pdfFonts.body, fontSize: 14, fontWeight: 700, color: palette.text, letterSpacing: 0.8 }}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+export function DefectRegister({
+  defects,
+}: {
+  defects: Array<{
+    sectionTitle: string;
+    questionLabel: string;
+    severity: 'critical' | 'major' | 'moderate';
+    reason: string;
+    measuredValue?: string;
+    expected?: string;
+    action?: string;
+  }>;
+}) {
+  if (defects.length === 0) {
+    return (
+      <View style={{ borderWidth: 0.5, borderColor: pdfColors.pass, backgroundColor: pdfColors.passBg, padding: 12, borderRadius: 3 }}>
+        <Text style={{ fontFamily: pdfFonts.body, fontSize: 9, fontWeight: 700, color: pdfColors.pass }}>
+          No non-conformances recorded
+        </Text>
+        <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, color: pdfColors.pass, marginTop: 4 }}>
+          No fail-flagged checklist items or out-of-range measurements were found in this report.
+        </Text>
+      </View>
+    );
+  }
+
+  const severityStyle = (s: string) => {
+    if (s === 'critical') return { bg: pdfColors.failBg, text: pdfColors.fail, label: 'CRITICAL' };
+    if (s === 'major') return { bg: pdfColors.warningBg, text: pdfColors.warning, label: 'MAJOR' };
+    return { bg: pdfColors.accentLight, text: pdfColors.accent, label: 'MODERATE' };
+  };
+
+  return (
+    <View>
+      {defects.map((d, i) => {
+        const sev = severityStyle(d.severity);
+        return (
+          <View
+            key={i}
+            style={{
+              borderWidth: 0.5,
+              borderColor: pdfColors.rule,
+              marginBottom: 8,
+              borderRadius: 3,
+              overflow: 'hidden',
+            }}
+            wrap={false}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 6, backgroundColor: pdfColors.zebra, borderBottomWidth: 0.5, borderBottomColor: pdfColors.rule }}>
+              <View style={{ backgroundColor: sev.bg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 2, marginRight: 8 }}>
+                <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, fontWeight: 700, color: sev.text, letterSpacing: 0.6 }}>
+                  {sev.label}
+                </Text>
+              </View>
+              <Text style={{ fontFamily: pdfFonts.body, fontSize: 8.5, fontWeight: 700, color: pdfColors.navy, flex: 1 }}>
+                {d.questionLabel}
+              </Text>
+            </View>
+            <View style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
+              <Text style={{ fontFamily: pdfFonts.body, fontSize: 7, color: pdfColors.textMuted, marginBottom: 3 }}>
+                {d.sectionTitle}
+              </Text>
+              <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, color: pdfColors.text, marginBottom: 2 }}>
+                {d.reason}
+              </Text>
+              {(d.measuredValue || d.expected) && (
+                <Text style={{ fontFamily: pdfFonts.mono, fontSize: 7.5, color: pdfColors.textSecondary, marginBottom: 2 }}>
+                  {d.measuredValue ? `Measured: ${d.measuredValue}` : ''}
+                  {d.measuredValue && d.expected ? '  ·  ' : ''}
+                  {d.expected ? `Allowable: ${d.expected}` : ''}
+                </Text>
+              )}
+              {d.action ? (
+                <Text style={{ fontFamily: pdfFonts.body, fontSize: 7.5, color: pdfColors.textSecondary, fontStyle: 'italic', marginTop: 2 }}>
+                  Action / note: {d.action}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 }

@@ -15,11 +15,25 @@ export const ConditionSchema = z.object({
 
 export type Condition = z.infer<typeof ConditionSchema>;
 
+export const ConditionGroupSchema = z.object({
+  logic: z.enum(['and', 'or']),
+  conditions: z.array(ConditionSchema).min(1),
+});
+
+export type ConditionGroup = z.infer<typeof ConditionGroupSchema>;
+
+/** Single condition (legacy) or AND/OR group */
+export const ShowIfSchema = z.union([ConditionSchema, ConditionGroupSchema]);
+
+export type ShowIf = z.infer<typeof ShowIfSchema>;
+
 export const NumberConfigSchema = z.object({
   unit: z.string().optional(),
   min: z.number().optional(),
   max: z.number().optional(),
   decimals: z.number().optional(),
+  /** When true, measured value outside min/max counts as FAIL / defect */
+  failOutsideRange: z.boolean().optional(),
 });
 
 export const QuestionSchema = z.object({
@@ -32,9 +46,11 @@ export const QuestionSchema = z.object({
   numberConfig: NumberConfigSchema.optional(),
   failOnNo: z.boolean().optional(),
   yesNoLabels: z.enum(['yes_no', 'pass_fail']).optional(),
-  showIf: ConditionSchema.optional(),
+  showIf: ShowIfSchema.optional(),
   allowPhotos: z.boolean().optional(),
   allowComments: z.boolean().optional(),
+  /** Allow N/A answer for non–yes_no types (text, number, choice, date, rating, slider) */
+  allowNa: z.boolean().optional(),
 });
 
 export type Question = z.infer<typeof QuestionSchema>;
@@ -46,7 +62,7 @@ export const SectionSchema = z.object({
   isRepeating: z.boolean(),
   repeatLabel: z.string().optional(),
   questions: z.array(QuestionSchema),
-  showIf: ConditionSchema.optional(),
+  showIf: ShowIfSchema.optional(),
 });
 
 export type Section = z.infer<typeof SectionSchema>;
@@ -61,12 +77,27 @@ export const JobDetailFieldSchema = z.object({
 
 export type JobDetailField = z.infer<typeof JobDetailFieldSchema>;
 
+export const SignOffRoleSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  required: z.boolean(),
+});
+
+export type SignOffRole = z.infer<typeof SignOffRoleSchema>;
+
+export const LayoutModeSchema = z.enum(['checklist', 'test_schedule', 'certificate']);
+export type LayoutMode = z.infer<typeof LayoutModeSchema>;
+
 export const TemplateMetaSchema = z.object({
   requiresSiteName: z.boolean(),
   requiresSiteAddress: z.boolean(),
   requiresClientName: z.boolean(),
   requiresJobNumber: z.boolean(),
   customFields: z.array(JobDetailFieldSchema).optional(),
+  /** PDF body layout: checklist rows, schedule table, or certificate-style pack */
+  layoutMode: LayoutModeSchema.optional(),
+  /** Client / supervisor / inspector countersign roles on close-out */
+  signOffRoles: z.array(SignOffRoleSchema).optional(),
 });
 
 export const TemplateSchemaValidator = z.object({
@@ -98,4 +129,38 @@ export interface InspectionMeta {
   jobDescription?: string;
 }
 
+export interface InspectionCountersign {
+  roleId: string;
+  roleLabel: string;
+  name: string;
+  signature: string;
+  date: string;
+}
+
 export type InspectionResponses = Record<string, unknown>;
+
+/** Sentinel value for N/A on types that support allowNa */
+export const NA_ANSWER = 'n/a';
+
+export function isNaAnswer(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  const s = String(value).toLowerCase().trim();
+  return s === 'n/a' || s === 'na';
+}
+
+export function parseCountersignatures(raw: string | undefined): InspectionCountersign[] {
+  if (!raw?.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((c: Record<string, unknown>) => ({
+      roleId: String(c.roleId ?? ''),
+      roleLabel: String(c.roleLabel ?? ''),
+      name: String(c.name ?? ''),
+      signature: String(c.signature ?? ''),
+      date: String(c.date ?? ''),
+    })).filter(c => c.roleId);
+  } catch {
+    return [];
+  }
+}

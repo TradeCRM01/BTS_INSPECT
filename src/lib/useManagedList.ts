@@ -17,6 +17,11 @@ export const LIST_KEYS = {
   assetCategories: 'asset_categories',
   unitsOfMeasure: 'units_of_measure',
   priceBookCategories: 'price_book_categories',
+  chargeTypes: 'charge_types',
+  documentInclusions: 'document_inclusions',
+  documentExclusions: 'document_exclusions',
+  expenseCategories: 'expense_categories',
+  employeeCostTypes: 'employee_cost_types',
 } as const;
 
 export type ListKey = typeof LIST_KEYS[keyof typeof LIST_KEYS];
@@ -77,6 +82,20 @@ export function useAddListItem(listKey: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['managed-list-items', listKey] });
+    },
+  });
+}
+
+export function useDeleteListItem(listKey: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('list_items').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['managed-list-items', listKey] });
+      queryClient.invalidateQueries({ queryKey: ['list-items-manage'] });
     },
   });
 }

@@ -1,32 +1,44 @@
 import { useState, useMemo, memo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
-import { LIST_KEYS } from '../lib/useManagedList';
+import { LIST_KEYS, useManagedList } from '../lib/useManagedList';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode } from '../components/ui';
+import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonCardGrid } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
 import type { StockItem, StockItemWithSupplier, Supplier } from '../types/fsm';
 import { getStockLevel, STOCK_LEVEL_STYLES, STOCK_LEVEL_LABELS, formatMoney } from '../types/fsm';
+import { DriveCard } from './StockLocationPage';
+import { locationLabel, encodeLocationKey } from '../lib/stockLocations';
 import {
-  Plus, Search, Package, X, Trash2, Pencil, Archive, ArchiveRestore,
-  MoreVertical, ChevronDown, MapPin, Tag, Boxes, Filter,
+  Plus, Package, X, Trash2, Pencil, Archive, ArchiveRestore,
+  ChevronDown, Tag, Boxes, Filter, HardDrive,
 } from 'lucide-react';
+
+type StockBrowseMode = 'items' | 'drives';
 
 export function StockPage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const browseMode: StockBrowseMode = searchParams.get('view') === 'drives' ? 'drives' : 'items';
   const [search, setSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [category, setCategory] = useState('all');
+  const [driveFilter, setDriveFilter] = useState('all');
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<StockItem | null>(null);
   const [viewMode, setViewMode] = useViewMode('stock');
+
+  function setBrowseMode(mode: StockBrowseMode) {
+    if (mode === 'drives') setSearchParams({ view: 'drives' });
+    else setSearchParams({});
+  }
 
   const { data: items, isLoading, error } = useQuery<StockItemWithSupplier[]>({
     queryKey: ['stock-items', showArchived],
@@ -66,25 +78,75 @@ export function StockPage() {
     },
   });
 
+  const { data: locationList = [] } = useManagedList(LIST_KEYS.storageLocations);
+
   const categories = useMemo(() => {
     const set = new Set<string>();
     for (const i of items ?? []) if (i.category) set.add(i.category);
     return Array.from(set).sort();
   }, [items]);
 
+  const driveOptions = useMemo(() => {
+    const fromList = locationList.map((l) => l.value);
+    const fromItems = new Set<string>();
+    for (const i of items ?? []) {
+      const loc = (i.storage_location ?? '').trim();
+      if (loc) fromItems.add(loc);
+    }
+    return Array.from(new Set([...fromList, ...fromItems])).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [locationList, items]);
+
   const filtered = useMemo(() => {
     const list = items ?? [];
     return list.filter(i => {
       if (category !== 'all' && i.category !== category) return false;
+      const loc = (i.storage_location ?? '').trim();
+      if (driveFilter === 'unassigned') {
+        if (loc) return false;
+      } else if (driveFilter !== 'all' && loc !== driveFilter) {
+        return false;
+      }
       if (!search.trim()) return true;
       const q = search.toLowerCase();
       return (
         i.name.toLowerCase().includes(q) ||
         (i.sku ?? '').toLowerCase().includes(q) ||
-        (i.category ?? '').toLowerCase().includes(q)
+        (i.category ?? '').toLowerCase().includes(q) ||
+        locationLabel(i.storage_location).toLowerCase().includes(q)
       );
     });
-  }, [items, search, category]);
+  }, [items, search, category, driveFilter]);
+
+  const driveSummaries = useMemo(() => {
+    const active = (items ?? []).filter((i) => !i.archived || showArchived);
+    const byLoc = new Map<string, { location: string | null; itemCount: number; totalQty: number }>();
+
+    for (const loc of locationList) {
+      byLoc.set(loc.value, { location: loc.value, itemCount: 0, totalQty: 0 });
+    }
+    byLoc.set('__unassigned__', { location: null, itemCount: 0, totalQty: 0 });
+
+    for (const item of active) {
+      const key = (item.storage_location ?? '').trim() || '__unassigned__';
+      const existing = byLoc.get(key) ?? {
+        location: key === '__unassigned__' ? null : key,
+        itemCount: 0,
+        totalQty: 0,
+      };
+      existing.itemCount += 1;
+      existing.totalQty += item.quantity_on_hand ?? 0;
+      byLoc.set(key, existing);
+    }
+
+    const assigned = [...byLoc.entries()]
+      .filter(([k]) => k !== '__unassigned__')
+      .map(([, v]) => v)
+      .sort((a, b) => locationLabel(a.location).localeCompare(locationLabel(b.location)));
+    const unassigned = byLoc.get('__unassigned__')!;
+    return [...assigned, unassigned];
+  }, [items, locationList, showArchived]);
 
   if (error) return <AppShell><PageError message="Could not load stock items" /></AppShell>;
 
@@ -95,115 +157,190 @@ export function StockPage() {
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-semibold text-[#1A1A1A]">Stock</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">{items?.length ?? 0} total items</p>
+            <p className="text-sm text-[#4A5568] mt-0.5">
+              {browseMode === 'drives'
+                ? `${driveSummaries.filter((d) => d.itemCount > 0 || d.location !== null).length} drives`
+                : `${items?.length ?? 0} total items`}
+            </p>
           </div>
-          <button
-            onClick={() => { setEditingItem(null); setShowForm(true); }}
-            className="flex items-center gap-2 bg-[#0A2540] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
-          >
-            <Plus size={16} /> Add Item
-          </button>
+          {browseMode === 'items' && (
+            <button
+              onClick={() => { setEditingItem(null); setShowForm(true); }}
+              className="flex items-center gap-2 bg-[#0A2540] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
+            >
+              <Plus size={16} /> Add Item
+            </button>
+          )}
         </div>
 
-        {/* Search + filters */}
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search by name, SKU, or category..." />
-          <ViewToggle mode={viewMode} onChange={setViewMode} />
-          <div className="relative">
-            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
-            <select
-              value={category}
-              onChange={e => setCategory(e.target.value)}
-              className="h-9 pl-8 pr-7 text-sm border border-[#E5E7EB] rounded-md bg-white text-[#4A5568] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] appearance-none"
-            >
-              <option value="all">All categories</option>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#9CA3AF] pointer-events-none" />
-          </div>
+        {/* Items | Drives toggle */}
+        <div className="inline-flex rounded-lg border border-[#E5E7EB] p-0.5 mb-4 bg-[#F9FAFB]">
           <button
-            onClick={() => setShowArchived(v => !v)}
-            className={`flex items-center gap-1.5 h-9 px-3 rounded-md text-sm font-medium border transition-colors ${
-              showArchived
-                ? 'border-[#2E75B6] bg-[#EFF6FF] text-[#1e40af]'
-                : 'border-[#E5E7EB] bg-white text-[#4A5568] hover:bg-gray-50'
+            type="button"
+            onClick={() => setBrowseMode('items')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              browseMode === 'items' ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-[#4A5568] hover:text-[#1A1A1A]'
             }`}
           >
-            <Archive size={14} />
-            {showArchived ? 'Archived' : 'Active'}
+            <Package size={14} /> Items
+          </button>
+          <button
+            type="button"
+            onClick={() => setBrowseMode('drives')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              browseMode === 'drives' ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-[#4A5568] hover:text-[#1A1A1A]'
+            }`}
+          >
+            <HardDrive size={14} /> Drives
           </button>
         </div>
 
-        {/* List */}
-        {isLoading ? (
-          <SkeletonCardGrid />
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={Boxes}
-            title={search || category !== 'all' ? 'No items match your filters' : 'No stock items yet'}
-            message={search || category !== 'all' ? 'Try adjusting your search or filters.' : 'Add your first stock item to get started.'}
-            action={!search && category === 'all' && (
-              <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
-                <Plus size={16} /> Add your first item
-              </button>
-            )}
-          />
-        ) : viewMode === 'grid' ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map(item => (
-              <StockCard
-                key={item.id}
-                item={item}
-                onEdit={() => { setEditingItem(item); setShowForm(true); }}
-                onArchive={() => archiveMutation.mutate({ id: item.id, archived: !item.archived })}
-                onDelete={() => setDeleteTarget(item)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
-                    <th className="px-4 py-3">Name</th>
-                    <th className="px-4 py-3">SKU</th>
-                    <th className="px-4 py-3">Category</th>
-                    <th className="px-4 py-3 text-right">Qty</th>
-                    <th className="px-4 py-3 text-right">Unit Cost</th>
-                    <th className="px-4 py-3">Level</th>
-                    <th className="px-4 py-3 w-10"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F3F4F6]">
-                  {filtered.map(item => (
-                    <tr key={item.id} className="hover:bg-[#F9FAFB] cursor-pointer transition-colors" onClick={() => { setEditingItem(item); setShowForm(true); }}>
-                      <td className="px-4 py-3 font-medium text-[#1A1A1A]">
-                        <Link to={`/stock/${item.id}`} onClick={e => e.stopPropagation()}>{item.name}</Link>
-                      </td>
-                      <td className="px-4 py-3 text-[#4A5568]">{item.sku ?? <span className="text-[#9CA3AF]">—</span>}</td>
-                      <td className="px-4 py-3 text-[#4A5568]">{item.category ?? <span className="text-[#9CA3AF]">—</span>}</td>
-                      <td className="px-4 py-3 text-right text-[#4A5568]">{item.quantity_on_hand} {item.unit_of_measure}</td>
-                      <td className="px-4 py-3 text-right font-medium text-[#1A1A1A]">{formatMoney(item.unit_cost)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STOCK_LEVEL_STYLES[getStockLevel(item)]}`}>{STOCK_LEVEL_LABELS[getStockLevel(item)]}</span>
-                      </td>
-                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-end">
-                          <ContextMenu items={[
-                            { label: 'Edit', icon: Pencil, onClick: () => { setEditingItem(item); setShowForm(true); } },
-                            { label: item.archived ? 'Restore' : 'Archive', icon: item.archived ? ArchiveRestore : Archive, onClick: () => archiveMutation.mutate({ id: item.id, archived: !item.archived }) },
-                            { divider: true },
-                            { label: 'Delete', icon: Trash2, onClick: () => setDeleteTarget(item), variant: 'danger' },
-                          ]} />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        {browseMode === 'drives' ? (
+          isLoading ? (
+            <SkeletonCardGrid />
+          ) : driveSummaries.length === 0 ? (
+            <EmptyState
+              icon={HardDrive}
+              title="No drives yet"
+              message="Add storage locations under Settings â†’ Lists, or assign locations on stock items."
+            />
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {driveSummaries.map((d) => (
+                <DriveCard
+                  key={d.location ?? '__unassigned__'}
+                  location={d.location}
+                  itemCount={d.itemCount}
+                  totalQty={d.totalQty}
+                />
+              ))}
             </div>
-          </div>
+          )
+        ) : (
+          <>
+            {/* Search + filters */}
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <SearchBar value={search} onChange={setSearch} placeholder="Search by name, SKU, category, or drive..." />
+              <ViewToggle mode={viewMode} onChange={setViewMode} />
+              <div className="relative">
+                <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                <select
+                  value={category}
+                  onChange={e => setCategory(e.target.value)}
+                  className="h-9 pl-8 pr-7 text-sm border border-[#E5E7EB] rounded-md bg-white text-[#4A5568] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] appearance-none"
+                >
+                  <option value="all">All categories</option>
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#9CA3AF] pointer-events-none" />
+              </div>
+              <div className="relative">
+                <HardDrive size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                <select
+                  value={driveFilter}
+                  onChange={e => setDriveFilter(e.target.value)}
+                  className="h-9 pl-8 pr-7 text-sm border border-[#E5E7EB] rounded-md bg-white text-[#4A5568] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] appearance-none max-w-[180px]"
+                >
+                  <option value="all">All drives</option>
+                  <option value="unassigned">Unassigned</option>
+                  {driveOptions.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#9CA3AF] pointer-events-none" />
+              </div>
+              <button
+                onClick={() => setShowArchived(v => !v)}
+                className={`flex items-center gap-1.5 h-9 px-3 rounded-md text-sm font-medium border transition-colors ${
+                  showArchived
+                    ? 'border-[#2E75B6] bg-[#EFF6FF] text-[#1e40af]'
+                    : 'border-[#E5E7EB] bg-white text-[#4A5568] hover:bg-gray-50'
+                }`}
+              >
+                <Archive size={14} />
+                {showArchived ? 'Archived' : 'Active'}
+              </button>
+            </div>
+
+            {/* List */}
+            {isLoading ? (
+              <SkeletonCardGrid />
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                icon={Boxes}
+                title={search || category !== 'all' || driveFilter !== 'all' ? 'No items match your filters' : 'No stock items yet'}
+                message={search || category !== 'all' || driveFilter !== 'all' ? 'Try adjusting your search or filters.' : 'Add your first stock item to get started.'}
+                action={!search && category === 'all' && driveFilter === 'all' && (
+                  <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
+                    <Plus size={16} /> Add your first item
+                  </button>
+                )}
+              />
+            ) : viewMode === 'grid' ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {filtered.map(item => (
+                  <StockCard
+                    key={item.id}
+                    item={item}
+                    onEdit={() => { setEditingItem(item); setShowForm(true); }}
+                    onArchive={() => archiveMutation.mutate({ id: item.id, archived: !item.archived })}
+                    onDelete={() => setDeleteTarget(item)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
+                        <th className="px-4 py-3">Name</th>
+                        <th className="px-4 py-3">SKU</th>
+                        <th className="px-4 py-3">Category</th>
+                        <th className="px-4 py-3">Drive</th>
+                        <th className="px-4 py-3 text-right">Qty</th>
+                        <th className="px-4 py-3 text-right">Unit Cost</th>
+                        <th className="px-4 py-3">Level</th>
+                        <th className="px-4 py-3 w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#F3F4F6]">
+                      {filtered.map(item => (
+                        <tr key={item.id} className="hover:bg-[#F9FAFB] cursor-pointer transition-colors" onClick={() => { setEditingItem(item); setShowForm(true); }}>
+                          <td className="px-4 py-3 font-medium text-[#1A1A1A]">
+                            <Link to={`/stock/${item.id}`} onClick={e => e.stopPropagation()}>{item.name}</Link>
+                          </td>
+                          <td className="px-4 py-3 text-[#4A5568]">{item.sku ?? <span className="text-[#9CA3AF]">â€”</span>}</td>
+                          <td className="px-4 py-3 text-[#4A5568]">{item.category ?? <span className="text-[#9CA3AF]">â€”</span>}</td>
+                          <td className="px-4 py-3 text-[#4A5568]" onClick={e => e.stopPropagation()}>
+                            <Link
+                              to={`/stock/locations/${encodeLocationKey(item.storage_location)}`}
+                              className="hover:text-[#2E75B6] truncate inline-block max-w-[140px]"
+                            >
+                              {locationLabel(item.storage_location)}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3 text-right text-[#4A5568]">{item.quantity_on_hand} {item.unit_of_measure}</td>
+                          <td className="px-4 py-3 text-right font-medium text-[#1A1A1A]">{formatMoney(item.unit_cost)}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STOCK_LEVEL_STYLES[getStockLevel(item)]}`}>{STOCK_LEVEL_LABELS[getStockLevel(item)]}</span>
+                          </td>
+                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                            <div className="flex justify-end">
+                              <ContextMenu items={[
+                                { label: 'Edit', icon: Pencil, onClick: () => { setEditingItem(item); setShowForm(true); } },
+                                { label: item.archived ? 'Restore' : 'Archive', icon: item.archived ? ArchiveRestore : Archive, onClick: () => archiveMutation.mutate({ id: item.id, archived: !item.archived }) },
+                                { divider: true },
+                                { label: 'Delete', icon: Trash2, onClick: () => setDeleteTarget(item), variant: 'danger' },
+                              ]} />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -234,7 +371,7 @@ export function StockPage() {
   );
 }
 
-// ── Stock Card ──────────────────────────────────────────────────
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Stock Card ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 
 const StockCard = memo(function StockCard({
   item, onEdit, onArchive, onDelete,
@@ -272,14 +409,16 @@ const StockCard = memo(function StockCard({
         </div>
 
         <div className="mt-3 space-y-1.5">
-          {[{ Icon: Tag, v: item.category }, { Icon: MapPin, v: item.storage_location }].map(
-            ({ Icon, v }) => v ? (
-              <div key={Icon.name} className="flex items-center gap-2 text-xs text-[#4A5568]">
-                <Icon size={12} className="text-[#9CA3AF] shrink-0" />
-                <span className="truncate">{v}</span>
-              </div>
-            ) : null
+          {item.category && (
+            <div className="flex items-center gap-2 text-xs text-[#4A5568]">
+              <Tag size={12} className="text-[#9CA3AF] shrink-0" />
+              <span className="truncate">{item.category}</span>
+            </div>
           )}
+          <div className="flex items-center gap-2 text-xs text-[#4A5568]">
+            <HardDrive size={12} className="text-[#9CA3AF] shrink-0" />
+            <span className="truncate">{locationLabel(item.storage_location)}</span>
+          </div>
         </div>
 
         {/* Stats footer */}
@@ -299,7 +438,7 @@ const StockCard = memo(function StockCard({
   );
 });
 
-// ── Stock Item Form Modal ────────────────────────────────────────
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Stock Item Form Modal ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 
 export function StockItemForm({ item, onClose, onSaved }: {
   item: StockItem | null;
@@ -354,8 +493,8 @@ export function StockItemForm({ item, onClose, onSaved }: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[8vh] overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="overlay-backdrop">
+      <div className="overlay-panel-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-[#1A1A1A]">{item ? 'Edit Stock Item' : 'New Stock Item'}</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400">
@@ -363,7 +502,7 @@ export function StockItemForm({ item, onClose, onSaved }: {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-auto px-5 py-4 space-y-4">
+        <form onSubmit={handleSubmit} className="overlay-body">
           <Input label="Item Name" required k="name" ph="e.g. 20mm PVC Conduit" form={form} setForm={setForm} autoFocus />
           <div className="grid grid-cols-2 gap-3">
             <Input label="SKU" k="sku" ph="PVC-20" form={form} setForm={setForm} />
@@ -381,9 +520,9 @@ export function StockItemForm({ item, onClose, onSaved }: {
               <ManagedSelect listKey={LIST_KEYS.unitsOfMeasure} value={form.unit_of_measure}
                 onChange={v => setForm(f => ({ ...f, unit_of_measure: v }))} placeholder="each" noneLabel="each" />
             </Field>
-            <Field label="Storage Location">
+            <Field label="Drive">
               <ManagedSelect listKey={LIST_KEYS.storageLocations} value={form.storage_location}
-                onChange={v => setForm(f => ({ ...f, storage_location: v }))} placeholder="Select location..." />
+                onChange={v => setForm(f => ({ ...f, storage_location: v }))} placeholder="Select drive..." noneLabel="Unassigned" />
             </Field>
           </div>
           <div className="grid grid-cols-3 gap-3">

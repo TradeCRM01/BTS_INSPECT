@@ -171,10 +171,10 @@ export function AssetsPage() {
                     return (
                       <tr key={asset.id} className="hover:bg-[#F9FAFB] transition-colors">
                         <td className="px-4 py-3 font-medium text-[#1A1A1A]">{asset.name}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.asset_tag ?? <span className="text-[#9CA3AF]">—</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.serial_number ?? <span className="text-[#9CA3AF]">—</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.warranty_expiry ? format(parseISO(asset.warranty_expiry), 'd MMM yyyy') : '—'}{warrantyExpired && <AlertTriangle size={11} className="text-[#D97706] ml-1 inline" />}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{asset.asset_tag ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{asset.serial_number ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{asset.client_name ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{asset.warranty_expiry ? format(parseISO(asset.warranty_expiry), 'd MMM yyyy') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}{warrantyExpired && <AlertTriangle size={11} className="text-[#D97706] ml-1 inline" />}</td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ASSET_STATUS_STYLES[asset.status]}`}>{ASSET_STATUS_LABELS[asset.status]}</span>
                         </td>
@@ -337,13 +337,13 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[8vh] overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="overlay-backdrop">
+      <div className="overlay-panel-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] shrink-0">
           <h2 className="text-lg font-semibold text-[#1A1A1A]">{asset ? 'Edit Asset' : 'Add Asset'}</h2>
           <button onClick={onClose} className="text-[#6B7280] hover:text-[#1A1A1A]"><X size={20} /></button>
         </div>
-        <form onSubmit={handleSave} className="flex-1 overflow-auto px-5 py-4 space-y-3">
+        <form onSubmit={handleSave} className="overlay-body">
           <Field label="Name *">
             <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               className="form-input" placeholder="e.g. Main Switchboard" />
@@ -374,7 +374,7 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
             <Field label="Client">
               <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))}
                 className="form-input cursor-pointer">
-                <option value="">— None —</option>
+                <option value="">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â None ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </Field>

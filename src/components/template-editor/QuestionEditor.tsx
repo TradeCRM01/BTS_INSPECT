@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Question, Condition, QuestionType } from '../../types/template';
+import type { Question, QuestionType } from '../../types/template';
 import {
   ChevronDown, ChevronUp, Trash2, Plus, X, GripVertical, Pencil,
   Type, AlignLeft, Hash, CheckSquare, List, ToggleLeft, Calendar, Camera, PenLine, Star, Sliders, MessageSquare, Heading2
@@ -7,6 +7,8 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { QuestionTypePicker } from './QuestionTypePicker';
+import { ShowIfEditor } from './ShowIfEditor';
+import { isConditionGroup } from '../../lib/conditionEval';
 
 const TYPE_ICONS: Record<string, React.FC<{ size?: number; className?: string }>> = {
   text: Type, long_text: AlignLeft, number: Hash, checkboxes: CheckSquare,
@@ -19,6 +21,8 @@ const TYPE_LABELS: Record<string, string> = {
   multiple_choice: 'Multiple Choice', yes_no: 'Yes / No', date: 'Date', photo: 'Photo',
   signature: 'Signature', rating_5: 'Rating', slider: 'Slider', heading: 'Heading'
 };
+
+const NA_CAPABLE = new Set(['text', 'long_text', 'number', 'multiple_choice', 'date', 'rating_5', 'slider']);
 
 interface Props {
   question: Question;
@@ -36,8 +40,9 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
   function changeType(newType: QuestionType) {
     const updates: Partial<Question> = { type: newType };
     if (newType !== 'multiple_choice' && newType !== 'checkboxes') updates.options = undefined;
-    if (newType !== 'number') updates.numberConfig = undefined;
+    if (newType !== 'number' && newType !== 'slider') updates.numberConfig = undefined;
     if (newType !== 'yes_no') { updates.yesNoLabels = undefined; updates.failOnNo = undefined; }
+    if (!NA_CAPABLE.has(newType)) updates.allowNa = undefined;
     onChange(updates);
     setShowTypePicker(false);
   }
@@ -59,6 +64,9 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
   }
 
   const otherQuestions = allQuestions.filter(q => q.id !== question.id);
+  const hasShowIf = !!question.showIf && (
+    isConditionGroup(question.showIf) ? question.showIf.conditions.length > 0 : true
+  );
 
   if (question.type === 'heading') {
     return (
@@ -91,7 +99,6 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
 
   return (
     <div ref={setNodeRef} style={style} className="border-b border-[#E5E7EB] last:border-0">
-      {/* Header row */}
       <div
         className="flex items-center gap-2 px-4 py-2.5 cursor-pointer hover:bg-[#F9FAFB] group"
         onClick={() => setExpanded(!expanded)}
@@ -116,18 +123,11 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
           placeholder="Question label..."
         />
         <div className="flex items-center gap-1 shrink-0">
-          {question.required && (
-            <span className="text-[10px] text-red-500 font-medium">REQ</span>
-          )}
-          {question.showIf && (
-            <span className="text-[10px] text-[#2E75B6] font-medium">COND</span>
-          )}
-          {question.allowPhotos && question.type !== 'photo' && (
-            <Camera size={10} className="text-[#4A5568]" />
-          )}
-          {question.allowComments && (
-            <MessageSquare size={10} className="text-[#4A5568]" />
-          )}
+          {question.required && <span className="text-[10px] text-red-500 font-medium">REQ</span>}
+          {hasShowIf && <span className="text-[10px] text-[#2E75B6] font-medium">COND</span>}
+          {question.allowNa && <span className="text-[10px] text-[#6B7280] font-medium">N/A</span>}
+          {question.allowPhotos && question.type !== 'photo' && <Camera size={10} className="text-[#4A5568]" />}
+          {question.allowComments && <MessageSquare size={10} className="text-[#4A5568]" />}
           <span className="text-[10px] text-[#4A5568]">{TYPE_LABELS[question.type]}</span>
           <button
             onClick={e => { e.stopPropagation(); setShowTypePicker(true); }}
@@ -146,7 +146,6 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
         </div>
       </div>
 
-      {/* Change type picker */}
       {showTypePicker && (
         <QuestionTypePicker
           title="Change Question Type"
@@ -155,10 +154,8 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
         />
       )}
 
-      {/* Expanded config */}
       {expanded && (
         <div className="px-4 pb-3 space-y-3 bg-[#FAFAFA]">
-          {/* Help text */}
           <div>
             <label className="block text-xs font-medium text-[#4A5568] mb-1">Help text (optional)</label>
             <input
@@ -169,7 +166,6 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
             />
           </div>
 
-          {/* Required toggle */}
           <label className="flex items-center gap-2 cursor-pointer">
             <div
               className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${question.required ? 'bg-[#2E75B6]' : 'bg-[#E5E7EB]'}`}
@@ -180,7 +176,6 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
             <span className="text-xs text-[#1A1A1A]">Required</span>
           </label>
 
-          {/* Photo attachment toggle — not shown for photo questions themselves */}
           {question.type !== 'photo' && (
             <label className="flex items-center gap-2 cursor-pointer">
               <div
@@ -193,7 +188,6 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
             </label>
           )}
 
-          {/* Comments toggle */}
           <label className="flex items-center gap-2 cursor-pointer">
             <div
               className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${question.allowComments ? 'bg-[#2E75B6]' : 'bg-[#E5E7EB]'}`}
@@ -204,7 +198,18 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
             <span className="text-xs text-[#1A1A1A]">Allow additional comments</span>
           </label>
 
-          {/* Type-specific config */}
+          {NA_CAPABLE.has(question.type) && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <div
+                className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${question.allowNa ? 'bg-[#2E75B6]' : 'bg-[#E5E7EB]'}`}
+                onClick={() => onChange({ allowNa: !question.allowNa })}
+              >
+                <div className={`w-3 h-3 bg-white rounded-full absolute top-0.5 transition-transform shadow-sm ${question.allowNa ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </div>
+              <span className="text-xs text-[#1A1A1A]">Allow N/A</span>
+            </label>
+          )}
+
           {(question.type === 'multiple_choice' || question.type === 'checkboxes') && (
             <div>
               <label className="block text-xs font-medium text-[#4A5568] mb-1.5">Options</label>
@@ -228,35 +233,65 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
             </div>
           )}
 
-          {question.type === 'number' && (
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-xs font-medium text-[#4A5568] mb-1">Unit</label>
-                <input
-                  value={question.numberConfig?.unit ?? ''}
-                  onChange={e => onChange({ numberConfig: { ...question.numberConfig, unit: e.target.value } })}
-                  className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
-                  placeholder="e.g. Ω"
-                />
+          {(question.type === 'number' || question.type === 'slider') && (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-[#4A5568] mb-1">Unit</label>
+                  <input
+                    value={question.numberConfig?.unit ?? ''}
+                    onChange={e => onChange({ numberConfig: { ...question.numberConfig, unit: e.target.value } })}
+                    className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                    placeholder={question.type === 'slider' ? '%' : 'e.g. Ω'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[#4A5568] mb-1">Min</label>
+                  <input
+                    type="number"
+                    value={question.numberConfig?.min ?? ''}
+                    onChange={e => onChange({ numberConfig: { ...question.numberConfig, min: e.target.value !== '' ? Number(e.target.value) : undefined } })}
+                    className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[#4A5568] mb-1">Max</label>
+                  <input
+                    type="number"
+                    value={question.numberConfig?.max ?? ''}
+                    onChange={e => onChange({ numberConfig: { ...question.numberConfig, max: e.target.value !== '' ? Number(e.target.value) : undefined } })}
+                    className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[#4A5568] mb-1">Decimals</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={6}
+                    value={question.numberConfig?.decimals ?? ''}
+                    onChange={e => onChange({ numberConfig: { ...question.numberConfig, decimals: e.target.value !== '' ? Number(e.target.value) : undefined } })}
+                    className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                    placeholder="auto"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-[#4A5568] mb-1">Min</label>
-                <input
-                  type="number"
-                  value={question.numberConfig?.min ?? ''}
-                  onChange={e => onChange({ numberConfig: { ...question.numberConfig, min: e.target.value ? Number(e.target.value) : undefined } })}
-                  className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[#4A5568] mb-1">Max</label>
-                <input
-                  type="number"
-                  value={question.numberConfig?.max ?? ''}
-                  onChange={e => onChange({ numberConfig: { ...question.numberConfig, max: e.target.value ? Number(e.target.value) : undefined } })}
-                  className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
-                />
-              </div>
+              {question.type === 'number' && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <div
+                    className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${question.numberConfig?.failOutsideRange ? 'bg-[#B42318]' : 'bg-[#E5E7EB]'}`}
+                    onClick={() => onChange({
+                      numberConfig: {
+                        ...question.numberConfig,
+                        failOutsideRange: !question.numberConfig?.failOutsideRange,
+                      },
+                    })}
+                  >
+                    <div className={`w-3 h-3 bg-white rounded-full absolute top-0.5 transition-transform shadow-sm ${question.numberConfig?.failOutsideRange ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </div>
+                  <span className="text-xs text-[#1A1A1A]">Auto FAIL if outside min/max (PDF + defect register)</span>
+                </label>
+              )}
             </div>
           )}
 
@@ -295,55 +330,11 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
             </div>
           )}
 
-          {/* Conditional logic */}
-          <div>
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">Show this question only if...</label>
-            {question.showIf ? (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <select
-                  value={question.showIf.questionId}
-                  onChange={e => onChange({ showIf: { ...question.showIf!, questionId: e.target.value } })}
-                  className="text-xs border border-[#E5E7EB] rounded px-2 py-1 bg-white focus:outline-none"
-                >
-                  {otherQuestions.map(q => (
-                    <option key={q.id} value={q.id}>{q.sectionTitle} → {q.label || '(unlabelled)'}</option>
-                  ))}
-                </select>
-                <select
-                  value={question.showIf.operator}
-                  onChange={e => onChange({ showIf: { ...question.showIf!, operator: e.target.value as Condition['operator'] } })}
-                  className="text-xs border border-[#E5E7EB] rounded px-2 py-1 bg-white focus:outline-none"
-                >
-                  <option value="equals">equals</option>
-                  <option value="not_equals">not equals</option>
-                  <option value="is_empty">is empty</option>
-                  <option value="is_not_empty">is not empty</option>
-                </select>
-                {(question.showIf.operator === 'equals' || question.showIf.operator === 'not_equals') && (
-                  <input
-                    value={String(question.showIf.value ?? '')}
-                    onChange={e => onChange({ showIf: { ...question.showIf!, value: e.target.value } })}
-                    className="text-xs border border-[#E5E7EB] rounded px-2 py-1 bg-white focus:outline-none w-24"
-                    placeholder="value"
-                  />
-                )}
-                <button onClick={() => onChange({ showIf: undefined })} className="text-[#4A5568] hover:text-[#B42318]">
-                  <X size={12} />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => {
-                  if (otherQuestions.length === 0) return;
-                  onChange({ showIf: { questionId: otherQuestions[0].id, operator: 'equals', value: '' } });
-                }}
-                disabled={otherQuestions.length === 0}
-                className="text-xs text-[#2E75B6] hover:underline disabled:text-[#4A5568] disabled:cursor-not-allowed"
-              >
-                {otherQuestions.length === 0 ? 'No other questions available' : '+ Add condition'}
-              </button>
-            )}
-          </div>
+          <ShowIfEditor
+            value={question.showIf}
+            questions={otherQuestions.map(q => ({ id: q.id, label: q.label, sectionTitle: q.sectionTitle }))}
+            onChange={showIf => onChange({ showIf })}
+          />
         </div>
       )}
     </div>

@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { QuestionRenderer } from '../components/inspection/QuestionRenderer';
-import { evaluateCondition } from '../lib/conditionEval';
+import { evaluateShowIf } from '../lib/conditionEval';
+import { isNaAnswer } from '../types/template';
 import type { TemplateSchema, Section, Question } from '../types/template';
 import { ChevronLeft, ChevronRight, Plus, Trash2, ChevronDown, Camera, X } from 'lucide-react';
 import { nanoid } from '../lib/nanoid';
@@ -207,7 +208,7 @@ export function InspectionFillPage() {
   // Filter visible sections
   const visibleSections = schema.sections.filter(sec => {
     if (!sec.showIf) return true;
-    return evaluateCondition(sec.showIf, responses);
+    return evaluateShowIf(sec.showIf, responses);
   });
 
   const currentSection = visibleSections[currentSectionIdx] ?? null;
@@ -216,11 +217,12 @@ export function InspectionFillPage() {
 
   // Completion dot per section
   function getSectionCompletion(sec: Section) {
-    const visibleQs = sec.questions.filter(q => q.type !== 'heading' && (!q.showIf || evaluateCondition(q.showIf, responses)));
+    const visibleQs = sec.questions.filter(q => q.type !== 'heading' && evaluateShowIf(q.showIf, responses));
     const requiredQs = visibleQs.filter(q => q.required);
     if (requiredQs.length === 0) return 'full';
     const answered = requiredQs.filter(q => {
       const v = responses[q.id];
+      if (isNaAnswer(v) && q.allowNa) return true;
       return v !== undefined && v !== null && v !== '';
     });
     if (answered.length === requiredQs.length) return 'full';
@@ -307,7 +309,7 @@ export function InspectionFillPage() {
   }
 
   function renderQuestion(q: Question, instanceId?: string) {
-    if (q.showIf && !evaluateCondition(q.showIf, responses)) return null;
+    if (!evaluateShowIf(q.showIf, responses)) return null;
 
     if (q.type === 'heading') {
       return (
@@ -455,7 +457,7 @@ export function InspectionFillPage() {
       </div>
 
       {/* Section navigator */}
-      <div className="sticky top-14 z-30 bg-white border-b border-[#E5E7EB] shadow-sm">
+      <div className="sticky top-0 z-30 bg-white border-b border-[#E5E7EB] shadow-sm">
         <div className="flex overflow-x-auto no-scrollbar px-3 py-2 gap-2">
           {visibleSections.map((sec, idx) => {
             const completion = getSectionCompletion(sec);
@@ -521,7 +523,7 @@ export function InspectionFillPage() {
                     {expandedInstances[instanceId] && (
                       <div className="px-4 pb-4 space-y-3 border-t border-[#E5E7EB]">
                         {currentSection.questions
-                          .filter(q => !q.showIf || evaluateCondition(q.showIf, responses))
+                          .filter(q => evaluateShowIf(q.showIf, responses))
                           .map(q => renderQuestion(q, instanceId))}
                       </div>
                     )}

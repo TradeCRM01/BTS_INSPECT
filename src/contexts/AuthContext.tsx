@@ -97,7 +97,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Check if this is a recovery/invite flow (URL hash has auth tokens)
         const isRecoveryFlow = window.location.hash.includes('type=recovery') ||
           window.location.hash.includes('type=invite') ||
-          window.location.pathname === '/reset-password';
+          window.location.pathname === '/reset-password' ||
+          window.location.pathname === '/auth/confirm';
 
         if (isRecoveryFlow) {
           // Don't validate or purge — let the reset page handle the session

@@ -10,41 +10,44 @@ interface ModalProps {
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  /** sm = confirms; md/lg/xl/full = forms (default lg for workspace use) */
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
 }
 
 const SIZE_CLASSES: Record<string, string> = {
-  sm: 'max-w-md',
-  md: 'max-w-lg',
-  lg: 'max-w-2xl',
-  xl: 'max-w-4xl',
+  sm: 'overlay-panel-sm',
+  md: 'overlay-panel-md',
+  lg: 'overlay-panel-lg',
+  xl: 'overlay-panel-xl',
+  full: 'overlay-panel-xl',
 };
 
-export function Modal({ open, onClose, title, subtitle, children, footer, size = 'md' }: ModalProps) {
+export function Modal({ open, onClose, title, subtitle, children, footer, size = 'lg' }: ModalProps) {
   useEffect(() => {
     if (!open) return;
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    // Escape closes lightweight dialogs (e.g. confirm). Form editors use their own overlays
+    // and close only via Cancel / X so accidental Esc does not wipe input.
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && size === 'sm') onClose();
+    };
     window.addEventListener('keydown', handleEsc);
     document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = '';
     };
-  }, [open, onClose]);
+  }, [open, onClose, size]);
 
   if (!open) return null;
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[8vh] overflow-y-auto"
-      onClick={onClose}
-    >
+    <div className="overlay-backdrop">
       <div
-        className={`w-full ${SIZE_CLASSES[size]} bg-white rounded-xl shadow-2xl animate-slide-up`}
+        className={`${SIZE_CLASSES[size]} animate-slide-up`}
         onClick={(e) => e.stopPropagation()}
       >
         {(title || subtitle) && (
-          <div className="flex items-start justify-between px-5 py-4 border-b border-[#E5E7EB]">
+          <div className="flex items-start justify-between px-5 py-4 border-b border-[#E5E7EB] shrink-0">
             <div className="min-w-0">
               {title && <h2 className="text-base font-semibold text-[#1A1A1A]">{title}</h2>}
               {subtitle && <p className="text-sm text-[#4A5568] mt-0.5">{subtitle}</p>}
@@ -58,11 +61,11 @@ export function Modal({ open, onClose, title, subtitle, children, footer, size =
             </button>
           </div>
         )}
-        <div className="max-h-[calc(80vh-120px)] overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {children}
         </div>
         {footer && (
-          <div className="px-5 py-4 border-t border-[#E5E7EB] bg-[#F9FAFB] rounded-b-xl">
+          <div className="px-5 py-4 border-t border-[#E5E7EB] bg-[#F9FAFB] shrink-0">
             {footer}
           </div>
         )}

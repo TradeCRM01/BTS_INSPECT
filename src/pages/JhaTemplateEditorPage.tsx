@@ -7,10 +7,13 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { nanoid } from '../lib/nanoid';
-import type { JhaTemplateSchema, RiskLevel, PpeOption, SignOffRole, JhaCustomField } from '../types/jha';
+import type { JhaTemplateSchema, RiskLevel, PpeOption, SignOffRole, JhaCustomField, JhaStep } from '../types/jha';
+import { formatControlMeasuresText, normalizeJhaStep } from '../types/jha';
+import { JHA_STEP_PACKS, clonePackSteps } from '../lib/jhaStepPacks';
+import { JhaSwmsLibraryPicker } from '../components/jha/JhaSwmsLibraryPicker';
 import {
   ChevronLeft, Save, Trash2, Plus, ShieldCheck, AlertCircle,
-  HardHat, X, Check, GripVertical,
+  HardHat, X, Check, GripVertical, Library,
 } from 'lucide-react';
 
 type SaveState = 'saved' | 'saving' | 'unsaved' | 'error';
@@ -20,8 +23,14 @@ const DEFAULT_SCHEMA: JhaTemplateSchema = {
     requiresTaskName: true,
     requiresSiteName: true,
     requiresDate: true,
-    requiresSupervisor: false,
+    requiresSupervisor: true,
+    requiresClient: true,
+    requiresPlantArea: true,
+    requiresShift: true,
+    requiresPermitRefs: true,
+    requiresMusterPoint: true,
     customFields: [],
+    maxAcceptableResidualScore: 9,
   },
   riskLevels: [
     { id: 'low', label: 'Low', color: '#166534', score: 1 },
@@ -30,17 +39,18 @@ const DEFAULT_SCHEMA: JhaTemplateSchema = {
     { id: 'severe', label: 'Severe', color: '#B91C1C', score: 4 },
   ],
   ppeOptions: [
-    { id: nanoid(), label: 'Hard Hat' },
-    { id: nanoid(), label: 'Safety Glasses' },
-    { id: nanoid(), label: 'Steel Cap Boots' },
-    { id: nanoid(), label: 'Hi-Vis Vest' },
-    { id: nanoid(), label: 'Gloves' },
-    { id: nanoid(), label: 'Hearing Protection' },
+    { id: nanoid(), label: 'Hard Hat', standardRef: 'AS/NZS 1801' },
+    { id: nanoid(), label: 'Safety Glasses', standardRef: 'AS/NZS 1337' },
+    { id: nanoid(), label: 'Steel Cap Boots', standardRef: 'AS/NZS 2210' },
+    { id: nanoid(), label: 'Hi-Vis Vest', standardRef: 'AS/NZS 4602' },
+    { id: nanoid(), label: 'Gloves', standardRef: 'AS/NZS 2161' },
+    { id: nanoid(), label: 'Hearing Protection', standardRef: 'AS/NZS 1270' },
   ],
   signOffRoles: [
     { id: nanoid(), label: 'Supervisor', required: true },
     { id: nanoid(), label: 'Worker', required: true },
   ],
+  stepLibrary: [],
 };
 
 const RISK_COLORS = [
@@ -97,9 +107,11 @@ export function JhaTemplateEditorPage() {
   const [templateName, setTemplateName] = useState('Untitled JHA Template');
   const [description, setDescription] = useState('');
   const [schema, setSchema] = useState<JhaTemplateSchema>(DEFAULT_SCHEMA);
+  const [templateVersion, setTemplateVersion] = useState(1);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const schemaDirtyRef = useRef(false);
 
   const canEdit = profile?.role === 'admin' || profile?.template_access === 'edit';
 
@@ -123,10 +135,17 @@ export function JhaTemplateEditorPage() {
       setDescription(existingTemplate.description ?? '');
       setSchema(existingTemplate.schema as unknown as JhaTemplateSchema);
       setTemplateId(existingTemplate.id);
+      setTemplateVersion(existingTemplate.version ?? 1);
+      schemaDirtyRef.current = false;
     }
   }, [existingTemplate]);
 
   const markUnsaved = useCallback(() => setSaveState('unsaved'), []);
+
+  function markSchemaDirty() {
+    schemaDirtyRef.current = true;
+    markUnsaved();
+  }
 
   useEffect(() => {
     if (saveState !== 'unsaved' || !templateId) return;
@@ -138,61 +157,61 @@ export function JhaTemplateEditorPage() {
 
   function updateMeta(updates: Partial<JhaTemplateSchema['meta']>) {
     setSchema(prev => ({ ...prev, meta: { ...prev.meta, ...updates } }));
-    markUnsaved();
+    markSchemaDirty();
   }
 
   function addRiskLevel() {
     const newLevel: RiskLevel = { id: nanoid(), label: 'New Level', color: '#1D4ED8', score: schema.riskLevels.length + 1 };
     setSchema(prev => ({ ...prev, riskLevels: [...prev.riskLevels, newLevel] }));
-    markUnsaved();
+    markSchemaDirty();
   }
 
   function updateRiskLevel(riskId: string, updates: Partial<RiskLevel>) {
     setSchema(prev => ({ ...prev, riskLevels: prev.riskLevels.map(r => r.id === riskId ? { ...r, ...updates } : r) }));
-    markUnsaved();
+    markSchemaDirty();
   }
 
   function deleteRiskLevel(riskId: string) {
     setSchema(prev => ({ ...prev, riskLevels: prev.riskLevels.filter(r => r.id !== riskId) }));
-    markUnsaved();
+    markSchemaDirty();
   }
 
   function addPpeOption() {
-    const newOpt: PpeOption = { id: nanoid(), label: 'New PPE Item' };
+    const newOpt: PpeOption = { id: nanoid(), label: 'New PPE Item', standardRef: '' };
     setSchema(prev => ({ ...prev, ppeOptions: [...prev.ppeOptions, newOpt] }));
-    markUnsaved();
+    markSchemaDirty();
   }
 
-  function updatePpeOption(optId: string, label: string) {
-    setSchema(prev => ({ ...prev, ppeOptions: prev.ppeOptions.map(p => p.id === optId ? { ...p, label } : p) }));
-    markUnsaved();
+  function updatePpeOption(optId: string, updates: Partial<PpeOption>) {
+    setSchema(prev => ({ ...prev, ppeOptions: prev.ppeOptions.map(p => p.id === optId ? { ...p, ...updates } : p) }));
+    markSchemaDirty();
   }
 
   function deletePpeOption(optId: string) {
     setSchema(prev => ({ ...prev, ppeOptions: prev.ppeOptions.filter(p => p.id !== optId) }));
-    markUnsaved();
+    markSchemaDirty();
   }
 
   function addSignOffRole() {
     const newRole: SignOffRole = { id: nanoid(), label: 'New Role', required: false };
     setSchema(prev => ({ ...prev, signOffRoles: [...prev.signOffRoles, newRole] }));
-    markUnsaved();
+    markSchemaDirty();
   }
 
   function updateSignOffRole(roleId: string, updates: Partial<SignOffRole>) {
     setSchema(prev => ({ ...prev, signOffRoles: prev.signOffRoles.map(r => r.id === roleId ? { ...r, ...updates } : r) }));
-    markUnsaved();
+    markSchemaDirty();
   }
 
   function deleteSignOffRole(roleId: string) {
     setSchema(prev => ({ ...prev, signOffRoles: prev.signOffRoles.filter(r => r.id !== roleId) }));
-    markUnsaved();
+    markSchemaDirty();
   }
 
   function addCustomField() {
     const newField: JhaCustomField = { id: nanoid(), name: nanoid(), label: 'New Field', type: 'text', required: false };
     setSchema(prev => ({ ...prev, meta: { ...prev.meta, customFields: [...(prev.meta.customFields ?? []), newField] } }));
-    markUnsaved();
+    markSchemaDirty();
   }
 
   function updateCustomField(fieldId: string, updates: Partial<JhaCustomField>) {
@@ -203,7 +222,7 @@ export function JhaTemplateEditorPage() {
         customFields: (prev.meta.customFields ?? []).map(f => f.id === fieldId ? { ...f, ...updates } : f),
       },
     }));
-    markUnsaved();
+    markSchemaDirty();
   }
 
   function deleteCustomField(fieldId: string) {
@@ -211,7 +230,46 @@ export function JhaTemplateEditorPage() {
       ...prev,
       meta: { ...prev.meta, customFields: (prev.meta.customFields ?? []).filter(f => f.id !== fieldId) },
     }));
-    markUnsaved();
+    markSchemaDirty();
+  }
+
+  function setStepLibrary(steps: JhaStep[]) {
+    setSchema(prev => ({ ...prev, stepLibrary: steps }));
+    markSchemaDirty();
+  }
+
+  function applyStepPack(packId: string) {
+    const pack = JHA_STEP_PACKS.find(p => p.id === packId);
+    if (!pack) return;
+    if ((schema.stepLibrary?.length ?? 0) > 0 && !confirm('Replace the current step library with this pack?')) return;
+    setStepLibrary(clonePackSteps(pack, nanoid).map(s => normalizeJhaStep(s)));
+  }
+
+  function addLibraryStep() {
+    const empty: JhaStep = normalizeJhaStep({
+      id: nanoid(),
+      description: 'New work step',
+      hazards: '',
+      consequence: '',
+      likelihood: '',
+      controls: '',
+      controlMeasures: [],
+      initialRisk: '',
+      residualRisk: '',
+    });
+    setStepLibrary([...(schema.stepLibrary ?? []), empty]);
+  }
+
+  function updateLibraryStep(stepId: string, description: string) {
+    setStepLibrary((schema.stepLibrary ?? []).map(s => {
+      if (s.id !== stepId) return s as JhaStep;
+      const next = { ...s, description } as JhaStep;
+      return { ...next, controls: formatControlMeasuresText(next.controlMeasures ?? []) };
+    }));
+  }
+
+  function deleteLibraryStep(stepId: string) {
+    setStepLibrary((schema.stepLibrary ?? []).filter(s => s.id !== stepId) as JhaStep[]);
   }
 
   function validate(): string[] {
@@ -230,10 +288,14 @@ export function JhaTemplateEditorPage() {
 
     setSaveState('saving');
     try {
+      const nextVersion = schemaDirtyRef.current && templateId
+        ? templateVersion + 1
+        : templateVersion;
       const payload = {
         name: templateName,
         description: description || null,
         schema: schema as unknown as Record<string, unknown>,
+        version: nextVersion,
         updated_at: new Date().toISOString(),
       };
 
@@ -254,6 +316,8 @@ export function JhaTemplateEditorPage() {
         setTemplateId(data.id);
         navigate(`/jha-templates/${data.id}`, { replace: true });
       }
+      setTemplateVersion(nextVersion);
+      schemaDirtyRef.current = false;
       setSaveState('saved');
     } catch (err) {
       console.error('Save failed:', err);
@@ -297,11 +361,16 @@ export function JhaTemplateEditorPage() {
     (schema.meta.requiresSiteName ? 1 : 0) +
     (schema.meta.requiresDate ? 1 : 0) +
     (schema.meta.requiresSupervisor ? 1 : 0) +
+    (schema.meta.requiresClient ? 1 : 0) +
+    (schema.meta.requiresPlantArea ? 1 : 0) +
+    (schema.meta.requiresShift ? 1 : 0) +
+    (schema.meta.requiresPermitRefs ? 1 : 0) +
+    (schema.meta.requiresMusterPoint ? 1 : 0) +
     (schema.meta.customFields?.length ?? 0);
 
   return (
     <AppShell>
-      <div className="max-w-[900px] mx-auto px-4 py-6">
+      <div className="page-shell">
         {/* Top bar */}
         <div className="flex items-center justify-between mb-4">
           <button
@@ -311,6 +380,7 @@ export function JhaTemplateEditorPage() {
             <ChevronLeft size={16} /> Templates
           </button>
           <div className="flex items-center gap-3">
+            <span className="text-xs text-[#6B7280]">v{templateVersion}</span>
             {saveState === 'saved' && <span className="text-xs text-[#1B7F3A] flex items-center gap-1"><Check size={12} /> Saved</span>}
             {saveState === 'saving' && <span className="text-xs text-[#4A5568] flex items-center gap-1"><LoadingSpinner size="sm" /> Saving...</span>}
             {saveState === 'unsaved' && <span className="text-xs text-[#92400E]">Unsaved changes</span>}
@@ -369,12 +439,37 @@ export function JhaTemplateEditorPage() {
                 { key: 'requiresSiteName' as const, label: 'Site / Location' },
                 { key: 'requiresDate' as const, label: 'Date' },
                 { key: 'requiresSupervisor' as const, label: 'Supervisor' },
+                { key: 'requiresClient' as const, label: 'Client' },
+                { key: 'requiresPlantArea' as const, label: 'Plant / Area / Panel' },
+                { key: 'requiresShift' as const, label: 'Shift' },
+                { key: 'requiresPermitRefs' as const, label: 'Permit / PTW / Isolation refs' },
+                { key: 'requiresMusterPoint' as const, label: 'Muster point' },
               ].map(field => (
                 <label key={field.key} className="flex items-center justify-between p-3 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] cursor-pointer transition-colors">
                   <span className="text-sm text-[#1A1A1A]">{field.label}</span>
-                  <Toggle checked={schema.meta[field.key]} onChange={v => updateMeta({ [field.key]: v })} />
+                  <Toggle checked={!!schema.meta[field.key]} onChange={v => updateMeta({ [field.key]: v })} />
                 </label>
               ))}
+            </div>
+
+            <div className="mt-4 p-3 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB]">
+              <label className="block text-sm font-medium text-[#1A1A1A] mb-1">
+                Max acceptable residual risk (L×C)
+              </label>
+              <p className="text-xs text-[#6B7280] mb-2">
+                If residual L×C is above this (default 9 = Moderate), an escalation note is required before publish.
+              </p>
+              <input
+                type="number"
+                min={1}
+                max={25}
+                value={schema.meta.maxAcceptableResidualScore ?? 9}
+                onChange={e => {
+                  const n = Math.min(25, Math.max(1, parseInt(e.target.value, 10) || 9));
+                  updateMeta({ maxAcceptableResidualScore: n });
+                }}
+                className="form-input-sm w-24"
+              />
             </div>
 
             {/* Custom fields */}
@@ -422,6 +517,77 @@ export function JhaTemplateEditorPage() {
             >
               <Plus size={13} /> Add custom field
             </button>
+          </SectionCard>
+        </div>
+
+        {/* Default SWMS from company library */}
+        {profile?.company_id && (
+          <div className="mb-4">
+            <JhaSwmsLibraryPicker
+              companyId={profile.company_id}
+              selectedIds={schema.meta.defaultLinkedSwmsIds ?? []}
+              onChange={ids => updateMeta({ defaultLinkedSwmsIds: ids })}
+              variant="template"
+            />
+          </div>
+        )}
+
+        {/* Step library */}
+        <div className="mb-4">
+          <SectionCard
+            title="Step library"
+            icon={Library}
+            count={schema.stepLibrary?.length ?? 0}
+            action={<button type="button" onClick={addLibraryStep} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"><Plus size={13} /> Add step</button>}
+          >
+            <p className="text-xs text-[#4A5568] mb-3">
+              Pre-approved steps seeded into new JHAs. Load a mining pack, then edit descriptions as needed.
+            </p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {JHA_STEP_PACKS.map(pack => (
+                <button
+                  key={pack.id}
+                  type="button"
+                  onClick={() => applyStepPack(pack.id)}
+                  className="text-xs px-3 py-1.5 rounded-md border border-[#E5E7EB] bg-white hover:border-[#2E75B6] hover:text-[#2E75B6]"
+                  title={pack.description}
+                >
+                  Load: {pack.name}
+                </button>
+              ))}
+            </div>
+            {(schema.stepLibrary?.length ?? 0) === 0 ? (
+              <p className="text-sm text-[#9CA3AF] text-center py-4 border border-dashed border-[#E5E7EB] rounded-lg">
+                No library steps yet — load a pack or add steps manually.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {(schema.stepLibrary ?? []).map((s, idx) => (
+                  <div key={s.id} className="flex items-start gap-2 p-3 rounded-lg border border-[#E5E7EB]">
+                    <span className="text-xs font-semibold text-[#0A2540] bg-[#0A2540]/10 px-2 py-1 rounded shrink-0">
+                      {idx + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <input
+                        type="text"
+                        value={s.description}
+                        onChange={e => updateLibraryStep(s.id, e.target.value)}
+                        className="w-full text-sm border border-[#E5E7EB] rounded px-2.5 py-1.5 mb-1"
+                        placeholder="Work step description"
+                      />
+                      <p className="text-[11px] text-[#6B7280] truncate">
+                        {(s.hazards || '').split('\n').filter(Boolean).length} hazard(s)
+                        {' · '}
+                        {(s.controlMeasures ?? []).filter(m => m.text.trim()).length} control(s)
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => deleteLibraryStep(s.id)} className="p-1 text-[#4A5568] hover:text-[#B42318] shrink-0">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </SectionCard>
         </div>
 
@@ -477,18 +643,26 @@ export function JhaTemplateEditorPage() {
             count={schema.ppeOptions.length}
             action={<button onClick={addPpeOption} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"><Plus size={13} /> Add</button>}
           >
-            <p className="text-xs text-[#4A5568] mb-4">Define the Personal Protective Equipment options users can select for the JHA.</p>
-            <div className="flex flex-wrap gap-2">
+            <p className="text-xs text-[#4A5568] mb-4">PPE chips users can select. Add AS/NZS references for the PDF pack.</p>
+            <div className="space-y-2">
               {schema.ppeOptions.map(opt => (
-                <div key={opt.id} className="flex items-center gap-1.5 bg-[#F3F4F6] border border-[#E5E7EB] rounded-full pl-3 pr-1.5 py-1.5 group">
+                <div key={opt.id} className="flex items-center gap-2 p-2 rounded-lg border border-[#E5E7EB]">
                   <input
                     type="text"
                     value={opt.label}
-                    onChange={e => updatePpeOption(opt.id, e.target.value)}
-                    className="text-xs text-[#1A1A1A] bg-transparent border-none outline-none w-28"
+                    onChange={e => updatePpeOption(opt.id, { label: e.target.value })}
+                    className="flex-1 text-sm border border-[#E5E7EB] rounded px-2.5 py-1.5"
+                    placeholder="PPE item"
                   />
-                  <button onClick={() => deletePpeOption(opt.id)} className="p-0.5 text-[#9CA3AF] hover:text-[#B42318] rounded-full transition-colors">
-                    <X size={12} />
+                  <input
+                    type="text"
+                    value={opt.standardRef ?? ''}
+                    onChange={e => updatePpeOption(opt.id, { standardRef: e.target.value })}
+                    className="w-36 text-xs border border-[#E5E7EB] rounded px-2 py-1.5"
+                    placeholder="AS/NZS …"
+                  />
+                  <button type="button" onClick={() => deletePpeOption(opt.id)} className="p-1 text-[#4A5568] hover:text-[#B42318]">
+                    <X size={14} />
                   </button>
                 </div>
               ))}

@@ -8,12 +8,27 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { nanoid } from '../lib/nanoid';
 import { generateJhaPdf } from '../reports/generateJhaPdf';
-import { LIKELIHOOD_OPTIONS, CONSEQUENCE_OPTIONS } from '../types/jha';
-import type { JhaTemplateSchema, JhaStep, JhaSignOff } from '../types/jha';
+import {
+  LIKELIHOOD_OPTIONS,
+  CONSEQUENCE_OPTIONS,
+  normalizeJhaStep,
+  parseCrewSignOns,
+  parseLinkedSwmsIds,
+  maxAcceptableResidual,
+  lxCProduct,
+  type JhaTemplateSchema,
+  type JhaStep,
+  type JhaSignOff,
+  type JhaCrewMember,
+} from '../types/jha';
+import { JhaStepCard } from '../components/jha/JhaStepCard';
+import { JhaCrewRegister } from '../components/jha/JhaCrewRegister';
+import { JhaSwmsLibraryPicker } from '../components/jha/JhaSwmsLibraryPicker';
+import { EMPTY_SWMS, HRCW_CATEGORIES, parseSwmsMeta, type JhaSwmsData } from '../lib/swmsHrcw';
 import {
   ChevronLeft, Plus, Trash2, ShieldCheck, Save, FileText,
   Download, AlertCircle, HardHat, Check, X, CheckCircle, Printer,
-  ArrowRight, ShieldAlert, ShieldCheck as ShieldCheckIcon, TrendingUp, Phone,
+  Phone, RefreshCw, ShieldAlert, Package,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import SignatureCanvas from 'react-signature-canvas';
@@ -40,6 +55,11 @@ interface JhaDocRow {
   sign_offs: JhaSignOff[];
   report_number: string | null;
   pdf_storage_path: string | null;
+  client_id: string | null;
+  job_id: string | null;
+  doc_version: number | null;
+  amended_from_id: string | null;
+  amendment_reason: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -51,8 +71,13 @@ const EMPTY_STEP: JhaStep = {
   consequence: '',
   likelihood: '',
   controls: '',
+  controlMeasures: [],
   initialRisk: '',
   residualRisk: '',
+  residualLikelihood: '',
+  residualConsequence: '',
+  residualEscalationNote: '',
+  photos: [],
 };
 
 export function JhaFillPage() {
@@ -72,6 +97,15 @@ export function JhaFillPage() {
   const [customPpeInput, setCustomPpeInput] = useState('');
   const [showRiskMatrix, setShowRiskMatrix] = useState(false);
   const [signOffs, setSignOffs] = useState<JhaSignOff[]>([]);
+  const [crew, setCrew] = useState<JhaCrewMember[]>([]);
+  const [clientId, setClientId] = useState('');
+  const [jobId, setJobId] = useState('');
+  const [docVersion, setDocVersion] = useState(1);
+  const [amendmentReason, setAmendmentReason] = useState('');
+  const [amendedFromId, setAmendedFromId] = useState<string | null>(null);
+  const [librarySeeded, setLibrarySeeded] = useState(false);
+  const [swms, setSwms] = useState<JhaSwmsData>({ ...EMPTY_SWMS });
+  const [linkedSwmsIds, setLinkedSwmsIds] = useState<string[]>([]);
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
   const [publishing, setPublishing] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -108,6 +142,42 @@ export function JhaFillPage() {
     enabled: isEditMode,
   });
 
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients-for-jha'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('clients').select('id, name').eq('archived', false).order('name');
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!profile,
+  });
+
+  const { data: jobs = [] } = useQuery({
+    queryKey: ['jobs-for-jha'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('jobs').select('id, title, client_id').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!profile,
+  });
+
+  const { data: take5List = [] } = useQuery({
+    queryKey: ['jha-take5-list', docIdState],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('jha_take5')
+        .select('id, status, created_at, go_no_go, signed_name')
+        .eq('jha_document_id', docIdState!)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!docIdState,
+  });
+
+  const clientJobs = jobs.filter(j => !clientId || j.client_id === clientId);
+
   const schema: JhaTemplateSchema | null = isEditMode
     ? (existingDoc?.template_snapshot?.schema ?? null)
     : (template?.schema as unknown as JhaTemplateSchema ?? null);
@@ -120,11 +190,20 @@ export function JhaFillPage() {
     if (existingDoc) {
       setMeta(existingDoc.meta || { date: format(new Date(), 'yyyy-MM-dd') });
       setSteps(existingDoc.steps?.length
-        ? existingDoc.steps.map(s => ({ ...EMPTY_STEP, ...s }))
+        ? existingDoc.steps.map(s => normalizeJhaStep({ ...EMPTY_STEP, ...s, id: s.id || nanoid() }))
         : [{ ...EMPTY_STEP, id: nanoid() }]);
       setSelectedPpe(existingDoc.ppe || []);
       setSignOffs(existingDoc.sign_offs || []);
+      setCrew(parseCrewSignOns(existingDoc.meta?.crewSignOns));
       setDocIdState(existingDoc.id);
+      setClientId(existingDoc.client_id ?? '');
+      setJobId(existingDoc.job_id ?? '');
+      setDocVersion(existingDoc.doc_version ?? 1);
+      setAmendmentReason(existingDoc.amendment_reason ?? existingDoc.meta?.amendmentReason ?? '');
+      setAmendedFromId(existingDoc.amended_from_id ?? null);
+      setLibrarySeeded(true);
+      setSwms(parseSwmsMeta(existingDoc.meta?.swms));
+      setLinkedSwmsIds(parseLinkedSwmsIds(existingDoc.meta?.linkedSwmsIds));
 
       if (existingDoc.pdf_storage_path) {
         supabase.storage.from('reports').download(existingDoc.pdf_storage_path).then(({ data: blob, error: dlErr }) => {
@@ -136,6 +215,25 @@ export function JhaFillPage() {
       }
     }
   }, [existingDoc]);
+
+  useEffect(() => {
+    if (isEditMode || librarySeeded || !template?.schema) return;
+    const tmplSchema = template.schema as JhaTemplateSchema;
+    const lib = tmplSchema.stepLibrary;
+    if (lib?.length) {
+      setSteps(lib.map(s => normalizeJhaStep({
+        ...EMPTY_STEP,
+        ...s,
+        id: nanoid(),
+        controlMeasures: (s.controlMeasures ?? []).map(m => ({ ...m, id: nanoid(), verify: m.verify ?? '' })),
+      })));
+    }
+    const defaultSwms = tmplSchema.meta?.defaultLinkedSwmsIds;
+    if (defaultSwms?.length) {
+      setLinkedSwmsIds(defaultSwms.map(String).filter(Boolean));
+    }
+    setLibrarySeeded(true);
+  }, [template, isEditMode, librarySeeded]);
 
   useEffect(() => {
     if (!isEditMode && schema?.signOffRoles && signOffs.length === 0) {
@@ -155,9 +253,18 @@ export function JhaFillPage() {
     saveTimerRef.current = setTimeout(() => doSave('draft'), 2000);
     return () => clearTimeout(saveTimerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saveState, docIdState, meta, steps, selectedPpe, signOffs]);
+  }, [saveState, docIdState, meta, steps, selectedPpe, signOffs, crew, clientId, jobId, swms, linkedSwmsIds]);
 
   function markUnsaved() { setSaveState('unsaved'); }
+
+  function persistableMeta(): Record<string, string> {
+    return {
+      ...meta,
+      crewSignOns: JSON.stringify(crew),
+      swms: JSON.stringify(swms),
+      linkedSwmsIds: JSON.stringify(linkedSwmsIds),
+    };
+  }
 
   function updateMeta(key: string, value: string) {
     setMeta(prev => ({ ...prev, [key]: value }));
@@ -222,6 +329,11 @@ export function JhaFillPage() {
     if (schema?.meta.requiresSiteName && !meta.siteName?.trim()) errors.push('Site / Location is required');
     if (schema?.meta.requiresDate && !meta.date?.trim()) errors.push('Date is required');
     if (schema?.meta.requiresSupervisor && !meta.supervisor?.trim()) errors.push('Supervisor is required');
+    if (schema?.meta.requiresClient && !meta.clientName?.trim()) errors.push('Client is required');
+    if (schema?.meta.requiresPlantArea && !meta.plantArea?.trim()) errors.push('Plant / Area is required');
+    if (schema?.meta.requiresShift && !meta.shift?.trim()) errors.push('Shift is required');
+    if (schema?.meta.requiresPermitRefs && !meta.permitRefs?.trim()) errors.push('Permit / PTW refs are required');
+    if (schema?.meta.requiresMusterPoint && !meta.musterPoint?.trim()) errors.push('Muster point is required');
 
     (schema?.meta.customFields ?? []).forEach(field => {
       if (field.required && !meta[`custom_${field.id}`]?.trim()) {
@@ -229,9 +341,33 @@ export function JhaFillPage() {
       }
     });
 
-    if (steps.some(s => !s.description.trim() && (!s.hazards.trim() && !s.controls.trim()))) {
-      errors.push('Each step must have at least a description');
+    const threshold = schema ? maxAcceptableResidual(schema) : 9;
+
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      const n = i + 1;
+      if (!s.description.trim()) errors.push(`Step ${n}: description is required`);
+      if (!s.likelihood || !s.consequence) errors.push(`Step ${n}: inherent likelihood and consequence are required`);
+      const hasControl = (s.controlMeasures ?? []).some(m => m.text.trim()) || !!s.controls.trim();
+      if (!hasControl) errors.push(`Step ${n}: add at least one control measure`);
+      if (!s.residualLikelihood || !s.residualConsequence) {
+        errors.push(`Step ${n}: residual likelihood and consequence are required`);
+      }
+      const residual = lxCProduct(s.residualLikelihood || '', s.residualConsequence || '');
+      if (residual != null && residual > threshold && !s.residualEscalationNote?.trim()) {
+        errors.push(`Step ${n}: residual L×C ${residual} exceeds ${threshold} — escalation note required`);
+      }
     }
+
+    if (crew.length === 0 || crew.every(c => !c.name.trim())) {
+      errors.push('Add at least one crew member to the sign-on register');
+    }
+    crew.forEach((c, i) => {
+      if (!c.name.trim()) return;
+      if (!c.signature) {
+        errors.push(`Crew ${i + 1} (${c.name}): signature required — sign on this device or send a remote sign link`);
+      }
+    });
 
     const requiredSignOffs = (schema?.signOffRoles ?? []).filter(r => r.required);
     for (const role of requiredSignOffs) {
@@ -251,11 +387,16 @@ export function JhaFillPage() {
 
     try {
       const payload = {
-        meta,
+        meta: persistableMeta(),
         steps,
         ppe: selectedPpe,
         sign_offs: signOffs,
         status,
+        client_id: clientId || null,
+        job_id: jobId || null,
+        doc_version: docVersion,
+        amended_from_id: amendedFromId,
+        amendment_reason: amendmentReason || null,
         ...(status === 'completed' ? { completed_at: new Date().toISOString() } : {}),
       };
 
@@ -309,7 +450,16 @@ export function JhaFillPage() {
         : { name: template?.name ?? 'JHA', schema };
 
       const blob = await generateJhaPdf({
-        document: { id: docIdState!, meta, steps, ppe: selectedPpe, sign_offs: signOffs, completed_at: new Date().toISOString() },
+        document: {
+          id: docIdState!,
+          meta: persistableMeta(),
+          steps,
+          ppe: selectedPpe,
+          sign_offs: signOffs,
+          completed_at: new Date().toISOString(),
+          doc_version: docVersion,
+          amendment_reason: amendmentReason || null,
+        },
         template: snapshot,
         profile: { name: profile.name, licence_number: profile.licence_number },
         company: {
@@ -349,6 +499,99 @@ export function JhaFillPage() {
     }
   }
 
+  async function handleAmend() {
+    if (!profile || !schema || !docIdState || !existingDoc) return;
+    const reason = window.prompt('Amendment / re-brief reason (required — e.g. scope change, new crew, conditions changed):');
+    if (!reason?.trim()) return;
+
+    setError('');
+    try {
+      const freshSignOffs = schema.signOffRoles.map(role => ({
+        roleId: role.id,
+        roleLabel: role.label,
+        name: '',
+        signature: '',
+        date: '',
+      }));
+      const { data, error: insertErr } = await supabase
+        .from('jha_documents')
+        .insert({
+          template_id: existingDoc.template_id,
+          template_snapshot: existingDoc.template_snapshot,
+          company_id: profile.company_id,
+          created_by: profile.id,
+          status: 'draft',
+          meta: {
+            ...persistableMeta(),
+            amendmentReason: reason.trim(),
+            date: format(new Date(), 'yyyy-MM-dd'),
+          },
+          steps,
+          ppe: selectedPpe,
+          sign_offs: freshSignOffs,
+          client_id: clientId || null,
+          job_id: jobId || null,
+          doc_version: (existingDoc.doc_version ?? 1) + 1,
+          amended_from_id: existingDoc.id,
+          amendment_reason: reason.trim(),
+          report_number: null,
+          pdf_storage_path: null,
+        })
+        .select()
+        .maybeSingle();
+      if (insertErr) throw insertErr;
+      if (!data) throw new Error('Failed to create amendment');
+      queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
+      navigate(`/jha/new?docId=${data.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create amendment');
+    }
+  }
+
+  async function handleDownloadPack() {
+    if (!profile || !company || !schema || !docIdState) return;
+    setPublishing(true);
+    setError('');
+    try {
+      const reportNumber = existingDoc?.report_number ?? generateJhaNumber();
+      const blob = await generateJhaPdf({
+        document: {
+          id: docIdState,
+          meta: persistableMeta(),
+          steps,
+          ppe: selectedPpe,
+          sign_offs: signOffs,
+          completed_at: new Date().toISOString(),
+          doc_version: docVersion,
+          amendment_reason: amendmentReason || null,
+        },
+        template: { name: templateName, schema },
+        profile: { name: profile.name, licence_number: profile.licence_number },
+        company: {
+          name: company.name,
+          abn: company.abn,
+          phone: company.phone,
+          email: company.email,
+          website: company.website,
+          logo_url: company.logo_url,
+        },
+        reportNumber,
+        packMode: true,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const taskName = (meta.taskName ?? meta.siteName ?? 'JHA').replace(/[<>:"/\\|?*]/g, '_');
+      a.download = `${taskName} - Client Pack - ${reportNumber}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Client pack failed');
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   function handleDownload() {
     if (!pdfUrl) return;
     const a = document.createElement('a');
@@ -376,7 +619,7 @@ export function JhaFillPage() {
   const isPublished = existingDoc?.status === 'published' || (docIdState === existingDoc?.id && existingDoc?.status === 'published');
 
   function getRiskInfo(riskId: string) {
-    return schema!.riskLevels.find(r => r.id === riskId) ?? null;
+    return schema!.riskLevels.find(r => r.id === riskId);
   }
 
   return (
@@ -385,21 +628,41 @@ export function JhaFillPage() {
         {/* Top bar */}
         <div className="flex items-center justify-between mb-4">
           <button
-            onClick={() => navigate('/templates')}
+            onClick={() => navigate('/jha')}
             className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] transition-colors"
           >
-            <ChevronLeft size={16} /> Templates
+            <ChevronLeft size={16} /> JHA documents
           </button>
           <div className="flex items-center gap-3">
             {saveState === 'saved' && docIdState && <span className="text-xs text-[#1B7F3A] flex items-center gap-1"><Check size={12} /> Saved</span>}
             {saveState === 'saving' && <span className="text-xs text-[#4A5568] flex items-center gap-1"><LoadingSpinner size="sm" /> Saving...</span>}
             {saveState === 'unsaved' && <span className="text-xs text-[#92400E]">Unsaved changes</span>}
             {saveState === 'error' && <span className="text-xs text-[#B42318]">Save failed</span>}
+            <span className="text-xs text-[#6B7280]">Rev v{docVersion}</span>
             {isPublished && (
               <span className="text-xs text-[#1B7F3A] flex items-center gap-1 bg-[#DCFCE7] px-2 py-1 rounded font-medium">
                 <CheckCircle size={12} /> Published
               </span>
             )}
+            {isPublished && (
+              <button
+                type="button"
+                onClick={handleAmend}
+                className="flex items-center gap-1.5 border border-[#E5E7EB] bg-white text-[#0A2540] px-3 py-2 rounded-md text-sm font-medium hover:bg-[#F9FAFB]"
+                title="Create a new revision for re-brief"
+              >
+                <RefreshCw size={14} /> Amend / re-brief
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void handleDownloadPack()}
+              disabled={publishing || !docIdState}
+              className="flex items-center gap-1.5 border border-[#E5E7EB] bg-white text-[#0A2540] px-3 py-2 rounded-md text-sm font-medium hover:bg-[#F9FAFB] disabled:opacity-50"
+              title="Branded PDF with SWMS + photos"
+            >
+              <Package size={14} /> Client pack
+            </button>
             <button
               onClick={handlePublish}
               disabled={publishing}
@@ -416,7 +679,10 @@ export function JhaFillPage() {
             <ShieldCheck size={20} className="text-[#0A2540]" />
             <h1 className="text-xl font-semibold text-[#1A1A1A]">{templateName}</h1>
           </div>
-          <p className="text-sm text-[#4A5568]">Job Hazard Analysis</p>
+          <p className="text-sm text-[#4A5568]">
+            Job Hazard Analysis
+            {amendedFromId && amendmentReason ? ` · Amendment: ${amendmentReason}` : ''}
+          </p>
         </div>
 
         {/* Error */}
@@ -452,6 +718,43 @@ export function JhaFillPage() {
                 <h2 className="text-sm font-medium text-[#1A1A1A]">Job Details</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Client (CRM)</label>
+                  <select
+                    value={clientId}
+                    onChange={e => {
+                      const next = e.target.value;
+                      setClientId(next);
+                      setJobId('');
+                      const name = clients.find(c => c.id === next)?.name ?? '';
+                      if (name) updateMeta('clientName', name);
+                      markUnsaved();
+                    }}
+                    className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 bg-white"
+                  >
+                    <option value="">No linked client</option>
+                    {clients.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Job (CRM)</label>
+                  <select
+                    value={jobId}
+                    onChange={e => {
+                      setJobId(e.target.value);
+                      markUnsaved();
+                    }}
+                    className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 bg-white"
+                    disabled={!clientId}
+                  >
+                    <option value="">{clientId ? 'No linked job' : 'Select a client first'}</option>
+                    {clientJobs.map(j => (
+                      <option key={j.id} value={j.id}>{j.title}</option>
+                    ))}
+                  </select>
+                </div>
                 {schema.meta.requiresTaskName && (
                   <InputField label="Task / Activity" required value={meta.taskName ?? ''} onChange={v => updateMeta('taskName', v)} />
                 )}
@@ -463,6 +766,21 @@ export function JhaFillPage() {
                 )}
                 {schema.meta.requiresSupervisor && (
                   <InputField label="Supervisor" required value={meta.supervisor ?? ''} onChange={v => updateMeta('supervisor', v)} />
+                )}
+                {schema.meta.requiresClient && (
+                  <InputField label="Client" required value={meta.clientName ?? ''} onChange={v => updateMeta('clientName', v)} />
+                )}
+                {schema.meta.requiresPlantArea && (
+                  <InputField label="Plant / Area / Panel" required value={meta.plantArea ?? ''} onChange={v => updateMeta('plantArea', v)} />
+                )}
+                {schema.meta.requiresShift && (
+                  <InputField label="Shift" required value={meta.shift ?? ''} onChange={v => updateMeta('shift', v)} placeholder="e.g. Day / Night / 06:00–18:00" />
+                )}
+                {schema.meta.requiresPermitRefs && (
+                  <InputField label="Permit / PTW / Isolation refs" required value={meta.permitRefs ?? ''} onChange={v => updateMeta('permitRefs', v)} placeholder="Permit #, LOTO #, energy isolation" />
+                )}
+                {schema.meta.requiresMusterPoint && (
+                  <InputField label="Muster point" required value={meta.musterPoint ?? ''} onChange={v => updateMeta('musterPoint', v)} />
                 )}
                 <InputField label="Site Contact (optional)" value={meta.siteContact ?? ''} onChange={v => updateMeta('siteContact', v)} />
                 {customFields.map(field => (
@@ -538,6 +856,142 @@ export function JhaFillPage() {
               onChange={contacts => updateMeta('emergencyContacts', JSON.stringify(contacts))}
             />
 
+            {/* SWMS merge */}
+            <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5">
+              <div className="flex items-center justify-between mb-3 gap-2">
+                <div className="flex items-center gap-2">
+                  <FileText size={16} className="text-[#4A5568]" />
+                  <h2 className="text-sm font-medium text-[#1A1A1A]">SWMS (AU high-risk construction)</h2>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-[#4A5568]">
+                  <input
+                    type="checkbox"
+                    checked={swms.enabled}
+                    onChange={e => {
+                      setSwms(s => ({ ...s, enabled: e.target.checked }));
+                      markUnsaved();
+                    }}
+                    className="accent-[#2E75B6]"
+                  />
+                  Include SWMS page in PDF
+                </label>
+              </div>
+              <p className="text-xs text-[#6B7280] mb-3">
+                For Schedule 3 high-risk construction work. Step controls stay in the JHA table; this captures HRCW categories and method notes.
+              </p>
+              {swms.enabled && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <InputField
+                      label="Principal contractor"
+                      value={swms.principalContractor}
+                      onChange={v => { setSwms(s => ({ ...s, principalContractor: v })); markUnsaved(); }}
+                    />
+                    <InputField
+                      label="PCBU"
+                      value={swms.pcie}
+                      onChange={v => { setSwms(s => ({ ...s, pcie: v })); markUnsaved(); }}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-[#4A5568] mb-2">HRCW categories</p>
+                    <div className="max-h-48 overflow-y-auto space-y-1.5 border border-[#E5E7EB] rounded-lg p-3">
+                      {HRCW_CATEGORIES.map(c => {
+                        const checked = swms.hrcwCategories.includes(c.id);
+                        return (
+                          <label key={c.id} className="flex items-start gap-2 text-xs text-[#1A1A1A] cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="mt-0.5 accent-[#2E75B6]"
+                              checked={checked}
+                              onChange={() => {
+                                setSwms(s => ({
+                                  ...s,
+                                  hrcwCategories: checked
+                                    ? s.hrcwCategories.filter(id => id !== c.id)
+                                    : [...s.hrcwCategories, c.id],
+                                }));
+                                markUnsaved();
+                              }}
+                            />
+                            <span>{c.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-[#4A5568] mb-1 block">High-risk notes / method</label>
+                    <textarea
+                      value={swms.highRiskNotes}
+                      onChange={e => { setSwms(s => ({ ...s, highRiskNotes: e.target.value })); markUnsaved(); }}
+                      rows={2}
+                      className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-[#4A5568] mb-1 block">Emergency procedures</label>
+                    <textarea
+                      value={swms.emergencyProcedures}
+                      onChange={e => { setSwms(s => ({ ...s, emergencyProcedures: e.target.value })); markUnsaved(); }}
+                      rows={2}
+                      className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 resize-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {profile?.company_id && (
+              <JhaSwmsLibraryPicker
+                companyId={profile.company_id}
+                selectedIds={linkedSwmsIds}
+                onChange={ids => {
+                  setLinkedSwmsIds(ids);
+                  markUnsaved();
+                }}
+              />
+            )}
+
+            {/* Take 5 companions */}
+            <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5">
+              <div className="flex items-center justify-between mb-3 gap-2">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert size={16} className="text-[#4A5568]" />
+                  <h2 className="text-sm font-medium text-[#1A1A1A]">Take 5 / POWRA companions</h2>
+                </div>
+                <button
+                  type="button"
+                  disabled={!docIdState}
+                  onClick={() => docIdState && navigate(`/jha/take5?jhaId=${docIdState}`)}
+                  className="text-xs text-[#2E75B6] hover:underline disabled:opacity-40"
+                >
+                  + New Take 5
+                </button>
+              </div>
+              <p className="text-xs text-[#6B7280] mb-3">
+                Point-of-work checks that reference this JHA. Save the JHA first, then add Take 5s at the workface.
+              </p>
+              {take5List.length === 0 ? (
+                <p className="text-sm text-[#9CA3AF] text-center py-3 border border-dashed border-[#E5E7EB] rounded-lg">No Take 5 records yet</p>
+              ) : (
+                <ul className="space-y-2">
+                  {take5List.map(t => (
+                    <li key={t.id}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/jha/take5?jhaId=${docIdState}&id=${t.id}`)}
+                        className="w-full text-left text-sm px-3 py-2 rounded-lg border border-[#E5E7EB] hover:border-[#2E75B6] flex items-center justify-between"
+                      >
+                        <span>{t.signed_name || 'Take 5'} · {t.status} · {t.go_no_go === 'stop' ? 'STOP' : 'GO'}</span>
+                        <span className="text-xs text-[#9CA3AF]">{format(new Date(t.created_at), 'd MMM HH:mm')}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             {/* Job Steps */}
             <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5">
               <div className="flex items-center justify-between mb-2">
@@ -558,7 +1012,7 @@ export function JhaFillPage() {
                 onClick={() => setShowRiskMatrix(v => !v)}
                 className="flex items-center gap-1.5 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium mb-3"
               >
-                <ShieldAlert size={13} />
+                <ShieldCheck size={13} />
                 {showRiskMatrix ? 'Hide Risk Matrix' : 'Show Risk Matrix'}
               </button>
               {showRiskMatrix && (
@@ -616,153 +1070,35 @@ export function JhaFillPage() {
               )}
 
               <div className="space-y-4">
-                {steps.map((step, idx) => {
-                  const initialRiskInfo = step.initialRisk ? getRiskInfo(step.initialRisk) : null;
-                  const residualRiskInfo = step.residualRisk ? getRiskInfo(step.residualRisk) : null;
-                  return (
-                    <div key={step.id} className="border border-[#E5E7EB] rounded-lg overflow-hidden bg-[#FAFAFA]">
-                      {/* Step header */}
-                      <div className="flex items-center justify-between px-4 py-2.5 bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                        <span className="text-xs font-semibold text-[#0A2540] bg-[#0A2540]/10 px-2 py-1 rounded">STEP {idx + 1}</span>
-                        {steps.length > 1 && (
-                          <button onClick={() => deleteStep(step.id)} className="p-1 text-[#4A5568] hover:text-[#B42318] rounded transition-colors">
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="p-4 space-y-4">
-                        {/* Task description */}
-                        <div>
-                          <label className="text-xs font-medium text-[#4A5568] mb-1 block">Job Step Description</label>
-                          <textarea
-                            value={step.description}
-                            onChange={e => updateStep(step.id, { description: e.target.value })}
-                            placeholder="Describe the work step..."
-                            rows={2}
-                            className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent resize-none bg-white"
-                          />
-                        </div>
-
-                        {/* Hazards + Consequence + Likelihood */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-xs font-medium text-[#4A5568] mb-1 flex items-center gap-1">
-                              <AlertCircle size={12} className="text-[#B42318]" />
-                              Potential Hazards
-                            </label>
-                            <textarea
-                              value={step.hazards}
-                              onChange={e => updateStep(step.id, { hazards: e.target.value })}
-                              placeholder="What could go wrong?"
-                              rows={3}
-                              className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent resize-none bg-white"
-                            />
-                          </div>
-                          <div className="space-y-3">
-                            <div>
-                              <label className="text-xs font-medium text-[#4A5568] mb-1 flex items-center gap-1">
-                                <ShieldAlert size={12} className="text-[#92400E]" />
-                                Consequence of Hazard
-                              </label>
-                              <select
-                                value={step.consequence}
-                                onChange={e => updateStep(step.id, { consequence: e.target.value })}
-                                className="w-full text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
-                              >
-                                <option value="">Select consequence...</option>
-                                {CONSEQUENCE_OPTIONS.map(c => (
-                                  <option key={c.id} value={c.id}>{c.label} — {c.description}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="text-xs font-medium text-[#4A5568] mb-1 flex items-center gap-1">
-                                <TrendingUp size={12} className="text-[#2E75B6]" />
-                                Likelihood of Hazard
-                              </label>
-                              <select
-                                value={step.likelihood}
-                                onChange={e => updateStep(step.id, { likelihood: e.target.value })}
-                                className="w-full text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
-                              >
-                                <option value="">Select likelihood...</option>
-                                {LIKELIHOOD_OPTIONS.map(l => (
-                                  <option key={l.id} value={l.id}>{l.label} — {l.description}</option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* BEFORE controls - initial risk */}
-                        <div className="border border-red-200 rounded-lg bg-red-50/50 p-3">
-                          <div className="flex items-center gap-2 mb-2">
-                            <ShieldAlert size={14} className="text-[#B42318]" />
-                            <span className="text-xs font-semibold text-[#B42318] uppercase tracking-wide">Before Controls — Initial Risk</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <select
-                              value={step.initialRisk}
-                              onChange={e => updateStep(step.id, { initialRisk: e.target.value })}
-                              className="text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white flex-1"
-                            >
-                              <option value="">Select risk level...</option>
-                              {schema.riskLevels.map(r => (
-                                <option key={r.id} value={r.id}>{r.label}</option>
-                              ))}
-                            </select>
-                            {initialRiskInfo && (
-                              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold text-white shrink-0" style={{ backgroundColor: initialRiskInfo.color }}>
-                                {initialRiskInfo.label.toUpperCase()}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Control measures */}
-                        <div className="border border-[#E5E7EB] rounded-lg bg-white p-3">
-                          <div className="flex items-center gap-2 mb-2">
-                            <ArrowRight size={14} className="text-[#2E75B6]" />
-                            <span className="text-xs font-semibold text-[#0A2540] uppercase tracking-wide">Safety Implementation — Control Measures</span>
-                          </div>
-                          <textarea
-                            value={step.controls}
-                            onChange={e => updateStep(step.id, { controls: e.target.value })}
-                            placeholder="How will you mitigate the risk? (e.g. isolation, guarding, training, procedures)"
-                            rows={3}
-                            className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent resize-none"
-                          />
-                        </div>
-
-                        {/* AFTER controls - residual risk */}
-                        <div className="border border-green-200 rounded-lg bg-green-50/50 p-3">
-                          <div className="flex items-center gap-2 mb-2">
-                            <ShieldCheckIcon size={14} className="text-[#166534]" />
-                            <span className="text-xs font-semibold text-[#166534] uppercase tracking-wide">After Controls — Residual Risk</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <select
-                              value={step.residualRisk}
-                              onChange={e => updateStep(step.id, { residualRisk: e.target.value })}
-                              className="text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white flex-1"
-                            >
-                              <option value="">Select risk level...</option>
-                            </select>
-                            {residualRiskInfo && (
-                              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold text-white shrink-0" style={{ backgroundColor: residualRiskInfo.color }}>
-                                {residualRiskInfo.label.toUpperCase()}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                {steps.map((step, idx) => (
+                  <JhaStepCard
+                    key={step.id}
+                    step={step}
+                    index={idx}
+                    schema={schema}
+                    canDelete={steps.length > 1}
+                    maxAcceptableResidual={maxAcceptableResidual(schema)}
+                    documentId={docIdState}
+                    getRiskInfo={getRiskInfo}
+                    onChange={updates => updateStep(step.id, updates)}
+                    onDelete={() => deleteStep(step.id)}
+                  />
+                ))}
               </div>
             </div>
 
+            {profile?.company_id && (
+              <JhaCrewRegister
+                companyId={profile.company_id}
+                documentId={docIdState}
+                crew={crew}
+                currentUserId={profile.id}
+                onChange={next => {
+                  setCrew(next);
+                  markUnsaved();
+                }}
+              />
+            )}
             {/* Sign-Offs */}
             {signOffs.length > 0 && (
               <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5">
@@ -973,12 +1309,13 @@ function riskCellStyle(score: number): { bg: string; text: string } {
   return { bg: 'bg-[#166534]', text: 'text-white' };
 }
 
-function InputField({ label, required, value, onChange, type = 'text' }: {
+function InputField({ label, required, value, onChange, type = 'text', placeholder }: {
   label: string;
   required?: boolean;
   value: string;
   onChange: (v: string) => void;
   type?: string;
+  placeholder?: string;
 }) {
   return (
     <div>
@@ -988,6 +1325,7 @@ function InputField({ label, required, value, onChange, type = 'text' }: {
       <input
         type={type}
         value={value}
+        placeholder={placeholder}
         onChange={e => onChange(e.target.value)}
         className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
       />

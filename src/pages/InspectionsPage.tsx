@@ -11,9 +11,10 @@ import {
   Plus, ClipboardList, ChevronRight, Search, X,
   Calendar, ChevronDown, SlidersHorizontal, ArrowUpDown,
   Archive, ArchiveRestore, MoreVertical, Link2, Zap, LayoutTemplate, Trash2,
-  Send, Folder, Home,
+  Send, Folder, Home, Package,
 } from 'lucide-react';
 import { format, isAfter, isBefore, startOfDay, endOfDay, parseISO } from 'date-fns';
+import { downloadBlob, exportInspectionPack } from '../lib/exportInspectionPack';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -319,7 +320,7 @@ type SortField = 'started_at' | 'completed_at' | 'site' | 'template' | 'status';
 type SortDir = 'asc' | 'desc';
 
 export function InspectionsPage() {
-  const { profile } = useAuth();
+  const { profile, company } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isAdmin = profile?.role === 'admin';
@@ -334,6 +335,10 @@ export function InspectionsPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [showFilters, setShowFilters] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState('');
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const { data: inspections, isLoading, isError, refetch } = useQuery({
     queryKey: ['inspections'],
@@ -544,6 +549,63 @@ export function InspectionsPage() {
 
   const totalVisible = filtered.length;
 
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAllVisible = useCallback(() => {
+    setSelectedIds(prev => {
+      const ids = filtered.map(i => i.id);
+      const allSelected = ids.length > 0 && ids.every(id => prev.has(id));
+      if (allSelected) return new Set();
+      return new Set(ids);
+    });
+  }, [filtered]);
+
+  async function handleExportPack() {
+    if (!profile || !company || selectedIds.size === 0) return;
+    setExporting(true);
+    setExportError(null);
+    setExportProgress('Preparing…');
+    try {
+      const blob = await exportInspectionPack({
+        inspectionIds: [...selectedIds],
+        profile: {
+          id: profile.id,
+          name: profile.name,
+          company_id: profile.company_id,
+          licence_number: profile.licence_number,
+        },
+        company: {
+          name: company.name,
+          abn: company.abn,
+          licence_number: company.licence_number,
+          phone: company.phone,
+          email: company.email,
+          website: company.website,
+          logo_url: company.logo_url,
+          report_theme: (company as { report_theme?: Record<string, unknown> | null }).report_theme ?? null,
+        },
+        onProgress: (done, total, label) => {
+          setExportProgress(`${done}/${total} ${label}`);
+        },
+      });
+      const stamp = format(new Date(), 'yyyyMMdd-HHmm');
+      downloadBlob(blob, `inspection-pack-${stamp}.zip`);
+      setSelectedIds(new Set());
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Pack export failed');
+    } finally {
+      setExporting(false);
+      setExportProgress('');
+    }
+  }
+
   // Orphaned children (parent was archived or parent_id doesn't exist as a root)
   const orphanedChildren = useMemo(() => {
     return (inspections ?? []).filter(i =>
@@ -565,6 +627,16 @@ export function InspectionsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {selectedIds.size > 0 && (
+              <button
+                onClick={handleExportPack}
+                disabled={exporting}
+                className="flex items-center gap-1.5 h-9 px-3 text-sm border border-[#0A2540] text-[#0A2540] rounded-md hover:bg-[#F9FAFB] font-medium disabled:opacity-50"
+              >
+                <Package size={14} />
+                {exporting ? (exportProgress || 'Exporting…') : `Export pack (${selectedIds.size})`}
+              </button>
+            )}
             {isAdmin && archivedCount > 0 && (
               <button
                 onClick={() => setShowArchived(v => !v)}
@@ -697,6 +769,13 @@ export function InspectionsPage() {
           </div>
         )}
 
+        {exportError && (
+          <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 mb-3 text-sm text-red-700">
+            <span>{exportError}</span>
+            <button onClick={() => setExportError(null)} className="ml-3 shrink-0"><X size={14} /></button>
+          </div>
+        )}
+
         {/* Delete error banner */}
         {deleteError && (
           <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 mb-3 text-sm text-red-700">
@@ -741,7 +820,14 @@ export function InspectionsPage() {
         ) : (
           <div className="table-container overflow-hidden">
             {/* Table header */}
-            <div className="hidden sm:grid items-center gap-3 px-4 py-2.5 bg-[#F9FAFB] border-b border-[#E5E7EB] grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)_120px_110px_100px_32px]">
+            <div className="hidden sm:grid items-center gap-3 px-4 py-2.5 bg-[#F9FAFB] border-b border-[#E5E7EB] grid-cols-[36px_minmax(0,2fr)_minmax(0,1.5fr)_120px_110px_100px_32px]">
+              <input
+                type="checkbox"
+                checked={filtered.length > 0 && filtered.every(i => selectedIds.has(i.id))}
+                onChange={toggleSelectAllVisible}
+                className="rounded border-gray-300"
+                aria-label="Select all visible"
+              />
               <span className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Site / Client</span>
               <span className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Template</span>
               <span className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Inspector</span>
@@ -765,12 +851,22 @@ export function InspectionsPage() {
                     {/* Parent / root row */}
                     <div className="relative group">
                       {/* Mobile layout: flex row with link taking all space, then status+menu outside */}
-                      <div className={`flex items-center sm:block ${insp.archived ? 'opacity-60' : ''}`}>
+                      <div className={`flex items-center sm:grid sm:grid-cols-[36px_minmax(0,2fr)_minmax(0,1.5fr)_120px_110px_100px_32px] sm:gap-3 sm:px-4 ${insp.archived ? 'opacity-60' : ''}`}>
+                        <div className="pl-4 sm:pl-0 py-3.5 shrink-0 flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(insp.id)}
+                            onChange={() => toggleSelect(insp.id)}
+                            onClick={e => e.stopPropagation()}
+                            className="rounded border-gray-300"
+                            aria-label={`Select ${meta?.siteName || 'inspection'}`}
+                          />
+                        </div>
                         <Link
                           to={to}
-                          className="flex-1 min-w-0 sm:grid grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)_120px_110px_100px_32px] items-center gap-3 px-4 py-3.5 hover:bg-[#F9FAFB] transition-colors flex sm:flex"
+                          className="flex-1 min-w-0 sm:contents hover:bg-[#F9FAFB] transition-colors flex items-center gap-3 pr-4 sm:pr-0 py-3.5 sm:py-0"
                         >
-                          <div className="min-w-0 flex-1">
+                          <div className="min-w-0 flex-1 sm:py-3.5">
                             <div className="flex items-center gap-1.5">
                               {hasChildren && (
                                 <div className="flex items-center gap-0.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded px-1.5 py-0.5 shrink-0">
@@ -787,18 +883,18 @@ export function InspectionsPage() {
                             )}
                           </div>
 
-                          <div className="hidden sm:flex items-center gap-1.5 min-w-0">
+                          <div className="hidden sm:flex items-center gap-1.5 min-w-0 sm:py-3.5">
                             <TemplateIcon renderer={insp.template_snapshot?.report_renderer} />
                             <p className="text-xs text-[#4A5568] truncate">
                               {insp.template_snapshot?.name ?? '—'}
                             </p>
                           </div>
 
-                          <p className="hidden sm:block text-xs text-[#4A5568] truncate">
+                          <p className="hidden sm:block text-xs text-[#4A5568] truncate sm:py-3.5">
                             {insp.inspector_name}
                           </p>
 
-                          <p className="hidden sm:block text-xs text-[#4A5568] whitespace-nowrap">
+                          <p className="hidden sm:block text-xs text-[#4A5568] whitespace-nowrap sm:py-3.5">
                             {format(new Date(insp.started_at), 'd MMM yyyy')}
                           </p>
 

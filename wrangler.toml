@@ -1,0 +1,5 @@
+# Cloudflare Pages project for BTS Inspect trial hosting.
+# Deploy: npm run build && npx wrangler pages deploy dist --project-name bts-inspect --branch main
+name = "bts-inspect"
+compatibility_date = "2025-04-01"
+pages_build_output_dir = "dist"

@@ -6,18 +6,23 @@ import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
-import type { TemplateSchema, InspectionMeta } from '../types/template';
-import { ChevronLeft, Play, Zap, LayoutTemplate, Link2 } from 'lucide-react';
+import type { TemplateSchema } from '../types/template';
+import { ChevronLeft, Play, Zap, LayoutTemplate, Link2, Briefcase } from 'lucide-react';
 
 export function NewInspectionPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preSelectedId = searchParams.get('templateId');
-  const jobId = searchParams.get('jobId'); // parent inspection to link to
+  /** Parent *inspection* id (inspection job grouping) */
+  const parentInspectionId = searchParams.get('jobId');
+  /** CRM jobs.id deep-link */
+  const crmJobId = searchParams.get('crmJobId');
   const { profile } = useAuth();
 
   const [selectedTemplateId, setSelectedTemplateId] = useState(preSelectedId ?? '');
-  const [meta, setMeta] = useState<InspectionMeta>({});
+  const [meta, setMeta] = useState<Record<string, string>>({});
+  const [clientId, setClientId] = useState<string | null>(null);
+  const [linkedCrmJobId, setLinkedCrmJobId] = useState<string | null>(crmJobId);
 
   const { data: templates, isLoading, isError, refetch } = useQuery({
     queryKey: ['templates'],
@@ -33,38 +38,80 @@ export function NewInspectionPage() {
     enabled: !!profile,
   });
 
-  // If linking to an existing job, load its meta to pre-fill
   const { data: parentInspection } = useQuery({
-    queryKey: ['inspection', jobId],
+    queryKey: ['inspection', parentInspectionId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inspections')
-        .select('id, meta, template_snapshot')
-        .eq('id', jobId!)
+        .select('id, meta, template_snapshot, client_id, crm_job_id')
+        .eq('id', parentInspectionId!)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!jobId,
+    enabled: !!parentInspectionId,
   });
 
-  // Pre-fill meta from parent once loaded
+  const { data: crmJob } = useQuery({
+    queryKey: ['crm-job-autofill', crmJobId],
+    queryFn: async () => {
+      const { data: job, error } = await supabase
+        .from('jobs')
+        .select('id, title, description, address, job_number, client_id, inspection_id')
+        .eq('id', crmJobId!)
+        .maybeSingle();
+      if (error) throw error;
+      if (!job) return null;
+
+      let client: { id: string; name: string; address: string | null } | null = null;
+      if (job.client_id) {
+        const { data: c } = await supabase
+          .from('clients')
+          .select('id, name, address')
+          .eq('id', job.client_id)
+          .maybeSingle();
+        client = c;
+      }
+      return { job, client };
+    },
+    enabled: !!crmJobId,
+  });
+
   useEffect(() => {
     if (parentInspection?.meta) {
-      setMeta(parentInspection.meta as InspectionMeta);
+      setMeta(parentInspection.meta as Record<string, string>);
+      if (parentInspection.client_id) setClientId(parentInspection.client_id);
+      if (parentInspection.crm_job_id) setLinkedCrmJobId(parentInspection.crm_job_id);
     }
   }, [parentInspection]);
 
+  useEffect(() => {
+    if (!crmJob) return;
+    const { job, client } = crmJob;
+    setLinkedCrmJobId(job.id);
+    if (job.client_id) setClientId(job.client_id);
+    setMeta(m => ({
+      ...m,
+      siteName: m.siteName || job.title || '',
+      siteAddress: m.siteAddress || job.address || client?.address || '',
+      clientName: m.clientName || client?.name || '',
+      jobDescription: m.jobDescription || job.description || job.title || '',
+      jobNumber:
+        m.jobNumber ||
+        (job.job_number != null ? String(job.job_number).padStart(4, '0') : ''),
+    }));
+  }, [crmJob]);
+
   const selectedTemplate = templates?.find(t => t.id === selectedTemplateId);
   const rawSchema = selectedTemplate ? (selectedTemplate.schema as unknown as TemplateSchema) : null;
-  const schemaMeta = rawSchema?.meta ?? { requiresSiteName: true, requiresSiteAddress: true, requiresClientName: true, requiresJobNumber: false, customFields: [] };
+  const schemaMeta = rawSchema?.meta ?? {
+    requiresSiteName: true,
+    requiresSiteAddress: true,
+    requiresClientName: true,
+    requiresJobNumber: false,
+    customFields: [],
+  };
   const hasNoSections = rawSchema != null && (!rawSchema.sections || rawSchema.sections.length === 0);
-
-  useEffect(() => {
-    if (schemaMeta.customFields && schemaMeta.customFields.length > 0) {
-      console.log('Custom fields available:', schemaMeta.customFields);
-    }
-  }, [schemaMeta]);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -84,12 +131,26 @@ export function NewInspectionPage() {
           status: 'draft',
           responses: {},
           meta: meta as Record<string, unknown>,
-          parent_inspection_id: jobId ?? null,
+          parent_inspection_id: parentInspectionId ?? null,
+          client_id: clientId,
+          crm_job_id: linkedCrmJobId,
         })
         .select()
         .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('Failed to create inspection');
+
+      if (linkedCrmJobId) {
+        const { data: jobRow } = await supabase
+          .from('jobs')
+          .select('id, inspection_id')
+          .eq('id', linkedCrmJobId)
+          .maybeSingle();
+        if (jobRow && !jobRow.inspection_id) {
+          await supabase.from('jobs').update({ inspection_id: data.id }).eq('id', linkedCrmJobId);
+        }
+      }
+
       return data;
     },
     onSuccess: data => navigate(`/inspections/${data.id}`),
@@ -108,25 +169,34 @@ export function NewInspectionPage() {
 
   if (isError) return <PageError onRetry={refetch} />;
 
+  const backTo = parentInspectionId
+    ? `/inspections/${parentInspectionId}/report`
+    : crmJobId
+      ? '/jobs'
+      : '/inspections';
+
   return (
     <AppShell>
-      <div className="max-w-[720px] mx-auto px-4 py-6">
+      <div className="page-shell-narrow">
         <button
-          onClick={() => navigate(jobId ? `/inspections/${jobId}/report` : '/inspections')}
+          onClick={() => navigate(backTo)}
           className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] mb-4"
         >
-          <ChevronLeft size={16} /> {jobId ? 'Back to job' : 'Inspections'}
+          <ChevronLeft size={16} /> {parentInspectionId ? 'Back to job' : crmJobId ? 'Jobs' : 'Inspections'}
         </button>
 
         <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">
-          {jobId ? 'Add Inspection to Job' : 'Start New Inspection'}
+          {parentInspectionId ? 'Add Inspection to Job' : crmJobId ? 'Start Inspection from CRM Job' : 'Start New Inspection'}
         </h1>
         <p className="text-sm text-[#4A5568] mb-6">
-          {jobId ? 'Choose a template to add to this job. Job details are pre-filled.' : 'Choose a template and provide job details to begin.'}
+          {parentInspectionId
+            ? 'Choose a template to add to this job. Job details are pre-filled.'
+            : crmJobId
+              ? 'Identity fields were filled from the CRM job and client.'
+              : 'Choose a template and provide job details to begin.'}
         </p>
 
-        {/* Linked job banner */}
-        {jobId && parentInspection && (
+        {parentInspectionId && parentInspection && (
           <div className="flex items-center gap-3 bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg px-4 py-3 mb-4">
             <Link2 size={15} className="text-[#2E75B6] shrink-0" />
             <div className="min-w-0">
@@ -138,8 +208,19 @@ export function NewInspectionPage() {
           </div>
         )}
 
+        {crmJob && (
+          <div className="flex items-center gap-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-lg px-4 py-3 mb-4">
+            <Briefcase size={15} className="text-[#15803d] shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[#166534]">CRM job: {crmJob.job.title}</p>
+              <p className="text-xs text-[#16a34a]">
+                {[crmJob.client?.name, crmJob.job.address].filter(Boolean).join(' · ') || 'Details pre-filled'}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm">
-          {/* Template selection */}
           <div className="px-4 py-4 border-b border-[#E5E7EB]">
             <label className="block text-sm font-medium text-[#1A1A1A] mb-2">Inspection Template</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -179,20 +260,19 @@ export function NewInspectionPage() {
             )}
           </div>
 
-          {/* Job details */}
           {selectedTemplate && (
             <div className="px-4 py-4 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-[#1A1A1A]">Job Details</h3>
-                {jobId && (
-                  <span className="text-xs text-[#2E75B6] bg-[#EFF6FF] px-2 py-0.5 rounded-full">Pre-filled from linked job</span>
+                {(parentInspectionId || crmJobId) && (
+                  <span className="text-xs text-[#2E75B6] bg-[#EFF6FF] px-2 py-0.5 rounded-full">
+                    Pre-filled
+                  </span>
                 )}
               </div>
               {schemaMeta.requiresSiteName && (
                 <div>
-                  <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">
-                    Site Name
-                  </label>
+                  <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Site Name</label>
                   <input
                     value={meta.siteName ?? ''}
                     onChange={e => setMeta(m => ({ ...m, siteName: e.target.value }))}
@@ -273,20 +353,35 @@ export function NewInspectionPage() {
             </div>
           )}
 
-          {/* CTA */}
           <div className="px-4 py-3 border-t border-[#E5E7EB] space-y-2">
             {hasNoSections && (
               <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-                This template has no sections yet. <button onClick={() => navigate(`/templates/${selectedTemplate!.id}`)} className="underline font-medium">Edit the template</button> to add questions before starting an inspection.
+                This template has no sections yet.{' '}
+                <button onClick={() => navigate(`/templates/${selectedTemplate!.id}`)} className="underline font-medium">
+                  Edit the template
+                </button>{' '}
+                to add questions before starting an inspection.
               </p>
             )}
             <button
               onClick={() => createMutation.mutate()}
-              disabled={!selectedTemplate || hasNoSections || createMutation.isPending || !meta.jobDescription || (schemaMeta?.customFields ?? []).some(f => f.required && !meta[`custom_${f.id}`])}
+              disabled={
+                !selectedTemplate ||
+                hasNoSections ||
+                createMutation.isPending ||
+                !meta.jobDescription ||
+                (schemaMeta?.customFields ?? []).some(f => f.required && !meta[`custom_${f.id}`])
+              }
               className="flex items-center gap-2 bg-[#0A2540] text-white px-5 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Play size={15} />
-              {createMutation.isPending ? 'Starting...' : jobId ? 'Start & Link to Job' : 'Start Inspection'}
+              {createMutation.isPending
+                ? 'Starting...'
+                : parentInspectionId
+                  ? 'Start & Link to Job'
+                  : crmJobId
+                    ? 'Start from CRM Job'
+                    : 'Start Inspection'}
             </button>
           </div>
         </div>

@@ -86,7 +86,7 @@ export function ClientDetailPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[900px] mx-auto px-4 py-6">
+      <div className="page-shell">
         <Breadcrumbs items={[{ label: 'Clients', to: '/clients' }, { label: client.name }]} />
 
         {/* Header card */}
@@ -183,8 +183,8 @@ export function ClientDetailPage() {
                       <p className="text-sm font-medium text-[#1A1A1A] truncate">{ci.title}</p>
                       <p className="text-xs text-[#6B7280]">
                         Due {format(parseISO(ci.next_due_date), 'd MMM yyyy')}
-                        {daysUntil < 0 && <span className="text-[#B42318] font-medium"> · {Math.abs(daysUntil)} days overdue</span>}
-                        {daysUntil >= 0 && daysUntil <= 30 && <span className="text-[#F7931A]"> · in {daysUntil} days</span>}
+                        {daysUntil < 0 && <span className="text-[#B42318] font-medium"> Â· {Math.abs(daysUntil)} days overdue</span>}
+                        {daysUntil >= 0 && daysUntil <= 30 && <span className="text-[#F7931A]"> Â· in {daysUntil} days</span>}
                       </p>
                     </div>
                     <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${COMPLIANCE_STATUS_STYLES[ci.status]}`}>

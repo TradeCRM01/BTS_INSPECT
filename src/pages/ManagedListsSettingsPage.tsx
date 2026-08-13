@@ -117,7 +117,7 @@ export function ManagedListsSettingsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[900px] mx-auto px-4 py-6">
+      <div className="page-shell">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-[#1A1A1A]">Managed Lists</h1>
           <p className="text-sm text-[#4A5568] mt-0.5">

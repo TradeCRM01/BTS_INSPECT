@@ -7,7 +7,7 @@ import {
   ClipboardList, LayoutTemplate, Settings, LogOut,
   User, Menu, X, Zap, Bitcoin, ChevronDown, Users, BrainCircuit, RotateCw, Sparkles, FileText,
   Calendar, Receipt, ShoppingCart, Package, Truck, FolderOpen,
-  Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, type LucideIcon,
+  Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, Wallet, Sun, type LucideIcon,
 } from 'lucide-react';
 import { GlobalSearchTrigger } from '../search/GlobalSearch';
 
@@ -49,6 +49,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/quotes', label: 'Quotes', icon: FileText },
       { to: '/invoices', label: 'Invoices', icon: Receipt },
+      { to: '/expenses', label: 'Expenses', icon: Wallet },
+      { to: '/solar-estimates', label: 'Solar estimates', icon: Sun },
       { to: '/price-books', label: 'Price Books', icon: BookOpen },
       { to: '/timesheets', label: 'Timesheets', icon: Clock },
     ],
@@ -68,29 +70,45 @@ const NAV_GROUPS: NavGroup[] = [
     icon: Wrench,
     items: [
       { to: '/templates', label: 'Templates', icon: LayoutTemplate },
+      { to: '/jha', label: 'JHA documents', icon: ShieldCheck },
+      { to: '/jha/swms-library', label: 'SWMS library', icon: FileText },
       { to: '/inspections', label: 'Inspections', icon: ClipboardList },
       { to: '/drive', label: 'Shared Drive', icon: FolderOpen },
     ],
   },
 ];
 
+function isNavItemActive(item: { to: string }, pathname: string, allItems?: { to: string }[]): boolean {
+  if (item.to === '/') return pathname === '/';
+  if (item.to === '/drive') {
+    return pathname === '/drive' || pathname.startsWith('/drive') || (pathname.startsWith('/reports') && !pathname.startsWith('/reports-advanced'));
+  }
+  if (item.to === '/reports-advanced') return pathname.startsWith('/reports-advanced');
+  if (!pathname.startsWith(item.to)) return false;
+  // Prefer the longest matching prefix when siblings share a path (e.g. /jha vs /jha/swms-library)
+  if (allItems?.length) {
+    const longerMatch = allItems.some(
+      other =>
+        other.to !== item.to &&
+        other.to.startsWith(item.to) &&
+        pathname.startsWith(other.to),
+    );
+    if (longerMatch) return false;
+  }
+  return true;
+}
+
 function isGroupActive(group: NavGroup, pathname: string): boolean {
-  return group.items.some(item => {
-    if (item.to === '/') return pathname === '/';
-    if (item.to === '/drive') return pathname === '/drive' || pathname.startsWith('/drive') || (pathname.startsWith('/reports') && !pathname.startsWith('/reports-advanced'));
-    if (item.to === '/reports-advanced') return pathname.startsWith('/reports-advanced');
-    return pathname.startsWith(item.to);
-  });
+  return group.items.some(item => isNavItemActive(item, pathname, group.items));
 }
 
 function getActiveItemLabel(group: NavGroup, pathname: string): string | null {
+  let best: { label: string; len: number } | null = null;
   for (const item of group.items) {
-    if (item.to === '/' && pathname === '/') return item.label;
-    if (item.to === '/drive' && (pathname === '/drive' || pathname.startsWith('/drive') || (pathname.startsWith('/reports') && !pathname.startsWith('/reports-advanced')))) return item.label;
-    if (item.to === '/reports-advanced' && pathname.startsWith('/reports-advanced')) return item.label;
-    if (item.to !== '/' && item.to !== '/drive' && item.to !== '/reports-advanced' && pathname.startsWith(item.to)) return item.label;
+    if (!isNavItemActive(item, pathname, group.items)) continue;
+    if (!best || item.to.length > best.len) best = { label: item.label, len: item.to.length };
   }
-  return null;
+  return best?.label ?? null;
 }
 
 export function AppShell({ children }: AppShellProps) {
@@ -253,12 +271,7 @@ export function AppShell({ children }: AppShellProps) {
                       <div className="absolute left-0 top-full mt-1 min-w-[200px] bg-white rounded-lg shadow-xl border border-[#E5E7EB] z-50 py-1.5 animate-fade-in">
                         {group.items.map((item) => {
                           const ItemIcon = item.icon;
-                          const itemActive = (() => {
-                            if (item.to === '/') return location.pathname === '/';
-                            if (item.to === '/drive') return location.pathname === '/drive' || location.pathname.startsWith('/drive') || (location.pathname.startsWith('/reports') && !location.pathname.startsWith('/reports-advanced'));
-                            if (item.to === '/reports-advanced') return location.pathname.startsWith('/reports-advanced');
-                            return location.pathname.startsWith(item.to);
-                          })();
+                          const itemActive = isNavItemActive(item, location.pathname, group.items);
                           return (
                             <Link
                               key={item.to}
@@ -328,16 +341,18 @@ export function AppShell({ children }: AppShellProps) {
                       className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]">
                       <ListChecks size={15} className="text-[#6B7280]" /> Managed Lists
                     </Link>
-                    {isAdmin && (
-                      <Link to="/settings/team" onClick={() => setAvatarOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]">
-                        <Users size={15} className="text-[#6B7280]" /> Team
-                      </Link>
-                    )}
+                    <Link to="/assistant" onClick={() => setAvatarOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]">
+                      <Sparkles size={15} className="text-[#6B7280]" /> AI Assistant
+                    </Link>
                     {isAdmin && (
                       <>
                         <div className="border-t border-[#E5E7EB] my-1" />
                         <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#9CA3AF]">Admin</p>
+                        <Link to="/settings/team" onClick={() => setAvatarOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]">
+                          <Users size={15} className="text-[#6B7280]" /> Team
+                        </Link>
                         <Link to="/settings/accounting" onClick={() => setAvatarOpen(false)}
                           className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]">
                           <Building2 size={15} className="text-[#6B7280]" /> Accounting
@@ -392,12 +407,7 @@ export function AppShell({ children }: AppShellProps) {
                     <div className="pb-2 bg-black/10">
                       {group.items.map((item) => {
                         const ItemIcon = item.icon;
-                        const itemActive = (() => {
-                          if (item.to === '/') return location.pathname === '/';
-                          if (item.to === '/drive') return location.pathname === '/drive' || location.pathname.startsWith('/drive') || (location.pathname.startsWith('/reports') && !location.pathname.startsWith('/reports-advanced'));
-                          if (item.to === '/reports-advanced') return location.pathname.startsWith('/reports-advanced');
-                          return location.pathname.startsWith(item.to);
-                        })();
+                        const itemActive = isNavItemActive(item, location.pathname, group.items);
                         return (
                           <Link key={item.to} to={item.to} onClick={() => setMenuOpen(false)}
                             className={`flex items-center gap-2.5 pl-11 pr-4 py-2.5 text-sm ${
@@ -422,6 +432,9 @@ export function AppShell({ children }: AppShellProps) {
             </Link>
             <Link to="/settings/lists" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
               <ListChecks size={16} /> Managed Lists
+            </Link>
+            <Link to="/assistant" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+              <Sparkles size={16} /> AI Assistant
             </Link>
             {isAdmin && (
               <>
@@ -464,7 +477,14 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </div>
         )}
-        <div className="animate-fade-in" style={{ transform: `translateY(${pullDistance * 0.5}px)`, transition: pullDistance === 0 ? 'transform 0.3s ease-out' : 'none' }}>
+        <div
+          className="animate-fade-in"
+          style={
+            pullDistance > 0
+              ? { transform: `translateY(${pullDistance * 0.5}px)`, transition: 'none' }
+              : { transition: 'transform 0.3s ease-out' }
+          }
+        >
           {children}
         </div>
       </main>

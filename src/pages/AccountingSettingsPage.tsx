@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,7 +7,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { format, parseISO } from 'date-fns';
-import { Building2, Check, X, RefreshCw, RefreshCw as Sync, AlertCircle, Link2, Link2Off as Unlink, Settings as SettingsIcon } from 'lucide-react';
+import { Building2, Check, X, RefreshCw, AlertCircle, Construction, Settings as SettingsIcon } from 'lucide-react';
 
 export function AccountingSettingsPage() {
   const { profile } = useAuth();
@@ -19,6 +20,8 @@ export function AccountingSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
 
+  const isAdmin = profile?.role === 'admin';
+
   const { data: settings, isLoading, error } = useQuery({
     queryKey: ['accounting-settings'],
     queryFn: async () => {
@@ -30,7 +33,7 @@ export function AccountingSettingsPage() {
       if (error) throw error;
       return data;
     },
-    enabled: !!profile,
+    enabled: !!profile && isAdmin,
   });
 
   useEffect(() => {
@@ -52,7 +55,7 @@ export function AccountingSettingsPage() {
         sync_invoices: syncInvoices,
         sync_payments: syncPayments,
         sync_suppliers: syncSuppliers,
-        connection_status: provider === 'none' ? 'disconnected' : (settings?.connection_status ?? 'pending'),
+        connection_status: 'disconnected',
         updated_at: new Date().toISOString(),
       };
       if (settings) {
@@ -75,44 +78,32 @@ export function AccountingSettingsPage() {
     saveMutation.mutate(undefined, { onSettled: () => setSaving(false) });
   };
 
+  if (profile && !isAdmin) return <Navigate to="/" replace />;
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error) return <AppShell><PageError message="Could not load accounting settings" /></AppShell>;
 
-  const isConnected = settings?.connection_status === 'connected';
-
   return (
     <AppShell>
-      <div className="max-w-[800px] mx-auto px-4 py-6">
+      <div className="page-shell-narrow">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-[#1A1A1A]">Accounting Integration</h1>
-          <p className="text-sm text-[#4A5568] mt-0.5">Connect your accounting software to sync invoices, payments, and suppliers</p>
+          <p className="text-sm text-[#4A5568] mt-0.5">Prepare preferences for Xero or QuickBooks sync</p>
         </div>
 
-        {/* Connection status banner */}
-        <div className={`rounded-xl p-4 mb-4 border ${isConnected ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isConnected ? 'bg-green-100' : 'bg-gray-200'}`}>
-              {isConnected ? <Check size={20} className="text-green-600" /> : <AlertCircle size={20} className="text-gray-500" />}
+        <div className="rounded-xl p-4 mb-4 border bg-amber-50 border-amber-200">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-amber-100 shrink-0">
+              <Construction size={20} className="text-amber-700" />
             </div>
             <div>
-              <p className="text-sm font-medium text-[#1A1A1A]">
-                {isConnected ? `${settings?.provider === 'xero' ? 'Xero' : 'QuickBooks'} Connected` : 'Not Connected'}
-              </p>
-              <p className="text-xs text-[#4A5568]">
-                {isConnected && settings?.last_synced_at
-                  ? `Last synced: ${format(parseISO(settings.last_synced_at), 'dd MMM yyyy, HH:mm')}`
-                  : 'Select a provider below to get started'}
+              <p className="text-sm font-medium text-amber-900">OAuth connection coming soon</p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                You can save preferred provider and sync options now. Live Connect / Sync for Xero and QuickBooks is not wired yet â€” those buttons previously did nothing.
               </p>
             </div>
-            {isConnected && (
-              <button className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#0A2540] border border-[#E5E7EB] rounded-md hover:bg-white">
-                <Sync size={14} /> Sync Now
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Provider selection */}
         <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5 mb-4">
           <h2 className="text-sm font-semibold text-[#1A1A1A] mb-3">Select Provider</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -131,7 +122,6 @@ export function AccountingSettingsPage() {
           </div>
         </div>
 
-        {/* Sync options */}
         {provider !== 'none' && (
           <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5 mb-4">
             <h2 className="text-sm font-semibold text-[#1A1A1A] mb-3">Sync Settings</h2>
@@ -141,25 +131,15 @@ export function AccountingSettingsPage() {
               <ToggleRow label="Sync payments" description="Record payments in accounting software" checked={syncPayments} onChange={setSyncPayments} />
               <ToggleRow label="Sync suppliers" description="Keep supplier records in sync" checked={syncSuppliers} onChange={setSyncSuppliers} />
             </div>
+            {settings?.last_synced_at && (
+              <p className="text-xs text-[#4A5568] mt-3 flex items-center gap-1">
+                <AlertCircle size={12} />
+                Last synced: {format(parseISO(settings.last_synced_at), 'dd MMM yyyy, HH:mm')}
+              </p>
+            )}
           </div>
         )}
 
-        {/* Connection instructions */}
-        {provider !== 'none' && !isConnected && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-            <div className="flex items-start gap-3">
-              <Link2 size={18} className="text-amber-600 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-amber-900">Connection Required</p>
-                <p className="text-sm text-amber-700 mt-0.5">
-                  To connect {provider === 'xero' ? 'Xero' : 'QuickBooks'}, you'll need to authorize access via OAuth. After saving your settings, click "Connect" to be redirected to the {provider === 'xero' ? 'Xero' : 'QuickBooks'} authorization page.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Save button */}
         <div className="flex items-center justify-end gap-3">
           {savedMsg && <span className="text-sm text-green-600 font-medium flex items-center gap-1"><Check size={16} /> Saved</span>}
           <button

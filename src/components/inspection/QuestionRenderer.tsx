@@ -1,5 +1,7 @@
 import { useRef, useState, useCallback } from 'react';
 import type { Question } from '../../types/template';
+import { isNaAnswer, NA_ANSWER } from '../../types/template';
+import { evaluateNumericStatus } from '../../reports/shared/inspectionCompose';
 import SignatureCanvas from 'react-signature-canvas';
 import { supabase } from '../../lib/supabase';
 import { uploadInspectionPhoto } from '../../lib/storageService';
@@ -219,12 +221,33 @@ export function QuestionRenderer({
 
   const baseInput = "w-full px-3 py-3 border border-[#E5E7EB] rounded-md text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent bg-white";
 
+  function withOptionalNa(inner: React.ReactNode) {
+    if (!question.allowNa) return inner;
+    const na = isNaAnswer(value);
+    return (
+      <div className="space-y-2">
+        {!na && inner}
+        <button
+          type="button"
+          onClick={() => onChange(na ? null : NA_ANSWER)}
+          className={`w-full py-2.5 rounded-md text-sm font-semibold border-2 transition-all ${
+            na
+              ? 'bg-[#4A5568] text-white border-[#4A5568]'
+              : 'border-[#E5E7EB] text-[#4A5568] hover:border-[#4A5568]/40 bg-white'
+          }`}
+        >
+          {na ? 'N/A selected — tap to clear' : 'Mark N/A'}
+        </button>
+      </div>
+    );
+  }
+
   switch (question.type) {
     case 'text':
-      return (
+      return withOptionalNa(
         <input
           type="text"
-          value={String(value ?? '')}
+          value={isNaAnswer(value) ? '' : String(value ?? '')}
           onChange={e => onChange(e.target.value)}
           className={baseInput}
           placeholder="Enter answer..."
@@ -233,9 +256,9 @@ export function QuestionRenderer({
       );
 
     case 'long_text':
-      return (
+      return withOptionalNa(
         <textarea
-          value={String(value ?? '')}
+          value={isNaAnswer(value) ? '' : String(value ?? '')}
           onChange={e => onChange(e.target.value)}
           rows={4}
           className={`${baseInput} resize-y`}
@@ -243,23 +266,48 @@ export function QuestionRenderer({
         />
       );
 
-    case 'number':
-      return (
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            inputMode="decimal"
-            pattern="[0-9.]*"
-            value={String(value ?? '')}
-            onChange={e => onChange(e.target.value)}
-            className={`${baseInput} flex-1`}
-            placeholder="0"
-          />
-          {question.numberConfig?.unit && (
-            <span className="text-sm text-[#4A5568] font-mono shrink-0">{question.numberConfig.unit}</span>
+    case 'number': {
+      const status = evaluateNumericStatus(value, question.numberConfig);
+      const showStatus = question.numberConfig?.failOutsideRange && (status === 'pass' || status === 'fail');
+      return withOptionalNa(
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              inputMode="decimal"
+              pattern="[0-9.]*"
+              value={isNaAnswer(value) ? '' : String(value ?? '')}
+              onChange={e => onChange(e.target.value)}
+              className={`${baseInput} flex-1 ${
+                showStatus && status === 'fail' ? 'border-[#B42318] focus:ring-[#B42318]'
+                  : showStatus && status === 'pass' ? 'border-[#1B7F3A] focus:ring-[#1B7F3A]'
+                    : ''
+              }`}
+              placeholder="0"
+            />
+            {question.numberConfig?.unit && (
+              <span className="text-sm text-[#4A5568] font-mono shrink-0">{question.numberConfig.unit}</span>
+            )}
+            {showStatus && (
+              <span className={`text-xs font-bold px-2 py-1 rounded shrink-0 ${
+                status === 'pass' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+              }`}>
+                {status === 'pass' ? 'PASS' : 'FAIL'}
+              </span>
+            )}
+          </div>
+          {(question.numberConfig?.min != null || question.numberConfig?.max != null) && (
+            <p className="text-[11px] text-[#9CA3AF]">
+              Allowable
+              {question.numberConfig.min != null ? ` ≥ ${question.numberConfig.min}` : ''}
+              {question.numberConfig.min != null && question.numberConfig.max != null ? ' and' : ''}
+              {question.numberConfig.max != null ? ` ≤ ${question.numberConfig.max}` : ''}
+              {question.numberConfig.unit ? ` ${question.numberConfig.unit}` : ''}
+            </p>
           )}
         </div>
       );
+    }
 
     case 'yes_no': {
       const isPassFail = question.yesNoLabels === 'pass_fail';
@@ -303,7 +351,7 @@ export function QuestionRenderer({
     }
 
     case 'multiple_choice':
-      return (
+      return withOptionalNa(
         <div className="space-y-2">
           {(question.options ?? []).map(opt => (
             <button
@@ -350,10 +398,10 @@ export function QuestionRenderer({
     }
 
     case 'date':
-      return (
+      return withOptionalNa(
         <input
           type="date"
-          value={String(value ?? '')}
+          value={isNaAnswer(value) ? '' : String(value ?? '')}
           onChange={e => onChange(e.target.value)}
           className={baseInput}
         />
@@ -428,7 +476,7 @@ export function QuestionRenderer({
 
     case 'rating_5': {
       const rating = Number(value) || 0;
-      return (
+      return withOptionalNa(
         <div className="flex gap-2">
           {[1, 2, 3, 4, 5].map(n => (
             <button
@@ -448,10 +496,13 @@ export function QuestionRenderer({
     }
 
     case 'slider': {
+      if (isNaAnswer(value)) {
+        return withOptionalNa(null);
+      }
       const val = Number(value) || sliderVal;
       const min = question.numberConfig?.min ?? 0;
       const max = question.numberConfig?.max ?? 100;
-      return (
+      return withOptionalNa(
         <div>
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-[#4A5568]">{min}</span>

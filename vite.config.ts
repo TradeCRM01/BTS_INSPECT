@@ -1,11 +1,19 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
+  },
   plugins: [
     react(),
     VitePWA({
+      // Unregister broken SWs that were causing Chrome ERR_FAILED on navigations.
+      // Re-enable offline caching later once clients have recovered.
+      selfDestroying: true,
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'icon-192.svg', 'icon-512.svg'],
       manifest: {
@@ -34,13 +42,11 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Precache ALL built assets including JS chunks — this is the key fix
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,woff,ttf}'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
-        // When a new SW activates, force all clients to reload so they use fresh chunks
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/functions\/v1\//],
         runtimeCaching: [

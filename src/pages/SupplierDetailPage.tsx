@@ -200,7 +200,7 @@ export function SupplierDetailPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-[#4A5568]">
-                        {po.created_at ? format(parseISO(po.created_at), 'dd MMM yyyy') : '—'}
+                        {po.created_at ? format(parseISO(po.created_at), 'dd MMM yyyy') : 'Ã¢â‚¬â€'}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${PO_STATUS_STYLES[po.status as keyof typeof PO_STATUS_STYLES] ?? 'bg-gray-100 text-gray-700'}`}>
@@ -236,7 +236,7 @@ export function SupplierDetailPage() {
   );
 }
 
-// ── Edit form ─────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Edit form Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 function SupplierEditForm({ supplier, onClose, onSaved }: {
   supplier: Supplier;
@@ -284,8 +284,8 @@ function SupplierEditForm({ supplier, onClose, onSaved }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[10vh] overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto animate-slide-up" onClick={e => e.stopPropagation()}>
+    <div className="overlay-backdrop">
+      <div className="overlay-panel-lg animate-slide-up" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB]">
           <h2 className="text-base font-semibold text-[#1A1A1A]">Edit Supplier</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-md text-[#9CA3AF] hover:bg-[#F3F4F6] hover:text-[#1A1A1A] transition-colors"><X size={16} /></button>

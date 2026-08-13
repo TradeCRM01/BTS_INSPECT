@@ -141,12 +141,12 @@ function RiskMatrixGrid() {
       ))}
 
       {/* Legend */}
-      <View style={{ flexDirection: 'row', marginTop: 6, gap: 10 }}>
+      <View style={{ flexDirection: 'row', marginTop: 6, gap: 10, flexWrap: 'wrap' }}>
         {[
-          { label: 'Low (1-4)', color: '#166534' },
-          { label: 'Moderate (5-9)', color: '#B45309' },
-          { label: 'Significant (10-15)', color: '#C2410C' },
-          { label: 'Severe (16-25)', color: '#B91C1C' },
+          { label: 'Low (1–4)', color: '#166534' },
+          { label: 'Moderate (5–9)', color: '#B45309' },
+          { label: 'Significant (10–15)', color: '#C2410C' },
+          { label: 'Severe (16–25)', color: '#B91C1C' },
         ].map(r => (
           <View key={r.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
             <View style={{ width: 7, height: 7, backgroundColor: r.color }} />
@@ -154,28 +154,32 @@ function RiskMatrixGrid() {
           </View>
         ))}
       </View>
+      <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: pdfColors.textMuted, marginTop: 4 }}>
+        Score = Likelihood × Consequence. Band from product: 1–4 Low · 5–9 Moderate · 10–15 Significant · 16–25 Severe.
+      </Text>
+      <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: pdfColors.textMuted, marginTop: 2 }}>
+        Hierarchy of controls (highest → lowest): Eliminate · Substitute · Isolate · Engineering · Administrative · PPE.
+      </Text>
     </View>
   );
 }
 
 function StepTable({ steps, riskLevels }: { steps: JhaReportStep[]; riskLevels: JhaReportData['riskLevels'] }) {
-  const colWidths = { step: '5%', desc: '17%', hazards: '15%', consequence: '10%', likelihood: '10%', controls: '15%', initial: '14%', residual: '14%' };
+  const colWidths = { step: '5%', desc: '16%', hazards: '14%', consequence: '9%', likelihood: '9%', controls: '19%', initial: '14%', residual: '14%' };
 
   return (
     <View style={{ borderWidth: 0.5, borderColor: pdfColors.rule }}>
-      {/* Header row */}
       <View style={{ flexDirection: 'row', backgroundColor: pdfColors.navy }}>
         <Text style={[styles.cellHeader, { width: colWidths.step }]}>#</Text>
         <Text style={[styles.cellHeader, { width: colWidths.desc }]}>Job Step</Text>
         <Text style={[styles.cellHeader, { width: colWidths.hazards }]}>Potential Hazards</Text>
         <Text style={[styles.cellHeader, { width: colWidths.consequence }]}>Consequence</Text>
         <Text style={[styles.cellHeader, { width: colWidths.likelihood }]}>Likelihood</Text>
-        <Text style={[styles.cellHeader, { width: colWidths.controls }]}>Control Measures</Text>
+        <Text style={[styles.cellHeader, { width: colWidths.controls }]}>Controls (hierarchy)</Text>
         <Text style={[styles.cellHeader, { width: colWidths.initial, textAlign: 'center' }]}>Before (Initial)</Text>
         <Text style={[styles.cellHeader, { width: colWidths.residual, textAlign: 'center' }]}>After (Residual)</Text>
       </View>
 
-      {/* Data rows */}
       {steps.length === 0 ? (
         <View style={{ paddingVertical: 12, paddingHorizontal: 8 }}>
           <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, color: pdfColors.textMuted, fontStyle: 'italic' }}>
@@ -185,28 +189,60 @@ function StepTable({ steps, riskLevels }: { steps: JhaReportStep[]; riskLevels: 
       ) : (
         steps.map((step, i) => {
           const bg = i % 2 !== 0 ? pdfColors.zebra : pdfColors.white;
+          const controlLines = step.controlMeasures?.length
+            ? step.controlMeasures
+            : step.controls
+              ? [{ hierarchy: '', text: step.controls, owner: '', verify: '' }]
+              : [];
           return (
             <View key={i} style={{ flexDirection: 'row', backgroundColor: bg, borderBottomWidth: 0.5, borderBottomColor: pdfColors.rule }}>
               <View style={{ width: colWidths.step, paddingVertical: 6, paddingHorizontal: 6 }}>
                 <Text style={{ fontFamily: pdfFonts.mono, fontSize: 8, fontWeight: 700, color: pdfColors.accent }}>{i + 1}</Text>
               </View>
               <Text style={[styles.cellText, { width: colWidths.desc }]}>{step.description || '\u2014'}</Text>
-              <Text style={[styles.cellText, { width: colWidths.hazards }]}>{step.hazards || '\u2014'}</Text>
+              <Text style={[styles.cellText, { width: colWidths.hazards }]}>
+                {(step.hazards || '')
+                  .split('\n')
+                  .map(l => l.trim())
+                  .filter(Boolean)
+                  .join('\n') || '\u2014'}
+              </Text>
               <Text style={[styles.cellText, { width: colWidths.consequence, fontSize: 7.5 }]}>{getConsequenceLabel(step.consequence)}</Text>
               <Text style={[styles.cellText, { width: colWidths.likelihood, fontSize: 7.5 }]}>{getLikelihoodLabel(step.likelihood)}</Text>
-              <Text style={[styles.cellText, { width: colWidths.controls }]}>{step.controls || '\u2014'}</Text>
+              <View style={{ width: colWidths.controls, paddingVertical: 5, paddingHorizontal: 5 }}>
+                {controlLines.length === 0 ? (
+                  <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, color: pdfColors.textMuted }}>{'\u2014'}</Text>
+                ) : (
+                  controlLines.map((m, mi) => (
+                    <Text key={mi} style={{ fontFamily: pdfFonts.body, fontSize: 7.5, color: pdfColors.text, marginBottom: 2 }}>
+                      {m.hierarchy ? `${m.hierarchy}: ` : ''}{m.text}
+                      {m.owner ? ` · Owner: ${m.owner}` : ''}
+                      {m.verify ? ` · Verify: ${m.verify}` : ''}
+                    </Text>
+                  ))
+                )}
+              </View>
               <View style={{ width: colWidths.initial, paddingVertical: 6, paddingHorizontal: 4, alignItems: 'center' }}>
                 <RiskPill risk={step.initialRisk} />
+                {step.inherentProduct != null && (
+                  <Text style={{ fontFamily: pdfFonts.mono, fontSize: 6.5, color: pdfColors.textMuted, marginTop: 2 }}>
+                    L×C {step.inherentProduct}
+                  </Text>
+                )}
               </View>
               <View style={{ width: colWidths.residual, paddingVertical: 6, paddingHorizontal: 4, alignItems: 'center' }}>
                 <RiskPill risk={step.residualRisk} />
+                {step.residualProduct != null && (
+                  <Text style={{ fontFamily: pdfFonts.mono, fontSize: 6.5, color: step.residualAboveThreshold ? '#B91C1C' : pdfColors.textMuted, marginTop: 2 }}>
+                    L×C {step.residualProduct}{step.residualAboveThreshold ? ' !' : ''}
+                  </Text>
+                )}
               </View>
             </View>
           );
         })
       )}
 
-      {/* Risk legend */}
       <View style={{ flexDirection: 'row', backgroundColor: pdfColors.zebra, paddingHorizontal: 8, paddingVertical: 5, gap: 12 }}>
         <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: pdfColors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
           Risk Scale:
@@ -222,12 +258,14 @@ function StepTable({ steps, riskLevels }: { steps: JhaReportStep[]; riskLevels: 
   );
 }
 
-function PpeSection({ ppe }: { ppe: string[] }) {
+function PpeSection({ ppe }: { ppe: JhaReportData['ppe'] }) {
   if (ppe.length === 0) return null;
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingVertical: 6, backgroundColor: pdfColors.ruleLight, borderTopWidth: 0.5, borderTopColor: pdfColors.rule }}>
       {ppe.map((item, i) => (
-        <Text key={i} style={styles.ppeChip}>{item}</Text>
+        <Text key={i} style={styles.ppeChip}>
+          {item.label}{item.standardRef ? ` (${item.standardRef})` : ''}
+        </Text>
       ))}
     </View>
   );
@@ -236,17 +274,27 @@ function PpeSection({ ppe }: { ppe: string[] }) {
 export function JhaReportRenderer({ data }: { data: JhaReportData }) {
   const metaItems = [
     { label: 'Document Number', value: data.reportNumber },
+    { label: 'Revision', value: `v${data.docVersion}` },
     { label: 'Issue Date', value: data.issueDate },
+    ...(data.amendmentReason ? [{ label: 'Amendment reason', value: data.amendmentReason }] : []),
     ...(data.taskName ? [{ label: 'Task / Activity', value: data.taskName }] : []),
     ...(data.siteName ? [{ label: 'Site / Location', value: data.siteName }] : []),
     ...(data.date ? [{ label: 'Date', value: data.date }] : []),
     ...(data.supervisor ? [{ label: 'Supervisor', value: data.supervisor }] : []),
+    ...(data.clientName ? [{ label: 'Client', value: data.clientName }] : []),
+    ...(data.plantArea ? [{ label: 'Plant / Area', value: data.plantArea }] : []),
+    ...(data.shift ? [{ label: 'Shift', value: data.shift }] : []),
+    ...(data.permitRefs ? [{ label: 'Permit / PTW refs', value: data.permitRefs }] : []),
+    ...(data.musterPoint ? [{ label: 'Muster point', value: data.musterPoint }] : []),
     ...(data.siteContact ? [{ label: 'Site Contact', value: data.siteContact }] : []),
+    ...data.customFields.map(f => ({ label: f.label, value: f.value })),
     { label: 'Prepared By', value: data.inspectorName },
     { label: 'Company', value: data.companyName },
+    ...(data.companyAddress ? [{ label: 'Address', value: data.companyAddress }] : []),
   ];
 
   const contactParts = [
+    data.companyAddress || null,
     data.companyAbn ? `ABN ${data.companyAbn}` : null,
     data.companyPhone,
     data.companyEmail,
@@ -284,7 +332,8 @@ export function JhaReportRenderer({ data }: { data: JhaReportData }) {
 
         <View style={{ paddingHorizontal: 40, paddingTop: 24, flex: 1 }}>
           <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, color: pdfColors.accent, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 10 }}>
-            JOB HAZARD ANALYSIS
+            {data.packMode ? 'CLIENT SAFETY PACK · JHA' : 'JOB HAZARD ANALYSIS'}
+            {data.swms?.enabled ? ' + SWMS' : ''}
           </Text>
           <Text style={{ fontFamily: pdfFonts.body, fontSize: 30, fontWeight: 700, color: pdfColors.navy, marginBottom: 6, lineHeight: 1.15 }}>
             {data.templateName}
@@ -425,8 +474,54 @@ export function JhaReportRenderer({ data }: { data: JhaReportData }) {
           <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, color: pdfColors.textMuted, marginBottom: 16, fontStyle: 'italic' }}>
             By signing below, the undersigned acknowledge that they have reviewed this Job Hazard Analysis,
             understand the identified hazards and control measures, and commit to implementing the controls
-            as described.
+            as described. Residual risk acceptance threshold: L×C ≤ {data.maxAcceptableResidualScore}.
           </Text>
+
+          {data.crewSignOns.length > 0 && (
+            <View style={{ marginBottom: 18 }}>
+              <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, fontWeight: 700, color: pdfColors.navy, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
+                Crew sign-on register
+              </Text>
+              <View style={{ borderWidth: 0.5, borderColor: pdfColors.rule }}>
+                <View style={{ flexDirection: 'row', backgroundColor: pdfColors.navy }}>
+                  <Text style={[styles.cellHeader, { width: '32%' }]}>Name</Text>
+                  <Text style={[styles.cellHeader, { width: '22%' }]}>Role</Text>
+                  <Text style={[styles.cellHeader, { width: '18%' }]}>Date</Text>
+                  <Text style={[styles.cellHeader, { width: '28%' }]}>Signature</Text>
+                </View>
+                {data.crewSignOns.map((c, i) => (
+                  <View key={i} style={{ flexDirection: 'row', backgroundColor: i % 2 ? pdfColors.zebra : pdfColors.white, borderBottomWidth: 0.5, borderBottomColor: pdfColors.rule, alignItems: 'center' }}>
+                    <Text style={[styles.cellText, { width: '32%' }]}>{c.name}</Text>
+                    <Text style={[styles.cellText, { width: '22%' }]}>{c.role || 'Worker'}</Text>
+                    <Text style={[styles.cellText, { width: '18%' }]}>{c.date || '\u2014'}</Text>
+                    <View style={{ width: '28%', paddingVertical: 4, paddingHorizontal: 4 }}>
+                      {c.signature ? (
+                        <Image src={c.signature} style={{ width: 90, height: 28, objectFit: 'contain' }} />
+                      ) : (
+                        <Text style={{ fontSize: 7, color: pdfColors.textMuted }}>{c.signed ? 'Signed' : 'Pending'}</Text>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {data.linkedSwms.length > 0 && (
+            <View style={{ marginBottom: 18 }}>
+              <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, fontWeight: 700, color: pdfColors.navy, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
+                Linked SWMS documents
+              </Text>
+              {data.linkedSwms.map((s, i) => (
+                <Text key={i} style={{ fontSize: 8, marginBottom: 3 }}>
+                  • {s.title}{s.filename ? ` (${s.filename})` : ''}
+                </Text>
+              ))}
+              <Text style={{ fontSize: 7, color: pdfColors.textMuted, marginTop: 4, fontStyle: 'italic' }}>
+                Full SWMS PDFs are held in the company library and issued with this pack separately if required.
+              </Text>
+            </View>
+          )}
 
           {data.signOffs.length === 0 ? (
             <View style={{ borderWidth: 0.5, borderColor: pdfColors.rule, borderRadius: 3, paddingHorizontal: 12, paddingVertical: 20, alignItems: 'center' }}>
@@ -453,6 +548,119 @@ export function JhaReportRenderer({ data }: { data: JhaReportData }) {
         </View>
         <RunningFooter />
       </Page>
+
+      {/* SWMS PAGE (when enabled) */}
+      {data.swms?.enabled && (
+        <Page size="A4" style={styles.page}>
+          <RunningHeader
+            companyName={data.companyName}
+            reportNumber={data.reportNumber}
+            logoUrl={data.companyLogoUrl}
+          />
+          <View style={styles.body}>
+            <View style={{ flexDirection: 'row', alignItems: 'stretch', marginBottom: 14 }}>
+              <View style={{ width: 28, backgroundColor: pdfColors.accent, alignItems: 'center', justifyContent: 'center', paddingVertical: 7 }}>
+                <Text style={{ fontFamily: pdfFonts.body, fontSize: 7, fontWeight: 700, color: 'rgba(255,255,255,0.95)' }}>SW</Text>
+              </View>
+              <View style={{ flex: 1, backgroundColor: pdfColors.navy, paddingHorizontal: 10, paddingVertical: 7 }}>
+                <Text style={{ fontFamily: pdfFonts.body, fontSize: 9.5, fontWeight: 700, color: pdfColors.white, letterSpacing: 0.8 }}>
+                  SAFE WORK METHOD STATEMENT (SWMS)
+                </Text>
+              </View>
+            </View>
+            <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, color: pdfColors.textMuted, marginBottom: 12, fontStyle: 'italic' }}>
+              Merged with this JHA for AU high-risk construction work (WHS Reg Schedule 3). Controls and residual risk sit in the JHA step table.
+            </Text>
+
+            {(data.swms.principalContractor || data.swms.pcie) && (
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                {data.swms.principalContractor ? (
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 7, fontWeight: 700, color: pdfColors.navy, marginBottom: 2 }}>PRINCIPAL CONTRACTOR</Text>
+                    <Text style={{ fontSize: 9 }}>{data.swms.principalContractor}</Text>
+                  </View>
+                ) : null}
+                {data.swms.pcie ? (
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 7, fontWeight: 700, color: pdfColors.navy, marginBottom: 2 }}>PCBU / PERSON CONDUCTING BUSINESS</Text>
+                    <Text style={{ fontSize: 9 }}>{data.swms.pcie}</Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            <Text style={{ fontSize: 7, fontWeight: 700, color: pdfColors.navy, marginBottom: 6, letterSpacing: 0.5 }}>
+              HIGH RISK CONSTRUCTION WORK CATEGORIES
+            </Text>
+            {data.swms.hrcwLabels.length === 0 ? (
+              <Text style={{ fontSize: 8, color: pdfColors.textMuted, marginBottom: 10 }}>No HRCW categories selected.</Text>
+            ) : (
+              <View style={{ marginBottom: 12 }}>
+                {data.swms.hrcwLabels.map((label, i) => (
+                  <Text key={i} style={{ fontSize: 8, marginBottom: 3 }}>• {label}</Text>
+                ))}
+              </View>
+            )}
+
+            {data.swms.highRiskNotes ? (
+              <View style={{ marginBottom: 10 }}>
+                <Text style={{ fontSize: 7, fontWeight: 700, color: pdfColors.navy, marginBottom: 2 }}>HIGH-RISK NOTES / METHOD</Text>
+                <Text style={{ fontSize: 8 }}>{data.swms.highRiskNotes}</Text>
+              </View>
+            ) : null}
+            {data.swms.emergencyProcedures ? (
+              <View style={{ marginBottom: 10 }}>
+                <Text style={{ fontSize: 7, fontWeight: 700, color: pdfColors.navy, marginBottom: 2 }}>EMERGENCY PROCEDURES</Text>
+                <Text style={{ fontSize: 8 }}>{data.swms.emergencyProcedures}</Text>
+              </View>
+            ) : null}
+          </View>
+          <RunningFooter />
+        </Page>
+      )}
+
+      {/* PHOTOS APPENDIX */}
+      {data.steps.some(s => s.photos.length > 0) && (
+        <Page size="A4" style={styles.page}>
+          <RunningHeader
+            companyName={data.companyName}
+            reportNumber={data.reportNumber}
+            logoUrl={data.companyLogoUrl}
+          />
+          <View style={styles.body}>
+            <View style={{ flexDirection: 'row', alignItems: 'stretch', marginBottom: 14 }}>
+              <View style={{ width: 28, backgroundColor: pdfColors.accent, alignItems: 'center', justifyContent: 'center', paddingVertical: 7 }}>
+                <Text style={{ fontFamily: pdfFonts.body, fontSize: 7, fontWeight: 700, color: 'rgba(255,255,255,0.95)' }}>PH</Text>
+              </View>
+              <View style={{ flex: 1, backgroundColor: pdfColors.navy, paddingHorizontal: 10, paddingVertical: 7 }}>
+                <Text style={{ fontFamily: pdfFonts.body, fontSize: 9.5, fontWeight: 700, color: pdfColors.white, letterSpacing: 0.8 }}>
+                  STEP PHOTOS / SKETCHES
+                </Text>
+              </View>
+            </View>
+            {data.steps.map((step, si) =>
+              step.photos.length === 0 ? null : (
+                <View key={si} style={{ marginBottom: 14 }} wrap={false}>
+                  <Text style={{ fontSize: 9, fontWeight: 700, color: pdfColors.navy, marginBottom: 6 }}>
+                    Step {si + 1}: {step.description || 'Untitled'}
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {step.photos.map((p, pi) => (
+                      <View key={pi} style={{ width: '48%', marginBottom: 8 }}>
+                        <Image src={p.url} style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 2 }} />
+                        {p.caption ? (
+                          <Text style={{ fontSize: 7, color: pdfColors.textMuted, marginTop: 2 }}>{p.caption}</Text>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ),
+            )}
+          </View>
+          <RunningFooter />
+        </Page>
+      )}
     </Document>
   );
 }

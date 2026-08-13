@@ -38,7 +38,15 @@ export interface StockItemWithSupplier extends StockItem {
   supplier_name?: string | null;
 }
 
-export type StockMovementType = 'received' | 'allocated_to_job' | 'returned' | 'adjusted';
+export type StockMovementType = 'received' | 'allocated_to_job' | 'returned' | 'adjusted' | 'transferred';
+
+export const STOCK_MOVEMENT_LABELS: Record<StockMovementType, string> = {
+  received: 'Received',
+  allocated_to_job: 'Allocated',
+  returned: 'Returned',
+  adjusted: 'Adjusted',
+  transferred: 'Transferred',
+};
 
 export interface StockMovement {
   id: string;
@@ -74,8 +82,12 @@ export interface QuoteLineItem {
   quantity: number;
   unit_price: number;
   stock_item_id?: string | null;
+  price_book_item_id?: string | null;
+  charge_type?: string | null;
   unit_cost?: number | null;
   markup_percent?: number | null;
+  /** Employee cost model used as cost code (hourly snapshot in unit_cost) */
+  cost_model_id?: string | null;
 }
 
 export interface InvoiceLineItem {
@@ -83,8 +95,11 @@ export interface InvoiceLineItem {
   quantity: number;
   unit_price: number;
   stock_item_id?: string | null;
+  price_book_item_id?: string | null;
+  charge_type?: string | null;
   unit_cost?: number | null;
   markup_percent?: number | null;
+  cost_model_id?: string | null;
 }
 
 // ── Purchase Orders ──────────────────────────────────────────────
@@ -143,6 +158,8 @@ export interface Quote {
   client_id: string | null;
   job_id: string | null;
   status: QuoteStatus;
+  description: string | null;
+  scope_of_works: string | null;
   line_items: QuoteLineItem[];
   subtotal: number;
   tax_rate: number;
@@ -150,6 +167,8 @@ export interface Quote {
   total: number;
   validity_date: string | null;
   notes: string | null;
+  inclusions: string[];
+  exclusions: string[];
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -196,6 +215,8 @@ export interface Invoice {
   payment_terms: string | null;
   due_date: string | null;
   notes: string | null;
+  inclusions: string[];
+  exclusions: string[];
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -233,8 +254,13 @@ export interface JobCost {
   quantity: number;
   unit_cost: number;
   total_cost: number;
+  markup_percent: number;
+  unit_price: number;
+  total_price: number;
+  charge_type: string | null;
   stock_item_id: string | null;
   purchase_order_id: string | null;
+  cost_model_id: string | null;
   created_by: string | null;
   created_at: string;
 }
@@ -476,3 +502,210 @@ export function formatDuration(minutes: number): string {
   const m = minutes % 60;
   return `${h}h ${m}m`;
 }
+
+// ── Expenses / P&L ───────────────────────────────────────────────
+
+export type ExpenseCostClass = 'overhead' | 'cogs' | 'employee';
+export type ExpenseStatus = 'draft' | 'recorded' | 'paid' | 'void';
+export type ExpenseRecurrence = 'one_off' | 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly';
+export type ExpensePaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'direct_debit' | 'cheque' | 'other';
+export type EmployeeCostType = string;
+
+export interface Expense {
+  id: string;
+  company_id: string;
+  expense_number: number | null;
+  cost_class: ExpenseCostClass;
+  category: string;
+  employee_cost_type: EmployeeCostType | null;
+  description: string;
+  amount: number;
+  tax_rate: number;
+  tax_amount: number;
+  total: number;
+  expense_date: string;
+  period_start: string | null;
+  period_end: string | null;
+  vendor_name: string | null;
+  supplier_id: string | null;
+  employee_id: string | null;
+  job_id: string | null;
+  payment_method: ExpensePaymentMethod | null;
+  reference: string | null;
+  is_reimbursable: boolean;
+  reimbursed: boolean;
+  recurrence: ExpenseRecurrence;
+  status: ExpenseStatus;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseWithDetails extends Expense {
+  employee_name?: string | null;
+  job_title?: string | null;
+  supplier_name?: string | null;
+}
+
+export const EXPENSE_COST_CLASS_LABELS: Record<ExpenseCostClass, string> = {
+  overhead: 'Overhead',
+  cogs: 'Cost of sales',
+  employee: 'Employee cost',
+};
+
+export const EXPENSE_COST_CLASS_HELP: Record<ExpenseCostClass, string> = {
+  overhead: 'Rent, insurance, software, vehicles — operating costs that hit net profit',
+  cogs: 'Direct job/sales costs not already on the job bill (e.g. subcontractors)',
+  employee: 'Wages, super, allowances, reimbursements and staff-related spend',
+};
+
+export const EXPENSE_STATUS_LABELS: Record<ExpenseStatus, string> = {
+  draft: 'Draft',
+  recorded: 'Recorded',
+  paid: 'Paid',
+  void: 'Void',
+};
+
+export const EXPENSE_STATUS_STYLES: Record<ExpenseStatus, string> = {
+  draft: 'bg-gray-100 text-gray-700 ring-1 ring-gray-200',
+  recorded: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
+  paid: 'bg-green-50 text-green-700 ring-1 ring-green-200',
+  void: 'bg-red-50 text-red-600 ring-1 ring-red-200',
+};
+
+export const EMPLOYEE_COST_TYPE_LABELS: Record<string, string> = {
+  wages: 'Wages / salary',
+  super: 'Superannuation',
+  allowance: 'Allowance',
+  reimbursement: 'Reimbursement',
+  vehicle: 'Vehicle / travel',
+  tools: 'Tools / PPE',
+  training: 'Training / licences',
+  other: 'Other',
+};
+
+export function employeeCostTypeLabel(type: string | null | undefined): string {
+  if (!type) return '—';
+  return EMPLOYEE_COST_TYPE_LABELS[type] ?? type;
+}
+
+export const EXPENSE_PAYMENT_LABELS: Record<ExpensePaymentMethod, string> = {
+  cash: 'Cash',
+  card: 'Card',
+  bank_transfer: 'Bank transfer',
+  direct_debit: 'Direct debit',
+  cheque: 'Cheque',
+  other: 'Other',
+};
+
+export const EXPENSE_RECURRENCE_LABELS: Record<ExpenseRecurrence, string> = {
+  one_off: 'One-off',
+  weekly: 'Weekly',
+  fortnightly: 'Fortnightly',
+  monthly: 'Monthly',
+  quarterly: 'Quarterly',
+  yearly: 'Yearly',
+};
+
+export type ExpenseModelPeriod = 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly';
+
+/** How cost-line amounts are denominated (for $/hr conversion on jobs). */
+export type ExpenseModelTimeUnit = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'annually';
+
+export type ExpenseCostAmountMode = 'fixed' | 'percent_of_wages' | 'hours_x_rate';
+
+export interface ExpenseCostModelLine {
+  employee_cost_type: EmployeeCostType;
+  category: string;
+  description: string;
+  /**
+   * Fixed $ (with time_unit), percent of wages, or hourly rate when hours_x_rate.
+   * For hours_x_rate, amount is $/hr and hours is the quantity.
+   */
+  amount: number;
+  amount_mode: ExpenseCostAmountMode;
+  /** Hours quantity when amount_mode is hours_x_rate */
+  hours?: number;
+  /** Unit this line’s amount is denominated in (ignored for % of wages and hours_x_rate) */
+  time_unit: ExpenseModelTimeUnit;
+  tax_rate: number;
+}
+
+export interface ExpenseCostModel {
+  id: string;
+  company_id: string;
+  name: string;
+  notes: string | null;
+  billing_period: ExpenseModelPeriod;
+  /** @deprecated Prefer per-line time_unit; kept for older rows */
+  time_unit?: ExpenseModelTimeUnit;
+  /** @deprecated Prefer per-line conversion via time_unit */
+  standard_hours?: number;
+  lines: ExpenseCostModelLine[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseTemplateLine {
+  cost_class: ExpenseCostClass;
+  category: string;
+  description: string;
+  amount: number;
+  tax_rate: number;
+  vendor_name?: string | null;
+  recurrence?: ExpenseRecurrence;
+  payment_method?: ExpensePaymentMethod | null;
+}
+
+export interface ExpenseTemplate {
+  id: string;
+  company_id: string;
+  name: string;
+  lines: ExpenseTemplateLine[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const EXPENSE_MODEL_PERIOD_LABELS: Record<ExpenseModelPeriod, string> = {
+  weekly: 'Weekly',
+  fortnightly: 'Fortnightly',
+  monthly: 'Monthly',
+  quarterly: 'Quarterly',
+  yearly: 'Yearly',
+};
+
+export const EXPENSE_MODEL_TIME_UNIT_LABELS: Record<ExpenseModelTimeUnit, string> = {
+  hourly: 'Hourly',
+  daily: 'Daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  annually: 'Annually',
+};
+
+/** Default productive hours covered by one time-unit period */
+export const EXPENSE_MODEL_TIME_UNIT_HOURS: Record<ExpenseModelTimeUnit, number> = {
+  hourly: 1,
+  daily: 8,
+  weekly: 38,
+  monthly: 152,
+  annually: 1824,
+};
+
+export const EXPENSE_MODEL_TIME_UNIT_SHORT: Record<ExpenseModelTimeUnit, string> = {
+  hourly: '/hr',
+  daily: '/day',
+  weekly: '/wk',
+  monthly: '/mo',
+  annually: '/yr',
+};
+
+/** Hours covered by a billing/post period (for converting $/hr → posted expense). */
+export const EXPENSE_MODEL_PERIOD_HOURS: Record<ExpenseModelPeriod, number> = {
+  weekly: 38,
+  fortnightly: 76,
+  monthly: 152,
+  quarterly: 456,
+  yearly: 1824,
+};
+

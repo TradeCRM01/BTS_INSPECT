@@ -8,12 +8,13 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast } from '../components/ui';
 import { SkeletonRow } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
-import { Plus, Search, BookOpen, X, Trash2, Pencil, Star, MoreVertical, DollarSign } from 'lucide-react';
+import { Plus, Search, BookOpen, X, Trash2, Pencil, Star, MoreVertical, DollarSign, FileUp } from 'lucide-react';
 import type { PriceBook, PriceBookItem } from '../types/fsm';
 import { formatMoney } from '../types/fsm';
+import { PriceBookPdfImportModal } from '../components/pricebooks/PriceBookPdfImportModal';
 
 export function PriceBooksPage() {
-  const { profile } = useAuth();
+  const { profile, company } = useAuth();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
@@ -22,6 +23,7 @@ export function PriceBooksPage() {
   const [editingBook, setEditingBook] = useState<PriceBook | null>(null);
   const [editingItem, setEditingItem] = useState<PriceBookItem | null>(null);
   const [showItemForm, setShowItemForm] = useState(false);
+  const [showPdfImport, setShowPdfImport] = useState(false);
   const [deleteItemTarget, setDeleteItemTarget] = useState<PriceBookItem | null>(null);
 
   const { data: priceBooks, isLoading, error } = useQuery({
@@ -131,10 +133,19 @@ export function PriceBooksPage() {
                     className="h-8 pl-9 pr-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6] w-48" />
                 </div>
                 {selectedBookId && (
-                  <button onClick={() => { setEditingItem(null); setShowItemForm(true); }}
-                    className="flex items-center gap-1.5 bg-[#0A2540] text-white px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] whitespace-nowrap transition-all duration-200 active:scale-[0.98]">
-                    <Plus size={14} /> Add Item
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setShowPdfImport(true)}
+                      className="flex items-center gap-1.5 border border-[#2E75B6] text-[#2E75B6] px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-blue-50 whitespace-nowrap"
+                    >
+                      <FileUp size={14} /> Import PDF
+                    </button>
+                    <button onClick={() => { setEditingItem(null); setShowItemForm(true); }}
+                      className="flex items-center gap-1.5 bg-[#0A2540] text-white px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] whitespace-nowrap transition-all duration-200 active:scale-[0.98]">
+                      <Plus size={14} /> Add Item
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -147,9 +158,14 @@ export function PriceBooksPage() {
                 title={search ? 'No items match your search' : 'No items in this price book'}
                 message={search ? 'Try a different search term.' : 'Add your first item to get started.'}
                 action={!search && (
-                  <button onClick={() => { setEditingItem(null); setShowItemForm(true); }} className="btn-primary">
-                    <Plus size={16} /> Add first item
-                  </button>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    <button onClick={() => setShowPdfImport(true)} className="btn-secondary">
+                      <FileUp size={16} /> Import from PDF
+                    </button>
+                    <button onClick={() => { setEditingItem(null); setShowItemForm(true); }} className="btn-primary">
+                      <Plus size={16} /> Add first item
+                    </button>
+                  </div>
                 )}
               />
             ) : isLoading ? (
@@ -176,16 +192,16 @@ export function PriceBooksPage() {
                         : null;
                       return (
                         <tr key={item.id} className="hover:bg-[#F9FAFB] transition-colors">
-                          <td className="px-4 py-3 text-[#6B7280] font-mono text-xs">{item.code ?? '—'}</td>
+                          <td className="px-4 py-3 text-[#6B7280] font-mono text-xs">{item.code ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
                           <td className="px-4 py-3 font-medium text-[#1A1A1A]">{item.description}</td>
-                          <td className="px-4 py-3 text-[#4A5568]">{item.category ?? '—'}</td>
+                          <td className="px-4 py-3 text-[#4A5568]">{item.category ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
                           <td className="px-4 py-3 text-[#4A5568]">{item.unit}</td>
                           <td className="px-4 py-3 text-right font-medium text-[#1A1A1A]">{formatMoney(Number(item.unit_price))}</td>
-                          <td className="px-4 py-3 text-right text-[#4A5568]">{item.cost_price ? formatMoney(Number(item.cost_price)) : '—'}</td>
+                          <td className="px-4 py-3 text-right text-[#4A5568]">{item.cost_price ? formatMoney(Number(item.cost_price)) : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
                           <td className="px-4 py-3 text-right">
                             {margin !== null ? (
                               <span className={`text-xs font-medium ${Number(margin) >= 30 ? 'text-green-600' : Number(margin) >= 15 ? 'text-amber-600' : 'text-red-600'}`}>{margin}%</span>
-                            ) : '—'}
+                            ) : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}
                           </td>
                           <td className="px-4 py-3 relative">
                             <ItemMenu item={item}
@@ -210,6 +226,23 @@ export function PriceBooksPage() {
       {showItemForm && selectedBookId && (
         <PriceBookItemForm item={editingItem} priceBookId={selectedBookId} onClose={() => setShowItemForm(false)}
           onSaved={() => { setShowItemForm(false); queryClient.invalidateQueries({ queryKey: ['price-book-items', selectedBookId] }); showToast(editingItem ? 'Item updated' : 'Item added'); }} />
+      )}
+
+      {showPdfImport && selectedBookId && (
+        <PriceBookPdfImportModal
+          priceBookId={selectedBookId}
+          existingItems={items ?? []}
+          defaultMarkup={Number(company?.default_material_markup) || 0}
+          onClose={() => setShowPdfImport(false)}
+          onImported={({ inserted, updated }) => {
+            setShowPdfImport(false);
+            queryClient.invalidateQueries({ queryKey: ['price-book-items', selectedBookId] });
+            const parts = [];
+            if (inserted) parts.push(`${inserted} added`);
+            if (updated) parts.push(`${updated} updated`);
+            showToast(parts.length ? `Price book: ${parts.join(', ')}` : 'Import complete');
+          }}
+        />
       )}
 
       <ConfirmDialog
@@ -262,8 +295,8 @@ function PriceBookForm({ book, onClose, onSaved }: { book: PriceBook | null; onC
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[8vh] overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="overlay-backdrop">
+      <div className="overlay-panel-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB]"><h2 className="text-lg font-semibold text-[#1A1A1A]">{book ? 'Edit Price Book' : 'New Price Book'}</h2><button onClick={onClose}><X size={20} className="text-[#6B7280]" /></button></div>
         <form onSubmit={handleSave} className="px-5 py-4 space-y-3">
           <Field label="Name *"><input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="form-input" placeholder="e.g. Standard Rates" /></Field>
@@ -324,10 +357,10 @@ function PriceBookItemForm({ item, priceBookId, onClose, onSaved }: { item: Pric
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[8vh] overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="overlay-backdrop">
+      <div className="overlay-panel-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] shrink-0"><h2 className="text-lg font-semibold text-[#1A1A1A]">{item ? 'Edit Item' : 'Add Price Book Item'}</h2><button onClick={onClose}><X size={20} className="text-[#6B7280]" /></button></div>
-        <form onSubmit={handleSave} className="flex-1 overflow-auto px-5 py-4 space-y-3">
+        <form onSubmit={handleSave} className="overlay-body">
           <Field label="Description *"><input required value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="form-input" placeholder="e.g. Install double power point" /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Code"><input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="form-input" placeholder="PP-001" /></Field>

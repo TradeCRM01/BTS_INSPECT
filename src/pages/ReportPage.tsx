@@ -7,7 +7,7 @@ import { generatePdf } from '../reports/generatePdf';
 import type { TemplateSchema } from '../types/template';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { Download, Mail, FileText, ChevronLeft, RefreshCw, CreditCard as Edit2, Link2, Plus, PenLine, Eye } from 'lucide-react';
+import { Download, Mail, FileText, ChevronLeft, RefreshCw, CreditCard as Edit2, Link2, Plus, PenLine, FilePlus2, Check, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { PdfViewer } from '../components/pdf/PdfViewer';
 import { AnnotationToolbar } from '../components/pdf/AnnotationToolbar';
@@ -49,6 +49,9 @@ export function ReportPage() {
   const [fontSize, setFontSize] = useState(14);
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [amending, setAmending] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const originalPdfBytesRef = useRef<Uint8Array | null>(null);
 
   useEffect(() => {
@@ -175,10 +178,15 @@ export function ReportPage() {
           meta: inspection.meta as Record<string, string>,
           responses: inspection.responses as Record<string, unknown>,
           completed_at: inspection.completed_at,
+          doc_version: (inspection as { doc_version?: number | null }).doc_version ?? 1,
+          amendment_reason: (inspection as { amendment_reason?: string | null }).amendment_reason ?? null,
         },
         template: snapshot,
         profile,
-        company,
+        company: {
+          ...company,
+          report_theme: (company as { report_theme?: Record<string, unknown> | null }).report_theme ?? null,
+        },
         photos: photoRecords ?? [],
         reportNumber: rn,
       });
@@ -260,6 +268,88 @@ export function ReportPage() {
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   }
 
+  async function handleAmendAndReissue() {
+    if (!inspection || !profile) return;
+    const reason = window.prompt('Amendment reason (required — why is this report being re-issued?):');
+    if (!reason?.trim()) return;
+
+    setAmending(true);
+    setError('');
+    try {
+      const oldMeta = (inspection.meta as Record<string, unknown>) ?? {};
+      const oldVersion = (inspection as { doc_version?: number | null }).doc_version ?? 1;
+      const { data, error: insertErr } = await supabase
+        .from('inspections')
+        .insert({
+          template_id: inspection.template_id,
+          template_snapshot: inspection.template_snapshot,
+          inspector_id: profile.id,
+          status: 'draft',
+          responses: inspection.responses,
+          meta: {
+            ...oldMeta,
+            amendmentReason: reason.trim(),
+          },
+          parent_inspection_id: inspection.parent_inspection_id ?? null,
+          client_id: (inspection as { client_id?: string | null }).client_id ?? null,
+          crm_job_id: (inspection as { crm_job_id?: string | null }).crm_job_id ?? null,
+          doc_version: oldVersion + 1,
+          amended_from_id: inspection.id,
+          amendment_reason: reason.trim(),
+          completed_at: null,
+        })
+        .select()
+        .maybeSingle();
+      if (insertErr) throw insertErr;
+      if (!data) throw new Error('Failed to create amendment');
+      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+      navigate(`/inspections/${data.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create amendment');
+    } finally {
+      setAmending(false);
+    }
+  }
+
+  async function handleCopyClientShareLink() {
+    if (!inspection || !profile || !existingReport) return;
+    setSharing(true);
+    setError('');
+    try {
+      const { data: existing } = await supabase
+        .from('inspection_report_shares')
+        .select('id, token, revoked, expires_at')
+        .eq('inspection_id', inspection.id)
+        .eq('revoked', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let token = existing?.token as string | undefined;
+      const expired = existing?.expires_at && new Date(existing.expires_at).getTime() < Date.now();
+      if (!token || expired) {
+        token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+        const { error: insErr } = await supabase.from('inspection_report_shares').insert({
+          company_id: profile.company_id,
+          inspection_id: inspection.id,
+          token,
+          created_by: profile.id,
+          expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+        if (insErr) throw insErr;
+      }
+
+      const url = `${window.location.origin}/p?t=${token}`;
+      await navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create share link');
+    } finally {
+      setSharing(false);
+    }
+  }
+
   const handleCreateAnnotation = useCallback((partial: Omit<Annotation, 'id'>) => {
     const ann = { ...partial, id: nanoid() } as Annotation;
     setAnnotations(prev => [...prev, ann]);
@@ -321,6 +411,8 @@ export function ReportPage() {
 
   const meta = inspection?.meta as Record<string, string> ?? {};
   const showPdf = pdfUrl || existingReport;
+  const docVersion = (inspection as { doc_version?: number | null } | undefined)?.doc_version ?? 1;
+  const amendmentReason = (inspection as { amendment_reason?: string | null } | undefined)?.amendment_reason;
 
   return (
     <AppShell>
@@ -331,9 +423,19 @@ export function ReportPage() {
 
         <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">{meta.siteName ?? 'Inspection Report'}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-semibold text-[#1A1A1A]">{meta.siteName ?? 'Inspection Report'}</h1>
+              {docVersion > 1 && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                  v{docVersion}
+                </span>
+              )}
+            </div>
             {existingReport && (
               <p className="text-sm text-[#4A5568] font-mono mt-0.5">{existingReport.report_number}</p>
+            )}
+            {docVersion > 1 && amendmentReason && (
+              <p className="text-xs text-[#6B7280] mt-1">Amendment: {amendmentReason}</p>
             )}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -343,6 +445,25 @@ export function ReportPage() {
             >
               <Link2 size={15} /> <Plus size={13} /> Add inspection to job
             </button>
+            {existingReport && (
+              <button
+                onClick={handleCopyClientShareLink}
+                disabled={sharing}
+                className="flex items-center gap-1.5 border border-[#2E75B6] text-[#2E75B6] px-3 py-2 rounded-md text-sm font-medium hover:bg-[#EFF6FF] disabled:opacity-50 transition-colors"
+              >
+                {shareCopied ? <Check size={15} /> : <Share2 size={15} />}
+                {shareCopied ? 'Link copied' : sharing ? 'Creating…' : 'Client share link'}
+              </button>
+            )}
+            {existingReport && (
+              <button
+                onClick={handleAmendAndReissue}
+                disabled={amending}
+                className="flex items-center gap-1.5 border border-amber-300 text-amber-800 px-3 py-2 rounded-md text-sm font-medium hover:bg-amber-50 disabled:opacity-50 transition-colors"
+              >
+                <FilePlus2 size={15} /> {amending ? 'Creating…' : 'Amend & re-issue'}
+              </button>
+            )}
             {showPdf && (
               <button onClick={handleEmail} className="flex items-center gap-1.5 border border-[#E5E7EB] text-[#4A5568] px-3 py-2 rounded-md text-sm hover:bg-[#F9FAFB]">
                 <Mail size={15} /> Email to client

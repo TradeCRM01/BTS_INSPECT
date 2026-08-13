@@ -1,7 +1,18 @@
 import type { ElectricalReportData } from './types';
 import type { TemplateSchema } from '../../types/template';
-import { evaluateCondition } from '../../lib/conditionEval';
+import { parseCountersignatures } from '../../types/template';
 import { format } from 'date-fns';
+import {
+  composeInspectionSections,
+  composeCustomFields,
+  computeOverallVerdict,
+  verdictLabel,
+  collectSignatures,
+  collectPhotoAppendix,
+  collectDefects,
+  type InspectionPhotoIn,
+} from '../shared/inspectionCompose';
+import { parseReportTheme, type PdfThemeTokens } from '../shared/styles';
 
 interface ComposeInput {
   inspection: {
@@ -9,6 +20,8 @@ interface ComposeInput {
     meta: Record<string, string>;
     responses: Record<string, unknown>;
     completed_at?: string | null;
+    doc_version?: number | null;
+    amendment_reason?: string | null;
   };
   template: { name: string; schema: TemplateSchema };
   profile: { name: string; licence_number?: string | null };
@@ -17,78 +30,34 @@ interface ComposeInput {
     abn?: string | null;
     licence_number?: string | null;
     phone?: string | null;
+    email?: string | null;
     website?: string | null;
     logo_url?: string | null;
+    report_theme?: PdfThemeTokens | Record<string, unknown> | null;
   };
-  photos: Array<{ question_id: string; instance_id?: string | null; storage_path: string; url?: string }>;
+  photos: InspectionPhotoIn[];
   reportNumber: string;
 }
 
 export function composeElectricalReport(input: ComposeInput): ElectricalReportData {
   const { inspection, template, profile, company, photos, reportNumber } = input;
   const { responses, meta } = inspection;
-  const schema = template.schema;
 
-  // Build sections exactly like generic renderer — direct pass-through, no pattern matching
-  const sections = schema.sections
-    .filter(sec => !sec.showIf || evaluateCondition(sec.showIf, responses))
-    .map(sec => {
-      if (sec.isRepeating) {
-        // Gather unique instance IDs from responses
-        const instanceIds = Object.keys(responses)
-          .filter(k => {
-            const parts = k.split('__');
-            if (parts.length !== 2) return false;
-            return sec.questions.some(q => q.id === parts[0]);
-          })
-          .map(k => k.split('__')[1])
-          .filter((v, i, a) => a.indexOf(v) === i);
+  const sections = composeInspectionSections(template.schema, responses, photos);
+  const overallVerdict = computeOverallVerdict(sections);
+  const signatures = collectSignatures(sections, profile.name);
+  const photoAppendix = collectPhotoAppendix(sections);
+  const customFields = composeCustomFields(template.schema, meta);
+  const defects = collectDefects(sections);
+  const countersignatures = parseCountersignatures(meta.countersignatures).map(c => ({
+    roleLabel: c.roleLabel,
+    name: c.name,
+    signatureUrl: c.signature || undefined,
+    date: c.date,
+  }));
 
-        const instances = instanceIds.map(instanceId => {
-          const answers = sec.questions
-            .filter(q => !q.showIf || evaluateCondition(q.showIf, responses))
-            .map(q => {
-              const key = `${q.id}__${instanceId}`;
-              const qPhotos = photos
-                .filter(p => p.question_id === q.id && p.instance_id === instanceId)
-                .map(p => ({ url: p.url ?? '', caption: p.storage_path }));
-              return {
-                label: q.label,
-                type: q.type,
-                value: responses[key] ?? null,
-                required: q.required,
-                yesNoLabels: q.yesNoLabels,
-                photos: qPhotos.length > 0 ? qPhotos : undefined,
-              };
-            });
-
-          // Use first text answer as instance label
-          const firstText = answers.find(a => a.value && a.type === 'text');
-          const label = firstText ? String(firstText.value) : `Item ${instanceIds.indexOf(instanceId) + 1}`;
-          return { instanceId, label, answers };
-        });
-
-        return { id: sec.id, title: sec.title, description: sec.description, isRepeating: true, answers: [], instances };
-      }
-
-      const answers = sec.questions
-        .filter(q => !q.showIf || evaluateCondition(q.showIf, responses))
-        .map(q => {
-          const qPhotos = photos
-            .filter(p => p.question_id === q.id && !p.instance_id)
-            .map(p => ({ url: p.url ?? '', caption: p.storage_path }));
-          return {
-            label: q.label,
-            type: q.type,
-            value: responses[q.id] ?? null,
-            required: q.required,
-            yesNoLabels: q.yesNoLabels,
-            photos: qPhotos.length > 0 ? qPhotos : undefined,
-          };
-        });
-
-      return { id: sec.id, title: sec.title, description: sec.description, isRepeating: false, answers, instances: undefined };
-    });
+  // Electrical defaults to schedule layout for repeating verification blocks
+  const layoutMode = template.schema.meta.layoutMode ?? 'test_schedule';
 
   return {
     meta: {
@@ -97,18 +66,31 @@ export function composeElectricalReport(input: ComposeInput): ElectricalReportDa
       site: meta.siteName ?? '',
       siteAddress: meta.siteAddress ?? '',
       client: meta.clientName ?? '',
+      jobNumber: meta.jobNumber,
       inspector: profile.name,
       licenceNumber: profile.licence_number ?? '',
       dateOfTest: inspection.completed_at
         ? format(new Date(inspection.completed_at), 'd MMMM yyyy')
         : format(new Date(), 'd MMMM yyyy'),
     },
+    customFields,
+    overallVerdict,
+    overallVerdictLabel: verdictLabel(overallVerdict),
+    layoutMode,
+    theme: parseReportTheme(company.report_theme),
+    docVersion: inspection.doc_version ?? 1,
+    amendmentReason: inspection.amendment_reason || meta.amendmentReason || undefined,
     sections,
+    defects,
+    signatures,
+    countersignatures,
+    photoAppendix,
     company: {
       name: company.name,
       abn: company.abn ?? undefined,
       licenceNumber: company.licence_number ?? undefined,
       phone: company.phone ?? undefined,
+      email: company.email ?? undefined,
       website: company.website ?? undefined,
       logoUrl: company.logo_url ?? undefined,
     },

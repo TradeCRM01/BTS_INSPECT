@@ -12,7 +12,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { companyId, testEmail } = await req.json();
+    const body = await req.json();
+    const companyId = body.companyId ?? body.company_id;
+    const testEmail = body.testEmail ?? body.test_email;
     if (!companyId) {
       return new Response(
         JSON.stringify({ error: "Company ID is required" }),

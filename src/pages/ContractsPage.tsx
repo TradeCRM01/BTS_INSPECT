@@ -181,7 +181,7 @@ export function ContractsPage() {
                   <p className="text-xs text-[#4A5568] mb-2">{c.client_name ?? 'No client'}</p>
                   <div className="flex items-center justify-between text-xs">
                     <span className={overdue ? 'text-[#B42318] font-medium' : 'text-[#4A5568]'}>
-                      Next: {c.next_service_date ? format(parseISO(c.next_service_date), 'd MMM yyyy') : '—'}
+                      Next: {c.next_service_date ? format(parseISO(c.next_service_date), 'd MMM yyyy') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}
                     </span>
                     <span className="font-semibold text-[#1A1A1A]">{formatMoney(Number(c.contract_value))}</span>
                   </div>
@@ -225,7 +225,7 @@ function ContractRow({ contract, onEdit, onDelete }: { contract: ServiceContract
           {contract.contract_number && <p className="text-xs text-[#6B7280]">{contract.contract_number}</p>}
         </div>
       </td>
-      <td className="px-4 py-3 text-[#4A5568]">{contract.client_name ?? '—'}</td>
+      <td className="px-4 py-3 text-[#4A5568]">{contract.client_name ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
       <td className="px-4 py-3">
         <span className={`badge ${CONTRACT_STATUS_STYLES[contract.status]}`}>
           {CONTRACT_STATUS_LABELS[contract.status]}
@@ -237,7 +237,7 @@ function ContractRow({ contract, onEdit, onDelete }: { contract: ServiceContract
           <span className={overdue ? 'text-[#B42318] font-medium' : 'text-[#4A5568]'}>
             {format(parseISO(contract.next_service_date), 'dd MMM yyyy')}
           </span>
-        ) : '—'}
+        ) : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}
       </td>
       <td className="px-4 py-3 text-right font-medium text-[#1A1A1A]">{formatMoney(Number(contract.contract_value))}</td>
       <td className="px-4 py-3 relative">
@@ -311,13 +311,13 @@ function ContractForm({ contract, onClose, onSaved }: { contract: ServiceContrac
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[8vh] overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="overlay-backdrop">
+      <div className="overlay-panel-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] shrink-0">
           <h2 className="text-lg font-semibold text-[#1A1A1A]">{contract ? 'Edit Contract' : 'New Service Contract'}</h2>
           <button onClick={onClose} className="text-[#6B7280] hover:text-[#1A1A1A]"><X size={20} /></button>
         </div>
-        <form onSubmit={handleSave} className="flex-1 overflow-auto px-5 py-4 space-y-3">
+        <form onSubmit={handleSave} className="overlay-body">
           <Field label="Title *"><input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="form-input" placeholder="e.g. Annual Maintenance Agreement" /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Client *">

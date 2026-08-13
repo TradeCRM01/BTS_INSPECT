@@ -3,17 +3,21 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import type { TemplateSchema, Section, Question, QuestionType, Condition } from '../types/template';
+import type { TemplateSchema, Section, Question, QuestionType, LayoutMode, SignOffRole } from '../types/template';
 import { TemplateSchemaValidator } from '../types/template';
+import { showIfQuestionIds } from '../lib/conditionEval';
+import { INSPECTION_TEMPLATE_PACKS, clonePackSections, packMetaDefaults } from '../lib/inspectionTemplatePacks';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { SectionPanel } from '../components/template-editor/SectionPanel';
 import { QuestionEditor } from '../components/template-editor/QuestionEditor';
 import { MobilePreview } from '../components/template-editor/MobilePreview';
+import { PdfPreviewModal } from '../components/template-editor/PdfPreviewModal';
 import { QuestionTypePicker } from '../components/template-editor/QuestionTypePicker';
+import { ShowIfEditor } from '../components/template-editor/ShowIfEditor';
 import {
-  ChevronLeft, Save, CheckCircle, AlertCircle, Plus, Layers, Trash2, Settings2, X
+  ChevronLeft, Save, CheckCircle, AlertCircle, Plus, Layers, Trash2, Settings2, X, Library, FileText
 } from 'lucide-react';
 import { nanoid } from '../lib/nanoid';
 import {
@@ -38,6 +42,7 @@ export function TemplateEditorPage() {
   });
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showQTypePicker, setShowQTypePicker] = useState(false);
@@ -204,11 +209,23 @@ export function TemplateEditorPage() {
         }
         if (q.showIf) {
           const allQIds = s.sections.flatMap(sec2 => sec2.questions.map(qq => qq.id));
-          if (!allQIds.includes(q.showIf.questionId)) {
-            errs.push(`Section ${si + 1}, Question ${qi + 1}: conditional references a non-existent question`);
+          for (const refId of showIfQuestionIds(q.showIf)) {
+            if (!allQIds.includes(refId)) {
+              errs.push(`Section ${si + 1}, Question ${qi + 1}: conditional references a non-existent question`);
+              break;
+            }
           }
         }
       });
+      if (sec.showIf) {
+        const allQIds = s.sections.flatMap(sec2 => sec2.questions.map(qq => qq.id));
+        for (const refId of showIfQuestionIds(sec.showIf)) {
+          if (!allQIds.includes(refId)) {
+            errs.push(`Section ${si + 1}: section condition references a non-existent question`);
+            break;
+          }
+        }
+      }
     });
     return errs;
   }
@@ -225,6 +242,27 @@ export function TemplateEditorPage() {
     };
     setSchema(prev => ({ ...prev, sections: [...prev.sections, newSection] }));
     setSelectedSectionId(newSection.id);
+    setSaveState('unsaved');
+  }
+
+  function applyTradePack(packId: string) {
+    const pack = INSPECTION_TEMPLATE_PACKS.find(p => p.id === packId);
+    if (!pack) return;
+    const cloned = clonePackSections(packId);
+    if (cloned.length === 0) return;
+    if (schema.sections.length > 0) {
+      const ok = window.confirm(
+        `Load “${pack.name}”? This will append ${cloned.length} section(s) to the current template.`,
+      );
+      if (!ok) return;
+    }
+    setSchema(prev => ({
+      ...prev,
+      meta: { ...prev.meta, ...packMetaDefaults(packId) },
+      sections: [...prev.sections, ...cloned],
+    }));
+    if (pack.suggestedRenderer) setRenderer(pack.suggestedRenderer);
+    setSelectedSectionId(cloned[0]?.id ?? null);
     setSaveState('unsaved');
   }
 
@@ -308,6 +346,47 @@ export function TemplateEditorPage() {
     setSaveState('unsaved');
   }
 
+  function setLayoutMode(layoutMode: LayoutMode) {
+    setSchema(prev => ({ ...prev, meta: { ...prev.meta, layoutMode } }));
+    setSaveState('unsaved');
+  }
+
+  function addSignOffRole() {
+    const role: SignOffRole = { id: nanoid(), label: 'New role', required: true };
+    setSchema(prev => ({
+      ...prev,
+      meta: {
+        ...prev.meta,
+        signOffRoles: [...(prev.meta.signOffRoles ?? []), role],
+      },
+    }));
+    setSaveState('unsaved');
+  }
+
+  function updateSignOffRole(roleId: string, updates: Partial<SignOffRole>) {
+    setSchema(prev => ({
+      ...prev,
+      meta: {
+        ...prev.meta,
+        signOffRoles: (prev.meta.signOffRoles ?? []).map(r =>
+          r.id === roleId ? { ...r, ...updates } : r
+        ),
+      },
+    }));
+    setSaveState('unsaved');
+  }
+
+  function deleteSignOffRole(roleId: string) {
+    setSchema(prev => ({
+      ...prev,
+      meta: {
+        ...prev.meta,
+        signOffRoles: (prev.meta.signOffRoles ?? []).filter(r => r.id !== roleId),
+      },
+    }));
+    setSaveState('unsaved');
+  }
+
   function addCustomField() {
     const newField = {
       id: nanoid(),
@@ -369,7 +448,7 @@ export function TemplateEditorPage() {
   return (
     <AppShell>
       {/* Top bar */}
-      <div className="bg-white border-b border-[#E5E7EB] sticky top-14 z-30">
+      <div className="bg-white border-b border-[#E5E7EB] sticky top-0 z-30 shadow-sm">
         <div className="max-w-[1200px] mx-auto px-3 md:px-4 py-2 md:py-0 md:h-12 flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3">
           <button
             onClick={() => navigate('/templates')}
@@ -404,6 +483,14 @@ export function TemplateEditorPage() {
           </div>
 
           <div className="flex gap-2 w-full md:w-auto">
+            <button
+              onClick={() => setShowPdfPreview(true)}
+              disabled={schema.sections.length === 0}
+              className="flex items-center gap-1.5 border border-[#2E75B6] text-[#2E75B6] px-2 md:px-3 py-2 md:py-1.5 rounded text-xs font-medium hover:bg-[#EFF6FF] disabled:opacity-50 transition-colors min-h-10 md:min-h-0 flex-1 md:flex-none justify-center md:justify-start"
+              title="Live PDF preview with sample answers"
+            >
+              <FileText size={13} /> <span className="hidden sm:inline">PDF Preview</span>
+            </button>
             {!isNew && templateId && (
               <button
                 onClick={handleDelete}
@@ -472,6 +559,26 @@ export function TemplateEditorPage() {
                   </button>
                 </div>
               )}
+              <div className="border-t border-[#E5E7EB] px-3 py-2.5 bg-[#F9FAFB]">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Library size={12} className="text-[#4A5568]" />
+                  <span className="text-[10px] font-semibold text-[#4A5568] uppercase tracking-wide">Trade packs</span>
+                </div>
+                <div className="space-y-1.5">
+                  {INSPECTION_TEMPLATE_PACKS.map(pack => (
+                    <button
+                      key={pack.id}
+                      type="button"
+                      onClick={() => applyTradePack(pack.id)}
+                      className="w-full text-left px-2 py-1.5 rounded border border-[#E5E7EB] bg-white hover:border-[#2E75B6] transition-colors"
+                      title={pack.description}
+                    >
+                      <p className="text-[11px] font-medium text-[#1A1A1A] leading-snug">{pack.name}</p>
+                      <p className="text-[10px] text-[#9CA3AF] line-clamp-2 mt-0.5">{pack.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Job details configuration */}
@@ -575,6 +682,63 @@ export function TemplateEditorPage() {
                   >
                     <Plus size={13} /> Add Custom Field
                   </button>
+
+                  {/* PDF layout mode */}
+                  <div className="pt-2 border-t border-[#E5E7EB] space-y-1.5">
+                    <p className="text-[10px] font-medium text-[#4A5568]">PDF layout mode</p>
+                    <select
+                      value={schema.meta.layoutMode ?? 'checklist'}
+                      onChange={e => setLayoutMode(e.target.value as LayoutMode)}
+                      className="w-full text-xs px-2 py-1.5 border border-[#E5E7EB] rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                    >
+                      <option value="checklist">Checklist</option>
+                      <option value="test_schedule">Test schedule</option>
+                      <option value="certificate">Certificate</option>
+                    </select>
+                    <p className="text-[10px] text-[#9CA3AF] leading-snug">Controls how the inspection PDF body is laid out.</p>
+                  </div>
+
+                  {/* Sign-off / countersign roles */}
+                  <div className="pt-2 border-t border-[#E5E7EB] space-y-2">
+                    <p className="text-[10px] font-medium text-[#4A5568]">Sign-off / countersign roles</p>
+                    <p className="text-[10px] text-[#9CA3AF] leading-snug">Collected on review before completing the inspection.</p>
+                    {(schema.meta.signOffRoles ?? []).map(role => (
+                      <div key={role.id} className="p-2 bg-white rounded border border-[#E5E7EB] space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <input
+                            type="text"
+                            value={role.label}
+                            onChange={e => updateSignOffRole(role.id, { label: e.target.value })}
+                            className="flex-1 min-w-0 text-xs px-2 py-1 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                            placeholder="Role label"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => deleteSignOffRole(role.id)}
+                            className="flex-shrink-0 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                        <label className="flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={role.required}
+                            onChange={e => updateSignOffRole(role.id, { required: e.target.checked })}
+                            className="w-3 h-3"
+                          />
+                          <span className="text-[10px] text-[#4A5568]">Required</span>
+                        </label>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addSignOffRole}
+                      className="w-full flex items-center justify-center gap-1.5 text-xs text-[#2E75B6] font-medium hover:text-[#0A2540] py-1.5 rounded border border-dashed border-[#2E75B6] hover:border-[#0A2540] transition-colors"
+                    >
+                      <Plus size={13} /> Add role
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -625,6 +789,16 @@ export function TemplateEditorPage() {
                         placeholder='Repeat label, e.g. "Circuit"'
                       />
                     )}
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
+                    <ShowIfEditor
+                      label="Show this section only if…"
+                      value={selectedSection.showIf}
+                      questions={allQuestions
+                        .filter(q => !selectedSection.questions.some(sq => sq.id === q.id))
+                        .map(q => ({ id: q.id, label: q.label, sectionTitle: q.sectionTitle }))}
+                      onChange={showIf => updateSection({ showIf })}
+                    />
                   </div>
                 </div>
 
@@ -715,6 +889,14 @@ export function TemplateEditorPage() {
           onClose={() => setShowQTypePicker(false)}
         />
       )}
+
+      <PdfPreviewModal
+        open={showPdfPreview}
+        onClose={() => setShowPdfPreview(false)}
+        templateName={templateName}
+        renderer={renderer}
+        schema={schema}
+      />
     </AppShell>
   );
 }

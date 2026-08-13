@@ -1,11 +1,14 @@
-import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
 import type { ElectricalReportData, ElectricalAnswer } from './types';
-const btsBanner = `${window.location.origin}/2_(9).png`;
 import {
   RunningHeader, RunningFooter, SectionHeaderBar,
-  VerdictPill, MetadataGrid, PhotoThumb,
+  VerdictPill, MetadataGrid, PhotoThumb, SignatureBlock,
+  CoverLetterhead, OverallVerdictStamp, DefectRegister,
 } from '../shared/components';
+import { TestScheduleTable } from '../shared/TestScheduleTable';
 import { pdfColors, pdfFonts } from '../shared/styles';
+import { formatMeasured } from '../shared/inspectionCompose';
+import { isNaAnswer } from '../../types/template';
 
 const s = StyleSheet.create({
   page: {
@@ -46,6 +49,17 @@ const s = StyleSheet.create({
     color: pdfColors.rule,
     flex: 1,
   },
+  comment: {
+    fontFamily: pdfFonts.body,
+    fontSize: 7.5,
+    color: pdfColors.textSecondary,
+    fontStyle: 'italic',
+    paddingHorizontal: 8,
+    paddingBottom: 6,
+    backgroundColor: pdfColors.ruleLight,
+    borderBottomWidth: 0.5,
+    borderBottomColor: pdfColors.rule,
+  },
   photoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -68,7 +82,8 @@ const s = StyleSheet.create({
 function renderAnswerValue(answer: ElectricalAnswer): string {
   const { value, type } = answer;
   if (value === null || value === undefined || value === '') return '';
-  if (type === 'signature') return '';
+  if (isNaAnswer(value)) return 'N/A';
+  if (type === 'signature' || type === 'photo') return '';
   if (Array.isArray(value)) return value.join(', ');
   if (type === 'yes_no') {
     const raw = String(value).toLowerCase();
@@ -79,24 +94,15 @@ function renderAnswerValue(answer: ElectricalAnswer): string {
     }
     return String(value).toUpperCase();
   }
+  if (type === 'number' || type === 'slider') {
+    return formatMeasured(value, answer.numberConfig);
+  }
   return String(value);
 }
 
 function AnswerRow({ answer, index }: { answer: ElectricalAnswer; index: number }) {
   const displayVal = renderAnswerValue(answer);
   const bg = index % 2 !== 0 ? pdfColors.zebra : pdfColors.white;
-
-  if (answer.type === 'yes_no') {
-    const verdict = displayVal || 'N/A';
-    return (
-      <View style={[s.questionRow, { backgroundColor: bg, alignItems: 'center' }]}>
-        <Text style={s.questionLabel}>{answer.label}</Text>
-        <View style={{ flex: 1 }}>
-          <VerdictPill verdict={verdict} />
-        </View>
-      </View>
-    );
-  }
 
   if (answer.type === 'heading') {
     return (
@@ -109,21 +115,73 @@ function AnswerRow({ answer, index }: { answer: ElectricalAnswer; index: number 
   }
 
   if (answer.type === 'signature') {
-    const raw = answer.value;
-    const sigData: string | null =
-      typeof raw === 'string' ? raw
-      : raw && typeof raw === 'object' && (raw as { url?: string }).url ? (raw as { url: string }).url
-      : null;
     return (
-      <View style={[s.questionRow, { backgroundColor: bg, alignItems: 'flex-start' }]}>
+      <View style={[s.questionRow, { backgroundColor: bg, alignItems: 'center' }]}>
         <Text style={s.questionLabel}>{answer.label}</Text>
-        <View style={{ flex: 1 }}>
-          {sigData ? (
-            <Image src={sigData} style={{ width: 160, height: 50, objectFit: 'contain' }} />
-          ) : (
-            <Text style={s.noAnswer}>{'\u2014'}</Text>
-          )}
+        <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, color: pdfColors.accent, flex: 1 }}>
+          See sign-off page
+        </Text>
+      </View>
+    );
+  }
+
+  if (answer.type === 'yes_no') {
+    return (
+      <View>
+        <View style={[s.questionRow, { backgroundColor: bg, alignItems: 'center' }]}>
+          <Text style={s.questionLabel}>{answer.label}</Text>
+          <View style={{ flex: 1 }}>
+            <VerdictPill verdict={displayVal || 'N/A'} />
+          </View>
         </View>
+        {answer.comment ? <Text style={s.comment}>Note: {answer.comment}</Text> : null}
+        {answer.photos && answer.photos.length > 0 && (
+          <View style={s.photoGrid}>
+            {answer.photos.map((p, pi) => (
+              <PhotoThumb key={pi} src={p.url} caption={p.caption} width={88} />
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  if (answer.type === 'photo') {
+    return (
+      <View>
+        <View style={[s.questionRow, { backgroundColor: bg }]}>
+          <Text style={s.questionLabel}>{answer.label}</Text>
+          <Text style={s.questionValue}>
+            {answer.photos?.length ? `${answer.photos.length} photo(s) — see appendix` : '—'}
+          </Text>
+        </View>
+        {answer.comment ? <Text style={s.comment}>Note: {answer.comment}</Text> : null}
+      </View>
+    );
+  }
+
+  if ((answer.type === 'number' || answer.type === 'slider') && answer.numericStatus && answer.numericStatus !== 'unchecked') {
+    const pill =
+      answer.numericStatus === 'pass' ? 'PASS'
+        : answer.numericStatus === 'fail' ? 'FAIL'
+          : 'N/A';
+    return (
+      <View>
+        <View style={[s.questionRow, { backgroundColor: bg, alignItems: 'center' }]}>
+          <Text style={s.questionLabel}>{answer.label}</Text>
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={s.questionValue}>{displayVal || '\u2014'}</Text>
+            <View style={{ marginLeft: 8 }}><VerdictPill verdict={pill} /></View>
+          </View>
+        </View>
+        {answer.comment ? <Text style={s.comment}>Note: {answer.comment}</Text> : null}
+        {answer.photos && answer.photos.length > 0 && (
+          <View style={s.photoGrid}>
+            {answer.photos.map((p, pi) => (
+              <PhotoThumb key={pi} src={p.url} caption={p.caption} width={88} />
+            ))}
+          </View>
+        )}
       </View>
     );
   }
@@ -136,6 +194,7 @@ function AnswerRow({ answer, index }: { answer: ElectricalAnswer; index: number 
           {displayVal || '\u2014'}
         </Text>
       </View>
+      {answer.comment ? <Text style={s.comment}>Note: {answer.comment}</Text> : null}
       {answer.photos && answer.photos.length > 0 && (
         <View style={s.photoGrid}>
           {answer.photos.map((p, pi) => (
@@ -147,15 +206,30 @@ function AnswerRow({ answer, index }: { answer: ElectricalAnswer; index: number 
   );
 }
 
+function isVisibleAnswer(a: ElectricalAnswer): boolean {
+  if (a.type === 'heading' || a.type === 'signature') return true;
+  if (a.required) return true;
+  if (a.comment) return true;
+  if (a.photos && a.photos.length > 0) return true;
+  const v = a.value;
+  if (v === null || v === undefined || v === '') return false;
+  if (Array.isArray(v) && v.length === 0) return false;
+  return true;
+}
+
 export function ElectricalReport({ data }: { data: ElectricalReportData }) {
   const { meta, company } = data;
 
   const coverMeta = [
     { label: 'Report Number', value: meta.reportNumber },
     { label: 'Issue Date', value: meta.issueDate },
+    { label: 'Document version', value: `v${data.docVersion}` },
+    ...(data.amendmentReason ? [{ label: 'Amendment', value: data.amendmentReason }] : []),
     { label: 'Site', value: meta.site },
     { label: 'Address', value: meta.siteAddress },
     { label: 'Client', value: meta.client },
+    ...(meta.jobNumber ? [{ label: 'Job / Reference', value: meta.jobNumber }] : []),
+    ...data.customFields.map(f => ({ label: f.label, value: f.value })),
     { label: 'Inspector', value: meta.inspector },
     { label: 'Licence No', value: meta.licenceNumber },
     { label: 'Date of Test', value: meta.dateOfTest },
@@ -165,28 +239,30 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
     company.abn ? `ABN ${company.abn}` : null,
     company.licenceNumber ? `Licence ${company.licenceNumber}` : null,
     company.phone,
+    company.email,
     company.website,
   ].filter(Boolean).join('  \u00B7  ');
 
-  const docTitle = `${(meta.site ?? 'Site').replace(/[<>:"/\\|?*]/g, '_')} - ${meta.reportNumber}`;
+  const docTitle = `${(meta.site || 'Site').replace(/[<>:"/\\|?*]/g, '_')} - ${meta.reportNumber}`;
 
   return (
     <Document title={docTitle}>
-      {/* ── COVER PAGE ── */}
       <Page size="A4" style={s.coverPage}>
-        {/* Full-width BTS banner header */}
-        <View style={{ width: '100%', height: 180, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
-          <Image src={btsBanner} style={{ width: '80%', height: 165, objectFit: 'contain' }} />
-        </View>
+        <CoverLetterhead
+          companyName={company.name}
+          logoUrl={company.logoUrl}
+          contactLine={contactParts || undefined}
+        />
 
-        <View style={{ paddingHorizontal: 40, paddingTop: 12, flex: 1 }}>
-
+        <View style={{ paddingHorizontal: 40, paddingTop: 20, flex: 1 }}>
           <Text style={{ fontFamily: pdfFonts.body, fontSize: 7.5, color: pdfColors.accent, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>
             AS/NZS 3000:2018 — SECTION 8 VERIFICATION
           </Text>
-          <Text style={{ fontFamily: pdfFonts.body, fontSize: 26, fontWeight: 700, color: pdfColors.navy, marginBottom: 20, lineHeight: 1.2 }}>
+          <Text style={{ fontFamily: pdfFonts.body, fontSize: 26, fontWeight: 700, color: pdfColors.navy, marginBottom: 16, lineHeight: 1.2 }}>
             Electrical Verification{'\n'}Report
           </Text>
+
+          <OverallVerdictStamp verdict={data.overallVerdict} label={data.overallVerdictLabel} />
 
           <View style={{ height: 0.5, backgroundColor: pdfColors.rule, marginBottom: 16 }} />
           <MetadataGrid items={coverMeta as Array<{ label: string; value: string }>} />
@@ -209,13 +285,23 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
         </View>
       </Page>
 
-      {/* ── INSPECTION RESULTS ── */}
-      <Page size="A4" style={s.page}>
+      <Page size="A4" style={s.page} wrap>
         <RunningHeader companyName={company.name} reportNumber={meta.reportNumber} logoUrl={company.logoUrl} />
         <View style={s.body}>
           {data.sections.map((sec, si) => {
             if (sec.isRepeating && sec.instances) {
               if (sec.instances.length === 0) return null;
+              // AS/NZS-style verification: always schedule table for repeating blocks
+              if (data.layoutMode !== 'checklist') {
+                return (
+                  <TestScheduleTable
+                    key={sec.id}
+                    title={sec.title.toUpperCase()}
+                    sectionNumber={String(si + 1).padStart(2, '0')}
+                    instances={sec.instances}
+                  />
+                );
+              }
               return (
                 <View key={sec.id} style={s.sectionBody}>
                   <SectionHeaderBar
@@ -228,14 +314,14 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
                     </Text>
                   ) : null}
                   {sec.instances.map((inst, ii) => (
-                    <View key={inst.instanceId} wrap={false} style={{ marginBottom: ii < sec.instances!.length - 1 ? 10 : 0 }}>
+                    <View key={inst.instanceId} style={{ marginBottom: ii < sec.instances!.length - 1 ? 10 : 0 }}>
                       <View style={s.instanceHeader}>
                         <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, fontWeight: 700, color: pdfColors.navy, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                           {inst.label}
                         </Text>
                       </View>
                       <View style={{ borderWidth: 0.5, borderTopWidth: 0, borderColor: pdfColors.rule }}>
-                        {inst.answers.map((answer, ai) => (
+                        {inst.answers.filter(isVisibleAnswer).map((answer, ai) => (
                           <AnswerRow key={ai} answer={answer} index={ai} />
                         ))}
                       </View>
@@ -245,19 +331,12 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
               );
             }
 
-            const visibleAnswers = sec.answers.filter(a => {
-              if (a.type === 'heading') return true;
-              if (a.required) return true;
-              const v = a.value;
-              if (v === null || v === undefined || v === '') return false;
-              if (Array.isArray(v) && v.length === 0) return false;
-              return true;
-            });
+            const visibleAnswers = sec.answers.filter(isVisibleAnswer);
             const nonHeadingCount = visibleAnswers.filter(a => a.type !== 'heading').length;
             if (nonHeadingCount === 0) return null;
 
             return (
-              <View key={sec.id} style={s.sectionBody} wrap={false}>
+              <View key={sec.id} style={s.sectionBody}>
                 <SectionHeaderBar
                   number={String(si + 1).padStart(2, '0')}
                   title={sec.title.toUpperCase()}
@@ -279,6 +358,90 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
         <RunningFooter />
       </Page>
 
+      <Page size="A4" style={s.page} wrap>
+        <RunningHeader companyName={company.name} reportNumber={meta.reportNumber} logoUrl={company.logoUrl} />
+        <View style={s.body}>
+          <SectionHeaderBar number="D" title="NON-CONFORMANCE / DEFECT REGISTER" />
+          <Text style={{ fontSize: 8, color: pdfColors.textMuted, marginBottom: 12, paddingHorizontal: 4 }}>
+            Fail-flagged verification items and measurements outside allowable limits.
+          </Text>
+          <DefectRegister defects={data.defects} />
+        </View>
+        <RunningFooter />
+      </Page>
+
+      {data.photoAppendix.length > 0 && (
+        <Page size="A4" style={s.page} wrap>
+          <RunningHeader companyName={company.name} reportNumber={meta.reportNumber} logoUrl={company.logoUrl} />
+          <View style={s.body}>
+            <SectionHeaderBar number="A" title="PHOTO APPENDIX" />
+            <Text style={{ fontSize: 8, color: pdfColors.textMuted, marginBottom: 12, paddingHorizontal: 4 }}>
+              Evidence photos captured during this verification.
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+              {data.photoAppendix.map((p, i) => (
+                <View key={i} style={{ width: '48%', marginRight: i % 2 === 0 ? '4%' : 0, marginBottom: 14 }}>
+                  <PhotoThumb src={p.url} width={230} />
+                  <Text style={{ fontFamily: pdfFonts.body, fontSize: 7.5, fontWeight: 700, color: pdfColors.navy, marginTop: 4 }}>
+                    {p.questionLabel}
+                  </Text>
+                  <Text style={{ fontFamily: pdfFonts.body, fontSize: 7, color: pdfColors.textMuted }}>
+                    {p.sectionTitle}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+          <RunningFooter />
+        </Page>
+      )}
+
+      <Page size="A4" style={s.page}>
+        <RunningHeader companyName={company.name} reportNumber={meta.reportNumber} logoUrl={company.logoUrl} />
+        <View style={s.body}>
+          <SectionHeaderBar number="S" title="SIGN-OFF & CERTIFICATION" />
+          <Text style={{ fontSize: 8.5, color: pdfColors.textSecondary, marginBottom: 16, paddingHorizontal: 4, lineHeight: 1.4 }}>
+            The undersigned confirms that the electrical verification findings in this report are true
+            and correct to the best of their knowledge at the date of test.
+          </Text>
+
+          <OverallVerdictStamp verdict={data.overallVerdict} label={data.overallVerdictLabel} />
+
+          {(data.signatures.length > 0
+            ? data.signatures
+            : [{ label: 'Licensed electrician / inspector', signatureUrl: undefined, name: meta.inspector }]
+          ).map((sig, i) => (
+            <View key={i} style={{ marginBottom: 16 }}>
+              <SignatureBlock
+                roleLabel={sig.label}
+                signatureUrl={sig.signatureUrl}
+                name={sig.name}
+                licenceNumber={meta.licenceNumber || company.licenceNumber}
+                date={meta.dateOfTest}
+              />
+            </View>
+          ))}
+
+          {data.countersignatures.length > 0 && (
+            <View style={{ marginTop: 8 }}>
+              <Text style={{ fontFamily: pdfFonts.body, fontSize: 9, fontWeight: 700, color: pdfColors.navy, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                Countersignatures
+              </Text>
+              {data.countersignatures.map((c, i) => (
+                <View key={i} style={{ marginBottom: 16 }}>
+                  <SignatureBlock
+                    roleLabel={c.roleLabel}
+                    signatureUrl={c.signatureUrl}
+                    name={c.name}
+                    date={c.date || meta.dateOfTest}
+                  />
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+        <RunningFooter />
+      </Page>
     </Document>
   );
 }

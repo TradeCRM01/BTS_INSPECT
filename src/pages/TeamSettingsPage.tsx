@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
-import { Users, UserPlus, Mail, Shield, Eye, CreditCard as Edit2, EyeOff, Trash2, Crown, X, Check, AlertCircle, Send, Clock } from 'lucide-react';
+import { OverlayPortal } from '../components/ui/OverlayPortal';
+import { Users, UserPlus, Mail, Shield, Eye, CreditCard as Edit2, EyeOff, Trash2, Crown, X, Check, AlertCircle, Send, Clock, Copy, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 type TemplateAccess = 'view' | 'edit' | 'none';
@@ -50,7 +52,7 @@ interface InviteFormProps {
   companyId: string;
   accessToken: string;
   onClose: () => void;
-  onSuccess: (name: string) => void;
+  onSuccess: (payload: { name: string; inviteLink?: string; emailSent: boolean }) => void;
 }
 
 function InviteForm({ companyId, accessToken, onClose, onSuccess }: InviteFormProps) {
@@ -96,17 +98,22 @@ function InviteForm({ companyId, accessToken, onClose, onSuccess }: InviteFormPr
     if (!res.ok || json.error) {
       setError(json.error ?? 'Failed to send invite');
     } else {
-      onSuccess(name);
+      onSuccess({
+        name,
+        inviteLink: json.inviteLink,
+        emailSent: !!json.emailSent,
+      });
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[8vh] pb-8 overflow-y-auto bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border border-[#E5E7EB]">
+    <OverlayPortal>
+    <div className="overlay-backdrop backdrop-blur-sm">
+      <div className="overlay-panel-md border border-[#E5E7EB]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB]">
           <div>
             <h2 className="text-base font-semibold text-[#1A1A1A]">Invite team member</h2>
-            <p className="text-xs text-[#4A5568] mt-0.5">They'll receive an email to set up their account.</p>
+            <p className="text-xs text-[#4A5568] mt-0.5">They'll get an invitation email from your company to join BTS Inspect.</p>
           </div>
           <button onClick={onClose} className="text-[#4A5568] hover:text-[#1A1A1A] transition-colors">
             <X size={18} />
@@ -196,12 +203,13 @@ function InviteForm({ companyId, accessToken, onClose, onSuccess }: InviteFormPr
               className="flex-1 flex items-center justify-center gap-2 bg-[#0A2540] text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? <LoadingSpinner size="sm" /> : <Mail size={14} />}
-              {loading ? 'Sending...' : 'Send invite'}
+              {loading ? 'Sending...' : 'Send invitation'}
             </button>
           </div>
         </form>
       </div>
     </div>
+    </OverlayPortal>
   );
 }
 
@@ -210,7 +218,14 @@ export function TeamSettingsPage() {
   const queryClient = useQueryClient();
   const [showInvite, setShowInvite] = useState(false);
   const [invitedName, setInvitedName] = useState('');
+  const [lastInviteLink, setLastInviteLink] = useState('');
+  const [lastInviteEmailSent, setLastInviteEmailSent] = useState(true);
+  const [linkCopied, setLinkCopied] = useState(false);
   const isAdmin = profile?.role === 'admin';
+
+  if (profile && !isAdmin) {
+    return <Navigate to="/" replace />;
+  }
 
   const { data: members, isLoading, isError, refetch } = useQuery<Member[]>({
     queryKey: ['team-members', company?.id],
@@ -288,11 +303,16 @@ export function TeamSettingsPage() {
       );
       const json = await res.json();
       if (!res.ok || json.error) throw new Error(json.error ?? 'Failed to resend invite');
-      return { email: member.email };
+      return { email: member.email, inviteLink: json.inviteLink as string | undefined, emailSent: !!json.emailSent };
     },
-    onSuccess: ({ email }) => {
+    onSuccess: ({ email, inviteLink, emailSent }) => {
       setResentEmail(email);
       setResendError('');
+      if (inviteLink) {
+        setLastInviteLink(inviteLink);
+        setLastInviteEmailSent(emailSent);
+        setInvitedName(email);
+      }
       setTimeout(() => setResentEmail(''), 4000);
     },
     onError: (err: Error) => {
@@ -302,16 +322,29 @@ export function TeamSettingsPage() {
     onSettled: () => setResendingId(null),
   });
 
-  function handleInviteSuccess(name: string) {
-    setInvitedName(name);
+  function handleInviteSuccess(payload: { name: string; inviteLink?: string; emailSent: boolean }) {
+    setInvitedName(payload.name);
+    setLastInviteLink(payload.inviteLink ?? '');
+    setLastInviteEmailSent(payload.emailSent);
+    setLinkCopied(false);
     setShowInvite(false);
     queryClient.invalidateQueries({ queryKey: ['team-members'] });
-    setTimeout(() => setInvitedName(''), 4000);
+  }
+
+  async function copyInviteLink() {
+    if (!lastInviteLink) return;
+    try {
+      await navigator.clipboard.writeText(lastInviteLink);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2500);
+    } catch {
+      setResendError('Could not copy link — select and copy it manually.');
+    }
   }
 
   return (
     <AppShell>
-      <div className="max-w-[800px] mx-auto px-4 py-6">
+      <div className="page-shell-narrow">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
@@ -333,12 +366,47 @@ export function TeamSettingsPage() {
 
         {/* Success toast */}
         {invitedName && (
-          <div className="mb-4 flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">
-            <Check size={15} className="shrink-0" />
-            Invite sent to <span className="font-medium">{invitedName}</span>. They'll receive an email shortly.
+          <div className="mb-4 space-y-3 bg-emerald-50 border border-emerald-200 text-emerald-900 px-4 py-3 rounded-lg text-sm">
+            <div className="flex items-start gap-2">
+              <Check size={15} className="shrink-0 mt-0.5 text-emerald-700" />
+              <div>
+                <p>
+                  {lastInviteEmailSent
+                    ? <>Invitation sent to <span className="font-medium">{invitedName}</span>. They can open it from any network.</>
+                    : <>Invitation created for <span className="font-medium">{invitedName}</span>, but email wasn’t sent — share the link below.</>}
+                </p>
+                <p className="text-xs text-emerald-800/80 mt-1">
+                  Or share this app URL: <span className="font-medium">https://bts-inspect.pages.dev</span>
+                </p>
+              </div>
+            </div>
+            {lastInviteLink && (
+              <div className="bg-white/70 border border-emerald-200 rounded-md p-3 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-900">
+                  <Link2 size={12} />
+                  Shareable invite link (works on their network)
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    readOnly
+                    value={lastInviteLink}
+                    className="flex-1 min-w-0 text-xs px-2 py-1.5 border border-emerald-200 rounded bg-white text-[#1A1A1A]"
+                    onFocus={e => e.target.select()}
+                  />
+                  <button
+                    type="button"
+                    onClick={copyInviteLink}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#0A2540] text-white text-xs font-medium hover:bg-[#0d2f4e]"
+                  >
+                    <Copy size={12} />
+                    {linkCopied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
-        {resentEmail && (
+        {resentEmail && !lastInviteLink && (
           <div className="mb-4 flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">
             <Check size={15} className="shrink-0" />
             Invite resent to <span className="font-medium">{resentEmail}</span>.
@@ -410,7 +478,7 @@ export function TeamSettingsPage() {
 
                     {/* Controls */}
                     <div className="flex items-center gap-2 shrink-0">
-                      {/* Template access — show for non-admin members when I'm admin and not looking at myself */}
+                      {/* Template access â€” show for non-admin members when I'm admin and not looking at myself */}
                       {isAdmin && !isMemberAdmin && !isMe && (
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs text-[#4A5568] hidden sm:block">Templates:</span>
@@ -430,7 +498,7 @@ export function TeamSettingsPage() {
                         </div>
                       )}
 
-                      {/* Role toggle — promote/demote, not for self */}
+                      {/* Role toggle â€” promote/demote, not for self */}
                       {isAdmin && !isMe && (
                         <button
                           onClick={() => {
@@ -458,7 +526,7 @@ export function TeamSettingsPage() {
                         </button>
                       )}
 
-                      {/* Resend invite — only for pending members */}
+                      {/* Resend invite â€” only for pending members */}
                       {isAdmin && !isMe && isPending && (
                         <button
                           onClick={() => resendMutation.mutate(member)}
@@ -471,7 +539,7 @@ export function TeamSettingsPage() {
                         </button>
                       )}
 
-                      {/* Remove button — can remove non-self members (including other admins) */}
+                      {/* Remove button â€” can remove non-self members (including other admins) */}
                       {isAdmin && !isMe && (
                         <button
                           onClick={() => {
@@ -505,7 +573,7 @@ export function TeamSettingsPage() {
               <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shrink-0 mt-0.5">
                 <Crown size={10} /> Admin
               </span>
-              <p className="text-xs text-[#4A5568]">Full access — manage team, templates, inspections and company settings. Use the crown button on any member to promote or demote.</p>
+              <p className="text-xs text-[#4A5568]">Full access â€” manage team, templates, inspections and company settings. Use the crown button on any member to promote or demote.</p>
             </div>
             {ACCESS_OPTIONS.map(opt => (
               <div key={opt.value} className="flex items-start gap-3">

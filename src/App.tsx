@@ -10,6 +10,7 @@ import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { AuthConfirmPage } from './pages/AuthConfirmPage';
 
 // Protected pages — code-split so only the visited page is parsed
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
@@ -30,9 +31,14 @@ const AiAssistantPage = lazy(() => import('./pages/AiAssistantPage').then(m => (
 const AiSettingsPage = lazy(() => import('./pages/AiSettingsPage').then(m => ({ default: m.AiSettingsPage })));
 const JhaTemplateEditorPage = lazy(() => import('./pages/JhaTemplateEditorPage').then(m => ({ default: m.JhaTemplateEditorPage })));
 const JhaFillPage = lazy(() => import('./pages/JhaFillPage').then(m => ({ default: m.JhaFillPage })));
+const JhaDocumentsPage = lazy(() => import('./pages/JhaDocumentsPage').then(m => ({ default: m.JhaDocumentsPage })));
+const SwmsLibraryPage = lazy(() => import('./pages/SwmsLibraryPage').then(m => ({ default: m.SwmsLibraryPage })));
+const Take5Page = lazy(() => import('./pages/Take5Page').then(m => ({ default: m.Take5Page })));
+const JhaCrewSignPage = lazy(() => import('./pages/JhaCrewSignPage').then(m => ({ default: m.JhaCrewSignPage })));
 const ClientsPage = lazy(() => import('./pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
 const ClientDetailPage = lazy(() => import('./pages/ClientDetailPage').then(m => ({ default: m.ClientDetailPage })));
 const StockPage = lazy(() => import('./pages/StockPage').then(m => ({ default: m.StockPage })));
+const StockLocationPage = lazy(() => import('./pages/StockLocationPage').then(m => ({ default: m.StockLocationPage })));
 const StockDetailPage = lazy(() => import('./pages/StockDetailPage').then(m => ({ default: m.StockDetailPage })));
 const SuppliersPage = lazy(() => import('./pages/SuppliersPage').then(m => ({ default: m.SuppliersPage })));
 const SupplierDetailPage = lazy(() => import('./pages/SupplierDetailPage').then(m => ({ default: m.SupplierDetailPage })));
@@ -40,12 +46,15 @@ const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage').then(
 const SchedulePage = lazy(() => import('./pages/SchedulePage').then(m => ({ default: m.SchedulePage })));
 const QuotesPage = lazy(() => import('./pages/QuotesPage').then(m => ({ default: m.QuotesPage })));
 const InvoicesPage = lazy(() => import('./pages/InvoicesPage').then(m => ({ default: m.InvoicesPage })));
+const ExpensesPage = lazy(() => import('./pages/ExpensesPage').then(m => ({ default: m.ExpensesPage })));
+const SolarEstimatesPage = lazy(() => import('./pages/SolarEstimatesPage').then(m => ({ default: m.SolarEstimatesPage })));
 const AssetsPage = lazy(() => import('./pages/AssetsPage').then(m => ({ default: m.AssetsPage })));
 const ContractsPage = lazy(() => import('./pages/ContractsPage').then(m => ({ default: m.ContractsPage })));
 const PriceBooksPage = lazy(() => import('./pages/PriceBooksPage').then(m => ({ default: m.PriceBooksPage })));
 const TimesheetsPage = lazy(() => import('./pages/TimesheetsPage').then(m => ({ default: m.TimesheetsPage })));
 const AdvancedReportsPage = lazy(() => import('./pages/AdvancedReportsPage').then(m => ({ default: m.AdvancedReportsPage })));
 const CustomerPortalPage = lazy(() => import('./pages/CustomerPortalPage').then(m => ({ default: m.CustomerPortalPage })));
+const ClientPortalPublicPage = lazy(() => import('./pages/ClientPortalPublicPage').then(m => ({ default: m.ClientPortalPublicPage })));
 const AccountingSettingsPage = lazy(() => import('./pages/AccountingSettingsPage').then(m => ({ default: m.AccountingSettingsPage })));
 const BarcodeScannerPage = lazy(() => import('./pages/BarcodeScannerPage').then(m => ({ default: m.BarcodeScannerPage })));
 const ManagedListsSettingsPage = lazy(() => import('./pages/ManagedListsSettingsPage').then(m => ({ default: m.ManagedListsSettingsPage })));
@@ -81,6 +90,17 @@ export default function App() {
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/auth/confirm" element={<AuthConfirmPage />} />
+      <Route
+        path="/p"
+        element={
+          <PageErrorBoundary>
+            <Suspense fallback={<PageLoader />}>
+              <ClientPortalPublicPage />
+            </Suspense>
+          </PageErrorBoundary>
+        }
+      />
 
       {/* Protected routes — each page is a separate JS chunk */}
       <Route path="/" element={<Protected><DashboardPage /></Protected>} />
@@ -105,10 +125,15 @@ export default function App() {
       <Route path="/jha-templates" element={<Navigate to="/templates" replace />} />
       <Route path="/jha-templates/new" element={<Protected><JhaTemplateEditorPage /></Protected>} />
       <Route path="/jha-templates/:id" element={<Protected><JhaTemplateEditorPage /></Protected>} />
+      <Route path="/jha" element={<Protected><JhaDocumentsPage /></Protected>} />
+      <Route path="/jha/swms-library" element={<Protected><SwmsLibraryPage /></Protected>} />
       <Route path="/jha/new" element={<Protected><JhaFillPage /></Protected>} />
+      <Route path="/jha/take5" element={<Protected><Take5Page /></Protected>} />
+      <Route path="/jha/crew-sign" element={<Protected><JhaCrewSignPage /></Protected>} />
       <Route path="/clients" element={<Protected><ClientsPage /></Protected>} />
       <Route path="/clients/:id" element={<Protected><ClientDetailPage /></Protected>} />
       <Route path="/stock" element={<Protected><StockPage /></Protected>} />
+      <Route path="/stock/locations/:locationKey" element={<Protected><StockLocationPage /></Protected>} />
       <Route path="/stock/:id" element={<Protected><StockDetailPage /></Protected>} />
       <Route path="/suppliers" element={<Protected><SuppliersPage /></Protected>} />
       <Route path="/suppliers/:id" element={<Protected><SupplierDetailPage /></Protected>} />
@@ -116,6 +141,8 @@ export default function App() {
       <Route path="/schedule" element={<Protected><SchedulePage /></Protected>} />
       <Route path="/quotes" element={<Protected><QuotesPage /></Protected>} />
       <Route path="/invoices" element={<Protected><InvoicesPage /></Protected>} />
+      <Route path="/expenses" element={<Protected><ExpensesPage /></Protected>} />
+      <Route path="/solar-estimates" element={<Protected><SolarEstimatesPage /></Protected>} />
       <Route path="/assets" element={<Protected><AssetsPage /></Protected>} />
       <Route path="/contracts" element={<Protected><ContractsPage /></Protected>} />
       <Route path="/price-books" element={<Protected><PriceBooksPage /></Protected>} />

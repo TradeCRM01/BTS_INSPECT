@@ -10,9 +10,9 @@ import {
 import { supabase } from '../lib/supabase';
 
 const MODELS = [
-  { id: 'claude-opus-4-7', label: 'Claude Opus 4.7', description: 'Most capable — best for complex analysis and admin console' },
+  { id: 'claude-opus-4-7', label: 'Claude Opus 4.7', description: 'Most capable â€” best for complex analysis and admin console' },
   { id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5', description: 'Balanced speed and capability' },
-  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', description: 'Fastest — best for simple Q&A and the help assistant' },
+  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', description: 'Fastest â€” best for simple Q&A and the help assistant' },
 ];
 
 type TestState = 'idle' | 'testing' | 'ok' | 'fail';
@@ -81,7 +81,7 @@ export function AiSettingsPage() {
       }
     } catch {
       setTestState('fail');
-      setTestError('Network error — could not reach the validation service');
+      setTestError('Network error â€” could not reach the validation service');
     }
   }
 
@@ -93,7 +93,7 @@ export function AiSettingsPage() {
     const res = await callAiSettings('POST', { anthropic_api_key: key });
     if (res.ok) {
       setKeySet(true);
-      setMaskedKey(`sk-ant-${'•'.repeat(20)}${key.slice(-4)}`);
+      setMaskedKey(`sk-ant-${'â€¢'.repeat(20)}${key.slice(-4)}`);
       setEditingKey(false);
       setNewKey('');
       setTestState('idle');
@@ -120,7 +120,7 @@ export function AiSettingsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[600px] mx-auto px-4 py-6">
+      <div className="page-shell-narrow">
         <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">AI Settings</h1>
         <p className="text-sm text-[#4A5568] mb-6">
           Configure the AI engine used by the AI Console and Help Assistant.
@@ -290,7 +290,7 @@ export function AiSettingsPage() {
                   }`} />
                 </div>
                 <span className="text-sm text-[#1A1A1A]">
-                  {adminToolsEnabled ? 'Enabled — AI can query and modify data' : 'Disabled — AI Console is read-only'}
+                  {adminToolsEnabled ? 'Enabled â€” AI can query and modify data' : 'Disabled â€” AI Console is read-only'}
                 </span>
               </label>
             </div>

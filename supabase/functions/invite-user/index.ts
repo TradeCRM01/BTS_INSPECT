@@ -32,7 +32,7 @@ async function sendViaResendApi(
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${settings.smtp_pass}`,
+        Authorization: `Bearer ${settings.smtp_pass}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ from: fromHeader, to: [to], subject, html }),
@@ -52,6 +52,111 @@ async function sendViaResendApi(
   } catch (err) {
     return { ok: false, error: String(err) };
   }
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Branded team invitation — never looks like a password-reset email. */
+function inviteEmailHtml(opts: {
+  memberName: string;
+  companyName: string;
+  inviterName: string;
+  actionLink: string;
+  resent?: boolean;
+}) {
+  const greeting = escapeHtml(opts.memberName || "there");
+  const company = escapeHtml(opts.companyName || "the team");
+  const inviter = escapeHtml(opts.inviterName || "A teammate");
+  const heading = opts.resent
+    ? `Your invitation to ${company}`
+    : `You're invited to join ${company}`;
+  const intro = opts.resent
+    ? `${inviter} re-sent your invitation to <strong style="color:#0A2540;">${company}</strong> on BTS Inspect.`
+    : `${inviter} has invited you to join <strong style="color:#0A2540;">${company}</strong> on BTS Inspect — inspection and field service management.`;
+
+  return `
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F3F4F6;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#0A2540;padding:28px 32px;">
+              <p style="margin:0;color:#F7931A;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">BTS Inspect</p>
+              <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3;">${heading}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 16px;color:#1A1A1A;font-size:16px;line-height:1.5;">Hi ${greeting},</p>
+              <p style="margin:0 0 16px;color:#4A5568;font-size:15px;line-height:1.6;">${intro}</p>
+              <p style="margin:0 0 28px;color:#4A5568;font-size:15px;line-height:1.6;">
+                Accept the invitation to set your password and open your workspace. You do not need to create a new account.
+              </p>
+              <a href="${opts.actionLink}"
+                 style="display:inline-block;background:#2E75B6;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:14px;">
+                View invitation
+              </a>
+              <p style="margin:28px 0 0;color:#9CA3AF;font-size:12px;line-height:1.5;">
+                On the next screen, click <strong>Accept invitation</strong> to finish. This invitation expires in 24 hours.
+                If you weren’t expecting this, you can ignore this email.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 24px;border-top:1px solid #E5E7EB;">
+              <p style="margin:0;color:#9CA3AF;font-size:11px;">Sent by BTS Inspect for ${company}.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function forceRedirect(actionLink: string, redirectTo: string): string {
+  try {
+    const u = new URL(actionLink);
+    u.searchParams.set("redirect_to", redirectTo);
+    return u.toString();
+  } catch {
+    return actionLink;
+  }
+}
+
+/** App confirm page — scanners can open it without consuming the OTP. */
+function appConfirmLink(appUrl: string, tokenHash: string, type: "invite" | "recovery") {
+  const u = new URL(`${appUrl}/auth/confirm`);
+  u.searchParams.set("token_hash", tokenHash);
+  u.searchParams.set("type", type);
+  u.searchParams.set("next", "/reset-password");
+  return u.toString();
+}
+
+async function findAuthUserByEmail(
+  adminClient: ReturnType<typeof createClient>,
+  email: string
+) {
+  const target = email.toLowerCase();
+  for (let page = 1; page <= 10; page++) {
+    const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const users = data?.users ?? [];
+    const match = users.find((u) => u.email?.toLowerCase() === target);
+    if (match) return match;
+    if (users.length < 200) break;
+  }
+  return null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -93,7 +198,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: callerProfile } = await adminClient
       .from("profiles")
-      .select("id, role, company_id")
+      .select("id, role, company_id, name")
       .eq("id", user.id)
       .single();
 
@@ -116,6 +221,15 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    const { data: companyRow } = await adminClient
+      .from("companies")
+      .select("id, name")
+      .eq("id", companyId)
+      .single();
+
+    const companyName = companyRow?.name?.trim() || "Building Technology Solutions";
+    const inviterName = callerProfile.name?.trim() || "A teammate";
+
     const { data: existingProfile } = await adminClient
       .from("profiles")
       .select("id, company_id")
@@ -132,19 +246,22 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: existingAuthUser } = await adminClient.auth.admin.listUsers();
-    const matchedAuthUser = (existingAuthUser?.users ?? []).find(
-      (u) => u.email?.toLowerCase() === email.toLowerCase()
-    );
-
-    const appUrl = clientAppUrl || Deno.env.get("APP_URL") || supabaseUrl;
-    const resetUrl = `${appUrl}/reset-password`;
-    const inviteUrl = `${appUrl}/login`;
-
-    const memberName = name ?? "";
+    const matchedAuthUser = await findAuthUserByEmail(adminClient, email);
     const isExisting = !!matchedAuthUser;
 
-    // First try Resend (custom branded email) if configured.
+    const appUrl = (clientAppUrl || Deno.env.get("APP_URL") || "https://bts-inspect.pages.dev").replace(/\/$/, "");
+    const resetUrl = `${appUrl}/reset-password`;
+
+    const memberName = (name ?? "").trim();
+    const meta = {
+      company_id: callerProfile.company_id,
+      company_name: companyName,
+      inviter_name: inviterName,
+      name: memberName,
+      template_access: templateAccess ?? "view",
+      invite: true,
+    };
+
     const { data: smtpConfig } = await adminClient
       .from("email_settings")
       .select("smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, from_name, from_email")
@@ -152,173 +269,131 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     const settings = (smtpConfig as EmailSettings | null) ?? null;
-    const isResendConfigured = settings && String(settings.smtp_host).includes("resend") && !!settings.smtp_pass;
+    const isResendConfigured =
+      !!settings && String(settings.smtp_host).includes("resend") && !!settings.smtp_pass;
 
-    const greetingName = memberName || "there";
-    const subject = resend || isExisting
-      ? "Your invite to BTS Inspect (resent)"
-      : "You've been invited to BTS Inspect";
-    const heading = resend || isExisting
-      ? "Here's your invite link"
-      : "You're invited to BTS Inspect";
-    const intro = resend || isExisting
-      ? "Click the button below to set your password and finish setting up your account."
-      : "You've been added to a team on BTS Inspect. Click the button below to set your password and get started.";
+    let actionLink = "";
+    let memberUserId = "";
+    let emailMethod: "smtp" | "supabase_invite" | "link_only" = "link_only";
+    let emailError: string | undefined;
 
+    // Prefer branded invitation HTML whenever Resend is configured.
+    // Otherwise use Supabase's Invite email (never the Reset Password template).
+    // Links always go to /auth/confirm (button click) so email scanners cannot burn OTPs.
     if (isResendConfigured && settings) {
-      // Generate a link to embed in the branded email.
-      let actionLink: string;
-      let memberUserId: string;
-
       if (isExisting) {
         const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
           type: "recovery",
           email,
           options: { redirectTo: resetUrl },
         });
-        if (linkError || !linkData?.properties?.action_link) {
+        const hashed = linkData?.properties?.hashed_token;
+        if (linkError || !hashed) {
           return new Response(
-            JSON.stringify({ error: linkError?.message ?? "Failed to generate link" }),
+            JSON.stringify({ error: linkError?.message ?? "Failed to generate invite link" }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        actionLink = linkData.properties.action_link;
+        actionLink = appConfirmLink(appUrl, hashed, "recovery");
         memberUserId = matchedAuthUser!.id;
       } else {
         const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
           type: "invite",
           email,
-          options: {
-            redirectTo: resetUrl,
-            data: {
-              company_id: callerProfile.company_id,
-              name: memberName,
-              template_access: templateAccess ?? "view",
-            },
-          },
+          options: { redirectTo: resetUrl, data: meta },
         });
-        if (linkError || !linkData?.user) {
+        const hashed = linkData?.properties?.hashed_token;
+        if (linkError || !linkData?.user || !hashed) {
           return new Response(
             JSON.stringify({ error: linkError?.message ?? "Failed to create invite" }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        actionLink = linkData.properties?.action_link ?? resetUrl;
+        actionLink = appConfirmLink(appUrl, hashed, "invite");
         memberUserId = linkData.user.id;
       }
 
-      // Upsert profile so the member appears in the team list.
-      const profileUpdate: Record<string, unknown> = {
-        id: memberUserId,
+      const subject = `You're invited to join ${companyName} on BTS Inspect`;
+      const result = await sendViaResendApi(
+        settings,
         email,
-        company_id: callerProfile.company_id,
-      };
-      if (!isExisting) {
-        profileUpdate.name = memberName;
-        profileUpdate.role = "member";
-        profileUpdate.template_access = templateAccess ?? "view";
-      } else if (memberName) {
-        profileUpdate.name = memberName;
-      }
-      await adminClient.from("profiles").upsert(profileUpdate, { onConflict: "id" });
-
-      const html = `
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#fff;">
-          <h2 style="color:#0A2540;margin:0 0 8px;">${heading}</h2>
-          <p style="color:#4A5568;margin:0 0 24px;line-height:1.6;">
-            Hi ${greetingName},<br><br>
-            ${intro}
-          </p>
-          <a href="${actionLink}"
-             style="display:inline-block;background:#2E75B6;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;">
-            Accept Invitation
-          </a>
-          <p style="color:#9CA3AF;font-size:12px;margin-top:32px;">
-            If you didn't expect this email, you can safely ignore it.
-            This link expires in 24 hours.
-          </p>
-        </div>
-      `;
-
-      const result = await sendViaResendApi(settings, email, subject, html);
+        subject,
+        inviteEmailHtml({
+          memberName,
+          companyName,
+          inviterName,
+          actionLink,
+          resent: !!resend || isExisting,
+        })
+      );
       if (result.ok) {
-        return new Response(
-          JSON.stringify({ success: true, emailMethod: "smtp", resent: isExisting }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        emailMethod = "smtp";
+      } else {
+        emailError = result.error;
       }
-      // Resend failed — fall through to Supabase built-in email below.
-    }
-
-    // Fallback: use Supabase's built-in email service (no API key / domain needed).
-    // inviteUserByEmail creates the auth user AND sends the invite email automatically.
-    // For existing users, use an anon-key client to call resetPasswordForEmail,
-    // which is a client-level method (not admin) that sends a recovery email.
-    if (isExisting) {
-      const anonClient = createClient(supabaseUrl, anonKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
-      const { error: resetError } = await anonClient.auth.resetPasswordForEmail(email, {
+    } else if (!isExisting) {
+      // New member: Supabase Invite User email (custom template), not password reset.
+      // Do NOT call generateLink afterward — that can invalidate the emailed token.
+      const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
         redirectTo: resetUrl,
+        data: meta,
       });
-      if (resetError) {
+      if (inviteError || !invited?.user) {
         return new Response(
-          JSON.stringify({ error: resetError.message }),
+          JSON.stringify({ error: inviteError?.message ?? "Failed to send invitation" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      memberUserId = invited.user.id;
+      emailMethod = "supabase_invite";
+      // Email contains /auth/confirm?token_hash=... from the Invite template.
+      actionLink = `${appUrl}/auth/confirm`;
     } else {
-      const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-        redirectTo: resetUrl,
-        data: {
-          company_id: callerProfile.company_id,
-          name: memberName,
-          template_access: templateAccess ?? "view",
-        },
+      // Existing member, no Resend: do not send a "reset password" email.
+      // Generate a set-password link for the admin to share / copy.
+      const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+        type: "recovery",
+        email,
+        options: { redirectTo: resetUrl },
       });
-      if (inviteError) {
-        // If the user already exists in auth (race), fall back to a recovery email.
-        if (/already.*registered|already.*exists|user.*exists/i.test(inviteError.message)) {
-          const anonClient = createClient(supabaseUrl, anonKey, {
-            auth: { autoRefreshToken: false, persistSession: false },
-          });
-          const { error: resetError } = await anonClient.auth.resetPasswordForEmail(email, {
-            redirectTo: resetUrl,
-          });
-          if (resetError) {
-            return new Response(
-              JSON.stringify({ error: resetError.message }),
-              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
-        } else {
-          return new Response(
-            JSON.stringify({ error: inviteError.message }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
+      const hashed = linkData?.properties?.hashed_token;
+      if (linkError || !hashed) {
+        return new Response(
+          JSON.stringify({ error: linkError?.message ?? "Failed to generate invite link" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-
-      // Upsert profile for the newly invited user.
-      const { data: newUser } = await adminClient.auth.admin.listUsers();
-      const created = (newUser?.users ?? []).find(
-        (u) => u.email?.toLowerCase() === email.toLowerCase()
-      );
-      if (created) {
-        const profileUpdate: Record<string, unknown> = {
-          id: created.id,
-          email,
-          company_id: callerProfile.company_id,
-          name: memberName,
-          role: "member",
-          template_access: templateAccess ?? "view",
-        };
-        await adminClient.from("profiles").upsert(profileUpdate, { onConflict: "id" });
-      }
+      actionLink = appConfirmLink(appUrl, hashed, "recovery");
+      memberUserId = matchedAuthUser!.id;
+      emailMethod = "link_only";
+      emailError =
+        "Invitation link created. Configure Email settings (Resend) to send branded invite emails for existing members, or copy the link below.";
     }
 
+    const profileUpdate: Record<string, unknown> = {
+      id: memberUserId,
+      email,
+      company_id: callerProfile.company_id,
+    };
+    if (!isExisting) {
+      profileUpdate.name = memberName || email.split("@")[0];
+      profileUpdate.role = "member";
+      profileUpdate.template_access = templateAccess ?? "view";
+    } else if (memberName) {
+      profileUpdate.name = memberName;
+    }
+    await adminClient.from("profiles").upsert(profileUpdate, { onConflict: "id" });
+
     return new Response(
-      JSON.stringify({ success: true, emailMethod: "supabase", resent: isExisting }),
+      JSON.stringify({
+        success: true,
+        emailMethod,
+        emailSent: emailMethod !== "link_only",
+        emailError: emailMethod === "link_only" ? emailError : undefined,
+        inviteLink: actionLink,
+        companyName,
+        resent: !!resend || isExisting,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

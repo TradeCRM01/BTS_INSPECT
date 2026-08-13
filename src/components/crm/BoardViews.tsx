@@ -17,6 +17,8 @@ export interface TeamMember {
   id: string;
   name: string;
   email?: string;
+  /** Explicit schedule colour (#RRGGBB); null/undefined = auto palette */
+  schedule_color?: string | null;
 }
 
 export interface BoardProps {
@@ -129,13 +131,13 @@ export const DayBoardView = memo(function DayBoardView({
 
   // Build rows: unassigned + each team member (filtered)
   const rows = useMemo(() => {
-    const r: { id: string; name: string }[] = [];
+    const r: { id: string; name: string; schedule_color?: string | null }[] = [];
     if (filteredEmployeeIds.size === 0 || filteredEmployeeIds.has('__unassigned__')) {
       r.push({ id: '__unassigned__', name: 'Unassigned' });
     }
     for (const m of teamMembers) {
       if (filteredEmployeeIds.size === 0 || filteredEmployeeIds.has(m.id)) {
-        r.push({ id: m.id, name: m.name });
+        r.push({ id: m.id, name: m.name, schedule_color: m.schedule_color });
       }
     }
     return r;
@@ -221,7 +223,9 @@ export const DayBoardView = memo(function DayBoardView({
         {/* Employee rows */}
         {rows.map((row, rowIdx) => {
           const isUnassigned = row.id === '__unassigned__';
-          const color = isUnassigned ? '#9CA3AF' : pickEmployeeColor(row.id);
+          const color = isUnassigned
+            ? '#9CA3AF'
+            : pickEmployeeColor(row.id, row.schedule_color);
           const rowJobs = jobsByRow.get(row.id) ?? [];
           const timedJobs = rowJobs.filter(j => j.start_time);
           const allDayJobs = rowJobs.filter(j => !j.start_time);
@@ -452,7 +456,7 @@ export const WeekBoardView = memo(function WeekBoardView({
                             {assignedMembers.slice(0, 4).map(m => (
                               <div key={m.id}
                                 className="w-3.5 h-3.5 rounded-full border border-white flex items-center justify-center text-[7px] font-bold text-white"
-                                style={{ background: pickEmployeeColor(m.id) }}
+                                style={{ background: pickEmployeeColor(m.id, m.schedule_color) }}
                                 title={m.name}
                               >
                                 {m.name[0]?.toUpperCase()}
@@ -667,7 +671,7 @@ export const JobListView = memo(function JobListView({
                   <div className="flex items-center gap-0.5">
                     {assignedMembers.slice(0, 3).map(m => (
                       <div key={m.id} className="w-4 h-4 rounded-full border border-white flex items-center justify-center text-[7px] font-bold text-white"
-                        style={{ background: pickEmployeeColor(m.id) }} title={m.name}>
+                        style={{ background: pickEmployeeColor(m.id, m.schedule_color) }} title={m.name}>
                         {m.name[0]?.toUpperCase()}
                       </div>
                     ))}

@@ -61,9 +61,10 @@ export function ContextMenu({ items, align = 'right' }: ContextMenuProps) {
     <>
       <div className="fixed inset-0" style={{ zIndex: 9998 }} onClick={(e) => { e.stopPropagation(); setOpen(false); }} />
       <div
-        className="fixed bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 min-w-[200px] max-h-80 overflow-y-auto animate-fade-in"
-        style={{ top: pos.top, left: pos.left, zIndex: 9999 }}
+        className="fixed bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 min-w-[200px] max-h-80 overflow-y-auto overscroll-contain animate-fade-in"
+        style={{ top: pos.top, left: pos.left, zIndex: 9999, WebkitOverflowScrolling: 'touch' }}
         onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
       >
         {items.map((entry, i) => {
           if (isDivider(entry)) {

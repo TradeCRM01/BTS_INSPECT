@@ -127,7 +127,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const actionLink = linkData.properties.action_link;
+    const actionLink = (() => {
+      try {
+        const u = new URL(linkData.properties.action_link);
+        u.searchParams.set("redirect_to", resetUrl);
+        return u.toString();
+      } catch {
+        return linkData.properties.action_link;
+      }
+    })();
 
     // Try branded email via Resend first
     const isResendConfigured =

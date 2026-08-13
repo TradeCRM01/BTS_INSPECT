@@ -5,10 +5,11 @@ import type { Job, JobStatus, JobPriority, Client } from '../../types/crm';
 import {
   JOB_STATUS_LABELS, JOB_PRIORITY_LABELS,
 } from '../../types/crm';
-import { X, Clock, MapPin, User, FileText, Trash2, Link2, Briefcase, DollarSign, GitBranch, Plus } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { X, Trash2, Link2, DollarSign, GitBranch, Plus, ClipboardList } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { JobCostingPanel } from '../jobs/JobCostingPanel';
+import { OverlayPortal } from '../ui/OverlayPortal';
 
 interface JobFormModalProps {
   job: Job | null;
@@ -21,6 +22,7 @@ interface JobFormModalProps {
 
 export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId, onClose, onSaved }: JobFormModalProps) {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
   const [inspections, setInspections] = useState<{ id: string; name: string; status: string }[]>([]);
@@ -156,8 +158,9 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[8vh] overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden mb-8" onClick={e => e.stopPropagation()}>
+    <OverlayPortal>
+    <div className="overlay-backdrop">
+      <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
@@ -173,10 +176,11 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
           </button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-auto px-5 py-4 space-y-4">
+        {/* Body â€” multi-column fills the wide panel; scrolls only if needed */}
+        <div className="overlay-body">
+          <div className="overlay-form-grid">
           {/* Title */}
-          <div>
+          <div className="overlay-form-span-all">
             <label className="block text-xs font-medium text-[#4A5568] mb-1">Job Title <span className="text-red-500">*</span></label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               className="form-input" placeholder="e.g. Annual safety inspection" autoFocus />
@@ -200,64 +204,72 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
             )}
           </div>
 
-          {/* Status + Priority */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-[#4A5568] mb-1">Status</label>
-              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as JobStatus }))}
-                className="form-input cursor-pointer">
-                {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
-                  <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[#4A5568] mb-1">Priority</label>
-              <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value as JobPriority }))}
-                className="form-input cursor-pointer">
-                {(Object.keys(JOB_PRIORITY_LABELS) as JobPriority[]).map(p => (
-                  <option key={p} value={p}>{JOB_PRIORITY_LABELS[p]}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Date + Time */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-[#4A5568] mb-1">Date</label>
-              <input type="date" value={form.scheduled_date ?? ''} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
-                className="form-input" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[#4A5568] mb-1">Start</label>
-              <input type="time" value={form.start_time ?? ''} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
-                className="form-input" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[#4A5568] mb-1">End</label>
-              <input type="time" value={form.end_time ?? ''} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
-                className="form-input" />
-            </div>
-          </div>
-
           {/* Address */}
-          <div>
+          <div className="overlay-form-span-2">
             <label className="block text-xs font-medium text-[#4A5568] mb-1">Job Site Address</label>
             <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
               className="form-input" placeholder="Where the work is happening" />
           </div>
 
-          {/* Description */}
+          {/* Status + Priority */}
           <div>
+            <label className="block text-xs font-medium text-[#4A5568] mb-1">Status</label>
+            <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as JobStatus }))}
+              className="form-input cursor-pointer">
+              {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
+                <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#4A5568] mb-1">Priority</label>
+            <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value as JobPriority }))}
+              className="form-input cursor-pointer">
+              {(Object.keys(JOB_PRIORITY_LABELS) as JobPriority[]).map(p => (
+                <option key={p} value={p}>{JOB_PRIORITY_LABELS[p]}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#4A5568] mb-1">Job Budget (AUD)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.budget ?? ''}
+              onChange={e => setForm(f => ({ ...f, budget: e.target.value }))}
+              className="form-input"
+              placeholder="0.00"
+            />
+          </div>
+
+          {/* Date + Time */}
+          <div>
+            <label className="block text-xs font-medium text-[#4A5568] mb-1">Date</label>
+            <input type="date" value={form.scheduled_date ?? ''} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
+              className="form-input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#4A5568] mb-1">Start</label>
+            <input type="time" value={form.start_time ?? ''} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
+              className="form-input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#4A5568] mb-1">End</label>
+            <input type="time" value={form.end_time ?? ''} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
+              className="form-input" />
+          </div>
+
+          {/* Description */}
+          <div className="overlay-form-span-all">
             <label className="block text-xs font-medium text-[#4A5568] mb-1">Description</label>
             <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-              className="form-input min-h-[60px] resize-y" placeholder="Job details, scope of work, special instructions..." />
+              className="form-input min-h-[88px] resize-y" placeholder="Job details, scope of work, special instructions..." />
           </div>
 
           {/* Crew Assignment */}
           {teamMembers.length > 0 && (
-            <div>
+            <div className="overlay-form-span-all">
               <label className="block text-xs font-medium text-[#4A5568] mb-1.5">Assign Crew</label>
               <div className="flex flex-wrap gap-1.5">
                 {teamMembers.map(m => {
@@ -292,7 +304,7 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
           )}
 
           {/* Parent Project (Multi-Stage) */}
-          <div>
+          <div className="overlay-form-span-2">
             <label className="block text-xs font-medium text-[#4A5568] mb-1">Parent Project (for multi-stage jobs)</label>
             <select value={form.parent_job_id} onChange={e => setForm(f => ({ ...f, parent_job_id: e.target.value }))}
               className="form-input cursor-pointer">
@@ -306,7 +318,7 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
 
           {/* Child stages (if this is a parent) */}
           {job && childJobs.length > 0 && (
-            <div className="border-t border-gray-100 pt-3">
+            <div className="overlay-form-span-all border-t border-gray-100 pt-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <GitBranch size={14} className="text-[#0A2540]" />
                 <h3 className="text-xs font-semibold text-[#1A1A1A] uppercase tracking-wide">Project Stages ({childJobs.length})</h3>
@@ -324,50 +336,61 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
 
           {/* Add stage button for parent jobs */}
           {job && !job.parent_job_id && (
-            <button
-              type="button"
-              onClick={() => setShowAddStage(true)}
-              className="flex items-center gap-1.5 text-sm text-[#2E75B6] hover:underline font-medium"
-            >
-              <Plus size={14} /> Add a stage to this project
-            </button>
-          )}
-
-          {/* Budget */}
-          <div>
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">Job Budget (AUD)</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.budget ?? ''}
-              onChange={e => setForm(f => ({ ...f, budget: e.target.value }))}
-              className="form-input"
-              placeholder="0.00"
-            />
-            <p className="text-xs text-[#9CA3AF] mt-1">Used for budget vs actual comparison in job costing.</p>
-          </div>
-
-          {/* Job Costing Panel (only when editing existing job) */}
-          {job && (
-            <div className="border-t border-gray-100 pt-4">
-              <div className="flex items-center gap-1.5 mb-3">
-                <DollarSign size={14} className="text-[#0A2540]" />
-                <h3 className="text-xs font-semibold text-[#1A1A1A] uppercase tracking-wide">Job Costs</h3>
-              </div>
-              <JobCostingPanel jobId={job.id} />
+            <div className="overlay-form-span-all">
+              <button
+                type="button"
+                onClick={() => setShowAddStage(true)}
+                className="flex items-center gap-1.5 text-sm text-[#2E75B6] hover:underline font-medium"
+              >
+                <Plus size={14} /> Add a stage to this project
+              </button>
             </div>
           )}
 
-          {/* Existing inspection link */}
-          {job?.inspection_id && (
-            <Link to={`/inspections/${job.inspection_id}`}
-              className="flex items-center gap-2 text-sm text-[#2E75B6] hover:underline">
-              <Link2 size={14} /> Open linked inspection
-            </Link>
+          {/* Job Costing Panel (only when editing existing job) */}
+          {job && (
+            <div className="overlay-form-span-all border-t border-gray-100 pt-4">
+              <div className="flex items-center gap-1.5 mb-3">
+                <DollarSign size={14} className="text-[#0A2540]" />
+                <h3 className="text-xs font-semibold text-[#1A1A1A] uppercase tracking-wide">
+                  Job bill / costs
+                </h3>
+              </div>
+              <JobCostingPanel
+                jobId={job.id}
+                clientId={form.client_id || job.client_id}
+                onInvoiceCreated={(invoiceId) => {
+                  onClose();
+                  navigate('/invoices');
+                  // Keep a toast-friendly path: invoices list; user can open the newest draft
+                  void invoiceId;
+                }}
+              />
+            </div>
           )}
 
-          {err && <p className="text-sm text-red-600">{err}</p>}
+          {/* Existing inspection link / start */}
+          {job && (
+            <div className="overlay-form-span-all flex flex-wrap items-center gap-3">
+              {job.inspection_id ? (
+                <Link to={`/inspections/${job.inspection_id}`}
+                  className="flex items-center gap-2 text-sm text-[#2E75B6] hover:underline">
+                  <Link2 size={14} /> Open linked inspection
+                </Link>
+              ) : (
+                <Link
+                  to={`/inspections/new?crmJobId=${job.id}`}
+                  className="flex items-center gap-2 text-sm font-medium text-[#0A2540] bg-[#F0F7FF] border border-[#BFDBFE] px-3 py-1.5 rounded-md hover:bg-[#E0EFFF]"
+                  onClick={onClose}
+                >
+                  <ClipboardList size={14} /> Start inspection from this job
+                </Link>
+              )}
+            </div>
+          )}
+
+          {err && <p className="overlay-form-span-all text-sm text-red-600">{err}</p>}
+          </div>
         </div>
 
         {/* Footer */}
@@ -400,5 +423,6 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
         </div>
       </div>
     </div>
+    </OverlayPortal>
   );
 }

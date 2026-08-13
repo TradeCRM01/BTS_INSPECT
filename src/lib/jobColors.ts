@@ -1,6 +1,6 @@
 // SimPRO-style color palette for jobs and employees.
 // Each job gets a color from JOB_COLORS. Each employee gets a color
-// from EMPLOYEE_COLORS for their column header / avatar.
+// from EMPLOYEE_COLORS for their column header / avatar unless schedule_color is set.
 
 export const JOB_COLORS = [
   '#2E75B6', // blue
@@ -17,15 +17,20 @@ export const JOB_COLORS = [
   '#4F46E5', // indigo
 ];
 
+/** Muted, schedule-friendly palette — easier on the eyes than neon defaults */
 export const EMPLOYEE_COLORS = [
-  '#2E75B6', // blue
-  '#1B7F3A', // green
-  '#F7931A', // orange
-  '#B42318', // red
-  '#7C3AED', // purple
-  '#0891B2', // cyan
-  '#DB2777', // pink
-  '#CA8A04', // gold
+  '#3B6D9A', // steel blue
+  '#4A7C59', // sage
+  '#C17F3A', // clay
+  '#8B5E5E', // dusty rose
+  '#5B6B8C', // slate indigo
+  '#3D8A8A', // teal
+  '#7A6A4F', // warm taupe
+  '#6B5B7A', // muted plum
+  '#2F5D50', // forest
+  '#9A6B3F', // amber brown
+  '#4F6F8F', // soft navy
+  '#7A4E4E', // brick
 ];
 
 // Deterministically pick a color for a job based on its ID,
@@ -40,8 +45,15 @@ export function pickJobColor(seed: string, explicit?: string | null): string {
   return JOB_COLORS[Math.abs(hash) % JOB_COLORS.length];
 }
 
-// Deterministically pick a color for an employee based on their ID.
-export function pickEmployeeColor(id: string): string {
+/** Prefer saved schedule_color; otherwise stable hash from id. */
+export function pickEmployeeColor(id: string, explicit?: string | null): string {
+  if (explicit && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(explicit)) {
+    if (explicit.length === 4) {
+      const r = explicit[1], g = explicit[2], b = explicit[3];
+      return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+    }
+    return explicit.toUpperCase();
+  }
   let hash = 0;
   for (let i = 0; i < id.length; i++) {
     hash = ((hash << 5) - hash) + id.charCodeAt(i);

@@ -105,6 +105,15 @@ Deno.serve(async (req: Request) => {
 
     const companyId = companies[0].id;
 
+    // First profile in the company (or when no admin exists) becomes admin
+    const { count: adminCount } = await adminClient
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("role", "admin");
+    const role = (adminCount ?? 0) === 0 ? "admin" : "member";
+    const templateAccess = role === "admin" ? "edit" : "view";
+
     // 3. Create profile (using service role to bypass RLS)
     const { error: profileError } = await adminClient
       .from("profiles")
@@ -113,7 +122,8 @@ Deno.serve(async (req: Request) => {
         email,
         name,
         company_id: companyId,
-        role: "member",
+        role,
+        template_access: templateAccess,
       });
 
     if (profileError) {

@@ -157,7 +157,7 @@ export function CompliancePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compliance-items'] });
-      showToast('Marked as complete — next due date calculated');
+      showToast('Marked as complete ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â next due date calculated');
     },
   });
 
@@ -241,7 +241,7 @@ export function CompliancePage() {
           <div>
             <h1 className="text-xl font-semibold text-[#1A1A1A]">Compliance Tracker</h1>
             <p className="text-sm text-[#4A5568] mt-0.5">
-              {totals.total} tracked items · {totals.overdue} overdue
+              {totals.total} tracked items Ãƒâ€šÃ‚Â· {totals.overdue} overdue
             </p>
           </div>
           <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
@@ -437,7 +437,7 @@ function ComplianceRow({
           )}
         </div>
       </td>
-      <td className="px-4 py-3 text-[#4A5568]">{item.client_name ?? '—'}</td>
+      <td className="px-4 py-3 text-[#4A5568]">{item.client_name ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
       <td className="px-4 py-3">
         <span className={`badge ${COMPLIANCE_STATUS_STYLES[item.status]}`}>
           {COMPLIANCE_STATUS_LABELS[item.status]}
@@ -459,7 +459,7 @@ function ComplianceRow({
       <td className="px-4 py-3 text-[#4A5568]">
         {item.last_completed_date
           ? format(parseISO(item.last_completed_date), 'dd MMM yyyy')
-          : '—'}
+          : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}
       </td>
       <td className="px-4 py-3 relative">
         <ContextMenu items={menuItems} />
@@ -575,15 +575,15 @@ function ComplianceForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[8vh] overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="overlay-backdrop">
+      <div className="overlay-panel-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] shrink-0">
           <h2 className="text-lg font-semibold text-[#1A1A1A]">
             {item ? 'Edit Compliance Item' : 'New Compliance Item'}
           </h2>
           <button onClick={onClose} className="text-[#6B7280] hover:text-[#1A1A1A]"><X size={20} /></button>
         </div>
-        <form onSubmit={handleSave} className="flex-1 overflow-auto px-5 py-4 space-y-3">
+        <form onSubmit={handleSave} className="overlay-body">
           <Field label="Title *">
             <input
               required
@@ -663,7 +663,7 @@ function ComplianceForm({
               />
             </Field>
           </div>
-          <Field label="Reminder Email — Days Before Due">
+          <Field label="Reminder Email ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Days Before Due">
             <input
               type="number"
               min={0}

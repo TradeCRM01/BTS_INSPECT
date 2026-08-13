@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Trash } from 'lucide-react';
+import { Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Trash, Palette } from 'lucide-react';
 
 interface EmailSettings {
   smtp_host: string;
@@ -15,6 +16,13 @@ interface EmailSettings {
   from_email: string;
 }
 
+interface ReportTheme {
+  navy: string;
+  accent: string;
+  accentLight: string;
+  navyLight: string;
+}
+
 const defaultEmailSettings: EmailSettings = {
   smtp_host: '',
   smtp_port: '587',
@@ -23,6 +31,13 @@ const defaultEmailSettings: EmailSettings = {
   smtp_pass: '',
   from_name: '',
   from_email: '',
+};
+
+const defaultReportTheme: ReportTheme = {
+  navy: '#0A2540',
+  accent: '#2E75B6',
+  accentLight: '#D6E8F7',
+  navyLight: '#153558',
 };
 
 export function CompanySettingsPage() {
@@ -61,17 +76,35 @@ export function CompanySettingsPage() {
   const [testingEmail, setTestingEmail] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
-  // Registered users list
+  // Report branding / theme
+  const existingTheme = (company as { report_theme?: Partial<ReportTheme> | null } | null)?.report_theme;
+  const [reportTheme, setReportTheme] = useState<ReportTheme>({
+    navy: existingTheme?.navy || defaultReportTheme.navy,
+    accent: existingTheme?.accent || defaultReportTheme.accent,
+    accentLight: existingTheme?.accentLight || defaultReportTheme.accentLight,
+    navyLight: existingTheme?.navyLight || defaultReportTheme.navyLight,
+  });
+  const [savingTheme, setSavingTheme] = useState(false);
+  const [themeSaved, setThemeSaved] = useState(false);
+  const [themeError, setThemeError] = useState('');
+
+  // Registered users list (RPC bypasses profiles RLS recursion)
   const { data: registeredUsers, isLoading: loadingUsers } = useQuery({
     queryKey: ['registered-users', company?.id],
     queryFn: async () => {
       if (!company) return [];
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, email, name, created_at')
-        .eq('company_id', company.id)
-        .order('created_at', { ascending: false });
-      return data ?? [];
+      const { data, error } = await supabase.rpc('get_company_members', {
+        p_company_id: company.id,
+      });
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string;
+        email: string;
+        name: string;
+        role: string;
+        created_at: string;
+        email_confirmed_at: string | null;
+      }>;
     },
     enabled: !!company && isAdmin,
   });
@@ -80,8 +113,36 @@ export function CompanySettingsPage() {
     if (company) {
       loadRenderers();
       if (isAdmin) loadEmailSettings();
+      const theme = (company as { report_theme?: Partial<ReportTheme> | null }).report_theme;
+      if (theme) {
+        setReportTheme({
+          navy: theme.navy || defaultReportTheme.navy,
+          accent: theme.accent || defaultReportTheme.accent,
+          accentLight: theme.accentLight || defaultReportTheme.accentLight,
+          navyLight: theme.navyLight || defaultReportTheme.navyLight,
+        });
+      }
     }
   }, [company]);
+
+  async function handleSaveReportTheme(e: React.FormEvent) {
+    e.preventDefault();
+    if (!company) return;
+    setSavingTheme(true);
+    setThemeError('');
+    const { error } = await supabase
+      .from('companies')
+      .update({ report_theme: reportTheme })
+      .eq('id', company.id);
+    if (error) {
+      setThemeError(error.message);
+    } else {
+      await refreshProfile();
+      setThemeSaved(true);
+      setTimeout(() => setThemeSaved(false), 2000);
+    }
+    setSavingTheme(false);
+  }
 
   async function loadRenderers() {
     if (!company) return;
@@ -145,7 +206,7 @@ export function CompanySettingsPage() {
     setTestResult(null);
 
     // Call the invite-user function with a test flag by hitting a dedicated test endpoint
-    // We'll use the ai-settings function pattern — call the edge function with test mode
+    // We'll use the ai-settings function pattern â€” call the edge function with test mode
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(
@@ -157,7 +218,7 @@ export function CompanySettingsPage() {
             Authorization: `Bearer ${session?.access_token}`,
             Apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
           },
-          body: JSON.stringify({ company_id: company.id }),
+          body: JSON.stringify({ companyId: company.id, company_id: company.id }),
         }
       );
       const json = await res.json();
@@ -236,7 +297,7 @@ export function CompanySettingsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[600px] mx-auto px-4 py-6">
+      <div className="page-shell-narrow">
         <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">Company Settings</h1>
         <p className="text-sm text-[#4A5568] mb-6">Manage your company profile and branding.</p>
 
@@ -295,6 +356,61 @@ export function CompanySettingsPage() {
           </div>
           <p className="text-xs text-[#4A5568] mt-2">PNG or SVG recommended. Used on PDF reports.</p>
         </div>
+
+        {/* Report branding / theme — admin only */}
+        {isAdmin && (
+          <form onSubmit={handleSaveReportTheme} className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Palette size={16} className="text-[#2E75B6]" />
+              <h2 className="text-sm font-semibold text-[#1A1A1A]">Report branding / theme</h2>
+            </div>
+            <p className="text-xs text-[#4A5568] mb-4">
+              Applies to inspection PDF letterhead accents (navy bars, accent highlights).
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+              {(
+                [
+                  { key: 'navy', label: 'Navy' },
+                  { key: 'accent', label: 'Accent' },
+                  { key: 'accentLight', label: 'Accent light' },
+                  { key: 'navyLight', label: 'Navy light' },
+                ] as const
+              ).map(({ key, label }) => (
+                <div key={key}>
+                  <label className="text-xs text-[#4A5568] block mb-1">{label}</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={reportTheme[key]}
+                      onChange={e => setReportTheme(prev => ({ ...prev, [key]: e.target.value }))}
+                      className="w-9 h-9 rounded border border-[#E5E7EB] cursor-pointer bg-white p-0.5"
+                    />
+                    <input
+                      type="text"
+                      value={reportTheme[key]}
+                      onChange={e => setReportTheme(prev => ({ ...prev, [key]: e.target.value }))}
+                      className={inputClass + ' font-mono'}
+                      pattern="^#[0-9A-Fa-f]{6}$"
+                      placeholder="#000000"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {themeError && (
+              <p className="text-sm text-red-600 mb-3 flex items-center gap-1.5">
+                <AlertCircle size={14} /> {themeError}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={savingTheme}
+              className="flex items-center gap-1.5 bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
+            >
+              {themeSaved ? <><Check size={14} /> Saved</> : savingTheme ? 'Saving...' : 'Save theme'}
+            </button>
+          </form>
+        )}
 
         {/* Inspection Types */}
         <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
@@ -365,7 +481,7 @@ export function CompanySettingsPage() {
           </div>
         </div>
 
-        {/* Email / SMTP Settings — admin only */}
+        {/* Email / SMTP Settings â€” admin only */}
         {isAdmin && (
           <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
             <div className="flex items-center gap-2 mb-1">
@@ -445,7 +561,7 @@ export function CompanySettingsPage() {
                           type={showPass ? 'text' : 'password'}
                           value={emailSettings.smtp_pass}
                           onChange={e => setEmailSettings(s => ({ ...s, smtp_pass: e.target.value }))}
-                          placeholder="••••••••"
+                          placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                           autoComplete="new-password"
                           className={inputClass + ' pr-10'}
                         />
@@ -511,12 +627,20 @@ export function CompanySettingsPage() {
           </div>
         )}
 
-        {/* Registered Users — admin only */}
+        {/* Registered Users â€” admin only */}
         {isAdmin && (
           <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Users size={16} className="text-[#2E75B6]" />
-              <h2 className="text-sm font-semibold text-[#1A1A1A]">Registered Users</h2>
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2">
+                <Users size={16} className="text-[#2E75B6]" />
+                <h2 className="text-sm font-semibold text-[#1A1A1A]">Registered Users</h2>
+              </div>
+              <Link
+                to="/settings/team"
+                className="text-xs font-medium text-[#2E75B6] hover:underline"
+              >
+                Manage team â†’
+              </Link>
             </div>
 
             {loadingUsers ? (
@@ -530,6 +654,7 @@ export function CompanySettingsPage() {
                     <tr className="border-b border-[#E5E7EB]">
                       <th className="text-left py-2 px-3 font-medium text-[#1A1A1A]">Name</th>
                       <th className="text-left py-2 px-3 font-medium text-[#1A1A1A]">Email</th>
+                      <th className="text-left py-2 px-3 font-medium text-[#1A1A1A] hidden sm:table-cell">Role</th>
                       <th className="text-left py-2 px-3 font-medium text-[#1A1A1A] hidden sm:table-cell">Status</th>
                       <th className="text-left py-2 px-3 font-medium text-[#1A1A1A] hidden md:table-cell">Joined</th>
                     </tr>
@@ -537,15 +662,26 @@ export function CompanySettingsPage() {
                   <tbody>
                     {registeredUsers?.map(user => (
                       <tr key={user.id} className="border-b border-[#F3F4F6] hover:bg-[#F9FAFB]">
-                        <td className="py-2.5 px-3 text-[#1A1A1A]">{user.name || '—'}</td>
+                        <td className="py-2.5 px-3 text-[#1A1A1A]">{user.name || 'â€”'}</td>
                         <td className="py-2.5 px-3 text-[#4A5568]">{user.email}</td>
                         <td className="py-2.5 px-3 hidden sm:table-cell">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full border border-green-200">
-                            <Check size={12} /> Active
+                          <span className="inline-flex px-2 py-0.5 text-xs rounded-full border border-[#E5E7EB] text-[#4A5568] capitalize">
+                            {user.role || 'member'}
                           </span>
                         </td>
+                        <td className="py-2.5 px-3 hidden sm:table-cell">
+                          {user.email_confirmed_at ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full border border-green-200">
+                              <Check size={12} /> Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 text-xs rounded-full border border-amber-200">
+                              Pending
+                            </span>
+                          )}
+                        </td>
                         <td className="py-2.5 px-3 text-[#9CA3AF] hidden md:table-cell text-xs">
-                          {user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}
+                          {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'â€”'}
                         </td>
                       </tr>
                     ))}

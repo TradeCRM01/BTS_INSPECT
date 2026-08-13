@@ -1,7 +1,20 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Bitcoin, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
+
+function readAuthHashError(): string | null {
+  const raw = window.location.hash.replace(/^#/, '') || window.location.search.replace(/^\?/, '');
+  if (!raw) return null;
+  const params = new URLSearchParams(raw);
+  const code = params.get('error_code') || params.get('error');
+  const desc = params.get('error_description');
+  if (!code && !desc) return null;
+  if (code === 'otp_expired' || /expired|invalid/i.test(desc ?? '')) {
+    return 'This email link has expired or was already used. Request a new one below.';
+  }
+  return desc?.replace(/\+/g, ' ') || 'This email link is no longer valid.';
+}
 
 export function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -12,27 +25,32 @@ export function ResetPasswordPage() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
-  const [timedOut, setTimedOut] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(() => readAuthHashError());
 
   useEffect(() => {
-    // Check if a session already exists (hash may have been processed before mount)
+    if (linkError) {
+      // Drop the broken hash so refresh doesn't keep showing a browser-level failure.
+      if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) setSessionReady(true);
     });
 
-    // Listen for both events:
-    // - PASSWORD_RECOVERY: password reset flow
-    // - SIGNED_IN: invite acceptance flow (Supabase fires SIGNED_IN for invite links)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
         setSessionReady(true);
       }
     });
 
-    // Fallback: if no session after 8s, the link may be expired or invalid
     const timeout = setTimeout(() => {
       setSessionReady(prev => {
-        if (!prev) setTimedOut(true);
+        if (!prev) {
+          setLinkError('This link may have expired or already been used. Request a new one below.');
+        }
         return prev;
       });
     }, 8000);
@@ -41,7 +59,7 @@ export function ResetPasswordPage() {
       subscription.unsubscribe();
       clearTimeout(timeout);
     };
-  }, []);
+  }, [linkError]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -87,27 +105,26 @@ export function ResetPasswordPage() {
               <h1 className="text-lg font-semibold text-[#1A1A1A] mb-2">Password updated</h1>
               <p className="text-sm text-[#4A5568]">Your password has been changed. Redirecting you now...</p>
             </div>
+          ) : linkError ? (
+            <div className="text-center py-4">
+              <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle size={24} className="text-orange-500" />
+              </div>
+              <h1 className="text-base font-semibold text-[#1A1A1A] mb-2">Link expired</h1>
+              <p className="text-sm text-[#4A5568] mb-4">{linkError}</p>
+              <button
+                onClick={() => navigate('/forgot-password')}
+                className="w-full bg-[#0A2540] text-white py-2.5 rounded-md font-medium text-sm hover:bg-[#0d2f4e] transition-colors mb-3"
+              >
+                Request new link
+              </button>
+              <Link to="/login" className="text-sm text-[#2E75B6] hover:underline">
+                Back to sign in
+              </Link>
+            </div>
           ) : !sessionReady ? (
             <div className="text-center py-4">
-              {timedOut ? (
-                <>
-                  <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <AlertCircle size={24} className="text-orange-500" />
-                  </div>
-                  <h1 className="text-base font-semibold text-[#1A1A1A] mb-2">Link expired or invalid</h1>
-                  <p className="text-sm text-[#4A5568] mb-4">
-                    This link may have expired or already been used. Request a new one below.
-                  </p>
-                  <button
-                    onClick={() => navigate('/forgot-password')}
-                    className="w-full bg-[#0A2540] text-white py-2.5 rounded-md font-medium text-sm hover:bg-[#0d2f4e] transition-colors"
-                  >
-                    Request new link
-                  </button>
-                </>
-              ) : (
-                <p className="text-sm text-[#4A5568]">Verifying reset link...</p>
-              )}
+              <p className="text-sm text-[#4A5568]">Verifying reset link...</p>
             </div>
           ) : (
             <>

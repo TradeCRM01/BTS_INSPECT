@@ -225,11 +225,11 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[10vh]"
+      className="overlay-backdrop"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="overlay-panel-xl animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}

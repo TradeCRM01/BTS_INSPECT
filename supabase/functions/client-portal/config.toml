@@ -1,0 +1,2 @@
+# Public magic-link access — auth is the share/portal token in the body
+verify_jwt = false

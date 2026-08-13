@@ -83,7 +83,7 @@ export function ProfileSettingsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[600px] mx-auto px-4 py-6 space-y-6">
+      <div className="page-shell-narrow space-y-6">
         <div>
           <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">Profile Settings</h1>
           <p className="text-sm text-[#4A5568]">Update your personal information and password.</p>
