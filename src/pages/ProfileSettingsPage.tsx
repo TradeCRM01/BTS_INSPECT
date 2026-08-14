@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
+import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export function ProfileSettingsPage() {
@@ -133,6 +134,28 @@ export function ProfileSettingsPage() {
               {saved ? <><Check size={15} /> Saved</> : saving ? 'Saving...' : 'Save Changes'}
             </button>
           </form>
+        </div>
+
+        {/* Saved signature */}
+        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6">
+          <h2 className="text-sm font-semibold text-[#1A1A1A] mb-1">My signature</h2>
+          <p className="text-xs text-[#4A5568] mb-4">
+            Type a font signature (Adobe-style), draw one, or save it for one-tap use on JHAs and crew sign-on.
+          </p>
+          <SignatureCapture
+            value={(profile as { saved_signature?: string | null } | null)?.saved_signature ?? ''}
+            nameHint={name || profile?.name || ''}
+            onChange={async dataUrl => {
+              if (!profile?.id) return;
+              await supabase.from('profiles').update({ saved_signature: dataUrl || null }).eq('id', profile.id);
+              await refreshProfile();
+            }}
+            onClear={async () => {
+              if (!profile?.id) return;
+              await supabase.from('profiles').update({ saved_signature: null }).eq('id', profile.id);
+              await refreshProfile();
+            }}
+          />
         </div>
 
         {/* Change password */}

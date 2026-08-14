@@ -1,10 +1,10 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import SignatureCanvas from 'react-signature-canvas';
 import { CheckCircle, Plus, Trash2, Users, Send, Smartphone, Link2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { nanoid } from '../../lib/nanoid';
+import { SignatureCapture } from '../ui/SignatureCapture';
 import type { JhaCrewMember } from '../../types/jha';
 
 type Member = {
@@ -28,7 +28,6 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
   const [signingId, setSigningId] = useState<string | null>(null);
   const [notifyBusy, setNotifyBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState('');
-  const sigRef = useRef<SignatureCanvas>(null);
 
   const { data: members = [] } = useQuery({
     queryKey: ['company-members-jha', companyId],
@@ -82,12 +81,13 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
     onChange(crew.filter((_, i) => i !== idx));
   }
 
-  function saveOnDeviceSignature(memberId: string) {
-    if (!sigRef.current || sigRef.current.isEmpty()) {
-      setMsg('Draw a signature first');
+  function applyCrewSignature(memberId: string, dataUrl: string) {
+    if (!dataUrl) {
+      onChange(crew.map(c =>
+        c.id === memberId ? { ...c, signature: '', signedAt: undefined } : c,
+      ));
       return;
     }
-    const dataUrl = sigRef.current.toDataURL('image/png');
     onChange(crew.map(c =>
       c.id === memberId
         ? { ...c, signature: dataUrl, signedAt: new Date().toISOString(), signMode: 'on_device' }
@@ -305,19 +305,13 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
             </div>
 
             {signingId === member.id && (
-              <div className="border border-[#E5E7EB] rounded-lg overflow-hidden bg-white">
-                <SignatureCanvas ref={sigRef} canvasProps={{ className: 'w-full h-28' }} backgroundColor="#fff" />
-                <div className="flex gap-2 p-2 border-t border-[#E5E7EB]">
-                  <button type="button" className="text-xs text-[#6B7280]" onClick={() => sigRef.current?.clear()}>Clear</button>
-                  <button
-                    type="button"
-                    className="text-xs text-white bg-[#0A2540] px-3 py-1 rounded"
-                    onClick={() => saveOnDeviceSignature(member.id)}
-                  >
-                    Save signature
-                  </button>
-                </div>
-              </div>
+              <SignatureCapture
+                value={member.signature || ''}
+                nameHint={member.name}
+                onChange={dataUrl => applyCrewSignature(member.id, dataUrl)}
+                onClear={() => applyCrewSignature(member.id, '')}
+                heightClass="h-28"
+              />
             )}
           </div>
         ))}

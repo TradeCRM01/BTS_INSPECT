@@ -24,6 +24,7 @@ import {
 import { JhaStepCard } from '../components/jha/JhaStepCard';
 import { JhaCrewRegister } from '../components/jha/JhaCrewRegister';
 import { JhaSwmsLibraryPicker } from '../components/jha/JhaSwmsLibraryPicker';
+import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { EMPTY_SWMS, HRCW_CATEGORIES, parseSwmsMeta, type JhaSwmsData } from '../lib/swmsHrcw';
 import {
   ChevronLeft, Plus, Trash2, ShieldCheck, Save, FileText,
@@ -31,7 +32,6 @@ import {
   Phone, RefreshCw, ShieldAlert, Package,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import SignatureCanvas from 'react-signature-canvas';
 
 function generateJhaNumber(): string {
   const now = new Date();
@@ -111,7 +111,6 @@ export function JhaFillPage() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form');
-  const sigRefs = useRef<Record<string, SignatureCanvas | null>>({});
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const { data: template, isLoading: tmplLoading } = useQuery({
@@ -311,18 +310,6 @@ export function JhaFillPage() {
   function updateSignOff(idx: number, updates: Partial<JhaSignOff>) {
     setSignOffs(prev => prev.map((s, i) => i === idx ? { ...s, ...updates } : s));
     markUnsaved();
-  }
-
-  function clearSignature(idx: number) {
-    sigRefs.current[`${idx}`]?.clear();
-    updateSignOff(idx, { signature: '' });
-  }
-
-  function saveSignature(idx: number) {
-    const sig = sigRefs.current[`${idx}`];
-    if (!sig) return;
-    const dataUrl = sig.toDataURL('image/png');
-    updateSignOff(idx, { signature: dataUrl, date: format(new Date(), 'yyyy-MM-dd') });
   }
 
   function validate(): string[] {
@@ -1165,18 +1152,22 @@ export function JhaFillPage() {
                         placeholder="Full name"
                         className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
                       />
-                      <div className="border border-[#E5E7EB] rounded-lg bg-white overflow-hidden">
-                        <SignatureCanvas
-                          ref={(ref: SignatureCanvas | null) => { sigRefs.current[`${idx}`] = ref; }}
-                          canvasProps={{ className: 'w-full h-32', style: { touchAction: 'none' } }}
-                          onEnd={() => saveSignature(idx)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between mt-2">
-                        <button onClick={() => clearSignature(idx)} className="text-xs text-[#4A5568] hover:text-[#B42318] flex items-center gap-1">
-                          <X size={12} /> Clear signature
-                        </button>
-                      </div>
+                      <SignatureCapture
+                        value={sign.signature || ''}
+                        nameHint={sign.name || profile?.name || ''}
+                        onChange={dataUrl => {
+                          if (!dataUrl) {
+                            updateSignOff(idx, { signature: '' });
+                            return;
+                          }
+                          updateSignOff(idx, {
+                            signature: dataUrl,
+                            date: format(new Date(), 'yyyy-MM-dd'),
+                            name: sign.name || profile?.name || '',
+                          });
+                        }}
+                        onClear={() => updateSignOff(idx, { signature: '' })}
+                      />
                     </div>
                   ))}
                 </div>

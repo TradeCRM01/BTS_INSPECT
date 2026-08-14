@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import SignatureCanvas from 'react-signature-canvas';
 import { ChevronLeft, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError } from '../components/ui';
+import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { parseCrewSignOns, type JhaCrewMember } from '../types/jha';
 
 export function JhaCrewSignPage() {
@@ -17,10 +17,10 @@ export function JhaCrewSignPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const sigRef = useRef<SignatureCanvas>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const [signature, setSignature] = useState('');
 
   const { data: doc, isLoading, isError, refetch } = useQuery({
     queryKey: ['jha-document-sign', docId],
@@ -40,7 +40,10 @@ export function JhaCrewSignPage() {
   const member = crew.find(c => c.id === crewId) ?? null;
 
   useEffect(() => {
-    if (member?.signature) setDone(true);
+    if (member?.signature) {
+      setDone(true);
+      setSignature(member.signature);
+    }
   }, [member?.signature]);
 
   const canSign =
@@ -54,14 +57,13 @@ export function JhaCrewSignPage() {
       setError('This sign-on is assigned to another team member. Log in as that user, or ask the creator to sign on-device.');
       return;
     }
-    if (!sigRef.current || sigRef.current.isEmpty()) {
-      setError('Please draw your signature');
+    if (!signature) {
+      setError('Please type, draw, or use your saved signature first');
       return;
     }
     setSaving(true);
     setError('');
     try {
-      const signature = sigRef.current.toDataURL('image/png');
       const nextCrew: JhaCrewMember[] = crew.map(c =>
         c.id === member.id
           ? {
@@ -158,24 +160,28 @@ export function JhaCrewSignPage() {
             )}
 
             {done || member.signature ? (
-              <div className="text-sm text-[#1B7F3A]">
-                Signed {member.signedAt ? format(new Date(member.signedAt), 'd MMM yyyy HH:mm') : ''}. Thank you.
+              <div className="text-sm text-[#1B7F3A] space-y-2">
+                <p>Signed {member.signedAt ? format(new Date(member.signedAt), 'd MMM yyyy HH:mm') : ''}. Thank you.</p>
+                {(signature || member.signature) && (
+                  <img src={signature || member.signature} alt="Signature" className="h-16 object-contain" />
+                )}
               </div>
             ) : (
               <>
                 <div>
                   <label className="text-xs font-medium text-[#4A5568] mb-1 block">Your signature</label>
-                  <div className="border border-[#E5E7EB] rounded-lg overflow-hidden">
-                    <SignatureCanvas ref={sigRef} canvasProps={{ className: 'w-full h-36' }} backgroundColor="#fff" />
-                  </div>
-                  <button type="button" className="text-xs text-[#6B7280] mt-1" onClick={() => sigRef.current?.clear()}>
-                    Clear
-                  </button>
+                  <SignatureCapture
+                    value={signature}
+                    nameHint={member.name || profile?.name || ''}
+                    onChange={setSignature}
+                    onClear={() => setSignature('')}
+                    heightClass="h-36"
+                  />
                 </div>
                 {error && <p className="text-sm text-red-600">{error}</p>}
                 <button
                   type="button"
-                  disabled={saving || !canSign}
+                  disabled={saving || !canSign || !signature}
                   onClick={() => void submit()}
                   className="w-full bg-[#0A2540] text-white py-2.5 rounded-md text-sm font-medium disabled:opacity-50"
                 >
