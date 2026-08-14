@@ -708,14 +708,23 @@ export function JhaFillPage() {
           </div>
         </div>
 
-        {/* Title */}
+        {/* Title — editable; this is what appears on the published PDF cover */}
         <div className="mb-4">
-          <div className="flex items-center gap-2 mb-1">
-            <ShieldCheck size={20} className="text-[#0A2540]" />
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">{documentTitle}</h1>
-          </div>
-          <p className="text-sm text-[#4A5568]">
+          <label className="text-xs font-medium text-[#4A5568] mb-1.5 flex items-center gap-1.5">
+            <ShieldCheck size={14} className="text-[#0A2540]" />
+            Document title <span className="text-[#B42318]">*</span>
+            <span className="font-normal text-[#9CA3AF]">(shown on published PDF)</span>
+          </label>
+          <input
+            type="text"
+            value={meta.documentTitle ?? ''}
+            onChange={e => updateMeta('documentTitle', e.target.value)}
+            placeholder={templateName || 'Job Hazard Analysis'}
+            className="w-full text-xl font-semibold text-[#1A1A1A] border border-[#E5E7EB] rounded-lg px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent placeholder:text-[#9CA3AF] placeholder:font-normal"
+          />
+          <p className="text-sm text-[#4A5568] mt-1.5">
             Job Hazard Analysis
+            {documentTitle && documentTitle !== templateName ? ` · Template: ${templateName}` : ''}
             {amendedFromId && amendmentReason ? ` · Amendment: ${amendmentReason}` : ''}
           </p>
         </div>
@@ -753,18 +762,6 @@ export function JhaFillPage() {
                 <h2 className="text-sm font-medium text-[#1A1A1A]">Job Details</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="sm:col-span-2">
-                  <InputField
-                    label="Document title (shown on published PDF)"
-                    required
-                    value={meta.documentTitle ?? ''}
-                    onChange={v => updateMeta('documentTitle', v)}
-                    placeholder="e.g. SWMS — Roof Solar Install, JHA — Switchboard Upgrade"
-                  />
-                  <p className="text-[11px] text-[#9CA3AF] mt-1">
-                    Defaults to the template name. Change this if you don’t want “{templateName}” on the cover.
-                  </p>
-                </div>
                 <div>
                   <label className="text-xs font-medium text-[#4A5568] mb-1 block">Client (CRM)</label>
                   <select
