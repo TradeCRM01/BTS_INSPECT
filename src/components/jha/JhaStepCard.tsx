@@ -279,14 +279,15 @@ export function JhaStepCard({
               </div>
               <div className="sm:col-span-8">
                 <label className="text-[10px] text-[#6B7280]">Control measure</label>
-                <input
+                <textarea
                   value={m.text}
                   onChange={e => updateMeasure(m.id, { text: e.target.value })}
-                  className="w-full text-xs border border-[#E5E7EB] rounded px-2 py-1.5 bg-white"
-                  placeholder="Specific, verifiable action…"
+                  rows={4}
+                  className="w-full text-xs border border-[#E5E7EB] rounded px-2 py-1.5 bg-white resize-y min-h-[5.5rem]"
+                  placeholder={"List specific, verifiable actions (one per line)…\ne.g.\n• Barricade exclusion zone\n• Spotter required when reversing"}
                 />
               </div>
-              <div className="sm:col-span-1 hidden sm:flex justify-end pt-4">
+              <div className="sm:col-span-1 hidden sm:flex justify-end pt-5">
                 <button
                   type="button"
                   onClick={() => setMeasures(measures.filter((_, i) => i !== mi))}

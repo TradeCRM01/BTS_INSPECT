@@ -213,13 +213,20 @@ function StepTable({ steps, riskLevels }: { steps: JhaReportStep[]; riskLevels: 
                 {controlLines.length === 0 ? (
                   <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, color: pdfColors.textMuted }}>{'\u2014'}</Text>
                 ) : (
-                  controlLines.map((m, mi) => (
-                    <Text key={mi} style={{ fontFamily: pdfFonts.body, fontSize: 7.5, color: pdfColors.text, marginBottom: 2 }}>
-                      {m.hierarchy ? `${m.hierarchy}: ` : ''}{m.text}
-                      {m.owner ? ` · Owner: ${m.owner}` : ''}
-                      {m.verify ? ` · Verify: ${m.verify}` : ''}
-                    </Text>
-                  ))
+                  controlLines.map((m, mi) => {
+                    const lines = (m.text || '')
+                      .split('\n')
+                      .map(l => l.trim())
+                      .filter(Boolean);
+                    const body = lines.length ? lines.join('\n') : m.text;
+                    return (
+                      <Text key={mi} style={{ fontFamily: pdfFonts.body, fontSize: 7.5, color: pdfColors.text, marginBottom: 2 }}>
+                        {m.hierarchy ? `${m.hierarchy}: ` : ''}{body}
+                        {m.owner ? ` · Owner: ${m.owner}` : ''}
+                        {m.verify ? ` · Verify: ${m.verify}` : ''}
+                      </Text>
+                    );
+                  })
                 )}
               </View>
               <View style={{ width: colWidths.initial, paddingVertical: 6, paddingHorizontal: 4, alignItems: 'center' }}>
