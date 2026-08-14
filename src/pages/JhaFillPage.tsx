@@ -128,7 +128,7 @@ export function JhaFillPage() {
     enabled: !isEditMode && !!templateId,
   });
 
-  const { data: existingDoc, isLoading: docLoading } = useQuery({
+  const { data: existingDoc, isLoading: docLoading, isError: docError, refetch: refetchDoc } = useQuery({
     queryKey: ['jha-document', docId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -250,7 +250,9 @@ export function JhaFillPage() {
   useEffect(() => {
     if (saveState !== 'unsaved' || !docIdState) return;
     clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => doSave('draft'), 2000);
+    saveTimerRef.current = setTimeout(() => {
+      void doSave('draft').catch(() => {});
+    }, 2000);
     return () => clearTimeout(saveTimerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveState, docIdState, meta, steps, selectedPpe, signOffs, crew, clientId, jobId, swms, linkedSwmsIds]);
@@ -380,8 +382,11 @@ export function JhaFillPage() {
     return errors;
   }
 
-  async function doSave(status: 'draft' | 'completed' = 'draft') {
-    if (!profile || !schema) return;
+  async function doSave(
+    status: 'draft' | 'completed' = 'draft',
+    opts?: { navigateOnCreate?: boolean },
+  ): Promise<string | null> {
+    if (!profile || !schema) return docIdState;
     setSaveState('saving');
     setError('');
 
@@ -400,10 +405,13 @@ export function JhaFillPage() {
         ...(status === 'completed' ? { completed_at: new Date().toISOString() } : {}),
       };
 
+      let savedId = docIdState;
+
       if (docIdState) {
         const { error } = await supabase.from('jha_documents').update(payload).eq('id', docIdState);
         if (error) throw error;
       } else {
+        if (!templateId) throw new Error('Missing JHA template — go back and start from a template.');
         const { data, error } = await supabase
           .from('jha_documents')
           .insert({
@@ -416,17 +424,22 @@ export function JhaFillPage() {
           .select()
           .maybeSingle();
         if (error) throw error;
-        if (data) {
-          setDocIdState(data.id);
+        if (!data?.id) throw new Error('Failed to create JHA document');
+        savedId = data.id;
+        setDocIdState(data.id);
+        if (opts?.navigateOnCreate !== false) {
           navigate(`/jha/new?docId=${data.id}`, { replace: true });
         }
       }
       setSaveState('saved');
       queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
+      queryClient.invalidateQueries({ queryKey: ['jha-document', savedId] });
+      return savedId;
     } catch (err) {
       console.error('Save failed:', err);
       setSaveState('error');
       setError(err instanceof Error ? err.message : 'Save failed');
+      throw err;
     }
   }
 
@@ -442,16 +455,17 @@ export function JhaFillPage() {
     setError('');
 
     try {
-      await doSave('completed');
+      // Do not navigate mid-publish — that blanked the page ("Failed to load")
+      // and left docIdState stale so PDF upload targeted a null path.
+      const savedId = await doSave('completed', { navigateOnCreate: false });
+      if (!savedId) throw new Error('Could not save JHA before publishing');
 
       const reportNumber = existingDoc?.report_number ?? generateJhaNumber();
-      const snapshot = isEditMode
-        ? { name: templateName, schema }
-        : { name: template?.name ?? 'JHA', schema };
+      const snapshot = { name: templateName, schema };
 
       const blob = await generateJhaPdf({
         document: {
-          id: docIdState!,
+          id: savedId,
           meta: persistableMeta(),
           steps,
           ppe: selectedPpe,
@@ -475,25 +489,34 @@ export function JhaFillPage() {
 
       const taskName = (meta.taskName ?? meta.siteName ?? 'JHA').replace(/[<>:"/\\|?*]/g, '_');
       const filename = `${taskName} - ${reportNumber}.pdf`;
-      const storagePath = `${docIdState}/${filename}`;
+      const storagePath = `${savedId}/${filename}`;
       const { error: upErr } = await supabase.storage
         .from('reports')
         .upload(storagePath, blob, { contentType: 'application/pdf', upsert: true });
 
       if (upErr) throw upErr;
 
-      await supabase.from('jha_documents').update({
+      const { error: pubErr } = await supabase.from('jha_documents').update({
         status: 'published',
         report_number: reportNumber,
         pdf_storage_path: storagePath,
-      }).eq('id', docIdState);
+      }).eq('id', savedId);
+      if (pubErr) throw pubErr;
 
       const url = URL.createObjectURL(blob);
       setPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url; });
       setActiveTab('preview');
       queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
+      queryClient.invalidateQueries({ queryKey: ['jha-document', savedId] });
+
+      // Sync URL after success so refresh opens the saved doc
+      if (searchParams.get('docId') !== savedId) {
+        navigate(`/jha/new?docId=${savedId}`, { replace: true });
+      }
     } catch (err) {
+      console.error('Publish failed:', err);
       setError(err instanceof Error ? err.message : 'Publishing failed');
+      setActiveTab('form');
     } finally {
       setPublishing(false);
     }
@@ -603,6 +626,19 @@ export function JhaFillPage() {
 
   if (tmplLoading || docLoading) {
     return <AppShell><div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div></AppShell>;
+  }
+
+  if (isEditMode && (docError || !existingDoc)) {
+    return (
+      <AppShell>
+        <div className="max-w-[1200px] mx-auto px-4 py-6">
+          <PageError
+            message="Could not open this JHA document. It may have been deleted or you may not have access."
+            onRetry={() => refetchDoc()}
+          />
+        </div>
+      </AppShell>
+    );
   }
 
   if (!schema) {
@@ -1150,8 +1186,8 @@ export function JhaFillPage() {
             {/* Save buttons */}
             <div className="flex items-center justify-end gap-3 pb-4">
               <button
-                onClick={() => doSave('draft')}
-                disabled={saveState === 'saving'}
+                onClick={() => { void doSave('draft').catch(() => {}); }}
+                disabled={saveState === 'saving' || publishing}
                 className="flex items-center gap-1.5 border border-[#E5E7EB] text-[#4A5568] px-4 py-2 rounded-md text-sm font-medium hover:bg-[#F9FAFB] transition-colors disabled:opacity-50"
               >
                 <Save size={14} /> Save Draft

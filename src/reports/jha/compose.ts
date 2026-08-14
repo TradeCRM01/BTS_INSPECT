@@ -75,7 +75,7 @@ export function composeJhaReport(input: ComposeInput): JhaReportData {
   const { schema } = template;
   const threshold = maxAcceptableResidual(schema);
 
-  const riskById = new Map(schema.riskLevels.map(r => [r.id, r]));
+  const riskById = new Map((schema.riskLevels ?? []).map(r => [r.id, r]));
 
   const steps: JhaReportStep[] = (document.steps || []).map(raw => {
     const s = normalizeJhaStep({ ...raw, id: raw.id || 'step' });
@@ -100,8 +100,8 @@ export function composeJhaReport(input: ComposeInput): JhaReportData {
           owner: m.owner.trim(),
           verify: (m.verify ?? '').trim(),
         })),
-      initialRisk: riskPill(s.initialRisk, riskById, inherentProduct, schema.riskLevels),
-      residualRisk: riskPill(s.residualRisk, riskById, residualProduct, schema.riskLevels),
+      initialRisk: riskPill(s.initialRisk, riskById, inherentProduct, schema.riskLevels ?? []),
+      residualRisk: riskPill(s.residualRisk, riskById, residualProduct, schema.riskLevels ?? []),
       residualLikelihood: s.residualLikelihood || '',
       residualConsequence: s.residualConsequence || '',
       residualEscalationNote: s.residualEscalationNote || '',
@@ -203,11 +203,11 @@ export function composeJhaReport(input: ComposeInput): JhaReportData {
     linkedSwms,
     steps,
     ppe: (document.ppe || []).map(label => {
-      const opt = schema.ppeOptions.find(p => p.label === label);
+      const opt = (schema.ppeOptions ?? []).find(p => p.label === label);
       return { label, standardRef: opt?.standardRef || undefined };
     }),
     signOffs,
-    riskLevels: schema.riskLevels.map(r => ({ id: r.id, label: r.label, color: r.color })),
-    riskScoreMap: Object.fromEntries(schema.riskLevels.map(r => [r.id, r.score])),
+    riskLevels: (schema.riskLevels ?? []).map(r => ({ id: r.id, label: r.label, color: r.color })),
+    riskScoreMap: Object.fromEntries((schema.riskLevels ?? []).map(r => [r.id, r.score])),
   };
 }
