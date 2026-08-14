@@ -1,1 +1,5 @@
+# Missing hashed assets must 404 (not SPA HTML) — otherwise browsers report
+# "JavaScript MIME type text/html" after a deploy when an old chunk is requested.
+/assets/*  /404.html  404
+
 /*    /index.html   200
