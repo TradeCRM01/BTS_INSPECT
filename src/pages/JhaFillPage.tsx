@@ -29,9 +29,10 @@ import { EMPTY_SWMS, HRCW_CATEGORIES, parseSwmsMeta, type JhaSwmsData } from '..
 import {
   ChevronLeft, Plus, Trash2, ShieldCheck, Save, FileText,
   Download, AlertCircle, HardHat, Check, X, CheckCircle, Printer,
-  Phone, RefreshCw, ShieldAlert, Package,
+  Phone, RefreshCw, ShieldAlert, Package, Copy,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { duplicateJhaDocument } from '../lib/duplicateJhaDocument';
 
 function generateJhaNumber(): string {
   const now = new Date();
@@ -108,6 +109,7 @@ export function JhaFillPage() {
   const [linkedSwmsIds, setLinkedSwmsIds] = useState<string[]>([]);
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
   const [publishing, setPublishing] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form');
@@ -569,6 +571,29 @@ export function JhaFillPage() {
     }
   }
 
+  async function handleDuplicate() {
+    if (!profile?.id || !docIdState) return;
+    if (!window.confirm('Duplicate this JHA as a new draft? Steps and job details are copied; signatures are cleared.')) {
+      return;
+    }
+    setDuplicating(true);
+    setError('');
+    try {
+      // Persist current edits first so the copy matches what you see
+      if (saveState === 'unsaved') {
+        const saved = await doSave('draft', { navigateOnCreate: false });
+        if (!saved) return;
+      }
+      const newId = await duplicateJhaDocument(docIdState, profile.id);
+      queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
+      navigate(`/jha/new?docId=${newId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not duplicate JHA');
+    } finally {
+      setDuplicating(false);
+    }
+  }
+
   async function handleDownloadPack() {
     if (!profile || !company || !schema || !docIdState) return;
     setPublishing(true);
@@ -678,6 +703,17 @@ export function JhaFillPage() {
               <span className="text-xs text-[#1B7F3A] flex items-center gap-1 bg-[#DCFCE7] px-2 py-1 rounded font-medium">
                 <CheckCircle size={12} /> Published
               </span>
+            )}
+            {docIdState && (
+              <button
+                type="button"
+                onClick={() => void handleDuplicate()}
+                disabled={duplicating || publishing}
+                className="flex items-center gap-1.5 border border-[#E5E7EB] bg-white text-[#0A2540] px-3 py-2 rounded-md text-sm font-medium hover:bg-[#F9FAFB] disabled:opacity-50"
+                title="Copy as a new draft (signatures cleared)"
+              >
+                {duplicating ? <LoadingSpinner size="sm" /> : <Copy size={14} />} Duplicate
+              </button>
             )}
             {isPublished && (
               <button

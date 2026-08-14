@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
-import { ClipboardList, Plus, Search, FileText, RefreshCw } from 'lucide-react';
+import { ClipboardList, Plus, Search, FileText, RefreshCw, Copy } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { duplicateJhaDocument } from '../lib/duplicateJhaDocument';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError } from '../components/ui';
 
@@ -28,8 +29,25 @@ type DocRow = {
 export function JhaDocumentsPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'all' | 'draft' | 'completed' | 'published'>('all');
+  const [dupError, setDupError] = useState('');
+
+  const duplicateMutation = useMutation({
+    mutationFn: async (sourceId: string) => {
+      if (!profile?.id) throw new Error('Not signed in');
+      return duplicateJhaDocument(sourceId, profile.id);
+    },
+    onSuccess: (newId) => {
+      setDupError('');
+      queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
+      navigate(`/jha/new?docId=${newId}`);
+    },
+    onError: (err) => {
+      setDupError(err instanceof Error ? err.message : 'Could not duplicate JHA');
+    },
+  });
 
   const { data: templates } = useQuery({
     queryKey: ['jha-templates-picker'],
@@ -152,6 +170,12 @@ export function JhaDocumentsPage() {
           </select>
         </div>
 
+        {dupError && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {dupError}
+          </div>
+        )}
+
         {isLoading && (
           <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
         )}
@@ -214,12 +238,24 @@ export function JhaDocumentsPage() {
                         {format(parseISO(d.completed_at || d.created_at), 'd MMM yyyy')}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Link
-                          to={`/jha/new?docId=${d.id}`}
-                          className="text-xs text-[#2E75B6] hover:underline"
-                        >
-                          Open
-                        </Link>
+                        <div className="inline-flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => duplicateMutation.mutate(d.id)}
+                            disabled={duplicateMutation.isPending && duplicateMutation.variables === d.id}
+                            className="text-xs text-[#4A5568] hover:text-[#0A2540] disabled:opacity-50 inline-flex items-center gap-1"
+                            title="Duplicate as a new draft (signatures cleared)"
+                          >
+                            <Copy size={12} />
+                            {duplicateMutation.isPending && duplicateMutation.variables === d.id ? 'Copying…' : 'Duplicate'}
+                          </button>
+                          <Link
+                            to={`/jha/new?docId=${d.id}`}
+                            className="text-xs text-[#2E75B6] hover:underline"
+                          >
+                            Open
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );

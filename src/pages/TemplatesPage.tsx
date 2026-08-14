@@ -121,7 +121,10 @@ export function TemplatesPage() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jha-templates'] }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['jha-templates'] });
+      if (data?.id) navigate(`/jha-templates/${data.id}`);
+    },
   });
 
   const isLoading = activeTab === 'inspections' ? inspLoading : jhaLoading;
