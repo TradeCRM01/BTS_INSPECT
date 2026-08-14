@@ -187,7 +187,13 @@ export function JhaFillPage() {
 
   useEffect(() => {
     if (existingDoc) {
-      setMeta(existingDoc.meta || { date: format(new Date(), 'yyyy-MM-dd') });
+      const snapName = existingDoc.template_snapshot?.name ?? 'Job Hazard Analysis';
+      const loadedMeta = existingDoc.meta || { date: format(new Date(), 'yyyy-MM-dd') };
+      setMeta({
+        ...loadedMeta,
+        documentTitle: loadedMeta.documentTitle || snapName,
+        date: loadedMeta.date || format(new Date(), 'yyyy-MM-dd'),
+      });
       setSteps(existingDoc.steps?.length
         ? existingDoc.steps.map(s => normalizeJhaStep({ ...EMPTY_STEP, ...s, id: s.id || nanoid() }))
         : [{ ...EMPTY_STEP, id: nanoid() }]);
@@ -231,6 +237,11 @@ export function JhaFillPage() {
     if (defaultSwms?.length) {
       setLinkedSwmsIds(defaultSwms.map(String).filter(Boolean));
     }
+    // Default published document title from the template name (user can edit)
+    setMeta(prev => ({
+      ...prev,
+      documentTitle: prev.documentTitle || (template.name as string) || 'Job Hazard Analysis',
+    }));
     setLibrarySeeded(true);
   }, [template, isEditMode, librarySeeded]);
 
@@ -640,6 +651,7 @@ export function JhaFillPage() {
 
   const customFields = schema.meta.customFields ?? [];
   const isPublished = existingDoc?.status === 'published' || (docIdState === existingDoc?.id && existingDoc?.status === 'published');
+  const documentTitle = (meta.documentTitle || templateName || 'Job Hazard Analysis').trim();
 
   function getRiskInfo(riskId: string) {
     return schema!.riskLevels.find(r => r.id === riskId);
@@ -700,7 +712,7 @@ export function JhaFillPage() {
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1">
             <ShieldCheck size={20} className="text-[#0A2540]" />
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">{templateName}</h1>
+            <h1 className="text-xl font-semibold text-[#1A1A1A]">{documentTitle}</h1>
           </div>
           <p className="text-sm text-[#4A5568]">
             Job Hazard Analysis
@@ -741,6 +753,18 @@ export function JhaFillPage() {
                 <h2 className="text-sm font-medium text-[#1A1A1A]">Job Details</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <InputField
+                    label="Document title (shown on published PDF)"
+                    required
+                    value={meta.documentTitle ?? ''}
+                    onChange={v => updateMeta('documentTitle', v)}
+                    placeholder="e.g. SWMS — Roof Solar Install, JHA — Switchboard Upgrade"
+                  />
+                  <p className="text-[11px] text-[#9CA3AF] mt-1">
+                    Defaults to the template name. Change this if you don’t want “{templateName}” on the cover.
+                  </p>
+                </div>
                 <div>
                   <label className="text-xs font-medium text-[#4A5568] mb-1 block">Client (CRM)</label>
                   <select

@@ -173,7 +173,7 @@ export function composeJhaReport(input: ComposeInput): JhaReportData {
   return {
     reportNumber,
     issueDate: format(new Date(), 'd MMMM yyyy'),
-    templateName: template.name,
+    templateName: document.meta.documentTitle?.trim() || template.name || 'Job Hazard Analysis',
     taskName: document.meta.taskName || '',
     siteName: document.meta.siteName || '',
     date: document.meta.date || '',
