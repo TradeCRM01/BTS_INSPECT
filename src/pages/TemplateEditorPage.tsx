@@ -29,7 +29,8 @@ type SaveState = 'saved' | 'saving' | 'unsaved' | 'error';
 
 export function TemplateEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const isNew = id === 'new';
+  // Dedicated /templates/new route has no :id param — treat missing id as new
+  const isNew = !id || id === 'new';
   const navigate = useNavigate();
   const { profile } = useAuth();
   const qc = useQueryClient();
@@ -47,7 +48,7 @@ export function TemplateEditorPage() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showQTypePicker, setShowQTypePicker] = useState(false);
   const [showMetaSettings, setShowMetaSettings] = useState(true);
-  const [templateId, setTemplateId] = useState<string | null>(isNew ? null : id ?? null);
+  const [templateId, setTemplateId] = useState<string | null>(isNew ? null : id);
   const [renderers, setRenderers] = useState<Array<{ key: string; label: string }>>([]);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const autoSaveRef = useRef<ReturnType<typeof setTimeout>>();

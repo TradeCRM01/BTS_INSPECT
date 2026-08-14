@@ -101,12 +101,17 @@ export function JhaTemplateEditorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const isNew = id === 'new';
+  // Dedicated /jha-templates/new route has no :id param — treat missing id as new
+  const isNew = !id || id === 'new';
 
-  const [templateId, setTemplateId] = useState<string | null>(isNew ? null : id ?? null);
+  const [templateId, setTemplateId] = useState<string | null>(isNew ? null : id);
   const [templateName, setTemplateName] = useState('Untitled JHA Template');
   const [description, setDescription] = useState('');
-  const [schema, setSchema] = useState<JhaTemplateSchema>(DEFAULT_SCHEMA);
+  const [schema, setSchema] = useState<JhaTemplateSchema>(() => ({
+    ...DEFAULT_SCHEMA,
+    ppeOptions: DEFAULT_SCHEMA.ppeOptions.map(p => ({ ...p, id: nanoid() })),
+    signOffRoles: DEFAULT_SCHEMA.signOffRoles.map(r => ({ ...r, id: nanoid() })),
+  }));
   const [templateVersion, setTemplateVersion] = useState(1);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -286,14 +291,20 @@ export function JhaTemplateEditorPage() {
     setValidationErrors(errors);
     if (errors.length > 0) return;
 
+    if (!profile?.company_id || !profile?.id) {
+      setValidationErrors(['You must be signed in to save a template.']);
+      setSaveState('error');
+      return;
+    }
+
     setSaveState('saving');
     try {
       const nextVersion = schemaDirtyRef.current && templateId
         ? templateVersion + 1
         : templateVersion;
       const payload = {
-        name: templateName,
-        description: description || null,
+        name: templateName.trim(),
+        description: description.trim() || null,
         schema: schema as unknown as Record<string, unknown>,
         version: nextVersion,
         updated_at: new Date().toISOString(),
@@ -307,12 +318,14 @@ export function JhaTemplateEditorPage() {
           .from('jha_templates')
           .insert({
             ...payload,
-            company_id: profile!.company_id,
-            created_by: profile!.id,
+            company_id: profile.company_id,
+            created_by: profile.id,
+            archived: false,
           })
           .select()
           .single();
         if (error) throw error;
+        if (!data?.id) throw new Error('Save succeeded but no template id was returned');
         setTemplateId(data.id);
         navigate(`/jha-templates/${data.id}`, { replace: true });
       }
@@ -321,6 +334,8 @@ export function JhaTemplateEditorPage() {
       setSaveState('saved');
     } catch (err) {
       console.error('Save failed:', err);
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Save failed';
+      setValidationErrors([msg]);
       setSaveState('error');
     }
   }

@@ -1,5 +1,4 @@
-# Missing hashed assets must 404 (not SPA HTML) — otherwise browsers report
-# "JavaScript MIME type text/html" after a deploy when an old chunk is requested.
-/assets/*  /404.html  404
-
+# SPA fallback for client-side routes (Cloudflare Pages).
+# Do not add a top-level 404.html — it disables Pages' SPA behavior.
+# Do not use status-404 rewrites here — they are unsupported and can invalidate this file.
 /*    /index.html   200
