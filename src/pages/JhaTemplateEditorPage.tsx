@@ -61,14 +61,18 @@ const RISK_COLORS = [
   { label: 'Orange', color: '#C2410C' },
 ];
 
+const FIELD_INPUT =
+  'w-full min-w-0 text-sm border border-[#E5E7EB] rounded-md px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent';
+
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${checked ? 'bg-[#2E75B6]' : 'bg-[#D1D5DB]'}`}
+      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${checked ? 'bg-[#2E75B6]' : 'bg-[#D1D5DB]'}`}
+      aria-pressed={checked}
     >
-      <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${checked ? 'translate-x-4' : ''}`} />
+      <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${checked ? 'translate-x-4' : ''}`} />
     </button>
   );
 }
@@ -82,17 +86,17 @@ function SectionCard({ title, icon: Icon, count, children, action }: {
 }) {
   return (
     <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E5E7EB]">
-        <div className="flex items-center gap-2">
-          <Icon size={15} className="text-[#4A5568]" />
-          <span className="text-sm font-medium text-[#1A1A1A]">{title}</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3.5 border-b border-[#E5E7EB]">
+        <div className="flex items-center gap-2 min-w-0">
+          <Icon size={15} className="text-[#4A5568] shrink-0" />
+          <span className="text-sm font-medium text-[#1A1A1A] truncate">{title}</span>
           {count !== undefined && (
-            <span className="text-xs text-[#4A5568] bg-[#F3F4F6] px-1.5 py-0.5 rounded">{count}</span>
+            <span className="text-xs text-[#4A5568] bg-[#F3F4F6] px-1.5 py-0.5 rounded shrink-0">{count}</span>
           )}
         </div>
-        {action}
+        {action && <div className="shrink-0">{action}</div>}
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-4 sm:p-5">{children}</div>
     </div>
   );
 }
@@ -385,27 +389,29 @@ export function JhaTemplateEditorPage() {
 
   return (
     <AppShell>
-      <div className="page-shell">
+      <div className="page-shell max-w-[900px] overflow-x-hidden">
         {/* Top bar */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
           <button
+            type="button"
             onClick={() => navigate('/templates')}
             className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] transition-colors"
           >
             <ChevronLeft size={16} /> Templates
           </button>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-[#6B7280]">v{templateVersion}</span>
-            {saveState === 'saved' && <span className="text-xs text-[#1B7F3A] flex items-center gap-1"><Check size={12} /> Saved</span>}
-            {saveState === 'saving' && <span className="text-xs text-[#4A5568] flex items-center gap-1"><LoadingSpinner size="sm" /> Saving...</span>}
-            {saveState === 'unsaved' && <span className="text-xs text-[#92400E]">Unsaved changes</span>}
-            {saveState === 'error' && <span className="text-xs text-[#B42318]">Save failed</span>}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <span className="text-xs text-[#6B7280] shrink-0">v{templateVersion}</span>
+            {saveState === 'saved' && <span className="text-xs text-[#1B7F3A] flex items-center gap-1 shrink-0"><Check size={12} /> Saved</span>}
+            {saveState === 'saving' && <span className="text-xs text-[#4A5568] flex items-center gap-1 shrink-0"><LoadingSpinner size="sm" /> Saving...</span>}
+            {saveState === 'unsaved' && <span className="text-xs text-[#92400E] shrink-0">Unsaved changes</span>}
+            {saveState === 'error' && <span className="text-xs text-[#B42318] shrink-0">Save failed</span>}
             {templateId && (
-              <button onClick={handleDelete} className="p-1.5 text-[#4A5568] hover:text-[#B42318] hover:bg-red-50 rounded transition-colors" title="Delete template">
+              <button type="button" onClick={handleDelete} className="p-1.5 text-[#4A5568] hover:text-[#B42318] hover:bg-red-50 rounded transition-colors" title="Delete template">
                 <Trash2 size={16} />
               </button>
             )}
             <button
+              type="button"
               onClick={doSave}
               className="flex items-center gap-1.5 bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
             >
@@ -420,35 +426,43 @@ export function JhaTemplateEditorPage() {
             {validationErrors.map((err, i) => (
               <div key={i} className="flex items-start gap-2">
                 <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                {err}
+                <span className="min-w-0 break-words">{err}</span>
               </div>
             ))}
           </div>
         )}
 
         {/* Template name + description */}
-        <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5 mb-4">
-          <input
-            type="text"
-            value={templateName}
-            onChange={e => { setTemplateName(e.target.value); markUnsaved(); }}
-            placeholder="Template name"
-            className="w-full text-lg font-semibold text-[#1A1A1A] border-none outline-none placeholder:text-[#9CA3AF] bg-transparent"
-          />
-          <input
-            type="text"
-            value={description}
-            onChange={e => { setDescription(e.target.value); markUnsaved(); }}
-            placeholder="Description (optional)"
-            className="w-full text-sm text-[#4A5568] border-none outline-none placeholder:text-[#9CA3AF] bg-transparent mt-1"
-          />
+        <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-4 sm:p-5 mb-4 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-[#4A5568] mb-1.5">Template name</label>
+            <input
+              type="text"
+              value={templateName}
+              onChange={e => { setTemplateName(e.target.value); markUnsaved(); }}
+              placeholder="e.g. Electrical isolation JHA"
+              className="w-full min-w-0 text-base sm:text-lg font-semibold text-[#1A1A1A] border border-[#E5E7EB] rounded-md px-3 py-2 outline-none placeholder:text-[#9CA3AF] placeholder:font-normal bg-white focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#4A5568] mb-1.5">Description <span className="font-normal text-[#9CA3AF]">(optional)</span></label>
+            <input
+              type="text"
+              value={description}
+              onChange={e => { setDescription(e.target.value); markUnsaved(); }}
+              placeholder="When this template should be used"
+              className="w-full min-w-0 text-sm text-[#4A5568] border border-[#E5E7EB] rounded-md px-3 py-2 outline-none placeholder:text-[#9CA3AF] bg-white focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+            />
+          </div>
         </div>
 
         {/* Job Details section */}
         <div className="mb-4">
           <SectionCard title="Job Details" icon={HardHat} count={enabledFieldCount}>
-            <p className="text-xs text-[#4A5568] mb-4">Choose which fields to collect when someone creates a JHA from this template.</p>
-            <div className="space-y-2">
+            <p className="text-xs text-[#4A5568] mb-4 leading-relaxed">
+              Choose which fields to collect when someone creates a JHA from this template.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[
                 { key: 'requiresTaskName' as const, label: 'Task / Activity Name' },
                 { key: 'requiresSiteName' as const, label: 'Site / Location' },
@@ -460,18 +474,18 @@ export function JhaTemplateEditorPage() {
                 { key: 'requiresPermitRefs' as const, label: 'Permit / PTW / Isolation refs' },
                 { key: 'requiresMusterPoint' as const, label: 'Muster point' },
               ].map(field => (
-                <label key={field.key} className="flex items-center justify-between p-3 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] cursor-pointer transition-colors">
-                  <span className="text-sm text-[#1A1A1A]">{field.label}</span>
+                <label key={field.key} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] cursor-pointer transition-colors min-w-0">
+                  <span className="text-sm text-[#1A1A1A] min-w-0 break-words">{field.label}</span>
                   <Toggle checked={!!schema.meta[field.key]} onChange={v => updateMeta({ [field.key]: v })} />
                 </label>
               ))}
             </div>
 
-            <div className="mt-4 p-3 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB]">
+            <div className="mt-4 p-3 sm:p-4 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB]">
               <label className="block text-sm font-medium text-[#1A1A1A] mb-1">
                 Max acceptable residual risk (L×C)
               </label>
-              <p className="text-xs text-[#6B7280] mb-2">
+              <p className="text-xs text-[#6B7280] mb-3 leading-relaxed">
                 If residual L×C is above this (default 9 = Moderate), an escalation note is required before publish.
               </p>
               <input
@@ -483,55 +497,68 @@ export function JhaTemplateEditorPage() {
                   const n = Math.min(25, Math.max(1, parseInt(e.target.value, 10) || 9));
                   updateMeta({ maxAcceptableResidualScore: n });
                 }}
-                className="form-input-sm w-24"
+                className="w-24 min-w-0 text-sm border border-[#E5E7EB] rounded-md px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
               />
             </div>
 
             {/* Custom fields */}
-            {(schema.meta.customFields ?? []).length > 0 && (
-              <div className="mt-4 space-y-2">
-                <p className="text-xs font-semibold text-[#4A5568] uppercase tracking-wide">Custom Fields</p>
-                {(schema.meta.customFields ?? []).map(field => (
-                  <div key={field.id} className="flex items-center gap-2 p-3 rounded-lg border border-[#E5E7EB]">
-                    <input
-                      type="text"
-                      value={field.label}
-                      onChange={e => updateCustomField(field.id, { label: e.target.value })}
-                      placeholder="Field label"
-                      className="flex-1 text-sm border border-[#E5E7EB] rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
-                    />
-                    <select
-                      value={field.type}
-                      onChange={e => updateCustomField(field.id, { type: e.target.value as JhaCustomField['type'] })}
-                      className="text-sm border border-[#E5E7EB] rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
-                    >
-                      <option value="text">Text</option>
-                      <option value="long_text">Long Text</option>
-                      <option value="number">Number</option>
-                      <option value="date">Date</option>
-                    </select>
-                    <label className="flex items-center gap-1.5 text-xs text-[#4A5568] shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={field.required}
-                        onChange={e => updateCustomField(field.id, { required: e.target.checked })}
-                        className="w-3.5 h-3.5 accent-[#2E75B6]"
-                      />
-                      Req
-                    </label>
-                    <button onClick={() => deleteCustomField(field.id)} className="p-1 text-[#4A5568] hover:text-[#B42318] shrink-0">
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <button
-              onClick={addCustomField}
-              className="mt-3 flex items-center gap-1.5 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"
-            >
-              <Plus size={13} /> Add custom field
-            </button>
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-[#4A5568] uppercase tracking-wide mb-2">Custom Fields</p>
+              {(schema.meta.customFields ?? []).length === 0 ? (
+                <p className="text-xs text-[#9CA3AF] mb-2">No extra fields yet. Add one if this template needs more than the toggles above.</p>
+              ) : (
+                <div className="space-y-2 mb-2">
+                  {(schema.meta.customFields ?? []).map(field => (
+                    <div key={field.id} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg border border-[#E5E7EB]">
+                      <div className="flex-1 min-w-0">
+                        <label className="block text-[11px] text-[#6B7280] mb-1">Label</label>
+                        <input
+                          type="text"
+                          value={field.label}
+                          onChange={e => updateCustomField(field.id, { label: e.target.value })}
+                          placeholder="Field label"
+                          className={FIELD_INPUT}
+                        />
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <div className="min-w-0 flex-1 sm:w-36 sm:flex-none">
+                          <label className="block text-[11px] text-[#6B7280] mb-1">Type</label>
+                          <select
+                            value={field.type}
+                            onChange={e => updateCustomField(field.id, { type: e.target.value as JhaCustomField['type'] })}
+                            className={FIELD_INPUT}
+                          >
+                            <option value="text">Text</option>
+                            <option value="long_text">Long Text</option>
+                            <option value="number">Number</option>
+                            <option value="date">Date</option>
+                          </select>
+                        </div>
+                        <label className="flex items-center gap-1.5 text-xs text-[#4A5568] shrink-0 h-10 px-1">
+                          <input
+                            type="checkbox"
+                            checked={field.required}
+                            onChange={e => updateCustomField(field.id, { required: e.target.checked })}
+                            className="w-3.5 h-3.5 accent-[#2E75B6]"
+                          />
+                          Required
+                        </label>
+                        <button type="button" onClick={() => deleteCustomField(field.id)} className="p-2 text-[#4A5568] hover:text-[#B42318] shrink-0 h-10" title="Remove field">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={addCustomField}
+                className="mt-1 flex items-center gap-1.5 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"
+              >
+                <Plus size={13} /> Add custom field
+              </button>
+            </div>
           </SectionCard>
         </div>
 
@@ -555,7 +582,7 @@ export function JhaTemplateEditorPage() {
             count={schema.stepLibrary?.length ?? 0}
             action={<button type="button" onClick={addLibraryStep} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"><Plus size={13} /> Add step</button>}
           >
-            <p className="text-xs text-[#4A5568] mb-3">
+            <p className="text-xs text-[#4A5568] mb-3 leading-relaxed">
               Pre-approved steps seeded into new JHAs. Load a mining pack, then edit descriptions as needed.
             </p>
             <div className="flex flex-wrap gap-2 mb-4">
@@ -564,10 +591,10 @@ export function JhaTemplateEditorPage() {
                   key={pack.id}
                   type="button"
                   onClick={() => applyStepPack(pack.id)}
-                  className="text-xs px-3 py-1.5 rounded-md border border-[#E5E7EB] bg-white hover:border-[#2E75B6] hover:text-[#2E75B6]"
+                  className="text-xs px-3 py-1.5 rounded-md border border-[#E5E7EB] bg-white hover:border-[#2E75B6] hover:text-[#2E75B6] max-w-full"
                   title={pack.description}
                 >
-                  Load: {pack.name}
+                  <span className="block truncate">Load: {pack.name}</span>
                 </button>
               ))}
             </div>
@@ -579,7 +606,7 @@ export function JhaTemplateEditorPage() {
               <div className="space-y-2">
                 {(schema.stepLibrary ?? []).map((s, idx) => (
                   <div key={s.id} className="flex items-start gap-2 p-3 rounded-lg border border-[#E5E7EB]">
-                    <span className="text-xs font-semibold text-[#0A2540] bg-[#0A2540]/10 px-2 py-1 rounded shrink-0">
+                    <span className="text-xs font-semibold text-[#0A2540] bg-[#0A2540]/10 px-2 py-1 rounded shrink-0 mt-0.5">
                       {idx + 1}
                     </span>
                     <div className="flex-1 min-w-0">
@@ -587,16 +614,16 @@ export function JhaTemplateEditorPage() {
                         type="text"
                         value={s.description}
                         onChange={e => updateLibraryStep(s.id, e.target.value)}
-                        className="w-full text-sm border border-[#E5E7EB] rounded px-2.5 py-1.5 mb-1"
+                        className={`${FIELD_INPUT} mb-1`}
                         placeholder="Work step description"
                       />
-                      <p className="text-[11px] text-[#6B7280] truncate">
+                      <p className="text-[11px] text-[#6B7280] leading-relaxed">
                         {(s.hazards || '').split('\n').filter(Boolean).length} hazard(s)
                         {' · '}
                         {(s.controlMeasures ?? []).filter(m => m.text.trim()).length} control(s)
                       </p>
                     </div>
-                    <button type="button" onClick={() => deleteLibraryStep(s.id)} className="p-1 text-[#4A5568] hover:text-[#B42318] shrink-0">
+                    <button type="button" onClick={() => deleteLibraryStep(s.id)} className="p-1 text-[#4A5568] hover:text-[#B42318] shrink-0" title="Remove step">
                       <X size={14} />
                     </button>
                   </div>
@@ -612,38 +639,53 @@ export function JhaTemplateEditorPage() {
             title="Risk Levels"
             icon={AlertCircle}
             count={schema.riskLevels.length}
-            action={<button onClick={addRiskLevel} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"><Plus size={13} /> Add</button>}
+            action={<button type="button" onClick={addRiskLevel} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"><Plus size={13} /> Add</button>}
           >
-            <p className="text-xs text-[#4A5568] mb-4">Define the risk rating levels users can select when assessing each job step.</p>
+            <p className="text-xs text-[#4A5568] mb-4 leading-relaxed">Define the risk rating levels users can select when assessing each job step.</p>
             <div className="space-y-2">
               {schema.riskLevels.map(risk => (
-                <div key={risk.id} className="flex items-center gap-2 p-3 rounded-lg border border-[#E5E7EB]">
-                  <GripVertical size={14} className="text-[#9CA3AF] shrink-0" />
-                  <input
-                    type="text"
-                    value={risk.label}
-                    onChange={e => updateRiskLevel(risk.id, { label: e.target.value })}
-                    placeholder="Label"
-                    className="flex-1 text-sm border border-[#E5E7EB] rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
-                  />
-                  <select
-                    value={risk.color}
-                    onChange={e => updateRiskLevel(risk.id, { color: e.target.value })}
-                    className="text-sm border border-[#E5E7EB] rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
-                  >
-                    {RISK_COLORS.map(c => <option key={c.color} value={c.color}>{c.label}</option>)}
-                  </select>
-                  <div className="w-6 h-6 rounded-full shrink-0 border border-[#E5E7EB]" style={{ backgroundColor: risk.color }} />
-                  <input
-                    type="number"
-                    value={risk.score}
-                    onChange={e => updateRiskLevel(risk.id, { score: e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0 })}
-                    className="w-14 text-sm border border-[#E5E7EB] rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
-                    title="Score"
-                  />
-                  <button onClick={() => deleteRiskLevel(risk.id)} className="p-1 text-[#4A5568] hover:text-[#B42318] shrink-0">
-                    <X size={14} />
-                  </button>
+                <div key={risk.id} className="flex flex-col sm:flex-row sm:items-end gap-2 p-3 rounded-lg border border-[#E5E7EB]">
+                  <div className="flex items-end gap-2 min-w-0 flex-1">
+                    <GripVertical size={14} className="text-[#9CA3AF] shrink-0 mb-2.5 hidden sm:block" />
+                    <div className="min-w-0 flex-1">
+                      <label className="block text-[11px] text-[#6B7280] mb-1">Label</label>
+                      <input
+                        type="text"
+                        value={risk.label}
+                        onChange={e => updateRiskLevel(risk.id, { label: e.target.value })}
+                        placeholder="e.g. Moderate"
+                        className={FIELD_INPUT}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-end gap-2 flex-wrap sm:flex-nowrap">
+                    <div className="min-w-0 flex-1 sm:w-32 sm:flex-none">
+                      <label className="block text-[11px] text-[#6B7280] mb-1">Colour</label>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={risk.color}
+                          onChange={e => updateRiskLevel(risk.id, { color: e.target.value })}
+                          className={FIELD_INPUT}
+                        >
+                          {RISK_COLORS.map(c => <option key={c.color} value={c.color}>{c.label}</option>)}
+                        </select>
+                        <div className="w-8 h-8 rounded-md shrink-0 border border-[#E5E7EB]" style={{ backgroundColor: risk.color }} title={risk.color} />
+                      </div>
+                    </div>
+                    <div className="w-20 shrink-0">
+                      <label className="block text-[11px] text-[#6B7280] mb-1">Score</label>
+                      <input
+                        type="number"
+                        value={risk.score}
+                        onChange={e => updateRiskLevel(risk.id, { score: e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0 })}
+                        className={FIELD_INPUT}
+                        title="Score"
+                      />
+                    </div>
+                    <button type="button" onClick={() => deleteRiskLevel(risk.id)} className="p-2 text-[#4A5568] hover:text-[#B42318] shrink-0 h-10" title="Remove level">
+                      <X size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -656,29 +698,37 @@ export function JhaTemplateEditorPage() {
             title="PPE Options"
             icon={HardHat}
             count={schema.ppeOptions.length}
-            action={<button onClick={addPpeOption} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"><Plus size={13} /> Add</button>}
+            action={<button type="button" onClick={addPpeOption} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"><Plus size={13} /> Add</button>}
           >
-            <p className="text-xs text-[#4A5568] mb-4">PPE chips users can select. Add AS/NZS references for the PDF pack.</p>
+            <p className="text-xs text-[#4A5568] mb-4 leading-relaxed">PPE chips users can select. Add AS/NZS references for the PDF pack.</p>
             <div className="space-y-2">
               {schema.ppeOptions.map(opt => (
-                <div key={opt.id} className="flex items-center gap-2 p-2 rounded-lg border border-[#E5E7EB]">
-                  <input
-                    type="text"
-                    value={opt.label}
-                    onChange={e => updatePpeOption(opt.id, { label: e.target.value })}
-                    className="flex-1 text-sm border border-[#E5E7EB] rounded px-2.5 py-1.5"
-                    placeholder="PPE item"
-                  />
-                  <input
-                    type="text"
-                    value={opt.standardRef ?? ''}
-                    onChange={e => updatePpeOption(opt.id, { standardRef: e.target.value })}
-                    className="w-36 text-xs border border-[#E5E7EB] rounded px-2 py-1.5"
-                    placeholder="AS/NZS …"
-                  />
-                  <button type="button" onClick={() => deletePpeOption(opt.id)} className="p-1 text-[#4A5568] hover:text-[#B42318]">
-                    <X size={14} />
-                  </button>
+                <div key={opt.id} className="flex flex-col sm:flex-row sm:items-end gap-2 p-3 rounded-lg border border-[#E5E7EB]">
+                  <div className="min-w-0 flex-1">
+                    <label className="block text-[11px] text-[#6B7280] mb-1">PPE item</label>
+                    <input
+                      type="text"
+                      value={opt.label}
+                      onChange={e => updatePpeOption(opt.id, { label: e.target.value })}
+                      className={FIELD_INPUT}
+                      placeholder="e.g. Hard Hat"
+                    />
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <div className="min-w-0 flex-1 sm:w-44 sm:flex-none">
+                      <label className="block text-[11px] text-[#6B7280] mb-1">Standard</label>
+                      <input
+                        type="text"
+                        value={opt.standardRef ?? ''}
+                        onChange={e => updatePpeOption(opt.id, { standardRef: e.target.value })}
+                        className={FIELD_INPUT}
+                        placeholder="AS/NZS 1801"
+                      />
+                    </div>
+                    <button type="button" onClick={() => deletePpeOption(opt.id)} className="p-2 text-[#4A5568] hover:text-[#B42318] shrink-0 h-10" title="Remove PPE">
+                      <X size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -691,26 +741,31 @@ export function JhaTemplateEditorPage() {
             title="Sign-Off Roles"
             icon={ShieldCheck}
             count={schema.signOffRoles.length}
-            action={<button onClick={addSignOffRole} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"><Plus size={13} /> Add</button>}
+            action={<button type="button" onClick={addSignOffRole} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"><Plus size={13} /> Add</button>}
           >
-            <p className="text-xs text-[#4A5568] mb-4">Define who must sign off on the JHA before it can be published.</p>
+            <p className="text-xs text-[#4A5568] mb-4 leading-relaxed">Define who must sign off on the JHA before it can be published.</p>
             <div className="space-y-2">
               {schema.signOffRoles.map(role => (
-                <div key={role.id} className="flex items-center gap-2 p-3 rounded-lg border border-[#E5E7EB]">
-                  <input
-                    type="text"
-                    value={role.label}
-                    onChange={e => updateSignOffRole(role.id, { label: e.target.value })}
-                    placeholder="Role label"
-                    className="flex-1 text-sm border border-[#E5E7EB] rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
-                  />
-                  <label className="flex items-center gap-1.5 text-xs text-[#4A5568] shrink-0">
-                    <Toggle checked={role.required} onChange={v => updateSignOffRole(role.id, { required: v })} />
-                    Required
-                  </label>
-                  <button onClick={() => deleteSignOffRole(role.id)} className="p-1 text-[#4A5568] hover:text-[#B42318] shrink-0">
-                    <X size={14} />
-                  </button>
+                <div key={role.id} className="flex flex-col sm:flex-row sm:items-end gap-2 p-3 rounded-lg border border-[#E5E7EB]">
+                  <div className="min-w-0 flex-1">
+                    <label className="block text-[11px] text-[#6B7280] mb-1">Role</label>
+                    <input
+                      type="text"
+                      value={role.label}
+                      onChange={e => updateSignOffRole(role.id, { label: e.target.value })}
+                      placeholder="e.g. Supervisor"
+                      className={FIELD_INPUT}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between sm:justify-end gap-3 h-10">
+                    <label className="flex items-center gap-2 text-xs text-[#4A5568] shrink-0">
+                      <Toggle checked={role.required} onChange={v => updateSignOffRole(role.id, { required: v })} />
+                      Required
+                    </label>
+                    <button type="button" onClick={() => deleteSignOffRole(role.id)} className="p-2 text-[#4A5568] hover:text-[#B42318] shrink-0" title="Remove role">
+                      <X size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
