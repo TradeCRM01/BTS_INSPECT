@@ -150,7 +150,7 @@ export function InspectionFillPage() {
   const schema = snapshotRaw?.schema ?? null;
   const templateName = (inspection?.template_snapshot as unknown as { name?: string } | null)?.name ?? '';
 
-  async function saveInspection(payload: PendingSave) {
+  const saveInspection = useCallback(async (payload: PendingSave) => {
     if (!id) return;
     setSaveStatus('saving');
     try {
@@ -170,14 +170,14 @@ export function InspectionFillPage() {
       pendingSaveRef.current = payload;
       localStorage.setItem(`insp_${id}_responses`, JSON.stringify(payload.responses));
     }
-  }
+  }, [id]);
 
   const debouncedSave = useCallback((payload: PendingSave) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     setSaveStatus('saving');
     pendingSaveRef.current = payload;
-    saveTimerRef.current = setTimeout(() => saveInspection(payload), 600);
-  }, [id]);
+    saveTimerRef.current = setTimeout(() => { void saveInspection(payload); }, 600);
+  }, [saveInspection]);
 
   function persist(nextResponses = responses, nextMeta = meta, nextJobId = jobId) {
     debouncedSave({
@@ -199,10 +199,10 @@ export function InspectionFillPage() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (pendingSaveRef.current) saveInspection(pendingSaveRef.current);
+      if (pendingSaveRef.current) void saveInspection(pendingSaveRef.current);
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [saveInspection]);
 
   function updateResponse(key: string, value: unknown) {
     const newResponses = { ...responses, [key]: value };
