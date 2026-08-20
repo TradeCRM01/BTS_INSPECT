@@ -7,9 +7,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsSiteRow } from '../components/ui';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import type { Client, JobWithClient } from '../types/crm';
-import { JOB_STATUS_LABELS } from '../types/crm';
 import {
-  QUOTE_STATUS_LABELS, INVOICE_STATUS_LABELS,
   formatMoney,
 } from '../types/fsm';
 import type { QuoteStatus } from '../types/fsm';
@@ -17,17 +15,14 @@ import { Briefcase, Plus, FileText, ShieldCheck, Receipt, ClipboardList } from '
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ClientForm } from './ClientsPage';
 import type { ComplianceItem } from '../types/compliance';
-import { COMPLIANCE_STATUS_LABELS } from '../types/compliance';
 import { jobListNext } from '../lib/jobNextAction';
 import { quoteActionContext, recommendQuoteAction } from '../lib/quoteNextAction';
 import { recommendInvoiceAction } from '../lib/invoiceNextAction';
-import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { pickReusableInvoice } from '../lib/invoiceFromQuote';
 import { padQuoteNumber } from '../lib/quoteJobFields';
 import {
   inspectionListContext,
   inspectionOpenPath,
-  inspectionStatusLabel,
   recommendInspectionListAction,
 } from '../lib/inspectionNextAction';
 import type { TemplateSchema } from '../types/template';
@@ -94,7 +89,6 @@ function jobRowTitle(job: { address?: string | null; title?: string | null; job_
 }
 
 const nextQuiet = 'hub-next shrink-0';
-const nextDone = 'ops-meta shrink-0';
 
 export function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -231,20 +225,13 @@ export function ClientDetailPage() {
           ) : null}
         </div>
 
-        {(!moneyReady || money.quoted > 0 || money.outstanding > 0 || money.overdue > 0) ? (
-          <div className="hub-money">
-            <MoneyCard label="Quoted" amount={moneyReady ? money.quoted : null} />
-            <MoneyCard label="Outstanding" amount={moneyReady ? money.outstanding : null} />
-            <MoneyCard label="Overdue" amount={moneyReady ? money.overdue : null} tone={moneyReady && money.overdue > 0 ? 'overdue' : undefined} />
-          </div>
-        ) : null}
+        <HubMoney ready={moneyReady} overdue={money.overdue} outstanding={money.outstanding} />
 
-        <div className="space-y-3 mb-6">
+        <div className="hub-trays">
           <JobRelatedSection
             title="Jobs"
             icon={Briefcase}
             count={(jobs ?? []).length}
-            action={<Link to={newJobHref} className="ops-link">New job</Link>}
             emptyTitle="No jobs yet"
             emptyAction={<Link to={newJobHref} className="ops-link">New job</Link>}
           >
@@ -263,15 +250,10 @@ export function ClientDetailPage() {
                     job.scheduled_date ? format(parseISO(job.scheduled_date), 'd MMM yyyy') : null,
                     job.start_time ? job.start_time.slice(0, 5) : null,
                   ].filter(Boolean).join(' · ')}
-                  trailing={
-                    <span className="ops-meta shrink-0">{JOB_STATUS_LABELS[job.status]}</span>
-                  }
                   action={
                     next.actionable ? (
                       <Link to={next.href} className={nextQuiet}>{next.label}</Link>
-                    ) : (
-                      <span className={nextDone}>{next.label}</span>
-                    )
+                    ) : null
                   }
                 />
               );
@@ -298,13 +280,8 @@ export function ClientDetailPage() {
                   icon={FileText}
                   title={`Quote #${padQuoteNumber(quote.quote_number)}`}
                   meta={[quote.description?.trim() || null, formatMoney(Number(quote.total))].filter(Boolean).join(' · ')}
-                  trailing={
-                    <span className="ops-meta shrink-0">{QUOTE_STATUS_LABELS[quote.status]}</span>
-                  }
                   action={
-                    next.key === 'none' ? (
-                      <span className={nextDone}>{next.label}</span>
-                    ) : (
+                    next.key === 'none' ? null : (
                       <Link to={quoteRecordHref(quote.id)} className={nextQuiet}>{next.label}</Link>
                     )
                   }
@@ -323,7 +300,6 @@ export function ClientDetailPage() {
           >
             {(invoices ?? []).map(inv => {
               const next = recommendInvoiceAction(inv);
-              const status = effectiveInvoiceStatus(inv);
               return (
                 <JobRelatedRow
                   key={inv.id}
@@ -334,13 +310,8 @@ export function ClientDetailPage() {
                     formatMoney(Number(inv.total)),
                     inv.due_date ? `Due ${format(parseISO(inv.due_date), 'd MMM yyyy')}` : null,
                   ].filter(Boolean).join(' · ')}
-                  trailing={
-                    <span className="ops-meta shrink-0">{INVOICE_STATUS_LABELS[status]}</span>
-                  }
                   action={
-                    next.key === 'none' ? (
-                      <span className={nextDone}>{next.label}</span>
-                    ) : (
+                    next.key === 'none' ? null : (
                       <Link to={invoiceRecordHref(inv.id)} className={nextQuiet}>{next.label}</Link>
                     )
                   }
@@ -380,9 +351,6 @@ export function ClientDetailPage() {
                     job ? visibleSite(job.address, job.title) || null : null,
                     format(new Date(insp.started_at), 'd MMM yyyy'),
                   ].filter(Boolean).join(' · ')}
-                  trailing={
-                    <span className="ops-meta shrink-0">{inspectionStatusLabel(insp.status)}</span>
-                  }
                   action={
                     <Link to={inspectionOpenPath(insp.id, next.key)} className={nextQuiet}>
                       {next.label}
@@ -414,9 +382,7 @@ export function ClientDetailPage() {
                     daysUntil < 0 ? `${Math.abs(daysUntil)} days overdue` : daysUntil <= 30 ? `in ${daysUntil} days` : null,
                     ci.reminder_sent_at ? `Reminded ${format(new Date(ci.reminder_sent_at), 'd MMM')}` : null,
                   ].filter(Boolean).join(' · ')}
-                  trailing={
-                    <span className="ops-meta shrink-0">{COMPLIANCE_STATUS_LABELS[ci.status]}</span>
-                  }
+                  action={null}
                 />
               );
             })}
@@ -440,22 +406,31 @@ export function ClientDetailPage() {
   );
 }
 
-function MoneyCard({
-  label,
-  amount,
-  tone,
+function HubMoney({
+  ready,
+  overdue,
+  outstanding,
 }: {
-  label: string;
-  amount: number | null;
-  tone?: 'overdue';
+  ready: boolean;
+  overdue: number;
+  outstanding: number;
 }) {
-  if (amount === 0) return null;
-  return (
-    <div className="hub-money-item">
-      <span className="ops-meta">{label}</span>
-      <span className={`ops-money ${tone === 'overdue' ? 'text-fail' : ''}`}>
-        {amount == null ? '—' : formatMoney(amount)}
-      </span>
-    </div>
-  );
+  if (!ready) return null;
+  if (overdue > 0) {
+    return (
+      <div className="hub-signal">
+        <p className="hub-signal-amount text-fail">{formatMoney(overdue)}</p>
+        <p className="ops-meta">Overdue</p>
+      </div>
+    );
+  }
+  if (outstanding > 0) {
+    return (
+      <div className="hub-signal">
+        <p className="hub-signal-amount">{formatMoney(outstanding)}</p>
+        <p className="ops-meta">Outstanding</p>
+      </div>
+    );
+  }
+  return null;
 }

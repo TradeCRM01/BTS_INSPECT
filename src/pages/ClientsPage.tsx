@@ -1,30 +1,27 @@
 import { useState, useMemo, memo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode, LoadingSpinner, OpsSiteRow, OpsCardHeader } from '../components/ui';
+import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode, LoadingSpinner } from '../components/ui';
 import type { MenuEntry } from '../components/ui';
 import type { Client, ClientWithStats } from '../types/crm';
 import { formatMoney } from '../types/fsm';
 import { Plus, Users, X, Trash2, CreditCard as Edit3, Archive, ArchiveRestore, Briefcase, FileText, Receipt } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
 import {
   AU_ADDRESS_PLACEHOLDER,
   AU_EMAIL_PLACEHOLDER,
   AU_PHONE_PLACEHOLDER,
   applyHubScope,
-  clientHubNext,
-  clientHubStatus,
   clientInvoiceMoney,
-  clientListMoneyHint,
   clientListStatsQueries,
   clientQuotedTotal,
   clientRecordHref,
   newInvoiceFromClientHref,
   newJobFromClientHref,
   newQuoteFromClientHref,
+  visibleClientContacts,
 } from '../lib/clientRecords';
 
 export function ClientsPage() {
@@ -181,7 +178,6 @@ export function ClientsPage() {
         <div className="ops-page-head">
           <div>
             <h1 className="ops-page-title">Clients</h1>
-            <p className="ops-meta mt-1">{clients?.length ?? 0} total</p>
           </div>
           <button
             onClick={() => { setEditingClient(null); setShowForm(true); }}
@@ -216,10 +212,10 @@ export function ClientsPage() {
               </button>
             )}
           />
-        ) : viewMode === 'grid' ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        ) : (
+          <div className={viewMode === 'list' ? 'hub-stack hub-stack-tight' : 'hub-stack'}>
             {filtered.map(client => (
-              <ClientCard
+              <ClientRow
                 key={client.id}
                 client={client}
                 onEdit={() => { setEditingClient(client); setShowForm(true); }}
@@ -227,31 +223,6 @@ export function ClientsPage() {
                 onDelete={() => setDeleteTarget(client)}
               />
             ))}
-          </div>
-        ) : (
-          <div className="ops-table">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-zebra text-left ops-meta font-medium uppercase tracking-wide">
-                    <th className="px-3 py-2">Site</th>
-                    <th className="px-3 py-2">Client</th>
-                    <th className="px-3 py-2">Status</th>
-                    <th className="px-3 py-2 text-right">Money</th>
-                    <th className="px-3 py-2">Next</th>
-                    <th className="px-3 py-2 w-10"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-rule">
-                  {filtered.map(client => (
-                    <ClientListRow key={client.id} client={client}
-                      onEdit={() => { setEditingClient(client); setShowForm(true); }}
-                      onArchive={() => archiveMutation.mutate({ id: client.id, archived: !client.archived })}
-                      onDelete={() => setDeleteTarget(client)} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </div>
         )}
       </div>
@@ -296,70 +267,18 @@ function clientMenuItems(client: ClientWithStats, navigate: ReturnType<typeof us
   ];
 }
 
-function clientFace(client: ClientWithStats) {
-  const quoted = client.quoted_total ?? 0;
-  const outstanding = client.outstanding_total ?? 0;
+function clientSignal(client: ClientWithStats) {
   const overdue = client.overdue_total ?? 0;
-  const hint = clientListMoneyHint({ quoted, outstanding, overdue });
-  const status = clientHubStatus({
-    archived: client.archived,
-    overdue,
-    live: client.active_jobs ?? 0,
-    quoted,
-  });
-  const next = clientHubNext({
-    clientId: client.id,
-    jobCount: client.job_count ?? 0,
-    overdue,
-  });
-  const money = hint.tone === 'none' || hint.amount === 0
-    ? null
-    : { amount: formatMoney(hint.amount), label: hint.label, overdue: hint.tone === 'overdue' };
-  const quietStatus = status.tone === 'live' || status.tone === 'archived' ? status.label : null;
-  return { hint, status, next, money, quietStatus, site: client.address?.trim() ?? '' };
+  if (overdue > 0) {
+    return { kind: 'overdue' as const, amount: formatMoney(overdue) };
+  }
+  if ((client.active_jobs ?? 0) > 0) {
+    return { kind: 'live' as const };
+  }
+  return null;
 }
 
-function ClientListRow({ client, onEdit, onArchive, onDelete }: {
-  client: ClientWithStats; onEdit: () => void; onArchive: () => void; onDelete: () => void;
-}) {
-  const navigate = useNavigate();
-  const { next, money, quietStatus, site } = clientFace(client);
-  const toneClass = money?.overdue ? 'text-fail' : 'text-navy';
-  return (
-    <tr className="hover:bg-zebra transition-colors">
-      <td className="px-3 py-2">
-        <OpsSiteRow
-          site={site}
-          phone={client.phone}
-          email={client.email}
-          mapsQuery={client.address}
-        />
-      </td>
-      <td className="px-3 py-2">
-        <Link to={clientRecordHref(client.id)} className="font-semibold text-navy hover:text-accent">{client.name}</Link>
-        {client.contact_person ? <p className="ops-meta truncate">{client.contact_person}</p> : null}
-        {client.active_jobs ? <p className="ops-meta">{client.active_jobs} live</p> : null}
-      </td>
-      <td className="px-3 py-2">
-        {quietStatus ? <p className="ops-meta">{quietStatus}</p> : null}
-      </td>
-      <td className="px-3 py-2">
-        {money ? (
-          <div className="text-right">
-            <p className={`ops-money text-sm ${toneClass}`}>{money.amount}</p>
-            <p className="ops-meta">{money.label}</p>
-          </div>
-        ) : null}
-      </td>
-      <td className="px-3 py-2">
-        <Link to={next.href} className="hub-next">{next.label}</Link>
-      </td>
-      <td className="px-3 py-2"><div className="flex justify-end"><ContextMenu items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} /></div></td>
-    </tr>
-  );
-}
-
-const ClientCard = memo(function ClientCard({
+const ClientRow = memo(function ClientRow({
   client, onEdit, onArchive, onDelete,
 }: {
   client: ClientWithStats;
@@ -368,8 +287,9 @@ const ClientCard = memo(function ClientCard({
   onDelete: () => void;
 }) {
   const navigate = useNavigate();
-  const { next, money, quietStatus, site } = clientFace(client);
-  const toneClass = money?.overdue ? 'text-fail' : 'text-navy';
+  const signal = clientSignal(client);
+  const site = client.address?.trim() ?? '';
+  const lines = visibleClientContacts({ phone: client.phone, email: client.email, address: null });
 
   return (
     <div
@@ -377,45 +297,39 @@ const ClientCard = memo(function ClientCard({
       tabIndex={0}
       onClick={() => navigate(clientRecordHref(client.id))}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(clientRecordHref(client.id)); } }}
-      className="ops-card ops-card-hover relative cursor-pointer"
+      className="hub-row"
     >
-      <div className="absolute top-2 right-2 z-10" onClick={e => e.stopPropagation()}>
-        <ContextMenu items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} />
-      </div>
-
-      <div className="pr-10">
-        <OpsCardHeader kicker={client.name} />
-      </div>
-      <div className="ops-card-body">
+      <div className="min-w-0 flex-1">
+        <p className="hub-row-name">{client.name}</p>
         {client.contact_person ? (
-          <p className="ops-meta truncate mb-1">{client.contact_person}</p>
+          <p className="ops-meta truncate">{client.contact_person}</p>
         ) : null}
-        {quietStatus ? <p className="ops-meta mb-1">{quietStatus}</p> : null}
-        <OpsSiteRow
-          site={site}
-          phone={client.phone}
-          email={client.email}
-          mapsQuery={client.address}
-        />
-        <div className="flex items-end justify-between gap-3 pt-3">
-          {money ? (
-            <div>
-              <p className={`ops-money text-left ${toneClass}`}>{money.amount}</p>
-              <p className="ops-meta">{money.label}</p>
-            </div>
-          ) : <div />}
-          <div className="text-right shrink-0" onClick={e => e.stopPropagation()}>
-            {client.job_count ? (
-              <p className="ops-meta tabular-nums">{client.job_count} jobs</p>
-            ) : null}
-            {client.active_jobs ? (
-              <p className="ops-meta">{client.active_jobs} live</p>
-            ) : client.last_job_date ? (
-              <p className="ops-meta">{format(parseISO(client.last_job_date), 'd MMM yyyy')}</p>
-            ) : null}
-            <Link to={next.href} className="hub-next">{next.label}</Link>
+        {site ? <p className="ops-meta truncate">{site}</p> : null}
+        {lines.length > 0 ? (
+          <div className="mt-1 flex flex-col gap-0.5 min-w-0">
+            {lines.map(line => (
+              <a
+                key={line.kind}
+                href={line.href}
+                className="ops-link truncate"
+                onClick={e => e.stopPropagation()}
+              >
+                {line.label}
+              </a>
+            ))}
           </div>
+        ) : null}
+      </div>
+      {signal?.kind === 'overdue' ? (
+        <div className="hub-row-signal">
+          <p className="hub-signal-amount text-fail">{signal.amount}</p>
+          <p className="ops-meta">Overdue</p>
         </div>
+      ) : signal?.kind === 'live' ? (
+        <p className="hub-row-signal ops-meta">Live</p>
+      ) : null}
+      <div className="shrink-0" onClick={e => e.stopPropagation()}>
+        <ContextMenu items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} />
       </div>
     </div>
   );
