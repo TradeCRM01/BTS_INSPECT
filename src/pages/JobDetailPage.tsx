@@ -11,7 +11,11 @@ import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import type { Client, Job, JobStatus } from '../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY_DOT } from '../types/crm';
 import { formatMoney, INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatDuration } from '../types/fsm';
+import type { InvoiceStatus } from '../types/fsm';
 import { pickJobColor } from '../lib/jobColors';
+import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
+import { DEFAULT_TAX_RATE } from '../lib/gst';
+import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import {
   Briefcase, Calendar, Clock, MapPin, User, Phone, Mail, Edit3, ChevronRight,
   FileText, ShieldCheck, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
@@ -45,8 +49,9 @@ type JobQuote = {
 type JobInvoice = {
   id: string;
   invoice_number: number | null;
-  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  status: InvoiceStatus;
   total: number;
+  due_date: string | null;
   created_at: string;
 };
 
@@ -74,7 +79,7 @@ function inspectionHref(status: string, id: string): string {
 
 export function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { profile } = useAuth();
+  const { profile, company } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -203,7 +208,7 @@ export function JobDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, invoice_number, status, total, created_at')
+        .select('id, invoice_number, status, total, due_date, created_at')
         .eq('job_id', id!)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -241,6 +246,21 @@ export function JobDetailPage() {
       };
     },
     enabled: !!id && !!profile,
+  });
+
+  const invoiceFromQuote = useMutation({
+    mutationFn: async (quoteId: string) => {
+      if (!profile?.id) throw new Error('Not signed in');
+      return convertQuoteToInvoice(quoteId, profile.id, Number(company?.default_tax_rate) || DEFAULT_TAX_RATE);
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      showToast(result.existing
+        ? 'Invoice already exists for this quote'
+        : 'Draft invoice created from quote');
+    },
+    onError: (e: Error) => showToast(e.message),
   });
 
   const updateStatus = useMutation({
@@ -473,32 +493,45 @@ export function JobDetailPage() {
 
         <RelatedSection title="Quotes" icon={FileText} action={<Link to="/quotes" className="text-sm text-[#2E75B6] hover:underline">View all</Link>} empty="No quotes linked to this job">
           {(quotes ?? []).map(q => (
-            <Link key={q.id} to="/quotes"
-              className="flex items-center gap-3 bg-white rounded-lg border border-[#E5E7EB] p-3 hover:shadow-sm transition-shadow">
-              <FileText size={16} className="text-[#2E75B6] shrink-0" />
-              <p className="text-sm font-medium text-[#1A1A1A] flex-1">Quote #{padNum(q.quote_number)}</p>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${QUOTE_STATUS_STYLES[q.status as keyof typeof QUOTE_STATUS_STYLES] ?? 'bg-gray-100 text-gray-700'}`}>
-                {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}
-              </span>
-              <span className="text-sm font-semibold text-[#1A1A1A]">{formatMoney(Number(q.total))}</span>
-              <ChevronRight size={15} className="text-[#D1D5DB]" />
-            </Link>
+            <div key={q.id} className="flex items-center gap-3 bg-white rounded-lg border border-[#E5E7EB] p-3">
+              <Link to={`/quotes?id=${q.id}`} className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80">
+                <FileText size={16} className="text-[#2E75B6] shrink-0" />
+                <p className="text-sm font-medium text-[#1A1A1A] truncate">Quote #{padNum(q.quote_number)}</p>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${QUOTE_STATUS_STYLES[q.status as keyof typeof QUOTE_STATUS_STYLES] ?? 'bg-gray-100 text-gray-700'}`}>
+                  {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}
+                </span>
+                <span className="text-sm font-semibold text-[#1A1A1A]">{formatMoney(Number(q.total))}</span>
+              </Link>
+              {q.status === 'accepted' && (
+                <button
+                  type="button"
+                  onClick={() => invoiceFromQuote.mutate(q.id)}
+                  disabled={invoiceFromQuote.isPending}
+                  className="shrink-0 flex items-center gap-1 text-xs font-medium text-[#0A2540] bg-[#F0F7FF] border border-[#BFDBFE] px-2 py-1 rounded-md hover:bg-[#E0EFFF] disabled:opacity-50"
+                >
+                  <Receipt size={12} /> Invoice
+                </button>
+              )}
+            </div>
           ))}
         </RelatedSection>
 
-        <RelatedSection title="Invoices" icon={Receipt} action={<Link to="/invoices" className="text-sm text-[#2E75B6] hover:underline">View all</Link>} empty="No invoices yet — create one from the job bill below">
-          {(invoices ?? []).map(inv => (
+        <RelatedSection title="Invoices" icon={Receipt} action={<Link to="/invoices" className="text-sm text-[#2E75B6] hover:underline">View all</Link>} empty="No invoices yet — invoice from a quote above or from the job bill below">
+          {(invoices ?? []).map(inv => {
+            const status = effectiveInvoiceStatus(inv);
+            return (
             <Link key={inv.id} to={`/invoices?id=${inv.id}`}
               className="flex items-center gap-3 bg-white rounded-lg border border-[#E5E7EB] p-3 hover:shadow-sm transition-shadow">
               <Receipt size={16} className="text-[#F7931A] shrink-0" />
               <p className="text-sm font-medium text-[#1A1A1A] flex-1">Invoice #{padNum(inv.invoice_number)}</p>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${INVOICE_STATUS_STYLES[inv.status]}`}>
-                {INVOICE_STATUS_LABELS[inv.status]}
+              <span className={`text-xs px-2 py-0.5 rounded-full ${INVOICE_STATUS_STYLES[status]}`}>
+                {INVOICE_STATUS_LABELS[status]}
               </span>
               <span className="text-sm font-semibold text-[#1A1A1A]">{formatMoney(Number(inv.total))}</span>
               <ChevronRight size={15} className="text-[#D1D5DB]" />
             </Link>
-          ))}
+            );
+          })}
         </RelatedSection>
 
         <RelatedSection

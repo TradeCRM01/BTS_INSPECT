@@ -2,6 +2,7 @@ import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/render
 import { pdfColors, pdfFonts } from '../shared/styles';
 import { formatMoney } from '../../types/fsm';
 import type { QuoteLineItem, InvoiceLineItem } from '../../types/fsm';
+import { gstLabel } from '../../lib/gst';
 
 export type CommercialDocKind = 'quote' | 'invoice' | 'purchase_order';
 
@@ -291,15 +292,15 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
 
         <View style={s.totals}>
           <View style={s.totalRow}>
-            <Text style={s.totalLabel}>Subtotal</Text>
+            <Text style={s.totalLabel}>Subtotal (ex GST)</Text>
             <Text style={s.totalValue}>{formatMoney(data.subtotal)}</Text>
           </View>
           <View style={s.totalRow}>
-            <Text style={s.totalLabel}>Tax ({data.taxRate}%)</Text>
+            <Text style={s.totalLabel}>{gstLabel(data.taxRate)}</Text>
             <Text style={s.totalValue}>{formatMoney(data.taxAmount)}</Text>
           </View>
           <View style={s.grandRow}>
-            <Text style={s.grandLabel}>Total</Text>
+            <Text style={s.grandLabel}>Total (inc GST)</Text>
             <Text style={s.grandValue}>{formatMoney(data.total)}</Text>
           </View>
         </View>

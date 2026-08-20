@@ -11,12 +11,16 @@ import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote
 import type { Client, Job } from '../types/crm';
 import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineItem } from '../components/invoicing/LineItemEditor';
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
+import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
 import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
+import { calcDocumentTotals, DEFAULT_TAX_RATE } from '../lib/gst';
+import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
+import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, formatMoney } from '../types/fsm';
-import { Plus, Receipt, X, Download, MoreVertical, AlertCircle, Eye } from 'lucide-react';
+import { Plus, Receipt, X, Download, MoreVertical, AlertCircle, Eye, Check } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 const padInv = (n: number | null) => String(n ?? 0).padStart(4, '0');
@@ -48,7 +52,7 @@ export function InvoicesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, company_id, invoice_number, client_id, job_id, quote_id, status, line_items, subtotal, tax_rate, tax_amount, total, payment_terms, due_date, notes, inclusions, exclusions, created_by, created_at, updated_at')
+        .select('id, company_id, invoice_number, client_id, job_id, quote_id, source, status, line_items, subtotal, tax_rate, tax_amount, total, payment_terms, due_date, notes, inclusions, exclusions, created_by, created_at, updated_at')
         .order('created_at', { ascending: false });
       if (error) throw error;
       const list = (data ?? []) as InvoiceWithDetails[];
@@ -75,8 +79,11 @@ export function InvoicesPage() {
   const totals = useMemo(() => {
     const list = invoices ?? [];
     return {
-      outstanding: list.filter(i => i.status === 'sent' || i.status === 'overdue').reduce((s, i) => s + Number(i.total), 0),
-      overdue: list.filter(i => i.status === 'overdue').reduce((s, i) => s + Number(i.total), 0),
+      outstanding: list.filter(i => {
+        const s = effectiveInvoiceStatus(i);
+        return s === 'sent' || s === 'overdue';
+      }).reduce((s, i) => s + Number(i.total), 0),
+      overdue: list.filter(i => effectiveInvoiceStatus(i) === 'overdue').reduce((s, i) => s + Number(i.total), 0),
       paid: list.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total), 0),
     };
   }, [invoices]);
@@ -84,7 +91,7 @@ export function InvoicesPage() {
   const filtered = useMemo(() => {
     const list = invoices ?? [];
     return list.filter(i => {
-      if (statusFilter !== 'all' && i.status !== statusFilter) return false;
+      if (statusFilter !== 'all' && effectiveInvoiceStatus(i) !== statusFilter) return false;
       if (search.trim()) {
         const s = search.toLowerCase();
         const num = `#${String(i.invoice_number ?? 0).padStart(4, '0')}`.toLowerCase();
@@ -144,7 +151,7 @@ export function InvoicesPage() {
         {/* Status tabs */}
         <div className="flex items-center gap-1 mb-4 border-b border-[#E5E7EB] overflow-x-auto">
           {STATUS_TABS.map(tab => {
-            const count = tab.key === 'all' ? (invoices?.length ?? 0) : (invoices?.filter(i => i.status === tab.key).length ?? 0);
+            const count = tab.key === 'all' ? (invoices?.length ?? 0) : (invoices?.filter(i => effectiveInvoiceStatus(i) === tab.key).length ?? 0);
             const active = statusFilter === tab.key;
             return (
               <button
@@ -184,50 +191,56 @@ export function InvoicesPage() {
                     <th className="px-4 py-3">Invoice #</th>
                     <th className="px-4 py-3">Client</th>
                     <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Total</th>
+                    <th className="px-4 py-3 text-right">Total (inc GST)</th>
                     <th className="px-4 py-3">Due Date</th>
                     <th className="px-4 py-3">Created</th>
                     <th className="px-4 py-3 w-8"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F3F4F6]">
-                  {filtered.map(inv => (
+                  {filtered.map(inv => {
+                    const status = effectiveInvoiceStatus(inv);
+                    return (
                     <tr key={inv.id} onClick={() => { setEditingInvoice(inv); setShowForm(true); }}
                       className="hover:bg-[#F9FAFB] cursor-pointer transition-colors">
                       <td className="px-4 py-3 font-medium text-[#2E75B6]">#{String(inv.invoice_number ?? 0).padStart(4, '0')}</td>
-                      <td className="px-4 py-3 text-[#1A1A1A]">{inv.client_name ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
+                      <td className="px-4 py-3 text-[#1A1A1A]">{inv.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INVOICE_STATUS_STYLES[inv.status]}`}>
-                          {INVOICE_STATUS_LABELS[inv.status]}
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INVOICE_STATUS_STYLES[status]}`}>
+                          {INVOICE_STATUS_LABELS[status]}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-[#1A1A1A]">{formatMoney(Number(inv.total))}</td>
-                      <td className="px-4 py-3 text-[#4A5568]">{inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
+                      <td className="px-4 py-3 text-[#4A5568]">{inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : '—'}</td>
                       <td className="px-4 py-3 text-[#4A5568]">{format(parseISO(inv.created_at), 'd MMM yyyy')}</td>
                       <td className="px-4 py-3 text-[#9CA3AF]"><MoreVertical size={15} /></td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map(inv => (
+            {filtered.map(inv => {
+              const status = effectiveInvoiceStatus(inv);
+              return (
               <div key={inv.id} onClick={() => { setEditingInvoice(inv); setShowForm(true); }}
                 className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-2">
                   <span className="font-bold text-[#2E75B6]">#{String(inv.invoice_number ?? 0).padStart(4, '0')}</span>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INVOICE_STATUS_STYLES[inv.status]}`}>{INVOICE_STATUS_LABELS[inv.status]}</span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INVOICE_STATUS_STYLES[status]}`}>{INVOICE_STATUS_LABELS[status]}</span>
                 </div>
                 <p className="text-sm font-medium text-[#1A1A1A] mb-1">{inv.client_name ?? 'No client'}</p>
                 <p className="text-lg font-bold text-[#1A1A1A] mb-2">{formatMoney(Number(inv.total))}</p>
                 <div className="flex items-center justify-between text-xs text-[#4A5568]">
-                  <span>Due: {inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</span>
+                  <span>Due: {inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : '—'}</span>
                   <span>{format(parseISO(inv.created_at), 'd MMM yyyy')}</span>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -235,7 +248,7 @@ export function InvoicesPage() {
       {showForm && (
         <InvoiceEditorModal
           invoice={editingInvoice}
-          defaultTaxRate={company?.default_tax_rate ?? 10}
+          defaultTaxRate={company?.default_tax_rate ?? DEFAULT_TAX_RATE}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); queryClient.invalidateQueries({ queryKey: ['invoices'] }); showToast(editingInvoice ? 'Invoice updated' : 'Invoice created'); }}
         />
@@ -318,9 +331,13 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
 
   const clientJobs = useMemo(() => jobs.filter(j => form.client_id && j.client_id === form.client_id), [jobs, form.client_id]);
   const selectedClient = clients.find(c => c.id === form.client_id);
-  const subtotal = useMemo(() => calcSubtotal(form.line_items), [form.line_items]);
-  const taxAmount = useMemo(() => subtotal * (parseFloat(form.tax_rate) || 0) / 100, [subtotal, form.tax_rate]);
-  const grandTotal = subtotal + taxAmount;
+  const rawSubtotal = useMemo(() => calcSubtotal(form.line_items), [form.line_items]);
+  const gst = useMemo(
+    () => calcDocumentTotals(rawSubtotal, parseFloat(form.tax_rate) || 0),
+    [rawSubtotal, form.tax_rate],
+  );
+  const { subtotal, taxAmount, total: grandTotal } = gst;
+  const displayStatus = effectiveInvoiceStatus({ status: form.status, due_date: form.due_date });
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
@@ -439,7 +456,34 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
     };
     const { error } = invoice
       ? await supabase.from('invoices').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', invoice.id)
-      : await supabase.from('invoices').insert({ ...payload, company_id: profile.company_id, created_by: profile.id });
+      : await supabase.from('invoices').insert({
+        ...payload,
+        source: form.quote_id ? INVOICE_SOURCE_QUOTE : null,
+        company_id: profile.company_id,
+        created_by: profile.id,
+      });
+    setSaving(false);
+    if (error) {
+      if (error.code === '23505') {
+        setErr('An invoice already exists for this quote');
+        return;
+      }
+      setErr(error.message);
+      return;
+    }
+    onSaved();
+  };
+
+  const markPaid = async () => {
+    if (!invoice) {
+      setForm(f => ({ ...f, status: 'paid' }));
+      return;
+    }
+    setSaving(true); setErr('');
+    const { error } = await supabase
+      .from('invoices')
+      .update({ status: 'paid', updated_at: new Date().toISOString() })
+      .eq('id', invoice.id);
     setSaving(false);
     if (error) { setErr(error.message); return; }
     onSaved();
@@ -457,6 +501,9 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
                 #{String(invoice.invoice_number).padStart(4, '0')}
               </span>
             )}
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INVOICE_STATUS_STYLES[displayStatus]}`}>
+              {INVOICE_STATUS_LABELS[displayStatus]}
+            </span>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400">
             <X size={18} />
@@ -482,7 +529,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
             <Field label="Linked Quote">
               <select value={form.quote_id} onChange={e => setForm(f => ({ ...f, quote_id: e.target.value }))} className="form-input cursor-pointer" disabled={!form.client_id}>
                 <option value="">No linked quote</option>
-                {quotes.map(q => <option key={q.id} value={q.id}>#{String(q.quote_number ?? 0).padStart(4, '0')} ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â {formatMoney(Number(q.total))}</option>)}
+                {quotes.map(q => <option key={q.id} value={q.id}>#{String(q.quote_number ?? 0).padStart(4, '0')} — {formatMoney(Number(q.total))}</option>)}
               </select>
             </Field>
           </div>
@@ -510,16 +557,15 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
           />
 
           {/* Totals */}
-          <div className="flex justify-end">
-            <div className="w-56 space-y-1.5 text-sm">
-              <div className="flex justify-between text-[#4A5568]"><span>Subtotal</span><span>{formatMoney(subtotal)}</span></div>
-              <div className="flex justify-between text-[#4A5568]"><span>Tax ({parseFloat(form.tax_rate) || 0}%)</span><span>{formatMoney(taxAmount)}</span></div>
-              <div className="flex justify-between font-semibold text-[#1A1A1A] border-t border-[#E5E7EB] pt-1.5"><span>Grand Total</span><span>{formatMoney(grandTotal)}</span></div>
-            </div>
-          </div>
+          <DocumentGstTotals
+            subtotal={subtotal}
+            taxRate={parseFloat(form.tax_rate) || 0}
+            taxAmount={taxAmount}
+            total={grandTotal}
+          />
 
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Tax Rate (%)">
+            <Field label="GST rate (%)">
               <input type="number" min={0} step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))}
                 className="form-input" placeholder="0" />
             </Field>
@@ -559,6 +605,16 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
             <Eye size={14} /> Preview PDF
           </button>
           <div className="flex items-center gap-2">
+            {form.status !== 'paid' && (
+              <button
+                type="button"
+                onClick={markPaid}
+                disabled={saving}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+              >
+                <Check size={14} /> Mark as paid
+              </button>
+            )}
             <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-gray-50">Cancel</button>
             <button onClick={handleSave} disabled={saving}
               className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">

@@ -198,6 +198,7 @@ export const QUOTE_STATUS_STYLES: Record<QuoteStatus, string> = {
 // ── Invoices ─────────────────────────────────────────────────────
 
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue';
+export type InvoiceSource = 'quote' | 'job_bill' | null;
 
 export interface Invoice {
   id: string;
@@ -206,6 +207,8 @@ export interface Invoice {
   client_id: string | null;
   job_id: string | null;
   quote_id: string | null;
+  /** quote | job_bill | null (manual). Used to de-dupe job-bill invoices. */
+  source?: InvoiceSource;
   status: InvoiceStatus;
   line_items: InvoiceLineItem[];
   subtotal: number;
