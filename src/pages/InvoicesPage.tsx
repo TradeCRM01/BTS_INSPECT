@@ -223,12 +223,12 @@ export function InvoicesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
-                    <th className="px-4 py-3">Invoice #</th>
-                    <th className="px-4 py-3">Client</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Total (inc GST)</th>
-                    <th className="px-4 py-3">Due</th>
-                    <th className="px-4 py-3">Next</th>
+                    <th className="px-3 py-2">Invoice #</th>
+                    <th className="px-3 py-2">Site</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2 text-right">Total (inc GST)</th>
+                    <th className="px-3 py-2">Due</th>
+                    <th className="px-3 py-2">Next</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F3F4F6]">
@@ -240,21 +240,22 @@ export function InvoicesPage() {
                         onClick={() => openInvoice(inv)}
                         className={`hover:bg-[#F9FAFB] cursor-pointer transition-colors ${status === 'overdue' ? 'bg-red-50/40' : ''}`}
                       >
-                        <td className="px-4 py-3 font-medium text-[#2E75B6]">#{padInv(inv.invoice_number)}</td>
-                        <td className="px-4 py-3 text-[#1A1A1A]">{inv.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INVOICE_STATUS_STYLES[status]}`}>
-                            {INVOICE_STATUS_LABELS[status]}
-                          </span>
+                        <td className="px-3 py-2 font-medium text-[#2E75B6]">#{padInv(inv.invoice_number)}</td>
+                        <td className="px-3 py-2">
+                          <p className="text-sm font-semibold text-[#0A2540] truncate">{opsSiteLabel(inv.job_address, inv.job_title)}</p>
+                          <p className="text-xs text-[#4A5568] truncate">{inv.client_name ?? '—'}</p>
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className="font-semibold text-[#1A1A1A]">{formatMoney(Number(inv.total))}</span>
+                        <td className="px-3 py-2">
+                          <OpsStatus className={INVOICE_STATUS_STYLES[status]}>{INVOICE_STATUS_LABELS[status]}</OpsStatus>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <span className="ops-money text-base">{formatMoney(Number(inv.total))}</span>
                           <span className="block text-[11px] font-normal text-[#4A5568]">{gstLabel(Number(inv.tax_rate))} {formatMoney(Number(inv.tax_amount))}</span>
                         </td>
-                        <td className={`px-4 py-3 ${status === 'overdue' ? 'text-red-600 font-medium' : 'text-[#4A5568]'}`}>
+                        <td className={`px-3 py-2 ${status === 'overdue' ? 'text-[#B42318] font-semibold' : 'text-[#4A5568]'}`}>
                           {inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : '—'}
                         </td>
-                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                        <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
                           <InvoiceNextControl invoice={inv} />
                         </td>
                       </tr>
@@ -316,32 +317,32 @@ function InvoiceCard({ invoice, onOpen }: { invoice: InvoiceWithDetails; onOpen:
     >
       <OpsCardHeader
         kicker={`INVOICE #${padInv(invoice.invoice_number)}`}
-        title={invoice.job_title || invoice.client_name || 'Invoice'}
-        site={opsSiteLabel(invoice.job_address, invoice.job_title)}
+        site={opsSiteLabel(invoice.job_address, invoice.job_title, invoice.client_name)}
+        title={invoice.job_title || undefined}
       />
       <div className="ops-card-body">
-        <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="text-lg font-bold text-[#1A1A1A]">{formatMoney(Number(invoice.total))}</p>
+            <p className="ops-money">{formatMoney(Number(invoice.total))}</p>
             <p className="text-[11px] text-[#4A5568]">inc GST · {gstLabel(Number(invoice.tax_rate))} {formatMoney(Number(invoice.tax_amount))}</p>
           </div>
           <OpsStatus className={INVOICE_STATUS_STYLES[next.status]}>{INVOICE_STATUS_LABELS[next.status]}</OpsStatus>
         </div>
         {invoice.client_name && (
-          <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mb-2">
+          <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mt-2">
             <User size={12} className="text-[#9CA3AF] shrink-0" />
             <span className="truncate">{invoice.client_name}</span>
           </div>
         )}
         {invoice.due_date && (
-          <div className={`flex items-center gap-1.5 text-xs mb-2 ${overdue ? 'text-red-600 font-medium' : 'text-[#4A5568]'}`}>
-            <Calendar size={12} className={`shrink-0 ${overdue ? 'text-red-500' : 'text-[#9CA3AF]'}`} />
+          <div className={`flex items-center gap-1.5 text-xs mt-1 ${overdue ? 'text-[#B42318] font-semibold' : 'text-[#4A5568]'}`}>
+            <Calendar size={12} className={`shrink-0 ${overdue ? 'text-[#B42318]' : 'text-[#9CA3AF]'}`} />
             Due {format(parseISO(invoice.due_date), 'd MMM yyyy')}
           </div>
         )}
         <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
           {next.key === 'none' ? (
-            <span className="ops-next-hint">{next.label}</span>
+            <span className="ops-next-control-done">{next.label}</span>
           ) : (
             <InvoiceNextControl invoice={invoice} />
           )}
@@ -382,7 +383,7 @@ function InvoiceNextControl({ invoice }: { invoice: InvoiceWithDetails }) {
         if (next.key === 'mark_paid') void patchStatus('paid', 'Invoice marked as paid');
       }}
       disabled={!!busy}
-      className={`text-xs py-1.5 px-2.5 ${next.status === 'overdue' ? 'inline-flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-red-700 disabled:opacity-50' : 'btn-primary'}`}
+      className={next.status === 'overdue' ? 'ops-next-control-bad' : 'ops-next-control-block'}
     >
       {busy ? 'Working…' : next.label}
     </button>
@@ -632,12 +633,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
       <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
         <div className="ops-card-header ops-card-header-lg">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="ops-card-kicker ops-card-kicker-lg">{heading}</p>
-              <h2 className="text-lg font-semibold tracking-tight truncate">
-                {selectedJob?.title || selectedClient?.name || 'Invoice'}
-              </h2>
-            </div>
+            <p className="ops-card-kicker ops-card-kicker-lg">{heading}</p>
             <div className="flex items-center gap-2 shrink-0">
               <OpsStatus className={INVOICE_STATUS_STYLES[displayStatus]}>
                 {INVOICE_STATUS_LABELS[displayStatus]}
@@ -648,8 +644,11 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
             </div>
           </div>
           <p className="ops-hub-site">
-            <MapPin size={16} className="ops-card-site-icon mt-0.5" />
-            <span className="truncate">{opsSiteLabel(selectedJob?.address, selectedJob?.title, selectedClient?.address)}</span>
+            <MapPin size={18} className="ops-card-site-icon mt-1" />
+            <span className="min-w-0">{opsSiteLabel(selectedJob?.address, selectedJob?.title, selectedClient?.address, selectedClient?.name)}</span>
+          </p>
+          <p className="mt-1 text-sm font-medium text-white/75 truncate">
+            {selectedJob?.title || 'Invoice'}
           </p>
           {selectedClient && (
             <p className="mt-2 flex items-center gap-2 text-sm text-white/80 truncate">
@@ -658,7 +657,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
             </p>
           )}
           {form.due_date && (
-            <p className={`mt-2 flex items-center gap-2 text-sm ${displayStatus === 'overdue' ? 'text-red-200 font-medium' : 'text-white/80'}`}>
+            <p className={`mt-2 flex items-center gap-2 text-sm ${displayStatus === 'overdue' ? 'text-red-200 font-semibold' : 'text-white/80'}`}>
               <Calendar size={14} className={displayStatus === 'overdue' ? 'text-red-200' : 'text-[#93C5FD]'} />
               Due {format(parseISO(form.due_date), 'd MMM yyyy')}
             </p>

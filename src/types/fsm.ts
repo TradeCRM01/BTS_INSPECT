@@ -189,11 +189,11 @@ export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
 };
 
 export const QUOTE_STATUS_STYLES: Record<QuoteStatus, string> = {
-  draft: 'bg-gray-100 text-gray-700 ring-1 ring-gray-200',
-  sent: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
-  accepted: 'bg-green-50 text-green-700 ring-1 ring-green-200',
-  declined: 'bg-red-50 text-red-600 ring-1 ring-red-200',
-  expired: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200',
+  draft: 'ops-status-wait',
+  sent: 'ops-status-info',
+  accepted: 'ops-status-ok',
+  declined: 'ops-status-bad',
+  expired: 'ops-status-progress',
 };
 
 // ── Invoices ─────────────────────────────────────────────────────
@@ -240,10 +240,10 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
 };
 
 export const INVOICE_STATUS_STYLES: Record<InvoiceStatus, string> = {
-  draft: 'bg-gray-100 text-gray-700 ring-1 ring-gray-200',
-  sent: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
-  paid: 'bg-green-50 text-green-700 ring-1 ring-green-200',
-  overdue: 'bg-red-50 text-red-600 ring-1 ring-red-200',
+  draft: 'ops-status-wait',
+  sent: 'ops-status-info',
+  paid: 'ops-status-ok',
+  overdue: 'ops-status-bad',
 };
 
 // ── Job Costs ────────────────────────────────────────────────────

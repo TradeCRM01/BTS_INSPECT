@@ -57,10 +57,10 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
 };
 
 export const JOB_STATUS_STYLES: Record<JobStatus, string> = {
-  scheduled: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
-  in_progress: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
-  completed: 'bg-green-50 text-green-700 ring-1 ring-green-200',
-  cancelled: 'bg-red-50 text-red-600 ring-1 ring-red-200',
+  scheduled: 'ops-status-info',
+  in_progress: 'ops-status-progress',
+  completed: 'ops-status-ok',
+  cancelled: 'ops-status-bad',
 };
 
 export const JOB_PRIORITY_LABELS: Record<JobPriority, string> = {

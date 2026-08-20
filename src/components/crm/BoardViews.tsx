@@ -20,7 +20,7 @@ import {
 import {
   format, isToday, addDays, startOfWeek,
 } from 'date-fns';
-import { Clock, MapPin, User, Plus, Users } from 'lucide-react';
+import { Clock, User, Plus, Users } from 'lucide-react';
 
 export interface TeamMember {
   id: string;
@@ -45,8 +45,8 @@ const DAY_START = DAY_START_HOUR;
 const DAY_END = DAY_END_HOUR;
 const HOURS = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => DAY_START + i);
 const LABEL_WIDTH = 168;
-const ALL_DAY_H = 36;
-const TIMED_H = 58;
+const ALL_DAY_H = 56;
+const TIMED_H = 72;
 const ROW_PAD = 6;
 const ROW_MIN = 72;
 
@@ -107,66 +107,49 @@ const JobBlock = memo(function JobBlock({
       }`}
       style={{ borderLeftWidth: 3, borderLeftColor: color }}
     >
-      <div className={compact ? 'ops-card-header-sm' : 'ops-card-header px-1.5 py-1'}>
-        <div className="flex items-center gap-1 min-w-0">
-          <span className="ops-card-kicker shrink-0">{formatJobNumber(job.job_number)}</span>
-          {job.status === 'cancelled' && (
-            <span className="text-[9px] px-1 rounded bg-white/15 text-white font-semibold">CXL</span>
-          )}
-          {job.status === 'completed' && (
-            <span className="text-[9px] px-1 rounded bg-white/15 text-white font-semibold">DONE</span>
-          )}
-          {compact && hint && (
-            <span className="text-[9px] font-semibold text-[#93C5FD] truncate">{hint}</span>
-          )}
-        </div>
-        <p className={`${compact ? 'text-[10px]' : 'text-[11px]'} font-semibold leading-tight truncate text-white`}>
-          {job.title}
+      <div className={compact ? 'ops-card-header-sm' : 'ops-card-header px-2 py-1.5'}>
+        <p className="ops-card-kicker">{formatJobNumber(job.job_number) || 'JOB'}</p>
+        <p className={`${compact ? 'text-[11px]' : 'text-xs'} font-semibold leading-snug truncate text-white mt-0.5`}>
+          {site}
         </p>
+        {!compact && <p className="ops-card-sub">{job.title}</p>}
       </div>
-      {!compact && (
-        <div className="px-1.5 py-1">
-          <p className="text-[10px] leading-tight truncate text-[#4A5568] flex items-center gap-0.5">
-            <MapPin size={8} className="shrink-0 text-[#9CA3AF]" /> {site}
+      <div className="px-2 py-1.5">
+        {!compact && detail && job.client_name && (
+          <p className="text-[11px] leading-tight truncate text-[#4A5568] flex items-center gap-0.5 mb-1">
+            <User size={10} /> {job.client_name}
           </p>
-          {detail && job.client_name && (
-            <p className="text-[10px] leading-tight truncate text-[#4A5568] flex items-center gap-0.5 mt-0.5">
-              <User size={8} /> {job.client_name}
-            </p>
-          )}
-          {detail && job.start_time && (
-            <p className="text-[10px] leading-tight text-[#6B7280] flex items-center gap-0.5 mt-0.5">
-              <Clock size={8} /> {job.start_time.slice(0, 5)}
-              {job.end_time && ` – ${job.end_time.slice(0, 5)}`}
-            </p>
-          )}
-          <div className="flex items-center gap-1 mt-1 min-w-0">
-            <span className="ops-next-hint truncate">{next}</span>
-            {detail && (
-              <OpsStatus className={`${JOB_STATUS_STYLES[job.status]} ml-auto`}>
-                {JOB_STATUS_LABELS[job.status]}
-              </OpsStatus>
+        )}
+        {!compact && detail && job.start_time && (
+          <p className="text-[11px] leading-tight text-[#6B7280] flex items-center gap-0.5 mb-1">
+            <Clock size={10} /> {job.start_time.slice(0, 5)}
+            {job.end_time && ` – ${job.end_time.slice(0, 5)}`}
+          </p>
+        )}
+        <div className="flex items-center gap-1 min-w-0">
+          <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+        </div>
+        <div className="mt-1">
+          <span className={detail ? 'ops-next-control-block' : 'ops-next-control-sm'}>{next}</span>
+        </div>
+        {!compact && detail && assigned.length > 0 && (
+          <div className="flex items-center gap-0.5 mt-2">
+            {assigned.slice(0, 4).map(m => (
+              <div
+                key={m.id}
+                className="w-3.5 h-3.5 rounded-full border border-white flex items-center justify-center text-[7px] font-bold text-white"
+                style={{ background: pickEmployeeColor(m.id, m.schedule_color) }}
+                title={m.name}
+              >
+                {m.name[0]?.toUpperCase()}
+              </div>
+            ))}
+            {assigned.length > 4 && (
+              <span className="text-[9px] text-[#9CA3AF] ml-0.5">+{assigned.length - 4}</span>
             )}
           </div>
-          {detail && assigned.length > 0 && (
-            <div className="flex items-center gap-0.5 mt-1">
-              {assigned.slice(0, 4).map(m => (
-                <div
-                  key={m.id}
-                  className="w-3.5 h-3.5 rounded-full border border-white flex items-center justify-center text-[7px] font-bold text-white"
-                  style={{ background: pickEmployeeColor(m.id, m.schedule_color) }}
-                  title={m.name}
-                >
-                  {m.name[0]?.toUpperCase()}
-                </div>
-              ))}
-              {assigned.length > 4 && (
-                <span className="text-[9px] text-[#9CA3AF] ml-0.5">+{assigned.length - 4}</span>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </button>
   );
 });
@@ -213,8 +196,8 @@ export const NeedsDateRail = memo(function NeedsDateRail({
                 title={job.title}
                 site={opsSiteLabel(job.address, job.client_address)}
               />
-              <div className="px-2.5 py-1.5">
-                <span className="ops-next-hint">Set a date</span>
+              <div className="px-2 py-2">
+                <span className="ops-next-control-block">Set a date</span>
               </div>
             </button>
           );

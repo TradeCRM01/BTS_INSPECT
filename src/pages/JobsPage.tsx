@@ -42,7 +42,7 @@ export function JobsPage() {
       const jobs = (jobsData ?? []) as Job[];
 
       const clientIds = [...new Set(jobs.map(j => j.client_id).filter(Boolean))] as string[];
-      let clientMap = new Map<string, Client>();
+      const clientMap = new Map<string, Client>();
       if (clientIds.length > 0) {
         const { data: clientsData } = await supabase
           .from('clients')
@@ -186,13 +186,13 @@ export function JobsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
-                    <th className="px-4 py-3">Job #</th>
-                    <th className="px-4 py-3">Title</th>
-                    <th className="px-4 py-3">Client</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Priority</th>
-                    <th className="px-4 py-3">Scheduled</th>
-                    <th className="px-4 py-3">Next</th>
+                    <th className="px-3 py-2">Job #</th>
+                    <th className="px-3 py-2">Site</th>
+                    <th className="px-3 py-2">Client</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2">Priority</th>
+                    <th className="px-3 py-2">Scheduled</th>
+                    <th className="px-3 py-2">Next</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F3F4F6]">
@@ -202,13 +202,16 @@ export function JobsPage() {
                     return (
                       <tr key={job.id} onClick={() => navigate(`/jobs/${job.id}`)}
                         className="hover:bg-[#F9FAFB] cursor-pointer transition-colors" style={{ borderLeft: `3px solid ${color}` }}>
-                        <td className="px-4 py-3 font-medium" style={{ color }}>{job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : '—'}</td>
-                        <td className="px-4 py-3 font-medium text-[#1A1A1A]">{job.title}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{job.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
-                        <td className="px-4 py-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${JOB_STATUS_STYLES[job.status]}`}>{JOB_STATUS_LABELS[job.status]}</span></td>
-                        <td className="px-4 py-3"><span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />{JOB_PRIORITY_LABELS[job.priority]}</span></td>
-                        <td className="px-4 py-3 text-[#4A5568]">{jobDate ? format(jobDate, 'd MMM yyyy') : 'No date'}{job.start_time && <span className="text-[#6B7280] block text-xs">{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>}</td>
-                        <td className="px-4 py-3"><span className="ops-next-hint">{jobCardHint(job)}</span></td>
+                        <td className="px-3 py-2 font-medium" style={{ color }}>{job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : '—'}</td>
+                        <td className="px-3 py-2">
+                          <p className="text-sm font-semibold text-[#0A2540] truncate">{opsSiteLabel(job.address, job.client_address)}</p>
+                          <p className="text-xs text-[#4A5568] truncate">{job.title}</p>
+                        </td>
+                        <td className="px-3 py-2 text-[#4A5568]">{job.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                        <td className="px-3 py-2"><OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus></td>
+                        <td className="px-3 py-2"><span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />{JOB_PRIORITY_LABELS[job.priority]}</span></td>
+                        <td className="px-3 py-2 text-[#4A5568]">{jobDate ? format(jobDate, 'd MMM yyyy') : 'No date'}{job.start_time && <span className="text-[#6B7280] block text-xs">{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>}</td>
+                        <td className="px-3 py-2"><span className="ops-next-hint">{jobCardHint(job)}</span></td>
                       </tr>
                     );
                   })}
@@ -270,11 +273,11 @@ function JobCard({ job }: { job: JobWithClient }) {
     >
       <OpsCardHeader
         kicker={job.job_number != null ? `JOB #${String(job.job_number).padStart(4, '0')}` : 'JOB'}
-        title={job.title}
         site={opsSiteLabel(site)}
+        title={job.title}
       />
       <div className="ops-card-body">
-        <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 space-y-1">
             {job.client_name && (
               <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
@@ -294,9 +297,9 @@ function JobCard({ job }: { job: JobWithClient }) {
         </div>
 
         <div className="ops-card-footer">
-          <span className="ops-next-hint">{hint}</span>
+          <span className="ops-next-control-block">{hint}</span>
           {job.priority !== 'medium' && (
-            <span className="ml-auto flex items-center gap-1 text-[10px] font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
+            <span className="mt-2 flex items-center gap-1 text-[11px] font-semibold" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
               {JOB_PRIORITY_LABELS[job.priority]}
             </span>

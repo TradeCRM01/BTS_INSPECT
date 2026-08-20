@@ -48,23 +48,23 @@
 
   /* ── Ops cards (job card is the source of truth) ─────────────── */
   .ops-card {
-    @apply bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden text-left;
+    @apply bg-white rounded-lg border border-[#E5E7EB] overflow-hidden text-left;
   }
 
   .ops-card-hover {
-    @apply hover:shadow-md transition-all;
+    @apply hover:border-[#2E75B6]/40 transition-colors;
   }
 
   .ops-card-header {
-    @apply bg-[#0A2540] text-white px-3.5 py-2.5;
+    @apply bg-[#0A2540] text-white px-3 py-2;
   }
 
   .ops-card-header-lg {
-    @apply px-5 py-5;
+    @apply px-4 py-4;
   }
 
   .ops-card-header-sm {
-    @apply bg-[#0A2540] text-white px-1.5 py-1;
+    @apply bg-[#0A2540] text-white px-2 py-1;
   }
 
   .ops-card-kicker {
@@ -75,16 +75,16 @@
     @apply text-[11px] text-white/60 mb-1;
   }
 
-  .ops-card-title {
-    @apply text-sm font-semibold text-white truncate mt-0.5 group-hover:text-[#93C5FD] transition-colors;
+  .ops-card-site {
+    @apply mt-1 flex items-start gap-1.5 text-sm font-semibold text-white leading-snug;
   }
 
-  .ops-card-site {
-    @apply mt-1 flex items-center gap-1 text-[11px] text-white/75 truncate;
+  .ops-card-sub {
+    @apply mt-0.5 text-xs font-medium text-white/70 truncate;
   }
 
   .ops-hub-site {
-    @apply mt-4 flex items-start gap-2 text-sm text-white/90;
+    @apply mt-2 flex items-start gap-2 text-xl font-semibold tracking-tight text-white leading-snug;
   }
 
   .ops-card-site-icon {
@@ -92,31 +92,75 @@
   }
 
   .ops-card-body {
-    @apply p-3.5;
+    @apply p-3;
   }
 
   .ops-card-footer {
-    @apply flex items-center gap-2 mt-2.5 pt-2.5 border-t border-[#F3F4F6];
+    @apply mt-2 pt-2 border-t border-[#E5E7EB];
+  }
+
+  .ops-money {
+    @apply text-lg font-bold text-[#0A2540] tabular-nums leading-tight;
   }
 
   .ops-next-hint {
-    @apply text-[11px] font-semibold text-[#0A2540];
+    @apply text-sm font-semibold text-[#2E75B6];
   }
 
   .ops-status {
-    @apply text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap;
+    @apply inline-flex items-center justify-center px-2 py-1 rounded text-[11px] font-bold uppercase tracking-wide leading-none whitespace-nowrap;
+  }
+
+  .ops-status-info {
+    @apply bg-[#2E75B6] text-white;
+  }
+
+  .ops-status-progress {
+    @apply bg-[#B54708] text-white;
+  }
+
+  .ops-status-ok {
+    @apply bg-[#1B7F3A] text-white;
+  }
+
+  .ops-status-bad {
+    @apply bg-[#B42318] text-white;
+  }
+
+  .ops-status-wait {
+    @apply bg-[#4A5568] text-white;
+  }
+
+  .ops-next-control {
+    @apply inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 bg-[#2E75B6] text-white text-sm font-semibold rounded-md hover:bg-[#2563a0] transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+
+  .ops-next-control-block {
+    @apply inline-flex items-center justify-center gap-1.5 w-full min-h-[44px] px-3 bg-[#2E75B6] text-white text-sm font-semibold rounded-md hover:bg-[#2563a0] transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+
+  .ops-next-control-sm {
+    @apply inline-flex items-center justify-center w-full min-h-[32px] px-2 bg-[#2E75B6] text-white text-xs font-semibold rounded;
+  }
+
+  .ops-next-control-bad {
+    @apply inline-flex items-center justify-center gap-1.5 w-full min-h-[44px] px-3 bg-[#B42318] text-white text-sm font-semibold rounded-md hover:bg-[#912018] transition-colors active:scale-[0.98] disabled:opacity-50;
+  }
+
+  .ops-next-control-done {
+    @apply inline-flex items-center justify-center w-full min-h-[44px] px-3 bg-[#F0F7FF] text-[#0A2540] text-sm font-semibold rounded-md border border-[#BFDBFE];
   }
 
   .ops-next {
-    @apply rounded-lg bg-[#F0F7FF] border border-[#BFDBFE] px-3 py-2.5;
+    @apply rounded-md bg-[#F0F7FF] border border-[#BFDBFE] px-3 py-2;
   }
 
   .ops-next-label {
-    @apply text-xs font-semibold uppercase tracking-wide text-[#2E75B6];
+    @apply text-[11px] font-bold uppercase tracking-wide text-[#2E75B6];
   }
 
   .ops-next-detail {
-    @apply text-sm font-medium text-[#0A2540] mt-0.5;
+    @apply text-sm font-semibold text-[#0A2540] mt-0.5;
   }
 
   .ops-page-title {
@@ -124,7 +168,7 @@
   }
 
   .ops-group-title {
-    @apply text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2;
+    @apply text-[11px] font-bold text-[#4A5568] uppercase tracking-wide mb-2;
   }
 
   /* ── Card variants ───────────────────────────────────────────── */

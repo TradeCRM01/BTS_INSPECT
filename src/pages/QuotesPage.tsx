@@ -234,12 +234,12 @@ export function QuotesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
-                    <th className="px-4 py-3">Quote #</th>
-                    <th className="px-4 py-3">Client</th>
-                    <th className="px-4 py-3">Description</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Total (inc GST)</th>
-                    <th className="px-4 py-3">Next</th>
+                    <th className="px-3 py-2">Quote #</th>
+                    <th className="px-3 py-2">Client</th>
+                    <th className="px-3 py-2">Site</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2 text-right">Total (inc GST)</th>
+                    <th className="px-3 py-2">Next</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F3F4F6]">
@@ -301,25 +301,25 @@ function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void
     >
       <OpsCardHeader
         kicker={`QUOTE #${padQuoteNumber(quote.quote_number)}`}
-        title={quote.description?.trim() || quote.client_name || 'Untitled quote'}
-        site={opsSiteLabel(quote.job_address, quote.job_title)}
+        site={opsSiteLabel(quote.job_address, quote.job_title, quote.client_name)}
+        title={quote.description?.trim() || quote.job_title || undefined}
       />
       <div className="ops-card-body">
-        <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="text-lg font-bold text-[#1A1A1A]">{formatMoney(Number(quote.total))}</p>
+            <p className="ops-money">{formatMoney(Number(quote.total))}</p>
             <p className="text-[11px] text-[#4A5568]">inc GST</p>
           </div>
           <OpsStatus className={QUOTE_STATUS_STYLES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</OpsStatus>
         </div>
         {quote.client_name && (
-          <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mb-2">
+          <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mt-2">
             <User size={12} className="text-[#9CA3AF] shrink-0" />
             <span className="truncate">{quote.client_name}</span>
           </div>
         )}
         {quote.validity_date && (
-          <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mb-2">
+          <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mt-1">
             <Calendar size={12} className="text-[#9CA3AF] shrink-0" />
             Valid {format(parseISO(quote.validity_date), 'd MMM yyyy')}
           </div>
@@ -327,7 +327,7 @@ function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void
         <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
           <QuoteNextControl quote={quote} />
           {next.key === 'none' && (
-            <span className="ops-next-hint">{next.label}</span>
+            <span className="ops-next-control-done">{next.label}</span>
           )}
         </div>
       </div>
@@ -339,23 +339,22 @@ function QuoteRow({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void 
   const next = recommendQuoteAction(quoteActionContext(quote));
   return (
     <tr onClick={onOpen} className="hover:bg-[#F9FAFB] cursor-pointer transition-colors">
-      <td className="px-4 py-3 font-medium text-[#2E75B6]">#{padQuoteNumber(quote.quote_number)}</td>
-      <td className="px-4 py-3 text-[#1A1A1A]">{quote.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
-      <td className="px-4 py-3 text-[#4A5568] max-w-[220px]">
+      <td className="px-3 py-2 font-medium text-[#2E75B6]">#{padQuoteNumber(quote.quote_number)}</td>
+      <td className="px-3 py-2 text-[#1A1A1A]">{quote.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
+      <td className="px-3 py-2 max-w-[220px]">
+        <p className="text-sm font-semibold text-[#0A2540] truncate">{opsSiteLabel(quote.job_address, quote.job_title)}</p>
         {quote.description
-          ? <span className="line-clamp-2">{quote.description}</span>
-          : <span className="text-[#9CA3AF]">—</span>}
+          ? <p className="text-xs text-[#4A5568] line-clamp-1">{quote.description}</p>
+          : null}
       </td>
-      <td className="px-4 py-3">
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${QUOTE_STATUS_STYLES[quote.status]}`}>
-          {QUOTE_STATUS_LABELS[quote.status]}
-        </span>
+      <td className="px-3 py-2">
+        <OpsStatus className={QUOTE_STATUS_STYLES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</OpsStatus>
       </td>
-      <td className="px-4 py-3 text-right">
-        <span className="font-semibold text-[#1A1A1A]">{formatMoney(Number(quote.total))}</span>
+      <td className="px-3 py-2 text-right">
+        <span className="ops-money text-base">{formatMoney(Number(quote.total))}</span>
         <span className="block text-[11px] font-normal text-[#4A5568]">inc GST</span>
       </td>
-      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+      <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
         {next.key === 'none' ? (
           <span className="ops-next-hint">{next.label}</span>
         ) : (
@@ -448,7 +447,7 @@ function QuoteNextControl({ quote }: { quote: QuoteListItem }) {
       type="button"
       onClick={handle}
       disabled={!!busy}
-      className="btn-primary text-xs py-1.5 px-2.5"
+      className="ops-next-control-block"
     >
       {busy ? 'Working…' : next.label}
     </button>
@@ -689,12 +688,7 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
       <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
         <div className="ops-card-header ops-card-header-lg">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="ops-card-kicker ops-card-kicker-lg">{heading}</p>
-              <h2 className="text-lg font-semibold tracking-tight truncate">
-                {form.description.trim() || selectedClient?.name || 'Quote'}
-              </h2>
-            </div>
+            <p className="ops-card-kicker ops-card-kicker-lg">{heading}</p>
             <div className="flex items-center gap-2 shrink-0">
               <OpsStatus className={QUOTE_STATUS_STYLES[form.status]}>
                 {QUOTE_STATUS_LABELS[form.status]}
@@ -705,8 +699,11 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
             </div>
           </div>
           <p className="ops-hub-site">
-            <MapPin size={16} className="ops-card-site-icon mt-0.5" />
-            <span className="truncate">{opsSiteLabel(selectedJob?.address, selectedJob?.title, selectedClient?.address)}</span>
+            <MapPin size={18} className="ops-card-site-icon mt-1" />
+            <span className="min-w-0">{opsSiteLabel(selectedJob?.address, selectedJob?.title, selectedClient?.address, selectedClient?.name)}</span>
+          </p>
+          <p className="mt-1 text-sm font-medium text-white/75 truncate">
+            {form.description.trim() || selectedJob?.title || 'Quote'}
           </p>
           {selectedClient && (
             <p className="mt-2 flex items-center gap-2 text-sm text-white/80 truncate">
