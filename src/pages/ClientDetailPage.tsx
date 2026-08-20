@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, mapsSearchUrl } from '../components/ui';
+import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, OpsSiteRow, opsSiteLabel } from '../components/ui';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import type { Client, JobWithClient } from '../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_STYLES } from '../types/crm';
@@ -13,7 +13,7 @@ import {
   formatMoney,
 } from '../types/fsm';
 import type { QuoteStatus } from '../types/fsm';
-import { Phone, Mail, MapPin, Users, CreditCard as Edit3, Briefcase, Plus, FileText, ShieldCheck, Bell, Receipt, ClipboardList } from 'lucide-react';
+import { CreditCard as Edit3, Briefcase, Plus, FileText, ShieldCheck, Bell, Receipt, ClipboardList } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ClientForm } from './ClientsPage';
 import type { ComplianceItem } from '../types/compliance';
@@ -39,12 +39,10 @@ import {
   clientMoneySummary,
   invoiceRecordHref,
   jobRecordHref,
-  mailtoHref,
   newInvoiceFromClientHref,
   newJobFromClientHref,
   newQuoteFromClientHref,
   quoteRecordHref,
-  telHref,
 } from '../lib/clientRecords';
 
 type ClientQuote = {
@@ -175,79 +173,65 @@ export function ClientDetailPage() {
   const newQuoteHref = newQuoteFromClientHref(client.id);
   const newJobHref = newJobFromClientHref(client.id);
   const newInvoiceHref = newInvoiceFromClientHref(client.id);
-  const phoneHref = telHref(client.phone);
-  const emailHref = mailtoHref(client.email);
+  const moneyReady = quotes !== undefined && invoices !== undefined;
   const money = clientMoneySummary(quotes ?? [], invoices ?? []);
   const jobById = new Map((jobs ?? []).map(job => [job.id, job]));
+  const site = opsSiteLabel(client.address);
 
   return (
     <AppShell>
-      <div className="page-shell">
+      <div className="ops-page">
         <Breadcrumbs items={[{ label: 'Clients', to: '/clients' }, { label: client.name }]} />
 
-        <div className="ops-card p-5 mb-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4 min-w-0">
-              <div className="w-14 h-14 rounded-xl bg-navy/10 flex items-center justify-center shrink-0">
-                <Users size={26} className="text-navy" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg font-semibold text-navy">{client.name}</h1>
+        <div className="ops-card mb-4">
+          <div className="ops-card-body">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <h1 className="ops-page-title">{client.name}</h1>
                 {client.contact_person && (
                   <p className="ops-meta mt-0.5">{client.contact_person}</p>
                 )}
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
-                  {phoneHref && client.phone && (
-                    <a href={phoneHref} className="flex items-center gap-1.5 text-sm text-accent hover:underline">
-                      <Phone size={13} /> {client.phone}
-                    </a>
-                  )}
-                  {emailHref && client.email && (
-                    <a href={emailHref} className="flex items-center gap-1.5 text-sm text-accent hover:underline">
-                      <Mail size={13} /> {client.email}
-                    </a>
-                  )}
-                  {client.address && (
-                    <a
-                      href={mapsSearchUrl(client.address)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1.5 text-sm text-accent hover:underline"
-                    >
-                      <MapPin size={13} /> {client.address}
-                    </a>
-                  )}
+                <div className="mt-2">
+                  <OpsSiteRow
+                    site={site}
+                    phone={client.phone}
+                    email={client.email}
+                    mapsQuery={client.address}
+                  />
                 </div>
+                {!client.phone && !client.email && (
+                  <p className="ops-meta mt-1">No phone or email yet — add them so you can call from here.</p>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+                <Link to={newQuoteHref} className="btn-secondary">
+                  <FileText size={14} /> New quote
+                </Link>
+                <Link to={newInvoiceHref} className="btn-secondary">
+                  <Receipt size={14} /> New invoice
+                </Link>
+                <Link to={newJobHref} className="btn-primary">
+                  <Plus size={14} /> New job
+                </Link>
+                <button onClick={() => setShowEdit(true)} className="btn-secondary">
+                  <Edit3 size={14} /> Edit
+                </button>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
-              <Link to={newQuoteHref} className="btn-secondary">
-                <FileText size={14} /> New quote
-              </Link>
-              <Link to={newInvoiceHref} className="btn-secondary">
-                <Receipt size={14} /> New invoice
-              </Link>
-              <Link to={newJobHref} className="btn-primary">
-                <Plus size={14} /> New job
-              </Link>
-              <button onClick={() => setShowEdit(true)} className="btn-secondary">
-                <Edit3 size={14} /> Edit
-              </button>
-            </div>
-          </div>
 
-          {client.notes && (
-            <div className="mt-4 pt-4 border-t border-rule">
-              <p className="ops-meta font-medium mb-1">Notes</p>
-              <p className="text-sm text-navy whitespace-pre-wrap">{client.notes}</p>
-            </div>
-          )}
+            {client.notes && (
+              <div className="mt-4 pt-3 border-t border-rule">
+                <p className="ops-meta font-medium mb-1">Notes</p>
+                <p className="text-sm text-navy whitespace-pre-wrap">{client.notes}</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <MoneyCard label="Quoted" amount={money.quoted} />
-          <MoneyCard label="Outstanding" amount={money.outstanding} />
-          <MoneyCard label="Overdue" amount={money.overdue} tone={money.overdue > 0 ? 'overdue' : undefined} />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+          <MoneyCard label="Quoted" amount={moneyReady ? money.quoted : null} />
+          <MoneyCard label="Outstanding" amount={moneyReady ? money.outstanding : null} />
+          <MoneyCard label="Overdue" amount={moneyReady ? money.overdue : null} tone={moneyReady && money.overdue > 0 ? 'overdue' : undefined} />
         </div>
 
         <div className="space-y-3 mb-6">
@@ -477,15 +461,15 @@ function MoneyCard({
   tone,
 }: {
   label: string;
-  amount: number;
+  amount: number | null;
   tone?: 'overdue';
 }) {
   return (
-    <div className="ops-card p-4">
-      <p className="ops-meta font-medium">{label}</p>
-      <p className={`ops-money text-2xl text-left ${tone === 'overdue' ? 'text-fail' : ''}`}>
-        {formatMoney(amount)}
-      </p>
+    <div className="ops-due-box">
+      <span className="ops-meta font-semibold uppercase tracking-wide">{label}</span>
+      <span className={`ops-money text-lg ${tone === 'overdue' ? 'text-fail' : ''}`}>
+        {amount == null ? '—' : formatMoney(amount)}
+      </span>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Camera, MapPin, Phone } from 'lucide-react';
+import { Camera, Mail, MapPin, Phone } from 'lucide-react';
+import { mailtoHref, telHref } from '../../lib/clientRecords';
 
 /** First non-empty line for the field-card site title. */
 export function opsSiteLabel(...parts: Array<string | null | undefined>): string {
@@ -136,26 +137,40 @@ export function OpsFromTo({
 export function OpsSiteRow({
   site,
   phone,
+  email,
   mapsQuery,
   hub = false,
 }: {
   site: string;
   phone?: string | null;
+  email?: string | null;
   mapsQuery?: string | null;
   hub?: boolean;
 }) {
+  const callHref = telHref(phone);
+  const mailHref = mailtoHref(email);
   const hasMaps = !!mapsQuery && mapsQuery !== 'No site address';
   return (
     <div className="flex items-start gap-0.5">
       <p className={hub ? 'ops-hub-site' : 'ops-card-site'}>{site}</p>
-      {phone ? (
+      {callHref ? (
         <a
-          href={`tel:${phone}`}
+          href={callHref}
           className="ops-hit"
-          aria-label="Call site"
+          aria-label="Call"
           onClick={e => e.stopPropagation()}
         >
           <Phone size={18} />
+        </a>
+      ) : null}
+      {mailHref ? (
+        <a
+          href={mailHref}
+          className="ops-hit"
+          aria-label="Email"
+          onClick={e => e.stopPropagation()}
+        >
+          <Mail size={18} />
         </a>
       ) : null}
       {hasMaps ? (

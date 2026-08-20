@@ -4,12 +4,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode } from '../components/ui';
+import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode, OpsSiteRow, opsSiteLabel } from '../components/ui';
 import { SkeletonCardGrid } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
 import type { Client, ClientWithStats } from '../types/crm';
 import { formatMoney } from '../types/fsm';
-import { Plus, Users, Phone, Mail, MapPin, X, Trash2, CreditCard as Edit3, Archive, ArchiveRestore, Briefcase, Calendar, FileText, Receipt } from 'lucide-react';
+import { Plus, Users, X, Trash2, CreditCard as Edit3, Archive, ArchiveRestore, Briefcase, FileText, Receipt } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import {
   AU_ADDRESS_PLACEHOLDER,
@@ -178,30 +178,26 @@ export function ClientsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1200px] mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className="ops-page">
+        <div className="ops-page-head">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">Clients</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">{clients?.length ?? 0} total clients</p>
+            <h1 className="ops-page-title">Clients</h1>
+            <p className="ops-meta mt-0.5">{clients?.length ?? 0} total clients</p>
           </div>
           <button
             onClick={() => { setEditingClient(null); setShowForm(true); }}
-            className="flex items-center gap-2 bg-[#0A2540] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
+            className="btn-primary"
           >
             <Plus size={16} /> Add Client
           </button>
         </div>
 
         <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search by name, contact, phone, or email..." />
+          <SearchBar value={search} onChange={setSearch} placeholder="Search by name, contact, phone, or email..." className="max-w-sm flex-1" />
           <ViewToggle mode={viewMode} onChange={setViewMode} />
           <button
             onClick={() => setShowArchived(v => !v)}
-            className={`flex items-center gap-1.5 h-9 px-3 rounded-md text-sm font-medium border transition-colors ${
-              showArchived
-                ? 'border-[#2E75B6] bg-[#EFF6FF] text-[#1e40af]'
-                : 'border-[#E5E7EB] bg-white text-[#4A5568] hover:bg-gray-50'
-            }`}
+            className={`ops-seg-btn ${showArchived ? 'ops-seg-btn-on' : 'ops-seg-btn-off'}`}
           >
             <Archive size={14} />
             {showArchived ? 'Archived' : 'Active'}
@@ -222,7 +218,7 @@ export function ClientsPage() {
             )}
           />
         ) : viewMode === 'grid' ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map(client => (
               <ClientCard
                 key={client.id}
@@ -234,22 +230,22 @@ export function ClientsPage() {
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
+          <div className="ops-table">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
-                    <th className="px-4 py-3">Name</th>
-                    <th className="px-4 py-3">Contact</th>
-                    <th className="px-4 py-3">Phone</th>
-                    <th className="px-4 py-3">Email</th>
-                    <th className="px-4 py-3 text-right">Money</th>
-                    <th className="px-4 py-3 text-right">Jobs</th>
-                    <th className="px-4 py-3">Last Job</th>
-                    <th className="px-4 py-3 w-10"></th>
+                  <tr className="bg-zebra text-left ops-meta font-medium uppercase tracking-wide">
+                    <th className="px-3 py-2">Name</th>
+                    <th className="px-3 py-2">Contact</th>
+                    <th className="px-3 py-2">Phone</th>
+                    <th className="px-3 py-2">Email</th>
+                    <th className="px-3 py-2 text-right">Money</th>
+                    <th className="px-3 py-2 text-right">Jobs</th>
+                    <th className="px-3 py-2">Last job</th>
+                    <th className="px-3 py-2 w-10"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#F3F4F6]">
+                <tbody className="divide-y divide-rule">
                   {filtered.map(client => (
                     <ClientListRow key={client.id} client={client}
                       onEdit={() => { setEditingClient(client); setShowForm(true); }}
@@ -325,28 +321,28 @@ function ClientListRow({ client, onEdit, onArchive, onDelete }: {
   const phoneHref = telHref(client.phone);
   const emailHref = mailtoHref(client.email);
   return (
-    <tr className="hover:bg-[#F9FAFB] transition-colors">
-      <td className="px-4 py-3">
-        <Link to={clientRecordHref(client.id)} className="font-medium text-[#1A1A1A] hover:text-[#2E75B6]">{client.name}</Link>
+    <tr className="hover:bg-zebra transition-colors">
+      <td className="px-3 py-2">
+        <Link to={clientRecordHref(client.id)} className="font-semibold text-navy hover:text-accent">{client.name}</Link>
       </td>
-      <td className="px-4 py-3 text-[#4A5568]">{client.contact_person ?? <span className="text-[#9CA3AF]">—</span>}</td>
-      <td className="px-4 py-3 text-[#4A5568]">
+      <td className="px-3 py-2 text-navy">{client.contact_person ?? <span className="ops-meta">—</span>}</td>
+      <td className="px-3 py-2">
         {phoneHref && client.phone ? (
           <a href={phoneHref} className="text-accent hover:underline">{client.phone}</a>
-        ) : <span className="text-[#9CA3AF]">—</span>}
+        ) : <span className="ops-meta">—</span>}
       </td>
-      <td className="px-4 py-3 text-[#4A5568]">
+      <td className="px-3 py-2">
         {emailHref && client.email ? (
           <a href={emailHref} className="text-accent hover:underline">{client.email}</a>
-        ) : <span className="text-[#9CA3AF]">—</span>}
+        ) : <span className="ops-meta">—</span>}
       </td>
-      <td className="px-4 py-3"><ClientMoneyCell client={client} /></td>
-      <td className="px-4 py-3 text-right text-[#4A5568]">
+      <td className="px-3 py-2"><ClientMoneyCell client={client} /></td>
+      <td className="px-3 py-2 text-right text-navy">
         {client.job_count ?? 0}
         {client.active_jobs ? <span className="block ops-meta text-accent">{client.active_jobs} live</span> : null}
       </td>
-      <td className="px-4 py-3 text-[#4A5568]">{client.last_job_date ? format(parseISO(client.last_job_date), 'd MMM yyyy') : '—'}</td>
-      <td className="px-4 py-3"><div className="flex justify-end"><ContextMenu items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} /></div></td>
+      <td className="px-3 py-2 ops-meta">{client.last_job_date ? format(parseISO(client.last_job_date), 'd MMM yyyy') : '—'}</td>
+      <td className="px-3 py-2"><div className="flex justify-end"><ContextMenu items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} /></div></td>
     </tr>
   );
 }
@@ -360,8 +356,6 @@ const ClientCard = memo(function ClientCard({
   onDelete: () => void;
 }) {
   const navigate = useNavigate();
-  const phoneHref = telHref(client.phone);
-  const emailHref = mailtoHref(client.email);
   const hint = clientListMoneyHint({
     quoted: client.quoted_total ?? 0,
     outstanding: client.outstanding_total ?? 0,
@@ -370,62 +364,44 @@ const ClientCard = memo(function ClientCard({
   const toneClass = hint.tone === 'overdue' ? 'text-fail' : 'text-navy';
 
   return (
-    <div className="card-hover p-4">
-      <div className="absolute top-3 right-3">
+    <div className="ops-card ops-card-hover relative">
+      <div className="absolute top-2 right-2 z-10">
         <ContextMenu items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} />
       </div>
 
-      <Link to={clientRecordHref(client.id)} className="block">
-        <div className="flex items-start gap-3 pr-8">
-          <div className="w-10 h-10 rounded-lg bg-[#0A2540]/10 flex items-center justify-center shrink-0">
-            <Users size={18} className="text-[#0A2540]" />
+      <Link to={clientRecordHref(client.id)} className="block ops-card-body pr-10">
+        <p className="text-sm font-semibold text-navy truncate">{client.name}</p>
+        {client.contact_person && (
+          <p className="ops-meta truncate mt-0.5">{client.contact_person}</p>
+        )}
+      </Link>
+
+      <div className="px-3 pb-2">
+        <OpsSiteRow
+          site={opsSiteLabel(client.address)}
+          phone={client.phone}
+          email={client.email}
+          mapsQuery={client.address}
+        />
+      </div>
+
+      <Link to={clientRecordHref(client.id)} className="block px-3 pb-3">
+        <div className="flex items-baseline justify-between gap-2 pt-2 border-t border-rule">
+          <div>
+            <p className={`ops-money text-left ${toneClass}`}>{formatMoney(hint.amount)}</p>
+            <p className="ops-meta">{hint.label}</p>
           </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-semibold text-[#1A1A1A] truncate">{client.name}</h3>
-            {client.contact_person && (
-              <p className="text-xs text-[#4A5568] truncate mt-0.5">{client.contact_person}</p>
+          <div className="text-right">
+            <p className="text-sm font-semibold text-navy tabular-nums">{client.job_count ?? 0} jobs</p>
+            {client.active_jobs ? (
+              <p className="ops-meta text-accent">{client.active_jobs} live</p>
+            ) : client.last_job_date ? (
+              <p className="ops-meta">{format(parseISO(client.last_job_date), 'd MMM yyyy')}</p>
+            ) : (
+              <p className="ops-meta">No jobs yet</p>
             )}
           </div>
         </div>
-      </Link>
-
-      <div className="mt-3 space-y-1.5">
-        {phoneHref && client.phone && (
-          <a href={phoneHref} className="flex items-center gap-2 text-xs text-accent hover:underline">
-            <Phone size={12} className="text-[#9CA3AF] shrink-0" />
-            <span className="truncate">{client.phone}</span>
-          </a>
-        )}
-        {emailHref && client.email && (
-          <a href={emailHref} className="flex items-center gap-2 text-xs text-accent hover:underline">
-            <Mail size={12} className="text-[#9CA3AF] shrink-0" />
-            <span className="truncate">{client.email}</span>
-          </a>
-        )}
-        {client.address && (
-          <div className="flex items-center gap-2 text-xs text-[#4A5568]">
-            <MapPin size={12} className="text-[#9CA3AF] shrink-0" />
-            <span className="truncate">{client.address}</span>
-          </div>
-        )}
-      </div>
-
-      <Link to={clientRecordHref(client.id)} className="block mt-3 pt-3 border-t border-[#F3F4F6]">
-        <div className="flex items-center gap-4 text-xs text-[#6B7280]">
-          <span className={`ops-money text-sm ${toneClass}`}>{formatMoney(hint.amount)}</span>
-          <span className="ops-meta">{hint.label}</span>
-          <span className="flex items-center gap-1 ml-auto">
-            <Briefcase size={12} /> {client.job_count ?? 0}
-          </span>
-          {client.active_jobs ? (
-            <span className="flex items-center gap-1 text-accent font-medium">
-              <Calendar size={12} /> {client.active_jobs} live
-            </span>
-          ) : null}
-        </div>
-        {client.last_job_date && (
-          <p className="ops-meta mt-1">{format(parseISO(client.last_job_date), 'd MMM yyyy')}</p>
-        )}
       </Link>
     </div>
   );
@@ -476,9 +452,9 @@ export function ClientForm({ client, onClose, onSaved }: {
   return (
     <div className="overlay-backdrop">
       <div className="overlay-panel-lg" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-[#1A1A1A]">{client ? 'Edit Client' : 'New Client'}</h2>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-rule">
+          <h2 className="text-base font-semibold text-navy">{client ? 'Edit Client' : 'New Client'}</h2>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zebra text-muted">
             <X size={18} />
           </button>
         </div>
@@ -517,12 +493,11 @@ export function ClientForm({ client, onClose, onSaved }: {
           </div>
         </form>
 
-        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-100">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-gray-50">
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-rule">
+          <button onClick={onClose} className="btn-secondary">
             Cancel
           </button>
-          <button onClick={handleSubmit} disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={saving} className="btn-primary disabled:opacity-50">
             {saving ? 'Saving...' : client ? 'Save Changes' : 'Add Client'}
           </button>
         </div>
@@ -534,8 +509,8 @@ export function ClientForm({ client, onClose, onSaved }: {
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-[#4A5568] mb-1">
-        {label}{required && <span className="text-red-500"> *</span>}
+      <label className="ops-field-label">
+        {label}{required && <span className="text-fail"> *</span>}
       </label>
       {children}
     </div>

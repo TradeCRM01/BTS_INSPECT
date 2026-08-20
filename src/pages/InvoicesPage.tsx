@@ -654,6 +654,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
               hub
               site={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
               phone={selectedClient?.phone}
+              email={selectedClient?.email}
               mapsQuery={selectedJob?.address || selectedClient?.address}
             />
             <div className="shrink-0">

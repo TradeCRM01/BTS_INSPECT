@@ -717,6 +717,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
               hub
               site={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
               phone={selectedClient?.phone}
+              email={selectedClient?.email}
               mapsQuery={selectedJob?.address || selectedClient?.address}
             />
             <div className="shrink-0">

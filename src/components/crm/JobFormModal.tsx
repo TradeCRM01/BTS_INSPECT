@@ -8,6 +8,7 @@ import {
 import { X, Trash2, GitBranch } from 'lucide-react';
 import { format } from 'date-fns';
 import { OverlayPortal } from '../ui/OverlayPortal';
+import { OpsSiteRow, opsSiteLabel } from '../ui';
 import { jobSiteAddressFromClient } from '../../lib/clientRecords';
 
 interface JobFormModalProps {
@@ -188,9 +189,19 @@ export function JobFormModal({
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+            {selectedClient && (
+              <div className="mt-2">
+                <OpsSiteRow
+                  site={opsSiteLabel(form.address, selectedClient.address)}
+                  phone={selectedClient.phone}
+                  email={selectedClient.email}
+                  mapsQuery={form.address || selectedClient.address}
+                />
+              </div>
+            )}
             {selectedClient?.address && !form.address && (
               <button type="button" onClick={() => setForm(f => ({ ...f, address: selectedClient.address ?? '' }))}
-                className="text-xs text-[#2E75B6] hover:underline mt-1">
+                className="ops-link text-xs mt-1">
                 Use client address: {selectedClient.address}
               </button>
             )}
