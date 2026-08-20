@@ -697,6 +697,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   return (
     <div className="overlay-backdrop">
       <div className="overlay-panel-xl hub-quote-editor" onClick={e => e.stopPropagation()}>
+        <div className="hub-quote-editor-room">
         <div className="hub-quote-editor-head">
           <div className="min-w-0">
             <h2 className="hub-quote-editor-title">{editorTitle}</h2>
@@ -705,7 +706,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           <button
             type="button"
             onClick={onClose}
-            className="w-11 h-11 flex items-center justify-center rounded-md text-muted hover:text-navy shrink-0"
+            className="hub-quote-close"
             aria-label="Close"
           >
             <X size={18} />
@@ -759,9 +760,53 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           {editorMoney ? (
             <div className="hub-row-signal">
               <p className="hub-signal-amount">{editorMoney}</p>
-              <p className="ops-meta text-right">inc GST</p>
+              <p className="ops-meta">inc GST</p>
             </div>
           ) : null}
+        </div>
+
+        <div className="hub-quote-editor-act">
+          {next.key === 'setup_email' && (
+            <button type="button" onClick={() => navigate(COMPANY_EMAIL_SETTINGS_HREF)} className="btn-primary">
+              Set up email
+            </button>
+          )}
+          {next.key === 'add_email' && form.client_id && (
+            <button type="button" onClick={() => navigate(`/clients/${form.client_id}`)} className="btn-primary">
+              Add client email
+            </button>
+          )}
+          {next.key === 'send' && (
+            <button type="button" onClick={() => void handleSend()} disabled={saving} className="btn-primary">
+              {saving ? 'Saving...' : 'Send'}
+            </button>
+          )}
+          {next.key === 'accept' && (
+            <button
+              type="button"
+              onClick={() => void persist('accepted', { close: false, message: 'Quote accepted' })}
+              disabled={saving}
+              className="btn-primary"
+            >
+              {saving ? 'Saving...' : 'Mark accepted'}
+            </button>
+          )}
+          {next.key === 'convert_job' && (
+            <button type="button" onClick={() => void handleConvert()} disabled={converting} className="btn-primary">
+              {converting ? 'Converting...' : 'Convert to job'}
+            </button>
+          )}
+          {next.key === 'open_job' && (
+            <button type="button" onClick={() => navigate(`/jobs/${form.job_id}`)} className="btn-primary">
+              Open job
+            </button>
+          )}
+          {next.key === 'invoice' && (
+            <button type="button" onClick={() => void handleInvoice()} disabled={invoicing} className="btn-primary">
+              {invoicing ? 'Creating...' : 'Create invoice'}
+            </button>
+          )}
+        </div>
         </div>
 
         <div className="overlay-body hub-quote-editor-body">
@@ -840,56 +885,10 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="form-input min-h-[60px] resize-y" placeholder="Notes for the client..." />
           </Field>
 
-          {err && <p className="text-sm text-red-600">{err}</p>}
-        </div>
-
-        <div className="ops-sticky hub-quote-editor-foot">
-          {next.key === 'setup_email' && (
-            <button type="button" onClick={() => navigate(COMPANY_EMAIL_SETTINGS_HREF)} className="btn-primary">
-              Set up email
-            </button>
-          )}
-          {next.key === 'add_email' && form.client_id && (
-            <button type="button" onClick={() => navigate(`/clients/${form.client_id}`)} className="btn-primary">
-              Add client email
-            </button>
-          )}
-          {next.key === 'send' && (
-            <button type="button" onClick={() => void handleSend()} disabled={saving} className="btn-primary">
-              {saving ? 'Saving...' : 'Send'}
-            </button>
-          )}
-          {next.key === 'accept' && (
-            <button
-              type="button"
-              onClick={() => void persist('accepted', { close: false, message: 'Quote accepted' })}
-              disabled={saving}
-              className="btn-primary"
-            >
-              {saving ? 'Saving...' : 'Mark accepted'}
-            </button>
-          )}
-          {next.key === 'convert_job' && (
-            <button type="button" onClick={() => void handleConvert()} disabled={converting} className="btn-primary">
-              {converting ? 'Converting...' : 'Convert to job'}
-            </button>
-          )}
-          {next.key === 'open_job' && (
-            <button type="button" onClick={() => navigate(`/jobs/${form.job_id}`)} className="btn-primary">
-              Open job
-            </button>
-          )}
-          {next.key === 'invoice' && (
-            <button type="button" onClick={() => void handleInvoice()} disabled={invoicing} className="btn-primary">
-              {invoicing ? 'Creating...' : 'Create invoice'}
-            </button>
-          )}
-          <div className="hub-quote-editor-quiet">
-            <button type="button" onClick={() => void persist(form.status, { close: true })} disabled={saving} className="ops-link">
-              {saving ? 'Saving...' : quote || savedId ? 'Save' : 'Save draft'}
-            </button>
-            <button type="button" onClick={onClose} className="ops-link">Cancel</button>
-          </div>
+          {err && <p className="text-sm text-fail">{err}</p>}
+          <button type="button" onClick={() => void persist(form.status, { close: true })} disabled={saving} className="ops-link">
+            {saving ? 'Saving...' : quote || savedId ? 'Save' : 'Save draft'}
+          </button>
         </div>
       </div>
 

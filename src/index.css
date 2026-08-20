@@ -503,13 +503,179 @@
     text-align: right;
   }
 
-  /* Quote editor + Send sheet: huge hierarchy, chrome recedes, 44px primary. */
+  /* Quote surfaces only: navy room, light type, luminous chrome. Clients stay signed white. */
+  .hub-quotes.ops-page {
+    max-width: none;
+    width: 100%;
+    min-height: calc(100dvh - 3.5rem);
+    margin: 0;
+    background: var(--ops-navy);
+    color: #fff;
+    color-scheme: dark;
+    padding-top: 3.5rem;
+    padding-bottom: 5.5rem;
+    padding-left: max(1.25rem, calc((100% - 1080px) / 2));
+    padding-right: max(1.25rem, calc((100% - 1080px) / 2));
+  }
+
+  .hub-quotes .ops-page-title {
+    font-size: 3.5rem;
+    line-height: 0.88;
+    letter-spacing: -0.055em;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  @media (min-width: 640px) {
+    .hub-quotes .ops-page-title {
+      font-size: 5.25rem;
+    }
+  }
+
+  .hub-quotes .ops-page-head {
+    margin-bottom: 4.25rem;
+  }
+
+  .hub-quotes .ops-meta {
+    color: color-mix(in srgb, #fff 42%, transparent);
+  }
+
+  .hub-quotes .hub-row-name {
+    font-size: 1.65rem;
+    color: #fff;
+  }
+
+  @media (min-width: 640px) {
+    .hub-quotes .hub-row-name {
+      font-size: 2rem;
+    }
+  }
+
+  .hub-quotes .hub-signal-amount {
+    color: #fff;
+  }
+
+  .hub-quotes .hub-row .hub-signal-amount {
+    font-size: 1.45rem;
+  }
+
+  .hub-quotes-group {
+    color: var(--ops-accent);
+  }
+
+  .hub-quotes .hub-next {
+    color: var(--ops-accent);
+  }
+
+  .hub-quotes .btn-primary,
+  .hub-quote-editor .btn-primary,
+  .hub-quote-send .btn-primary {
+    background: #fff;
+    color: var(--ops-navy);
+    min-height: 44px;
+    padding-left: 1.15rem;
+    padding-right: 1.15rem;
+    border: none;
+    box-shadow: none;
+  }
+
+  .hub-quotes .btn-primary:hover,
+  .hub-quote-editor .btn-primary:hover,
+  .hub-quote-send .btn-primary:hover {
+    background: color-mix(in srgb, #fff 88%, var(--ops-accent));
+    color: var(--ops-navy);
+  }
+
+  .hub-quotes-chrome {
+    margin-bottom: 3.75rem;
+  }
+
+  .hub-quotes-chrome .form-input {
+    color: #fff;
+    border-bottom-color: color-mix(in srgb, var(--ops-accent) 45%, transparent);
+    caret-color: #fff;
+  }
+
+  .hub-quotes-chrome .form-input::placeholder {
+    color: color-mix(in srgb, #fff 38%, transparent);
+  }
+
+  .hub-quotes-chrome .form-input:focus {
+    border-bottom-color: #fff;
+  }
+
+  .hub-quotes-chrome .hub-chrome-filter {
+    color: color-mix(in srgb, #fff 40%, transparent);
+  }
+
+  .hub-quotes-chrome .hub-chrome-filter-on {
+    color: #fff;
+  }
+
+  .hub-quotes-chrome .ops-seg button {
+    color: color-mix(in srgb, #fff 38%, transparent) !important;
+    background: transparent !important;
+  }
+
+  .hub-quotes-chrome .ops-seg button.bg-navy,
+  .hub-quotes-chrome .ops-seg button[class*="bg-navy"] {
+    color: #fff !important;
+    opacity: 1;
+    box-shadow: inset 0 -1px 0 var(--ops-accent);
+  }
+
+  .hub-quotes .ops-section-title {
+    color: #fff;
+  }
+
+  .hub-quotes .text-muted {
+    color: color-mix(in srgb, #fff 38%, transparent);
+  }
+
+  .overlay-backdrop:has(.hub-quote-editor),
+  .overlay-backdrop:has(.hub-quote-send) {
+    background: var(--ops-navy);
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
   .hub-quote-editor,
   .hub-quote-send,
+  .overlay-panel-xl.hub-quote-editor,
   .overlay-panel-md:has(.hub-quote-send) {
     box-shadow: none !important;
     border: none !important;
-    background: #fff;
+    background: var(--ops-navy) !important;
+    color: #fff;
+    color-scheme: dark;
+    border-radius: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 100%;
+  }
+
+  .overlay-panel-xl.hub-quote-editor,
+  .overlay-panel-md:has(.hub-quote-send) {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .hub-quote-editor,
+  .hub-quote-send {
+    padding-left: max(1.25rem, calc((100% - 1080px) / 2));
+    padding-right: max(1.25rem, calc((100% - 1080px) / 2));
+  }
+
+  .hub-quote-editor-room {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 2.25rem 0 2.5rem;
+    gap: 2.5rem;
   }
 
   .hub-quote-editor-head,
@@ -518,30 +684,45 @@
     align-items: flex-end;
     justify-content: space-between;
     gap: 1.5rem;
-    padding: 2.5rem 1.25rem 0;
-  }
-
-  @media (min-width: 640px) {
-    .hub-quote-editor-head,
-    .hub-quote-send-head {
-      padding: 3rem 2rem 0;
-    }
+    padding: 2.5rem 0 0;
   }
 
   .hub-quote-editor-title,
   .hub-quote-send-title {
-    font-size: 2.5rem;
-    line-height: 0.95;
-    letter-spacing: -0.05em;
+    font-size: 3.15rem;
+    line-height: 0.88;
+    letter-spacing: -0.055em;
     font-weight: 600;
-    color: var(--ops-navy);
+    color: #fff;
   }
 
   @media (min-width: 640px) {
     .hub-quote-editor-title,
     .hub-quote-send-title {
-      font-size: 3.25rem;
+      font-size: 5rem;
     }
+  }
+
+  .hub-quote-editor .ops-meta,
+  .hub-quote-send .ops-meta {
+    color: color-mix(in srgb, #fff 42%, transparent);
+  }
+
+  .hub-quote-close {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    color: color-mix(in srgb, #fff 55%, transparent);
+    flex-shrink: 0;
+    background: none;
+    border: none;
+  }
+
+  .hub-quote-close:hover {
+    color: #fff;
   }
 
   .hub-quote-editor-identity {
@@ -549,16 +730,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 1.5rem;
-    padding: 2.5rem 1.25rem 0;
-    min-height: 9rem;
-    margin-bottom: 48vh;
-  }
-
-  @media (min-width: 640px) {
-    .hub-quote-editor-identity {
-      padding-left: 2rem;
-      padding-right: 2rem;
-    }
+    padding: 0;
   }
 
   .hub-quote-editor-identity .hub-row-signal {
@@ -569,8 +741,7 @@
   @media (max-width: 639px) {
     .hub-quote-editor-identity {
       flex-direction: column;
-      gap: 1.25rem;
-      margin-bottom: 62vh;
+      gap: 1.5rem;
     }
 
     .hub-quote-editor-identity .hub-row-signal {
@@ -580,153 +751,185 @@
 
   .hub-quote-editor-identity .hub-signal-amount,
   .hub-quote-send .hub-signal-amount {
-    font-size: 1.85rem;
+    font-size: 2.35rem;
     font-weight: 600;
-    letter-spacing: -0.04em;
-    line-height: 1.05;
-    color: var(--ops-navy);
+    letter-spacing: -0.045em;
+    line-height: 1.02;
+    color: #fff;
     font-variant-numeric: tabular-nums;
   }
 
   @media (min-width: 640px) {
     .hub-quote-editor-identity .hub-signal-amount {
-      font-size: 2.35rem;
+      font-size: 3.25rem;
     }
   }
 
   .hub-quote-to-label {
     font-size: 0.7rem;
     font-weight: 500;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--ops-muted);
-    margin-bottom: 0.2rem;
+    color: var(--ops-accent);
+    margin-bottom: 0.35rem;
   }
 
   .hub-quote-to-name {
-    font-size: 1.15rem;
-    font-weight: 600;
-    letter-spacing: -0.03em;
-    color: var(--ops-navy);
-    line-height: 1.2;
+    font-size: 1.05rem;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: color-mix(in srgb, #fff 88%, transparent);
+    line-height: 1.25;
     margin-bottom: 0.35rem;
+  }
+
+  .hub-quote-editor .ops-hub-site {
+    color: color-mix(in srgb, #fff 70%, transparent);
+    font-size: 1rem;
+    font-weight: 500;
+  }
+
+  .hub-quote-editor .ops-link,
+  .hub-quote-send .ops-link {
+    color: var(--ops-accent);
   }
 
   .hub-quote-editor-tools {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 1rem;
-    padding: 1.25rem 0 0;
+    gap: 1.15rem;
+    padding: 1.15rem 0 0;
+  }
+
+  .hub-quote-editor-act {
+    display: flex;
+    align-items: center;
+    padding-bottom: 0.25rem;
   }
 
   .hub-quote-editor .overlay-body,
   .hub-quote-editor-body {
-    padding-top: 2.5rem;
+    padding: 3.5rem 0 4.5rem;
     display: flex;
     flex-direction: column;
     gap: 1.75rem;
   }
 
-  .hub-quote-editor-body .form-input {
+  .hub-quote-editor-body .form-input,
+  .hub-quote-editor-body .form-input-sm {
     background: transparent;
     border-color: transparent;
-    border-bottom: 1px solid color-mix(in srgb, var(--ops-rule) 70%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--ops-accent) 35%, transparent);
     border-radius: 0;
     box-shadow: none;
     min-height: 36px;
     padding-left: 0;
     padding-right: 0;
+    color: #fff;
   }
 
-  .hub-quote-editor-body .form-input:focus {
+  .hub-quote-editor-body .form-input:focus,
+  .hub-quote-editor-body .form-input-sm:focus {
     box-shadow: none;
     border-color: transparent;
-    border-bottom-color: var(--ops-navy);
+    border-bottom-color: #fff;
+  }
+
+  .hub-quote-editor-body .form-input::placeholder,
+  .hub-quote-editor-body .form-input-sm::placeholder {
+    color: color-mix(in srgb, #fff 32%, transparent);
+  }
+
+  .hub-quote-editor-body select,
+  .hub-quote-editor-body option {
+    background: var(--ops-navy);
+    color: #fff;
+  }
+
+  .hub-quote-editor-body [class*="bg-[#F9FAFB]"],
+  .hub-quote-editor-body [class*="bg-white"],
+  .hub-quote-editor-body [class*="bg-[#EFF6FF]"] {
+    background: transparent !important;
+  }
+
+  .hub-quote-editor-body [class*="border-[#E5E7EB]"],
+  .hub-quote-editor-body [class*="border-[#F3F4F6]"],
+  .hub-quote-editor-body [class*="border-gray"] {
+    border-color: color-mix(in srgb, var(--ops-accent) 28%, transparent) !important;
+  }
+
+  .hub-quote-editor-body [class*="text-[#1A1A1A]"],
+  .hub-quote-editor-body [class*="text-[#4A5568]"],
+  .hub-quote-editor-body [class*="text-[#9CA3AF]"] {
+    color: color-mix(in srgb, #fff 48%, transparent) !important;
   }
 
   .hub-quote-editor-math {
-    opacity: 0.55;
+    opacity: 0.45;
     pointer-events: none;
   }
 
   .hub-quote-editor-math .font-semibold {
     font-weight: 500;
-    color: var(--ops-muted);
+    color: color-mix(in srgb, #fff 55%, transparent);
     border-color: transparent;
-  }
-
-  .hub-quote-editor .ops-sticky,
-  .hub-quote-editor-foot {
-    border-top: none;
-    padding: 1.25rem 1.25rem 1.5rem;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-  }
-
-  @media (min-width: 640px) {
-    .hub-quote-editor .ops-sticky,
-    .hub-quote-editor-foot {
-      padding-left: 2rem;
-      padding-right: 2rem;
-    }
-  }
-
-  .hub-quote-editor-quiet {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
   }
 
   .hub-quote-editor .btn-primary,
   .hub-quote-send .btn-primary {
-    @apply min-h-[44px] px-4;
-  }
-
-  .hub-quote-editor .btn-primary {
     width: auto;
     min-width: 10.5rem;
   }
 
-  .hub-quote-send-body {
-    padding: 2rem 1.25rem 1.5rem;
+  .hub-quote-send {
+    min-height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    justify-content: space-between;
+    max-width: 720px;
+    margin: 0 auto;
+    padding-bottom: 2.5rem;
   }
 
-  @media (min-width: 640px) {
-    .hub-quote-send-body {
-      padding: 2.25rem 2rem 1.75rem;
-    }
+  .hub-quote-send-body {
+    padding: 3.5rem 0 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.25rem;
+    flex: 1;
   }
 
   .hub-quote-send-label {
-    @apply block text-xs font-medium text-muted mb-1;
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ops-accent);
+    margin-bottom: 0.4rem;
   }
 
   .hub-quote-send-value {
-    font-size: 1.125rem;
+    font-size: 1.45rem;
     font-weight: 600;
-    letter-spacing: -0.03em;
-    color: var(--ops-navy);
-    line-height: 1.25;
+    letter-spacing: -0.035em;
+    color: #fff;
+    line-height: 1.2;
+  }
+
+  @media (min-width: 640px) {
+    .hub-quote-send-value {
+      font-size: 1.75rem;
+    }
   }
 
   .hub-quote-send-foot {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 1rem;
-    padding: 0 1.25rem 1.75rem;
-  }
-
-  @media (min-width: 640px) {
-    .hub-quote-send-foot {
-      padding: 0 2rem 2rem;
-    }
+    padding: 0 0 0.5rem;
   }
 
   .ops-section-title {
