@@ -270,13 +270,13 @@
     @apply text-xl font-semibold tracking-tight text-navy;
   }
 
-  /* Client hub only: type and void on BTS navy/blue. Not a global restyle. */
-  .hub-clients.ops-page {
+  /* Client hub + quote surfaces: type and void on BTS navy/blue. Not a global restyle. */
+  :is(.hub-clients, .hub-quotes).ops-page {
     padding-top: 3.25rem;
     padding-bottom: 5rem;
   }
 
-  .hub-clients .ops-page-title {
+  :is(.hub-clients, .hub-quotes) .ops-page-title {
     font-size: 2.75rem;
     line-height: 0.95;
     letter-spacing: -0.05em;
@@ -285,28 +285,28 @@
   }
 
   @media (min-width: 640px) {
-    .hub-clients .ops-page-title {
+    :is(.hub-clients, .hub-quotes) .ops-page-title {
       font-size: 3.75rem;
     }
   }
 
-  .hub-clients .ops-page-head {
+  :is(.hub-clients, .hub-quotes) .ops-page-head {
     margin-bottom: 3.75rem;
     padding-top: 1.25rem;
     align-items: flex-end;
     gap: 1.5rem;
   }
 
-  .hub-clients .btn-primary {
+  :is(.hub-clients, .hub-quotes) .btn-primary {
     @apply min-h-[44px] px-4;
   }
 
-  .hub-clients nav[aria-label="Breadcrumb"] {
+  :is(.hub-clients, .hub-quotes) nav[aria-label="Breadcrumb"] {
     margin-bottom: 0;
     opacity: 0.4;
   }
 
-  .hub-clients-chrome {
+  :is(.hub-clients-chrome, .hub-quotes-chrome) {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -314,7 +314,7 @@
     margin-bottom: 3.25rem;
   }
 
-  .hub-clients-chrome .form-input {
+  :is(.hub-clients-chrome, .hub-quotes-chrome) .form-input {
     background: transparent;
     border-color: transparent;
     border-bottom: 1px solid color-mix(in srgb, var(--ops-rule) 70%, transparent);
@@ -324,23 +324,23 @@
     padding-left: 0 !important;
   }
 
-  .hub-clients-chrome .form-input:focus {
+  :is(.hub-clients-chrome, .hub-quotes-chrome) .form-input:focus {
     box-shadow: none;
     border-color: transparent;
     border-bottom-color: var(--ops-navy);
   }
 
-  .hub-clients-chrome .relative svg {
+  :is(.hub-clients-chrome, .hub-quotes-chrome) .relative svg {
     display: none;
   }
 
-  .hub-clients-chrome .ops-seg {
+  :is(.hub-clients-chrome, .hub-quotes-chrome) .ops-seg {
     background: transparent;
     border: none;
     padding: 0;
   }
 
-  .hub-clients-chrome .ops-seg button {
+  :is(.hub-clients-chrome, .hub-quotes-chrome) .ops-seg button {
     background: transparent !important;
     color: var(--ops-muted) !important;
     width: 1.75rem;
@@ -348,13 +348,13 @@
     opacity: 0.55;
   }
 
-  .hub-clients-chrome .ops-seg button.bg-navy,
-  .hub-clients-chrome .ops-seg button[class*="bg-navy"] {
+  :is(.hub-clients-chrome, .hub-quotes-chrome) .ops-seg button.bg-navy,
+  :is(.hub-clients-chrome, .hub-quotes-chrome) .ops-seg button[class*="bg-navy"] {
     color: var(--ops-navy) !important;
     opacity: 1;
   }
 
-  .hub-clients-chrome .hub-chrome-filter {
+  :is(.hub-clients-chrome, .hub-quotes-chrome) .hub-chrome-filter {
     background: none;
     border: none;
     padding: 0;
@@ -363,17 +363,21 @@
     color: var(--ops-muted);
   }
 
-  .hub-clients .hub-stack {
+  :is(.hub-clients-chrome, .hub-quotes-chrome) .hub-chrome-filter-on {
+    color: var(--ops-navy);
+  }
+
+  :is(.hub-clients, .hub-quotes) .hub-stack {
     display: flex;
     flex-direction: column;
     gap: 2.75rem;
   }
 
-  .hub-clients .hub-stack-tight {
+  :is(.hub-clients, .hub-quotes) .hub-stack-tight {
     gap: 1.75rem;
   }
 
-  .hub-clients .hub-row {
+  :is(.hub-clients, .hub-quotes) .hub-row {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -384,7 +388,7 @@
     cursor: pointer;
   }
 
-  .hub-clients .hub-row-name {
+  :is(.hub-clients, .hub-quotes) .hub-row-name {
     font-size: 1.35rem;
     font-weight: 600;
     letter-spacing: -0.035em;
@@ -392,17 +396,17 @@
     line-height: 1.15;
   }
 
-  .hub-clients .hub-row-signal {
+  :is(.hub-clients, .hub-quotes) .hub-row-signal {
     text-align: right;
     flex-shrink: 0;
     padding-top: 0.15rem;
   }
 
-  .hub-clients .hub-signal {
+  :is(.hub-clients, .hub-quotes) .hub-signal {
     margin-bottom: 4rem;
   }
 
-  .hub-clients .hub-signal-amount {
+  :is(.hub-clients, .hub-quotes) .hub-signal-amount {
     font-size: 1.85rem;
     font-weight: 600;
     letter-spacing: -0.04em;
@@ -411,33 +415,33 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .hub-clients .hub-row .hub-signal-amount {
+  :is(.hub-clients, .hub-quotes) .hub-row .hub-signal-amount {
     font-size: 1.25rem;
   }
 
-  .hub-clients .hub-row .ops-link {
+  :is(.hub-clients, .hub-quotes) .hub-row .ops-link {
     font-size: 0.9375rem;
   }
 
-  .hub-clients .hub-trays {
+  :is(.hub-clients, .hub-quotes) .hub-trays {
     display: flex;
     flex-direction: column;
     gap: 3.75rem;
   }
 
-  .hub-clients .ops-tray {
+  :is(.hub-clients, .hub-quotes) .ops-tray {
     background: transparent;
     border: none;
     border-radius: 0;
   }
 
-  .hub-clients .ops-tray-head {
+  :is(.hub-clients, .hub-quotes) .ops-tray-head {
     padding: 0 0 0.35rem;
     border: none;
     margin-bottom: 0.15rem;
   }
 
-  .hub-clients .ops-tray .ops-section-title {
+  :is(.hub-clients, .hub-quotes) .ops-tray .ops-section-title {
     font-size: 0.7rem;
     font-weight: 500;
     letter-spacing: 0.08em;
@@ -445,26 +449,26 @@
     color: var(--ops-muted);
   }
 
-  .hub-clients .ops-tray .ops-section-title .ops-meta,
-  .hub-clients .ops-tray .ops-section-title svg,
-  .hub-clients .ops-tray a > svg:first-child {
+  :is(.hub-clients, .hub-quotes) .ops-tray .ops-section-title .ops-meta,
+  :is(.hub-clients, .hub-quotes) .ops-tray .ops-section-title svg,
+  :is(.hub-clients, .hub-quotes) .ops-tray a > svg:first-child {
     display: none;
   }
 
-  .hub-clients .ops-tray .divide-y {
+  :is(.hub-clients, .hub-quotes) .ops-tray .divide-y {
     border: none;
   }
 
-  .hub-clients .ops-tray .divide-y > :not([hidden]) ~ :not([hidden]) {
+  :is(.hub-clients, .hub-quotes) .ops-tray .divide-y > :not([hidden]) ~ :not([hidden]) {
     border-top-width: 0;
   }
 
-  .hub-clients .ops-tray .flex.items-center.gap-2.pr-2 {
+  :is(.hub-clients, .hub-quotes) .ops-tray .flex.items-center.gap-2.pr-2 {
     padding-right: 0;
   }
 
-  .hub-clients .ops-tray a.flex,
-  .hub-clients .ops-tray div.flex.items-center.gap-2\.5 {
+  :is(.hub-clients, .hub-quotes) .ops-tray a.flex,
+  :is(.hub-clients, .hub-quotes) .ops-tray div.flex.items-center.gap-2\.5 {
     padding-left: 0;
     padding-right: 0;
     padding-top: 0.45rem;
@@ -472,13 +476,177 @@
     background: transparent;
   }
 
-  .hub-clients .ops-tray .px-3.py-3 {
+  :is(.hub-clients, .hub-quotes) .ops-tray .px-3.py-3 {
     padding-left: 0;
     padding-right: 0;
   }
 
-  .hub-clients .hub-next {
+  :is(.hub-clients, .hub-quotes) .hub-next {
     @apply text-sm font-medium text-accent hover:underline;
+  }
+
+  .hub-quotes-group {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ops-muted);
+    margin: 0 0 1.15rem;
+  }
+
+  .hub-quotes .hub-next {
+    background: none;
+    border: none;
+    padding: 0;
+    min-height: 44px;
+    cursor: pointer;
+    text-align: right;
+  }
+
+  /* Quote editor + Send sheet: huge hierarchy, chrome recedes, 44px primary. */
+  .hub-quote-editor,
+  .hub-quote-send,
+  .overlay-panel-md:has(.hub-quote-send) {
+    box-shadow: none !important;
+    border: none !important;
+    background: #fff;
+  }
+
+  .hub-quote-editor-head,
+  .hub-quote-send-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 2.5rem 1.25rem 0;
+  }
+
+  @media (min-width: 640px) {
+    .hub-quote-editor-head,
+    .hub-quote-send-head {
+      padding: 3rem 2rem 0;
+    }
+  }
+
+  .hub-quote-editor-title,
+  .hub-quote-send-title {
+    font-size: 2.5rem;
+    line-height: 0.95;
+    letter-spacing: -0.05em;
+    font-weight: 600;
+    color: var(--ops-navy);
+  }
+
+  @media (min-width: 640px) {
+    .hub-quote-editor-title,
+    .hub-quote-send-title {
+      font-size: 3.25rem;
+    }
+  }
+
+  .hub-quote-editor-identity {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 2rem 1.25rem 0;
+  }
+
+  @media (min-width: 640px) {
+    .hub-quote-editor-identity {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  .hub-quote-editor-identity .hub-row-signal {
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .hub-quote-editor-identity .hub-signal-amount,
+  .hub-quote-send .hub-signal-amount {
+    font-size: 1.85rem;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    color: var(--ops-navy);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hub-quote-editor-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem 1.25rem 0;
+  }
+
+  @media (min-width: 640px) {
+    .hub-quote-editor-tools {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  .hub-quote-editor .overlay-body {
+    padding-top: 2.25rem;
+  }
+
+  .hub-quote-editor .ops-sticky {
+    border-top: none;
+    padding: 1.25rem 1.25rem 1.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .hub-quote-editor .ops-sticky {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  .hub-quote-editor .btn-primary,
+  .hub-quote-send .btn-primary {
+    @apply min-h-[44px] px-4;
+  }
+
+  .hub-quote-send-body {
+    padding: 2rem 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .hub-quote-send-body {
+      padding: 2.25rem 2rem 1.75rem;
+    }
+  }
+
+  .hub-quote-send-label {
+    @apply block text-xs font-medium text-muted mb-1;
+  }
+
+  .hub-quote-send-value {
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--ops-navy);
+    line-height: 1.25;
+  }
+
+  .hub-quote-send-foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 0 1.25rem 1.75rem;
+  }
+
+  @media (min-width: 640px) {
+    .hub-quote-send-foot {
+      padding: 0 2rem 2rem;
+    }
   }
 
   .ops-section-title {

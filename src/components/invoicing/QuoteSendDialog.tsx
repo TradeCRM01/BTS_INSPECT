@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Paperclip } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { generateCommercialPdf } from '../../reports/commercial/generateCommercialPdf';
 import { padQuoteNumber } from '../../lib/quoteJobFields';
@@ -80,20 +79,57 @@ export function QuoteSendDialog({
   const ready = decision?.ok === true;
   const blockerHref = decision && !decision.ok ? decision.href : undefined;
   const blockerMessage = decision && !decision.ok ? decision.message : '';
+  const quoteLabel = bundle?.quote ? `Quote #${padQuoteNumber(bundle.quote.quote_number)}` : '';
 
   return (
-    <Modal
-      open
-      onClose={onClose}
-      size="md"
-      title="Send quote"
-      subtitle={bundle?.quote ? `#${padQuoteNumber(bundle.quote.quote_number)}` : undefined}
-      footer={
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={onClose} className="btn-ghost ml-auto">Cancel</button>
+    <Modal open onClose={onClose} size="md">
+      <div className="hub-quote-send">
+        <div className="hub-quote-send-head">
+          <div className="min-w-0">
+            <h2 className="hub-quote-send-title">Send</h2>
+            {quoteLabel ? <p className="ops-meta mt-2">{quoteLabel}</p> : null}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ops-link shrink-0"
+          >
+            Cancel
+          </button>
+        </div>
+
+        <div className="hub-quote-send-body">
+          {loading && <p className="ops-meta">Loading send details…</p>}
+
+          {!loading && ready && decision.ok && (
+            <>
+              <div>
+                <p className="hub-quote-send-label">To</p>
+                <p className="hub-quote-send-value">{decision.to}</p>
+                <p className="ops-meta mt-1">{decision.toName} — already on the quote. No retype.</p>
+              </div>
+              <div>
+                <p className="hub-quote-send-label">Subject</p>
+                <p className="hub-quote-send-value">{decision.subject}</p>
+              </div>
+              <div>
+                <p className="hub-quote-send-label">Attached</p>
+                <p className="hub-quote-send-value">{decision.filename}</p>
+              </div>
+            </>
+          )}
+
+          {!loading && !ready && (
+            <p className="text-sm text-fail">{blockerMessage || err || 'This quote cannot be sent yet.'}</p>
+          )}
+
+          {err && ready && <p className="text-sm text-fail">{err}</p>}
+        </div>
+
+        <div className="hub-quote-send-foot">
           {ready && (
             <button type="button" onClick={() => void handleSend()} disabled={sending} className="btn-primary">
-              <Mail size={14} /> {sending ? 'Sending…' : 'Send'}
+              {sending ? 'Sending…' : 'Send'}
             </button>
           )}
           {!ready && blockerHref && !loading && (
@@ -102,47 +138,7 @@ export function QuoteSendDialog({
             </Link>
           )}
         </div>
-      }
-    >
-      <div className="p-5 space-y-3">
-        {loading && <p className="ops-meta">Loading send details…</p>}
-
-        {!loading && ready && decision.ok && (
-          <>
-            <Field label="To">
-              <input
-                readOnly
-                value={decision.to}
-                className="form-input bg-zebra"
-                aria-label="To"
-              />
-              <p className="ops-meta mt-1">{decision.toName} — already on the quote. No retype.</p>
-            </Field>
-            <Field label="Subject">
-              <input readOnly value={decision.subject} className="form-input bg-zebra" aria-label="Subject" />
-            </Field>
-            <div className="flex items-center gap-2 ops-meta">
-              <Paperclip size={14} />
-              <span>{decision.filename} attached</span>
-            </div>
-          </>
-        )}
-
-        {!loading && !ready && (
-          <p className="text-sm text-red-600">{blockerMessage || err || 'This quote cannot be sent yet.'}</p>
-        )}
-
-        {err && ready && <p className="text-sm text-red-600">{err}</p>}
       </div>
     </Modal>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block ops-meta font-medium mb-1">{label}</label>
-      {children}
-    </div>
   );
 }

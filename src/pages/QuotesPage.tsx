@@ -4,8 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, OpsDocHead, OpsFromTo, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
-import { SkeletonRow } from '../components/ui/Skeletons';
+import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
@@ -16,7 +15,6 @@ import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineI
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
-import { ActionButton } from '../components/invoicing/DocNextAction';
 import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
 import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
@@ -30,13 +28,30 @@ import {
   type QuoteActionKey,
 } from '../lib/quoteNextAction';
 import { COMPANY_EMAIL_SETTINGS_HREF, isSmtpReady } from '../lib/sendQuote';
-import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatMoney } from '../types/fsm';
-import { Plus, FileText, ArrowRight, Eye, Receipt, Send, Check } from 'lucide-react';
+import { QUOTE_STATUS_LABELS, formatMoney } from '../types/fsm';
+import { Plus, FileText, X } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | QuoteStatus;
 
 type QuoteListItem = QuoteWithDetails & { invoice_id: string | null; client_email: string | null };
+
+function visibleSite(...parts: Array<string | null | undefined>): string {
+  for (const part of parts) {
+    const trimmed = part?.trim();
+    if (trimmed && trimmed !== 'No site address') return trimmed;
+  }
+  return '';
+}
+
+function quoteTitle(quote: { quote_number?: number | null }): string {
+  return quote.quote_number != null ? `Quote #${padQuoteNumber(quote.quote_number)}` : 'Quote';
+}
+
+function quoteMoney(total: number | string | null | undefined): string | null {
+  const n = Number(total ?? 0);
+  return n > 0 ? formatMoney(n) : null;
+}
 
 function useCompanySmtpReady(companyId: string | null | undefined) {
   return useQuery({
@@ -163,27 +178,6 @@ export function QuotesPage() {
     setSearchParams(next, { replace: true });
   }, [searchParams, quotes, setSearchParams]);
 
-  const counts = useMemo(() => {
-    const all = quotes ?? [];
-    return {
-      all: all.length,
-      draft: all.filter(q => q.status === 'draft').length,
-      sent: all.filter(q => q.status === 'sent').length,
-      accepted: all.filter(q => q.status === 'accepted').length,
-      declined: all.filter(q => q.status === 'declined').length,
-      expired: all.filter(q => q.status === 'expired').length,
-    };
-  }, [quotes]);
-
-  const totals = useMemo(() => {
-    const all = quotes ?? [];
-    const pending = all.filter(q => q.status === 'draft' || q.status === 'sent');
-    const pendingValue = pending.reduce((s, q) => s + Number(q.total ?? 0), 0);
-    const accepted = all.filter(q => q.status === 'accepted');
-    const acceptedValue = accepted.reduce((s, q) => s + Number(q.total ?? 0), 0);
-    return { pendingCount: pending.length, pendingValue, acceptedCount: accepted.length, acceptedValue };
-  }, [quotes]);
-
   function openQuote(q: QuoteListItem | null) {
     setEditingQuote(q);
     setPresetClientId(null);
@@ -217,43 +211,33 @@ export function QuotesPage() {
 
   return (
     <AppShell>
-      <div className="ops-page">
+      <div className="ops-page hub-quotes">
         <div className="ops-page-head">
           <div>
             <h1 className="ops-page-title">Quotes</h1>
-            <p className="ops-meta mt-0.5">
-              {filtered.length} of {quotes?.length ?? 0} quotes
-            </p>
           </div>
           <button onClick={() => openQuote(null)} className="btn-primary">
             <Plus size={16} /> New Quote
           </button>
         </div>
 
-        <div className="ops-due-box mb-3">
-          <span className="ops-meta font-semibold uppercase tracking-wide">Amount pending</span>
-          <span className="ops-money text-lg">{isLoading ? '—' : formatMoney(totals.pendingValue)}</span>
-        </div>
-
-        <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <div className="hub-quotes-chrome">
           <SearchBar value={search} onChange={setSearch} placeholder="Search quotes, clients..." className="max-w-sm flex-1" />
-          <div className="ops-tabs flex-1">
-            {STATUS_FILTERS.map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setStatusFilter(tab.key)}
-                className={`ops-tab ${statusFilter === tab.key ? 'ops-tab-active' : ''}`}
-              >
-                {tab.label}
-                <span className="ml-1.5">{counts[tab.key]}</span>
-              </button>
-            ))}
-          </div>
           <ViewToggle mode={viewMode} onChange={setViewMode} />
+          {STATUS_FILTERS.map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setStatusFilter(tab.key)}
+              className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {isLoading ? (
-          <SkeletonRow />
+          <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={FileText}
@@ -263,38 +247,22 @@ export function QuotesPage() {
               : 'Try another status or search.'}
             action={filteredEmpty ? (
               <button onClick={() => openQuote(null)} className="btn-primary">
-                <Plus size={16} /> Write a quote
+                <Plus size={16} /> New Quote
               </button>
             ) : undefined}
           />
         ) : viewMode === 'grid' ? (
-          <div className="space-y-4">
+          <div className="hub-trays">
             <QuoteGroup title="Drafts" quotes={draftQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
             <QuoteGroup title="Sent — waiting" quotes={sentQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
             <QuoteGroup title="Accepted" quotes={acceptedQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
             <QuoteGroup title="Closed" quotes={closedQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
           </div>
         ) : (
-          <div className="ops-table">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-zebra text-left ops-meta font-medium uppercase tracking-wide">
-                    <th className="px-3 py-2">Quote #</th>
-                    <th className="px-3 py-2">Client</th>
-                    <th className="px-3 py-2">Site</th>
-                    <th className="px-3 py-2">Status</th>
-                    <th className="px-3 py-2 text-right">Total (inc GST)</th>
-                    <th className="px-3 py-2">Next</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-rule">
-                  {filtered.map(q => (
-                    <QuoteRow key={q.id} quote={q} onOpen={() => openQuote(q)} onSend={() => setSendingQuoteId(q.id)} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="hub-stack hub-stack-tight">
+            {filtered.map(q => (
+              <QuoteHit key={q.id} quote={q} onOpen={() => openQuote(q)} onSend={() => setSendingQuoteId(q.id)} />
+            ))}
           </div>
         )}
       </div>
@@ -344,91 +312,42 @@ function QuoteGroup({
   if (quotes.length === 0) return null;
   return (
     <div>
-      <h2 className="ops-group-title">
-        {title}
-        <span className="ops-meta normal-case font-normal"> ({quotes.length})</span>
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      <h2 className="hub-quotes-group">{title}</h2>
+      <div className="hub-stack">
         {quotes.map(q => (
-          <QuoteCard key={q.id} quote={q} onOpen={() => onOpen(q)} onSend={() => onSend(q.id)} />
+          <QuoteHit key={q.id} quote={q} onOpen={() => onOpen(q)} onSend={() => onSend(q.id)} />
         ))}
       </div>
     </div>
   );
 }
 
-function QuoteCard({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () => void; onSend: () => void }) {
-  const { profile } = useAuth();
-  const { data: smtpReady } = useCompanySmtpReady(profile?.company_id);
-  const next = recommendQuoteAction(quoteActionContext(quote, { smtpReady: smtpReady ?? null }));
+function QuoteHit({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () => void; onSend: () => void }) {
+  const site = visibleSite(quote.job_address);
+  const description = quote.description?.trim() ?? '';
+  const money = quoteMoney(quote.total);
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-      className="ops-card ops-card-hover group w-full cursor-pointer"
+      className="hub-row"
     >
-      <OpsDocHead
-        kind="Quotation"
-        id={`QT-${padQuoteNumber(quote.quote_number)}`}
-        trailing={<OpsStatus className={QUOTE_STATUS_STYLES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</OpsStatus>}
-      />
-      <div className="ops-card-body">
-        <div className="flex items-start justify-between gap-2">
-          <OpsSiteRow site={opsSiteLabel(quote.job_address)} />
-          <div className="shrink-0">
-            <p className="ops-money">{formatMoney(Number(quote.total))}</p>
-            <p className="ops-meta text-right">inc GST</p>
-          </div>
-        </div>
-        <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
+      <div className="min-w-0 flex-1">
+        <p className="hub-row-name">{quoteTitle(quote)}</p>
+        {quote.client_name ? <p className="ops-meta truncate">{quote.client_name}</p> : null}
+        {site ? <p className="ops-meta truncate">{site}</p> : null}
+        {description ? <p className="ops-meta truncate">{description}</p> : null}
+      </div>
+      <div className="hub-row-signal">
+        {money ? <p className="hub-signal-amount">{money}</p> : null}
+        <p className="ops-meta">{QUOTE_STATUS_LABELS[quote.status]}</p>
+        <div onClick={e => e.stopPropagation()}>
           <QuoteNextControl quote={quote} onSend={onSend} />
-          {next.key === 'none' && (
-            <span className="ops-next-control-done">{next.label}</span>
-          )}
         </div>
-        {quote.client_name && (
-          <p className="ops-meta mt-2 truncate">{quote.client_name}</p>
-        )}
-        {quote.description?.trim() && (
-          <p className="ops-meta mt-0.5 truncate">{quote.description}</p>
-        )}
-        {quote.validity_date && (
-          <p className="ops-meta mt-0.5">Valid {format(parseISO(quote.validity_date), 'd MMM yyyy')}</p>
-        )}
       </div>
     </div>
-  );
-}
-
-function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () => void; onSend: () => void }) {
-  const { profile } = useAuth();
-  const { data: smtpReady } = useCompanySmtpReady(profile?.company_id);
-  const next = recommendQuoteAction(quoteActionContext(quote, { smtpReady: smtpReady ?? null }));
-  return (
-    <tr onClick={onOpen} className="hover:bg-zebra cursor-pointer transition-colors">
-      <td className="px-3 py-2 font-medium text-accent">#{padQuoteNumber(quote.quote_number)}</td>
-      <td className="px-3 py-2">{quote.client_name ?? <span className="ops-meta">—</span>}</td>
-      <td className="px-3 py-2 max-w-[220px]">
-        <p className="text-sm font-semibold text-navy truncate">{opsSiteLabel(quote.job_address)}</p>
-        <p className="ops-meta truncate">{quote.description?.trim() || quote.job_title || '—'}</p>
-      </td>
-      <td className="px-3 py-2">
-        <OpsStatus className={QUOTE_STATUS_STYLES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</OpsStatus>
-      </td>
-      <td className="px-3 py-2 text-right">
-        <span className="ops-money text-base">{formatMoney(Number(quote.total))}</span>
-        <span className="block ops-meta">inc GST</span>
-      </td>
-      <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
-        {next.key === 'none' ? (
-          <span className="ops-next-hint">{next.label}</span>
-        ) : (
-          <QuoteNextControl quote={quote} onSend={onSend} />
-        )}
-      </td>
-    </tr>
   );
 }
 
@@ -516,7 +435,7 @@ function QuoteNextControl({ quote, onSend }: { quote: QuoteListItem; onSend: () 
       type="button"
       onClick={handle}
       disabled={!!busy}
-      className="ops-next-control-block"
+      className="hub-next"
     >
       {busy ? 'Working…' : next.label}
     </button>
@@ -771,102 +690,77 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
     }
   };
 
+  const editorMoney = quoteMoney(grandTotal);
+  const editorSite = visibleSite(selectedJob?.address, selectedClient?.address);
+  const editorTitle = quote?.quote_number != null ? quoteTitle(quote) : 'New quote';
+
   return (
     <div className="overlay-backdrop">
-      <div className="overlay-panel-xl ops-doc-panel" onClick={e => e.stopPropagation()}>
-        <OpsDocHead
-          kind="Quotation"
-          id={quote?.quote_number != null ? `QT-${padQuoteNumber(quote.quote_number)}` : 'QT-DRAFT'}
-          meta={form.validity_date ? `Valid ${format(parseISO(form.validity_date), 'd MMM yyyy')}` : undefined}
-          trailing={<OpsStatus className={QUOTE_STATUS_STYLES[form.status]}>{QUOTE_STATUS_LABELS[form.status]}</OpsStatus>}
-          onClose={onClose}
-        />
-
-        <div className="px-4 border-b border-rule">
-          <OpsFromTo
-            fromName={company?.name ?? 'Your company'}
-            fromDetail={[company?.abn ? `ABN ${company.abn}` : null, company?.licence_number ? `Licence ${company.licence_number}` : null].filter(Boolean).join(' · ') || null}
-            toName={selectedClient?.name ?? 'Select a client'}
-            toDetail={quoteClientDetailFromClient(selectedClient, selectedJob?.address)}
-          />
-          <div className="flex items-start justify-between gap-2 py-3">
-            <OpsSiteRow
-              hub
-              site={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
-              phone={selectedClient?.phone}
-              email={selectedClient?.email}
-              mapsQuery={selectedJob?.address || selectedClient?.address}
-            />
-            <div className="shrink-0">
-              <p className="ops-money text-lg">{formatMoney(grandTotal)}</p>
-              <p className="ops-meta text-right">inc GST</p>
-            </div>
+      <div className="overlay-panel-xl hub-quote-editor" onClick={e => e.stopPropagation()}>
+        <div className="hub-quote-editor-head">
+          <div className="min-w-0">
+            <h2 className="hub-quote-editor-title">{editorTitle}</h2>
+            {selectedClient?.name ? <p className="ops-meta mt-2">{selectedClient.name}</p> : null}
+            {form.validity_date ? (
+              <p className="ops-meta mt-0.5">Valid {format(parseISO(form.validity_date), 'd MMM yyyy')}</p>
+            ) : null}
           </div>
-          {form.description.trim() && <p className="ops-hub-title pb-3">{form.description.trim()}</p>}
-          {next.key !== 'none' && next.key !== 'open_invoice' && (
-            <div className="mt-2 pb-3">
-              {next.key === 'setup_email' && (
-                <ActionButton recommended onClick={() => navigate(COMPANY_EMAIL_SETTINGS_HREF)}>
-                  <Send size={14} /> Set up email
-                </ActionButton>
-              )}
-              {next.key === 'add_email' && form.client_id && (
-                <ActionButton recommended onClick={() => navigate(`/clients/${form.client_id}`)}>
-                  <Send size={14} /> Add client email
-                </ActionButton>
-              )}
-              {next.key === 'send' && (
-                <ActionButton recommended onClick={() => void handleSend()} disabled={saving}>
-                  <Send size={14} /> {saving ? 'Saving...' : 'Send'}
-                </ActionButton>
-              )}
-              {next.key === 'accept' && (
-                <ActionButton recommended onClick={() => void persist('accepted', { close: false, message: 'Quote accepted' })} disabled={saving}>
-                  <Check size={14} /> {saving ? 'Saving...' : 'Mark accepted'}
-                </ActionButton>
-              )}
-              {next.key === 'convert_job' && (
-                <ActionButton recommended onClick={() => void handleConvert()} disabled={converting}>
-                  <ArrowRight size={14} /> {converting ? 'Converting...' : 'Convert to job'}
-                </ActionButton>
-              )}
-              {next.key === 'open_job' && (
-                <ActionButton recommended onClick={() => navigate(`/jobs/${form.job_id}`)}>
-                  <ArrowRight size={14} /> Open job
-                </ActionButton>
-              )}
-              {next.key === 'invoice' && (
-                <ActionButton recommended onClick={() => void handleInvoice()} disabled={invoicing}>
-                  <Receipt size={14} /> {invoicing ? 'Creating...' : 'Create invoice'}
-                </ActionButton>
-              )}
-            </div>
-          )}
+          <div className="flex items-center gap-3 shrink-0">
+            <p className="ops-meta">{QUOTE_STATUS_LABELS[form.status]}</p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-11 h-11 flex items-center justify-center rounded-md text-muted hover:text-navy"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
-        <div className="px-3 py-2 border-b border-rule flex flex-wrap gap-2">
+        <div className="hub-quote-editor-identity">
+          <OpsSiteRow
+            hub
+            site={editorSite}
+            phone={selectedClient?.phone}
+            email={selectedClient?.email}
+            mapsQuery={selectedJob?.address || selectedClient?.address}
+          />
+          {editorMoney ? (
+            <div className="hub-row-signal">
+              <p className="hub-signal-amount">{editorMoney}</p>
+              <p className="ops-meta text-right">inc GST</p>
+            </div>
+          ) : null}
+        </div>
+
+        {form.description.trim() ? (
+          <p className="ops-meta px-5 sm:px-8 pt-3">{form.description.trim()}</p>
+        ) : null}
+
+        <div className="hub-quote-editor-tools">
           {form.status === 'sent' && (
             <button
               type="button"
               onClick={() => void persist('declined', { close: false, message: 'Quote declined' })}
               disabled={saving}
-              className="btn-ghost"
+              className="ops-link"
             >
               Decline
             </button>
           )}
           {form.status === 'accepted' && invoiceId && (
-            <ActionButton recommended={false} onClick={() => navigate(invoiceHref(invoiceId))}>
-              <Receipt size={14} /> Open invoice
-            </ActionButton>
+            <button type="button" onClick={() => navigate(invoiceHref(invoiceId))} className="ops-link">
+              Open invoice
+            </button>
           )}
           <button
             type="button"
             onClick={() => setShowPreview(true)}
             disabled={!previewData}
-            className="btn-ghost"
+            className="ops-link"
           >
-            <Eye size={14} /> Preview PDF
+            Preview PDF
           </button>
         </div>
 
@@ -962,27 +856,52 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           {err && <p className="text-sm text-red-600">{err}</p>}
         </div>
 
-        <div className="ops-sticky flex flex-col gap-2">
+        <div className="ops-sticky flex flex-col gap-3">
           {next.key === 'setup_email' && (
-            <ActionButton recommended onClick={() => navigate(COMPANY_EMAIL_SETTINGS_HREF)}>
-              <Send size={14} /> Set up email
-            </ActionButton>
+            <button type="button" onClick={() => navigate(COMPANY_EMAIL_SETTINGS_HREF)} className="btn-primary">
+              Set up email
+            </button>
           )}
           {next.key === 'add_email' && form.client_id && (
-            <ActionButton recommended onClick={() => navigate(`/clients/${form.client_id}`)}>
-              <Send size={14} /> Add client email
-            </ActionButton>
+            <button type="button" onClick={() => navigate(`/clients/${form.client_id}`)} className="btn-primary">
+              Add client email
+            </button>
           )}
           {next.key === 'send' && (
-            <ActionButton recommended onClick={() => void handleSend()} disabled={saving}>
-              <Send size={14} /> {saving ? 'Saving...' : 'Send'}
-            </ActionButton>
+            <button type="button" onClick={() => void handleSend()} disabled={saving} className="btn-primary">
+              {saving ? 'Saving...' : 'Send'}
+            </button>
           )}
-          <div className="flex items-center gap-2">
-            <button onClick={() => void persist(form.status, { close: true })} disabled={saving} className="btn-secondary">
+          {next.key === 'accept' && (
+            <button
+              type="button"
+              onClick={() => void persist('accepted', { close: false, message: 'Quote accepted' })}
+              disabled={saving}
+              className="btn-primary"
+            >
+              {saving ? 'Saving...' : 'Mark accepted'}
+            </button>
+          )}
+          {next.key === 'convert_job' && (
+            <button type="button" onClick={() => void handleConvert()} disabled={converting} className="btn-primary">
+              {converting ? 'Converting...' : 'Convert to job'}
+            </button>
+          )}
+          {next.key === 'open_job' && (
+            <button type="button" onClick={() => navigate(`/jobs/${form.job_id}`)} className="btn-primary">
+              Open job
+            </button>
+          )}
+          {next.key === 'invoice' && (
+            <button type="button" onClick={() => void handleInvoice()} disabled={invoicing} className="btn-primary">
+              {invoicing ? 'Creating...' : 'Create invoice'}
+            </button>
+          )}
+          <div className="flex items-center gap-3">
+            <button onClick={() => void persist(form.status, { close: true })} disabled={saving} className="btn-secondary min-h-[44px]">
               {saving ? 'Saving...' : quote || savedId ? 'Save' : 'Save draft'}
             </button>
-            <button onClick={onClose} className="btn-ghost ml-auto">Cancel</button>
+            <button onClick={onClose} className="ops-link ml-auto">Cancel</button>
           </div>
         </div>
       </div>
