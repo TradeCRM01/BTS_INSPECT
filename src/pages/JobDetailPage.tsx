@@ -11,7 +11,7 @@ import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import type { Client, Job, JobStatus } from '../types/crm';
-import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_STATUS_RAIL, JOB_PRIORITY_LABELS, JOB_PRIORITY_DOT } from '../types/crm';
+import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY_DOT } from '../types/crm';
 import { formatMoney, INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatDuration } from '../types/fsm';
 import type { InvoiceStatus, Timesheet } from '../types/fsm';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
@@ -436,7 +436,6 @@ export function JobDetailPage() {
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !job) return <AppShell><PageError message="Could not load this job" /></AppShell>;
 
-  const color = JOB_STATUS_RAIL[job.status];
   const assigned = (job.assigned_team ?? [])
     .map(tid => teamMembers?.find(m => m.id === tid)?.name)
     .filter(Boolean) as string[];
@@ -503,13 +502,11 @@ export function JobDetailPage() {
           { label: job.job_number != null ? `#${padNum(job.job_number)} ${job.title}` : job.title },
         ]} />
 
-        <article className="ops-card overflow-hidden mb-4" style={{ borderLeftWidth: 4, borderLeftColor: color }}>
-          <OpsPhotoStamp src={coverPhotoUrl} hub />
-          <div className="ops-card-header ops-card-header-lg">
-            <div className="flex items-center justify-between gap-2">
-              <p className="ops-card-kicker ops-card-kicker-lg">
-                {job.job_number != null ? `JOB #${padNum(job.job_number)}` : 'JOB'}
-              </p>
+        <article className="ops-card overflow-hidden mb-4">
+          <OpsPhotoStamp
+            src={coverPhotoUrl}
+            hub
+            status={
               <select
                 value={job.status}
                 onChange={e => updateStatus.mutate(e.target.value as JobStatus)}
@@ -520,9 +517,9 @@ export function JobDetailPage() {
                   <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
                 ))}
               </select>
-            </div>
-          </div>
-
+            }
+            identity={`${job.job_number != null ? `#${padNum(job.job_number)}` : 'JOB'} | ${site ? site : 'No site address'}`}
+          />
           <div className="ops-card-body">
             <OpsSiteRow
               hub

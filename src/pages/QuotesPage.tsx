@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, OpsCardHeader, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
+import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, OpsDocHead, OpsFromTo, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
 import { SkeletonRow } from '../components/ui/Skeletons';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
@@ -27,8 +27,8 @@ import {
   recommendQuoteAction,
   type QuoteActionKey,
 } from '../lib/quoteNextAction';
-import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, QUOTE_STATUS_RAIL, formatMoney } from '../types/fsm';
-import { Plus, FileText, X, ArrowRight, Eye, Receipt, Send, Check } from 'lucide-react';
+import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatMoney } from '../types/fsm';
+import { Plus, FileText, ArrowRight, Eye, Receipt, Send, Check } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | QuoteStatus;
@@ -289,10 +289,10 @@ function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className="ops-card ops-card-hover group w-full cursor-pointer"
-      style={{ borderLeftWidth: 4, borderLeftColor: QUOTE_STATUS_RAIL[quote.status] }}
     >
-      <OpsCardHeader
-        kicker={`QUOTE #${padQuoteNumber(quote.quote_number)}`}
+      <OpsDocHead
+        kind="Quotation"
+        id={`QT-${padQuoteNumber(quote.quote_number)}`}
         trailing={<OpsStatus className={QUOTE_STATUS_STYLES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</OpsStatus>}
       />
       <div className="ops-card-body">
@@ -665,29 +665,26 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
   };
 
   const selectedJob = jobs.find(j => j.id === form.job_id);
-  const heading = quote?.quote_number != null
-    ? `QUOTE #${padQuoteNumber(quote.quote_number)}`
-    : 'NEW QUOTE';
 
   return (
     <div className="overlay-backdrop">
-      <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
-        <div className="ops-card-header ops-card-header-lg">
-          <div className="flex items-center justify-between gap-2">
-            <p className="ops-card-kicker ops-card-kicker-lg">{heading}</p>
-            <div className="flex items-center gap-2 shrink-0">
-              <OpsStatus className={QUOTE_STATUS_STYLES[form.status]}>
-                {QUOTE_STATUS_LABELS[form.status]}
-              </OpsStatus>
-              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 text-[rgba(0,0,0,0.7)]">
-                <X size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
+      <div className="overlay-panel-xl ops-doc-panel" onClick={e => e.stopPropagation()}>
+        <OpsDocHead
+          kind="Quotation"
+          id={quote?.quote_number != null ? `QT-${padQuoteNumber(quote.quote_number)}` : 'QT-DRAFT'}
+          meta={form.validity_date ? `Valid ${format(parseISO(form.validity_date), 'd MMM yyyy')}` : undefined}
+          trailing={<OpsStatus className={QUOTE_STATUS_STYLES[form.status]}>{QUOTE_STATUS_LABELS[form.status]}</OpsStatus>}
+          onClose={onClose}
+        />
 
-        <div className="ops-card-body border-b border-[#E5E7EB]">
-          <div className="flex items-start justify-between gap-2">
+        <div className="px-4 border-b border-[#E5E7EB]">
+          <OpsFromTo
+            fromName={company?.name ?? 'Your company'}
+            fromDetail={[company?.abn ? `ABN ${company.abn}` : null, company?.licence_number ? `Licence ${company.licence_number}` : null].filter(Boolean).join(' · ') || null}
+            toName={selectedClient?.name ?? 'Select a client'}
+            toDetail={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
+          />
+          <div className="flex items-start justify-between gap-2 py-3">
             <OpsSiteRow
               hub
               site={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
@@ -699,10 +696,9 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
               <p className="ops-meta text-right">inc GST</p>
             </div>
           </div>
-          {selectedClient && <p className="ops-meta mt-1 truncate">{selectedClient.name}</p>}
-          {form.description.trim() && <p className="ops-hub-title mt-0.5">{form.description.trim()}</p>}
+          {form.description.trim() && <p className="ops-hub-title pb-3">{form.description.trim()}</p>}
           {next.key !== 'none' && next.key !== 'open_invoice' && (
-            <div className="mt-2">
+            <div className="mt-2 pb-3">
               {next.key === 'send' && (
                 <ActionButton recommended onClick={() => void persist('sent', { close: false, message: 'Quote marked as sent' })} disabled={saving}>
                   <Send size={14} /> {saving ? 'Saving...' : 'Send'}

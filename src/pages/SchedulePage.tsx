@@ -327,7 +327,7 @@ export function SchedulePage() {
                 return (
                   <div
                     key={m.id}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border transition-all ${
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border transition-all ${
                       active
                         ? 'border-transparent bg-white'
                         : 'border-[#E5E7EB] bg-gray-50 opacity-50 hover:opacity-80'

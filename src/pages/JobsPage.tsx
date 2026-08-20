@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, ViewToggle, useViewMode, OpsCardHeader, OpsPhotoStamp, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
+import { LoadingSpinner, PageError, EmptyState, ViewToggle, useViewMode, OpsPhotoStamp, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import {
@@ -13,7 +13,7 @@ import {
 } from '../types/crm';
 import { jobCardHint, jobListBucket } from '../lib/jobNextAction';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
-import { Plus, Briefcase, Search, Calendar, Clock, User } from 'lucide-react';
+import { Plus, Briefcase, Search, Calendar, Clock } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 type JobCardModel = JobWithClient & {
@@ -264,7 +264,7 @@ function JobGroup({
         <Icon size={13} /> {title}
         <span className="ops-meta normal-case font-normal">({jobs.length})</span>
       </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
         {jobs.map(job => (
           <JobCard key={job.id} job={job} />
         ))}
@@ -275,12 +275,12 @@ function JobGroup({
 
 function JobCard({ job }: { job: JobCardModel }) {
   const navigate = useNavigate();
-  const rail = JOB_STATUS_RAIL[job.status];
-  const jobDate = job.scheduled_date ? parseISO(job.scheduled_date) : null;
-  const dateLabel = jobDate ? format(jobDate, 'd MMM yyyy') : 'No date';
   const hint = jobCardHint(job);
   const site = opsSiteLabel(job.address, job.client_address);
   const mapsQuery = (job.address || job.client_address)?.trim() || null;
+  const jobNo = job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : 'JOB';
+  const money = job.docs.find(d => d.kind === 'invoice')?.amount
+    ?? job.docs.find(d => d.kind === 'quote')?.amount;
 
   return (
     <div
@@ -289,12 +289,12 @@ function JobCard({ job }: { job: JobCardModel }) {
       onClick={() => navigate(`/jobs/${job.id}`)}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/jobs/${job.id}`); } }}
       className="ops-card ops-card-hover group cursor-pointer"
-      style={{ borderLeftWidth: 4, borderLeftColor: rail }}
     >
-      <OpsPhotoStamp src={job.cover_photo_url} />
-      <OpsCardHeader
-        kicker={job.job_number != null ? `JOB #${String(job.job_number).padStart(4, '0')}` : 'JOB'}
-        trailing={<OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>}
+      <OpsPhotoStamp
+        src={job.cover_photo_url}
+        status={<OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>}
+        identity={`${jobNo} | ${site}`}
+        money={money}
       />
       <div className="ops-card-body">
         <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
@@ -311,28 +311,6 @@ function JobCard({ job }: { job: JobCardModel }) {
             ))}
           </div>
         )}
-        <div className="mt-2 min-w-0 space-y-0.5">
-          {job.title && <p className="ops-meta truncate">{job.title}</p>}
-          {job.client_name && (
-            <div className="flex items-center gap-1.5 ops-meta">
-              <User size={12} className="shrink-0" />
-              <span className="truncate">{job.client_name}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1.5 ops-meta">
-            <Calendar size={12} className="shrink-0" />
-            <span>{dateLabel}</span>
-            {job.start_time && (
-              <span>· {job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>
-            )}
-          </div>
-          {job.priority !== 'medium' && (
-            <span className="flex items-center gap-1 ops-meta" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
-              {JOB_PRIORITY_LABELS[job.priority]}
-            </span>
-          )}
-        </div>
       </div>
     </div>
   );

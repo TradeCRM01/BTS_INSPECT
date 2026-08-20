@@ -37,12 +37,18 @@ export function OpsCardHeader({
 export function OpsPhotoStamp({
   src,
   hub = false,
+  status,
+  identity,
+  money,
 }: {
   src?: string | null;
   hub?: boolean;
+  status?: ReactNode;
+  identity?: string;
+  money?: string;
 }) {
   return (
-    <div className={hub ? 'ops-stamp ops-stamp-hub' : 'ops-stamp'} aria-hidden={!src}>
+    <div className={hub ? 'ops-tile ops-tile-hub' : 'ops-tile'}>
       {src ? (
         <img src={src} alt="" className="ops-stamp-img" />
       ) : (
@@ -50,6 +56,79 @@ export function OpsPhotoStamp({
           <Camera size={hub ? 28 : 22} strokeWidth={1.5} />
         </div>
       )}
+      {status ? <div className="ops-tile-status">{status}</div> : null}
+      {(identity || money) ? (
+        <div className="ops-tile-identity">
+          {identity ? <p className="ops-tile-line">{identity}</p> : null}
+          {money ? <p className="ops-tile-money">{money}</p> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function OpsDocHead({
+  kind,
+  id,
+  meta,
+  trailing,
+  onClose,
+}: {
+  kind: string;
+  id: string;
+  meta?: string;
+  trailing?: ReactNode;
+  onClose?: () => void;
+}) {
+  return (
+    <div className="ops-doc-head">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="ops-doc-label">{kind}</p>
+          <p className="ops-doc-id">{id}</p>
+          {meta ? <p className="ops-doc-meta">{meta}</p> : null}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {trailing}
+          {onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/10 text-white/70"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function OpsFromTo({
+  fromName,
+  fromDetail,
+  toName,
+  toDetail,
+}: {
+  fromName: string;
+  fromDetail?: string | null;
+  toName: string;
+  toDetail?: string | null;
+}) {
+  return (
+    <div className="ops-fromto">
+      <div className="min-w-0">
+        <p className="ops-fromto-label">From</p>
+        <p className="ops-fromto-name truncate">{fromName}</p>
+        {fromDetail ? <p className="ops-meta mt-0.5 truncate">{fromDetail}</p> : null}
+      </div>
+      <div className="min-w-0">
+        <p className="ops-fromto-label">To</p>
+        <p className="ops-fromto-name truncate">{toName}</p>
+        {toDetail ? <p className="ops-meta mt-0.5 truncate">{toDetail}</p> : null}
+      </div>
     </div>
   );
 }

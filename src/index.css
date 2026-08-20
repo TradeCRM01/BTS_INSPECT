@@ -244,6 +244,73 @@
     @apply text-xs font-semibold text-[rgba(0,0,0,0.7)] tracking-tight mb-2;
   }
 
+  .ops-tile {
+    @apply relative w-full h-40 bg-navy overflow-hidden;
+  }
+
+  .ops-card > .ops-tile {
+    border-radius: 0;
+  }
+
+  .ops-tile-hub {
+    @apply h-52;
+  }
+
+  .ops-tile-status {
+    @apply absolute top-2 left-2 z-10;
+  }
+
+  .ops-tile-identity {
+    @apply absolute inset-x-0 bottom-0 z-10 px-3 py-2.5 bg-gradient-to-t from-navy to-transparent;
+  }
+
+  .ops-tile-line {
+    @apply text-sm font-semibold tracking-tight text-white truncate;
+  }
+
+  .ops-tile-money {
+    @apply text-xs font-medium text-white/80 tabular-nums mt-0.5;
+  }
+
+  .ops-doc-head {
+    @apply bg-navy text-white px-4 py-3;
+  }
+
+  .ops-doc-label {
+    @apply font-mono text-[10px] font-medium tracking-[0.18em] uppercase text-white/70;
+  }
+
+  .ops-doc-id {
+    @apply mt-0.5 text-2xl font-semibold tracking-tight text-white tabular-nums leading-none;
+  }
+
+  .ops-doc-meta {
+    @apply mt-1 text-xs text-white/70;
+  }
+
+  .ops-fromto {
+    @apply grid grid-cols-2 gap-3 py-3 border-b border-[#E5E7EB];
+  }
+
+  .ops-fromto-label {
+    @apply text-[10px] font-bold tracking-[0.16em] uppercase text-accent;
+  }
+
+  .ops-fromto-name {
+    @apply text-sm font-semibold tracking-tight text-navy;
+  }
+
+  .ops-doc-panel {
+    box-shadow: none !important;
+    border: 1px solid #E5E7EB;
+  }
+
+  @media (min-width: 640px) {
+    .ops-doc-panel {
+      border-radius: 8px !important;
+    }
+  }
+
   /* ── Card variants ───────────────────────────────────────────── */
   .card {
     @apply bg-white rounded-xl border border-[#E5E7EB] shadow-sm;

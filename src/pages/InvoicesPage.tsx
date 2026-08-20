@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, OpsCardHeader, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
+import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, OpsDocHead, OpsFromTo, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
 import { SkeletonRow } from '../components/ui/Skeletons';
 import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
@@ -20,8 +20,8 @@ import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
 import { effectiveInvoiceStatus, persistableInvoiceStatus } from '../lib/invoiceStatus';
 import { invoiceListBucket, recommendInvoiceAction, type InvoiceActionKey } from '../lib/invoiceNextAction';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
-import { INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, INVOICE_STATUS_RAIL, formatMoney } from '../types/fsm';
-import { Plus, Receipt, X, Download, Eye, Check, Send } from 'lucide-react';
+import { INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, formatMoney } from '../types/fsm';
+import { Plus, Receipt, Download, Eye, Check, Send } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 const padInv = (n: number | null) => String(n ?? 0).padStart(4, '0');
@@ -301,10 +301,10 @@ function InvoiceCard({ invoice, onOpen }: { invoice: InvoiceWithDetails; onOpen:
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className="ops-card ops-card-hover group cursor-pointer"
-      style={{ borderLeftWidth: 4, borderLeftColor: INVOICE_STATUS_RAIL[next.status] }}
     >
-      <OpsCardHeader
-        kicker={`INVOICE #${padInv(invoice.invoice_number)}`}
+      <OpsDocHead
+        kind="Invoice"
+        id={`INV-${padInv(invoice.invoice_number)}`}
         trailing={<OpsStatus className={INVOICE_STATUS_STYLES[next.status]}>{INVOICE_STATUS_LABELS[next.status]}</OpsStatus>}
       />
       <div className="ops-card-body">
@@ -605,29 +605,26 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
   };
 
   const selectedJob = jobs.find(j => j.id === form.job_id);
-  const heading = invoice?.invoice_number != null
-    ? `INVOICE #${padInv(invoice.invoice_number)}`
-    : 'NEW INVOICE';
 
   return (
     <div className="overlay-backdrop">
-      <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
-        <div className="ops-card-header ops-card-header-lg">
-          <div className="flex items-center justify-between gap-2">
-            <p className="ops-card-kicker ops-card-kicker-lg">{heading}</p>
-            <div className="flex items-center gap-2 shrink-0">
-              <OpsStatus className={INVOICE_STATUS_STYLES[displayStatus]}>
-                {INVOICE_STATUS_LABELS[displayStatus]}
-              </OpsStatus>
-              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 text-[rgba(0,0,0,0.7)]">
-                <X size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
+      <div className="overlay-panel-xl ops-doc-panel" onClick={e => e.stopPropagation()}>
+        <OpsDocHead
+          kind="Invoice"
+          id={invoice?.invoice_number != null ? `INV-${padInv(invoice.invoice_number)}` : 'INV-DRAFT'}
+          meta={form.due_date ? `Due ${format(parseISO(form.due_date), 'd MMM yyyy')}` : undefined}
+          trailing={<OpsStatus className={INVOICE_STATUS_STYLES[displayStatus]}>{INVOICE_STATUS_LABELS[displayStatus]}</OpsStatus>}
+          onClose={onClose}
+        />
 
-        <div className="ops-card-body border-b border-[#E5E7EB]">
-          <div className="flex items-start justify-between gap-2">
+        <div className="px-4 border-b border-[#E5E7EB]">
+          <OpsFromTo
+            fromName={company?.name ?? 'Your company'}
+            fromDetail={[company?.abn ? `ABN ${company.abn}` : null, company?.licence_number ? `Licence ${company.licence_number}` : null].filter(Boolean).join(' · ') || null}
+            toName={selectedClient?.name ?? 'Select a client'}
+            toDetail={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
+          />
+          <div className="flex items-start justify-between gap-2 py-3">
             <OpsSiteRow
               hub
               site={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
@@ -639,14 +636,8 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
               <p className="ops-meta text-right">inc GST</p>
             </div>
           </div>
-          {selectedClient && <p className="ops-meta mt-1 truncate">{selectedClient.name}</p>}
-          {form.due_date && (
-            <p className={`ops-meta mt-0.5 ${displayStatus === 'overdue' ? 'text-fail font-semibold' : ''}`}>
-              Due {format(parseISO(form.due_date), 'd MMM yyyy')}
-            </p>
-          )}
           {next.key !== 'none' && (
-            <div className="mt-2">
+            <div className="pb-3">
               {next.key === 'send' && (
                 <ActionButton recommended onClick={() => void persist('sent', { close: false, message: 'Invoice marked as sent' })} disabled={saving}>
                   <Send size={14} /> {saving ? 'Saving...' : 'Send'}

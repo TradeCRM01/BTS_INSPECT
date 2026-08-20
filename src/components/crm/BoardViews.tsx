@@ -3,7 +3,7 @@ import type { JobWithClient } from '../../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
 import { pickEmployeeColor } from '../../lib/jobColors';
 import { boardDispatchHint, jobCardHint } from '../../lib/jobNextAction';
-import { OpsCardHeader, OpsSiteRow, OpsStatus, opsSiteLabel } from '../ui/OpsCard';
+import { OpsSiteRow, OpsStatus, opsSiteLabel } from '../ui/OpsCard';
 import {
   startTimeFromDropOffset,
   placeDayRowJobs,
@@ -98,19 +98,16 @@ const JobBlock = memo(function JobBlock({
       }`}
       style={{ borderLeftWidth: 3, borderLeftColor: rail }}
     >
-      <div className={compact ? 'ops-card-header-sm' : 'ops-card-header px-2 pt-1.5 pb-0'}>
-        <div className="flex items-center justify-between gap-1">
-          <p className="ops-card-kicker truncate">
-            {compact && job.start_time ? `${job.start_time.slice(0, 5)} · ` : ''}
-            {formatJobNumber(job.job_number) || 'JOB'}
-          </p>
-          {!compact && (
-            <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
-          )}
-        </div>
-      </div>
       <div className="px-1.5 py-1 text-left">
-        <p className={compact ? 'ops-chip-site' : 'ops-card-site'}>{site}</p>
+        {!compact && (
+          <div className="mb-1">
+            <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+          </div>
+        )}
+        <p className={`${compact ? 'ops-chip-site' : 'ops-card-site'} truncate`}>
+          {compact && job.start_time ? `${job.start_time.slice(0, 5)} · ` : ''}
+          {formatJobNumber(job.job_number) || 'JOB'} | {site}
+        </p>
         {!compact && job.start_time && (
           <p className="ops-meta mt-0.5 flex items-center gap-0.5">
             <Clock size={12} /> {job.start_time.slice(0, 5)}
@@ -158,12 +155,11 @@ export const NeedsDateRail = memo(function NeedsDateRail({
                 className="ops-card ops-card-hover w-full text-left active:scale-[0.98]"
                 style={{ borderLeftWidth: 3, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
               >
-                <OpsCardHeader
-                  kicker={formatJobNumber(job.job_number) || 'JOB'}
-                  trailing={<OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>}
-                />
                 <div className="ops-card-body">
-                  <p className="ops-card-site">{site}</p>
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}</p>
+                    <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                  </div>
                   <div className="ops-card-footer">
                     <span className="ops-next-control-block">Set a date</span>
                   </div>
@@ -219,11 +215,11 @@ export const PhoneDayList = memo(function PhoneDayList({
               className="ops-card ops-card-hover w-full text-left"
               style={{ borderLeftWidth: 4, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
             >
-              <OpsCardHeader
-                kicker={formatJobNumber(job.job_number) || 'JOB'}
-                trailing={<OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>}
-              />
               <div className="ops-card-body">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}</p>
+                  <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                </div>
                 <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
                 <div className="ops-card-footer">
                   <span className="ops-next-control-block">{next}</span>
