@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, Breadcrumbs, useToast } from '../components/ui';
+import { LoadingSpinner, PageError, Breadcrumbs, useToast, ActionButton, NextBanner, actionClass } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
@@ -92,25 +92,6 @@ function inspectionHref(status: string, id: string): string {
 
 function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function actionClass(recommended: boolean) {
-  return recommended ? 'btn-primary' : 'btn-secondary';
-}
-
-function ActionButton({
-  recommended, onClick, disabled, children,
-}: {
-  recommended: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button type="button" onClick={onClick} disabled={disabled} className={actionClass(recommended)}>
-      {children}
-    </button>
-  );
 }
 
 export function JobDetailPage() {
@@ -503,12 +484,12 @@ export function JobDetailPage() {
           { label: job.job_number != null ? `#${padNum(job.job_number)} ${job.title}` : job.title },
         ]} />
 
-        <article className="card overflow-hidden mb-5" style={{ borderLeftWidth: 4, borderLeftColor: color }}>
-          <div className="bg-[#0A2540] text-white px-5 py-5">
+        <article className="ops-card overflow-hidden mb-5" style={{ borderLeftWidth: 4, borderLeftColor: color }}>
+          <div className="ops-card-header ops-card-header-lg">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 {job.job_number != null && (
-                  <p className="text-[11px] font-bold tracking-wider text-white/60 mb-1">
+                  <p className="ops-card-kicker ops-card-kicker-lg">
                     JOB #{padNum(job.job_number)}
                   </p>
                 )}
@@ -532,8 +513,8 @@ export function JobDetailPage() {
               </select>
             </div>
 
-            <div className="mt-4 flex items-start gap-2 text-sm text-white/90">
-              <MapPin size={16} className="shrink-0 mt-0.5 text-[#93C5FD]" />
+            <div className="ops-hub-site">
+              <MapPin size={16} className="ops-card-site-icon mt-0.5" />
               {site ? (
                 <span>{site}</span>
               ) : (
@@ -590,10 +571,7 @@ export function JobDetailPage() {
               <p className="mt-3 text-sm text-[#4A5568] whitespace-pre-wrap line-clamp-4">{job.description}</p>
             )}
 
-            <div className="mt-4 rounded-lg bg-[#F0F7FF] border border-[#BFDBFE] px-3 py-2.5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#2E75B6]">Next</p>
-              <p className="text-sm font-medium text-[#0A2540] mt-0.5">{next.detail}</p>
-            </div>
+            <NextBanner detail={next.detail} className="mt-4" />
 
             <div className="mt-4 flex flex-wrap gap-2">
               <ActionButton

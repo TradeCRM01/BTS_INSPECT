@@ -1,9 +1,11 @@
 import { useState, useMemo, useRef, memo, useEffect } from 'react';
 import type { JobWithClient } from '../../types/crm';
+import { JOB_STATUS_LABELS, JOB_STATUS_STYLES } from '../../types/crm';
 import {
-  pickJobColor, pickEmployeeColor, hexToBg, hexToBorder, getReadableText,
+  pickJobColor, pickEmployeeColor,
 } from '../../lib/jobColors';
-import { boardDispatchHint } from '../../lib/jobNextAction';
+import { boardDispatchHint, jobCardHint } from '../../lib/jobNextAction';
+import { OpsCardHeader, OpsStatus, opsSiteLabel } from '../ui/OpsCard';
 import {
   startTimeFromDropOffset,
   placeDayRowJobs,
@@ -43,8 +45,8 @@ const DAY_START = DAY_START_HOUR;
 const DAY_END = DAY_END_HOUR;
 const HOURS = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => DAY_START + i);
 const LABEL_WIDTH = 168;
-const ALL_DAY_H = 22;
-const TIMED_H = 48;
+const ALL_DAY_H = 36;
+const TIMED_H = 58;
 const ROW_PAD = 6;
 const ROW_MIN = 72;
 
@@ -80,16 +82,17 @@ interface JobBlockProps {
   onDragStart?: (e: React.DragEvent) => void;
   compact?: boolean;
   dragging?: boolean;
+  fill?: boolean;
+  detail?: boolean;
 }
 
 const JobBlock = memo(function JobBlock({
-  job, teamMembers, onClick, onDragStart, compact, dragging,
+  job, teamMembers, onClick, onDragStart, compact, dragging, fill = true, detail = false,
 }: JobBlockProps) {
   const color = pickJobColor(job.id, job.color);
-  const textColor = getReadableText(color);
-  const bg = hexToBg(color, 0.15);
-  const border = hexToBorder(color, 0.4);
   const hint = boardDispatchHint(job);
+  const next = hint ?? jobCardHint(job);
+  const site = opsSiteLabel(job.address, job.client_address);
   const assigned = (job.assigned_team ?? [])
     .map(id => teamMembers?.find(m => m.id === id))
     .filter(Boolean) as TeamMember[];
@@ -99,72 +102,71 @@ const JobBlock = memo(function JobBlock({
       draggable={!!onDragStart}
       onDragStart={onDragStart}
       onClick={e => { e.stopPropagation(); onClick(); }}
-      className={`absolute left-1 right-1 rounded-lg border overflow-hidden cursor-pointer transition-all hover:shadow-md hover:brightness-105 active:scale-[0.98] ${
+      className={`${fill ? 'absolute left-1 right-1' : 'w-full'} ops-card ops-card-hover cursor-pointer active:scale-[0.98] ${
         dragging ? 'opacity-40' : ''
       }`}
-      style={{
-        background: bg,
-        borderColor: hint === 'Assign crew' ? '#F59E0B' : border,
-        borderLeftWidth: 3,
-        borderLeftColor: hint === 'Assign crew' ? '#D97706' : color,
-        borderStyle: hint === 'Assign crew' ? 'dashed' : 'solid',
-      }}
+      style={{ borderLeftWidth: 3, borderLeftColor: color }}
     >
-      <div className="px-1.5 py-1 text-left" style={{ color: textColor === '#FFFFFF' ? color : '#1A1A1A' }}>
-        <div className="flex items-center gap-1 mb-0.5">
-          <span className="text-[10px] font-bold shrink-0" style={{ color }}>
-            {formatJobNumber(job.job_number)}
-          </span>
+      <div className={compact ? 'ops-card-header-sm' : 'ops-card-header px-1.5 py-1'}>
+        <div className="flex items-center gap-1 min-w-0">
+          <span className="ops-card-kicker shrink-0">{formatJobNumber(job.job_number)}</span>
           {job.status === 'cancelled' && (
-            <span className="text-[9px] px-1 rounded bg-red-100 text-red-600">CXL</span>
+            <span className="text-[9px] px-1 rounded bg-white/15 text-white font-semibold">CXL</span>
           )}
           {job.status === 'completed' && (
-            <span className="text-[9px] px-1 rounded bg-green-100 text-green-600">DONE</span>
+            <span className="text-[9px] px-1 rounded bg-white/15 text-white font-semibold">DONE</span>
           )}
-          {hint && (
-            <span className="text-[9px] px-1 rounded bg-amber-100 text-amber-800 font-semibold truncate">
-              {hint}
-            </span>
+          {compact && hint && (
+            <span className="text-[9px] font-semibold text-[#93C5FD] truncate">{hint}</span>
           )}
         </div>
-        <p className="text-[11px] font-semibold leading-tight truncate" style={{ color: '#1A1A1A' }}>
+        <p className={`${compact ? 'text-[10px]' : 'text-[11px]'} font-semibold leading-tight truncate text-white`}>
           {job.title}
         </p>
-        {!compact && (
-          <>
-            {job.client_name && (
-              <p className="text-[10px] leading-tight truncate text-[#4A5568] flex items-center gap-0.5 mt-0.5">
-                <User size={8} /> {job.client_name}
-              </p>
-            )}
-            {job.start_time && (
-              <p className="text-[10px] leading-tight text-[#6B7280] flex items-center gap-0.5 mt-0.5">
-                <Clock size={8} /> {job.start_time.slice(0, 5)}
-                {job.end_time && ` – ${job.end_time.slice(0, 5)}`}
-              </p>
-            )}
-            {job.address && (
-              <p className="text-[10px] leading-tight truncate text-[#6B7280] flex items-center gap-0.5 mt-0.5">
-                <MapPin size={8} /> {job.address}
-              </p>
-            )}
-            {assigned.length > 0 && (
-              <div className="flex items-center gap-0.5 mt-1">
-                {assigned.slice(0, 4).map(m => (
-                  <div
-                    key={m.id}
-                    className="w-3.5 h-3.5 rounded-full border border-white flex items-center justify-center text-[7px] font-bold text-white"
-                    style={{ background: pickEmployeeColor(m.id, m.schedule_color) }}
-                    title={m.name}
-                  >
-                    {m.name[0]?.toUpperCase()}
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
       </div>
+      {!compact && (
+        <div className="px-1.5 py-1">
+          <p className="text-[10px] leading-tight truncate text-[#4A5568] flex items-center gap-0.5">
+            <MapPin size={8} className="shrink-0 text-[#9CA3AF]" /> {site}
+          </p>
+          {detail && job.client_name && (
+            <p className="text-[10px] leading-tight truncate text-[#4A5568] flex items-center gap-0.5 mt-0.5">
+              <User size={8} /> {job.client_name}
+            </p>
+          )}
+          {detail && job.start_time && (
+            <p className="text-[10px] leading-tight text-[#6B7280] flex items-center gap-0.5 mt-0.5">
+              <Clock size={8} /> {job.start_time.slice(0, 5)}
+              {job.end_time && ` – ${job.end_time.slice(0, 5)}`}
+            </p>
+          )}
+          <div className="flex items-center gap-1 mt-1 min-w-0">
+            <span className="ops-next-hint truncate">{next}</span>
+            {detail && (
+              <OpsStatus className={`${JOB_STATUS_STYLES[job.status]} ml-auto`}>
+                {JOB_STATUS_LABELS[job.status]}
+              </OpsStatus>
+            )}
+          </div>
+          {detail && assigned.length > 0 && (
+            <div className="flex items-center gap-0.5 mt-1">
+              {assigned.slice(0, 4).map(m => (
+                <div
+                  key={m.id}
+                  className="w-3.5 h-3.5 rounded-full border border-white flex items-center justify-center text-[7px] font-bold text-white"
+                  style={{ background: pickEmployeeColor(m.id, m.schedule_color) }}
+                  title={m.name}
+                >
+                  {m.name[0]?.toUpperCase()}
+                </div>
+              ))}
+              {assigned.length > 4 && (
+                <span className="text-[9px] text-[#9CA3AF] ml-0.5">+{assigned.length - 4}</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </button>
   );
 });
@@ -181,7 +183,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
   if (jobs.length === 0) return null;
 
   return (
-    <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/70 overflow-hidden">
+    <div className="mb-3 rounded-xl border border-[#BFDBFE] bg-[#F0F7FF] overflow-hidden">
       <div className="px-3 py-2 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <p className="text-xs font-semibold text-[#0A2540]">Needs a date</p>
@@ -189,7 +191,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
             Drag onto the board to put it on a day. Open the job to edit.
           </p>
         </div>
-        <span className="text-[11px] font-medium text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+        <span className="text-[11px] font-medium text-[#0A2540] bg-white px-2 py-0.5 rounded-full border border-[#BFDBFE]">
           {jobs.length}
         </span>
       </div>
@@ -203,21 +205,17 @@ export const NeedsDateRail = memo(function NeedsDateRail({
               draggable
               onDragStart={e => onDragStart(e, job.id)}
               onClick={() => onJobClick(job)}
-              className="shrink-0 w-48 text-left rounded-lg border bg-white px-2.5 py-2 hover:shadow-sm active:scale-[0.98]"
+              className="ops-card ops-card-hover shrink-0 w-48 active:scale-[0.98]"
               style={{ borderLeftWidth: 3, borderLeftColor: color }}
             >
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold" style={{ color }}>
-                  {formatJobNumber(job.job_number)}
-                </span>
-                <span className="text-[9px] px-1 rounded bg-amber-100 text-amber-800 font-semibold">
-                  Set a date
-                </span>
+              <OpsCardHeader
+                kicker={formatJobNumber(job.job_number) || 'JOB'}
+                title={job.title}
+                site={opsSiteLabel(job.address, job.client_address)}
+              />
+              <div className="px-2.5 py-1.5">
+                <span className="ops-next-hint">Set a date</span>
               </div>
-              <p className="text-xs font-semibold text-[#1A1A1A] truncate mt-0.5">{job.title}</p>
-              {job.client_name && (
-                <p className="text-[10px] text-[#6B7280] truncate mt-0.5">{job.client_name}</p>
-              )}
             </button>
           );
         })}
@@ -357,7 +355,7 @@ export const DayBoardView = memo(function DayBoardView({
 
         {rows.map((row, rowIdx) => {
           const isUnassigned = row.id === UNASSIGNED_ROW_ID;
-          const color = isUnassigned ? '#D97706' : pickEmployeeColor(row.id, row.schedule_color);
+          const color = isUnassigned ? '#2E75B6' : pickEmployeeColor(row.id, row.schedule_color);
           const rowJobs = jobsByRow.get(row.id) ?? [];
           const layout = placeDayRowJobs(rowJobs);
           const placementById = new Map(layout.placements.map(p => [p.id, p]));
@@ -370,7 +368,7 @@ export const DayBoardView = memo(function DayBoardView({
             <div
               key={row.id}
               className={`flex ${rowIdx < rows.length - 1 ? 'border-b border-[#F3F4F6]' : ''} ${
-                isUnassigned ? 'bg-amber-50/50' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFC]'
+                isUnassigned ? 'bg-[#F0F7FF]/70' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFC]'
               } ${hovering ? 'bg-blue-50/70' : ''}`}
               onDragOver={e => { e.preventDefault(); setDropHoverId(row.id); }}
               onDrop={e => handleDrop(e, row.id)}
@@ -380,7 +378,7 @@ export const DayBoardView = memo(function DayBoardView({
                 style={{
                   width: LABEL_WIDTH,
                   height,
-                  borderLeft: isUnassigned ? '3px dashed #D97706' : `3px solid ${color}`,
+                  borderLeft: isUnassigned ? '3px dashed #2E75B6' : `3px solid ${color}`,
                 }}
                 onClick={() => onDayClick(dateStr, isUnassigned ? undefined : row.id)}
               >
@@ -388,8 +386,8 @@ export const DayBoardView = memo(function DayBoardView({
                   className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-white text-[10px] font-bold"
                   style={{
                     background: isUnassigned ? 'transparent' : color,
-                    color: isUnassigned ? '#D97706' : undefined,
-                    border: isUnassigned ? '2px dashed #D97706' : undefined,
+                    color: isUnassigned ? '#2E75B6' : undefined,
+                    border: isUnassigned ? '2px dashed #2E75B6' : undefined,
                   }}
                 >
                   {isUnassigned ? '?' : initials(row.name)}
@@ -584,80 +582,18 @@ export const WeekBoardView = memo(function WeekBoardView({
                   <span className="text-[10px] mt-1">Add job</span>
                 </div>
               ) : (
-                dayJobs.map(job => {
-                  const color = pickJobColor(job.id, job.color);
-                  const hint = boardDispatchHint(job);
-                  const assignedMembers = (job.assigned_team ?? [])
-                    .map(id => teamMembers.find(m => m.id === id))
-                    .filter(Boolean) as TeamMember[];
-                  return (
-                    <button
-                      key={job.id}
-                      draggable
-                      onDragStart={e => handleDragStart(e, job.id)}
-                      onClick={e => { e.stopPropagation(); onJobClick(job); }}
-                      className={`w-full text-left rounded-lg border overflow-hidden cursor-pointer transition-all hover:shadow-md hover:brightness-105 active:scale-[0.98] ${
-                        dragJobId === job.id ? 'opacity-40' : ''
-                      }`}
-                      style={{
-                        background: hexToBg(color, 0.12),
-                        borderColor: hint ? '#F59E0B' : hexToBorder(color, 0.35),
-                        borderLeftWidth: 3,
-                        borderLeftColor: hint ? '#D97706' : color,
-                        borderStyle: hint ? 'dashed' : 'solid',
-                      }}
-                    >
-                      <div className="px-1.5 py-1.5">
-                        <div className="flex items-center justify-between gap-1 mb-0.5">
-                          <span className="text-[10px] font-bold" style={{ color }}>
-                            {formatJobNumber(job.job_number)}
-                          </span>
-                          {hint ? (
-                            <span className="text-[9px] px-1 rounded bg-amber-100 text-amber-800 font-semibold">
-                              {hint}
-                            </span>
-                          ) : job.status === 'completed' ? (
-                            <span className="text-[9px] px-1 rounded bg-green-100 text-green-600">DONE</span>
-                          ) : job.status === 'cancelled' ? (
-                            <span className="text-[9px] px-1 rounded bg-red-100 text-red-600">CXL</span>
-                          ) : null}
-                        </div>
-                        <p className="text-[11px] font-semibold leading-tight text-[#1A1A1A]">
-                          {job.title}
-                        </p>
-                        {job.client_name && (
-                          <p className="text-[10px] text-[#4A5568] truncate mt-0.5 flex items-center gap-0.5">
-                            <User size={8} /> {job.client_name}
-                          </p>
-                        )}
-                        {job.start_time && (
-                          <p className="text-[10px] text-[#6B7280] mt-0.5 flex items-center gap-0.5">
-                            <Clock size={8} /> {job.start_time.slice(0, 5)}
-                            {job.end_time && ` – ${job.end_time.slice(0, 5)}`}
-                          </p>
-                        )}
-                        {assignedMembers.length > 0 ? (
-                          <div className="flex items-center gap-0.5 mt-1">
-                            {assignedMembers.slice(0, 4).map(m => (
-                              <div key={m.id}
-                                className="w-3.5 h-3.5 rounded-full border border-white flex items-center justify-center text-[7px] font-bold text-white"
-                                style={{ background: pickEmployeeColor(m.id, m.schedule_color) }}
-                                title={m.name}
-                              >
-                                {m.name[0]?.toUpperCase()}
-                              </div>
-                            ))}
-                            {assignedMembers.length > 4 && (
-                              <span className="text-[9px] text-[#9CA3AF] ml-0.5">+{assignedMembers.length - 4}</span>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-[10px] text-amber-800 mt-1 font-medium">Unassigned</p>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })
+                dayJobs.map(job => (
+                  <JobBlock
+                    key={job.id}
+                    job={job}
+                    teamMembers={teamMembers}
+                    fill={false}
+                    detail
+                    dragging={dragJobId === job.id}
+                    onClick={() => onJobClick(job)}
+                    onDragStart={e => handleDragStart(e, job.id)}
+                  />
+                ))
               )}
             </div>
           );

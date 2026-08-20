@@ -20,14 +20,14 @@ export const JOB_COLORS = [
 /** Muted, schedule-friendly palette — easier on the eyes than neon defaults */
 export const EMPLOYEE_COLORS = [
   '#3B6D9A', // steel blue
-  '#4A7C59', // sage
+  '#2E75B6', // brand blue
   '#C17F3A', // clay
   '#8B5E5E', // dusty rose
   '#5B6B8C', // slate indigo
   '#3D8A8A', // teal
-  '#7A6A4F', // warm taupe
+  '#5A6B7A', // cool slate
   '#6B5B7A', // muted plum
-  '#2F5D50', // forest
+  '#1E4A6D', // deep steel
   '#9A6B3F', // amber brown
   '#4F6F8F', // soft navy
   '#7A4E4E', // brick

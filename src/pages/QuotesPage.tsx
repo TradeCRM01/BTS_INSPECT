@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, SummaryCard } from '../components/ui';
+import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, SummaryCard, OpsCardHeader, OpsStatus, opsSiteLabel } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
@@ -28,7 +28,7 @@ import {
   type QuoteActionKey,
 } from '../lib/quoteNextAction';
 import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatMoney } from '../types/fsm';
-import { Plus, FileText, X, ArrowRight, Eye, Receipt, User, Calendar, Send, Check } from 'lucide-react';
+import { Plus, FileText, X, ArrowRight, Eye, Receipt, User, Calendar, Send, Check, MapPin } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | QuoteStatus;
@@ -70,13 +70,13 @@ export function QuotesPage() {
       const quoteIds = list.map(q => q.id);
       const [clientsRes, jobsRes, invoicesRes] = await Promise.all([
         clientIds.length ? supabase.from('clients').select('id, name').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-        jobIds.length ? supabase.from('jobs').select('id, title').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+        jobIds.length ? supabase.from('jobs').select('id, title, address').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string; address: string | null }[] }),
         quoteIds.length
           ? supabase.from('invoices').select('id, quote_id, status').in('quote_id', quoteIds)
           : Promise.resolve({ data: [] as { id: string; quote_id: string; status: string }[] }),
       ]);
       const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c.name]));
-      const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j.title]));
+      const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j]));
       const invoicesByQuote = new Map<string, { id: string; status: string }[]>();
       for (const inv of invoicesRes.data ?? []) {
         if (!inv.quote_id) continue;
@@ -89,7 +89,8 @@ export function QuotesPage() {
         inclusions: asStringList(q.inclusions),
         exclusions: asStringList(q.exclusions),
         client_name: q.client_id ? clientMap.get(q.client_id) ?? null : null,
-        job_title: q.job_id ? jobMap.get(q.job_id) ?? null : null,
+        job_title: q.job_id ? jobMap.get(q.job_id)?.title ?? null : null,
+        job_address: q.job_id ? jobMap.get(q.job_id)?.address ?? null : null,
         invoice_id: pickReusableInvoice(invoicesByQuote.get(q.id) ?? [])?.id ?? null,
       }));
     },
@@ -165,7 +166,7 @@ export function QuotesPage() {
       <div className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">Quotes</h1>
+            <h1 className="ops-page-title">Quotes</h1>
             <p className="text-sm text-[#4A5568] mt-0.5">
               {filtered.length} of {quotes?.length ?? 0} quotes
             </p>
@@ -274,7 +275,7 @@ function QuoteGroup({
   if (quotes.length === 0) return null;
   return (
     <div>
-      <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2">
+      <h2 className="ops-group-title">
         {title}
         <span className="text-[#9CA3AF] normal-case font-normal"> ({quotes.length})</span>
       </h2>
@@ -295,41 +296,38 @@ function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-      className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm hover:shadow-md transition-all text-left overflow-hidden group block w-full cursor-pointer"
-      style={{ borderLeftWidth: 4, borderLeftColor: quote.status === 'accepted' ? '#16A34A' : '#2E75B6' }}
+      className="ops-card ops-card-hover group w-full cursor-pointer"
+      style={{ borderLeftWidth: 4, borderLeftColor: '#2E75B6' }}
     >
-      <div className="bg-[#0A2540] px-3.5 py-2.5">
-        <p className="text-[10px] font-bold tracking-wider text-white/55">
-          QUOTE #{padQuoteNumber(quote.quote_number)}
-        </p>
-        <h3 className="text-sm font-semibold text-white truncate mt-0.5 group-hover:text-[#93C5FD] transition-colors">
-          {quote.description?.trim() || quote.client_name || 'Untitled quote'}
-        </h3>
-        <p className="mt-1 flex items-center gap-1 text-[11px] text-white/75 truncate">
-          <User size={11} className="shrink-0 text-[#93C5FD]" />
-          {quote.client_name || 'No client'}
-        </p>
-      </div>
-      <div className="p-3.5">
+      <OpsCardHeader
+        kicker={`QUOTE #${padQuoteNumber(quote.quote_number)}`}
+        title={quote.description?.trim() || quote.client_name || 'Untitled quote'}
+        site={opsSiteLabel(quote.job_address, quote.job_title)}
+      />
+      <div className="ops-card-body">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div>
             <p className="text-lg font-bold text-[#1A1A1A]">{formatMoney(Number(quote.total))}</p>
             <p className="text-[11px] text-[#4A5568]">inc GST</p>
           </div>
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${QUOTE_STATUS_STYLES[quote.status]}`}>
-            {QUOTE_STATUS_LABELS[quote.status]}
-          </span>
+          <OpsStatus className={QUOTE_STATUS_STYLES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</OpsStatus>
         </div>
+        {quote.client_name && (
+          <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mb-2">
+            <User size={12} className="text-[#9CA3AF] shrink-0" />
+            <span className="truncate">{quote.client_name}</span>
+          </div>
+        )}
         {quote.validity_date && (
           <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mb-2">
             <Calendar size={12} className="text-[#9CA3AF] shrink-0" />
             Valid {format(parseISO(quote.validity_date), 'd MMM yyyy')}
           </div>
         )}
-        <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-[#F3F4F6]" onClick={e => e.stopPropagation()}>
+        <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
           <QuoteNextControl quote={quote} />
           {next.key === 'none' && (
-            <span className="text-[11px] font-semibold text-[#0A2540]">{next.label}</span>
+            <span className="ops-next-hint">{next.label}</span>
           )}
         </div>
       </div>
@@ -359,7 +357,7 @@ function QuoteRow({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void 
       </td>
       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
         {next.key === 'none' ? (
-          <span className="text-xs font-medium text-[#0A2540]">{next.label}</span>
+          <span className="ops-next-hint">{next.label}</span>
         ) : (
           <QuoteNextControl quote={quote} />
         )}
@@ -506,7 +504,7 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
     (async () => {
       const [c, j, s, pb] = await Promise.all([
         supabase.from('clients').select('*').eq('archived', false).order('name'),
-        supabase.from('jobs').select('id, company_id, client_id, title').order('created_at', { ascending: false }),
+        supabase.from('jobs').select('id, company_id, client_id, title, address').order('created_at', { ascending: false }),
         supabase.from('stock_items').select('*').eq('archived', false).order('name'),
         supabase.from('price_book_items').select('*').eq('is_active', true).order('description'),
       ]);
@@ -681,6 +679,7 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
     }
   };
 
+  const selectedJob = jobs.find(j => j.id === form.job_id);
   const heading = quote?.quote_number != null
     ? `QUOTE #${padQuoteNumber(quote.quote_number)}`
     : 'NEW QUOTE';
@@ -688,24 +687,33 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
   return (
     <div className="overlay-backdrop">
       <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
-        <div className="bg-[#0A2540] text-white px-5 py-4">
+        <div className="ops-card-header ops-card-header-lg">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-bold tracking-wider text-white/60 mb-1">{heading}</p>
+              <p className="ops-card-kicker ops-card-kicker-lg">{heading}</p>
               <h2 className="text-lg font-semibold tracking-tight truncate">
                 {form.description.trim() || selectedClient?.name || 'Quote'}
               </h2>
-              <p className="mt-1 text-sm text-white/80 truncate">{selectedClient?.name || 'No client yet'}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${QUOTE_STATUS_STYLES[form.status]}`}>
+              <OpsStatus className={QUOTE_STATUS_STYLES[form.status]}>
                 {QUOTE_STATUS_LABELS[form.status]}
-              </span>
+              </OpsStatus>
               <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/70">
                 <X size={18} />
               </button>
             </div>
           </div>
+          <p className="ops-hub-site">
+            <MapPin size={16} className="ops-card-site-icon mt-0.5" />
+            <span className="truncate">{opsSiteLabel(selectedJob?.address, selectedJob?.title, selectedClient?.address)}</span>
+          </p>
+          {selectedClient && (
+            <p className="mt-2 flex items-center gap-2 text-sm text-white/80 truncate">
+              <User size={14} className="text-[#93C5FD] shrink-0" />
+              {selectedClient.name}
+            </p>
+          )}
           <p className="mt-3 text-xl font-bold">{formatMoney(grandTotal)} <span className="text-sm font-medium text-white/70">inc GST</span></p>
         </div>
 

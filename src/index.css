@@ -46,6 +46,87 @@
     @apply inline-flex items-center justify-center w-9 h-9 rounded-md text-[#4A5568] hover:bg-gray-100 hover:text-[#1A1A1A] transition-all duration-200 active:scale-95;
   }
 
+  /* ── Ops cards (job card is the source of truth) ─────────────── */
+  .ops-card {
+    @apply bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden text-left;
+  }
+
+  .ops-card-hover {
+    @apply hover:shadow-md transition-all;
+  }
+
+  .ops-card-header {
+    @apply bg-[#0A2540] text-white px-3.5 py-2.5;
+  }
+
+  .ops-card-header-lg {
+    @apply px-5 py-5;
+  }
+
+  .ops-card-header-sm {
+    @apply bg-[#0A2540] text-white px-1.5 py-1;
+  }
+
+  .ops-card-kicker {
+    @apply text-[10px] font-bold tracking-wider text-white/55;
+  }
+
+  .ops-card-kicker-lg {
+    @apply text-[11px] text-white/60 mb-1;
+  }
+
+  .ops-card-title {
+    @apply text-sm font-semibold text-white truncate mt-0.5 group-hover:text-[#93C5FD] transition-colors;
+  }
+
+  .ops-card-site {
+    @apply mt-1 flex items-center gap-1 text-[11px] text-white/75 truncate;
+  }
+
+  .ops-hub-site {
+    @apply mt-4 flex items-start gap-2 text-sm text-white/90;
+  }
+
+  .ops-card-site-icon {
+    @apply shrink-0 text-[#93C5FD];
+  }
+
+  .ops-card-body {
+    @apply p-3.5;
+  }
+
+  .ops-card-footer {
+    @apply flex items-center gap-2 mt-2.5 pt-2.5 border-t border-[#F3F4F6];
+  }
+
+  .ops-next-hint {
+    @apply text-[11px] font-semibold text-[#0A2540];
+  }
+
+  .ops-status {
+    @apply text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap;
+  }
+
+  .ops-next {
+    @apply rounded-lg bg-[#F0F7FF] border border-[#BFDBFE] px-3 py-2.5;
+  }
+
+  .ops-next-label {
+    @apply text-xs font-semibold uppercase tracking-wide text-[#2E75B6];
+  }
+
+  .ops-next-detail {
+    @apply text-sm font-medium text-[#0A2540] mt-0.5;
+  }
+
+  .ops-page-title {
+    @apply text-xl font-semibold text-[#0A2540];
+  }
+
+  .ops-group-title {
+    @apply text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2;
+  }
+
   /* ── Card variants ───────────────────────────────────────────── */
   .card {
     @apply bg-white rounded-xl border border-[#E5E7EB] shadow-sm;

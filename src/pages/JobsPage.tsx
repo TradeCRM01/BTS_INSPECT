@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, ViewToggle, useViewMode } from '../components/ui';
+import { LoadingSpinner, PageError, EmptyState, ViewToggle, useViewMode, OpsCardHeader, OpsStatus, opsSiteLabel } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import {
@@ -13,7 +13,7 @@ import {
 } from '../types/crm';
 import { pickJobColor } from '../lib/jobColors';
 import { jobCardHint, jobListBucket } from '../lib/jobNextAction';
-import { Plus, Briefcase, Search, Calendar, Clock, MapPin, User } from 'lucide-react';
+import { Plus, Briefcase, Search, Calendar, Clock, User } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 type StatusFilter = 'all' | JobStatus;
@@ -116,7 +116,7 @@ export function JobsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">Jobs</h1>
+            <h1 className="ops-page-title">Jobs</h1>
             <p className="text-sm text-[#4A5568] mt-0.5">
               {filtered.length} of {jobs?.length ?? 0} jobs
             </p>
@@ -208,7 +208,7 @@ export function JobsPage() {
                         <td className="px-4 py-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${JOB_STATUS_STYLES[job.status]}`}>{JOB_STATUS_LABELS[job.status]}</span></td>
                         <td className="px-4 py-3"><span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />{JOB_PRIORITY_LABELS[job.priority]}</span></td>
                         <td className="px-4 py-3 text-[#4A5568]">{jobDate ? format(jobDate, 'd MMM yyyy') : 'No date'}{job.start_time && <span className="text-[#6B7280] block text-xs">{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>}</td>
-                        <td className="px-4 py-3 text-xs font-medium text-[#0A2540]">{jobCardHint(job)}</td>
+                        <td className="px-4 py-3"><span className="ops-next-hint">{jobCardHint(job)}</span></td>
                       </tr>
                     );
                   })}
@@ -242,7 +242,7 @@ function JobGroup({
   if (jobs.length === 0) return null;
   return (
     <div>
-      <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2 flex items-center gap-1.5">
+      <h2 className="ops-group-title flex items-center gap-1.5">
         <Icon size={13} /> {title}
         <span className="text-[#9CA3AF] normal-case font-normal">({jobs.length})</span>
       </h2>
@@ -265,22 +265,15 @@ function JobCard({ job }: { job: JobWithClient }) {
   return (
     <Link
       to={`/jobs/${job.id}`}
-      className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm hover:shadow-md transition-all text-left overflow-hidden group block"
+      className="ops-card ops-card-hover group block"
       style={{ borderLeftWidth: 4, borderLeftColor: color }}
     >
-      <div className="bg-[#0A2540] px-3.5 py-2.5">
-        <p className="text-[10px] font-bold tracking-wider text-white/55">
-          {job.job_number != null ? `JOB #${String(job.job_number).padStart(4, '0')}` : 'JOB'}
-        </p>
-        <h3 className="text-sm font-semibold text-white truncate mt-0.5 group-hover:text-[#93C5FD] transition-colors">
-          {job.title}
-        </h3>
-        <p className="mt-1 flex items-center gap-1 text-[11px] text-white/75 truncate">
-          <MapPin size={11} className="shrink-0 text-[#93C5FD]" />
-          {site || 'No site address'}
-        </p>
-      </div>
-      <div className="p-3.5">
+      <OpsCardHeader
+        kicker={job.job_number != null ? `JOB #${String(job.job_number).padStart(4, '0')}` : 'JOB'}
+        title={job.title}
+        site={opsSiteLabel(site)}
+      />
+      <div className="ops-card-body">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="min-w-0 space-y-1">
             {job.client_name && (
@@ -297,13 +290,11 @@ function JobCard({ job }: { job: JobWithClient }) {
               )}
             </div>
           </div>
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${JOB_STATUS_STYLES[job.status]}`}>
-            {JOB_STATUS_LABELS[job.status]}
-          </span>
+          <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
         </div>
 
-        <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-[#F3F4F6]">
-          <span className="text-[11px] font-semibold text-[#0A2540]">{hint}</span>
+        <div className="ops-card-footer">
+          <span className="ops-next-hint">{hint}</span>
           {job.priority !== 'medium' && (
             <span className="ml-auto flex items-center gap-1 text-[10px] font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />

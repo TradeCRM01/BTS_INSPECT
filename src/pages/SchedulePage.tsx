@@ -240,7 +240,7 @@ export function SchedulePage() {
       <div className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-[#0A2540]">Schedule</h1>
+            <h1 className="ops-page-title">Schedule</h1>
             <p className="text-sm text-[#4A5568] mt-0.5">
               {onBoard.length} on the board
               {unassignedOnBoard > 0 ? ` · ${unassignedOnBoard} unassigned` : ''}

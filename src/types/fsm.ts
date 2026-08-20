@@ -177,6 +177,7 @@ export interface Quote {
 export interface QuoteWithDetails extends Quote {
   client_name?: string | null;
   job_title?: string | null;
+  job_address?: string | null;
 }
 
 export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
@@ -228,6 +229,7 @@ export interface Invoice {
 export interface InvoiceWithDetails extends Invoice {
   client_name?: string | null;
   job_title?: string | null;
+  job_address?: string | null;
 }
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
