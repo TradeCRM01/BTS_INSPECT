@@ -315,7 +315,7 @@ function clientFace(client: ClientWithStats) {
   const money = hint.tone === 'none' || hint.amount === 0
     ? null
     : { amount: formatMoney(hint.amount), label: hint.label, overdue: hint.tone === 'overdue' };
-  const quietStatus = status.tone === 'idle' ? null : status.label;
+  const quietStatus = status.tone === 'live' || status.tone === 'archived' ? status.label : null;
   return { hint, status, next, money, quietStatus, site: client.address?.trim() ?? '' };
 }
 
