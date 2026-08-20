@@ -5,10 +5,9 @@ import type { Job, JobStatus, JobPriority, Client } from '../../types/crm';
 import {
   JOB_STATUS_LABELS, JOB_PRIORITY_LABELS,
 } from '../../types/crm';
-import { X, Trash2, Link2, DollarSign, GitBranch, Plus, ClipboardList } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { X, Trash2, Link2, GitBranch, Plus, ClipboardList } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { JobCostingPanel } from '../jobs/JobCostingPanel';
 import { OverlayPortal } from '../ui/OverlayPortal';
 
 interface JobFormModalProps {
@@ -17,12 +16,11 @@ interface JobFormModalProps {
   presetClientId: string | null;
   presetEmployeeId?: string | undefined;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (jobId: string, opts?: { deleted?: boolean }) => void;
 }
 
 export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId, onClose, onSaved }: JobFormModalProps) {
   const { profile } = useAuth();
-  const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
   const [inspections, setInspections] = useState<{ id: string; name: string; status: string }[]>([]);
@@ -31,7 +29,7 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [parentJobs, setParentJobs] = useState<{ id: string; title: string; job_number: number | null }[]>([]);
   const [childJobs, setChildJobs] = useState<{ id: string; title: string; status: string; job_number: number | null }[]>([]);
-  const [showAddStage, setShowAddStage] = useState(false);
+  const [, setShowAddStage] = useState(false);
 
   const [form, setForm] = useState({
     title: job?.title ?? '',
@@ -139,13 +137,22 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
       parent_job_id: form.parent_job_id || null,
     };
 
-    const { error } = job
-      ? await supabase.from('jobs').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', job.id)
-      : await supabase.from('jobs').insert({ ...payload, company_id: profile.company_id, created_by: profile.id });
+    if (job) {
+      const { error } = await supabase.from('jobs').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', job.id);
+      setSaving(false);
+      if (error) { setErr(error.message); return; }
+      onSaved(job.id);
+      return;
+    }
 
+    const { data, error } = await supabase
+      .from('jobs')
+      .insert({ ...payload, company_id: profile.company_id, created_by: profile.id })
+      .select('id')
+      .single();
     setSaving(false);
     if (error) { setErr(error.message); return; }
-    onSaved();
+    onSaved(data.id as string);
   };
 
   const handleDelete = async () => {
@@ -154,7 +161,7 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
     const { error } = await supabase.from('jobs').delete().eq('id', job.id);
     setSaving(false);
     if (error) { setErr(error.message); return; }
-    onSaved();
+    onSaved(job.id, { deleted: true });
   };
 
   return (
@@ -325,10 +332,15 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
               </div>
               <div className="space-y-1">
                 {childJobs.map(child => (
-                  <div key={child.id} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                  <Link
+                    key={child.id}
+                    to={`/jobs/${child.id}`}
+                    onClick={onClose}
+                    className="flex items-center justify-between p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                  >
                     <span className="text-sm text-[#1A1A1A]">{child.title}</span>
                     <span className="text-xs text-[#6B7280]">{child.status}</span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -344,28 +356,6 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
               >
                 <Plus size={14} /> Add a stage to this project
               </button>
-            </div>
-          )}
-
-          {/* Job Costing Panel (only when editing existing job) */}
-          {job && (
-            <div className="overlay-form-span-all border-t border-gray-100 pt-4">
-              <div className="flex items-center gap-1.5 mb-3">
-                <DollarSign size={14} className="text-[#0A2540]" />
-                <h3 className="text-xs font-semibold text-[#1A1A1A] uppercase tracking-wide">
-                  Job bill / costs
-                </h3>
-              </div>
-              <JobCostingPanel
-                jobId={job.id}
-                clientId={form.client_id || job.client_id}
-                onInvoiceCreated={(invoiceId) => {
-                  onClose();
-                  navigate('/invoices');
-                  // Keep a toast-friendly path: invoices list; user can open the newest draft
-                  void invoiceId;
-                }}
-              />
             </div>
           )}
 

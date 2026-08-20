@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useParams, Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, Breadcrumbs, useToast } from '../components/ui';
-import type { Client, Job, JobWithClient } from '../types/crm';
+import type { Client, JobWithClient } from '../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_DOT } from '../types/crm';
-import { ArrowLeft, Phone, Mail, MapPin, Users, CreditCard as Edit3, X, Briefcase, Calendar, Clock, Plus, ChevronRight, FileText, ShieldCheck, Bell } from 'lucide-react';
+import { Phone, Mail, MapPin, Users, CreditCard as Edit3, Briefcase, Calendar, Clock, Plus, ChevronRight, FileText, ShieldCheck, Bell } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ClientForm } from './ClientsPage';
 import type { ComplianceItem } from '../types/compliance';
@@ -16,8 +16,8 @@ import { COMPLIANCE_STATUS_LABELS, COMPLIANCE_STATUS_STYLES } from '../types/com
 export function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { profile } = useAuth();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [showEdit, setShowEdit] = useState(false);
 
   const { data: client, isLoading, error } = useQuery<Client>({
@@ -263,7 +263,7 @@ function StatCard({ label, value, icon: Icon, color }: { label: string; value: n
 
 function JobRow({ job }: { job: JobWithClient }) {
   return (
-    <Link to={`/schedule?job=${job.id}`}
+    <Link to={`/jobs/${job.id}`}
       className="flex items-center gap-3 bg-white rounded-lg border border-[#E5E7EB] p-3 hover:shadow-sm transition-shadow">
       <div className="w-2 h-10 rounded-full shrink-0" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
       <div className="min-w-0 flex-1">

@@ -59,6 +59,7 @@ const AccountingSettingsPage = lazy(() => import('./pages/AccountingSettingsPage
 const BarcodeScannerPage = lazy(() => import('./pages/BarcodeScannerPage').then(m => ({ default: m.BarcodeScannerPage })));
 const ManagedListsSettingsPage = lazy(() => import('./pages/ManagedListsSettingsPage').then(m => ({ default: m.ManagedListsSettingsPage })));
 const JobsPage = lazy(() => import('./pages/JobsPage').then(m => ({ default: m.JobsPage })));
+const JobDetailPage = lazy(() => import('./pages/JobDetailPage').then(m => ({ default: m.JobDetailPage })));
 const CompliancePage = lazy(() => import('./pages/CompliancePage').then(m => ({ default: m.CompliancePage })));
 
 function PageLoader() {
@@ -153,6 +154,7 @@ export default function App() {
       <Route path="/barcode" element={<Protected><BarcodeScannerPage /></Protected>} />
       <Route path="/settings/lists" element={<Protected><ManagedListsSettingsPage /></Protected>} />
       <Route path="/jobs" element={<Protected><JobsPage /></Protected>} />
+      <Route path="/jobs/:id" element={<Protected><JobDetailPage /></Protected>} />
       <Route path="/compliance" element={<Protected><CompliancePage /></Protected>} />
 
       {/* Fallback */}

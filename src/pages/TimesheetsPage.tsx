@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
@@ -7,9 +8,9 @@ import { LIST_KEYS } from '../lib/useManagedList';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, useToast } from '../components/ui';
 import { format, parseISO, startOfWeek, addDays, isSameDay } from 'date-fns';
-import { Clock, Play, Square, Plus, X, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
-import type { Timesheet, TimesheetWithEmployee, TimesheetStatus, TimesheetEntry } from '../types/fsm';
-import { TIMESHEET_STATUS_LABELS, TIMESHEET_STATUS_STYLES, formatDuration } from '../types/fsm';
+import { Clock, Play, Square, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import type { Timesheet, TimesheetEntry } from '../types/fsm';
+import { TIMESHEET_STATUS_LABELS, formatDuration } from '../types/fsm';
 
 export function TimesheetsPage() {
   const { profile } = useAuth();
@@ -67,6 +68,20 @@ export function TimesheetsPage() {
       return (data ?? []) as TimesheetEntry[];
     },
     enabled: !!selectedEmployee && !!timesheets,
+  });
+
+  const { data: jobs } = useQuery({
+    queryKey: ['jobs-for-timesheets'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, title, job_number')
+        .order('scheduled_date', { ascending: false, nullsFirst: false })
+        .limit(200);
+      if (error) throw error;
+      return (data ?? []) as { id: string; title: string; job_number: number | null }[];
+    },
+    enabled: !!profile,
   });
 
   const clockInMutation = useMutation({
@@ -216,6 +231,11 @@ export function TimesheetsPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         {entry.work_type && <span className="text-xs text-[#6B7280]">{entry.work_type}</span>}
+                        {entry.job_id && (
+                          <Link to={`/jobs/${entry.job_id}`} className="text-xs text-[#2E75B6] hover:underline">
+                            {jobs?.find(j => j.id === entry.job_id)?.title ?? 'Job'}
+                          </Link>
+                        )}
                         {entry.billable ? <span className="text-xs text-green-600 font-medium">Billable</span> : <span className="text-xs text-gray-500">Non-billable</span>}
                         {duration > 0 && <span className="text-sm font-medium text-[#1A1A1A]">{formatDuration(duration)}</span>}
                       </div>
@@ -244,7 +264,7 @@ export function TimesheetsPage() {
       </div>
 
       {showEntryForm && (
-        <EntryForm timesheets={myTimesheets} onClose={() => setShowEntryForm(false)}
+        <EntryForm timesheets={myTimesheets} jobs={jobs ?? []} onClose={() => setShowEntryForm(false)}
           onSaved={() => { setShowEntryForm(false); queryClient.invalidateQueries(); showToast('Entry saved'); }} />
       )}
     </AppShell>
@@ -261,7 +281,12 @@ function SummaryCard({ label, value, accentColor }: { label: string; value: stri
   );
 }
 
-function EntryForm({ timesheets, onClose, onSaved }: { timesheets: Timesheet[]; onClose: () => void; onSaved: () => void }) {
+function EntryForm({ timesheets, jobs, onClose, onSaved }: {
+  timesheets: Timesheet[];
+  jobs: { id: string; title: string; job_number: number | null }[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const { profile } = useAuth();
   const [form, setForm] = useState({
     timesheet_id: '',
@@ -271,6 +296,7 @@ function EntryForm({ timesheets, onClose, onSaved }: { timesheets: Timesheet[]; 
     work_type: '',
     billable: true,
     notes: '',
+    job_id: '',
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -300,6 +326,7 @@ function EntryForm({ timesheets, onClose, onSaved }: { timesheets: Timesheet[]; 
       const { error } = await supabase.from('timesheet_entries').insert({
         timesheet_id: tsId,
         company_id: profile!.company_id,
+        job_id: form.job_id || null,
         start_time: startDateTime.toISOString(),
         end_time: endDateTime?.toISOString() ?? null,
         work_type: form.work_type || null,
@@ -334,6 +361,16 @@ function EntryForm({ timesheets, onClose, onSaved }: { timesheets: Timesheet[]; 
             <Field label="Start Time"><input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} className="form-input" /></Field>
             <Field label="End Time"><input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} className="form-input" /></Field>
           </div>
+          <Field label="Job">
+            <select value={form.job_id} onChange={e => setForm(f => ({ ...f, job_id: e.target.value }))} className="form-input cursor-pointer">
+              <option value="">No linked job</option>
+              {jobs.map(j => (
+                <option key={j.id} value={j.id}>
+                  {j.job_number != null ? `#${String(j.job_number).padStart(4, '0')} ` : ''}{j.title}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Work Type"><ManagedSelect listKey={LIST_KEYS.workTypes} value={form.work_type}
             onChange={v => setForm(f => ({ ...f, work_type: v }))} placeholder="Select work type..." /></Field>
           <Field label="Notes"><textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="form-input min-h-[50px] resize-y" placeholder="What did you work on?" /></Field>
