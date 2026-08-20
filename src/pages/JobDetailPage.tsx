@@ -8,10 +8,12 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, Breadcrumbs, useToast } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
+import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
+import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import type { Client, Job, JobStatus } from '../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY_DOT } from '../types/crm';
 import { formatMoney, INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatDuration } from '../types/fsm';
-import type { InvoiceStatus } from '../types/fsm';
+import type { InvoiceStatus, Timesheet } from '../types/fsm';
 import { pickJobColor } from '../lib/jobColors';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
@@ -19,8 +21,15 @@ import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import {
   Briefcase, Calendar, Clock, MapPin, User, Phone, Mail, Edit3, ChevronRight,
   FileText, ShieldCheck, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
+  Play, Square,
 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import {
+  buildJobClockOnEntry,
+  buildOpenTimesheetInsert,
+  entryMinutes,
+  localDateIso,
+} from '../lib/timesheetJob';
+import { format, parseISO, addDays } from 'date-fns';
 
 type JobInspection = {
   id: string;
@@ -57,6 +66,8 @@ type JobInvoice = {
 
 type JobTimesheet = {
   id: string;
+  timesheet_id: string;
+  job_id: string | null;
   start_time: string;
   end_time: string | null;
   work_type: string | null;
@@ -84,6 +95,7 @@ export function JobDetailPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [showEdit, setShowEdit] = useState(false);
+  const [showTimeEntry, setShowTimeEntry] = useState(false);
 
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ['job', id],
@@ -222,13 +234,31 @@ export function JobDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('timesheet_entries')
-        .select('id, start_time, end_time, work_type, billable, notes')
+        .select('id, timesheet_id, job_id, start_time, end_time, work_type, billable, notes')
         .eq('job_id', id!)
         .order('start_time', { ascending: false });
       if (error) throw error;
       return (data ?? []) as JobTimesheet[];
     },
     enabled: !!id && !!profile,
+  });
+
+  const { data: myTimesheets } = useQuery<Timesheet[]>({
+    queryKey: ['timesheets-job-clock', profile?.id],
+    queryFn: async () => {
+      const from = format(addDays(new Date(), -14), 'yyyy-MM-dd');
+      const to = format(addDays(new Date(), 14), 'yyyy-MM-dd');
+      const { data, error } = await supabase
+        .from('timesheets')
+        .select('*')
+        .eq('employee_id', profile!.id)
+        .gte('date', from)
+        .lte('date', to)
+        .order('date', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Timesheet[];
+    },
+    enabled: !!profile,
   });
 
   const { data: costTotals } = useQuery<{ cost: number; charge: number }>({
@@ -274,6 +304,104 @@ export function JobDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
     },
+  });
+
+  const invalidateTime = () => {
+    queryClient.invalidateQueries({ queryKey: ['job-timesheets', id] });
+    queryClient.invalidateQueries({ queryKey: ['timesheets-job-clock', profile?.id] });
+    queryClient.invalidateQueries({ queryKey: ['timesheets'] });
+    queryClient.invalidateQueries({ queryKey: ['timesheet-entries'] });
+  };
+
+  const myTimesheetIds = new Set((myTimesheets ?? []).map(t => t.id));
+  const runningEntry = (timesheets ?? []).find(e => e.end_time == null && myTimesheetIds.has(e.timesheet_id));
+
+  const clockOnJob = useMutation({
+    mutationFn: async () => {
+      if (!profile?.company_id || !id) throw new Error('Not signed in');
+      const now = new Date();
+      const date = localDateIso(now);
+      const { data: existingTs, error: tsLoadErr } = await supabase
+        .from('timesheets')
+        .select('id, clock_in')
+        .eq('company_id', profile.company_id)
+        .eq('employee_id', profile.id)
+        .eq('date', date)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (tsLoadErr) throw tsLoadErr;
+
+      if (existingTs?.id) {
+        const { data: openRows, error: openErr } = await supabase
+          .from('timesheet_entries')
+          .select('id')
+          .eq('job_id', id)
+          .eq('timesheet_id', existingTs.id)
+          .is('end_time', null)
+          .limit(1);
+        if (openErr) throw openErr;
+        if ((openRows ?? []).length > 0) return { alreadyRunning: true };
+      }
+
+      let timesheetId = existingTs?.id as string | undefined;
+      if (!timesheetId) {
+        const { data: created, error: createErr } = await supabase.from('timesheets')
+          .insert(buildOpenTimesheetInsert({
+            companyId: profile.company_id,
+            employeeId: profile.id,
+            date,
+            clockInIso: now.toISOString(),
+          }))
+          .select('id')
+          .single();
+        if (createErr) throw createErr;
+        timesheetId = created.id as string;
+      } else if (!existingTs?.clock_in) {
+        const { error: clockErr } = await supabase.from('timesheets')
+          .update({ clock_in: now.toISOString(), status: 'open' })
+          .eq('id', timesheetId);
+        if (clockErr) throw clockErr;
+      }
+
+      const { error: entryErr } = await supabase.from('timesheet_entries').insert(buildJobClockOnEntry({
+        timesheetId,
+        companyId: profile.company_id,
+        jobId: id,
+        start: now,
+      }));
+      if (entryErr) throw entryErr;
+      return { alreadyRunning: false };
+    },
+    onSuccess: (result) => {
+      invalidateTime();
+      showToast(result.alreadyRunning ? 'Already clocked on this job' : 'Clocked on');
+    },
+    onError: (e: Error) => showToast(e.message),
+  });
+
+  const clockOffJob = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error('Missing job');
+      const running = (timesheets ?? []).find(e => e.end_time == null && myTimesheetIds.has(e.timesheet_id));
+      if (!running) throw new Error('No running time on this job');
+      const end = new Date();
+      const { error } = await supabase.from('timesheet_entries')
+        .update({ end_time: end.toISOString() })
+        .eq('id', running.id);
+      if (error) throw error;
+      const mins = entryMinutes(running.start_time, end.toISOString());
+      const ts = (myTimesheets ?? []).find(t => t.id === running.timesheet_id);
+      const { error: tsErr } = await supabase.from('timesheets')
+        .update({ total_minutes: (ts?.total_minutes ?? 0) + mins })
+        .eq('id', running.timesheet_id);
+      if (tsErr) throw tsErr;
+    },
+    onSuccess: () => {
+      invalidateTime();
+      showToast('Clocked off');
+    },
+    onError: (e: Error) => showToast(e.message),
   });
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
@@ -359,7 +487,7 @@ export function JobDetailPage() {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
               <select
                 value={job.status}
                 onChange={e => updateStatus.mutate(e.target.value as JobStatus)}
@@ -369,6 +497,25 @@ export function JobDetailPage() {
                   <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
                 ))}
               </select>
+              {runningEntry ? (
+                <button
+                  type="button"
+                  onClick={() => clockOffJob.mutate()}
+                  disabled={clockOffJob.isPending}
+                  className="btn-danger"
+                >
+                  <Square size={14} /> Clock off
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => clockOnJob.mutate()}
+                  disabled={clockOnJob.isPending}
+                  className="inline-flex items-center gap-1.5 bg-[#16A34A] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#15803D] transition-all duration-200 active:scale-[0.98] disabled:opacity-50"
+                >
+                  <Play size={14} /> Clock on
+                </button>
+              )}
               <button onClick={() => setShowEdit(true)} className="btn-secondary">
                 <Edit3 size={14} /> Edit
               </button>
@@ -416,6 +563,8 @@ export function JobDetailPage() {
             )}
           </div>
         </div>
+
+        <JobDispatchPanel job={job} teamMembers={teamMembers ?? []} />
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           <StatCard label="Budget" value={budget != null ? formatMoney(budget) : '—'} icon={DollarSign} />
@@ -537,7 +686,26 @@ export function JobDetailPage() {
         <RelatedSection
           title="Timesheets"
           icon={Clock}
-          action={<Link to="/timesheets" className="text-sm text-[#2E75B6] hover:underline">Add time</Link>}
+          action={
+            <div className="flex items-center gap-3">
+              {runningEntry ? (
+                <button type="button" onClick={() => clockOffJob.mutate()} disabled={clockOffJob.isPending}
+                  className="flex items-center gap-1 text-sm text-red-600 hover:underline">
+                  <Square size={14} /> Clock off
+                </button>
+              ) : (
+                <button type="button" onClick={() => clockOnJob.mutate()} disabled={clockOnJob.isPending}
+                  className="flex items-center gap-1 text-sm text-[#16A34A] hover:underline">
+                  <Play size={14} /> Clock on
+                </button>
+              )}
+              <button type="button" onClick={() => setShowTimeEntry(true)}
+                className="flex items-center gap-1 text-sm text-[#2E75B6] hover:underline">
+                <Plus size={14} /> Add entry
+              </button>
+              <Link to={`/timesheets?job=${job.id}`} className="text-sm text-[#2E75B6] hover:underline">All timesheets</Link>
+            </div>
+          }
           empty="No timesheet entries attached to this job"
         >
           {(timesheets ?? []).map(entry => {
@@ -595,6 +763,21 @@ export function JobDetailPage() {
             queryClient.invalidateQueries({ queryKey: ['jobs'] });
             queryClient.invalidateQueries({ queryKey: ['job-children', id] });
             showToast('Job updated');
+          }}
+        />
+      )}
+      {showTimeEntry && profile && (
+        <TimeEntryForm
+          timesheets={myTimesheets ?? []}
+          jobs={[{ id: job.id, title: job.title, job_number: job.job_number }]}
+          employeeId={profile.id}
+          presetJobId={job.id}
+          lockJob
+          onClose={() => setShowTimeEntry(false)}
+          onSaved={() => {
+            setShowTimeEntry(false);
+            invalidateTime();
+            showToast('Time entry saved');
           }}
         />
       )}

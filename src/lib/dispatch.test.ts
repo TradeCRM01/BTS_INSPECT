@@ -1,0 +1,133 @@
+import { describe, expect, it } from 'vitest';
+import {
+  applyDropStartTime,
+  asTeamIds,
+  nextAssignedTeam,
+  rescheduleJobPatch,
+  startTimeFromDropOffset,
+} from './dispatch';
+
+describe('nextAssignedTeam', () => {
+  it('assigns the drop target when the job is unassigned', () => {
+    expect(nextAssignedTeam([], { employeeId: 'alice' })).toEqual(['alice']);
+    expect(nextAssignedTeam(null, { employeeId: 'alice' })).toEqual(['alice']);
+  });
+
+  it('adds the drop target without wiping an existing crew', () => {
+    expect(nextAssignedTeam(['alice', 'bob', 'cara'], { employeeId: 'dave' })).toEqual([
+      'alice', 'bob', 'cara', 'dave',
+    ]);
+  });
+
+  it('keeps a 3-person crew when dropping onto someone already assigned', () => {
+    expect(nextAssignedTeam(['alice', 'bob', 'cara'], { employeeId: 'bob' })).toEqual([
+      'alice', 'bob', 'cara',
+    ]);
+  });
+
+  it('clears crew when dropped on Unassigned', () => {
+    expect(nextAssignedTeam(['alice', 'bob', 'cara'], 'unassigned')).toEqual([]);
+  });
+});
+
+describe('asTeamIds', () => {
+  it('ignores non-arrays and empty ids', () => {
+    expect(asTeamIds(undefined)).toEqual([]);
+    expect(asTeamIds('alice')).toEqual([]);
+    expect(asTeamIds(['alice', '', 1, 'bob'] as unknown[])).toEqual(['alice', 'bob']);
+  });
+});
+
+describe('startTimeFromDropOffset', () => {
+  it('maps the left edge of the grid to 06:00', () => {
+    expect(startTimeFromDropOffset(0)).toBe('06:00:00');
+  });
+
+  it('maps one hour column to 07:00', () => {
+    expect(startTimeFromDropOffset(96)).toBe('07:00:00');
+  });
+
+  it('snaps to 15 minutes', () => {
+    expect(startTimeFromDropOffset(24)).toBe('06:15:00');
+    expect(startTimeFromDropOffset(48)).toBe('06:30:00');
+  });
+
+  it('clamps to the visible day', () => {
+    expect(startTimeFromDropOffset(-40)).toBe('06:00:00');
+    expect(startTimeFromDropOffset(96 * 20)).toBe('20:00:00');
+  });
+});
+
+describe('applyDropStartTime', () => {
+  it('shifts end time to keep duration', () => {
+    expect(applyDropStartTime('08:00:00', '10:00:00', '09:00:00')).toEqual({
+      start_time: '09:00:00',
+      end_time: '11:00:00',
+    });
+  });
+
+  it('sets start only when the job had no end', () => {
+    expect(applyDropStartTime('08:00:00', null, '09:30:00')).toEqual({
+      start_time: '09:30:00',
+      end_time: null,
+    });
+  });
+
+  it('turns an all-day job into a timed slot', () => {
+    expect(applyDropStartTime(null, null, '07:00:00')).toEqual({
+      start_time: '07:00:00',
+      end_time: null,
+    });
+  });
+});
+
+describe('rescheduleJobPatch', () => {
+  const crewJob = {
+    assigned_team: ['a', 'b', 'c'],
+    start_time: '08:00:00',
+    end_time: '10:00:00',
+  };
+
+  it('never replaces a 3-person crew with the drop target', () => {
+    expect(rescheduleJobPatch(crewJob, { date: '2026-08-21', employeeId: 'd' })).toEqual({
+      scheduled_date: '2026-08-21',
+      assigned_team: ['a', 'b', 'c', 'd'],
+    });
+  });
+
+  it('clears crew on Unassigned without dropping the date', () => {
+    expect(rescheduleJobPatch(crewJob, { date: '2026-08-20', employeeId: null })).toEqual({
+      scheduled_date: '2026-08-20',
+      assigned_team: [],
+    });
+  });
+
+  it('leaves crew alone on a date-only move (week/month)', () => {
+    expect(rescheduleJobPatch(crewJob, { date: '2026-08-22' })).toEqual({
+      scheduled_date: '2026-08-22',
+    });
+  });
+
+  it('assigns a single tech when moving off Unassigned', () => {
+    expect(rescheduleJobPatch(
+      { assigned_team: [], start_time: null, end_time: null },
+      { date: '2026-08-20', employeeId: 'alice' },
+    )).toEqual({
+      scheduled_date: '2026-08-20',
+      assigned_team: ['alice'],
+    });
+  });
+
+  it('updates time and keeps crew when dropped on the day grid', () => {
+    expect(rescheduleJobPatch(crewJob, {
+      date: '2026-08-20',
+      employeeId: 'b',
+      startTime: '13:00:00',
+    })).toEqual({
+      scheduled_date: '2026-08-20',
+      assigned_team: ['a', 'b', 'c'],
+      start_time: '13:00:00',
+      end_time: '15:00:00',
+    });
+  });
+});
