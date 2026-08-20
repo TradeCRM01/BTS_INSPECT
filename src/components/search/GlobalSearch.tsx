@@ -329,7 +329,7 @@ export function GlobalSearchTrigger() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/60 transition-colors hover:border-white/25 hover:text-white w-full"
+        className="flex items-center gap-2 border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white w-full"
       >
         <Search className="h-4 w-4 shrink-0" />
         <span className="flex-1 text-left hidden sm:inline">Search…</span>
