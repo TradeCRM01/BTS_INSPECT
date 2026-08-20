@@ -6,10 +6,10 @@ import {
 import {
   pickJobColor, pickEmployeeColor, hexToBg, hexToBorder, getReadableText,
 } from '../../lib/jobColors';
+import { startTimeFromDropOffset, type JobDropPayload } from '../../lib/dispatch';
 import {
   format, isSameDay, isToday, parseISO, addDays, startOfWeek,
-  endOfWeek, startOfMonth, endOfMonth, startOfWeek as startWeek,
-  endOfWeek as endWeek, isSameMonth,
+  startOfMonth, isSameMonth,
 } from 'date-fns';
 import { Clock, MapPin, User, Plus, Briefcase, Users } from 'lucide-react';
 
@@ -27,7 +27,7 @@ export interface BoardProps {
   currentDate: Date;
   onJobClick: (job: JobWithClient) => void;
   onDayClick: (dateStr: string, employeeId?: string) => void;
-  onJobDrop?: (jobId: string, date: string, employeeId?: string) => void;
+  onJobDrop?: (drop: JobDropPayload) => void;
   filteredEmployeeIds: Set<string>;
 }
 
@@ -176,11 +176,32 @@ export const DayBoardView = memo(function DayBoardView({
     setDragJobId(jobId);
   };
 
-  const handleDrop = (e: React.DragEvent, empId: string) => {
+  const assignmentForRow = (empId: string): string | null =>
+    empId === '__unassigned__' ? null : empId;
+
+  const handleDrop = (e: React.DragEvent, empId: string, startTime?: string) => {
     e.preventDefault();
     const jobId = e.dataTransfer.getData('text/plain');
-    if (jobId && onJobDrop) onJobDrop(jobId, dateStr, empId === '__unassigned__' ? undefined : empId);
+    if (jobId && onJobDrop) {
+      onJobDrop({
+        jobId,
+        date: dateStr,
+        employeeId: assignmentForRow(empId),
+        startTime,
+      });
+    }
     setDragJobId(null);
+  };
+
+  const handleTimeDrop = (e: React.DragEvent, empId: string) => {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const startTime = startTimeFromDropOffset(e.clientX - rect.left, {
+      hourWidth: HOUR_WIDTH,
+      dayStart: DAY_START,
+      dayEnd: DAY_END,
+    });
+    handleDrop(e, empId, startTime);
   };
 
   const gridWidth = HOURS.length * HOUR_WIDTH;
@@ -260,6 +281,8 @@ export const DayBoardView = memo(function DayBoardView({
                 className={`relative cursor-pointer ${dragJobId ? 'hover:bg-blue-50/30' : ''}`}
                 style={{ width: gridWidth, height: ROW_HEIGHT }}
                 onClick={() => onDayClick(dateStr, isUnassigned ? undefined : row.id)}
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => handleTimeDrop(e, row.id)}
               >
                 {/* Hour grid lines */}
                 {HOURS.map(h => (
@@ -274,9 +297,7 @@ export const DayBoardView = memo(function DayBoardView({
                 {isToday(currentDate) && <CurrentTimeVerticalIndicator />}
 
                 {/* All-day jobs (no start time) — rendered at left with full-width subtle bar */}
-                {allDayJobs.map(job => {
-                  const jc = pickJobColor(job.id, job.color);
-                  return (
+                {allDayJobs.map(job => (
                     <div key={job.id} className="absolute left-1 right-1" style={{ top: 2, height: 18 }}>
                       <JobBlock
                         job={job}
@@ -285,8 +306,7 @@ export const DayBoardView = memo(function DayBoardView({
                         onDragStart={e => handleDragStart(e, job.id)}
                       />
                     </div>
-                  );
-                })}
+                ))}
 
                 {/* Timed jobs — positioned horizontally by start/end */}
                 {timedJobs.map(job => {
@@ -336,7 +356,7 @@ function CurrentTimeVerticalIndicator() {
 // Day columns (Mon–Sun), colored job blocks stacked vertically
 
 export const WeekBoardView = memo(function WeekBoardView({
-  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds,
+  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop,
 }: BoardProps) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -365,7 +385,7 @@ export const WeekBoardView = memo(function WeekBoardView({
   const handleDrop = (e: React.DragEvent, date: string) => {
     e.preventDefault();
     const jobId = e.dataTransfer.getData('text/plain');
-    if (jobId && onJobDrop) onJobDrop(jobId, date);
+    if (jobId && onJobDrop) onJobDrop({ jobId, date });
     setDragJobId(null);
   };
 
@@ -400,7 +420,7 @@ export const WeekBoardView = memo(function WeekBoardView({
               onDragOver={e => e.preventDefault()}
               onDrop={e => handleDrop(e, ds)}
               onClick={() => onDayClick(ds)}
-              className="flex-1 min-w-[120px] border-r border-[#E5E7EB] last:border-r-0 p-1 space-y-1 cursor-pointer min-h-[300px]"
+              className={`flex-1 min-w-[120px] border-r border-[#E5E7EB] last:border-r-0 p-1 space-y-1 cursor-pointer min-h-[300px] ${dragJobId ? 'hover:bg-blue-50/40' : ''}`}
             >
               {dayJobs.length === 0 ? (
                 <div className="flex items-center justify-center h-20">
@@ -409,7 +429,6 @@ export const WeekBoardView = memo(function WeekBoardView({
               ) : (
                 dayJobs.map(job => {
                   const color = pickJobColor(job.id, job.color);
-                  const textColor = getReadableText(color);
                   const assignedMembers = (job.assigned_team ?? [])
                     .map(id => teamMembers.find(m => m.id === id))
                     .filter(Boolean) as TeamMember[];
@@ -514,7 +533,7 @@ export const MonthBoardView = memo(function MonthBoardView({
   const handleDrop = (e: React.DragEvent, date: string) => {
     e.preventDefault();
     const jobId = e.dataTransfer.getData('text/plain');
-    if (jobId && onJobDrop) onJobDrop(jobId, date);
+    if (jobId && onJobDrop) onJobDrop({ jobId, date });
     setDragJobId(null);
   };
 
@@ -638,7 +657,14 @@ export const JobListView = memo(function JobListView({
           .map(id => teamMembers.find(m => m.id === id))
           .filter(Boolean) as TeamMember[];
         return (
-          <div key={job.id} className="bg-white rounded-lg border border-[#E5E7EB] p-3 flex items-center gap-3 hover:shadow-sm transition-shadow">
+          <div
+            key={job.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => onEdit(job)}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEdit(job); } }}
+            className="bg-white rounded-lg border border-[#E5E7EB] p-3 flex items-center gap-3 hover:shadow-sm transition-shadow cursor-pointer"
+          >
             <div className="w-1.5 h-12 rounded-full shrink-0" style={{ background: color }} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -684,6 +710,7 @@ export const JobListView = memo(function JobListView({
             </div>
             <select
               value={job.status}
+              onClick={e => e.stopPropagation()}
               onChange={e => { e.stopPropagation(); onStatusChange(job.id, e.target.value as JobStatus); }}
               className={`text-xs px-2 py-1 rounded-full border-0 cursor-pointer font-medium ${JOB_STATUS_STYLES[job.status]}`}
             >

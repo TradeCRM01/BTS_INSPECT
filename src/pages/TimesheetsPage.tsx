@@ -1,14 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { ManagedSelect } from '../components/ui/ManagedSelect';
-import { LIST_KEYS } from '../lib/useManagedList';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, useToast } from '../components/ui';
+import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import { format, parseISO, startOfWeek, addDays, isSameDay } from 'date-fns';
-import { Clock, Play, Square, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, Play, Square, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Timesheet, TimesheetEntry } from '../types/fsm';
 import { TIMESHEET_STATUS_LABELS, formatDuration } from '../types/fsm';
 
@@ -16,9 +15,11 @@ export function TimesheetsPage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [currentWeek, setCurrentWeek] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
-  const [showEntryForm, setShowEntryForm] = useState(false);
+  const presetJobId = searchParams.get('job');
+  const [showEntryForm, setShowEntryForm] = useState(() => !!presetJobId);
 
   const { data: teamMembers } = useQuery({
     queryKey: ['team-members'],
@@ -263,9 +264,31 @@ export function TimesheetsPage() {
         </div>
       </div>
 
-      {showEntryForm && (
-        <EntryForm timesheets={myTimesheets} jobs={jobs ?? []} onClose={() => setShowEntryForm(false)}
-          onSaved={() => { setShowEntryForm(false); queryClient.invalidateQueries(); showToast('Entry saved'); }} />
+      {showEntryForm && selectedEmployee && (
+        <TimeEntryForm
+          timesheets={myTimesheets}
+          jobs={jobs ?? []}
+          employeeId={selectedEmployee}
+          presetJobId={presetJobId ?? undefined}
+          onClose={() => {
+            setShowEntryForm(false);
+            if (presetJobId) {
+              const next = new URLSearchParams(searchParams);
+              next.delete('job');
+              setSearchParams(next, { replace: true });
+            }
+          }}
+          onSaved={() => {
+            setShowEntryForm(false);
+            if (presetJobId) {
+              const next = new URLSearchParams(searchParams);
+              next.delete('job');
+              setSearchParams(next, { replace: true });
+            }
+            queryClient.invalidateQueries();
+            showToast('Entry saved');
+          }}
+        />
       )}
     </AppShell>
   );
@@ -279,113 +302,4 @@ function SummaryCard({ label, value, accentColor }: { label: string; value: stri
       <div className="mt-2 h-1 rounded-full" style={{ backgroundColor: accentColor, opacity: 0.2 }} />
     </div>
   );
-}
-
-function EntryForm({ timesheets, jobs, onClose, onSaved }: {
-  timesheets: Timesheet[];
-  jobs: { id: string; title: string; job_number: number | null }[];
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const { profile } = useAuth();
-  const [form, setForm] = useState({
-    timesheet_id: '',
-    date: format(new Date(), 'yyyy-MM-dd'),
-    start_time: '08:00',
-    end_time: '17:00',
-    work_type: '',
-    billable: true,
-    notes: '',
-    job_id: '',
-  });
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setErr(null);
-    try {
-      const startDateTime = new Date(`${form.date}T${form.start_time}`);
-      const endDateTime = form.end_time ? new Date(`${form.date}T${form.end_time}`) : null;
-
-      let tsId = form.timesheet_id;
-      if (!tsId) {
-        const existing = timesheets.find(t => t.date === form.date);
-        if (existing) {
-          tsId = existing.id;
-        } else {
-          const { data: newTs, error: tsError } = await supabase.from('timesheets')
-            .insert({ company_id: profile!.company_id, employee_id: profile!.id, date: form.date, status: 'open' })
-            .select().single();
-          if (tsError) throw tsError;
-          tsId = newTs.id;
-        }
-      }
-
-      const { error } = await supabase.from('timesheet_entries').insert({
-        timesheet_id: tsId,
-        company_id: profile!.company_id,
-        job_id: form.job_id || null,
-        start_time: startDateTime.toISOString(),
-        end_time: endDateTime?.toISOString() ?? null,
-        work_type: form.work_type || null,
-        billable: form.billable,
-        notes: form.notes || null,
-      });
-      if (error) throw error;
-
-      if (endDateTime) {
-        const ts = timesheets.find(t => t.id === tsId);
-        const existingMin = ts?.total_minutes ?? 0;
-        const addedMin = Math.round((endDateTime.getTime() - startDateTime.getTime()) / 60000);
-        await supabase.from('timesheets').update({ total_minutes: existingMin + addedMin }).eq('id', tsId);
-      }
-
-      onSaved();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Failed to save');
-    } finally { setSaving(false); }
-  }
-
-  return (
-    <div className="overlay-backdrop">
-      <div className="overlay-panel-lg" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] shrink-0">
-          <h2 className="text-lg font-semibold text-[#1A1A1A]">Add Time Entry</h2>
-          <button onClick={onClose}><X size={20} className="text-[#6B7280]" /></button>
-        </div>
-        <form onSubmit={handleSave} className="overlay-body">
-          <Field label="Date"><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="form-input" /></Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Start Time"><input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} className="form-input" /></Field>
-            <Field label="End Time"><input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} className="form-input" /></Field>
-          </div>
-          <Field label="Job">
-            <select value={form.job_id} onChange={e => setForm(f => ({ ...f, job_id: e.target.value }))} className="form-input cursor-pointer">
-              <option value="">No linked job</option>
-              {jobs.map(j => (
-                <option key={j.id} value={j.id}>
-                  {j.job_number != null ? `#${String(j.job_number).padStart(4, '0')} ` : ''}{j.title}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Work Type"><ManagedSelect listKey={LIST_KEYS.workTypes} value={form.work_type}
-            onChange={v => setForm(f => ({ ...f, work_type: v }))} placeholder="Select work type..." /></Field>
-          <Field label="Notes"><textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="form-input min-h-[50px] resize-y" placeholder="What did you work on?" /></Field>
-          <label className="flex items-center gap-2 text-sm text-[#1A1A1A]"><input type="checkbox" checked={form.billable} onChange={e => setForm(f => ({ ...f, billable: e.target.checked }))} className="rounded" /> Billable time</label>
-          {err && <p className="text-sm text-[#B42318]">{err}</p>}
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-[#F9FAFB]">Cancel</button>
-            <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="block"><span className="text-sm font-medium text-[#4A5568] mb-1 block">{label}</span>{children}</label>;
 }

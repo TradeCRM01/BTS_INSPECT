@@ -13,6 +13,7 @@ import {
   type TeamMember,
 } from '../components/crm/BoardViews';
 import { pickEmployeeColor } from '../lib/jobColors';
+import { rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
 import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
 import {
   ChevronLeft, ChevronRight, Plus, Calendar as CalIcon,
@@ -41,10 +42,22 @@ export function SchedulePage() {
 
   const preselectClient = searchParams.get('client');
   const preselectJob = searchParams.get('job');
+  const preselectDate = searchParams.get('date');
 
   useEffect(() => {
     if (preselectJob) navigate(`/jobs/${preselectJob}`, { replace: true });
   }, [preselectJob, navigate]);
+
+  useEffect(() => {
+    if (!preselectDate) return;
+    const parsed = new Date(`${preselectDate}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return;
+    setCurrentDate(parsed);
+    setViewMode('day');
+    const next = new URLSearchParams(searchParams);
+    next.delete('date');
+    setSearchParams(next, { replace: true });
+  }, [preselectDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Load team members ──────────────────────────────────────────
   const { data: teamMembers } = useQuery<TeamMember[]>({
@@ -165,15 +178,30 @@ export function SchedulePage() {
   });
 
   const rescheduleJob = useMutation({
-    mutationFn: async ({ id, date, employeeId }: { id: string; date: string; employeeId?: string }) => {
-      const updates: any = { scheduled_date: date, updated_at: new Date().toISOString() };
-      if (employeeId !== undefined) {
-        updates.assigned_team = [employeeId];
-      }
-      const { error } = await supabase.from('jobs').update(updates).eq('id', id);
+    mutationFn: async ({ jobId, date, employeeId, startTime }: JobDropPayload) => {
+      const { data: current, error: loadError } = await supabase
+        .from('jobs')
+        .select('assigned_team, start_time, end_time')
+        .eq('id', jobId)
+        .maybeSingle();
+      if (loadError) throw loadError;
+      if (!current) throw new Error('Job not found');
+
+      const updates = {
+        ...rescheduleJobPatch({
+          assigned_team: current.assigned_team,
+          start_time: current.start_time,
+          end_time: current.end_time,
+        }, { date, employeeId, startTime }),
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await supabase.from('jobs').update(updates).eq('id', jobId);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jobs'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['job'] });
+    },
   });
 
   // ── Handlers ───────────────────────────────────────────────────
@@ -299,6 +327,11 @@ export function SchedulePage() {
               <Users size={13} /> Team:
             </div>
             <span className="text-[10px] text-[#9CA3AF] hidden sm:inline">Click a colour dot to change it</span>
+            {viewMode === 'day' && (
+              <span className="text-[10px] text-[#9CA3AF] hidden md:inline">
+                Drop on a person to assign them (keeps the rest of the crew). Drop on Unassigned to clear crew without losing the date.
+              </span>
+            )}
             {filteredEmployeeIds.size > 0 && (
               <button onClick={clearEmployeeFilters}
                 className="flex items-center gap-1 text-xs text-[#2E75B6] hover:underline">
@@ -350,7 +383,7 @@ export function SchedulePage() {
             currentDate={currentDate}
             onJobClick={job => navigate(`/jobs/${job.id}`)}
             onDayClick={handleDayClick}
-            onJobDrop={(id, date, empId) => rescheduleJob.mutate({ id, date, employeeId: empId })}
+            onJobDrop={drop => rescheduleJob.mutate(drop)}
             filteredEmployeeIds={filteredEmployeeIds}
           />
         ) : viewMode === 'week' ? (
@@ -360,7 +393,7 @@ export function SchedulePage() {
             currentDate={currentDate}
             onJobClick={job => navigate(`/jobs/${job.id}`)}
             onDayClick={handleDayClick}
-            onJobDrop={(id, date) => rescheduleJob.mutate({ id, date })}
+            onJobDrop={drop => rescheduleJob.mutate(drop)}
             filteredEmployeeIds={filteredEmployeeIds}
           />
         ) : viewMode === 'month' ? (
@@ -370,7 +403,7 @@ export function SchedulePage() {
             currentDate={currentDate}
             onJobClick={job => navigate(`/jobs/${job.id}`)}
             onDayClick={handleDayClick}
-            onJobDrop={(id, date) => rescheduleJob.mutate({ id, date })}
+            onJobDrop={drop => rescheduleJob.mutate(drop)}
             filteredEmployeeIds={filteredEmployeeIds}
           />
         ) : (
