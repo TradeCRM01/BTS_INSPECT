@@ -1,15 +1,16 @@
 import { useState, useMemo, memo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode } from '../components/ui';
+import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonCardGrid } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
 import type { Client, ClientWithStats } from '../types/crm';
-import { Plus, Search, Users, Phone, Mail, MapPin, ChevronRight, X, Trash2, CreditCard as Edit3, Archive, ArchiveRestore, MoreVertical, Briefcase, Calendar } from 'lucide-react';
+import { Plus, Users, Phone, Mail, MapPin, X, Trash2, CreditCard as Edit3, Archive, ArchiveRestore, Briefcase, Calendar, FileText } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { newJobFromClientHref, newQuoteFromClientHref, clientRecordHref } from '../lib/clientRecords';
 
 export function ClientsPage() {
   const { profile } = useAuth();
@@ -218,7 +219,11 @@ export function ClientsPage() {
 function ClientListRow({ client, onEdit, onArchive, onDelete }: {
   client: ClientWithStats; onEdit: () => void; onArchive: () => void; onDelete: () => void;
 }) {
+  const navigate = useNavigate();
   const menuItems: MenuEntry[] = [
+    { label: 'New quote', icon: FileText, onClick: () => navigate(newQuoteFromClientHref(client.id)) },
+    { label: 'New job', icon: Briefcase, onClick: () => navigate(newJobFromClientHref(client.id)) },
+    { divider: true },
     { label: 'Edit', icon: Edit3, onClick: onEdit },
     { label: client.archived ? 'Restore' : 'Archive', icon: client.archived ? ArchiveRestore : Archive, onClick: onArchive },
     { divider: true },
@@ -227,7 +232,7 @@ function ClientListRow({ client, onEdit, onArchive, onDelete }: {
   return (
     <tr className="hover:bg-[#F9FAFB] transition-colors">
       <td className="px-4 py-3">
-        <Link to={`/clients/${client.id}`} className="font-medium text-[#1A1A1A] hover:text-[#2E75B6]">{client.name}</Link>
+        <Link to={clientRecordHref(client.id)} className="font-medium text-[#1A1A1A] hover:text-[#2E75B6]">{client.name}</Link>
       </td>
       <td className="px-4 py-3 text-[#4A5568]">{client.contact_person ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
       <td className="px-4 py-3 text-[#4A5568]">{client.phone ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
@@ -249,7 +254,11 @@ const ClientCard = memo(function ClientCard({
   onArchive: () => void;
   onDelete: () => void;
 }) {
+  const navigate = useNavigate();
   const menuItems: MenuEntry[] = [
+    { label: 'New quote', icon: FileText, onClick: () => navigate(newQuoteFromClientHref(client.id)) },
+    { label: 'New job', icon: Briefcase, onClick: () => navigate(newJobFromClientHref(client.id)) },
+    { divider: true },
     { label: 'Edit', icon: Edit3, onClick: onEdit },
     { label: client.archived ? 'Restore' : 'Archive', icon: client.archived ? ArchiveRestore : Archive, onClick: onArchive },
     { divider: true },
@@ -262,7 +271,7 @@ const ClientCard = memo(function ClientCard({
         <ContextMenu items={menuItems} />
       </div>
 
-      <Link to={`/clients/${client.id}`} className="block">
+      <Link to={clientRecordHref(client.id)} className="block">
         <div className="flex items-start gap-3 pr-8">
           <div className="w-10 h-10 rounded-lg bg-[#0A2540]/10 flex items-center justify-center shrink-0">
             <Users size={18} className="text-[#0A2540]" />

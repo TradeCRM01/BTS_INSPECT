@@ -8,6 +8,7 @@ import {
 import { X, Trash2, GitBranch } from 'lucide-react';
 import { format } from 'date-fns';
 import { OverlayPortal } from '../ui/OverlayPortal';
+import { jobSiteAddressFromClient } from '../../lib/clientRecords';
 
 interface JobFormModalProps {
   job: Job | null;
@@ -80,6 +81,15 @@ export function JobFormModal({
   }, [profile?.company_id, job?.id]);
 
   const selectedClient = useMemo(() => clients.find(c => c.id === form.client_id), [clients, form.client_id]);
+
+  useEffect(() => {
+    if (job) return;
+    if (!selectedClient) return;
+    setForm(f => {
+      const address = jobSiteAddressFromClient(f.address, selectedClient.address);
+      return address === f.address ? f : { ...f, address };
+    });
+  }, [job, selectedClient]);
 
   const toggleTeamMember = (id: string) => {
     setForm(f => ({

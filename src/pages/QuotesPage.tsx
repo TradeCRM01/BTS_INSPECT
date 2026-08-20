@@ -54,7 +54,7 @@ export function QuotesPage() {
   const [showForm, setShowForm] = useState(false);
   const [viewMode, setViewMode] = useViewMode('quotes');
   const [searchParams, setSearchParams] = useSearchParams();
-  const preselectId = searchParams.get('id');
+  const [presetClientId, setPresetClientId] = useState<string | null>(null);
 
   const { data: quotes, isLoading, error } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes'],
@@ -117,13 +117,29 @@ export function QuotesPage() {
   const closedQuotes = filtered.filter(q => quoteListBucket(q.status) === 'closed');
 
   useEffect(() => {
-    if (!preselectId || !quotes) return;
-    const q = quotes.find(item => item.id === preselectId);
-    if (!q) return;
-    setEditingQuote(q);
+    const quoteId = searchParams.get('id');
+    const clientId = searchParams.get('client');
+    if (quoteId) {
+      if (!quotes) return;
+      const q = quotes.find(item => item.id === quoteId);
+      if (!q) return;
+      setEditingQuote(q);
+      setPresetClientId(null);
+      setShowForm(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('id');
+      next.delete('client');
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    if (!clientId) return;
+    setEditingQuote(null);
+    setPresetClientId(clientId);
     setShowForm(true);
-    setSearchParams({}, { replace: true });
-  }, [preselectId, quotes, setSearchParams]);
+    const next = new URLSearchParams(searchParams);
+    next.delete('client');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, quotes, setSearchParams]);
 
   const counts = useMemo(() => {
     const all = quotes ?? [];
@@ -148,12 +164,17 @@ export function QuotesPage() {
 
   function openQuote(q: QuoteListItem | null) {
     setEditingQuote(q);
+    setPresetClientId(null);
     setShowForm(true);
   }
 
   function handleSaved(opts?: { close?: boolean; message?: string }) {
-    if (opts?.close !== false) setShowForm(false);
+    if (opts?.close !== false) {
+      setShowForm(false);
+      setPresetClientId(null);
+    }
     queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
     showToast(opts?.message ?? (editingQuote ? 'Quote updated' : 'Quote created'));
   }
 
@@ -247,9 +268,11 @@ export function QuotesPage() {
 
       {showForm && (
         <QuoteEditorModal
+          key={editingQuote?.id ?? presetClientId ?? 'new'}
           quote={editingQuote}
+          presetClientId={presetClientId}
           defaultTaxRate={company?.default_tax_rate ?? DEFAULT_TAX_RATE}
-          onClose={() => setShowForm(false)}
+          onClose={() => { setShowForm(false); setPresetClientId(null); }}
           onSaved={handleSaved}
         />
       )}
@@ -448,8 +471,9 @@ interface EditorState {
   scheduled_date: string;
 }
 
-function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
+function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSaved }: {
   quote: QuoteListItem | null;
+  presetClientId?: string | null;
   defaultTaxRate: number;
   onClose: () => void;
   onSaved: (opts?: { close?: boolean; message?: string }) => void;
@@ -470,7 +494,7 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
   const [invoiceId, setInvoiceId] = useState<string | null>(quote?.invoice_id ?? null);
 
   const [form, setForm] = useState<EditorState>({
-    client_id: quote?.client_id ?? '',
+    client_id: quote?.client_id ?? presetClientId ?? '',
     job_id: quote?.job_id ?? '',
     status: quote?.status ?? 'draft',
     description: quote?.description ?? '',
