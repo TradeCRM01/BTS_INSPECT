@@ -100,12 +100,12 @@ async function runSearch(rawQuery: string, companyId: string | undefined): Promi
     {
       category: 'Quotes',
       icon: FileText,
-      results: quotes.map((q) => ({ id: String(q.id), label: `Quote #${q.quote_number}`, to: '/quotes' })),
+      results: quotes.map((q) => ({ id: String(q.id), label: `Quote #${q.quote_number}`, to: `/quotes?id=${q.id}` })),
     },
     {
       category: 'Invoices',
       icon: Receipt,
-      results: invoices.map((i) => ({ id: String(i.id), label: `Invoice #${i.invoice_number}`, to: '/invoices' })),
+      results: invoices.map((i) => ({ id: String(i.id), label: `Invoice #${i.invoice_number}`, to: `/invoices?id=${i.id}` })),
     },
     {
       category: 'Suppliers',

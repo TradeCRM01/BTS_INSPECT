@@ -4,33 +4,45 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode } from '../components/ui';
+import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, SummaryCard } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
-import { invoiceLandingPath } from '../lib/invoiceFromQuote';
+import { invoiceHref, invoiceLandingPath, pickReusableInvoice } from '../lib/invoiceFromQuote';
 import { calcDocumentTotals, DEFAULT_TAX_RATE } from '../lib/gst';
 import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineItem } from '../components/invoicing/LineItemEditor';
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
+import { ActionButton, NextBanner } from '../components/invoicing/DocNextAction';
 import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
+import { padQuoteNumber } from '../lib/quoteJobFields';
+import {
+  quoteActionContext,
+  quoteListBucket,
+  recommendQuoteAction,
+  type QuoteActionKey,
+} from '../lib/quoteNextAction';
 import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatMoney } from '../types/fsm';
-import { Plus, FileText, X, MoreVertical, ArrowRight, Eye, Receipt } from 'lucide-react';
+import { Plus, FileText, X, ArrowRight, Eye, Receipt, User, Calendar, Send, Check } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | QuoteStatus;
 
-const STATUS_TABS: { key: StatusFilter; label: string }[] = [
-  { key: 'all', label: 'All' }, { key: 'draft', label: 'Draft' }, { key: 'sent', label: 'Sent' },
-  { key: 'accepted', label: 'Accepted' }, { key: 'declined', label: 'Declined' }, { key: 'expired', label: 'Expired' },
-];
+type QuoteListItem = QuoteWithDetails & { invoice_id: string | null };
 
-const padNum = (n: number | null) => String(n ?? 0).padStart(4, '0');
+const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'draft', label: 'Draft' },
+  { key: 'sent', label: 'Sent' },
+  { key: 'accepted', label: 'Accepted' },
+  { key: 'declined', label: 'Declined' },
+  { key: 'expired', label: 'Expired' },
+];
 
 export function QuotesPage() {
   const { profile, company } = useAuth();
@@ -38,13 +50,13 @@ export function QuotesPage() {
   const { showToast } = useToast();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
-  const [editingQuote, setEditingQuote] = useState<QuoteWithDetails | null>(null);
+  const [editingQuote, setEditingQuote] = useState<QuoteListItem | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [viewMode, setViewMode] = useViewMode('quotes', 'list');
+  const [viewMode, setViewMode] = useViewMode('quotes');
   const [searchParams, setSearchParams] = useSearchParams();
   const preselectId = searchParams.get('id');
 
-  const { data: quotes, isLoading, error } = useQuery<QuoteWithDetails[]>({
+  const { data: quotes, isLoading, error } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -55,18 +67,30 @@ export function QuotesPage() {
       const list = (data ?? []) as QuoteWithDetails[];
       const clientIds = [...new Set(list.map(q => q.client_id).filter(Boolean))] as string[];
       const jobIds = [...new Set(list.map(q => q.job_id).filter(Boolean))] as string[];
-      const [clientsRes, jobsRes] = await Promise.all([
-        clientIds.length ? supabase.from('clients').select('id, name').in('id', clientIds) : Promise.resolve({ data: [], error: null }),
-        jobIds.length ? supabase.from('jobs').select('id, title').in('id', jobIds) : Promise.resolve({ data: [], error: null }),
+      const quoteIds = list.map(q => q.id);
+      const [clientsRes, jobsRes, invoicesRes] = await Promise.all([
+        clientIds.length ? supabase.from('clients').select('id, name').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+        jobIds.length ? supabase.from('jobs').select('id, title').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+        quoteIds.length
+          ? supabase.from('invoices').select('id, quote_id, status').in('quote_id', quoteIds)
+          : Promise.resolve({ data: [] as { id: string; quote_id: string; status: string }[] }),
       ]);
-      const clientMap = new Map((clientsRes.data ?? []).map((c: any) => [c.id, c.name]));
-      const jobMap = new Map((jobsRes.data ?? []).map((j: any) => [j.id, j.title]));
+      const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c.name]));
+      const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j.title]));
+      const invoicesByQuote = new Map<string, { id: string; status: string }[]>();
+      for (const inv of invoicesRes.data ?? []) {
+        if (!inv.quote_id) continue;
+        const rows = invoicesByQuote.get(inv.quote_id) ?? [];
+        rows.push({ id: inv.id, status: inv.status });
+        invoicesByQuote.set(inv.quote_id, rows);
+      }
       return list.map(q => ({
         ...q,
         inclusions: asStringList(q.inclusions),
         exclusions: asStringList(q.exclusions),
         client_name: q.client_id ? clientMap.get(q.client_id) ?? null : null,
         job_title: q.job_id ? jobMap.get(q.job_id) ?? null : null,
+        invoice_id: pickReusableInvoice(invoicesByQuote.get(q.id) ?? [])?.id ?? null,
       }));
     },
     enabled: !!profile,
@@ -78,13 +102,18 @@ export function QuotesPage() {
       if (statusFilter !== 'all' && q.status !== statusFilter) return false;
       if (search.trim()) {
         const s = search.toLowerCase();
-        return `#${padNum(q.quote_number)}`.toLowerCase().includes(s)
+        return `#${padQuoteNumber(q.quote_number)}`.toLowerCase().includes(s)
           || (q.client_name ?? '').toLowerCase().includes(s)
           || (q.description ?? '').toLowerCase().includes(s);
       }
       return true;
     });
   }, [quotes, statusFilter, search]);
+
+  const draftQuotes = filtered.filter(q => quoteListBucket(q.status) === 'draft');
+  const sentQuotes = filtered.filter(q => quoteListBucket(q.status) === 'sent');
+  const acceptedQuotes = filtered.filter(q => quoteListBucket(q.status) === 'accepted');
+  const closedQuotes = filtered.filter(q => quoteListBucket(q.status) === 'closed');
 
   useEffect(() => {
     if (!preselectId || !quotes) return;
@@ -95,7 +124,17 @@ export function QuotesPage() {
     setSearchParams({}, { replace: true });
   }, [preselectId, quotes, setSearchParams]);
 
-  if (error) return <AppShell><PageError message="Could not load quotes" /></AppShell>;
+  const counts = useMemo(() => {
+    const all = quotes ?? [];
+    return {
+      all: all.length,
+      draft: all.filter(q => q.status === 'draft').length,
+      sent: all.filter(q => q.status === 'sent').length,
+      accepted: all.filter(q => q.status === 'accepted').length,
+      declined: all.filter(q => q.status === 'declined').length,
+      expired: all.filter(q => q.status === 'expired').length,
+    };
+  }, [quotes]);
 
   const totals = useMemo(() => {
     const all = quotes ?? [];
@@ -106,71 +145,89 @@ export function QuotesPage() {
     return { pendingCount: pending.length, pendingValue, acceptedCount: accepted.length, acceptedValue };
   }, [quotes]);
 
+  function openQuote(q: QuoteListItem | null) {
+    setEditingQuote(q);
+    setShowForm(true);
+  }
+
+  function handleSaved(opts?: { close?: boolean; message?: string }) {
+    if (opts?.close !== false) setShowForm(false);
+    queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    showToast(opts?.message ?? (editingQuote ? 'Quote updated' : 'Quote created'));
+  }
+
+  if (error) return <AppShell><PageError message="Could not load quotes" /></AppShell>;
+
+  const filteredEmpty = !search && statusFilter === 'all';
+
   return (
     <AppShell>
-      <div className="max-w-[1200px] mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className="max-w-[1400px] mx-auto px-4 py-6">
+        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-semibold text-[#1A1A1A]">Quotes</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">{quotes?.length ?? 0} total quotes</p>
+            <p className="text-sm text-[#4A5568] mt-0.5">
+              {filtered.length} of {quotes?.length ?? 0} quotes
+            </p>
           </div>
-          <button onClick={() => { setEditingQuote(null); setShowForm(true); }}
-            className="flex items-center gap-2 bg-[#0A2540] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors">
+          <button onClick={() => openQuote(null)} className="btn-primary">
             <Plus size={16} /> New Quote
           </button>
         </div>
 
-        {/* Summary cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           {isLoading ? (
             <SkeletonSummaryCards count={2} />
           ) : (
             <>
-              <SummaryCard label="Pending Quotes" value={`${totals.pendingCount}`} subtext={formatMoney(totals.pendingValue)} accentColor="#2E75B6" />
-              <SummaryCard label="Accepted Quotes" value={`${totals.acceptedCount}`} subtext={formatMoney(totals.acceptedValue)} accentColor="#16A34A" />
+              <SummaryCard label="Pending" value={`${totals.pendingCount}`} subtext={formatMoney(totals.pendingValue)} accentColor="#2E75B6" />
+              <SummaryCard label="Accepted" value={`${totals.acceptedCount}`} subtext={formatMoney(totals.acceptedValue)} accentColor="#16A34A" />
             </>
           )}
         </div>
 
-        {/* Search */}
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search by quote #, client, or description..." />
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <SearchBar value={search} onChange={setSearch} placeholder="Search quotes, clients..." className="max-w-sm flex-1" />
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 overflow-x-auto">
+            {STATUS_FILTERS.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setStatusFilter(tab.key)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+                  statusFilter === tab.key ? 'bg-white text-[#0A2540] shadow-sm' : 'text-[#6B7280] hover:text-[#374151]'
+                }`}
+              >
+                {tab.label}
+                <span className="ml-1.5 text-xs text-[#9CA3AF]">{counts[tab.key]}</span>
+              </button>
+            ))}
+          </div>
           <ViewToggle mode={viewMode} onChange={setViewMode} />
         </div>
 
-        {/* Status tabs */}
-        <div className="flex items-center gap-1 mb-4 border-b border-[#E5E7EB] overflow-x-auto">
-          {STATUS_TABS.map(tab => {
-            const count = tab.key === 'all' ? (quotes?.length ?? 0) : (quotes?.filter(q => q.status === tab.key).length ?? 0);
-            const active = statusFilter === tab.key;
-            return (
-              <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${
-                  active ? 'border-[#0A2540] text-[#0A2540]' : 'border-transparent text-[#4A5568] hover:text-[#1A1A1A]'
-                }`}>
-                {tab.label}
-                <span className={`text-xs px-1.5 rounded-full ${active ? 'bg-[#0A2540] text-white' : 'bg-gray-100 text-[#4A5568]'}`}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* List */}
         {isLoading ? (
           <SkeletonRow />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={FileText}
-            title={search || statusFilter !== 'all' ? 'No quotes match your filters' : 'No quotes yet'}
-            message={search || statusFilter !== 'all' ? 'Try adjusting your filters.' : 'Create your first quote to get started.'}
-            action={!search && statusFilter === 'all' && (
-              <button onClick={() => { setEditingQuote(null); setShowForm(true); }} className="btn-primary">
-                <Plus size={16} /> Create your first quote
+            title={filteredEmpty ? 'No quotes yet' : 'No matching quotes'}
+            message={filteredEmpty
+              ? 'Write a quote, send it to the client, then convert it to a job when they accept.'
+              : 'Try another status or search.'}
+            action={filteredEmpty ? (
+              <button onClick={() => openQuote(null)} className="btn-primary">
+                <Plus size={16} /> Write a quote
               </button>
-            )}
+            ) : undefined}
           />
-        ) : viewMode === 'list' ? (
+        ) : viewMode === 'grid' ? (
+          <div className="space-y-6">
+            <QuoteGroup title="Drafts" quotes={draftQuotes} onOpen={openQuote} />
+            <QuoteGroup title="Sent — waiting" quotes={sentQuotes} onOpen={openQuote} />
+            <QuoteGroup title="Accepted" quotes={acceptedQuotes} onOpen={openQuote} />
+            <QuoteGroup title="Closed" quotes={closedQuotes} onOpen={openQuote} />
+          </div>
+        ) : (
           <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -181,116 +238,110 @@ export function QuotesPage() {
                     <th className="px-4 py-3">Description</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 text-right">Total (inc GST)</th>
-                    <th className="px-4 py-3">Valid Until</th>
-                    <th className="px-4 py-3">Created</th>
-                    <th className="px-4 py-3 w-8"></th>
+                    <th className="px-4 py-3">Next</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F3F4F6]">
                   {filtered.map(q => (
-                    <QuoteRow key={q.id} quote={q} onClick={() => { setEditingQuote(q); setShowForm(true); }} />
+                    <QuoteRow key={q.id} quote={q} onOpen={() => openQuote(q)} />
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map(q => (
-              <div key={q.id} onClick={() => { setEditingQuote(q); setShowForm(true); }}
-                className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-2">
-                  <span className="font-bold text-[#2E75B6]">#{padNum(q.quote_number)}</span>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${QUOTE_STATUS_STYLES[q.status]}`}>{QUOTE_STATUS_LABELS[q.status]}</span>
-                </div>
-                <p className="text-sm font-medium text-[#1A1A1A] mb-1">{q.client_name ?? 'No client'}</p>
-                {q.description && (
-                  <p className="text-sm text-[#4A5568] mb-1 line-clamp-2">{q.description}</p>
-                )}
-                <p className="text-lg font-bold text-[#1A1A1A] mb-2">{formatMoney(Number(q.total))}</p>
-                <div className="flex items-center justify-between text-xs text-[#4A5568]">
-                  <span>Valid: {q.validity_date ? format(parseISO(q.validity_date), 'd MMM yyyy') : '—'}</span>
-                  <span>{format(parseISO(q.created_at), 'd MMM yyyy')}</span>
-                </div>
-              </div>
-            ))}
-          </div>
         )}
       </div>
 
       {showForm && (
-        <QuoteEditorModal quote={editingQuote} defaultTaxRate={company?.default_tax_rate ?? DEFAULT_TAX_RATE}
+        <QuoteEditorModal
+          quote={editingQuote}
+          defaultTaxRate={company?.default_tax_rate ?? DEFAULT_TAX_RATE}
           onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); queryClient.invalidateQueries({ queryKey: ['quotes'] }); showToast(editingQuote ? 'Quote updated' : 'Quote created'); }}
+          onSaved={handleSaved}
         />
       )}
     </AppShell>
   );
 }
 
-// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Quote Row ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
-
-function SummaryCard({ label, value, subtext, accentColor }: { label: string; value: string; subtext?: string; accentColor: string }) {
+function QuoteGroup({
+  title, quotes, onOpen,
+}: {
+  title: string;
+  quotes: QuoteListItem[];
+  onOpen: (q: QuoteListItem) => void;
+}) {
+  if (quotes.length === 0) return null;
   return (
-    <div className="card-accent p-4">
-      <p className="text-xs font-medium text-[#4A5568] uppercase tracking-wide">{label}</p>
-      <p className="text-2xl font-bold text-[#1A1A1A] mt-1">{value}</p>
-      {subtext && <p className="text-sm text-[#4A5568] mt-0.5">{subtext}</p>}
-      <div className="mt-2 h-1 rounded-full" style={{ backgroundColor: accentColor, opacity: 0.2 }} />
+    <div>
+      <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2">
+        {title}
+        <span className="text-[#9CA3AF] normal-case font-normal"> ({quotes.length})</span>
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {quotes.map(q => (
+          <QuoteCard key={q.id} quote={q} onOpen={() => onOpen(q)} />
+        ))}
+      </div>
     </div>
   );
 }
 
-function QuoteRow({ quote, onClick }: { quote: QuoteWithDetails; onClick: () => void }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { profile, company } = useAuth();
-  const [converting, setConverting] = useState(false);
-  const [invoicing, setInvoicing] = useState(false);
-
-  const handleConvert = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setMenuOpen(false);
-    if (!profile?.id) return;
-    setConverting(true);
-    try {
-      const jobId = await convertQuoteToJob(quote, profile.id);
-      queryClient.invalidateQueries({ queryKey: ['quotes'] });
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
-      navigate(`/jobs/${jobId}`);
-    } catch (err: any) {
-      alert('Could not convert quote: ' + (err.message ?? 'Unknown error'));
-    } finally {
-      setConverting(false);
-    }
-  };
-
-  const handleInvoice = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setMenuOpen(false);
-    if (!profile?.id) return;
-    setInvoicing(true);
-    try {
-      const result = await convertQuoteToInvoice(
-        quote.id,
-        profile.id,
-        Number(company?.default_tax_rate) || DEFAULT_TAX_RATE,
-      );
-      queryClient.invalidateQueries({ queryKey: ['quotes'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['job-invoices'] });
-      navigate(invoiceLandingPath(quote.job_id, result.id));
-    } catch (err: any) {
-      alert('Could not create invoice: ' + (err.message ?? 'Unknown error'));
-    } finally {
-      setInvoicing(false);
-    }
-  };
-
+function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void }) {
+  const next = recommendQuoteAction(quoteActionContext(quote));
   return (
-    <tr onClick={onClick} className="hover:bg-[#F9FAFB] cursor-pointer transition-colors">
-      <td className="px-4 py-3 font-medium text-[#2E75B6]">#{padNum(quote.quote_number)}</td>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm hover:shadow-md transition-all text-left overflow-hidden group block w-full cursor-pointer"
+      style={{ borderLeftWidth: 4, borderLeftColor: quote.status === 'accepted' ? '#16A34A' : '#2E75B6' }}
+    >
+      <div className="bg-[#0A2540] px-3.5 py-2.5">
+        <p className="text-[10px] font-bold tracking-wider text-white/55">
+          QUOTE #{padQuoteNumber(quote.quote_number)}
+        </p>
+        <h3 className="text-sm font-semibold text-white truncate mt-0.5 group-hover:text-[#93C5FD] transition-colors">
+          {quote.description?.trim() || quote.client_name || 'Untitled quote'}
+        </h3>
+        <p className="mt-1 flex items-center gap-1 text-[11px] text-white/75 truncate">
+          <User size={11} className="shrink-0 text-[#93C5FD]" />
+          {quote.client_name || 'No client'}
+        </p>
+      </div>
+      <div className="p-3.5">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div>
+            <p className="text-lg font-bold text-[#1A1A1A]">{formatMoney(Number(quote.total))}</p>
+            <p className="text-[11px] text-[#4A5568]">inc GST</p>
+          </div>
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${QUOTE_STATUS_STYLES[quote.status]}`}>
+            {QUOTE_STATUS_LABELS[quote.status]}
+          </span>
+        </div>
+        {quote.validity_date && (
+          <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mb-2">
+            <Calendar size={12} className="text-[#9CA3AF] shrink-0" />
+            Valid {format(parseISO(quote.validity_date), 'd MMM yyyy')}
+          </div>
+        )}
+        <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-[#F3F4F6]" onClick={e => e.stopPropagation()}>
+          <QuoteNextControl quote={quote} />
+          {next.key === 'none' && (
+            <span className="text-[11px] font-semibold text-[#0A2540]">{next.label}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuoteRow({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void }) {
+  const next = recommendQuoteAction(quoteActionContext(quote));
+  return (
+    <tr onClick={onOpen} className="hover:bg-[#F9FAFB] cursor-pointer transition-colors">
+      <td className="px-4 py-3 font-medium text-[#2E75B6]">#{padQuoteNumber(quote.quote_number)}</td>
       <td className="px-4 py-3 text-[#1A1A1A]">{quote.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
       <td className="px-4 py-3 text-[#4A5568] max-w-[220px]">
         {quote.description
@@ -302,46 +353,109 @@ function QuoteRow({ quote, onClick }: { quote: QuoteWithDetails; onClick: () => 
           {QUOTE_STATUS_LABELS[quote.status]}
         </span>
       </td>
-      <td className="px-4 py-3 text-right font-semibold text-[#1A1A1A]">{formatMoney(Number(quote.total))}</td>
-      <td className="px-4 py-3 text-[#4A5568]">{quote.validity_date ? format(parseISO(quote.validity_date), 'd MMM yyyy') : '—'}</td>
-      <td className="px-4 py-3 text-[#4A5568]">{format(parseISO(quote.created_at), 'd MMM yyyy')}</td>
-      <td className="px-4 py-3 relative" onClick={e => e.stopPropagation()}>
-        <button onClick={() => setMenuOpen(v => !v)}
-          className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#F3F4F6] text-[#9CA3AF] hover:text-[#374151]">
-          <MoreVertical size={15} />
-        </button>
-        {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-50">
-              <button onClick={onClick} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB] text-left">
-                <FileText size={14} /> Edit
-              </button>
-              {quote.job_id ? (
-                <button onClick={() => navigate(`/jobs/${quote.job_id}`)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#2E75B6] hover:bg-blue-50 text-left">
-                  <ArrowRight size={14} /> Open job
-                </button>
-              ) : quote.status === 'accepted' && (
-                <button onClick={handleConvert} disabled={converting}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#F7931A] hover:bg-orange-50 text-left disabled:opacity-50">
-                  <ArrowRight size={14} /> {converting ? 'Converting...' : 'Convert to Job'}
-                </button>
-              )}
-              {quote.status === 'accepted' && (
-                <button onClick={handleInvoice} disabled={invoicing}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#0A2540] hover:bg-[#F0F7FF] text-left disabled:opacity-50">
-                  <Receipt size={14} /> {invoicing ? 'Creating...' : 'Create invoice'}
-                </button>
-              )}
-            </div>
-          </>
+      <td className="px-4 py-3 text-right">
+        <span className="font-semibold text-[#1A1A1A]">{formatMoney(Number(quote.total))}</span>
+        <span className="block text-[11px] font-normal text-[#4A5568]">inc GST</span>
+      </td>
+      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+        {next.key === 'none' ? (
+          <span className="text-xs font-medium text-[#0A2540]">{next.label}</span>
+        ) : (
+          <QuoteNextControl quote={quote} />
         )}
       </td>
     </tr>
   );
 }
 
-// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Quote Editor Modal ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+function QuoteNextControl({ quote }: { quote: QuoteListItem }) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { profile, company } = useAuth();
+  const { showToast } = useToast();
+  const [busy, setBusy] = useState<QuoteActionKey | null>(null);
+  const next = recommendQuoteAction(quoteActionContext(quote));
+  if (next.key === 'none') return null;
+
+  const run = async (key: QuoteActionKey, fn: () => Promise<void>) => {
+    if (!profile?.id) return;
+    setBusy(key);
+    try {
+      await fn();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      showToast(message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handle = () => {
+    if (next.key === 'send') {
+      void run('send', async () => {
+        const { error } = await supabase.from('quotes')
+          .update({ status: 'sent', updated_at: new Date().toISOString() })
+          .eq('id', quote.id);
+        if (error) throw error;
+        queryClient.invalidateQueries({ queryKey: ['quotes'] });
+        showToast('Quote marked as sent');
+      });
+      return;
+    }
+    if (next.key === 'accept') {
+      void run('accept', async () => {
+        const { error } = await supabase.from('quotes')
+          .update({ status: 'accepted', updated_at: new Date().toISOString() })
+          .eq('id', quote.id);
+        if (error) throw error;
+        queryClient.invalidateQueries({ queryKey: ['quotes'] });
+        showToast('Quote accepted');
+      });
+      return;
+    }
+    if (next.key === 'convert_job') {
+      void run('convert_job', async () => {
+        const jobId = await convertQuoteToJob(quote, profile!.id);
+        queryClient.invalidateQueries({ queryKey: ['quotes'] });
+        queryClient.invalidateQueries({ queryKey: ['jobs'] });
+        navigate(`/jobs/${jobId}`);
+      });
+      return;
+    }
+    if (next.key === 'invoice') {
+      void run('invoice', async () => {
+        const result = await convertQuoteToInvoice(
+          quote.id,
+          profile!.id,
+          Number(company?.default_tax_rate) || DEFAULT_TAX_RATE,
+        );
+        queryClient.invalidateQueries({ queryKey: ['quotes'] });
+        queryClient.invalidateQueries({ queryKey: ['invoices'] });
+        queryClient.invalidateQueries({ queryKey: ['job-invoices'] });
+        navigate(invoiceLandingPath(quote.job_id, result.id));
+      });
+      return;
+    }
+    if (next.key === 'open_job' && quote.job_id) {
+      navigate(`/jobs/${quote.job_id}`);
+      return;
+    }
+    if (next.key === 'open_invoice' && quote.invoice_id) {
+      navigate(invoiceHref(quote.invoice_id));
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handle}
+      disabled={!!busy}
+      className="btn-primary text-xs py-1.5 px-2.5"
+    >
+      {busy ? 'Working…' : next.label}
+    </button>
+  );
+}
 
 interface EditorState {
   client_id: string; job_id: string; status: QuoteStatus;
@@ -351,7 +465,10 @@ interface EditorState {
 }
 
 function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
-  quote: QuoteWithDetails | null; defaultTaxRate: number; onClose: () => void; onSaved: () => void;
+  quote: QuoteListItem | null;
+  defaultTaxRate: number;
+  onClose: () => void;
+  onSaved: (opts?: { close?: boolean; message?: string }) => void;
 }) {
   const { profile, company } = useAuth();
   const navigate = useNavigate();
@@ -365,6 +482,8 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
   const [invoicing, setInvoicing] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [err, setErr] = useState('');
+  const [savedId, setSavedId] = useState<string | null>(quote?.id ?? null);
+  const [invoiceId, setInvoiceId] = useState<string | null>(quote?.invoice_id ?? null);
 
   const [form, setForm] = useState<EditorState>({
     client_id: quote?.client_id ?? '',
@@ -407,6 +526,14 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
   );
   const { subtotal, taxAmount, total: grandTotal } = gst;
 
+  const next = recommendQuoteAction({
+    status: form.status,
+    hasClient: !!form.client_id,
+    hasLines: form.line_items.some(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0),
+    jobId: form.job_id || null,
+    invoiceId,
+  });
+
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
     const cleanLines: QuoteLineItem[] = form.line_items
@@ -423,12 +550,12 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
     return {
       kind: 'quote',
       title: 'Quoted prices',
-      docNumber: quote?.quote_number != null ? `#${padNum(quote.quote_number)}` : 'Draft',
+      docNumber: quote?.quote_number != null ? `#${padQuoteNumber(quote.quote_number)}` : 'Draft',
       dateLabel: 'Date',
       dateValue: format(new Date(), 'd MMM yyyy'),
       secondaryLabel: 'Valid until',
-      secondaryValue: form.validity_date ? format(parseISO(form.validity_date), 'd MMM yyyy') : 'â€”',
-      clientName: selectedClient?.name ?? 'â€”',
+      secondaryValue: form.validity_date ? format(parseISO(form.validity_date), 'd MMM yyyy') : '—',
+      clientName: selectedClient?.name ?? '—',
       clientDetail: selectedClient?.address ?? null,
       company: {
         name: company.name,
@@ -452,9 +579,7 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
     };
   }, [company, form, quote, selectedClient, subtotal, taxAmount, grandTotal]);
 
-  const handleSave = async () => {
-    if (!profile?.company_id) return;
-    if (!form.client_id) { setErr('Please select a client'); return; }
+  const buildPayload = (status: QuoteStatus) => {
     const cleanLines: QuoteLineItem[] = form.line_items
       .filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0)
       .map(li => ({
@@ -468,70 +593,174 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
         cost_model_id: li.cost_model_id ?? null,
       }));
-    if (cleanLines.length === 0) { setErr('Add at least one line item'); return; }
-    setSaving(true); setErr('');
-    const payload = {
-      client_id: form.client_id || null, job_id: form.job_id || null, status: form.status,
-      description: form.description.trim() || null,
-      scope_of_works: form.scope_of_works.trim() || null,
-      line_items: cleanLines, subtotal, tax_rate: parseFloat(form.tax_rate) || 0, tax_amount: taxAmount, total: grandTotal,
-      validity_date: form.validity_date || null, notes: form.notes.trim() || null,
-      inclusions: form.inclusions, exclusions: form.exclusions,
+    return {
+      cleanLines,
+      payload: {
+        client_id: form.client_id || null, job_id: form.job_id || null, status,
+        description: form.description.trim() || null,
+        scope_of_works: form.scope_of_works.trim() || null,
+        line_items: cleanLines, subtotal, tax_rate: parseFloat(form.tax_rate) || 0, tax_amount: taxAmount, total: grandTotal,
+        validity_date: form.validity_date || null, notes: form.notes.trim() || null,
+        inclusions: form.inclusions, exclusions: form.exclusions,
+      },
     };
-    const { error } = quote
-      ? await supabase.from('quotes').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', quote.id)
-      : await supabase.from('quotes').insert({ ...payload, company_id: profile.company_id, created_by: profile.id });
+  };
+
+  const persist = async (status: QuoteStatus, opts?: { close?: boolean; message?: string }) => {
+    if (!profile?.company_id) return null;
+    if (!form.client_id) { setErr('Please select a client'); return null; }
+    const { cleanLines, payload } = buildPayload(status);
+    if (cleanLines.length === 0) { setErr('Add at least one line item'); return null; }
+    setSaving(true); setErr('');
+    const id = savedId ?? quote?.id;
+    if (id) {
+      const { error } = await supabase.from('quotes').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id);
+      setSaving(false);
+      if (error) { setErr(error.message); return null; }
+      setForm(f => ({ ...f, status }));
+      onSaved({ close: opts?.close ?? false, message: opts?.message ?? 'Quote updated' });
+      return id;
+    }
+    const { data, error } = await supabase.from('quotes')
+      .insert({ ...payload, company_id: profile.company_id, created_by: profile.id })
+      .select('id')
+      .single();
     setSaving(false);
-    if (error) { setErr(error.message); return; }
-    onSaved();
+    if (error) { setErr(error.message); return null; }
+    setSavedId(data.id as string);
+    setForm(f => ({ ...f, status }));
+    onSaved({ close: opts?.close ?? true, message: opts?.message ?? 'Quote created' });
+    return data.id as string;
   };
 
   const handleInvoice = async () => {
-    if (!quote || quote.status !== 'accepted' || !profile?.id) return;
+    const id = savedId ?? quote?.id;
+    if (!id || form.status !== 'accepted' || !profile?.id) return;
     setInvoicing(true); setErr('');
     try {
       const result = await convertQuoteToInvoice(
-        quote.id,
+        id,
         profile.id,
         Number(company?.default_tax_rate) || DEFAULT_TAX_RATE,
       );
+      setInvoiceId(result.id);
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['job-invoices'] });
-      navigate(invoiceLandingPath(quote.job_id, result.id));
-    } catch (e: any) {
-      setErr(e.message ?? 'Could not create invoice');
+      navigate(invoiceLandingPath(form.job_id || quote?.job_id, result.id));
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Could not create invoice');
     } finally {
       setInvoicing(false);
     }
   };
 
   const handleConvert = async () => {
-    if (!quote || quote.status !== 'accepted' || !profile?.id) return;
+    const id = savedId ?? quote?.id;
+    if (!id || form.status !== 'accepted' || !profile?.id) return;
     setConverting(true); setErr('');
     try {
-      const jobId = await convertQuoteToJob(quote, profile.id);
+      const jobId = await convertQuoteToJob({
+        id,
+        company_id: quote?.company_id || profile.company_id,
+        quote_number: quote?.quote_number ?? null,
+        client_id: form.client_id || null,
+        job_id: form.job_id || null,
+        description: form.description,
+        scope_of_works: form.scope_of_works,
+        line_items: buildPayload('accepted').payload.line_items,
+        total: grandTotal,
+      }, profile.id);
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       navigate(`/jobs/${jobId}`);
-    } catch (e: any) {
-      setErr(e.message ?? 'Conversion failed');
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Conversion failed');
     } finally {
       setConverting(false);
     }
   };
 
+  const heading = quote?.quote_number != null
+    ? `QUOTE #${padQuoteNumber(quote.quote_number)}`
+    : 'NEW QUOTE';
+
   return (
     <div className="overlay-backdrop">
       <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-[#1A1A1A]">{quote ? 'Edit Quote' : 'New Quote'}</h2>
-            {quote?.quote_number && (
-              <span className="text-xs font-bold text-[#2E75B6] bg-[#EFF6FF] px-2 py-0.5 rounded-full">#{padNum(quote.quote_number)}</span>
-            )}
+        <div className="bg-[#0A2540] text-white px-5 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold tracking-wider text-white/60 mb-1">{heading}</p>
+              <h2 className="text-lg font-semibold tracking-tight truncate">
+                {form.description.trim() || selectedClient?.name || 'Quote'}
+              </h2>
+              <p className="mt-1 text-sm text-white/80 truncate">{selectedClient?.name || 'No client yet'}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${QUOTE_STATUS_STYLES[form.status]}`}>
+                {QUOTE_STATUS_LABELS[form.status]}
+              </span>
+              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/70">
+                <X size={18} />
+              </button>
+            </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400"><X size={18} /></button>
+          <p className="mt-3 text-xl font-bold">{formatMoney(grandTotal)} <span className="text-sm font-medium text-white/70">inc GST</span></p>
+        </div>
+
+        <div className="px-5 py-3 border-b border-[#F3F4F6] space-y-3">
+          <NextBanner detail={next.detail} />
+          <div className="flex flex-wrap gap-2">
+            {next.key === 'send' && (
+              <ActionButton recommended onClick={() => void persist('sent', { close: false, message: 'Quote marked as sent' })} disabled={saving}>
+                <Send size={14} /> {saving ? 'Saving...' : 'Send'}
+              </ActionButton>
+            )}
+            {next.key === 'accept' && (
+              <ActionButton recommended onClick={() => void persist('accepted', { close: false, message: 'Quote accepted' })} disabled={saving}>
+                <Check size={14} /> {saving ? 'Saving...' : 'Mark accepted'}
+              </ActionButton>
+            )}
+            {form.status === 'accepted' && !form.job_id && (
+              <ActionButton recommended={next.key === 'convert_job'} onClick={() => void handleConvert()} disabled={converting}>
+                <ArrowRight size={14} /> {converting ? 'Converting...' : 'Convert to job'}
+              </ActionButton>
+            )}
+            {form.status === 'accepted' && form.job_id && (
+              <ActionButton recommended={next.key === 'open_job'} onClick={() => navigate(`/jobs/${form.job_id}`)}>
+                <ArrowRight size={14} /> Open job
+              </ActionButton>
+            )}
+            {form.status === 'accepted' && !invoiceId && (
+              <ActionButton recommended={next.key === 'invoice'} onClick={() => void handleInvoice()} disabled={invoicing}>
+                <Receipt size={14} /> {invoicing ? 'Creating...' : 'Create invoice'}
+              </ActionButton>
+            )}
+            {form.status === 'accepted' && invoiceId && (
+              <ActionButton recommended={false} onClick={() => navigate(invoiceHref(invoiceId))}>
+                <Receipt size={14} /> Open invoice
+              </ActionButton>
+            )}
+            {form.status === 'sent' && (
+              <button
+                type="button"
+                onClick={() => void persist('declined', { close: false, message: 'Quote declined' })}
+                disabled={saving}
+                className="btn-ghost"
+              >
+                Decline
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowPreview(true)}
+              disabled={!previewData}
+              className="btn-ghost"
+            >
+              <Eye size={14} /> Preview PDF
+            </button>
+          </div>
         </div>
 
         <div className="overlay-body">
@@ -575,7 +804,6 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
             onChange={({ inclusions, exclusions }) => setForm(f => ({ ...f, inclusions, exclusions }))}
           />
 
-          {/* Line items */}
           <LineItemEditor
             lines={form.line_items}
             stockItems={stockItems}
@@ -584,7 +812,6 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
             onChange={lines => setForm(f => ({ ...f, line_items: lines }))}
           />
 
-          {/* Totals */}
           <DocumentGstTotals
             subtotal={subtotal}
             taxRate={parseFloat(form.tax_rate) || 0}
@@ -592,17 +819,12 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
             total={grandTotal}
           />
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="GST rate (%)">
               <input type="number" min={0} step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))} className="form-input" placeholder="0" />
             </Field>
             <Field label="Valid Until">
               <input type="date" value={form.validity_date} onChange={e => setForm(f => ({ ...f, validity_date: e.target.value }))} className="form-input" />
-            </Field>
-            <Field label="Status">
-              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as QuoteStatus }))} className="form-input cursor-pointer">
-                {(Object.keys(QUOTE_STATUS_LABELS) as QuoteStatus[]).map(s => <option key={s} value={s}>{QUOTE_STATUS_LABELS[s]}</option>)}
-              </select>
             </Field>
           </div>
 
@@ -613,41 +835,11 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
           {err && <p className="text-sm text-red-600">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
-          <div className="flex items-center gap-3">
-            {quote?.job_id ? (
-              <button type="button" onClick={() => navigate(`/jobs/${quote.job_id}`)}
-                className="flex items-center gap-1.5 text-sm text-[#2E75B6] hover:underline font-medium">
-                <ArrowRight size={14} /> Open job
-              </button>
-            ) : quote?.status === 'accepted' && (
-              <button type="button" onClick={handleConvert} disabled={converting}
-                className="flex items-center gap-1.5 text-sm text-[#F7931A] hover:text-[#d97d12] font-medium disabled:opacity-50">
-                <ArrowRight size={14} /> {converting ? 'Converting...' : 'Convert to Job'}
-              </button>
-            )}
-            {quote?.status === 'accepted' && (
-              <button type="button" onClick={handleInvoice} disabled={invoicing}
-                className="flex items-center gap-1.5 text-sm text-[#0A2540] hover:underline font-medium disabled:opacity-50">
-                <Receipt size={14} /> {invoicing ? 'Creating...' : 'Create invoice'}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setShowPreview(true)}
-              disabled={!previewData}
-              className="flex items-center gap-1.5 text-sm font-medium text-[#2E75B6] hover:underline disabled:opacity-40 disabled:no-underline"
-            >
-              <Eye size={14} /> Preview PDF
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-gray-50">Cancel</button>
-            <button onClick={handleSave} disabled={saving}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">
-              {saving ? 'Saving...' : quote ? 'Save Changes' : 'Create Quote'}
-            </button>
-          </div>
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-100">
+          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={() => void persist(form.status, { close: true })} disabled={saving} className="btn-primary">
+            {saving ? 'Saving...' : quote || savedId ? 'Save Changes' : 'Save draft'}
+          </button>
         </div>
       </div>
 

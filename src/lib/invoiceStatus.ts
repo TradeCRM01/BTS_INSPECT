@@ -19,3 +19,8 @@ export function effectiveInvoiceStatus(
   if (status === 'sent' && due && due < todayIsoDate(now)) return 'overdue';
   return status === 'sent' ? 'sent' : status;
 }
+
+/** Overdue is computed from due date — never persist it as a chosen status. */
+export function persistableInvoiceStatus(status: InvoiceStatus): InvoiceStatus {
+  return status === 'overdue' ? 'sent' : status;
+}

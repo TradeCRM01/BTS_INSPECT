@@ -13,26 +13,28 @@ import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineI
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
+import { ActionButton, NextBanner } from '../components/invoicing/DocNextAction';
 import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
-import { calcDocumentTotals, DEFAULT_TAX_RATE } from '../lib/gst';
-import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
+import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
+import { effectiveInvoiceStatus, persistableInvoiceStatus } from '../lib/invoiceStatus';
+import { invoiceListBucket, recommendInvoiceAction, type InvoiceActionKey } from '../lib/invoiceNextAction';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, formatMoney } from '../types/fsm';
-import { Plus, Receipt, X, Download, MoreVertical, AlertCircle, Eye, Check } from 'lucide-react';
+import { Plus, Receipt, X, Download, AlertCircle, Eye, Check, Send, User, Calendar } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 const padInv = (n: number | null) => String(n ?? 0).padStart(4, '0');
 
 type StatusFilter = 'all' | InvoiceStatus;
 
-const STATUS_TABS: { key: StatusFilter; label: string }[] = [
+const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'draft', label: 'Draft' },
   { key: 'sent', label: 'Sent' },
-  { key: 'paid', label: 'Paid' },
   { key: 'overdue', label: 'Overdue' },
+  { key: 'paid', label: 'Paid' },
 ];
 
 export function InvoicesPage() {
@@ -44,7 +46,7 @@ export function InvoicesPage() {
   const [search, setSearch] = useState('');
   const [editingInvoice, setEditingInvoice] = useState<InvoiceWithDetails | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [viewMode, setViewMode] = useViewMode('invoices', 'list');
+  const [viewMode, setViewMode] = useViewMode('invoices');
   const preselectId = searchParams.get('id');
 
   const { data: invoices, isLoading, error } = useQuery<InvoiceWithDetails[]>({
@@ -60,11 +62,11 @@ export function InvoicesPage() {
       const clientIds = [...new Set(list.map(i => i.client_id).filter(Boolean))] as string[];
       const jobIds = [...new Set(list.map(i => i.job_id).filter(Boolean))] as string[];
       const [clientsRes, jobsRes] = await Promise.all([
-        clientIds.length ? supabase.from('clients').select('id, name').in('id', clientIds) : Promise.resolve({ data: [], error: null }),
-        jobIds.length ? supabase.from('jobs').select('id, title').in('id', jobIds) : Promise.resolve({ data: [], error: null }),
+        clientIds.length ? supabase.from('clients').select('id, name').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+        jobIds.length ? supabase.from('jobs').select('id, title').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string }[] }),
       ]);
-      const clientMap = new Map((clientsRes.data ?? []).map((c: any) => [c.id, c.name]));
-      const jobMap = new Map((jobsRes.data ?? []).map((j: any) => [j.id, j.title]));
+      const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c.name]));
+      const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j.title]));
       return list.map(i => ({
         ...i,
         inclusions: asStringList(i.inclusions),
@@ -94,12 +96,28 @@ export function InvoicesPage() {
       if (statusFilter !== 'all' && effectiveInvoiceStatus(i) !== statusFilter) return false;
       if (search.trim()) {
         const s = search.toLowerCase();
-        const num = `#${String(i.invoice_number ?? 0).padStart(4, '0')}`.toLowerCase();
+        const num = `#${padInv(i.invoice_number)}`.toLowerCase();
         return num.includes(s) || (i.client_name ?? '').toLowerCase().includes(s);
       }
       return true;
     });
   }, [invoices, statusFilter, search]);
+
+  const overdueInvoices = filtered.filter(i => invoiceListBucket(i) === 'overdue');
+  const draftInvoices = filtered.filter(i => invoiceListBucket(i) === 'draft');
+  const awaitingInvoices = filtered.filter(i => invoiceListBucket(i) === 'awaiting');
+  const paidInvoices = filtered.filter(i => invoiceListBucket(i) === 'paid');
+
+  const counts = useMemo(() => {
+    const list = invoices ?? [];
+    return {
+      all: list.length,
+      draft: list.filter(i => effectiveInvoiceStatus(i) === 'draft').length,
+      sent: list.filter(i => effectiveInvoiceStatus(i) === 'sent').length,
+      overdue: list.filter(i => effectiveInvoiceStatus(i) === 'overdue').length,
+      paid: list.filter(i => i.status === 'paid').length,
+    };
+  }, [invoices]);
 
   useEffect(() => {
     if (!preselectId || !invoices) return;
@@ -110,79 +128,95 @@ export function InvoicesPage() {
     setSearchParams({}, { replace: true });
   }, [preselectId, invoices, setSearchParams]);
 
+  function openInvoice(inv: InvoiceWithDetails | null) {
+    setEditingInvoice(inv);
+    setShowForm(true);
+  }
+
+  function handleSaved(opts?: { close?: boolean; message?: string }) {
+    if (opts?.close !== false) setShowForm(false);
+    queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    showToast(opts?.message ?? (editingInvoice ? 'Invoice updated' : 'Invoice created'));
+  }
+
   if (error) return <AppShell><PageError message="Could not load invoices" /></AppShell>;
+
+  const filteredEmpty = !search && statusFilter === 'all';
 
   return (
     <AppShell>
-      <div className="max-w-[1200px] mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className="max-w-[1400px] mx-auto px-4 py-6">
+        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-semibold text-[#1A1A1A]">Invoices</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">{invoices?.length ?? 0} total invoices</p>
+            <p className="text-sm text-[#4A5568] mt-0.5">
+              {filtered.length} of {invoices?.length ?? 0} invoices
+            </p>
           </div>
           <button
-            onClick={() => { setEditingInvoice(null); setShowForm(true); }}
-            className="flex items-center gap-2 bg-[#0A2540] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
+            onClick={() => openInvoice(null)}
+            className="btn-primary"
           >
             <Plus size={16} /> New Invoice
           </button>
         </div>
 
-        {/* Summary cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
           {isLoading ? (
             <SkeletonSummaryCards count={3} />
           ) : (
             <>
-              <SummaryCardMoney label="Total Outstanding" amount={totals.outstanding} color="text-[#2E75B6]" formatMoney={formatMoney} />
-              <SummaryCardMoney label="Total Overdue" amount={totals.overdue} color="text-red-600" icon={<AlertCircle size={15} />} formatMoney={formatMoney} />
-              <SummaryCardMoney label="Total Paid" amount={totals.paid} color="text-green-600" formatMoney={formatMoney} />
+              <SummaryCardMoney label="Outstanding (inc GST)" amount={totals.outstanding} color="text-[#2E75B6]" formatMoney={formatMoney} />
+              <SummaryCardMoney label="Overdue (inc GST)" amount={totals.overdue} color="text-red-600" icon={<AlertCircle size={15} />} formatMoney={formatMoney} />
+              <SummaryCardMoney label="Paid (inc GST)" amount={totals.paid} color="text-green-600" formatMoney={formatMoney} />
             </>
           )}
         </div>
 
-        {/* Search */}
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search by invoice number or client name..." />
-          <ViewToggle mode={viewMode} onChange={setViewMode} />
-        </div>
-
-        {/* Status tabs */}
-        <div className="flex items-center gap-1 mb-4 border-b border-[#E5E7EB] overflow-x-auto">
-          {STATUS_TABS.map(tab => {
-            const count = tab.key === 'all' ? (invoices?.length ?? 0) : (invoices?.filter(i => effectiveInvoiceStatus(i) === tab.key).length ?? 0);
-            const active = statusFilter === tab.key;
-            return (
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <SearchBar value={search} onChange={setSearch} placeholder="Search invoices or clients..." className="max-w-sm flex-1" />
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 overflow-x-auto">
+            {STATUS_FILTERS.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setStatusFilter(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${
-                  active ? 'border-[#0A2540] text-[#0A2540]' : 'border-transparent text-[#4A5568] hover:text-[#1A1A1A]'
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+                  statusFilter === tab.key ? 'bg-white text-[#0A2540] shadow-sm' : 'text-[#6B7280] hover:text-[#374151]'
                 }`}
               >
                 {tab.label}
-                <span className={`text-xs px-1.5 rounded-full ${active ? 'bg-[#0A2540] text-white' : 'bg-gray-100 text-[#4A5568]'}`}>{count}</span>
+                <span className={`ml-1.5 text-xs ${tab.key === 'overdue' && counts.overdue > 0 ? 'text-red-500' : 'text-[#9CA3AF]'}`}>
+                  {counts[tab.key]}
+                </span>
               </button>
-            );
-          })}
+            ))}
+          </div>
+          <ViewToggle mode={viewMode} onChange={setViewMode} />
         </div>
 
-        {/* List */}
         {isLoading ? (
           <SkeletonRow />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={Receipt}
-            title={search || statusFilter !== 'all' ? 'No invoices match your filters' : 'No invoices yet'}
-            message={search || statusFilter !== 'all' ? 'Try adjusting your filters.' : 'Create your first invoice to get started.'}
-            action={!search && statusFilter === 'all' && (
-              <button onClick={() => { setEditingInvoice(null); setShowForm(true); }} className="btn-primary">
-                <Plus size={16} /> Create your first invoice
+            title={filteredEmpty ? 'No invoices yet' : 'No matching invoices'}
+            message={filteredEmpty
+              ? 'Invoice from an accepted quote, or open a job and invoice the bill.'
+              : 'Try another status or search.'}
+            action={filteredEmpty ? (
+              <button onClick={() => openInvoice(null)} className="btn-primary">
+                <Plus size={16} /> Create an invoice
               </button>
-            )}
+            ) : undefined}
           />
-        ) : viewMode === 'list' ? (
+        ) : viewMode === 'grid' ? (
+          <div className="space-y-6">
+            <InvoiceGroup title="Overdue" invoices={overdueInvoices} onOpen={openInvoice} />
+            <InvoiceGroup title="Drafts" invoices={draftInvoices} onOpen={openInvoice} />
+            <InvoiceGroup title="Awaiting payment" invoices={awaitingInvoices} onOpen={openInvoice} />
+            <InvoiceGroup title="Paid" invoices={paidInvoices} onOpen={openInvoice} />
+          </div>
+        ) : (
           <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -192,55 +226,42 @@ export function InvoicesPage() {
                     <th className="px-4 py-3">Client</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 text-right">Total (inc GST)</th>
-                    <th className="px-4 py-3">Due Date</th>
-                    <th className="px-4 py-3">Created</th>
-                    <th className="px-4 py-3 w-8"></th>
+                    <th className="px-4 py-3">Due</th>
+                    <th className="px-4 py-3">Next</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F3F4F6]">
                   {filtered.map(inv => {
                     const status = effectiveInvoiceStatus(inv);
                     return (
-                    <tr key={inv.id} onClick={() => { setEditingInvoice(inv); setShowForm(true); }}
-                      className="hover:bg-[#F9FAFB] cursor-pointer transition-colors">
-                      <td className="px-4 py-3 font-medium text-[#2E75B6]">#{String(inv.invoice_number ?? 0).padStart(4, '0')}</td>
-                      <td className="px-4 py-3 text-[#1A1A1A]">{inv.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INVOICE_STATUS_STYLES[status]}`}>
-                          {INVOICE_STATUS_LABELS[status]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold text-[#1A1A1A]">{formatMoney(Number(inv.total))}</td>
-                      <td className="px-4 py-3 text-[#4A5568]">{inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : '—'}</td>
-                      <td className="px-4 py-3 text-[#4A5568]">{format(parseISO(inv.created_at), 'd MMM yyyy')}</td>
-                      <td className="px-4 py-3 text-[#9CA3AF]"><MoreVertical size={15} /></td>
-                    </tr>
+                      <tr
+                        key={inv.id}
+                        onClick={() => openInvoice(inv)}
+                        className={`hover:bg-[#F9FAFB] cursor-pointer transition-colors ${status === 'overdue' ? 'bg-red-50/40' : ''}`}
+                      >
+                        <td className="px-4 py-3 font-medium text-[#2E75B6]">#{padInv(inv.invoice_number)}</td>
+                        <td className="px-4 py-3 text-[#1A1A1A]">{inv.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INVOICE_STATUS_STYLES[status]}`}>
+                            {INVOICE_STATUS_LABELS[status]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className="font-semibold text-[#1A1A1A]">{formatMoney(Number(inv.total))}</span>
+                          <span className="block text-[11px] font-normal text-[#4A5568]">{gstLabel(Number(inv.tax_rate))} {formatMoney(Number(inv.tax_amount))}</span>
+                        </td>
+                        <td className={`px-4 py-3 ${status === 'overdue' ? 'text-red-600 font-medium' : 'text-[#4A5568]'}`}>
+                          {inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : '—'}
+                        </td>
+                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                          <InvoiceNextControl invoice={inv} />
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map(inv => {
-              const status = effectiveInvoiceStatus(inv);
-              return (
-              <div key={inv.id} onClick={() => { setEditingInvoice(inv); setShowForm(true); }}
-                className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-2">
-                  <span className="font-bold text-[#2E75B6]">#{String(inv.invoice_number ?? 0).padStart(4, '0')}</span>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INVOICE_STATUS_STYLES[status]}`}>{INVOICE_STATUS_LABELS[status]}</span>
-                </div>
-                <p className="text-sm font-medium text-[#1A1A1A] mb-1">{inv.client_name ?? 'No client'}</p>
-                <p className="text-lg font-bold text-[#1A1A1A] mb-2">{formatMoney(Number(inv.total))}</p>
-                <div className="flex items-center justify-between text-xs text-[#4A5568]">
-                  <span>Due: {inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : '—'}</span>
-                  <span>{format(parseISO(inv.created_at), 'd MMM yyyy')}</span>
-                </div>
-              </div>
-              );
-            })}
           </div>
         )}
       </div>
@@ -250,10 +271,123 @@ export function InvoicesPage() {
           invoice={editingInvoice}
           defaultTaxRate={company?.default_tax_rate ?? DEFAULT_TAX_RATE}
           onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); queryClient.invalidateQueries({ queryKey: ['invoices'] }); showToast(editingInvoice ? 'Invoice updated' : 'Invoice created'); }}
+          onSaved={handleSaved}
         />
       )}
     </AppShell>
+  );
+}
+
+function InvoiceGroup({
+  title, invoices, onOpen,
+}: {
+  title: string;
+  invoices: InvoiceWithDetails[];
+  onOpen: (inv: InvoiceWithDetails) => void;
+}) {
+  if (invoices.length === 0) return null;
+  return (
+    <div>
+      <h2 className={`text-xs font-semibold uppercase tracking-wide mb-2 ${title === 'Overdue' ? 'text-red-500' : 'text-[#9CA3AF]'}`}>
+        {title}
+        <span className="normal-case font-normal"> ({invoices.length})</span>
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {invoices.map(inv => (
+          <InvoiceCard key={inv.id} invoice={inv} onOpen={() => onOpen(inv)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function InvoiceCard({ invoice, onOpen }: { invoice: InvoiceWithDetails; onOpen: () => void }) {
+  const next = recommendInvoiceAction(invoice);
+  const overdue = next.status === 'overdue';
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm hover:shadow-md transition-all text-left overflow-hidden group cursor-pointer"
+      style={{ borderLeftWidth: 4, borderLeftColor: overdue ? '#DC2626' : next.status === 'paid' ? '#16A34A' : '#0A2540' }}
+    >
+      <div className={`px-3.5 py-2.5 ${overdue ? 'bg-[#7F1D1D]' : 'bg-[#0A2540]'}`}>
+        <p className="text-[10px] font-bold tracking-wider text-white/55">
+          INVOICE #{padInv(invoice.invoice_number)}
+        </p>
+        <h3 className="text-sm font-semibold text-white truncate mt-0.5 group-hover:text-[#93C5FD] transition-colors">
+          {invoice.client_name || 'No client'}
+        </h3>
+        <p className="mt-1 flex items-center gap-1 text-[11px] text-white/75 truncate">
+          <User size={11} className="shrink-0 text-[#93C5FD]" />
+          {invoice.job_title || invoice.client_name || 'Invoice'}
+        </p>
+      </div>
+      <div className="p-3.5">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div>
+            <p className="text-lg font-bold text-[#1A1A1A]">{formatMoney(Number(invoice.total))}</p>
+            <p className="text-[11px] text-[#4A5568]">inc GST · {gstLabel(Number(invoice.tax_rate))} {formatMoney(Number(invoice.tax_amount))}</p>
+          </div>
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${INVOICE_STATUS_STYLES[next.status]}`}>
+            {INVOICE_STATUS_LABELS[next.status]}
+          </span>
+        </div>
+        {invoice.due_date && (
+          <div className={`flex items-center gap-1.5 text-xs mb-2 ${overdue ? 'text-red-600 font-medium' : 'text-[#4A5568]'}`}>
+            <Calendar size={12} className={`shrink-0 ${overdue ? 'text-red-500' : 'text-[#9CA3AF]'}`} />
+            Due {format(parseISO(invoice.due_date), 'd MMM yyyy')}
+          </div>
+        )}
+        <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-[#F3F4F6]" onClick={e => e.stopPropagation()}>
+          {next.key === 'none' ? (
+            <span className="text-[11px] font-semibold text-[#0A2540]">{next.label}</span>
+          ) : (
+            <InvoiceNextControl invoice={invoice} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InvoiceNextControl({ invoice }: { invoice: InvoiceWithDetails }) {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const [busy, setBusy] = useState<InvoiceActionKey | null>(null);
+  const next = recommendInvoiceAction(invoice);
+  if (next.key === 'none') return <span className="text-xs font-medium text-[#0A2540]">{next.label}</span>;
+
+  const patchStatus = async (status: InvoiceStatus, message: string) => {
+    setBusy(status === 'paid' ? 'mark_paid' : 'send');
+    try {
+      const { error } = await supabase.from('invoices')
+        .update({ status: persistableInvoiceStatus(status), updated_at: new Date().toISOString() })
+        .eq('id', invoice.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      showToast(message);
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Could not update invoice');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (next.key === 'send') void patchStatus('sent', 'Invoice marked as sent');
+        if (next.key === 'mark_paid') void patchStatus('paid', 'Invoice marked as paid');
+      }}
+      disabled={!!busy}
+      className={`text-xs py-1.5 px-2.5 ${next.status === 'overdue' ? 'inline-flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-red-700 disabled:opacity-50' : 'btn-primary'}`}
+    >
+      {busy ? 'Working…' : next.label}
+    </button>
   );
 }
 
@@ -275,7 +409,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
   invoice: InvoiceWithDetails | null;
   defaultTaxRate: number;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (opts?: { close?: boolean; message?: string }) => void;
 }) {
   const { profile, company } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
@@ -287,12 +421,13 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [err, setErr] = useState('');
+  const [savedId, setSavedId] = useState<string | null>(invoice?.id ?? null);
 
   const [form, setForm] = useState<EditorState>({
     client_id: invoice?.client_id ?? '',
     job_id: invoice?.job_id ?? '',
     quote_id: invoice?.quote_id ?? '',
-    status: invoice?.status ?? 'draft',
+    status: invoice?.status === 'overdue' ? 'sent' : (invoice?.status ?? 'draft'),
     line_items: invoice?.line_items?.length
       ? invoice.line_items.map(toEditLine)
       : [emptyLineItem(company?.default_material_markup ?? 0)],
@@ -320,7 +455,6 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
     })();
   }, [profile?.company_id]);
 
-  // Load quotes for the selected client
   useEffect(() => {
     if (!form.client_id) { setQuotes([]); return; }
     (async () => {
@@ -337,7 +471,8 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
     [rawSubtotal, form.tax_rate],
   );
   const { subtotal, taxAmount, total: grandTotal } = gst;
-  const displayStatus = effectiveInvoiceStatus({ status: form.status, due_date: form.due_date });
+  const next = recommendInvoiceAction({ status: form.status, due_date: form.due_date });
+  const displayStatus = next.status;
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
@@ -359,8 +494,8 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
       dateLabel: 'Date',
       dateValue: format(new Date(), 'd MMM yyyy'),
       secondaryLabel: 'Due',
-      secondaryValue: form.due_date ? format(parseISO(form.due_date), 'd MMM yyyy') : 'â€”',
-      clientName: selectedClient?.name ?? 'â€”',
+      secondaryValue: form.due_date ? format(parseISO(form.due_date), 'd MMM yyyy') : '—',
+      clientName: selectedClient?.name ?? '—',
       clientDetail: selectedClient?.address ?? null,
       company: {
         name: company.name,
@@ -382,8 +517,6 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
       paymentTerms: form.payment_terms.trim() || null,
     };
   }, [company, form, invoice, selectedClient, subtotal, taxAmount, grandTotal]);
-
-
 
   const handleImportFromJob = async () => {
     if (!form.job_id) { setErr('Select a job first'); return; }
@@ -413,14 +546,14 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
         };
       });
       setForm(f => ({ ...f, line_items: [...f.line_items.filter(li => li.description.trim()), ...newLines] }));
-    } catch (e: any) {
-      setErr(e.message ?? 'Import failed');
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Import failed');
     } finally {
       setImporting(false);
     }
   };
 
-  const handleSave = async () => {
+  const persist = async (status: InvoiceStatus, opts?: { close?: boolean; message?: string }) => {
     if (!profile?.company_id) return;
     if (!form.client_id) { setErr('Please select a client'); return; }
     const cleanLines: InvoiceLineItem[] = form.line_items
@@ -438,11 +571,12 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
       }));
     if (cleanLines.length === 0) { setErr('Add at least one line item'); return; }
     setSaving(true); setErr('');
+    const storedStatus = persistableInvoiceStatus(status);
     const payload = {
       client_id: form.client_id || null,
       job_id: form.job_id || null,
       quote_id: form.quote_id || null,
-      status: form.status,
+      status: storedStatus,
       line_items: cleanLines,
       subtotal,
       tax_rate: parseFloat(form.tax_rate) || 0,
@@ -454,14 +588,28 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
       inclusions: form.inclusions,
       exclusions: form.exclusions,
     };
-    const { error } = invoice
-      ? await supabase.from('invoices').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', invoice.id)
-      : await supabase.from('invoices').insert({
-        ...payload,
-        source: form.quote_id ? INVOICE_SOURCE_QUOTE : null,
-        company_id: profile.company_id,
-        created_by: profile.id,
-      });
+    const id = savedId ?? invoice?.id;
+    if (id) {
+      const { error } = await supabase.from('invoices').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id);
+      setSaving(false);
+      if (error) {
+        if (error.code === '23505') {
+          setErr('An invoice already exists for this quote');
+          return;
+        }
+        setErr(error.message);
+        return;
+      }
+      setForm(f => ({ ...f, status: storedStatus }));
+      onSaved({ close: opts?.close ?? false, message: opts?.message ?? 'Invoice updated' });
+      return;
+    }
+    const { data, error } = await supabase.from('invoices').insert({
+      ...payload,
+      source: form.quote_id ? INVOICE_SOURCE_QUOTE : null,
+      company_id: profile.company_id,
+      created_by: profile.id,
+    }).select('id').single();
     setSaving(false);
     if (error) {
       if (error.code === '23505') {
@@ -471,46 +619,72 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
       setErr(error.message);
       return;
     }
-    onSaved();
+    setSavedId(data.id as string);
+    setForm(f => ({ ...f, status: storedStatus }));
+    onSaved({ close: opts?.close ?? true, message: opts?.message ?? 'Invoice created' });
   };
 
-  const markPaid = async () => {
-    if (!invoice) {
-      setForm(f => ({ ...f, status: 'paid' }));
-      return;
-    }
-    setSaving(true); setErr('');
-    const { error } = await supabase
-      .from('invoices')
-      .update({ status: 'paid', updated_at: new Date().toISOString() })
-      .eq('id', invoice.id);
-    setSaving(false);
-    if (error) { setErr(error.message); return; }
-    onSaved();
-  };
+  const heading = invoice?.invoice_number != null
+    ? `INVOICE #${padInv(invoice.invoice_number)}`
+    : 'NEW INVOICE';
 
   return (
     <div className="overlay-backdrop">
       <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-[#1A1A1A]">{invoice ? 'Edit Invoice' : 'New Invoice'}</h2>
-            {invoice?.invoice_number && (
-              <span className="text-xs font-bold text-[#2E75B6] bg-[#EFF6FF] px-2 py-0.5 rounded-full">
-                #{String(invoice.invoice_number).padStart(4, '0')}
+        <div className={`text-white px-5 py-4 ${displayStatus === 'overdue' ? 'bg-[#7F1D1D]' : 'bg-[#0A2540]'}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold tracking-wider text-white/60 mb-1">{heading}</p>
+              <h2 className="text-lg font-semibold tracking-tight truncate">
+                {selectedClient?.name || 'Invoice'}
+              </h2>
+              <p className="mt-1 text-sm text-white/80 truncate">
+                {form.due_date ? `Due ${format(parseISO(form.due_date), 'd MMM yyyy')}` : 'No due date'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INVOICE_STATUS_STYLES[displayStatus]}`}>
+                {INVOICE_STATUS_LABELS[displayStatus]}
               </span>
-            )}
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INVOICE_STATUS_STYLES[displayStatus]}`}>
-              {INVOICE_STATUS_LABELS[displayStatus]}
-            </span>
+              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/70">
+                <X size={18} />
+              </button>
+            </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400">
-            <X size={18} />
-          </button>
+          <p className="mt-3 text-xl font-bold">
+            {formatMoney(grandTotal)} <span className="text-sm font-medium text-white/70">inc GST</span>
+          </p>
+          <p className="text-sm text-white/70 mt-0.5">{gstLabel(parseFloat(form.tax_rate) || 0)} {formatMoney(taxAmount)}</p>
         </div>
 
-        {/* Body */}
+        <div className="px-5 py-3 border-b border-[#F3F4F6] space-y-3">
+          <NextBanner detail={next.detail} />
+          <div className="flex flex-wrap gap-2">
+            {next.key === 'send' && (
+              <ActionButton recommended onClick={() => void persist('sent', { close: false, message: 'Invoice marked as sent' })} disabled={saving}>
+                <Send size={14} /> {saving ? 'Saving...' : 'Send'}
+              </ActionButton>
+            )}
+            {form.status !== 'paid' && (
+              <ActionButton
+                recommended={next.key === 'mark_paid'}
+                onClick={() => void persist('paid', { close: false, message: 'Invoice marked as paid' })}
+                disabled={saving}
+              >
+                <Check size={14} /> {saving ? 'Saving...' : 'Mark paid'}
+              </ActionButton>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowPreview(true)}
+              disabled={!previewData}
+              className="btn-ghost"
+            >
+              <Eye size={14} /> Preview PDF
+            </button>
+          </div>
+        </div>
+
         <div className="overlay-body">
           <Field label="Client" required>
             <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value, job_id: '', quote_id: '' }))} className="form-input cursor-pointer">
@@ -535,7 +709,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
           </div>
 
           {form.job_id && (
-            <button type="button" onClick={handleImportFromJob} disabled={importing}
+            <button type="button" onClick={() => void handleImportFromJob()} disabled={importing}
               className="flex items-center gap-1.5 text-xs text-[#2E75B6] hover:underline font-medium disabled:opacity-50">
               <Download size={13} /> {importing ? 'Importing...' : 'Import line items from job'}
             </button>
@@ -547,7 +721,6 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
             onChange={({ inclusions, exclusions }) => setForm(f => ({ ...f, inclusions, exclusions }))}
           />
 
-          {/* Line items */}
           <LineItemEditor
             lines={form.line_items}
             stockItems={stockItems}
@@ -556,7 +729,6 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
             onChange={lines => setForm(f => ({ ...f, line_items: lines }))}
           />
 
-          {/* Totals */}
           <DocumentGstTotals
             subtotal={subtotal}
             taxRate={parseFloat(form.tax_rate) || 0}
@@ -564,7 +736,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
             total={grandTotal}
           />
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="GST rate (%)">
               <input type="number" min={0} step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))}
                 className="form-input" placeholder="0" />
@@ -572,12 +744,6 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
             <Field label="Payment Terms">
               <input value={form.payment_terms} onChange={e => setForm(f => ({ ...f, payment_terms: e.target.value }))}
                 className="form-input" placeholder="Net 30" />
-            </Field>
-            <Field label="Status">
-              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as InvoiceStatus }))}
-                className="form-input cursor-pointer">
-                {(Object.keys(INVOICE_STATUS_LABELS) as InvoiceStatus[]).map(s => <option key={s} value={s}>{INVOICE_STATUS_LABELS[s]}</option>)}
-              </select>
             </Field>
           </div>
 
@@ -594,33 +760,11 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
           {err && <p className="text-sm text-red-600">{err}</p>}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
-          <button
-            type="button"
-            onClick={() => setShowPreview(true)}
-            disabled={!previewData}
-            className="flex items-center gap-1.5 text-sm font-medium text-[#2E75B6] hover:underline disabled:opacity-40 disabled:no-underline"
-          >
-            <Eye size={14} /> Preview PDF
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-100">
+          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={() => void persist(form.status, { close: true })} disabled={saving} className="btn-primary">
+            {saving ? 'Saving...' : invoice || savedId ? 'Save Changes' : 'Save draft'}
           </button>
-          <div className="flex items-center gap-2">
-            {form.status !== 'paid' && (
-              <button
-                type="button"
-                onClick={markPaid}
-                disabled={saving}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
-              >
-                <Check size={14} /> Mark as paid
-              </button>
-            )}
-            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-gray-50">Cancel</button>
-            <button onClick={handleSave} disabled={saving}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">
-              {saving ? 'Saving...' : invoice ? 'Save Changes' : 'Create Invoice'}
-            </button>
-          </div>
         </div>
       </div>
 
