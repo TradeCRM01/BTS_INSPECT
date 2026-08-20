@@ -66,6 +66,34 @@ export function jobCardHint(
   return 'Scheduled';
 }
 
+/** Schedule-board chips only — date and crew, not JHA / inspect / invoice. */
+export function boardDispatchHint(
+  job: {
+    status: JobStatus;
+    scheduled_date: string | null | undefined;
+    assigned_team?: string[] | null;
+  },
+  now = new Date(),
+): 'Set a date' | 'Assign crew' | null {
+  const hint = jobCardHint(job, now);
+  if (hint === 'Set a date' || hint === 'Assign crew') return hint;
+  return null;
+}
+
+export function partitionScheduleJobs<T extends {
+  status: JobStatus;
+  scheduled_date: string | null | undefined;
+}>(jobs: T[], now = new Date()): { needsDate: T[]; onBoard: T[] } {
+  const needsDate: T[] = [];
+  const onBoard: T[] = [];
+  for (const job of jobs) {
+    const bucket = jobListBucket(job, now);
+    if (bucket === 'needs_date') needsDate.push(job);
+    else if (job.scheduled_date) onBoard.push(job);
+  }
+  return { needsDate, onBoard };
+}
+
 export function recommendJobAction(ctx: JobActionContext): RecommendedJobAction {
   if (ctx.status === 'cancelled') {
     return { key: 'none', label: 'Cancelled', detail: 'This job is cancelled.' };

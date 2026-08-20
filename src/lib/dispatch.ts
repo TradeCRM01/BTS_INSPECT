@@ -88,6 +88,74 @@ export type JobDropInput = {
 
 export type JobDropPayload = JobDropInput & { jobId: string };
 
+export const UNASSIGNED_ROW_ID = '__unassigned__';
+
+export type DayRowJob = {
+  id: string;
+  start_time: string | null | undefined;
+  end_time: string | null | undefined;
+};
+
+export type DayRowPlacement = {
+  id: string;
+  allDay: boolean;
+  lane: number;
+};
+
+/**
+ * Stack all-day jobs, then pack timed jobs into overlap lanes so they don't sit on top of each other.
+ */
+export function placeDayRowJobs(jobs: DayRowJob[]): {
+  placements: DayRowPlacement[];
+  allDayCount: number;
+  timedLaneCount: number;
+} {
+  const allDay = jobs.filter(j => !j.start_time);
+  const timed = jobs
+    .filter(j => j.start_time)
+    .slice()
+    .sort((a, b) => (a.start_time ?? '').localeCompare(b.start_time ?? ''));
+
+  const placements: DayRowPlacement[] = allDay.map((j, i) => ({
+    id: j.id,
+    allDay: true,
+    lane: i,
+  }));
+
+  const laneEnds: number[] = [];
+  for (const job of timed) {
+    const start = timeToMinutes(job.start_time) ?? 0;
+    const end = timeToMinutes(job.end_time) ?? start + 60;
+    let lane = laneEnds.findIndex(e => e <= start);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(end);
+    } else {
+      laneEnds[lane] = end;
+    }
+    placements.push({ id: job.id, allDay: false, lane });
+  }
+
+  return {
+    placements,
+    allDayCount: allDay.length,
+    timedLaneCount: Math.max(laneEnds.length, timed.length > 0 ? 1 : 0),
+  };
+}
+
+export function dayRowHeightPx(
+  allDayCount: number,
+  timedLaneCount: number,
+  opts?: { min?: number; allDayH?: number; timedH?: number; pad?: number },
+): number {
+  const min = opts?.min ?? 72;
+  const allDayH = opts?.allDayH ?? 22;
+  const timedH = opts?.timedH ?? 48;
+  const pad = opts?.pad ?? 6;
+  const timed = Math.max(timedLaneCount, allDayCount > 0 ? 0 : 1);
+  return Math.max(min, pad + allDayCount * allDayH + timed * timedH + pad);
+}
+
 export function rescheduleJobPatch(
   current: {
     assigned_team: unknown;

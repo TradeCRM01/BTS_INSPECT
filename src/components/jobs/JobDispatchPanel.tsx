@@ -87,7 +87,7 @@ export function JobDispatchPanel({
         </label>
       </div>
       <p className="text-xs text-[#9CA3AF] mb-4">
-        Unassigned jobs still show on the board if a date is set.
+        No date → Needs a date on the board. Dated but no crew → Unassigned. Dropping on a person adds them.
       </p>
 
       <div className="flex items-center justify-between gap-2 mb-2">
@@ -129,7 +129,7 @@ export function JobDispatchPanel({
         </div>
       )}
       {assigned.length === 0 && (
-        <p className="text-xs text-[#9CA3AF] mt-2">Unassigned — still on the board if a date is set.</p>
+        <p className="text-xs text-[#9CA3AF] mt-2">Unassigned — still on the board when a date is set.</p>
       )}
     </div>
   );

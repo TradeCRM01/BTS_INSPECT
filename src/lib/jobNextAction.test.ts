@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { jobCardHint, jobListBucket, recommendJobAction } from './jobNextAction';
+import { boardDispatchHint, jobCardHint, jobListBucket, partitionScheduleJobs, recommendJobAction } from './jobNextAction';
 
 const now = new Date(2026, 7, 20); // 20 Aug 2026 local
 
@@ -33,6 +33,29 @@ describe('jobCardHint', () => {
   it('labels today and overdue open jobs', () => {
     expect(jobCardHint({ status: 'scheduled', scheduled_date: '2026-08-20', assigned_team: ['a'] }, now)).toBe('Today');
     expect(jobCardHint({ status: 'scheduled', scheduled_date: '2026-08-01', assigned_team: ['a'] }, now)).toBe('Still open');
+  });
+});
+
+describe('boardDispatchHint', () => {
+  it('only surfaces date and crew, matching the job card', () => {
+    expect(boardDispatchHint({ status: 'scheduled', scheduled_date: null, assigned_team: ['a'] }, now)).toBe('Set a date');
+    expect(boardDispatchHint({ status: 'scheduled', scheduled_date: '2026-08-20', assigned_team: [] }, now)).toBe('Assign crew');
+    expect(boardDispatchHint({ status: 'scheduled', scheduled_date: '2026-08-20', assigned_team: ['a'] }, now)).toBeNull();
+    expect(boardDispatchHint({ status: 'in_progress', scheduled_date: '2026-08-20', assigned_team: ['a'] }, now)).toBeNull();
+  });
+});
+
+describe('partitionScheduleJobs', () => {
+  it('keeps open jobs with no date findable, not on the dated board', () => {
+    const jobs = [
+      { id: '1', status: 'scheduled' as const, scheduled_date: null },
+      { id: '2', status: 'scheduled' as const, scheduled_date: '2026-08-20' },
+      { id: '3', status: 'cancelled' as const, scheduled_date: null },
+      { id: '4', status: 'completed' as const, scheduled_date: '2026-08-20' },
+    ];
+    const { needsDate, onBoard } = partitionScheduleJobs(jobs, now);
+    expect(needsDate.map(j => j.id)).toEqual(['1']);
+    expect(onBoard.map(j => j.id).sort()).toEqual(['2', '4']);
   });
 });
 

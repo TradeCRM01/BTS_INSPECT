@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   applyDropStartTime,
   asTeamIds,
+  dayRowHeightPx,
   nextAssignedTeam,
+  placeDayRowJobs,
   rescheduleJobPatch,
   startTimeFromDropOffset,
 } from './dispatch';
@@ -81,6 +83,41 @@ describe('applyDropStartTime', () => {
   });
 });
 
+describe('placeDayRowJobs', () => {
+  it('stacks all-day jobs so they do not overlap', () => {
+    const { placements, allDayCount, timedLaneCount } = placeDayRowJobs([
+      { id: 'a', start_time: null, end_time: null },
+      { id: 'b', start_time: null, end_time: null },
+    ]);
+    expect(allDayCount).toBe(2);
+    expect(timedLaneCount).toBe(0);
+    expect(placements).toEqual([
+      { id: 'a', allDay: true, lane: 0 },
+      { id: 'b', allDay: true, lane: 1 },
+    ]);
+  });
+
+  it('puts overlapping timed jobs on separate lanes', () => {
+    const { placements, timedLaneCount } = placeDayRowJobs([
+      { id: 'early', start_time: '08:00:00', end_time: '10:00:00' },
+      { id: 'overlap', start_time: '09:00:00', end_time: '11:00:00' },
+      { id: 'later', start_time: '10:00:00', end_time: '12:00:00' },
+    ]);
+    const lane = Object.fromEntries(placements.map(p => [p.id, p.lane]));
+    expect(timedLaneCount).toBe(2);
+    expect(lane.early).toBe(0);
+    expect(lane.overlap).toBe(1);
+    expect(lane.later).toBe(0);
+  });
+});
+
+describe('dayRowHeightPx', () => {
+  it('grows when unassigned all-day jobs stack', () => {
+    expect(dayRowHeightPx(0, 1)).toBe(72);
+    expect(dayRowHeightPx(3, 0)).toBeGreaterThan(72);
+  });
+});
+
 describe('rescheduleJobPatch', () => {
   const crewJob = {
     assigned_team: ['a', 'b', 'c'],
@@ -115,6 +152,16 @@ describe('rescheduleJobPatch', () => {
     )).toEqual({
       scheduled_date: '2026-08-20',
       assigned_team: ['alice'],
+    });
+  });
+
+  it('gives an undated job a date when dropped on Unassigned', () => {
+    expect(rescheduleJobPatch(
+      { assigned_team: [], start_time: null, end_time: null },
+      { date: '2026-08-21', employeeId: null },
+    )).toEqual({
+      scheduled_date: '2026-08-21',
+      assigned_team: [],
     });
   });
 
