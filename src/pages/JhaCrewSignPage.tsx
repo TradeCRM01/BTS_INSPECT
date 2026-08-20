@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { ChevronLeft, ShieldCheck } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError } from '../components/ui';
+import { LoadingSpinner, OpsDocHead, PageError } from '../components/ui';
 import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { parseCrewSignOns, type JhaCrewMember } from '../types/jha';
 
@@ -124,20 +124,18 @@ export function JhaCrewSignPage() {
   return (
     <AppShell>
       <div className="max-w-[640px] mx-auto px-4 py-6">
-        <Link to={docId ? `/jha/new?docId=${docId}` : '/jha'} className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] mb-4">
+        <Link to={docId ? `/jha/new?docId=${docId}` : '/jha'} className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] mb-4 min-h-[44px]">
           <ChevronLeft size={16} /> Back to JHA
         </Link>
 
-        <div className="mb-4">
-          <h1 className="text-xl font-semibold text-[#1A1A1A] flex items-center gap-2">
-            <ShieldCheck size={20} /> Sign onto JHA
-          </h1>
-          <p className="text-sm text-[#6B7280] mt-1">
-            {doc.report_number || 'Draft JHA'}
-            {meta.taskName ? ` — ${meta.taskName}` : ''}
-            {meta.siteName ? ` · ${meta.siteName}` : ''}
-          </p>
-        </div>
+        <article className="ops-card overflow-hidden mb-4">
+          <OpsDocHead
+            kind="JHA"
+            id={doc.report_number || 'Draft'}
+            meta={[meta.taskName, meta.siteName].filter(Boolean).join(' · ') || 'Crew sign-on'}
+          />
+          <div className="ops-card-body space-y-4">
+            <p className="text-sm font-semibold text-navy">Sign onto this JHA</p>
 
         {!member && (
           <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-lg text-sm">
@@ -146,7 +144,7 @@ export function JhaCrewSignPage() {
         )}
 
         {member && (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 space-y-4">
+          <div className="space-y-4">
             <div>
               <p className="text-xs text-[#6B7280]">Signing as</p>
               <p className="text-sm font-medium">{member.name || profile?.name}</p>
@@ -154,7 +152,7 @@ export function JhaCrewSignPage() {
             </div>
 
             {member.profileId && profile && member.profileId !== profile.id && (
-              <div className="bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2 rounded text-sm">
+              <div className="bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2 rounded-md text-sm">
                 This slot is for another team member. Log in as them, or ask the JHA creator to collect the signature on their device.
               </div>
             )}
@@ -183,7 +181,7 @@ export function JhaCrewSignPage() {
                   type="button"
                   disabled={saving || !canSign || !signature}
                   onClick={() => void submit()}
-                  className="w-full bg-[#0A2540] text-white py-2.5 rounded-md text-sm font-medium disabled:opacity-50"
+                  className="ops-next-control-block"
                 >
                   {saving ? 'Saving…' : 'Confirm sign-on'}
                 </button>
@@ -191,6 +189,8 @@ export function JhaCrewSignPage() {
             )}
           </div>
         )}
+          </div>
+        </article>
       </div>
     </AppShell>
   );

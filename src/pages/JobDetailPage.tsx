@@ -18,6 +18,7 @@ import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { recommendJobAction } from '../lib/jobNextAction';
+import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel } from '../lib/jhaNextAction';
 import {
   Calendar, Clock, User, Phone, Mail, Edit3, ChevronDown,
   FileText, ShieldCheck, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
@@ -749,15 +750,16 @@ export function JobDetailPage() {
             }
           >
             {(jhas ?? []).map(doc => {
-              const title = doc.meta?.taskName || doc.template_snapshot?.name || 'JHA';
+              const title = doc.meta?.siteName || doc.meta?.taskName || doc.template_snapshot?.name || 'JHA';
+              const hint = jhaCardHint(jhaListContext(doc));
               return (
                 <JobRelatedRow
                   key={doc.id}
                   href={`/jha/new?docId=${doc.id}`}
                   icon={ShieldCheck}
                   title={title}
-                  meta={[doc.report_number, format(new Date(doc.created_at), 'd MMM yyyy')].filter(Boolean).join(' · ')}
-                  trailing={<span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-[#4A5568]">{doc.status}</span>}
+                  meta={[doc.report_number, hint, format(new Date(doc.created_at), 'd MMM yyyy')].filter(Boolean).join(' · ')}
+                  trailing={<OpsStatus className={jhaStatusClass(doc.status)}>{jhaStatusLabel(doc.status)}</OpsStatus>}
                 />
               );
             })}
@@ -925,6 +927,7 @@ export function JobDetailPage() {
           </div>
         )}
       </div>
+      {showEdit && (
         <JobFormModal
           job={job}
           presetDate={null}

@@ -125,9 +125,9 @@ export function JhaStepCard({
   };
 
   return (
-    <div className="border border-[#E5E7EB] rounded-lg overflow-hidden bg-[#FAFAFA]">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-[#F3F4F6] border-b border-[#E5E7EB]">
-        <span className="text-xs font-semibold text-[#0A2540] bg-[#0A2540]/10 px-2 py-1 rounded">STEP {index + 1}</span>
+    <div className="border border-[#E5E7EB] rounded-md overflow-hidden bg-white">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[#E5E7EB]">
+        <span className="text-xs font-semibold text-navy">Step {index + 1}</span>
         {canDelete && (
           <button type="button" onClick={onDelete} className="p-1 text-[#4A5568] hover:text-[#B42318] rounded transition-colors">
             <Trash2 size={14} />
