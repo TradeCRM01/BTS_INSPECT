@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode, OpsSiteRow, opsSiteLabel } from '../components/ui';
+import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonCardGrid } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
 import type { Client, ClientWithStats } from '../types/crm';
@@ -26,6 +26,7 @@ import {
   newJobFromClientHref,
   newQuoteFromClientHref,
   telHref,
+  visibleClientContacts,
 } from '../lib/clientRecords';
 
 export function ClientsPage() {
@@ -299,6 +300,33 @@ function clientMenuItems(client: ClientWithStats, navigate: ReturnType<typeof us
   ];
 }
 
+function ClientContactLinks({ phone, email, address }: {
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+}) {
+  const lines = visibleClientContacts({ phone, email, address });
+  if (lines.length === 0) return null;
+  return (
+    <div className="mt-2 flex flex-col gap-1 min-w-0">
+      {lines.map(line => (
+        <a
+          key={line.kind}
+          href={line.href}
+          className="ops-link text-sm truncate"
+          target={line.kind === 'map' ? '_blank' : undefined}
+          rel={line.kind === 'map' ? 'noreferrer' : undefined}
+          onClick={e => e.stopPropagation()}
+        >
+          {line.label}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+export { ClientContactLinks };
+
 function ClientMoneyCell({ client }: { client: ClientWithStats }) {
   const hint = clientListMoneyHint({
     quoted: client.quoted_total ?? 0,
@@ -369,20 +397,14 @@ const ClientCard = memo(function ClientCard({
         <ContextMenu items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} />
       </div>
 
-      <Link to={clientRecordHref(client.id)} className="block ops-card-body pr-10">
+      <Link to={clientRecordHref(client.id)} className="block ops-card-body pr-10 pb-1">
         <p className="text-sm font-semibold text-navy truncate">{client.name}</p>
         {client.contact_person && (
           <p className="ops-meta truncate mt-0.5">{client.contact_person}</p>
         )}
       </Link>
-
-      <div className="px-3 pb-2">
-        <OpsSiteRow
-          site={opsSiteLabel(client.address)}
-          phone={client.phone}
-          email={client.email}
-          mapsQuery={client.address}
-        />
+      <div className="px-3">
+        <ClientContactLinks phone={client.phone} email={client.email} address={client.address} />
       </div>
 
       <Link to={clientRecordHref(client.id)} className="block px-3 pb-3">

@@ -20,6 +20,7 @@ import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
 import { effectiveInvoiceStatus, persistableInvoiceStatus } from '../lib/invoiceStatus';
 import { invoiceListBucket, recommendInvoiceAction, type InvoiceActionKey } from '../lib/invoiceNextAction';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
+import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, formatMoney } from '../types/fsm';
 import { Plus, Receipt, Download, Eye, Check, Send } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
@@ -470,6 +471,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
 
   const clientJobs = useMemo(() => jobs.filter(j => form.client_id && j.client_id === form.client_id), [jobs, form.client_id]);
   const selectedClient = clients.find(c => c.id === form.client_id);
+  const selectedJob = jobs.find(j => j.id === form.job_id);
   const rawSubtotal = useMemo(() => calcSubtotal(form.line_items), [form.line_items]);
   const gst = useMemo(
     () => calcDocumentTotals(rawSubtotal, parseFloat(form.tax_rate) || 0),
@@ -501,7 +503,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
       secondaryLabel: 'Due',
       secondaryValue: form.due_date ? format(parseISO(form.due_date), 'd MMM yyyy') : '—',
       clientName: selectedClient?.name ?? '—',
-      clientDetail: selectedClient?.address ?? null,
+      clientDetail: quoteClientDetailFromClient(selectedClient, selectedJob?.address),
       company: {
         name: company.name,
         abn: company.abn ?? null,
@@ -521,7 +523,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
       notes: form.notes.trim() || null,
       paymentTerms: form.payment_terms.trim() || null,
     };
-  }, [company, form, invoice, selectedClient, subtotal, taxAmount, grandTotal]);
+  }, [company, form, invoice, selectedClient, selectedJob, subtotal, taxAmount, grandTotal]);
 
   const handleImportFromJob = async () => {
     if (!form.job_id) { setErr('Select a job first'); return; }
@@ -629,8 +631,6 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
     onSaved({ close: opts?.close ?? true, message: opts?.message ?? 'Invoice created' });
   };
 
-  const selectedJob = jobs.find(j => j.id === form.job_id);
-
   return (
     <div className="overlay-backdrop">
       <div className="overlay-panel-xl ops-doc-panel" onClick={e => e.stopPropagation()}>
@@ -647,7 +647,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
             fromName={company?.name ?? 'Your company'}
             fromDetail={[company?.abn ? `ABN ${company.abn}` : null, company?.licence_number ? `Licence ${company.licence_number}` : null].filter(Boolean).join(' · ') || null}
             toName={selectedClient?.name ?? 'Select a client'}
-            toDetail={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
+            toDetail={quoteClientDetailFromClient(selectedClient, selectedJob?.address)}
           />
           <div className="flex items-start justify-between gap-2 py-3">
             <OpsSiteRow
@@ -704,6 +704,21 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
               <option value="">Select a client...</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+            {selectedClient && (
+              <div className="mt-2 flex flex-col gap-1">
+                {visibleClientContacts(selectedClient).map(line => (
+                  <a
+                    key={line.kind}
+                    href={line.href}
+                    className="ops-link text-xs truncate"
+                    target={line.kind === 'map' ? '_blank' : undefined}
+                    rel={line.kind === 'map' ? 'noreferrer' : undefined}
+                  >
+                    {line.label}
+                  </a>
+                ))}
+              </div>
+            )}
           </Field>
 
           <div className="grid grid-cols-2 gap-3">

@@ -8,8 +8,7 @@ import {
 import { X, Trash2, GitBranch } from 'lucide-react';
 import { format } from 'date-fns';
 import { OverlayPortal } from '../ui/OverlayPortal';
-import { OpsSiteRow, opsSiteLabel } from '../ui';
-import { jobSiteAddressFromClient } from '../../lib/clientRecords';
+import { jobSiteAddressFromClient, visibleClientContacts } from '../../lib/clientRecords';
 
 interface JobFormModalProps {
   job: Job | null;
@@ -190,13 +189,18 @@ export function JobFormModal({
               ))}
             </select>
             {selectedClient && (
-              <div className="mt-2">
-                <OpsSiteRow
-                  site={opsSiteLabel(form.address, selectedClient.address)}
-                  phone={selectedClient.phone}
-                  email={selectedClient.email}
-                  mapsQuery={form.address || selectedClient.address}
-                />
+              <div className="mt-2 flex flex-col gap-1">
+                {visibleClientContacts(selectedClient).map(line => (
+                  <a
+                    key={line.kind}
+                    href={line.href}
+                    className="ops-link text-xs truncate"
+                    target={line.kind === 'map' ? '_blank' : undefined}
+                    rel={line.kind === 'map' ? 'noreferrer' : undefined}
+                  >
+                    {line.label}
+                  </a>
+                ))}
               </div>
             )}
             {selectedClient?.address && !form.address && (

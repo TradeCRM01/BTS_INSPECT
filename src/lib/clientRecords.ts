@@ -125,11 +125,92 @@ export function clientMoneySummary(
   };
 }
 
+/** Copy phone/email/site onto a job or quote form that can display them. */
+export function clientContactCopiedOntoForm(client: {
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+} | null | undefined): { phone: string; email: string; address: string } {
+  return {
+    phone: (client?.phone ?? '').trim(),
+    email: (client?.email ?? '').trim(),
+    address: (client?.address ?? '').trim(),
+  };
+}
+
+export type VisibleClientContact = {
+  kind: 'tel' | 'mailto' | 'map';
+  label: string;
+  href: string;
+};
+
+export function mapsHref(query: string): string {
+  return `https://maps.google.com/?q=${encodeURIComponent(query)}`;
+}
+
+/** Readable identity lines a tradie can tap — not icon-only. */
+export function visibleClientContacts(client: {
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+}): VisibleClientContact[] {
+  const lines: VisibleClientContact[] = [];
+  const phone = (client.phone ?? '').trim();
+  const call = telHref(phone);
+  if (call) lines.push({ kind: 'tel', label: phone, href: call });
+  const email = (client.email ?? '').trim();
+  const mail = mailtoHref(email);
+  if (mail) lines.push({ kind: 'mailto', label: email, href: mail });
+  const address = (client.address ?? '').trim();
+  if (address) lines.push({ kind: 'map', label: address, href: mapsHref(address) });
+  return lines;
+}
+
+/** Quote/invoice “to” line: site plus phone/email so they are not retyped. */
+export function quoteClientDetailFromClient(
+  client: { address?: string | null; phone?: string | null; email?: string | null } | null | undefined,
+  site?: string | null,
+): string | null {
+  const copied = clientContactCopiedOntoForm(client);
+  const parts = [((site ?? '').trim() || copied.address), copied.phone, copied.email].filter(Boolean);
+  return parts.length ? parts.join(' · ') : null;
+}
+
 export type ClientListMoneyHint = {
   label: 'Overdue' | 'Outstanding' | 'Quoted';
   amount: number;
   tone: 'overdue' | 'outstanding' | 'quoted' | 'none';
 };
+
+export type ClientListActivity = {
+  money: ClientListMoneyHint;
+  jobs: number;
+  live: number;
+};
+
+export function clientListActivity(stats: {
+  quoted: number;
+  outstanding: number;
+  overdue: number;
+  jobCount: number;
+  activeJobs: number;
+}): ClientListActivity {
+  return {
+    money: clientListMoneyHint({
+      quoted: stats.quoted,
+      outstanding: stats.outstanding,
+      overdue: stats.overdue,
+    }),
+    jobs: stats.jobCount,
+    live: stats.activeJobs,
+  };
+}
+
+export function clientHubStartAction(kind: 'job' | 'quote' | 'invoice', clientId: string): { href: string; label: string } {
+  if (kind === 'quote') return { href: newQuoteFromClientHref(clientId), label: 'New quote' };
+  if (kind === 'invoice') return { href: newInvoiceFromClientHref(clientId), label: 'New invoice' };
+  return { href: newJobFromClientHref(clientId), label: 'New job' };
+}
 
 /** List rows: who owes first, then who has live quotes. */
 export function clientListMoneyHint(money: ClientMoneySummary): ClientListMoneyHint {
@@ -179,7 +260,7 @@ export function clientHubRecordQueries(args: {
   return {
     jobs: {
       table: 'jobs',
-      columns: '*',
+      columns: 'id, job_number, title, status, scheduled_date, start_time, address, assigned_team',
       eq,
       inFilters: {},
     },
@@ -249,4 +330,15 @@ export function isCompanyAndClientScoped(scope: HubQueryScope): boolean {
   if (!scope.eq.company_id) return false;
   if (scope.eq.client_id) return true;
   return (scope.inFilters.client_id?.length ?? 0) > 0;
+}
+
+export function isNarrowProjection(scope: HubQueryScope): boolean {
+  const columns = scope.columns.trim();
+  return columns.length > 0 && columns !== '*';
+}
+
+/** True when a fetch would read the whole company table instead of this client set. */
+export function wouldScanCompanyLedger(scope: HubQueryScope | null): boolean {
+  if (scope == null) return false;
+  return !isCompanyAndClientScoped(scope);
 }

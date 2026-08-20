@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, OpsSiteRow, opsSiteLabel } from '../components/ui';
+import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus } from '../components/ui';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import type { Client, JobWithClient } from '../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_STYLES } from '../types/crm';
@@ -15,7 +15,7 @@ import {
 import type { QuoteStatus } from '../types/fsm';
 import { CreditCard as Edit3, Briefcase, Plus, FileText, ShieldCheck, Bell, Receipt, ClipboardList } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
-import { ClientForm } from './ClientsPage';
+import { ClientForm, ClientContactLinks } from './ClientsPage';
 import type { ComplianceItem } from '../types/compliance';
 import { COMPLIANCE_STATUS_LABELS, COMPLIANCE_STATUS_STYLES } from '../types/compliance';
 import { jobListNext } from '../lib/jobNextAction';
@@ -35,13 +35,11 @@ import type { TemplateSchema } from '../types/template';
 import {
   applyHubScope,
   clientHubRecordQueries,
+  clientHubStartAction,
   clientInspectionQuery,
   clientMoneySummary,
   invoiceRecordHref,
   jobRecordHref,
-  newInvoiceFromClientHref,
-  newJobFromClientHref,
-  newQuoteFromClientHref,
   quoteRecordHref,
 } from '../lib/clientRecords';
 
@@ -170,13 +168,12 @@ export function ClientDetailPage() {
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !client) return <AppShell><PageError message="Could not load this client" /></AppShell>;
 
-  const newQuoteHref = newQuoteFromClientHref(client.id);
-  const newJobHref = newJobFromClientHref(client.id);
-  const newInvoiceHref = newInvoiceFromClientHref(client.id);
+  const newQuoteHref = clientHubStartAction('quote', client.id).href;
+  const newJobHref = clientHubStartAction('job', client.id).href;
+  const newInvoiceHref = clientHubStartAction('invoice', client.id).href;
   const moneyReady = quotes !== undefined && invoices !== undefined;
   const money = clientMoneySummary(quotes ?? [], invoices ?? []);
   const jobById = new Map((jobs ?? []).map(job => [job.id, job]));
-  const site = opsSiteLabel(client.address);
 
   return (
     <AppShell>
@@ -191,14 +188,7 @@ export function ClientDetailPage() {
                 {client.contact_person && (
                   <p className="ops-meta mt-0.5">{client.contact_person}</p>
                 )}
-                <div className="mt-2">
-                  <OpsSiteRow
-                    site={site}
-                    phone={client.phone}
-                    email={client.email}
-                    mapsQuery={client.address}
-                  />
-                </div>
+                <ClientContactLinks phone={client.phone} email={client.email} address={client.address} />
                 {!client.phone && !client.email && (
                   <p className="ops-meta mt-1">No phone or email yet — add them so you can call from here.</p>
                 )}

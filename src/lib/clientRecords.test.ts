@@ -4,9 +4,12 @@ import {
   AU_EMAIL_PLACEHOLDER,
   AU_PHONE_PLACEHOLDER,
   applyHubScope,
+  clientContactCopiedOntoForm,
   clientHubRecordQueries,
+  clientHubStartAction,
   clientInspectionQuery,
   clientInvoiceMoney,
+  clientListActivity,
   clientListMoneyHint,
   clientListStatsQueries,
   clientMoneySummary,
@@ -14,6 +17,7 @@ import {
   clientRecordHref,
   invoiceRecordHref,
   isCompanyAndClientScoped,
+  isNarrowProjection,
   isQuotedPipelineStatus,
   jobRecordHref,
   jobSiteAddressFromClient,
@@ -21,8 +25,11 @@ import {
   newInvoiceFromClientHref,
   newJobFromClientHref,
   newQuoteFromClientHref,
+  quoteClientDetailFromClient,
   quoteRecordHref,
   telHref,
+  visibleClientContacts,
+  wouldScanCompanyLedger,
 } from './clientRecords';
 
 describe('client record hrefs', () => {
@@ -78,6 +85,48 @@ describe('AU contact hrefs', () => {
     expect(mailtoHref('alex@business.com.au')).toBe('mailto:alex@business.com.au');
     expect(mailtoHref('not-an-email')).toBeNull();
     expect(mailtoHref('')).toBeNull();
+  });
+
+  it('exposes readable phone, email, and site as tap targets', () => {
+    expect(visibleClientContacts({
+      phone: '0412 345 678',
+      email: 'alex@business.com.au',
+      address: '12 Smith St, Suburb NSW 2000',
+    })).toEqual([
+      { kind: 'tel', label: '0412 345 678', href: 'tel:0412345678' },
+      { kind: 'mailto', label: 'alex@business.com.au', href: 'mailto:alex@business.com.au' },
+      { kind: 'map', label: '12 Smith St, Suburb NSW 2000', href: 'https://maps.google.com/?q=12%20Smith%20St%2C%20Suburb%20NSW%202000' },
+    ]);
+  });
+
+  it('copies phone, email, and site onto job/quote forms', () => {
+    expect(clientContactCopiedOntoForm({
+      phone: ' 0412 345 678 ',
+      email: 'alex@business.com.au',
+      address: '12 Site Rd',
+    })).toEqual({
+      phone: '0412 345 678',
+      email: 'alex@business.com.au',
+      address: '12 Site Rd',
+    });
+  });
+
+  it('puts phone and email on the quote/invoice client line so they are not retyped', () => {
+    expect(quoteClientDetailFromClient({
+      address: '12 Site Rd',
+      phone: '0412 345 678',
+      email: 'alex@business.com.au',
+    })).toBe('12 Site Rd · 0412 345 678 · alex@business.com.au');
+    expect(quoteClientDetailFromClient({
+      address: '12 Site Rd',
+      phone: '0412 345 678',
+    }, 'Warehouse B')).toBe('Warehouse B · 0412 345 678');
+    expect(quoteClientDetailFromClient(null)).toBeNull();
+  });
+
+  it('omits empty contact lines so the card does not invent placeholders', () => {
+    expect(visibleClientContacts({})).toEqual([]);
+    expect(clientContactCopiedOntoForm(null)).toEqual({ phone: '', email: '', address: '' });
   });
 });
 
@@ -136,6 +185,16 @@ describe('client money helpers', () => {
     expect(clientListMoneyHint({ quoted: 0, outstanding: 0, overdue: 0 }))
       .toEqual({ label: 'Outstanding', amount: 0, tone: 'none' });
   });
+
+  it('list activity carries money plus live jobs', () => {
+    expect(clientListActivity({
+      quoted: 50, outstanding: 10, overdue: 4, jobCount: 6, activeJobs: 2,
+    })).toEqual({
+      money: { label: 'Overdue', amount: 4, tone: 'overdue' },
+      jobs: 6,
+      live: 2,
+    });
+  });
 });
 
 describe('client hub query scopes', () => {
@@ -146,6 +205,20 @@ describe('client hub query scopes', () => {
     expect(isCompanyAndClientScoped(scopes.invoices)).toBe(true);
     expect(scopes.jobs.eq).toEqual({ company_id: 'co1', client_id: 'c1' });
     expect(scopes.invoices.inFilters).toEqual({});
+    expect(wouldScanCompanyLedger(scopes.jobs)).toBe(false);
+  });
+
+  it('projects hub columns instead of select *', () => {
+    const detail = clientHubRecordQueries({ companyId: 'co1', clientId: 'c1' });
+    expect(isNarrowProjection(detail.jobs)).toBe(true);
+    expect(isNarrowProjection(detail.quotes)).toBe(true);
+    expect(isNarrowProjection(detail.invoices)).toBe(true);
+    expect(detail.jobs.columns.split(',').map(col => col.trim())).toContain('assigned_team');
+    expect(detail.jobs.columns).not.toMatch(/\binspection_id\b/);
+    const list = clientListStatsQueries({ companyId: 'co1', clientIds: ['c1'] })!;
+    expect(isNarrowProjection(list.jobs)).toBe(true);
+    expect(isNarrowProjection(list.quotes)).toBe(true);
+    expect(isNarrowProjection(list.invoices)).toBe(true);
   });
 
   it('list stats queries are scoped to listed clients and company', () => {
@@ -156,11 +229,22 @@ describe('client hub query scopes', () => {
       expect(scope.eq.company_id).toBe('co1');
       expect(scope.inFilters.client_id).toEqual(['c1', 'c2']);
       expect(scope.eq.client_id).toBeUndefined();
+      expect(wouldScanCompanyLedger(scope)).toBe(false);
     }
   });
 
   it('does not select the company ledger when the list is empty', () => {
     expect(clientListStatsQueries({ companyId: 'co1', clientIds: [] })).toBeNull();
+    expect(wouldScanCompanyLedger(null)).toBe(false);
+  });
+
+  it('treats a company-only jobs select as an unscoped scan', () => {
+    expect(wouldScanCompanyLedger({
+      table: 'jobs',
+      columns: 'client_id, status',
+      eq: { company_id: 'co1' },
+      inFilters: {},
+    })).toBe(true);
   });
 
   it('applies company_id eq and client_id in — never an unscoped select', () => {
@@ -181,10 +265,16 @@ describe('client hub query scopes', () => {
     };
     const scopes = clientListStatsQueries({ companyId: 'co1', clientIds: ['c1', 'c2'] })!;
     applyHubScope(builder, scopes.invoices);
+    expect(calls[0]).toMatch(/^select:/);
     expect(calls).toContain('eq:company_id:co1');
     expect(calls).toContain('in:client_id:c1,c2');
-    expect(calls.some(call => call.startsWith('select:') && !call.includes('company_id'))).toBe(true);
     expect(calls.filter(call => call.startsWith('eq:client_id'))).toHaveLength(0);
+  });
+
+  it('empty trays still have a start-from-here href', () => {
+    expect(clientHubStartAction('job', 'c1')).toEqual({ href: '/jobs?client=c1', label: 'New job' });
+    expect(clientHubStartAction('quote', 'c1')).toEqual({ href: '/quotes?client=c1', label: 'New quote' });
+    expect(clientHubStartAction('invoice', 'c1')).toEqual({ href: '/invoices?client=c1', label: 'New invoice' });
   });
 });
 
