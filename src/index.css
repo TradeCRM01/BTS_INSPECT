@@ -270,6 +270,29 @@
     @apply text-xl font-semibold tracking-tight text-navy;
   }
 
+  /* Client hub only: xAI hierarchy on BTS navy/blue. Not a global restyle. */
+  .hub-clients .ops-page-title {
+    font-size: 2rem;
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+    font-weight: 600;
+    color: var(--ops-navy);
+  }
+
+  @media (min-width: 640px) {
+    .hub-clients .ops-page-title {
+      font-size: 2.5rem;
+    }
+  }
+
+  .hub-clients .ops-page-head {
+    @apply mb-6 items-end;
+  }
+
+  .hub-clients .btn-primary {
+    @apply min-h-[44px] px-4;
+  }
+
   .ops-section-title {
     @apply text-sm font-semibold tracking-tight text-navy;
   }

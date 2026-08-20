@@ -212,6 +212,40 @@ export function clientHubStartAction(kind: 'job' | 'quote' | 'invoice', clientId
   return { href: newJobFromClientHref(clientId), label: 'New job' };
 }
 
+export type ClientHubStatusTone = 'overdue' | 'live' | 'quoted' | 'idle' | 'archived';
+
+export type ClientHubStatus = {
+  label: string;
+  tone: ClientHubStatusTone;
+  className: 'ops-status-bad' | 'ops-status-progress' | 'ops-status-info' | 'ops-status-wait';
+};
+
+/** Solid ops status for the client row — not a pastel pill. */
+export function clientHubStatus(stats: {
+  archived?: boolean;
+  overdue: number;
+  live: number;
+  quoted: number;
+}): ClientHubStatus {
+  if (stats.archived) return { label: 'Archived', tone: 'archived', className: 'ops-status-wait' };
+  if (stats.overdue > 0) return { label: 'Overdue', tone: 'overdue', className: 'ops-status-bad' };
+  if (stats.live > 0) return { label: 'Live', tone: 'live', className: 'ops-status-progress' };
+  if (stats.quoted > 0) return { label: 'Quoted', tone: 'quoted', className: 'ops-status-info' };
+  return { label: 'Idle', tone: 'idle', className: 'ops-status-wait' };
+}
+
+/** Next on the client row: chase/open the card, or start a job when there is nothing on it. */
+export function clientHubNext(args: {
+  clientId: string;
+  jobCount: number;
+  overdue: number;
+}): { label: string; href: string } {
+  if (args.overdue > 0 || args.jobCount > 0) {
+    return { label: 'Open', href: clientRecordHref(args.clientId) };
+  }
+  return clientHubStartAction('job', args.clientId);
+}
+
 /** List rows: who owes first, then who has live quotes. */
 export function clientListMoneyHint(money: ClientMoneySummary): ClientListMoneyHint {
   if (money.overdue > 0) {

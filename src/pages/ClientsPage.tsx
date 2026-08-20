@@ -4,8 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode } from '../components/ui';
-import { SkeletonCardGrid } from '../components/ui/Skeletons';
+import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode, LoadingSpinner, OpsSiteRow, OpsStatus, OpsCardHeader, opsSiteLabel } from '../components/ui';
 import type { MenuEntry } from '../components/ui';
 import type { Client, ClientWithStats } from '../types/crm';
 import { formatMoney } from '../types/fsm';
@@ -16,17 +15,16 @@ import {
   AU_EMAIL_PLACEHOLDER,
   AU_PHONE_PLACEHOLDER,
   applyHubScope,
+  clientHubNext,
+  clientHubStatus,
   clientInvoiceMoney,
   clientListMoneyHint,
   clientListStatsQueries,
   clientQuotedTotal,
   clientRecordHref,
-  mailtoHref,
   newInvoiceFromClientHref,
   newJobFromClientHref,
   newQuoteFromClientHref,
-  telHref,
-  visibleClientContacts,
 } from '../lib/clientRecords';
 
 export function ClientsPage() {
@@ -179,11 +177,11 @@ export function ClientsPage() {
 
   return (
     <AppShell>
-      <div className="ops-page">
+      <div className="ops-page hub-clients">
         <div className="ops-page-head">
           <div>
             <h1 className="ops-page-title">Clients</h1>
-            <p className="ops-meta mt-0.5">{clients?.length ?? 0} total clients</p>
+            <p className="ops-meta mt-1">{clients?.length ?? 0} total</p>
           </div>
           <button
             onClick={() => { setEditingClient(null); setShowForm(true); }}
@@ -206,7 +204,7 @@ export function ClientsPage() {
         </div>
 
         {isLoading ? (
-          <SkeletonCardGrid />
+          <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={Users}
@@ -236,13 +234,11 @@ export function ClientsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zebra text-left ops-meta font-medium uppercase tracking-wide">
-                    <th className="px-3 py-2">Name</th>
-                    <th className="px-3 py-2">Contact</th>
-                    <th className="px-3 py-2">Phone</th>
-                    <th className="px-3 py-2">Email</th>
+                    <th className="px-3 py-2">Site</th>
+                    <th className="px-3 py-2">Client</th>
+                    <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2 text-right">Money</th>
-                    <th className="px-3 py-2 text-right">Jobs</th>
-                    <th className="px-3 py-2">Last job</th>
+                    <th className="px-3 py-2">Next</th>
                     <th className="px-3 py-2 w-10"></th>
                   </tr>
                 </thead>
@@ -300,76 +296,58 @@ function clientMenuItems(client: ClientWithStats, navigate: ReturnType<typeof us
   ];
 }
 
-function ClientContactLinks({ phone, email, address }: {
-  phone?: string | null;
-  email?: string | null;
-  address?: string | null;
-}) {
-  const lines = visibleClientContacts({ phone, email, address });
-  if (lines.length === 0) return null;
-  return (
-    <div className="mt-2 flex flex-col gap-1 min-w-0">
-      {lines.map(line => (
-        <a
-          key={line.kind}
-          href={line.href}
-          className="ops-link text-sm truncate"
-          target={line.kind === 'map' ? '_blank' : undefined}
-          rel={line.kind === 'map' ? 'noreferrer' : undefined}
-          onClick={e => e.stopPropagation()}
-        >
-          {line.label}
-        </a>
-      ))}
-    </div>
-  );
-}
-
-export { ClientContactLinks };
-
-function ClientMoneyCell({ client }: { client: ClientWithStats }) {
-  const hint = clientListMoneyHint({
-    quoted: client.quoted_total ?? 0,
-    outstanding: client.outstanding_total ?? 0,
-    overdue: client.overdue_total ?? 0,
+function clientFace(client: ClientWithStats) {
+  const quoted = client.quoted_total ?? 0;
+  const outstanding = client.outstanding_total ?? 0;
+  const overdue = client.overdue_total ?? 0;
+  const hint = clientListMoneyHint({ quoted, outstanding, overdue });
+  const status = clientHubStatus({
+    archived: client.archived,
+    overdue,
+    live: client.active_jobs ?? 0,
+    quoted,
   });
-  const toneClass = hint.tone === 'overdue' ? 'text-fail' : 'text-navy';
-  return (
-    <div className="text-right">
-      <p className={`ops-money text-sm ${toneClass}`}>{formatMoney(hint.amount)}</p>
-      <p className="ops-meta">{hint.label}</p>
-    </div>
-  );
+  const next = clientHubNext({
+    clientId: client.id,
+    jobCount: client.job_count ?? 0,
+    overdue,
+  });
+  return { hint, status, next, site: opsSiteLabel(client.address) };
 }
 
 function ClientListRow({ client, onEdit, onArchive, onDelete }: {
   client: ClientWithStats; onEdit: () => void; onArchive: () => void; onDelete: () => void;
 }) {
   const navigate = useNavigate();
-  const phoneHref = telHref(client.phone);
-  const emailHref = mailtoHref(client.email);
+  const { hint, status, next, site } = clientFace(client);
+  const toneClass = hint.tone === 'overdue' ? 'text-fail' : 'text-navy';
   return (
     <tr className="hover:bg-zebra transition-colors">
       <td className="px-3 py-2">
+        <OpsSiteRow
+          site={site}
+          phone={client.phone}
+          email={client.email}
+          mapsQuery={client.address}
+        />
+      </td>
+      <td className="px-3 py-2">
         <Link to={clientRecordHref(client.id)} className="font-semibold text-navy hover:text-accent">{client.name}</Link>
-      </td>
-      <td className="px-3 py-2 text-navy">{client.contact_person ?? <span className="ops-meta">—</span>}</td>
-      <td className="px-3 py-2">
-        {phoneHref && client.phone ? (
-          <a href={phoneHref} className="text-accent hover:underline">{client.phone}</a>
-        ) : <span className="ops-meta">—</span>}
+        {client.contact_person ? <p className="ops-meta truncate">{client.contact_person}</p> : null}
+        {client.active_jobs ? <p className="ops-meta">{client.active_jobs} live</p> : null}
       </td>
       <td className="px-3 py-2">
-        {emailHref && client.email ? (
-          <a href={emailHref} className="text-accent hover:underline">{client.email}</a>
-        ) : <span className="ops-meta">—</span>}
+        <OpsStatus className={status.className}>{status.label}</OpsStatus>
       </td>
-      <td className="px-3 py-2"><ClientMoneyCell client={client} /></td>
-      <td className="px-3 py-2 text-right text-navy">
-        {client.job_count ?? 0}
-        {client.active_jobs ? <span className="block ops-meta text-accent">{client.active_jobs} live</span> : null}
+      <td className="px-3 py-2">
+        <div className="text-right">
+          <p className={`ops-money text-sm ${toneClass}`}>{formatMoney(hint.amount)}</p>
+          <p className="ops-meta">{hint.label}</p>
+        </div>
       </td>
-      <td className="px-3 py-2 ops-meta">{client.last_job_date ? format(parseISO(client.last_job_date), 'd MMM yyyy') : '—'}</td>
+      <td className="px-3 py-2">
+        <Link to={next.href} className="ops-next-control w-auto px-3">{next.label}</Link>
+      </td>
       <td className="px-3 py-2"><div className="flex justify-end"><ContextMenu items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} /></div></td>
     </tr>
   );
@@ -384,39 +362,46 @@ const ClientCard = memo(function ClientCard({
   onDelete: () => void;
 }) {
   const navigate = useNavigate();
-  const hint = clientListMoneyHint({
-    quoted: client.quoted_total ?? 0,
-    outstanding: client.outstanding_total ?? 0,
-    overdue: client.overdue_total ?? 0,
-  });
+  const { hint, status, next, site } = clientFace(client);
   const toneClass = hint.tone === 'overdue' ? 'text-fail' : 'text-navy';
 
   return (
-    <div className="ops-card ops-card-hover relative">
-      <div className="absolute top-2 right-2 z-10">
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => navigate(clientRecordHref(client.id))}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(clientRecordHref(client.id)); } }}
+      className="ops-card ops-card-hover relative cursor-pointer"
+    >
+      <div className="absolute top-2 right-2 z-10" onClick={e => e.stopPropagation()}>
         <ContextMenu items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} />
       </div>
 
-      <Link to={clientRecordHref(client.id)} className="block ops-card-body pr-10 pb-1">
-        <p className="text-sm font-semibold text-navy truncate">{client.name}</p>
-        {client.contact_person && (
-          <p className="ops-meta truncate mt-0.5">{client.contact_person}</p>
-        )}
-      </Link>
-      <div className="px-3">
-        <ClientContactLinks phone={client.phone} email={client.email} address={client.address} />
+      <div className="pr-10">
+        <OpsCardHeader
+          kicker={client.name}
+          trailing={<OpsStatus className={status.className}>{status.label}</OpsStatus>}
+        />
       </div>
-
-      <Link to={clientRecordHref(client.id)} className="block px-3 pb-3">
-        <div className="flex items-baseline justify-between gap-2 pt-2 border-t border-rule">
+      <div className="ops-card-body">
+        {client.contact_person ? (
+          <p className="ops-meta truncate mb-1">{client.contact_person}</p>
+        ) : null}
+        <OpsSiteRow
+          site={site}
+          phone={client.phone}
+          email={client.email}
+          mapsQuery={client.address}
+        />
+        <div className="flex items-baseline justify-between gap-2 pt-2">
           <div>
             <p className={`ops-money text-left ${toneClass}`}>{formatMoney(hint.amount)}</p>
             <p className="ops-meta">{hint.label}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-semibold text-navy tabular-nums">{client.job_count ?? 0} jobs</p>
+            <p className="ops-meta tabular-nums">{client.job_count ?? 0} jobs</p>
             {client.active_jobs ? (
-              <p className="ops-meta text-accent">{client.active_jobs} live</p>
+              <p className="ops-meta">{client.active_jobs} live</p>
             ) : client.last_job_date ? (
               <p className="ops-meta">{format(parseISO(client.last_job_date), 'd MMM yyyy')}</p>
             ) : (
@@ -424,7 +409,10 @@ const ClientCard = memo(function ClientCard({
             )}
           </div>
         </div>
-      </Link>
+        <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
+          <Link to={next.href} className="ops-next-control-block">{next.label}</Link>
+        </div>
+      </div>
     </div>
   );
 });
@@ -476,7 +464,7 @@ export function ClientForm({ client, onClose, onSaved }: {
       <div className="overlay-panel-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-rule">
           <h2 className="text-base font-semibold text-navy">{client ? 'Edit Client' : 'New Client'}</h2>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zebra text-muted">
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-zebra text-muted">
             <X size={18} />
           </button>
         </div>
@@ -511,7 +499,7 @@ export function ClientForm({ client, onClose, onSaved }: {
                   className="form-input min-h-[80px] resize-y" placeholder="Any notes about this client..." />
               </Field>
             </div>
-            {err && <p className="overlay-form-span-all text-sm text-red-600">{err}</p>}
+            {err && <p className="overlay-form-span-all text-sm text-fail">{err}</p>}
           </div>
         </form>
 
@@ -519,7 +507,7 @@ export function ClientForm({ client, onClose, onSaved }: {
           <button onClick={onClose} className="btn-secondary">
             Cancel
           </button>
-          <button onClick={handleSubmit} disabled={saving} className="btn-primary disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={saving} className="btn-primary min-h-[44px] disabled:opacity-50">
             {saving ? 'Saving...' : client ? 'Save Changes' : 'Add Client'}
           </button>
         </div>

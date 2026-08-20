@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus } from '../components/ui';
+import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, OpsSiteRow, opsSiteLabel } from '../components/ui';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import type { Client, JobWithClient } from '../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_STYLES } from '../types/crm';
@@ -13,11 +13,11 @@ import {
   formatMoney,
 } from '../types/fsm';
 import type { QuoteStatus } from '../types/fsm';
-import { CreditCard as Edit3, Briefcase, Plus, FileText, ShieldCheck, Bell, Receipt, ClipboardList } from 'lucide-react';
+import { Briefcase, Plus, FileText, ShieldCheck, Receipt, ClipboardList } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
-import { ClientForm, ClientContactLinks } from './ClientsPage';
-import type { ComplianceItem } from '../types/compliance';
-import { COMPLIANCE_STATUS_LABELS, COMPLIANCE_STATUS_STYLES } from '../types/compliance';
+import { ClientForm } from './ClientsPage';
+import type { ComplianceItem, ComplianceStatus } from '../types/compliance';
+import { COMPLIANCE_STATUS_LABELS } from '../types/compliance';
 import { jobListNext } from '../lib/jobNextAction';
 import { quoteActionContext, recommendQuoteAction } from '../lib/quoteNextAction';
 import { recommendInvoiceAction } from '../lib/invoiceNextAction';
@@ -73,9 +73,20 @@ type ClientInspection = {
   template_snapshot: { name?: string; schema?: TemplateSchema } | null;
 };
 
+const COMPLIANCE_OPS_STATUS: Record<ComplianceStatus, string> = {
+  upcoming: 'ops-status-info',
+  due_soon: 'ops-status-progress',
+  overdue: 'ops-status-bad',
+  completed: 'ops-status-ok',
+  paused: 'ops-status-wait',
+};
+
 function padNum(n: number | null | undefined): string {
   return String(n ?? 0).padStart(4, '0');
 }
+
+const nextCtl = 'ops-next-control w-auto px-3 shrink-0';
+const nextDone = 'ops-next-control-done w-auto px-3 shrink-0';
 
 export function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -177,48 +188,45 @@ export function ClientDetailPage() {
 
   return (
     <AppShell>
-      <div className="ops-page">
+      <div className="ops-page hub-clients">
         <Breadcrumbs items={[{ label: 'Clients', to: '/clients' }, { label: client.name }]} />
 
-        <div className="ops-card mb-4">
-          <div className="ops-card-body">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <h1 className="ops-page-title">{client.name}</h1>
-                {client.contact_person && (
-                  <p className="ops-meta mt-0.5">{client.contact_person}</p>
-                )}
-                <ClientContactLinks phone={client.phone} email={client.email} address={client.address} />
-                {!client.phone && !client.email && (
-                  <p className="ops-meta mt-1">No phone or email yet — add them so you can call from here.</p>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
-                <Link to={newQuoteHref} className="btn-secondary">
-                  <FileText size={14} /> New quote
-                </Link>
-                <Link to={newInvoiceHref} className="btn-secondary">
-                  <Receipt size={14} /> New invoice
-                </Link>
-                <Link to={newJobHref} className="btn-primary">
-                  <Plus size={14} /> New job
-                </Link>
-                <button onClick={() => setShowEdit(true)} className="btn-secondary">
-                  <Edit3 size={14} /> Edit
-                </button>
-              </div>
-            </div>
-
-            {client.notes && (
-              <div className="mt-4 pt-3 border-t border-rule">
-                <p className="ops-meta font-medium mb-1">Notes</p>
-                <p className="text-sm text-navy whitespace-pre-wrap">{client.notes}</p>
-              </div>
-            )}
+        <div className="ops-page-head">
+          <div className="min-w-0">
+            <h1 className="ops-page-title">{client.name}</h1>
+            {client.contact_person ? (
+              <p className="ops-meta mt-1">{client.contact_person}</p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-3 shrink-0">
+            <Link to={newQuoteHref} className="ops-link">New quote</Link>
+            <Link to={newInvoiceHref} className="ops-link">New invoice</Link>
+            <button type="button" onClick={() => setShowEdit(true)} className="ops-link">
+              Edit
+            </button>
+            <Link to={newJobHref} className="btn-primary">
+              <Plus size={16} /> New job
+            </Link>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+        <div className="mb-6">
+          <OpsSiteRow
+            hub
+            site={opsSiteLabel(client.address)}
+            phone={client.phone}
+            email={client.email}
+            mapsQuery={client.address}
+          />
+          {!client.phone && !client.email && (
+            <p className="ops-meta mt-1">No phone or email yet — add them so you can call from here.</p>
+          )}
+          {client.notes ? (
+            <p className="text-sm text-navy whitespace-pre-wrap mt-3">{client.notes}</p>
+          ) : null}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
           <MoneyCard label="Quoted" amount={moneyReady ? money.quoted : null} />
           <MoneyCard label="Outstanding" amount={moneyReady ? money.outstanding : null} />
           <MoneyCard label="Overdue" amount={moneyReady ? money.overdue : null} tone={moneyReady && money.overdue > 0 ? 'overdue' : undefined} />
@@ -229,35 +237,33 @@ export function ClientDetailPage() {
             title="Jobs"
             icon={Briefcase}
             count={(jobs ?? []).length}
-            action={
-              <Link to={newJobHref} className="ops-link text-xs">
-                <Plus size={12} /> New job
-              </Link>
-            }
+            action={<Link to={newJobHref} className="ops-link">New job</Link>}
             emptyTitle="No jobs yet"
             emptyAction={<Link to={newJobHref} className="ops-link">New job</Link>}
           >
             {(jobs ?? []).map(job => {
               const next = jobListNext(job);
+              const site = opsSiteLabel(job.address, job.title);
               return (
                 <JobRelatedRow
                   key={job.id}
                   href={jobRecordHref(job.id)}
                   icon={Briefcase}
-                  title={`${job.job_number != null ? `#${padNum(job.job_number)} ` : ''}${job.title}`}
+                  title={site}
                   meta={[
+                    job.job_number != null ? `#${padNum(job.job_number)}` : null,
+                    job.title && job.title !== site ? job.title : null,
                     job.scheduled_date ? format(parseISO(job.scheduled_date), 'd MMM yyyy') : null,
                     job.start_time ? job.start_time.slice(0, 5) : null,
-                    job.address?.trim() || null,
                   ].filter(Boolean).join(' · ')}
                   trailing={
                     <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
                   }
                   action={
                     next.actionable ? (
-                      <Link to={next.href} className="ops-next-control-sm w-auto px-3 shrink-0">{next.label}</Link>
+                      <Link to={next.href} className={nextCtl}>{next.label}</Link>
                     ) : (
-                      <span className="ops-next-control-done">{next.label}</span>
+                      <span className={nextDone}>{next.label}</span>
                     )
                   }
                 />
@@ -269,11 +275,7 @@ export function ClientDetailPage() {
             title="Quotes"
             icon={FileText}
             count={(quotes ?? []).length}
-            action={
-              <Link to={newQuoteHref} className="ops-link text-xs">
-                <Plus size={12} /> New quote
-              </Link>
-            }
+            action={<Link to={newQuoteHref} className="ops-link">New quote</Link>}
             emptyTitle="No quotes yet"
             emptyAction={<Link to={newQuoteHref} className="ops-link">New quote</Link>}
           >
@@ -294,9 +296,9 @@ export function ClientDetailPage() {
                   }
                   action={
                     next.key === 'none' ? (
-                      <span className="ops-next-control-done">{next.label}</span>
+                      <span className={nextDone}>{next.label}</span>
                     ) : (
-                      <Link to={quoteRecordHref(quote.id)} className="ops-next-control-sm w-auto px-3 shrink-0">{next.label}</Link>
+                      <Link to={quoteRecordHref(quote.id)} className={nextCtl}>{next.label}</Link>
                     )
                   }
                 />
@@ -308,11 +310,7 @@ export function ClientDetailPage() {
             title="Invoices"
             icon={Receipt}
             count={(invoices ?? []).length}
-            action={
-              <Link to={newInvoiceHref} className="ops-link text-xs">
-                <Plus size={12} /> New invoice
-              </Link>
-            }
+            action={<Link to={newInvoiceHref} className="ops-link">New invoice</Link>}
             emptyTitle="No invoices yet"
             emptyAction={<Link to={newInvoiceHref} className="ops-link">New invoice</Link>}
           >
@@ -334,9 +332,9 @@ export function ClientDetailPage() {
                   }
                   action={
                     next.key === 'none' ? (
-                      <span className="ops-next-control-done">{next.label}</span>
+                      <span className={nextDone}>{next.label}</span>
                     ) : (
-                      <Link to={invoiceRecordHref(inv.id)} className="ops-next-control-sm w-auto px-3 shrink-0">{next.label}</Link>
+                      <Link to={invoiceRecordHref(inv.id)} className={nextCtl}>{next.label}</Link>
                     )
                   }
                 />
@@ -372,14 +370,14 @@ export function ClientDetailPage() {
                   icon={ClipboardList}
                   title={insp.template_snapshot?.name ?? 'Inspection'}
                   meta={[
-                    job?.title ?? null,
+                    job ? opsSiteLabel(job.address, job.title) : null,
                     format(new Date(insp.started_at), 'd MMM yyyy'),
                   ].filter(Boolean).join(' · ')}
                   trailing={
                     <OpsStatus className={inspectionStatusClass(insp.status)}>{inspectionStatusLabel(insp.status)}</OpsStatus>
                   }
                   action={
-                    <Link to={inspectionOpenPath(insp.id, next.key)} className="ops-next-control-sm w-auto px-3 shrink-0">
+                    <Link to={inspectionOpenPath(insp.id, next.key)} className={nextCtl}>
                       {next.label}
                     </Link>
                   }
@@ -387,46 +385,36 @@ export function ClientDetailPage() {
               );
             })}
           </JobRelatedSection>
-        </div>
 
-        {(complianceItems ?? []).length > 0 && (
-          <div className="mb-6">
-            <JobRelatedSection
-              title="Compliance"
-              icon={ShieldCheck}
-              count={(complianceItems ?? []).length}
-              action={
-                <Link to="/compliance" className="ops-link text-xs">
-                  <ShieldCheck size={12} /> View all
-                </Link>
-              }
-              emptyTitle="No compliance items"
-            >
-              {(complianceItems ?? []).map(ci => {
-                const daysUntil = differenceInDays(parseISO(ci.next_due_date), new Date());
-                return (
-                  <JobRelatedRow
-                    key={ci.id}
-                    href="/compliance"
-                    icon={ShieldCheck}
-                    title={ci.title}
-                    meta={[
-                      `Due ${format(parseISO(ci.next_due_date), 'd MMM yyyy')}`,
-                      daysUntil < 0 ? `${Math.abs(daysUntil)} days overdue` : daysUntil <= 30 ? `in ${daysUntil} days` : null,
-                      ci.reminder_sent_at ? `Reminded ${format(new Date(ci.reminder_sent_at), 'd MMM')}` : null,
-                    ].filter(Boolean).join(' · ')}
-                    trailing={
-                      <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${COMPLIANCE_STATUS_STYLES[ci.status]}`}>
-                        {COMPLIANCE_STATUS_LABELS[ci.status]}
-                      </span>
-                    }
-                    action={ci.reminder_sent_at ? <Bell size={12} className="text-muted shrink-0" /> : undefined}
-                  />
-                );
-              })}
-            </JobRelatedSection>
-          </div>
-        )}
+          <JobRelatedSection
+            title="Compliance"
+            icon={ShieldCheck}
+            count={(complianceItems ?? []).length}
+            action={<Link to="/compliance" className="ops-link">View all</Link>}
+            emptyTitle="No compliance items on this client yet."
+            emptyAction={<Link to="/compliance" className="ops-link">View all</Link>}
+          >
+            {(complianceItems ?? []).map(ci => {
+              const daysUntil = differenceInDays(parseISO(ci.next_due_date), new Date());
+              return (
+                <JobRelatedRow
+                  key={ci.id}
+                  href="/compliance"
+                  icon={ShieldCheck}
+                  title={ci.title}
+                  meta={[
+                    `Due ${format(parseISO(ci.next_due_date), 'd MMM yyyy')}`,
+                    daysUntil < 0 ? `${Math.abs(daysUntil)} days overdue` : daysUntil <= 30 ? `in ${daysUntil} days` : null,
+                    ci.reminder_sent_at ? `Reminded ${format(new Date(ci.reminder_sent_at), 'd MMM')}` : null,
+                  ].filter(Boolean).join(' · ')}
+                  trailing={
+                    <OpsStatus className={COMPLIANCE_OPS_STATUS[ci.status]}>{COMPLIANCE_STATUS_LABELS[ci.status]}</OpsStatus>
+                  }
+                />
+              );
+            })}
+          </JobRelatedSection>
+        </div>
       </div>
 
       {showEdit && (
@@ -456,7 +444,7 @@ function MoneyCard({
 }) {
   return (
     <div className="ops-due-box">
-      <span className="ops-meta font-semibold uppercase tracking-wide">{label}</span>
+      <span className="ops-meta">{label}</span>
       <span className={`ops-money text-lg ${tone === 'overdue' ? 'text-fail' : ''}`}>
         {amount == null ? '—' : formatMoney(amount)}
       </span>

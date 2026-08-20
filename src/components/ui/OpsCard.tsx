@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { Camera, Mail, MapPin, Phone } from 'lucide-react';
-import { mailtoHref, telHref } from '../../lib/clientRecords';
+import { Camera } from 'lucide-react';
+import { mapsHref, visibleClientContacts } from '../../lib/clientRecords';
 
 /** First non-empty line for the field-card site title. */
 export function opsSiteLabel(...parts: Array<string | null | undefined>): string {
@@ -12,7 +12,7 @@ export function opsSiteLabel(...parts: Array<string | null | undefined>): string
 }
 
 export function mapsSearchUrl(query: string): string {
-  return `https://maps.google.com/?q=${encodeURIComponent(query)}`;
+  return mapsHref(query);
 }
 
 export function OpsCardHeader({
@@ -147,43 +147,40 @@ export function OpsSiteRow({
   mapsQuery?: string | null;
   hub?: boolean;
 }) {
-  const callHref = telHref(phone);
-  const mailHref = mailtoHref(email);
-  const hasMaps = !!mapsQuery && mapsQuery !== 'No site address';
+  const siteClass = hub ? 'ops-hub-site' : 'ops-card-site';
+  const mapQuery = (mapsQuery ?? '').trim();
+  const hasMaps = !!mapQuery && mapQuery !== 'No site address' && site !== 'No site address';
+  const lines = visibleClientContacts({ phone, email, address: null });
   return (
-    <div className="flex items-start gap-0.5">
-      <p className={hub ? 'ops-hub-site' : 'ops-card-site'}>{site}</p>
-      {callHref ? (
-        <a
-          href={callHref}
-          className="ops-hit"
-          aria-label="Call"
-          onClick={e => e.stopPropagation()}
-        >
-          <Phone size={18} />
-        </a>
-      ) : null}
-      {mailHref ? (
-        <a
-          href={mailHref}
-          className="ops-hit"
-          aria-label="Email"
-          onClick={e => e.stopPropagation()}
-        >
-          <Mail size={18} />
-        </a>
-      ) : null}
+    <div className="min-w-0">
       {hasMaps ? (
         <a
-          href={mapsSearchUrl(mapsQuery)}
+          href={mapsHref(mapQuery)}
+          className={`${siteClass} block hover:text-accent`}
           target="_blank"
           rel="noreferrer"
-          className="ops-hit"
-          aria-label="Open map"
           onClick={e => e.stopPropagation()}
         >
-          <MapPin size={18} />
+          {site}
         </a>
+      ) : (
+        <p className={siteClass}>{site}</p>
+      )}
+      {lines.length > 0 ? (
+        <div className="mt-0.5 flex flex-col gap-0.5 min-w-0">
+          {lines.map(line => (
+            <a
+              key={line.kind}
+              href={line.href}
+              className="ops-link truncate"
+              target={line.kind === 'map' ? '_blank' : undefined}
+              rel={line.kind === 'map' ? 'noreferrer' : undefined}
+              onClick={e => e.stopPropagation()}
+            >
+              {line.label}
+            </a>
+          ))}
+        </div>
       ) : null}
     </div>
   );

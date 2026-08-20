@@ -5,8 +5,10 @@ import {
   AU_PHONE_PLACEHOLDER,
   applyHubScope,
   clientContactCopiedOntoForm,
+  clientHubNext,
   clientHubRecordQueries,
   clientHubStartAction,
+  clientHubStatus,
   clientInspectionQuery,
   clientInvoiceMoney,
   clientListActivity,
@@ -194,6 +196,28 @@ describe('client money helpers', () => {
       jobs: 6,
       live: 2,
     });
+  });
+
+  it('row status is solid ops, overdue then live then quoted, never a pastel pill', () => {
+    expect(clientHubStatus({ overdue: 4, live: 2, quoted: 50 }))
+      .toEqual({ label: 'Overdue', tone: 'overdue', className: 'ops-status-bad' });
+    expect(clientHubStatus({ overdue: 0, live: 2, quoted: 50 }))
+      .toEqual({ label: 'Live', tone: 'live', className: 'ops-status-progress' });
+    expect(clientHubStatus({ overdue: 0, live: 0, quoted: 50 }))
+      .toEqual({ label: 'Quoted', tone: 'quoted', className: 'ops-status-info' });
+    expect(clientHubStatus({ overdue: 0, live: 0, quoted: 0 }))
+      .toEqual({ label: 'Idle', tone: 'idle', className: 'ops-status-wait' });
+    expect(clientHubStatus({ archived: true, overdue: 4, live: 2, quoted: 50 }))
+      .toEqual({ label: 'Archived', tone: 'archived', className: 'ops-status-wait' });
+  });
+
+  it('row next opens the card when there is debt or jobs, else starts a job', () => {
+    expect(clientHubNext({ clientId: 'c1', jobCount: 2, overdue: 0 }))
+      .toEqual({ label: 'Open', href: '/clients/c1' });
+    expect(clientHubNext({ clientId: 'c1', jobCount: 0, overdue: 4 }))
+      .toEqual({ label: 'Open', href: '/clients/c1' });
+    expect(clientHubNext({ clientId: 'c1', jobCount: 0, overdue: 0 }))
+      .toEqual({ href: '/jobs?client=c1', label: 'New job' });
   });
 });
 
