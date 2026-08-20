@@ -145,8 +145,8 @@ export function InvoicesPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1400px] mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <div className="ops-page">
+        <div className="ops-page-head">
           <div>
             <h1 className="ops-page-title">Invoices</h1>
             <p className="ops-meta mt-0.5">
@@ -206,11 +206,11 @@ export function InvoicesPage() {
             <InvoiceGroup title="Paid" invoices={paidInvoices} onOpen={openInvoice} />
           </div>
         ) : (
-          <div className="bg-white rounded border border-[#E5E7EB] overflow-hidden">
+          <div className="ops-table">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[#F9FAFB] text-left ops-meta font-medium uppercase tracking-wide">
+                  <tr className="bg-zebra text-left ops-meta font-medium uppercase tracking-wide">
                     <th className="px-3 py-2">Invoice #</th>
                     <th className="px-3 py-2">Site</th>
                     <th className="px-3 py-2">Status</th>
@@ -219,16 +219,16 @@ export function InvoicesPage() {
                     <th className="px-3 py-2">Next</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#F3F4F6]">
+                <tbody className="divide-y divide-rule">
                   {filtered.map(inv => {
                     const status = effectiveInvoiceStatus(inv);
                     return (
                       <tr
                         key={inv.id}
                         onClick={() => openInvoice(inv)}
-                        className={`hover:bg-[#F9FAFB] cursor-pointer transition-colors ${status === 'overdue' ? 'bg-red-50/40' : ''}`}
+                        className={`hover:bg-zebra cursor-pointer transition-colors ${status === 'overdue' ? 'bg-fail/5' : ''}`}
                       >
-                        <td className="px-3 py-2 font-medium text-[#2E75B6]">#{padInv(inv.invoice_number)}</td>
+                        <td className="px-3 py-2 font-medium text-accent">#{padInv(inv.invoice_number)}</td>
                         <td className="px-3 py-2">
                           <p className="text-sm font-semibold text-navy truncate">{opsSiteLabel(inv.job_address)}</p>
                           <p className="ops-meta truncate">{inv.client_name ?? '—'}</p>
@@ -617,7 +617,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
           onClose={onClose}
         />
 
-        <div className="px-4 border-b border-[#E5E7EB]">
+        <div className="px-4 border-b border-rule">
           <OpsFromTo
             fromName={company?.name ?? 'Your company'}
             fromDetail={[company?.abn ? `ABN ${company.abn}` : null, company?.licence_number ? `Licence ${company.licence_number}` : null].filter(Boolean).join(' · ') || null}
@@ -652,7 +652,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
           )}
         </div>
 
-        <div className="px-3 py-2 border-b border-[#E5E7EB] flex flex-wrap gap-2">
+        <div className="px-3 py-2 border-b border-rule flex flex-wrap gap-2">
           {form.status !== 'paid' && next.key !== 'mark_paid' && (
             <ActionButton
               recommended={false}
@@ -697,7 +697,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
 
           {form.job_id && (
             <button type="button" onClick={() => void handleImportFromJob()} disabled={importing}
-              className="flex items-center gap-1.5 text-xs text-[#2E75B6] hover:underline font-medium disabled:opacity-50">
+              className="ops-link text-xs disabled:opacity-50">
               <Download size={13} /> {importing ? 'Importing...' : 'Import line items from job'}
             </button>
           )}

@@ -237,8 +237,8 @@ export function SchedulePage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1400px] mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+      <div className="ops-page">
+        <div className="ops-page-head">
           <div>
             <h1 className="ops-page-title">Schedule</h1>
             <p className="ops-meta mt-0.5">
@@ -263,7 +263,7 @@ export function SchedulePage() {
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <button onClick={() => setCurrentDate(new Date())}
-              className="px-3 py-1.5 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-gray-50">
+              className="btn-secondary">
               Today
             </button>
             <div className="flex items-center">
@@ -271,7 +271,7 @@ export function SchedulePage() {
                 onClick={() => setCurrentDate(d =>
                   viewMode === 'day' ? addDays(d, -1) : addWeeks(d, -1)
                 )}
-                className="w-8 h-8 flex items-center justify-center rounded-l-md border border-[#E5E7EB] hover:bg-gray-50 text-[#4A5568]"
+                className="w-11 h-11 flex items-center justify-center rounded-l-md border border-rule hover:bg-zebra text-muted"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -279,18 +279,18 @@ export function SchedulePage() {
                 onClick={() => setCurrentDate(d =>
                   viewMode === 'day' ? addDays(d, 1) : addWeeks(d, 1)
                 )}
-                className="w-8 h-8 flex items-center justify-center rounded-r-md border-y border-r border-[#E5E7EB] hover:bg-gray-50 text-[#4A5568]"
+                className="w-11 h-11 flex items-center justify-center rounded-r-md border-y border-r border-rule hover:bg-zebra text-muted"
               >
                 <ChevronRight size={16} />
               </button>
             </div>
-            <h2 className="text-sm font-semibold text-[#0A2540] ml-1">
+            <h2 className="ops-section-title ml-1">
               {viewMode === 'day' && format(currentDate, 'd MMMM yyyy')}
               {viewMode === 'week' && `${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'd MMM')} – ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'd MMM yyyy')}`}
             </h2>
           </div>
 
-          <div className="hidden lg:flex items-center gap-0.5 bg-gray-100 rounded p-0.5">
+          <div className="hidden lg:flex ops-seg">
             {([
               { mode: 'day' as const, label: 'Day', Icon: Columns3 },
               { mode: 'week' as const, label: 'Week', Icon: CalIcon },
@@ -298,9 +298,7 @@ export function SchedulePage() {
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === mode ? 'bg-white text-navy' : 'text-[rgba(0,0,0,0.7)] hover:text-navy'
-                }`}
+                className={`ops-seg-btn ${viewMode === mode ? 'ops-seg-btn-on' : 'ops-seg-btn-off'}`}
               >
                 <Icon size={14} />
                 {label}
@@ -316,7 +314,7 @@ export function SchedulePage() {
             </div>
             {filteredEmployeeIds.size > 0 && (
               <button onClick={clearEmployeeFilters}
-                className="flex items-center gap-1 text-xs text-[#2E75B6] hover:underline">
+                className="ops-link text-xs">
                 <X size={11} /> Show all
               </button>
             )}
@@ -330,7 +328,7 @@ export function SchedulePage() {
                     className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border transition-all ${
                       active
                         ? 'border-transparent bg-white'
-                        : 'border-[#E5E7EB] bg-gray-50 opacity-50 hover:opacity-80'
+                        : 'border-rule bg-zebra opacity-50 hover:opacity-80'
                     }`}
                   >
                     <EmployeeColorSwatch

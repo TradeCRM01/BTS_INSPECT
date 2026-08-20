@@ -131,9 +131,8 @@ export function JobsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1400px] mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <div className="ops-page">
+        <div className="ops-page-head">
           <div>
             <h1 className="ops-page-title">Jobs</h1>
             <p className="ops-meta mt-0.5">
@@ -151,7 +150,7 @@ export function JobsPage() {
         {/* Search + Status filter bar */}
         <div className="flex items-center gap-3 mb-4 flex-wrap">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -196,11 +195,11 @@ export function JobsPage() {
             <JobGroup title="Closed" icon={Clock} jobs={closedJobs} />
           </div>
         ) : (
-          <div className="bg-white rounded border border-[#E5E7EB] overflow-hidden">
+          <div className="ops-table">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[#F9FAFB] text-left ops-meta font-medium uppercase tracking-wide">
+                  <tr className="bg-zebra text-left ops-meta font-medium uppercase tracking-wide">
                     <th className="px-3 py-2">Job #</th>
                     <th className="px-3 py-2">Site</th>
                     <th className="px-3 py-2">Client</th>
@@ -210,13 +209,13 @@ export function JobsPage() {
                     <th className="px-3 py-2">Next</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#F3F4F6]">
+                <tbody className="divide-y divide-rule">
                   {filtered.map(job => {
                     const rail = JOB_STATUS_RAIL[job.status];
                     const jobDate = job.scheduled_date ? parseISO(job.scheduled_date) : null;
                     return (
                       <tr key={job.id} onClick={() => navigate(`/jobs/${job.id}`)}
-                        className="hover:bg-[#F9FAFB] cursor-pointer transition-colors" style={{ borderLeft: `3px solid ${rail}` }}>
+                        className="hover:bg-zebra cursor-pointer transition-colors" style={{ borderLeft: `3px solid ${rail}` }}>
                         <td className="px-3 py-2 font-medium" style={{ color: rail }}>{job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : '—'}</td>
                         <td className="px-3 py-2">
                           <p className="text-sm font-semibold text-navy truncate">{opsSiteLabel(job.address, job.client_address)}</p>

@@ -47,90 +47,92 @@ export function JobDispatchPanel({
   };
 
   return (
-    <div className="card p-5 mb-6">
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <h2 className="text-sm font-semibold text-[#1A1A1A] uppercase tracking-wide flex items-center gap-1.5">
-          <Calendar size={14} className="text-[#0A2540]" /> Schedule & crew
+    <div className="ops-tray mb-5">
+      <div className="ops-tray-head">
+        <h2 className="ops-section-title flex items-center gap-1.5">
+          <Calendar size={14} /> Schedule & crew
         </h2>
-        <Link to={scheduleHref} className="text-sm text-[#2E75B6] hover:underline">
+        <Link to={scheduleHref} className="ops-link">
           View on board
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-        <label className="block">
-          <span className="text-xs font-medium text-[#4A5568] mb-1 block">Date</span>
-          <input
-            type="date"
-            value={job.scheduled_date ?? ''}
-            onChange={e => save.mutate({ scheduled_date: e.target.value || null })}
-            className="form-input"
-          />
-        </label>
-        <label className="block">
-          <span className="text-xs font-medium text-[#4A5568] mb-1 block">Start</span>
-          <input
-            type="time"
-            value={toTimeInput(job.start_time)}
-            onChange={e => save.mutate({ start_time: e.target.value || null })}
-            className="form-input"
-          />
-        </label>
-        <label className="block">
-          <span className="text-xs font-medium text-[#4A5568] mb-1 block">End</span>
-          <input
-            type="time"
-            value={toTimeInput(job.end_time)}
-            onChange={e => save.mutate({ end_time: e.target.value || null })}
-            className="form-input"
-          />
-        </label>
-      </div>
-      <p className="text-xs text-[#9CA3AF] mb-4">
-        No date → Needs a date on the board. Dated but no crew → Unassigned. Dropping on a person adds them.
-      </p>
+      <div className="px-3 pb-3 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+          <label className="block">
+            <span className="ops-field-label">Date</span>
+            <input
+              type="date"
+              value={job.scheduled_date ?? ''}
+              onChange={e => save.mutate({ scheduled_date: e.target.value || null })}
+              className="form-input"
+            />
+          </label>
+          <label className="block">
+            <span className="ops-field-label">Start</span>
+            <input
+              type="time"
+              value={toTimeInput(job.start_time)}
+              onChange={e => save.mutate({ start_time: e.target.value || null })}
+              className="form-input"
+            />
+          </label>
+          <label className="block">
+            <span className="ops-field-label">End</span>
+            <input
+              type="time"
+              value={toTimeInput(job.end_time)}
+              onChange={e => save.mutate({ end_time: e.target.value || null })}
+              className="form-input"
+            />
+          </label>
+        </div>
+        <p className="ops-meta mb-3">
+          No date → Needs a date on the board. Dated but no crew → Unassigned. Dropping on a person adds them.
+        </p>
 
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="text-xs font-medium text-[#4A5568] flex items-center gap-1.5">
-          <Users size={13} /> Crew
-        </span>
-        {assigned.length > 0 && (
-          <button
-            type="button"
-            onClick={() => save.mutate({ assigned_team: [] })}
-            className="text-xs text-[#2E75B6] hover:underline"
-          >
-            Clear crew
-          </button>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <span className="ops-field-label mb-0 flex items-center gap-1.5">
+            <Users size={13} /> Crew
+          </span>
+          {assigned.length > 0 && (
+            <button
+              type="button"
+              onClick={() => save.mutate({ assigned_team: [] })}
+              className="ops-link text-xs"
+            >
+              Clear crew
+            </button>
+          )}
+        </div>
+        {teamMembers.length === 0 ? (
+          <p className="ops-meta">No team members to assign</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {teamMembers.map(m => {
+              const selected = assigned.includes(m.id);
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => toggleCrew(m.id)}
+                  disabled={save.isPending}
+                  className={`px-2.5 py-1.5 min-h-[44px] sm:min-h-0 rounded-md text-xs font-medium transition-colors disabled:opacity-50 ${
+                    selected
+                      ? 'bg-navy text-white'
+                      : 'bg-zebra text-muted border border-rule hover:text-navy'
+                  }`}
+                >
+                  {m.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {assigned.length === 0 && (
+          <p className="ops-meta mt-2">Unassigned — still on the board when a date is set.</p>
         )}
       </div>
-      {teamMembers.length === 0 ? (
-        <p className="text-sm text-[#9CA3AF]">No team members to assign</p>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {teamMembers.map(m => {
-            const selected = assigned.includes(m.id);
-            return (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => toggleCrew(m.id)}
-                disabled={save.isPending}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors disabled:opacity-50 ${
-                  selected
-                    ? 'bg-[#0A2540] text-white'
-                    : 'bg-gray-100 text-[#4A5568] hover:bg-gray-200'
-                }`}
-              >
-                {m.name}
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {assigned.length === 0 && (
-        <p className="text-xs text-[#9CA3AF] mt-2">Unassigned — still on the board when a date is set.</p>
-      )}
     </div>
   );
 }

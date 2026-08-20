@@ -83,19 +83,19 @@ const ArchiveMenu = memo(function ArchiveMenu({ inspection, onToggle, onDelete, 
         onClick={() => { setOpen(false); setShowDeleteConfirm(false); }}
       />
       <div
-        className="fixed bg-white border border-[#E5E7EB] rounded-md py-1 min-w-[200px] max-h-80 overflow-y-auto"
+        className="fixed bg-white border border-rule rounded-md py-1 min-w-[200px] max-h-80 overflow-y-auto"
         style={{ top: pos.top, left: pos.left, zIndex: 9999, maxHeight: 'calc(100vh - 100px)' }}
       >
         {showDeleteConfirm ? (
           <div className="px-3 py-2">
-            <p className="text-sm font-medium text-[#1A1A1A] mb-2">Delete inspection?</p>
-            <p className="text-xs text-[#6B7280] mb-3">This cannot be undone.</p>
+            <p className="text-sm font-medium text-ink mb-2">Delete inspection?</p>
+            <p className="text-xs text-muted mb-3">This cannot be undone.</p>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(false)}
                 disabled={isDeleting}
-                className="flex-1 px-2 py-2 text-xs border border-[#E5E7EB] text-[#374151] rounded-md hover:bg-[#F9FAFB] disabled:opacity-50"
+                className="flex-1 px-2 py-2 text-xs border border-rule text-ink rounded-md hover:bg-zebra disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -120,7 +120,7 @@ const ArchiveMenu = memo(function ArchiveMenu({ inspection, onToggle, onDelete, 
                   onAddInspection();
                   setOpen(false);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-[#F9FAFB] text-left text-[#2E75B6] min-h-[44px]"
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-zebra text-left text-accent min-h-[44px]"
               >
                 <Link2 size={14} /> Add inspection to job
               </button>
@@ -134,13 +134,13 @@ const ArchiveMenu = memo(function ArchiveMenu({ inspection, onToggle, onDelete, 
                   onSendToDrive(inspection.id);
                   setOpen(false);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-[#F9FAFB] text-left text-[#2E75B6] min-h-[44px]"
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-zebra text-left text-accent min-h-[44px]"
               >
                 <Send size={14} /> Send to Drive folder
               </button>
             )}
             {(onAddInspection || onSendToDrive) && !inspection.archived && (
-              <div className="border-t border-[#E5E7EB] my-1" />
+              <div className="border-t border-rule my-1" />
             )}
             <button
               type="button"
@@ -150,8 +150,8 @@ const ArchiveMenu = memo(function ArchiveMenu({ inspection, onToggle, onDelete, 
                 onToggle(inspection.id, !inspection.archived);
                 setOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-[#F9FAFB] text-left min-h-[44px]
-                ${inspection.archived ? 'text-[#1B7F3A]' : 'text-[#B42318]'}`}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-zebra text-left min-h-[44px]
+                ${inspection.archived ? 'text-pass' : 'text-fail'}`}
             >
               {inspection.archived
                 ? <><ArchiveRestore size={14} /> Unarchive</>
@@ -159,7 +159,7 @@ const ArchiveMenu = memo(function ArchiveMenu({ inspection, onToggle, onDelete, 
             </button>
             {isAdmin && onDelete && (
               <>
-                <div className="border-t border-[#E5E7EB] my-1" />
+                <div className="border-t border-rule my-1" />
                 <button
                   type="button"
                   onClick={e => {
@@ -393,11 +393,10 @@ export function InspectionsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1200px] mx-auto px-4 py-6 pb-24">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="ops-page">
+        <div className="ops-page-head">
           <div>
-            <h1 className="ops-page-title flex items-center gap-2">
-              <ClipboardList size={20} />
+            <h1 className="ops-page-title">
               Inspections
             </h1>
             <p className="ops-meta mt-1">Open a row to fill or review. Start a new one from the job.</p>
@@ -418,7 +417,7 @@ export function InspectionsPage() {
               <button
                 type="button"
                 onClick={() => setShowArchived(v => !v)}
-                className={`btn-secondary min-h-[44px] ${showArchived ? 'border-[#B42318] text-[#B42318]' : ''}`}
+                className={`btn-secondary min-h-[44px] ${showArchived ? 'border-fail text-fail' : ''}`}
               >
                 <Archive size={14} />
                 {showArchived ? 'Viewing archived' : `Archived (${archivedCount})`}
@@ -438,7 +437,7 @@ export function InspectionsPage() {
 
         <div className="flex flex-wrap gap-2 mb-4">
           <div className="relative flex-1 min-w-[200px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -460,13 +459,13 @@ export function InspectionsPage() {
         </div>
 
         {exportError && (
-          <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-md px-4 py-2.5 mb-3 text-sm text-red-700">
+          <div className="flex items-center justify-between ops-alert mb-3">
             <span>{exportError}</span>
             <button type="button" onClick={() => setExportError(null)} className="ml-3 shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"><X size={14} /></button>
           </div>
         )}
         {deleteError && (
-          <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-md px-4 py-2.5 mb-3 text-sm text-red-700">
+          <div className="flex items-center justify-between ops-alert mb-3">
             <span>{deleteError}</span>
             <button type="button" onClick={() => setDeleteError(null)} className="ml-3 shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"><X size={14} /></button>
           </div>
@@ -534,32 +533,32 @@ export function InspectionsPage() {
 
       {sendToDriveFor && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-4 pt-[8vh] overflow-y-auto" onClick={() => setSendToDriveFor(null)}>
-          <div className="bg-white rounded-md border border-[#E5E7EB] w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-md border border-rule w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-4">
-              <Send size={20} className="text-[#2E75B6]" />
-              <h3 className="text-base font-semibold text-[#1A1A1A]">Send to Drive folder</h3>
+              <Send size={20} className="text-accent" />
+              <h3 className="text-base font-semibold text-ink">Send to Drive folder</h3>
             </div>
-            <div className="max-h-64 overflow-y-auto border border-[#E5E7EB] rounded-md">
+            <div className="max-h-64 overflow-y-auto border border-rule rounded-md">
               <button
                 type="button"
                 onClick={() => handleSendToDrive(null)}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB] border-b border-[#F3F4F6] last:border-0 text-left min-h-[44px]"
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-ink hover:bg-zebra border-b border-rule last:border-0 text-left min-h-[44px]"
               >
-                <Home size={15} className="text-[#9AA0A6]" /> Root (Shared Drive)
+                <Home size={15} className="text-muted" /> Root (Shared Drive)
               </button>
               {(driveFolders ?? []).map(f => (
                 <button
                   key={f.id}
                   type="button"
                   onClick={() => handleSendToDrive(f.id)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB] border-b border-[#F3F4F6] last:border-0 text-left min-h-[44px]"
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-ink hover:bg-zebra border-b border-rule last:border-0 text-left min-h-[44px]"
                 >
-                  <Folder size={15} className="text-[#2E75B6]" /> {f.name}
+                  <Folder size={15} className="text-accent" /> {f.name}
                 </button>
               ))}
             </div>
             <div className="flex justify-end mt-4">
-              <button type="button" onClick={() => setSendToDriveFor(null)} className="px-3 py-2 text-sm text-[#4A5568] hover:bg-[#F3F4F6] rounded-md min-h-[44px]">Cancel</button>
+              <button type="button" onClick={() => setSendToDriveFor(null)} className="px-3 py-2 text-sm text-muted hover:bg-zebra rounded-md min-h-[44px]">Cancel</button>
             </div>
           </div>
         </div>
@@ -695,7 +694,7 @@ function InspectionCard({
           <button type="button" onClick={() => onOpen(href)} className="ops-next-control-block">
             {next.label}
           </button>
-          <label className="flex items-center gap-2 mt-1 min-h-[44px] text-xs text-[#6B7280] px-1">
+          <label className="flex items-center gap-2 mt-1 min-h-[44px] text-xs text-muted px-1">
             <input
               type="checkbox"
               checked={selected}

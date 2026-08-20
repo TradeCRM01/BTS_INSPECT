@@ -231,7 +231,7 @@ export function InspectionFillPage() {
   if (isError || !inspection) {
     return (
       <AppShell>
-        <div className="max-w-[1000px] mx-auto px-4 py-6">
+        <div className="ops-page max-w-[1000px]">
           <PageError
             message="Could not load inspection. It may have been deleted or you don't have access."
             onRetry={() => refetch()}
@@ -244,7 +244,7 @@ export function InspectionFillPage() {
   if (!schema) {
     return (
       <AppShell>
-        <div className="max-w-[1000px] mx-auto px-4 py-6">
+        <div className="ops-page max-w-[1000px]">
           <PageError
             message="This inspection has no template data. It may be corrupted."
             onRetry={() => navigate('/inspections')}
@@ -401,12 +401,12 @@ export function InspectionFillPage() {
     }
 
     return (
-      <div key={key} className="py-3 border-b border-[#E5E7EB] last:border-b-0">
-        <label className="block text-base font-medium text-[#1A1A1A] mb-0.5">
+      <div key={key} className="py-3 border-b border-rule last:border-b-0">
+        <label className="block text-base font-medium text-navy mb-0.5">
           {q.label}
           {q.required && <span className="text-red-500 ml-1">*</span>}
         </label>
-        {q.helpText && <p className="text-sm text-[#4A5568] mb-3">{q.helpText}</p>}
+        {q.helpText && <p className="text-sm text-muted mb-3">{q.helpText}</p>}
         <div className="mt-2">
           <QuestionRenderer
             question={q}
@@ -421,10 +421,10 @@ export function InspectionFillPage() {
         </div>
 
         {q.allowPhotos && q.type !== 'photo' && (
-          <div className="mt-3 pt-3 border-t border-[#F3F4F6]">
-            <label className={`flex items-center gap-2 justify-center w-full min-h-[44px] border border-dashed border-[#E5E7EB] rounded-md cursor-pointer hover:border-[#2E75B6]/40 transition-colors ${attachmentUploading[uploadKey] ? 'opacity-50 cursor-not-allowed' : ''}`}>
-              <Camera size={15} className="text-[#4A5568]" />
-              <span className="text-xs font-medium text-[#4A5568]">
+          <div className="mt-3 pt-3 border-t border-rule">
+            <label className={`flex items-center gap-2 justify-center w-full min-h-[44px] border border-dashed border-rule rounded-md cursor-pointer hover:border-accent/40 transition-colors ${attachmentUploading[uploadKey] ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <Camera size={15} className="text-muted" />
+              <span className="text-xs font-medium text-muted">
                 {attachmentUploading[uploadKey] ? 'Uploading...' : 'Attach photo'}
               </span>
               <input
@@ -443,7 +443,7 @@ export function InspectionFillPage() {
                     <img
                       src={photo.url}
                       alt={`Attachment ${i + 1}`}
-                      className="w-full h-full object-cover rounded-md border border-[#E5E7EB]"
+                      className="w-full h-full object-cover rounded-md border border-rule"
                     />
                     <button
                       type="button"
@@ -460,13 +460,13 @@ export function InspectionFillPage() {
         )}
 
         {q.allowComments && (
-          <div className="mt-3 pt-3 border-t border-[#F3F4F6]">
-            <label className="block text-xs font-medium text-[#4A5568] mb-1.5">Comments</label>
+          <div className="mt-3 pt-3 border-t border-rule">
+            <label className="ops-field-label">Comments</label>
             <textarea
               value={String(responses[commentKey] ?? '')}
               onChange={e => updateResponse(commentKey, e.target.value)}
               rows={2}
-              className="w-full px-3 py-2.5 min-h-[44px] border border-[#E5E7EB] rounded-md text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent resize-none bg-white placeholder-[#9CA3AF]"
+              className="ops-field resize-none"
               placeholder="Add comments..."
             />
           </div>
@@ -508,17 +508,17 @@ export function InspectionFillPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1000px] mx-auto px-4 py-4 pb-32">
+      <div className="ops-page-fill">
         <div className="flex items-center justify-between gap-3 mb-3">
           <button
             type="button"
             onClick={() => navigate('/inspections')}
-            className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] min-h-[44px]"
+            className="ops-back"
           >
             <ChevronLeft size={16} /> Inspections
           </button>
           {saveHint && (
-            <span className={`text-xs ${saveStatus === 'error' ? 'text-[#B42318]' : saveStatus === 'saving' ? 'text-[#92400E]' : 'text-[#1B7F3A] flex items-center gap-1'}`}>
+            <span className={`text-xs ${saveStatus === 'error' ? 'text-fail' : saveStatus === 'saving' ? 'text-warning' : 'text-pass flex items-center gap-1'}`}>
               {saveStatus === 'saved' && <Check size={12} />}
               {saveHint}
             </span>
@@ -542,25 +542,25 @@ export function InspectionFillPage() {
 
         <section id="insp-identity" className="ops-card mb-3">
           <div className="ops-tray-head">
-            <h2 className="text-sm font-semibold text-navy flex items-center gap-2">
+            <h2 className="ops-section-title flex items-center gap-2">
               <ClipboardList size={16} /> Job / site
             </h2>
           </div>
           <div className="px-3 pb-3 pt-2 space-y-3">
             <div>
-              <label className="text-xs font-medium text-[#4A5568] mb-1 block">
-                Site / location<span className="text-[#B42318]"> *</span>
+              <label className="ops-field-label">
+                Site / location<span className="text-fail"> *</span>
               </label>
               <input
                 type="text"
                 value={meta.siteName ?? ''}
                 onChange={e => updateMeta('siteName', e.target.value)}
                 placeholder="Where is this inspection?"
-                className="w-full text-base font-semibold text-navy border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                className="ops-field-site"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-[#4A5568] mb-1 block">Job</label>
+              <label className="ops-field-label">Job</label>
               <select
                 value={jobId}
                 onChange={e => {
@@ -578,7 +578,7 @@ export function InspectionFillPage() {
                   }
                   persist(responses, nextMeta, nextJob);
                 }}
-                className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 bg-white min-h-[44px]"
+                className="ops-field"
               >
                 <option value="">No linked job</option>
                 {jobs.map(j => (
@@ -595,41 +595,41 @@ export function InspectionFillPage() {
               {showMoreIdentity ? 'Hide extra details' : 'More job details'}
             </button>
             {showMoreIdentity && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-[#E5E7EB]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-rule">
                 <div>
-                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Site address</label>
+                  <label className="ops-field-label">Site address</label>
                   <input
                     type="text"
                     value={meta.siteAddress ?? ''}
                     onChange={e => updateMeta('siteAddress', e.target.value)}
-                    className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                    className="ops-field"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Client</label>
+                  <label className="ops-field-label">Client</label>
                   <input
                     type="text"
                     value={meta.clientName ?? ''}
                     onChange={e => updateMeta('clientName', e.target.value)}
-                    className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                    className="ops-field"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Job number</label>
+                  <label className="ops-field-label">Job number</label>
                   <input
                     type="text"
                     value={meta.jobNumber ?? ''}
                     onChange={e => updateMeta('jobNumber', e.target.value)}
-                    className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                    className="ops-field"
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Job description</label>
+                  <label className="ops-field-label">Job description</label>
                   <textarea
                     value={meta.jobDescription ?? ''}
                     onChange={e => updateMeta('jobDescription', e.target.value)}
                     rows={2}
-                    className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none"
+                    className="ops-field resize-none"
                   />
                 </div>
               </div>
@@ -650,9 +650,9 @@ export function InspectionFillPage() {
                   className={`ops-tab min-h-[44px] ${isActive ? 'ops-tab-active' : ''}`}
                 >
                   <span className={`inline-block w-2 h-2 rounded-sm mr-1.5 align-middle ${
-                    completion === 'full' ? 'bg-[#1B7F3A]' :
-                    completion === 'partial' ? 'bg-[#B45309]' :
-                    'bg-[#4A5568]'
+                    completion === 'full' ? 'bg-pass' :
+                    completion === 'partial' ? 'bg-warning' :
+                    'bg-muted'
                   }`} />
                   {sec.title}
                 </button>
@@ -665,7 +665,7 @@ export function InspectionFillPage() {
           <section className="ops-card">
             <div className="ops-tray-head">
               <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-navy">
+                <h2 className="ops-section-title">
                   {currentSection.title}
                 </h2>
                 {currentSection.description && (
@@ -680,13 +680,13 @@ export function InspectionFillPage() {
               {currentSection.isRepeating ? (
                 <div className="space-y-3 pt-2">
                   {(sectionInstances[currentSection.id] ?? []).map((instanceId) => (
-                    <div key={instanceId} className="border border-[#E5E7EB] rounded-md overflow-hidden">
+                    <div key={instanceId} className="border border-rule rounded-md overflow-hidden">
                       <button
                         type="button"
                         onClick={() => setExpandedInstances(prev => ({ ...prev, [instanceId]: !prev[instanceId] }))}
-                        className="w-full flex items-center justify-between px-3 min-h-[44px] hover:bg-[#F9FAFB]"
+                        className="w-full flex items-center justify-between px-3 min-h-[44px] hover:bg-zebra"
                       >
-                        <span className="font-medium text-sm text-[#1A1A1A]">
+                        <span className="font-medium text-sm text-ink">
                           {getInstanceLabel(currentSection, instanceId)}
                         </span>
                         <div className="flex items-center gap-1">
@@ -695,18 +695,18 @@ export function InspectionFillPage() {
                             tabIndex={0}
                             onClick={e => { e.stopPropagation(); removeInstance(currentSection.id, instanceId); }}
                             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); removeInstance(currentSection.id, instanceId); } }}
-                            className="text-[#4A5568] hover:text-[#B42318] w-11 h-11 inline-flex items-center justify-center"
+                            className="text-muted hover:text-fail w-11 h-11 inline-flex items-center justify-center"
                           >
                             <Trash2 size={14} />
                           </span>
                           <ChevronDown
                             size={16}
-                            className={`text-[#4A5568] transition-transform ${expandedInstances[instanceId] ? 'rotate-180' : ''}`}
+                            className={`text-muted transition-transform ${expandedInstances[instanceId] ? 'rotate-180' : ''}`}
                           />
                         </div>
                       </button>
                       {expandedInstances[instanceId] && (
-                        <div className="px-3 pb-2 border-t border-[#E5E7EB]">
+                        <div className="px-3 pb-2 border-t border-rule">
                           {currentSection.questions
                             .filter(q => evaluateShowIf(q.showIf, responses))
                             .map(q => renderQuestion(q, instanceId))}
@@ -717,7 +717,7 @@ export function InspectionFillPage() {
                   <button
                     type="button"
                     onClick={() => addInstance(currentSection.id)}
-                    className="flex items-center gap-2 w-full min-h-[44px] border border-dashed border-[#E5E7EB] rounded-md text-sm text-[#2E75B6] font-medium hover:border-[#2E75B6]/60 justify-center"
+                    className="flex items-center gap-2 w-full min-h-[44px] border border-dashed border-rule rounded-md text-sm text-accent font-medium hover:border-accent/60 justify-center"
                   >
                     <Plus size={16} /> Add {currentSection.repeatLabel ?? 'Item'}
                   </button>

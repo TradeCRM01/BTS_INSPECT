@@ -279,7 +279,7 @@ function Take5FillPage() {
   if (!jhaId) {
     return (
       <AppShell>
-        <div className="max-w-[800px] mx-auto px-4 py-6">
+        <div className="ops-page max-w-[800px]">
           <PageError message="Take 5 requires a parent JHA. Open a JHA first, then tap New Take 5 under extras." onRetry={() => navigate('/jha')} />
         </div>
       </AppShell>
@@ -300,23 +300,23 @@ function Take5FillPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1000px] mx-auto px-4 py-4 pb-32">
+      <div className="ops-page-fill">
         <div className="flex items-center justify-between gap-3 mb-3">
           <button
             type="button"
             onClick={() => navigate('/jha/take5')}
-            className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] min-h-[44px]"
+            className="ops-back"
           >
             <ChevronLeft size={16} /> Take 5s
           </button>
           <div className="flex items-center gap-2 text-xs">
             {saveHint && (
-              <span className={saveHint === 'error' ? 'text-[#B42318]' : saveHint === 'saving' ? 'text-[#92400E]' : 'text-[#1B7F3A] flex items-center gap-1'}>
+              <span className={saveHint === 'error' ? 'text-fail' : saveHint === 'saving' ? 'text-warning' : 'text-pass flex items-center gap-1'}>
                 {saveHint === 'saved' && <Check size={12} />}
                 {saveHint === 'saved' ? 'Saved' : saveHint === 'saving' ? 'Saving…' : 'Save failed'}
               </span>
             )}
-            <Link to={`/jha/new?docId=${jhaId}`} className="text-[#2E75B6] min-h-[44px] inline-flex items-center">
+            <Link to={`/jha/new?docId=${jhaId}`} className="text-accent min-h-[44px] inline-flex items-center">
               Parent JHA
             </Link>
           </div>
@@ -342,26 +342,26 @@ function Take5FillPage() {
         </article>
 
         {error && (
-          <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+          <div className="mb-3 ops-alert">
             {error}
           </div>
         )}
 
         <section id="take5-identity" className="ops-card mb-3">
           <div className="ops-tray-head">
-            <h2 className="text-sm font-semibold text-navy flex items-center gap-2">
+            <h2 className="ops-section-title flex items-center gap-2">
               <ShieldAlert size={16} /> Job / site
             </h2>
           </div>
           <div className="px-3 pb-3 pt-2 space-y-3">
             <div>
-              <label className="text-xs font-medium text-[#4A5568] mb-1 block">Location / face</label>
+              <label className="ops-field-label">Location / face</label>
               <input
                 type="text"
                 value={meta.location}
                 onChange={e => setMeta(m => ({ ...m, location: e.target.value }))}
                 placeholder="Where is this check? (board, roof, plant room…)"
-                className="w-full text-base font-semibold text-navy border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                className="ops-field-site"
               />
             </div>
             {(job?.title || jhaMeta.siteName) && (
@@ -378,7 +378,7 @@ function Take5FillPage() {
 
         <section id="take5-checks" className="ops-card mb-3">
           <div className="ops-tray-head">
-            <h2 className="text-sm font-semibold text-navy">The five checks</h2>
+            <h2 className="ops-section-title">The five checks</h2>
           </div>
           <div className="px-3 pb-3 pt-2 space-y-3">
             <Area label="1. Stop & think — what am I about to do?" value={stopThink} onChange={setStopThink} />
@@ -386,19 +386,19 @@ function Take5FillPage() {
             <Area label="3. Assess the risk — how bad / how likely?" value={assess} onChange={setAssess} />
             <Area label="4. Control actions — what will I do to stay safe?" value={controls} onChange={setControls} />
             <div>
-              <label className="text-xs font-medium text-[#4A5568] mb-2 block">5. Go / No-go</label>
+              <label className="ops-field-label mb-2">5. Go / No-go</label>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setGoNoGo('go')}
-                  className={`flex-1 min-h-[44px] rounded-md text-sm font-semibold border ${goNoGo === 'go' ? 'bg-green-50 border-green-300 text-green-800' : 'border-[#E5E7EB] text-[#4A5568]'}`}
+                  className={`ops-choice ${goNoGo === 'go' ? 'ops-choice-pass' : ''}`}
                 >
                   GO — proceed
                 </button>
                 <button
                   type="button"
                   onClick={() => setGoNoGo('stop')}
-                  className={`flex-1 min-h-[44px] rounded-md text-sm font-semibold border ${goNoGo === 'stop' ? 'bg-red-50 border-red-300 text-red-800' : 'border-[#E5E7EB] text-[#4A5568]'}`}
+                  className={`ops-choice ${goNoGo === 'stop' ? 'ops-choice-fail' : ''}`}
                 >
                   STOP — do not proceed
                 </button>
@@ -409,21 +409,21 @@ function Take5FillPage() {
 
         <section id="take5-sign" className="ops-card mb-3">
           <div className="ops-tray-head">
-            <h2 className="text-sm font-semibold text-navy">Sign</h2>
+            <h2 className="ops-section-title">Sign</h2>
           </div>
           <div className="px-3 pb-3 pt-2 space-y-3">
             <Field label="Name" value={signedName} onChange={setSignedName} />
             {existing?.signature && !hasStroke && (
               <div>
-                <p className="text-xs font-medium text-[#4A5568] mb-1">Saved signature</p>
-                <img src={existing.signature} alt="Saved signature" className="h-20 object-contain bg-white border border-[#E5E7EB] rounded-md px-2" />
+                <p className="ops-field-label">Saved signature</p>
+                <img src={existing.signature} alt="Saved signature" className="h-20 object-contain bg-white border border-rule rounded-md px-2" />
               </div>
             )}
             <div>
-              <label className="text-xs font-medium text-[#4A5568] mb-1 block">
+              <label className="ops-field-label">
                 {existing?.signature && !hasStroke ? 'Re-sign' : 'Signature'}
               </label>
-              <div className="border border-[#E5E7EB] rounded-md overflow-hidden bg-white">
+              <div className="border border-rule rounded-md overflow-hidden bg-white">
                 <SignatureCanvas
                   ref={sigRef}
                   canvasProps={{ className: 'w-full h-36' }}
@@ -433,7 +433,7 @@ function Take5FillPage() {
               </div>
               <button
                 type="button"
-                className="text-xs text-[#6B7280] mt-1 hover:underline min-h-[44px]"
+                className="text-xs text-muted mt-1 hover:underline min-h-[44px]"
                 onClick={() => { sigRef.current?.clear(); setHasStroke(false); }}
               >
                 Clear signature
@@ -473,12 +473,12 @@ function Field({
 }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
   return (
     <div>
-      <label className="text-xs font-medium text-[#4A5568] mb-1 block">{label}</label>
+      <label className="ops-field-label">{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+        className="ops-field"
       />
     </div>
   );
@@ -487,12 +487,12 @@ function Field({
 function Area({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div>
-      <label className="text-xs font-medium text-[#4A5568] mb-1 block">{label}</label>
+      <label className="ops-field-label">{label}</label>
       <textarea
         value={value}
         onChange={e => onChange(e.target.value)}
         rows={3}
-        className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none"
+        className="ops-field resize-none"
       />
     </div>
   );

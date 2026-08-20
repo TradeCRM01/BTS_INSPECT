@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
-import { ClipboardList, Copy, FileText, Search, ShieldCheck } from 'lucide-react';
+import { Copy, FileText, Search, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { duplicateJhaDocument } from '../lib/duplicateJhaDocument';
@@ -130,11 +130,10 @@ export function JhaDocumentsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1200px] mx-auto px-4 py-6 pb-24">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="ops-page">
+        <div className="ops-page-head">
           <div>
-            <h1 className="ops-page-title flex items-center gap-2">
-              <ClipboardList size={20} />
+            <h1 className="ops-page-title">
               JHA documents
             </h1>
             <p className="ops-meta mt-1">Open a row to fill. Start a new one from the job.</p>
@@ -157,7 +156,7 @@ export function JhaDocumentsPage() {
 
         <div className="flex flex-wrap gap-2 mb-4">
           <div className="relative flex-1 min-w-[200px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               value={q}
               onChange={e => setQ(e.target.value)}
@@ -179,7 +178,7 @@ export function JhaDocumentsPage() {
         </div>
 
         {dupError && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+          <div className="mb-4 ops-alert">
             {dupError}
           </div>
         )}

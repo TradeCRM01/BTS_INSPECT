@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, memo, useEffect } from 'react';
 import type { JobWithClient } from '../../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
 import { pickEmployeeColor } from '../../lib/jobColors';
+import { colors } from '../../lib/colors';
 import { boardDispatchHint, jobCardHint } from '../../lib/jobNextAction';
 import { OpsSiteRow, OpsStatus, opsSiteLabel } from '../ui/OpsCard';
 import {
@@ -196,7 +197,7 @@ export const PhoneDayList = memo(function PhoneDayList({
     <div className="space-y-2">
       <h2 className="ops-group-title">
         {format(currentDate, 'EEEE d MMM')}
-        <span className="text-[rgba(0,0,0,0.7)] normal-case font-normal"> ({dayJobs.length})</span>
+        <span className="text-muted normal-case font-normal"> ({dayJobs.length})</span>
       </h2>
       {dayJobs.length === 0 ? (
         <p className="ops-meta px-1 py-3">No jobs on this day. Drag from the tray or add a job.</p>
@@ -336,11 +337,11 @@ export const DayBoardView = memo(function DayBoardView({
 
   return (
     <div className="ops-board">
-      <div className="px-3 py-2 border-b border-[#E5E7EB] flex items-center justify-between gap-3 flex-wrap">
+      <div className="px-3 py-2 border-b border-rule flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm font-semibold tracking-tight text-navy">
           {format(currentDate, 'EEEE, d MMMM yyyy')}
           {isToday(currentDate) && (
-            <span className="ml-2 text-[10px] font-bold tracking-wide text-white bg-navy px-1.5 py-0.5 rounded-md">
+            <span className="ml-2 ops-status ops-status-info">
               TODAY
             </span>
           )}
@@ -353,8 +354,8 @@ export const DayBoardView = memo(function DayBoardView({
       </div>
 
       <div ref={scrollRef} className="overflow-x-auto">
-        <div className="flex sticky top-0 z-20 bg-white border-b border-[#E5E7EB]">
-          <div className="shrink-0 border-r border-[#E5E7EB] bg-[#FAFBFC]" style={{ width: LABEL_WIDTH }}>
+        <div className="flex sticky top-0 z-20 bg-white border-b border-rule">
+          <div className="shrink-0 border-r border-rule bg-zebra" style={{ width: LABEL_WIDTH }}>
             <div className="px-3 py-2 flex items-center gap-1.5">
               <Users size={13} className="text-navy" />
               <span className="text-xs font-semibold tracking-tight text-navy">Crew</span>
@@ -362,10 +363,10 @@ export const DayBoardView = memo(function DayBoardView({
           </div>
           <div className="flex" style={{ minWidth: gridWidth }}>
             {HOURS.map(h => (
-              <div key={h} className="text-center border-r border-[#F3F4F6] last:border-r-0"
+              <div key={h} className="text-center border-r border-rule last:border-r-0"
                 style={{ width: HOUR_WIDTH }}>
                 <div className="px-1 py-2">
-                  <span className="text-[10px] font-medium ops-meta">{formatHourLabel(h)}</span>
+                  <span className="ops-meta">{formatHourLabel(h)}</span>
                 </div>
               </div>
             ))}
@@ -374,7 +375,7 @@ export const DayBoardView = memo(function DayBoardView({
 
         {rows.map((row, rowIdx) => {
           const isUnassigned = row.id === UNASSIGNED_ROW_ID;
-          const color = isUnassigned ? '#2E75B6' : pickEmployeeColor(row.id, row.schedule_color);
+          const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
           const rowJobs = jobsByRow.get(row.id) ?? [];
           const layout = placeDayRowJobs(rowJobs);
           const placementById = new Map(layout.placements.map(p => [p.id, p]));
@@ -386,18 +387,18 @@ export const DayBoardView = memo(function DayBoardView({
           return (
             <div
               key={row.id}
-              className={`flex ${rowIdx < rows.length - 1 ? 'border-b border-[#F3F4F6]' : ''} ${
-                isUnassigned ? 'bg-[#FAFBFC]' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFC]'
-              } ${hovering ? 'bg-[#F3F4F6]' : ''}`}
+              className={`flex ${rowIdx < rows.length - 1 ? 'border-b border-rule' : ''} ${
+                isUnassigned ? 'bg-zebra' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-zebra'
+              } ${hovering ? 'bg-zebra' : ''}`}
               onDragOver={e => { e.preventDefault(); setDropHoverId(row.id); }}
               onDrop={e => handleDrop(e, row.id)}
             >
               <div
-                className="shrink-0 border-r border-[#E5E7EB] cursor-pointer hover:bg-[#F9FAFB] transition-colors flex items-center gap-2 px-3"
+                className="shrink-0 border-r border-rule cursor-pointer hover:bg-zebra transition-colors flex items-center gap-2 px-3"
                 style={{
                   width: LABEL_WIDTH,
                   height,
-                  borderLeft: isUnassigned ? '3px dashed #0A2540' : `3px solid ${color}`,
+                  borderLeft: isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${color}`,
                 }}
                 onClick={() => onDayClick(dateStr, isUnassigned ? undefined : row.id)}
               >
@@ -405,7 +406,7 @@ export const DayBoardView = memo(function DayBoardView({
                   className="ops-crew-mark"
                   style={{
                     background: isUnassigned ? 'transparent' : color,
-                    outline: isUnassigned ? '1px solid #0A2540' : undefined,
+                    outline: isUnassigned ? `1px solid ${colors.navy}` : undefined,
                   }}
                 />
                 <div className="min-w-0">
@@ -428,7 +429,7 @@ export const DayBoardView = memo(function DayBoardView({
                 {HOURS.map(h => (
                   <div
                     key={h}
-                    className="absolute top-0 bottom-0 border-r border-[#F3F4F6] last:border-r-0"
+                    className="absolute top-0 bottom-0 border-r border-rule last:border-r-0"
                     style={{ left: (h - DAY_START) * HOUR_WIDTH, width: HOUR_WIDTH }}
                   />
                 ))}
@@ -496,8 +497,8 @@ function CurrentTimeVerticalIndicator() {
   return (
     <div className="absolute top-0 bottom-0 z-20 pointer-events-none" style={{ left }}>
       <div className="flex flex-col items-center h-full">
-        <div className="w-2 h-2 rounded-full bg-[#2E75B6] -mt-1" />
-        <div className="flex-1 w-px bg-[#2E75B6]" />
+        <div className="w-2 h-2 rounded-full bg-accent -mt-1" />
+        <div className="flex-1 w-px bg-accent" />
       </div>
     </div>
   );
@@ -550,22 +551,22 @@ export const WeekBoardView = memo(function WeekBoardView({
 
   return (
     <div className="ops-board">
-      <div className="px-3 py-2 border-b border-[#E5E7EB] flex items-center justify-between gap-3 flex-wrap">
+      <div className="px-3 py-2 border-b border-rule flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm font-semibold tracking-tight text-navy">This week</p>
         <p className="ops-meta">
           Drag to another day to move the date. Crew stays put.
         </p>
       </div>
-      <div className="flex border-b border-[#E5E7EB]">
+      <div className="flex border-b border-rule">
         {days.map((day, i) => {
           const ds = dateKey(day);
           const dayJobs = jobsByDay.get(ds) ?? [];
           const today = isToday(day);
           const needsCrew = dayJobs.filter(j => !(j.assigned_team ?? []).length).length;
           return (
-            <div key={i} className="flex-1 min-w-[120px] border-r border-[#E5E7EB] last:border-r-0 px-2 py-2 text-center">
+            <div key={i} className="flex-1 min-w-[120px] border-r border-rule last:border-r-0 px-2 py-2 text-center">
               <p className="ops-meta uppercase">{format(day, 'EEE')}</p>
-              <p className={`text-sm font-bold ${today ? 'text-white bg-navy w-6 h-6 rounded-md flex items-center justify-center mx-auto' : 'text-[#1A1A1A]'}`}>
+              <p className={`text-sm font-bold ${today ? 'text-white bg-navy w-6 h-6 rounded-md flex items-center justify-center mx-auto' : 'text-ink'}`}>
                 {format(day, 'd')}
               </p>
               <p className="ops-meta mt-0.5">
@@ -588,14 +589,14 @@ export const WeekBoardView = memo(function WeekBoardView({
               onDragOver={e => { e.preventDefault(); setDropHoverDate(ds); }}
               onDrop={e => handleDrop(e, ds)}
               onClick={() => onDayClick(ds)}
-              className={`flex-1 min-w-[120px] border-r border-[#E5E7EB] last:border-r-0 p-1 space-y-1 cursor-pointer min-h-[300px] ${
-                hovering ? 'bg-[#F3F4F6]' : ''
+              className={`flex-1 min-w-[120px] border-r border-rule last:border-r-0 p-1 space-y-1 cursor-pointer min-h-[300px] ${
+                hovering ? 'bg-zebra' : ''
               }`}
             >
               {dayJobs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-20 text-[#D1D5DB]">
                   <Plus size={16} />
-                  <span className="text-[10px] mt-1">Add job</span>
+                  <span className="ops-meta mt-1">Add job</span>
                 </div>
               ) : (
                 dayJobs.map(job => (
