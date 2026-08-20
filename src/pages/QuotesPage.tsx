@@ -20,7 +20,7 @@ import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { padQuoteNumber } from '../lib/quoteJobFields';
-import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
+import { quoteClientDetailFromClient } from '../lib/clientRecords';
 import {
   quoteActionContext,
   quoteListBucket,
@@ -700,32 +700,37 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         <div className="hub-quote-editor-head">
           <div className="min-w-0">
             <h2 className="hub-quote-editor-title">{editorTitle}</h2>
-            {selectedClient?.name ? <p className="ops-meta mt-2">{selectedClient.name}</p> : null}
-            {form.validity_date ? (
-              <p className="ops-meta mt-0.5">Valid {format(parseISO(form.validity_date), 'd MMM yyyy')}</p>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
             <p className="ops-meta">{QUOTE_STATUS_LABELS[form.status]}</p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-11 h-11 flex items-center justify-center rounded-md text-muted hover:text-navy"
-              aria-label="Close"
-            >
-              <X size={18} />
-            </button>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-11 h-11 flex items-center justify-center rounded-md text-muted hover:text-navy shrink-0"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <div className="hub-quote-editor-identity">
-          <OpsSiteRow
-            hub
-            site={editorSite}
-            phone={selectedClient?.phone}
-            email={selectedClient?.email}
-            mapsQuery={selectedJob?.address || selectedClient?.address}
-          />
+          <div className="min-w-0">
+            {selectedClient?.name ? (
+              <>
+                <p className="hub-quote-to-label">To</p>
+                <p className="hub-quote-to-name">{selectedClient.name}</p>
+              </>
+            ) : null}
+            <OpsSiteRow
+              hub
+              site={editorSite}
+              phone={selectedClient?.phone}
+              email={selectedClient?.email}
+              mapsQuery={selectedJob?.address || selectedClient?.address}
+            />
+            {form.validity_date ? (
+              <p className="ops-meta mt-2">Valid {format(parseISO(form.validity_date), 'd MMM yyyy')}</p>
+            ) : null}
+          </div>
           {editorMoney ? (
             <div className="hub-row-signal">
               <p className="hub-signal-amount">{editorMoney}</p>
@@ -733,10 +738,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             </div>
           ) : null}
         </div>
-
-        {form.description.trim() ? (
-          <p className="ops-meta px-5 sm:px-8 pt-3">{form.description.trim()}</p>
-        ) : null}
 
         <div className="hub-quote-editor-tools">
           {form.status === 'sent' && (
@@ -764,28 +765,13 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           </button>
         </div>
 
-        <div className="overlay-body">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="overlay-body hub-quote-editor-body">
+          <div className="grid grid-cols-2 gap-6">
             <Field label="Client" required>
               <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value, job_id: '' }))} className="form-input cursor-pointer">
                 <option value="">Select a client...</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              {selectedClient && (
-                <div className="mt-2 flex flex-col gap-1">
-                  {visibleClientContacts(selectedClient).map(line => (
-                    <a
-                      key={line.kind}
-                      href={line.href}
-                      className="ops-link text-xs truncate"
-                      target={line.kind === 'map' ? '_blank' : undefined}
-                      rel={line.kind === 'map' ? 'noreferrer' : undefined}
-                    >
-                      {line.label}
-                    </a>
-                  ))}
-                </div>
-              )}
             </Field>
             <Field label="Linked Job">
               <select value={form.job_id} onChange={e => setForm(f => ({ ...f, job_id: e.target.value }))} className="form-input cursor-pointer">
@@ -828,12 +814,14 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             onChange={lines => setForm(f => ({ ...f, line_items: lines }))}
           />
 
-          <DocumentGstTotals
-            subtotal={subtotal}
-            taxRate={parseFloat(form.tax_rate) || 0}
-            taxAmount={taxAmount}
-            total={grandTotal}
-          />
+          <div className="hub-quote-editor-math">
+            <DocumentGstTotals
+              subtotal={subtotal}
+              taxRate={parseFloat(form.tax_rate) || 0}
+              taxAmount={taxAmount}
+              total={grandTotal}
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="GST rate (%)">
@@ -856,7 +844,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           {err && <p className="text-sm text-red-600">{err}</p>}
         </div>
 
-        <div className="ops-sticky flex flex-col gap-3">
+        <div className="ops-sticky hub-quote-editor-foot">
           {next.key === 'setup_email' && (
             <button type="button" onClick={() => navigate(COMPANY_EMAIL_SETTINGS_HREF)} className="btn-primary">
               Set up email
@@ -897,11 +885,11 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
               {invoicing ? 'Creating...' : 'Create invoice'}
             </button>
           )}
-          <div className="flex items-center gap-3">
-            <button onClick={() => void persist(form.status, { close: true })} disabled={saving} className="btn-secondary min-h-[44px]">
+          <div className="hub-quote-editor-quiet">
+            <button type="button" onClick={() => void persist(form.status, { close: true })} disabled={saving} className="ops-link">
               {saving ? 'Saving...' : quote || savedId ? 'Save' : 'Save draft'}
             </button>
-            <button onClick={onClose} className="ops-link ml-auto">Cancel</button>
+            <button type="button" onClick={onClose} className="ops-link">Cancel</button>
           </div>
         </div>
       </div>

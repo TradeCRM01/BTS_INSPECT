@@ -574,12 +574,36 @@
     font-variant-numeric: tabular-nums;
   }
 
+  @media (min-width: 640px) {
+    .hub-quote-editor-identity .hub-signal-amount {
+      font-size: 2.35rem;
+    }
+  }
+
+  .hub-quote-to-label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ops-muted);
+    margin-bottom: 0.2rem;
+  }
+
+  .hub-quote-to-name {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--ops-navy);
+    line-height: 1.2;
+    margin-bottom: 0.35rem;
+  }
+
   .hub-quote-editor-tools {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 1rem;
-    padding: 1.5rem 1.25rem 0;
+    padding: 1.75rem 1.25rem 0;
   }
 
   @media (min-width: 640px) {
@@ -589,25 +613,74 @@
     }
   }
 
-  .hub-quote-editor .overlay-body {
-    padding-top: 2.25rem;
+  .hub-quote-editor .overlay-body,
+  .hub-quote-editor-body {
+    padding-top: 3.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
   }
 
-  .hub-quote-editor .ops-sticky {
+  .hub-quote-editor-body .form-input {
+    background: transparent;
+    border-color: transparent;
+    border-bottom: 1px solid color-mix(in srgb, var(--ops-rule) 70%, transparent);
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 36px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .hub-quote-editor-body .form-input:focus {
+    box-shadow: none;
+    border-color: transparent;
+    border-bottom-color: var(--ops-navy);
+  }
+
+  .hub-quote-editor-math {
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  .hub-quote-editor-math .font-semibold {
+    font-weight: 500;
+    color: var(--ops-muted);
+    border-color: transparent;
+  }
+
+  .hub-quote-editor .ops-sticky,
+  .hub-quote-editor-foot {
     border-top: none;
     padding: 1.25rem 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
   }
 
   @media (min-width: 640px) {
-    .hub-quote-editor .ops-sticky {
+    .hub-quote-editor .ops-sticky,
+    .hub-quote-editor-foot {
       padding-left: 2rem;
       padding-right: 2rem;
     }
   }
 
+  .hub-quote-editor-quiet {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
   .hub-quote-editor .btn-primary,
   .hub-quote-send .btn-primary {
     @apply min-h-[44px] px-4;
+  }
+
+  .hub-quote-editor .btn-primary {
+    width: auto;
+    min-width: 10.5rem;
   }
 
   .hub-quote-send-body {
