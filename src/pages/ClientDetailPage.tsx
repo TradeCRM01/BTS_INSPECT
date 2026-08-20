@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus } from '../components/ui';
+import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, mapsSearchUrl } from '../components/ui';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import type { Client, JobWithClient } from '../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_STYLES } from '../types/crm';
@@ -13,7 +13,7 @@ import {
   formatMoney,
 } from '../types/fsm';
 import type { QuoteStatus } from '../types/fsm';
-import { Phone, Mail, MapPin, Users, CreditCard as Edit3, Briefcase, Plus, FileText, ShieldCheck, Bell, Receipt } from 'lucide-react';
+import { Phone, Mail, MapPin, Users, CreditCard as Edit3, Briefcase, Plus, FileText, ShieldCheck, Bell, Receipt, ClipboardList } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ClientForm } from './ClientsPage';
 import type { ComplianceItem } from '../types/compliance';
@@ -25,11 +25,26 @@ import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { pickReusableInvoice } from '../lib/invoiceFromQuote';
 import { padQuoteNumber } from '../lib/quoteJobFields';
 import {
+  inspectionListContext,
+  inspectionOpenPath,
+  inspectionStatusClass,
+  inspectionStatusLabel,
+  recommendInspectionListAction,
+} from '../lib/inspectionNextAction';
+import type { TemplateSchema } from '../types/template';
+import {
+  applyHubScope,
+  clientHubRecordQueries,
+  clientInspectionQuery,
+  clientMoneySummary,
   invoiceRecordHref,
   jobRecordHref,
+  mailtoHref,
+  newInvoiceFromClientHref,
   newJobFromClientHref,
   newQuoteFromClientHref,
   quoteRecordHref,
+  telHref,
 } from '../lib/clientRecords';
 
 type ClientQuote = {
@@ -56,7 +71,10 @@ type ClientInspection = {
   id: string;
   status: string;
   started_at: string;
-  template_snapshot: { name?: string } | null;
+  crm_job_id: string | null;
+  meta: Record<string, string> | null;
+  responses: Record<string, unknown> | null;
+  template_snapshot: { name?: string; schema?: TemplateSchema } | null;
 };
 
 function padNum(n: number | null | undefined): string {
@@ -77,53 +95,49 @@ export function ClientDetailPage() {
         .from('clients')
         .select('*')
         .eq('id', id!)
+        .eq('company_id', profile!.company_id)
         .maybeSingle();
       if (error) throw error;
       return data as Client;
     },
-    enabled: !!id && !!profile,
+    enabled: !!id && !!profile?.company_id,
   });
 
+  const hubScopes = id && profile?.company_id
+    ? clientHubRecordQueries({ companyId: profile.company_id, clientId: id })
+    : null;
+
   const { data: jobs } = useQuery<JobWithClient[]>({
-    queryKey: ['client-jobs', id],
+    queryKey: ['client-jobs', id, profile?.company_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('jobs')
-        .select('*')
-        .eq('client_id', id!)
+      const { data, error } = await applyHubScope(supabase.from('jobs'), hubScopes!.jobs)
         .order('scheduled_date', { ascending: false, nullsFirst: false });
       if (error) throw error;
       return (data ?? []) as JobWithClient[];
     },
-    enabled: !!id && !!profile,
+    enabled: !!hubScopes,
   });
 
   const { data: quotes } = useQuery<ClientQuote[]>({
-    queryKey: ['client-quotes', id],
+    queryKey: ['client-quotes', id, profile?.company_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('quotes')
-        .select('id, quote_number, status, total, description, job_id, client_id, line_items')
-        .eq('client_id', id!)
+      const { data, error } = await applyHubScope(supabase.from('quotes'), hubScopes!.quotes)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as ClientQuote[];
     },
-    enabled: !!id && !!profile,
+    enabled: !!hubScopes,
   });
 
   const { data: invoices } = useQuery<ClientInvoice[]>({
-    queryKey: ['client-invoices', id],
+    queryKey: ['client-invoices', id, profile?.company_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('id, invoice_number, status, total, due_date, quote_id')
-        .eq('client_id', id!)
+      const { data, error } = await applyHubScope(supabase.from('invoices'), hubScopes!.invoices)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as ClientInvoice[];
     },
-    enabled: !!id && !!profile,
+    enabled: !!hubScopes,
   });
 
   const { data: complianceItems } = useQuery<ComplianceItem[]>({
@@ -140,20 +154,19 @@ export function ClientDetailPage() {
     enabled: !!id && !!profile,
   });
 
+  const jobIds = (jobs ?? []).map(job => job.id);
+  const inspectionScope = clientInspectionQuery(jobIds);
+
   const { data: inspections } = useQuery<ClientInspection[]>({
-    queryKey: ['client-inspections', id],
+    queryKey: ['client-inspections', id, jobIds.join(',')],
     queryFn: async () => {
-      const jobIds = (jobs ?? []).map(j => j.inspection_id).filter(Boolean) as string[];
-      if (jobIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from('inspections')
-        .select('id, status, started_at, template_snapshot')
-        .in('id', jobIds)
+      if (!inspectionScope) return [];
+      const { data, error } = await applyHubScope(supabase.from('inspections'), inspectionScope)
         .order('started_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as ClientInspection[];
     },
-    enabled: !!id && !!profile && (jobs?.length ?? 0) > 0,
+    enabled: !!id && !!profile && jobs !== undefined,
   });
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
@@ -161,6 +174,11 @@ export function ClientDetailPage() {
 
   const newQuoteHref = newQuoteFromClientHref(client.id);
   const newJobHref = newJobFromClientHref(client.id);
+  const newInvoiceHref = newInvoiceFromClientHref(client.id);
+  const phoneHref = telHref(client.phone);
+  const emailHref = mailtoHref(client.email);
+  const money = clientMoneySummary(quotes ?? [], invoices ?? []);
+  const jobById = new Map((jobs ?? []).map(job => [job.id, job]));
 
   return (
     <AppShell>
@@ -179,20 +197,25 @@ export function ClientDetailPage() {
                   <p className="ops-meta mt-0.5">{client.contact_person}</p>
                 )}
                 <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
-                  {client.phone && (
-                    <a href={`tel:${client.phone}`} className="flex items-center gap-1.5 text-sm text-accent hover:underline">
+                  {phoneHref && client.phone && (
+                    <a href={phoneHref} className="flex items-center gap-1.5 text-sm text-accent hover:underline">
                       <Phone size={13} /> {client.phone}
                     </a>
                   )}
-                  {client.email && (
-                    <a href={`mailto:${client.email}`} className="flex items-center gap-1.5 text-sm text-accent hover:underline">
+                  {emailHref && client.email && (
+                    <a href={emailHref} className="flex items-center gap-1.5 text-sm text-accent hover:underline">
                       <Mail size={13} /> {client.email}
                     </a>
                   )}
                   {client.address && (
-                    <div className="flex items-center gap-1.5 text-sm text-muted">
+                    <a
+                      href={mapsSearchUrl(client.address)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 text-sm text-accent hover:underline"
+                    >
                       <MapPin size={13} /> {client.address}
-                    </div>
+                    </a>
                   )}
                 </div>
               </div>
@@ -200,6 +223,9 @@ export function ClientDetailPage() {
             <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
               <Link to={newQuoteHref} className="btn-secondary">
                 <FileText size={14} /> New quote
+              </Link>
+              <Link to={newInvoiceHref} className="btn-secondary">
+                <Receipt size={14} /> New invoice
               </Link>
               <Link to={newJobHref} className="btn-primary">
                 <Plus size={14} /> New job
@@ -219,9 +245,9 @@ export function ClientDetailPage() {
         </div>
 
         <div className="grid grid-cols-3 gap-3 mb-6">
-          <StatCard label="Jobs" value={jobs?.length ?? 0} icon={Briefcase} />
-          <StatCard label="Quotes" value={quotes?.length ?? 0} icon={FileText} />
-          <StatCard label="Invoices" value={invoices?.length ?? 0} icon={Receipt} />
+          <MoneyCard label="Quoted" amount={money.quoted} />
+          <MoneyCard label="Outstanding" amount={money.outstanding} />
+          <MoneyCard label="Overdue" amount={money.overdue} tone={money.overdue > 0 ? 'overdue' : undefined} />
         </div>
 
         <div className="space-y-3 mb-6">
@@ -308,7 +334,13 @@ export function ClientDetailPage() {
             title="Invoices"
             icon={Receipt}
             count={(invoices ?? []).length}
+            action={
+              <Link to={newInvoiceHref} className="ops-link text-xs">
+                <Plus size={12} /> New invoice
+              </Link>
+            }
             emptyTitle="No invoices yet"
+            emptyAction={<Link to={newInvoiceHref} className="ops-link">New invoice</Link>}
           >
             {(invoices ?? []).map(inv => {
               const next = recommendInvoiceAction(inv);
@@ -332,6 +364,50 @@ export function ClientDetailPage() {
                     ) : (
                       <Link to={invoiceRecordHref(inv.id)} className="ops-next-control-sm w-auto px-3 shrink-0">{next.label}</Link>
                     )
+                  }
+                />
+              );
+            })}
+          </JobRelatedSection>
+
+          <JobRelatedSection
+            title="Inspections"
+            icon={ClipboardList}
+            count={(inspections ?? []).length}
+            emptyTitle={jobIds.length === 0
+              ? 'Inspections attach to jobs. Add a job first.'
+              : 'No inspections on this client\'s jobs yet.'}
+            emptyAction={jobIds.length === 0
+              ? <Link to={newJobHref} className="ops-link">New job</Link>
+              : undefined}
+          >
+            {(inspections ?? []).map(insp => {
+              const job = insp.crm_job_id ? jobById.get(insp.crm_job_id) : undefined;
+              const next = recommendInspectionListAction(inspectionListContext({
+                status: insp.status,
+                meta: insp.meta,
+                job_title: job?.title ?? null,
+                job_address: job?.address ?? null,
+                template_snapshot: insp.template_snapshot,
+                responses: insp.responses,
+              }));
+              return (
+                <JobRelatedRow
+                  key={insp.id}
+                  href={inspectionOpenPath(insp.id, next.key)}
+                  icon={ClipboardList}
+                  title={insp.template_snapshot?.name ?? 'Inspection'}
+                  meta={[
+                    job?.title ?? null,
+                    format(new Date(insp.started_at), 'd MMM yyyy'),
+                  ].filter(Boolean).join(' · ')}
+                  trailing={
+                    <OpsStatus className={inspectionStatusClass(insp.status)}>{inspectionStatusLabel(insp.status)}</OpsStatus>
+                  }
+                  action={
+                    <Link to={inspectionOpenPath(insp.id, next.key)} className="ops-next-control-sm w-auto px-3 shrink-0">
+                      {next.label}
+                    </Link>
                   }
                 />
               );
@@ -377,37 +453,6 @@ export function ClientDetailPage() {
             </JobRelatedSection>
           </div>
         )}
-
-        {(inspections ?? []).length > 0 && (
-          <div className="mb-6">
-            <JobRelatedSection
-              title="Linked inspections"
-              icon={FileText}
-              count={(inspections ?? []).length}
-              emptyTitle="No linked inspections"
-            >
-              {(inspections ?? []).map(insp => {
-                const to = insp.status === 'completed' || insp.status === 'issued'
-                  ? `/inspections/${insp.id}/report`
-                  : `/inspections/${insp.id}`;
-                return (
-                  <JobRelatedRow
-                    key={insp.id}
-                    href={to}
-                    icon={FileText}
-                    title={insp.template_snapshot?.name ?? 'Inspection'}
-                    meta={format(new Date(insp.started_at), 'd MMM yyyy')}
-                    trailing={
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${insp.status === 'completed' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
-                        {insp.status}
-                      </span>
-                    }
-                  />
-                );
-              })}
-            </JobRelatedSection>
-          </div>
-        )}
       </div>
 
       {showEdit && (
@@ -426,14 +471,21 @@ export function ClientDetailPage() {
   );
 }
 
-function StatCard({ label, value, icon: Icon }: { label: string; value: number; icon: typeof Briefcase }) {
+function MoneyCard({
+  label,
+  amount,
+  tone,
+}: {
+  label: string;
+  amount: number;
+  tone?: 'overdue';
+}) {
   return (
     <div className="ops-card p-4">
-      <div className="flex items-center gap-2 mb-1">
-        <Icon size={14} className="text-muted" />
-        <span className="ops-meta font-medium">{label}</span>
-      </div>
-      <p className="text-2xl font-bold text-navy">{value}</p>
+      <p className="ops-meta font-medium">{label}</p>
+      <p className={`ops-money text-2xl text-left ${tone === 'overdue' ? 'text-fail' : ''}`}>
+        {formatMoney(amount)}
+      </p>
     </div>
   );
 }

@@ -44,9 +44,9 @@ export function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [editingInvoice, setEditingInvoice] = useState<InvoiceWithDetails | null>(null);
+  const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [viewMode, setViewMode] = useViewMode('invoices');
-  const preselectId = searchParams.get('id');
 
   const { data: invoices, isLoading, error } = useQuery<InvoiceWithDetails[]>({
     queryKey: ['invoices'],
@@ -120,22 +120,44 @@ export function InvoicesPage() {
   }, [invoices]);
 
   useEffect(() => {
-    if (!preselectId || !invoices) return;
-    const inv = invoices.find(i => i.id === preselectId);
-    if (!inv) return;
-    setEditingInvoice(inv);
+    const invoiceId = searchParams.get('id');
+    const clientId = searchParams.get('client');
+    if (invoiceId) {
+      if (!invoices) return;
+      const inv = invoices.find(i => i.id === invoiceId);
+      if (!inv) return;
+      setEditingInvoice(inv);
+      setPresetClientId(null);
+      setShowForm(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('id');
+      next.delete('client');
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    if (!clientId) return;
+    setEditingInvoice(null);
+    setPresetClientId(clientId);
     setShowForm(true);
-    setSearchParams({}, { replace: true });
-  }, [preselectId, invoices, setSearchParams]);
+    const next = new URLSearchParams(searchParams);
+    next.delete('client');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, invoices, setSearchParams]);
 
   function openInvoice(inv: InvoiceWithDetails | null) {
     setEditingInvoice(inv);
+    setPresetClientId(null);
     setShowForm(true);
   }
 
   function handleSaved(opts?: { close?: boolean; message?: string }) {
-    if (opts?.close !== false) setShowForm(false);
+    if (opts?.close !== false) {
+      setShowForm(false);
+      setPresetClientId(null);
+    }
     queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    queryClient.invalidateQueries({ queryKey: ['client-invoices'] });
+    queryClient.invalidateQueries({ queryKey: ['clients'] });
     showToast(opts?.message ?? (editingInvoice ? 'Invoice updated' : 'Invoice created'));
   }
 
@@ -258,9 +280,11 @@ export function InvoicesPage() {
 
       {showForm && (
         <InvoiceEditorModal
+          key={editingInvoice?.id ?? presetClientId ?? 'new'}
           invoice={editingInvoice}
+          presetClientId={presetClientId}
           defaultTaxRate={company?.default_tax_rate ?? DEFAULT_TAX_RATE}
-          onClose={() => setShowForm(false)}
+          onClose={() => { setShowForm(false); setPresetClientId(null); }}
           onSaved={handleSaved}
         />
       )}
@@ -385,8 +409,9 @@ interface EditorState {
   exclusions: string[];
 }
 
-function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
+function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, onSaved }: {
   invoice: InvoiceWithDetails | null;
+  presetClientId?: string | null;
   defaultTaxRate: number;
   onClose: () => void;
   onSaved: (opts?: { close?: boolean; message?: string }) => void;
@@ -404,7 +429,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
   const [savedId, setSavedId] = useState<string | null>(invoice?.id ?? null);
 
   const [form, setForm] = useState<EditorState>({
-    client_id: invoice?.client_id ?? '',
+    client_id: invoice?.client_id ?? presetClientId ?? '',
     job_id: invoice?.job_id ?? '',
     quote_id: invoice?.quote_id ?? '',
     status: invoice?.status === 'overdue' ? 'sent' : (invoice?.status ?? 'draft'),

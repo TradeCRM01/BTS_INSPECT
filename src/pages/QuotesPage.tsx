@@ -175,6 +175,7 @@ export function QuotesPage() {
     }
     queryClient.invalidateQueries({ queryKey: ['quotes'] });
     queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
+    queryClient.invalidateQueries({ queryKey: ['clients'] });
     showToast(opts?.message ?? (editingQuote ? 'Quote updated' : 'Quote created'));
   }
 
