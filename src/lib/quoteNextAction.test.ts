@@ -43,8 +43,26 @@ describe('recommendQuoteAction', () => {
       status: 'draft', hasClient: true, hasLines: false, jobId: null, invoiceId: null,
     }).label).toBe('Add line items');
     expect(recommendQuoteAction({
-      status: 'draft', hasClient: true, hasLines: true, jobId: null, invoiceId: null,
+      status: 'draft', hasClient: true, hasLines: true, hasClientEmail: true, smtpReady: true, jobId: null, invoiceId: null,
     }).key).toBe('send');
+  });
+
+  it('does not offer Send when email cannot deliver', () => {
+    expect(recommendQuoteAction({
+      status: 'draft', hasClient: true, hasLines: true, hasClientEmail: true, smtpReady: false, jobId: null, invoiceId: null,
+    })).toMatchObject({ key: 'setup_email', label: 'Set up email' });
+    expect(recommendQuoteAction({
+      status: 'draft', hasClient: true, hasLines: true, hasClientEmail: false, smtpReady: true, jobId: null, invoiceId: null,
+    })).toMatchObject({ key: 'add_email', label: 'Add client email' });
+  });
+
+  it('keeps Send as needs-send until the quote is actually sent', () => {
+    expect(recommendQuoteAction({
+      status: 'draft', hasClient: true, hasLines: true, hasClientEmail: true, smtpReady: true, jobId: null, invoiceId: null,
+    }).detail).toMatch(/sent only if it delivers/i);
+    expect(recommendQuoteAction({
+      status: 'sent', hasClient: true, hasLines: true, hasClientEmail: true, smtpReady: true, jobId: null, invoiceId: null,
+    }).key).toBe('accept');
   });
 
   it('accepts a sent quote before converting', () => {
@@ -78,7 +96,38 @@ describe('quoteActionContext / quoteCardHint', () => {
       job_id: 'job-1',
       invoice_id: null,
     });
-    expect(ctx).toMatchObject({ hasClient: true, hasLines: true, jobId: 'job-1', invoiceId: null });
+    expect(ctx).toMatchObject({ hasClient: true, hasLines: true, hasClientEmail: true, jobId: 'job-1', invoiceId: null });
     expect(quoteCardHint(ctx)).toBe('Create invoice');
+  });
+
+  it('reads client email so Next can refuse Send without one', () => {
+    const missing = quoteActionContext({
+      status: 'draft',
+      client_id: 'c1',
+      client_email: null,
+      line_items: [{ description: 'Board', quantity: 1 }],
+    }, { smtpReady: true });
+    expect(missing.hasClientEmail).toBe(false);
+    expect(quoteCardHint(missing)).toBe('Add client email');
+
+    const present = quoteActionContext({
+      status: 'draft',
+      client_id: 'c1',
+      client_email: 'jane@acme.com.au',
+      line_items: [{ description: 'Board', quantity: 1 }],
+    }, { smtpReady: true });
+    expect(present.hasClientEmail).toBe(true);
+    expect(quoteCardHint(present)).toBe('Send');
+  });
+
+  it('reads SMTP readiness so Next does not claim Send when email is not set up', () => {
+    const ctx = quoteActionContext({
+      status: 'draft',
+      client_id: 'c1',
+      client_email: 'jane@acme.com.au',
+      line_items: [{ description: 'Board', quantity: 1 }],
+    }, { smtpReady: false });
+    expect(ctx.smtpReady).toBe(false);
+    expect(quoteCardHint(ctx)).toBe('Set up email');
   });
 });

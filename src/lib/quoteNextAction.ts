@@ -2,6 +2,8 @@ import type { QuoteStatus } from '../types/fsm';
 
 export type QuoteActionKey =
   | 'send'
+  | 'add_email'
+  | 'setup_email'
   | 'accept'
   | 'convert_job'
   | 'invoice'
@@ -15,8 +17,11 @@ export type QuoteActionContext = {
   status: QuoteStatus;
   hasClient: boolean;
   hasLines: boolean;
+  hasClientEmail: boolean;
+  smtpReady: boolean | null;
   jobId: string | null | undefined;
   invoiceId: string | null | undefined;
+  clientId?: string | null;
 };
 
 export type RecommendedQuoteAction = {
@@ -31,19 +36,33 @@ export function quoteHasChargeableLines(
   return (lineItems ?? []).some(li => (li.description ?? '').trim() && Number(li.quantity) > 0);
 }
 
-export function quoteActionContext(quote: {
-  status: QuoteStatus;
-  client_id?: string | null;
-  line_items?: { description?: string | null; quantity?: number | string | null }[] | null;
-  job_id?: string | null;
-  invoice_id?: string | null;
-}): QuoteActionContext {
+function hasUsableClientEmail(email: string | null | undefined): boolean {
+  const raw = (email ?? '').trim();
+  return raw.includes('@') && !raw.includes(' ');
+}
+
+export function quoteActionContext(
+  quote: {
+    status: QuoteStatus;
+    client_id?: string | null;
+    client_email?: string | null;
+    line_items?: { description?: string | null; quantity?: number | string | null }[] | null;
+    job_id?: string | null;
+    invoice_id?: string | null;
+  },
+  extras?: { smtpReady?: boolean | null },
+): QuoteActionContext {
+  const hasClient = !!quote.client_id;
+  const emailKnown = quote.client_email !== undefined;
   return {
     status: quote.status,
-    hasClient: !!quote.client_id,
+    hasClient,
     hasLines: quoteHasChargeableLines(quote.line_items),
+    hasClientEmail: !hasClient ? false : (emailKnown ? hasUsableClientEmail(quote.client_email) : true),
+    smtpReady: extras?.smtpReady ?? null,
     jobId: quote.job_id ?? null,
     invoiceId: quote.invoice_id ?? null,
+    clientId: quote.client_id ?? null,
   };
 }
 
@@ -68,17 +87,31 @@ export function recommendQuoteAction(ctx: QuoteActionContext): RecommendedQuoteA
     if (!ctx.hasLines) {
       return { key: 'none', label: 'Add line items', detail: 'Add the work and materials so the quote has a price.' };
     }
+    if (ctx.smtpReady === false) {
+      return {
+        key: 'setup_email',
+        label: 'Set up email',
+        detail: 'Email is not set up. Add SMTP in Company settings — there is a test send there.',
+      };
+    }
+    if (ctx.hasClientEmail === false) {
+      return {
+        key: 'add_email',
+        label: 'Add client email',
+        detail: 'This client has no email. Add one before you can send the quote.',
+      };
+    }
     return {
       key: 'send',
       label: 'Send',
-      detail: 'Mark as sent when you give this to the client. Preview the PDF if you need a copy.',
+      detail: 'Email this quote to the client. Status becomes sent only if it delivers.',
     };
   }
   if (ctx.status === 'sent') {
     return {
       key: 'accept',
       label: 'Mark accepted',
-      detail: 'When the client says yes, accept it so you can turn it into a job.',
+      detail: 'The quote was sent. When the client says yes, accept it so you can turn it into a job.',
     };
   }
   if (!ctx.jobId) {

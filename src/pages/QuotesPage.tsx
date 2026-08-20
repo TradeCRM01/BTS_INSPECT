@@ -17,6 +17,7 @@ import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariat
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
 import { ActionButton } from '../components/invoicing/DocNextAction';
+import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
 import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
@@ -28,13 +29,30 @@ import {
   recommendQuoteAction,
   type QuoteActionKey,
 } from '../lib/quoteNextAction';
+import { COMPANY_EMAIL_SETTINGS_HREF, isSmtpReady } from '../lib/sendQuote';
 import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatMoney } from '../types/fsm';
 import { Plus, FileText, ArrowRight, Eye, Receipt, Send, Check } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | QuoteStatus;
 
-type QuoteListItem = QuoteWithDetails & { invoice_id: string | null };
+type QuoteListItem = QuoteWithDetails & { invoice_id: string | null; client_email: string | null };
+
+function useCompanySmtpReady(companyId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['email-settings-ready', companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('email_settings')
+        .select('smtp_host, smtp_pass, from_email')
+        .eq('company_id', companyId!)
+        .maybeSingle();
+      if (error) throw error;
+      return isSmtpReady(data);
+    },
+    enabled: !!companyId,
+  });
+}
 
 const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -56,6 +74,8 @@ export function QuotesPage() {
   const [viewMode, setViewMode] = useViewMode('quotes');
   const [searchParams, setSearchParams] = useSearchParams();
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
+  const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null);
+  const [sentQuoteId, setSentQuoteId] = useState<string | null>(null);
 
   const { data: quotes, isLoading, error } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes'],
@@ -70,13 +90,13 @@ export function QuotesPage() {
       const jobIds = [...new Set(list.map(q => q.job_id).filter(Boolean))] as string[];
       const quoteIds = list.map(q => q.id);
       const [clientsRes, jobsRes, invoicesRes] = await Promise.all([
-        clientIds.length ? supabase.from('clients').select('id, name').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+        clientIds.length ? supabase.from('clients').select('id, name, email').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string; email: string | null }[] }),
         jobIds.length ? supabase.from('jobs').select('id, title, address').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string; address: string | null }[] }),
         quoteIds.length
           ? supabase.from('invoices').select('id, quote_id, status').in('quote_id', quoteIds)
           : Promise.resolve({ data: [] as { id: string; quote_id: string; status: string }[] }),
       ]);
-      const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c.name]));
+      const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c]));
       const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j]));
       const invoicesByQuote = new Map<string, { id: string; status: string }[]>();
       for (const inv of invoicesRes.data ?? []) {
@@ -89,7 +109,8 @@ export function QuotesPage() {
         ...q,
         inclusions: asStringList(q.inclusions),
         exclusions: asStringList(q.exclusions),
-        client_name: q.client_id ? clientMap.get(q.client_id) ?? null : null,
+        client_name: q.client_id ? clientMap.get(q.client_id)?.name ?? null : null,
+        client_email: q.client_id ? clientMap.get(q.client_id)?.email ?? null : null,
         job_title: q.job_id ? jobMap.get(q.job_id)?.title ?? null : null,
         job_address: q.job_id ? jobMap.get(q.job_id)?.address ?? null : null,
         invoice_id: pickReusableInvoice(invoicesByQuote.get(q.id) ?? [])?.id ?? null,
@@ -169,7 +190,7 @@ export function QuotesPage() {
     setShowForm(true);
   }
 
-  function handleSaved(opts?: { close?: boolean; message?: string }) {
+  function handleSaved(opts?: { close?: boolean; message?: string; quiet?: boolean }) {
     if (opts?.close !== false) {
       setShowForm(false);
       setPresetClientId(null);
@@ -177,7 +198,17 @@ export function QuotesPage() {
     queryClient.invalidateQueries({ queryKey: ['quotes'] });
     queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
     queryClient.invalidateQueries({ queryKey: ['clients'] });
-    showToast(opts?.message ?? (editingQuote ? 'Quote updated' : 'Quote created'));
+    if (!opts?.quiet) {
+      showToast(opts?.message ?? (editingQuote ? 'Quote updated' : 'Quote created'));
+    }
+  }
+
+  function handleQuoteSent(to: string) {
+    setSentQuoteId(sendingQuoteId);
+    setSendingQuoteId(null);
+    queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
+    showToast(`Quote sent to ${to}`);
   }
 
   if (error) return <AppShell><PageError message="Could not load quotes" /></AppShell>;
@@ -238,10 +269,10 @@ export function QuotesPage() {
           />
         ) : viewMode === 'grid' ? (
           <div className="space-y-4">
-            <QuoteGroup title="Drafts" quotes={draftQuotes} onOpen={openQuote} />
-            <QuoteGroup title="Sent — waiting" quotes={sentQuotes} onOpen={openQuote} />
-            <QuoteGroup title="Accepted" quotes={acceptedQuotes} onOpen={openQuote} />
-            <QuoteGroup title="Closed" quotes={closedQuotes} onOpen={openQuote} />
+            <QuoteGroup title="Drafts" quotes={draftQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
+            <QuoteGroup title="Sent — waiting" quotes={sentQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
+            <QuoteGroup title="Accepted" quotes={acceptedQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
+            <QuoteGroup title="Closed" quotes={closedQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
           </div>
         ) : (
           <div className="ops-table">
@@ -259,7 +290,7 @@ export function QuotesPage() {
                 </thead>
                 <tbody className="divide-y divide-rule">
                   {filtered.map(q => (
-                    <QuoteRow key={q.id} quote={q} onOpen={() => openQuote(q)} />
+                    <QuoteRow key={q.id} quote={q} onOpen={() => openQuote(q)} onSend={() => setSendingQuoteId(q.id)} />
                   ))}
                 </tbody>
               </table>
@@ -276,6 +307,26 @@ export function QuotesPage() {
           defaultTaxRate={company?.default_tax_rate ?? DEFAULT_TAX_RATE}
           onClose={() => { setShowForm(false); setPresetClientId(null); }}
           onSaved={handleSaved}
+          onRequestSend={setSendingQuoteId}
+          sentQuoteId={sentQuoteId}
+        />
+      )}
+
+      {sendingQuoteId && company?.id && (
+        <QuoteSendDialog
+          quoteId={sendingQuoteId}
+          company={{
+            id: company.id,
+            name: company.name,
+            abn: company.abn,
+            licence_number: company.licence_number,
+            phone: company.phone,
+            email: company.email,
+            website: company.website,
+            logo_url: company.logo_url,
+          }}
+          onClose={() => setSendingQuoteId(null)}
+          onSent={handleQuoteSent}
         />
       )}
     </AppShell>
@@ -283,11 +334,12 @@ export function QuotesPage() {
 }
 
 function QuoteGroup({
-  title, quotes, onOpen,
+  title, quotes, onOpen, onSend,
 }: {
   title: string;
   quotes: QuoteListItem[];
   onOpen: (q: QuoteListItem) => void;
+  onSend: (quoteId: string) => void;
 }) {
   if (quotes.length === 0) return null;
   return (
@@ -298,15 +350,17 @@ function QuoteGroup({
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {quotes.map(q => (
-          <QuoteCard key={q.id} quote={q} onOpen={() => onOpen(q)} />
+          <QuoteCard key={q.id} quote={q} onOpen={() => onOpen(q)} onSend={() => onSend(q.id)} />
         ))}
       </div>
     </div>
   );
 }
 
-function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void }) {
-  const next = recommendQuoteAction(quoteActionContext(quote));
+function QuoteCard({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () => void; onSend: () => void }) {
+  const { profile } = useAuth();
+  const { data: smtpReady } = useCompanySmtpReady(profile?.company_id);
+  const next = recommendQuoteAction(quoteActionContext(quote, { smtpReady: smtpReady ?? null }));
   return (
     <div
       role="button"
@@ -329,7 +383,7 @@ function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void
           </div>
         </div>
         <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
-          <QuoteNextControl quote={quote} />
+          <QuoteNextControl quote={quote} onSend={onSend} />
           {next.key === 'none' && (
             <span className="ops-next-control-done">{next.label}</span>
           )}
@@ -348,8 +402,10 @@ function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void
   );
 }
 
-function QuoteRow({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void }) {
-  const next = recommendQuoteAction(quoteActionContext(quote));
+function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () => void; onSend: () => void }) {
+  const { profile } = useAuth();
+  const { data: smtpReady } = useCompanySmtpReady(profile?.company_id);
+  const next = recommendQuoteAction(quoteActionContext(quote, { smtpReady: smtpReady ?? null }));
   return (
     <tr onClick={onOpen} className="hover:bg-zebra cursor-pointer transition-colors">
       <td className="px-3 py-2 font-medium text-accent">#{padQuoteNumber(quote.quote_number)}</td>
@@ -369,20 +425,21 @@ function QuoteRow({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void 
         {next.key === 'none' ? (
           <span className="ops-next-hint">{next.label}</span>
         ) : (
-          <QuoteNextControl quote={quote} />
+          <QuoteNextControl quote={quote} onSend={onSend} />
         )}
       </td>
     </tr>
   );
 }
 
-function QuoteNextControl({ quote }: { quote: QuoteListItem }) {
+function QuoteNextControl({ quote, onSend }: { quote: QuoteListItem; onSend: () => void }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { profile, company } = useAuth();
+  const { data: smtpReady } = useCompanySmtpReady(profile?.company_id);
   const { showToast } = useToast();
   const [busy, setBusy] = useState<QuoteActionKey | null>(null);
-  const next = recommendQuoteAction(quoteActionContext(quote));
+  const next = recommendQuoteAction(quoteActionContext(quote, { smtpReady: smtpReady ?? null }));
   if (next.key === 'none') return null;
 
   const run = async (key: QuoteActionKey, fn: () => Promise<void>) => {
@@ -399,15 +456,16 @@ function QuoteNextControl({ quote }: { quote: QuoteListItem }) {
   };
 
   const handle = () => {
+    if (next.key === 'setup_email') {
+      navigate(COMPANY_EMAIL_SETTINGS_HREF);
+      return;
+    }
+    if (next.key === 'add_email' && quote.client_id) {
+      navigate(`/clients/${quote.client_id}`);
+      return;
+    }
     if (next.key === 'send') {
-      void run('send', async () => {
-        const { error } = await supabase.from('quotes')
-          .update({ status: 'sent', updated_at: new Date().toISOString() })
-          .eq('id', quote.id);
-        if (error) throw error;
-        queryClient.invalidateQueries({ queryKey: ['quotes'] });
-        showToast('Quote marked as sent');
-      });
+      onSend();
       return;
     }
     if (next.key === 'accept') {
@@ -473,12 +531,14 @@ interface EditorState {
   scheduled_date: string;
 }
 
-function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSaved }: {
+function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSaved, onRequestSend, sentQuoteId }: {
   quote: QuoteListItem | null;
   presetClientId?: string | null;
   defaultTaxRate: number;
   onClose: () => void;
-  onSaved: (opts?: { close?: boolean; message?: string }) => void;
+  onSaved: (opts?: { close?: boolean; message?: string; quiet?: boolean }) => void;
+  onRequestSend: (quoteId: string) => void;
+  sentQuoteId?: string | null;
 }) {
   const { profile, company } = useAuth();
   const navigate = useNavigate();
@@ -538,13 +598,24 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   );
   const { subtotal, taxAmount, total: grandTotal } = gst;
 
+  const { data: smtpReady } = useCompanySmtpReady(profile?.company_id);
   const next = recommendQuoteAction({
     status: form.status,
     hasClient: !!form.client_id,
     hasLines: form.line_items.some(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0),
+    hasClientEmail: !!selectedClient?.email && selectedClient.email.includes('@'),
+    smtpReady: smtpReady ?? null,
     jobId: form.job_id || null,
     invoiceId,
+    clientId: form.client_id || null,
   });
+
+  useEffect(() => {
+    const id = savedId ?? quote?.id;
+    if (sentQuoteId && id && sentQuoteId === id) {
+      setForm(f => (f.status === 'sent' ? f : { ...f, status: 'sent' }));
+    }
+  }, [sentQuoteId, savedId, quote?.id]);
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
@@ -618,7 +689,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
     };
   };
 
-  const persist = async (status: QuoteStatus, opts?: { close?: boolean; message?: string }) => {
+  const persist = async (status: QuoteStatus, opts?: { close?: boolean; message?: string; quiet?: boolean }) => {
     if (!profile?.company_id) return null;
     if (!form.client_id) { setErr('Please select a client'); return null; }
     const { cleanLines, payload } = buildPayload(status);
@@ -630,7 +701,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
       setSaving(false);
       if (error) { setErr(error.message); return null; }
       setForm(f => ({ ...f, status }));
-      onSaved({ close: opts?.close ?? false, message: opts?.message ?? 'Quote updated' });
+      onSaved({ close: opts?.close ?? false, message: opts?.message ?? 'Quote updated', quiet: opts?.quiet });
       return id;
     }
     const { data, error } = await supabase.from('quotes')
@@ -641,8 +712,14 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
     if (error) { setErr(error.message); return null; }
     setSavedId(data.id as string);
     setForm(f => ({ ...f, status }));
-    onSaved({ close: opts?.close ?? true, message: opts?.message ?? 'Quote created' });
+    onSaved({ close: opts?.close ?? true, message: opts?.message ?? 'Quote created', quiet: opts?.quiet });
     return data.id as string;
+  };
+
+  const handleSend = async () => {
+    const id = await persist(form.status === 'draft' ? 'draft' : form.status, { close: false, quiet: true });
+    if (!id) return;
+    onRequestSend(id);
   };
 
   const handleInvoice = async () => {
@@ -728,8 +805,18 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           {form.description.trim() && <p className="ops-hub-title pb-3">{form.description.trim()}</p>}
           {next.key !== 'none' && next.key !== 'open_invoice' && (
             <div className="mt-2 pb-3">
+              {next.key === 'setup_email' && (
+                <ActionButton recommended onClick={() => navigate(COMPANY_EMAIL_SETTINGS_HREF)}>
+                  <Send size={14} /> Set up email
+                </ActionButton>
+              )}
+              {next.key === 'add_email' && form.client_id && (
+                <ActionButton recommended onClick={() => navigate(`/clients/${form.client_id}`)}>
+                  <Send size={14} /> Add client email
+                </ActionButton>
+              )}
               {next.key === 'send' && (
-                <ActionButton recommended onClick={() => void persist('sent', { close: false, message: 'Quote marked as sent' })} disabled={saving}>
+                <ActionButton recommended onClick={() => void handleSend()} disabled={saving}>
                   <Send size={14} /> {saving ? 'Saving...' : 'Send'}
                 </ActionButton>
               )}
@@ -876,8 +963,18 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         </div>
 
         <div className="ops-sticky flex flex-col gap-2">
+          {next.key === 'setup_email' && (
+            <ActionButton recommended onClick={() => navigate(COMPANY_EMAIL_SETTINGS_HREF)}>
+              <Send size={14} /> Set up email
+            </ActionButton>
+          )}
+          {next.key === 'add_email' && form.client_id && (
+            <ActionButton recommended onClick={() => navigate(`/clients/${form.client_id}`)}>
+              <Send size={14} /> Add client email
+            </ActionButton>
+          )}
           {next.key === 'send' && (
-            <ActionButton recommended onClick={() => void persist('sent', { close: false, message: 'Quote marked as sent' })} disabled={saving}>
+            <ActionButton recommended onClick={() => void handleSend()} disabled={saving}>
               <Send size={14} /> {saving ? 'Saving...' : 'Send'}
             </ActionButton>
           )}
