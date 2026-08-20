@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { MapPin, Phone } from 'lucide-react';
+import { Camera, MapPin, Phone } from 'lucide-react';
 
 /** First non-empty line for the field-card site title. */
 export function opsSiteLabel(...parts: Array<string | null | undefined>): string {
@@ -30,6 +30,26 @@ export function OpsCardHeader({
         <p className={hub ? 'ops-card-kicker ops-card-kicker-lg' : 'ops-card-kicker'}>{kicker}</p>
         {trailing}
       </div>
+    </div>
+  );
+}
+
+export function OpsPhotoStamp({
+  src,
+  hub = false,
+}: {
+  src?: string | null;
+  hub?: boolean;
+}) {
+  return (
+    <div className={hub ? 'ops-stamp ops-stamp-hub' : 'ops-stamp'} aria-hidden={!src}>
+      {src ? (
+        <img src={src} alt="" className="ops-stamp-img" />
+      ) : (
+        <div className="ops-stamp-empty">
+          <Camera size={hub ? 28 : 22} strokeWidth={1.5} />
+        </div>
+      )}
     </div>
   );
 }

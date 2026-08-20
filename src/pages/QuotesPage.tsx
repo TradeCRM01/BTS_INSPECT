@@ -679,7 +679,7 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
               <OpsStatus className={QUOTE_STATUS_STYLES[form.status]}>
                 {QUOTE_STATUS_LABELS[form.status]}
               </OpsStatus>
-              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white/10 text-white/70">
+              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 text-[rgba(0,0,0,0.7)]">
                 <X size={18} />
               </button>
             </div>

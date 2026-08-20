@@ -61,10 +61,6 @@ function formatJobNumber(n: number | null | undefined): string {
   return `#${String(n).padStart(4, '0')}`;
 }
 
-function initials(name: string): string {
-  return name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
-}
-
 function formatHourLabel(h: number): string {
   if (h === 12) return '12 PM';
   if (h > 12) return `${h - 12} PM`;
@@ -102,7 +98,7 @@ const JobBlock = memo(function JobBlock({
       }`}
       style={{ borderLeftWidth: 3, borderLeftColor: rail }}
     >
-      <div className={compact ? 'ops-card-header-sm' : 'ops-card-header px-2 py-1'}>
+      <div className={compact ? 'ops-card-header-sm' : 'ops-card-header px-2 pt-1.5 pb-0'}>
         <div className="flex items-center justify-between gap-1">
           <p className="ops-card-kicker truncate">
             {compact && job.start_time ? `${job.start_time.slice(0, 5)} · ` : ''}
@@ -143,8 +139,8 @@ export const NeedsDateRail = memo(function NeedsDateRail({
   return (
     <div className={`ops-tray ${className}`.trim()}>
       <div className="ops-tray-head">
-        <p className="ops-card-kicker">Jobs</p>
-        <span className="text-[10px] font-bold text-white/80">{jobs.length}</span>
+        <p className="ops-card-kicker">Unscheduled</p>
+        <span className="ops-meta">{jobs.length}</span>
       </div>
       <div className="p-2 space-y-2 max-h-[70vh] overflow-y-auto">
         {jobs.length === 0 ? (
@@ -344,16 +340,16 @@ export const DayBoardView = memo(function DayBoardView({
 
   return (
     <div className="ops-board">
-      <div className="px-3 py-2 bg-navy text-white flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm font-semibold">
+      <div className="px-3 py-2 border-b border-[#E5E7EB] flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-sm font-semibold tracking-tight text-navy">
           {format(currentDate, 'EEEE, d MMMM yyyy')}
           {isToday(currentDate) && (
-            <span className="ml-2 text-[10px] text-navy bg-white/90 px-1.5 py-0.5 rounded font-medium">
+            <span className="ml-2 text-[10px] font-bold tracking-wide text-white bg-navy px-1.5 py-0.5 rounded-md">
               TODAY
             </span>
           )}
         </p>
-        <p className="ops-meta text-white/80">
+        <p className="ops-meta">
           {unassignedCount > 0
             ? `${unassignedCount} unassigned · drop on a person to add them`
             : 'Drop on a person to add them · Unassigned keeps the date'}
@@ -364,8 +360,8 @@ export const DayBoardView = memo(function DayBoardView({
         <div className="flex sticky top-0 z-20 bg-white border-b border-[#E5E7EB]">
           <div className="shrink-0 border-r border-[#E5E7EB] bg-[#FAFBFC]" style={{ width: LABEL_WIDTH }}>
             <div className="px-3 py-2 flex items-center gap-1.5">
-              <Users size={13} className="text-[#2E75B6]" />
-              <span className="text-[10px] font-semibold text-[#0A2540] uppercase tracking-wide">Crew</span>
+              <Users size={13} className="text-navy" />
+              <span className="text-xs font-semibold tracking-tight text-navy">Crew</span>
             </div>
           </div>
           <div className="flex" style={{ minWidth: gridWidth }}>
@@ -395,32 +391,29 @@ export const DayBoardView = memo(function DayBoardView({
             <div
               key={row.id}
               className={`flex ${rowIdx < rows.length - 1 ? 'border-b border-[#F3F4F6]' : ''} ${
-                isUnassigned ? 'bg-[#F0F7FF]/70' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFC]'
-              } ${hovering ? 'bg-blue-50/70' : ''}`}
+                isUnassigned ? 'bg-[#FAFBFC]' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFC]'
+              } ${hovering ? 'bg-[#F3F4F6]' : ''}`}
               onDragOver={e => { e.preventDefault(); setDropHoverId(row.id); }}
               onDrop={e => handleDrop(e, row.id)}
             >
               <div
-                className="shrink-0 border-r border-[#E5E7EB] cursor-pointer hover:bg-blue-50/40 transition-colors flex items-center gap-2 px-3"
+                className="shrink-0 border-r border-[#E5E7EB] cursor-pointer hover:bg-[#F9FAFB] transition-colors flex items-center gap-2 px-3"
                 style={{
                   width: LABEL_WIDTH,
                   height,
-                  borderLeft: isUnassigned ? '3px dashed #2E75B6' : `3px solid ${color}`,
+                  borderLeft: isUnassigned ? '3px dashed #0A2540' : `3px solid ${color}`,
                 }}
                 onClick={() => onDayClick(dateStr, isUnassigned ? undefined : row.id)}
               >
-                <div
-                  className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-white text-[10px] font-bold"
+                <span
+                  className="ops-crew-mark"
                   style={{
                     background: isUnassigned ? 'transparent' : color,
-                    color: isUnassigned ? '#2E75B6' : undefined,
-                    border: isUnassigned ? '2px dashed #2E75B6' : undefined,
+                    outline: isUnassigned ? '1px solid #0A2540' : undefined,
                   }}
-                >
-                  {isUnassigned ? '?' : initials(row.name)}
-                </div>
+                />
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-[#1A1A1A] truncate">{row.name}</p>
+                  <p className="text-sm font-semibold tracking-tight text-navy truncate">{row.name}</p>
                   <p className="ops-meta">
                     {isUnassigned
                       ? (rowJobs.length === 0 ? 'Drop here — date stays' : `${rowJobs.length} · needs crew`)
@@ -561,9 +554,9 @@ export const WeekBoardView = memo(function WeekBoardView({
 
   return (
     <div className="ops-board">
-      <div className="px-3 py-2 bg-navy text-white flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm font-semibold">This week</p>
-        <p className="ops-meta text-white/80">
+      <div className="px-3 py-2 border-b border-[#E5E7EB] flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-sm font-semibold tracking-tight text-navy">This week</p>
+        <p className="ops-meta">
           Drag to another day to move the date. Crew stays put.
         </p>
       </div>
@@ -576,7 +569,7 @@ export const WeekBoardView = memo(function WeekBoardView({
           return (
             <div key={i} className="flex-1 min-w-[120px] border-r border-[#E5E7EB] last:border-r-0 px-2 py-2 text-center">
               <p className="ops-meta uppercase">{format(day, 'EEE')}</p>
-              <p className={`text-sm font-bold ${today ? 'text-white bg-navy w-6 h-6 rounded-full flex items-center justify-center mx-auto' : 'text-[#1A1A1A]'}`}>
+              <p className={`text-sm font-bold ${today ? 'text-white bg-navy w-6 h-6 rounded-md flex items-center justify-center mx-auto' : 'text-[#1A1A1A]'}`}>
                 {format(day, 'd')}
               </p>
               <p className="ops-meta mt-0.5">
@@ -600,7 +593,7 @@ export const WeekBoardView = memo(function WeekBoardView({
               onDrop={e => handleDrop(e, ds)}
               onClick={() => onDayClick(ds)}
               className={`flex-1 min-w-[120px] border-r border-[#E5E7EB] last:border-r-0 p-1 space-y-1 cursor-pointer min-h-[300px] ${
-                hovering ? 'bg-blue-50/70' : ''
+                hovering ? 'bg-[#F3F4F6]' : ''
               }`}
             >
               {dayJobs.length === 0 ? (

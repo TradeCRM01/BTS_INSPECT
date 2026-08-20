@@ -619,7 +619,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
               <OpsStatus className={INVOICE_STATUS_STYLES[displayStatus]}>
                 {INVOICE_STATUS_LABELS[displayStatus]}
               </OpsStatus>
-              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white/10 text-white/70">
+              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 text-[rgba(0,0,0,0.7)]">
                 <X size={18} />
               </button>
             </div>

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, Breadcrumbs, useToast, ActionButton, actionClass, OpsStatus, OpsSiteRow } from '../components/ui';
+import { LoadingSpinner, PageError, Breadcrumbs, useToast, ActionButton, actionClass, OpsStatus, OpsSiteRow, OpsPhotoStamp } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
@@ -193,6 +193,26 @@ export function JobDetailPage() {
       return list;
     },
     enabled: !!id && !!profile && !!job,
+  });
+
+  const { data: coverPhotoUrl } = useQuery<string | null>({
+    queryKey: ['job-cover-photo', id, (inspections ?? []).map(i => i.id).join(',')],
+    queryFn: async () => {
+      const ids = [...(inspections ?? []).map(i => i.id)];
+      if (job?.inspection_id && !ids.includes(job.inspection_id)) ids.push(job.inspection_id);
+      if (ids.length === 0) return null;
+      const { data: photos } = await supabase
+        .from('photos')
+        .select('storage_path')
+        .in('inspection_id', ids)
+        .order('uploaded_at', { ascending: false })
+        .limit(1);
+      const path = photos?.[0]?.storage_path;
+      if (!path) return null;
+      const { data } = await supabase.storage.from('photos').createSignedUrl(path, 3600);
+      return data?.signedUrl ?? null;
+    },
+    enabled: !!id && !!inspections,
   });
 
   const { data: jhas } = useQuery<JobJha[]>({
@@ -484,6 +504,7 @@ export function JobDetailPage() {
         ]} />
 
         <article className="ops-card overflow-hidden mb-4" style={{ borderLeftWidth: 4, borderLeftColor: color }}>
+          <OpsPhotoStamp src={coverPhotoUrl} hub />
           <div className="ops-card-header ops-card-header-lg">
             <div className="flex items-center justify-between gap-2">
               <p className="ops-card-kicker ops-card-kicker-lg">
@@ -537,6 +558,26 @@ export function JobDetailPage() {
                 <span className="ops-next-control-done">{next.label}</span>
               )}
             </div>
+
+            {((quotes ?? []).length > 0 || (invoices ?? []).length > 0) && (
+              <div className="ops-attach">
+                {(quotes ?? []).map(q => (
+                  <Link key={q.id} to={`/quotes?id=${q.id}`} className="ops-attach-chip">
+                    <span className="truncate">QT #{padNum(q.quote_number)} · {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}</span>
+                    <span className="tabular-nums shrink-0">{formatMoney(Number(q.total))}</span>
+                  </Link>
+                ))}
+                {(invoices ?? []).map(inv => {
+                  const status = effectiveInvoiceStatus(inv);
+                  return (
+                    <Link key={inv.id} to={`/invoices?id=${inv.id}`} className="ops-attach-chip">
+                      <span className="truncate">INV #{padNum(inv.invoice_number)} · {INVOICE_STATUS_LABELS[status]}</span>
+                      <span className="tabular-nums shrink-0">{formatMoney(Number(inv.total))}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 ops-meta">
               {client ? (
@@ -746,7 +787,7 @@ export function JobDetailPage() {
                     type="button"
                     onClick={() => invoiceFromQuote.mutate(q.id)}
                     disabled={invoiceFromQuote.isPending}
-                    className="shrink-0 text-xs font-medium text-[#0A2540] bg-[#F0F7FF] border border-[#BFDBFE] px-2 py-1 rounded-md hover:bg-[#E0EFFF] disabled:opacity-50"
+                    className="shrink-0 text-xs font-medium text-navy border border-[#E5E7EB] px-2 py-1 rounded-md hover:bg-[#F9FAFB] disabled:opacity-50"
                   >
                     Invoice
                   </button>

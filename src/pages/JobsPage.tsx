@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, ViewToggle, useViewMode, OpsCardHeader, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
+import { LoadingSpinner, PageError, EmptyState, ViewToggle, useViewMode, OpsCardHeader, OpsPhotoStamp, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import {
@@ -12,8 +12,14 @@ import {
   JOB_PRIORITY_DOT,
 } from '../types/crm';
 import { jobCardHint, jobListBucket } from '../lib/jobNextAction';
+import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { Plus, Briefcase, Search, Calendar, Clock, User } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+
+type JobCardModel = JobWithClient & {
+  cover_photo_url: string | null;
+  docs: JobDocChip[];
+};
 
 type StatusFilter = 'all' | JobStatus;
 
@@ -28,7 +34,7 @@ export function JobsPage() {
   const [showForm, setShowForm] = useState(false);
   const [viewMode, setViewMode] = useViewMode('jobs');
 
-  const { data: jobs, isLoading, error } = useQuery<JobWithClient[]>({
+  const { data: jobs, isLoading, error } = useQuery<JobCardModel[]>({
     queryKey: ['jobs-all', profile?.company_id],
     queryFn: async () => {
       const { data: jobsData, error } = await supabase
@@ -52,11 +58,25 @@ export function JobsPage() {
         }
       }
 
-      return jobs.map(j => ({
+      const withClients: JobWithClient[] = jobs.map(j => ({
         ...j,
         client_name: j.client_id ? clientMap.get(j.client_id)?.name ?? null : null,
         client_phone: j.client_id ? clientMap.get(j.client_id)?.phone ?? null : null,
         client_address: j.client_id ? clientMap.get(j.client_id)?.address ?? null : null,
+      }));
+      let photoByJob = new Map<string, string>();
+      let docsByJob = new Map<string, JobDocChip[]>();
+      try {
+        const extras = await loadJobCardExtras(withClients);
+        photoByJob = extras.photoByJob;
+        docsByJob = extras.docsByJob;
+      } catch {
+        // Evidence photos / attached docs are optional on the card.
+      }
+      return withClients.map(j => ({
+        ...j,
+        cover_photo_url: photoByJob.get(j.id) ?? null,
+        docs: docsByJob.get(j.id) ?? [],
       }));
     },
     enabled: !!profile,
@@ -235,7 +255,7 @@ function JobGroup({
 }: {
   title: string;
   icon: typeof Calendar;
-  jobs: JobWithClient[];
+  jobs: JobCardModel[];
 }) {
   if (jobs.length === 0) return null;
   return (
@@ -253,7 +273,8 @@ function JobGroup({
   );
 }
 
-function JobCard({ job }: { job: JobWithClient }) {
+function JobCard({ job }: { job: JobCardModel }) {
+  const navigate = useNavigate();
   const rail = JOB_STATUS_RAIL[job.status];
   const jobDate = job.scheduled_date ? parseISO(job.scheduled_date) : null;
   const dateLabel = jobDate ? format(jobDate, 'd MMM yyyy') : 'No date';
@@ -262,11 +283,15 @@ function JobCard({ job }: { job: JobWithClient }) {
   const mapsQuery = (job.address || job.client_address)?.trim() || null;
 
   return (
-    <Link
-      to={`/jobs/${job.id}`}
-      className="ops-card ops-card-hover group block"
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => navigate(`/jobs/${job.id}`)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/jobs/${job.id}`); } }}
+      className="ops-card ops-card-hover group cursor-pointer"
       style={{ borderLeftWidth: 4, borderLeftColor: rail }}
     >
+      <OpsPhotoStamp src={job.cover_photo_url} />
       <OpsCardHeader
         kicker={job.job_number != null ? `JOB #${String(job.job_number).padStart(4, '0')}` : 'JOB'}
         trailing={<OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>}
@@ -276,6 +301,16 @@ function JobCard({ job }: { job: JobWithClient }) {
         <div className="ops-card-footer">
           <span className="ops-next-control-block">{hint}</span>
         </div>
+        {job.docs.length > 0 && (
+          <div className="ops-attach">
+            {job.docs.map(doc => (
+              <Link key={doc.id} to={doc.href} className="ops-attach-chip" onClick={e => e.stopPropagation()}>
+                <span className="truncate">{doc.label}</span>
+                <span className="tabular-nums shrink-0">{doc.amount}</span>
+              </Link>
+            ))}
+          </div>
+        )}
         <div className="mt-2 min-w-0 space-y-0.5">
           {job.title && <p className="ops-meta truncate">{job.title}</p>}
           {job.client_name && (
@@ -299,6 +334,6 @@ function JobCard({ job }: { job: JobWithClient }) {
           )}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
