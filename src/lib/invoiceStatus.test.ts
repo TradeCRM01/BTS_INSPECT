@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveInvoiceStatus, todayIsoDate } from './invoiceStatus';
+import { effectiveInvoiceStatus, persistableInvoiceStatus, todayIsoDate } from './invoiceStatus';
 
 describe('effectiveInvoiceStatus', () => {
   const now = new Date(2026, 7, 20); // 20 Aug 2026 local
@@ -24,6 +24,15 @@ describe('effectiveInvoiceStatus', () => {
 
   it('keeps an explicit overdue status', () => {
     expect(effectiveInvoiceStatus({ status: 'overdue', due_date: '2026-12-01' }, now)).toBe('overdue');
+  });
+});
+
+describe('persistableInvoiceStatus', () => {
+  it('stores sent instead of overdue so due date can compute it', () => {
+    expect(persistableInvoiceStatus('overdue')).toBe('sent');
+    expect(persistableInvoiceStatus('sent')).toBe('sent');
+    expect(persistableInvoiceStatus('paid')).toBe('paid');
+    expect(persistableInvoiceStatus('draft')).toBe('draft');
   });
 });
 
