@@ -18,7 +18,7 @@ export function OpsCardHeader({
   trailing,
 }: {
   kicker: string;
-  title: string;
+  title?: string;
   site: string;
   size?: 'card' | 'hub';
   trailing?: ReactNode;
@@ -26,17 +26,17 @@ export function OpsCardHeader({
   const hub = size === 'hub';
   return (
     <div className={hub ? 'ops-card-header ops-card-header-lg' : 'ops-card-header'}>
-      <div className={trailing ? 'flex items-start justify-between gap-3' : undefined}>
-        <div className="min-w-0">
-          <p className={hub ? 'ops-card-kicker ops-card-kicker-lg' : 'ops-card-kicker'}>{kicker}</p>
-          {hub ? <h1 className="ops-hub-title">{title}</h1> : <p className="ops-card-title">{title}</p>}
-        </div>
+      <div className="flex items-center justify-between gap-2">
+        <p className={hub ? 'ops-card-kicker ops-card-kicker-lg' : 'ops-card-kicker'}>{kicker}</p>
         {trailing}
       </div>
       <p className={hub ? 'ops-hub-site' : 'ops-card-site'}>
-        <MapPin size={hub ? 16 : 11} className="ops-card-site-icon shrink-0 mt-0.5" />
+        <MapPin size={hub ? 18 : 14} className="ops-card-site-icon shrink-0 mt-0.5" />
         <span className="min-w-0">{site}</span>
       </p>
+      {title ? (
+        hub ? <p className="ops-hub-title">{title}</p> : <p className="ops-card-title">{title}</p>
+      ) : null}
     </div>
   );
 }
@@ -55,7 +55,7 @@ export function NextBanner({ detail, className = '' }: { detail: string; classNa
 }
 
 export function actionClass(recommended: boolean) {
-  return recommended ? 'btn-primary' : 'btn-secondary';
+  return recommended ? 'ops-next-control' : 'btn-secondary';
 }
 
 export function ActionButton({

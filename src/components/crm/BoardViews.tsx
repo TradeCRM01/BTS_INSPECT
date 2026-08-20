@@ -20,7 +20,7 @@ import {
 import {
   format, isToday, addDays, startOfWeek,
 } from 'date-fns';
-import { Clock, User, Plus, Users, MapPin } from 'lucide-react';
+import { Clock, Plus, Users, MapPin } from 'lucide-react';
 
 export interface TeamMember {
   id: string;
@@ -45,8 +45,8 @@ const DAY_START = DAY_START_HOUR;
 const DAY_END = DAY_END_HOUR;
 const HOURS = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => DAY_START + i);
 const LABEL_WIDTH = 168;
-const ALL_DAY_H = 64;
-const TIMED_H = 76;
+const ALL_DAY_H = 56;
+const TIMED_H = 72;
 const ROW_PAD = 6;
 const ROW_MIN = 72;
 
@@ -87,15 +87,12 @@ interface JobBlockProps {
 }
 
 const JobBlock = memo(function JobBlock({
-  job, teamMembers, onClick, onDragStart, compact, dragging, fill = true, detail = false,
+  job, onClick, onDragStart, compact, dragging, fill = true, detail = false,
 }: JobBlockProps) {
   const color = pickJobColor(job.id, job.color);
   const hint = boardDispatchHint(job);
   const next = hint ?? jobCardHint(job);
   const site = opsSiteLabel(job.address, job.client_address);
-  const assigned = (job.assigned_team ?? [])
-    .map(id => teamMembers?.find(m => m.id === id))
-    .filter(Boolean) as TeamMember[];
 
   return (
     <button
@@ -107,49 +104,25 @@ const JobBlock = memo(function JobBlock({
       }`}
       style={{ borderLeftWidth: 3, borderLeftColor: color }}
     >
-      <div className={compact ? 'ops-card-header-sm' : 'ops-card-header px-2 py-1.5'}>
-        <p className="ops-card-kicker">{formatJobNumber(job.job_number) || 'JOB'}</p>
-        <p className={`${compact ? 'text-[11px]' : 'text-xs'} font-semibold leading-snug truncate text-white mt-0.5`}>
-          {job.title}
-        </p>
+      <div className={compact ? 'ops-card-header-sm' : 'ops-card-header px-2 py-1'}>
+        <div className="flex items-center justify-between gap-1">
+          <p className="ops-card-kicker truncate">{formatJobNumber(job.job_number) || 'JOB'}</p>
+          <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+        </div>
         <p className="ops-card-site">
           <MapPin size={10} className="ops-card-site-icon" />
           <span className="min-w-0 truncate">{site}</span>
         </p>
+        {!compact && <p className="ops-card-title">{job.title}</p>}
       </div>
-      <div className="px-2 py-1.5 text-left">
-        {!compact && detail && job.client_name && (
-          <p className="text-[11px] leading-tight truncate text-[#4A5568] flex items-center gap-0.5 mb-1">
-            <User size={10} /> {job.client_name}
-          </p>
-        )}
+      <div className="px-1.5 py-1 text-left">
         {!compact && detail && job.start_time && (
           <p className="text-[11px] leading-tight text-[#6B7280] flex items-center gap-0.5 mb-1">
             <Clock size={10} /> {job.start_time.slice(0, 5)}
             {job.end_time && ` – ${job.end_time.slice(0, 5)}`}
           </p>
         )}
-        <div className="flex items-center justify-between gap-1 min-w-0">
-          <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
-          <span className={`ops-next-hint truncate ${compact ? 'text-[10px]' : ''}`}>{next}</span>
-        </div>
-        {!compact && detail && assigned.length > 0 && (
-          <div className="flex items-center gap-0.5 mt-2">
-            {assigned.slice(0, 4).map(m => (
-              <div
-                key={m.id}
-                className="w-3.5 h-3.5 rounded-full border border-white flex items-center justify-center text-[7px] font-bold text-white"
-                style={{ background: pickEmployeeColor(m.id, m.schedule_color) }}
-                title={m.name}
-              >
-                {m.name[0]?.toUpperCase()}
-              </div>
-            ))}
-            {assigned.length > 4 && (
-              <span className="text-[9px] text-[#9CA3AF] ml-0.5">+{assigned.length - 4}</span>
-            )}
-          </div>
-        )}
+        <span className={detail ? 'ops-next-control-block' : 'ops-next-control-sm'}>{next}</span>
       </div>
     </button>
   );
@@ -196,10 +169,10 @@ export const NeedsDateRail = memo(function NeedsDateRail({
                 kicker={formatJobNumber(job.job_number) || 'JOB'}
                 title={job.title}
                 site={opsSiteLabel(job.address, job.client_address)}
+                trailing={<OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>}
               />
-              <div className="px-2 py-2">
-                <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
-                <p className="ops-next-hint mt-1.5">Set a date</p>
+              <div className="px-1.5 py-1.5">
+                <span className="ops-next-control-sm">Set a date</span>
               </div>
             </button>
           );

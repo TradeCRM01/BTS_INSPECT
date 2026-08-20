@@ -174,7 +174,7 @@ export function JobsPage() {
             ) : undefined}
           />
         ) : viewMode === 'grid' ? (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <JobGroup title="Needs a date" icon={Calendar} jobs={needsDateJobs} />
             <JobGroup title="On the board" icon={Briefcase} jobs={onBoardJobs} />
             <JobGroup title="Upcoming" icon={Calendar} jobs={upcomingJobs} />
@@ -187,7 +187,7 @@ export function JobsPage() {
                 <thead>
                   <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
                     <th className="px-3 py-2">Job #</th>
-                    <th className="px-3 py-2">Title</th>
+                    <th className="px-3 py-2">Site</th>
                     <th className="px-3 py-2">Client</th>
                     <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2">Priority</th>
@@ -204,8 +204,8 @@ export function JobsPage() {
                         className="hover:bg-[#F9FAFB] cursor-pointer transition-colors" style={{ borderLeft: `3px solid ${color}` }}>
                         <td className="px-3 py-2 font-medium" style={{ color }}>{job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : '—'}</td>
                         <td className="px-3 py-2">
-                          <p className="text-sm font-semibold text-navy truncate">{job.title}</p>
-                          <p className="text-xs text-[#4A5568] truncate">{opsSiteLabel(job.address, job.client_address)}</p>
+                          <p className="text-sm font-semibold text-navy truncate">{opsSiteLabel(job.address, job.client_address)}</p>
+                          <p className="text-xs text-[#4A5568] truncate">{job.title}</p>
                         </td>
                         <td className="px-3 py-2 text-[#4A5568]">{job.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
                         <td className="px-3 py-2"><OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus></td>
@@ -249,7 +249,7 @@ function JobGroup({
         <Icon size={13} /> {title}
         <span className="text-[#9CA3AF] normal-case font-normal">({jobs.length})</span>
       </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {jobs.map(job => (
           <JobCard key={job.id} job={job} />
         ))}
@@ -273,33 +273,31 @@ function JobCard({ job }: { job: JobWithClient }) {
     >
       <OpsCardHeader
         kicker={job.job_number != null ? `JOB #${String(job.job_number).padStart(4, '0')}` : 'JOB'}
-        title={job.title}
         site={opsSiteLabel(site)}
+        title={job.title}
+        trailing={<OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>}
       />
       <div className="ops-card-body">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 space-y-1">
-            {job.client_name && (
-              <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
-                <User size={12} className="text-[#9CA3AF] shrink-0" />
-                <span className="truncate">{job.client_name}</span>
-              </div>
-            )}
+        <div className="min-w-0 space-y-0.5">
+          {job.client_name && (
             <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
-              <Calendar size={12} className="text-[#9CA3AF] shrink-0" />
-              <span>{dateLabel}</span>
-              {job.start_time && (
-                <span className="text-[#6B7280]">· {job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>
-              )}
+              <User size={12} className="text-[#9CA3AF] shrink-0" />
+              <span className="truncate">{job.client_name}</span>
             </div>
+          )}
+          <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
+            <Calendar size={12} className="text-[#9CA3AF] shrink-0" />
+            <span>{dateLabel}</span>
+            {job.start_time && (
+              <span className="text-[#6B7280]">· {job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>
+            )}
           </div>
-          <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
         </div>
 
         <div className="ops-card-footer">
-          <span className="ops-next-hint">{hint}</span>
+          <span className="ops-next-control-block">{hint}</span>
           {job.priority !== 'medium' && (
-            <span className="ml-auto flex items-center gap-1 text-[10px] font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
+            <span className="mt-1.5 flex items-center gap-1 text-[10px] font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
               {JOB_PRIORITY_LABELS[job.priority]}
             </span>

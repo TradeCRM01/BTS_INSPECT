@@ -237,7 +237,7 @@ export function QuotesPage() {
                   <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
                     <th className="px-3 py-2">Quote #</th>
                     <th className="px-3 py-2">Client</th>
-                    <th className="px-3 py-2">Description</th>
+                    <th className="px-3 py-2">Site</th>
                     <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2 text-right">Total (inc GST)</th>
                     <th className="px-3 py-2">Next</th>
@@ -302,25 +302,23 @@ function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void
     >
       <OpsCardHeader
         kicker={`QUOTE #${padQuoteNumber(quote.quote_number)}`}
-        title={quote.description?.trim() || quote.job_title || 'Quote'}
         site={opsSiteLabel(quote.job_address)}
+        title={quote.description?.trim() || quote.job_title || 'Quote'}
+        trailing={<OpsStatus className={QUOTE_STATUS_STYLES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</OpsStatus>}
       />
       <div className="ops-card-body">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <p className="ops-money">{formatMoney(Number(quote.total))}</p>
-            <p className="text-[11px] text-[#4A5568]">inc GST</p>
-          </div>
-          <OpsStatus className={QUOTE_STATUS_STYLES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</OpsStatus>
+        <div>
+          <p className="ops-money">{formatMoney(Number(quote.total))}</p>
+          <p className="text-[11px] text-[#4A5568]">inc GST</p>
         </div>
         {quote.client_name && (
-          <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mt-2">
+          <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mt-1.5">
             <User size={12} className="text-[#9CA3AF] shrink-0" />
             <span className="truncate">{quote.client_name}</span>
           </div>
         )}
         {quote.validity_date && (
-          <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mt-1">
+          <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mt-0.5">
             <Calendar size={12} className="text-[#9CA3AF] shrink-0" />
             Valid {format(parseISO(quote.validity_date), 'd MMM yyyy')}
           </div>
@@ -328,7 +326,7 @@ function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void
         <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
           <QuoteNextControl quote={quote} />
           {next.key === 'none' && (
-            <span className="ops-next-hint">{next.label}</span>
+            <span className="ops-next-control-done">{next.label}</span>
           )}
         </div>
       </div>
@@ -343,8 +341,8 @@ function QuoteRow({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void 
       <td className="px-3 py-2 font-medium text-[#2E75B6]">#{padQuoteNumber(quote.quote_number)}</td>
       <td className="px-3 py-2 text-[#1A1A1A]">{quote.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
       <td className="px-3 py-2 max-w-[220px]">
-        <p className="text-sm font-semibold text-navy truncate">{quote.description?.trim() || quote.job_title || '—'}</p>
-        <p className="text-xs text-[#4A5568] truncate">{opsSiteLabel(quote.job_address)}</p>
+        <p className="text-sm font-semibold text-navy truncate">{opsSiteLabel(quote.job_address)}</p>
+        <p className="text-xs text-[#4A5568] truncate">{quote.description?.trim() || quote.job_title || '—'}</p>
       </td>
       <td className="px-3 py-2">
         <OpsStatus className={QUOTE_STATUS_STYLES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</OpsStatus>
@@ -446,7 +444,7 @@ function QuoteNextControl({ quote }: { quote: QuoteListItem }) {
       type="button"
       onClick={handle}
       disabled={!!busy}
-      className="btn-primary"
+      className="ops-next-control-block"
     >
       {busy ? 'Working…' : next.label}
     </button>
@@ -686,31 +684,29 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
     <div className="overlay-backdrop">
       <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
         <div className="ops-card-header ops-card-header-lg">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="ops-card-kicker ops-card-kicker-lg">{heading}</p>
-              <h1 className="ops-hub-title truncate">{form.description.trim() || selectedJob?.title || 'Quote'}</h1>
-            </div>
+          <div className="flex items-center justify-between gap-2">
+            <p className="ops-card-kicker ops-card-kicker-lg">{heading}</p>
             <div className="flex items-center gap-2 shrink-0">
               <OpsStatus className={QUOTE_STATUS_STYLES[form.status]}>
                 {QUOTE_STATUS_LABELS[form.status]}
               </OpsStatus>
-              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/70">
+              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/10 text-white/70">
                 <X size={18} />
               </button>
             </div>
           </div>
           <p className="ops-hub-site">
-            <MapPin size={16} className="ops-card-site-icon mt-0.5" />
+            <MapPin size={18} className="ops-card-site-icon mt-1" />
             <span className="min-w-0">{opsSiteLabel(selectedJob?.address, selectedClient?.address)}</span>
           </p>
+          <p className="ops-hub-title">{form.description.trim() || selectedJob?.title || 'Quote'}</p>
           {selectedClient && (
-            <p className="mt-2 flex items-center gap-2 text-sm text-white/80 truncate">
+            <p className="mt-1.5 flex items-center gap-2 text-sm text-white/80 truncate">
               <User size={14} className="text-[#93C5FD] shrink-0" />
               {selectedClient.name}
             </p>
           )}
-          <p className="mt-3 text-xl font-bold">{formatMoney(grandTotal)} <span className="text-sm font-medium text-white/70">inc GST</span></p>
+          <p className="mt-2 text-xl font-bold">{formatMoney(grandTotal)} <span className="text-sm font-medium text-white/70">inc GST</span></p>
         </div>
 
         <div className="px-5 py-3 border-b border-[#F3F4F6] space-y-3">

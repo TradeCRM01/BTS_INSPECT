@@ -484,21 +484,12 @@ export function JobDetailPage() {
           { label: job.job_number != null ? `#${padNum(job.job_number)} ${job.title}` : job.title },
         ]} />
 
-        <article className="ops-card overflow-hidden mb-5" style={{ borderLeftWidth: 4, borderLeftColor: color }}>
+        <article className="ops-card overflow-hidden mb-4" style={{ borderLeftWidth: 4, borderLeftColor: color }}>
           <div className="ops-card-header ops-card-header-lg">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="ops-card-kicker ops-card-kicker-lg">
-                  {job.job_number != null ? `JOB #${padNum(job.job_number)}` : 'JOB'}
-                </p>
-                <h1 className="ops-hub-title">{job.title}</h1>
-                {parentJob && (
-                  <Link to={`/jobs/${parentJob.id}`} className="mt-1 inline-flex items-center gap-1 text-xs text-[#93C5FD] hover:underline">
-                    <GitBranch size={12} />
-                    Stage of {parentJob.job_number != null ? `#${padNum(parentJob.job_number)} ` : ''}{parentJob.title}
-                  </Link>
-                )}
-              </div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="ops-card-kicker ops-card-kicker-lg">
+                {job.job_number != null ? `JOB #${padNum(job.job_number)}` : 'JOB'}
+              </p>
               <select
                 value={job.status}
                 onChange={e => updateStatus.mutate(e.target.value as JobStatus)}
@@ -510,17 +501,23 @@ export function JobDetailPage() {
                 ))}
               </select>
             </div>
-
-            <p className="ops-hub-site">
-              <MapPin size={16} className="ops-card-site-icon mt-0.5" />
+            <h1 className="ops-hub-site">
+              <MapPin size={18} className="ops-card-site-icon mt-1" />
               {site ? (
                 <span>{site}</span>
               ) : (
                 <span className="text-white/50">No site address yet — add it in job details</span>
               )}
-            </p>
+            </h1>
+            <p className="ops-hub-title">{job.title}</p>
+            {parentJob && (
+              <Link to={`/jobs/${parentJob.id}`} className="mt-1 inline-flex items-center gap-1 text-xs text-[#93C5FD] hover:underline">
+                <GitBranch size={12} />
+                Stage of {parentJob.job_number != null ? `#${padNum(parentJob.job_number)} ` : ''}{parentJob.title}
+              </Link>
+            )}
             {job.scheduled_date && (
-              <div className="mt-2 flex items-center gap-2 text-sm text-white/80">
+              <div className="mt-1.5 flex items-center gap-2 text-sm text-white/80">
                 <Calendar size={14} className="text-[#93C5FD]" />
                 {format(parseISO(job.scheduled_date), 'EEE d MMM yyyy')}
                 {job.start_time && (
@@ -532,8 +529,8 @@ export function JobDetailPage() {
             )}
           </div>
 
-          <div className="px-5 py-4">
-            <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
+          <div className="px-4 py-3">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
               {client ? (
                 <Link to={`/clients/${client.id}`} className="flex items-center gap-1.5 text-[#2E75B6] hover:underline">
                   <User size={13} /> {client.name}
@@ -566,12 +563,12 @@ export function JobDetailPage() {
             </div>
 
             {job.description && (
-              <p className="mt-3 text-sm text-[#4A5568] whitespace-pre-wrap line-clamp-4">{job.description}</p>
+              <p className="mt-2 text-sm text-[#4A5568] whitespace-pre-wrap line-clamp-4">{job.description}</p>
             )}
 
-            <NextBanner detail={next.detail} className="mt-4" />
+            <NextBanner detail={next.detail} className="mt-3" />
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               <ActionButton
                 recommended={next.key === 'schedule' || next.key === 'crew'}
                 onClick={() => scrollToId('job-schedule')}
@@ -622,7 +619,7 @@ export function JobDetailPage() {
                   onClick={() => clockOnJob.mutate()}
                   disabled={clockOnJob.isPending || job.status === 'cancelled'}
                   className={next.key === 'clock'
-                    ? 'inline-flex items-center gap-1.5 bg-pass text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-pass/90 transition-all duration-200 active:scale-[0.98] disabled:opacity-50'
+                    ? 'ops-next-control !bg-pass hover:!bg-pass/90'
                     : 'btn-secondary text-pass'}
                 >
                   <Play size={14} /> Clock on
