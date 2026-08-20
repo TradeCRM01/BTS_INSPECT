@@ -1,13 +1,25 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { QuestionRenderer } from '../components/inspection/QuestionRenderer';
 import { evaluateShowIf } from '../lib/conditionEval';
-import { isNaAnswer } from '../types/template';
 import type { TemplateSchema, Section, Question } from '../types/template';
-import { ChevronLeft, ChevronRight, Plus, Trash2, ChevronDown, Camera, X } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, ChevronDown, Camera, X, Check, ClipboardList } from 'lucide-react';
 import { nanoid } from '../lib/nanoid';
+import { AppShell } from '../components/layout/AppShell';
+import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { PageError } from '../components/ui/PageError';
+import { NextBanner, OpsDocHead, OpsStatus, opsSiteLabel } from '../components/ui';
+import {
+  inspectionFillContext,
+  inspectionSectionCompletion,
+  inspectionStatusClass,
+  inspectionStatusLabel,
+  recommendInspectionFillAction,
+} from '../lib/inspectionNextAction';
 
 type SaveStatus = 'saved' | 'saving' | 'error' | 'offline';
 
@@ -20,21 +32,31 @@ interface PhotoRecord {
   instance_id?: string;
 }
 
+interface PendingSave {
+  responses: Record<string, unknown>;
+  meta: Record<string, string>;
+  crm_job_id: string | null;
+}
+
 export function InspectionFillPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { profile } = useAuth();
 
   const [responses, setResponses] = useState<Record<string, unknown>>({});
+  const [meta, setMeta] = useState<Record<string, string>>({});
+  const [jobId, setJobId] = useState('');
   const [sectionInstances, setSectionInstances] = useState<Record<string, string[]>>({});
   const [expandedInstances, setExpandedInstances] = useState<Record<string, boolean>>({});
   const [currentSectionIdx, setCurrentSectionIdx] = useState(0);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [photos, setPhotos] = useState<PhotoRecord[]>([]);
   const [attachmentUploading, setAttachmentUploading] = useState<Record<string, boolean>>({});
+  const [showMoreIdentity, setShowMoreIdentity] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  const pendingSaveRef = useRef<Record<string, unknown> | null>(null);
+  const pendingSaveRef = useRef<PendingSave | null>(null);
 
-  const { data: inspection, isLoading, isError } = useQuery({
+  const { data: inspection, isLoading, isError, refetch } = useQuery({
     queryKey: ['inspection', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -45,8 +67,6 @@ export function InspectionFillPage() {
       if (error) throw error;
       if (!data) return null;
 
-      // If the snapshot is missing the schema (can happen with older records),
-      // fetch it from the live template and patch it in-memory.
       const snapshot = data.template_snapshot as Record<string, unknown> | null;
       if (snapshot && !snapshot.schema) {
         const templateId = snapshot.id as string | undefined;
@@ -69,7 +89,19 @@ export function InspectionFillPage() {
     retry: 2,
   });
 
-  // Load photos for this inspection
+  const { data: jobs = [] } = useQuery({
+    queryKey: ['jobs-for-inspection-fill'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, title, client_id, address, job_number')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!profile,
+  });
+
   useEffect(() => {
     if (!id) return;
     supabase.from('photos').select('*').eq('inspection_id', id).then(({ data, error }) => {
@@ -85,76 +117,89 @@ export function InspectionFillPage() {
   }, [id]);
 
   useEffect(() => {
-    if (inspection) {
-      const savedResponses = inspection.responses as Record<string, unknown> ?? {};
-      setResponses(savedResponses);
+    if (!inspection) return;
+    const savedResponses = inspection.responses as Record<string, unknown> ?? {};
+    setResponses(savedResponses);
+    setMeta((inspection.meta as Record<string, string> | null) ?? {});
+    setJobId((inspection as { crm_job_id?: string | null }).crm_job_id ?? '');
 
-      // Reconstruct sectionInstances from saved __-keyed responses
-      const instanceMap: Record<string, string[]> = {};
-      for (const key of Object.keys(savedResponses)) {
-        const parts = key.split('__');
-        if (parts.length === 2) {
-          const [questionId, instanceId] = parts;
-          // Find which section this question belongs to
-          const schema = (inspection.template_snapshot as unknown as { schema?: TemplateSchema } | null)?.schema;
-          if (!schema) continue;
-          for (const sec of schema.sections) {
-            if (sec.isRepeating && sec.questions.some(q => q.id === questionId)) {
-              if (!instanceMap[sec.id]) instanceMap[sec.id] = [];
-              if (!instanceMap[sec.id].includes(instanceId)) {
-                instanceMap[sec.id].push(instanceId);
-              }
-              break;
+    const instanceMap: Record<string, string[]> = {};
+    for (const key of Object.keys(savedResponses)) {
+      const parts = key.split('__');
+      if (parts.length === 2) {
+        const [questionId, instanceId] = parts;
+        const schema = (inspection.template_snapshot as unknown as { schema?: TemplateSchema } | null)?.schema;
+        if (!schema) continue;
+        for (const sec of schema.sections) {
+          if (sec.isRepeating && sec.questions.some(q => q.id === questionId)) {
+            if (!instanceMap[sec.id]) instanceMap[sec.id] = [];
+            if (!instanceMap[sec.id].includes(instanceId)) {
+              instanceMap[sec.id].push(instanceId);
             }
+            break;
           }
         }
       }
-      if (Object.keys(instanceMap).length > 0) {
-        setSectionInstances(instanceMap);
-      }
+    }
+    if (Object.keys(instanceMap).length > 0) {
+      setSectionInstances(instanceMap);
     }
   }, [inspection]);
 
   const snapshotRaw = inspection?.template_snapshot as unknown as { schema?: TemplateSchema } | null;
   const schema = snapshotRaw?.schema ?? null;
   const templateName = (inspection?.template_snapshot as unknown as { name?: string } | null)?.name ?? '';
-  const meta = inspection?.meta as Record<string, string> ?? {};
 
-  async function saveResponses(newResponses: Record<string, unknown>) {
+  async function saveInspection(payload: PendingSave) {
     if (!id) return;
     setSaveStatus('saving');
     try {
       const { error } = await supabase
         .from('inspections')
-        .update({ responses: newResponses as unknown as Record<string, unknown> })
+        .update({
+          responses: payload.responses as unknown as Record<string, unknown>,
+          meta: payload.meta as unknown as Record<string, unknown>,
+          crm_job_id: payload.crm_job_id,
+        })
         .eq('id', id);
       if (error) throw error;
       setSaveStatus('saved');
       pendingSaveRef.current = null;
     } catch {
       setSaveStatus('error');
-      pendingSaveRef.current = newResponses;
-      // Queue to localStorage
-      localStorage.setItem(`insp_${id}_responses`, JSON.stringify(newResponses));
+      pendingSaveRef.current = payload;
+      localStorage.setItem(`insp_${id}_responses`, JSON.stringify(payload.responses));
     }
   }
 
-  const debouncedSave = useCallback((newResponses: Record<string, unknown>) => {
+  const debouncedSave = useCallback((payload: PendingSave) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     setSaveStatus('saving');
-    saveTimerRef.current = setTimeout(() => saveResponses(newResponses), 600);
+    pendingSaveRef.current = payload;
+    saveTimerRef.current = setTimeout(() => saveInspection(payload), 600);
   }, [id]);
 
-  async function flushAndNavigateToReview() {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    await saveResponses(responses);
-    navigate(`/inspections/${id}/review`);
+  function persist(nextResponses = responses, nextMeta = meta, nextJobId = jobId) {
+    debouncedSave({
+      responses: nextResponses,
+      meta: nextMeta,
+      crm_job_id: nextJobId || null,
+    });
   }
 
-  // Retry pending saves every 30s
+  async function flushAndNavigate(path: string) {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    await saveInspection({
+      responses,
+      meta,
+      crm_job_id: jobId || null,
+    });
+    navigate(path);
+  }
+
   useEffect(() => {
     const interval = setInterval(() => {
-      if (pendingSaveRef.current) saveResponses(pendingSaveRef.current);
+      if (pendingSaveRef.current) saveInspection(pendingSaveRef.current);
     }, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -162,7 +207,13 @@ export function InspectionFillPage() {
   function updateResponse(key: string, value: unknown) {
     const newResponses = { ...responses, [key]: value };
     setResponses(newResponses);
-    debouncedSave(newResponses);
+    persist(newResponses);
+  }
+
+  function updateMeta(key: string, value: string) {
+    const next = { ...meta, [key]: value };
+    setMeta(next);
+    persist(responses, next);
   }
 
   function getResponseKey(questionId: string, instanceId?: string) {
@@ -171,63 +222,61 @@ export function InspectionFillPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center">
-        <div className="w-8 h-8 animate-spin rounded-full border-2 border-[#0A2540] border-t-transparent" />
-      </div>
+      <AppShell>
+        <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+      </AppShell>
     );
   }
 
   if (isError || !inspection) {
     return (
-      <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center gap-4 px-4">
-        <p className="text-sm text-[#4A5568] text-center">Could not load inspection. It may have been deleted or you don't have access.</p>
-        <button
-          onClick={() => navigate('/inspections')}
-          className="bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium"
-        >
-          Back to Inspections
-        </button>
-      </div>
+      <AppShell>
+        <div className="max-w-[1000px] mx-auto px-4 py-6">
+          <PageError
+            message="Could not load inspection. It may have been deleted or you don't have access."
+            onRetry={() => refetch()}
+          />
+        </div>
+      </AppShell>
     );
   }
 
   if (!schema) {
     return (
-      <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center gap-4 px-4">
-        <p className="text-sm text-[#4A5568] text-center">This inspection has no template data. It may be corrupted.</p>
-        <button
-          onClick={() => navigate('/inspections')}
-          className="bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium"
-        >
-          Back to Inspections
-        </button>
-      </div>
+      <AppShell>
+        <div className="max-w-[1000px] mx-auto px-4 py-6">
+          <PageError
+            message="This inspection has no template data. It may be corrupted."
+            onRetry={() => navigate('/inspections')}
+          />
+        </div>
+      </AppShell>
     );
   }
 
-  // Filter visible sections
   const visibleSections = schema.sections.filter(sec => {
     if (!sec.showIf) return true;
     return evaluateShowIf(sec.showIf, responses);
   });
 
   const currentSection = visibleSections[currentSectionIdx] ?? null;
-  const isLastSection = currentSectionIdx === visibleSections.length - 1;
-  const isFirstSection = currentSectionIdx === 0;
+  const isLastSection = visibleSections.length === 0 || currentSectionIdx === visibleSections.length - 1;
+  const selectedJob = jobs.find(j => j.id === jobId);
+  const siteLabel = opsSiteLabel(meta.siteName, meta.siteAddress, selectedJob?.address, selectedJob?.title);
+  const statusKey = inspection.status || 'draft';
+  const next = recommendInspectionFillAction(inspectionFillContext({
+    status: statusKey,
+    saveNeeded: saveStatus === 'error',
+    siteParts: [meta.siteName, meta.siteAddress, selectedJob?.address, selectedJob?.title],
+    isLastSection,
+  }));
+  const nextBusy = saveStatus === 'saving';
+  const jobNumber = meta.jobNumber
+    || (selectedJob?.job_number != null ? String(selectedJob.job_number).padStart(4, '0') : '');
+  const when = inspection.started_at ? format(new Date(inspection.started_at), 'd MMM yyyy') : null;
 
-  // Completion dot per section
   function getSectionCompletion(sec: Section) {
-    const visibleQs = sec.questions.filter(q => q.type !== 'heading' && evaluateShowIf(q.showIf, responses));
-    const requiredQs = visibleQs.filter(q => q.required);
-    if (requiredQs.length === 0) return 'full';
-    const answered = requiredQs.filter(q => {
-      const v = responses[q.id];
-      if (isNaAnswer(v) && q.allowNa) return true;
-      return v !== undefined && v !== null && v !== '';
-    });
-    if (answered.length === requiredQs.length) return 'full';
-    if (answered.length === 0) return 'empty';
-    return 'partial';
+    return inspectionSectionCompletion(sec, responses);
   }
 
   function addInstance(sectionId: string) {
@@ -242,15 +291,14 @@ export function InspectionFillPage() {
   function removeInstance(sectionId: string, instanceId: string) {
     setSectionInstances(prev => ({
       ...prev,
-      [sectionId]: (prev[sectionId] ?? []).filter(id => id !== instanceId),
+      [sectionId]: (prev[sectionId] ?? []).filter(itemId => itemId !== instanceId),
     }));
-    // Remove responses for this instance
     const newResponses = { ...responses };
     Object.keys(newResponses).forEach(key => {
       if (key.includes(`__${instanceId}`)) delete newResponses[key];
     });
     setResponses(newResponses);
-    debouncedSave(newResponses);
+    persist(newResponses);
   }
 
   function getInstanceLabel(sec: Section, instanceId: string) {
@@ -313,8 +361,8 @@ export function InspectionFillPage() {
 
     if (q.type === 'heading') {
       return (
-        <div key={q.id} className="pt-2 pb-1">
-          <h3 className="text-sm font-semibold text-[#0A2540] uppercase tracking-wide border-b border-[#E5E7EB] pb-1.5">
+        <div key={q.id} className="pt-3 pb-1">
+          <h3 className="text-xs font-bold uppercase tracking-wide text-accent">
             {q.label}
           </h3>
         </div>
@@ -353,7 +401,7 @@ export function InspectionFillPage() {
     }
 
     return (
-      <div key={key} className="bg-white rounded-lg border border-[#E5E7EB] p-4">
+      <div key={key} className="py-3 border-b border-[#E5E7EB] last:border-b-0">
         <label className="block text-base font-medium text-[#1A1A1A] mb-0.5">
           {q.label}
           {q.required && <span className="text-red-500 ml-1">*</span>}
@@ -372,10 +420,9 @@ export function InspectionFillPage() {
           />
         </div>
 
-        {/* Photo attachments */}
         {q.allowPhotos && q.type !== 'photo' && (
           <div className="mt-3 pt-3 border-t border-[#F3F4F6]">
-            <label className={`flex items-center gap-2 justify-center w-full py-2.5 border-2 border-dashed border-[#E5E7EB] rounded-md cursor-pointer hover:border-[#2E75B6]/40 transition-colors ${attachmentUploading[uploadKey] ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <label className={`flex items-center gap-2 justify-center w-full min-h-[44px] border border-dashed border-[#E5E7EB] rounded-md cursor-pointer hover:border-[#2E75B6]/40 transition-colors ${attachmentUploading[uploadKey] ? 'opacity-50 cursor-not-allowed' : ''}`}>
               <Camera size={15} className="text-[#4A5568]" />
               <span className="text-xs font-medium text-[#4A5568]">
                 {attachmentUploading[uploadKey] ? 'Uploading...' : 'Attach photo'}
@@ -396,14 +443,14 @@ export function InspectionFillPage() {
                     <img
                       src={photo.url}
                       alt={`Attachment ${i + 1}`}
-                      className="w-full h-full object-cover rounded border border-[#E5E7EB]"
+                      className="w-full h-full object-cover rounded-md border border-[#E5E7EB]"
                     />
                     <button
                       type="button"
                       onClick={() => handleAttachmentRemoved(photo.storage_path)}
-                      className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full flex items-center justify-center"
+                      className="absolute top-1 right-1 w-8 h-8 bg-black/60 text-white rounded-md flex items-center justify-center"
                     >
-                      <X size={11} />
+                      <X size={14} />
                     </button>
                   </div>
                 ))}
@@ -412,7 +459,6 @@ export function InspectionFillPage() {
           </div>
         )}
 
-        {/* Additional comments */}
         {q.allowComments && (
           <div className="mt-3 pt-3 border-t border-[#F3F4F6]">
             <label className="block text-xs font-medium text-[#4A5568] mb-1.5">Comments</label>
@@ -420,7 +466,7 @@ export function InspectionFillPage() {
               value={String(responses[commentKey] ?? '')}
               onChange={e => updateResponse(commentKey, e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent resize-none bg-white placeholder-[#9CA3AF]"
+              className="w-full px-3 py-2.5 min-h-[44px] border border-[#E5E7EB] rounded-md text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent resize-none bg-white placeholder-[#9CA3AF]"
               placeholder="Add comments..."
             />
           </div>
@@ -429,147 +475,275 @@ export function InspectionFillPage() {
     );
   }
 
+  function runNext() {
+    if (next.key === 'save') {
+      void saveInspection({
+        responses,
+        meta,
+        crm_job_id: jobId || null,
+      });
+      return;
+    }
+    if (next.key === 'site') {
+      document.getElementById('insp-identity')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (next.key === 'pdf') {
+      void flushAndNavigate(`/inspections/${id}/report`);
+      return;
+    }
+    if (next.key === 'review') {
+      void flushAndNavigate(`/inspections/${id}/review`);
+      return;
+    }
+    setCurrentSectionIdx(i => Math.min(visibleSections.length - 1, i + 1));
+  }
+
+  const saveHint =
+    saveStatus === 'saved' ? 'Saved'
+      : saveStatus === 'saving' ? 'Saving…'
+        : saveStatus === 'error' ? 'Save failed'
+          : saveStatus === 'offline' ? 'Offline'
+            : null;
+
   return (
-    <div className="min-h-screen bg-[#F9FAFB] flex flex-col">
-      {/* Sticky top bar */}
-      <div className="sticky top-0 z-40 bg-[#0A2540] text-white h-14 flex items-center px-4 gap-3 shadow-md">
-        <button
-          onClick={() => navigate('/inspections')}
-          className="p-1.5 rounded hover:bg-white/10"
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{meta.siteName ?? 'Inspection'}</p>
-          <p className="text-[11px] text-white/60 truncate">{templateName}</p>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {saveStatus === 'saving' && (
-            <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" title="Saving..." />
-          )}
-          {saveStatus === 'saved' && (
-            <div className="w-2.5 h-2.5 rounded-full bg-[#1B7F3A]" title="Saved" />
-          )}
-          {saveStatus === 'error' && (
-            <div className="w-2.5 h-2.5 rounded-full bg-[#B42318]" title="Save error" />
+    <AppShell>
+      <div className="max-w-[1000px] mx-auto px-4 py-4 pb-32">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <button
+            type="button"
+            onClick={() => navigate('/inspections')}
+            className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] min-h-[44px]"
+          >
+            <ChevronLeft size={16} /> Inspections
+          </button>
+          {saveHint && (
+            <span className={`text-xs ${saveStatus === 'error' ? 'text-[#B42318]' : saveStatus === 'saving' ? 'text-[#92400E]' : 'text-[#1B7F3A] flex items-center gap-1'}`}>
+              {saveStatus === 'saved' && <Check size={12} />}
+              {saveHint}
+            </span>
           )}
         </div>
-      </div>
 
-      {/* Section navigator */}
-      <div className="sticky top-0 z-30 bg-white border-b border-[#E5E7EB] shadow-sm">
-        <div className="flex overflow-x-auto no-scrollbar px-3 py-2 gap-2">
-          {visibleSections.map((sec, idx) => {
-            const completion = getSectionCompletion(sec);
-            const isActive = idx === currentSectionIdx;
-            return (
-              <button
-                key={sec.id}
-                onClick={() => setCurrentSectionIdx(idx)}
-                className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0 ${
-                  isActive
-                    ? 'bg-[#0A2540] text-white'
-                    : 'bg-[#F9FAFB] text-[#4A5568] border border-[#E5E7EB] hover:border-[#0A2540]/30'
-                }`}
-              >
-                <div className={`w-2 h-2 rounded-full ${
-                  completion === 'full' ? 'bg-[#1B7F3A]' :
-                  completion === 'partial' ? 'bg-amber-400' :
-                  isActive ? 'bg-white/50' : 'bg-[#E5E7EB]'
-                }`} />
-                {sec.title}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Section content */}
-      <div className="flex-1 max-w-[720px] w-full mx-auto px-4 py-4 pb-24">
-        {currentSection && (
-          <div>
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold text-[#1A1A1A]">{currentSection.title}</h2>
-              {currentSection.description && (
-                <p className="text-sm text-[#4A5568] mt-1">{currentSection.description}</p>
-              )}
+        <article className="ops-card overflow-hidden mb-3">
+          <OpsDocHead
+            kind="Inspection"
+            id={jobNumber ? `#${jobNumber}` : 'Draft'}
+            meta={[siteLabel !== 'No site address' ? siteLabel : null, selectedJob?.title, templateName, when].filter(Boolean).join(' · ')}
+            trailing={<OpsStatus className={inspectionStatusClass(statusKey)}>{inspectionStatusLabel(statusKey)}</OpsStatus>}
+          />
+          <div className="px-3 pt-3 pb-2">
+            <p className="ops-meta">{templateName || 'Inspection'}</p>
+            <div className="mt-2">
+              <NextBanner detail={next.detail} />
             </div>
+          </div>
+        </article>
 
-            {currentSection.isRepeating ? (
-              <div className="space-y-3">
-                {(sectionInstances[currentSection.id] ?? []).map((instanceId) => (
-                  <div key={instanceId} className="border border-[#E5E7EB] rounded-lg bg-white overflow-hidden">
-                    <button
-                      onClick={() => setExpandedInstances(prev => ({ ...prev, [instanceId]: !prev[instanceId] }))}
-                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#F9FAFB]"
-                    >
-                      <span className="font-medium text-sm text-[#1A1A1A]">
-                        {getInstanceLabel(currentSection, instanceId)}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={e => { e.stopPropagation(); removeInstance(currentSection.id, instanceId); }}
-                          className="text-[#4A5568] hover:text-[#B42318] p-1"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                        <ChevronDown
-                          size={16}
-                          className={`text-[#4A5568] transition-transform ${expandedInstances[instanceId] ? 'rotate-180' : ''}`}
-                        />
-                      </div>
-                    </button>
-                    {expandedInstances[instanceId] && (
-                      <div className="px-4 pb-4 space-y-3 border-t border-[#E5E7EB]">
-                        {currentSection.questions
-                          .filter(q => evaluateShowIf(q.showIf, responses))
-                          .map(q => renderQuestion(q, instanceId))}
-                      </div>
-                    )}
-                  </div>
+        <section id="insp-identity" className="ops-card mb-3">
+          <div className="ops-tray-head">
+            <h2 className="text-sm font-semibold text-navy flex items-center gap-2">
+              <ClipboardList size={16} /> Job / site
+            </h2>
+          </div>
+          <div className="px-3 pb-3 pt-2 space-y-3">
+            <div>
+              <label className="text-xs font-medium text-[#4A5568] mb-1 block">
+                Site / location<span className="text-[#B42318]"> *</span>
+              </label>
+              <input
+                type="text"
+                value={meta.siteName ?? ''}
+                onChange={e => updateMeta('siteName', e.target.value)}
+                placeholder="Where is this inspection?"
+                className="w-full text-base font-semibold text-navy border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-[#4A5568] mb-1 block">Job</label>
+              <select
+                value={jobId}
+                onChange={e => {
+                  const nextJob = e.target.value;
+                  setJobId(nextJob);
+                  const job = jobs.find(j => j.id === nextJob);
+                  const nextMeta = { ...meta };
+                  if (job) {
+                    if (!(meta.siteName ?? '').trim()) nextMeta.siteName = job.address || job.title || '';
+                    if (!(meta.siteAddress ?? '').trim() && job.address) nextMeta.siteAddress = job.address;
+                    if (job.job_number != null && !(meta.jobNumber ?? '').trim()) {
+                      nextMeta.jobNumber = String(job.job_number).padStart(4, '0');
+                    }
+                    setMeta(nextMeta);
+                  }
+                  persist(responses, nextMeta, nextJob);
+                }}
+                className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 bg-white min-h-[44px]"
+              >
+                <option value="">No linked job</option>
+                {jobs.map(j => (
+                  <option key={j.id} value={j.id}>{j.title}{j.address ? ` — ${j.address}` : ''}</option>
                 ))}
-                <button
-                  onClick={() => addInstance(currentSection.id)}
-                  className="flex items-center gap-2 w-full py-3 border-2 border-dashed border-[#E5E7EB] rounded-lg text-sm text-[#2E75B6] font-medium hover:border-[#2E75B6]/60 justify-center transition-colors"
-                >
-                  <Plus size={16} /> Add {currentSection.repeatLabel ?? 'Item'}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {currentSection.questions.map(q => renderQuestion(q))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMoreIdentity(v => !v)}
+              className="flex items-center gap-1 text-xs font-semibold text-accent min-h-[44px]"
+            >
+              <ChevronDown size={14} className={showMoreIdentity ? 'rotate-180' : ''} />
+              {showMoreIdentity ? 'Hide extra details' : 'More job details'}
+            </button>
+            {showMoreIdentity && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-[#E5E7EB]">
+                <div>
+                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Site address</label>
+                  <input
+                    type="text"
+                    value={meta.siteAddress ?? ''}
+                    onChange={e => updateMeta('siteAddress', e.target.value)}
+                    className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Client</label>
+                  <input
+                    type="text"
+                    value={meta.clientName ?? ''}
+                    onChange={e => updateMeta('clientName', e.target.value)}
+                    className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Job number</label>
+                  <input
+                    type="text"
+                    value={meta.jobNumber ?? ''}
+                    onChange={e => updateMeta('jobNumber', e.target.value)}
+                    className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Job description</label>
+                  <textarea
+                    value={meta.jobDescription ?? ''}
+                    onChange={e => updateMeta('jobDescription', e.target.value)}
+                    rows={2}
+                    className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none"
+                  />
+                </div>
               </div>
             )}
           </div>
+        </section>
+
+        {visibleSections.length > 0 && (
+          <div className="ops-tabs mb-3">
+            {visibleSections.map((sec, idx) => {
+              const completion = getSectionCompletion(sec);
+              const isActive = idx === currentSectionIdx;
+              return (
+                <button
+                  key={sec.id}
+                  type="button"
+                  onClick={() => setCurrentSectionIdx(idx)}
+                  className={`ops-tab min-h-[44px] ${isActive ? 'ops-tab-active' : ''}`}
+                >
+                  <span className={`inline-block w-2 h-2 rounded-sm mr-1.5 align-middle ${
+                    completion === 'full' ? 'bg-[#1B7F3A]' :
+                    completion === 'partial' ? 'bg-[#B45309]' :
+                    'bg-[#4A5568]'
+                  }`} />
+                  {sec.title}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {currentSection && (
+          <section className="ops-card">
+            <div className="ops-tray-head">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-navy">
+                  {currentSection.title}
+                </h2>
+                {currentSection.description && (
+                  <p className="ops-meta mt-0.5">{currentSection.description}</p>
+                )}
+              </div>
+              <span className="ops-meta shrink-0">
+                {currentSectionIdx + 1} / {visibleSections.length}
+              </span>
+            </div>
+            <div className="px-3 pb-3 pt-1">
+              {currentSection.isRepeating ? (
+                <div className="space-y-3 pt-2">
+                  {(sectionInstances[currentSection.id] ?? []).map((instanceId) => (
+                    <div key={instanceId} className="border border-[#E5E7EB] rounded-md overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedInstances(prev => ({ ...prev, [instanceId]: !prev[instanceId] }))}
+                        className="w-full flex items-center justify-between px-3 min-h-[44px] hover:bg-[#F9FAFB]"
+                      >
+                        <span className="font-medium text-sm text-[#1A1A1A]">
+                          {getInstanceLabel(currentSection, instanceId)}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={e => { e.stopPropagation(); removeInstance(currentSection.id, instanceId); }}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); removeInstance(currentSection.id, instanceId); } }}
+                            className="text-[#4A5568] hover:text-[#B42318] w-11 h-11 inline-flex items-center justify-center"
+                          >
+                            <Trash2 size={14} />
+                          </span>
+                          <ChevronDown
+                            size={16}
+                            className={`text-[#4A5568] transition-transform ${expandedInstances[instanceId] ? 'rotate-180' : ''}`}
+                          />
+                        </div>
+                      </button>
+                      {expandedInstances[instanceId] && (
+                        <div className="px-3 pb-2 border-t border-[#E5E7EB]">
+                          {currentSection.questions
+                            .filter(q => evaluateShowIf(q.showIf, responses))
+                            .map(q => renderQuestion(q, instanceId))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addInstance(currentSection.id)}
+                    className="flex items-center gap-2 w-full min-h-[44px] border border-dashed border-[#E5E7EB] rounded-md text-sm text-[#2E75B6] font-medium hover:border-[#2E75B6]/60 justify-center"
+                  >
+                    <Plus size={16} /> Add {currentSection.repeatLabel ?? 'Item'}
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  {currentSection.questions.map(q => renderQuestion(q))}
+                </div>
+              )}
+            </div>
+          </section>
         )}
       </div>
 
-      {/* Bottom navigation */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#E5E7EB] px-4 py-3 flex items-center justify-between">
-        <button
-          onClick={() => setCurrentSectionIdx(i => Math.max(0, i - 1))}
-          disabled={isFirstSection}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-md border border-[#E5E7EB] text-sm font-medium text-[#4A5568] disabled:opacity-30 hover:bg-[#F9FAFB] transition-colors"
-        >
-          <ChevronLeft size={16} /> Previous
-        </button>
-        {isLastSection ? (
+      <div className="ops-sticky">
+        <div className="max-w-[1000px] mx-auto">
           <button
-            onClick={flushAndNavigateToReview}
-            className="flex items-center gap-1.5 bg-[#0A2540] text-white px-5 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
+            type="button"
+            onClick={runNext}
+            disabled={nextBusy}
+            className="ops-next-control-block"
           >
-            Review & Complete <ChevronRight size={16} />
+            {saveStatus === 'saving' && next.key === 'save' ? <><LoadingSpinner size="sm" /> Saving…</> : next.label}
           </button>
-        ) : (
-          <button
-            onClick={() => setCurrentSectionIdx(i => Math.min(visibleSections.length - 1, i + 1))}
-            className="flex items-center gap-1.5 bg-[#0A2540] text-white px-5 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
-          >
-            Next Section <ChevronRight size={16} />
-          </button>
-        )}
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

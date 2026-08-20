@@ -410,7 +410,7 @@ export function QuestionRenderer({
     case 'photo':
       return (
         <div>
-          <label className={`flex items-center gap-2 justify-center w-full py-3.5 border-2 border-dashed border-[#E5E7EB] rounded-md cursor-pointer hover:border-[#2E75B6]/40 transition-colors ${uploadingPhoto ? 'opacity-50 cursor-not-allowed' : ''}`}>
+          <label className={`flex items-center gap-2 justify-center w-full min-h-[44px] py-3.5 border border-dashed border-[#E5E7EB] rounded-md cursor-pointer hover:border-[#2E75B6]/40 transition-colors ${uploadingPhoto ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <Camera size={20} className="text-[#4A5568]" />
             <span className="text-sm font-medium text-[#4A5568]">
               {uploadingPhoto ? 'Uploading...' : 'Tap to capture photo'}
@@ -436,7 +436,7 @@ export function QuestionRenderer({
                   <button
                     type="button"
                     onClick={() => onPhotoRemoved?.(photo.storage_path)}
-                    className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full flex items-center justify-center"
+                    className="absolute top-1 right-1 w-8 h-8 bg-black/60 text-white rounded-md flex items-center justify-center"
                   >
                     <X size={11} />
                   </button>
