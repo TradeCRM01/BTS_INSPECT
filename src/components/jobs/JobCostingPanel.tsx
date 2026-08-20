@@ -96,7 +96,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const totals = { materials: sumCost('materials'), labor: sumCost('labor'), other: sumCost('other') };
 
   const blankForm = () => ({
-    cost_type: 'other' as CostType,
+    cost_type: 'materials' as CostType,
     charge_type: '',
     description: '',
     quantity: '1',

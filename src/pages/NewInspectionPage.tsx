@@ -8,21 +8,20 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import type { TemplateSchema } from '../types/template';
 import { ChevronLeft, Play, Zap, LayoutTemplate, Link2, Briefcase } from 'lucide-react';
+import { resolveInspectionLaunch } from '../lib/inspectionJobLink';
 
 export function NewInspectionPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preSelectedId = searchParams.get('templateId');
-  /** Parent *inspection* id (inspection job grouping) */
-  const parentInspectionId = searchParams.get('jobId');
-  /** CRM jobs.id deep-link */
-  const crmJobId = searchParams.get('crmJobId');
+  const jobIdParam = searchParams.get('jobId');
+  const crmJobIdParam = searchParams.get('crmJobId');
   const { profile } = useAuth();
 
   const [selectedTemplateId, setSelectedTemplateId] = useState(preSelectedId ?? '');
   const [meta, setMeta] = useState<Record<string, string>>({});
   const [clientId, setClientId] = useState<string | null>(null);
-  const [linkedCrmJobId, setLinkedCrmJobId] = useState<string | null>(crmJobId);
+  const [linkedCrmJobId, setLinkedCrmJobId] = useState<string | null>(crmJobIdParam);
 
   const { data: templates, isLoading, isError, refetch } = useQuery({
     queryKey: ['templates'],
@@ -38,19 +37,29 @@ export function NewInspectionPage() {
     enabled: !!profile,
   });
 
-  const { data: parentInspection } = useQuery({
-    queryKey: ['inspection', parentInspectionId],
+  const { data: parentInspection, isFetched: parentLookupDone } = useQuery({
+    queryKey: ['inspection', jobIdParam],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inspections')
         .select('id, meta, template_snapshot, client_id, crm_job_id')
-        .eq('id', parentInspectionId!)
+        .eq('id', jobIdParam!)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!parentInspectionId,
+    enabled: !!jobIdParam,
   });
+
+  const launch = resolveInspectionLaunch({
+    jobIdParam,
+    crmJobIdParam,
+    parentInspection: jobIdParam
+      ? (parentInspection === undefined ? undefined : parentInspection)
+      : undefined,
+  });
+  const parentInspectionId = launch.parentInspectionId;
+  const crmJobId = launch.crmJobId;
 
   const { data: crmJob } = useQuery({
     queryKey: ['crm-job-autofill', crmJobId],
@@ -76,6 +85,10 @@ export function NewInspectionPage() {
     },
     enabled: !!crmJobId,
   });
+
+  useEffect(() => {
+    if (launch.crmJobId) setLinkedCrmJobId(launch.crmJobId);
+  }, [launch.crmJobId]);
 
   useEffect(() => {
     if (parentInspection?.meta) {
@@ -133,21 +146,22 @@ export function NewInspectionPage() {
           meta: meta as Record<string, unknown>,
           parent_inspection_id: parentInspectionId ?? null,
           client_id: clientId,
-          crm_job_id: linkedCrmJobId,
+          crm_job_id: linkedCrmJobId ?? crmJobId,
         })
         .select()
         .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('Failed to create inspection');
 
-      if (linkedCrmJobId) {
+      const crmId = linkedCrmJobId ?? crmJobId;
+      if (crmId) {
         const { data: jobRow } = await supabase
           .from('jobs')
           .select('id, inspection_id')
-          .eq('id', linkedCrmJobId)
+          .eq('id', crmId)
           .maybeSingle();
         if (jobRow && !jobRow.inspection_id) {
-          await supabase.from('jobs').update({ inspection_id: data.id }).eq('id', linkedCrmJobId);
+          await supabase.from('jobs').update({ inspection_id: data.id }).eq('id', crmId);
         }
       }
 
@@ -159,7 +173,7 @@ export function NewInspectionPage() {
   const parentSiteName = (parentInspection?.meta as Record<string, string> | null)?.siteName;
   const parentTemplateName = (parentInspection?.template_snapshot as { name?: string } | null)?.name;
 
-  if (isLoading) {
+  if (isLoading || (!!jobIdParam && !parentLookupDone)) {
     return (
       <AppShell>
         <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>

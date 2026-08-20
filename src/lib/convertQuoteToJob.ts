@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import type { QuoteLineItem } from '../types/fsm';
 import { jobFieldsFromQuote } from './quoteJobFields';
 
-export { jobFieldsFromQuote, padQuoteNumber } from './quoteJobFields';
+export { jobFieldsFromQuote, padQuoteNumber, scheduledDateFromQuote } from './quoteJobFields';
 
 function costTypeFromLine(li: QuoteLineItem): 'labor' | 'materials' {
   if (li.cost_model_id) return 'labor';
@@ -21,6 +21,8 @@ export type ConvertibleQuote = {
   scope_of_works: string | null;
   line_items: QuoteLineItem[] | null;
   total: number | null;
+  /** Job board date. Copied onto jobs.scheduled_date when present; never invented. */
+  scheduled_date?: string | null;
 };
 
 /** Creates a job from an accepted quote, or returns the existing job if already converted. */

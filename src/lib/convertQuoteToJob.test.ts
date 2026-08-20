@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { jobFieldsFromQuote, padQuoteNumber } from './quoteJobFields';
+import { jobFieldsFromQuote, padQuoteNumber, scheduledDateFromQuote } from './quoteJobFields';
 
 describe('jobFieldsFromQuote', () => {
   const base = {
@@ -19,7 +19,20 @@ describe('jobFieldsFromQuote', () => {
       budget: 4400.5,
       status: 'scheduled',
       priority: 'medium',
+      scheduled_date: null,
     });
+  });
+
+  it('copies a job date when the quote or convert UI has one', () => {
+    expect(jobFieldsFromQuote({ ...base, scheduled_date: '2026-08-22' }, null).scheduled_date).toBe('2026-08-22');
+    expect(jobFieldsFromQuote({ ...base, scheduled_date: '2026-08-22T09:00:00.000Z' }, null).scheduled_date).toBe('2026-08-22');
+  });
+
+  it('does not invent a date when none is provided', () => {
+    expect(jobFieldsFromQuote({ ...base, scheduled_date: '  ' }, null).scheduled_date).toBeNull();
+    expect(jobFieldsFromQuote({ ...base, scheduled_date: null }, null).scheduled_date).toBeNull();
+    expect(scheduledDateFromQuote(undefined)).toBeNull();
+    expect(scheduledDateFromQuote('not-a-date')).toBeNull();
   });
 
   it('falls back to Job from Quote # when description is empty', () => {

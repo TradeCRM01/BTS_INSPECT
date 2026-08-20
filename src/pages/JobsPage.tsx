@@ -11,7 +11,7 @@ import {
   JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_STATUS_RAIL, JOB_PRIORITY_LABELS,
   JOB_PRIORITY_DOT,
 } from '../types/crm';
-import { jobCardHint, jobListBucket } from '../lib/jobNextAction';
+import { jobListBucket, jobListNext } from '../lib/jobNextAction';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { Plus, Briefcase, Search, Calendar, Clock } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -213,8 +213,9 @@ export function JobsPage() {
                   {filtered.map(job => {
                     const rail = JOB_STATUS_RAIL[job.status];
                     const jobDate = job.scheduled_date ? parseISO(job.scheduled_date) : null;
+                    const next = jobListNext(job);
                     return (
-                      <tr key={job.id} onClick={() => navigate(`/jobs/${job.id}`)}
+                      <tr key={job.id} onClick={() => navigate(next.href)}
                         className="hover:bg-zebra cursor-pointer transition-colors" style={{ borderLeft: `3px solid ${rail}` }}>
                         <td className="px-3 py-2 font-medium" style={{ color: rail }}>{job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : '—'}</td>
                         <td className="px-3 py-2">
@@ -225,7 +226,13 @@ export function JobsPage() {
                         <td className="px-3 py-2"><OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus></td>
                         <td className="px-3 py-2"><span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />{JOB_PRIORITY_LABELS[job.priority]}</span></td>
                         <td className="px-3 py-2 ops-meta">{jobDate ? format(jobDate, 'd MMM yyyy') : 'No date'}{job.start_time && <span className="block">{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>}</td>
-                        <td className="px-3 py-2"><span className="ops-next-hint">{jobCardHint(job)}</span></td>
+                        <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                          {next.actionable ? (
+                            <Link to={next.href} className="ops-next-control-block">{next.label}</Link>
+                          ) : (
+                            <span className="ops-next-control-done">{next.label}</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -274,7 +281,7 @@ function JobGroup({
 
 function JobCard({ job }: { job: JobCardModel }) {
   const navigate = useNavigate();
-  const hint = jobCardHint(job);
+  const next = jobListNext(job);
   const site = opsSiteLabel(job.address, job.client_address);
   const mapsQuery = (job.address || job.client_address)?.trim() || null;
   const jobNo = job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : 'JOB';
@@ -285,8 +292,8 @@ function JobCard({ job }: { job: JobCardModel }) {
     <div
       role="link"
       tabIndex={0}
-      onClick={() => navigate(`/jobs/${job.id}`)}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/jobs/${job.id}`); } }}
+      onClick={() => navigate(next.href)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(next.href); } }}
       className="ops-card ops-card-hover group cursor-pointer"
     >
       <OpsPhotoStamp
@@ -297,8 +304,12 @@ function JobCard({ job }: { job: JobCardModel }) {
       />
       <div className="ops-card-body">
         <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
-        <div className="ops-card-footer">
-          <span className="ops-next-control-block">{hint}</span>
+        <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
+          {next.actionable ? (
+            <Link to={next.href} className="ops-next-control-block">{next.label}</Link>
+          ) : (
+            <span className="ops-next-control-done">{next.label}</span>
+          )}
         </div>
         {job.docs.length > 0 && (
           <div className="ops-attach">
