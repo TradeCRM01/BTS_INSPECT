@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -9,6 +8,7 @@ import { LoadingSpinner, PageError, Breadcrumbs, useToast } from '../components/
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
+import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import type { Client, Job, JobStatus } from '../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY_DOT } from '../types/crm';
@@ -18,8 +18,9 @@ import { pickJobColor } from '../lib/jobColors';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
+import { recommendJobAction } from '../lib/jobNextAction';
 import {
-  Briefcase, Calendar, Clock, MapPin, User, Phone, Mail, Edit3, ChevronRight,
+  Calendar, Clock, MapPin, User, Phone, Mail, Edit3, ChevronDown,
   FileText, ShieldCheck, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
   Play, Square,
 } from 'lucide-react';
@@ -62,6 +63,7 @@ type JobInvoice = {
   total: number;
   due_date: string | null;
   created_at: string;
+  quote_id: string | null;
 };
 
 type JobTimesheet = {
@@ -88,6 +90,29 @@ function inspectionHref(status: string, id: string): string {
     : `/inspections/${id}`;
 }
 
+function scrollToId(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function actionClass(recommended: boolean) {
+  return recommended ? 'btn-primary' : 'btn-secondary';
+}
+
+function ActionButton({
+  recommended, onClick, disabled, children,
+}: {
+  recommended: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} className={actionClass(recommended)}>
+      {children}
+    </button>
+  );
+}
+
 export function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { profile, company } = useAuth();
@@ -95,7 +120,10 @@ export function JobDetailPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [showEdit, setShowEdit] = useState(false);
+  const [showStage, setShowStage] = useState(false);
   const [showTimeEntry, setShowTimeEntry] = useState(false);
+  const [showJhaPicker, setShowJhaPicker] = useState(false);
+  const [billOpen, setBillOpen] = useState(false);
 
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ['job', id],
@@ -220,7 +248,7 @@ export function JobDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, invoice_number, status, total, due_date, created_at')
+        .select('id, invoice_number, status, total, due_date, created_at, quote_id')
         .eq('job_id', id!)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -261,7 +289,7 @@ export function JobDetailPage() {
     enabled: !!profile,
   });
 
-  const { data: costTotals } = useQuery<{ cost: number; charge: number }>({
+  const { data: costTotals } = useQuery<{ cost: number; charge: number; lines: number }>({
     queryKey: ['job-cost-totals', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -273,6 +301,7 @@ export function JobDetailPage() {
       return {
         cost: rows.reduce((s, r) => s + Number(r.total_cost || 0), 0),
         charge: rows.reduce((s, r) => s + Number(r.total_price || r.total_cost || 0), 0),
+        lines: rows.length,
       };
     },
     enabled: !!id && !!profile,
@@ -414,89 +443,194 @@ export function JobDetailPage() {
   const budget = job.budget != null ? Number(job.budget) : null;
   const actualCost = costTotals?.cost ?? 0;
   const chargeTotal = costTotals?.charge ?? 0;
-  const variance = budget != null ? budget - actualCost : null;
+  const site = job.address || client?.address || null;
+  const acceptedQuote = (quotes ?? []).find(q => q.status === 'accepted');
+  const stages = childJobs ?? [];
+
   const jhaStartHref = (templateId: string) => {
     const params = new URLSearchParams({ templateId, jobId: job.id });
     if (job.client_id) params.set('clientId', job.client_id);
     return `/jha/new?${params.toString()}`;
   };
 
+  const startJha = () => {
+    const templates = jhaTemplates ?? [];
+    if (templates.length === 0) {
+      showToast('Add a JHA template first');
+      navigate('/templates');
+      return;
+    }
+    if (templates.length === 1) {
+      navigate(jhaStartHref(templates[0].id));
+      return;
+    }
+    setShowJhaPicker(open => !open);
+  };
+
+  const handleInvoice = () => {
+    if (acceptedQuote && !(invoices ?? []).some(inv => inv.quote_id === acceptedQuote.id)) {
+      invoiceFromQuote.mutate(acceptedQuote.id);
+      return;
+    }
+    setBillOpen(true);
+    setTimeout(() => scrollToId('job-bill'), 50);
+    if ((costTotals?.lines ?? 0) > 0) {
+      showToast('Invoice from the job bill below');
+    } else {
+      showToast('Add bill lines, or invoice from an accepted quote');
+    }
+  };
+
+  const next = recommendJobAction({
+    status: job.status,
+    scheduledDate: job.scheduled_date,
+    crewCount: (job.assigned_team ?? []).length,
+    jhaCount: (jhas ?? []).length,
+    inspectionCount: (inspections ?? []).length,
+    invoiceCount: (invoices ?? []).length,
+    hasAcceptedQuote: !!acceptedQuote,
+    hasBillLines: (costTotals?.lines ?? 0) > 0,
+    clockedOn: !!runningEntry,
+  });
+
+  const inspectHref = `/inspections/new?crmJobId=${job.id}`;
+
   return (
     <AppShell>
-      <div className="page-shell">
+      <div className="page-shell-narrow">
         <Breadcrumbs items={[
           { label: 'Jobs', to: '/jobs' },
           { label: job.job_number != null ? `#${padNum(job.job_number)} ${job.title}` : job.title },
         ]} />
 
-        <div className="card p-5 mb-6" style={{ borderLeftWidth: 4, borderLeftColor: color }}>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4 min-w-0">
-              <div className="w-14 h-14 rounded-xl bg-[#0A2540]/10 flex items-center justify-center shrink-0">
-                <Briefcase size={26} className="text-[#0A2540]" />
-              </div>
+        <article className="card overflow-hidden mb-5" style={{ borderLeftWidth: 4, borderLeftColor: color }}>
+          <div className="bg-[#0A2540] text-white px-5 py-5">
+            <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {job.job_number != null && (
-                    <span className="text-xs font-bold" style={{ color }}>#{padNum(job.job_number)}</span>
-                  )}
-                  <h1 className="text-lg font-semibold text-[#1A1A1A]">{job.title}</h1>
-                </div>
+                {job.job_number != null && (
+                  <p className="text-[11px] font-bold tracking-wider text-white/60 mb-1">
+                    JOB #{padNum(job.job_number)}
+                  </p>
+                )}
+                <h1 className="text-xl font-semibold tracking-tight">{job.title}</h1>
                 {parentJob && (
-                  <Link to={`/jobs/${parentJob.id}`} className="mt-1 inline-flex items-center gap-1 text-xs text-[#2E75B6] hover:underline">
+                  <Link to={`/jobs/${parentJob.id}`} className="mt-1 inline-flex items-center gap-1 text-xs text-[#93C5FD] hover:underline">
                     <GitBranch size={12} />
                     Stage of {parentJob.job_number != null ? `#${padNum(parentJob.job_number)} ` : ''}{parentJob.title}
                   </Link>
                 )}
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
-                  {client && (
-                    <Link to={`/clients/${client.id}`} className="flex items-center gap-1.5 text-sm text-[#2E75B6] hover:underline">
-                      <User size={13} /> {client.name}
-                    </Link>
-                  )}
-                  {client?.phone && (
-                    <a href={`tel:${client.phone}`} className="flex items-center gap-1.5 text-sm text-[#2E75B6] hover:underline">
-                      <Phone size={13} /> {client.phone}
-                    </a>
-                  )}
-                  {client?.email && (
-                    <a href={`mailto:${client.email}`} className="flex items-center gap-1.5 text-sm text-[#2E75B6] hover:underline">
-                      <Mail size={13} /> {client.email}
-                    </a>
-                  )}
-                  {(job.address || client?.address) && (
-                    <div className="flex items-center gap-1.5 text-sm text-[#4A5568]">
-                      <MapPin size={13} /> {job.address || client?.address}
-                    </div>
-                  )}
-                  {job.scheduled_date && (
-                    <div className="flex items-center gap-1.5 text-sm text-[#4A5568]">
-                      <Calendar size={13} /> {format(parseISO(job.scheduled_date), 'd MMM yyyy')}
-                      {job.start_time && (
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} /> {job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {assigned.length > 0 && (
-                  <p className="mt-2 flex items-center gap-1.5 text-sm text-[#4A5568]">
-                    <Users size={13} /> {assigned.join(', ')}
-                  </p>
-                )}
               </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
               <select
                 value={job.status}
                 onChange={e => updateStatus.mutate(e.target.value as JobStatus)}
-                className={`form-input-sm text-xs font-medium cursor-pointer ${JOB_STATUS_STYLES[job.status]}`}
+                className={`form-input-sm text-xs font-medium cursor-pointer w-auto ${JOB_STATUS_STYLES[job.status]}`}
+                aria-label="Job status"
               >
                 {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
                   <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="mt-4 flex items-start gap-2 text-sm text-white/90">
+              <MapPin size={16} className="shrink-0 mt-0.5 text-[#93C5FD]" />
+              {site ? (
+                <span>{site}</span>
+              ) : (
+                <span className="text-white/50">No site address yet — add it in job details</span>
+              )}
+            </div>
+            {job.scheduled_date && (
+              <div className="mt-2 flex items-center gap-2 text-sm text-white/80">
+                <Calendar size={14} className="text-[#93C5FD]" />
+                {format(parseISO(job.scheduled_date), 'EEE d MMM yyyy')}
+                {job.start_time && (
+                  <span className="flex items-center gap-1">
+                    <Clock size={12} /> {job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="px-5 py-4">
+            <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
+              {client ? (
+                <Link to={`/clients/${client.id}`} className="flex items-center gap-1.5 text-[#2E75B6] hover:underline">
+                  <User size={13} /> {client.name}
+                </Link>
+              ) : (
+                <span className="flex items-center gap-1.5 text-[#9CA3AF]">
+                  <User size={13} /> No client
+                </span>
+              )}
+              {client?.phone && (
+                <a href={`tel:${client.phone}`} className="flex items-center gap-1.5 text-[#2E75B6] hover:underline">
+                  <Phone size={13} /> {client.phone}
+                </a>
+              )}
+              {client?.email && (
+                <a href={`mailto:${client.email}`} className="flex items-center gap-1.5 text-[#2E75B6] hover:underline">
+                  <Mail size={13} /> {client.email}
+                </a>
+              )}
+              <span className="flex items-center gap-1.5 text-[#4A5568]">
+                <Users size={13} />
+                {assigned.length > 0 ? assigned.join(', ') : 'Unassigned'}
+              </span>
+              {job.priority !== 'medium' && (
+                <span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
+                  {JOB_PRIORITY_LABELS[job.priority]} priority
+                </span>
+              )}
+            </div>
+
+            {job.description && (
+              <p className="mt-3 text-sm text-[#4A5568] whitespace-pre-wrap line-clamp-4">{job.description}</p>
+            )}
+
+            <div className="mt-4 rounded-lg bg-[#F0F7FF] border border-[#BFDBFE] px-3 py-2.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#2E75B6]">Next</p>
+              <p className="text-sm font-medium text-[#0A2540] mt-0.5">{next.detail}</p>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <ActionButton
+                recommended={next.key === 'schedule' || next.key === 'crew'}
+                onClick={() => scrollToId('job-schedule')}
+              >
+                <Calendar size={14} /> Schedule / crew
+              </ActionButton>
+              <div className="relative">
+                <ActionButton recommended={next.key === 'jha'} onClick={startJha}>
+                  <ShieldCheck size={14} /> Start JHA
+                </ActionButton>
+                {showJhaPicker && (jhaTemplates ?? []).length > 1 && (
+                  <div className="absolute z-20 mt-1 w-64 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1">
+                    {(jhaTemplates ?? []).map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => navigate(jhaStartHref(t.id))}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-[#F0F7FF]"
+                      >
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Link to={inspectHref} className={actionClass(next.key === 'inspect')}>
+                <ClipboardList size={14} /> Start inspection
+              </Link>
+              <ActionButton
+                recommended={next.key === 'invoice'}
+                onClick={handleInvoice}
+                disabled={invoiceFromQuote.isPending}
+              >
+                <Receipt size={14} /> Invoice
+              </ActionButton>
               {runningEntry ? (
                 <button
                   type="button"
@@ -510,211 +644,190 @@ export function JobDetailPage() {
                 <button
                   type="button"
                   onClick={() => clockOnJob.mutate()}
-                  disabled={clockOnJob.isPending}
-                  className="inline-flex items-center gap-1.5 bg-[#16A34A] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#15803D] transition-all duration-200 active:scale-[0.98] disabled:opacity-50"
+                  disabled={clockOnJob.isPending || job.status === 'cancelled'}
+                  className={next.key === 'clock'
+                    ? 'inline-flex items-center gap-1.5 bg-[#16A34A] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#15803D] transition-all duration-200 active:scale-[0.98] disabled:opacity-50'
+                    : 'inline-flex items-center gap-1.5 bg-white text-[#15803D] px-3 py-2 rounded-md text-sm font-medium border border-[#86EFAC] hover:bg-[#F0FDF4] transition-all duration-200 active:scale-[0.98] disabled:opacity-50'}
                 >
                   <Play size={14} /> Clock on
                 </button>
               )}
-              <button onClick={() => setShowEdit(true)} className="btn-secondary">
-                <Edit3 size={14} /> Edit
+              <button type="button" onClick={() => setShowEdit(true)} className="btn-ghost ml-auto">
+                <Edit3 size={14} /> Details
               </button>
             </div>
           </div>
+        </article>
 
-          {job.description && (
-            <div className="mt-4 pt-4 border-t border-[#F3F4F6]">
-              <p className="text-xs font-medium text-[#4A5568] mb-1">Scope / notes</p>
-              <p className="text-sm text-[#1A1A1A] whitespace-pre-wrap">{job.description}</p>
-            </div>
-          )}
+        <div id="job-schedule">
+          <JobDispatchPanel job={job} teamMembers={teamMembers ?? []} />
+        </div>
 
-          <div className="mt-4 pt-4 border-t border-[#F3F4F6] flex flex-wrap items-center gap-2">
-            <Link
-              to={`/inspections/new?crmJobId=${job.id}`}
-              className="flex items-center gap-1.5 text-sm font-medium text-[#0A2540] bg-[#F0F7FF] border border-[#BFDBFE] px-3 py-1.5 rounded-md hover:bg-[#E0EFFF]"
+        {stages.length > 0 && (
+          <div className="mb-5">
+            <JobRelatedSection
+              title="Project stages"
+              icon={GitBranch}
+              count={stages.length}
+              action={!job.parent_job_id ? (
+                <button type="button" onClick={() => setShowStage(true)} className="flex items-center gap-1 text-xs font-medium text-[#2E75B6] hover:underline">
+                  <Plus size={12} /> Add stage
+                </button>
+              ) : undefined}
+              emptyTitle="No stages on this job."
             >
-              <ClipboardList size={14} /> Start inspection
-            </Link>
-            {(jhaTemplates ?? []).length > 0 ? (
-              <select
-                className="form-input-sm text-sm"
-                defaultValue=""
-                onChange={e => {
-                  const templateId = e.target.value;
-                  if (templateId) navigate(jhaStartHref(templateId));
-                }}
-              >
-                <option value="">Start JHA from template…</option>
-                {(jhaTemplates ?? []).map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
-            ) : (
-              <Link to="/templates" className="text-sm text-[#2E75B6] hover:underline">
-                Add a JHA template to start safety docs
-              </Link>
-            )}
-            {job.priority !== 'medium' && (
-              <span className="ml-auto flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
-                {JOB_PRIORITY_LABELS[job.priority]} priority
-              </span>
-            )}
+              {stages.map(child => (
+                <JobRelatedRow
+                  key={child.id}
+                  href={`/jobs/${child.id}`}
+                  icon={GitBranch}
+                  title={`${child.job_number != null ? `#${padNum(child.job_number)} ` : ''}${child.title}`}
+                  trailing={<span className="text-xs text-[#6B7280] capitalize">{child.status.replace('_', ' ')}</span>}
+                />
+              ))}
+            </JobRelatedSection>
           </div>
-        </div>
-
-        <JobDispatchPanel job={job} teamMembers={teamMembers ?? []} />
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          <StatCard label="Budget" value={budget != null ? formatMoney(budget) : '—'} icon={DollarSign} />
-          <StatCard label="Actual cost" value={formatMoney(actualCost)} icon={DollarSign} color="text-[#4A5568]" />
-          <StatCard label="Charge" value={formatMoney(chargeTotal)} icon={Receipt} color="text-[#0A2540]" />
-          <StatCard
-            label="Budget vs cost"
-            value={variance == null ? '—' : formatMoney(variance)}
-            icon={DollarSign}
-            color={variance == null ? undefined : variance >= 0 ? 'text-green-600' : 'text-red-600'}
-          />
-        </div>
-
-        {(childJobs ?? []).length > 0 && (
-          <RelatedSection title="Project stages" icon={GitBranch}>
-            {(childJobs ?? []).map(child => (
-              <Link key={child.id} to={`/jobs/${child.id}`}
-                className="flex items-center gap-3 bg-white rounded-lg border border-[#E5E7EB] p-3 hover:shadow-sm transition-shadow">
-                <GitBranch size={16} className="text-[#0A2540] shrink-0" />
-                <p className="text-sm font-medium text-[#1A1A1A] truncate flex-1">
-                  {child.job_number != null ? `#${padNum(child.job_number)} ` : ''}{child.title}
-                </p>
-                <span className="text-xs text-[#6B7280] capitalize">{child.status.replace('_', ' ')}</span>
-                <ChevronRight size={15} className="text-[#D1D5DB]" />
-              </Link>
-            ))}
-          </RelatedSection>
         )}
 
-        <RelatedSection
-          title="Inspections"
-          icon={ClipboardList}
-          action={<Link to={`/inspections/new?crmJobId=${job.id}`} className="flex items-center gap-1 text-sm text-[#2E75B6] hover:underline"><Plus size={14} /> New</Link>}
-          empty="No inspections linked to this job yet"
-        >
-          {(inspections ?? []).map(insp => (
-            <Link key={insp.id} to={inspectionHref(insp.status, insp.id)}
-              className="flex items-center gap-3 bg-white rounded-lg border border-[#E5E7EB] p-3 hover:shadow-sm transition-shadow">
-              <FileText size={16} className="text-[#2E75B6] shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-[#1A1A1A] truncate">{insp.template_snapshot?.name ?? 'Inspection'}</p>
-                <p className="text-xs text-[#9CA3AF]">{format(new Date(insp.started_at), 'd MMM yyyy')}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
+          <JobRelatedSection
+            title="Inspections"
+            icon={ClipboardList}
+            count={(inspections ?? []).length}
+            emptyTitle="No inspection on this job yet."
+            emptyAction={<Link to={inspectHref} className="text-sm font-medium text-[#2E75B6] hover:underline">Start inspection</Link>}
+          >
+            {(inspections ?? []).map(insp => (
+              <JobRelatedRow
+                key={insp.id}
+                href={inspectionHref(insp.status, insp.id)}
+                icon={FileText}
+                title={insp.template_snapshot?.name ?? 'Inspection'}
+                meta={format(new Date(insp.started_at), 'd MMM yyyy')}
+                trailing={
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${insp.status === 'completed' || insp.status === 'issued' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                    {insp.status}
+                  </span>
+                }
+              />
+            ))}
+          </JobRelatedSection>
+
+          <JobRelatedSection
+            title="JHAs"
+            icon={ShieldCheck}
+            count={(jhas ?? []).length}
+            emptyTitle="Do the JHA before anyone starts on site."
+            emptyAction={
+              <button type="button" onClick={startJha} className="text-sm font-medium text-[#2E75B6] hover:underline">
+                Start JHA
+              </button>
+            }
+          >
+            {(jhas ?? []).map(doc => {
+              const title = doc.meta?.taskName || doc.template_snapshot?.name || 'JHA';
+              return (
+                <JobRelatedRow
+                  key={doc.id}
+                  href={`/jha/new?docId=${doc.id}`}
+                  icon={ShieldCheck}
+                  title={title}
+                  meta={[doc.report_number, format(new Date(doc.created_at), 'd MMM yyyy')].filter(Boolean).join(' · ')}
+                  trailing={<span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-[#4A5568]">{doc.status}</span>}
+                />
+              );
+            })}
+          </JobRelatedSection>
+
+          <JobRelatedSection
+            title="Quotes"
+            icon={FileText}
+            count={(quotes ?? []).length}
+            emptyTitle="No quote on this job. That’s fine for do-and-charge — invoice from the bill."
+          >
+            {(quotes ?? []).map(q => (
+              <div key={q.id} className="flex items-center gap-2.5 px-3.5 py-2.5">
+                <Link to={`/quotes?id=${q.id}`} className="flex items-center gap-2.5 min-w-0 flex-1 hover:opacity-80">
+                  <FileText size={15} className="text-[#2E75B6] shrink-0" />
+                  <p className="text-sm font-medium text-[#1A1A1A] truncate">Quote #{padNum(q.quote_number)}</p>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${QUOTE_STATUS_STYLES[q.status as keyof typeof QUOTE_STATUS_STYLES] ?? 'bg-gray-100 text-gray-700'}`}>
+                    {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}
+                  </span>
+                  <span className="text-sm font-semibold text-[#1A1A1A]">{formatMoney(Number(q.total))}</span>
+                </Link>
+                {q.status === 'accepted' && !(invoices ?? []).some(inv => inv.quote_id === q.id) && (
+                  <button
+                    type="button"
+                    onClick={() => invoiceFromQuote.mutate(q.id)}
+                    disabled={invoiceFromQuote.isPending}
+                    className="shrink-0 text-xs font-medium text-[#0A2540] bg-[#F0F7FF] border border-[#BFDBFE] px-2 py-1 rounded-md hover:bg-[#E0EFFF] disabled:opacity-50"
+                  >
+                    Invoice
+                  </button>
+                )}
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${insp.status === 'completed' || insp.status === 'issued' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
-                {insp.status}
-              </span>
-              <ChevronRight size={15} className="text-[#D1D5DB]" />
-            </Link>
-          ))}
-        </RelatedSection>
+            ))}
+          </JobRelatedSection>
 
-        <RelatedSection
-          title="JHAs"
-          icon={ShieldCheck}
-          empty="No JHAs for this job yet — start one from a template above"
-        >
-          {(jhas ?? []).map(doc => {
-            const title = doc.meta?.taskName || doc.template_snapshot?.name || 'JHA';
-            return (
-              <Link key={doc.id} to={`/jha/new?docId=${doc.id}`}
-                className="flex items-center gap-3 bg-white rounded-lg border border-[#E5E7EB] p-3 hover:shadow-sm transition-shadow">
-                <ShieldCheck size={16} className="text-[#0A2540] shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-[#1A1A1A] truncate">{title}</p>
-                  <p className="text-xs text-[#9CA3AF]">
-                    {[doc.report_number, format(new Date(doc.created_at), 'd MMM yyyy')].filter(Boolean).join(' · ')}
-                  </p>
-                </div>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-[#4A5568]">{doc.status}</span>
-                <ChevronRight size={15} className="text-[#D1D5DB]" />
-              </Link>
-            );
-          })}
-        </RelatedSection>
+          <JobRelatedSection
+            title="Invoices"
+            icon={Receipt}
+            count={(invoices ?? []).length}
+            emptyTitle="Nothing invoiced yet. Invoice an accepted quote, or from the job bill."
+            emptyAction={
+              <button type="button" onClick={handleInvoice} className="text-sm font-medium text-[#2E75B6] hover:underline">
+                Invoice this job
+              </button>
+            }
+          >
+            {(invoices ?? []).map(inv => {
+              const status = effectiveInvoiceStatus(inv);
+              return (
+                <JobRelatedRow
+                  key={inv.id}
+                  href={`/invoices?id=${inv.id}`}
+                  icon={Receipt}
+                  title={`Invoice #${padNum(inv.invoice_number)}`}
+                  meta={formatMoney(Number(inv.total))}
+                  trailing={
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${INVOICE_STATUS_STYLES[status]}`}>
+                      {INVOICE_STATUS_LABELS[status]}
+                    </span>
+                  }
+                />
+              );
+            })}
+          </JobRelatedSection>
+        </div>
 
-        <RelatedSection title="Quotes" icon={FileText} action={<Link to="/quotes" className="text-sm text-[#2E75B6] hover:underline">View all</Link>} empty="No quotes linked to this job">
-          {(quotes ?? []).map(q => (
-            <div key={q.id} className="flex items-center gap-3 bg-white rounded-lg border border-[#E5E7EB] p-3">
-              <Link to={`/quotes?id=${q.id}`} className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80">
-                <FileText size={16} className="text-[#2E75B6] shrink-0" />
-                <p className="text-sm font-medium text-[#1A1A1A] truncate">Quote #{padNum(q.quote_number)}</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${QUOTE_STATUS_STYLES[q.status as keyof typeof QUOTE_STATUS_STYLES] ?? 'bg-gray-100 text-gray-700'}`}>
-                  {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}
-                </span>
-                <span className="text-sm font-semibold text-[#1A1A1A]">{formatMoney(Number(q.total))}</span>
-              </Link>
-              {q.status === 'accepted' && (
-                <button
-                  type="button"
-                  onClick={() => invoiceFromQuote.mutate(q.id)}
-                  disabled={invoiceFromQuote.isPending}
-                  className="shrink-0 flex items-center gap-1 text-xs font-medium text-[#0A2540] bg-[#F0F7FF] border border-[#BFDBFE] px-2 py-1 rounded-md hover:bg-[#E0EFFF] disabled:opacity-50"
-                >
-                  <Receipt size={12} /> Invoice
-                </button>
-              )}
-            </div>
-          ))}
-        </RelatedSection>
-
-        <RelatedSection title="Invoices" icon={Receipt} action={<Link to="/invoices" className="text-sm text-[#2E75B6] hover:underline">View all</Link>} empty="No invoices yet — invoice from a quote above or from the job bill below">
-          {(invoices ?? []).map(inv => {
-            const status = effectiveInvoiceStatus(inv);
-            return (
-            <Link key={inv.id} to={`/invoices?id=${inv.id}`}
-              className="flex items-center gap-3 bg-white rounded-lg border border-[#E5E7EB] p-3 hover:shadow-sm transition-shadow">
-              <Receipt size={16} className="text-[#F7931A] shrink-0" />
-              <p className="text-sm font-medium text-[#1A1A1A] flex-1">Invoice #{padNum(inv.invoice_number)}</p>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${INVOICE_STATUS_STYLES[status]}`}>
-                {INVOICE_STATUS_LABELS[status]}
-              </span>
-              <span className="text-sm font-semibold text-[#1A1A1A]">{formatMoney(Number(inv.total))}</span>
-              <ChevronRight size={15} className="text-[#D1D5DB]" />
-            </Link>
-            );
-          })}
-        </RelatedSection>
-
-        <RelatedSection
-          title="Timesheets"
+        <JobRelatedSection
+          title="Time on this job"
           icon={Clock}
+          count={(timesheets ?? []).length}
           action={
             <div className="flex items-center gap-3">
-              {runningEntry ? (
-                <button type="button" onClick={() => clockOffJob.mutate()} disabled={clockOffJob.isPending}
-                  className="flex items-center gap-1 text-sm text-red-600 hover:underline">
-                  <Square size={14} /> Clock off
-                </button>
-              ) : (
-                <button type="button" onClick={() => clockOnJob.mutate()} disabled={clockOnJob.isPending}
-                  className="flex items-center gap-1 text-sm text-[#16A34A] hover:underline">
-                  <Play size={14} /> Clock on
-                </button>
-              )}
-              <button type="button" onClick={() => setShowTimeEntry(true)}
-                className="flex items-center gap-1 text-sm text-[#2E75B6] hover:underline">
-                <Plus size={14} /> Add entry
+              <button type="button" onClick={() => setShowTimeEntry(true)} className="flex items-center gap-1 text-xs font-medium text-[#2E75B6] hover:underline">
+                <Plus size={12} /> Add entry
               </button>
-              <Link to={`/timesheets?job=${job.id}`} className="text-sm text-[#2E75B6] hover:underline">All timesheets</Link>
+              <Link to={`/timesheets?job=${job.id}`} className="text-xs text-[#2E75B6] hover:underline">All timesheets</Link>
             </div>
           }
-          empty="No timesheet entries attached to this job"
+          emptyTitle="Nobody has clocked onto this job yet."
+          emptyAction={
+            runningEntry ? undefined : (
+              <button type="button" onClick={() => clockOnJob.mutate()} className="text-sm font-medium text-[#15803D] hover:underline">
+                Clock on
+              </button>
+            )
+          }
         >
-          {(timesheets ?? []).map(entry => {
+          {(timesheets ?? []).slice(0, 5).map(entry => {
             const duration = entry.end_time
               ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
               : 0;
             return (
-              <div key={entry.id} className="flex items-center gap-3 bg-white rounded-lg border border-[#E5E7EB] p-3">
-                <Clock size={16} className="text-[#0A2540] shrink-0" />
+              <div key={entry.id} className="flex items-center gap-2.5 px-3.5 py-2.5">
+                <Clock size={15} className="text-[#0A2540] shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-[#1A1A1A]">
                     {format(new Date(entry.start_time), 'd MMM yyyy')}
@@ -728,21 +841,43 @@ export function JobDetailPage() {
               </div>
             );
           })}
-        </RelatedSection>
+        </JobRelatedSection>
+        {(timesheets ?? []).length > 5 && (
+          <p className="text-xs text-[#6B7280] mt-1.5 mb-5 px-1">
+            Showing 5 of {(timesheets ?? []).length}. <Link to={`/timesheets?job=${job.id}`} className="text-[#2E75B6] hover:underline">See all</Link>
+          </p>
+        )}
 
-        <div className="mb-6">
-          <h2 className="text-sm font-semibold text-[#1A1A1A] uppercase tracking-wide mb-3 flex items-center gap-1.5">
-            <DollarSign size={14} className="text-[#0A2540]" /> Job bill / costs
-          </h2>
-          <JobCostingPanel
-            jobId={job.id}
-            clientId={job.client_id}
-            onInvoiceCreated={() => {
-              queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
-              queryClient.invalidateQueries({ queryKey: ['job-cost-totals', id] });
-              showToast('Invoice ready — see Invoices on this job');
-            }}
-          />
+        <div id="job-bill" className="mt-5 mb-6">
+          <button
+            type="button"
+            onClick={() => setBillOpen(o => !o)}
+            className="w-full card px-4 py-3 flex items-center gap-3 text-left hover:bg-[#F9FAFB]"
+          >
+            <DollarSign size={16} className="text-[#0A2540] shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-[#1A1A1A]">Job bill</p>
+              <p className="text-xs text-[#6B7280]">
+                {budget != null ? `Budget ${formatMoney(budget)} · ` : ''}
+                Cost {formatMoney(actualCost)} · Charge {formatMoney(chargeTotal)}
+                {(costTotals?.lines ?? 0) === 0 ? ' · No lines yet' : ''}
+              </p>
+            </div>
+            <ChevronDown size={16} className={`text-[#9CA3AF] transition-transform ${billOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {billOpen && (
+            <div className="mt-3">
+              <JobCostingPanel
+                jobId={job.id}
+                clientId={job.client_id}
+                onInvoiceCreated={() => {
+                  queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
+                  queryClient.invalidateQueries({ queryKey: ['job-cost-totals', id] });
+                  showToast('Invoice ready — see Invoices on this job');
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -751,6 +886,8 @@ export function JobDetailPage() {
           job={job}
           presetDate={null}
           presetClientId={null}
+          fields="details"
+          onAddStage={!job.parent_job_id ? () => { setShowEdit(false); setShowStage(true); } : undefined}
           onClose={() => setShowEdit(false)}
           onSaved={(_jobId, opts) => {
             if (opts?.deleted) {
@@ -763,6 +900,21 @@ export function JobDetailPage() {
             queryClient.invalidateQueries({ queryKey: ['jobs'] });
             queryClient.invalidateQueries({ queryKey: ['job-children', id] });
             showToast('Job updated');
+          }}
+        />
+      )}
+      {showStage && (
+        <JobFormModal
+          job={null}
+          presetDate={job.scheduled_date}
+          presetClientId={job.client_id}
+          presetParentJobId={job.id}
+          presetAddress={job.address}
+          onClose={() => setShowStage(false)}
+          onSaved={(stageId) => {
+            setShowStage(false);
+            queryClient.invalidateQueries({ queryKey: ['job-children', id] });
+            navigate(`/jobs/${stageId}`);
           }}
         />
       )}
@@ -782,47 +934,5 @@ export function JobDetailPage() {
         />
       )}
     </AppShell>
-  );
-}
-
-function StatCard({ label, value, icon: Icon, color }: { label: string; value: string; icon: typeof DollarSign; color?: string }) {
-  return (
-    <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-4">
-      <div className="flex items-center gap-2 mb-1">
-        <Icon size={14} className={color ?? 'text-[#9CA3AF]'} />
-        <span className="text-xs text-[#4A5568] font-medium">{label}</span>
-      </div>
-      <p className={`text-xl font-bold ${color ?? 'text-[#1A1A1A]'}`}>{value}</p>
-    </div>
-  );
-}
-
-function RelatedSection({
-  title, icon: Icon, action, empty, children,
-}: {
-  title: string;
-  icon: typeof FileText;
-  action?: ReactNode;
-  empty?: string;
-  children: ReactNode;
-}) {
-  const items = Array.isArray(children) ? children : children ? [children] : [];
-  const visible = items.filter(Boolean);
-  return (
-    <div className="mb-6">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-[#1A1A1A] uppercase tracking-wide flex items-center gap-1.5">
-          <Icon size={14} className="text-[#0A2540]" /> {title}
-        </h2>
-        {action}
-      </div>
-      {visible.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-6 text-center">
-          <p className="text-sm text-gray-500">{empty ?? `No ${title.toLowerCase()} yet`}</p>
-        </div>
-      ) : (
-        <div className="space-y-2">{children}</div>
-      )}
-    </div>
   );
 }

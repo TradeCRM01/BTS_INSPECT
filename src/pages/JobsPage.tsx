@@ -12,8 +12,9 @@ import {
   JOB_PRIORITY_DOT,
 } from '../types/crm';
 import { pickJobColor } from '../lib/jobColors';
+import { jobCardHint, jobListBucket } from '../lib/jobNextAction';
 import { Plus, Briefcase, Search, Calendar, Clock, MapPin, User } from 'lucide-react';
-import { format, parseISO, isToday, isPast, isFuture } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 type StatusFilter = 'all' | JobStatus;
 
@@ -91,14 +92,10 @@ export function JobsPage() {
     };
   }, [jobs]);
 
-  const upcomingJobs = filtered.filter(j =>
-    j.status !== 'completed' && j.status !== 'cancelled' &&
-    j.scheduled_date && (isToday(parseISO(j.scheduled_date)) || isFuture(parseISO(j.scheduled_date)))
-  );
-  const pastJobs = filtered.filter(j =>
-    j.status === 'completed' || j.status === 'cancelled' ||
-    (j.scheduled_date && isPast(parseISO(j.scheduled_date)) && !isToday(parseISO(j.scheduled_date)))
-  );
+  const needsDateJobs = filtered.filter(j => jobListBucket(j) === 'needs_date');
+  const onBoardJobs = filtered.filter(j => jobListBucket(j) === 'on_board');
+  const upcomingJobs = filtered.filter(j => jobListBucket(j) === 'upcoming');
+  const closedJobs = filtered.filter(j => jobListBucket(j) === 'closed');
 
   function handleCloseForm() {
     setShowForm(false);
@@ -178,35 +175,10 @@ export function JobsPage() {
           />
         ) : viewMode === 'grid' ? (
           <div className="space-y-6">
-            {/* Upcoming / Active */}
-            {upcomingJobs.length > 0 && (
-              <div>
-                <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                  <Calendar size={13} /> Upcoming & Active
-                  <span className="text-[#9CA3AF] normal-case font-normal">({upcomingJobs.length})</span>
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {upcomingJobs.map(job => (
-                    <JobCard key={job.id} job={job} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Past */}
-            {pastJobs.length > 0 && (
-              <div>
-                <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                  <Clock size={13} /> Past Jobs
-                  <span className="text-[#9CA3AF] normal-case font-normal">({pastJobs.length})</span>
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {pastJobs.map(job => (
-                    <JobCard key={job.id} job={job} />
-                  ))}
-                </div>
-              </div>
-            )}
+            <JobGroup title="Needs a date" icon={Calendar} jobs={needsDateJobs} />
+            <JobGroup title="On the board" icon={Briefcase} jobs={onBoardJobs} />
+            <JobGroup title="Upcoming" icon={Calendar} jobs={upcomingJobs} />
+            <JobGroup title="Closed" icon={Clock} jobs={closedJobs} />
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
@@ -220,7 +192,7 @@ export function JobsPage() {
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Priority</th>
                     <th className="px-4 py-3">Scheduled</th>
-                    <th className="px-4 py-3">Assigned</th>
+                    <th className="px-4 py-3">Next</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F3F4F6]">
@@ -235,8 +207,8 @@ export function JobsPage() {
                         <td className="px-4 py-3 text-[#4A5568]">{job.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
                         <td className="px-4 py-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${JOB_STATUS_STYLES[job.status]}`}>{JOB_STATUS_LABELS[job.status]}</span></td>
                         <td className="px-4 py-3"><span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />{JOB_PRIORITY_LABELS[job.priority]}</span></td>
-                        <td className="px-4 py-3 text-[#4A5568]">{jobDate ? format(jobDate, 'd MMM yyyy') : 'Unscheduled'}{job.start_time && <span className="text-[#6B7280] block text-xs">{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{job.assigned_team && job.assigned_team.length > 0 ? `${job.assigned_team.length} assigned` : '—'}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{jobDate ? format(jobDate, 'd MMM yyyy') : 'No date'}{job.start_time && <span className="text-[#6B7280] block text-xs">{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>}</td>
+                        <td className="px-4 py-3 text-xs font-medium text-[#0A2540]">{jobCardHint(job)}</td>
                       </tr>
                     );
                   })}
@@ -260,71 +232,85 @@ export function JobsPage() {
   );
 }
 
+function JobGroup({
+  title, icon: Icon, jobs,
+}: {
+  title: string;
+  icon: typeof Calendar;
+  jobs: JobWithClient[];
+}) {
+  if (jobs.length === 0) return null;
+  return (
+    <div>
+      <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2 flex items-center gap-1.5">
+        <Icon size={13} /> {title}
+        <span className="text-[#9CA3AF] normal-case font-normal">({jobs.length})</span>
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {jobs.map(job => (
+          <JobCard key={job.id} job={job} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function JobCard({ job }: { job: JobWithClient }) {
   const color = pickJobColor(job.id, job.color);
   const jobDate = job.scheduled_date ? parseISO(job.scheduled_date) : null;
-  const dateLabel = jobDate ? format(jobDate, 'd MMM yyyy') : 'Unscheduled';
+  const dateLabel = jobDate ? format(jobDate, 'd MMM yyyy') : 'No date';
+  const hint = jobCardHint(job);
+  const site = job.address || job.client_address;
 
   return (
     <Link
       to={`/jobs/${job.id}`}
       className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm hover:shadow-md transition-all text-left overflow-hidden group block"
-      style={{ borderLeftWidth: 3, borderLeftColor: color }}
+      style={{ borderLeftWidth: 4, borderLeftColor: color }}
     >
+      <div className="bg-[#0A2540] px-3.5 py-2.5">
+        <p className="text-[10px] font-bold tracking-wider text-white/55">
+          {job.job_number != null ? `JOB #${String(job.job_number).padStart(4, '0')}` : 'JOB'}
+        </p>
+        <h3 className="text-sm font-semibold text-white truncate mt-0.5 group-hover:text-[#93C5FD] transition-colors">
+          {job.title}
+        </h3>
+        <p className="mt-1 flex items-center gap-1 text-[11px] text-white/75 truncate">
+          <MapPin size={11} className="shrink-0 text-[#93C5FD]" />
+          {site || 'No site address'}
+        </p>
+      </div>
       <div className="p-3.5">
         <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="min-w-0 flex-1">
-            {job.job_number != null && (
-              <span className="text-[10px] font-bold" style={{ color }}>
-                #{String(job.job_number).padStart(4, '0')}
-              </span>
+          <div className="min-w-0 space-y-1">
+            {job.client_name && (
+              <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
+                <User size={12} className="text-[#9CA3AF] shrink-0" />
+                <span className="truncate">{job.client_name}</span>
+              </div>
             )}
-            <h3 className="text-sm font-semibold text-[#1A1A1A] truncate group-hover:text-[#0A2540] transition-colors">
-              {job.title}
-            </h3>
+            <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
+              <Calendar size={12} className="text-[#9CA3AF] shrink-0" />
+              <span>{dateLabel}</span>
+              {job.start_time && (
+                <span className="text-[#6B7280]">· {job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>
+              )}
+            </div>
           </div>
           <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${JOB_STATUS_STYLES[job.status]}`}>
             {JOB_STATUS_LABELS[job.status]}
           </span>
         </div>
 
-        <div className="space-y-1">
-          {job.client_name && (
-            <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
-              <User size={12} className="text-[#9CA3AF] shrink-0" />
-              <span className="truncate">{job.client_name}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
-            <Calendar size={12} className="text-[#9CA3AF] shrink-0" />
-            <span>{dateLabel}</span>
-            {job.start_time && (
-              <span className="text-[#6B7280]">· {job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>
-            )}
-          </div>
-          {job.address && (
-            <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
-              <MapPin size={12} className="text-[#9CA3AF] shrink-0" />
-              <span className="truncate">{job.address}</span>
-            </div>
+        <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-[#F3F4F6]">
+          <span className="text-[11px] font-semibold text-[#0A2540]">{hint}</span>
+          {job.priority !== 'medium' && (
+            <span className="ml-auto flex items-center gap-1 text-[10px] font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
+              {JOB_PRIORITY_LABELS[job.priority]}
+            </span>
           )}
         </div>
-
-        {(job.priority !== 'medium' || (job.assigned_team && job.assigned_team.length > 0)) && (
-          <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-[#F3F4F6]">
-            {job.priority !== 'medium' && (
-              <span className="flex items-center gap-1 text-[10px] font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
-                {JOB_PRIORITY_LABELS[job.priority]} priority
-              </span>
-            )}
-            {job.assigned_team && job.assigned_team.length > 0 && (
-              <span className="text-[10px] text-[#6B7280] ml-auto">
-                {job.assigned_team.length} assigned
-              </span>
-            )}
-          </div>
-        )}
       </div>
     </Link>
   );
