@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Clock, Users } from 'lucide-react';
+import { Calendar, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../ui';
 import type { Job } from '../../types/crm';
@@ -86,8 +86,8 @@ export function JobDispatchPanel({
           />
         </label>
       </div>
-      <p className="text-xs text-[#9CA3AF] mb-4 flex items-center gap-1">
-        <Clock size={11} /> Changing crew here does not clear the scheduled date. Unassign with the chips or Clear crew.
+      <p className="text-xs text-[#9CA3AF] mb-4">
+        Unassigned jobs still show on the board if a date is set.
       </p>
 
       <div className="flex items-center justify-between gap-2 mb-2">

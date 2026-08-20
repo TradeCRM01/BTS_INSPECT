@@ -5,8 +5,7 @@ import type { Job, JobStatus, JobPriority, Client } from '../../types/crm';
 import {
   JOB_STATUS_LABELS, JOB_PRIORITY_LABELS,
 } from '../../types/crm';
-import { X, Trash2, Link2, GitBranch, Plus, ClipboardList } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { X, Trash2, GitBranch } from 'lucide-react';
 import { format } from 'date-fns';
 import { OverlayPortal } from '../ui/OverlayPortal';
 
@@ -15,21 +14,35 @@ interface JobFormModalProps {
   presetDate: string | null;
   presetClientId: string | null;
   presetEmployeeId?: string | undefined;
+  presetParentJobId?: string | null;
+  presetAddress?: string | null;
+  /** `details` = identity only; schedule/crew/status live on the job page. */
+  fields?: 'all' | 'details';
+  onAddStage?: () => void;
   onClose: () => void;
   onSaved: (jobId: string, opts?: { deleted?: boolean }) => void;
 }
 
-export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId, onClose, onSaved }: JobFormModalProps) {
+export function JobFormModal({
+  job,
+  presetDate,
+  presetClientId,
+  presetEmployeeId,
+  presetParentJobId,
+  presetAddress,
+  fields = 'all',
+  onAddStage,
+  onClose,
+  onSaved,
+}: JobFormModalProps) {
   const { profile } = useAuth();
+  const detailsOnly = fields === 'details' && !!job;
   const [clients, setClients] = useState<Client[]>([]);
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
-  const [inspections, setInspections] = useState<{ id: string; name: string; status: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [parentJobs, setParentJobs] = useState<{ id: string; title: string; job_number: number | null }[]>([]);
-  const [childJobs, setChildJobs] = useState<{ id: string; title: string; status: string; job_number: number | null }[]>([]);
-  const [, setShowAddStage] = useState(false);
 
   const [form, setForm] = useState({
     title: job?.title ?? '',
@@ -40,11 +53,10 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
     scheduled_date: job?.scheduled_date ?? presetDate ?? format(new Date(), 'yyyy-MM-dd'),
     start_time: job?.start_time ?? '',
     end_time: job?.end_time ?? '',
-    address: job?.address ?? '',
+    address: job?.address ?? presetAddress ?? '',
     assigned_team: job?.assigned_team ?? (presetEmployeeId ? [presetEmployeeId] : []),
-    inspection_id: job?.inspection_id ?? '',
     budget: job?.budget ?? '',
-    parent_job_id: job?.parent_job_id ?? '',
+    parent_job_id: job?.parent_job_id ?? presetParentJobId ?? '',
   });
 
   useEffect(() => {
@@ -55,54 +67,17 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
         supabase.rpc('get_company_members', { p_company_id: profile.company_id }),
       ]);
       if (clientsRes.data) setClients(clientsRes.data as Client[]);
-      if (teamRes.data) setTeamMembers(teamRes.data.map((m: any) => ({ id: m.id, name: m.name })));
-
-      if (form.client_id) {
-        const { data: insps } = await supabase
-          .from('inspections')
-          .select('id, status, template_snapshot, started_at, meta')
-          .or(`client_id.eq.${form.client_id},and(client_id.is.null)`)
-          .order('started_at', { ascending: false })
-          .limit(20);
-        if (insps) setInspections(insps.map((i: any) => ({
-          id: i.id,
-          name: i.template_snapshot?.name ?? 'Inspection',
-          status: i.status,
-        })));
-      }
+      if (teamRes.data) setTeamMembers((teamRes.data as { id: string; name: string }[]).map(m => ({ id: m.id, name: m.name })));
     }
     loadOptions();
-  }, [profile?.company_id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile?.company_id]);
 
-  // Load parent job options (jobs without parent_job_id, excluding this job)
   useEffect(() => {
     if (!profile?.company_id) return;
     supabase.from('jobs').select('id, title, job_number').eq('company_id', profile.company_id).is('parent_job_id', null)
       .neq('id', job?.id ?? '00000000-0000-0000-0000-000000000000').order('title').limit(50)
       .then(({ data }) => { if (data) setParentJobs(data as { id: string; title: string; job_number: number | null }[]); });
   }, [profile?.company_id, job?.id]);
-
-  // Load child jobs if this is a parent
-  useEffect(() => {
-    if (!job?.id) { setChildJobs([]); return; }
-    supabase.from('jobs').select('id, title, status, job_number').eq('parent_job_id', job.id).order('created_at')
-      .then(({ data }) => { if (data) setChildJobs(data as { id: string; title: string; status: string; job_number: number | null }[]); });
-  }, [job?.id]);
-  useEffect(() => {
-    if (!form.client_id) { setInspections([]); return; }
-    (async () => {
-      const { data } = await supabase
-        .from('inspections')
-        .select('id, status, template_snapshot, started_at, meta')
-        .order('started_at', { ascending: false })
-        .limit(20);
-      if (data) setInspections(data.map((i: any) => ({
-        id: i.id,
-        name: i.template_snapshot?.name ?? 'Inspection',
-        status: i.status,
-      })));
-    })();
-  }, [form.client_id]);
 
   const selectedClient = useMemo(() => clients.find(c => c.id === form.client_id), [clients, form.client_id]);
 
@@ -121,21 +96,23 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
     setSaving(true);
     setErr('');
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       title: form.title.trim(),
       client_id: form.client_id || null,
       description: form.description.trim() || null,
-      status: form.status,
       priority: form.priority,
-      scheduled_date: form.scheduled_date || null,
-      start_time: form.start_time || null,
-      end_time: form.end_time || null,
       address: form.address.trim() || null,
-      assigned_team: form.assigned_team,
-      inspection_id: form.inspection_id || null,
       budget: form.budget ? Number(form.budget) : null,
       parent_job_id: form.parent_job_id || null,
     };
+
+    if (!detailsOnly) {
+      payload.status = form.status;
+      payload.scheduled_date = form.scheduled_date || null;
+      payload.start_time = form.start_time || null;
+      payload.end_time = form.end_time || null;
+      payload.assigned_team = form.assigned_team;
+    }
 
     if (job) {
       const { error } = await supabase.from('jobs').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', job.id);
@@ -168,10 +145,11 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
     <OverlayPortal>
     <div className="overlay-backdrop">
       <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-[#1A1A1A]">{job ? 'Edit Job' : 'New Job'}</h2>
+            <h2 className="text-base font-semibold text-[#1A1A1A]">
+              {job ? (detailsOnly ? 'Job details' : 'Edit Job') : presetParentJobId ? 'New stage' : 'New Job'}
+            </h2>
             {job?.job_number && (
               <span className="text-xs font-bold text-[#2E75B6] bg-[#EFF6FF] px-2 py-0.5 rounded-full">
                 #{String(job.job_number).padStart(4, '0')}
@@ -183,17 +161,14 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
           </button>
         </div>
 
-        {/* Body â€” multi-column fills the wide panel; scrolls only if needed */}
         <div className="overlay-body">
           <div className="overlay-form-grid">
-          {/* Title */}
           <div className="overlay-form-span-all">
             <label className="block text-xs font-medium text-[#4A5568] mb-1">Job Title <span className="text-red-500">*</span></label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               className="form-input" placeholder="e.g. Annual safety inspection" autoFocus />
           </div>
 
-          {/* Client */}
           <div>
             <label className="block text-xs font-medium text-[#4A5568] mb-1">Client</label>
             <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))}
@@ -204,30 +179,30 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
               ))}
             </select>
             {selectedClient?.address && !form.address && (
-              <button onClick={() => setForm(f => ({ ...f, address: selectedClient.address ?? '' }))}
+              <button type="button" onClick={() => setForm(f => ({ ...f, address: selectedClient.address ?? '' }))}
                 className="text-xs text-[#2E75B6] hover:underline mt-1">
                 Use client address: {selectedClient.address}
               </button>
             )}
           </div>
 
-          {/* Address */}
           <div className="overlay-form-span-2">
             <label className="block text-xs font-medium text-[#4A5568] mb-1">Job Site Address</label>
             <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
               className="form-input" placeholder="Where the work is happening" />
           </div>
 
-          {/* Status + Priority */}
-          <div>
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">Status</label>
-            <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as JobStatus }))}
-              className="form-input cursor-pointer">
-              {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
-                <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
-              ))}
-            </select>
-          </div>
+          {!detailsOnly && (
+            <div>
+              <label className="block text-xs font-medium text-[#4A5568] mb-1">Status</label>
+              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as JobStatus }))}
+                className="form-input cursor-pointer">
+                {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
+                  <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-medium text-[#4A5568] mb-1">Priority</label>
             <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value as JobPriority }))}
@@ -250,32 +225,33 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
             />
           </div>
 
-          {/* Date + Time */}
-          <div>
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">Date</label>
-            <input type="date" value={form.scheduled_date ?? ''} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
-              className="form-input" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">Start</label>
-            <input type="time" value={form.start_time ?? ''} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
-              className="form-input" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">End</label>
-            <input type="time" value={form.end_time ?? ''} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
-              className="form-input" />
-          </div>
+          {!detailsOnly && (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-[#4A5568] mb-1">Date</label>
+                <input type="date" value={form.scheduled_date ?? ''} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
+                  className="form-input" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#4A5568] mb-1">Start</label>
+                <input type="time" value={form.start_time ?? ''} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
+                  className="form-input" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#4A5568] mb-1">End</label>
+                <input type="time" value={form.end_time ?? ''} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
+                  className="form-input" />
+              </div>
+            </>
+          )}
 
-          {/* Description */}
           <div className="overlay-form-span-all">
             <label className="block text-xs font-medium text-[#4A5568] mb-1">Description</label>
             <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               className="form-input min-h-[88px] resize-y" placeholder="Job details, scope of work, special instructions..." />
           </div>
 
-          {/* Crew Assignment */}
-          {teamMembers.length > 0 && (
+          {!detailsOnly && teamMembers.length > 0 && (
             <div className="overlay-form-span-all">
               <label className="block text-xs font-medium text-[#4A5568] mb-1.5">Assign Crew</label>
               <div className="flex flex-wrap gap-1.5">
@@ -296,23 +272,8 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
             </div>
           )}
 
-          {/* Link Inspection */}
-          {inspections.length > 0 && (
-            <div>
-              <label className="block text-xs font-medium text-[#4A5568] mb-1">Link to Inspection</label>
-              <select value={form.inspection_id} onChange={e => setForm(f => ({ ...f, inspection_id: e.target.value }))}
-                className="form-input cursor-pointer">
-                <option value="">No linked inspection</option>
-                {inspections.map(i => (
-                  <option key={i.id} value={i.id}>{i.name} ({i.status})</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Parent Project (Multi-Stage) */}
           <div className="overlay-form-span-2">
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">Parent Project (for multi-stage jobs)</label>
+            <label className="block text-xs font-medium text-[#4A5568] mb-1">Parent project</label>
             <select value={form.parent_job_id} onChange={e => setForm(f => ({ ...f, parent_job_id: e.target.value }))}
               className="form-input cursor-pointer">
               <option value="">None (standalone job)</option>
@@ -320,62 +281,18 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
                 <option key={p.id} value={p.id}>{p.title}{p.job_number ? ` #${String(p.job_number).padStart(4, '0')}` : ''}</option>
               ))}
             </select>
-            <p className="text-xs text-[#9CA3AF] mt-1">Link this job as a phase/stage of a larger project.</p>
+            <p className="text-xs text-[#9CA3AF] mt-1">Link this job as a phase of a larger job.</p>
           </div>
 
-          {/* Child stages (if this is a parent) */}
-          {job && childJobs.length > 0 && (
-            <div className="overlay-form-span-all border-t border-gray-100 pt-3">
-              <div className="flex items-center gap-1.5 mb-2">
-                <GitBranch size={14} className="text-[#0A2540]" />
-                <h3 className="text-xs font-semibold text-[#1A1A1A] uppercase tracking-wide">Project Stages ({childJobs.length})</h3>
-              </div>
-              <div className="space-y-1">
-                {childJobs.map(child => (
-                  <Link
-                    key={child.id}
-                    to={`/jobs/${child.id}`}
-                    onClick={onClose}
-                    className="flex items-center justify-between p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                  >
-                    <span className="text-sm text-[#1A1A1A]">{child.title}</span>
-                    <span className="text-xs text-[#6B7280]">{child.status}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Add stage button for parent jobs */}
-          {job && !job.parent_job_id && (
+          {detailsOnly && onAddStage && (
             <div className="overlay-form-span-all">
               <button
                 type="button"
-                onClick={() => setShowAddStage(true)}
+                onClick={onAddStage}
                 className="flex items-center gap-1.5 text-sm text-[#2E75B6] hover:underline font-medium"
               >
-                <Plus size={14} /> Add a stage to this project
+                <GitBranch size={14} /> Add a stage to this project
               </button>
-            </div>
-          )}
-
-          {/* Existing inspection link / start */}
-          {job && (
-            <div className="overlay-form-span-all flex flex-wrap items-center gap-3">
-              {job.inspection_id ? (
-                <Link to={`/inspections/${job.inspection_id}`}
-                  className="flex items-center gap-2 text-sm text-[#2E75B6] hover:underline">
-                  <Link2 size={14} /> Open linked inspection
-                </Link>
-              ) : (
-                <Link
-                  to={`/inspections/new?crmJobId=${job.id}`}
-                  className="flex items-center gap-2 text-sm font-medium text-[#0A2540] bg-[#F0F7FF] border border-[#BFDBFE] px-3 py-1.5 rounded-md hover:bg-[#E0EFFF]"
-                  onClick={onClose}
-                >
-                  <ClipboardList size={14} /> Start inspection from this job
-                </Link>
-              )}
             </div>
           )}
 
@@ -383,7 +300,6 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
           <div>
             {job && !confirmDelete ? (
@@ -407,7 +323,7 @@ export function JobFormModal({ job, presetDate, presetClientId, presetEmployeeId
             </button>
             <button onClick={handleSave} disabled={saving}
               className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">
-              {saving ? 'Saving...' : job ? 'Save Changes' : 'Create Job'}
+              {saving ? 'Saving...' : job ? 'Save Changes' : presetParentJobId ? 'Create stage' : 'Create Job'}
             </button>
           </div>
         </div>
