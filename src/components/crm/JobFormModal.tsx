@@ -8,7 +8,7 @@ import {
 import { X, Trash2, GitBranch } from 'lucide-react';
 import { format } from 'date-fns';
 import { OverlayPortal } from '../ui/OverlayPortal';
-import { jobSiteAddressFromClient } from '../../lib/clientRecords';
+import { jobSiteAddressFromClient, visibleClientContacts } from '../../lib/clientRecords';
 
 interface JobFormModalProps {
   job: Job | null;
@@ -155,18 +155,18 @@ export function JobFormModal({
     <OverlayPortal>
     <div className="overlay-backdrop">
       <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-rule">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-[#1A1A1A]">
+            <h2 className="text-base font-semibold text-navy">
               {job ? (detailsOnly ? 'Job details' : 'Edit Job') : presetParentJobId ? 'New stage' : 'New Job'}
             </h2>
             {job?.job_number && (
-              <span className="text-xs font-bold text-[#2E75B6] bg-[#EFF6FF] px-2 py-0.5 rounded-full">
+              <span className="ops-meta tabular-nums">
                 #{String(job.job_number).padStart(4, '0')}
               </span>
             )}
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400">
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-zebra text-muted">
             <X size={18} />
           </button>
         </div>
@@ -174,13 +174,13 @@ export function JobFormModal({
         <div className="overlay-body">
           <div className="overlay-form-grid">
           <div className="overlay-form-span-all">
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">Job Title <span className="text-red-500">*</span></label>
+            <label className="ops-field-label">Job Title <span className="text-fail">*</span></label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               className="form-input" placeholder="e.g. Annual safety inspection" autoFocus />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">Client</label>
+            <label className="ops-field-label">Client</label>
             <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))}
               className="form-input cursor-pointer">
               <option value="">No client (walk-up)</option>
@@ -188,23 +188,38 @@ export function JobFormModal({
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+            {selectedClient && (
+              <div className="mt-2 flex flex-col gap-1">
+                {visibleClientContacts(selectedClient).map(line => (
+                  <a
+                    key={line.kind}
+                    href={line.href}
+                    className="ops-link text-xs truncate"
+                    target={line.kind === 'map' ? '_blank' : undefined}
+                    rel={line.kind === 'map' ? 'noreferrer' : undefined}
+                  >
+                    {line.label}
+                  </a>
+                ))}
+              </div>
+            )}
             {selectedClient?.address && !form.address && (
               <button type="button" onClick={() => setForm(f => ({ ...f, address: selectedClient.address ?? '' }))}
-                className="text-xs text-[#2E75B6] hover:underline mt-1">
+                className="ops-link text-xs mt-1">
                 Use client address: {selectedClient.address}
               </button>
             )}
           </div>
 
           <div className="overlay-form-span-2">
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">Job Site Address</label>
+            <label className="ops-field-label">Job Site Address</label>
             <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
               className="form-input" placeholder="Where the work is happening" />
           </div>
 
           {!detailsOnly && (
             <div>
-              <label className="block text-xs font-medium text-[#4A5568] mb-1">Status</label>
+              <label className="ops-field-label">Status</label>
               <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as JobStatus }))}
                 className="form-input cursor-pointer">
                 {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
@@ -214,7 +229,7 @@ export function JobFormModal({
             </div>
           )}
           <div>
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">Priority</label>
+            <label className="ops-field-label">Priority</label>
             <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value as JobPriority }))}
               className="form-input cursor-pointer">
               {(Object.keys(JOB_PRIORITY_LABELS) as JobPriority[]).map(p => (
@@ -223,7 +238,7 @@ export function JobFormModal({
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">Job Budget (AUD)</label>
+            <label className="ops-field-label">Job Budget (AUD)</label>
             <input
               type="number"
               step="0.01"
@@ -238,17 +253,17 @@ export function JobFormModal({
           {!detailsOnly && (
             <>
               <div>
-                <label className="block text-xs font-medium text-[#4A5568] mb-1">Date</label>
+                <label className="ops-field-label">Date</label>
                 <input type="date" value={form.scheduled_date ?? ''} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
                   className="form-input" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#4A5568] mb-1">Start</label>
+                <label className="ops-field-label">Start</label>
                 <input type="time" value={form.start_time ?? ''} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
                   className="form-input" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#4A5568] mb-1">End</label>
+                <label className="ops-field-label">End</label>
                 <input type="time" value={form.end_time ?? ''} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
                   className="form-input" />
               </div>
@@ -256,23 +271,23 @@ export function JobFormModal({
           )}
 
           <div className="overlay-form-span-all">
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">Description</label>
+            <label className="ops-field-label">Description</label>
             <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               className="form-input min-h-[88px] resize-y" placeholder="Job details, scope of work, special instructions..." />
           </div>
 
           {!detailsOnly && teamMembers.length > 0 && (
             <div className="overlay-form-span-all">
-              <label className="block text-xs font-medium text-[#4A5568] mb-1.5">Assign Crew</label>
+              <label className="ops-field-label">Assign Crew</label>
               <div className="flex flex-wrap gap-1.5">
                 {teamMembers.map(m => {
                   const selected = form.assigned_team.includes(m.id);
                   return (
                     <button key={m.id} type="button" onClick={() => toggleTeamMember(m.id)}
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
                         selected
-                          ? 'bg-[#0A2540] text-white'
-                          : 'bg-gray-100 text-[#4A5568] hover:bg-gray-200'
+                          ? 'bg-navy text-white border-navy'
+                          : 'bg-white text-muted border-rule hover:text-navy'
                       }`}>
                       {m.name}
                     </button>
@@ -283,7 +298,7 @@ export function JobFormModal({
           )}
 
           <div className="overlay-form-span-2">
-            <label className="block text-xs font-medium text-[#4A5568] mb-1">Parent project</label>
+            <label className="ops-field-label">Parent project</label>
             <select value={form.parent_job_id} onChange={e => setForm(f => ({ ...f, parent_job_id: e.target.value }))}
               className="form-input cursor-pointer">
               <option value="">None (standalone job)</option>
@@ -291,7 +306,7 @@ export function JobFormModal({
                 <option key={p.id} value={p.id}>{p.title}{p.job_number ? ` #${String(p.job_number).padStart(4, '0')}` : ''}</option>
               ))}
             </select>
-            <p className="text-xs text-[#9CA3AF] mt-1">Link this job as a phase of a larger job.</p>
+            <p className="ops-meta mt-1">Link this job as a phase of a larger job.</p>
           </div>
 
           {detailsOnly && onAddStage && (
@@ -299,40 +314,38 @@ export function JobFormModal({
               <button
                 type="button"
                 onClick={onAddStage}
-                className="flex items-center gap-1.5 text-sm text-[#2E75B6] hover:underline font-medium"
+                className="ops-link inline-flex items-center gap-1.5"
               >
                 <GitBranch size={14} /> Add a stage to this project
               </button>
             </div>
           )}
 
-          {err && <p className="overlay-form-span-all text-sm text-red-600">{err}</p>}
+          {err && <p className="overlay-form-span-all text-sm text-fail">{err}</p>}
           </div>
         </div>
 
-        <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4 border-t border-rule">
           <div>
             {job && !confirmDelete ? (
               <button onClick={() => setConfirmDelete(true)}
-                className="flex items-center gap-1.5 text-sm text-red-600 hover:text-red-700 font-medium">
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-fail">
                 <Trash2 size={14} /> Delete
               </button>
             ) : job && confirmDelete ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-red-600">Delete this job?</span>
-                <button onClick={() => setConfirmDelete(false)}
-                  className="text-xs px-2 py-1 border border-[#E5E7EB] rounded hover:bg-gray-50">Cancel</button>
-                <button onClick={handleDelete} disabled={saving}
-                  className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
+                <span className="ops-meta text-fail">Delete this job?</span>
+                <button onClick={() => setConfirmDelete(false)} className="btn-secondary">Cancel</button>
+                <button onClick={handleDelete} disabled={saving} className="btn-danger disabled:opacity-50">Delete</button>
               </div>
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-gray-50">
+            <button onClick={onClose} className="btn-secondary">
               Cancel
             </button>
             <button onClick={handleSave} disabled={saving}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">
+              className="btn-primary min-h-[44px] disabled:opacity-50">
               {saving ? 'Saving...' : job ? 'Save Changes' : presetParentJobId ? 'Create stage' : 'Create Job'}
             </button>
           </div>

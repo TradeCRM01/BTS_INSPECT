@@ -20,6 +20,7 @@ import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
 import { effectiveInvoiceStatus, persistableInvoiceStatus } from '../lib/invoiceStatus';
 import { invoiceListBucket, recommendInvoiceAction, type InvoiceActionKey } from '../lib/invoiceNextAction';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
+import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, formatMoney } from '../types/fsm';
 import { Plus, Receipt, Download, Eye, Check, Send } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
@@ -44,9 +45,9 @@ export function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [editingInvoice, setEditingInvoice] = useState<InvoiceWithDetails | null>(null);
+  const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [viewMode, setViewMode] = useViewMode('invoices');
-  const preselectId = searchParams.get('id');
 
   const { data: invoices, isLoading, error } = useQuery<InvoiceWithDetails[]>({
     queryKey: ['invoices'],
@@ -120,22 +121,44 @@ export function InvoicesPage() {
   }, [invoices]);
 
   useEffect(() => {
-    if (!preselectId || !invoices) return;
-    const inv = invoices.find(i => i.id === preselectId);
-    if (!inv) return;
-    setEditingInvoice(inv);
+    const invoiceId = searchParams.get('id');
+    const clientId = searchParams.get('client');
+    if (invoiceId) {
+      if (!invoices) return;
+      const inv = invoices.find(i => i.id === invoiceId);
+      if (!inv) return;
+      setEditingInvoice(inv);
+      setPresetClientId(null);
+      setShowForm(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('id');
+      next.delete('client');
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    if (!clientId) return;
+    setEditingInvoice(null);
+    setPresetClientId(clientId);
     setShowForm(true);
-    setSearchParams({}, { replace: true });
-  }, [preselectId, invoices, setSearchParams]);
+    const next = new URLSearchParams(searchParams);
+    next.delete('client');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, invoices, setSearchParams]);
 
   function openInvoice(inv: InvoiceWithDetails | null) {
     setEditingInvoice(inv);
+    setPresetClientId(null);
     setShowForm(true);
   }
 
   function handleSaved(opts?: { close?: boolean; message?: string }) {
-    if (opts?.close !== false) setShowForm(false);
+    if (opts?.close !== false) {
+      setShowForm(false);
+      setPresetClientId(null);
+    }
     queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    queryClient.invalidateQueries({ queryKey: ['client-invoices'] });
+    queryClient.invalidateQueries({ queryKey: ['clients'] });
     showToast(opts?.message ?? (editingInvoice ? 'Invoice updated' : 'Invoice created'));
   }
 
@@ -258,9 +281,11 @@ export function InvoicesPage() {
 
       {showForm && (
         <InvoiceEditorModal
+          key={editingInvoice?.id ?? presetClientId ?? 'new'}
           invoice={editingInvoice}
+          presetClientId={presetClientId}
           defaultTaxRate={company?.default_tax_rate ?? DEFAULT_TAX_RATE}
-          onClose={() => setShowForm(false)}
+          onClose={() => { setShowForm(false); setPresetClientId(null); }}
           onSaved={handleSaved}
         />
       )}
@@ -385,8 +410,9 @@ interface EditorState {
   exclusions: string[];
 }
 
-function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
+function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, onSaved }: {
   invoice: InvoiceWithDetails | null;
+  presetClientId?: string | null;
   defaultTaxRate: number;
   onClose: () => void;
   onSaved: (opts?: { close?: boolean; message?: string }) => void;
@@ -404,7 +430,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
   const [savedId, setSavedId] = useState<string | null>(invoice?.id ?? null);
 
   const [form, setForm] = useState<EditorState>({
-    client_id: invoice?.client_id ?? '',
+    client_id: invoice?.client_id ?? presetClientId ?? '',
     job_id: invoice?.job_id ?? '',
     quote_id: invoice?.quote_id ?? '',
     status: invoice?.status === 'overdue' ? 'sent' : (invoice?.status ?? 'draft'),
@@ -445,6 +471,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
 
   const clientJobs = useMemo(() => jobs.filter(j => form.client_id && j.client_id === form.client_id), [jobs, form.client_id]);
   const selectedClient = clients.find(c => c.id === form.client_id);
+  const selectedJob = jobs.find(j => j.id === form.job_id);
   const rawSubtotal = useMemo(() => calcSubtotal(form.line_items), [form.line_items]);
   const gst = useMemo(
     () => calcDocumentTotals(rawSubtotal, parseFloat(form.tax_rate) || 0),
@@ -476,7 +503,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
       secondaryLabel: 'Due',
       secondaryValue: form.due_date ? format(parseISO(form.due_date), 'd MMM yyyy') : '—',
       clientName: selectedClient?.name ?? '—',
-      clientDetail: selectedClient?.address ?? null,
+      clientDetail: quoteClientDetailFromClient(selectedClient, selectedJob?.address),
       company: {
         name: company.name,
         abn: company.abn ?? null,
@@ -496,7 +523,7 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
       notes: form.notes.trim() || null,
       paymentTerms: form.payment_terms.trim() || null,
     };
-  }, [company, form, invoice, selectedClient, subtotal, taxAmount, grandTotal]);
+  }, [company, form, invoice, selectedClient, selectedJob, subtotal, taxAmount, grandTotal]);
 
   const handleImportFromJob = async () => {
     if (!form.job_id) { setErr('Select a job first'); return; }
@@ -604,8 +631,6 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
     onSaved({ close: opts?.close ?? true, message: opts?.message ?? 'Invoice created' });
   };
 
-  const selectedJob = jobs.find(j => j.id === form.job_id);
-
   return (
     <div className="overlay-backdrop">
       <div className="overlay-panel-xl ops-doc-panel" onClick={e => e.stopPropagation()}>
@@ -622,13 +647,14 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
             fromName={company?.name ?? 'Your company'}
             fromDetail={[company?.abn ? `ABN ${company.abn}` : null, company?.licence_number ? `Licence ${company.licence_number}` : null].filter(Boolean).join(' · ') || null}
             toName={selectedClient?.name ?? 'Select a client'}
-            toDetail={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
+            toDetail={quoteClientDetailFromClient(selectedClient, selectedJob?.address)}
           />
           <div className="flex items-start justify-between gap-2 py-3">
             <OpsSiteRow
               hub
               site={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
               phone={selectedClient?.phone}
+              email={selectedClient?.email}
               mapsQuery={selectedJob?.address || selectedClient?.address}
             />
             <div className="shrink-0">
@@ -678,6 +704,21 @@ function InvoiceEditorModal({ invoice, defaultTaxRate, onClose, onSaved }: {
               <option value="">Select a client...</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+            {selectedClient && (
+              <div className="mt-2 flex flex-col gap-1">
+                {visibleClientContacts(selectedClient).map(line => (
+                  <a
+                    key={line.kind}
+                    href={line.href}
+                    className="ops-link text-xs truncate"
+                    target={line.kind === 'map' ? '_blank' : undefined}
+                    rel={line.kind === 'map' ? 'noreferrer' : undefined}
+                  >
+                    {line.label}
+                  </a>
+                ))}
+              </div>
+            )}
           </Field>
 
           <div className="grid grid-cols-2 gap-3">

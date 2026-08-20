@@ -138,6 +138,7 @@ export function JobsPage() {
     queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
     queryClient.invalidateQueries({ queryKey: ['jobs'] });
     queryClient.invalidateQueries({ queryKey: ['client-jobs'] });
+    queryClient.invalidateQueries({ queryKey: ['clients'] });
     navigate(`/jobs/${jobId}`);
   }
 

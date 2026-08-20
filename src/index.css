@@ -270,6 +270,217 @@
     @apply text-xl font-semibold tracking-tight text-navy;
   }
 
+  /* Client hub only: type and void on BTS navy/blue. Not a global restyle. */
+  .hub-clients.ops-page {
+    padding-top: 3.25rem;
+    padding-bottom: 5rem;
+  }
+
+  .hub-clients .ops-page-title {
+    font-size: 2.75rem;
+    line-height: 0.95;
+    letter-spacing: -0.05em;
+    font-weight: 600;
+    color: var(--ops-navy);
+  }
+
+  @media (min-width: 640px) {
+    .hub-clients .ops-page-title {
+      font-size: 3.75rem;
+    }
+  }
+
+  .hub-clients .ops-page-head {
+    margin-bottom: 3.75rem;
+    padding-top: 1.25rem;
+    align-items: flex-end;
+    gap: 1.5rem;
+  }
+
+  .hub-clients .btn-primary {
+    @apply min-h-[44px] px-4;
+  }
+
+  .hub-clients nav[aria-label="Breadcrumb"] {
+    margin-bottom: 0;
+    opacity: 0.4;
+  }
+
+  .hub-clients-chrome {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 3.25rem;
+  }
+
+  .hub-clients-chrome .form-input {
+    background: transparent;
+    border-color: transparent;
+    border-bottom: 1px solid color-mix(in srgb, var(--ops-rule) 70%, transparent);
+    border-radius: 0;
+    min-height: 36px;
+    box-shadow: none;
+    padding-left: 0 !important;
+  }
+
+  .hub-clients-chrome .form-input:focus {
+    box-shadow: none;
+    border-color: transparent;
+    border-bottom-color: var(--ops-navy);
+  }
+
+  .hub-clients-chrome .relative svg {
+    display: none;
+  }
+
+  .hub-clients-chrome .ops-seg {
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+
+  .hub-clients-chrome .ops-seg button {
+    background: transparent !important;
+    color: var(--ops-muted) !important;
+    width: 1.75rem;
+    height: 1.75rem;
+    opacity: 0.55;
+  }
+
+  .hub-clients-chrome .ops-seg button.bg-navy,
+  .hub-clients-chrome .ops-seg button[class*="bg-navy"] {
+    color: var(--ops-navy) !important;
+    opacity: 1;
+  }
+
+  .hub-clients-chrome .hub-chrome-filter {
+    background: none;
+    border: none;
+    padding: 0;
+    min-height: 2rem;
+    font-size: 0.75rem;
+    color: var(--ops-muted);
+  }
+
+  .hub-clients .hub-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 2.75rem;
+  }
+
+  .hub-clients .hub-stack-tight {
+    gap: 1.75rem;
+  }
+
+  .hub-clients .hub-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .hub-clients .hub-row-name {
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    color: var(--ops-navy);
+    line-height: 1.15;
+  }
+
+  .hub-clients .hub-row-signal {
+    text-align: right;
+    flex-shrink: 0;
+    padding-top: 0.15rem;
+  }
+
+  .hub-clients .hub-signal {
+    margin-bottom: 4rem;
+  }
+
+  .hub-clients .hub-signal-amount {
+    font-size: 1.85rem;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    color: var(--ops-navy);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hub-clients .hub-row .hub-signal-amount {
+    font-size: 1.25rem;
+  }
+
+  .hub-clients .hub-row .ops-link {
+    font-size: 0.9375rem;
+  }
+
+  .hub-clients .hub-trays {
+    display: flex;
+    flex-direction: column;
+    gap: 3.75rem;
+  }
+
+  .hub-clients .ops-tray {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+  }
+
+  .hub-clients .ops-tray-head {
+    padding: 0 0 0.35rem;
+    border: none;
+    margin-bottom: 0.15rem;
+  }
+
+  .hub-clients .ops-tray .ops-section-title {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ops-muted);
+  }
+
+  .hub-clients .ops-tray .ops-section-title .ops-meta,
+  .hub-clients .ops-tray .ops-section-title svg,
+  .hub-clients .ops-tray a > svg:first-child {
+    display: none;
+  }
+
+  .hub-clients .ops-tray .divide-y {
+    border: none;
+  }
+
+  .hub-clients .ops-tray .divide-y > :not([hidden]) ~ :not([hidden]) {
+    border-top-width: 0;
+  }
+
+  .hub-clients .ops-tray .flex.items-center.gap-2.pr-2 {
+    padding-right: 0;
+  }
+
+  .hub-clients .ops-tray a.flex,
+  .hub-clients .ops-tray div.flex.items-center.gap-2\.5 {
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+    background: transparent;
+  }
+
+  .hub-clients .ops-tray .px-3.py-3 {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .hub-clients .hub-next {
+    @apply text-sm font-medium text-accent hover:underline;
+  }
+
   .ops-section-title {
     @apply text-sm font-semibold tracking-tight text-navy;
   }

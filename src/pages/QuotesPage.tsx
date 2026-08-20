@@ -21,6 +21,7 @@ import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { padQuoteNumber } from '../lib/quoteJobFields';
+import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import {
   quoteActionContext,
   quoteListBucket,
@@ -175,6 +176,7 @@ export function QuotesPage() {
     }
     queryClient.invalidateQueries({ queryKey: ['quotes'] });
     queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
+    queryClient.invalidateQueries({ queryKey: ['clients'] });
     showToast(opts?.message ?? (editingQuote ? 'Quote updated' : 'Quote created'));
   }
 
@@ -528,6 +530,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
 
   const clientJobs = useMemo(() => jobs.filter(j => form.client_id && j.client_id === form.client_id), [jobs, form.client_id]);
   const selectedClient = clients.find(c => c.id === form.client_id);
+  const selectedJob = jobs.find(j => j.id === form.job_id);
   const rawSubtotal = useMemo(() => calcSubtotal(form.line_items), [form.line_items]);
   const gst = useMemo(
     () => calcDocumentTotals(rawSubtotal, parseFloat(form.tax_rate) || 0),
@@ -565,7 +568,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
       secondaryLabel: 'Valid until',
       secondaryValue: form.validity_date ? format(parseISO(form.validity_date), 'd MMM yyyy') : '—',
       clientName: selectedClient?.name ?? '—',
-      clientDetail: selectedClient?.address ?? null,
+      clientDetail: quoteClientDetailFromClient(selectedClient, selectedJob?.address),
       company: {
         name: company.name,
         abn: company.abn ?? null,
@@ -586,7 +589,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
       total: grandTotal,
       notes: form.notes.trim() || null,
     };
-  }, [company, form, quote, selectedClient, subtotal, taxAmount, grandTotal]);
+  }, [company, form, quote, selectedClient, selectedJob, subtotal, taxAmount, grandTotal]);
 
   const buildPayload = (status: QuoteStatus) => {
     const cleanLines: QuoteLineItem[] = form.line_items
@@ -691,8 +694,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
     }
   };
 
-  const selectedJob = jobs.find(j => j.id === form.job_id);
-
   return (
     <div className="overlay-backdrop">
       <div className="overlay-panel-xl ops-doc-panel" onClick={e => e.stopPropagation()}>
@@ -709,13 +710,14 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             fromName={company?.name ?? 'Your company'}
             fromDetail={[company?.abn ? `ABN ${company.abn}` : null, company?.licence_number ? `Licence ${company.licence_number}` : null].filter(Boolean).join(' · ') || null}
             toName={selectedClient?.name ?? 'Select a client'}
-            toDetail={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
+            toDetail={quoteClientDetailFromClient(selectedClient, selectedJob?.address)}
           />
           <div className="flex items-start justify-between gap-2 py-3">
             <OpsSiteRow
               hub
               site={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
               phone={selectedClient?.phone}
+              email={selectedClient?.email}
               mapsQuery={selectedJob?.address || selectedClient?.address}
             />
             <div className="shrink-0">
@@ -788,6 +790,21 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
                 <option value="">Select a client...</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              {selectedClient && (
+                <div className="mt-2 flex flex-col gap-1">
+                  {visibleClientContacts(selectedClient).map(line => (
+                    <a
+                      key={line.kind}
+                      href={line.href}
+                      className="ops-link text-xs truncate"
+                      target={line.kind === 'map' ? '_blank' : undefined}
+                      rel={line.kind === 'map' ? 'noreferrer' : undefined}
+                    >
+                      {line.label}
+                    </a>
+                  ))}
+                </div>
+              )}
             </Field>
             <Field label="Linked Job">
               <select value={form.job_id} onChange={e => setForm(f => ({ ...f, job_id: e.target.value }))} className="form-input cursor-pointer">

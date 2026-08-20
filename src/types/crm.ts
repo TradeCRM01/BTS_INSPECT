@@ -41,6 +41,9 @@ export interface ClientWithStats extends Client {
   job_count?: number;
   active_jobs?: number;
   last_job_date?: string | null;
+  quoted_total?: number;
+  outstanding_total?: number;
+  overdue_total?: number;
 }
 
 export interface JobWithClient extends Job {
