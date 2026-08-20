@@ -2,12 +2,19 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
-import { ClipboardList, Plus, Search, FileText, RefreshCw, Copy } from 'lucide-react';
+import { ClipboardList, Copy, FileText, Search, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { duplicateJhaDocument } from '../lib/duplicateJhaDocument';
+import {
+  jhaListBucket,
+  jhaListContext,
+  jhaStatusClass,
+  jhaStatusLabel,
+  recommendJhaListAction,
+} from '../lib/jhaNextAction';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError } from '../components/ui';
+import { EmptyState, LoadingSpinner, OpsDocHead, OpsSiteRow, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
 
 type DocRow = {
   id: string;
@@ -24,7 +31,12 @@ type DocRow = {
   template_snapshot: { name?: string } | null;
   client_name?: string | null;
   job_title?: string | null;
+  job_address?: string | null;
 };
+
+function jhaHref(id: string) {
+  return `/jha/new?docId=${id}`;
+}
 
 export function JhaDocumentsPage() {
   const { profile } = useAuth();
@@ -42,7 +54,7 @@ export function JhaDocumentsPage() {
     onSuccess: (newId) => {
       setDupError('');
       queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
-      navigate(`/jha/new?docId=${newId}`);
+      navigate(jhaHref(newId));
     },
     onError: (err) => {
       setDupError(err instanceof Error ? err.message : 'Could not duplicate JHA');
@@ -78,14 +90,15 @@ export function JhaDocumentsPage() {
       const jobIds = [...new Set(list.map(d => d.job_id).filter(Boolean))] as string[];
       const [clientsRes, jobsRes] = await Promise.all([
         clientIds.length ? supabase.from('clients').select('id, name').in('id', clientIds) : Promise.resolve({ data: [], error: null }),
-        jobIds.length ? supabase.from('jobs').select('id, title').in('id', jobIds) : Promise.resolve({ data: [], error: null }),
+        jobIds.length ? supabase.from('jobs').select('id, title, address').in('id', jobIds) : Promise.resolve({ data: [], error: null }),
       ]);
       const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c.name]));
-      const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j.title]));
+      const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j]));
       return list.map(d => ({
         ...d,
         client_name: d.client_id ? clientMap.get(d.client_id) ?? null : null,
-        job_title: d.job_id ? jobMap.get(d.job_id) ?? null : null,
+        job_title: d.job_id ? jobMap.get(d.job_id)?.title ?? null : null,
+        job_address: d.job_id ? jobMap.get(d.job_id)?.address ?? null : null,
       }));
     },
     enabled: !!profile,
@@ -100,52 +113,46 @@ export function JhaDocumentsPage() {
         d.template_snapshot?.name,
         d.meta?.taskName,
         d.meta?.siteName,
+        d.meta?.documentTitle,
         d.client_name,
         d.job_title,
+        d.job_address,
         d.amendment_reason,
       ].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(needle);
     });
   }, [docs, q]);
 
+  const openDocs = filtered.filter(d => jhaListBucket(d.status) === 'open');
+  const publishedDocs = filtered.filter(d => jhaListBucket(d.status) === 'published');
+  const noneAtAll = !isLoading && !isError && (docs ?? []).length === 0;
+  const noneMatch = !isLoading && !isError && (docs ?? []).length > 0 && filtered.length === 0;
+
   return (
     <AppShell>
-      <div className="max-w-[1200px] mx-auto px-4 py-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div className="max-w-[1200px] mx-auto px-4 py-6 pb-24">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A] flex items-center gap-2">
-              <ClipboardList size={20} className="text-[#0A2540]" />
+            <h1 className="ops-page-title flex items-center gap-2">
+              <ClipboardList size={20} />
               JHA documents
             </h1>
-            <p className="text-sm text-[#6B7280] mt-1">Search, open, and re-issue job hazard analyses.</p>
+            <p className="ops-meta mt-1">Open a row to fill. Start a new one from the job.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <select
-              className="form-input-sm text-sm"
-              defaultValue=""
-              onChange={e => {
-                const id = e.target.value;
-                if (id) navigate(`/jha/new?templateId=${id}`);
-              }}
-            >
-              <option value="">New from template…</option>
-              {(templates ?? []).map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-            <Link
-              to="/jha/swms-library"
-              className="text-sm text-[#2E75B6] hover:underline flex items-center gap-1"
-            >
-              <FileText size={14} /> SWMS library
-            </Link>
-            <Link
-              to="/templates"
-              className="text-sm text-[#2E75B6] hover:underline flex items-center gap-1"
-            >
-              <Plus size={14} /> Manage templates
-            </Link>
-          </div>
+          <select
+            className="form-input-sm text-sm min-h-[44px]"
+            defaultValue=""
+            aria-label="New JHA from template"
+            onChange={e => {
+              const id = e.target.value;
+              if (id) navigate(`/jha/new?templateId=${id}`);
+            }}
+          >
+            <option value="">New from template…</option>
+            {(templates ?? []).map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
         </div>
 
         <div className="flex flex-wrap gap-2 mb-4">
@@ -154,24 +161,25 @@ export function JhaDocumentsPage() {
             <input
               value={q}
               onChange={e => setQ(e.target.value)}
-              placeholder="Search task, site, client, report #…"
-              className="form-input-sm w-full pl-9"
+              placeholder="Search job, site, report #…"
+              className="form-input-sm w-full pl-9 min-h-[44px]"
             />
           </div>
           <select
             value={status}
             onChange={e => setStatus(e.target.value as typeof status)}
-            className="form-input-sm"
+            className="form-input-sm min-h-[44px]"
+            aria-label="Filter by status"
           >
             <option value="all">All statuses</option>
             <option value="draft">Draft</option>
-            <option value="completed">Completed</option>
+            <option value="completed">Ready</option>
             <option value="published">Published</option>
           </select>
         </div>
 
         {dupError && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
             {dupError}
           </div>
         )}
@@ -181,87 +189,43 @@ export function JhaDocumentsPage() {
         )}
         {isError && <PageError onRetry={refetch} />}
 
-        {!isLoading && !isError && filtered.length === 0 && (
-          <div className="text-center py-16 border border-dashed border-[#E5E7EB] rounded-xl bg-white">
-            <FileText size={36} className="mx-auto text-[#E5E7EB] mb-3" />
-            <p className="text-[#1A1A1A] font-medium">No JHA documents yet</p>
-            <p className="text-sm text-[#6B7280] mt-1">Create one from a template to get started.</p>
-          </div>
+        {noneAtAll && (
+          <EmptyState
+            icon={ShieldCheck}
+            title="No JHA documents yet"
+            message="Open a job and tap Start JHA. That is how a leading hand starts one on site — this list is for opening and finishing them."
+            action={
+              <Link to="/jobs" className="ops-next-control min-w-[160px]">
+                Open jobs
+              </Link>
+            }
+          />
+        )}
+
+        {noneMatch && (
+          <EmptyState
+            icon={FileText}
+            title="No matching JHAs"
+            message="Try another status or search."
+          />
         )}
 
         {!isLoading && filtered.length > 0 && (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-[#F9FAFB] text-[#6B7280] text-xs uppercase tracking-wide">
-                <tr>
-                  <th className="text-left font-medium px-4 py-3">Document</th>
-                  <th className="text-left font-medium px-4 py-3">Client / Job</th>
-                  <th className="text-left font-medium px-4 py-3">Status</th>
-                  <th className="text-left font-medium px-4 py-3">Rev</th>
-                  <th className="text-left font-medium px-4 py-3">Updated</th>
-                  <th className="text-right font-medium px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(d => {
-                  const title = d.meta?.taskName || d.template_snapshot?.name || 'Untitled JHA';
-                  const site = d.meta?.siteName;
-                  return (
-                    <tr key={d.id} className="border-t border-[#E5E7EB] hover:bg-[#F9FAFB]">
-                      <td className="px-4 py-3">
-                        <Link to={`/jha/new?docId=${d.id}`} className="font-medium text-[#0A2540] hover:underline">
-                          {title}
-                        </Link>
-                        <div className="text-xs text-[#6B7280] mt-0.5">
-                          {[d.report_number, site].filter(Boolean).join(' · ') || '—'}
-                          {d.amended_from_id && (
-                            <span className="ml-2 inline-flex items-center gap-0.5 text-amber-700">
-                              <RefreshCw size={10} /> Amendment
-                            </span>
-                          )}
-                        </div>
-                        {d.amendment_reason && (
-                          <div className="text-[11px] text-[#9CA3AF] mt-0.5 truncate max-w-md">
-                            Reason: {d.amendment_reason}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-[#4A5568]">
-                        <div>{d.client_name || d.meta?.clientName || '—'}</div>
-                        <div className="text-xs text-[#9CA3AF]">{d.job_title || '—'}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusPill status={d.status} />
-                      </td>
-                      <td className="px-4 py-3 text-[#4A5568]">v{d.doc_version ?? 1}</td>
-                      <td className="px-4 py-3 text-[#6B7280] text-xs">
-                        {format(parseISO(d.completed_at || d.created_at), 'd MMM yyyy')}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="inline-flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => duplicateMutation.mutate(d.id)}
-                            disabled={duplicateMutation.isPending && duplicateMutation.variables === d.id}
-                            className="text-xs text-[#4A5568] hover:text-[#0A2540] disabled:opacity-50 inline-flex items-center gap-1"
-                            title="Duplicate as a new draft (signatures cleared)"
-                          >
-                            <Copy size={12} />
-                            {duplicateMutation.isPending && duplicateMutation.variables === d.id ? 'Copying…' : 'Duplicate'}
-                          </button>
-                          <Link
-                            to={`/jha/new?docId=${d.id}`}
-                            className="text-xs text-[#2E75B6] hover:underline"
-                          >
-                            Open
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="space-y-4">
+            <JhaGroup
+              title="Needs action"
+              docs={openDocs}
+              onOpen={id => navigate(jhaHref(id))}
+              onDuplicate={id => duplicateMutation.mutate(id)}
+              duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
+            />
+            <JhaGroup
+              title="Published"
+              docs={publishedDocs}
+              onOpen={id => navigate(jhaHref(id))}
+              onDuplicate={id => duplicateMutation.mutate(id)}
+              duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
+            />
           </div>
         )}
       </div>
@@ -269,14 +233,98 @@ export function JhaDocumentsPage() {
   );
 }
 
-function StatusPill({ status }: { status: string }) {
-  const tone =
-    status === 'published' ? 'bg-green-50 text-green-800 border-green-200'
-      : status === 'completed' ? 'bg-blue-50 text-blue-800 border-blue-200'
-        : 'bg-amber-50 text-amber-800 border-amber-200';
+function JhaGroup({
+  title,
+  docs,
+  onOpen,
+  onDuplicate,
+  duplicatingId,
+}: {
+  title: string;
+  docs: DocRow[];
+  onOpen: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  duplicatingId?: string;
+}) {
+  if (docs.length === 0) return null;
   return (
-    <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium border ${tone}`}>
-      {status}
-    </span>
+    <div>
+      <h2 className="ops-group-title">
+        {title}
+        <span className="ops-meta normal-case font-normal"> ({docs.length})</span>
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        {docs.map(d => (
+          <JhaDocCard
+            key={d.id}
+            doc={d}
+            onOpen={() => onOpen(d.id)}
+            onDuplicate={() => onDuplicate(d.id)}
+            duplicating={duplicatingId === d.id}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function JhaDocCard({
+  doc,
+  onOpen,
+  onDuplicate,
+  duplicating,
+}: {
+  doc: DocRow;
+  onOpen: () => void;
+  onDuplicate: () => void;
+  duplicating: boolean;
+}) {
+  const next = recommendJhaListAction(jhaListContext(doc));
+  const site = opsSiteLabel(doc.meta?.siteName, doc.job_address, doc.job_title, doc.meta?.taskName);
+  const title = doc.meta?.documentTitle || doc.meta?.taskName || doc.template_snapshot?.name || 'JHA';
+  const when = format(parseISO(doc.completed_at || doc.created_at), 'd MMM yyyy');
+
+  return (
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      className="ops-card ops-card-hover group w-full cursor-pointer"
+    >
+      <OpsDocHead
+        kind="JHA"
+        id={doc.report_number || 'Draft'}
+        meta={`v${doc.doc_version ?? 1} · ${when}`}
+        trailing={<OpsStatus className={jhaStatusClass(doc.status)}>{jhaStatusLabel(doc.status)}</OpsStatus>}
+      />
+      <div className="ops-card-body">
+        <OpsSiteRow site={site} mapsQuery={doc.meta?.siteName || doc.job_address || null} />
+        <p className="ops-meta mt-1 truncate">{title}</p>
+        {(doc.job_title || doc.client_name || doc.meta?.clientName) && (
+          <p className="ops-meta mt-0.5 truncate">
+            {[doc.job_title, doc.client_name || doc.meta?.clientName].filter(Boolean).join(' · ')}
+          </p>
+        )}
+        {doc.amended_from_id && doc.amendment_reason && (
+          <p className="ops-meta mt-0.5 truncate">Amendment: {doc.amendment_reason}</p>
+        )}
+        <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
+          <button type="button" onClick={onOpen} className="ops-next-control-block">
+            {next.label}
+          </button>
+          <button
+            type="button"
+            onClick={onDuplicate}
+            disabled={duplicating}
+            className="btn-ghost w-full min-h-[44px] mt-1 text-xs"
+            title="Duplicate as a new draft (signatures cleared)"
+          >
+            <Copy size={14} />
+            {duplicating ? 'Copying…' : 'Duplicate'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

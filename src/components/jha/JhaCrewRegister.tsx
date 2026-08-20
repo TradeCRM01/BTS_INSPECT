@@ -152,30 +152,31 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
   const available = members.filter(m => !crew.some(c => c.profileId === m.id));
 
   return (
-    <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5">
-      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+    <div className="ops-card">
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap px-3 pt-3">
         <div className="flex items-center gap-2">
           <Users size={16} className="text-[#4A5568]" />
-          <h2 className="text-sm font-medium text-[#1A1A1A]">Crew sign-on register</h2>
+          <h2 className="text-sm font-semibold text-navy">Crew sign-on</h2>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setPickerOpen(o => !o)}
-            className="text-xs text-[#2E75B6] hover:underline flex items-center gap-1"
+            className="text-xs font-semibold text-accent min-h-[44px] px-2 inline-flex items-center gap-1"
           >
             <Users size={12} /> Add from team
           </button>
           <button
             type="button"
             onClick={addBlank}
-            className="text-xs text-[#2E75B6] hover:underline flex items-center gap-1"
+            className="text-xs font-semibold text-accent min-h-[44px] px-2 inline-flex items-center gap-1"
           >
-            <Plus size={12} /> Add external person
+            <Plus size={12} /> Add person
           </button>
         </div>
       </div>
-      <p className="text-xs text-[#6B7280] mb-3">
+      <div className="px-3 pb-3">
+      <p className="ops-meta mb-3">
         Pick company workers or add visitors. Sign on this device, or notify a teammate to open and sign on their own login.
       </p>
 
@@ -189,7 +190,7 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
                 key={m.id}
                 type="button"
                 onClick={() => addMember(m)}
-                className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-white flex justify-between gap-2"
+                  className="w-full text-left text-sm px-2 py-2.5 min-h-[44px] rounded-md hover:bg-white flex justify-between gap-2"
               >
                 <span>{m.name || m.email}</span>
                 <span className="text-xs text-[#9CA3AF]">{m.email}</span>
@@ -216,7 +217,7 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
                 <input
                   value={member.name}
                   onChange={e => update(idx, { name: e.target.value })}
-                  className="form-input-sm w-full"
+                  className="form-input-sm w-full min-h-[44px] h-auto"
                   placeholder="Full name"
                 />
               </div>
@@ -225,7 +226,7 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
                 <input
                   value={member.role}
                   onChange={e => update(idx, { role: e.target.value })}
-                  className="form-input-sm w-full"
+                  className="form-input-sm w-full min-h-[44px] h-auto"
                   placeholder="e.g. Electrician"
                 />
               </div>
@@ -235,7 +236,7 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
                   type="date"
                   value={member.date}
                   onChange={e => update(idx, { date: e.target.value })}
-                  className="form-input-sm w-full"
+                  className="form-input-sm w-full min-h-[44px] h-auto"
                 />
               </div>
               <div className="sm:col-span-2">
@@ -243,14 +244,14 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
                 <select
                   value={member.signMode || 'on_device'}
                   onChange={e => update(idx, { signMode: e.target.value as 'on_device' | 'remote' })}
-                  className="form-input-sm w-full"
+                  className="form-input-sm w-full min-h-[44px] h-auto"
                 >
                   <option value="on_device">This device</option>
                   <option value="remote">Their login</option>
                 </select>
               </div>
               <div className="sm:col-span-1 flex justify-end pb-1">
-                <button type="button" onClick={() => remove(idx)} className="text-[#9CA3AF] hover:text-red-600">
+                <button type="button" onClick={() => remove(idx)} className="text-[#9CA3AF] hover:text-red-600 min-w-[44px] min-h-[44px] inline-flex items-center justify-center">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -275,7 +276,7 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
                 <button
                   type="button"
                   onClick={() => setSigningId(signingId === member.id ? null : member.id)}
-                  className="inline-flex items-center gap-1 text-[#2E75B6] hover:underline"
+                  className="inline-flex items-center justify-center gap-1 min-h-[44px] px-3 rounded-md bg-accent text-white text-xs font-semibold"
                 >
                   <Smartphone size={12} /> Sign on this device
                 </button>
@@ -285,7 +286,7 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
                   type="button"
                   disabled={!!notifyBusy}
                   onClick={() => void notifyRemote(member)}
-                  className="inline-flex items-center gap-1 text-[#2E75B6] hover:underline disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1 min-h-[44px] px-3 rounded-md border border-[#E5E7EB] text-navy text-xs font-semibold disabled:opacity-50"
                 >
                   <Send size={12} /> {notifyBusy === member.id ? 'Sending…' : 'Notify / copy link'}
                 </button>
@@ -297,7 +298,7 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
                     const url = `${window.location.origin}/jha/crew-sign?docId=${documentId}&crewId=${member.id}`;
                     try { await navigator.clipboard.writeText(url); setMsg('Sign link copied'); } catch { setMsg(url); }
                   }}
-                  className="inline-flex items-center gap-1 text-[#6B7280] hover:underline"
+                  className="inline-flex items-center justify-center gap-1 min-h-[44px] px-3 text-[#6B7280] text-xs"
                 >
                   <Link2 size={12} /> Copy sign link
                 </button>
@@ -315,6 +316,7 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
             )}
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

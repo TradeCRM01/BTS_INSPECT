@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
+import { NextBanner, OpsDocHead, OpsStatus, opsSiteLabel } from '../components/ui';
 import { nanoid } from '../lib/nanoid';
 import { generateJhaPdf } from '../reports/generateJhaPdf';
 import {
@@ -26,8 +27,9 @@ import { JhaCrewRegister } from '../components/jha/JhaCrewRegister';
 import { JhaSwmsLibraryPicker } from '../components/jha/JhaSwmsLibraryPicker';
 import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { EMPTY_SWMS, HRCW_CATEGORIES, parseSwmsMeta, type JhaSwmsData } from '../lib/swmsHrcw';
+import { jhaFillContext, jhaStatusClass, jhaStatusLabel, recommendJhaFillAction } from '../lib/jhaNextAction';
 import {
-  ChevronLeft, Plus, Trash2, ShieldCheck, Save, FileText,
+  ChevronDown, ChevronLeft, Plus, Trash2, ShieldCheck, FileText,
   Download, AlertCircle, HardHat, Check, X, CheckCircle, Printer,
   Phone, RefreshCw, ShieldAlert, Package, Copy,
 } from 'lucide-react';
@@ -115,6 +117,8 @@ export function JhaFillPage() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form');
+  const [showMoreIdentity, setShowMoreIdentity] = useState(false);
+  const [showMoreDoc, setShowMoreDoc] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const { data: template, isLoading: tmplLoading } = useQuery({
@@ -239,7 +243,7 @@ export function JhaFillPage() {
     const clientName = clients.find(c => c.id === (job.client_id || presetClientId))?.name ?? '';
     setMeta(prev => ({
       ...prev,
-      siteName: prev.siteName || job.title || '',
+      siteName: prev.siteName || job.address || job.title || '',
       clientName: prev.clientName || clientName,
     }));
   }, [isEditMode, presetJobId, presetClientId, jobs, clients]);
@@ -698,524 +702,428 @@ export function JhaFillPage() {
   const customFields = schema.meta.customFields ?? [];
   const isPublished = existingDoc?.status === 'published' || (docIdState === existingDoc?.id && existingDoc?.status === 'published');
   const documentTitle = (meta.documentTitle || templateName || 'Job Hazard Analysis').trim();
+  const selectedJob = jobs.find(j => j.id === jobId);
+  const siteLabel = opsSiteLabel(meta.siteName, selectedJob?.address, selectedJob?.title, meta.taskName);
+  const statusKey = isPublished ? 'published' : (existingDoc?.status || 'draft');
+  const next = recommendJhaFillAction(jhaFillContext({
+    status: statusKey,
+    saved: !!docIdState,
+    hasPdf: !!pdfUrl,
+    siteParts: [meta.siteName, selectedJob?.address, selectedJob?.title, meta.taskName],
+    steps,
+    crew,
+    signOffRoles: schema.signOffRoles ?? [],
+    signOffs,
+  }));
+  const nextBusy = publishing || saveState === 'saving' || duplicating;
 
   function getRiskInfo(riskId: string) {
     return schema!.riskLevels.find(r => r.id === riskId);
   }
 
+  function runNext() {
+    if (next.key === 'save') {
+      void doSave('draft').catch(() => {});
+      return;
+    }
+    if (next.key === 'publish') {
+      void handlePublish();
+      return;
+    }
+    setActiveTab('form');
+    if (next.key === 'pdf') {
+      setActiveTab('preview');
+      return;
+    }
+    const target =
+      next.key === 'site' ? 'jha-identity'
+        : next.key === 'steps' ? 'jha-steps'
+          : next.key === 'crew' ? 'jha-crew'
+            : 'jha-signoff';
+    if (next.key === 'sign' && crew.some(c => c.name.trim() && !c.signature)) {
+      scrollToId('jha-crew');
+      return;
+    }
+    scrollToId(target);
+  }
+
+  const saveHint =
+    saveState === 'saved' && docIdState ? 'Saved'
+      : saveState === 'saving' ? 'Saving…'
+        : saveState === 'unsaved' ? 'Unsaved'
+          : saveState === 'error' ? 'Save failed'
+            : null;
+
   return (
     <AppShell>
-      <div className="max-w-[1000px] mx-auto px-4 py-6">
-        {/* Top bar */}
-        <div className="flex items-center justify-between mb-4">
+      <div className="max-w-[1000px] mx-auto px-4 py-4 pb-32">
+        <div className="flex items-center justify-between gap-3 mb-3">
           <button
+            type="button"
             onClick={() => navigate('/jha')}
-            className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] transition-colors"
+            className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] min-h-[44px]"
           >
             <ChevronLeft size={16} /> JHA documents
           </button>
-          <div className="flex items-center gap-3">
-            {saveState === 'saved' && docIdState && <span className="text-xs text-[#1B7F3A] flex items-center gap-1"><Check size={12} /> Saved</span>}
-            {saveState === 'saving' && <span className="text-xs text-[#4A5568] flex items-center gap-1"><LoadingSpinner size="sm" /> Saving...</span>}
-            {saveState === 'unsaved' && <span className="text-xs text-[#92400E]">Unsaved changes</span>}
-            {saveState === 'error' && <span className="text-xs text-[#B42318]">Save failed</span>}
-            <span className="text-xs text-[#6B7280]">Rev v{docVersion}</span>
-            {isPublished && (
-              <span className="text-xs text-[#1B7F3A] flex items-center gap-1 bg-[#DCFCE7] px-2 py-1 rounded font-medium">
-                <CheckCircle size={12} /> Published
+          <div className="flex items-center gap-2 text-xs">
+            {saveHint && (
+              <span className={saveState === 'error' ? 'text-[#B42318]' : saveState === 'unsaved' ? 'text-[#92400E]' : 'text-[#1B7F3A] flex items-center gap-1'}>
+                {saveState === 'saved' && <Check size={12} />}
+                {saveHint}
               </span>
             )}
-            {docIdState && (
-              <button
-                type="button"
-                onClick={() => void handleDuplicate()}
-                disabled={duplicating || publishing}
-                className="flex items-center gap-1.5 border border-[#E5E7EB] bg-white text-[#0A2540] px-3 py-2 rounded-md text-sm font-medium hover:bg-[#F9FAFB] disabled:opacity-50"
-                title="Copy as a new draft (signatures cleared)"
-              >
-                {duplicating ? <LoadingSpinner size="sm" /> : <Copy size={14} />} Duplicate
-              </button>
-            )}
-            {isPublished && (
-              <button
-                type="button"
-                onClick={handleAmend}
-                className="flex items-center gap-1.5 border border-[#E5E7EB] bg-white text-[#0A2540] px-3 py-2 rounded-md text-sm font-medium hover:bg-[#F9FAFB]"
-                title="Create a new revision for re-brief"
-              >
-                <RefreshCw size={14} /> Amend / re-brief
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => void handleDownloadPack()}
-              disabled={publishing || !docIdState}
-              className="flex items-center gap-1.5 border border-[#E5E7EB] bg-white text-[#0A2540] px-3 py-2 rounded-md text-sm font-medium hover:bg-[#F9FAFB] disabled:opacity-50"
-              title="Branded PDF with SWMS + photos"
-            >
-              <Package size={14} /> Client pack
-            </button>
-            <button
-              onClick={handlePublish}
-              disabled={publishing}
-              className="flex items-center gap-1.5 bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors disabled:opacity-50"
-            >
-              {publishing ? <><LoadingSpinner size="sm" /> Publishing...</> : <><Printer size={14} /> Publish JHA</>}
-            </button>
+            <span className="text-[#6B7280]">Rev v{docVersion}</span>
           </div>
         </div>
 
-        {/* Title — editable; this is what appears on the published PDF cover */}
-        <div className="mb-4">
-          <label className="text-xs font-medium text-[#4A5568] mb-1.5 flex items-center gap-1.5">
-            <ShieldCheck size={14} className="text-[#0A2540]" />
-            Document title <span className="text-[#B42318]">*</span>
-            <span className="font-normal text-[#9CA3AF]">(shown on published PDF)</span>
-          </label>
-          <input
-            type="text"
-            value={meta.documentTitle ?? ''}
-            onChange={e => updateMeta('documentTitle', e.target.value)}
-            placeholder={templateName || 'Job Hazard Analysis'}
-            className="w-full text-xl font-semibold text-[#1A1A1A] border border-[#E5E7EB] rounded-lg px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent placeholder:text-[#9CA3AF] placeholder:font-normal"
+        <article className="ops-card overflow-hidden mb-3">
+          <OpsDocHead
+            kind="JHA"
+            id={existingDoc?.report_number || 'Draft'}
+            meta={[siteLabel !== 'No site address' ? siteLabel : null, selectedJob?.title, meta.date ? format(new Date(meta.date), 'd MMM yyyy') : null].filter(Boolean).join(' · ')}
+            trailing={<OpsStatus className={jhaStatusClass(statusKey)}>{jhaStatusLabel(statusKey)}</OpsStatus>}
           />
-          <p className="text-sm text-[#4A5568] mt-1.5">
-            Job Hazard Analysis
-            {documentTitle && documentTitle !== templateName ? ` · Template: ${templateName}` : ''}
-            {amendedFromId && amendmentReason ? ` · Amendment: ${amendmentReason}` : ''}
-          </p>
-        </div>
+          <div className="px-3 pt-3 pb-2">
+            <label className="text-[10px] font-bold uppercase tracking-wide text-accent mb-1 flex items-center gap-1.5">
+              <ShieldCheck size={12} />
+              Document title
+              <span className="font-normal normal-case tracking-normal text-[rgba(0,0,0,0.55)]">(on the published PDF)</span>
+            </label>
+            <input
+              type="text"
+              value={meta.documentTitle ?? ''}
+              onChange={e => updateMeta('documentTitle', e.target.value)}
+              placeholder={templateName || 'Job Hazard Analysis'}
+              className="w-full text-lg font-semibold text-navy border border-[#E5E7EB] rounded-md px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent placeholder:text-[#9CA3AF] placeholder:font-normal"
+            />
+            <p className="ops-meta mt-1.5">
+              Job Hazard Analysis
+              {documentTitle && documentTitle !== templateName ? ` · Template: ${templateName}` : ''}
+              {amendedFromId && amendmentReason ? ` · Amendment: ${amendmentReason}` : ''}
+            </p>
+            <div className="mt-2">
+              <NextBanner detail={next.detail} />
+            </div>
+          </div>
+        </article>
 
-        {/* Error */}
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm whitespace-pre-line">
+          <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm whitespace-pre-line">
             {error}
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1 border-b border-[#E5E7EB] mb-4">
+        <div className="ops-tabs mb-3">
           <button
+            type="button"
             onClick={() => setActiveTab('form')}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeTab === 'form' ? 'border-[#2E75B6] text-[#2E75B6]' : 'border-transparent text-[#6B7280] hover:text-[#374151]'}`}
+            className={`ops-tab ${activeTab === 'form' ? 'ops-tab-active' : ''}`}
           >
-            <span className="flex items-center gap-2"><FileText size={16} /> Form</span>
+            Fill
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('preview')}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeTab === 'preview' ? 'border-[#2E75B6] text-[#2E75B6]' : 'border-transparent text-[#6B7280] hover:text-[#374151]'}`}
+            className={`ops-tab ${activeTab === 'preview' ? 'ops-tab-active' : ''}`}
           >
-            <span className="flex items-center gap-2"><Printer size={16} /> Published Document</span>
+            PDF
           </button>
         </div>
 
-        {/* FORM TAB */}
         {activeTab === 'form' && (
-          <div className="space-y-4">
-            {/* Job Details */}
-            <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <HardHat size={16} className="text-[#4A5568]" />
-                <h2 className="text-sm font-medium text-[#1A1A1A]">Job Details</h2>
+          <div className="space-y-3">
+            <section id="jha-identity" className="ops-card">
+              <div className="ops-tray-head">
+                <h2 className="text-sm font-semibold text-navy flex items-center gap-2">
+                  <HardHat size={16} /> Job / site
+                </h2>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="px-3 pb-3 pt-2 space-y-3">
                 <div>
-                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Client (CRM)</label>
-                  <select
-                    value={clientId}
-                    onChange={e => {
-                      const next = e.target.value;
-                      setClientId(next);
-                      setJobId('');
-                      const name = clients.find(c => c.id === next)?.name ?? '';
-                      if (name) updateMeta('clientName', name);
-                      markUnsaved();
-                    }}
-                    className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 bg-white"
-                  >
-                    <option value="">No linked client</option>
-                    {clients.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">
+                    Site / location{schema.meta.requiresSiteName && <span className="text-[#B42318]"> *</span>}
+                  </label>
+                  <input
+                    type="text"
+                    value={meta.siteName ?? ''}
+                    onChange={e => updateMeta('siteName', e.target.value)}
+                    placeholder="Where is the work?"
+                    className="w-full text-base font-semibold text-navy border border-[#E5E7EB] rounded-md px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                  />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Job (CRM)</label>
+                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Job</label>
                   <select
                     value={jobId}
                     onChange={e => {
-                      const next = e.target.value;
-                      setJobId(next);
-                      const job = jobs.find(j => j.id === next);
+                      const nextJob = e.target.value;
+                      setJobId(nextJob);
+                      const job = jobs.find(j => j.id === nextJob);
                       if (job?.client_id) {
                         setClientId(job.client_id);
                         const name = clients.find(c => c.id === job.client_id)?.name ?? '';
                         if (name) updateMeta('clientName', name);
                       }
+                      if (job) {
+                        const nextSite = job.address || job.title || '';
+                        if (nextSite && !(meta.siteName ?? '').trim()) updateMeta('siteName', nextSite);
+                      }
                       markUnsaved();
                     }}
-                    className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 bg-white"
+                    className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 bg-white min-h-[44px]"
                   >
                     <option value="">No linked job</option>
                     {clientJobs.map(j => (
-                      <option key={j.id} value={j.id}>{j.title}</option>
+                      <option key={j.id} value={j.id}>{j.title}{j.address ? ` — ${j.address}` : ''}</option>
                     ))}
                   </select>
                 </div>
-                {schema.meta.requiresTaskName && (
-                  <InputField label="Task / Activity" required value={meta.taskName ?? ''} onChange={v => updateMeta('taskName', v)} />
-                )}
-                {schema.meta.requiresSiteName && (
-                  <InputField label="Site / Location" required value={meta.siteName ?? ''} onChange={v => updateMeta('siteName', v)} />
-                )}
-                {schema.meta.requiresDate && (
-                  <InputField label="Date" required type="date" value={meta.date ?? ''} onChange={v => updateMeta('date', v)} />
-                )}
-                {schema.meta.requiresSupervisor && (
-                  <InputField label="Supervisor" required value={meta.supervisor ?? ''} onChange={v => updateMeta('supervisor', v)} />
-                )}
-                {schema.meta.requiresClient && (
-                  <InputField label="Client" required value={meta.clientName ?? ''} onChange={v => updateMeta('clientName', v)} />
-                )}
-                {schema.meta.requiresPlantArea && (
-                  <InputField label="Plant / Area / Panel" required value={meta.plantArea ?? ''} onChange={v => updateMeta('plantArea', v)} />
-                )}
-                {schema.meta.requiresShift && (
-                  <InputField label="Shift" required value={meta.shift ?? ''} onChange={v => updateMeta('shift', v)} placeholder="e.g. Day / Night / 06:00–18:00" />
-                )}
-                {schema.meta.requiresPermitRefs && (
-                  <InputField label="Permit / PTW / Isolation refs" required value={meta.permitRefs ?? ''} onChange={v => updateMeta('permitRefs', v)} placeholder="Permit #, LOTO #, energy isolation" />
-                )}
-                {schema.meta.requiresMusterPoint && (
-                  <InputField label="Muster point" required value={meta.musterPoint ?? ''} onChange={v => updateMeta('musterPoint', v)} />
-                )}
-                <InputField label="Site Contact (optional)" value={meta.siteContact ?? ''} onChange={v => updateMeta('siteContact', v)} />
-                {customFields.map(field => (
-                  <InputField
-                    key={field.id}
-                    label={field.label}
-                    required={field.required}
-                    type={field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'}
-                    value={meta[`custom_${field.id}`] ?? ''}
-                    onChange={v => updateMeta(`custom_${field.id}`, v)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* PPE Selection */}
-            <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <HardHat size={16} className="text-[#4A5568]" />
-                <h2 className="text-sm font-medium text-[#1A1A1A]">Required PPE</h2>
-              </div>
-              <div className="flex flex-wrap gap-2 mb-3">
-                {schema.ppeOptions.map(opt => {
-                  const selected = selectedPpe.includes(opt.label);
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={() => togglePpe(opt.label)}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-all ${
-                        selected
-                          ? 'bg-[#0A2540] text-white border-[#0A2540]'
-                          : 'bg-white text-[#4A5568] border-[#E5E7EB] hover:border-[#D1D5DB]'
-                      }`}
-                    >
-                      {selected && <Check size={13} />}
-                      {opt.label}
-                    </button>
-                  );
-                })}
-                {/* Custom PPE items with remove button */}
-                {selectedPpe.filter(p => !schema.ppeOptions.some(o => o.label === p)).map(label => (
-                  <span key={label} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border bg-[#2E75B6]/10 text-[#2E75B6] border-[#2E75B6]">
-                    {label}
-                    <button onClick={() => removePpe(label)} className="hover:text-[#1e5394]">
-                      <X size={13} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              {/* Add custom PPE */}
-              <div className="flex items-center gap-2 pt-2 border-t border-[#F3F4F6]">
-                <input
-                  type="text"
-                  value={customPpeInput}
-                  onChange={e => setCustomPpeInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomPpe(); } }}
-                  placeholder="Add custom PPE item..."
-                  className="flex-1 text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
-                />
-                <button
-                  onClick={addCustomPpe}
-                  disabled={!customPpeInput.trim()}
-                  className="flex items-center gap-1 text-sm text-[#2E75B6] hover:text-[#1e5394] font-medium px-3 py-2 border border-[#2E75B6] rounded disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#2E75B6]/5 transition-colors"
-                >
-                  <Plus size={14} /> Add
-                </button>
-              </div>
-            </div>
-
-            {/* Emergency Contacts (optional) */}
-            <EmergencyContactsSection
-              contacts={meta.emergencyContacts ? JSON.parse(meta.emergencyContacts) : []}
-              onChange={contacts => updateMeta('emergencyContacts', JSON.stringify(contacts))}
-            />
-
-            {/* SWMS merge */}
-            <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5">
-              <div className="flex items-center justify-between mb-3 gap-2">
-                <div className="flex items-center gap-2">
-                  <FileText size={16} className="text-[#4A5568]" />
-                  <h2 className="text-sm font-medium text-[#1A1A1A]">SWMS (AU high-risk construction)</h2>
-                </div>
-                <label className="flex items-center gap-2 text-sm text-[#4A5568]">
-                  <input
-                    type="checkbox"
-                    checked={swms.enabled}
-                    onChange={e => {
-                      setSwms(s => ({ ...s, enabled: e.target.checked }));
-                      markUnsaved();
-                    }}
-                    className="accent-[#2E75B6]"
-                  />
-                  Include SWMS page in PDF
-                </label>
-              </div>
-              <p className="text-xs text-[#6B7280] mb-3">
-                For Schedule 3 high-risk construction work. Step controls stay in the JHA table; this captures HRCW categories and method notes.
-              </p>
-              {swms.enabled && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <InputField
-                      label="Principal contractor"
-                      value={swms.principalContractor}
-                      onChange={v => { setSwms(s => ({ ...s, principalContractor: v })); markUnsaved(); }}
-                    />
-                    <InputField
-                      label="PCBU"
-                      value={swms.pcie}
-                      onChange={v => { setSwms(s => ({ ...s, pcie: v })); markUnsaved(); }}
-                    />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-[#4A5568] mb-2">HRCW categories</p>
-                    <div className="max-h-48 overflow-y-auto space-y-1.5 border border-[#E5E7EB] rounded-lg p-3">
-                      {HRCW_CATEGORIES.map(c => {
-                        const checked = swms.hrcwCategories.includes(c.id);
-                        return (
-                          <label key={c.id} className="flex items-start gap-2 text-xs text-[#1A1A1A] cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="mt-0.5 accent-[#2E75B6]"
-                              checked={checked}
-                              onChange={() => {
-                                setSwms(s => ({
-                                  ...s,
-                                  hrcwCategories: checked
-                                    ? s.hrcwCategories.filter(id => id !== c.id)
-                                    : [...s.hrcwCategories, c.id],
-                                }));
-                                markUnsaved();
-                              }}
-                            />
-                            <span>{c.label}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-[#4A5568] mb-1 block">High-risk notes / method</label>
-                    <textarea
-                      value={swms.highRiskNotes}
-                      onChange={e => { setSwms(s => ({ ...s, highRiskNotes: e.target.value })); markUnsaved(); }}
-                      rows={2}
-                      className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-[#4A5568] mb-1 block">Emergency procedures</label>
-                    <textarea
-                      value={swms.emergencyProcedures}
-                      onChange={e => { setSwms(s => ({ ...s, emergencyProcedures: e.target.value })); markUnsaved(); }}
-                      rows={2}
-                      className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 resize-none"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {profile?.company_id && (
-              <JhaSwmsLibraryPicker
-                companyId={profile.company_id}
-                selectedIds={linkedSwmsIds}
-                onChange={ids => {
-                  setLinkedSwmsIds(ids);
-                  markUnsaved();
-                }}
-              />
-            )}
-
-            {/* Take 5 companions */}
-            <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5">
-              <div className="flex items-center justify-between mb-3 gap-2">
-                <div className="flex items-center gap-2">
-                  <ShieldAlert size={16} className="text-[#4A5568]" />
-                  <h2 className="text-sm font-medium text-[#1A1A1A]">Take 5 / POWRA companions</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {schema.meta.requiresTaskName && (
+                    <InputField label="Task / Activity" required value={meta.taskName ?? ''} onChange={v => updateMeta('taskName', v)} />
+                  )}
+                  {schema.meta.requiresDate && (
+                    <InputField label="Date" required type="date" value={meta.date ?? ''} onChange={v => updateMeta('date', v)} />
+                  )}
+                  {schema.meta.requiresSupervisor && (
+                    <InputField label="Supervisor" required value={meta.supervisor ?? ''} onChange={v => updateMeta('supervisor', v)} />
+                  )}
+                  {schema.meta.requiresClient && (
+                    <InputField label="Client" required value={meta.clientName ?? ''} onChange={v => updateMeta('clientName', v)} />
+                  )}
                 </div>
                 <button
                   type="button"
-                  disabled={!docIdState}
-                  onClick={() => docIdState && navigate(`/jha/take5?jhaId=${docIdState}`)}
-                  className="text-xs text-[#2E75B6] hover:underline disabled:opacity-40"
+                  onClick={() => setShowMoreIdentity(v => !v)}
+                  className="flex items-center gap-1 text-xs font-semibold text-accent min-h-[44px]"
                 >
-                  + New Take 5
+                  <ChevronDown size={14} className={showMoreIdentity ? 'rotate-180' : ''} />
+                  {showMoreIdentity ? 'Hide extra details' : 'More job details'}
                 </button>
-              </div>
-              <p className="text-xs text-[#6B7280] mb-3">
-                Point-of-work checks that reference this JHA. Save the JHA first, then add Take 5s at the workface.
-              </p>
-              {take5List.length === 0 ? (
-                <p className="text-sm text-[#9CA3AF] text-center py-3 border border-dashed border-[#E5E7EB] rounded-lg">No Take 5 records yet</p>
-              ) : (
-                <ul className="space-y-2">
-                  {take5List.map(t => (
-                    <li key={t.id}>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/jha/take5?jhaId=${docIdState}&id=${t.id}`)}
-                        className="w-full text-left text-sm px-3 py-2 rounded-lg border border-[#E5E7EB] hover:border-[#2E75B6] flex items-center justify-between"
+                {showMoreIdentity && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-[#E5E7EB]">
+                    <div>
+                      <label className="text-xs font-medium text-[#4A5568] mb-1 block">Client (CRM)</label>
+                      <select
+                        value={clientId}
+                        onChange={e => {
+                          const nextClient = e.target.value;
+                          setClientId(nextClient);
+                          setJobId('');
+                          const name = clients.find(c => c.id === nextClient)?.name ?? '';
+                          if (name) updateMeta('clientName', name);
+                          markUnsaved();
+                        }}
+                        className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 bg-white min-h-[44px]"
                       >
-                        <span>{t.signed_name || 'Take 5'} · {t.status} · {t.go_no_go === 'stop' ? 'STOP' : 'GO'}</span>
-                        <span className="text-xs text-[#9CA3AF]">{format(new Date(t.created_at), 'd MMM HH:mm')}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Job Steps */}
-            <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <AlertCircle size={16} className="text-[#4A5568]" />
-                  <h2 className="text-sm font-medium text-[#1A1A1A]">Job Steps & Risk Assessment</h2>
-                </div>
-                <button onClick={addStep} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium">
-                  <Plus size={13} /> Add Step
-                </button>
-              </div>
-              <p className="text-xs text-[#4A5568] mb-3">
-                For each task step, identify the hazards and their consequences, then implement controls and assess the residual risk after controls are applied.
-              </p>
-
-              {/* Risk Matrix toggle */}
-              <button
-                onClick={() => setShowRiskMatrix(v => !v)}
-                className="flex items-center gap-1.5 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium mb-3"
-              >
-                <ShieldCheck size={13} />
-                {showRiskMatrix ? 'Hide Risk Matrix' : 'Show Risk Matrix'}
-              </button>
-              {showRiskMatrix && (
-                <div className="mb-4 border border-[#E5E7EB] rounded-lg bg-[#F9FAFB] p-4">
-                  <p className="text-xs font-semibold text-[#0A2540] mb-3 uppercase tracking-wide">5×5 Risk Assessment Matrix</p>
-                  <p className="text-xs text-[#4A5568] mb-3">Risk = Likelihood × Consequence. Use this matrix to determine the initial and residual risk ratings.</p>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs border-collapse">
-                      <thead>
-                        <tr>
-                          <th className="border border-[#E5E7EB] bg-[#0A2540] text-white px-2 py-1.5 text-left font-medium whitespace-nowrap">
-                            Likelihood ↓ / Consequence →
-                          </th>
-                          {CONSEQUENCE_OPTIONS.map(c => (
-                            <th key={c.id} className="border border-[#E5E7EB] bg-[#0A2540] text-white px-1.5 py-1.5 text-center font-medium whitespace-nowrap" title={c.description}>
-                              {c.label}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...LIKELIHOOD_OPTIONS].reverse().map(l => (
-                          <tr key={l.id}>
-                            <td className="border border-[#E5E7EB] bg-[#F3F4F6] px-2 py-1.5 font-medium text-[#1A1A1A] whitespace-nowrap" title={l.description}>
-                              {l.label}
-                            </td>
-                            {CONSEQUENCE_OPTIONS.map(c => {
-                              const score = l.score * c.score;
-                              const { bg, text } = riskCellStyle(score);
-                              return (
-                                <td key={c.id} className={`border border-[#E5E7EB] px-1.5 py-1.5 text-center font-bold ${bg} ${text}`}>
-                                  {score}
-                                </td>
-                              );
-                            })}
-                          </tr>
+                        <option value="">No linked client</option>
+                        {clients.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-[#E5E7EB]">
-                    {[
-                      { label: 'Low (1-4)', color: '#166534' },
-                      { label: 'Moderate (5-9)', color: '#B45309' },
-                      { label: 'Significant (10-15)', color: '#C2410C' },
-                      { label: 'Severe (16-25)', color: '#B91C1C' },
-                    ].map(r => (
-                      <div key={r.label} className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: r.color }} />
-                        <span className="text-xs text-[#4A5568] font-medium">{r.label}</span>
-                      </div>
+                      </select>
+                    </div>
+                    {schema.meta.requiresPlantArea && (
+                      <InputField label="Plant / Area / Panel" required value={meta.plantArea ?? ''} onChange={v => updateMeta('plantArea', v)} />
+                    )}
+                    {schema.meta.requiresShift && (
+                      <InputField label="Shift" required value={meta.shift ?? ''} onChange={v => updateMeta('shift', v)} placeholder="e.g. Day / Night / 06:00–18:00" />
+                    )}
+                    {schema.meta.requiresPermitRefs && (
+                      <InputField label="Permit / PTW / Isolation refs" required value={meta.permitRefs ?? ''} onChange={v => updateMeta('permitRefs', v)} placeholder="Permit #, LOTO #, energy isolation" />
+                    )}
+                    {schema.meta.requiresMusterPoint && (
+                      <InputField label="Muster point" required value={meta.musterPoint ?? ''} onChange={v => updateMeta('musterPoint', v)} />
+                    )}
+                    <InputField label="Site Contact (optional)" value={meta.siteContact ?? ''} onChange={v => updateMeta('siteContact', v)} />
+                    {customFields.map(field => (
+                      <InputField
+                        key={field.id}
+                        label={field.label}
+                        required={field.required}
+                        type={field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'}
+                        value={meta[`custom_${field.id}`] ?? ''}
+                        onChange={v => updateMeta(`custom_${field.id}`, v)}
+                      />
                     ))}
                   </div>
-                </div>
-              )}
-
-              <div className="space-y-4">
-                {steps.map((step, idx) => (
-                  <JhaStepCard
-                    key={step.id}
-                    step={step}
-                    index={idx}
-                    schema={schema}
-                    canDelete={steps.length > 1}
-                    maxAcceptableResidual={maxAcceptableResidual(schema)}
-                    documentId={docIdState}
-                    getRiskInfo={getRiskInfo}
-                    onChange={updates => updateStep(step.id, updates)}
-                    onDelete={() => deleteStep(step.id)}
-                  />
-                ))}
+                )}
               </div>
+            </section>
+
+            <section className="ops-card">
+              <div className="ops-tray-head">
+                <h2 className="text-sm font-semibold text-navy flex items-center gap-2">
+                  <HardHat size={16} /> Required PPE
+                </h2>
+              </div>
+              <div className="px-3 pb-3 pt-2">
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {schema.ppeOptions.map(opt => {
+                    const selected = selectedPpe.includes(opt.label);
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => togglePpe(opt.label)}
+                        className={`flex items-center gap-1.5 px-3 min-h-[44px] rounded-md text-sm font-medium border transition-all ${
+                          selected
+                            ? 'bg-[#0A2540] text-white border-[#0A2540]'
+                            : 'bg-white text-[#4A5568] border-[#E5E7EB] hover:border-[#D1D5DB]'
+                        }`}
+                      >
+                        {selected && <Check size={13} />}
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                  {selectedPpe.filter(p => !schema.ppeOptions.some(o => o.label === p)).map(label => (
+                    <span key={label} className="flex items-center gap-1.5 px-3 min-h-[44px] rounded-md text-sm font-medium border bg-[#2E75B6]/10 text-[#2E75B6] border-[#2E75B6]">
+                      {label}
+                      <button type="button" onClick={() => removePpe(label)} className="hover:text-[#1e5394] min-w-[44px] min-h-[44px] inline-flex items-center justify-center">
+                        <X size={13} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 pt-2 border-t border-[#E5E7EB]">
+                  <input
+                    type="text"
+                    value={customPpeInput}
+                    onChange={e => setCustomPpeInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomPpe(); } }}
+                    placeholder="Add custom PPE item..."
+                    className="flex-1 text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomPpe}
+                    disabled={!customPpeInput.trim()}
+                    className="flex items-center gap-1 text-sm text-[#2E75B6] font-medium px-3 min-h-[44px] border border-[#2E75B6] rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#2E75B6]/5"
+                  >
+                    <Plus size={14} /> Add
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section id="jha-steps" className="ops-card">
+              <div className="ops-tray-head">
+                <h2 className="text-sm font-semibold text-navy flex items-center gap-2">
+                  <AlertCircle size={16} /> Hazards, steps & controls
+                </h2>
+                <button type="button" onClick={addStep} className="flex items-center gap-1 text-xs font-semibold text-accent min-h-[44px]">
+                  <Plus size={13} /> Add step
+                </button>
+              </div>
+              <div className="px-3 pb-3 pt-2">
+                <p className="ops-meta mb-3">
+                  For each step: what can go wrong, then the controls that bring residual risk down.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowRiskMatrix(v => !v)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-accent mb-3 min-h-[44px]"
+                >
+                  <ShieldCheck size={13} />
+                  {showRiskMatrix ? 'Hide risk matrix' : 'Show risk matrix'}
+                </button>
+                {showRiskMatrix && (
+                  <div className="mb-4 border border-[#E5E7EB] rounded-md bg-[#F9FAFB] p-4">
+                    <p className="text-xs font-semibold text-[#0A2540] mb-3 uppercase tracking-wide">5×5 Risk Assessment Matrix</p>
+                    <p className="text-xs text-[#4A5568] mb-3">Risk = Likelihood × Consequence. Use this matrix to determine the initial and residual risk ratings.</p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr>
+                            <th className="border border-[#E5E7EB] bg-[#0A2540] text-white px-2 py-1.5 text-left font-medium whitespace-nowrap">
+                              Likelihood ↓ / Consequence →
+                            </th>
+                            {CONSEQUENCE_OPTIONS.map(c => (
+                              <th key={c.id} className="border border-[#E5E7EB] bg-[#0A2540] text-white px-1.5 py-1.5 text-center font-medium whitespace-nowrap" title={c.description}>
+                                {c.label}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...LIKELIHOOD_OPTIONS].reverse().map(l => (
+                            <tr key={l.id}>
+                              <td className="border border-[#E5E7EB] bg-[#F3F4F6] px-2 py-1.5 font-medium text-[#1A1A1A] whitespace-nowrap" title={l.description}>
+                                {l.label}
+                              </td>
+                              {CONSEQUENCE_OPTIONS.map(c => {
+                                const score = l.score * c.score;
+                                const { bg, text } = riskCellStyle(score);
+                                return (
+                                  <td key={c.id} className={`border border-[#E5E7EB] px-1.5 py-1.5 text-center font-bold ${bg} ${text}`}>
+                                    {score}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-[#E5E7EB]">
+                      {[
+                        { label: 'Low (1-4)', color: '#166534' },
+                        { label: 'Moderate (5-9)', color: '#B45309' },
+                        { label: 'Significant (10-15)', color: '#C2410C' },
+                        { label: 'Severe (16-25)', color: '#B91C1C' },
+                      ].map(r => (
+                        <div key={r.label} className="flex items-center gap-1.5">
+                          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: r.color }} />
+                          <span className="text-xs text-[#4A5568] font-medium">{r.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-3">
+                  {steps.map((step, idx) => (
+                    <JhaStepCard
+                      key={step.id}
+                      step={step}
+                      index={idx}
+                      schema={schema}
+                      canDelete={steps.length > 1}
+                      maxAcceptableResidual={maxAcceptableResidual(schema)}
+                      documentId={docIdState}
+                      getRiskInfo={getRiskInfo}
+                      onChange={updates => updateStep(step.id, updates)}
+                      onDelete={() => deleteStep(step.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <div id="jha-crew">
+              {profile?.company_id && (
+                <JhaCrewRegister
+                  companyId={profile.company_id}
+                  documentId={docIdState}
+                  crew={crew}
+                  currentUserId={profile.id}
+                  onChange={nextCrew => {
+                    setCrew(nextCrew);
+                    markUnsaved();
+                  }}
+                />
+              )}
             </div>
 
-            {profile?.company_id && (
-              <JhaCrewRegister
-                companyId={profile.company_id}
-                documentId={docIdState}
-                crew={crew}
-                currentUserId={profile.id}
-                onChange={next => {
-                  setCrew(next);
-                  markUnsaved();
-                }}
-              />
-            )}
-            {/* Sign-Offs */}
             {signOffs.length > 0 && (
-              <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <ShieldCheck size={16} className="text-[#4A5568]" />
-                  <h2 className="text-sm font-medium text-[#1A1A1A]">Sign-Off & Approval</h2>
+              <section id="jha-signoff" className="ops-card">
+                <div className="ops-tray-head">
+                  <h2 className="text-sm font-semibold text-navy flex items-center gap-2">
+                    <ShieldCheck size={16} /> Supervisor sign-off
+                  </h2>
                 </div>
-                <div className="space-y-4">
+                <div className="px-3 pb-3 pt-2 space-y-3">
                   {signOffs.map((sign, idx) => (
-                    <div key={sign.roleId} className="border border-[#E5E7EB] rounded-lg p-4">
+                    <div key={sign.roleId} className="border border-[#E5E7EB] rounded-md p-3">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-[#1A1A1A]">{sign.roleLabel}</span>
@@ -1234,7 +1142,7 @@ export function JhaFillPage() {
                         value={sign.name}
                         onChange={e => updateSignOff(idx, { name: e.target.value })}
                         placeholder="Full name"
-                        className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                        className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 mb-3 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
                       />
                       <SignatureCapture
                         value={sign.signature || ''}
@@ -1255,60 +1163,245 @@ export function JhaFillPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </section>
             )}
 
-            {/* Save buttons */}
-            <div className="flex items-center justify-end gap-3 pb-4">
+            <section className="ops-card">
               <button
-                onClick={() => { void doSave('draft').catch(() => {}); }}
-                disabled={saveState === 'saving' || publishing}
-                className="flex items-center gap-1.5 border border-[#E5E7EB] text-[#4A5568] px-4 py-2 rounded-md text-sm font-medium hover:bg-[#F9FAFB] transition-colors disabled:opacity-50"
+                type="button"
+                onClick={() => setShowMoreDoc(v => !v)}
+                className="w-full ops-tray-head min-h-[44px]"
               >
-                <Save size={14} /> Save Draft
+                <span className="text-sm font-semibold text-navy">SWMS, Take 5 & extras</span>
+                <ChevronDown size={16} className={`text-[#6B7280] ${showMoreDoc ? 'rotate-180' : ''}`} />
               </button>
-              <button
-                onClick={handlePublish}
-                disabled={publishing}
-                className="flex items-center gap-1.5 bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors disabled:opacity-50"
-              >
-                {publishing ? <><LoadingSpinner size="sm" /> Publishing...</> : <><Printer size={14} /> Publish JHA</>}
-              </button>
-            </div>
+              {showMoreDoc && (
+                <div className="px-3 pb-3 pt-2 space-y-3 border-t border-[#E5E7EB]">
+                  <EmergencyContactsSection
+                    contacts={meta.emergencyContacts ? JSON.parse(meta.emergencyContacts) : []}
+                    onChange={contacts => updateMeta('emergencyContacts', JSON.stringify(contacts))}
+                  />
+
+                  <div className="border border-[#E5E7EB] rounded-md p-3">
+                    <div className="flex items-center justify-between mb-2 gap-2">
+                      <div className="flex items-center gap-2">
+                        <FileText size={16} className="text-[#4A5568]" />
+                        <h3 className="text-sm font-medium text-[#1A1A1A]">SWMS (AU high-risk construction)</h3>
+                      </div>
+                      <label className="flex items-center gap-2 text-sm text-[#4A5568] min-h-[44px]">
+                        <input
+                          type="checkbox"
+                          checked={swms.enabled}
+                          onChange={e => {
+                            setSwms(s => ({ ...s, enabled: e.target.checked }));
+                            markUnsaved();
+                          }}
+                          className="accent-[#2E75B6]"
+                        />
+                        Include SWMS page in PDF
+                      </label>
+                    </div>
+                    <p className="ops-meta mb-3">
+                      For Schedule 3 high-risk construction work. Step controls stay in the JHA table; this captures HRCW categories and method notes.
+                    </p>
+                    {swms.enabled && (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <InputField
+                            label="Principal contractor"
+                            value={swms.principalContractor}
+                            onChange={v => { setSwms(s => ({ ...s, principalContractor: v })); markUnsaved(); }}
+                          />
+                          <InputField
+                            label="PCBU"
+                            value={swms.pcie}
+                            onChange={v => { setSwms(s => ({ ...s, pcie: v })); markUnsaved(); }}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-[#4A5568] mb-2">HRCW categories</p>
+                          <div className="max-h-48 overflow-y-auto space-y-1.5 border border-[#E5E7EB] rounded-md p-3">
+                            {HRCW_CATEGORIES.map(c => {
+                              const checked = swms.hrcwCategories.includes(c.id);
+                              return (
+                                <label key={c.id} className="flex items-start gap-2 text-xs text-[#1A1A1A] cursor-pointer min-h-[44px]">
+                                  <input
+                                    type="checkbox"
+                                    className="mt-0.5 accent-[#2E75B6]"
+                                    checked={checked}
+                                    onChange={() => {
+                                      setSwms(s => ({
+                                        ...s,
+                                        hrcwCategories: checked
+                                          ? s.hrcwCategories.filter(id => id !== c.id)
+                                          : [...s.hrcwCategories, c.id],
+                                      }));
+                                      markUnsaved();
+                                    }}
+                                  />
+                                  <span>{c.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-[#4A5568] mb-1 block">High-risk notes / method</label>
+                          <textarea
+                            value={swms.highRiskNotes}
+                            onChange={e => { setSwms(s => ({ ...s, highRiskNotes: e.target.value })); markUnsaved(); }}
+                            rows={2}
+                            className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2 resize-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-[#4A5568] mb-1 block">Emergency procedures</label>
+                          <textarea
+                            value={swms.emergencyProcedures}
+                            onChange={e => { setSwms(s => ({ ...s, emergencyProcedures: e.target.value })); markUnsaved(); }}
+                            rows={2}
+                            className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2 resize-none"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {profile?.company_id && (
+                    <JhaSwmsLibraryPicker
+                      companyId={profile.company_id}
+                      selectedIds={linkedSwmsIds}
+                      onChange={ids => {
+                        setLinkedSwmsIds(ids);
+                        markUnsaved();
+                      }}
+                    />
+                  )}
+
+                  <div className="border border-[#E5E7EB] rounded-md p-3">
+                    <div className="flex items-center justify-between mb-2 gap-2">
+                      <div className="flex items-center gap-2">
+                        <ShieldAlert size={16} className="text-[#4A5568]" />
+                        <h3 className="text-sm font-medium text-[#1A1A1A]">Take 5 / POWRA companions</h3>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!docIdState}
+                        onClick={() => docIdState && navigate(`/jha/take5?jhaId=${docIdState}`)}
+                        className="text-xs font-semibold text-accent min-h-[44px] disabled:opacity-40"
+                      >
+                        + New Take 5
+                      </button>
+                    </div>
+                    <p className="ops-meta mb-3">
+                      Point-of-work checks that reference this JHA. Save the JHA first, then add Take 5s at the workface.
+                    </p>
+                    {take5List.length === 0 ? (
+                      <p className="text-sm text-[#9CA3AF] text-center py-3 border border-dashed border-[#E5E7EB] rounded-md">No Take 5 records yet</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {take5List.map(t => (
+                          <li key={t.id}>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/jha/take5?jhaId=${docIdState}&id=${t.id}`)}
+                              className="w-full text-left text-sm px-3 py-2.5 min-h-[44px] rounded-md border border-[#E5E7EB] hover:border-[#2E75B6] flex items-center justify-between"
+                            >
+                              <span>{t.signed_name || 'Take 5'} · {t.status} · {t.go_no_go === 'stop' ? 'STOP' : 'GO'}</span>
+                              <span className="text-xs text-[#9CA3AF]">{format(new Date(t.created_at), 'd MMM HH:mm')}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    {docIdState && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDuplicate()}
+                        disabled={duplicating || publishing}
+                        className="btn-secondary w-full min-h-[44px] justify-center"
+                        title="Copy as a new draft (signatures cleared)"
+                      >
+                        {duplicating ? <LoadingSpinner size="sm" /> : <Copy size={14} />} Duplicate as new draft
+                      </button>
+                    )}
+                    {isPublished && (
+                      <button
+                        type="button"
+                        onClick={handleAmend}
+                        className="btn-secondary w-full min-h-[44px] justify-center"
+                        title="Create a new revision for re-brief"
+                      >
+                        <RefreshCw size={14} /> Amend / re-brief
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void handleDownloadPack()}
+                      disabled={publishing || !docIdState}
+                      className="btn-secondary w-full min-h-[44px] justify-center"
+                      title="Branded PDF with SWMS + photos"
+                    >
+                      <Package size={14} /> Client pack
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
           </div>
         )}
 
-        {/* PREVIEW TAB */}
         {activeTab === 'preview' && (
           <div>
             {pdfUrl ? (
-              <div className="bg-white border border-[#E5E7EB] rounded-lg overflow-hidden shadow-sm">
+              <div className="ops-card overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E7EB] bg-[#F9FAFB]">
-                  <span className="text-sm font-medium text-[#1A1A1A]">Published Document</span>
-                  <button onClick={handleDownload} className="flex items-center gap-1.5 border border-[#0A2540] text-[#0A2540] px-3 py-1.5 rounded text-sm font-medium hover:bg-[#0A2540]/5">
+                  <span className="text-sm font-medium text-[#1A1A1A]">Published document</span>
+                  <button type="button" onClick={handleDownload} className="ops-next-control">
                     <Download size={14} /> Download PDF
                   </button>
                 </div>
                 <iframe src={pdfUrl} className="w-full" style={{ height: '75vh' }} title="JHA PDF" />
               </div>
             ) : (
-              <div className="bg-white border border-[#E5E7EB] rounded-lg py-16 text-center shadow-sm">
+              <div className="ops-card py-16 text-center">
                 <Printer size={48} className="mx-auto text-[#E5E7EB] mb-3" />
                 <p className="text-[#1A1A1A] font-medium">No published document yet</p>
-                <p className="text-sm text-[#4A5568] mt-1">Fill out the form and click "Publish JHA" to generate a polished PDF.</p>
+                <p className="ops-meta mt-1">Fill the JHA, get signatures, then publish.</p>
                 <button
+                  type="button"
                   onClick={() => setActiveTab('form')}
-                  className="mt-4 inline-flex items-center gap-2 bg-[#2E75B6] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#1e5394] transition-colors"
+                  className="mt-4 ops-next-control"
                 >
-                  <FileText size={15} /> Go to Form
+                  <FileText size={15} /> Back to fill
                 </button>
               </div>
             )}
           </div>
         )}
       </div>
+
+      <div className="ops-sticky">
+        <div className="max-w-[1000px] mx-auto">
+          <button
+            type="button"
+            onClick={runNext}
+            disabled={nextBusy}
+            className="ops-next-control-block"
+          >
+            {publishing ? <><LoadingSpinner size="sm" /> Publishing…</> : next.label}
+          </button>
+        </div>
+      </div>
     </AppShell>
   );
+}
+
+function scrollToId(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 interface EmergencyContact {
@@ -1335,11 +1428,11 @@ function EmergencyContactsSection({ contacts, onChange }: {
   }
 
   return (
-    <div className="mb-5 border border-[#E5E7EB] rounded-lg bg-white overflow-hidden">
+    <div className="border border-[#E5E7EB] rounded-md bg-white overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#F9FAFB] transition-colors"
+        className="w-full flex items-center justify-between px-3 py-3 min-h-[44px] hover:bg-[#F9FAFB] transition-colors"
       >
         <div className="flex items-center gap-2.5">
           <Phone size={16} className="text-[#B91C1C]" />
@@ -1354,13 +1447,13 @@ function EmergencyContactsSection({ contacts, onChange }: {
         <Plus size={16} className={`text-[#6B7280] transition-transform ${expanded ? 'rotate-45' : ''}`} />
       </button>
       {expanded && (
-        <div className="px-4 pb-4 pt-2 border-t border-[#E5E7EB]">
-          <p className="text-xs text-[#6B7280] mb-3">Add site emergency contacts, first aid officers, or key personnel. These appear on the cover page of the finished document.</p>
+        <div className="px-3 pb-4 pt-2 border-t border-[#E5E7EB]">
+          <p className="ops-meta mb-3">Add site emergency contacts, first aid officers, or key personnel. These appear on the cover page of the finished document.</p>
           {contacts.length === 0 ? (
             <button
               type="button"
               onClick={add}
-              className="flex items-center gap-2 text-sm text-[#2E75B6] font-medium hover:underline"
+              className="flex items-center gap-2 text-sm text-[#2E75B6] font-medium min-h-[44px]"
             >
               <Plus size={14} /> Add emergency contact
             </button>
@@ -1373,26 +1466,26 @@ function EmergencyContactsSection({ contacts, onChange }: {
                     value={c.role}
                     onChange={e => update(i, 'role', e.target.value)}
                     placeholder="Role (e.g. First Aid Officer)"
-                    className="sm:col-span-4 text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
+                    className="sm:col-span-4 text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
                   />
                   <input
                     type="text"
                     value={c.name}
                     onChange={e => update(i, 'name', e.target.value)}
                     placeholder="Name"
-                    className="sm:col-span-4 text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
+                    className="sm:col-span-4 text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
                   />
                   <input
                     type="tel"
                     value={c.phone}
                     onChange={e => update(i, 'phone', e.target.value)}
                     placeholder="Phone"
-                    className="sm:col-span-3 text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
+                    className="sm:col-span-3 text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
                   />
                   <button
                     type="button"
                     onClick={() => remove(i)}
-                    className="sm:col-span-1 flex items-center justify-center py-2 text-[#B91C1C] hover:bg-[#FEE2E2] rounded transition-colors"
+                    className="sm:col-span-1 flex items-center justify-center min-h-[44px] text-[#B91C1C] hover:bg-[#FEE2E2] rounded-md transition-colors"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -1401,7 +1494,7 @@ function EmergencyContactsSection({ contacts, onChange }: {
               <button
                 type="button"
                 onClick={add}
-                className="flex items-center gap-2 text-sm text-[#2E75B6] font-medium hover:underline mt-1"
+                className="flex items-center gap-2 text-sm text-[#2E75B6] font-medium min-h-[44px] mt-1"
               >
                 <Plus size={14} /> Add another
               </button>
@@ -1438,7 +1531,7 @@ function InputField({ label, required, value, onChange, type = 'text', placehold
         value={value}
         placeholder={placeholder}
         onChange={e => onChange(e.target.value)}
-        className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+        className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
       />
     </div>
   );
