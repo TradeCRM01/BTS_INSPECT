@@ -465,6 +465,31 @@
     @apply mx-auto px-4 py-6 w-full;
     max-width: min(1200px, 100%);
   }
+
+  /* ── App chrome (navy Looplet craft: hairlines, no mega-menu shadow) ─ */
+  .shell-header {
+    @apply bg-navy text-white sticky top-0 z-40 flex-shrink-0 border-b border-white/10;
+  }
+
+  .auth-navy {
+    background-color: #0A2540;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .shell-menu {
+    @apply absolute top-full z-50 min-w-[200px] bg-navy border border-white/15 py-1;
+  }
+
+  .shell-menu-item {
+    @apply flex items-center gap-2.5 px-3 py-2 text-sm tracking-tight text-white/70 hover:bg-white/5 hover:text-white;
+  }
+
+  .shell-menu-item-active {
+    @apply bg-white/10 text-white font-medium;
+  }
 }
 
 @layer utilities {

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Bitcoin, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
+import { BrandLockup } from '../components/brand/BrandLockup';
 
 
 export function LoginPage() {
@@ -52,20 +53,11 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0A2540] via-[#0d2f4e] to-[#082036] flex items-center justify-center px-4">
+    <div className="min-h-screen auth-navy flex items-center justify-center px-4">
       <div className="w-full max-w-sm animate-slide-up">
-        {/* Logo */}
-        <div className="flex flex-col items-center justify-center gap-3 mb-8">
-          <div className="w-14 h-14 bg-gradient-to-br from-[#F7931A] to-[#E67E0E] rounded-xl flex items-center justify-center shadow-lg">
-            <Bitcoin size={26} className="text-white" strokeWidth={2.5} />
-          </div>
-          <div className="text-center">
-            <span className="text-2xl font-semibold text-white tracking-tight">BTS Inspect</span>
-            <p className="text-sm text-white/50 mt-1">Inspection & field service management</p>
-          </div>
-        </div>
+        <BrandLockup size="auth" tagline="Inspection & field service management" />
 
-        <div className="bg-white rounded-xl shadow-2xl p-6">
+        <div className="bg-white border border-white/20 p-6">
           <h1 className="text-lg font-semibold text-[#1A1A1A] mb-1">Sign in</h1>
           <p className="text-sm text-[#4A5568] mb-6">Welcome back. Enter your credentials to continue.</p>
 
@@ -139,14 +131,14 @@ export function LoginPage() {
 
         <p className="text-center text-sm text-white/60 mt-4">
           Invited to a team? Use the link in your invite email to set a password, or{' '}
-          <Link to="/forgot-password" className="text-[#F7931A] font-medium hover:underline">
+          <Link to="/forgot-password" className="text-[#2E75B6] font-medium hover:underline">
             reset password
           </Link>
           .
         </p>
         <p className="text-center text-sm text-white/60 mt-2">
           Page won’t load?{' '}
-          <a href="/login?clear=1" className="text-[#F7931A] font-medium hover:underline">
+          <a href="/login?clear=1" className="text-[#2E75B6] font-medium hover:underline">
             Clear cache &amp; retry
           </a>
         </p>

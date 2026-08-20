@@ -1,11 +1,12 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { DevConsole } from '../ui/DevConsole';
+import { BrandLockup } from '../brand/BrandLockup';
 import {
   ClipboardList, LayoutTemplate, Settings, LogOut,
-  User, Menu, X, Zap, Bitcoin, ChevronDown, Users, BrainCircuit, RotateCw, Sparkles, FileText,
+  User, Menu, X, Zap, ChevronDown, Users, BrainCircuit, RotateCw, Sparkles, FileText,
   Calendar, Receipt, ShoppingCart, Package, Truck, FolderOpen,
   Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, Wallet, Sun, type LucideIcon,
 } from 'lucide-react';
@@ -21,7 +22,19 @@ interface NavGroup {
   items: { to: string; label: string; icon: LucideIcon }[];
 }
 
-const NAV_GROUPS: NavGroup[] = [
+const FIELD_GROUP: NavGroup = {
+  label: 'Field Work',
+  icon: Wrench,
+  items: [
+    { to: '/inspections', label: 'Inspections', icon: ClipboardList },
+    { to: '/jha', label: 'JHA documents', icon: ShieldCheck },
+    { to: '/templates', label: 'Templates', icon: LayoutTemplate },
+    { to: '/jha/swms-library', label: 'SWMS library', icon: FileText },
+    { to: '/drive', label: 'Shared Drive', icon: FolderOpen },
+  ],
+};
+
+const OFFICE_GROUPS: NavGroup[] = [
   {
     label: 'Dashboard',
     icon: Home,
@@ -65,18 +78,15 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/barcode', label: 'Barcode Scanner', icon: ScanLine },
     ],
   },
-  {
-    label: 'Field Work',
-    icon: Wrench,
-    items: [
-      { to: '/templates', label: 'Templates', icon: LayoutTemplate },
-      { to: '/jha', label: 'JHA documents', icon: ShieldCheck },
-      { to: '/jha/swms-library', label: 'SWMS library', icon: FileText },
-      { to: '/inspections', label: 'Inspections', icon: ClipboardList },
-      { to: '/drive', label: 'Shared Drive', icon: FolderOpen },
-    ],
-  },
 ];
+
+const NAV_GROUPS: NavGroup[] = [FIELD_GROUP, ...OFFICE_GROUPS];
+
+const FIELD_SHORTCUTS = [
+  { to: '/inspections', label: 'Inspections' },
+  { to: '/jha', label: 'JHA' },
+  { to: '/templates', label: 'Templates' },
+] as const;
 
 function isNavItemActive(item: { to: string }, pathname: string, allItems?: { to: string }[]): boolean {
   if (item.to === '/') return pathname === '/';
@@ -102,13 +112,8 @@ function isGroupActive(group: NavGroup, pathname: string): boolean {
   return group.items.some(item => isNavItemActive(item, pathname, group.items));
 }
 
-function getActiveItemLabel(group: NavGroup, pathname: string): string | null {
-  let best: { label: string; len: number } | null = null;
-  for (const item of group.items) {
-    if (!isNavItemActive(item, pathname, group.items)) continue;
-    if (!best || item.to.length > best.len) best = { label: item.label, len: item.to.length };
-  }
-  return best?.label ?? null;
+function menuItemClass(active: boolean) {
+  return `shell-menu-item ${active ? 'shell-menu-item-active' : ''}`;
 }
 
 export function AppShell({ children }: AppShellProps) {
@@ -219,30 +224,42 @@ export function AppShell({ children }: AppShellProps) {
     groupCloseTimer.current = setTimeout(() => setOpenGroup(null), 150);
   };
 
+  const renderGroupMenu = (group: NavGroup) => (
+    group.items.map((item) => {
+      const ItemIcon = item.icon;
+      const itemActive = isNavItemActive(item, location.pathname, group.items);
+      return (
+        <Link
+          key={item.to}
+          to={item.to}
+          onClick={() => { setOpenGroup(null); setMenuOpen(false); }}
+          className={menuItemClass(itemActive)}
+        >
+          <ItemIcon size={15} className={itemActive ? 'text-white' : 'text-white/45'} />
+          {item.label}
+        </Link>
+      );
+    })
+  );
+
   return (
     <div className="bg-[#F9FAFB] flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
-      {/* Header */}
-      <header className="bg-gradient-to-b from-[#0A2540] to-[#082036] text-white sticky top-0 z-40 flex-shrink-0 safe-area-inset-top border-b border-white/5" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
+      <header className="shell-header" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
         <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3">
-          {/* Logo — tap 5x to open dev console */}
-          <Link to="/" className="flex items-center gap-2 shrink-0" onClick={handleLogoTap}>
-            <div className="w-8 h-8 bg-gradient-to-br from-[#F7931A] to-[#E67E0E] rounded-lg flex items-center justify-center shadow-sm">
-              <Bitcoin size={16} className="text-white" strokeWidth={2.5} />
-            </div>
-            <span className="font-semibold text-sm tracking-wide hidden sm:inline">BTS Inspect</span>
+          <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label="BTS Inspect">
+            <BrandLockup size="header" />
           </Link>
 
-          {/* Desktop nav — grouped dropdowns */}
-          <nav className="hidden md:flex items-center gap-0.5 flex-1 justify-center">
+          <nav className="hidden md:flex items-center gap-0.5 flex-1 justify-center h-14">
             {NAV_GROUPS.map((group) => {
               const groupActive = isGroupActive(group, location.pathname);
-              const activeLabel = getActiveItemLabel(group, location.pathname);
               const isOpen = openGroup === group.label;
               const Icon = group.icon;
+              const field = group.label === 'Field Work';
               return (
                 <div
                   key={group.label}
-                  className="relative"
+                  className="relative h-full flex items-center"
                   onMouseEnter={() => handleGroupEnter(group.label)}
                   onMouseLeave={handleGroupLeave}
                 >
@@ -254,40 +271,22 @@ export function AppShell({ children }: AppShellProps) {
                         setOpenGroup(group.label);
                       }
                     }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-1.5 h-full px-3 text-[13px] font-medium tracking-tight border-b-2 transition-colors ${
                       groupActive
-                        ? 'bg-white/10 text-white'
-                        : 'text-white/70 hover:text-white hover:bg-white/5'
-                    }`}
+                        ? 'text-white border-accent'
+                        : 'text-white/65 border-transparent hover:text-white hover:border-white/25'
+                    } ${field && !groupActive ? 'text-white/85' : ''}`}
                   >
-                    <Icon size={15} />
-                    <span>{activeLabel || group.label}</span>
-                    <ChevronDown size={12} className={`text-white/50 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    <Icon size={14} strokeWidth={field ? 2.25 : 2} />
+                    <span>{group.label}</span>
+                    <ChevronDown size={11} className={`text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {isOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setOpenGroup(null)} />
-                      <div className="absolute left-0 top-full mt-1 min-w-[200px] bg-white rounded-lg shadow-xl border border-[#E5E7EB] z-50 py-1.5 animate-fade-in">
-                        {group.items.map((item) => {
-                          const ItemIcon = item.icon;
-                          const itemActive = isNavItemActive(item, location.pathname, group.items);
-                          return (
-                            <Link
-                              key={item.to}
-                              to={item.to}
-                              onClick={() => setOpenGroup(null)}
-                              className={`flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
-                                itemActive
-                                  ? 'bg-[#F0F7FF] text-[#0A2540] font-medium'
-                                  : 'text-[#1A1A1A] hover:bg-[#F9FAFB]'
-                              }`}
-                            >
-                              <ItemIcon size={15} className={itemActive ? 'text-[#2E75B6]' : 'text-[#6B7280]'} />
-                              {item.label}
-                            </Link>
-                          );
-                        })}
+                      <div className="shell-menu left-0">
+                        {renderGroupMenu(group)}
                       </div>
                     </>
                   )}
@@ -296,80 +295,77 @@ export function AppShell({ children }: AppShellProps) {
             })}
           </nav>
 
-          {/* Global Search Trigger */}
           <div className="hidden md:block w-48 lg:w-64 shrink-0">
             <GlobalSearchTrigger />
           </div>
 
-          {/* Right side */}
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Avatar dropdown */}
+          <div className="flex items-center gap-1 shrink-0">
             <div className="relative">
               <button
                 onClick={() => setAvatarOpen(!avatarOpen)}
-                className="hidden md:flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
+                className="hidden md:flex items-center gap-2 px-2 py-1.5 hover:bg-white/5 transition-colors"
               >
-                <div className="w-7 h-7 rounded-full bg-[#2E75B6] flex items-center justify-center text-xs font-semibold">
+                <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-xs font-semibold">
                   {profile?.name?.charAt(0)?.toUpperCase() ?? 'U'}
                 </div>
-                <span className="text-sm text-white/80 max-w-[120px] truncate">{profile?.name ?? 'User'}</span>
-                <ChevronDown size={13} className="text-white/60" />
+                <span className="text-[13px] tracking-tight text-white/80 max-w-[120px] truncate">{profile?.name ?? 'User'}</span>
+                <ChevronDown size={13} className="text-white/45" />
               </button>
 
               {avatarOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setAvatarOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-[#E5E7EB] z-50 py-1.5 animate-fade-in">
-                    <div className="px-3 py-2.5 border-b border-[#E5E7EB]">
-                      <p className="text-sm font-medium text-[#1A1A1A]">{profile?.name}</p>
-                      <p className="text-xs text-[#4A5568] truncate">{company?.name}</p>
+                  <div className="shell-menu right-0 w-56">
+                    <div className="px-3 py-2.5 border-b border-white/10">
+                      <p className="text-sm font-medium text-white tracking-tight">{profile?.name}</p>
+                      <p className="text-xs text-white/45 truncate">{company?.name}</p>
                       {profile?.role && (
-                        <span className="inline-flex items-center mt-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-[#0A2540]/10 text-[#0A2540]">
+                        <span className="inline-flex items-center mt-1.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/70 border border-white/15">
                           {profile.role}
                         </span>
                       )}
                     </div>
                     <Link to="/settings/profile" onClick={() => setAvatarOpen(false)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]">
-                      <User size={15} className="text-[#6B7280]" /> Profile
+                      className="shell-menu-item">
+                      <User size={15} className="text-white/45" /> Profile
                     </Link>
                     <Link to="/settings/company" onClick={() => setAvatarOpen(false)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]">
-                      <Settings size={15} className="text-[#6B7280]" /> Company Settings
+                      className="shell-menu-item">
+                      <Settings size={15} className="text-white/45" /> Company Settings
                     </Link>
                     <Link to="/settings/lists" onClick={() => setAvatarOpen(false)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]">
-                      <ListChecks size={15} className="text-[#6B7280]" /> Managed Lists
+                      className="shell-menu-item">
+                      <ListChecks size={15} className="text-white/45" /> Managed Lists
                     </Link>
                     <Link to="/assistant" onClick={() => setAvatarOpen(false)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]">
-                      <Sparkles size={15} className="text-[#6B7280]" /> AI Assistant
+                      className="shell-menu-item">
+                      <Sparkles size={15} className="text-white/45" /> AI Assistant
                     </Link>
                     {isAdmin && (
                       <>
-                        <div className="border-t border-[#E5E7EB] my-1" />
-                        <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#9CA3AF]">Admin</p>
+                        <div className="border-t border-white/10 my-1" />
+                        <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/35">Admin</p>
                         <Link to="/settings/team" onClick={() => setAvatarOpen(false)}
-                          className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]">
-                          <Users size={15} className="text-[#6B7280]" /> Team
+                          className="shell-menu-item">
+                          <Users size={15} className="text-white/45" /> Team
                         </Link>
                         <Link to="/settings/accounting" onClick={() => setAvatarOpen(false)}
-                          className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]">
-                          <Building2 size={15} className="text-[#6B7280]" /> Accounting
+                          className="shell-menu-item">
+                          <Building2 size={15} className="text-white/45" /> Accounting
                         </Link>
                         <Link to="/settings/ai" onClick={() => setAvatarOpen(false)}
-                          className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]">
-                          <BrainCircuit size={15} className="text-[#6B7280]" /> AI Settings
+                          className="shell-menu-item">
+                          <BrainCircuit size={15} className="text-white/45" /> AI Settings
                         </Link>
                         <Link to="/ai-console" onClick={() => setAvatarOpen(false)}
-                          className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#92400E] hover:bg-[#FFFBEB] font-medium">
-                          <Sparkles size={15} className="text-[#D97706]" /> AI Console
+                          className="shell-menu-item">
+                          <Sparkles size={15} className="text-white/45" /> AI Console
                         </Link>
                       </>
                     )}
-                    <div className="border-t border-[#E5E7EB] my-1" />
+                    <div className="border-t border-white/10 my-1" />
                     <button onClick={handleSignOut}
-                      className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#B42318] hover:bg-[#FEF2F2] w-full text-left">
+                      className="shell-menu-item text-[#FCA5A5] hover:text-white w-full text-left">
                       <LogOut size={15} /> Sign out
                     </button>
                   </div>
@@ -377,41 +373,73 @@ export function AppShell({ children }: AppShellProps) {
               )}
             </div>
 
-            {/* Mobile menu toggle */}
-            <button className="md:hidden p-2 rounded hover:bg-white/10" onClick={() => setMenuOpen(!menuOpen)}>
+            <button className="md:hidden p-2 hover:bg-white/5" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'}>
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
         </div>
 
-        {/* Mobile nav — collapsible groups */}
+        {/* Field ops — always visible on mobile so JHA / inspections / templates are one glance */}
+        <nav className="md:hidden grid grid-cols-3 border-t border-white/10" aria-label="Field Work">
+          {FIELD_SHORTCUTS.map((item) => {
+            const active = isNavItemActive(item, location.pathname, FIELD_GROUP.items);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`flex items-center justify-center min-h-[44px] text-[12px] font-semibold tracking-tight border-b-2 ${
+                  active
+                    ? 'text-white border-accent bg-white/5'
+                    : 'text-white/65 border-transparent'
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
         {menuOpen && (
-          <div className="md:hidden border-t border-white/10 bg-[#0A2540] max-h-[calc(100vh-3.5rem)] overflow-y-auto animate-slide-up">
-            {NAV_GROUPS.map((group) => {
+          <div className="md:hidden border-t border-white/10 bg-navy max-h-[calc(100vh-6rem)] overflow-y-auto">
+            <p className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">Field Work</p>
+            {FIELD_GROUP.items.map((item) => {
+              const ItemIcon = item.icon;
+              const itemActive = isNavItemActive(item, location.pathname, FIELD_GROUP.items);
+              return (
+                <Link key={item.to} to={item.to} onClick={() => setMenuOpen(false)}
+                  className={`flex items-center gap-2.5 px-4 py-3 text-sm tracking-tight ${
+                    itemActive ? 'text-white font-medium bg-white/5' : 'text-white/70'
+                  }`}>
+                  <ItemIcon size={16} className={itemActive ? 'text-white' : 'text-white/45'} /> {item.label}
+                </Link>
+              );
+            })}
+
+            {OFFICE_GROUPS.map((group) => {
               const groupActive = isGroupActive(group, location.pathname);
               const isExpanded = openGroup === group.label;
               const Icon = group.icon;
               return (
-                <div key={group.label} className="border-b border-white/5">
+                <div key={group.label} className="border-t border-white/10">
                   <button
                     onClick={() => setOpenGroup(isExpanded ? null : group.label)}
-                    className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium ${
+                    className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium tracking-tight ${
                       groupActive ? 'text-white' : 'text-white/70'
                     }`}
                   >
                     <Icon size={16} />
                     <span className="flex-1 text-left">{group.label}</span>
-                    <ChevronDown size={14} className={`text-white/40 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={14} className={`text-white/35 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                   </button>
                   {isExpanded && (
-                    <div className="pb-2 bg-black/10">
+                    <div className="pb-1">
                       {group.items.map((item) => {
                         const ItemIcon = item.icon;
                         const itemActive = isNavItemActive(item, location.pathname, group.items);
                         return (
                           <Link key={item.to} to={item.to} onClick={() => setMenuOpen(false)}
-                            className={`flex items-center gap-2.5 pl-11 pr-4 py-2.5 text-sm ${
-                              itemActive ? 'text-white font-medium' : 'text-white/60'
+                            className={`flex items-center gap-2.5 pl-11 pr-4 py-2.5 text-sm tracking-tight ${
+                              itemActive ? 'text-white font-medium' : 'text-white/55'
                             }`}>
                             <ItemIcon size={15} /> {item.label}
                           </Link>
@@ -422,8 +450,8 @@ export function AppShell({ children }: AppShellProps) {
                 </div>
               );
             })}
-            <hr className="border-white/10" />
-            <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/30">Settings</p>
+            <div className="border-t border-white/10" />
+            <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">Settings</p>
             <Link to="/settings/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
               <User size={16} /> Profile
             </Link>
@@ -447,19 +475,18 @@ export function AppShell({ children }: AppShellProps) {
                 <Link to="/settings/ai" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
                   <BrainCircuit size={16} /> AI Settings
                 </Link>
-                <Link to="/ai-console" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-[#FCD34D] font-medium">
+                <Link to="/ai-console" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/80 font-medium">
                   <Sparkles size={16} /> AI Console
                 </Link>
               </>
             )}
-            <button onClick={handleSignOut} className="flex items-center gap-2.5 px-4 py-3 text-sm text-red-400 w-full">
+            <button onClick={handleSignOut} className="flex items-center gap-2.5 px-4 py-3 text-sm text-[#FCA5A5] w-full">
               <LogOut size={16} /> Sign out
             </button>
           </div>
         )}
       </header>
 
-      {/* Main content */}
       <main ref={mainRef} className="flex-1 overflow-y-auto overflow-x-hidden relative w-full" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', msOverflowStyle: 'auto', scrollbarWidth: 'auto' }}>
         {(pullDistance > 0 || isRefreshing) && (
           <div className="fixed top-0 left-0 right-0 flex justify-center pt-4 z-20 pointer-events-none">

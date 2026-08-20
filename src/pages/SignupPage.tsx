@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Bitcoin, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
+import { BrandLockup } from '../components/brand/BrandLockup';
 
 export function SignupPage() {
   const navigate = useNavigate();
@@ -79,19 +80,11 @@ export function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0A2540] via-[#0d2f4e] to-[#082036] flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen auth-navy flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-sm animate-slide-up">
-        <div className="flex flex-col items-center justify-center gap-3 mb-8">
-          <div className="w-14 h-14 bg-gradient-to-br from-[#F7931A] to-[#E67E0E] rounded-xl flex items-center justify-center shadow-lg">
-            <Bitcoin size={26} className="text-white" strokeWidth={2.5} />
-          </div>
-          <div className="text-center">
-            <span className="text-2xl font-semibold text-white tracking-tight">BTS Inspect</span>
-            <p className="text-sm text-white/50 mt-1">Inspection & field service management</p>
-          </div>
-        </div>
+        <BrandLockup size="auth" tagline="Inspection & field service management" />
 
-        <div className="bg-white rounded-xl shadow-2xl p-6">
+        <div className="bg-white border border-white/20 p-6">
           <h1 className="text-lg font-semibold text-[#1A1A1A] mb-1">Create account</h1>
           <p className="text-sm text-[#4A5568] mb-6">Join BTS Inspect and start creating inspections.</p>
 
@@ -163,7 +156,7 @@ export function SignupPage() {
 
         <p className="text-center text-sm text-white/60 mt-4">
           Already have an account?{' '}
-          <Link to="/login" className="text-[#F7931A] font-medium hover:underline">
+          <Link to="/login" className="text-[#2E75B6] font-medium hover:underline">
             Sign in
           </Link>
         </p>
