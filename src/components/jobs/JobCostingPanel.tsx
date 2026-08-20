@@ -290,7 +290,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         .order('created_at', { ascending: false });
       if (existingErr) throw existingErr;
 
-      let candidates = (existing ?? []).filter(i => isJobBillInvoice(i, quoteId));
+      const candidates = (existing ?? []).filter(i => isJobBillInvoice(i, quoteId));
       if (quoteId) {
         const { data: byQuote, error: qErr } = await supabase
           .from('invoices')
