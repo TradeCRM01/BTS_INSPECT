@@ -730,6 +730,31 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             {form.validity_date ? (
               <p className="ops-meta mt-2">Valid {format(parseISO(form.validity_date), 'd MMM yyyy')}</p>
             ) : null}
+            <div className="hub-quote-editor-tools">
+              {form.status === 'sent' && (
+                <button
+                  type="button"
+                  onClick={() => void persist('declined', { close: false, message: 'Quote declined' })}
+                  disabled={saving}
+                  className="ops-link"
+                >
+                  Decline
+                </button>
+              )}
+              {form.status === 'accepted' && invoiceId && (
+                <button type="button" onClick={() => navigate(invoiceHref(invoiceId))} className="ops-link">
+                  Open invoice
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowPreview(true)}
+                disabled={!previewData}
+                className="ops-link"
+              >
+                Preview PDF
+              </button>
+            </div>
           </div>
           {editorMoney ? (
             <div className="hub-row-signal">
@@ -737,32 +762,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
               <p className="ops-meta text-right">inc GST</p>
             </div>
           ) : null}
-        </div>
-
-        <div className="hub-quote-editor-tools">
-          {form.status === 'sent' && (
-            <button
-              type="button"
-              onClick={() => void persist('declined', { close: false, message: 'Quote declined' })}
-              disabled={saving}
-              className="ops-link"
-            >
-              Decline
-            </button>
-          )}
-          {form.status === 'accepted' && invoiceId && (
-            <button type="button" onClick={() => navigate(invoiceHref(invoiceId))} className="ops-link">
-              Open invoice
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setShowPreview(true)}
-            disabled={!previewData}
-            className="ops-link"
-          >
-            Preview PDF
-          </button>
         </div>
 
         <div className="overlay-body hub-quote-editor-body">
