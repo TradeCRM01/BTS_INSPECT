@@ -28,6 +28,7 @@ import { JhaSwmsLibraryPicker } from '../components/jha/JhaSwmsLibraryPicker';
 import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { EMPTY_SWMS, HRCW_CATEGORIES, parseSwmsMeta, type JhaSwmsData } from '../lib/swmsHrcw';
 import { jhaFillContext, jhaStatusClass, jhaStatusLabel, recommendJhaFillAction } from '../lib/jhaNextAction';
+import { take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
 import {
   ChevronDown, ChevronLeft, Plus, Trash2, ShieldCheck, FileText,
   Download, AlertCircle, HardHat, Check, X, CheckCircle, Printer,
@@ -174,7 +175,7 @@ export function JhaFillPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('jha_take5')
-        .select('id, status, created_at, go_no_go, signed_name')
+        .select('id, status, created_at, go_no_go, signed_name, meta, stop_think, identify_hazards, control_actions, signature')
         .eq('jha_document_id', docIdState!)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -1284,14 +1285,23 @@ export function JhaFillPage() {
                         <ShieldAlert size={16} className="text-[#4A5568]" />
                         <h3 className="text-sm font-medium text-[#1A1A1A]">Take 5 / POWRA companions</h3>
                       </div>
-                      <button
-                        type="button"
-                        disabled={!docIdState}
-                        onClick={() => docIdState && navigate(`/jha/take5?jhaId=${docIdState}`)}
-                        className="text-xs font-semibold text-accent min-h-[44px] disabled:opacity-40"
-                      >
-                        + New Take 5
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => navigate('/jha/take5')}
+                          className="text-xs font-semibold text-accent min-h-[44px]"
+                        >
+                          All Take 5s
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!docIdState}
+                          onClick={() => docIdState && navigate(take5FillPath(docIdState))}
+                          className="text-xs font-semibold text-accent min-h-[44px] disabled:opacity-40"
+                        >
+                          + New Take 5
+                        </button>
+                      </div>
                     </div>
                     <p className="ops-meta mb-3">
                       Point-of-work checks that reference this JHA. Save the JHA first, then add Take 5s at the workface.
@@ -1300,18 +1310,38 @@ export function JhaFillPage() {
                       <p className="text-sm text-[#9CA3AF] text-center py-3 border border-dashed border-[#E5E7EB] rounded-md">No Take 5 records yet</p>
                     ) : (
                       <ul className="space-y-2">
-                        {take5List.map(t => (
-                          <li key={t.id}>
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/jha/take5?jhaId=${docIdState}&id=${t.id}`)}
-                              className="w-full text-left text-sm px-3 py-2.5 min-h-[44px] rounded-md border border-[#E5E7EB] hover:border-[#2E75B6] flex items-center justify-between"
-                            >
-                              <span>{t.signed_name || 'Take 5'} · {t.status} · {t.go_no_go === 'stop' ? 'STOP' : 'GO'}</span>
-                              <span className="text-xs text-[#9CA3AF]">{format(new Date(t.created_at), 'd MMM HH:mm')}</span>
-                            </button>
-                          </li>
-                        ))}
+                        {take5List.map(t => {
+                          const next = recommendTake5ListAction(take5ListContext({
+                            status: t.status,
+                            meta: (t.meta ?? {}) as Record<string, string>,
+                            stop_think: t.stop_think,
+                            identify_hazards: t.identify_hazards,
+                            control_actions: t.control_actions,
+                            signature: t.signature,
+                            parent_site: meta.siteName,
+                            job_title: selectedJob?.title,
+                            job_address: selectedJob?.address,
+                          }));
+                          return (
+                            <li key={t.id}>
+                              <button
+                                type="button"
+                                onClick={() => navigate(take5FillPath(docIdState!, t.id))}
+                                className="w-full text-left text-sm px-3 py-2.5 min-h-[44px] rounded-md border border-[#E5E7EB] hover:border-[#2E75B6] flex items-center justify-between gap-2"
+                              >
+                                <span className="min-w-0 truncate">
+                                  {t.signed_name || t.meta?.location || 'Take 5'}
+                                  {' · '}
+                                  {t.go_no_go === 'stop' ? 'STOP' : 'GO'}
+                                </span>
+                                <span className="flex items-center gap-2 shrink-0">
+                                  <OpsStatus className={take5StatusClass(t.status)}>{take5StatusLabel(t.status)}</OpsStatus>
+                                  <span className="text-xs font-semibold text-accent">{next.label}</span>
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </div>

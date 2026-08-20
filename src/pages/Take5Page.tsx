@@ -3,12 +3,19 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import SignatureCanvas from 'react-signature-canvas';
-import { ChevronLeft, Download, Printer, Save, ShieldAlert } from 'lucide-react';
+import { Check, ChevronLeft, Download, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError } from '../components/ui';
+import { LoadingSpinner, NextBanner, OpsDocHead, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
 import { generateTake5Pdf } from '../reports/generateTake5Pdf';
+import { Take5ListPage } from './Take5ListPage';
+import {
+  recommendTake5FillAction,
+  take5FillContext,
+  take5StatusClass,
+  take5StatusLabel,
+} from '../lib/take5NextAction';
 
 type Take5Row = {
   id: string;
@@ -25,9 +32,25 @@ type Take5Row = {
   signed_at: string | null;
 };
 
+type JhaForTake5 = {
+  id: string;
+  report_number: string | null;
+  meta: Record<string, string> | null;
+  status: string;
+  job_id: string | null;
+};
+
 export function Take5Page() {
   const [params] = useSearchParams();
-  const jhaId = params.get('jhaId');
+  if (!params.get('jhaId') && !params.get('id')) {
+    return <Take5ListPage />;
+  }
+  return <Take5FillPage />;
+}
+
+function Take5FillPage() {
+  const [params] = useSearchParams();
+  const jhaIdParam = params.get('jhaId');
   const take5Id = params.get('id');
   const navigate = useNavigate();
   const { profile, company } = useAuth();
@@ -41,37 +64,57 @@ export function Take5Page() {
   const [controls, setControls] = useState('');
   const [goNoGo, setGoNoGo] = useState<'go' | 'stop'>('go');
   const [signedName, setSignedName] = useState(profile?.name ?? '');
+  const [hasStroke, setHasStroke] = useState(false);
   const [meta, setMeta] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
     time: format(new Date(), 'HH:mm'),
     location: '',
   });
+  const [statusKey, setStatusKey] = useState('draft');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-
-  const { data: jha, isLoading: jhaLoading } = useQuery({
-    queryKey: ['jha-for-take5', jhaId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('jha_documents')
-        .select('id, report_number, meta, status, template_snapshot')
-        .eq('id', jhaId!)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!jhaId,
-  });
+  const [saveHint, setSaveHint] = useState<'saved' | 'saving' | 'error' | null>(null);
+  const [hydrated, setHydrated] = useState(!take5Id);
 
   const { data: existing, isLoading: take5Loading } = useQuery({
     queryKey: ['jha-take5', take5Id],
     queryFn: async () => {
       const { data, error } = await supabase.from('jha_take5').select('*').eq('id', take5Id!).maybeSingle();
       if (error) throw error;
-      return data as Take5Row;
+      return data as Take5Row | null;
     },
     enabled: !!take5Id,
+  });
+
+  const jhaId = jhaIdParam || existing?.jha_document_id || null;
+
+  const { data: jha, isLoading: jhaLoading } = useQuery({
+    queryKey: ['jha-for-take5', jhaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('jha_documents')
+        .select('id, report_number, meta, status, job_id')
+        .eq('id', jhaId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as JhaForTake5 | null;
+    },
+    enabled: !!jhaId,
+  });
+
+  const { data: job } = useQuery({
+    queryKey: ['job-for-take5', jha?.job_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, title, address')
+        .eq('id', jha!.job_id!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { id: string; title: string | null; address: string | null } | null;
+    },
+    enabled: !!jha?.job_id,
   });
 
   useEffect(() => {
@@ -83,6 +126,9 @@ export function Take5Page() {
     setControls(existing.control_actions || '');
     setGoNoGo(existing.go_no_go === 'stop' ? 'stop' : 'go');
     setSignedName(existing.signed_name || profile?.name || '');
+    setHasStroke(false);
+    setStatusKey(existing.status || 'draft');
+    setHydrated(true);
     setMeta({
       date: existing.meta?.date || format(new Date(), 'yyyy-MM-dd'),
       time: existing.meta?.time || format(new Date(), 'HH:mm'),
@@ -90,9 +136,31 @@ export function Take5Page() {
     });
   }, [existing, profile?.name]);
 
-  async function save(status: 'draft' | 'completed' = 'draft') {
-    if (!profile || !jhaId) return;
+  useEffect(() => {
+    if (existing || !jha) return;
+    const site = (jha.meta?.siteName || job?.address || job?.title || '').trim();
+    if (!site) return;
+    setMeta(m => (m.location ? m : { ...m, location: site }));
+  }, [existing, jha, job]);
+
+  const jhaMeta = (jha?.meta ?? {}) as Record<string, string>;
+  const siteLabel = opsSiteLabel(meta.location, jhaMeta.siteName, job?.address, job?.title, jhaMeta.taskName);
+  const signed = hasStroke || !!existing?.signature;
+  const next = recommendTake5FillAction(take5FillContext({
+    status: statusKey,
+    saved: !!rowId,
+    hasPdf: !!pdfUrl,
+    siteParts: [meta.location, jhaMeta.siteName, job?.address, job?.title],
+    stopThink,
+    identifyHazards: identify,
+    controlActions: controls,
+    signed,
+  }));
+
+  async function save(status: 'draft' | 'completed' = 'draft'): Promise<boolean> {
+    if (!profile || !jhaId) return false;
     setSaving(true);
+    setSaveHint('saving');
     setError('');
     try {
       const signature = status === 'completed'
@@ -136,9 +204,16 @@ export function Take5Page() {
           navigate(`/jha/take5?jhaId=${jhaId}&id=${data.id}`, { replace: true });
         }
       }
-      queryClient.invalidateQueries({ queryKey: ['jha-take5-list', jhaId] });
+      queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
+      queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
+      queryClient.invalidateQueries({ queryKey: ['jha-take5', take5Id || rowId] });
+      setStatusKey(status);
+      setSaveHint('saved');
+      return true;
     } catch (err) {
+      setSaveHint('error');
       setError(err instanceof Error ? err.message : 'Save failed');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -146,11 +221,12 @@ export function Take5Page() {
 
   async function handlePublishPdf() {
     if (!profile || !company || !jha) return;
-    await save('completed');
+    const ok = await save('completed');
+    if (!ok) return;
     const blob = await generateTake5Pdf({
       parentReportNumber: jha.report_number || '',
-      parentTaskName: (jha.meta as Record<string, string>)?.taskName || '',
-      parentSiteName: (jha.meta as Record<string, string>)?.siteName || '',
+      parentTaskName: jhaMeta.taskName || '',
+      parentSiteName: jhaMeta.siteName || '',
       companyName: company.name,
       companyLogoUrl: company.logo_url,
       inspectorName: profile.name,
@@ -172,106 +248,221 @@ export function Take5Page() {
     setPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url; });
   }
 
+  function runNext() {
+    if (next.key === 'save') {
+      void save('draft');
+      return;
+    }
+    if (next.key === 'complete') {
+      void handlePublishPdf();
+      return;
+    }
+    if (next.key === 'pdf') {
+      if (pdfUrl) {
+        document.getElementById('take5-pdf')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      void handlePublishPdf();
+      return;
+    }
+    const target =
+      next.key === 'site' ? 'take5-identity'
+        : next.key === 'checks' ? 'take5-checks'
+          : 'take5-sign';
+    document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  if (take5Id && take5Loading && !hydrated) {
+    return <AppShell><div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div></AppShell>;
+  }
+
   if (!jhaId) {
     return (
       <AppShell>
         <div className="max-w-[800px] mx-auto px-4 py-6">
-          <PageError message="Take 5 requires a parent JHA. Open a JHA first." onRetry={() => navigate('/jha')} />
+          <PageError message="Take 5 requires a parent JHA. Open a JHA first, then tap New Take 5 under extras." onRetry={() => navigate('/jha')} />
         </div>
       </AppShell>
     );
   }
 
-  if (jhaLoading || take5Loading) {
+  if (jhaLoading) {
     return <AppShell><div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div></AppShell>;
   }
 
-  const task = (jha?.meta as Record<string, string> | undefined)?.taskName;
+  const when = meta.date ? format(new Date(meta.date), 'd MMM yyyy') : null;
+  const headMeta = [
+    siteLabel !== 'No site address' ? siteLabel : null,
+    job?.title,
+    jhaMeta.taskName,
+    when,
+  ].filter(Boolean).join(' · ');
 
   return (
     <AppShell>
-      <div className="max-w-[800px] mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-4">
-          <Link to={`/jha/new?docId=${jhaId}`} className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A]">
-            <ChevronLeft size={16} /> Back to JHA
-          </Link>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => save('draft')} disabled={saving} className="flex items-center gap-1.5 border border-[#E5E7EB] px-3 py-2 rounded-md text-sm">
-              <Save size={14} /> Save draft
-            </button>
-            <button type="button" onClick={handlePublishPdf} disabled={saving} className="flex items-center gap-1.5 bg-[#0A2540] text-white px-3 py-2 rounded-md text-sm">
-              <Printer size={14} /> Complete & PDF
-            </button>
+      <div className="max-w-[1000px] mx-auto px-4 py-4 pb-32">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <button
+            type="button"
+            onClick={() => navigate('/jha/take5')}
+            className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] min-h-[44px]"
+          >
+            <ChevronLeft size={16} /> Take 5s
+          </button>
+          <div className="flex items-center gap-2 text-xs">
+            {saveHint && (
+              <span className={saveHint === 'error' ? 'text-[#B42318]' : saveHint === 'saving' ? 'text-[#92400E]' : 'text-[#1B7F3A] flex items-center gap-1'}>
+                {saveHint === 'saved' && <Check size={12} />}
+                {saveHint === 'saved' ? 'Saved' : saveHint === 'saving' ? 'Saving…' : 'Save failed'}
+              </span>
+            )}
+            <Link to={`/jha/new?docId=${jhaId}`} className="text-[#2E75B6] min-h-[44px] inline-flex items-center">
+              Parent JHA
+            </Link>
           </div>
         </div>
 
-        <div className="mb-4">
-          <h1 className="text-xl font-semibold text-[#1A1A1A] flex items-center gap-2">
-            <ShieldAlert size={20} /> Take 5 / POWRA
-          </h1>
-          <p className="text-sm text-[#6B7280] mt-1">
-            Companion to {jha?.report_number || 'JHA'}{task ? ` — ${task}` : ''}. Supplements the parent JHA; does not replace it.
-          </p>
-        </div>
-
-        {error && <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
-
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Field label="Date" type="date" value={meta.date} onChange={v => setMeta(m => ({ ...m, date: v }))} />
-            <Field label="Time" type="time" value={meta.time} onChange={v => setMeta(m => ({ ...m, time: v }))} />
-            <Field label="Location / face" value={meta.location} onChange={v => setMeta(m => ({ ...m, location: v }))} />
-          </div>
-
-          <Area label="1. Stop & think — what am I about to do?" value={stopThink} onChange={setStopThink} />
-          <Area label="2. Identify hazards — what could hurt me or others?" value={identify} onChange={setIdentify} />
-          <Area label="3. Assess the risk — how bad / how likely?" value={assess} onChange={setAssess} />
-          <Area label="4. Control actions — what will I do to stay safe?" value={controls} onChange={setControls} />
-
-          <div>
-            <label className="text-xs font-medium text-[#4A5568] mb-2 block">5. Go / No-go</label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setGoNoGo('go')}
-                className={`flex-1 py-2 rounded-md text-sm font-medium border ${goNoGo === 'go' ? 'bg-green-50 border-green-300 text-green-800' : 'border-[#E5E7EB]'}`}
-              >
-                GO — proceed
-              </button>
-              <button
-                type="button"
-                onClick={() => setGoNoGo('stop')}
-                className={`flex-1 py-2 rounded-md text-sm font-medium border ${goNoGo === 'stop' ? 'bg-red-50 border-red-300 text-red-800' : 'border-[#E5E7EB]'}`}
-              >
-                STOP — do not proceed
-              </button>
+        <article className="ops-card overflow-hidden mb-3">
+          <OpsDocHead
+            kind="Take 5"
+            id={jha?.report_number || 'Draft'}
+            meta={headMeta}
+            trailing={<OpsStatus className={take5StatusClass(statusKey)}>{take5StatusLabel(statusKey)}</OpsStatus>}
+          />
+          <div className="px-3 pt-3 pb-2">
+            <p className="ops-meta">
+              Point-of-work check
+              {jhaMeta.taskName ? ` · ${jhaMeta.taskName}` : ''}
+              {' · Companion to the parent JHA, does not replace it'}
+            </p>
+            <div className="mt-2">
+              <NextBanner detail={next.detail} />
             </div>
           </div>
+        </article>
 
-          <Field label="Name" value={signedName} onChange={setSignedName} />
-          <div>
-            <label className="text-xs font-medium text-[#4A5568] mb-1 block">Signature</label>
-            <div className="border border-[#E5E7EB] rounded-lg overflow-hidden bg-white">
-              <SignatureCanvas
-                ref={sigRef}
-                canvasProps={{ className: 'w-full h-36' }}
-                backgroundColor="#fff"
+        {error && (
+          <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+            {error}
+          </div>
+        )}
+
+        <section id="take5-identity" className="ops-card mb-3">
+          <div className="ops-tray-head">
+            <h2 className="text-sm font-semibold text-navy flex items-center gap-2">
+              <ShieldAlert size={16} /> Job / site
+            </h2>
+          </div>
+          <div className="px-3 pb-3 pt-2 space-y-3">
+            <div>
+              <label className="text-xs font-medium text-[#4A5568] mb-1 block">Location / face</label>
+              <input
+                type="text"
+                value={meta.location}
+                onChange={e => setMeta(m => ({ ...m, location: e.target.value }))}
+                placeholder="Where is this check? (board, roof, plant room…)"
+                className="w-full text-base font-semibold text-navy border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
               />
             </div>
-            <button type="button" className="text-xs text-[#6B7280] mt-1 hover:underline" onClick={() => sigRef.current?.clear()}>
-              Clear signature
-            </button>
+            {(job?.title || jhaMeta.siteName) && (
+              <p className="ops-meta">
+                {[job?.title, jhaMeta.siteName, jha?.report_number].filter(Boolean).join(' · ')}
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Date" type="date" value={meta.date} onChange={v => setMeta(m => ({ ...m, date: v }))} />
+              <Field label="Time" type="time" value={meta.time} onChange={v => setMeta(m => ({ ...m, time: v }))} />
+            </div>
           </div>
-        </div>
+        </section>
+
+        <section id="take5-checks" className="ops-card mb-3">
+          <div className="ops-tray-head">
+            <h2 className="text-sm font-semibold text-navy">The five checks</h2>
+          </div>
+          <div className="px-3 pb-3 pt-2 space-y-3">
+            <Area label="1. Stop & think — what am I about to do?" value={stopThink} onChange={setStopThink} />
+            <Area label="2. Identify hazards — what could hurt me or others?" value={identify} onChange={setIdentify} />
+            <Area label="3. Assess the risk — how bad / how likely?" value={assess} onChange={setAssess} />
+            <Area label="4. Control actions — what will I do to stay safe?" value={controls} onChange={setControls} />
+            <div>
+              <label className="text-xs font-medium text-[#4A5568] mb-2 block">5. Go / No-go</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setGoNoGo('go')}
+                  className={`flex-1 min-h-[44px] rounded-md text-sm font-semibold border ${goNoGo === 'go' ? 'bg-green-50 border-green-300 text-green-800' : 'border-[#E5E7EB] text-[#4A5568]'}`}
+                >
+                  GO — proceed
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGoNoGo('stop')}
+                  className={`flex-1 min-h-[44px] rounded-md text-sm font-semibold border ${goNoGo === 'stop' ? 'bg-red-50 border-red-300 text-red-800' : 'border-[#E5E7EB] text-[#4A5568]'}`}
+                >
+                  STOP — do not proceed
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="take5-sign" className="ops-card mb-3">
+          <div className="ops-tray-head">
+            <h2 className="text-sm font-semibold text-navy">Sign</h2>
+          </div>
+          <div className="px-3 pb-3 pt-2 space-y-3">
+            <Field label="Name" value={signedName} onChange={setSignedName} />
+            {existing?.signature && !hasStroke && (
+              <div>
+                <p className="text-xs font-medium text-[#4A5568] mb-1">Saved signature</p>
+                <img src={existing.signature} alt="Saved signature" className="h-20 object-contain bg-white border border-[#E5E7EB] rounded-md px-2" />
+              </div>
+            )}
+            <div>
+              <label className="text-xs font-medium text-[#4A5568] mb-1 block">
+                {existing?.signature && !hasStroke ? 'Re-sign' : 'Signature'}
+              </label>
+              <div className="border border-[#E5E7EB] rounded-md overflow-hidden bg-white">
+                <SignatureCanvas
+                  ref={sigRef}
+                  canvasProps={{ className: 'w-full h-36' }}
+                  backgroundColor="#fff"
+                  onEnd={() => setHasStroke(true)}
+                />
+              </div>
+              <button
+                type="button"
+                className="text-xs text-[#6B7280] mt-1 hover:underline min-h-[44px]"
+                onClick={() => { sigRef.current?.clear(); setHasStroke(false); }}
+              >
+                Clear signature
+              </button>
+            </div>
+          </div>
+        </section>
 
         {pdfUrl && (
-          <div className="mt-4 bg-white rounded-xl border border-[#E5E7EB] p-4 flex items-center justify-between">
-            <span className="text-sm font-medium">Take 5 PDF ready</span>
-            <a href={pdfUrl} download={`Take5-${jha?.report_number || 'draft'}.pdf`} className="flex items-center gap-1.5 text-sm text-[#2E75B6]">
+          <div id="take5-pdf" className="ops-card p-4 flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-navy">Take 5 PDF ready</span>
+            <a href={pdfUrl} download={`Take5-${jha?.report_number || 'draft'}.pdf`} className="ops-next-control">
               <Download size={14} /> Download
             </a>
           </div>
         )}
+      </div>
+
+      <div className="ops-sticky">
+        <div className="max-w-[1000px] mx-auto">
+          <button
+            type="button"
+            onClick={runNext}
+            disabled={saving}
+            className="ops-next-control-block"
+          >
+            {saving ? <><LoadingSpinner size="sm" /> Saving…</> : next.label}
+          </button>
+        </div>
       </div>
     </AppShell>
   );
@@ -283,7 +474,12 @@ function Field({
   return (
     <div>
       <label className="text-xs font-medium text-[#4A5568] mb-1 block">{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)} className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2" />
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+      />
     </div>
   );
 }
@@ -292,7 +488,12 @@ function Area({ label, value, onChange }: { label: string; value: string; onChan
   return (
     <div>
       <label className="text-xs font-medium text-[#4A5568] mb-1 block">{label}</label>
-      <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 resize-none" />
+      <textarea
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        rows={3}
+        className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none"
+      />
     </div>
   );
 }
