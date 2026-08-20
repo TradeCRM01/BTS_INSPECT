@@ -1,5 +1,7 @@
 // Field Service Management types — stock, suppliers, POs, quotes, invoices, job costs
 
+import { colors } from '../lib/colors';
+
 export interface Supplier {
   id: string;
   company_id: string;
@@ -177,6 +179,7 @@ export interface Quote {
 export interface QuoteWithDetails extends Quote {
   client_name?: string | null;
   job_title?: string | null;
+  job_address?: string | null;
 }
 
 export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
@@ -188,11 +191,19 @@ export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
 };
 
 export const QUOTE_STATUS_STYLES: Record<QuoteStatus, string> = {
-  draft: 'bg-gray-100 text-gray-700 ring-1 ring-gray-200',
-  sent: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
-  accepted: 'bg-green-50 text-green-700 ring-1 ring-green-200',
-  declined: 'bg-red-50 text-red-600 ring-1 ring-red-200',
-  expired: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200',
+  draft: 'ops-status-wait',
+  sent: 'ops-status-info',
+  accepted: 'ops-status-ok',
+  declined: 'ops-status-bad',
+  expired: 'ops-status-progress',
+};
+
+export const QUOTE_STATUS_RAIL: Record<QuoteStatus, string> = {
+  draft: colors.textMuted,
+  sent: colors.accent,
+  accepted: colors.pass,
+  declined: colors.fail,
+  expired: colors.warning,
 };
 
 // ── Invoices ─────────────────────────────────────────────────────
@@ -228,6 +239,7 @@ export interface Invoice {
 export interface InvoiceWithDetails extends Invoice {
   client_name?: string | null;
   job_title?: string | null;
+  job_address?: string | null;
 }
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
@@ -238,10 +250,17 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
 };
 
 export const INVOICE_STATUS_STYLES: Record<InvoiceStatus, string> = {
-  draft: 'bg-gray-100 text-gray-700 ring-1 ring-gray-200',
-  sent: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
-  paid: 'bg-green-50 text-green-700 ring-1 ring-green-200',
-  overdue: 'bg-red-50 text-red-600 ring-1 ring-red-200',
+  draft: 'ops-status-wait',
+  sent: 'ops-status-info',
+  paid: 'ops-status-ok',
+  overdue: 'ops-status-bad',
+};
+
+export const INVOICE_STATUS_RAIL: Record<InvoiceStatus, string> = {
+  draft: colors.textMuted,
+  sent: colors.accent,
+  paid: colors.pass,
+  overdue: colors.fail,
 };
 
 // ── Job Costs ────────────────────────────────────────────────────

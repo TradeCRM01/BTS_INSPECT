@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, Breadcrumbs, useToast } from '../components/ui';
+import { LoadingSpinner, PageError, Breadcrumbs, useToast, ActionButton, actionClass, OpsStatus, OpsSiteRow, OpsPhotoStamp } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
@@ -14,13 +14,12 @@ import type { Client, Job, JobStatus } from '../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY_DOT } from '../types/crm';
 import { formatMoney, INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatDuration } from '../types/fsm';
 import type { InvoiceStatus, Timesheet } from '../types/fsm';
-import { pickJobColor } from '../lib/jobColors';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { recommendJobAction } from '../lib/jobNextAction';
 import {
-  Calendar, Clock, MapPin, User, Phone, Mail, Edit3, ChevronDown,
+  Calendar, Clock, User, Phone, Mail, Edit3, ChevronDown,
   FileText, ShieldCheck, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
   Play, Square,
 } from 'lucide-react';
@@ -92,25 +91,6 @@ function inspectionHref(status: string, id: string): string {
 
 function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function actionClass(recommended: boolean) {
-  return recommended ? 'btn-primary' : 'btn-secondary';
-}
-
-function ActionButton({
-  recommended, onClick, disabled, children,
-}: {
-  recommended: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button type="button" onClick={onClick} disabled={disabled} className={actionClass(recommended)}>
-      {children}
-    </button>
-  );
 }
 
 export function JobDetailPage() {
@@ -213,6 +193,26 @@ export function JobDetailPage() {
       return list;
     },
     enabled: !!id && !!profile && !!job,
+  });
+
+  const { data: coverPhotoUrl } = useQuery<string | null>({
+    queryKey: ['job-cover-photo', id, (inspections ?? []).map(i => i.id).join(',')],
+    queryFn: async () => {
+      const ids = [...(inspections ?? []).map(i => i.id)];
+      if (job?.inspection_id && !ids.includes(job.inspection_id)) ids.push(job.inspection_id);
+      if (ids.length === 0) return null;
+      const { data: photos } = await supabase
+        .from('photos')
+        .select('storage_path')
+        .in('inspection_id', ids)
+        .order('uploaded_at', { ascending: false })
+        .limit(1);
+      const path = photos?.[0]?.storage_path;
+      if (!path) return null;
+      const { data } = await supabase.storage.from('photos').createSignedUrl(path, 3600);
+      return data?.signedUrl ?? null;
+    },
+    enabled: !!id && !!inspections,
   });
 
   const { data: jhas } = useQuery<JobJha[]>({
@@ -436,7 +436,6 @@ export function JobDetailPage() {
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !job) return <AppShell><PageError message="Could not load this job" /></AppShell>;
 
-  const color = pickJobColor(job.id, job.color);
   const assigned = (job.assigned_team ?? [])
     .map(tid => teamMembers?.find(m => m.id === tid)?.name)
     .filter(Boolean) as string[];
@@ -503,64 +502,87 @@ export function JobDetailPage() {
           { label: job.job_number != null ? `#${padNum(job.job_number)} ${job.title}` : job.title },
         ]} />
 
-        <article className="card overflow-hidden mb-5" style={{ borderLeftWidth: 4, borderLeftColor: color }}>
-          <div className="bg-[#0A2540] text-white px-5 py-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                {job.job_number != null && (
-                  <p className="text-[11px] font-bold tracking-wider text-white/60 mb-1">
-                    JOB #{padNum(job.job_number)}
-                  </p>
-                )}
-                <h1 className="text-xl font-semibold tracking-tight">{job.title}</h1>
-                {parentJob && (
-                  <Link to={`/jobs/${parentJob.id}`} className="mt-1 inline-flex items-center gap-1 text-xs text-[#93C5FD] hover:underline">
-                    <GitBranch size={12} />
-                    Stage of {parentJob.job_number != null ? `#${padNum(parentJob.job_number)} ` : ''}{parentJob.title}
-                  </Link>
-                )}
-              </div>
+        <article className="ops-card overflow-hidden mb-4">
+          <OpsPhotoStamp
+            src={coverPhotoUrl}
+            hub
+            status={
               <select
                 value={job.status}
                 onChange={e => updateStatus.mutate(e.target.value as JobStatus)}
-                className={`form-input-sm text-xs font-medium cursor-pointer w-auto ${JOB_STATUS_STYLES[job.status]}`}
+                className={`ops-status cursor-pointer border-0 ${JOB_STATUS_STYLES[job.status]}`}
                 aria-label="Job status"
               >
                 {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
                   <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
                 ))}
               </select>
-            </div>
+            }
+            identity={`${job.job_number != null ? `#${padNum(job.job_number)}` : 'JOB'} | ${site ? site : 'No site address'}`}
+          />
+          <div className="ops-card-body">
+            <OpsSiteRow
+              hub
+              site={site ? site : 'No site address yet — add it in job details'}
+              phone={client?.phone}
+              mapsQuery={site}
+            />
+            {job.title && <p className="ops-hub-title mt-1">{job.title}</p>}
+            {parentJob && (
+              <Link to={`/jobs/${parentJob.id}`} className="mt-1 inline-flex items-center gap-1 ops-meta text-accent hover:underline">
+                <GitBranch size={12} />
+                Stage of {parentJob.job_number != null ? `#${padNum(parentJob.job_number)} ` : ''}{parentJob.title}
+              </Link>
+            )}
 
-            <div className="mt-4 flex items-start gap-2 text-sm text-white/90">
-              <MapPin size={16} className="shrink-0 mt-0.5 text-[#93C5FD]" />
-              {site ? (
-                <span>{site}</span>
+            <div className="mt-2">
+              {next.key === 'inspect' ? (
+                <Link to={inspectHref} className="ops-next-control-block">{next.label}</Link>
+              ) : next.key !== 'none' ? (
+                <button
+                  type="button"
+                  className="ops-next-control-block"
+                  onClick={() => {
+                    if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
+                    else if (next.key === 'jha') startJha();
+                    else if (next.key === 'invoice') handleInvoice();
+                    else if (next.key === 'clock') clockOnJob.mutate();
+                  }}
+                >
+                  {next.label}
+                </button>
               ) : (
-                <span className="text-white/50">No site address yet — add it in job details</span>
+                <span className="ops-next-control-done">{next.label}</span>
               )}
             </div>
-            {job.scheduled_date && (
-              <div className="mt-2 flex items-center gap-2 text-sm text-white/80">
-                <Calendar size={14} className="text-[#93C5FD]" />
-                {format(parseISO(job.scheduled_date), 'EEE d MMM yyyy')}
-                {job.start_time && (
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} /> {job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}
-                  </span>
-                )}
+
+            {((quotes ?? []).length > 0 || (invoices ?? []).length > 0) && (
+              <div className="ops-attach">
+                {(quotes ?? []).map(q => (
+                  <Link key={q.id} to={`/quotes?id=${q.id}`} className="ops-attach-chip">
+                    <span className="truncate">QT #{padNum(q.quote_number)} · {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}</span>
+                    <span className="tabular-nums shrink-0">{formatMoney(Number(q.total))}</span>
+                  </Link>
+                ))}
+                {(invoices ?? []).map(inv => {
+                  const status = effectiveInvoiceStatus(inv);
+                  return (
+                    <Link key={inv.id} to={`/invoices?id=${inv.id}`} className="ops-attach-chip">
+                      <span className="truncate">INV #{padNum(inv.invoice_number)} · {INVOICE_STATUS_LABELS[status]}</span>
+                      <span className="tabular-nums shrink-0">{formatMoney(Number(inv.total))}</span>
+                    </Link>
+                  );
+                })}
               </div>
             )}
-          </div>
 
-          <div className="px-5 py-4">
-            <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 ops-meta">
               {client ? (
                 <Link to={`/clients/${client.id}`} className="flex items-center gap-1.5 text-[#2E75B6] hover:underline">
                   <User size={13} /> {client.name}
                 </Link>
               ) : (
-                <span className="flex items-center gap-1.5 text-[#9CA3AF]">
+                <span className="flex items-center gap-1.5 ops-meta">
                   <User size={13} /> No client
                 </span>
               )}
@@ -574,11 +596,20 @@ export function JobDetailPage() {
                   <Mail size={13} /> {client.email}
                 </a>
               )}
-              <span className="flex items-center gap-1.5 text-[#4A5568]">
+              <span className="flex items-center gap-1.5">
                 <Users size={13} />
                 {assigned.length > 0 ? assigned.join(', ') : 'Unassigned'}
               </span>
-              {job.priority !== 'medium' && (
+            {job.scheduled_date && (
+              <span className="flex items-center gap-1.5">
+                <Calendar size={13} />
+                {format(parseISO(job.scheduled_date), 'EEE d MMM yyyy')}
+                {job.start_time && (
+                  <span>{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>
+                )}
+              </span>
+            )}
+            {job.priority !== 'medium' && (
                 <span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
                   <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
                   {JOB_PRIORITY_LABELS[job.priority]} priority
@@ -587,23 +618,18 @@ export function JobDetailPage() {
             </div>
 
             {job.description && (
-              <p className="mt-3 text-sm text-[#4A5568] whitespace-pre-wrap line-clamp-4">{job.description}</p>
+              <p className="mt-2 ops-meta whitespace-pre-wrap line-clamp-4">{job.description}</p>
             )}
 
-            <div className="mt-4 rounded-lg bg-[#F0F7FF] border border-[#BFDBFE] px-3 py-2.5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#2E75B6]">Next</p>
-              <p className="text-sm font-medium text-[#0A2540] mt-0.5">{next.detail}</p>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <ActionButton
-                recommended={next.key === 'schedule' || next.key === 'crew'}
+                recommended={false}
                 onClick={() => scrollToId('job-schedule')}
               >
                 <Calendar size={14} /> Schedule / crew
               </ActionButton>
               <div className="relative">
-                <ActionButton recommended={next.key === 'jha'} onClick={startJha}>
+                <ActionButton recommended={false} onClick={startJha}>
                   <ShieldCheck size={14} /> Start JHA
                 </ActionButton>
                 {showJhaPicker && (jhaTemplates ?? []).length > 1 && (
@@ -621,11 +647,11 @@ export function JobDetailPage() {
                   </div>
                 )}
               </div>
-              <Link to={inspectHref} className={actionClass(next.key === 'inspect')}>
+              <Link to={inspectHref} className={actionClass(false)}>
                 <ClipboardList size={14} /> Start inspection
               </Link>
               <ActionButton
-                recommended={next.key === 'invoice'}
+                recommended={false}
                 onClick={handleInvoice}
                 disabled={invoiceFromQuote.isPending}
               >
@@ -645,9 +671,7 @@ export function JobDetailPage() {
                   type="button"
                   onClick={() => clockOnJob.mutate()}
                   disabled={clockOnJob.isPending || job.status === 'cancelled'}
-                  className={next.key === 'clock'
-                    ? 'inline-flex items-center gap-1.5 bg-[#16A34A] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#15803D] transition-all duration-200 active:scale-[0.98] disabled:opacity-50'
-                    : 'inline-flex items-center gap-1.5 bg-white text-[#15803D] px-3 py-2 rounded-md text-sm font-medium border border-[#86EFAC] hover:bg-[#F0FDF4] transition-all duration-200 active:scale-[0.98] disabled:opacity-50'}
+                  className="btn-secondary"
                 >
                   <Play size={14} /> Clock on
                 </button>
@@ -682,7 +706,7 @@ export function JobDetailPage() {
                   href={`/jobs/${child.id}`}
                   icon={GitBranch}
                   title={`${child.job_number != null ? `#${padNum(child.job_number)} ` : ''}${child.title}`}
-                  trailing={<span className="text-xs text-[#6B7280] capitalize">{child.status.replace('_', ' ')}</span>}
+                  trailing={<OpsStatus className={JOB_STATUS_STYLES[child.status as JobStatus] ?? 'ops-status-wait'}>{JOB_STATUS_LABELS[child.status as JobStatus] ?? child.status}</OpsStatus>}
                 />
               ))}
             </JobRelatedSection>
@@ -750,17 +774,17 @@ export function JobDetailPage() {
                 <Link to={`/quotes?id=${q.id}`} className="flex items-center gap-2.5 min-w-0 flex-1 hover:opacity-80">
                   <FileText size={15} className="text-[#2E75B6] shrink-0" />
                   <p className="text-sm font-medium text-[#1A1A1A] truncate">Quote #{padNum(q.quote_number)}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${QUOTE_STATUS_STYLES[q.status as keyof typeof QUOTE_STATUS_STYLES] ?? 'bg-gray-100 text-gray-700'}`}>
+                  <OpsStatus className={QUOTE_STATUS_STYLES[q.status as keyof typeof QUOTE_STATUS_STYLES] ?? 'ops-status-wait'}>
                     {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}
-                  </span>
-                  <span className="text-sm font-semibold text-[#1A1A1A]">{formatMoney(Number(q.total))}</span>
+                  </OpsStatus>
+                  <span className={`text-sm font-semibold text-navy`}>{formatMoney(Number(q.total))}</span>
                 </Link>
                 {q.status === 'accepted' && !(invoices ?? []).some(inv => inv.quote_id === q.id) && (
                   <button
                     type="button"
                     onClick={() => invoiceFromQuote.mutate(q.id)}
                     disabled={invoiceFromQuote.isPending}
-                    className="shrink-0 text-xs font-medium text-[#0A2540] bg-[#F0F7FF] border border-[#BFDBFE] px-2 py-1 rounded-md hover:bg-[#E0EFFF] disabled:opacity-50"
+                    className="shrink-0 text-xs font-medium text-navy border border-[#E5E7EB] px-2 py-1 rounded-md hover:bg-[#F9FAFB] disabled:opacity-50"
                   >
                     Invoice
                   </button>
@@ -790,9 +814,9 @@ export function JobDetailPage() {
                   title={`Invoice #${padNum(inv.invoice_number)}`}
                   meta={formatMoney(Number(inv.total))}
                   trailing={
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${INVOICE_STATUS_STYLES[status]}`}>
+                    <OpsStatus className={INVOICE_STATUS_STYLES[status]}>
                       {INVOICE_STATUS_LABELS[status]}
-                    </span>
+                    </OpsStatus>
                   }
                 />
               );
@@ -815,7 +839,7 @@ export function JobDetailPage() {
           emptyTitle="Nobody has clocked onto this job yet."
           emptyAction={
             runningEntry ? undefined : (
-              <button type="button" onClick={() => clockOnJob.mutate()} className="text-sm font-medium text-[#15803D] hover:underline">
+              <button type="button" onClick={() => clockOnJob.mutate()} className="text-sm font-medium text-pass hover:underline">
                 Clock on
               </button>
             )
@@ -879,9 +903,28 @@ export function JobDetailPage() {
             </div>
           )}
         </div>
-      </div>
 
-      {showEdit && (
+        {next.key !== 'none' && (
+          <div className="ops-sticky -mx-4 sm:mx-0">
+            {next.key === 'inspect' ? (
+              <Link to={inspectHref} className="ops-next-control-block">{next.label}</Link>
+            ) : (
+              <button
+                type="button"
+                className="ops-next-control-block"
+                onClick={() => {
+                  if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
+                  else if (next.key === 'jha') startJha();
+                  else if (next.key === 'invoice') handleInvoice();
+                  else if (next.key === 'clock') clockOnJob.mutate();
+                }}
+              >
+                {next.label}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
         <JobFormModal
           job={job}
           presetDate={null}

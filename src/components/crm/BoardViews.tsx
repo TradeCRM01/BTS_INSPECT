@@ -1,9 +1,9 @@
 import { useState, useMemo, useRef, memo, useEffect } from 'react';
 import type { JobWithClient } from '../../types/crm';
-import {
-  pickJobColor, pickEmployeeColor, hexToBg, hexToBorder, getReadableText,
-} from '../../lib/jobColors';
-import { boardDispatchHint } from '../../lib/jobNextAction';
+import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
+import { pickEmployeeColor } from '../../lib/jobColors';
+import { boardDispatchHint, jobCardHint } from '../../lib/jobNextAction';
+import { OpsSiteRow, OpsStatus, opsSiteLabel } from '../ui/OpsCard';
 import {
   startTimeFromDropOffset,
   placeDayRowJobs,
@@ -18,7 +18,7 @@ import {
 import {
   format, isToday, addDays, startOfWeek,
 } from 'date-fns';
-import { Clock, MapPin, User, Plus, Users } from 'lucide-react';
+import { Clock, Plus, Users } from 'lucide-react';
 
 export interface TeamMember {
   id: string;
@@ -43,8 +43,8 @@ const DAY_START = DAY_START_HOUR;
 const DAY_END = DAY_END_HOUR;
 const HOURS = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => DAY_START + i);
 const LABEL_WIDTH = 168;
-const ALL_DAY_H = 22;
-const TIMED_H = 48;
+const ALL_DAY_H = 56;
+const TIMED_H = 72;
 const ROW_PAD = 6;
 const ROW_MIN = 72;
 
@@ -59,10 +59,6 @@ function jobDateKey(job: JobWithClient): string | null {
 function formatJobNumber(n: number | null | undefined): string {
   if (n == null) return '';
   return `#${String(n).padStart(4, '0')}`;
-}
-
-function initials(name: string): string {
-  return name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 }
 
 function formatHourLabel(h: number): string {
@@ -80,122 +76,135 @@ interface JobBlockProps {
   onDragStart?: (e: React.DragEvent) => void;
   compact?: boolean;
   dragging?: boolean;
+  fill?: boolean;
+  detail?: boolean;
 }
 
 const JobBlock = memo(function JobBlock({
-  job, teamMembers, onClick, onDragStart, compact, dragging,
+  job, onClick, onDragStart, compact, dragging, fill = true, detail = false,
 }: JobBlockProps) {
-  const color = pickJobColor(job.id, job.color);
-  const textColor = getReadableText(color);
-  const bg = hexToBg(color, 0.15);
-  const border = hexToBorder(color, 0.4);
+  const rail = JOB_STATUS_RAIL[job.status];
   const hint = boardDispatchHint(job);
-  const assigned = (job.assigned_team ?? [])
-    .map(id => teamMembers?.find(m => m.id === id))
-    .filter(Boolean) as TeamMember[];
+  const next = hint ?? jobCardHint(job);
+  const site = opsSiteLabel(job.address, job.client_address);
 
   return (
     <button
       draggable={!!onDragStart}
       onDragStart={onDragStart}
       onClick={e => { e.stopPropagation(); onClick(); }}
-      className={`absolute left-1 right-1 rounded-lg border overflow-hidden cursor-pointer transition-all hover:shadow-md hover:brightness-105 active:scale-[0.98] ${
+      className={`${fill ? 'absolute left-1 right-1' : 'w-full'} ops-card ops-card-hover cursor-pointer active:scale-[0.98] ${
         dragging ? 'opacity-40' : ''
       }`}
-      style={{
-        background: bg,
-        borderColor: hint === 'Assign crew' ? '#F59E0B' : border,
-        borderLeftWidth: 3,
-        borderLeftColor: hint === 'Assign crew' ? '#D97706' : color,
-        borderStyle: hint === 'Assign crew' ? 'dashed' : 'solid',
-      }}
+      style={{ borderLeftWidth: 3, borderLeftColor: rail }}
     >
-      <div className="px-1.5 py-1 text-left" style={{ color: textColor === '#FFFFFF' ? color : '#1A1A1A' }}>
-        <div className="flex items-center gap-1 mb-0.5">
-          <span className="text-[10px] font-bold shrink-0" style={{ color }}>
-            {formatJobNumber(job.job_number)}
-          </span>
-          {job.status === 'cancelled' && (
-            <span className="text-[9px] px-1 rounded bg-red-100 text-red-600">CXL</span>
-          )}
-          {job.status === 'completed' && (
-            <span className="text-[9px] px-1 rounded bg-green-100 text-green-600">DONE</span>
-          )}
-          {hint && (
-            <span className="text-[9px] px-1 rounded bg-amber-100 text-amber-800 font-semibold truncate">
-              {hint}
-            </span>
-          )}
-        </div>
-        <p className="text-[11px] font-semibold leading-tight truncate" style={{ color: '#1A1A1A' }}>
-          {job.title}
-        </p>
+      <div className="px-1.5 py-1 text-left">
         {!compact && (
-          <>
-            {job.client_name && (
-              <p className="text-[10px] leading-tight truncate text-[#4A5568] flex items-center gap-0.5 mt-0.5">
-                <User size={8} /> {job.client_name}
-              </p>
-            )}
-            {job.start_time && (
-              <p className="text-[10px] leading-tight text-[#6B7280] flex items-center gap-0.5 mt-0.5">
-                <Clock size={8} /> {job.start_time.slice(0, 5)}
-                {job.end_time && ` – ${job.end_time.slice(0, 5)}`}
-              </p>
-            )}
-            {job.address && (
-              <p className="text-[10px] leading-tight truncate text-[#6B7280] flex items-center gap-0.5 mt-0.5">
-                <MapPin size={8} /> {job.address}
-              </p>
-            )}
-            {assigned.length > 0 && (
-              <div className="flex items-center gap-0.5 mt-1">
-                {assigned.slice(0, 4).map(m => (
-                  <div
-                    key={m.id}
-                    className="w-3.5 h-3.5 rounded-full border border-white flex items-center justify-center text-[7px] font-bold text-white"
-                    style={{ background: pickEmployeeColor(m.id, m.schedule_color) }}
-                    title={m.name}
-                  >
-                    {m.name[0]?.toUpperCase()}
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
+          <div className="mb-1">
+            <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+          </div>
         )}
+        <p className={`${compact ? 'ops-chip-site' : 'ops-card-site'} truncate`}>
+          {compact && job.start_time ? `${job.start_time.slice(0, 5)} · ` : ''}
+          {formatJobNumber(job.job_number) || 'JOB'} | {site}
+        </p>
+        {!compact && job.start_time && (
+          <p className="ops-meta mt-0.5 flex items-center gap-0.5">
+            <Clock size={12} /> {job.start_time.slice(0, 5)}
+            {job.end_time && ` – ${job.end_time.slice(0, 5)}`}
+          </p>
+        )}
+        <span className={`mt-1 ${detail ? 'ops-next-control-block' : 'ops-next-control-sm'}`}>{next}</span>
       </div>
     </button>
   );
 });
 
-// ── Needs a date (jobs that would otherwise vanish) ──────────────
+// ── Unscheduled tray (jobs that would otherwise vanish) ──────────
 
 export const NeedsDateRail = memo(function NeedsDateRail({
-  jobs, onJobClick, onDragStart,
+  jobs, onJobClick, onDragStart, alwaysShow = false, className = '',
 }: {
   jobs: JobWithClient[];
   onJobClick: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
+  alwaysShow?: boolean;
+  className?: string;
 }) {
-  if (jobs.length === 0) return null;
+  if (jobs.length === 0 && !alwaysShow) return null;
 
   return (
-    <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/70 overflow-hidden">
-      <div className="px-3 py-2 flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <p className="text-xs font-semibold text-[#0A2540]">Needs a date</p>
-          <p className="text-[11px] text-[#4A5568] mt-0.5">
-            Drag onto the board to put it on a day. Open the job to edit.
-          </p>
-        </div>
-        <span className="text-[11px] font-medium text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
-          {jobs.length}
-        </span>
+    <div className={`ops-tray ${className}`.trim()}>
+      <div className="ops-tray-head">
+        <p className="ops-card-kicker">Unscheduled</p>
+        <span className="ops-meta">{jobs.length}</span>
       </div>
-      <div className="px-3 pb-3 flex items-stretch gap-2 overflow-x-auto">
-        {jobs.map(job => {
-          const color = pickJobColor(job.id, job.color);
+      <div className="p-2 space-y-2 max-h-[70vh] overflow-y-auto">
+        {jobs.length === 0 ? (
+          <p className="ops-meta px-1 py-2">No unscheduled jobs.</p>
+        ) : (
+          jobs.map(job => {
+            const site = opsSiteLabel(job.address, job.client_address);
+            return (
+              <button
+                key={job.id}
+                type="button"
+                draggable
+                onDragStart={e => onDragStart(e, job.id)}
+                onClick={() => onJobClick(job)}
+                className="ops-card ops-card-hover w-full text-left active:scale-[0.98]"
+                style={{ borderLeftWidth: 3, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
+              >
+                <div className="ops-card-body">
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}</p>
+                    <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                  </div>
+                  <div className="ops-card-footer">
+                    <span className="ops-next-control-block">Set a date</span>
+                  </div>
+                  {job.client_name && <p className="ops-meta mt-1.5 truncate">{job.client_name}</p>}
+                  {job.title && <p className="ops-meta mt-0.5 truncate">{job.title}</p>}
+                </div>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+});
+
+// ── Phone day list (no hour grid) ────────────────────────────────
+
+export const PhoneDayList = memo(function PhoneDayList({
+  jobs, currentDate, onJobClick, onDragStart,
+}: {
+  jobs: JobWithClient[];
+  currentDate: Date;
+  onJobClick: (job: JobWithClient) => void;
+  onDragStart: (e: React.DragEvent, jobId: string) => void;
+}) {
+  const dateStr = dateKey(currentDate);
+  const dayJobs = useMemo(() => {
+    return jobs
+      .filter(job => jobDateKey(job) === dateStr)
+      .sort((a, b) => (a.start_time ?? '99').localeCompare(b.start_time ?? '99'));
+  }, [jobs, dateStr]);
+
+  return (
+    <div className="space-y-2">
+      <h2 className="ops-group-title">
+        {format(currentDate, 'EEEE d MMM')}
+        <span className="text-[rgba(0,0,0,0.7)] normal-case font-normal"> ({dayJobs.length})</span>
+      </h2>
+      {dayJobs.length === 0 ? (
+        <p className="ops-meta px-1 py-3">No jobs on this day. Drag from the tray or add a job.</p>
+      ) : (
+        dayJobs.map(job => {
+          const site = opsSiteLabel(job.address, job.client_address);
+          const mapsQuery = (job.address || job.client_address)?.trim() || null;
+          const next = boardDispatchHint(job) ?? jobCardHint(job);
           return (
             <button
               key={job.id}
@@ -203,25 +212,33 @@ export const NeedsDateRail = memo(function NeedsDateRail({
               draggable
               onDragStart={e => onDragStart(e, job.id)}
               onClick={() => onJobClick(job)}
-              className="shrink-0 w-48 text-left rounded-lg border bg-white px-2.5 py-2 hover:shadow-sm active:scale-[0.98]"
-              style={{ borderLeftWidth: 3, borderLeftColor: color }}
+              className="ops-card ops-card-hover w-full text-left"
+              style={{ borderLeftWidth: 4, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
             >
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold" style={{ color }}>
-                  {formatJobNumber(job.job_number)}
-                </span>
-                <span className="text-[9px] px-1 rounded bg-amber-100 text-amber-800 font-semibold">
-                  Set a date
-                </span>
+              <div className="ops-card-body">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}</p>
+                  <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                </div>
+                <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
+                <div className="ops-card-footer">
+                  <span className="ops-next-control-block">{next}</span>
+                </div>
+                <div className="mt-2 space-y-0.5">
+                  {job.start_time && (
+                    <p className="ops-meta flex items-center gap-1">
+                      <Clock size={12} /> {job.start_time.slice(0, 5)}
+                      {job.end_time ? ` – ${job.end_time.slice(0, 5)}` : ''}
+                    </p>
+                  )}
+                  {job.client_name && <p className="ops-meta truncate">{job.client_name}</p>}
+                  {job.title && <p className="ops-meta truncate">{job.title}</p>}
+                </div>
               </div>
-              <p className="text-xs font-semibold text-[#1A1A1A] truncate mt-0.5">{job.title}</p>
-              {job.client_name && (
-                <p className="text-[10px] text-[#6B7280] truncate mt-0.5">{job.client_name}</p>
-              )}
             </button>
           );
-        })}
-      </div>
+        })
+      )}
     </div>
   );
 });
@@ -318,17 +335,17 @@ export const DayBoardView = memo(function DayBoardView({
   const gridWidth = HOURS.length * HOUR_WIDTH;
 
   return (
-    <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
-      <div className="px-4 py-2.5 bg-[#0A2540] text-white flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm font-semibold">
+    <div className="ops-board">
+      <div className="px-3 py-2 border-b border-[#E5E7EB] flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-sm font-semibold tracking-tight text-navy">
           {format(currentDate, 'EEEE, d MMMM yyyy')}
           {isToday(currentDate) && (
-            <span className="ml-2 text-[10px] text-[#0A2540] bg-white/90 px-1.5 py-0.5 rounded-full font-medium">
+            <span className="ml-2 text-[10px] font-bold tracking-wide text-white bg-navy px-1.5 py-0.5 rounded-md">
               TODAY
             </span>
           )}
         </p>
-        <p className="text-[11px] text-white/75">
+        <p className="ops-meta">
           {unassignedCount > 0
             ? `${unassignedCount} unassigned · drop on a person to add them`
             : 'Drop on a person to add them · Unassigned keeps the date'}
@@ -339,8 +356,8 @@ export const DayBoardView = memo(function DayBoardView({
         <div className="flex sticky top-0 z-20 bg-white border-b border-[#E5E7EB]">
           <div className="shrink-0 border-r border-[#E5E7EB] bg-[#FAFBFC]" style={{ width: LABEL_WIDTH }}>
             <div className="px-3 py-2 flex items-center gap-1.5">
-              <Users size={13} className="text-[#2E75B6]" />
-              <span className="text-[10px] font-semibold text-[#0A2540] uppercase tracking-wide">Crew</span>
+              <Users size={13} className="text-navy" />
+              <span className="text-xs font-semibold tracking-tight text-navy">Crew</span>
             </div>
           </div>
           <div className="flex" style={{ minWidth: gridWidth }}>
@@ -348,7 +365,7 @@ export const DayBoardView = memo(function DayBoardView({
               <div key={h} className="text-center border-r border-[#F3F4F6] last:border-r-0"
                 style={{ width: HOUR_WIDTH }}>
                 <div className="px-1 py-2">
-                  <span className="text-[10px] font-medium text-[#6B7280]">{formatHourLabel(h)}</span>
+                  <span className="text-[10px] font-medium ops-meta">{formatHourLabel(h)}</span>
                 </div>
               </div>
             ))}
@@ -357,7 +374,7 @@ export const DayBoardView = memo(function DayBoardView({
 
         {rows.map((row, rowIdx) => {
           const isUnassigned = row.id === UNASSIGNED_ROW_ID;
-          const color = isUnassigned ? '#D97706' : pickEmployeeColor(row.id, row.schedule_color);
+          const color = isUnassigned ? '#2E75B6' : pickEmployeeColor(row.id, row.schedule_color);
           const rowJobs = jobsByRow.get(row.id) ?? [];
           const layout = placeDayRowJobs(rowJobs);
           const placementById = new Map(layout.placements.map(p => [p.id, p]));
@@ -370,33 +387,30 @@ export const DayBoardView = memo(function DayBoardView({
             <div
               key={row.id}
               className={`flex ${rowIdx < rows.length - 1 ? 'border-b border-[#F3F4F6]' : ''} ${
-                isUnassigned ? 'bg-amber-50/50' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFC]'
-              } ${hovering ? 'bg-blue-50/70' : ''}`}
+                isUnassigned ? 'bg-[#FAFBFC]' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFC]'
+              } ${hovering ? 'bg-[#F3F4F6]' : ''}`}
               onDragOver={e => { e.preventDefault(); setDropHoverId(row.id); }}
               onDrop={e => handleDrop(e, row.id)}
             >
               <div
-                className="shrink-0 border-r border-[#E5E7EB] cursor-pointer hover:bg-blue-50/40 transition-colors flex items-center gap-2 px-3"
+                className="shrink-0 border-r border-[#E5E7EB] cursor-pointer hover:bg-[#F9FAFB] transition-colors flex items-center gap-2 px-3"
                 style={{
                   width: LABEL_WIDTH,
                   height,
-                  borderLeft: isUnassigned ? '3px dashed #D97706' : `3px solid ${color}`,
+                  borderLeft: isUnassigned ? '3px dashed #0A2540' : `3px solid ${color}`,
                 }}
                 onClick={() => onDayClick(dateStr, isUnassigned ? undefined : row.id)}
               >
-                <div
-                  className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-white text-[10px] font-bold"
+                <span
+                  className="ops-crew-mark"
                   style={{
                     background: isUnassigned ? 'transparent' : color,
-                    color: isUnassigned ? '#D97706' : undefined,
-                    border: isUnassigned ? '2px dashed #D97706' : undefined,
+                    outline: isUnassigned ? '1px solid #0A2540' : undefined,
                   }}
-                >
-                  {isUnassigned ? '?' : initials(row.name)}
-                </div>
+                />
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-[#1A1A1A] truncate">{row.name}</p>
-                  <p className="text-[10px] text-[#9CA3AF]">
+                  <p className="text-sm font-semibold tracking-tight text-navy truncate">{row.name}</p>
+                  <p className="ops-meta">
                     {isUnassigned
                       ? (rowJobs.length === 0 ? 'Drop here — date stays' : `${rowJobs.length} · needs crew`)
                       : `${rowJobs.length} job${rowJobs.length !== 1 ? 's' : ''}`}
@@ -535,10 +549,10 @@ export const WeekBoardView = memo(function WeekBoardView({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
-      <div className="px-4 py-2 bg-[#0A2540] text-white flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm font-semibold">This week</p>
-        <p className="text-[11px] text-white/75">
+    <div className="ops-board">
+      <div className="px-3 py-2 border-b border-[#E5E7EB] flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-sm font-semibold tracking-tight text-navy">This week</p>
+        <p className="ops-meta">
           Drag to another day to move the date. Crew stays put.
         </p>
       </div>
@@ -550,11 +564,11 @@ export const WeekBoardView = memo(function WeekBoardView({
           const needsCrew = dayJobs.filter(j => !(j.assigned_team ?? []).length).length;
           return (
             <div key={i} className="flex-1 min-w-[120px] border-r border-[#E5E7EB] last:border-r-0 px-2 py-2 text-center">
-              <p className="text-[10px] font-medium text-[#9CA3AF] uppercase">{format(day, 'EEE')}</p>
-              <p className={`text-sm font-bold ${today ? 'text-white bg-[#0A2540] w-6 h-6 rounded-full flex items-center justify-center mx-auto' : 'text-[#1A1A1A]'}`}>
+              <p className="ops-meta uppercase">{format(day, 'EEE')}</p>
+              <p className={`text-sm font-bold ${today ? 'text-white bg-navy w-6 h-6 rounded-md flex items-center justify-center mx-auto' : 'text-[#1A1A1A]'}`}>
                 {format(day, 'd')}
               </p>
-              <p className="text-[10px] text-[#9CA3AF] mt-0.5">
+              <p className="ops-meta mt-0.5">
                 {dayJobs.length} job{dayJobs.length !== 1 ? 's' : ''}
                 {needsCrew > 0 ? ` · ${needsCrew} unassigned` : ''}
               </p>
@@ -575,7 +589,7 @@ export const WeekBoardView = memo(function WeekBoardView({
               onDrop={e => handleDrop(e, ds)}
               onClick={() => onDayClick(ds)}
               className={`flex-1 min-w-[120px] border-r border-[#E5E7EB] last:border-r-0 p-1 space-y-1 cursor-pointer min-h-[300px] ${
-                hovering ? 'bg-blue-50/70' : ''
+                hovering ? 'bg-[#F3F4F6]' : ''
               }`}
             >
               {dayJobs.length === 0 ? (
@@ -584,80 +598,18 @@ export const WeekBoardView = memo(function WeekBoardView({
                   <span className="text-[10px] mt-1">Add job</span>
                 </div>
               ) : (
-                dayJobs.map(job => {
-                  const color = pickJobColor(job.id, job.color);
-                  const hint = boardDispatchHint(job);
-                  const assignedMembers = (job.assigned_team ?? [])
-                    .map(id => teamMembers.find(m => m.id === id))
-                    .filter(Boolean) as TeamMember[];
-                  return (
-                    <button
-                      key={job.id}
-                      draggable
-                      onDragStart={e => handleDragStart(e, job.id)}
-                      onClick={e => { e.stopPropagation(); onJobClick(job); }}
-                      className={`w-full text-left rounded-lg border overflow-hidden cursor-pointer transition-all hover:shadow-md hover:brightness-105 active:scale-[0.98] ${
-                        dragJobId === job.id ? 'opacity-40' : ''
-                      }`}
-                      style={{
-                        background: hexToBg(color, 0.12),
-                        borderColor: hint ? '#F59E0B' : hexToBorder(color, 0.35),
-                        borderLeftWidth: 3,
-                        borderLeftColor: hint ? '#D97706' : color,
-                        borderStyle: hint ? 'dashed' : 'solid',
-                      }}
-                    >
-                      <div className="px-1.5 py-1.5">
-                        <div className="flex items-center justify-between gap-1 mb-0.5">
-                          <span className="text-[10px] font-bold" style={{ color }}>
-                            {formatJobNumber(job.job_number)}
-                          </span>
-                          {hint ? (
-                            <span className="text-[9px] px-1 rounded bg-amber-100 text-amber-800 font-semibold">
-                              {hint}
-                            </span>
-                          ) : job.status === 'completed' ? (
-                            <span className="text-[9px] px-1 rounded bg-green-100 text-green-600">DONE</span>
-                          ) : job.status === 'cancelled' ? (
-                            <span className="text-[9px] px-1 rounded bg-red-100 text-red-600">CXL</span>
-                          ) : null}
-                        </div>
-                        <p className="text-[11px] font-semibold leading-tight text-[#1A1A1A]">
-                          {job.title}
-                        </p>
-                        {job.client_name && (
-                          <p className="text-[10px] text-[#4A5568] truncate mt-0.5 flex items-center gap-0.5">
-                            <User size={8} /> {job.client_name}
-                          </p>
-                        )}
-                        {job.start_time && (
-                          <p className="text-[10px] text-[#6B7280] mt-0.5 flex items-center gap-0.5">
-                            <Clock size={8} /> {job.start_time.slice(0, 5)}
-                            {job.end_time && ` – ${job.end_time.slice(0, 5)}`}
-                          </p>
-                        )}
-                        {assignedMembers.length > 0 ? (
-                          <div className="flex items-center gap-0.5 mt-1">
-                            {assignedMembers.slice(0, 4).map(m => (
-                              <div key={m.id}
-                                className="w-3.5 h-3.5 rounded-full border border-white flex items-center justify-center text-[7px] font-bold text-white"
-                                style={{ background: pickEmployeeColor(m.id, m.schedule_color) }}
-                                title={m.name}
-                              >
-                                {m.name[0]?.toUpperCase()}
-                              </div>
-                            ))}
-                            {assignedMembers.length > 4 && (
-                              <span className="text-[9px] text-[#9CA3AF] ml-0.5">+{assignedMembers.length - 4}</span>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-[10px] text-amber-800 mt-1 font-medium">Unassigned</p>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })
+                dayJobs.map(job => (
+                  <JobBlock
+                    key={job.id}
+                    job={job}
+                    teamMembers={teamMembers}
+                    fill={false}
+                    detail
+                    dragging={dragJobId === job.id}
+                    onClick={() => onJobClick(job)}
+                    onDragStart={e => handleDragStart(e, job.id)}
+                  />
+                ))
               )}
             </div>
           );

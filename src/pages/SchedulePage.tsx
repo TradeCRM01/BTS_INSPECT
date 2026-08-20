@@ -9,7 +9,7 @@ import { PageError } from '../components/ui/PageError';
 import type { Job, JobWithClient, Client } from '../types/crm';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import {
-  DayBoardView, WeekBoardView, NeedsDateRail,
+  DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList,
   type TeamMember,
 } from '../components/crm/BoardViews';
 import { pickEmployeeColor } from '../lib/jobColors';
@@ -240,8 +240,8 @@ export function SchedulePage() {
       <div className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-[#0A2540]">Schedule</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">
+            <h1 className="ops-page-title">Schedule</h1>
+            <p className="ops-meta mt-0.5">
               {onBoard.length} on the board
               {unassignedOnBoard > 0 ? ` · ${unassignedOnBoard} unassigned` : ''}
               {needsDate.length > 0 ? ` · ${needsDate.length} without a date` : ''}
@@ -290,7 +290,7 @@ export function SchedulePage() {
             </h2>
           </div>
 
-          <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
+          <div className="hidden lg:flex items-center gap-0.5 bg-gray-100 rounded p-0.5">
             {([
               { mode: 'day' as const, label: 'Day', Icon: Columns3 },
               { mode: 'week' as const, label: 'Week', Icon: CalIcon },
@@ -299,7 +299,7 @@ export function SchedulePage() {
                 key={mode}
                 onClick={() => setViewMode(mode)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === mode ? 'bg-white text-[#0A2540] shadow-sm' : 'text-[#6B7280] hover:text-[#374151]'
+                  viewMode === mode ? 'bg-white text-navy' : 'text-[rgba(0,0,0,0.7)] hover:text-navy'
                 }`}
               >
                 <Icon size={14} />
@@ -310,8 +310,8 @@ export function SchedulePage() {
         </div>
 
         {viewMode === 'day' && teamMembers && teamMembers.length > 0 && (
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-[#4A5568]">
+          <div className="hidden lg:flex items-center gap-2 mb-3 flex-wrap">
+            <div className="flex items-center gap-1.5 ops-meta font-medium">
               <Users size={13} /> Crew
             </div>
             {filteredEmployeeIds.size > 0 && (
@@ -327,9 +327,9 @@ export function SchedulePage() {
                 return (
                   <div
                     key={m.id}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border transition-all ${
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border transition-all ${
                       active
-                        ? 'border-transparent bg-white shadow-sm'
+                        ? 'border-transparent bg-white'
                         : 'border-[#E5E7EB] bg-gray-50 opacity-50 hover:opacity-80'
                     }`}
                   >
@@ -355,34 +355,57 @@ export function SchedulePage() {
           </div>
         )}
 
-        <NeedsDateRail
-          jobs={needsDate}
-          onJobClick={job => navigate(`/jobs/${job.id}`)}
-          onDragStart={handleRailDragStart}
-        />
-
         {isLoading ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
-        ) : viewMode === 'day' ? (
-          <DayBoardView
-            jobs={onBoard}
-            teamMembers={teamMembers ?? []}
-            currentDate={currentDate}
-            onJobClick={job => navigate(`/jobs/${job.id}`)}
-            onDayClick={handleDayClick}
-            onJobDrop={drop => rescheduleJob.mutate(drop)}
-            filteredEmployeeIds={filteredEmployeeIds}
-          />
         ) : (
-          <WeekBoardView
-            jobs={onBoard}
-            teamMembers={teamMembers ?? []}
-            currentDate={currentDate}
-            onJobClick={job => navigate(`/jobs/${job.id}`)}
-            onDayClick={handleDayClick}
-            onJobDrop={drop => rescheduleJob.mutate(drop)}
-            filteredEmployeeIds={filteredEmployeeIds}
-          />
+          <>
+            <div className="lg:hidden space-y-3">
+              <NeedsDateRail
+                jobs={needsDate}
+                onJobClick={job => navigate(`/jobs/${job.id}`)}
+                onDragStart={handleRailDragStart}
+              />
+              <PhoneDayList
+                jobs={onBoard}
+                currentDate={currentDate}
+                onJobClick={job => navigate(`/jobs/${job.id}`)}
+                onDragStart={handleRailDragStart}
+              />
+            </div>
+
+            <div className="hidden lg:flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                {viewMode === 'day' ? (
+                  <DayBoardView
+                    jobs={onBoard}
+                    teamMembers={teamMembers ?? []}
+                    currentDate={currentDate}
+                    onJobClick={job => navigate(`/jobs/${job.id}`)}
+                    onDayClick={handleDayClick}
+                    onJobDrop={drop => rescheduleJob.mutate(drop)}
+                    filteredEmployeeIds={filteredEmployeeIds}
+                  />
+                ) : (
+                  <WeekBoardView
+                    jobs={onBoard}
+                    teamMembers={teamMembers ?? []}
+                    currentDate={currentDate}
+                    onJobClick={job => navigate(`/jobs/${job.id}`)}
+                    onDayClick={handleDayClick}
+                    onJobDrop={drop => rescheduleJob.mutate(drop)}
+                    filteredEmployeeIds={filteredEmployeeIds}
+                  />
+                )}
+              </div>
+              <NeedsDateRail
+                className="w-72 shrink-0 sticky top-3"
+                alwaysShow
+                jobs={needsDate}
+                onJobClick={job => navigate(`/jobs/${job.id}`)}
+                onDragStart={handleRailDragStart}
+              />
+            </div>
+          </>
         )}
       </div>
 

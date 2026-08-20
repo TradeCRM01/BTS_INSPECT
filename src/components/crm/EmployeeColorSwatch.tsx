@@ -36,7 +36,7 @@ export function EmployeeColorSwatch({ name, color, savedColor, onPick, disabled 
           e.preventDefault();
           setOpen(o => !o);
         }}
-        className="w-2.5 h-2.5 rounded-full ring-1 ring-black/10 hover:ring-2 hover:ring-[#2E75B6] hover:scale-125 transition-transform disabled:opacity-50"
+        className="w-2.5 h-2.5 rounded-sm ring-1 ring-black/10 hover:ring-2 hover:ring-[#2E75B6] hover:scale-125 transition-transform disabled:opacity-50"
         style={{ background: color }}
       />
       {open && (

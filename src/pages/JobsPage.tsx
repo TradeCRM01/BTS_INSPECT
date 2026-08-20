@@ -4,17 +4,22 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, ViewToggle, useViewMode } from '../components/ui';
+import { LoadingSpinner, PageError, EmptyState, ViewToggle, useViewMode, OpsPhotoStamp, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import {
-  JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS,
+  JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_STATUS_RAIL, JOB_PRIORITY_LABELS,
   JOB_PRIORITY_DOT,
 } from '../types/crm';
-import { pickJobColor } from '../lib/jobColors';
 import { jobCardHint, jobListBucket } from '../lib/jobNextAction';
-import { Plus, Briefcase, Search, Calendar, Clock, MapPin, User } from 'lucide-react';
+import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
+import { Plus, Briefcase, Search, Calendar, Clock } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+
+type JobCardModel = JobWithClient & {
+  cover_photo_url: string | null;
+  docs: JobDocChip[];
+};
 
 type StatusFilter = 'all' | JobStatus;
 
@@ -29,7 +34,7 @@ export function JobsPage() {
   const [showForm, setShowForm] = useState(false);
   const [viewMode, setViewMode] = useViewMode('jobs');
 
-  const { data: jobs, isLoading, error } = useQuery<JobWithClient[]>({
+  const { data: jobs, isLoading, error } = useQuery<JobCardModel[]>({
     queryKey: ['jobs-all', profile?.company_id],
     queryFn: async () => {
       const { data: jobsData, error } = await supabase
@@ -42,7 +47,7 @@ export function JobsPage() {
       const jobs = (jobsData ?? []) as Job[];
 
       const clientIds = [...new Set(jobs.map(j => j.client_id).filter(Boolean))] as string[];
-      let clientMap = new Map<string, Client>();
+      const clientMap = new Map<string, Client>();
       if (clientIds.length > 0) {
         const { data: clientsData } = await supabase
           .from('clients')
@@ -53,11 +58,25 @@ export function JobsPage() {
         }
       }
 
-      return jobs.map(j => ({
+      const withClients: JobWithClient[] = jobs.map(j => ({
         ...j,
         client_name: j.client_id ? clientMap.get(j.client_id)?.name ?? null : null,
         client_phone: j.client_id ? clientMap.get(j.client_id)?.phone ?? null : null,
         client_address: j.client_id ? clientMap.get(j.client_id)?.address ?? null : null,
+      }));
+      let photoByJob = new Map<string, string>();
+      let docsByJob = new Map<string, JobDocChip[]>();
+      try {
+        const extras = await loadJobCardExtras(withClients);
+        photoByJob = extras.photoByJob;
+        docsByJob = extras.docsByJob;
+      } catch {
+        // Evidence photos / attached docs are optional on the card.
+      }
+      return withClients.map(j => ({
+        ...j,
+        cover_photo_url: photoByJob.get(j.id) ?? null,
+        docs: docsByJob.get(j.id) ?? [],
       }));
     },
     enabled: !!profile,
@@ -116,8 +135,8 @@ export function JobsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">Jobs</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">
+            <h1 className="ops-page-title">Jobs</h1>
+            <p className="ops-meta mt-0.5">
               {filtered.length} of {jobs?.length ?? 0} jobs
             </p>
           </div>
@@ -140,19 +159,15 @@ export function JobsPage() {
               className="form-input pl-9"
             />
           </div>
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 overflow-x-auto">
+          <div className="ops-tabs flex-1">
             {STATUS_FILTERS.map(s => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap capitalize ${
-                  statusFilter === s ? 'bg-white text-[#0A2540] shadow-sm' : 'text-[#6B7280] hover:text-[#374151]'
-                }`}
+                className={`ops-tab ${statusFilter === s ? 'ops-tab-active' : ''}`}
               >
                 {s === 'all' ? 'All' : JOB_STATUS_LABELS[s as JobStatus]}
-                <span className="ml-1.5 text-xs text-[#9CA3AF]">
-                  {counts[s as keyof typeof counts]}
-                </span>
+                <span className="ml-1.5">{counts[s as keyof typeof counts]}</span>
               </button>
             ))}
           </div>
@@ -166,7 +181,7 @@ export function JobsPage() {
           <EmptyState
             icon={Briefcase}
             title={search || statusFilter !== 'all' ? 'No matching jobs' : 'No jobs yet'}
-            message={search || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Create your first job to get started'}
+            message={search || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Create a job, add the site, then put it on the board so the crew can see it.'}
             action={!search && statusFilter === 'all' ? (
               <button onClick={() => setShowForm(true)} className="btn-primary mt-4">
                 <Plus size={16} /> Create Job
@@ -174,41 +189,44 @@ export function JobsPage() {
             ) : undefined}
           />
         ) : viewMode === 'grid' ? (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <JobGroup title="Needs a date" icon={Calendar} jobs={needsDateJobs} />
             <JobGroup title="On the board" icon={Briefcase} jobs={onBoardJobs} />
             <JobGroup title="Upcoming" icon={Calendar} jobs={upcomingJobs} />
             <JobGroup title="Closed" icon={Clock} jobs={closedJobs} />
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
+          <div className="bg-white rounded border border-[#E5E7EB] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
-                    <th className="px-4 py-3">Job #</th>
-                    <th className="px-4 py-3">Title</th>
-                    <th className="px-4 py-3">Client</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Priority</th>
-                    <th className="px-4 py-3">Scheduled</th>
-                    <th className="px-4 py-3">Next</th>
+                  <tr className="bg-[#F9FAFB] text-left ops-meta font-medium uppercase tracking-wide">
+                    <th className="px-3 py-2">Job #</th>
+                    <th className="px-3 py-2">Site</th>
+                    <th className="px-3 py-2">Client</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2">Priority</th>
+                    <th className="px-3 py-2">Scheduled</th>
+                    <th className="px-3 py-2">Next</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F3F4F6]">
                   {filtered.map(job => {
-                    const color = pickJobColor(job.id, job.color);
+                    const rail = JOB_STATUS_RAIL[job.status];
                     const jobDate = job.scheduled_date ? parseISO(job.scheduled_date) : null;
                     return (
                       <tr key={job.id} onClick={() => navigate(`/jobs/${job.id}`)}
-                        className="hover:bg-[#F9FAFB] cursor-pointer transition-colors" style={{ borderLeft: `3px solid ${color}` }}>
-                        <td className="px-4 py-3 font-medium" style={{ color }}>{job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : '—'}</td>
-                        <td className="px-4 py-3 font-medium text-[#1A1A1A]">{job.title}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{job.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
-                        <td className="px-4 py-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${JOB_STATUS_STYLES[job.status]}`}>{JOB_STATUS_LABELS[job.status]}</span></td>
-                        <td className="px-4 py-3"><span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />{JOB_PRIORITY_LABELS[job.priority]}</span></td>
-                        <td className="px-4 py-3 text-[#4A5568]">{jobDate ? format(jobDate, 'd MMM yyyy') : 'No date'}{job.start_time && <span className="text-[#6B7280] block text-xs">{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>}</td>
-                        <td className="px-4 py-3 text-xs font-medium text-[#0A2540]">{jobCardHint(job)}</td>
+                        className="hover:bg-[#F9FAFB] cursor-pointer transition-colors" style={{ borderLeft: `3px solid ${rail}` }}>
+                        <td className="px-3 py-2 font-medium" style={{ color: rail }}>{job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : '—'}</td>
+                        <td className="px-3 py-2">
+                          <p className="text-sm font-semibold text-navy truncate">{opsSiteLabel(job.address, job.client_address)}</p>
+                          <p className="ops-meta truncate">{job.title}</p>
+                        </td>
+                        <td className="px-3 py-2 ops-meta">{job.client_name ?? '—'}</td>
+                        <td className="px-3 py-2"><OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus></td>
+                        <td className="px-3 py-2"><span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />{JOB_PRIORITY_LABELS[job.priority]}</span></td>
+                        <td className="px-3 py-2 ops-meta">{jobDate ? format(jobDate, 'd MMM yyyy') : 'No date'}{job.start_time && <span className="block">{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>}</td>
+                        <td className="px-3 py-2"><span className="ops-next-hint">{jobCardHint(job)}</span></td>
                       </tr>
                     );
                   })}
@@ -237,16 +255,16 @@ function JobGroup({
 }: {
   title: string;
   icon: typeof Calendar;
-  jobs: JobWithClient[];
+  jobs: JobCardModel[];
 }) {
   if (jobs.length === 0) return null;
   return (
     <div>
-      <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2 flex items-center gap-1.5">
+      <h2 className="ops-group-title flex items-center gap-1.5">
         <Icon size={13} /> {title}
-        <span className="text-[#9CA3AF] normal-case font-normal">({jobs.length})</span>
+        <span className="ops-meta normal-case font-normal">({jobs.length})</span>
       </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
         {jobs.map(job => (
           <JobCard key={job.id} job={job} />
         ))}
@@ -255,63 +273,45 @@ function JobGroup({
   );
 }
 
-function JobCard({ job }: { job: JobWithClient }) {
-  const color = pickJobColor(job.id, job.color);
-  const jobDate = job.scheduled_date ? parseISO(job.scheduled_date) : null;
-  const dateLabel = jobDate ? format(jobDate, 'd MMM yyyy') : 'No date';
+function JobCard({ job }: { job: JobCardModel }) {
+  const navigate = useNavigate();
   const hint = jobCardHint(job);
-  const site = job.address || job.client_address;
+  const site = opsSiteLabel(job.address, job.client_address);
+  const mapsQuery = (job.address || job.client_address)?.trim() || null;
+  const jobNo = job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : 'JOB';
+  const money = job.docs.find(d => d.kind === 'invoice')?.amount
+    ?? job.docs.find(d => d.kind === 'quote')?.amount;
 
   return (
-    <Link
-      to={`/jobs/${job.id}`}
-      className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm hover:shadow-md transition-all text-left overflow-hidden group block"
-      style={{ borderLeftWidth: 4, borderLeftColor: color }}
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => navigate(`/jobs/${job.id}`)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/jobs/${job.id}`); } }}
+      className="ops-card ops-card-hover group cursor-pointer"
     >
-      <div className="bg-[#0A2540] px-3.5 py-2.5">
-        <p className="text-[10px] font-bold tracking-wider text-white/55">
-          {job.job_number != null ? `JOB #${String(job.job_number).padStart(4, '0')}` : 'JOB'}
-        </p>
-        <h3 className="text-sm font-semibold text-white truncate mt-0.5 group-hover:text-[#93C5FD] transition-colors">
-          {job.title}
-        </h3>
-        <p className="mt-1 flex items-center gap-1 text-[11px] text-white/75 truncate">
-          <MapPin size={11} className="shrink-0 text-[#93C5FD]" />
-          {site || 'No site address'}
-        </p>
-      </div>
-      <div className="p-3.5">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="min-w-0 space-y-1">
-            {job.client_name && (
-              <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
-                <User size={12} className="text-[#9CA3AF] shrink-0" />
-                <span className="truncate">{job.client_name}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
-              <Calendar size={12} className="text-[#9CA3AF] shrink-0" />
-              <span>{dateLabel}</span>
-              {job.start_time && (
-                <span className="text-[#6B7280]">· {job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>
-              )}
-            </div>
+      <OpsPhotoStamp
+        src={job.cover_photo_url}
+        status={<OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>}
+        identity={`${jobNo} | ${site}`}
+        money={money}
+      />
+      <div className="ops-card-body">
+        <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
+        <div className="ops-card-footer">
+          <span className="ops-next-control-block">{hint}</span>
+        </div>
+        {job.docs.length > 0 && (
+          <div className="ops-attach">
+            {job.docs.map(doc => (
+              <Link key={doc.id} to={doc.href} className="ops-attach-chip" onClick={e => e.stopPropagation()}>
+                <span className="truncate">{doc.label}</span>
+                <span className="tabular-nums shrink-0">{doc.amount}</span>
+              </Link>
+            ))}
           </div>
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${JOB_STATUS_STYLES[job.status]}`}>
-            {JOB_STATUS_LABELS[job.status]}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-[#F3F4F6]">
-          <span className="text-[11px] font-semibold text-[#0A2540]">{hint}</span>
-          {job.priority !== 'medium' && (
-            <span className="ml-auto flex items-center gap-1 text-[10px] font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
-              {JOB_PRIORITY_LABELS[job.priority]}
-            </span>
-          )}
-        </div>
+        )}
       </div>
-    </Link>
+    </div>
   );
 }

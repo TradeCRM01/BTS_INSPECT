@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, SummaryCard } from '../components/ui';
-import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
+import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, OpsDocHead, OpsFromTo, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
+import { SkeletonRow } from '../components/ui/Skeletons';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
@@ -16,7 +16,7 @@ import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineI
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
-import { ActionButton, NextBanner } from '../components/invoicing/DocNextAction';
+import { ActionButton } from '../components/invoicing/DocNextAction';
 import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
@@ -28,7 +28,7 @@ import {
   type QuoteActionKey,
 } from '../lib/quoteNextAction';
 import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatMoney } from '../types/fsm';
-import { Plus, FileText, X, ArrowRight, Eye, Receipt, User, Calendar, Send, Check } from 'lucide-react';
+import { Plus, FileText, ArrowRight, Eye, Receipt, Send, Check } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | QuoteStatus;
@@ -70,13 +70,13 @@ export function QuotesPage() {
       const quoteIds = list.map(q => q.id);
       const [clientsRes, jobsRes, invoicesRes] = await Promise.all([
         clientIds.length ? supabase.from('clients').select('id, name').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-        jobIds.length ? supabase.from('jobs').select('id, title').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+        jobIds.length ? supabase.from('jobs').select('id, title, address').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string; address: string | null }[] }),
         quoteIds.length
           ? supabase.from('invoices').select('id, quote_id, status').in('quote_id', quoteIds)
           : Promise.resolve({ data: [] as { id: string; quote_id: string; status: string }[] }),
       ]);
       const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c.name]));
-      const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j.title]));
+      const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j]));
       const invoicesByQuote = new Map<string, { id: string; status: string }[]>();
       for (const inv of invoicesRes.data ?? []) {
         if (!inv.quote_id) continue;
@@ -89,7 +89,8 @@ export function QuotesPage() {
         inclusions: asStringList(q.inclusions),
         exclusions: asStringList(q.exclusions),
         client_name: q.client_id ? clientMap.get(q.client_id) ?? null : null,
-        job_title: q.job_id ? jobMap.get(q.job_id) ?? null : null,
+        job_title: q.job_id ? jobMap.get(q.job_id)?.title ?? null : null,
+        job_address: q.job_id ? jobMap.get(q.job_id)?.address ?? null : null,
         invoice_id: pickReusableInvoice(invoicesByQuote.get(q.id) ?? [])?.id ?? null,
       }));
     },
@@ -165,8 +166,8 @@ export function QuotesPage() {
       <div className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">Quotes</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">
+            <h1 className="ops-page-title">Quotes</h1>
+            <p className="ops-meta mt-0.5">
               {filtered.length} of {quotes?.length ?? 0} quotes
             </p>
           </div>
@@ -175,30 +176,22 @@ export function QuotesPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-          {isLoading ? (
-            <SkeletonSummaryCards count={2} />
-          ) : (
-            <>
-              <SummaryCard label="Pending" value={`${totals.pendingCount}`} subtext={formatMoney(totals.pendingValue)} accentColor="#2E75B6" />
-              <SummaryCard label="Accepted" value={`${totals.acceptedCount}`} subtext={formatMoney(totals.acceptedValue)} accentColor="#16A34A" />
-            </>
-          )}
+        <div className="ops-due-box mb-3">
+          <span className="ops-meta font-semibold uppercase tracking-wide">Amount pending</span>
+          <span className="ops-money text-lg">{isLoading ? '—' : formatMoney(totals.pendingValue)}</span>
         </div>
 
-        <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-3 mb-3 flex-wrap">
           <SearchBar value={search} onChange={setSearch} placeholder="Search quotes, clients..." className="max-w-sm flex-1" />
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 overflow-x-auto">
+          <div className="ops-tabs flex-1">
             {STATUS_FILTERS.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setStatusFilter(tab.key)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                  statusFilter === tab.key ? 'bg-white text-[#0A2540] shadow-sm' : 'text-[#6B7280] hover:text-[#374151]'
-                }`}
+                className={`ops-tab ${statusFilter === tab.key ? 'ops-tab-active' : ''}`}
               >
                 {tab.label}
-                <span className="ml-1.5 text-xs text-[#9CA3AF]">{counts[tab.key]}</span>
+                <span className="ml-1.5">{counts[tab.key]}</span>
               </button>
             ))}
           </div>
@@ -221,24 +214,24 @@ export function QuotesPage() {
             ) : undefined}
           />
         ) : viewMode === 'grid' ? (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <QuoteGroup title="Drafts" quotes={draftQuotes} onOpen={openQuote} />
             <QuoteGroup title="Sent — waiting" quotes={sentQuotes} onOpen={openQuote} />
             <QuoteGroup title="Accepted" quotes={acceptedQuotes} onOpen={openQuote} />
             <QuoteGroup title="Closed" quotes={closedQuotes} onOpen={openQuote} />
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
+          <div className="bg-white rounded border border-[#E5E7EB] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
-                    <th className="px-4 py-3">Quote #</th>
-                    <th className="px-4 py-3">Client</th>
-                    <th className="px-4 py-3">Description</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Total (inc GST)</th>
-                    <th className="px-4 py-3">Next</th>
+                  <tr className="bg-[#F9FAFB] text-left ops-meta font-medium uppercase tracking-wide">
+                    <th className="px-3 py-2">Quote #</th>
+                    <th className="px-3 py-2">Client</th>
+                    <th className="px-3 py-2">Site</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2 text-right">Total (inc GST)</th>
+                    <th className="px-3 py-2">Next</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F3F4F6]">
@@ -274,11 +267,11 @@ function QuoteGroup({
   if (quotes.length === 0) return null;
   return (
     <div>
-      <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2">
+      <h2 className="ops-group-title">
         {title}
-        <span className="text-[#9CA3AF] normal-case font-normal"> ({quotes.length})</span>
+        <span className="ops-meta normal-case font-normal"> ({quotes.length})</span>
       </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {quotes.map(q => (
           <QuoteCard key={q.id} quote={q} onOpen={() => onOpen(q)} />
         ))}
@@ -295,43 +288,36 @@ function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-      className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm hover:shadow-md transition-all text-left overflow-hidden group block w-full cursor-pointer"
-      style={{ borderLeftWidth: 4, borderLeftColor: quote.status === 'accepted' ? '#16A34A' : '#2E75B6' }}
+      className="ops-card ops-card-hover group w-full cursor-pointer"
     >
-      <div className="bg-[#0A2540] px-3.5 py-2.5">
-        <p className="text-[10px] font-bold tracking-wider text-white/55">
-          QUOTE #{padQuoteNumber(quote.quote_number)}
-        </p>
-        <h3 className="text-sm font-semibold text-white truncate mt-0.5 group-hover:text-[#93C5FD] transition-colors">
-          {quote.description?.trim() || quote.client_name || 'Untitled quote'}
-        </h3>
-        <p className="mt-1 flex items-center gap-1 text-[11px] text-white/75 truncate">
-          <User size={11} className="shrink-0 text-[#93C5FD]" />
-          {quote.client_name || 'No client'}
-        </p>
-      </div>
-      <div className="p-3.5">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div>
-            <p className="text-lg font-bold text-[#1A1A1A]">{formatMoney(Number(quote.total))}</p>
-            <p className="text-[11px] text-[#4A5568]">inc GST</p>
+      <OpsDocHead
+        kind="Quotation"
+        id={`QT-${padQuoteNumber(quote.quote_number)}`}
+        trailing={<OpsStatus className={QUOTE_STATUS_STYLES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</OpsStatus>}
+      />
+      <div className="ops-card-body">
+        <div className="flex items-start justify-between gap-2">
+          <OpsSiteRow site={opsSiteLabel(quote.job_address)} />
+          <div className="shrink-0">
+            <p className="ops-money">{formatMoney(Number(quote.total))}</p>
+            <p className="ops-meta text-right">inc GST</p>
           </div>
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${QUOTE_STATUS_STYLES[quote.status]}`}>
-            {QUOTE_STATUS_LABELS[quote.status]}
-          </span>
         </div>
-        {quote.validity_date && (
-          <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mb-2">
-            <Calendar size={12} className="text-[#9CA3AF] shrink-0" />
-            Valid {format(parseISO(quote.validity_date), 'd MMM yyyy')}
-          </div>
-        )}
-        <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-[#F3F4F6]" onClick={e => e.stopPropagation()}>
+        <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
           <QuoteNextControl quote={quote} />
           {next.key === 'none' && (
-            <span className="text-[11px] font-semibold text-[#0A2540]">{next.label}</span>
+            <span className="ops-next-control-done">{next.label}</span>
           )}
         </div>
+        {quote.client_name && (
+          <p className="ops-meta mt-2 truncate">{quote.client_name}</p>
+        )}
+        {quote.description?.trim() && (
+          <p className="ops-meta mt-0.5 truncate">{quote.description}</p>
+        )}
+        {quote.validity_date && (
+          <p className="ops-meta mt-0.5">Valid {format(parseISO(quote.validity_date), 'd MMM yyyy')}</p>
+        )}
       </div>
     </div>
   );
@@ -341,25 +327,22 @@ function QuoteRow({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void 
   const next = recommendQuoteAction(quoteActionContext(quote));
   return (
     <tr onClick={onOpen} className="hover:bg-[#F9FAFB] cursor-pointer transition-colors">
-      <td className="px-4 py-3 font-medium text-[#2E75B6]">#{padQuoteNumber(quote.quote_number)}</td>
-      <td className="px-4 py-3 text-[#1A1A1A]">{quote.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
-      <td className="px-4 py-3 text-[#4A5568] max-w-[220px]">
-        {quote.description
-          ? <span className="line-clamp-2">{quote.description}</span>
-          : <span className="text-[#9CA3AF]">—</span>}
+      <td className="px-3 py-2 font-medium text-[#2E75B6]">#{padQuoteNumber(quote.quote_number)}</td>
+      <td className="px-3 py-2">{quote.client_name ?? <span className="ops-meta">—</span>}</td>
+      <td className="px-3 py-2 max-w-[220px]">
+        <p className="text-sm font-semibold text-navy truncate">{opsSiteLabel(quote.job_address)}</p>
+        <p className="ops-meta truncate">{quote.description?.trim() || quote.job_title || '—'}</p>
       </td>
-      <td className="px-4 py-3">
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${QUOTE_STATUS_STYLES[quote.status]}`}>
-          {QUOTE_STATUS_LABELS[quote.status]}
-        </span>
+      <td className="px-3 py-2">
+        <OpsStatus className={QUOTE_STATUS_STYLES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</OpsStatus>
       </td>
-      <td className="px-4 py-3 text-right">
-        <span className="font-semibold text-[#1A1A1A]">{formatMoney(Number(quote.total))}</span>
-        <span className="block text-[11px] font-normal text-[#4A5568]">inc GST</span>
+      <td className="px-3 py-2 text-right">
+        <span className="ops-money text-base">{formatMoney(Number(quote.total))}</span>
+        <span className="block ops-meta">inc GST</span>
       </td>
-      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+      <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
         {next.key === 'none' ? (
-          <span className="text-xs font-medium text-[#0A2540]">{next.label}</span>
+          <span className="ops-next-hint">{next.label}</span>
         ) : (
           <QuoteNextControl quote={quote} />
         )}
@@ -450,7 +433,7 @@ function QuoteNextControl({ quote }: { quote: QuoteListItem }) {
       type="button"
       onClick={handle}
       disabled={!!busy}
-      className="btn-primary text-xs py-1.5 px-2.5"
+      className="ops-next-control-block"
     >
       {busy ? 'Working…' : next.label}
     </button>
@@ -506,7 +489,7 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
     (async () => {
       const [c, j, s, pb] = await Promise.all([
         supabase.from('clients').select('*').eq('archived', false).order('name'),
-        supabase.from('jobs').select('id, company_id, client_id, title').order('created_at', { ascending: false }),
+        supabase.from('jobs').select('id, company_id, client_id, title, address').order('created_at', { ascending: false }),
         supabase.from('stock_items').select('*').eq('archived', false).order('name'),
         supabase.from('price_book_items').select('*').eq('is_active', true).order('description'),
       ]);
@@ -681,86 +664,94 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
     }
   };
 
-  const heading = quote?.quote_number != null
-    ? `QUOTE #${padQuoteNumber(quote.quote_number)}`
-    : 'NEW QUOTE';
+  const selectedJob = jobs.find(j => j.id === form.job_id);
 
   return (
     <div className="overlay-backdrop">
-      <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
-        <div className="bg-[#0A2540] text-white px-5 py-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold tracking-wider text-white/60 mb-1">{heading}</p>
-              <h2 className="text-lg font-semibold tracking-tight truncate">
-                {form.description.trim() || selectedClient?.name || 'Quote'}
-              </h2>
-              <p className="mt-1 text-sm text-white/80 truncate">{selectedClient?.name || 'No client yet'}</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${QUOTE_STATUS_STYLES[form.status]}`}>
-                {QUOTE_STATUS_LABELS[form.status]}
-              </span>
-              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/70">
-                <X size={18} />
-              </button>
+      <div className="overlay-panel-xl ops-doc-panel" onClick={e => e.stopPropagation()}>
+        <OpsDocHead
+          kind="Quotation"
+          id={quote?.quote_number != null ? `QT-${padQuoteNumber(quote.quote_number)}` : 'QT-DRAFT'}
+          meta={form.validity_date ? `Valid ${format(parseISO(form.validity_date), 'd MMM yyyy')}` : undefined}
+          trailing={<OpsStatus className={QUOTE_STATUS_STYLES[form.status]}>{QUOTE_STATUS_LABELS[form.status]}</OpsStatus>}
+          onClose={onClose}
+        />
+
+        <div className="px-4 border-b border-[#E5E7EB]">
+          <OpsFromTo
+            fromName={company?.name ?? 'Your company'}
+            fromDetail={[company?.abn ? `ABN ${company.abn}` : null, company?.licence_number ? `Licence ${company.licence_number}` : null].filter(Boolean).join(' · ') || null}
+            toName={selectedClient?.name ?? 'Select a client'}
+            toDetail={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
+          />
+          <div className="flex items-start justify-between gap-2 py-3">
+            <OpsSiteRow
+              hub
+              site={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
+              phone={selectedClient?.phone}
+              mapsQuery={selectedJob?.address || selectedClient?.address}
+            />
+            <div className="shrink-0">
+              <p className="ops-money text-lg">{formatMoney(grandTotal)}</p>
+              <p className="ops-meta text-right">inc GST</p>
             </div>
           </div>
-          <p className="mt-3 text-xl font-bold">{formatMoney(grandTotal)} <span className="text-sm font-medium text-white/70">inc GST</span></p>
+          {form.description.trim() && <p className="ops-hub-title pb-3">{form.description.trim()}</p>}
+          {next.key !== 'none' && next.key !== 'open_invoice' && (
+            <div className="mt-2 pb-3">
+              {next.key === 'send' && (
+                <ActionButton recommended onClick={() => void persist('sent', { close: false, message: 'Quote marked as sent' })} disabled={saving}>
+                  <Send size={14} /> {saving ? 'Saving...' : 'Send'}
+                </ActionButton>
+              )}
+              {next.key === 'accept' && (
+                <ActionButton recommended onClick={() => void persist('accepted', { close: false, message: 'Quote accepted' })} disabled={saving}>
+                  <Check size={14} /> {saving ? 'Saving...' : 'Mark accepted'}
+                </ActionButton>
+              )}
+              {next.key === 'convert_job' && (
+                <ActionButton recommended onClick={() => void handleConvert()} disabled={converting}>
+                  <ArrowRight size={14} /> {converting ? 'Converting...' : 'Convert to job'}
+                </ActionButton>
+              )}
+              {next.key === 'open_job' && (
+                <ActionButton recommended onClick={() => navigate(`/jobs/${form.job_id}`)}>
+                  <ArrowRight size={14} /> Open job
+                </ActionButton>
+              )}
+              {next.key === 'invoice' && (
+                <ActionButton recommended onClick={() => void handleInvoice()} disabled={invoicing}>
+                  <Receipt size={14} /> {invoicing ? 'Creating...' : 'Create invoice'}
+                </ActionButton>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="px-5 py-3 border-b border-[#F3F4F6] space-y-3">
-          <NextBanner detail={next.detail} />
-          <div className="flex flex-wrap gap-2">
-            {next.key === 'send' && (
-              <ActionButton recommended onClick={() => void persist('sent', { close: false, message: 'Quote marked as sent' })} disabled={saving}>
-                <Send size={14} /> {saving ? 'Saving...' : 'Send'}
-              </ActionButton>
-            )}
-            {next.key === 'accept' && (
-              <ActionButton recommended onClick={() => void persist('accepted', { close: false, message: 'Quote accepted' })} disabled={saving}>
-                <Check size={14} /> {saving ? 'Saving...' : 'Mark accepted'}
-              </ActionButton>
-            )}
-            {form.status === 'accepted' && !form.job_id && (
-              <ActionButton recommended={next.key === 'convert_job'} onClick={() => void handleConvert()} disabled={converting}>
-                <ArrowRight size={14} /> {converting ? 'Converting...' : 'Convert to job'}
-              </ActionButton>
-            )}
-            {form.status === 'accepted' && form.job_id && (
-              <ActionButton recommended={next.key === 'open_job'} onClick={() => navigate(`/jobs/${form.job_id}`)}>
-                <ArrowRight size={14} /> Open job
-              </ActionButton>
-            )}
-            {form.status === 'accepted' && !invoiceId && (
-              <ActionButton recommended={next.key === 'invoice'} onClick={() => void handleInvoice()} disabled={invoicing}>
-                <Receipt size={14} /> {invoicing ? 'Creating...' : 'Create invoice'}
-              </ActionButton>
-            )}
-            {form.status === 'accepted' && invoiceId && (
-              <ActionButton recommended={false} onClick={() => navigate(invoiceHref(invoiceId))}>
-                <Receipt size={14} /> Open invoice
-              </ActionButton>
-            )}
-            {form.status === 'sent' && (
-              <button
-                type="button"
-                onClick={() => void persist('declined', { close: false, message: 'Quote declined' })}
-                disabled={saving}
-                className="btn-ghost"
-              >
-                Decline
-              </button>
-            )}
+        <div className="px-3 py-2 border-b border-[#E5E7EB] flex flex-wrap gap-2">
+          {form.status === 'sent' && (
             <button
               type="button"
-              onClick={() => setShowPreview(true)}
-              disabled={!previewData}
+              onClick={() => void persist('declined', { close: false, message: 'Quote declined' })}
+              disabled={saving}
               className="btn-ghost"
             >
-              <Eye size={14} /> Preview PDF
+              Decline
             </button>
-          </div>
+          )}
+          {form.status === 'accepted' && invoiceId && (
+            <ActionButton recommended={false} onClick={() => navigate(invoiceHref(invoiceId))}>
+              <Receipt size={14} /> Open invoice
+            </ActionButton>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowPreview(true)}
+            disabled={!previewData}
+            className="btn-ghost"
+          >
+            <Eye size={14} /> Preview PDF
+          </button>
         </div>
 
         <div className="overlay-body">
@@ -835,11 +826,18 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
           {err && <p className="text-sm text-red-600">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-100">
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
-          <button onClick={() => void persist(form.status, { close: true })} disabled={saving} className="btn-primary">
-            {saving ? 'Saving...' : quote || savedId ? 'Save Changes' : 'Save draft'}
-          </button>
+        <div className="ops-sticky flex flex-col gap-2">
+          {next.key === 'send' && (
+            <ActionButton recommended onClick={() => void persist('sent', { close: false, message: 'Quote marked as sent' })} disabled={saving}>
+              <Send size={14} /> {saving ? 'Saving...' : 'Send'}
+            </ActionButton>
+          )}
+          <div className="flex items-center gap-2">
+            <button onClick={() => void persist(form.status, { close: true })} disabled={saving} className="btn-secondary">
+              {saving ? 'Saving...' : quote || savedId ? 'Save' : 'Save draft'}
+            </button>
+            <button onClick={onClose} className="btn-ghost ml-auto">Cancel</button>
+          </div>
         </div>
       </div>
 
@@ -853,7 +851,7 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-[#4A5568] mb-1">{label}{required && <span className="text-red-500"> *</span>}</label>
+      <label className="block ops-meta font-medium mb-1">{label}{required && <span className="text-red-500"> *</span>}</label>
       {children}
     </div>
   );
