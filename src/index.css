@@ -27,7 +27,7 @@
 @layer components {
   /* ── Button variants ─────────────────────────────────────────── */
   .btn-primary {
-    @apply inline-flex items-center gap-2 bg-[#0A2540] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+    @apply inline-flex items-center gap-2 bg-navy text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
   }
 
   .btn-secondary {
@@ -48,23 +48,23 @@
 
   /* ── Ops cards (job card is the source of truth) ─────────────── */
   .ops-card {
-    @apply bg-white rounded-lg border border-[#E5E7EB] overflow-hidden text-left;
+    @apply bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden text-left;
   }
 
   .ops-card-hover {
-    @apply hover:border-[#2E75B6]/40 transition-colors;
+    @apply hover:shadow-md hover:border-accent/40 transition-all;
   }
 
   .ops-card-header {
-    @apply bg-[#0A2540] text-white px-3 py-2;
+    @apply bg-navy text-white px-3.5 py-2.5;
   }
 
   .ops-card-header-lg {
-    @apply px-4 py-4;
+    @apply px-5 py-5;
   }
 
   .ops-card-header-sm {
-    @apply bg-[#0A2540] text-white px-2 py-1;
+    @apply bg-navy text-white px-2 py-1;
   }
 
   .ops-card-kicker {
@@ -75,16 +75,20 @@
     @apply text-[11px] text-white/60 mb-1;
   }
 
-  .ops-card-site {
-    @apply mt-1 flex items-start gap-1.5 text-sm font-semibold text-white leading-snug;
+  .ops-card-hover:hover .ops-card-title {
+    @apply text-[#93C5FD];
   }
 
-  .ops-card-sub {
-    @apply mt-0.5 text-xs font-medium text-white/70 truncate;
+  .ops-card-site {
+    @apply mt-1 flex items-center gap-1 text-[11px] text-white/75 truncate;
+  }
+
+  .ops-hub-title {
+    @apply text-xl font-semibold tracking-tight text-white;
   }
 
   .ops-hub-site {
-    @apply mt-2 flex items-start gap-2 text-xl font-semibold tracking-tight text-white leading-snug;
+    @apply mt-4 flex items-start gap-2 text-sm text-white/90;
   }
 
   .ops-card-site-icon {
@@ -92,79 +96,60 @@
   }
 
   .ops-card-body {
-    @apply p-3;
+    @apply p-3.5;
   }
 
   .ops-card-footer {
-    @apply mt-2 pt-2 border-t border-[#E5E7EB];
+    @apply flex items-center gap-2 mt-2.5 pt-2.5 border-t border-[#F3F4F6];
   }
 
   .ops-money {
-    @apply text-lg font-bold text-[#0A2540] tabular-nums leading-tight;
+    @apply text-lg font-bold text-navy tabular-nums leading-tight;
   }
 
   .ops-next-hint {
-    @apply text-sm font-semibold text-[#2E75B6];
+    @apply text-[11px] font-semibold text-navy;
   }
 
+  /* Same pill language as the job card: pastel, rounded-full, brand ink. */
   .ops-status {
-    @apply inline-flex items-center justify-center px-2 py-1 rounded text-[11px] font-bold uppercase tracking-wide leading-none whitespace-nowrap;
+    @apply inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap;
   }
 
   .ops-status-info {
-    @apply bg-[#2E75B6] text-white;
+    @apply bg-[#F0F7FF] text-accent ring-1 ring-[#BFDBFE];
   }
 
   .ops-status-progress {
-    @apply bg-[#B54708] text-white;
+    @apply bg-amber-50 text-warning ring-1 ring-amber-200;
   }
 
   .ops-status-ok {
-    @apply bg-[#1B7F3A] text-white;
+    @apply bg-green-50 text-pass ring-1 ring-green-200;
   }
 
   .ops-status-bad {
-    @apply bg-[#B42318] text-white;
+    @apply bg-red-50 text-fail ring-1 ring-red-200;
   }
 
   .ops-status-wait {
-    @apply bg-[#4A5568] text-white;
-  }
-
-  .ops-next-control {
-    @apply inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 bg-[#2E75B6] text-white text-sm font-semibold rounded-md hover:bg-[#2563a0] transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
-  }
-
-  .ops-next-control-block {
-    @apply inline-flex items-center justify-center gap-1.5 w-full min-h-[44px] px-3 bg-[#2E75B6] text-white text-sm font-semibold rounded-md hover:bg-[#2563a0] transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
-  }
-
-  .ops-next-control-sm {
-    @apply inline-flex items-center justify-center w-full min-h-[32px] px-2 bg-[#2E75B6] text-white text-xs font-semibold rounded;
-  }
-
-  .ops-next-control-bad {
-    @apply inline-flex items-center justify-center gap-1.5 w-full min-h-[44px] px-3 bg-[#B42318] text-white text-sm font-semibold rounded-md hover:bg-[#912018] transition-colors active:scale-[0.98] disabled:opacity-50;
-  }
-
-  .ops-next-control-done {
-    @apply inline-flex items-center justify-center w-full min-h-[44px] px-3 bg-[#F0F7FF] text-[#0A2540] text-sm font-semibold rounded-md border border-[#BFDBFE];
+    @apply bg-gray-100 text-[#4A5568] ring-1 ring-gray-200;
   }
 
   .ops-next {
-    @apply rounded-md bg-[#F0F7FF] border border-[#BFDBFE] px-3 py-2;
+    @apply rounded-lg bg-[#F0F7FF] border border-[#BFDBFE] px-3 py-2.5;
   }
 
   .ops-next-label {
-    @apply text-[11px] font-bold uppercase tracking-wide text-[#2E75B6];
+    @apply text-xs font-semibold uppercase tracking-wide text-accent;
   }
 
   .ops-next-detail {
-    @apply text-sm font-semibold text-[#0A2540] mt-0.5;
+    @apply text-sm font-medium text-navy mt-0.5;
   }
 
   .ops-page-title {
-    @apply text-xl font-semibold text-[#0A2540];
+    @apply text-xl font-semibold text-navy;
   }
 
   .ops-group-title {

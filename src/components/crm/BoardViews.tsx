@@ -20,7 +20,7 @@ import {
 import {
   format, isToday, addDays, startOfWeek,
 } from 'date-fns';
-import { Clock, User, Plus, Users } from 'lucide-react';
+import { Clock, User, Plus, Users, MapPin } from 'lucide-react';
 
 export interface TeamMember {
   id: string;
@@ -45,8 +45,8 @@ const DAY_START = DAY_START_HOUR;
 const DAY_END = DAY_END_HOUR;
 const HOURS = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => DAY_START + i);
 const LABEL_WIDTH = 168;
-const ALL_DAY_H = 56;
-const TIMED_H = 72;
+const ALL_DAY_H = 64;
+const TIMED_H = 76;
 const ROW_PAD = 6;
 const ROW_MIN = 72;
 
@@ -110,11 +110,14 @@ const JobBlock = memo(function JobBlock({
       <div className={compact ? 'ops-card-header-sm' : 'ops-card-header px-2 py-1.5'}>
         <p className="ops-card-kicker">{formatJobNumber(job.job_number) || 'JOB'}</p>
         <p className={`${compact ? 'text-[11px]' : 'text-xs'} font-semibold leading-snug truncate text-white mt-0.5`}>
-          {site}
+          {job.title}
         </p>
-        {!compact && <p className="ops-card-sub">{job.title}</p>}
+        <p className="ops-card-site">
+          <MapPin size={10} className="ops-card-site-icon" />
+          <span className="min-w-0 truncate">{site}</span>
+        </p>
       </div>
-      <div className="px-2 py-1.5">
+      <div className="px-2 py-1.5 text-left">
         {!compact && detail && job.client_name && (
           <p className="text-[11px] leading-tight truncate text-[#4A5568] flex items-center gap-0.5 mb-1">
             <User size={10} /> {job.client_name}
@@ -126,11 +129,9 @@ const JobBlock = memo(function JobBlock({
             {job.end_time && ` – ${job.end_time.slice(0, 5)}`}
           </p>
         )}
-        <div className="flex items-center gap-1 min-w-0">
+        <div className="flex items-center justify-between gap-1 min-w-0">
           <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
-        </div>
-        <div className="mt-1">
-          <span className={detail ? 'ops-next-control-block' : 'ops-next-control-sm'}>{next}</span>
+          <span className={`ops-next-hint truncate ${compact ? 'text-[10px]' : ''}`}>{next}</span>
         </div>
         {!compact && detail && assigned.length > 0 && (
           <div className="flex items-center gap-0.5 mt-2">
@@ -197,7 +198,8 @@ export const NeedsDateRail = memo(function NeedsDateRail({
                 site={opsSiteLabel(job.address, job.client_address)}
               />
               <div className="px-2 py-2">
-                <span className="ops-next-control-block">Set a date</span>
+                <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                <p className="ops-next-hint mt-1.5">Set a date</p>
               </div>
             </button>
           );

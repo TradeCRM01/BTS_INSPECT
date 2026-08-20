@@ -27,6 +27,7 @@ import {
   recommendQuoteAction,
   type QuoteActionKey,
 } from '../lib/quoteNextAction';
+import { colors } from '../lib/colors';
 import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatMoney } from '../types/fsm';
 import { Plus, FileText, X, ArrowRight, Eye, Receipt, User, Calendar, Send, Check, MapPin } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
@@ -181,8 +182,8 @@ export function QuotesPage() {
             <SkeletonSummaryCards count={2} />
           ) : (
             <>
-              <SummaryCard label="Pending" value={`${totals.pendingCount}`} subtext={formatMoney(totals.pendingValue)} accentColor="#2E75B6" />
-              <SummaryCard label="Accepted" value={`${totals.acceptedCount}`} subtext={formatMoney(totals.acceptedValue)} accentColor="#16A34A" />
+              <SummaryCard label="Pending" value={`${totals.pendingCount}`} subtext={formatMoney(totals.pendingValue)} accentColor={colors.accent} />
+              <SummaryCard label="Accepted" value={`${totals.acceptedCount}`} subtext={formatMoney(totals.acceptedValue)} accentColor={colors.pass} />
             </>
           )}
         </div>
@@ -236,7 +237,7 @@ export function QuotesPage() {
                   <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
                     <th className="px-3 py-2">Quote #</th>
                     <th className="px-3 py-2">Client</th>
-                    <th className="px-3 py-2">Site</th>
+                    <th className="px-3 py-2">Description</th>
                     <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2 text-right">Total (inc GST)</th>
                     <th className="px-3 py-2">Next</th>
@@ -297,12 +298,12 @@ function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className="ops-card ops-card-hover group w-full cursor-pointer"
-      style={{ borderLeftWidth: 4, borderLeftColor: '#2E75B6' }}
+      style={{ borderLeftWidth: 4, borderLeftColor: colors.accent }}
     >
       <OpsCardHeader
         kicker={`QUOTE #${padQuoteNumber(quote.quote_number)}`}
-        site={opsSiteLabel(quote.job_address, quote.job_title, quote.client_name)}
-        title={quote.description?.trim() || quote.job_title || undefined}
+        title={quote.description?.trim() || quote.job_title || 'Quote'}
+        site={opsSiteLabel(quote.job_address)}
       />
       <div className="ops-card-body">
         <div className="flex items-start justify-between gap-2">
@@ -327,7 +328,7 @@ function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void
         <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
           <QuoteNextControl quote={quote} />
           {next.key === 'none' && (
-            <span className="ops-next-control-done">{next.label}</span>
+            <span className="ops-next-hint">{next.label}</span>
           )}
         </div>
       </div>
@@ -342,10 +343,8 @@ function QuoteRow({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void 
       <td className="px-3 py-2 font-medium text-[#2E75B6]">#{padQuoteNumber(quote.quote_number)}</td>
       <td className="px-3 py-2 text-[#1A1A1A]">{quote.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
       <td className="px-3 py-2 max-w-[220px]">
-        <p className="text-sm font-semibold text-[#0A2540] truncate">{opsSiteLabel(quote.job_address, quote.job_title)}</p>
-        {quote.description
-          ? <p className="text-xs text-[#4A5568] line-clamp-1">{quote.description}</p>
-          : null}
+        <p className="text-sm font-semibold text-navy truncate">{quote.description?.trim() || quote.job_title || '—'}</p>
+        <p className="text-xs text-[#4A5568] truncate">{opsSiteLabel(quote.job_address)}</p>
       </td>
       <td className="px-3 py-2">
         <OpsStatus className={QUOTE_STATUS_STYLES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</OpsStatus>
@@ -447,7 +446,7 @@ function QuoteNextControl({ quote }: { quote: QuoteListItem }) {
       type="button"
       onClick={handle}
       disabled={!!busy}
-      className="ops-next-control-block"
+      className="btn-primary"
     >
       {busy ? 'Working…' : next.label}
     </button>
@@ -688,7 +687,10 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
       <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
         <div className="ops-card-header ops-card-header-lg">
           <div className="flex items-start justify-between gap-3">
-            <p className="ops-card-kicker ops-card-kicker-lg">{heading}</p>
+            <div className="min-w-0">
+              <p className="ops-card-kicker ops-card-kicker-lg">{heading}</p>
+              <h1 className="ops-hub-title truncate">{form.description.trim() || selectedJob?.title || 'Quote'}</h1>
+            </div>
             <div className="flex items-center gap-2 shrink-0">
               <OpsStatus className={QUOTE_STATUS_STYLES[form.status]}>
                 {QUOTE_STATUS_LABELS[form.status]}
@@ -699,11 +701,8 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
             </div>
           </div>
           <p className="ops-hub-site">
-            <MapPin size={18} className="ops-card-site-icon mt-1" />
-            <span className="min-w-0">{opsSiteLabel(selectedJob?.address, selectedJob?.title, selectedClient?.address, selectedClient?.name)}</span>
-          </p>
-          <p className="mt-1 text-sm font-medium text-white/75 truncate">
-            {form.description.trim() || selectedJob?.title || 'Quote'}
+            <MapPin size={16} className="ops-card-site-icon mt-0.5" />
+            <span className="min-w-0">{opsSiteLabel(selectedJob?.address, selectedClient?.address)}</span>
           </p>
           {selectedClient && (
             <p className="mt-2 flex items-center gap-2 text-sm text-white/80 truncate">

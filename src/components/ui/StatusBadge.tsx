@@ -6,24 +6,24 @@ interface StatusStyle {
 type StatusMap = Record<string, StatusStyle>;
 
 const DEFAULT_STYLES: StatusMap = {
-  draft: { label: 'Draft', cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
-  active: { label: 'Active', cls: 'bg-blue-50 text-blue-700 ring-blue-200' },
-  scheduled: { label: 'Scheduled', cls: 'bg-blue-50 text-blue-700 ring-blue-200' },
-  in_progress: { label: 'In Progress', cls: 'bg-indigo-50 text-indigo-700 ring-indigo-200' },
-  completed: { label: 'Completed', cls: 'bg-green-50 text-green-700 ring-green-200' },
-  issued: { label: 'Issued', cls: 'bg-[#0A2540]/10 text-[#0A2540] ring-[#0A2540]/20' },
-  sent: { label: 'Sent', cls: 'bg-blue-50 text-blue-700 ring-blue-200' },
-  accepted: { label: 'Accepted', cls: 'bg-green-50 text-green-700 ring-green-200' },
-  declined: { label: 'Declined', cls: 'bg-red-50 text-red-700 ring-red-200' },
-  expired: { label: 'Expired', cls: 'bg-gray-100 text-gray-600 ring-gray-200' },
-  paid: { label: 'Paid', cls: 'bg-green-50 text-green-700 ring-green-200' },
-  overdue: { label: 'Overdue', cls: 'bg-red-50 text-red-700 ring-red-200' },
-  pending: { label: 'Pending', cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
-  cancelled: { label: 'Cancelled', cls: 'bg-gray-100 text-gray-600 ring-gray-200' },
-  approved: { label: 'Approved', cls: 'bg-green-50 text-green-700 ring-green-200' },
-  rejected: { label: 'Rejected', cls: 'bg-red-50 text-red-700 ring-red-200' },
-  open: { label: 'Open', cls: 'bg-blue-50 text-blue-700 ring-blue-200' },
-  closed: { label: 'Closed', cls: 'bg-gray-100 text-gray-600 ring-gray-200' },
+  draft: { label: 'Draft', cls: 'ops-status-wait' },
+  active: { label: 'Active', cls: 'ops-status-info' },
+  scheduled: { label: 'Scheduled', cls: 'ops-status-info' },
+  in_progress: { label: 'In Progress', cls: 'ops-status-progress' },
+  completed: { label: 'Completed', cls: 'ops-status-ok' },
+  issued: { label: 'Issued', cls: 'ops-status-info' },
+  sent: { label: 'Sent', cls: 'ops-status-info' },
+  accepted: { label: 'Accepted', cls: 'ops-status-ok' },
+  declined: { label: 'Declined', cls: 'ops-status-bad' },
+  expired: { label: 'Expired', cls: 'ops-status-progress' },
+  paid: { label: 'Paid', cls: 'ops-status-ok' },
+  overdue: { label: 'Overdue', cls: 'ops-status-bad' },
+  pending: { label: 'Pending', cls: 'ops-status-progress' },
+  cancelled: { label: 'Cancelled', cls: 'ops-status-bad' },
+  approved: { label: 'Approved', cls: 'ops-status-ok' },
+  rejected: { label: 'Rejected', cls: 'ops-status-bad' },
+  open: { label: 'Open', cls: 'ops-status-info' },
+  closed: { label: 'Closed', cls: 'ops-status-wait' },
 };
 
 interface StatusBadgeProps {
@@ -34,9 +34,9 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status, customMap, label }: StatusBadgeProps) {
   const map = customMap ?? DEFAULT_STYLES;
-  const s = map[status] ?? { label: status.charAt(0).toUpperCase() + status.slice(1), cls: 'bg-gray-100 text-gray-600 ring-gray-200' };
+  const s = map[status] ?? { label: status.charAt(0).toUpperCase() + status.slice(1), cls: 'ops-status-wait' };
   return (
-    <span className={`badge ${s.cls}`}>
+    <span className={`ops-status ${s.cls}`}>
       {label ?? s.label}
     </span>
   );

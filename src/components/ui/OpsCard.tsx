@@ -12,30 +12,31 @@ export function opsSiteLabel(...parts: Array<string | null | undefined>): string
 
 export function OpsCardHeader({
   kicker,
-  site,
   title,
+  site,
   size = 'card',
+  trailing,
 }: {
   kicker: string;
+  title: string;
   site: string;
-  title?: string;
   size?: 'card' | 'hub';
+  trailing?: ReactNode;
 }) {
   const hub = size === 'hub';
   return (
     <div className={hub ? 'ops-card-header ops-card-header-lg' : 'ops-card-header'}>
-      <p className={hub ? 'ops-card-kicker ops-card-kicker-lg' : 'ops-card-kicker'}>{kicker}</p>
+      <div className={trailing ? 'flex items-start justify-between gap-3' : undefined}>
+        <div className="min-w-0">
+          <p className={hub ? 'ops-card-kicker ops-card-kicker-lg' : 'ops-card-kicker'}>{kicker}</p>
+          {hub ? <h1 className="ops-hub-title">{title}</h1> : <p className="ops-card-title">{title}</p>}
+        </div>
+        {trailing}
+      </div>
       <p className={hub ? 'ops-hub-site' : 'ops-card-site'}>
-        <MapPin size={hub ? 18 : 14} className="ops-card-site-icon mt-0.5" />
+        <MapPin size={hub ? 16 : 11} className="ops-card-site-icon shrink-0 mt-0.5" />
         <span className="min-w-0">{site}</span>
       </p>
-      {title ? (
-        hub ? (
-          <p className="mt-1 text-sm font-medium text-white/75">{title}</p>
-        ) : (
-          <p className="ops-card-sub">{title}</p>
-        )
-      ) : null}
     </div>
   );
 }
@@ -54,7 +55,7 @@ export function NextBanner({ detail, className = '' }: { detail: string; classNa
 }
 
 export function actionClass(recommended: boolean) {
-  return recommended ? 'ops-next-control' : 'btn-secondary';
+  return recommended ? 'btn-primary' : 'btn-secondary';
 }
 
 export function ActionButton({

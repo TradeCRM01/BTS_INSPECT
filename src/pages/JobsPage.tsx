@@ -166,7 +166,7 @@ export function JobsPage() {
           <EmptyState
             icon={Briefcase}
             title={search || statusFilter !== 'all' ? 'No matching jobs' : 'No jobs yet'}
-            message={search || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Create your first job to get started'}
+            message={search || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Create a job, add the site, then put it on the board so the crew can see it.'}
             action={!search && statusFilter === 'all' ? (
               <button onClick={() => setShowForm(true)} className="btn-primary mt-4">
                 <Plus size={16} /> Create Job
@@ -187,7 +187,7 @@ export function JobsPage() {
                 <thead>
                   <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
                     <th className="px-3 py-2">Job #</th>
-                    <th className="px-3 py-2">Site</th>
+                    <th className="px-3 py-2">Title</th>
                     <th className="px-3 py-2">Client</th>
                     <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2">Priority</th>
@@ -204,8 +204,8 @@ export function JobsPage() {
                         className="hover:bg-[#F9FAFB] cursor-pointer transition-colors" style={{ borderLeft: `3px solid ${color}` }}>
                         <td className="px-3 py-2 font-medium" style={{ color }}>{job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : '—'}</td>
                         <td className="px-3 py-2">
-                          <p className="text-sm font-semibold text-[#0A2540] truncate">{opsSiteLabel(job.address, job.client_address)}</p>
-                          <p className="text-xs text-[#4A5568] truncate">{job.title}</p>
+                          <p className="text-sm font-semibold text-navy truncate">{job.title}</p>
+                          <p className="text-xs text-[#4A5568] truncate">{opsSiteLabel(job.address, job.client_address)}</p>
                         </td>
                         <td className="px-3 py-2 text-[#4A5568]">{job.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
                         <td className="px-3 py-2"><OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus></td>
@@ -273,8 +273,8 @@ function JobCard({ job }: { job: JobWithClient }) {
     >
       <OpsCardHeader
         kicker={job.job_number != null ? `JOB #${String(job.job_number).padStart(4, '0')}` : 'JOB'}
-        site={opsSiteLabel(site)}
         title={job.title}
+        site={opsSiteLabel(site)}
       />
       <div className="ops-card-body">
         <div className="flex items-start justify-between gap-2">
@@ -297,9 +297,9 @@ function JobCard({ job }: { job: JobWithClient }) {
         </div>
 
         <div className="ops-card-footer">
-          <span className="ops-next-control-block">{hint}</span>
+          <span className="ops-next-hint">{hint}</span>
           {job.priority !== 'medium' && (
-            <span className="mt-2 flex items-center gap-1 text-[11px] font-semibold" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
+            <span className="ml-auto flex items-center gap-1 text-[10px] font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
               {JOB_PRIORITY_LABELS[job.priority]}
             </span>
