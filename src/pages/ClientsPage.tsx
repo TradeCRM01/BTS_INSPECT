@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode, LoadingSpinner, OpsSiteRow, OpsStatus, OpsCardHeader, opsSiteLabel } from '../components/ui';
+import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode, LoadingSpinner, OpsSiteRow, OpsCardHeader } from '../components/ui';
 import type { MenuEntry } from '../components/ui';
 import type { Client, ClientWithStats } from '../types/crm';
 import { formatMoney } from '../types/fsm';
@@ -191,14 +191,14 @@ export function ClientsPage() {
           </button>
         </div>
 
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="hub-clients-chrome">
           <SearchBar value={search} onChange={setSearch} placeholder="Search by name, contact, phone, or email..." className="max-w-sm flex-1" />
           <ViewToggle mode={viewMode} onChange={setViewMode} />
           <button
+            type="button"
             onClick={() => setShowArchived(v => !v)}
-            className={`ops-seg-btn ${showArchived ? 'ops-seg-btn-on' : 'ops-seg-btn-off'}`}
+            className="hub-chrome-filter"
           >
-            <Archive size={14} />
             {showArchived ? 'Archived' : 'Active'}
           </button>
         </div>
@@ -217,7 +217,7 @@ export function ClientsPage() {
             )}
           />
         ) : viewMode === 'grid' ? (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map(client => (
               <ClientCard
                 key={client.id}
@@ -312,15 +312,19 @@ function clientFace(client: ClientWithStats) {
     jobCount: client.job_count ?? 0,
     overdue,
   });
-  return { hint, status, next, site: opsSiteLabel(client.address) };
+  const money = hint.tone === 'none' || hint.amount === 0
+    ? null
+    : { amount: formatMoney(hint.amount), label: hint.label, overdue: hint.tone === 'overdue' };
+  const quietStatus = status.tone === 'idle' ? null : status.label;
+  return { hint, status, next, money, quietStatus, site: client.address?.trim() ?? '' };
 }
 
 function ClientListRow({ client, onEdit, onArchive, onDelete }: {
   client: ClientWithStats; onEdit: () => void; onArchive: () => void; onDelete: () => void;
 }) {
   const navigate = useNavigate();
-  const { hint, status, next, site } = clientFace(client);
-  const toneClass = hint.tone === 'overdue' ? 'text-fail' : 'text-navy';
+  const { next, money, quietStatus, site } = clientFace(client);
+  const toneClass = money?.overdue ? 'text-fail' : 'text-navy';
   return (
     <tr className="hover:bg-zebra transition-colors">
       <td className="px-3 py-2">
@@ -337,16 +341,18 @@ function ClientListRow({ client, onEdit, onArchive, onDelete }: {
         {client.active_jobs ? <p className="ops-meta">{client.active_jobs} live</p> : null}
       </td>
       <td className="px-3 py-2">
-        <OpsStatus className={status.className}>{status.label}</OpsStatus>
+        {quietStatus ? <p className="ops-meta">{quietStatus}</p> : null}
       </td>
       <td className="px-3 py-2">
-        <div className="text-right">
-          <p className={`ops-money text-sm ${toneClass}`}>{formatMoney(hint.amount)}</p>
-          <p className="ops-meta">{hint.label}</p>
-        </div>
+        {money ? (
+          <div className="text-right">
+            <p className={`ops-money text-sm ${toneClass}`}>{money.amount}</p>
+            <p className="ops-meta">{money.label}</p>
+          </div>
+        ) : null}
       </td>
       <td className="px-3 py-2">
-        <Link to={next.href} className="ops-next-control w-auto px-3">{next.label}</Link>
+        <Link to={next.href} className="hub-next">{next.label}</Link>
       </td>
       <td className="px-3 py-2"><div className="flex justify-end"><ContextMenu items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} /></div></td>
     </tr>
@@ -362,8 +368,8 @@ const ClientCard = memo(function ClientCard({
   onDelete: () => void;
 }) {
   const navigate = useNavigate();
-  const { hint, status, next, site } = clientFace(client);
-  const toneClass = hint.tone === 'overdue' ? 'text-fail' : 'text-navy';
+  const { next, money, quietStatus, site } = clientFace(client);
+  const toneClass = money?.overdue ? 'text-fail' : 'text-navy';
 
   return (
     <div
@@ -378,39 +384,37 @@ const ClientCard = memo(function ClientCard({
       </div>
 
       <div className="pr-10">
-        <OpsCardHeader
-          kicker={client.name}
-          trailing={<OpsStatus className={status.className}>{status.label}</OpsStatus>}
-        />
+        <OpsCardHeader kicker={client.name} />
       </div>
       <div className="ops-card-body">
         {client.contact_person ? (
           <p className="ops-meta truncate mb-1">{client.contact_person}</p>
         ) : null}
+        {quietStatus ? <p className="ops-meta mb-1">{quietStatus}</p> : null}
         <OpsSiteRow
           site={site}
           phone={client.phone}
           email={client.email}
           mapsQuery={client.address}
         />
-        <div className="flex items-baseline justify-between gap-2 pt-2">
-          <div>
-            <p className={`ops-money text-left ${toneClass}`}>{formatMoney(hint.amount)}</p>
-            <p className="ops-meta">{hint.label}</p>
-          </div>
-          <div className="text-right">
-            <p className="ops-meta tabular-nums">{client.job_count ?? 0} jobs</p>
+        <div className="flex items-end justify-between gap-3 pt-3">
+          {money ? (
+            <div>
+              <p className={`ops-money text-left ${toneClass}`}>{money.amount}</p>
+              <p className="ops-meta">{money.label}</p>
+            </div>
+          ) : <div />}
+          <div className="text-right shrink-0" onClick={e => e.stopPropagation()}>
+            {client.job_count ? (
+              <p className="ops-meta tabular-nums">{client.job_count} jobs</p>
+            ) : null}
             {client.active_jobs ? (
               <p className="ops-meta">{client.active_jobs} live</p>
             ) : client.last_job_date ? (
               <p className="ops-meta">{format(parseISO(client.last_job_date), 'd MMM yyyy')}</p>
-            ) : (
-              <p className="ops-meta">No jobs yet</p>
-            )}
+            ) : null}
+            <Link to={next.href} className="hub-next">{next.label}</Link>
           </div>
-        </div>
-        <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
-          <Link to={next.href} className="ops-next-control-block">{next.label}</Link>
         </div>
       </div>
     </div>

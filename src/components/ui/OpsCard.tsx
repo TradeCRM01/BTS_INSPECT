@@ -141,15 +141,17 @@ export function OpsSiteRow({
   mapsQuery,
   hub = false,
 }: {
-  site: string;
+  site?: string | null;
   phone?: string | null;
   email?: string | null;
   mapsQuery?: string | null;
   hub?: boolean;
 }) {
   const siteClass = hub ? 'ops-hub-site' : 'ops-card-site';
+  const siteText = (site ?? '').trim();
+  const hasSite = !!siteText && siteText !== 'No site address';
   const mapQuery = (mapsQuery ?? '').trim();
-  const hasMaps = !!mapQuery && mapQuery !== 'No site address' && site !== 'No site address';
+  const hasMaps = hasSite && !!mapQuery && mapQuery !== 'No site address';
   const lines = visibleClientContacts({ phone, email, address: null });
   return (
     <div className="min-w-0">
@@ -161,11 +163,11 @@ export function OpsSiteRow({
           rel="noreferrer"
           onClick={e => e.stopPropagation()}
         >
-          {site}
+          {siteText}
         </a>
-      ) : (
-        <p className={siteClass}>{site}</p>
-      )}
+      ) : hasSite ? (
+        <p className={siteClass}>{siteText}</p>
+      ) : null}
       {lines.length > 0 ? (
         <div className="mt-0.5 flex flex-col gap-0.5 min-w-0">
           {lines.map(line => (

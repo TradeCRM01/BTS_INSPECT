@@ -271,26 +271,139 @@
   }
 
   /* Client hub only: xAI hierarchy on BTS navy/blue. Not a global restyle. */
+  .hub-clients.ops-page {
+    padding-top: 2.75rem;
+  }
+
   .hub-clients .ops-page-title {
-    font-size: 2rem;
-    line-height: 1.05;
-    letter-spacing: -0.04em;
+    font-size: 2.75rem;
+    line-height: 0.95;
+    letter-spacing: -0.05em;
     font-weight: 600;
     color: var(--ops-navy);
   }
 
   @media (min-width: 640px) {
     .hub-clients .ops-page-title {
-      font-size: 2.5rem;
+      font-size: 3.5rem;
     }
   }
 
   .hub-clients .ops-page-head {
-    @apply mb-6 items-end;
+    margin-bottom: 3rem;
+    padding-top: 0.75rem;
+    align-items: flex-end;
+    gap: 1.25rem;
   }
 
   .hub-clients .btn-primary {
     @apply min-h-[44px] px-4;
+  }
+
+  .hub-clients nav[aria-label="Breadcrumb"] {
+    margin-bottom: 0.25rem;
+    opacity: 0.55;
+  }
+
+  .hub-clients-chrome {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 2.25rem;
+  }
+
+  .hub-clients-chrome .form-input {
+    background: transparent;
+    border-color: transparent;
+    border-bottom: 1px solid var(--ops-rule);
+    border-radius: 0;
+    min-height: 40px;
+    box-shadow: none;
+  }
+
+  .hub-clients-chrome .form-input:focus {
+    box-shadow: none;
+    border-color: transparent;
+    border-bottom-color: var(--ops-navy);
+  }
+
+  .hub-clients-chrome .ops-seg {
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+
+  .hub-clients-chrome .ops-seg button {
+    background: transparent !important;
+    color: var(--ops-muted) !important;
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .hub-clients-chrome .ops-seg button.bg-navy,
+  .hub-clients-chrome .ops-seg button[class*="bg-navy"] {
+    color: var(--ops-navy) !important;
+  }
+
+  .hub-clients-chrome .hub-chrome-filter {
+    background: none;
+    border: none;
+    padding: 0;
+    min-height: 2rem;
+    font-size: 0.75rem;
+    color: var(--ops-muted);
+  }
+
+  .hub-clients .hub-money {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2.5rem 3rem;
+    margin-bottom: 3rem;
+  }
+
+  .hub-clients .hub-money-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .hub-clients .hub-money-item .ops-money {
+    text-align: left;
+    font-size: 1.35rem;
+  }
+
+  .hub-clients .ops-tray {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+  }
+
+  .hub-clients .ops-tray-head {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .hub-clients .ops-tray .ops-section-title svg,
+  .hub-clients .ops-tray a > svg:first-child {
+    display: none;
+  }
+
+  .hub-clients .hub-next {
+    @apply text-sm font-medium text-accent hover:underline;
+  }
+
+  .hub-clients .ops-card {
+    border-color: #EEF0F3;
+  }
+
+  .hub-clients .ops-card-kicker {
+    font-size: 1.05rem;
+    letter-spacing: -0.03em;
+  }
+
+  .hub-clients .ops-card-body .ops-link {
+    font-size: 0.9375rem;
   }
 
   .ops-section-title {
