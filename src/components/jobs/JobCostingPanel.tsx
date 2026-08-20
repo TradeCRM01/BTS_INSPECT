@@ -96,7 +96,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const totals = { materials: sumCost('materials'), labor: sumCost('labor'), other: sumCost('other') };
 
   const blankForm = () => ({
-    cost_type: 'other' as CostType,
+    cost_type: 'materials' as CostType,
     charge_type: '',
     description: '',
     quantity: '1',
@@ -290,7 +290,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         .order('created_at', { ascending: false });
       if (existingErr) throw existingErr;
 
-      let candidates = (existing ?? []).filter(i => isJobBillInvoice(i, quoteId));
+      const candidates = (existing ?? []).filter(i => isJobBillInvoice(i, quoteId));
       if (quoteId) {
         const { data: byQuote, error: qErr } = await supabase
           .from('invoices')

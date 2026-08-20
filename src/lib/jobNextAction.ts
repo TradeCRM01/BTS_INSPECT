@@ -66,6 +66,33 @@ export function jobCardHint(
   return 'Scheduled';
 }
 
+export type JobListNext = {
+  href: string;
+  label: string;
+  /** Closed / done labels stay on the card; they are not a Next control. */
+  actionable: boolean;
+};
+
+/** Where list Next (and the row) should land for this job. */
+export function jobListNext(
+  job: {
+    id: string;
+    status: JobStatus;
+    scheduled_date: string | null | undefined;
+    assigned_team?: string[] | null;
+  },
+  now = new Date(),
+): JobListNext {
+  const label = jobCardHint(job, now);
+  if (label === 'Cancelled' || label === 'Completed') {
+    return { href: `/jobs/${job.id}`, label, actionable: false };
+  }
+  if (label === 'Set a date' || label === 'Assign crew') {
+    return { href: `/jobs/${job.id}#job-schedule`, label, actionable: true };
+  }
+  return { href: `/jobs/${job.id}`, label, actionable: true };
+}
+
 /** Schedule-board chips only — date and crew, not JHA / inspect / invoice. */
 export function boardDispatchHint(
   job: {

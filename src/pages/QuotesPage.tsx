@@ -445,6 +445,7 @@ interface EditorState {
   description: string; scope_of_works: string;
   line_items: EditLineItem[]; tax_rate: string; validity_date: string; notes: string;
   inclusions: string[]; exclusions: string[];
+  scheduled_date: string;
 }
 
 function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
@@ -482,6 +483,7 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
     notes: quote?.notes ?? '',
     inclusions: asStringList(quote?.inclusions),
     exclusions: asStringList(quote?.exclusions),
+    scheduled_date: '',
   });
 
   useEffect(() => {
@@ -653,6 +655,7 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
         scope_of_works: form.scope_of_works,
         line_items: buildPayload('accepted').payload.line_items,
         total: grandTotal,
+        scheduled_date: form.scheduled_date || null,
       }, profile.id);
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
@@ -818,6 +821,11 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
               <input type="date" value={form.validity_date} onChange={e => setForm(f => ({ ...f, validity_date: e.target.value }))} className="form-input" />
             </Field>
           </div>
+
+          <Field label="Job date">
+            <input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} className="form-input" />
+            <p className="ops-meta mt-1">Optional. Convert to job puts this on the board. Leave blank if there is no date yet.</p>
+          </Field>
 
           <Field label="Notes">
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="form-input min-h-[60px] resize-y" placeholder="Notes for the client..." />

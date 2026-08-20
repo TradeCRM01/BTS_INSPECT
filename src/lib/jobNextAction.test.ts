@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boardDispatchHint, jobCardHint, jobListBucket, partitionScheduleJobs, recommendJobAction } from './jobNextAction';
+import { boardDispatchHint, jobCardHint, jobListBucket, jobListNext, partitionScheduleJobs, recommendJobAction } from './jobNextAction';
 
 const now = new Date(2026, 7, 20); // 20 Aug 2026 local
 
@@ -21,6 +21,36 @@ describe('jobListBucket', () => {
 
   it('buckets future dates as upcoming', () => {
     expect(jobListBucket({ status: 'scheduled', scheduled_date: '2026-08-22' }, now)).toBe('upcoming');
+  });
+});
+
+describe('jobListNext', () => {
+  it('opens schedule on the job for date and crew', () => {
+    expect(jobListNext({
+      id: 'job-1', status: 'scheduled', scheduled_date: null, assigned_team: ['a'],
+    }, now)).toEqual({
+      href: '/jobs/job-1#job-schedule', label: 'Set a date', actionable: true,
+    });
+    expect(jobListNext({
+      id: 'job-1', status: 'scheduled', scheduled_date: '2026-08-22', assigned_team: [],
+    }, now)).toEqual({
+      href: '/jobs/job-1#job-schedule', label: 'Assign crew', actionable: true,
+    });
+  });
+
+  it('opens the job hub for on-site and dated work', () => {
+    expect(jobListNext({
+      id: 'job-1', status: 'in_progress', scheduled_date: '2026-08-20', assigned_team: ['a'],
+    }, now).href).toBe('/jobs/job-1');
+    expect(jobListNext({
+      id: 'job-1', status: 'scheduled', scheduled_date: '2026-08-20', assigned_team: ['a'],
+    }, now)).toMatchObject({ href: '/jobs/job-1', label: 'Today', actionable: true });
+  });
+
+  it('does not treat closed jobs as a Next control', () => {
+    expect(jobListNext({
+      id: 'job-1', status: 'completed', scheduled_date: '2026-08-20', assigned_team: ['a'],
+    }, now).actionable).toBe(false);
   });
 });
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -105,7 +105,7 @@ export function JobDetailPage() {
   const [showStage, setShowStage] = useState(false);
   const [showTimeEntry, setShowTimeEntry] = useState(false);
   const [showJhaPicker, setShowJhaPicker] = useState(false);
-  const [billOpen, setBillOpen] = useState(false);
+  const [billOpen, setBillOpen] = useState(true);
 
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ['job', id],
@@ -435,6 +435,16 @@ export function JobDetailPage() {
     onError: (e: Error) => showToast(e.message),
   });
 
+  useEffect(() => {
+    if (!job) return;
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!hash) return;
+    const t = window.setTimeout(() => {
+      document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+    return () => window.clearTimeout(t);
+  }, [job]);
+
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !job) return <AppShell><PageError message="Could not load this job" /></AppShell>;
 
@@ -494,7 +504,7 @@ export function JobDetailPage() {
     clockedOn: !!runningEntry,
   });
 
-  const inspectHref = `/inspections/new?crmJobId=${job.id}`;
+  const inspectHref = `/inspections/new?jobId=${job.id}`;
 
   return (
     <AppShell>
@@ -720,6 +730,11 @@ export function JobDetailPage() {
             title="Inspections"
             icon={ClipboardList}
             count={(inspections ?? []).length}
+            action={
+              <Link to={inspectHref} className="ops-link text-xs">
+                <Plus size={12} className="inline" /> Add inspection
+              </Link>
+            }
             emptyTitle="No inspection on this job yet."
             emptyAction={<Link to={inspectHref} className="ops-link">Start inspection</Link>}
           >
@@ -829,16 +844,30 @@ export function JobDetailPage() {
           </JobRelatedSection>
         </div>
 
+        <div id="job-hours">
         <JobRelatedSection
           title="Time on this job"
           icon={Clock}
           count={(timesheets ?? []).length}
           action={
             <div className="flex items-center gap-3">
+              {runningEntry ? (
+                <button type="button" onClick={() => clockOffJob.mutate()} disabled={clockOffJob.isPending} className="ops-link text-xs">
+                  Clock off
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => clockOnJob.mutate()}
+                  disabled={clockOnJob.isPending || job.status === 'cancelled'}
+                  className="ops-link text-xs"
+                >
+                  Clock on
+                </button>
+              )}
               <button type="button" onClick={() => setShowTimeEntry(true)} className="ops-link text-xs">
-                <Plus size={12} className="inline" /> Add entry
+                <Plus size={12} className="inline" /> Add hours
               </button>
-              <Link to={`/timesheets?job=${job.id}`} className="ops-link text-xs">All timesheets</Link>
             </div>
           }
           emptyTitle="Nobody has clocked onto this job yet."
@@ -850,7 +879,7 @@ export function JobDetailPage() {
             )
           }
         >
-          {(timesheets ?? []).slice(0, 5).map(entry => {
+          {(timesheets ?? []).map(entry => {
             const duration = entry.end_time
               ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
               : 0;
@@ -865,11 +894,7 @@ export function JobDetailPage() {
             );
           })}
         </JobRelatedSection>
-        {(timesheets ?? []).length > 5 && (
-          <p className="ops-meta mt-1.5 mb-5 px-1">
-            Showing 5 of {(timesheets ?? []).length}. <Link to={`/timesheets?job=${job.id}`} className="ops-link">See all</Link>
-          </p>
-        )}
+        </div>
 
         <div id="job-bill" className="mt-5 mb-6">
           <button
@@ -883,7 +908,7 @@ export function JobDetailPage() {
               <p className="ops-meta">
                 {budget != null ? `Budget ${formatMoney(budget)} · ` : ''}
                 Cost {formatMoney(actualCost)} · Charge {formatMoney(chargeTotal)}
-                {(costTotals?.lines ?? 0) === 0 ? ' · No lines yet' : ''}
+                {(costTotals?.lines ?? 0) === 0 ? ' · Add materials on this job' : ''}
               </p>
             </div>
             <ChevronDown size={16} className={`text-muted transition-transform ${billOpen ? 'rotate-180' : ''}`} />
