@@ -17,8 +17,8 @@ export type QuoteActionContext = {
   status: QuoteStatus;
   hasClient: boolean;
   hasLines: boolean;
-  hasClientEmail: boolean;
-  smtpReady: boolean | null;
+  hasClientEmail?: boolean;
+  smtpReady?: boolean | null;
   jobId: string | null | undefined;
   invoiceId: string | null | undefined;
   clientId?: string | null;

@@ -7,12 +7,11 @@ import { padQuoteNumber } from '../../lib/quoteJobFields';
 import {
   commercialPdfDataForQuote,
   decideQuoteSend,
-  deliverQuote,
-  loadQuoteSendBundle,
   type QuoteSendBundle,
   type QuoteSendCompany,
   type QuoteSendDecision,
 } from '../../lib/sendQuote';
+import { deliverQuote, loadQuoteSendBundle } from '../../lib/sendQuoteDeliver';
 
 export function QuoteSendDialog({
   quoteId,
