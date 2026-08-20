@@ -4,14 +4,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, ViewToggle, useViewMode, OpsCardHeader, OpsStatus, opsSiteLabel } from '../components/ui';
+import { LoadingSpinner, PageError, EmptyState, ViewToggle, useViewMode, OpsCardHeader, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import {
-  JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS,
+  JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_STATUS_RAIL, JOB_PRIORITY_LABELS,
   JOB_PRIORITY_DOT,
 } from '../types/crm';
-import { pickJobColor } from '../lib/jobColors';
 import { jobCardHint, jobListBucket } from '../lib/jobNextAction';
 import { Plus, Briefcase, Search, Calendar, Clock, User } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -117,7 +116,7 @@ export function JobsPage() {
         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div>
             <h1 className="ops-page-title">Jobs</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">
+            <p className="ops-meta mt-0.5">
               {filtered.length} of {jobs?.length ?? 0} jobs
             </p>
           </div>
@@ -140,19 +139,15 @@ export function JobsPage() {
               className="form-input pl-9"
             />
           </div>
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 overflow-x-auto">
+          <div className="ops-tabs flex-1">
             {STATUS_FILTERS.map(s => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap capitalize ${
-                  statusFilter === s ? 'bg-white text-[#0A2540] shadow-sm' : 'text-[#6B7280] hover:text-[#374151]'
-                }`}
+                className={`ops-tab ${statusFilter === s ? 'ops-tab-active' : ''}`}
               >
                 {s === 'all' ? 'All' : JOB_STATUS_LABELS[s as JobStatus]}
-                <span className="ml-1.5 text-xs text-[#9CA3AF]">
-                  {counts[s as keyof typeof counts]}
-                </span>
+                <span className="ml-1.5">{counts[s as keyof typeof counts]}</span>
               </button>
             ))}
           </div>
@@ -181,11 +176,11 @@ export function JobsPage() {
             <JobGroup title="Closed" icon={Clock} jobs={closedJobs} />
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
+          <div className="bg-white rounded border border-[#E5E7EB] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
+                  <tr className="bg-[#F9FAFB] text-left ops-meta font-medium uppercase tracking-wide">
                     <th className="px-3 py-2">Job #</th>
                     <th className="px-3 py-2">Site</th>
                     <th className="px-3 py-2">Client</th>
@@ -197,20 +192,20 @@ export function JobsPage() {
                 </thead>
                 <tbody className="divide-y divide-[#F3F4F6]">
                   {filtered.map(job => {
-                    const color = pickJobColor(job.id, job.color);
+                    const rail = JOB_STATUS_RAIL[job.status];
                     const jobDate = job.scheduled_date ? parseISO(job.scheduled_date) : null;
                     return (
                       <tr key={job.id} onClick={() => navigate(`/jobs/${job.id}`)}
-                        className="hover:bg-[#F9FAFB] cursor-pointer transition-colors" style={{ borderLeft: `3px solid ${color}` }}>
-                        <td className="px-3 py-2 font-medium" style={{ color }}>{job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : '—'}</td>
+                        className="hover:bg-[#F9FAFB] cursor-pointer transition-colors" style={{ borderLeft: `3px solid ${rail}` }}>
+                        <td className="px-3 py-2 font-medium" style={{ color: rail }}>{job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : '—'}</td>
                         <td className="px-3 py-2">
                           <p className="text-sm font-semibold text-navy truncate">{opsSiteLabel(job.address, job.client_address)}</p>
-                          <p className="text-xs text-[#4A5568] truncate">{job.title}</p>
+                          <p className="ops-meta truncate">{job.title}</p>
                         </td>
-                        <td className="px-3 py-2 text-[#4A5568]">{job.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                        <td className="px-3 py-2 ops-meta">{job.client_name ?? '—'}</td>
                         <td className="px-3 py-2"><OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus></td>
                         <td className="px-3 py-2"><span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />{JOB_PRIORITY_LABELS[job.priority]}</span></td>
-                        <td className="px-3 py-2 text-[#4A5568]">{jobDate ? format(jobDate, 'd MMM yyyy') : 'No date'}{job.start_time && <span className="text-[#6B7280] block text-xs">{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>}</td>
+                        <td className="px-3 py-2 ops-meta">{jobDate ? format(jobDate, 'd MMM yyyy') : 'No date'}{job.start_time && <span className="block">{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>}</td>
                         <td className="px-3 py-2"><span className="ops-next-hint">{jobCardHint(job)}</span></td>
                       </tr>
                     );
@@ -247,7 +242,7 @@ function JobGroup({
     <div>
       <h2 className="ops-group-title flex items-center gap-1.5">
         <Icon size={13} /> {title}
-        <span className="text-[#9CA3AF] normal-case font-normal">({jobs.length})</span>
+        <span className="ops-meta normal-case font-normal">({jobs.length})</span>
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {jobs.map(job => (
@@ -259,45 +254,45 @@ function JobGroup({
 }
 
 function JobCard({ job }: { job: JobWithClient }) {
-  const color = pickJobColor(job.id, job.color);
+  const rail = JOB_STATUS_RAIL[job.status];
   const jobDate = job.scheduled_date ? parseISO(job.scheduled_date) : null;
   const dateLabel = jobDate ? format(jobDate, 'd MMM yyyy') : 'No date';
   const hint = jobCardHint(job);
-  const site = job.address || job.client_address;
+  const site = opsSiteLabel(job.address, job.client_address);
+  const mapsQuery = (job.address || job.client_address)?.trim() || null;
 
   return (
     <Link
       to={`/jobs/${job.id}`}
       className="ops-card ops-card-hover group block"
-      style={{ borderLeftWidth: 4, borderLeftColor: color }}
+      style={{ borderLeftWidth: 4, borderLeftColor: rail }}
     >
       <OpsCardHeader
         kicker={job.job_number != null ? `JOB #${String(job.job_number).padStart(4, '0')}` : 'JOB'}
-        site={opsSiteLabel(site)}
-        title={job.title}
         trailing={<OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>}
       />
       <div className="ops-card-body">
-        <div className="min-w-0 space-y-0.5">
+        <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
+        <div className="ops-card-footer">
+          <span className="ops-next-control-block">{hint}</span>
+        </div>
+        <div className="mt-2 min-w-0 space-y-0.5">
+          {job.title && <p className="ops-meta truncate">{job.title}</p>}
           {job.client_name && (
-            <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
-              <User size={12} className="text-[#9CA3AF] shrink-0" />
+            <div className="flex items-center gap-1.5 ops-meta">
+              <User size={12} className="shrink-0" />
               <span className="truncate">{job.client_name}</span>
             </div>
           )}
-          <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
-            <Calendar size={12} className="text-[#9CA3AF] shrink-0" />
+          <div className="flex items-center gap-1.5 ops-meta">
+            <Calendar size={12} className="shrink-0" />
             <span>{dateLabel}</span>
             {job.start_time && (
-              <span className="text-[#6B7280]">· {job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>
+              <span>· {job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>
             )}
           </div>
-        </div>
-
-        <div className="ops-card-footer">
-          <span className="ops-next-control-block">{hint}</span>
           {job.priority !== 'medium' && (
-            <span className="mt-1.5 flex items-center gap-1 text-[10px] font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
+            <span className="flex items-center gap-1 ops-meta" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
               {JOB_PRIORITY_LABELS[job.priority]}
             </span>

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { MapPin } from 'lucide-react';
+import { MapPin, Phone } from 'lucide-react';
 
-/** First non-empty line for the navy header site row — same language as the job card. */
+/** First non-empty line for the field-card site title. */
 export function opsSiteLabel(...parts: Array<string | null | undefined>): string {
   for (const part of parts) {
     const trimmed = part?.trim();
@@ -10,18 +10,18 @@ export function opsSiteLabel(...parts: Array<string | null | undefined>): string
   return 'No site address';
 }
 
+export function mapsSearchUrl(query: string): string {
+  return `https://maps.google.com/?q=${encodeURIComponent(query)}`;
+}
+
 export function OpsCardHeader({
   kicker,
-  title,
-  site,
-  size = 'card',
   trailing,
+  size = 'card',
 }: {
   kicker: string;
-  title?: string;
-  site: string;
-  size?: 'card' | 'hub';
   trailing?: ReactNode;
+  size?: 'card' | 'hub';
 }) {
   const hub = size === 'hub';
   return (
@@ -30,12 +30,46 @@ export function OpsCardHeader({
         <p className={hub ? 'ops-card-kicker ops-card-kicker-lg' : 'ops-card-kicker'}>{kicker}</p>
         {trailing}
       </div>
-      <p className={hub ? 'ops-hub-site' : 'ops-card-site'}>
-        <MapPin size={hub ? 18 : 14} className="ops-card-site-icon shrink-0 mt-0.5" />
-        <span className="min-w-0">{site}</span>
-      </p>
-      {title ? (
-        hub ? <p className="ops-hub-title">{title}</p> : <p className="ops-card-title">{title}</p>
+    </div>
+  );
+}
+
+export function OpsSiteRow({
+  site,
+  phone,
+  mapsQuery,
+  hub = false,
+}: {
+  site: string;
+  phone?: string | null;
+  mapsQuery?: string | null;
+  hub?: boolean;
+}) {
+  const hasMaps = !!mapsQuery && mapsQuery !== 'No site address';
+  return (
+    <div className="flex items-start gap-0.5">
+      <p className={hub ? 'ops-hub-site' : 'ops-card-site'}>{site}</p>
+      {phone ? (
+        <a
+          href={`tel:${phone}`}
+          className="ops-hit"
+          aria-label="Call site"
+          onClick={e => e.stopPropagation()}
+        >
+          <Phone size={18} />
+        </a>
+      ) : null}
+      {hasMaps ? (
+        <a
+          href={mapsSearchUrl(mapsQuery)}
+          target="_blank"
+          rel="noreferrer"
+          className="ops-hit"
+          aria-label="Open map"
+          onClick={e => e.stopPropagation()}
+        >
+          <MapPin size={18} />
+        </a>
       ) : null}
     </div>
   );
@@ -55,7 +89,7 @@ export function NextBanner({ detail, className = '' }: { detail: string; classNa
 }
 
 export function actionClass(recommended: boolean) {
-  return recommended ? 'ops-next-control' : 'btn-secondary';
+  return recommended ? 'ops-next-control-block' : 'btn-secondary';
 }
 
 export function ActionButton({

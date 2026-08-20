@@ -1,5 +1,7 @@
 // Field Service Management types — stock, suppliers, POs, quotes, invoices, job costs
 
+import { colors } from '../lib/colors';
+
 export interface Supplier {
   id: string;
   company_id: string;
@@ -196,6 +198,14 @@ export const QUOTE_STATUS_STYLES: Record<QuoteStatus, string> = {
   expired: 'ops-status-progress',
 };
 
+export const QUOTE_STATUS_RAIL: Record<QuoteStatus, string> = {
+  draft: colors.textMuted,
+  sent: colors.accent,
+  accepted: colors.pass,
+  declined: colors.fail,
+  expired: colors.warning,
+};
+
 // ── Invoices ─────────────────────────────────────────────────────
 
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue';
@@ -244,6 +254,13 @@ export const INVOICE_STATUS_STYLES: Record<InvoiceStatus, string> = {
   sent: 'ops-status-info',
   paid: 'ops-status-ok',
   overdue: 'ops-status-bad',
+};
+
+export const INVOICE_STATUS_RAIL: Record<InvoiceStatus, string> = {
+  draft: colors.textMuted,
+  sent: colors.accent,
+  paid: colors.pass,
+  overdue: colors.fail,
 };
 
 // ── Job Costs ────────────────────────────────────────────────────

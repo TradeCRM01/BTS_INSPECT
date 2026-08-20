@@ -4,23 +4,22 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, Breadcrumbs, useToast, ActionButton, NextBanner, actionClass, OpsStatus } from '../components/ui';
+import { LoadingSpinner, PageError, Breadcrumbs, useToast, ActionButton, actionClass, OpsStatus, OpsSiteRow } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import type { Client, Job, JobStatus } from '../types/crm';
-import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY_DOT } from '../types/crm';
+import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_STATUS_RAIL, JOB_PRIORITY_LABELS, JOB_PRIORITY_DOT } from '../types/crm';
 import { formatMoney, INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatDuration } from '../types/fsm';
 import type { InvoiceStatus, Timesheet } from '../types/fsm';
-import { pickJobColor } from '../lib/jobColors';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { recommendJobAction } from '../lib/jobNextAction';
 import {
-  Calendar, Clock, MapPin, User, Phone, Mail, Edit3, ChevronDown,
+  Calendar, Clock, User, Phone, Mail, Edit3, ChevronDown,
   FileText, ShieldCheck, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
   Play, Square,
 } from 'lucide-react';
@@ -417,7 +416,7 @@ export function JobDetailPage() {
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !job) return <AppShell><PageError message="Could not load this job" /></AppShell>;
 
-  const color = pickJobColor(job.id, job.color);
+  const color = JOB_STATUS_RAIL[job.status];
   const assigned = (job.assigned_team ?? [])
     .map(tid => teamMembers?.find(m => m.id === tid)?.name)
     .filter(Boolean) as string[];
@@ -501,42 +500,51 @@ export function JobDetailPage() {
                 ))}
               </select>
             </div>
-            <h1 className="ops-hub-site">
-              <MapPin size={18} className="ops-card-site-icon mt-1" />
-              {site ? (
-                <span>{site}</span>
-              ) : (
-                <span className="text-white/50">No site address yet — add it in job details</span>
-              )}
-            </h1>
-            <p className="ops-hub-title">{job.title}</p>
+          </div>
+
+          <div className="ops-card-body">
+            <OpsSiteRow
+              hub
+              site={site ? site : 'No site address yet — add it in job details'}
+              phone={client?.phone}
+              mapsQuery={site}
+            />
+            {job.title && <p className="ops-hub-title mt-1">{job.title}</p>}
             {parentJob && (
-              <Link to={`/jobs/${parentJob.id}`} className="mt-1 inline-flex items-center gap-1 text-xs text-[#93C5FD] hover:underline">
+              <Link to={`/jobs/${parentJob.id}`} className="mt-1 inline-flex items-center gap-1 ops-meta text-accent hover:underline">
                 <GitBranch size={12} />
                 Stage of {parentJob.job_number != null ? `#${padNum(parentJob.job_number)} ` : ''}{parentJob.title}
               </Link>
             )}
-            {job.scheduled_date && (
-              <div className="mt-1.5 flex items-center gap-2 text-sm text-white/80">
-                <Calendar size={14} className="text-[#93C5FD]" />
-                {format(parseISO(job.scheduled_date), 'EEE d MMM yyyy')}
-                {job.start_time && (
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} /> {job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
 
-          <div className="px-4 py-3">
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <div className="mt-2">
+              {next.key === 'inspect' ? (
+                <Link to={inspectHref} className="ops-next-control-block">{next.label}</Link>
+              ) : next.key !== 'none' ? (
+                <button
+                  type="button"
+                  className="ops-next-control-block"
+                  onClick={() => {
+                    if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
+                    else if (next.key === 'jha') startJha();
+                    else if (next.key === 'invoice') handleInvoice();
+                    else if (next.key === 'clock') clockOnJob.mutate();
+                  }}
+                >
+                  {next.label}
+                </button>
+              ) : (
+                <span className="ops-next-control-done">{next.label}</span>
+              )}
+            </div>
+
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 ops-meta">
               {client ? (
                 <Link to={`/clients/${client.id}`} className="flex items-center gap-1.5 text-[#2E75B6] hover:underline">
                   <User size={13} /> {client.name}
                 </Link>
               ) : (
-                <span className="flex items-center gap-1.5 text-[#9CA3AF]">
+                <span className="flex items-center gap-1.5 ops-meta">
                   <User size={13} /> No client
                 </span>
               )}
@@ -550,11 +558,20 @@ export function JobDetailPage() {
                   <Mail size={13} /> {client.email}
                 </a>
               )}
-              <span className="flex items-center gap-1.5 text-[#4A5568]">
+              <span className="flex items-center gap-1.5">
                 <Users size={13} />
                 {assigned.length > 0 ? assigned.join(', ') : 'Unassigned'}
               </span>
-              {job.priority !== 'medium' && (
+            {job.scheduled_date && (
+              <span className="flex items-center gap-1.5">
+                <Calendar size={13} />
+                {format(parseISO(job.scheduled_date), 'EEE d MMM yyyy')}
+                {job.start_time && (
+                  <span>{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>
+                )}
+              </span>
+            )}
+            {job.priority !== 'medium' && (
                 <span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
                   <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
                   {JOB_PRIORITY_LABELS[job.priority]} priority
@@ -563,20 +580,18 @@ export function JobDetailPage() {
             </div>
 
             {job.description && (
-              <p className="mt-2 text-sm text-[#4A5568] whitespace-pre-wrap line-clamp-4">{job.description}</p>
+              <p className="mt-2 ops-meta whitespace-pre-wrap line-clamp-4">{job.description}</p>
             )}
 
-            <NextBanner detail={next.detail} className="mt-3" />
-
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <ActionButton
-                recommended={next.key === 'schedule' || next.key === 'crew'}
+                recommended={false}
                 onClick={() => scrollToId('job-schedule')}
               >
                 <Calendar size={14} /> Schedule / crew
               </ActionButton>
               <div className="relative">
-                <ActionButton recommended={next.key === 'jha'} onClick={startJha}>
+                <ActionButton recommended={false} onClick={startJha}>
                   <ShieldCheck size={14} /> Start JHA
                 </ActionButton>
                 {showJhaPicker && (jhaTemplates ?? []).length > 1 && (
@@ -594,11 +609,11 @@ export function JobDetailPage() {
                   </div>
                 )}
               </div>
-              <Link to={inspectHref} className={actionClass(next.key === 'inspect')}>
+              <Link to={inspectHref} className={actionClass(false)}>
                 <ClipboardList size={14} /> Start inspection
               </Link>
               <ActionButton
-                recommended={next.key === 'invoice'}
+                recommended={false}
                 onClick={handleInvoice}
                 disabled={invoiceFromQuote.isPending}
               >
@@ -618,9 +633,7 @@ export function JobDetailPage() {
                   type="button"
                   onClick={() => clockOnJob.mutate()}
                   disabled={clockOnJob.isPending || job.status === 'cancelled'}
-                  className={next.key === 'clock'
-                    ? 'ops-next-control !bg-pass hover:!bg-pass/90'
-                    : 'btn-secondary text-pass'}
+                  className="btn-secondary"
                 >
                   <Play size={14} /> Clock on
                 </button>
@@ -852,9 +865,28 @@ export function JobDetailPage() {
             </div>
           )}
         </div>
-      </div>
 
-      {showEdit && (
+        {next.key !== 'none' && (
+          <div className="ops-sticky -mx-4 sm:mx-0">
+            {next.key === 'inspect' ? (
+              <Link to={inspectHref} className="ops-next-control-block">{next.label}</Link>
+            ) : (
+              <button
+                type="button"
+                className="ops-next-control-block"
+                onClick={() => {
+                  if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
+                  else if (next.key === 'jha') startJha();
+                  else if (next.key === 'invoice') handleInvoice();
+                  else if (next.key === 'clock') clockOnJob.mutate();
+                }}
+              >
+                {next.label}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
         <JobFormModal
           job={job}
           presetDate={null}

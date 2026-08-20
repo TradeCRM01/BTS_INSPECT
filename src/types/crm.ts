@@ -49,6 +49,8 @@ export interface JobWithClient extends Job {
   client_address?: string | null;
 }
 
+import { colors } from '../lib/colors';
+
 export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   scheduled: 'Scheduled',
   in_progress: 'In Progress',
@@ -61,6 +63,13 @@ export const JOB_STATUS_STYLES: Record<JobStatus, string> = {
   in_progress: 'ops-status-progress',
   completed: 'ops-status-ok',
   cancelled: 'ops-status-bad',
+};
+
+export const JOB_STATUS_RAIL: Record<JobStatus, string> = {
+  scheduled: colors.accent,
+  in_progress: colors.warning,
+  completed: colors.pass,
+  cancelled: colors.fail,
 };
 
 export const JOB_PRIORITY_LABELS: Record<JobPriority, string> = {
