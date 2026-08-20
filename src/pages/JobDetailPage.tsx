@@ -20,6 +20,7 @@ import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { recommendJobAction } from '../lib/jobNextAction';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel } from '../lib/jhaNextAction';
 import { inspectionStatusClass, inspectionStatusLabel } from '../lib/inspectionNextAction';
+import { clientRecordHref } from '../lib/clientRecords';
 import {
   Calendar, Clock, User, Phone, Mail, Edit3, ChevronDown,
   FileText, ShieldCheck, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
@@ -590,7 +591,7 @@ export function JobDetailPage() {
 
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 ops-meta">
               {client ? (
-                <Link to={`/clients/${client.id}`} className="flex items-center gap-1.5 text-accent hover:underline">
+                <Link to={clientRecordHref(client.id)} className="flex items-center gap-1.5 text-accent hover:underline">
                   <User size={13} /> {client.name}
                 </Link>
               ) : (

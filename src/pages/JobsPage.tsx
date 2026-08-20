@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -29,9 +29,11 @@ export function JobsPage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useViewMode('jobs');
 
   const { data: jobs, isLoading, error } = useQuery<JobCardModel[]>({
@@ -116,14 +118,26 @@ export function JobsPage() {
   const upcomingJobs = filtered.filter(j => jobListBucket(j) === 'upcoming');
   const closedJobs = filtered.filter(j => jobListBucket(j) === 'closed');
 
+  useEffect(() => {
+    const clientId = searchParams.get('client');
+    if (!clientId) return;
+    setPresetClientId(clientId);
+    setShowForm(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('client');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   function handleCloseForm() {
     setShowForm(false);
+    setPresetClientId(null);
   }
 
   function handleSaved(jobId: string) {
     handleCloseForm();
     queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
     queryClient.invalidateQueries({ queryKey: ['jobs'] });
+    queryClient.invalidateQueries({ queryKey: ['client-jobs'] });
     navigate(`/jobs/${jobId}`);
   }
 
@@ -140,7 +154,7 @@ export function JobsPage() {
             </p>
           </div>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => { setPresetClientId(null); setShowForm(true); }}
             className="btn-primary"
           >
             <Plus size={16} /> New Job
@@ -245,9 +259,10 @@ export function JobsPage() {
 
       {showForm && (
         <JobFormModal
+          key={presetClientId ?? 'new'}
           job={null}
           presetDate={null}
-          presetClientId={null}
+          presetClientId={presetClientId}
           onClose={handleCloseForm}
           onSaved={handleSaved}
         />
