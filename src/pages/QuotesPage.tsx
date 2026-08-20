@@ -163,8 +163,8 @@ export function QuotesPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1400px] mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <div className="ops-page">
+        <div className="ops-page-head">
           <div>
             <h1 className="ops-page-title">Quotes</h1>
             <p className="ops-meta mt-0.5">
@@ -221,11 +221,11 @@ export function QuotesPage() {
             <QuoteGroup title="Closed" quotes={closedQuotes} onOpen={openQuote} />
           </div>
         ) : (
-          <div className="bg-white rounded border border-[#E5E7EB] overflow-hidden">
+          <div className="ops-table">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[#F9FAFB] text-left ops-meta font-medium uppercase tracking-wide">
+                  <tr className="bg-zebra text-left ops-meta font-medium uppercase tracking-wide">
                     <th className="px-3 py-2">Quote #</th>
                     <th className="px-3 py-2">Client</th>
                     <th className="px-3 py-2">Site</th>
@@ -234,7 +234,7 @@ export function QuotesPage() {
                     <th className="px-3 py-2">Next</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#F3F4F6]">
+                <tbody className="divide-y divide-rule">
                   {filtered.map(q => (
                     <QuoteRow key={q.id} quote={q} onOpen={() => openQuote(q)} />
                   ))}
@@ -326,8 +326,8 @@ function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void
 function QuoteRow({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void }) {
   const next = recommendQuoteAction(quoteActionContext(quote));
   return (
-    <tr onClick={onOpen} className="hover:bg-[#F9FAFB] cursor-pointer transition-colors">
-      <td className="px-3 py-2 font-medium text-[#2E75B6]">#{padQuoteNumber(quote.quote_number)}</td>
+    <tr onClick={onOpen} className="hover:bg-zebra cursor-pointer transition-colors">
+      <td className="px-3 py-2 font-medium text-accent">#{padQuoteNumber(quote.quote_number)}</td>
       <td className="px-3 py-2">{quote.client_name ?? <span className="ops-meta">—</span>}</td>
       <td className="px-3 py-2 max-w-[220px]">
         <p className="text-sm font-semibold text-navy truncate">{opsSiteLabel(quote.job_address)}</p>
@@ -677,7 +677,7 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
           onClose={onClose}
         />
 
-        <div className="px-4 border-b border-[#E5E7EB]">
+        <div className="px-4 border-b border-rule">
           <OpsFromTo
             fromName={company?.name ?? 'Your company'}
             fromDetail={[company?.abn ? `ABN ${company.abn}` : null, company?.licence_number ? `Licence ${company.licence_number}` : null].filter(Boolean).join(' · ') || null}
@@ -728,7 +728,7 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
           )}
         </div>
 
-        <div className="px-3 py-2 border-b border-[#E5E7EB] flex flex-wrap gap-2">
+        <div className="px-3 py-2 border-b border-rule flex flex-wrap gap-2">
           {form.status === 'sent' && (
             <button
               type="button"

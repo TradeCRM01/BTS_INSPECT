@@ -680,7 +680,7 @@ export function JhaFillPage() {
   if (isEditMode && (docError || !existingDoc)) {
     return (
       <AppShell>
-        <div className="max-w-[1200px] mx-auto px-4 py-6">
+        <div className="ops-page">
           <PageError
             message="Could not open this JHA document. It may have been deleted or you may not have access."
             onRetry={() => refetchDoc()}
@@ -693,7 +693,7 @@ export function JhaFillPage() {
   if (!schema) {
     return (
       <AppShell>
-        <div className="max-w-[1200px] mx-auto px-4 py-6">
+        <div className="ops-page">
           <PageError message="Template not found. Go back and select a JHA template." onRetry={() => navigate('/templates')} />
         </div>
       </AppShell>
@@ -757,23 +757,23 @@ export function JhaFillPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1000px] mx-auto px-4 py-4 pb-32">
+      <div className="ops-page-fill">
         <div className="flex items-center justify-between gap-3 mb-3">
           <button
             type="button"
             onClick={() => navigate('/jha')}
-            className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] min-h-[44px]"
+            className="ops-back"
           >
             <ChevronLeft size={16} /> JHA documents
           </button>
           <div className="flex items-center gap-2 text-xs">
             {saveHint && (
-              <span className={saveState === 'error' ? 'text-[#B42318]' : saveState === 'unsaved' ? 'text-[#92400E]' : 'text-[#1B7F3A] flex items-center gap-1'}>
+              <span className={saveState === 'error' ? 'text-fail' : saveState === 'unsaved' ? 'text-warning' : 'text-pass flex items-center gap-1'}>
                 {saveState === 'saved' && <Check size={12} />}
                 {saveHint}
               </span>
             )}
-            <span className="text-[#6B7280]">Rev v{docVersion}</span>
+            <span className="text-muted">Rev v{docVersion}</span>
           </div>
         </div>
 
@@ -785,17 +785,17 @@ export function JhaFillPage() {
             trailing={<OpsStatus className={jhaStatusClass(statusKey)}>{jhaStatusLabel(statusKey)}</OpsStatus>}
           />
           <div className="px-3 pt-3 pb-2">
-            <label className="text-[10px] font-bold uppercase tracking-wide text-accent mb-1 flex items-center gap-1.5">
+            <label className="ops-fromto-label mb-1 flex items-center gap-1.5">
               <ShieldCheck size={12} />
               Document title
-              <span className="font-normal normal-case tracking-normal text-[rgba(0,0,0,0.55)]">(on the published PDF)</span>
+              <span className="font-normal normal-case tracking-normal text-muted">(on the published PDF)</span>
             </label>
             <input
               type="text"
               value={meta.documentTitle ?? ''}
               onChange={e => updateMeta('documentTitle', e.target.value)}
               placeholder={templateName || 'Job Hazard Analysis'}
-              className="w-full text-lg font-semibold text-navy border border-[#E5E7EB] rounded-md px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent placeholder:text-[#9CA3AF] placeholder:font-normal"
+              className="ops-field-site text-lg"
             />
             <p className="ops-meta mt-1.5">
               Job Hazard Analysis
@@ -809,7 +809,7 @@ export function JhaFillPage() {
         </article>
 
         {error && (
-          <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm whitespace-pre-line">
+          <div className="mb-3 ops-alert whitespace-pre-line">
             {error}
           </div>
         )}
@@ -835,25 +835,25 @@ export function JhaFillPage() {
           <div className="space-y-3">
             <section id="jha-identity" className="ops-card">
               <div className="ops-tray-head">
-                <h2 className="text-sm font-semibold text-navy flex items-center gap-2">
+                <h2 className="ops-section-title flex items-center gap-2">
                   <HardHat size={16} /> Job / site
                 </h2>
               </div>
               <div className="px-3 pb-3 pt-2 space-y-3">
                 <div>
-                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">
-                    Site / location{schema.meta.requiresSiteName && <span className="text-[#B42318]"> *</span>}
+                  <label className="ops-field-label">
+                    Site / location{schema.meta.requiresSiteName && <span className="text-fail"> *</span>}
                   </label>
                   <input
                     type="text"
                     value={meta.siteName ?? ''}
                     onChange={e => updateMeta('siteName', e.target.value)}
                     placeholder="Where is the work?"
-                    className="w-full text-base font-semibold text-navy border border-[#E5E7EB] rounded-md px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                    className="ops-field-site"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Job</label>
+                  <label className="ops-field-label">Job</label>
                   <select
                     value={jobId}
                     onChange={e => {
@@ -871,7 +871,7 @@ export function JhaFillPage() {
                       }
                       markUnsaved();
                     }}
-                    className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 bg-white min-h-[44px]"
+                    className="ops-field"
                   >
                     <option value="">No linked job</option>
                     {clientJobs.map(j => (
@@ -902,9 +902,9 @@ export function JhaFillPage() {
                   {showMoreIdentity ? 'Hide extra details' : 'More job details'}
                 </button>
                 {showMoreIdentity && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-[#E5E7EB]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-rule">
                     <div>
-                      <label className="text-xs font-medium text-[#4A5568] mb-1 block">Client (CRM)</label>
+                      <label className="ops-field-label">Client (CRM)</label>
                       <select
                         value={clientId}
                         onChange={e => {
@@ -915,7 +915,7 @@ export function JhaFillPage() {
                           if (name) updateMeta('clientName', name);
                           markUnsaved();
                         }}
-                        className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 bg-white min-h-[44px]"
+                        className="ops-field"
                       >
                         <option value="">No linked client</option>
                         {clients.map(c => (
@@ -953,7 +953,7 @@ export function JhaFillPage() {
 
             <section className="ops-card">
               <div className="ops-tray-head">
-                <h2 className="text-sm font-semibold text-navy flex items-center gap-2">
+                <h2 className="ops-section-title flex items-center gap-2">
                   <HardHat size={16} /> Required PPE
                 </h2>
               </div>
@@ -968,8 +968,8 @@ export function JhaFillPage() {
                         onClick={() => togglePpe(opt.label)}
                         className={`flex items-center gap-1.5 px-3 min-h-[44px] rounded-md text-sm font-medium border transition-all ${
                           selected
-                            ? 'bg-[#0A2540] text-white border-[#0A2540]'
-                            : 'bg-white text-[#4A5568] border-[#E5E7EB] hover:border-[#D1D5DB]'
+                            ? 'bg-navy text-white border-navy'
+                            : 'bg-white text-muted border-rule hover:border-navy/25'
                         }`}
                       >
                         {selected && <Check size={13} />}
@@ -978,28 +978,28 @@ export function JhaFillPage() {
                     );
                   })}
                   {selectedPpe.filter(p => !schema.ppeOptions.some(o => o.label === p)).map(label => (
-                    <span key={label} className="flex items-center gap-1.5 px-3 min-h-[44px] rounded-md text-sm font-medium border bg-[#2E75B6]/10 text-[#2E75B6] border-[#2E75B6]">
+                    <span key={label} className="flex items-center gap-1.5 px-3 min-h-[44px] rounded-md text-sm font-medium border bg-accent/10 text-accent border-accent">
                       {label}
-                      <button type="button" onClick={() => removePpe(label)} className="hover:text-[#1e5394] min-w-[44px] min-h-[44px] inline-flex items-center justify-center">
+                      <button type="button" onClick={() => removePpe(label)} className="hover:text-navy min-w-[44px] min-h-[44px] inline-flex items-center justify-center">
                         <X size={13} />
                       </button>
                     </span>
                   ))}
                 </div>
-                <div className="flex items-center gap-2 pt-2 border-t border-[#E5E7EB]">
+                <div className="flex items-center gap-2 pt-2 border-t border-rule">
                   <input
                     type="text"
                     value={customPpeInput}
                     onChange={e => setCustomPpeInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomPpe(); } }}
                     placeholder="Add custom PPE item..."
-                    className="flex-1 text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                    className="ops-field flex-1"
                   />
                   <button
                     type="button"
                     onClick={addCustomPpe}
                     disabled={!customPpeInput.trim()}
-                    className="flex items-center gap-1 text-sm text-[#2E75B6] font-medium px-3 min-h-[44px] border border-[#2E75B6] rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#2E75B6]/5"
+                    className="flex items-center gap-1 text-sm text-accent font-medium px-3 min-h-[44px] border border-accent rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent/5"
                   >
                     <Plus size={14} /> Add
                   </button>
@@ -1009,7 +1009,7 @@ export function JhaFillPage() {
 
             <section id="jha-steps" className="ops-card">
               <div className="ops-tray-head">
-                <h2 className="text-sm font-semibold text-navy flex items-center gap-2">
+                <h2 className="ops-section-title flex items-center gap-2">
                   <AlertCircle size={16} /> Hazards, steps & controls
                 </h2>
                 <button type="button" onClick={addStep} className="flex items-center gap-1 text-xs font-semibold text-accent min-h-[44px]">
@@ -1029,18 +1029,18 @@ export function JhaFillPage() {
                   {showRiskMatrix ? 'Hide risk matrix' : 'Show risk matrix'}
                 </button>
                 {showRiskMatrix && (
-                  <div className="mb-4 border border-[#E5E7EB] rounded-md bg-[#F9FAFB] p-4">
-                    <p className="text-xs font-semibold text-[#0A2540] mb-3 uppercase tracking-wide">5×5 Risk Assessment Matrix</p>
-                    <p className="text-xs text-[#4A5568] mb-3">Risk = Likelihood × Consequence. Use this matrix to determine the initial and residual risk ratings.</p>
+                  <div className="mb-4 border border-rule rounded-md bg-zebra p-4">
+                    <p className="text-xs font-semibold text-navy mb-3 uppercase tracking-wide">5×5 Risk Assessment Matrix</p>
+                    <p className="text-xs text-muted mb-3">Risk = Likelihood × Consequence. Use this matrix to determine the initial and residual risk ratings.</p>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs border-collapse">
                         <thead>
                           <tr>
-                            <th className="border border-[#E5E7EB] bg-[#0A2540] text-white px-2 py-1.5 text-left font-medium whitespace-nowrap">
+                            <th className="border border-rule bg-navy text-white px-2 py-1.5 text-left font-medium whitespace-nowrap">
                               Likelihood ↓ / Consequence →
                             </th>
                             {CONSEQUENCE_OPTIONS.map(c => (
-                              <th key={c.id} className="border border-[#E5E7EB] bg-[#0A2540] text-white px-1.5 py-1.5 text-center font-medium whitespace-nowrap" title={c.description}>
+                              <th key={c.id} className="border border-rule bg-navy text-white px-1.5 py-1.5 text-center font-medium whitespace-nowrap" title={c.description}>
                                 {c.label}
                               </th>
                             ))}
@@ -1049,14 +1049,14 @@ export function JhaFillPage() {
                         <tbody>
                           {[...LIKELIHOOD_OPTIONS].reverse().map(l => (
                             <tr key={l.id}>
-                              <td className="border border-[#E5E7EB] bg-[#F3F4F6] px-2 py-1.5 font-medium text-[#1A1A1A] whitespace-nowrap" title={l.description}>
+                              <td className="border border-rule bg-zebra px-2 py-1.5 font-medium text-ink whitespace-nowrap" title={l.description}>
                                 {l.label}
                               </td>
                               {CONSEQUENCE_OPTIONS.map(c => {
                                 const score = l.score * c.score;
                                 const { bg, text } = riskCellStyle(score);
                                 return (
-                                  <td key={c.id} className={`border border-[#E5E7EB] px-1.5 py-1.5 text-center font-bold ${bg} ${text}`}>
+                                  <td key={c.id} className={`border border-rule px-1.5 py-1.5 text-center font-bold ${bg} ${text}`}>
                                     {score}
                                   </td>
                                 );
@@ -1066,7 +1066,7 @@ export function JhaFillPage() {
                         </tbody>
                       </table>
                     </div>
-                    <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-[#E5E7EB]">
+                    <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-rule">
                       {[
                         { label: 'Low (1-4)', color: '#166534' },
                         { label: 'Moderate (5-9)', color: '#B45309' },
@@ -1075,7 +1075,7 @@ export function JhaFillPage() {
                       ].map(r => (
                         <div key={r.label} className="flex items-center gap-1.5">
                           <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: r.color }} />
-                          <span className="text-xs text-[#4A5568] font-medium">{r.label}</span>
+                          <span className="text-xs text-muted font-medium">{r.label}</span>
                         </div>
                       ))}
                     </div>
@@ -1118,22 +1118,22 @@ export function JhaFillPage() {
             {signOffs.length > 0 && (
               <section id="jha-signoff" className="ops-card">
                 <div className="ops-tray-head">
-                  <h2 className="text-sm font-semibold text-navy flex items-center gap-2">
+                  <h2 className="ops-section-title flex items-center gap-2">
                     <ShieldCheck size={16} /> Supervisor sign-off
                   </h2>
                 </div>
                 <div className="px-3 pb-3 pt-2 space-y-3">
                   {signOffs.map((sign, idx) => (
-                    <div key={sign.roleId} className="border border-[#E5E7EB] rounded-md p-3">
+                    <div key={sign.roleId} className="border border-rule rounded-md p-3">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-[#1A1A1A]">{sign.roleLabel}</span>
+                          <span className="text-sm font-medium text-ink">{sign.roleLabel}</span>
                           {schema.signOffRoles.find(r => r.id === sign.roleId)?.required && (
-                            <span className="text-xs text-[#B42318] font-medium">* Required</span>
+                            <span className="text-xs text-fail font-medium">* Required</span>
                           )}
                         </div>
                         {sign.signature && (
-                          <span className="text-xs text-[#1B7F3A] flex items-center gap-1">
+                          <span className="text-xs text-pass flex items-center gap-1">
                             <CheckCircle size={12} /> Signed {sign.date && format(new Date(sign.date), 'd MMM yyyy')}
                           </span>
                         )}
@@ -1143,7 +1143,7 @@ export function JhaFillPage() {
                         value={sign.name}
                         onChange={e => updateSignOff(idx, { name: e.target.value })}
                         placeholder="Full name"
-                        className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 mb-3 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                        className="ops-field mb-3"
                       />
                       <SignatureCapture
                         value={sign.signature || ''}
@@ -1173,23 +1173,23 @@ export function JhaFillPage() {
                 onClick={() => setShowMoreDoc(v => !v)}
                 className="w-full ops-tray-head min-h-[44px]"
               >
-                <span className="text-sm font-semibold text-navy">SWMS, Take 5 & extras</span>
-                <ChevronDown size={16} className={`text-[#6B7280] ${showMoreDoc ? 'rotate-180' : ''}`} />
+                <span className="ops-section-title">SWMS, Take 5 & extras</span>
+                <ChevronDown size={16} className={`text-muted ${showMoreDoc ? 'rotate-180' : ''}`} />
               </button>
               {showMoreDoc && (
-                <div className="px-3 pb-3 pt-2 space-y-3 border-t border-[#E5E7EB]">
+                <div className="px-3 pb-3 pt-2 space-y-3 border-t border-rule">
                   <EmergencyContactsSection
                     contacts={meta.emergencyContacts ? JSON.parse(meta.emergencyContacts) : []}
                     onChange={contacts => updateMeta('emergencyContacts', JSON.stringify(contacts))}
                   />
 
-                  <div className="border border-[#E5E7EB] rounded-md p-3">
+                  <div className="border border-rule rounded-md p-3">
                     <div className="flex items-center justify-between mb-2 gap-2">
                       <div className="flex items-center gap-2">
-                        <FileText size={16} className="text-[#4A5568]" />
-                        <h3 className="text-sm font-medium text-[#1A1A1A]">SWMS (AU high-risk construction)</h3>
+                        <FileText size={16} className="text-muted" />
+                        <h3 className="text-sm font-medium text-ink">SWMS (AU high-risk construction)</h3>
                       </div>
-                      <label className="flex items-center gap-2 text-sm text-[#4A5568] min-h-[44px]">
+                      <label className="flex items-center gap-2 text-sm text-muted min-h-[44px]">
                         <input
                           type="checkbox"
                           checked={swms.enabled}
@@ -1197,7 +1197,7 @@ export function JhaFillPage() {
                             setSwms(s => ({ ...s, enabled: e.target.checked }));
                             markUnsaved();
                           }}
-                          className="accent-[#2E75B6]"
+                          className="accent-accent"
                         />
                         Include SWMS page in PDF
                       </label>
@@ -1220,15 +1220,15 @@ export function JhaFillPage() {
                           />
                         </div>
                         <div>
-                          <p className="text-xs font-medium text-[#4A5568] mb-2">HRCW categories</p>
-                          <div className="max-h-48 overflow-y-auto space-y-1.5 border border-[#E5E7EB] rounded-md p-3">
+                          <p className="text-xs font-medium text-muted mb-2">HRCW categories</p>
+                          <div className="max-h-48 overflow-y-auto space-y-1.5 border border-rule rounded-md p-3">
                             {HRCW_CATEGORIES.map(c => {
                               const checked = swms.hrcwCategories.includes(c.id);
                               return (
-                                <label key={c.id} className="flex items-start gap-2 text-xs text-[#1A1A1A] cursor-pointer min-h-[44px]">
+                                <label key={c.id} className="flex items-start gap-2 text-xs text-ink cursor-pointer min-h-[44px]">
                                   <input
                                     type="checkbox"
-                                    className="mt-0.5 accent-[#2E75B6]"
+                                    className="mt-0.5 accent-accent"
                                     checked={checked}
                                     onChange={() => {
                                       setSwms(s => ({
@@ -1247,21 +1247,21 @@ export function JhaFillPage() {
                           </div>
                         </div>
                         <div>
-                          <label className="text-xs font-medium text-[#4A5568] mb-1 block">High-risk notes / method</label>
+                          <label className="ops-field-label">High-risk notes / method</label>
                           <textarea
                             value={swms.highRiskNotes}
                             onChange={e => { setSwms(s => ({ ...s, highRiskNotes: e.target.value })); markUnsaved(); }}
                             rows={2}
-                            className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2 resize-none"
+                            className="ops-field resize-none"
                           />
                         </div>
                         <div>
-                          <label className="text-xs font-medium text-[#4A5568] mb-1 block">Emergency procedures</label>
+                          <label className="ops-field-label">Emergency procedures</label>
                           <textarea
                             value={swms.emergencyProcedures}
                             onChange={e => { setSwms(s => ({ ...s, emergencyProcedures: e.target.value })); markUnsaved(); }}
                             rows={2}
-                            className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2 resize-none"
+                            className="ops-field resize-none"
                           />
                         </div>
                       </div>
@@ -1279,11 +1279,11 @@ export function JhaFillPage() {
                     />
                   )}
 
-                  <div className="border border-[#E5E7EB] rounded-md p-3">
+                  <div className="border border-rule rounded-md p-3">
                     <div className="flex items-center justify-between mb-2 gap-2">
                       <div className="flex items-center gap-2">
-                        <ShieldAlert size={16} className="text-[#4A5568]" />
-                        <h3 className="text-sm font-medium text-[#1A1A1A]">Take 5 / POWRA companions</h3>
+                        <ShieldAlert size={16} className="text-muted" />
+                        <h3 className="text-sm font-medium text-ink">Take 5 / POWRA companions</h3>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -1307,7 +1307,7 @@ export function JhaFillPage() {
                       Point-of-work checks that reference this JHA. Save the JHA first, then add Take 5s at the workface.
                     </p>
                     {take5List.length === 0 ? (
-                      <p className="text-sm text-[#9CA3AF] text-center py-3 border border-dashed border-[#E5E7EB] rounded-md">No Take 5 records yet</p>
+                      <p className="text-sm text-muted text-center py-3 border border-dashed border-rule rounded-md">No Take 5 records yet</p>
                     ) : (
                       <ul className="space-y-2">
                         {take5List.map(t => {
@@ -1327,7 +1327,7 @@ export function JhaFillPage() {
                               <button
                                 type="button"
                                 onClick={() => navigate(take5FillPath(docIdState!, t.id))}
-                                className="w-full text-left text-sm px-3 py-2.5 min-h-[44px] rounded-md border border-[#E5E7EB] hover:border-[#2E75B6] flex items-center justify-between gap-2"
+                                className="w-full text-left text-sm px-3 py-2.5 min-h-[44px] rounded-md border border-rule hover:border-accent flex items-center justify-between gap-2"
                               >
                                 <span className="min-w-0 truncate">
                                   {t.signed_name || t.meta?.location || 'Take 5'}
@@ -1388,8 +1388,8 @@ export function JhaFillPage() {
           <div>
             {pdfUrl ? (
               <div className="ops-card overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E7EB] bg-[#F9FAFB]">
-                  <span className="text-sm font-medium text-[#1A1A1A]">Published document</span>
+                <div className="flex items-center justify-between px-4 py-3 border-b border-rule bg-zebra">
+                  <span className="text-sm font-medium text-ink">Published document</span>
                   <button type="button" onClick={handleDownload} className="ops-next-control">
                     <Download size={14} /> Download PDF
                   </button>
@@ -1398,8 +1398,8 @@ export function JhaFillPage() {
               </div>
             ) : (
               <div className="ops-card py-16 text-center">
-                <Printer size={48} className="mx-auto text-[#E5E7EB] mb-3" />
-                <p className="text-[#1A1A1A] font-medium">No published document yet</p>
+                <Printer size={48} className="mx-auto text-rule mb-3" />
+                <p className="text-ink font-medium">No published document yet</p>
                 <p className="ops-meta mt-1">Fill the JHA, get signatures, then publish.</p>
                 <button
                   type="button"
@@ -1458,32 +1458,32 @@ function EmergencyContactsSection({ contacts, onChange }: {
   }
 
   return (
-    <div className="border border-[#E5E7EB] rounded-md bg-white overflow-hidden">
+    <div className="border border-rule rounded-md bg-white overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center justify-between px-3 py-3 min-h-[44px] hover:bg-[#F9FAFB] transition-colors"
+        className="w-full flex items-center justify-between px-3 py-3 min-h-[44px] hover:bg-zebra transition-colors"
       >
         <div className="flex items-center gap-2.5">
-          <Phone size={16} className="text-[#B91C1C]" />
-          <span className="text-sm font-semibold text-[#1A1A1A]">Emergency Contacts</span>
-          <span className="text-xs text-[#6B7280]">(optional)</span>
+          <Phone size={16} className="text-fail" />
+          <span className="text-sm font-semibold text-ink">Emergency Contacts</span>
+          <span className="text-xs text-muted">(optional)</span>
           {contacts.length > 0 && (
-            <span className="text-xs font-medium text-white bg-[#2E75B6] rounded-full px-2 py-0.5">
+            <span className="ops-status ops-status-info">
               {contacts.filter(c => c.name || c.phone).length}
             </span>
           )}
         </div>
-        <Plus size={16} className={`text-[#6B7280] transition-transform ${expanded ? 'rotate-45' : ''}`} />
+        <Plus size={16} className={`text-muted transition-transform ${expanded ? 'rotate-45' : ''}`} />
       </button>
       {expanded && (
-        <div className="px-3 pb-4 pt-2 border-t border-[#E5E7EB]">
+        <div className="px-3 pb-4 pt-2 border-t border-rule">
           <p className="ops-meta mb-3">Add site emergency contacts, first aid officers, or key personnel. These appear on the cover page of the finished document.</p>
           {contacts.length === 0 ? (
             <button
               type="button"
               onClick={add}
-              className="flex items-center gap-2 text-sm text-[#2E75B6] font-medium min-h-[44px]"
+              className="flex items-center gap-2 text-sm text-accent font-medium min-h-[44px]"
             >
               <Plus size={14} /> Add emergency contact
             </button>
@@ -1496,26 +1496,26 @@ function EmergencyContactsSection({ contacts, onChange }: {
                     value={c.role}
                     onChange={e => update(i, 'role', e.target.value)}
                     placeholder="Role (e.g. First Aid Officer)"
-                    className="sm:col-span-4 text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
+                    className="sm:col-span-4 ops-field"
                   />
                   <input
                     type="text"
                     value={c.name}
                     onChange={e => update(i, 'name', e.target.value)}
                     placeholder="Name"
-                    className="sm:col-span-4 text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
+                    className="sm:col-span-4 ops-field"
                   />
                   <input
                     type="tel"
                     value={c.phone}
                     onChange={e => update(i, 'phone', e.target.value)}
                     placeholder="Phone"
-                    className="sm:col-span-3 text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
+                    className="sm:col-span-3 ops-field"
                   />
                   <button
                     type="button"
                     onClick={() => remove(i)}
-                    className="sm:col-span-1 flex items-center justify-center min-h-[44px] text-[#B91C1C] hover:bg-[#FEE2E2] rounded-md transition-colors"
+                    className="sm:col-span-1 flex items-center justify-center min-h-[44px] text-fail hover:bg-[#FEE2E2] rounded-md transition-colors"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -1524,7 +1524,7 @@ function EmergencyContactsSection({ contacts, onChange }: {
               <button
                 type="button"
                 onClick={add}
-                className="flex items-center gap-2 text-sm text-[#2E75B6] font-medium min-h-[44px] mt-1"
+                className="flex items-center gap-2 text-sm text-accent font-medium min-h-[44px] mt-1"
               >
                 <Plus size={14} /> Add another
               </button>
@@ -1553,15 +1553,15 @@ function InputField({ label, required, value, onChange, type = 'text', placehold
 }) {
   return (
     <div>
-      <label className="text-xs font-medium text-[#4A5568] mb-1 block">
-        {label}{required && <span className="text-[#B42318]"> *</span>}
+      <label className="ops-field-label">
+        {label}{required && <span className="text-fail"> *</span>}
       </label>
       <input
         type={type}
         value={value}
         placeholder={placeholder}
         onChange={e => onChange(e.target.value)}
-        className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2.5 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+        className="ops-field"
       />
     </div>
   );

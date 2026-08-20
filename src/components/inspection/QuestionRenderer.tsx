@@ -81,13 +81,13 @@ function SignatureInput({ sigRef, sigSaved, setSigSaved, sigDataUrl, hasSig, onC
 
   if (displayImage) {
     return (
-      <div className="border border-[#E5E7EB] rounded-md overflow-hidden">
+      <div className="border border-rule rounded-md overflow-hidden">
         <img src={displayImage} alt="Signature" className="w-full h-32 object-contain bg-white p-2" />
-        <div className="flex items-center justify-between px-3 py-2 border-t border-[#E5E7EB] bg-[#F9FAFB]">
-          <span className="text-xs text-[#1B7F3A] flex items-center gap-1">
+        <div className="flex items-center justify-between px-3 py-2 border-t border-rule bg-zebra">
+          <span className="text-xs text-pass flex items-center gap-1">
             <Check size={12} /> Signature captured
           </span>
-          <button type="button" onClick={handleClear} className="text-xs text-[#4A5568] hover:text-[#B42318] transition-colors">
+          <button type="button" onClick={handleClear} className="text-xs text-muted hover:text-fail transition-colors min-h-[44px]">
             Clear
           </button>
         </div>
@@ -96,30 +96,21 @@ function SignatureInput({ sigRef, sigSaved, setSigSaved, sigDataUrl, hasSig, onC
   }
 
   return (
-    <div className="border border-[#E5E7EB] rounded-md overflow-hidden">
-      {/* Mode tabs */}
-      <div className="flex border-b border-[#E5E7EB] bg-[#F9FAFB]">
+    <div className="border border-rule rounded-md overflow-hidden">
+      <div className="ops-tabs">
         <button
           type="button"
           onClick={() => setMode('draw')}
-          className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors flex-1 justify-center border-b-2 ${
-            mode === 'draw'
-              ? 'border-[#0A2540] text-[#0A2540] bg-white'
-              : 'border-transparent text-[#4A5568] hover:text-[#1A1A1A]'
-          }`}
+          className={`ops-tab min-h-[44px] flex-1 justify-center ${mode === 'draw' ? 'ops-tab-active' : ''}`}
         >
-          <PenLine size={13} /> Draw
+          <PenLine size={13} className="inline mr-1" /> Draw
         </button>
         <button
           type="button"
           onClick={() => setMode('upload')}
-          className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors flex-1 justify-center border-b-2 ${
-            mode === 'upload'
-              ? 'border-[#0A2540] text-[#0A2540] bg-white'
-              : 'border-transparent text-[#4A5568] hover:text-[#1A1A1A]'
-          }`}
+          className={`ops-tab min-h-[44px] flex-1 justify-center ${mode === 'upload' ? 'ops-tab-active' : ''}`}
         >
-          <Upload size={13} /> Upload photo
+          <Upload size={13} className="inline mr-1" /> Upload photo
         </button>
       </div>
 
@@ -131,18 +122,18 @@ function SignatureInput({ sigRef, sigSaved, setSigSaved, sigDataUrl, hasSig, onC
               penColor="#0A2540"
               canvasProps={{ className: 'w-full h-48 touch-none', style: { touchAction: 'none', display: 'block' } }}
             />
-            <p className="absolute bottom-2 left-0 right-0 text-center text-[10px] text-[#C0C9D4] pointer-events-none select-none">
+            <p className="absolute bottom-2 left-0 right-0 text-center ops-meta pointer-events-none select-none">
               Sign above
             </p>
           </div>
-          <div className="flex items-center justify-between px-3 py-2 border-t border-[#E5E7EB] bg-[#F9FAFB]">
-            <button type="button" onClick={() => sigRef.current?.clear()} className="flex items-center gap-1.5 text-xs text-[#4A5568] hover:text-[#1A1A1A] transition-colors">
+          <div className="flex items-center justify-between px-3 py-2 border-t border-rule bg-zebra">
+            <button type="button" onClick={() => sigRef.current?.clear()} className="flex items-center gap-1.5 text-xs text-muted hover:text-ink transition-colors min-h-[44px]">
               <RotateCcw size={12} /> Clear
             </button>
             <button
               type="button"
               onClick={handleDrawDone}
-              className="flex items-center gap-1.5 text-xs font-medium text-white bg-[#0A2540] px-3 py-1.5 rounded hover:bg-[#0d2f4e] transition-colors"
+              className="btn-primary"
             >
               <Check size={12} /> Done
             </button>
@@ -150,12 +141,12 @@ function SignatureInput({ sigRef, sigSaved, setSigSaved, sigDataUrl, hasSig, onC
         </>
       ) : (
         <div className="bg-white p-4">
-          <label className={`flex flex-col items-center justify-center gap-2 w-full py-8 border-2 border-dashed border-[#E5E7EB] rounded-md cursor-pointer hover:border-[#2E75B6]/50 transition-colors ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-            <Upload size={22} className="text-[#4A5568]" />
-            <span className="text-sm font-medium text-[#4A5568]">
+          <label className={`flex flex-col items-center justify-center gap-2 w-full py-8 border-2 border-dashed border-rule rounded-md cursor-pointer hover:border-accent/50 transition-colors ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <Upload size={22} className="text-muted" />
+            <span className="text-sm font-medium text-muted">
               {uploading ? 'Processing...' : 'Tap to upload signature photo'}
             </span>
-            <span className="text-xs text-[#9CA3AF]">JPG, PNG, or any image format</span>
+            <span className="ops-meta">JPG, PNG, or any image format</span>
             <input
               type="file"
               accept="image/*"
@@ -219,7 +210,7 @@ export function QuestionRenderer({
     setSigSaved(false);
   }
 
-  const baseInput = "w-full px-3 py-3 border border-[#E5E7EB] rounded-md text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent bg-white";
+  const baseInput = "ops-field";
 
   function withOptionalNa(inner: React.ReactNode) {
     if (!question.allowNa) return inner;
@@ -230,10 +221,10 @@ export function QuestionRenderer({
         <button
           type="button"
           onClick={() => onChange(na ? null : NA_ANSWER)}
-          className={`w-full py-2.5 rounded-md text-sm font-semibold border-2 transition-all ${
+          className={`w-full min-h-[44px] py-2.5 rounded-md text-sm font-semibold border transition-all ${
             na
-              ? 'bg-[#4A5568] text-white border-[#4A5568]'
-              : 'border-[#E5E7EB] text-[#4A5568] hover:border-[#4A5568]/40 bg-white'
+              ? 'bg-muted text-white border-muted'
+              : 'border-rule text-muted hover:border-muted bg-white'
           }`}
         >
           {na ? 'N/A selected — tap to clear' : 'Mark N/A'}
@@ -279,25 +270,23 @@ export function QuestionRenderer({
               value={isNaAnswer(value) ? '' : String(value ?? '')}
               onChange={e => onChange(e.target.value)}
               className={`${baseInput} flex-1 ${
-                showStatus && status === 'fail' ? 'border-[#B42318] focus:ring-[#B42318]'
-                  : showStatus && status === 'pass' ? 'border-[#1B7F3A] focus:ring-[#1B7F3A]'
+                showStatus && status === 'fail' ? 'border-fail focus:ring-fail'
+                  : showStatus && status === 'pass' ? 'border-pass focus:ring-pass'
                     : ''
               }`}
               placeholder="0"
             />
             {question.numberConfig?.unit && (
-              <span className="text-sm text-[#4A5568] font-mono shrink-0">{question.numberConfig.unit}</span>
+              <span className="text-sm text-muted font-mono shrink-0">{question.numberConfig.unit}</span>
             )}
             {showStatus && (
-              <span className={`text-xs font-bold px-2 py-1 rounded shrink-0 ${
-                status === 'pass' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-              }`}>
+              <span className={`ops-status ${status === 'pass' ? 'ops-status-ok' : 'ops-status-bad'}`}>
                 {status === 'pass' ? 'PASS' : 'FAIL'}
               </span>
             )}
           </div>
           {(question.numberConfig?.min != null || question.numberConfig?.max != null) && (
-            <p className="text-[11px] text-[#9CA3AF]">
+            <p className="ops-meta">
               Allowable
               {question.numberConfig.min != null ? ` ≥ ${question.numberConfig.min}` : ''}
               {question.numberConfig.min != null && question.numberConfig.max != null ? ' and' : ''}
@@ -316,10 +305,10 @@ export function QuestionRenderer({
           <button
             type="button"
             onClick={() => onChange('yes')}
-            className={`flex-1 h-14 rounded-md font-semibold text-base transition-all ${
+            className={`flex-1 h-14 rounded-md font-semibold text-base border-2 ${
               value === 'yes'
-                ? 'bg-[#1B7F3A] text-white border-2 border-[#1B7F3A]'
-                : 'border-2 border-[#E5E7EB] text-[#4A5568] hover:border-[#1B7F3A]/40 bg-white'
+                ? 'bg-pass text-white border-pass'
+                : 'border-rule text-muted hover:border-pass/40 bg-white'
             }`}
           >
             {isPassFail ? 'PASS' : 'YES'}
@@ -327,10 +316,10 @@ export function QuestionRenderer({
           <button
             type="button"
             onClick={() => onChange('no')}
-            className={`flex-1 h-14 rounded-md font-semibold text-base transition-all ${
+            className={`flex-1 h-14 rounded-md font-semibold text-base border-2 ${
               value === 'no'
-                ? 'bg-[#B42318] text-white border-2 border-[#B42318]'
-                : 'border-2 border-[#E5E7EB] text-[#4A5568] hover:border-[#B42318]/40 bg-white'
+                ? 'bg-fail text-white border-fail'
+                : 'border-rule text-muted hover:border-fail/40 bg-white'
             }`}
           >
             {isPassFail ? 'FAIL' : 'NO'}
@@ -338,10 +327,10 @@ export function QuestionRenderer({
           <button
             type="button"
             onClick={() => onChange('n/a')}
-            className={`flex-1 h-14 rounded-md font-semibold text-base transition-all ${
+            className={`flex-1 h-14 rounded-md font-semibold text-base border-2 ${
               value === 'n/a'
-                ? 'bg-[#4A5568] text-white border-2 border-[#4A5568]'
-                : 'border-2 border-[#E5E7EB] text-[#4A5568] hover:border-[#4A5568]/40 bg-white'
+                ? 'bg-muted text-white border-muted'
+                : 'border-rule text-muted hover:border-muted/40 bg-white'
             }`}
           >
             N/A
@@ -358,10 +347,10 @@ export function QuestionRenderer({
               key={opt}
               type="button"
               onClick={() => onChange(opt)}
-              className={`w-full px-4 py-3 rounded-md text-left font-medium transition-all text-base ${
+              className={`w-full min-h-[44px] px-4 py-3 rounded-md text-left font-medium text-base border-2 ${
                 value === opt
-                  ? 'bg-[#2E75B6] text-white border-2 border-[#2E75B6]'
-                  : 'border-2 border-[#E5E7EB] text-[#1A1A1A] hover:border-[#2E75B6]/40 bg-white'
+                  ? 'bg-accent text-white border-accent'
+                  : 'border-rule text-navy hover:border-accent/40 bg-white'
               }`}
             >
               {opt}
@@ -384,10 +373,10 @@ export function QuestionRenderer({
                   : [...checked, opt];
                 onChange(newChecked);
               }}
-              className={`w-full px-4 py-3 rounded-md text-left font-medium transition-all text-base ${
+              className={`w-full min-h-[44px] px-4 py-3 rounded-md text-left font-medium text-base border-2 ${
                 checked.includes(opt)
-                  ? 'bg-[#2E75B6] text-white border-2 border-[#2E75B6]'
-                  : 'border-2 border-[#E5E7EB] text-[#1A1A1A] hover:border-[#2E75B6]/40 bg-white'
+                  ? 'bg-accent text-white border-accent'
+                  : 'border-rule text-navy hover:border-accent/40 bg-white'
               }`}
             >
               {opt}
@@ -410,9 +399,9 @@ export function QuestionRenderer({
     case 'photo':
       return (
         <div>
-          <label className={`flex items-center gap-2 justify-center w-full min-h-[44px] py-3.5 border border-dashed border-[#E5E7EB] rounded-md cursor-pointer hover:border-[#2E75B6]/40 transition-colors ${uploadingPhoto ? 'opacity-50 cursor-not-allowed' : ''}`}>
-            <Camera size={20} className="text-[#4A5568]" />
-            <span className="text-sm font-medium text-[#4A5568]">
+          <label className={`flex items-center gap-2 justify-center w-full min-h-[44px] py-3.5 border border-dashed border-rule rounded-md cursor-pointer hover:border-accent/40 transition-colors ${uploadingPhoto ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <Camera size={20} className="text-muted" />
+            <span className="text-sm font-medium text-muted">
               {uploadingPhoto ? 'Uploading...' : 'Tap to capture photo'}
             </span>
             <input
@@ -431,7 +420,7 @@ export function QuestionRenderer({
                   <img
                     src={photo.url}
                     alt={`Photo ${i + 1}`}
-                    className="w-full h-full object-cover rounded border border-[#E5E7EB]"
+                    className="w-full h-full object-cover rounded-md border border-rule"
                   />
                   <button
                     type="button"
@@ -487,7 +476,7 @@ export function QuestionRenderer({
             >
               <Star
                 size={28}
-                className={n <= rating ? 'text-amber-400 fill-amber-400' : 'text-[#E5E7EB]'}
+                className={n <= rating ? 'text-warning fill-warning' : 'text-rule'}
               />
             </button>
           ))}
@@ -505,9 +494,9 @@ export function QuestionRenderer({
       return withOptionalNa(
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-[#4A5568]">{min}</span>
-            <span className="text-lg font-semibold font-mono text-[#0A2540]">{val}{question.numberConfig?.unit ? ` ${question.numberConfig.unit}` : ''}</span>
-            <span className="text-sm text-[#4A5568]">{max}</span>
+            <span className="text-sm text-muted">{min}</span>
+            <span className="text-lg font-semibold font-mono text-navy">{val}{question.numberConfig?.unit ? ` ${question.numberConfig.unit}` : ''}</span>
+            <span className="text-sm text-muted">{max}</span>
           </div>
           <input
             type="range"
@@ -515,13 +504,13 @@ export function QuestionRenderer({
             max={max}
             value={val}
             onChange={e => { setSliderVal(Number(e.target.value)); onChange(Number(e.target.value)); }}
-            className="w-full h-2 accent-[#2E75B6]"
+            className="w-full h-2 accent-accent"
           />
         </div>
       );
     }
 
     default:
-      return <div className="text-sm text-[#4A5568]">Unsupported question type: {question.type}</div>;
+      return <div className="ops-meta">Unsupported question type: {question.type}</div>;
   }
 }

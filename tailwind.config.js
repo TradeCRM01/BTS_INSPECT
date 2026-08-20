@@ -13,6 +13,10 @@ export default {
         pass: '#1B7F3A',
         fail: '#B42318',
         warning: '#B54708',
+        ink: '#1A1A1A',
+        muted: '#4A5568',
+        rule: '#E5E7EB',
+        zebra: '#F9FAFB',
       },
       borderRadius: {
         DEFAULT: '4px',

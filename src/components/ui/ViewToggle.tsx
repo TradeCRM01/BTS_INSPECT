@@ -33,13 +33,13 @@ export function useViewMode(page: string, defaultMode: ViewMode = 'grid'): [View
 
 export function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (mode: ViewMode) => void }) {
   return (
-    <div className="flex items-center rounded-md border border-[#E5E7EB] bg-white overflow-hidden shrink-0">
+    <div className="ops-seg shrink-0">
       <button
         onClick={() => onChange('grid')}
-        className={`flex items-center justify-center w-8 h-9 transition-colors ${
+        className={`flex items-center justify-center w-9 h-9 rounded-md transition-colors ${
           mode === 'grid'
-            ? 'bg-[#0A2540] text-white'
-            : 'text-[#4A5568] hover:bg-gray-50'
+            ? 'bg-navy text-white'
+            : 'text-muted hover:text-navy'
         }`}
         title="Thumbnail grid view"
       >
@@ -47,10 +47,10 @@ export function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (mode
       </button>
       <button
         onClick={() => onChange('list')}
-        className={`flex items-center justify-center w-8 h-9 transition-colors ${
+        className={`flex items-center justify-center w-9 h-9 rounded-md transition-colors ${
           mode === 'list'
-            ? 'bg-[#0A2540] text-white'
-            : 'text-[#4A5568] hover:bg-gray-50'
+            ? 'bg-navy text-white'
+            : 'text-muted hover:text-navy'
         }`}
         title="List view"
       >

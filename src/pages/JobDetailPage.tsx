@@ -19,6 +19,7 @@ import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { recommendJobAction } from '../lib/jobNextAction';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel } from '../lib/jhaNextAction';
+import { inspectionStatusClass, inspectionStatusLabel } from '../lib/inspectionNextAction';
 import {
   Calendar, Clock, User, Phone, Mail, Edit3, ChevronDown,
   FileText, ShieldCheck, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
@@ -579,7 +580,7 @@ export function JobDetailPage() {
 
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 ops-meta">
               {client ? (
-                <Link to={`/clients/${client.id}`} className="flex items-center gap-1.5 text-[#2E75B6] hover:underline">
+                <Link to={`/clients/${client.id}`} className="flex items-center gap-1.5 text-accent hover:underline">
                   <User size={13} /> {client.name}
                 </Link>
               ) : (
@@ -588,12 +589,12 @@ export function JobDetailPage() {
                 </span>
               )}
               {client?.phone && (
-                <a href={`tel:${client.phone}`} className="flex items-center gap-1.5 text-[#2E75B6] hover:underline">
+                <a href={`tel:${client.phone}`} className="flex items-center gap-1.5 text-accent hover:underline">
                   <Phone size={13} /> {client.phone}
                 </a>
               )}
               {client?.email && (
-                <a href={`mailto:${client.email}`} className="flex items-center gap-1.5 text-[#2E75B6] hover:underline">
+                <a href={`mailto:${client.email}`} className="flex items-center gap-1.5 text-accent hover:underline">
                   <Mail size={13} /> {client.email}
                 </a>
               )}
@@ -634,13 +635,13 @@ export function JobDetailPage() {
                   <ShieldCheck size={14} /> Start JHA
                 </ActionButton>
                 {showJhaPicker && (jhaTemplates ?? []).length > 1 && (
-                  <div className="absolute z-20 mt-1 w-64 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1">
+                  <div className="absolute z-20 mt-1 w-64 bg-white border border-rule rounded-lg py-1">
                     {(jhaTemplates ?? []).map(t => (
                       <button
                         key={t.id}
                         type="button"
                         onClick={() => navigate(jhaStartHref(t.id))}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-[#F0F7FF]"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-zebra"
                       >
                         {t.name}
                       </button>
@@ -695,7 +696,7 @@ export function JobDetailPage() {
               icon={GitBranch}
               count={stages.length}
               action={!job.parent_job_id ? (
-                <button type="button" onClick={() => setShowStage(true)} className="flex items-center gap-1 text-xs font-medium text-[#2E75B6] hover:underline">
+                <button type="button" onClick={() => setShowStage(true)} className="ops-link text-xs">
                   <Plus size={12} /> Add stage
                 </button>
               ) : undefined}
@@ -720,7 +721,7 @@ export function JobDetailPage() {
             icon={ClipboardList}
             count={(inspections ?? []).length}
             emptyTitle="No inspection on this job yet."
-            emptyAction={<Link to={inspectHref} className="text-sm font-medium text-[#2E75B6] hover:underline">Start inspection</Link>}
+            emptyAction={<Link to={inspectHref} className="ops-link">Start inspection</Link>}
           >
             {(inspections ?? []).map(insp => (
               <JobRelatedRow
@@ -730,9 +731,7 @@ export function JobDetailPage() {
                 title={insp.template_snapshot?.name ?? 'Inspection'}
                 meta={format(new Date(insp.started_at), 'd MMM yyyy')}
                 trailing={
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${insp.status === 'completed' || insp.status === 'issued' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
-                    {insp.status}
-                  </span>
+                  <OpsStatus className={inspectionStatusClass(insp.status)}>{inspectionStatusLabel(insp.status)}</OpsStatus>
                 }
               />
             ))}
@@ -744,7 +743,7 @@ export function JobDetailPage() {
             count={(jhas ?? []).length}
             emptyTitle="Do the JHA before anyone starts on site."
             emptyAction={
-              <button type="button" onClick={startJha} className="text-sm font-medium text-[#2E75B6] hover:underline">
+              <button type="button" onClick={startJha} className="ops-link">
                 Start JHA
               </button>
             }
@@ -772,26 +771,30 @@ export function JobDetailPage() {
             emptyTitle="No quote on this job. That’s fine for do-and-charge — invoice from the bill."
           >
             {(quotes ?? []).map(q => (
-              <div key={q.id} className="flex items-center gap-2.5 px-3.5 py-2.5">
-                <Link to={`/quotes?id=${q.id}`} className="flex items-center gap-2.5 min-w-0 flex-1 hover:opacity-80">
-                  <FileText size={15} className="text-[#2E75B6] shrink-0" />
-                  <p className="text-sm font-medium text-[#1A1A1A] truncate">Quote #{padNum(q.quote_number)}</p>
+              <JobRelatedRow
+                key={q.id}
+                href={`/quotes?id=${q.id}`}
+                icon={FileText}
+                title={`Quote #${padNum(q.quote_number)}`}
+                meta={formatMoney(Number(q.total))}
+                trailing={
                   <OpsStatus className={QUOTE_STATUS_STYLES[q.status as keyof typeof QUOTE_STATUS_STYLES] ?? 'ops-status-wait'}>
                     {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}
                   </OpsStatus>
-                  <span className={`text-sm font-semibold text-navy`}>{formatMoney(Number(q.total))}</span>
-                </Link>
-                {q.status === 'accepted' && !(invoices ?? []).some(inv => inv.quote_id === q.id) && (
-                  <button
-                    type="button"
-                    onClick={() => invoiceFromQuote.mutate(q.id)}
-                    disabled={invoiceFromQuote.isPending}
-                    className="shrink-0 text-xs font-medium text-navy border border-[#E5E7EB] px-2 py-1 rounded-md hover:bg-[#F9FAFB] disabled:opacity-50"
-                  >
-                    Invoice
-                  </button>
-                )}
-              </div>
+                }
+                action={
+                  q.status === 'accepted' && !(invoices ?? []).some(inv => inv.quote_id === q.id) ? (
+                    <button
+                      type="button"
+                      onClick={() => invoiceFromQuote.mutate(q.id)}
+                      disabled={invoiceFromQuote.isPending}
+                      className="ops-next-control-sm w-auto px-3 shrink-0"
+                    >
+                      Invoice
+                    </button>
+                  ) : undefined
+                }
+              />
             ))}
           </JobRelatedSection>
 
@@ -801,7 +804,7 @@ export function JobDetailPage() {
             count={(invoices ?? []).length}
             emptyTitle="Nothing invoiced yet. Invoice an accepted quote, or from the job bill."
             emptyAction={
-              <button type="button" onClick={handleInvoice} className="text-sm font-medium text-[#2E75B6] hover:underline">
+              <button type="button" onClick={handleInvoice} className="ops-link">
                 Invoice this job
               </button>
             }
@@ -832,16 +835,16 @@ export function JobDetailPage() {
           count={(timesheets ?? []).length}
           action={
             <div className="flex items-center gap-3">
-              <button type="button" onClick={() => setShowTimeEntry(true)} className="flex items-center gap-1 text-xs font-medium text-[#2E75B6] hover:underline">
-                <Plus size={12} /> Add entry
+              <button type="button" onClick={() => setShowTimeEntry(true)} className="ops-link text-xs">
+                <Plus size={12} className="inline" /> Add entry
               </button>
-              <Link to={`/timesheets?job=${job.id}`} className="text-xs text-[#2E75B6] hover:underline">All timesheets</Link>
+              <Link to={`/timesheets?job=${job.id}`} className="ops-link text-xs">All timesheets</Link>
             </div>
           }
           emptyTitle="Nobody has clocked onto this job yet."
           emptyAction={
             runningEntry ? undefined : (
-              <button type="button" onClick={() => clockOnJob.mutate()} className="text-sm font-medium text-pass hover:underline">
+              <button type="button" onClick={() => clockOnJob.mutate()} className="ops-link">
                 Clock on
               </button>
             )
@@ -852,25 +855,19 @@ export function JobDetailPage() {
               ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
               : 0;
             return (
-              <div key={entry.id} className="flex items-center gap-2.5 px-3.5 py-2.5">
-                <Clock size={15} className="text-[#0A2540] shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-[#1A1A1A]">
-                    {format(new Date(entry.start_time), 'd MMM yyyy')}
-                    {' · '}
-                    {format(new Date(entry.start_time), 'HH:mm')}
-                    {entry.end_time ? `–${format(new Date(entry.end_time), 'HH:mm')}` : ' · running'}
-                  </p>
-                  <p className="text-xs text-[#9CA3AF]">{[entry.work_type, entry.billable ? 'Billable' : 'Non-billable'].filter(Boolean).join(' · ')}</p>
-                </div>
-                {duration > 0 && <span className="text-sm text-[#4A5568]">{formatDuration(duration)}</span>}
-              </div>
+              <JobRelatedRow
+                key={entry.id}
+                icon={Clock}
+                title={`${format(new Date(entry.start_time), 'd MMM yyyy')} · ${format(new Date(entry.start_time), 'HH:mm')}${entry.end_time ? `–${format(new Date(entry.end_time), 'HH:mm')}` : ' · running'}`}
+                meta={[entry.work_type, entry.billable ? 'Billable' : 'Non-billable'].filter(Boolean).join(' · ')}
+                trailing={duration > 0 ? <span className="ops-meta">{formatDuration(duration)}</span> : undefined}
+              />
             );
           })}
         </JobRelatedSection>
         {(timesheets ?? []).length > 5 && (
-          <p className="text-xs text-[#6B7280] mt-1.5 mb-5 px-1">
-            Showing 5 of {(timesheets ?? []).length}. <Link to={`/timesheets?job=${job.id}`} className="text-[#2E75B6] hover:underline">See all</Link>
+          <p className="ops-meta mt-1.5 mb-5 px-1">
+            Showing 5 of {(timesheets ?? []).length}. <Link to={`/timesheets?job=${job.id}`} className="ops-link">See all</Link>
           </p>
         )}
 
@@ -878,18 +875,18 @@ export function JobDetailPage() {
           <button
             type="button"
             onClick={() => setBillOpen(o => !o)}
-            className="w-full card px-4 py-3 flex items-center gap-3 text-left hover:bg-[#F9FAFB]"
+            className="w-full ops-card px-3 py-3 flex items-center gap-3 text-left hover:bg-zebra"
           >
-            <DollarSign size={16} className="text-[#0A2540] shrink-0" />
+            <DollarSign size={16} className="text-navy shrink-0" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-[#1A1A1A]">Job bill</p>
-              <p className="text-xs text-[#6B7280]">
+              <p className="ops-section-title">Job bill</p>
+              <p className="ops-meta">
                 {budget != null ? `Budget ${formatMoney(budget)} · ` : ''}
                 Cost {formatMoney(actualCost)} · Charge {formatMoney(chargeTotal)}
                 {(costTotals?.lines ?? 0) === 0 ? ' · No lines yet' : ''}
               </p>
             </div>
-            <ChevronDown size={16} className={`text-[#9CA3AF] transition-transform ${billOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown size={16} className={`text-muted transition-transform ${billOpen ? 'rotate-180' : ''}`} />
           </button>
           {billOpen && (
             <div className="mt-3">

@@ -11,7 +11,7 @@ interface SearchBarProps {
 export function SearchBar({ value, onChange, placeholder = 'Search...', className = '' }: SearchBarProps) {
   return (
     <div className={`relative flex-1 min-w-[200px] ${className}`}>
-      <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] pointer-events-none" />
+      <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
       <input
         type="text"
         value={value}
@@ -22,7 +22,7 @@ export function SearchBar({ value, onChange, placeholder = 'Search...', classNam
       {value && (
         <button
           onClick={() => onChange('')}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#4A5568] transition-colors"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-ink transition-colors"
           aria-label="Clear search"
         >
           <X size={14} />

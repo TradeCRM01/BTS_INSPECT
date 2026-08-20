@@ -243,7 +243,7 @@ export function AppShell({ children }: AppShellProps) {
   );
 
   return (
-    <div className="bg-[#F9FAFB] flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
+    <div className="bg-zebra flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
       <header className="shell-header" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
         <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3">
           <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label="BTS Inspect">
@@ -271,7 +271,7 @@ export function AppShell({ children }: AppShellProps) {
                         setOpenGroup(group.label);
                       }
                     }}
-                    className={`flex items-center gap-1.5 h-full px-3 text-[13px] font-medium tracking-tight border-b-2 transition-colors ${
+                  className={`flex items-center gap-1.5 h-full px-3 text-sm font-medium tracking-tight border-b-2 transition-colors ${
                       groupActive
                         ? 'text-white border-accent'
                         : 'text-white/65 border-transparent hover:text-white hover:border-white/25'
@@ -308,7 +308,7 @@ export function AppShell({ children }: AppShellProps) {
                 <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-xs font-semibold">
                   {profile?.name?.charAt(0)?.toUpperCase() ?? 'U'}
                 </div>
-                <span className="text-[13px] tracking-tight text-white/80 max-w-[120px] truncate">{profile?.name ?? 'User'}</span>
+                <span className="text-sm tracking-tight text-white/80 max-w-[120px] truncate">{profile?.name ?? 'User'}</span>
                 <ChevronDown size={13} className="text-white/45" />
               </button>
 
@@ -320,7 +320,7 @@ export function AppShell({ children }: AppShellProps) {
                       <p className="text-sm font-medium text-white tracking-tight">{profile?.name}</p>
                       <p className="text-xs text-white/45 truncate">{company?.name}</p>
                       {profile?.role && (
-                        <span className="inline-flex items-center mt-1.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/70 border border-white/15">
+                        <span className="inline-flex items-center mt-1.5 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-white/70 border border-white/15 rounded-md">
                           {profile.role}
                         </span>
                       )}
@@ -344,7 +344,7 @@ export function AppShell({ children }: AppShellProps) {
                     {isAdmin && (
                       <>
                         <div className="border-t border-white/10 my-1" />
-                        <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/35">Admin</p>
+                        <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/35">Admin</p>
                         <Link to="/settings/team" onClick={() => setAvatarOpen(false)}
                           className="shell-menu-item">
                           <Users size={15} className="text-white/45" /> Team
@@ -387,7 +387,7 @@ export function AppShell({ children }: AppShellProps) {
               <Link
                 key={item.to}
                 to={item.to}
-                className={`flex items-center justify-center min-h-[44px] text-[12px] font-semibold tracking-tight border-b-2 ${
+                className={`flex items-center justify-center min-h-[44px] text-xs font-semibold tracking-tight border-b-2 ${
                   active
                     ? 'text-white border-accent bg-white/5'
                     : 'text-white/65 border-transparent'
@@ -401,7 +401,7 @@ export function AppShell({ children }: AppShellProps) {
 
         {menuOpen && (
           <div className="md:hidden border-t border-white/10 bg-navy max-h-[calc(100vh-6rem)] overflow-y-auto">
-            <p className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">Field Work</p>
+            <p className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-white/40">Field Work</p>
             {FIELD_GROUP.items.map((item) => {
               const ItemIcon = item.icon;
               const itemActive = isNavItemActive(item, location.pathname, FIELD_GROUP.items);
@@ -451,7 +451,7 @@ export function AppShell({ children }: AppShellProps) {
               );
             })}
             <div className="border-t border-white/10" />
-            <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">Settings</p>
+            <p className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-white/35">Settings</p>
             <Link to="/settings/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
               <User size={16} /> Profile
             </Link>
@@ -494,11 +494,11 @@ export function AppShell({ children }: AppShellProps) {
               <div style={{ opacity: Math.min(pullDistance / 80, 1) }}>
                 <RotateCw
                   size={24}
-                  className={`${isRefreshing ? 'animate-spin' : ''} text-[#2E75B6]`}
+                  className={`${isRefreshing ? 'animate-spin' : ''} text-accent`}
                   style={{ animationDuration: isRefreshing ? '0.8s' : undefined }}
                 />
               </div>
-              <p className="text-xs text-[#4A5568] font-medium" style={{ opacity: Math.min(pullDistance / 80, 1) }}>
+              <p className="ops-meta font-medium" style={{ opacity: Math.min(pullDistance / 80, 1) }}>
                 {isRefreshing ? 'Refreshing...' : pullDistance > 80 ? 'Release to refresh' : 'Pull to refresh'}
               </p>
             </div>
