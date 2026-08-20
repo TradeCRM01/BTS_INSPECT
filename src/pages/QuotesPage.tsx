@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,14 +9,18 @@ import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
+import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
+import { invoiceLandingPath } from '../lib/invoiceFromQuote';
+import { calcDocumentTotals, DEFAULT_TAX_RATE } from '../lib/gst';
 import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineItem } from '../components/invoicing/LineItemEditor';
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
+import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
 import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatMoney } from '../types/fsm';
-import { Plus, FileText, X, MoreVertical, ArrowRight, Eye } from 'lucide-react';
+import { Plus, FileText, X, MoreVertical, ArrowRight, Eye, Receipt } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | QuoteStatus;
@@ -37,6 +41,8 @@ export function QuotesPage() {
   const [editingQuote, setEditingQuote] = useState<QuoteWithDetails | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [viewMode, setViewMode] = useViewMode('quotes', 'list');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const preselectId = searchParams.get('id');
 
   const { data: quotes, isLoading, error } = useQuery<QuoteWithDetails[]>({
     queryKey: ['quotes'],
@@ -79,6 +85,15 @@ export function QuotesPage() {
       return true;
     });
   }, [quotes, statusFilter, search]);
+
+  useEffect(() => {
+    if (!preselectId || !quotes) return;
+    const q = quotes.find(item => item.id === preselectId);
+    if (!q) return;
+    setEditingQuote(q);
+    setShowForm(true);
+    setSearchParams({}, { replace: true });
+  }, [preselectId, quotes, setSearchParams]);
 
   if (error) return <AppShell><PageError message="Could not load quotes" /></AppShell>;
 
@@ -165,7 +180,7 @@ export function QuotesPage() {
                     <th className="px-4 py-3">Client</th>
                     <th className="px-4 py-3">Description</th>
                     <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Total</th>
+                    <th className="px-4 py-3 text-right">Total (inc GST)</th>
                     <th className="px-4 py-3">Valid Until</th>
                     <th className="px-4 py-3">Created</th>
                     <th className="px-4 py-3 w-8"></th>
@@ -194,7 +209,7 @@ export function QuotesPage() {
                 )}
                 <p className="text-lg font-bold text-[#1A1A1A] mb-2">{formatMoney(Number(q.total))}</p>
                 <div className="flex items-center justify-between text-xs text-[#4A5568]">
-                  <span>Valid: {q.validity_date ? format(parseISO(q.validity_date), 'd MMM yyyy') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</span>
+                  <span>Valid: {q.validity_date ? format(parseISO(q.validity_date), 'd MMM yyyy') : '—'}</span>
                   <span>{format(parseISO(q.created_at), 'd MMM yyyy')}</span>
                 </div>
               </div>
@@ -204,7 +219,7 @@ export function QuotesPage() {
       </div>
 
       {showForm && (
-        <QuoteEditorModal quote={editingQuote} defaultTaxRate={company?.default_tax_rate ?? 10}
+        <QuoteEditorModal quote={editingQuote} defaultTaxRate={company?.default_tax_rate ?? DEFAULT_TAX_RATE}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); queryClient.invalidateQueries({ queryKey: ['quotes'] }); showToast(editingQuote ? 'Quote updated' : 'Quote created'); }}
         />
@@ -230,8 +245,9 @@ function QuoteRow({ quote, onClick }: { quote: QuoteWithDetails; onClick: () => 
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
+  const { profile, company } = useAuth();
   const [converting, setConverting] = useState(false);
+  const [invoicing, setInvoicing] = useState(false);
 
   const handleConvert = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -250,6 +266,28 @@ function QuoteRow({ quote, onClick }: { quote: QuoteWithDetails; onClick: () => 
     }
   };
 
+  const handleInvoice = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMenuOpen(false);
+    if (!profile?.id) return;
+    setInvoicing(true);
+    try {
+      const result = await convertQuoteToInvoice(
+        quote.id,
+        profile.id,
+        Number(company?.default_tax_rate) || DEFAULT_TAX_RATE,
+      );
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['job-invoices'] });
+      navigate(invoiceLandingPath(quote.job_id, result.id));
+    } catch (err: any) {
+      alert('Could not create invoice: ' + (err.message ?? 'Unknown error'));
+    } finally {
+      setInvoicing(false);
+    }
+  };
+
   return (
     <tr onClick={onClick} className="hover:bg-[#F9FAFB] cursor-pointer transition-colors">
       <td className="px-4 py-3 font-medium text-[#2E75B6]">#{padNum(quote.quote_number)}</td>
@@ -265,7 +303,7 @@ function QuoteRow({ quote, onClick }: { quote: QuoteWithDetails; onClick: () => 
         </span>
       </td>
       <td className="px-4 py-3 text-right font-semibold text-[#1A1A1A]">{formatMoney(Number(quote.total))}</td>
-      <td className="px-4 py-3 text-[#4A5568]">{quote.validity_date ? format(parseISO(quote.validity_date), 'd MMM yyyy') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
+      <td className="px-4 py-3 text-[#4A5568]">{quote.validity_date ? format(parseISO(quote.validity_date), 'd MMM yyyy') : '—'}</td>
       <td className="px-4 py-3 text-[#4A5568]">{format(parseISO(quote.created_at), 'd MMM yyyy')}</td>
       <td className="px-4 py-3 relative" onClick={e => e.stopPropagation()}>
         <button onClick={() => setMenuOpen(v => !v)}
@@ -275,7 +313,7 @@ function QuoteRow({ quote, onClick }: { quote: QuoteWithDetails; onClick: () => 
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-50">
+            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-50">
               <button onClick={onClick} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB] text-left">
                 <FileText size={14} /> Edit
               </button>
@@ -287,6 +325,12 @@ function QuoteRow({ quote, onClick }: { quote: QuoteWithDetails; onClick: () => 
                 <button onClick={handleConvert} disabled={converting}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#F7931A] hover:bg-orange-50 text-left disabled:opacity-50">
                   <ArrowRight size={14} /> {converting ? 'Converting...' : 'Convert to Job'}
+                </button>
+              )}
+              {quote.status === 'accepted' && (
+                <button onClick={handleInvoice} disabled={invoicing}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#0A2540] hover:bg-[#F0F7FF] text-left disabled:opacity-50">
+                  <Receipt size={14} /> {invoicing ? 'Creating...' : 'Create invoice'}
                 </button>
               )}
             </div>
@@ -318,6 +362,7 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
   const [priceBookItems, setPriceBookItems] = useState<PriceBookItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [invoicing, setInvoicing] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [err, setErr] = useState('');
 
@@ -355,9 +400,12 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
 
   const clientJobs = useMemo(() => jobs.filter(j => form.client_id && j.client_id === form.client_id), [jobs, form.client_id]);
   const selectedClient = clients.find(c => c.id === form.client_id);
-  const subtotal = useMemo(() => calcSubtotal(form.line_items), [form.line_items]);
-  const taxAmount = useMemo(() => subtotal * (parseFloat(form.tax_rate) || 0) / 100, [subtotal, form.tax_rate]);
-  const grandTotal = subtotal + taxAmount;
+  const rawSubtotal = useMemo(() => calcSubtotal(form.line_items), [form.line_items]);
+  const gst = useMemo(
+    () => calcDocumentTotals(rawSubtotal, parseFloat(form.tax_rate) || 0),
+    [rawSubtotal, form.tax_rate],
+  );
+  const { subtotal, taxAmount, total: grandTotal } = gst;
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
@@ -436,6 +484,26 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
     setSaving(false);
     if (error) { setErr(error.message); return; }
     onSaved();
+  };
+
+  const handleInvoice = async () => {
+    if (!quote || quote.status !== 'accepted' || !profile?.id) return;
+    setInvoicing(true); setErr('');
+    try {
+      const result = await convertQuoteToInvoice(
+        quote.id,
+        profile.id,
+        Number(company?.default_tax_rate) || DEFAULT_TAX_RATE,
+      );
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['job-invoices'] });
+      navigate(invoiceLandingPath(quote.job_id, result.id));
+    } catch (e: any) {
+      setErr(e.message ?? 'Could not create invoice');
+    } finally {
+      setInvoicing(false);
+    }
   };
 
   const handleConvert = async () => {
@@ -517,16 +585,15 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
           />
 
           {/* Totals */}
-          <div className="flex justify-end">
-            <div className="w-56 space-y-1.5 text-sm">
-              <div className="flex justify-between text-[#4A5568]"><span>Subtotal</span><span>{formatMoney(subtotal)}</span></div>
-              <div className="flex justify-between text-[#4A5568]"><span>Tax ({parseFloat(form.tax_rate) || 0}%)</span><span>{formatMoney(taxAmount)}</span></div>
-              <div className="flex justify-between font-semibold text-[#1A1A1A] border-t border-[#E5E7EB] pt-1.5"><span>Grand Total</span><span>{formatMoney(grandTotal)}</span></div>
-            </div>
-          </div>
+          <DocumentGstTotals
+            subtotal={subtotal}
+            taxRate={parseFloat(form.tax_rate) || 0}
+            taxAmount={taxAmount}
+            total={grandTotal}
+          />
 
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Tax Rate (%)">
+            <Field label="GST rate (%)">
               <input type="number" min={0} step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))} className="form-input" placeholder="0" />
             </Field>
             <Field label="Valid Until">
@@ -557,6 +624,12 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
               <button type="button" onClick={handleConvert} disabled={converting}
                 className="flex items-center gap-1.5 text-sm text-[#F7931A] hover:text-[#d97d12] font-medium disabled:opacity-50">
                 <ArrowRight size={14} /> {converting ? 'Converting...' : 'Convert to Job'}
+              </button>
+            )}
+            {quote?.status === 'accepted' && (
+              <button type="button" onClick={handleInvoice} disabled={invoicing}
+                className="flex items-center gap-1.5 text-sm text-[#0A2540] hover:underline font-medium disabled:opacity-50">
+                <Receipt size={14} /> {invoicing ? 'Creating...' : 'Create invoice'}
               </button>
             )}
             <button

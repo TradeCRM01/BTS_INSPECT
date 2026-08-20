@@ -11,6 +11,12 @@ import {
   type ExpenseModelTimeUnit,
 } from '../../types/fsm';
 import { asModelLines, modelHourlyCost } from '../expenses/ExpenseModelsModals';
+import { calcDocumentTotals, DEFAULT_TAX_RATE } from '../../lib/gst';
+import {
+  INVOICE_SOURCE_JOB_BILL,
+  isJobBillInvoice,
+  pickReusableInvoice,
+} from '../../lib/invoiceFromQuote';
 import {
   Plus, Package, Trash2, DollarSign, Layers, HardHat, Wrench,
   Check, X, AlertCircle, Receipt, Pencil,
@@ -276,19 +282,34 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       if (!clientId) throw new Error('Assign a client to this job first');
       if (costs.length === 0) throw new Error('Add at least one cost/charge line first');
 
+      const quoteId = linkedQuote?.id ?? null;
       const { data: existing, error: existingErr } = await supabase
         .from('invoices')
-        .select('id, status, notes, created_at')
+        .select('id, status, notes, quote_id, source, created_at')
         .eq('job_id', jobId)
-        .ilike('notes', 'From job bill%')
         .order('created_at', { ascending: false });
       if (existingErr) throw existingErr;
-      const reuse = (existing ?? []).find(i => i.status === 'draft') ?? existing?.[0];
+
+      let candidates = (existing ?? []).filter(i => isJobBillInvoice(i, quoteId));
+      if (quoteId) {
+        const { data: byQuote, error: qErr } = await supabase
+          .from('invoices')
+          .select('id, status, notes, quote_id, source, created_at')
+          .eq('quote_id', quoteId)
+          .order('created_at', { ascending: false });
+        if (qErr) throw qErr;
+        const seen = new Set(candidates.map(c => c.id));
+        for (const row of byQuote ?? []) {
+          if (!seen.has(row.id)) candidates.push(row);
+        }
+      }
+
+      const reuse = pickReusableInvoice(candidates);
       if (reuse) {
         return { id: reuse.id as string, existing: true as const };
       }
 
-      const taxRate = Number(company?.default_tax_rate) || 0;
+      const taxRate = Number(company?.default_tax_rate) || DEFAULT_TAX_RATE;
       const lines: InvoiceLineItem[] = costs.map(c => ({
         description: c.description,
         quantity: c.quantity,
@@ -300,14 +321,14 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         price_book_item_id: null,
         cost_model_id: c.cost_model_id ?? null,
       }));
-      const subtotal = lines.reduce((s, li) => s + li.quantity * li.unit_price, 0);
-      const taxAmount = Number((subtotal * taxRate / 100).toFixed(2));
-      const total = Number((subtotal + taxAmount).toFixed(2));
+      const rawSubtotal = lines.reduce((s, li) => s + li.quantity * li.unit_price, 0);
+      const { subtotal, taxAmount, total } = calcDocumentTotals(rawSubtotal, taxRate);
       const { data, error } = await supabase.from('invoices').insert({
         company_id: profile.company_id,
         client_id: clientId,
         job_id: jobId,
-        quote_id: linkedQuote?.id ?? null,
+        quote_id: quoteId,
+        source: INVOICE_SOURCE_JOB_BILL,
         status: 'draft',
         line_items: lines,
         subtotal,
@@ -322,12 +343,20 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         exclusions: [],
         created_by: profile.id,
       }).select('id').single();
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') {
+          const { data: raced } = quoteId
+            ? await supabase.from('invoices').select('id').eq('quote_id', quoteId).limit(1).maybeSingle()
+            : await supabase.from('invoices').select('id').eq('job_id', jobId).eq('source', INVOICE_SOURCE_JOB_BILL).limit(1).maybeSingle();
+          if (raced?.id) return { id: raced.id as string, existing: true as const };
+        }
+        throw error;
+      }
       return { id: data.id as string, existing: false as const };
     },
     onSuccess: (result) => {
       setInvoiceMsg(result.existing
-        ? 'An invoice from this bill already exists — it was not duplicated'
+        ? 'An invoice already exists for this quote or bill — it was not duplicated'
         : 'Draft invoice created from this job bill');
       onInvoiceCreated?.(result.id);
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
