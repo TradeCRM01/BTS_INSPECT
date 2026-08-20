@@ -186,6 +186,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
+      queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
       resetForm();
     },
     onError: (e: Error) => setFormErr(e.message),
@@ -212,6 +213,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
+      queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
       resetForm();
     },
     onError: (e: Error) => setFormErr(e.message),
@@ -262,7 +264,10 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       const { error } = await supabase.from('job_costs').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
+      queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+    },
   });
 
   const createInvoice = useMutation({
@@ -270,6 +275,19 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       if (!profile?.company_id) throw new Error('No company context');
       if (!clientId) throw new Error('Assign a client to this job first');
       if (costs.length === 0) throw new Error('Add at least one cost/charge line first');
+
+      const { data: existing, error: existingErr } = await supabase
+        .from('invoices')
+        .select('id, status, notes, created_at')
+        .eq('job_id', jobId)
+        .ilike('notes', 'From job bill%')
+        .order('created_at', { ascending: false });
+      if (existingErr) throw existingErr;
+      const reuse = (existing ?? []).find(i => i.status === 'draft') ?? existing?.[0];
+      if (reuse) {
+        return { id: reuse.id as string, existing: true as const };
+      }
+
       const taxRate = Number(company?.default_tax_rate) || 0;
       const lines: InvoiceLineItem[] = costs.map(c => ({
         description: c.description,
@@ -305,12 +323,15 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         created_by: profile.id,
       }).select('id').single();
       if (error) throw error;
-      return data.id as string;
+      return { id: data.id as string, existing: false as const };
     },
-    onSuccess: (id) => {
-      setInvoiceMsg('Draft invoice created from this job bill');
-      onInvoiceCreated?.(id);
+    onSuccess: (result) => {
+      setInvoiceMsg(result.existing
+        ? 'An invoice from this bill already exists — it was not duplicated'
+        : 'Draft invoice created from this job bill');
+      onInvoiceCreated?.(result.id);
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['job-invoices', jobId] });
     },
     onError: (e: Error) => setInvoiceMsg(e.message),
   });
@@ -362,6 +383,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
+      queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
       queryClient.invalidateQueries({ queryKey: ['stock-items'] });
       setSelectedItem(null); setAllocQty('1'); setAllocErr(''); setShowPicker(false);
     },

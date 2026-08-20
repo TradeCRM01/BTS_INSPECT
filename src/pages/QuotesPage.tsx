@@ -4,10 +4,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode } from '../components/ui';
+import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
+import { convertQuoteToJob } from '../lib/convertQuoteToJob';
 import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineItem } from '../components/invoicing/LineItemEditor';
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
@@ -15,7 +16,7 @@ import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatMoney } from '../types/fsm';
-import { Plus, Search, FileText, X, MoreVertical, ArrowRight, Eye } from 'lucide-react';
+import { Plus, FileText, X, MoreVertical, ArrowRight, Eye } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | QuoteStatus;
@@ -26,54 +27,6 @@ const STATUS_TABS: { key: StatusFilter; label: string }[] = [
 ];
 
 const padNum = (n: number | null) => String(n ?? 0).padStart(4, '0');
-
-// Shared "Convert to Job" ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â creates job, copies line items as job_costs, links quote, navigates.
-async function convertQuoteToJob(quote: QuoteWithDetails, profileId: string): Promise<void> {
-  const { data: jobData, error: jobErr } = await supabase
-    .from('jobs')
-    .insert({
-      company_id: quote.company_id, client_id: quote.client_id,
-      title: `Job from Quote #${padNum(quote.quote_number)}`,
-      status: 'scheduled', priority: 'medium', created_by: profileId,
-    }).select('id').single();
-  if (jobErr) throw jobErr;
-  const jobId = jobData.id;
-  const costRows = (quote.line_items ?? []).map((li: QuoteLineItem) => {
-    const qty = Number(li.quantity) || 0;
-    const unitCost = li.unit_cost != null ? Number(li.unit_cost) : 0;
-    const unitPrice = Number(li.unit_price) || 0;
-    const markup = li.markup_percent != null
-      ? Number(li.markup_percent)
-      : (unitCost > 0 ? Number((((unitPrice / unitCost) - 1) * 100).toFixed(1)) : 0);
-    return {
-      company_id: quote.company_id,
-      job_id: jobId,
-      cost_type: li.cost_model_id
-        || (li.charge_type || '').toLowerCase().includes('labour')
-        || (li.charge_type || '').toLowerCase().includes('labor')
-        ? 'labor'
-        : 'materials',
-      description: li.description,
-      quantity: qty,
-      unit_cost: unitCost,
-      total_cost: Number((qty * unitCost).toFixed(2)),
-      markup_percent: markup,
-      unit_price: unitPrice,
-      total_price: Number((qty * unitPrice).toFixed(2)),
-      charge_type: li.charge_type ?? null,
-      stock_item_id: li.stock_item_id ?? null,
-      purchase_order_id: null,
-      cost_model_id: li.cost_model_id ?? null,
-      created_by: profileId,
-    };
-  });
-  if (costRows.length) {
-    const { error: cErr } = await supabase.from('job_costs').insert(costRows);
-    if (cErr) throw cErr;
-  }
-  const { error: lErr } = await supabase.from('quotes').update({ job_id: jobId, updated_at: new Date().toISOString() }).eq('id', quote.id);
-  if (lErr) throw lErr;
-}
 
 export function QuotesPage() {
   const { profile, company } = useAuth();
@@ -286,9 +239,10 @@ function QuoteRow({ quote, onClick }: { quote: QuoteWithDetails; onClick: () => 
     if (!profile?.id) return;
     setConverting(true);
     try {
-      await convertQuoteToJob(quote, profile.id);
+      const jobId = await convertQuoteToJob(quote, profile.id);
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
-      navigate('/schedule');
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      navigate(`/jobs/${jobId}`);
     } catch (err: any) {
       alert('Could not convert quote: ' + (err.message ?? 'Unknown error'));
     } finally {
@@ -325,7 +279,11 @@ function QuoteRow({ quote, onClick }: { quote: QuoteWithDetails; onClick: () => 
               <button onClick={onClick} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB] text-left">
                 <FileText size={14} /> Edit
               </button>
-              {quote.status === 'accepted' && (
+              {quote.job_id ? (
+                <button onClick={() => navigate(`/jobs/${quote.job_id}`)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#2E75B6] hover:bg-blue-50 text-left">
+                  <ArrowRight size={14} /> Open job
+                </button>
+              ) : quote.status === 'accepted' && (
                 <button onClick={handleConvert} disabled={converting}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#F7931A] hover:bg-orange-50 text-left disabled:opacity-50">
                   <ArrowRight size={14} /> {converting ? 'Converting...' : 'Convert to Job'}
@@ -446,14 +404,6 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
     };
   }, [company, form, quote, selectedClient, subtotal, taxAmount, grandTotal]);
 
-  const updateLine = (idx: number, patch: Partial<EditLineItem>) =>
-    setForm(f => ({ ...f, line_items: f.line_items.map((li, i) => (i === idx ? { ...li, ...patch } : li)) }));
-  const removeLine = (idx: number) => setForm(f => ({ ...f, line_items: f.line_items.filter((_, i) => i !== idx) }));
-  const addLine = () => setForm(f => ({
-    ...f,
-    line_items: [...f.line_items, emptyLineItem(company?.default_material_markup ?? 0)],
-  }));
-
   const handleSave = async () => {
     if (!profile?.company_id) return;
     if (!form.client_id) { setErr('Please select a client'); return; }
@@ -492,9 +442,10 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
     if (!quote || quote.status !== 'accepted' || !profile?.id) return;
     setConverting(true); setErr('');
     try {
-      await convertQuoteToJob(quote, profile.id);
+      const jobId = await convertQuoteToJob(quote, profile.id);
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
-      navigate('/schedule');
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      navigate(`/jobs/${jobId}`);
     } catch (e: any) {
       setErr(e.message ?? 'Conversion failed');
     } finally {
@@ -597,7 +548,12 @@ function QuoteEditorModal({ quote, defaultTaxRate, onClose, onSaved }: {
 
         <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
           <div className="flex items-center gap-3">
-            {quote?.status === 'accepted' && (
+            {quote?.job_id ? (
+              <button type="button" onClick={() => navigate(`/jobs/${quote.job_id}`)}
+                className="flex items-center gap-1.5 text-sm text-[#2E75B6] hover:underline font-medium">
+                <ArrowRight size={14} /> Open job
+              </button>
+            ) : quote?.status === 'accepted' && (
               <button type="button" onClick={handleConvert} disabled={converting}
                 className="flex items-center gap-1.5 text-sm text-[#F7931A] hover:text-[#d97d12] font-medium disabled:opacity-50">
                 <ArrowRight size={14} /> {converting ? 'Converting...' : 'Convert to Job'}

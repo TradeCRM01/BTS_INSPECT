@@ -89,6 +89,8 @@ export function JhaFillPage() {
 
   const templateId = searchParams.get('templateId');
   const docId = searchParams.get('docId');
+  const presetJobId = searchParams.get('jobId') ?? '';
+  const presetClientId = searchParams.get('clientId') ?? '';
   const isEditMode = !!docId;
 
   const [docIdState, setDocIdState] = useState<string | null>(docId);
@@ -156,7 +158,7 @@ export function JhaFillPage() {
   const { data: jobs = [] } = useQuery({
     queryKey: ['jobs-for-jha'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('jobs').select('id, title, client_id').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('jobs').select('id, title, client_id, address').order('created_at', { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -177,7 +179,7 @@ export function JhaFillPage() {
     enabled: !!docIdState,
   });
 
-  const clientJobs = jobs.filter(j => !clientId || j.client_id === clientId);
+  const clientJobs = jobs.filter(j => j.id === jobId || !clientId || j.client_id === clientId);
 
   const schema: JhaTemplateSchema | null = isEditMode
     ? (existingDoc?.template_snapshot?.schema ?? null)
@@ -222,6 +224,25 @@ export function JhaFillPage() {
       }
     }
   }, [existingDoc]);
+
+  useEffect(() => {
+    if (isEditMode) return;
+    if (presetClientId) setClientId(presetClientId);
+    if (presetJobId) setJobId(presetJobId);
+  }, [isEditMode, presetClientId, presetJobId]);
+
+  useEffect(() => {
+    if (isEditMode || !presetJobId || jobs.length === 0) return;
+    const job = jobs.find(j => j.id === presetJobId);
+    if (!job) return;
+    if (job.client_id) setClientId(job.client_id);
+    const clientName = clients.find(c => c.id === (job.client_id || presetClientId))?.name ?? '';
+    setMeta(prev => ({
+      ...prev,
+      siteName: prev.siteName || job.title || '',
+      clientName: prev.clientName || clientName,
+    }));
+  }, [isEditMode, presetJobId, presetClientId, jobs, clients]);
 
   useEffect(() => {
     if (isEditMode || librarySeeded || !template?.schema) return;
@@ -823,13 +844,19 @@ export function JhaFillPage() {
                   <select
                     value={jobId}
                     onChange={e => {
-                      setJobId(e.target.value);
+                      const next = e.target.value;
+                      setJobId(next);
+                      const job = jobs.find(j => j.id === next);
+                      if (job?.client_id) {
+                        setClientId(job.client_id);
+                        const name = clients.find(c => c.id === job.client_id)?.name ?? '';
+                        if (name) updateMeta('clientName', name);
+                      }
                       markUnsaved();
                     }}
                     className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 bg-white"
-                    disabled={!clientId}
                   >
-                    <option value="">{clientId ? 'No linked job' : 'Select a client first'}</option>
+                    <option value="">No linked job</option>
                     {clientJobs.map(j => (
                       <option key={j.id} value={j.id}>{j.title}</option>
                     ))}

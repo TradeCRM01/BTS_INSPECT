@@ -1,19 +1,18 @@
 import { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, ViewToggle, useViewMode } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
-import { JobListView, type TeamMember } from '../components/crm/BoardViews';
 import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import {
-  JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY_STYLES,
+  JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS,
   JOB_PRIORITY_DOT,
 } from '../types/crm';
 import { pickJobColor } from '../lib/jobColors';
-import { Plus, Briefcase, Search, Calendar, Clock, MapPin, User, Filter, LayoutGrid, List } from 'lucide-react';
+import { Plus, Briefcase, Search, Calendar, Clock, MapPin, User } from 'lucide-react';
 import { format, parseISO, isToday, isPast, isFuture } from 'date-fns';
 
 type StatusFilter = 'all' | JobStatus;
@@ -23,24 +22,11 @@ const STATUS_FILTERS: StatusFilter[] = ['all', 'scheduled', 'in_progress', 'comp
 export function JobsPage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [viewMode, setViewMode] = useViewMode('jobs');
-
-  const { data: teamMembers } = useQuery<TeamMember[]>({
-    queryKey: ['team-members-jobs'],
-    queryFn: async () => {
-      if (!profile?.company_id) return [];
-      const { data, error } = await supabase.rpc('get_company_members', {
-        p_company_id: profile.company_id,
-      });
-      if (error) throw error;
-      return (data ?? []).map((m: any) => ({ id: m.id, name: m.name, email: m.email }));
-    },
-    enabled: !!profile,
-  });
 
   const { data: jobs, isLoading, error } = useQuery<JobWithClient[]>({
     queryKey: ['jobs-all', profile?.company_id],
@@ -74,14 +60,6 @@ export function JobsPage() {
       }));
     },
     enabled: !!profile,
-  });
-
-  const updateJobStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: JobStatus }) => {
-      const { error } = await supabase.from('jobs').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jobs-all'] }),
   });
 
   const filtered = useMemo(() => {
@@ -124,13 +102,13 @@ export function JobsPage() {
 
   function handleCloseForm() {
     setShowForm(false);
-    setEditingJob(null);
   }
 
-  function handleSaved() {
+  function handleSaved(jobId: string) {
     handleCloseForm();
     queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
     queryClient.invalidateQueries({ queryKey: ['jobs'] });
+    navigate(`/jobs/${jobId}`);
   }
 
   if (error) return <AppShell><PageError message="Could not load jobs" /></AppShell>;
@@ -147,7 +125,7 @@ export function JobsPage() {
             </p>
           </div>
           <button
-            onClick={() => { setEditingJob(null); setShowForm(true); }}
+            onClick={() => setShowForm(true)}
             className="btn-primary"
           >
             <Plus size={16} /> New Job
@@ -191,9 +169,9 @@ export function JobsPage() {
           <EmptyState
             icon={Briefcase}
             title={search || statusFilter !== 'all' ? 'No matching jobs' : 'No jobs yet'}
-            subtitle={search || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Create your first job to get started'}
+            message={search || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Create your first job to get started'}
             action={!search && statusFilter === 'all' ? (
-              <button onClick={() => { setEditingJob(null); setShowForm(true); }} className="btn-primary mt-4">
+              <button onClick={() => setShowForm(true)} className="btn-primary mt-4">
                 <Plus size={16} /> Create Job
               </button>
             ) : undefined}
@@ -209,7 +187,7 @@ export function JobsPage() {
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {upcomingJobs.map(job => (
-                    <JobCard key={job.id} job={job} onClick={() => { setEditingJob(job); setShowForm(true); }} />
+                    <JobCard key={job.id} job={job} />
                   ))}
                 </div>
               </div>
@@ -224,7 +202,7 @@ export function JobsPage() {
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {pastJobs.map(job => (
-                    <JobCard key={job.id} job={job} onClick={() => { setEditingJob(job); setShowForm(true); }} />
+                    <JobCard key={job.id} job={job} />
                   ))}
                 </div>
               </div>
@@ -250,7 +228,7 @@ export function JobsPage() {
                     const color = pickJobColor(job.id, job.color);
                     const jobDate = job.scheduled_date ? parseISO(job.scheduled_date) : null;
                     return (
-                      <tr key={job.id} onClick={() => { setEditingJob(job); setShowForm(true); }}
+                      <tr key={job.id} onClick={() => navigate(`/jobs/${job.id}`)}
                         className="hover:bg-[#F9FAFB] cursor-pointer transition-colors" style={{ borderLeft: `3px solid ${color}` }}>
                         <td className="px-4 py-3 font-medium" style={{ color }}>{job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : '—'}</td>
                         <td className="px-4 py-3 font-medium text-[#1A1A1A]">{job.title}</td>
@@ -271,7 +249,7 @@ export function JobsPage() {
 
       {showForm && (
         <JobFormModal
-          job={editingJob}
+          job={null}
           presetDate={null}
           presetClientId={null}
           onClose={handleCloseForm}
@@ -282,15 +260,15 @@ export function JobsPage() {
   );
 }
 
-function JobCard({ job, onClick }: { job: JobWithClient; onClick: () => void }) {
+function JobCard({ job }: { job: JobWithClient }) {
   const color = pickJobColor(job.id, job.color);
   const jobDate = job.scheduled_date ? parseISO(job.scheduled_date) : null;
   const dateLabel = jobDate ? format(jobDate, 'd MMM yyyy') : 'Unscheduled';
 
   return (
-    <button
-      onClick={onClick}
-      className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm hover:shadow-md transition-all text-left overflow-hidden group"
+    <Link
+      to={`/jobs/${job.id}`}
+      className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm hover:shadow-md transition-all text-left overflow-hidden group block"
       style={{ borderLeftWidth: 3, borderLeftColor: color }}
     >
       <div className="p-3.5">
@@ -348,6 +326,6 @@ function JobCard({ job, onClick }: { job: JobWithClient; onClick: () => void }) 
           </div>
         )}
       </div>
-    </button>
+    </Link>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,7 +7,6 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
-import { JOB_STATUS_LABELS } from '../types/crm';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import {
   DayBoardView, WeekBoardView, MonthBoardView, JobListView,
@@ -21,7 +20,7 @@ import {
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
-  addDays, addMonths, addWeeks, isToday,
+  addDays, addMonths, addWeeks,
 } from 'date-fns';
 
 type ViewMode = 'day' | 'week' | 'month' | 'list';
@@ -29,11 +28,11 @@ type ViewMode = 'day' | 'week' | 'month' | 'list';
 export function SchedulePage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [showForm, setShowForm] = useState(false);
-  const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [presetEmployeeId, setPresetEmployeeId] = useState<string | undefined>(undefined);
@@ -42,6 +41,10 @@ export function SchedulePage() {
 
   const preselectClient = searchParams.get('client');
   const preselectJob = searchParams.get('job');
+
+  useEffect(() => {
+    if (preselectJob) navigate(`/jobs/${preselectJob}`, { replace: true });
+  }, [preselectJob, navigate]);
 
   // ── Load team members ──────────────────────────────────────────
   const { data: teamMembers } = useQuery<TeamMember[]>({
@@ -143,24 +146,6 @@ export function SchedulePage() {
     enabled: !!profile,
   });
 
-  // ── Load preselected job ───────────────────────────────────────
-  useQuery({
-    queryKey: ['job-detail', preselectJob],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('jobs')
-        .select('*')
-        .eq('id', preselectJob!)
-        .maybeSingle();
-      if (data) {
-        setEditingJob(data as Job);
-        setShowForm(true);
-      }
-      return data;
-    },
-    enabled: !!preselectJob && !!profile,
-  });
-
   // ── Preselect client for new job form ──────────────────────────
   useEffect(() => {
     if (preselectClient) {
@@ -195,17 +180,14 @@ export function SchedulePage() {
   const handleDayClick = (dateStr: string, employeeId?: string) => {
     setSelectedDate(dateStr);
     setPresetEmployeeId(employeeId);
-    setEditingJob(null);
     setShowForm(true);
   };
 
   const handleCloseForm = () => {
     setShowForm(false);
-    setEditingJob(null);
     setSelectedDate(null);
     setPresetClientId(null);
     setPresetEmployeeId(undefined);
-    if (preselectJob) setSearchParams({}, { replace: true });
   };
 
   const toggleEmployeeFilter = (id: string) => {
@@ -243,7 +225,6 @@ export function SchedulePage() {
           </div>
           <button
             onClick={() => {
-              setEditingJob(null);
               setSelectedDate(format(currentDate, 'yyyy-MM-dd'));
               setPresetEmployeeId(undefined);
               setShowForm(true);
@@ -367,7 +348,7 @@ export function SchedulePage() {
             jobs={jobs ?? []}
             teamMembers={teamMembers ?? []}
             currentDate={currentDate}
-            onJobClick={job => { setEditingJob(job); setShowForm(true); }}
+            onJobClick={job => navigate(`/jobs/${job.id}`)}
             onDayClick={handleDayClick}
             onJobDrop={(id, date, empId) => rescheduleJob.mutate({ id, date, employeeId: empId })}
             filteredEmployeeIds={filteredEmployeeIds}
@@ -377,7 +358,7 @@ export function SchedulePage() {
             jobs={jobs ?? []}
             teamMembers={teamMembers ?? []}
             currentDate={currentDate}
-            onJobClick={job => { setEditingJob(job); setShowForm(true); }}
+            onJobClick={job => navigate(`/jobs/${job.id}`)}
             onDayClick={handleDayClick}
             onJobDrop={(id, date) => rescheduleJob.mutate({ id, date })}
             filteredEmployeeIds={filteredEmployeeIds}
@@ -387,7 +368,7 @@ export function SchedulePage() {
             jobs={jobs ?? []}
             teamMembers={teamMembers ?? []}
             currentDate={currentDate}
-            onJobClick={job => { setEditingJob(job); setShowForm(true); }}
+            onJobClick={job => navigate(`/jobs/${job.id}`)}
             onDayClick={handleDayClick}
             onJobDrop={(id, date) => rescheduleJob.mutate({ id, date })}
             filteredEmployeeIds={filteredEmployeeIds}
@@ -396,7 +377,7 @@ export function SchedulePage() {
           <JobListView
             jobs={jobs ?? []}
             teamMembers={teamMembers ?? []}
-            onEdit={job => { setEditingJob(job); setShowForm(true); }}
+            onEdit={job => navigate(`/jobs/${job.id}`)}
             onStatusChange={(id, status) => updateJobStatus.mutate({ id, status })}
           />
         )}
@@ -404,14 +385,15 @@ export function SchedulePage() {
 
       {showForm && (
         <JobFormModal
-          job={editingJob}
+          job={null}
           presetDate={selectedDate}
           presetClientId={presetClientId}
           presetEmployeeId={presetEmployeeId}
           onClose={handleCloseForm}
-          onSaved={() => {
+          onSaved={(jobId) => {
             handleCloseForm();
             queryClient.invalidateQueries({ queryKey: ['jobs'] });
+            navigate(`/jobs/${jobId}`);
           }}
         />
       )}

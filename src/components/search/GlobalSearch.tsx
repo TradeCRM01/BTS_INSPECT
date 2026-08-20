@@ -65,7 +65,7 @@ async function runSearch(rawQuery: string, companyId: string | undefined): Promi
       results: jobs.map((j) => ({
         id: String(j.id),
         label: `Job #${j.job_number}: ${j.title}`,
-        to: `/schedule?job=${j.id}`,
+        to: `/jobs/${j.id}`,
       })),
     },
     {

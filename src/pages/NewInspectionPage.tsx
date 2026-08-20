@@ -172,7 +172,7 @@ export function NewInspectionPage() {
   const backTo = parentInspectionId
     ? `/inspections/${parentInspectionId}/report`
     : crmJobId
-      ? '/jobs'
+      ? `/jobs/${crmJobId}`
       : '/inspections';
 
   return (
