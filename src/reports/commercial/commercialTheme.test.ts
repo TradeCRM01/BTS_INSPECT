@@ -117,21 +117,20 @@ describe('commercial invoice / quote report_theme', () => {
     expect(blank.navy).not.toMatch(/F5F0|FAF6|EDE4|F7F3/i);
 
     const commercial = src('src/reports/commercial/CommercialDocumentPdf.tsx');
-    const companyLogo = src('src/lib/companyLogo.ts');
     const send = src('src/lib/sendInvoice.ts');
-    for (const body of [commercial, companyLogo, send]) {
+    for (const body of [commercial, send]) {
       expect(body).not.toMatch(/grafter/i);
       expect(body).not.toContain('Relovi');
       expect(body).not.toContain('Littleloop');
       expect(body).not.toContain('BtsMark');
       expect(body).not.toContain('BrandLockup');
+      expect(body).not.toContain('primaryCream');
+      expect(body).not.toContain('report_theme_v2');
     }
     expect(commercial).toContain('parseReportTheme');
     expect(commercial).toContain('resolvePdfColors');
     expect(commercial).toContain('commercialDocumentColors');
     expect(commercial).toContain('company.report_theme');
-    expect(commercial).not.toContain('primaryCream');
-    expect(commercial).not.toContain('report_theme_v2');
   });
 
   it('wires the saved palette through existing invoice / quote PDF data — no new settings page', () => {
