@@ -18,10 +18,11 @@ import {
 } from './sendInvoice';
 import { asStringList } from './asStringList';
 import { formatEmailAndSmsMessage, type SmsSendResult } from './jobReminder';
+import { pushInvoiceToXeroAfterSend, type XeroAfterSendResult } from './xeroAccounting';
 import type { InvoiceWithDetails } from '../types/fsm';
 
 export type DeliverInvoiceResult =
-  | { ok: true; to: string; markedSent: true; message: string; sms: SmsSendResult | null }
+  | { ok: true; to: string; markedSent: true; message: string; sms: SmsSendResult | null; xero: XeroAfterSendResult }
   | { ok: false; message: string; markedSent: false; href?: string };
 
 export type InvoicePdfBuilder = (bundle: InvoiceSendBundle) => Promise<Blob>;
@@ -175,7 +176,11 @@ export async function deliverInvoice(args: {
   const sms = (data?.sms ?? null) as SmsSendResult | null;
   const message = String(data.message ?? '').trim()
     || formatEmailAndSmsMessage(`Invoice sent to ${to}`, sms);
-  return { ok: true, to, markedSent: true, message, sms };
+  const xero = await pushInvoiceToXeroAfterSend(
+    (name, opts) => supabase.functions.invoke(name, opts),
+    { sendSucceeded: true, invoiceId: args.invoiceId },
+  );
+  return { ok: true, to, markedSent: true, message, sms, xero };
 }
 
 /** Open one invoice by id + company. Does not read the company invoice ledger. */

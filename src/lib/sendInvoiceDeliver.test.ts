@@ -61,6 +61,12 @@ describe('invoice send deliver path', () => {
     expect(edge).not.toContain('from("quotes")');
     expect(edge).not.toContain('send-quote');
     expect(INVOICE_SEND_PIPE.join(' ')).toMatch(/job-reminder/);
+    expect(INVOICE_SEND_PIPE.join(' ')).toMatch(/xero-accounting/);
+    expect(deliver).toContain('pushInvoiceToXeroAfterSend');
+    expect(deliver).toContain('sendSucceeded: true');
+    expect(deliver.indexOf("invoke('job-reminder'")).toBeLessThan(deliver.indexOf('pushInvoiceToXeroAfterSend'));
+    expect(deliver.lastIndexOf("if (!data?.sent)")).toBeLessThan(deliver.indexOf('pushInvoiceToXeroAfterSend'));
+    expect(deliver.indexOf('return { ok: true, to, markedSent: true')).toBeGreaterThan(deliver.indexOf('pushInvoiceToXeroAfterSend'));
   });
 
   it('chase look stays on the signed Send sheet — one 44px Send again, Mark paid in …', () => {

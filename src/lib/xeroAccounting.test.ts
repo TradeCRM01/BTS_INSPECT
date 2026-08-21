@@ -12,6 +12,11 @@ import {
   invoiceAlreadySentForXeroSync,
   invoicesForXeroSync,
   invoicesStillToPush,
+  decideXeroPushOnSend,
+  pushInvoiceToXeroAfterSend,
+  wouldScanLedgerToSyncOneInvoice,
+  xeroAccountingSyncQuery,
+  xeroPushOnSendBody,
   isAccountingRedirectUri,
   paidInvoicesForXeroSync,
   parseXeroCallbackSearch,
@@ -198,6 +203,14 @@ describe('invoicesForXeroSync', () => {
       .toBe(false);
   });
 
+  it('can narrow Sync now to one already-sent invoice — drafts still stay in the tray', () => {
+    const rows = [paid, sent, overdue, draft];
+    expect(invoicesForXeroSync(rows, 'co1', 'inv-sent').map((r) => r.id)).toEqual(['inv-sent']);
+    expect(invoicesForXeroSync(rows, 'co1', 'inv-draft')).toEqual([]);
+    expect(invoicesForXeroSync(rows, 'co1', 'inv-paid').map((r) => r.id)).toEqual(['inv-paid']);
+    expect(invoicesForXeroSync(rows, 'co1', '').map((r) => r.id)).toEqual(['inv-paid', 'inv-sent', 'inv-overdue']);
+  });
+
   it('reuses the same paid_invoices map for sent and paid — no second map', () => {
     const settings = recordPaidInvoiceSync(
       { xero: { token: { iv: 'iv', cipher: 'cipher' }, paid_invoices: {} } },
@@ -232,6 +245,16 @@ describe('decideXeroSync', () => {
       .toEqual({ ok: false, code: 'not_connected' });
     expect(decideXeroSync({ ...connected, tenantId: '' }))
       .toEqual({ ok: false, code: 'not_connected' });
+  });
+
+  it('push-on-send only starts after a successful Send with an invoice id', () => {
+    expect(decideXeroPushOnSend({ sendSucceeded: false, invoiceId: 'inv-1' }))
+      .toEqual({ ok: false, code: 'nothing_to_push' });
+    expect(decideXeroPushOnSend({ sendSucceeded: true, invoiceId: '  ' }))
+      .toEqual({ ok: false, code: 'nothing_to_push' });
+    expect(decideXeroPushOnSend({ sendSucceeded: true, invoiceId: 'inv-1' }))
+      .toEqual({ ok: true, invoiceId: 'inv-1' });
+    expect(xeroPushOnSendBody('inv-1')).toEqual({ action: 'sync', invoiceId: 'inv-1' });
   });
 
   it('misses when invoice sync is off or there is nothing to push', () => {
@@ -448,7 +471,74 @@ describe('existing xero edge + accounting page stay the one path', () => {
     expect(page).toContain("action: 'sync'");
     expect(page).toContain('Sync now');
     expect(page).toContain('Push sent and paid invoices to Xero');
+    expect(page).not.toContain('invoiceId');
     expect(page).not.toContain('/settings/xero-sent');
     expect(page).not.toMatch(/myob/i);
+  });
+
+  it('accepts invoiceId on the existing sync action — one invoice, not a new table', () => {
+    expect(edge).toContain('invoiceId');
+    expect(edge).toContain('.eq("id", invoiceId)');
+    expect(edge).toContain('invoicesForXeroSync');
+    expect(edge).toContain('.in("status", [...XERO_SYNCABLE_INVOICE_STATUSES])');
+    expect(edge).toContain('shouldAttachXeroPayment');
+    expect(edge).not.toMatch(/create table/i);
+    expect(edge).not.toMatch(/cron\.schedule/i);
+    expect(edge).not.toMatch(/myob/i);
+  });
+});
+
+describe('xeroAccountingSyncQuery', () => {
+  it('scopes one invoice by id + company and leaves Sync now on the sent tray', () => {
+    expect(xeroAccountingSyncQuery({ companyId: 'co1', invoiceId: 'inv-1' })).toEqual({
+      columns: expect.stringContaining('id'),
+      eq: { id: 'inv-1', company_id: 'co1' },
+      inStatus: null,
+    });
+    expect(wouldScanLedgerToSyncOneInvoice(xeroAccountingSyncQuery({
+      companyId: 'co1',
+      invoiceId: 'inv-1',
+    }))).toBe(false);
+    expect(xeroAccountingSyncQuery({ companyId: 'co1' })?.eq).toEqual({ company_id: 'co1' });
+    expect(xeroAccountingSyncQuery({ companyId: 'co1' })?.inStatus).toEqual(['sent', 'overdue', 'paid']);
+    expect(xeroAccountingSyncQuery({ companyId: '', invoiceId: 'inv-1' })).toBeNull();
+    expect(wouldScanLedgerToSyncOneInvoice(xeroAccountingSyncQuery({ companyId: 'co1' }))).toBe(true);
+  });
+});
+
+describe('pushInvoiceToXeroAfterSend', () => {
+  it('does not invoke xero-accounting when Send missed', async () => {
+    const calls: unknown[] = [];
+    const result = await pushInvoiceToXeroAfterSend(async (name, opts) => {
+      calls.push({ name, opts });
+      return { data: { ok: true, pushed: 1 }, error: null };
+    }, { sendSucceeded: false, invoiceId: 'inv-1' });
+    expect(calls).toEqual([]);
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/No sent or paid invoices/);
+  });
+
+  it('calls the existing sync action for that invoice and keeps Send success on a miss', async () => {
+    const connectedMiss = await pushInvoiceToXeroAfterSend(async (name, opts) => {
+      expect(name).toBe('xero-accounting');
+      expect(opts.body).toEqual({ action: 'sync', invoiceId: 'inv-1' });
+      return {
+        data: { ok: false, miss: xeroMissMessage('not_connected') },
+        error: { message: 'Edge Function returned a non-2xx status code' },
+      };
+    }, { sendSucceeded: true, invoiceId: 'inv-1' });
+    expect(connectedMiss).toEqual({ ok: false, message: xeroMissMessage('not_connected') });
+
+    const syncOff = await pushInvoiceToXeroAfterSend(async () => ({
+      data: { ok: false, miss: xeroMissMessage('invoice_sync_off') },
+      error: null,
+    }), { sendSucceeded: true, invoiceId: 'inv-1' });
+    expect(syncOff).toEqual({ ok: false, message: xeroMissMessage('invoice_sync_off') });
+
+    const pushed = await pushInvoiceToXeroAfterSend(async () => ({
+      data: { ok: true, pushed: 1, message: xeroSyncPushedMessage({ pushed: 1 }) },
+      error: null,
+    }), { sendSucceeded: true, invoiceId: 'inv-1' });
+    expect(pushed).toEqual({ ok: true, message: 'Pushed 1 invoice to Xero.' });
   });
 });

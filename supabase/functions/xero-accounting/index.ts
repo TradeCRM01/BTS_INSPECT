@@ -7,6 +7,7 @@ import {
   invoicesForXeroSync,
   invoicesStillToPush,
   parseXeroTokenResponse,
+  xeroAccountingSyncQuery,
   pickXeroTenant,
   recordPaidInvoiceSync,
   resolveXeroRedirectUri,
@@ -39,7 +40,7 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 type Action = "connect" | "callback" | "sync" | "disconnect";
 
-type AdminCtx = { userId: string; companyId: string };
+type AdminCtx = { userId: string; companyId: string; role: string };
 
 function json(body: unknown, status = 200): Response {
   if (xeroClientResponseHasSecrets(body)) {
@@ -72,7 +73,7 @@ function tokenSecret(): string {
   return env.XERO_TOKEN_KEY.trim() || env.XERO_CLIENT_SECRET;
 }
 
-async function adminContext(req: Request): Promise<AdminCtx | null> {
+async function callerContext(req: Request): Promise<AdminCtx | null> {
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) return null;
   const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -86,8 +87,8 @@ async function adminContext(req: Request): Promise<AdminCtx | null> {
     .select("role, company_id")
     .eq("id", userData.user.id)
     .maybeSingle();
-  if (!profile || profile.role !== "admin" || !profile.company_id) return null;
-  return { userId: userData.user.id, companyId: profile.company_id };
+  if (!profile?.company_id) return null;
+  return { userId: userData.user.id, companyId: profile.company_id, role: String(profile.role ?? "") };
 }
 
 async function loadSettings(admin: ReturnType<typeof createClient>, companyId: string) {
@@ -285,17 +286,22 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const ctx = await adminContext(req);
-    if (!ctx) return miss("not_admin", undefined, 403);
-
     const body = await req.json().catch(() => ({})) as {
       action?: Action;
       provider?: string;
       redirectUri?: string;
       code?: string;
       state?: string;
+      invoiceId?: string;
+      invoice_id?: string;
     };
     const action = body.action;
+    const invoiceId = String(body.invoiceId ?? body.invoice_id ?? "").trim();
+    const caller = await callerContext(req);
+    if (!caller) return miss("not_admin", undefined, 403);
+    const singleInvoiceSync = action === "sync" && Boolean(invoiceId);
+    if (!singleInvoiceSync && caller.role !== "admin") return miss("not_admin", undefined, 403);
+    const ctx = { userId: caller.userId, companyId: caller.companyId };
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const env = xeroEnv();
 
@@ -447,14 +453,16 @@ Deno.serve(async (req: Request) => {
         return miss(decided.code);
       }
 
-      const { data: invoices, error: invErr } = await admin
-        .from("invoices")
-        .select("id, company_id, invoice_number, client_id, status, line_items, subtotal, tax_rate, tax_amount, total, due_date, notes, chased_at, created_at, updated_at")
-        .eq("company_id", ctx.companyId)
-        .in("status", [...XERO_SYNCABLE_INVOICE_STATUSES]);
+      const syncQuery = xeroAccountingSyncQuery({ companyId: ctx.companyId, invoiceId });
+      if (!syncQuery) return miss("not_connected");
+
+      const invoiceSelect = admin.from("invoices").select(syncQuery.columns);
+      const { data: invoices, error: invErr } = invoiceId
+        ? await invoiceSelect.eq("company_id", ctx.companyId).eq("id", invoiceId)
+        : await invoiceSelect.eq("company_id", ctx.companyId).in("status", [...XERO_SYNCABLE_INVOICE_STATUSES]);
       if (invErr) throw invErr;
 
-      const syncable = invoicesForXeroSync((invoices ?? []) as SyncableInvoice[], ctx.companyId);
+      const syncable = invoicesForXeroSync((invoices ?? []) as SyncableInvoice[], ctx.companyId, invoiceId || undefined);
       const syncDecision = decideXeroSync({
         connectionStatus: row?.connection_status,
         provider: row?.provider,
