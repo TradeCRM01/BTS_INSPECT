@@ -117,6 +117,17 @@ describe('AppShell header/nav report_theme', () => {
     expect(theme).not.toContain('Littleloop');
   });
 
+  it('LOOK frames cover blank and saved AppShell header/nav only', () => {
+    for (const rel of [
+      'docs/look/appshell-theme-blank-desktop.png',
+      'docs/look/appshell-theme-blank-ute.png',
+      'docs/look/appshell-theme-saved-desktop.png',
+      'docs/look/appshell-theme-saved-ute.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+    }
+  });
+
   it('does not edit document / PDF files and does not import them from AppShell', () => {
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).not.toMatch(/from ['"].*reports\//);
