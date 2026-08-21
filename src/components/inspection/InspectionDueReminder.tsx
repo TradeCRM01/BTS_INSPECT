@@ -71,7 +71,7 @@ export function InspectionDueReminder({
       if (!decision.send) {
         throw new Error(decision.message);
       }
-      const { data, error } = await supabase.functions.invoke('inspection-due-reminder', {
+      const { data, error } = await supabase.functions.invoke('job-reminder', {
         body: {
           inspectionId: inspection.id,
           appUrl: window.location.origin,

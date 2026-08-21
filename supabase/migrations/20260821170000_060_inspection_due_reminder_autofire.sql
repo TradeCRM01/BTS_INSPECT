@@ -1,11 +1,18 @@
--- Auto-fire inspection due reminders without Vault or a tray click.
--- pg_cron (018 / 058) calls send_due_inspection_reminders(), which mails via
--- existing email_settings + Resend. Scoped: company + Perth today + due_on.
+-- Auto-fire inspection due reminders on the PR #18 Perth cron — no new module.
+-- The product is send_due_inspection_reminders(), called by the existing
+-- job-client-reminder-perth-morning / afternoon jobs. No tray click. No Vault.
+-- Scoped: email_settings (Resend ready) → company + due_on = Perth today.
 
 CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
-CREATE OR REPLACE FUNCTION public.send_due_inspection_reminders()
+DROP FUNCTION IF EXISTS public.send_due_inspection_reminders();
+DROP FUNCTION IF EXISTS public.send_due_inspection_reminders(uuid, uuid);
+
+CREATE OR REPLACE FUNCTION public.send_due_inspection_reminders(
+  p_company_id uuid DEFAULT NULL,
+  p_inspection_id uuid DEFAULT NULL
+)
 RETURNS TABLE(out_company_id uuid, out_inspection_id uuid, out_sent boolean, out_reason text)
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -28,15 +35,36 @@ DECLARE
   sent_ok boolean;
   job_day date;
   due_day date;
-  resolved_company uuid;
   job_client_id uuid;
   job_number int;
   job_address text;
   client_email text;
   client_name text;
   client_person text;
+  ready_settings int;
+  auto_run boolean;
+  saw_inspection boolean := false;
 BEGIN
   perth_today := (timezone('Australia/Perth', now()))::date;
+  auto_run := (p_inspection_id IS NULL);
+
+  SELECT count(*) INTO ready_settings
+  FROM email_settings es
+  WHERE es.smtp_host ILIKE '%resend%'
+    AND coalesce(btrim(es.smtp_pass), '') <> ''
+    AND coalesce(btrim(es.from_email), '') <> ''
+    AND (p_company_id IS NULL OR es.company_id = p_company_id);
+
+  IF ready_settings = 0 THEN
+    IF p_inspection_id IS NOT NULL THEN
+      out_company_id := p_company_id;
+      out_inspection_id := p_inspection_id;
+      out_sent := false;
+      out_reason := 'no_smtp';
+      RETURN NEXT;
+    END IF;
+    RETURN;
+  END IF;
 
   FOR settings IN
     SELECT es.company_id, es.smtp_host, es.smtp_pass, es.from_name, es.from_email
@@ -44,6 +72,7 @@ BEGIN
     WHERE es.smtp_host ILIKE '%resend%'
       AND coalesce(btrim(es.smtp_pass), '') <> ''
       AND coalesce(btrim(es.from_email), '') <> ''
+      AND (p_company_id IS NULL OR es.company_id = p_company_id)
   LOOP
     SELECT c.name, c.phone INTO company_row
     FROM companies c
@@ -56,8 +85,12 @@ BEGIN
              i.meta, i.responses, i.template_snapshot, i.due_on,
              i.due_reminder_sent_at, i.due_reminder_sent_for_date
       FROM inspections i
-      WHERE i.due_on = perth_today
-        AND coalesce(i.archived, false) = false
+      WHERE coalesce(i.archived, false) = false
+        AND (p_inspection_id IS NULL OR i.id = p_inspection_id)
+        AND (
+          auto_run AND i.due_on = perth_today
+          OR (NOT auto_run)
+        )
         AND (
           EXISTS (
             SELECT 1 FROM jobs j
@@ -76,7 +109,7 @@ BEGIN
           )
         )
     LOOP
-      resolved_company := settings.company_id;
+      saw_inspection := true;
       job_day := NULL;
       job_client_id := NULL;
       job_number := NULL;
@@ -96,21 +129,40 @@ BEGIN
         )
       );
 
-      IF due_day IS NULL OR due_day <> perth_today THEN
-        out_company_id := resolved_company;
+      IF due_day IS NULL THEN
+        out_company_id := settings.company_id;
         out_inspection_id := insp.id;
         out_sent := false;
-        out_reason := CASE WHEN due_day IS NULL THEN 'no_due_date' ELSE 'not_due' END;
+        out_reason := 'no_due_date';
         RETURN NEXT;
         CONTINUE;
       END IF;
 
-      IF insp.due_reminder_sent_at IS NOT NULL
+      IF auto_run AND due_day <> perth_today THEN
+        out_company_id := settings.company_id;
+        out_inspection_id := insp.id;
+        out_sent := false;
+        out_reason := 'not_due';
+        RETURN NEXT;
+        CONTINUE;
+      END IF;
+
+      IF (NOT auto_run) AND due_day > perth_today THEN
+        out_company_id := settings.company_id;
+        out_inspection_id := insp.id;
+        out_sent := false;
+        out_reason := 'not_due';
+        RETURN NEXT;
+        CONTINUE;
+      END IF;
+
+      IF auto_run
+         AND insp.due_reminder_sent_at IS NOT NULL
          AND (
            insp.due_reminder_sent_for_date IS NULL
            OR insp.due_reminder_sent_for_date = due_day
          ) THEN
-        out_company_id := resolved_company;
+        out_company_id := settings.company_id;
         out_inspection_id := insp.id;
         out_sent := false;
         out_reason := 'already_sent';
@@ -146,7 +198,7 @@ BEGIN
       );
 
       IF to_email IS NULL OR to_email = '' OR position('@' IN to_email) = 0 THEN
-        out_company_id := resolved_company;
+        out_company_id := settings.company_id;
         out_inspection_id := insp.id;
         out_sent := false;
         out_reason := 'no_email';
@@ -204,13 +256,13 @@ BEGIN
         SET due_reminder_sent_at = now(),
             due_reminder_sent_for_date = due_day
         WHERE id = insp.id;
-        out_company_id := resolved_company;
+        out_company_id := settings.company_id;
         out_inspection_id := insp.id;
         out_sent := true;
         out_reason := 'sent';
         RETURN NEXT;
       ELSE
-        out_company_id := resolved_company;
+        out_company_id := settings.company_id;
         out_inspection_id := insp.id;
         out_sent := false;
         out_reason := 'send_failed';
@@ -218,14 +270,37 @@ BEGIN
       END IF;
     END LOOP;
   END LOOP;
+
+  IF p_inspection_id IS NOT NULL AND NOT saw_inspection THEN
+    out_company_id := p_company_id;
+    out_inspection_id := p_inspection_id;
+    out_sent := false;
+    out_reason := 'no_inspection';
+    RETURN NEXT;
+  END IF;
 END;
 $$;
 
-COMMENT ON FUNCTION public.send_due_inspection_reminders() IS
-  'pg_cron auto-fire: Perth-today due inspections with client email, via email_settings + Resend. No user JWT.';
+COMMENT ON FUNCTION public.send_due_inspection_reminders(uuid, uuid) IS
+  'pg_cron auto-fire (same job-client-reminder Perth jobs as 24h ping): due inspections via email_settings + Resend. No user JWT. Optional company/inspection args are the logged-in override.';
 
-REVOKE ALL ON FUNCTION public.send_due_inspection_reminders() FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.send_due_inspection_reminders() FROM anon, authenticated;
+REVOKE ALL ON FUNCTION public.send_due_inspection_reminders(uuid, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.send_due_inspection_reminders(uuid, uuid) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.send_due_inspection_reminders(uuid, uuid) TO service_role;
+
+-- Existing wrapper now fires both products. Same cron names as PR #18.
+CREATE OR REPLACE FUNCTION public.invoke_job_client_reminders()
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  PERFORM public.send_due_job_client_reminders();
+  PERFORM public.send_due_inspection_reminders();
+  RETURN 0;
+END;
+$$;
 
 DO $$
 BEGIN
@@ -235,21 +310,26 @@ BEGIN
   IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'inspection-due-reminder-perth-afternoon') THEN
     PERFORM cron.unschedule('inspection-due-reminder-perth-afternoon');
   END IF;
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'job-client-reminder-perth-morning') THEN
+    PERFORM cron.unschedule('job-client-reminder-perth-morning');
+  END IF;
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'job-client-reminder-perth-afternoon') THEN
+    PERFORM cron.unschedule('job-client-reminder-perth-afternoon');
+  END IF;
 EXCEPTION
   WHEN undefined_table THEN
     NULL;
 END $$;
 
--- 07:00 Australia/Perth = 23:00 UTC
+-- Same names and times as the 24h job ping. Both send-due functions run.
 SELECT cron.schedule(
-  'inspection-due-reminder-perth-morning',
+  'job-client-reminder-perth-morning',
   '0 23 * * *',
-  $$SELECT public.send_due_inspection_reminders()$$
+  $$SELECT public.send_due_job_client_reminders(); SELECT public.send_due_inspection_reminders();$$
 );
 
--- 16:00 Australia/Perth = 08:00 UTC (catch records completed later; skip-already-sent)
 SELECT cron.schedule(
-  'inspection-due-reminder-perth-afternoon',
+  'job-client-reminder-perth-afternoon',
   '0 8 * * *',
-  $$SELECT public.send_due_inspection_reminders()$$
+  $$SELECT public.send_due_job_client_reminders(); SELECT public.send_due_inspection_reminders();$$
 );

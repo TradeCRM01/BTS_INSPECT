@@ -549,10 +549,15 @@ export function wouldScanUnscopedInspections(scope: InspectionDueQueryScope | nu
   return !scope.eq.due_on;
 }
 
+/**
+ * How auto-fire actually runs — same Perth cron as the 24h job ping.
+ * No tray click. No new notify module. No Vault hop.
+ * pg_cron job-client-reminder-* → send_due_inspection_reminders() → Resend → sent-at on 2xx.
+ */
 export const INSPECTION_DUE_AUTO_FIRE_PATH = [
-  'pg_cron inspection-due-reminder-perth-morning (0 23 * * * UTC = 07:00 Australia/Perth)',
-  'pg_cron inspection-due-reminder-perth-afternoon (0 8 * * * UTC = 16:00 Australia/Perth)',
-  'SELECT public.send_due_inspection_reminders()',
+  'pg_cron job-client-reminder-perth-morning (0 23 * * * UTC = 07:00 Australia/Perth)',
+  'pg_cron job-client-reminder-perth-afternoon (0 8 * * * UTC = 16:00 Australia/Perth)',
+  'SELECT public.send_due_job_client_reminders(); SELECT public.send_due_inspection_reminders()',
   'perth_today = (timezone(Australia/Perth, now()))::date',
   'email_settings where Resend is ready (companies without SMTP are not scanned)',
   'inspections where due_on = perth_today and archived is not true, company via job / client / inspector',
@@ -667,7 +672,7 @@ export function resolveInspectionDueCaller(args: {
     }
     return { ok: false, error: 'Unauthorized' };
   }
-  return { ok: false, error: 'inspectionId or due=today is required' };
+  return { ok: false, error: 'inspectionId is required for the override; auto-fire is send_due_inspection_reminders()' };
 }
 
 /**

@@ -149,10 +149,54 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const jobId = String(body.jobId ?? body.job_id ?? "").trim();
+    const inspectionId = String(body.inspectionId ?? body.inspection_id ?? "").trim();
     const due = String(body.due ?? "").trim();
     const appUrl = String(body.appUrl ?? body.app_url ?? "").replace(/\/$/, "")
       || "https://bts-inspect.pages.dev";
     const tomorrow = tomorrowYmd();
+
+    if (inspectionId) {
+      if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
+      const { data: rows, error: rpcErr } = await admin.rpc("send_due_inspection_reminders", {
+        p_company_id: userCompanyId,
+        p_inspection_id: inspectionId,
+      });
+      if (rpcErr) return json({ error: rpcErr.message, sent: false }, 400);
+      const results = (rows ?? []) as Array<{
+        out_company_id: string | null;
+        out_inspection_id: string | null;
+        out_sent: boolean;
+        out_reason: string;
+      }>;
+      const missText: Record<string, string> = {
+        no_email: "This client has no email — reminder was not sent.",
+        no_due_date: "This inspection has no due date — reminder was not sent.",
+        not_due: "Reminder is for inspections due today.",
+        no_smtp: "Email is not set up.",
+        archived: "This inspection is archived — reminder was not sent.",
+        already_sent: "Already reminded for this due date.",
+        send_failed: "Reminder was not sent.",
+        no_inspection: "Inspection not found.",
+      };
+      const sentRows = results.filter((r) => r.out_sent);
+      const missedRows = results.filter((r) => !r.out_sent);
+      return json({
+        sent: sentRows.length > 0,
+        count: sentRows.length,
+        missed: missedRows.length,
+        results: results.map((r) => ({
+          sent: r.out_sent,
+          inspectionId: r.out_inspection_id,
+          reason: r.out_reason,
+          message: r.out_sent
+            ? "Reminder sent"
+            : (missText[r.out_reason] ?? r.out_reason),
+        })),
+        message: sentRows.length > 0
+          ? (sentRows.length === 1 ? "Reminder sent" : `Reminders sent: ${sentRows.length}`)
+          : (missText[missedRows[0]?.out_reason] ?? "Reminder was not sent."),
+      });
+    }
 
     if (jobId) {
       if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);

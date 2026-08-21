@@ -39,7 +39,7 @@ import {
   type DueInspection,
   type DueInspectionJob,
 } from './inspectionDueReminder';
-import { COMPANY_TIME_ZONE, type ReminderClient, type ReminderEmailSettings } from './jobReminder';
+import { AUTO_FIRE_CLICK_PATH, COMPANY_TIME_ZONE, type ReminderClient, type ReminderEmailSettings } from './jobReminder';
 
 /** 16:00 Friday 21 Aug 2026 in Australia/Perth (08:00 UTC). Today in Perth is 21 Aug. */
 const now = new Date('2026-08-21T08:00:00.000Z');
@@ -334,11 +334,18 @@ describe('honest misses — no send', () => {
 });
 
 describe('auto-fire (cron, not the tray)', () => {
-  it('documents the click path that actually mails without a user', () => {
-    expect(INSPECTION_DUE_AUTO_FIRE_PATH[0]).toMatch(/pg_cron/);
+  it('fires on the same Perth cron as the 24h job ping — no new module, no tray click', () => {
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH[0]).toBe(AUTO_FIRE_CLICK_PATH[0]);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH[1]).toBe(AUTO_FIRE_CLICK_PATH[1]);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH[0]).toMatch(/job-client-reminder-perth-morning/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH[1]).toMatch(/job-client-reminder-perth-afternoon/);
     expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' → ')).toMatch(/send_due_inspection_reminders/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' → ')).toMatch(/send_due_job_client_reminders/);
     expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).toMatch(/api\.resend\.com/);
     expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/vault/i);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/inspection-due-reminder/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/tray/i);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/functions\/v1/);
   });
 
   it('auto-selects Perth-today inspections with email when SMTP is ready', () => {
@@ -422,16 +429,17 @@ describe('do not double-mail', () => {
   });
 });
 
-describe('cron vs tray auth', () => {
-  it('cron due=today does not need a user JWT', () => {
+describe('override auth — auto-fire does not use this', () => {
+  it('auto-fire is the SQL send-due path, not an edge due=today hop', () => {
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).toMatch(/send_due_inspection_reminders/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/due=today/);
     expect(resolveInspectionDueCaller({
       hasUser: false,
-      cronAuthorized: true,
-      due: 'today',
-    })).toEqual({ ok: true, caller: { kind: 'cron' } });
+      cronAuthorized: false,
+    }).ok).toBe(false);
   });
 
-  it('single-inspectionId send still requires a logged-in member', () => {
+  it('single-inspectionId override still requires a logged-in member', () => {
     expect(resolveInspectionDueCaller({
       hasUser: false,
       cronAuthorized: true,

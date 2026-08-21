@@ -1,2 +1,0 @@
-# Cron (pg_cron) has no user JWT. inspectionId still auth-checks inside the function.
-verify_jwt = false
