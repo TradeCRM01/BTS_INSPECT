@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -11,7 +11,17 @@ import {
   formatMoney,
 } from '../types/fsm';
 import type { QuoteStatus } from '../types/fsm';
-import { Briefcase, Plus, FileText, ShieldCheck, Receipt, ClipboardList } from 'lucide-react';
+import { Briefcase, Plus, FileText, ShieldCheck, Receipt, ClipboardList, Mail, Phone } from 'lucide-react';
+import {
+  jobClientEmailRow,
+  jobClientEmailSaveToast,
+  saveJobClientEmail,
+} from '../lib/saveJobClientEmail';
+import {
+  jobClientPhoneRow,
+  jobClientPhoneSaveToast,
+  saveJobClientPhone,
+} from '../lib/saveJobClientPhone';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ClientForm } from './ClientsPage';
 import type { ComplianceItem } from '../types/compliance';
@@ -93,12 +103,21 @@ function jobRowTitle(job: { address?: string | null; title?: string | null; job_
 
 const nextQuiet = 'hub-next shrink-0';
 
+/** Honest no-email miss on this card — write the address below. Not a send line. */
+export const CLIENT_SHEET_NO_EMAIL =
+  'This client has no email. Add one below.';
+/** Honest no-phone miss on this card — write the number below. Not a send line. */
+export const CLIENT_SHEET_NO_PHONE =
+  'This client has no phone. Add one below.';
+
 export function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [showEdit, setShowEdit] = useState(false);
+  const [clientEmailDraft, setClientEmailDraft] = useState('');
+  const [clientPhoneDraft, setClientPhoneDraft] = useState('');
 
   const { data: client, isLoading, error } = useQuery<Client>({
     queryKey: ['client', id],
@@ -181,6 +200,50 @@ export function ClientDetailPage() {
     enabled: !!id && !!profile && jobs !== undefined,
   });
 
+  useEffect(() => {
+    setClientEmailDraft(client?.email ?? '');
+  }, [client?.id, client?.email]);
+
+  useEffect(() => {
+    setClientPhoneDraft(client?.phone ?? '');
+  }, [client?.id, client?.phone]);
+
+  const saveClientEmail = useMutation({
+    mutationFn: async () => {
+      return saveJobClientEmail({
+        clientId: client?.id,
+        email: clientEmailDraft,
+      });
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['client', id] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+      setClientEmailDraft(result.email ?? '');
+      const toast = jobClientEmailSaveToast(result.email);
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
+
+  const saveClientPhone = useMutation({
+    mutationFn: async () => {
+      return saveJobClientPhone({
+        clientId: client?.id,
+        phone: clientPhoneDraft,
+      });
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['client', id] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+      setClientPhoneDraft(result.phone ?? '');
+      const toast = jobClientPhoneSaveToast(result.phone);
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
+
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !client) return <AppShell><PageError message="Could not load this client" /></AppShell>;
 
@@ -190,6 +253,8 @@ export function ClientDetailPage() {
   const moneyReady = quotes !== undefined && invoices !== undefined;
   const money = clientMoneySummary(quotes ?? [], invoices ?? []);
   const jobById = new Map((jobs ?? []).map(job => [job.id, job]));
+  const emailRow = jobClientEmailRow({ clientId: client.id, client });
+  const phoneRow = jobClientPhoneRow({ clientId: client.id, client });
 
   return (
     <AppShell>
@@ -219,10 +284,81 @@ export function ClientDetailPage() {
           <OpsSiteRow
             hub
             site={visibleSite(client.address)}
-            phone={client.phone}
-            email={client.email}
             mapsQuery={client.address}
           />
+          <div className="client-sheet-contact">
+            {phoneRow.kind === 'edit' && (
+              <p className="client-sheet-miss">{CLIENT_SHEET_NO_PHONE}</p>
+            )}
+            {phoneRow.kind === 'tel' && (
+              <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num">
+                <Phone size={13} /> {phoneRow.phone}
+              </a>
+            )}
+            {phoneRow.kind === 'edit' && (
+              <form
+                className="job-client-phone"
+                onSubmit={e => {
+                  e.preventDefault();
+                  saveClientPhone.mutate();
+                }}
+              >
+                <Phone size={13} />
+                <input
+                  type="tel"
+                  value={clientPhoneDraft}
+                  onChange={e => setClientPhoneDraft(e.target.value)}
+                  placeholder="Phone"
+                  className="form-input-sm"
+                  aria-label="Client phone"
+                  autoComplete="tel"
+                  inputMode="tel"
+                />
+                <button
+                  type="submit"
+                  className="job-client-phone-save"
+                  disabled={saveClientPhone.isPending}
+                >
+                  Save
+                </button>
+              </form>
+            )}
+            {emailRow.kind === 'edit' && (
+              <p className="client-sheet-miss">{CLIENT_SHEET_NO_EMAIL}</p>
+            )}
+            {emailRow.kind === 'mailto' && (
+              <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
+                <Mail size={13} /> {emailRow.email}
+              </a>
+            )}
+            {emailRow.kind === 'edit' && (
+              <form
+                className="job-client-email"
+                onSubmit={e => {
+                  e.preventDefault();
+                  saveClientEmail.mutate();
+                }}
+              >
+                <Mail size={13} />
+                <input
+                  type="email"
+                  value={clientEmailDraft}
+                  onChange={e => setClientEmailDraft(e.target.value)}
+                  placeholder="Email"
+                  className="form-input-sm"
+                  aria-label="Client email"
+                  autoComplete="email"
+                />
+                <button
+                  type="submit"
+                  className="job-client-email-save"
+                  disabled={saveClientEmail.isPending}
+                >
+                  Save
+                </button>
+              </form>
+            )}
+          </div>
           {client.notes ? (
             <p className="text-sm text-navy whitespace-pre-wrap mt-3">{client.notes}</p>
           ) : null}
