@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { COMPANY_EMAIL_SETTINGS_HREF } from './sendInvoice';
@@ -359,6 +359,22 @@ describe('job-sheet attach client — wiring', () => {
     expect(startSendFn).toContain('onRequestSend');
     expect(patchPaidFn).not.toContain('attachJobClient');
     expect(finishPaidFn).not.toContain('attachJobClient');
+  });
+
+  it('keeps Flameboy look shots for pick, after-attach no-email, no-clients, and linked', () => {
+    const shots = [
+      'docs/look/job-attach-client-pick-desktop.png',
+      'docs/look/job-attach-client-pick-ute.png',
+      'docs/look/job-attach-client-no-email-desktop.png',
+      'docs/look/job-attach-client-no-email-ute.png',
+      'docs/look/job-attach-client-no-clients-desktop.png',
+      'docs/look/job-attach-client-no-clients-ute.png',
+      'docs/look/job-attach-client-linked-desktop.png',
+      'docs/look/job-attach-client-linked-ute.png',
+    ];
+    for (const shot of shots) {
+      expect(existsSync(resolve(process.cwd(), shot)), shot).toBe(true);
+    }
   });
 
   it('leaves quote convert / PR #17 off this control', () => {
