@@ -35,7 +35,7 @@ describe('invoice send deliver path', () => {
     expect(page).not.toContain('InvoiceChase');
     expect(page).not.toContain('ChaseDialog');
     expect(edge).toContain('invoiceId');
-    expect(edge).not.toContain('due === "overdue"');
+    expect(edge).toContain('due === "overdue"');
     expect(edge).toContain('from("invoices")');
     expect(edge).toContain('api.resend.com/emails');
     expect(edge).toContain('email_settings');
@@ -122,19 +122,21 @@ describe('invoice send deliver path', () => {
     const edge = readFileSync(resolve(process.cwd(), 'supabase/functions/job-reminder/index.ts'), 'utf8');
     expect(edge).toMatch(/invoicePatch\.status = "sent"/);
     expect(edge).toMatch(/sendTwilioSms/);
-    const invoiceStart = edge.indexOf('if (invoiceId)');
-    const invoiceBlock = edge.slice(invoiceStart, edge.indexOf('if (reportId)'));
-    const emailFail = invoiceBlock.indexOf('if (!res.ok)');
-    const statusWrite = invoiceBlock.indexOf('if (invoice.status === "draft"');
-    const chasedWrite = invoiceBlock.indexOf('invoicePatch.chased_at = sentAt');
+    const deliverStart = edge.indexOf('async function deliverInvoiceSend');
+    const deliver = edge.slice(deliverStart, edge.indexOf('function reportSiteName'));
+    const emailFail = deliver.indexOf('if (!res.ok)');
+    const statusWrite = deliver.indexOf('if (invoice.status === "draft"');
+    const chasedWrite = deliver.indexOf('invoicePatch.chased_at = sentAt');
     expect(emailFail).toBeGreaterThan(-1);
     expect(statusWrite).toBeGreaterThan(emailFail);
     expect(chasedWrite).toBeGreaterThan(emailFail);
-    const statusBlock = invoiceBlock.slice(statusWrite, statusWrite + 420);
+    const statusBlock = deliver.slice(statusWrite, statusWrite + 420);
     expect(statusBlock).toContain('invoicePatch.status = "sent"');
     expect(statusBlock).toContain('chased_at');
     expect(statusBlock).not.toContain('sms.sent');
     expect(statusBlock).not.toContain('status: "paid"');
+    expect(deliver).toContain('mode === "auto" && alreadyChasedInvoice');
+    expect(deliver).toContain('copyKind === "chase"');
   });
 
   it('loads the invoice by id + company before send', () => {
@@ -145,5 +147,58 @@ describe('invoice send deliver path', () => {
       id: 'inv-1',
       company_id: 'co1',
     });
+  });
+});
+
+describe('Perth overdue auto-fire rides job-reminder due=overdue', () => {
+  const hop = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20260821210000_063_overdue_invoice_chase_autofire.sql'),
+    'utf8',
+  );
+  const signedCron = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20260821190000_061_invoice_chased_at.sql'),
+    'utf8',
+  );
+  const edge = readFileSync(
+    resolve(process.cwd(), 'supabase/functions/job-reminder/index.ts'),
+    'utf8',
+  );
+
+  it('same Perth invoke posts due=overdue — no new cron stack or table', () => {
+    expect(hop).toContain('CREATE OR REPLACE FUNCTION public.invoke_job_client_reminders()');
+    expect(hop).toContain('{"due":"tomorrow","source":"cron"}');
+    expect(hop).toContain('{"due":"today","source":"cron"}');
+    expect(hop).toContain('{"due":"overdue","source":"cron"}');
+    expect(hop).toContain("/functions/v1/job-reminder");
+    expect(hop).toContain('net.http_post');
+    expect(hop).not.toContain('CREATE TABLE');
+    expect(hop).not.toContain('cron.schedule');
+    expect(hop).not.toContain('cron.unschedule');
+    expect(hop).not.toContain('job-client-reminder-perth-evening');
+    expect(hop).not.toMatch(/cron\.schedule\(\s*'inspection-due-reminder/);
+    expect(hop).not.toContain('send_due_job_client_reminders');
+    expect(signedCron).not.toContain('invoke_job_client_reminders');
+    expect(signedCron).not.toContain('cron.schedule');
+  });
+
+  it('edge due=overdue reuses deliverInvoiceSend — already chased and SMS miss do not invent chased_at', () => {
+    expect(edge).toContain('due === "overdue"');
+    expect(edge).toContain('mode: "auto"');
+    expect(edge).toContain('mode: "manual"');
+    expect(edge).toContain('.is("chased_at", null)');
+    expect(edge).toContain('.lt("due_date", today)');
+    expect(edge).toContain('already_chased');
+    expect(edge).toContain('api.twilio.com');
+    const overdueStart = edge.indexOf('if (due === "overdue")');
+    const overdue = edge.slice(overdueStart, edge.indexOf('if (invoiceId)'));
+    expect(overdue).toContain('deliverInvoiceSend');
+    expect(overdue).toContain('mode: "auto"');
+    expect(overdue).not.toContain('cron.schedule');
+    expect(overdue).not.toContain('from("quotes")');
+    expect(overdue).not.toContain('xero-accounting');
+    const invoiceStart = edge.indexOf('if (invoiceId)');
+    const invoiceBlock = edge.slice(invoiceStart, edge.indexOf('if (reportId)'));
+    expect(invoiceBlock).toContain('deliverInvoiceSend');
+    expect(invoiceBlock).toContain('mode: "manual"');
   });
 });
