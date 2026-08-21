@@ -8,7 +8,7 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { NextBanner, OpsDocHead, OpsStatus, opsSiteLabel } from '../components/ui';
 import { nanoid } from '../lib/nanoid';
-import { generateJhaPdf } from '../reports/generateJhaPdf';
+import { generateJhaPdf, jhaPdfCompanyFrom } from '../reports/generateJhaPdf';
 import {
   LIKELIHOOD_OPTIONS,
   CONSEQUENCE_OPTIONS,
@@ -603,14 +603,15 @@ export function JhaFillPage() {
         },
         template: snapshot,
         profile: { name: profile.name, licence_number: profile.licence_number },
-        company: {
+        company: jhaPdfCompanyFrom({
           name: company.name,
           abn: company.abn,
           phone: company.phone,
           email: company.email,
           website: company.website,
           logo_url: company.logo_url,
-        },
+          report_theme: (company as { report_theme?: Record<string, unknown> | null }).report_theme ?? null,
+        }),
         reportNumber,
       });
 
@@ -740,14 +741,15 @@ export function JhaFillPage() {
         },
         template: { name: templateName, schema },
         profile: { name: profile.name, licence_number: profile.licence_number },
-        company: {
+        company: jhaPdfCompanyFrom({
           name: company.name,
           abn: company.abn,
           phone: company.phone,
           email: company.email,
           website: company.website,
           logo_url: company.logo_url,
-        },
+          report_theme: (company as { report_theme?: Record<string, unknown> | null }).report_theme ?? null,
+        }),
         reportNumber,
         packMode: true,
       });

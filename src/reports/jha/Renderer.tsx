@@ -4,13 +4,14 @@ import { LIKELIHOOD_OPTIONS, CONSEQUENCE_OPTIONS } from '../../types/jha';
 import {
   RunningHeader, RunningFooter, MetadataGrid, SignatureBlock,
 } from '../shared/components';
-import { pdfColors, pdfFonts } from '../shared/styles';
+import { pdfColors as stockPdfColors, pdfFonts, type PdfColors } from '../shared/styles';
+import { jhaDocumentColors } from './theme';
 
 const styles = StyleSheet.create({
   page: {
     fontFamily: pdfFonts.body,
     fontSize: 9,
-    color: pdfColors.text,
+    color: stockPdfColors.text,
     paddingTop: 0,
     paddingBottom: 40,
     paddingHorizontal: 0,
@@ -19,7 +20,7 @@ const styles = StyleSheet.create({
   coverPage: {
     fontFamily: pdfFonts.body,
     fontSize: 9,
-    color: pdfColors.text,
+    color: stockPdfColors.text,
     paddingBottom: 0,
     paddingHorizontal: 0,
   },
@@ -28,7 +29,7 @@ const styles = StyleSheet.create({
     fontFamily: pdfFonts.body,
     fontSize: 7.5,
     fontWeight: 700,
-    color: pdfColors.white,
+    color: stockPdfColors.white,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     paddingVertical: 5,
@@ -37,7 +38,7 @@ const styles = StyleSheet.create({
   cellText: {
     fontFamily: pdfFonts.body,
     fontSize: 8,
-    color: pdfColors.text,
+    color: stockPdfColors.text,
     paddingVertical: 6,
     paddingHorizontal: 6,
   },
@@ -57,8 +58,6 @@ const styles = StyleSheet.create({
   ppeChip: {
     fontFamily: pdfFonts.body,
     fontSize: 7.5,
-    color: pdfColors.navy,
-    backgroundColor: pdfColors.accentLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 2,
@@ -95,7 +94,7 @@ function getConsequenceLabel(id: string): string {
   return found ? found.label : id || '\u2014';
 }
 
-function RiskMatrixGrid() {
+function RiskMatrixGrid({ colors: pdfColors }: { colors: PdfColors }) {
   const likelihoods = [...LIKELIHOOD_OPTIONS].reverse();
   const consequences = CONSEQUENCE_OPTIONS;
   const labelW = 70;
@@ -164,7 +163,7 @@ function RiskMatrixGrid() {
   );
 }
 
-function StepTable({ steps, riskLevels }: { steps: JhaReportStep[]; riskLevels: JhaReportData['riskLevels'] }) {
+function StepTable({ steps, riskLevels, colors: pdfColors }: { steps: JhaReportStep[]; riskLevels: JhaReportData['riskLevels']; colors: PdfColors }) {
   const colWidths = { step: '5%', desc: '16%', hazards: '14%', consequence: '9%', likelihood: '9%', controls: '19%', initial: '14%', residual: '14%' };
 
   return (
@@ -265,12 +264,12 @@ function StepTable({ steps, riskLevels }: { steps: JhaReportStep[]; riskLevels: 
   );
 }
 
-function PpeSection({ ppe }: { ppe: JhaReportData['ppe'] }) {
+function PpeSection({ ppe, colors: pdfColors }: { ppe: JhaReportData['ppe']; colors: PdfColors }) {
   if (ppe.length === 0) return null;
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingVertical: 6, backgroundColor: pdfColors.ruleLight, borderTopWidth: 0.5, borderTopColor: pdfColors.rule }}>
       {ppe.map((item, i) => (
-        <Text key={i} style={styles.ppeChip}>
+        <Text key={i} style={[styles.ppeChip, { color: pdfColors.navy, backgroundColor: pdfColors.accentLight }]}>
           {item.label}{item.standardRef ? ` (${item.standardRef})` : ''}
         </Text>
       ))}
@@ -279,6 +278,8 @@ function PpeSection({ ppe }: { ppe: JhaReportData['ppe'] }) {
 }
 
 export function JhaReportRenderer({ data }: { data: JhaReportData }) {
+  const pdfColors = jhaDocumentColors(data.theme);
+  const brand = { navy: pdfColors.navy, accent: pdfColors.accent, accentLight: pdfColors.accentLight };
   const metaItems = [
     { label: 'Document Number', value: data.reportNumber },
     { label: 'Revision', value: `v${data.docVersion}` },
@@ -396,6 +397,7 @@ export function JhaReportRenderer({ data }: { data: JhaReportData }) {
           companyName={data.companyName}
           reportNumber={data.reportNumber}
           logoUrl={data.companyLogoUrl}
+          colors={brand}
         />
         <View style={styles.body}>
           {/* Section: PPE */}
@@ -413,7 +415,7 @@ export function JhaReportRenderer({ data }: { data: JhaReportData }) {
                   </Text>
                 </View>
               </View>
-              <PpeSection ppe={data.ppe} />
+              <PpeSection ppe={data.ppe} colors={pdfColors} />
             </View>
           )}
 
@@ -434,7 +436,7 @@ export function JhaReportRenderer({ data }: { data: JhaReportData }) {
             <Text style={{ fontFamily: pdfFonts.body, fontSize: 7.5, color: pdfColors.textMuted, marginBottom: 8, fontStyle: 'italic' }}>
               Risk = Likelihood × Consequence. The matrix below shows how risk ratings are calculated for each job step, before and after control measures are applied.
             </Text>
-            <RiskMatrixGrid />
+            <RiskMatrixGrid colors={pdfColors} />
           </View>
 
           {/* Section: Job Steps */}
@@ -451,7 +453,7 @@ export function JhaReportRenderer({ data }: { data: JhaReportData }) {
                 </Text>
               </View>
             </View>
-            <StepTable steps={data.steps} riskLevels={data.riskLevels} />
+            <StepTable steps={data.steps} riskLevels={data.riskLevels} colors={pdfColors} />
           </View>
         </View>
         <RunningFooter />
@@ -463,6 +465,7 @@ export function JhaReportRenderer({ data }: { data: JhaReportData }) {
           companyName={data.companyName}
           reportNumber={data.reportNumber}
           logoUrl={data.companyLogoUrl}
+          colors={brand}
         />
         <View style={styles.body}>
           <View style={{ flexDirection: 'row', alignItems: 'stretch', marginBottom: 14 }}>
@@ -547,6 +550,7 @@ export function JhaReportRenderer({ data }: { data: JhaReportData }) {
                     signatureUrl={sign.signature}
                     name={sign.name || '\u2014'}
                     date={sign.date || '\u2014'}
+                    colors={brand}
                   />
                 </View>
               ))}
@@ -563,6 +567,7 @@ export function JhaReportRenderer({ data }: { data: JhaReportData }) {
             companyName={data.companyName}
             reportNumber={data.reportNumber}
             logoUrl={data.companyLogoUrl}
+            colors={brand}
           />
           <View style={styles.body}>
             <View style={{ flexDirection: 'row', alignItems: 'stretch', marginBottom: 14 }}>
@@ -633,6 +638,7 @@ export function JhaReportRenderer({ data }: { data: JhaReportData }) {
             companyName={data.companyName}
             reportNumber={data.reportNumber}
             logoUrl={data.companyLogoUrl}
+            colors={brand}
           />
           <View style={styles.body}>
             <View style={{ flexDirection: 'row', alignItems: 'stretch', marginBottom: 14 }}>
