@@ -25,7 +25,8 @@ export type InvoiceSendBlocker =
   | 'no_email'
   | 'no_smtp'
   | 'no_lines'
-  | 'paid';
+  | 'paid'
+  | 'not_paid';
 
 export type InvoiceSendQueryTable = 'invoices' | 'clients' | 'email_settings' | 'jobs';
 
@@ -123,6 +124,13 @@ export const NO_EMAIL_MESSAGE = 'This client has no email. Add one on the client
 export const NO_SMTP_MESSAGE = 'Email is not set up. Add SMTP in Company settings — there is a test send there.';
 export const NO_LINES_MESSAGE = 'Add at least one line item before you send.';
 export const NO_PDF_MESSAGE = 'The invoice PDF could not be attached — invoice was not sent.';
+export const NO_RECEIPT_EMAIL_MESSAGE = 'This client has no email — receipt was not sent.';
+export const NO_RECEIPT_SMTP_MESSAGE = 'Email is not set up — receipt was not sent.';
+export const NO_RECEIPT_PDF_MESSAGE = 'The invoice PDF could not be attached — receipt was not sent.';
+export const NO_RECEIPT_INVOICE_MESSAGE = 'Invoice not found — receipt was not sent.';
+export const NO_RECEIPT_CLIENT_MESSAGE = 'This invoice has no client — receipt was not sent.';
+export const NO_RECEIPT_LINES_MESSAGE = 'This invoice has no line items — receipt was not sent.';
+export const RECEIPT_NOT_PAID_MESSAGE = 'Receipt is for paid invoices.';
 
 /**
  * Same pipe as job / due reminders on main.
@@ -139,6 +147,24 @@ export const INVOICE_SEND_PIPE = [
   'UPDATE invoices.status = sent only when Resend returns 2xx (never paid)',
   'UPDATE invoices.chased_at only when Resend returns 2xx on overdue / sent-again',
   'After Resend 2xx: invoke xero-accounting action=sync for this invoiceId only when connected and invoice sync is on (honest miss does not unsend)',
+  'Mark paid receipt: same invoiceId / deliverInvoiceSend with purpose=receipt — paid / thank you copy, no chased_at, miss does not unmark paid',
+] as const;
+
+/**
+ * After Mark paid succeeds locally. Same job-reminder invoiceId pipe as Send.
+ * Receipt copy — not chase. No new dialog, cron, or PDF type.
+ */
+export const INVOICE_RECEIPT_ON_MARK_PAID_PATH = [
+  'Mark paid succeeds locally (invoices.status = paid) — invoice stays paid even if receipt misses',
+  'deliverInvoiceReceiptAfterMarkPaid beside attachXeroPaymentAfterMarkPaid (either miss does not unmark paid)',
+  'supabase.functions.invoke job-reminder invoiceId purpose=receipt (same deliverInvoiceSend)',
+  'receipt copy (paid / thank you) — not overdue chase subject, not Send again chase copy',
+  'attach existing invoice PDF (stored reports path or commercial generateCommercialPdf) — no new receipt PDF type',
+  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'SMS beside: clients.phone via Twilio — miss does not write chased_at or unmark paid',
+  'Receipt email success follows Resend 2xx only',
+  'honest miss: no_email / no_smtp / no_phone / no_sms_credentials / no_pdf / no_invoice — paid stays paid',
+  'do not write invoices.chased_at for this send',
 ] as const;
 
 export function padInvoiceNumber(n: number | null | undefined): string {
@@ -164,7 +190,7 @@ export function decideInvoiceSms(args: {
   return decideSmsBeside({ phone: args.phone, credentials: args.credentials });
 }
 
-export type InvoiceSendCopyKind = 'first' | 'chase';
+export type InvoiceSendCopyKind = 'first' | 'chase' | 'receipt';
 
 export function invoiceDueLabel(dueDate: string | null | undefined): string | null {
   const day = (dueDate ?? '').trim().slice(0, 10);
@@ -172,12 +198,13 @@ export function invoiceDueLabel(dueDate: string | null | undefined): string | nu
   return format(parseISO(day), 'd MMM yyyy');
 }
 
-/** Draft first-send stays signed invoice Send. Overdue / sent-again is chase copy. */
+/** Draft first-send stays signed invoice Send. Overdue / sent-again is chase. Paid is receipt. */
 export function invoiceSendCopyKind(
   inv: { status: string; due_date?: string | null },
   now = new Date(),
 ): InvoiceSendCopyKind {
-  if (inv.status === 'draft' || inv.status === 'paid') return 'first';
+  if (inv.status === 'paid') return 'receipt';
+  if (inv.status === 'draft') return 'first';
   if (inv.status === 'sent' || inv.status === 'overdue') return 'chase';
   return effectiveInvoiceStatus(inv, now) === 'overdue' ? 'chase' : 'first';
 }
@@ -204,6 +231,15 @@ export function invoiceChaseSmsBody(opts: {
   return `${who}: invoice #${padInvoiceNumber(opts.invoiceNumber)} is overdue.${due} Total (inc GST): ${opts.totalLabel}. The PDF is in your email.`;
 }
 
+export function invoiceReceiptSmsBody(opts: {
+  companyName: string;
+  invoiceNumber: number | null | undefined;
+  totalLabel: string;
+}): string {
+  const who = opts.companyName.trim() || 'your contractor';
+  return `${who} received payment for invoice #${padInvoiceNumber(opts.invoiceNumber)}. Total (inc GST): ${opts.totalLabel}. The receipt PDF is in your email.`;
+}
+
 /** Same Resend gate as job-reminder / due inspections. */
 export function isSmtpReady(settings: SmtpSettingsRow | ReminderEmailSettings | null | undefined): boolean {
   return emailSettingsReady(settings);
@@ -228,6 +264,14 @@ export function invoiceChaseSubject(
   const who = companyName.trim() || 'your contractor';
   const due = dueLabel?.trim() ? ` — due ${dueLabel.trim()}` : '';
   return `Overdue invoice #${padInvoiceNumber(invoiceNumber)} from ${who}${due}`;
+}
+
+export function invoiceReceiptSubject(
+  invoiceNumber: number | null | undefined,
+  companyName: string,
+): string {
+  const who = companyName.trim() || 'your contractor';
+  return `Receipt for invoice #${padInvoiceNumber(invoiceNumber)} from ${who}`;
 }
 
 export function invoicePdfFilename(invoiceNumber: number | null | undefined): string {
@@ -320,6 +364,35 @@ export function invoiceChaseHtml(opts: {
       </div>`;
 }
 
+export function invoiceReceiptHtml(opts: {
+  clientName: string;
+  companyName: string;
+  invoiceNumber: number | null | undefined;
+  totalLabel: string;
+  attachedPdf: boolean;
+}): string {
+  const client = escapeHtml(opts.clientName.trim() || 'there');
+  const company = escapeHtml(opts.companyName.trim() || 'us');
+  const number = escapeHtml(`#${padInvoiceNumber(opts.invoiceNumber)}`);
+  const total = escapeHtml(opts.totalLabel);
+  const pdfLine = opts.attachedPdf
+    ? '<p>The invoice PDF is attached as your receipt. Reply to this email if you have a question.</p>'
+    : '<p>Reply to this email if you have a question.</p>';
+  return `
+      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
+        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">Receipt</div>
+          <h1 style="margin:8px 0 0;font-size:20px">${number}</h1>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+          <p>Hi ${client},</p>
+          <p>Thank you. ${company} has received payment for invoice ${number}.</p>
+          <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${total}</strong></p>
+          ${pdfLine}
+        </div>
+      </div>`;
+}
+
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -344,7 +417,7 @@ export function shouldRecordInvoiceSent(sendOk: boolean, currentStatus: string):
   return sendOk === true && currentStatus !== 'paid';
 }
 
-/** chased_at is overdue / sent-again only. Failure and SMS miss must not invent it. */
+/** chased_at is overdue / sent-again only. Receipt, first-send, fail, and SMS miss must not invent it. */
 export function invoiceChasedAtPatchAfterSend(
   sendSucceeded: boolean,
   kind: InvoiceSendCopyKind,
@@ -690,6 +763,138 @@ export function applyInvoiceSendScope<T>(
     q = q.eq(column, value) as typeof q;
   }
   return q;
+}
+
+export type InvoiceReceiptMissReason =
+  | 'not_found'
+  | 'not_paid'
+  | 'no_client'
+  | 'no_email'
+  | 'no_smtp'
+  | 'no_lines'
+  | 'no_pdf'
+  | 'no_phone'
+  | 'no_sms_credentials'
+  | 'send_failed';
+
+export function missInvoiceReceiptMessage(reason: InvoiceReceiptMissReason): string {
+  switch (reason) {
+    case 'no_email':
+      return NO_RECEIPT_EMAIL_MESSAGE;
+    case 'no_smtp':
+      return NO_RECEIPT_SMTP_MESSAGE;
+    case 'not_found':
+      return NO_RECEIPT_INVOICE_MESSAGE;
+    case 'no_client':
+      return NO_RECEIPT_CLIENT_MESSAGE;
+    case 'no_lines':
+      return NO_RECEIPT_LINES_MESSAGE;
+    case 'no_pdf':
+      return NO_RECEIPT_PDF_MESSAGE;
+    case 'not_paid':
+      return RECEIPT_NOT_PAID_MESSAGE;
+    case 'no_phone':
+      return missSmsMessage('no_phone');
+    case 'no_sms_credentials':
+      return missSmsMessage('no_sms_credentials');
+    case 'send_failed':
+      return 'Receipt was not sent.';
+    default:
+      return 'Receipt was not sent.';
+  }
+}
+
+/**
+ * After Mark paid succeeds locally. Paid-only. Callers must not unmark paid.
+ */
+export function decideInvoiceReceiptOnMarkPaid(input: {
+  paidSucceeded: boolean;
+  invoiceId?: string | null;
+  status?: string | null;
+}): { ok: true; invoiceId: string } | { ok: false; reason: InvoiceReceiptMissReason } {
+  if (!input.paidSucceeded) return { ok: false, reason: 'not_paid' };
+  if (input.status != null && input.status !== 'paid') return { ok: false, reason: 'not_paid' };
+  const invoiceId = (input.invoiceId ?? '').trim();
+  if (!invoiceId) return { ok: false, reason: 'not_found' };
+  return { ok: true, invoiceId };
+}
+
+export function invoiceReceiptOnMarkPaidBody(invoiceId: string): {
+  invoiceId: string;
+  purpose: 'receipt';
+} {
+  return { invoiceId: invoiceId.trim(), purpose: 'receipt' };
+}
+
+/**
+ * Receipt send for a paid invoice. Same To / SMTP / PDF gates as Send.
+ * Does not reuse chase subject. Paid invoices are the only ready case.
+ */
+export function decideInvoiceReceipt(bundle: InvoiceSendBundle): InvoiceSendDecision {
+  const invoice = bundle.invoice;
+  if (!invoice) {
+    return { ok: false, blocker: 'not_found', message: missInvoiceReceiptMessage('not_found') };
+  }
+  if (invoice.status !== 'paid') {
+    return { ok: false, blocker: 'not_paid', message: missInvoiceReceiptMessage('not_paid') };
+  }
+  if (!invoice.client_id) {
+    return { ok: false, blocker: 'no_client', message: missInvoiceReceiptMessage('no_client') };
+  }
+  if (!invoiceHasChargeableLines(invoice.line_items)) {
+    return { ok: false, blocker: 'no_lines', message: missInvoiceReceiptMessage('no_lines') };
+  }
+  if (!isSmtpReady(bundle.smtp)) {
+    return {
+      ok: false,
+      blocker: 'no_smtp',
+      message: missInvoiceReceiptMessage('no_smtp'),
+      href: COMPANY_EMAIL_SETTINGS_HREF,
+    };
+  }
+  const to = clientEmailForSend(bundle.client?.email);
+  if (!to) {
+    return {
+      ok: false,
+      blocker: 'no_email',
+      message: missInvoiceReceiptMessage('no_email'),
+      href: invoice.client_id ? `/clients/${invoice.client_id}` : undefined,
+    };
+  }
+  const smsTo = clientPhoneForSms(bundle.client?.phone);
+  return {
+    ok: true,
+    to,
+    toName: (bundle.client?.name ?? '').trim() || 'Client',
+    subject: invoiceReceiptSubject(invoice.invoice_number, bundle.company.name),
+    filename: invoicePdfFilename(invoice.invoice_number),
+    smsTo,
+    smsMessage: smsTo ? null : missSmsMessage('no_phone'),
+  };
+}
+
+export function invoiceSendCompanyFrom(company: {
+  id?: string | null;
+  name?: string | null;
+  abn?: string | null;
+  licence_number?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  logo_url?: string | null;
+} | null | undefined): (InvoiceSendCompany & { id: string }) | null {
+  const id = (company?.id ?? '').trim();
+  if (!id) return null;
+  return {
+    id,
+    name: (company?.name ?? '').trim() || 'your contractor',
+    abn: company?.abn ?? null,
+    licence_number: company?.licence_number ?? null,
+    phone: company?.phone ?? null,
+    email: company?.email ?? null,
+    website: company?.website ?? null,
+    logo_url: company?.logo_url ?? null,
+  };
 }
 
 export function decideInvoiceSend(bundle: InvoiceSendBundle): InvoiceSendDecision {

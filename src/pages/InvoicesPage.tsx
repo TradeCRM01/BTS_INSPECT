@@ -20,8 +20,13 @@ import { effectiveInvoiceStatus, persistableInvoiceStatus } from '../lib/invoice
 import { invoiceActionContext, invoiceListBucket, invoiceOverflowPaidAction, recommendInvoiceAction, type InvoiceActionKey } from '../lib/invoiceNextAction';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
-import { isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
-import { loadInvoiceEditorRow } from '../lib/sendInvoiceDeliver';
+import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
+import {
+  deliverInvoiceReceiptAfterMarkPaid,
+  invoiceMarkPaidReceiptToast,
+  invoiceMarkPaidSheetMissLine,
+  loadInvoiceEditorRow,
+} from '../lib/sendInvoiceDeliver';
 import {
   attachXeroPaymentAfterMarkPaid,
   invoiceMarkPaidToast,
@@ -365,6 +370,7 @@ function InvoiceNextControl({
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const { company } = useAuth();
   const [busy, setBusy] = useState<InvoiceActionKey | null>(null);
   const ctx = invoiceActionContext(invoice, { smtpReady });
   const next = recommendInvoiceAction(ctx);
@@ -384,7 +390,16 @@ function InvoiceNextControl({
         (name, opts) => supabase.functions.invoke(name, opts),
         { paidSucceeded: true, invoiceId: invoice.id, status: 'paid' },
       );
-      showToast(invoiceMarkPaidToast(xero));
+      const receipt = await deliverInvoiceReceiptAfterMarkPaid(
+        (name, opts) => supabase.functions.invoke(name, opts),
+        {
+          paidSucceeded: true,
+          invoiceId: invoice.id,
+          status: 'paid',
+          company: invoiceSendCompanyFrom(company),
+        },
+      );
+      showToast(invoiceMarkPaidReceiptToast({ xeroToast: invoiceMarkPaidToast(xero), receipt }));
     } catch (err: unknown) {
       showToast(paid
         ? INVOICE_MARKED_PAID_MESSAGE
@@ -669,15 +684,27 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       inclusions: form.inclusions,
       exclusions: form.exclusions,
     };
-    const finishPaid = async (savedInvoiceId: string) => {
+    const finishPaid = async (savedInvoiceId: string): Promise<string | null> => {
       setForm(f => ({ ...f, status: storedStatus }));
       if (opts?.markPaid && storedStatus === 'paid') {
         const xero = await attachXeroPaymentAfterMarkPaid(
           (name, invokeOpts) => supabase.functions.invoke(name, invokeOpts),
           { paidSucceeded: true, invoiceId: savedInvoiceId, status: 'paid' },
         );
-        setXeroMiss(invoiceMarkPaidXeroMissLine(xero) ?? '');
+        const receipt = await deliverInvoiceReceiptAfterMarkPaid(
+          (name, invokeOpts) => supabase.functions.invoke(name, invokeOpts),
+          {
+            paidSucceeded: true,
+            invoiceId: savedInvoiceId,
+            status: 'paid',
+            company: invoiceSendCompanyFrom(company),
+          },
+        );
+        const xeroLine = invoiceMarkPaidXeroMissLine(xero);
+        setXeroMiss(invoiceMarkPaidSheetMissLine({ xeroLine, receipt }) ?? '');
+        return invoiceMarkPaidReceiptToast({ xeroToast: invoiceMarkPaidToast(xero), receipt });
       }
+      return null;
     };
 
     const id = savedId ?? invoice?.id;
@@ -692,9 +719,9 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         setErr(error.message);
         return null;
       }
-      await finishPaid(id);
+      const paidToast = await finishPaid(id);
       setSaving(false);
-      onSaved({ close: opts?.close ?? false, message: opts?.message ?? 'Invoice updated' });
+      onSaved({ close: opts?.close ?? false, message: paidToast ?? opts?.message ?? 'Invoice updated' });
       return id;
     }
     const { data, error } = await supabase.from('invoices').insert({
@@ -713,9 +740,9 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       return null;
     }
     setSavedId(data.id as string);
-    await finishPaid(data.id as string);
+    const paidToast = await finishPaid(data.id as string);
     setSaving(false);
-    onSaved({ close: opts?.close ?? true, message: opts?.message ?? 'Invoice created' });
+    onSaved({ close: opts?.close ?? true, message: paidToast ?? opts?.message ?? 'Invoice created' });
     return data.id as string;
   };
 

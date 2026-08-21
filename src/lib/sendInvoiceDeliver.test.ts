@@ -100,7 +100,9 @@ describe('invoice send deliver path', () => {
     expect(dialog).not.toContain('xero-accounting');
     expect(page).toContain('keepOpen');
     expect(page).toContain('attachXeroPaymentAfterMarkPaid');
+    expect(page).toContain('deliverInvoiceReceiptAfterMarkPaid');
     expect(page).toContain('markPaid: true');
+    expect(page).not.toContain('Send receipt');
     expect(page).not.toContain('Connect Xero');
     expect(invoiceCss).toContain('--invoice-page: #F4F6F8');
     expect(invoiceCss).toContain('--invoice-sheet: #FFFFFF');
@@ -125,7 +127,7 @@ describe('invoice send deliver path', () => {
     const deliverStart = edge.indexOf('async function deliverInvoiceSend');
     const deliver = edge.slice(deliverStart, edge.indexOf('function reportSiteName'));
     const emailFail = deliver.indexOf('if (!res.ok)');
-    const statusWrite = deliver.indexOf('if (invoice.status === "draft"');
+    const statusWrite = deliver.indexOf('if (copyKind !== "receipt" && (invoice.status === "draft"');
     const chasedWrite = deliver.indexOf('invoicePatch.chased_at = sentAt');
     expect(emailFail).toBeGreaterThan(-1);
     expect(statusWrite).toBeGreaterThan(emailFail);
@@ -137,6 +139,8 @@ describe('invoice send deliver path', () => {
     expect(statusBlock).not.toContain('status: "paid"');
     expect(deliver).toContain('mode === "auto" && alreadyChasedInvoice');
     expect(deliver).toContain('copyKind === "chase"');
+    expect(deliver).toContain('copyKind === "receipt"');
+    expect(deliver).toContain('copyKind !== "receipt"');
   });
 
   it('loads the invoice by id + company before send', () => {

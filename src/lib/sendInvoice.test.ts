@@ -11,6 +11,9 @@ import {
   invoiceChaseHtml,
   invoiceChaseSmsBody,
   invoiceChaseSubject,
+  invoiceReceiptHtml,
+  invoiceReceiptSmsBody,
+  invoiceReceiptSubject,
   invoiceChasedAtPatchAfterSend,
   invoiceDueLabel,
   invoiceSendCopyKind,
@@ -255,9 +258,11 @@ describe('invoices.chased_at', () => {
     expect(invoiceChasedAtPatchAfterSend(true, 'chase', now)).toEqual({ chased_at: now.toISOString() });
     expect(invoiceChasedAtPatchAfterSend(false, 'chase', now)).toBeNull();
     expect(invoiceChasedAtPatchAfterSend(true, 'first', now)).toBeNull();
+    expect(invoiceChasedAtPatchAfterSend(true, 'receipt', now)).toBeNull();
     expect(shouldWriteInvoiceChasedAt(true, 'chase')).toBe(true);
     expect(shouldWriteInvoiceChasedAt(false, 'chase')).toBe(false);
     expect(shouldWriteInvoiceChasedAt(true, 'first')).toBe(false);
+    expect(shouldWriteInvoiceChasedAt(true, 'receipt')).toBe(false);
   });
 });
 
@@ -268,6 +273,7 @@ describe('invoice send copy / document name', () => {
     expect(invoiceChaseSubject(18, 'BTS Electrical', '19 Sep 2026'))
       .toBe('Overdue invoice #0018 from BTS Electrical — due 19 Sep 2026');
     expect(invoiceSendCopyKind({ status: 'draft' })).toBe('first');
+    expect(invoiceSendCopyKind({ status: 'paid' })).toBe('receipt');
     expect(invoiceSendCopyKind({ status: 'overdue', due_date: '2026-08-01' })).toBe('chase');
     expect(invoiceSendCopyKind({ status: 'sent', due_date: '2026-08-01' })).toBe('chase');
     expect(invoiceDueLabel('2026-09-19')).toBe('19 Sep 2026');
@@ -320,6 +326,39 @@ describe('invoice send copy / document name', () => {
     expect(sms).toMatch(/overdue/i);
     expect(sms).toContain('19 Aug 2026');
     expect(sms).toContain('#0018');
+  });
+
+  it('paid receipt uses thank-you copy — not chase, not first-send', () => {
+    expect(invoiceReceiptSubject(18, 'BTS Electrical')).toBe('Receipt for invoice #0018 from BTS Electrical');
+    expect(invoiceReceiptSubject(18, 'BTS Electrical')).not.toMatch(/overdue/i);
+    expect(invoiceReceiptSubject(18, 'BTS Electrical')).not.toBe(invoiceSendSubject(18, 'BTS Electrical'));
+    const html = invoiceReceiptHtml({
+      clientName: 'Jane',
+      companyName: 'BTS Electrical',
+      invoiceNumber: 18,
+      totalLabel: '$484.00',
+      attachedPdf: true,
+    });
+    expect(html).toMatch(/thank you/i);
+    expect(html).toMatch(/received payment/i);
+    expect(html).toContain('Receipt');
+    expect(html).toContain('#0018');
+    expect(html).toContain('$484.00');
+    expect(html).toMatch(/attached as your receipt/i);
+    expect(html).not.toMatch(/overdue/i);
+    expect(html).not.toContain('is chasing');
+    expect(html).not.toContain('has sent you invoice');
+    expect(html).not.toContain('portal');
+    const sms = invoiceReceiptSmsBody({
+      companyName: 'BTS Electrical',
+      invoiceNumber: 18,
+      totalLabel: '$484.00',
+    });
+    expect(sms).toMatch(/received payment/i);
+    expect(sms).toContain('#0018');
+    expect(sms).toContain('$484.00');
+    expect(sms).toMatch(/receipt PDF/i);
+    expect(sms).not.toMatch(/overdue/i);
   });
 
   it('does not claim a PDF is attached when none exists', () => {
