@@ -1,3 +1,5 @@
+import type { PdfThemeTokens } from '../shared/styles';
+
 export interface JhaReportControl {
   hierarchy: string;
   text: string;
@@ -85,6 +87,7 @@ export interface JhaReportData {
   companyWebsite?: string;
   companyLogoUrl?: string;
   companyAddress?: string;
+  theme?: PdfThemeTokens;
   siteContact?: string;
   clientName?: string;
   plantArea?: string;
