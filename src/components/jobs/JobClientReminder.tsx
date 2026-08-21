@@ -20,6 +20,10 @@ import {
   saveJobClientEmail,
 } from '../../lib/saveJobClientEmail';
 
+/** Honest no_email miss on this tray — write the address below. Not a failed-send line. */
+export const JOB_REMINDER_NO_EMAIL_FIELD =
+  'This client has no email. Add one below before you send.';
+
 export function JobClientReminder({
   job,
   client,
@@ -74,6 +78,14 @@ export function JobClientReminder({
     appUrl: typeof window !== 'undefined' ? window.location.origin : '',
   });
   const awaitingSmtp = !settingsFetched && !!companyId;
+  const noEmailFieldMiss =
+    !awaitingSmtp
+    && !decision.send
+    && decision.reason === 'no_email'
+    && emailRow.kind === 'edit';
+  const missText = noEmailFieldMiss
+    ? JOB_REMINDER_NO_EMAIL_FIELD
+    : (!decision.send ? decision.message : '');
 
   useEffect(() => {
     setEmailOverride(undefined);
@@ -203,7 +215,7 @@ export function JobClientReminder({
         ) : decision.send ? (
           <p className="job-reminder-meta">Auto-sends the day before (Australia/Perth).</p>
         ) : (
-          <p className="job-reminder-miss">{decision.message}</p>
+          <p className="job-reminder-miss">{missText}</p>
         )}
 
         {decision.send && !smsTo && (

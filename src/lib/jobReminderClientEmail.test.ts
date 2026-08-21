@@ -345,6 +345,20 @@ describe('24h reminder client email — wiring', () => {
     expect(cron).toContain('{"due":"tomorrow","source":"cron"}');
   });
 
+  it('points the no_email editor miss at the field on this tray — does not bounce to the client record', () => {
+    const reminder = src('src/components/jobs/JobClientReminder.tsx');
+    expect(reminder).toContain('JOB_REMINDER_NO_EMAIL_FIELD');
+    expect(reminder).toContain('Add one below before you send.');
+    expect(reminder).toContain('This client has no email. Add one below before you send.');
+    expect(reminder).toContain('noEmailFieldMiss');
+    expect(reminder).toContain("kind === 'edit'");
+    expect(reminder).not.toContain('Add one on the client record');
+    expect(reminder).not.toContain('client record');
+    expect(reminder).not.toContain('/clients/');
+    expect(reminder).not.toContain('Open client');
+    expect(src('src/lib/jobReminder.ts')).toContain('This client has no email — reminder was not sent.');
+  });
+
   it('keeps Flameboy look shots for empty, saved, already-has-email, and no-client', () => {
     const shots = [
       'docs/look/job-reminder-email-empty-desktop.png',
