@@ -41,6 +41,8 @@ export function JobDispatchPanel({
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
       queryClient.invalidateQueries({ queryKey: ['job-jhas', job.id] });
       queryClient.invalidateQueries({ queryKey: ['job-take5s', job.id] });
+      queryClient.invalidateQueries({ queryKey: ['job-inspections', job.id] });
+      queryClient.invalidateQueries({ queryKey: ['inspections'] });
       queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
       queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
       queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });

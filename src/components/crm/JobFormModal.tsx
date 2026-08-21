@@ -132,7 +132,7 @@ export function JobFormModal({
         await persistLivingJobOnBoundJhas(job.id);
       } catch (syncErr) {
         setSaving(false);
-        setErr(syncErr instanceof Error ? syncErr.message : 'Job saved, but this job’s SWMS / Take 5 could not be updated.');
+        setErr(syncErr instanceof Error ? syncErr.message : 'Job saved, but this job’s SWMS / Take 5 / inspection could not be updated.');
         onSaved(job.id);
         return;
       }

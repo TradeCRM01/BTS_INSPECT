@@ -164,7 +164,7 @@ export async function deliverReport(args: {
 
   const to = String(data.to ?? decision.to);
   const sms = (data?.sms ?? null) as SmsSendResult | null;
-  const site = reportSiteName(bundle.inspection?.meta);
+  const site = reportSiteName(bundle.inspection?.meta, bundle.job);
   const message = String(data.message ?? '').trim()
     || formatEmailAndSmsMessage(`Report ${bundle.report?.report_number ?? ''} for ${site} sent to ${to}`.trim(), sms);
   return { ok: true, to, markedSent: true, message, sms };

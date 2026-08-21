@@ -364,7 +364,14 @@ function invoiceChaseSmsBody(opts: {
   return `${who}: invoice #${padInvoiceNumber(opts.invoiceNumber)} is overdue.${due} Total (inc GST): ${opts.totalLabel}. The PDF is in your email.`;
 }
 
-function reportSiteName(meta: unknown): string {
+function reportSiteName(
+  meta: unknown,
+  job?: { address?: unknown; title?: unknown } | null,
+): string {
+  if (job) {
+    const live = String(job.address ?? "").trim() || String(job.title ?? "").trim();
+    return live || "Site";
+  }
   const row = (meta ?? {}) as { siteName?: unknown };
   return String(row.siteName ?? "").trim() || "Site";
 }
@@ -785,7 +792,9 @@ Deno.serve(async (req) => {
         jobRow = oneJob;
       }
 
-      const clientId = String(inspection?.client_id ?? jobRow?.client_id ?? "").trim();
+      const clientId = jobRow
+        ? String(jobRow.client_id ?? "").trim()
+        : String(inspection?.client_id ?? "").trim();
       if (!clientId) {
         return json({
           sent: false,
@@ -857,7 +866,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const toName = String(client?.name ?? "").trim() || "Client";
       const companyName = String(company?.name ?? "").trim() || "us";
-      const siteName = reportSiteName(inspection?.meta);
+      const siteName = reportSiteName(inspection?.meta, jobRow);
       const reportNumber = String(report.report_number ?? "").trim() || "report";
       const subject = `Inspection Report — ${siteName} — ${reportNumber} from ${companyName}`;
       const html = reportHtml({

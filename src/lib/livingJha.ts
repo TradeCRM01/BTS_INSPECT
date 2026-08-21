@@ -5,6 +5,8 @@ export type LivingJob = {
   title?: string | null;
   address?: string | null;
   assigned_team?: string[] | null;
+  client_id?: string | null;
+  client_name?: string | null;
 };
 
 export type LivingMember = {
@@ -54,8 +56,8 @@ function crewFingerprint(crew: JhaCrewMember[]): string {
   })));
 }
 
-/** Job site is the living SWMS site: address first, then job title. */
-export function livingJobSite(job: LivingJob | null | undefined): string {
+/** Job site is the living SWMS / inspection site: address first, then job title. */
+export function livingJobSite(job: LivingJob | { address?: string | null; title?: string | null } | null | undefined): string {
   if (!job) return '';
   return (job.address ?? '').trim() || (job.title ?? '').trim();
 }
@@ -335,5 +337,113 @@ export function livingTake5Summary(input: {
     hazards,
     hazardLabel: livingHazardLabel(hazards),
     meta: applied.meta,
+  };
+}
+
+export type LivingInspectionApplyOpts = {
+  /** When the job client name has not loaded yet, do not invent an empty client. */
+  skipClient?: boolean;
+};
+
+/** Job site for a bound inspection: same living site as SWMS (address, then title). */
+export function livingJobClientName(job: LivingJob | null | undefined): string {
+  if (!job) return '';
+  return (job.client_name ?? '').trim();
+}
+
+export function livingJobClientId(job: LivingJob | null | undefined): string | null {
+  if (!job) return null;
+  return (job.client_id ?? '').trim() || null;
+}
+
+/**
+ * Inspection site/client follow the bound job. Check answers stay on responses.
+ * No job / no site is an honest empty — do not keep a stale snapshot or invent an address.
+ */
+export function applyLivingJobToInspection(
+  meta: Record<string, string | undefined> | null | undefined,
+  job: LivingJob | null | undefined,
+  opts?: LivingInspectionApplyOpts,
+): {
+  meta: Record<string, string>;
+  siteName: string;
+  siteAddress: string;
+  clientName: string;
+  clientId: string | null;
+  changed: boolean;
+} {
+  const current = asMeta(meta);
+  const currentClientName = current.clientName ?? '';
+  if (!job) {
+    return {
+      meta: current,
+      siteName: current.siteName ?? '',
+      siteAddress: current.siteAddress ?? '',
+      clientName: currentClientName,
+      clientId: null,
+      changed: false,
+    };
+  }
+
+  const siteName = livingJobSite(job);
+  const siteAddress = (job.address ?? '').trim();
+  const clientName = opts?.skipClient ? currentClientName : livingJobClientName(job);
+  const clientId = livingJobClientId(job);
+
+  const next: Record<string, string> = { ...current, siteName, siteAddress };
+  if (!opts?.skipClient) next.clientName = clientName;
+
+  const changed =
+    (next.siteName ?? '') !== (current.siteName ?? '')
+    || (next.siteAddress ?? '') !== (current.siteAddress ?? '')
+    || (next.clientName ?? '') !== currentClientName;
+
+  return {
+    meta: next,
+    siteName,
+    siteAddress,
+    clientName: next.clientName ?? '',
+    clientId,
+    changed,
+  };
+}
+
+export function livingInspectionPatches(
+  rows: Array<{ id: string; meta?: Record<string, string> | null; client_id?: string | null }>,
+  job: LivingJob,
+  opts?: LivingInspectionApplyOpts,
+): Array<{ id: string; meta: Record<string, string>; clientId: string | null }> {
+  const patches: Array<{ id: string; meta: Record<string, string>; clientId: string | null }> = [];
+  const liveClientId = livingJobClientId(job);
+  for (const row of rows) {
+    const applied = applyLivingJobToInspection(row.meta ?? {}, job, opts);
+    const clientChanged = (row.client_id ?? '').trim() !== (liveClientId ?? '');
+    if (applied.changed || clientChanged) {
+      patches.push({ id: row.id, meta: applied.meta, clientId: liveClientId });
+    }
+  }
+  return patches;
+}
+
+export function livingInspectionSummary(input: {
+  meta?: Record<string, string> | null;
+  job: LivingJob | null | undefined;
+  skipClient?: boolean;
+}): {
+  site: string;
+  siteAddress: string;
+  clientName: string;
+  clientId: string | null;
+  meta: Record<string, string>;
+  jobBound: boolean;
+} {
+  const applied = applyLivingJobToInspection(input.meta ?? {}, input.job, { skipClient: input.skipClient });
+  return {
+    site: applied.siteName,
+    siteAddress: applied.siteAddress,
+    clientName: applied.clientName,
+    clientId: applied.clientId,
+    meta: applied.meta,
+    jobBound: !!input.job,
   };
 }

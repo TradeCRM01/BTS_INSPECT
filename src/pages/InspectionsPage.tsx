@@ -26,6 +26,7 @@ import { withInspectionDueNext } from '../lib/inspectionDueReminder';
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
 import { inspectionDisplayStatus } from '../lib/sendReport';
 import { useToast } from '../components/ui';
+import { applyLivingJobToInspection } from '../lib/livingJha';
 
 interface Inspection {
   id: string;
@@ -46,6 +47,7 @@ interface Inspection {
   job_scheduled_date?: string | null;
   job_company_id?: string | null;
   job_client_id?: string | null;
+  job_client_name?: string | null;
   due_on?: string | null;
   report_id?: string | null;
   report_sent_at?: string | null;
@@ -250,8 +252,14 @@ export function InspectionsPage() {
           : Promise.resolve({ data: [], error: null }),
       ]);
       if (reportsRes.error) throw reportsRes.error;
+      const clientIds = [...new Set((jobsRes.data ?? []).map(j => j.client_id).filter(Boolean))] as string[];
+      const clientsRes = clientIds.length
+        ? await supabase.from('clients').select('id, name').in('id', clientIds)
+        : { data: [], error: null };
+      if (clientsRes.error) throw clientsRes.error;
       const nameMap = Object.fromEntries((profilesRes.data ?? []).map(p => [p.id, p.name]));
       const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j]));
+      const clientNameMap = new Map((clientsRes.data ?? []).map(c => [c.id, c.name]));
       const reportMap = new Map((reportsRes.data ?? []).map(r => [r.inspection_id, r]));
 
       return list.map(i => ({
@@ -271,6 +279,9 @@ export function InspectionsPage() {
         job_scheduled_date: i.crm_job_id ? jobMap.get(i.crm_job_id)?.scheduled_date ?? null : null,
         job_company_id: i.crm_job_id ? jobMap.get(i.crm_job_id)?.company_id ?? null : null,
         job_client_id: i.crm_job_id ? jobMap.get(i.crm_job_id)?.client_id ?? null : null,
+        job_client_name: i.crm_job_id
+          ? clientNameMap.get(jobMap.get(i.crm_job_id)?.client_id ?? '') ?? null
+          : null,
       })) as Inspection[];
     },
     enabled: !!profile,
@@ -694,10 +705,24 @@ function InspectionCard({
   onSendReport: (reportId: string) => void;
   deleting: boolean;
 }) {
+  const living = applyLivingJobToInspection(
+    doc.meta,
+    doc.crm_job_id
+      ? {
+          id: doc.crm_job_id,
+          title: doc.job_title,
+          address: doc.job_address,
+          client_id: doc.job_client_id,
+          client_name: doc.job_client_name,
+        }
+      : null,
+  );
   const recommended = recommendInspectionListAction(inspectionListContext({
     ...doc,
     hasReport: !!doc.report_id,
     reportId: doc.report_id ?? null,
+    livingSite: living.siteName,
+    jobBound: !!doc.crm_job_id,
   }));
   const next = withInspectionDueNext(
     doc,
@@ -712,7 +737,9 @@ function InspectionCard({
   );
   const href = inspectionOpenPath(doc.id, recommended.key === 'send' ? 'pdf' : recommended.key);
   const displayStatus = inspectionDisplayStatus(doc.status, doc.report_sent_at);
-  const site = opsSiteLabel(doc.meta?.siteName, doc.meta?.siteAddress, doc.job_address, doc.job_title);
+  const site = doc.crm_job_id
+    ? opsSiteLabel(living.siteName, living.siteAddress)
+    : opsSiteLabel(doc.meta?.siteName, doc.meta?.siteAddress, doc.job_address, doc.job_title);
   const title = doc.template_snapshot?.name || 'Inspection';
   const when = format(parseISO(doc.completed_at || doc.started_at), 'd MMM yyyy');
   const jobNo = doc.meta?.jobNumber || (doc.job_number != null ? String(doc.job_number).padStart(4, '0') : null);
@@ -747,11 +774,11 @@ function InspectionCard({
         }
       />
       <div className="ops-card-body">
-        <OpsSiteRow site={site} mapsQuery={doc.meta?.siteName || doc.meta?.siteAddress || doc.job_address || null} />
+        <OpsSiteRow site={site} mapsQuery={living.siteName || living.siteAddress || doc.job_address || (!doc.crm_job_id ? (doc.meta?.siteName || doc.meta?.siteAddress) : null) || null} />
         <p className="ops-meta mt-1 truncate">{title}</p>
-        {(doc.job_title || doc.meta?.clientName || doc.inspector_name) && (
+        {(doc.job_title || living.clientName || (!doc.crm_job_id && doc.meta?.clientName) || doc.inspector_name) && (
           <p className="ops-meta mt-0.5 truncate">
-            {[doc.job_title, doc.meta?.clientName, doc.inspector_name].filter(Boolean).join(' · ')}
+            {[doc.job_title, living.clientName || (!doc.crm_job_id ? doc.meta?.clientName : ''), doc.inspector_name].filter(Boolean).join(' · ')}
           </p>
         )}
         {doc.parent_inspection_id && (

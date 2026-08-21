@@ -2,6 +2,8 @@ import JSZip from 'jszip';
 import { supabase } from './supabase';
 import { generatePdf } from '../reports/generatePdf';
 import type { TemplateSchema } from '../types/template';
+import { applyLivingJobToInspection } from './livingJha';
+import { reportSiteName } from './sendReport';
 
 export interface PackExportProfile {
   id: string;
@@ -37,8 +39,33 @@ async function ensurePdfBlob(args: {
     .maybeSingle();
   if (error || !inspection) return null;
 
-  const meta = (inspection.meta ?? {}) as Record<string, string>;
-  const siteName = meta.siteName ?? 'Site';
+  const rawMeta = (inspection.meta ?? {}) as Record<string, string>;
+  const crmJobId = (inspection as { crm_job_id?: string | null }).crm_job_id ?? null;
+  let livingJob: { id: string; title?: string | null; address?: string | null; client_id?: string | null; client_name?: string | null } | null = null;
+  if (crmJobId) {
+    const { data: job, error: jobErr } = await supabase
+      .from('jobs')
+      .select('id, title, address, client_id')
+      .eq('id', crmJobId)
+      .maybeSingle();
+    if (jobErr) throw jobErr;
+    if (job) {
+      let clientName = '';
+      if (job.client_id) {
+        const { data: client, error: clientErr } = await supabase
+          .from('clients')
+          .select('id, name')
+          .eq('id', job.client_id)
+          .maybeSingle();
+        if (clientErr) throw clientErr;
+        clientName = (client?.name ?? '').trim();
+      }
+      livingJob = { ...job, client_name: clientName };
+    }
+  }
+  const living = applyLivingJobToInspection(rawMeta, livingJob);
+  const meta = living.meta;
+  const siteName = reportSiteName(meta, livingJob);
 
   const { data: report } = await supabase
     .from('reports')

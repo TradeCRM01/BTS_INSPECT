@@ -13,6 +13,7 @@ import {
   type SmsDecision,
   decideSmsBeside,
 } from './jobReminder';
+import { livingJobSite } from './livingJha';
 
 export { COMPANY_EMAIL_SETTINGS_HREF, clientEmailForSend, clientPhoneForSms, isSmtpReady };
 
@@ -141,7 +142,12 @@ export const REPORT_SEND_PIPE = [
   'UPDATE reports.sent_at only when Resend returns 2xx',
 ] as const;
 
-export function reportSiteName(meta: Record<string, string | null> | null | undefined): string {
+/** Live job site when a job is bound; otherwise the inspection snapshot. Honest empty → 'Site'. */
+export function reportSiteName(
+  meta: Record<string, string | null> | null | undefined,
+  job?: Pick<ReportSendJob, 'address' | 'title'> | null,
+): string {
+  if (job) return livingJobSite({ id: '', address: job.address, title: job.title }) || 'Site';
   return (meta?.siteName ?? '').trim() || 'Site';
 }
 
@@ -327,14 +333,13 @@ export function applyReportSendScope<T>(
   return q;
 }
 
+/** Bound job client wins. No job → inspection client. Do not invent an id. */
 export function resolveReportClientId(
   inspection: Pick<ReportSendInspection, 'client_id'> | null | undefined,
   job: Pick<ReportSendJob, 'client_id'> | null | undefined,
 ): string | null {
-  const fromInspection = (inspection?.client_id ?? '').trim();
-  if (fromInspection) return fromInspection;
-  const fromJob = (job?.client_id ?? '').trim();
-  return fromJob || null;
+  if (job) return (job.client_id ?? '').trim() || null;
+  return (inspection?.client_id ?? '').trim() || null;
 }
 
 export function decideReportSend(bundle: ReportSendBundle): ReportSendDecision {
@@ -366,7 +371,7 @@ export function decideReportSend(bundle: ReportSendBundle): ReportSendDecision {
       href: `/clients/${clientId}`,
     };
   }
-  const siteName = reportSiteName(bundle.inspection?.meta);
+  const siteName = reportSiteName(bundle.inspection?.meta, bundle.job);
   const smsTo = clientPhoneForSms(bundle.client?.phone);
   return {
     ok: true,

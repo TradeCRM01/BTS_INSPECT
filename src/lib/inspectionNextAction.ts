@@ -181,15 +181,20 @@ export function inspectionListContext(row: {
   responses?: Record<string, unknown> | null;
   hasReport?: boolean;
   reportId?: string | null;
+  livingSite?: string | null;
+  jobBound?: boolean;
 }): InspectionListActionContext {
   return {
     status: row.status,
-    hasSite: inspectionHasSiteIdentity([
-      row.meta?.siteName,
-      row.meta?.siteAddress,
-      row.job_address,
-      row.job_title,
-    ]),
+    hasSite: row.jobBound
+      ? inspectionHasSiteIdentity([row.livingSite])
+      : inspectionHasSiteIdentity([
+          row.livingSite,
+          row.meta?.siteName,
+          row.meta?.siteAddress,
+          row.job_address,
+          row.job_title,
+        ]),
     requiredComplete: inspectionRequiredComplete(row.template_snapshot?.schema, row.responses),
     hasReport: row.hasReport,
     reportId: row.reportId ?? null,

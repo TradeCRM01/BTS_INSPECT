@@ -112,8 +112,8 @@ describe('decideReportSend', () => {
       ok: true,
       to: 'jane@acme.com.au',
       toName: 'Acme Plumbing',
-      subject: 'Inspection Report — Plant A — BTS-260821-1234 from BTS Electrical',
-      filename: 'Plant A - BTS-260821-1234.pdf',
+      subject: 'Inspection Report — Warehouse B — BTS-260821-1234 from BTS Electrical',
+      filename: 'Warehouse B - BTS-260821-1234.pdf',
       smsTo: '+61412345678',
       smsMessage: null,
     });
@@ -170,6 +170,43 @@ describe('decideReportSend', () => {
     expect(decision.ok).toBe(true);
     if (!decision.ok) return;
     expect(decision.to).toBe('jane@acme.com.au');
+  });
+
+  it('names Send from the live job site, not a stale inspections.meta.siteName', () => {
+    const decision = decideReportSend(bundle({
+      inspection: { ...inspection, meta: { siteName: 'Stale plant' } },
+    }));
+    expect(decision.ok).toBe(true);
+    if (!decision.ok) return;
+    expect(decision.subject).toContain('Warehouse B');
+    expect(decision.subject).not.toContain('Stale plant');
+    expect(decision.filename).toContain('Warehouse B');
+  });
+
+  it('does not invent a site when the bound job has no address', () => {
+    const decision = decideReportSend(bundle({
+      job: { ...job, address: '', title: '' },
+    }));
+    expect(decision.ok).toBe(true);
+    if (!decision.ok) return;
+    expect(decision.subject).toContain('Inspection Report — Site —');
+    expect(decision.subject).not.toContain('Plant A');
+  });
+
+  it('uses the inspection snapshot only when no job is bound', () => {
+    const decision = decideReportSend(bundle({ job: null }));
+    expect(decision.ok).toBe(true);
+    if (!decision.ok) return;
+    expect(decision.subject).toContain('Plant A');
+  });
+
+  it('blocks send when the bound job has no client, even if the inspection snapshot does', () => {
+    const decision = decideReportSend(bundle({
+      job: { ...job, client_id: null },
+    }));
+    expect(decision.ok).toBe(false);
+    if (decision.ok) return;
+    expect(decision.blocker).toBe('no_client');
   });
 
   it('still allows a resend of an already-sent report', () => {
@@ -348,10 +385,12 @@ describe('report send query scope', () => {
     expect(reportsForInspectionsQuery({ companyId: 'co1', inspectionIds: [] })).toBeNull();
   });
 
-  it('does not invent a client id', () => {
+  it('does not invent a client id — bound job client wins', () => {
     expect(resolveReportClientId({ client_id: null }, { client_id: null })).toBeNull();
     expect(resolveReportClientId({ client_id: null }, { client_id: 'c1' })).toBe('c1');
-    expect(resolveReportClientId({ client_id: 'c2' }, { client_id: 'c1' })).toBe('c2');
+    expect(resolveReportClientId({ client_id: 'c2' }, { client_id: 'c1' })).toBe('c1');
+    expect(resolveReportClientId({ client_id: 'c2' }, null)).toBe('c2');
+    expect(resolveReportClientId({ client_id: 'c2' }, { client_id: null })).toBeNull();
   });
 });
 

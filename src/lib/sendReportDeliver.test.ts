@@ -35,6 +35,7 @@ describe('report send deliver path', () => {
     expect(dialog).toContain('hub-invoice-send-tos');
     expect(edge).toContain('reportId');
     expect(edge).toContain('from("reports")');
+    expect(edge).toContain('reportSiteName(inspection?.meta, jobRow)');
     expect(edge).toContain('api.resend.com/emails');
     expect(edge).toContain('email_settings');
     expect(edge).toContain('sent_at');
