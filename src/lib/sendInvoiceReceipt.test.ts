@@ -454,6 +454,9 @@ describe('receipt source lock — Mark paid sheet, existing pipe, quotes off', (
     expect(overdue).toContain('mode: "auto"');
     expect(overdue).toContain('stampSentPastDueOverdue');
     expect(overdue.indexOf('stampSentPastDueOverdue')).toBeLessThan(overdue.indexOf('deliverInvoiceSend'));
+    expect(overdue).toContain('.is("chased_at", null)');
+    expect(overdue).toContain('secondChaseChasedAtBeforeIso');
+    expect(overdue.indexOf('.is("chased_at", null)')).toBeLessThan(overdue.indexOf('secondChaseChasedAtBeforeIso'));
     expect(overdue).not.toContain('purpose: "receipt"');
     expect(overdue).not.toContain('invoiceReceiptHtml');
   });
