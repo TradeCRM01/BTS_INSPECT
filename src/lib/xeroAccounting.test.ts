@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   ACCOUNTING_SETTINGS_PUBLIC_COLUMNS,
@@ -7,6 +9,8 @@ import {
   decideXeroSync,
   disconnectAccountingPatch,
   hasXeroCredentials,
+  invoiceAlreadySentForXeroSync,
+  invoicesForXeroSync,
   invoicesStillToPush,
   isAccountingRedirectUri,
   paidInvoicesForXeroSync,
@@ -20,6 +24,7 @@ import {
   recordPaidInvoiceSync,
   resolveXeroRedirectUri,
   settingsHaveXeroCipher,
+  shouldAttachXeroPayment,
   shouldStampLastSyncedAt,
   signXeroOAuthState,
   syncedPaidInvoiceMap,
@@ -30,6 +35,9 @@ import {
   xeroInvoicePayload,
   xeroMissMessage,
   xeroPaymentPayload,
+  xeroSyncAlreadyMessage,
+  xeroSyncPushedMessage,
+  XERO_SYNCABLE_INVOICE_STATUSES,
 } from './xeroAccounting';
 
 const paid = {
@@ -155,15 +163,50 @@ describe('oauth state', () => {
   });
 });
 
-describe('paidInvoicesForXeroSync', () => {
-  it('pushes this company paid invoices only — not sent, draft, or other companies', () => {
-    const rows = [
-      paid,
-      { ...paid, id: 'inv-sent', status: 'sent' },
-      { ...paid, id: 'inv-draft', status: 'draft' },
-      { ...paid, id: 'inv-other', company_id: 'co2' },
-    ];
-    expect(paidInvoicesForXeroSync(rows, 'co1').map((r) => r.id)).toEqual(['inv-paid']);
+describe('invoicesForXeroSync', () => {
+  const sent = { ...paid, id: 'inv-sent', status: 'sent' };
+  const overdue = { ...paid, id: 'inv-overdue', status: 'overdue' };
+  const chased = {
+    ...paid,
+    id: 'inv-chased',
+    status: 'sent',
+    chased_at: '2026-08-20T10:00:00.000Z',
+  };
+  const draft = { ...paid, id: 'inv-draft', status: 'draft' };
+  const other = { ...paid, id: 'inv-other', company_id: 'co2' };
+
+  it('pushes this company sent, overdue, chased-already-sent, and paid — not draft or other companies', () => {
+    expect(XERO_SYNCABLE_INVOICE_STATUSES).toEqual(['sent', 'overdue', 'paid']);
+    const rows = [paid, sent, overdue, chased, draft, other];
+    expect(invoicesForXeroSync(rows, 'co1').map((r) => r.id)).toEqual([
+      'inv-paid',
+      'inv-sent',
+      'inv-overdue',
+      'inv-chased',
+    ]);
+    expect(paidInvoicesForXeroSync(rows, 'co1').map((r) => r.id))
+      .toEqual(invoicesForXeroSync(rows, 'co1').map((r) => r.id));
+  });
+
+  it('treats overdue and chased as already sent, and never treats draft as sent', () => {
+    expect(invoiceAlreadySentForXeroSync(sent)).toBe(true);
+    expect(invoiceAlreadySentForXeroSync(overdue)).toBe(true);
+    expect(invoiceAlreadySentForXeroSync(chased)).toBe(true);
+    expect(invoiceAlreadySentForXeroSync(paid)).toBe(true);
+    expect(invoiceAlreadySentForXeroSync(draft)).toBe(false);
+    expect(invoiceAlreadySentForXeroSync({ status: 'draft', chased_at: '2026-08-20T10:00:00.000Z' }))
+      .toBe(false);
+  });
+
+  it('reuses the same paid_invoices map for sent and paid — no second map', () => {
+    const settings = recordPaidInvoiceSync(
+      { xero: { token: { iv: 'iv', cipher: 'cipher' }, paid_invoices: {} } },
+      'inv-sent',
+      'xero-sent-1',
+    );
+    expect(syncedPaidInvoiceMap(settings)).toEqual({ 'inv-sent': 'xero-sent-1' });
+    expect(invoicesStillToPush([sent, paid], settings).map((r) => r.id)).toEqual(['inv-paid']);
+    expect(invoicesStillToPush([sent], settings)).toEqual([]);
   });
 });
 
@@ -174,11 +217,12 @@ describe('decideXeroSync', () => {
     tenantId: 'tenant-1',
     hasTokenCipher: true,
     syncInvoices: true,
-    paidCount: 1,
+    invoiceCount: 1,
   };
 
-  it('syncs when connected with a real tenant and paid invoices', () => {
+  it('syncs when connected with a real tenant and invoices to push', () => {
     expect(decideXeroSync(connected)).toEqual({ ok: true });
+    expect(decideXeroSync({ ...connected, invoiceCount: undefined, paidCount: 1 })).toEqual({ ok: true });
   });
 
   it('misses when not connected or the token cipher is absent', () => {
@@ -190,12 +234,16 @@ describe('decideXeroSync', () => {
       .toEqual({ ok: false, code: 'not_connected' });
   });
 
-  it('misses when invoice sync is off or there are no paid invoices', () => {
+  it('misses when invoice sync is off or there is nothing to push', () => {
     expect(decideXeroSync({ ...connected, syncInvoices: false }))
       .toEqual({ ok: false, code: 'invoice_sync_off' });
-    expect(decideXeroSync({ ...connected, paidCount: 0 }))
-      .toEqual({ ok: false, code: 'no_paid_invoices' });
-    expect(xeroMissMessage('no_paid_invoices')).toMatch(/No paid invoices/);
+    expect(xeroMissMessage('invoice_sync_off')).toMatch(/turned off/);
+    expect(decideXeroSync({ ...connected, invoiceCount: 0 }))
+      .toEqual({ ok: false, code: 'nothing_to_push' });
+    expect(decideXeroSync({ ...connected, invoiceCount: undefined, paidCount: 0 }))
+      .toEqual({ ok: false, code: 'nothing_to_push' });
+    expect(xeroMissMessage('nothing_to_push')).toMatch(/No sent or paid invoices/);
+    expect(xeroMissMessage('no_paid_invoices')).toBe(xeroMissMessage('nothing_to_push'));
   });
 });
 
@@ -237,6 +285,23 @@ describe('xero invoice / payment payload', () => {
       Amount: 484,
       Date: '2026-08-20',
     });
+  });
+
+  it('attaches a Xero payment only when Relovi already marked the invoice paid', () => {
+    expect(shouldAttachXeroPayment({ status: 'paid' })).toBe(true);
+    expect(shouldAttachXeroPayment({ status: 'sent' })).toBe(false);
+    expect(shouldAttachXeroPayment({ status: 'overdue' })).toBe(false);
+    expect(shouldAttachXeroPayment({ status: 'draft' })).toBe(false);
+  });
+});
+
+describe('xero sync result copy', () => {
+  it('names invoices, not a second paid-only sync', () => {
+    expect(xeroSyncAlreadyMessage()).toBe('Invoices are already in Xero.');
+    expect(xeroSyncPushedMessage({ pushed: 1 })).toBe('Pushed 1 invoice to Xero.');
+    expect(xeroSyncPushedMessage({ pushed: 2 })).toBe('Pushed 2 invoices to Xero.');
+    expect(xeroSyncPushedMessage({ pushed: 1, missingBankForPaid: true }))
+      .toMatch(/paid invoices were authorised, not marked paid/);
   });
 });
 
@@ -329,7 +394,7 @@ describe('preferenceSavePayload', () => {
 });
 
 describe('shouldStampLastSyncedAt', () => {
-  it('stamps only after Xero accepts at least one paid invoice', () => {
+  it('stamps only after Xero accepts at least one invoice', () => {
     expect(shouldStampLastSyncedAt({ pushed: 1 })).toBe(true);
     expect(shouldStampLastSyncedAt({ pushed: 0 })).toBe(false);
   });
@@ -360,5 +425,30 @@ describe('readXeroFunctionResult', () => {
       ok: true,
       body: { ok: true, authorizeUrl: 'https://login.xero.com/x' },
     });
+  });
+});
+
+describe('existing xero edge + accounting page stay the one path', () => {
+  const edge = readFileSync(resolve(process.cwd(), 'supabase/functions/xero-accounting/index.ts'), 'utf8');
+  const page = readFileSync(resolve(process.cwd(), 'src/pages/AccountingSettingsPage.tsx'), 'utf8');
+
+  it('syncs sent, overdue, and paid on the existing xero-accounting action', () => {
+    expect(edge).toContain('action === "sync"');
+    expect(edge).toContain('invoicesForXeroSync');
+    expect(edge).toContain('XERO_SYNCABLE_INVOICE_STATUSES');
+    expect(edge).toContain('.in("status", [...XERO_SYNCABLE_INVOICE_STATUSES])');
+    expect(edge).not.toContain('.eq("status", "paid")');
+    expect(edge).toContain('recordPaidInvoiceSync');
+    expect(edge).toContain('shouldAttachXeroPayment');
+    expect(edge).not.toMatch(/myob/i);
+    expect(edge).not.toMatch(/create table/i);
+  });
+
+  it('keeps Connect / Sync now on AccountingSettingsPage — no second route', () => {
+    expect(page).toContain("action: 'sync'");
+    expect(page).toContain('Sync now');
+    expect(page).toContain('Push sent and paid invoices to Xero');
+    expect(page).not.toContain('/settings/xero-sent');
+    expect(page).not.toMatch(/myob/i);
   });
 });

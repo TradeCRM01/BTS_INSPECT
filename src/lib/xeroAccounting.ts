@@ -21,10 +21,15 @@ export type XeroMissCode =
   | 'not_connected'
   | 'not_xero'
   | 'invoice_sync_off'
+  | 'nothing_to_push'
   | 'no_paid_invoices'
   | 'xero_rejected'
   | 'quickbooks_not_in_slice'
   | 'not_admin';
+
+/** Stored invoice statuses that already left the draft tray — same push as paid. */
+export const XERO_SYNCABLE_INVOICE_STATUSES = ['sent', 'overdue', 'paid'] as const;
+export type XeroSyncableInvoiceStatus = (typeof XERO_SYNCABLE_INVOICE_STATUSES)[number];
 
 export type AccountingProvider = 'none' | 'xero' | 'quickbooks' | string;
 
@@ -46,6 +51,7 @@ export type SyncableInvoice = {
   subtotal?: number | null;
   due_date?: string | null;
   notes?: string | null;
+  chased_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -77,9 +83,10 @@ export function xeroMissMessage(code: XeroMissCode, detail?: string): string {
     case 'not_xero':
       return 'Connect is only wired for Xero on this page.';
     case 'invoice_sync_off':
-      return 'Invoice sync is turned off in settings. Paid invoices were not pushed.';
+      return 'Invoice sync is turned off in settings. Invoices were not pushed.';
+    case 'nothing_to_push':
     case 'no_paid_invoices':
-      return 'No paid invoices to sync for this company.';
+      return 'No sent or paid invoices to sync for this company.';
     case 'xero_rejected':
       return `Xero rejected the sync.${extra}`;
     case 'quickbooks_not_in_slice':
@@ -115,7 +122,8 @@ export function decideXeroSync(input: {
   tenantId?: string | null;
   hasTokenCipher?: boolean;
   syncInvoices?: boolean | null;
-  paidCount: number;
+  invoiceCount?: number;
+  paidCount?: number;
 }): { ok: true } | { ok: false; code: XeroMissCode } {
   const connected =
     input.provider === 'xero'
@@ -124,7 +132,8 @@ export function decideXeroSync(input: {
     && input.hasTokenCipher === true;
   if (!connected) return { ok: false, code: 'not_connected' };
   if (input.syncInvoices === false) return { ok: false, code: 'invoice_sync_off' };
-  if (input.paidCount <= 0) return { ok: false, code: 'no_paid_invoices' };
+  const count = input.invoiceCount ?? input.paidCount ?? 0;
+  if (count <= 0) return { ok: false, code: 'nothing_to_push' };
   return { ok: true };
 }
 
@@ -180,11 +189,55 @@ export function parseXeroCallbackSearch(search: string):
   return { ok: true, code, state };
 }
 
+export function isXeroSyncableInvoiceStatus(status: string): status is XeroSyncableInvoiceStatus {
+  return (XERO_SYNCABLE_INVOICE_STATUSES as readonly string[]).includes(status);
+}
+
+/** Sent, paid, stored overdue, or chased-after-send. Drafts never leave this tray. */
+export function invoiceAlreadySentForXeroSync(invoice: {
+  status: string;
+  chased_at?: string | null;
+}): boolean {
+  if (invoice.status === 'draft') return false;
+  if (isXeroSyncableInvoiceStatus(invoice.status)) return true;
+  return Boolean((invoice.chased_at ?? '').trim());
+}
+
+export function invoicesForXeroSync<T extends SyncableInvoice>(
+  invoices: T[],
+  companyId: string,
+): T[] {
+  return invoices.filter((inv) => inv.company_id === companyId && invoiceAlreadySentForXeroSync(inv));
+}
+
+/** Same filter as invoicesForXeroSync — paid stays on this map, not a second sync. */
 export function paidInvoicesForXeroSync<T extends SyncableInvoice>(
   invoices: T[],
   companyId: string,
 ): T[] {
-  return invoices.filter((inv) => inv.company_id === companyId && inv.status === 'paid');
+  return invoicesForXeroSync(invoices, companyId);
+}
+
+/** Payment attach is only for invoices already paid in Relovi. Not a payments sync. */
+export function shouldAttachXeroPayment(invoice: { status: string }): boolean {
+  return invoice.status === 'paid';
+}
+
+export function xeroSyncAlreadyMessage(): string {
+  return 'Invoices are already in Xero.';
+}
+
+export function xeroSyncPushedMessage(input: {
+  pushed: number;
+  missingBankForPaid?: boolean;
+  firstFailure?: string;
+}): string {
+  const bits = [`Pushed ${input.pushed} invoice${input.pushed === 1 ? '' : 's'} to Xero.`];
+  if (input.missingBankForPaid) {
+    bits.push('No Xero bank account — paid invoices were authorised, not marked paid.');
+  }
+  if (input.firstFailure) bits.push(`Some misses: ${input.firstFailure}`);
+  return bits.join(' ');
 }
 
 export function xeroInvoiceNumber(invoice: Pick<SyncableInvoice, 'id' | 'invoice_number'>): string {
