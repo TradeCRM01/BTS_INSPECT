@@ -156,6 +156,10 @@ export function JobClientReminder({
           <p className="job-reminder-reschedule">Client asked to reschedule.</p>
         )}
 
+        {noEmailFieldMiss && (
+          <p className="job-reminder-miss">{JOB_REMINDER_NO_EMAIL_FIELD}</p>
+        )}
+
         <div className="job-reminder-tos">
           <label className="block">
             <span className="ops-field-label">To</span>
@@ -214,7 +218,7 @@ export function JobClientReminder({
           <p className="job-reminder-meta">Checking email settings…</p>
         ) : decision.send ? (
           <p className="job-reminder-meta">Auto-sends the day before (Australia/Perth).</p>
-        ) : (
+        ) : noEmailFieldMiss ? null : (
           <p className="job-reminder-miss">{missText}</p>
         )}
 

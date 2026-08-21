@@ -352,6 +352,10 @@ describe('24h reminder client email — wiring', () => {
     expect(reminder).toContain('This client has no email. Add one below before you send.');
     expect(reminder).toContain('noEmailFieldMiss');
     expect(reminder).toContain("kind === 'edit'");
+    const emptyMiss = reminder.indexOf('{noEmailFieldMiss && (');
+    const tos = reminder.indexOf('<div className="job-reminder-tos">');
+    expect(emptyMiss).toBeGreaterThan(-1);
+    expect(tos).toBeGreaterThan(emptyMiss);
     expect(reminder).not.toContain('Add one on the client record');
     expect(reminder).not.toContain('client record');
     expect(reminder).not.toContain('/clients/');
