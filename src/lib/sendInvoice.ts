@@ -471,6 +471,7 @@ export const OVERDUE_INVOICE_AUTO_FIRE_PATH = [
   'SELECT public.invoke_job_client_reminders()',
   'pg_net POST /functions/v1/job-reminder due=overdue source=cron',
   'perth_today = (timezone(Australia/Perth, now()))::date',
+  'UPDATE invoices.status=overdue where status=sent and due_date < perth_today (already-overdue/no due_date stay put)',
   'email_settings where Resend is ready (companies without SMTP are not scanned)',
   'invoices where company_id = settings.company_id and status in (sent, overdue) and due_date < perth_today and chased_at is null',
   'skip already_chased; skip paid; skip draft; skip no client email; skip no stored PDF',
@@ -526,6 +527,106 @@ export function invoiceOverdueForAutofire(
   const due = dateOnly(inv.due_date);
   if (!due) return false;
   return due < todayYmd(now);
+}
+
+/**
+ * Persist stored overdue on this hop. Only status=sent + due_date < Perth today.
+ * Already overdue is not rewritten. No due_date is not overdue.
+ */
+export function shouldStampInvoiceStatusOverdue(
+  inv: { status: string; due_date?: string | null },
+  now = new Date(),
+): boolean {
+  if (inv.status !== 'sent') return false;
+  const due = dateOnly(inv.due_date);
+  if (!due) return false;
+  return due < todayYmd(now);
+}
+
+export function invoiceOverdueStampPatch(
+  inv: { status: string; due_date?: string | null },
+  now = new Date(),
+): { status: 'overdue' } | null {
+  return shouldStampInvoiceStatusOverdue(inv, now) ? { status: 'overdue' } : null;
+}
+
+export function invoiceStatusAfterOverdueStamp(
+  inv: { status: string; due_date?: string | null },
+  now = new Date(),
+): string {
+  return invoiceOverdueStampPatch(inv, now)?.status ?? inv.status;
+}
+
+export type OverdueStampQueryScope = {
+  table: 'invoices';
+  patch: { status: 'overdue' };
+  eq: { status: 'sent'; company_id?: string };
+  lt: { due_date: string };
+  notNull: readonly ['due_date'];
+};
+
+/** Single filtered UPDATE. Cron is all companies; user is company-scoped. Not a ledger walk. */
+export function overdueInvoiceStampQuery(args?: {
+  now?: Date;
+  caller?: OverdueInvoiceCaller | null;
+}): OverdueStampQueryScope {
+  const companyId = args?.caller?.kind === 'user' ? args.caller.companyId.trim() : '';
+  return {
+    table: 'invoices',
+    patch: { status: 'overdue' },
+    eq: companyId ? { status: 'sent', company_id: companyId } : { status: 'sent' },
+    lt: { due_date: todayYmd(args?.now) },
+    notNull: ['due_date'],
+  };
+}
+
+export function isOverdueStampQueryScoped(scope: OverdueStampQueryScope | null): boolean {
+  if (!scope) return false;
+  return scope.table === 'invoices'
+    && scope.patch.status === 'overdue'
+    && scope.eq.status === 'sent'
+    && !!scope.lt.due_date
+    && scope.notNull.includes('due_date');
+}
+
+export function wouldScanLedgerToStampOverdue(scope: OverdueStampQueryScope | null): boolean {
+  if (scope == null) return false;
+  return !isOverdueStampQueryScoped(scope);
+}
+
+type OverdueStampFilterBuilder = {
+  eq: (column: string, value: string) => OverdueStampFilterBuilder;
+  lt: (column: string, value: string) => OverdueStampFilterBuilder;
+  not: (column: string, op: string, value: null) => OverdueStampFilterBuilder;
+};
+
+export function applyOverdueStampScope<T>(
+  fromBuilder: { update: (patch: { status: 'overdue' }) => T },
+  scope: OverdueStampQueryScope,
+): T & OverdueStampFilterBuilder {
+  let q = fromBuilder.update(scope.patch) as T & OverdueStampFilterBuilder;
+  for (const [column, value] of Object.entries(scope.eq)) {
+    if (value) q = q.eq(column, value) as typeof q;
+  }
+  q = q.not('due_date', 'is', null) as typeof q;
+  q = q.lt('due_date', scope.lt.due_date) as typeof q;
+  return q;
+}
+
+export function selectInvoicesToStampOverdue<T extends {
+  status: string;
+  due_date?: string | null;
+  company_id?: string;
+}>(
+  invoices: T[],
+  now = new Date(),
+  companyId?: string | null,
+): T[] {
+  const scoped = (companyId ?? '').trim();
+  return invoices.filter((inv) => {
+    if (scoped && inv.company_id !== scoped) return false;
+    return shouldStampInvoiceStatusOverdue(inv, now);
+  });
 }
 
 export function overdueInvoiceCompanyFilter(companyId: string, now = new Date()) {

@@ -20,7 +20,10 @@ export function effectiveInvoiceStatus(
   return status === 'sent' ? 'sent' : status;
 }
 
-/** Overdue is computed from due date — never persist it as a chosen status. */
+/**
+ * UI form save: overdue is not a chosen status.
+ * The Perth hop stamps sent + past-due onto invoices.status separately.
+ */
 export function persistableInvoiceStatus(status: InvoiceStatus): InvoiceStatus {
   return status === 'overdue' ? 'sent' : status;
 }

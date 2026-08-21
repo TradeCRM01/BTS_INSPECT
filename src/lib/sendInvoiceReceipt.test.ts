@@ -452,6 +452,8 @@ describe('receipt source lock — Mark paid sheet, existing pipe, quotes off', (
     const overdueStart = edge.indexOf('if (due === "overdue")');
     const overdue = edge.slice(overdueStart, edge.indexOf('if (invoiceId)'));
     expect(overdue).toContain('mode: "auto"');
+    expect(overdue).toContain('stampSentPastDueOverdue');
+    expect(overdue.indexOf('stampSentPastDueOverdue')).toBeLessThan(overdue.indexOf('deliverInvoiceSend'));
     expect(overdue).not.toContain('purpose: "receipt"');
     expect(overdue).not.toContain('invoiceReceiptHtml');
   });

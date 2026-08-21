@@ -61,6 +61,7 @@ describe('recommendInvoiceAction', () => {
 
   it('sends again when overdue — mark paid recedes to overflow', () => {
     const overdue = { ...readyDraft, status: 'sent', due_date: '2026-08-19' };
+    const storedOverdue = { ...readyDraft, status: 'overdue', due_date: '2026-08-19' };
     expect(recommendInvoiceAction({ status: 'sent', due_date: '2026-08-21' }, now)).toMatchObject({
       key: 'mark_paid',
       detail: 'Invoice was sent. Waiting on payment.',
@@ -70,8 +71,18 @@ describe('recommendInvoiceAction', () => {
       label: 'Send again',
       status: 'overdue',
     });
+    expect(recommendInvoiceAction(storedOverdue, now)).toMatchObject({
+      key: 'send',
+      label: 'Send again',
+      status: 'overdue',
+    });
     expect(recommendInvoiceAction(overdue, now).detail).toMatch(/overdue/i);
     expect(invoiceOverflowPaidAction(overdue, now)).toMatchObject({
+      key: 'mark_paid',
+      label: 'Mark paid',
+      status: 'overdue',
+    });
+    expect(invoiceOverflowPaidAction(storedOverdue, now)).toMatchObject({
       key: 'mark_paid',
       label: 'Mark paid',
       status: 'overdue',

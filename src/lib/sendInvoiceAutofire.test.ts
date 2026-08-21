@@ -6,20 +6,28 @@ import { AUTO_FIRE_CLICK_PATH } from './jobReminder';
 import {
   alreadyChasedInvoice,
   applyOverdueInvoiceScope,
+  applyOverdueStampScope,
   invoiceChasedAtPatchAfterSend,
   invoiceOverdueForAutofire,
+  invoiceOverdueStampPatch,
+  invoiceStatusAfterOverdueStamp,
   missOverdueChaseMessage,
   OVERDUE_INVOICE_AUTO_FIRE_PATH,
   overdueInvoiceCompanyFilter,
+  overdueInvoiceStampQuery,
   overdueUnchasedInvoiceQuery,
   resolveOverdueInvoiceCaller,
   selectAutoFireOverdueInvoices,
+  selectInvoicesToStampOverdue,
   selectOverdueUnchasedInvoices,
+  shouldStampInvoiceStatusOverdue,
   shouldWriteInvoiceChasedAt,
   wouldScanLedgerToChaseOverdue,
+  wouldScanLedgerToStampOverdue,
   type InvoiceSendClient,
   type InvoiceSendInvoice,
   type OverdueInvoiceQueryScope,
+  type OverdueStampQueryScope,
 } from './sendInvoice';
 
 const smtp = {
@@ -73,6 +81,8 @@ describe('overdue auto-fire (cron, not Send again)', () => {
     expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' → ')).toMatch(/invoke_job_client_reminders/);
     expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).toMatch(/due=overdue/);
     expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).toMatch(/functions\/v1\/job-reminder/);
+    expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).toMatch(/status=overdue/);
+    expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).toMatch(/status=sent and due_date < perth_today/);
     expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).toMatch(/api\.resend\.com/);
     expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).toMatch(/api\.twilio\.com/);
     expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).toMatch(/chased_at/);
@@ -80,6 +90,10 @@ describe('overdue auto-fire (cron, not Send again)', () => {
     expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/invoice-chase-perth/);
     expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/tray/i);
     expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/Send again/);
+    const stampStep = OVERDUE_INVOICE_AUTO_FIRE_PATH.findIndex(step => step.includes('UPDATE invoices.status=overdue'));
+    const chaseStep = OVERDUE_INVOICE_AUTO_FIRE_PATH.findIndex(step => step.includes('chased_at is null'));
+    expect(stampStep).toBeGreaterThan(OVERDUE_INVOICE_AUTO_FIRE_PATH.findIndex(step => step.includes('due=overdue')));
+    expect(chaseStep).toBeGreaterThan(stampStep);
   });
 
   it('auto-selects Perth-overdue unchased invoices with email when SMTP is ready', () => {
@@ -216,6 +230,110 @@ describe('overdue auto-fire (cron, not Send again)', () => {
   });
 });
 
+describe('Perth hop stamps sent + past-due before chase', () => {
+  it('stamps only sent past Perth today — already overdue / no due_date / draft / paid stay put', () => {
+    expect(shouldStampInvoiceStatusOverdue({ status: 'sent', due_date: '2026-08-20' }, now)).toBe(true);
+    expect(invoiceOverdueStampPatch({ status: 'sent', due_date: '2026-08-20' }, now)).toEqual({ status: 'overdue' });
+    expect(invoiceStatusAfterOverdueStamp({ status: 'sent', due_date: '2026-08-20' }, now)).toBe('overdue');
+
+    expect(shouldStampInvoiceStatusOverdue({ status: 'overdue', due_date: '2026-08-20' }, now)).toBe(false);
+    expect(invoiceOverdueStampPatch({ status: 'overdue', due_date: '2026-08-20' }, now)).toBeNull();
+    expect(invoiceStatusAfterOverdueStamp({ status: 'overdue', due_date: '2026-08-20' }, now)).toBe('overdue');
+
+    expect(shouldStampInvoiceStatusOverdue({ status: 'sent', due_date: '2026-08-21' }, now)).toBe(false);
+    expect(shouldStampInvoiceStatusOverdue({ status: 'sent', due_date: null }, now)).toBe(false);
+    expect(shouldStampInvoiceStatusOverdue({ status: 'sent', due_date: '' }, now)).toBe(false);
+    expect(shouldStampInvoiceStatusOverdue({ status: 'sent', due_date: 'not-a-date' }, now)).toBe(false);
+    expect(invoiceStatusAfterOverdueStamp({ status: 'sent', due_date: null }, now)).toBe('sent');
+
+    expect(shouldStampInvoiceStatusOverdue({ status: 'draft', due_date: '2026-08-01' }, now)).toBe(false);
+    expect(invoiceStatusAfterOverdueStamp({ status: 'draft', due_date: '2026-08-01' }, now)).toBe('draft');
+    expect(shouldStampInvoiceStatusOverdue({ status: 'paid', due_date: '2026-08-01' }, now)).toBe(false);
+    expect(invoiceStatusAfterOverdueStamp({ status: 'paid', due_date: '2026-08-01' }, now)).toBe('paid');
+  });
+
+  it('uses Australia/Perth when UTC is still the previous evening', () => {
+    const perthNextDay = new Date('2026-08-20T16:30:00.000Z'); // 21 Aug 00:30 Perth
+    expect(shouldStampInvoiceStatusOverdue({ status: 'sent', due_date: '2026-08-20' }, perthNextDay)).toBe(true);
+    const perthSameDay = new Date('2026-08-20T15:30:00.000Z'); // 20 Aug 23:30 Perth
+    expect(shouldStampInvoiceStatusOverdue({ status: 'sent', due_date: '2026-08-20' }, perthSameDay)).toBe(false);
+  });
+
+  it('stamps already-chased sent rows so stored overdue is honest — chase still skips them', () => {
+    const chased = invoice({ chased_at: '2026-08-21T01:00:00.000Z' });
+    expect(shouldStampInvoiceStatusOverdue(chased, now)).toBe(true);
+    expect(alreadyChasedInvoice(chased)).toBe(true);
+    const pick = selectAutoFireOverdueInvoices([chased], [client], smtp, 'co-1', now);
+    expect(pick.selected).toEqual([]);
+    expect(pick.missed[0]?.reason).toBe('already_chased');
+  });
+
+  it('does not invent overdue across companies on a user hop, and cron stamps every company', () => {
+    const rows = [
+      invoice(),
+      invoice({ id: 'draft', status: 'draft' }),
+      invoice({ id: 'paid', status: 'paid' }),
+      invoice({ id: 'already', status: 'overdue' }),
+      invoice({ id: 'no-due', due_date: null }),
+      invoice({ id: 'other', company_id: 'co-2' }),
+    ];
+    expect(selectInvoicesToStampOverdue(rows, now).map(r => r.id).sort()).toEqual(['inv-1', 'other']);
+    expect(selectInvoicesToStampOverdue(rows, now, 'co-1').map(r => r.id)).toEqual(['inv-1']);
+    expect(selectInvoicesToStampOverdue(rows, now, 'co-2').map(r => r.id)).toEqual(['other']);
+  });
+
+  it('stamp query is status=sent + due_date < Perth today — not a ledger walk, not chased_at', () => {
+    const cronScope = overdueInvoiceStampQuery({ now, caller: { kind: 'cron' } });
+    expect(cronScope).toEqual({
+      table: 'invoices',
+      patch: { status: 'overdue' },
+      eq: { status: 'sent' },
+      lt: { due_date: '2026-08-21' },
+      notNull: ['due_date'],
+    });
+    expect(wouldScanLedgerToStampOverdue(cronScope)).toBe(false);
+    expect(cronScope.eq).not.toHaveProperty('company_id');
+
+    const userScope = overdueInvoiceStampQuery({ now, caller: { kind: 'user', companyId: 'co-1' } });
+    expect(userScope.eq).toEqual({ status: 'sent', company_id: 'co-1' });
+    expect(wouldScanLedgerToStampOverdue(userScope)).toBe(false);
+    expect(overdueInvoiceStampQuery({ now, caller: { kind: 'user', companyId: '  ' } }).eq)
+      .toEqual({ status: 'sent' });
+  });
+
+  it('applies a single UPDATE — status sent, due_date present and past, no chased_at filter', () => {
+    const calls: string[] = [];
+    const builder = {
+      update(patch: { status: 'overdue' }) {
+        calls.push(`update:${patch.status}`);
+        return this;
+      },
+      eq(column: string, value: string) {
+        calls.push(`eq:${column}:${value}`);
+        return this;
+      },
+      lt(column: string, value: string) {
+        calls.push(`lt:${column}:${value}`);
+        return this;
+      },
+      not(column: string, op: string, value: null) {
+        calls.push(`not:${column}:${op}:${value}`);
+        return this;
+      },
+    };
+    const scope = overdueInvoiceStampQuery({ now, caller: { kind: 'user', companyId: 'co-1' } }) as OverdueStampQueryScope;
+    applyOverdueStampScope(builder, scope);
+    expect(calls[0]).toBe('update:overdue');
+    expect(calls).toContain('eq:status:sent');
+    expect(calls).toContain('eq:company_id:co-1');
+    expect(calls).toContain('not:due_date:is:null');
+    expect(calls).toContain('lt:due_date:2026-08-21');
+    expect(calls.some(call => call.includes('chased_at'))).toBe(false);
+    expect(calls.some(call => call.includes('draft'))).toBe(false);
+    expect(calls.some(call => call.startsWith('eq:id:'))).toBe(false);
+  });
+});
+
 describe('invoiceOverdueForAutofire follows Perth, not UTC', () => {
   it('treats sent past Perth today as overdue', () => {
     expect(invoiceOverdueForAutofire({ status: 'sent', due_date: '2026-08-20' }, now)).toBe(true);
@@ -315,6 +433,19 @@ describe('scoped query — not a ledger scan', () => {
 });
 
 describe('performance — overdue unchased, not a ledger walk', () => {
+  it('stamp filter does not walk a mixed ledger by id', () => {
+    const mixed: InvoiceSendInvoice[] = [];
+    for (let i = 0; i < 4000; i++) {
+      mixed.push(invoice({ id: `other-${i}`, company_id: 'co-other', status: i % 2 === 0 ? 'draft' : 'paid' }));
+    }
+    mixed.push(invoice());
+    const started = performance.now();
+    const stamped = selectInvoicesToStampOverdue(mixed, now, 'co-1');
+    const elapsed = performance.now() - started;
+    expect(stamped.map(row => row.id)).toEqual(['inv-1']);
+    expect(elapsed).toBeLessThan(80);
+  });
+
   it('does not walk other companies even when handed a mixed ledger', () => {
     const mixed: InvoiceSendInvoice[] = [];
     for (let i = 0; i < 4000; i++) {
@@ -351,6 +482,8 @@ describe('Perth overdue auto-fire source lock', () => {
   const nextAction = readFileSync(resolve(process.cwd(), 'src/lib/invoiceNextAction.ts'), 'utf8');
   const xero = readFileSync(resolve(process.cwd(), 'src/lib/xeroAccounting.ts'), 'utf8');
   const quotesPage = readFileSync(resolve(process.cwd(), 'src/pages/QuotesPage.tsx'), 'utf8');
+  const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
+  const quoteNext = readFileSync(resolve(process.cwd(), 'src/lib/quoteNextAction.ts'), 'utf8');
 
   it('063 is a thin hop — 061 stays column-only, 062 Perth times stay signed', () => {
     expect(hop).toContain('{"due":"overdue","source":"cron"}');
@@ -377,5 +510,45 @@ describe('Perth overdue auto-fire source lock', () => {
     expect(quotesPage).not.toContain('chased_at');
     expect(edge).not.toContain('from("quotes")');
     expect(edge).not.toContain('send-quote');
+  });
+
+  it('stamps sent + past-due before chase on the same due=overdue hop — no new cron or column', () => {
+    const overdueStart = edge.indexOf('if (due === "overdue")');
+    const overdue = edge.slice(overdueStart, edge.indexOf('if (invoiceId)'));
+    expect(overdue).toContain('stampSentPastDueOverdue');
+    expect(overdue.indexOf('stampSentPastDueOverdue')).toBeLessThan(overdue.indexOf('companyIds.length === 0'));
+    expect(overdue.indexOf('stampSentPastDueOverdue')).toBeLessThan(overdue.indexOf('.in("status", ["sent", "overdue"])'));
+    expect(overdue.indexOf('stampSentPastDueOverdue')).toBeLessThan(overdue.indexOf('deliverInvoiceSend'));
+    expect(overdue).toContain('todayYmd()');
+    expect(overdue).not.toContain('cron.schedule');
+    expect(overdue).not.toContain('CREATE TABLE');
+    expect(overdue).not.toContain('ADD COLUMN');
+    expect(overdue).not.toContain('from("quotes")');
+    expect(overdue).not.toContain('purpose: "receipt"');
+
+    const stampStart = edge.indexOf('async function stampSentPastDueOverdue');
+    const stampFn = edge.slice(stampStart, edge.indexOf('const invoiceMissText'));
+    expect(stampFn).toContain('.update({ status: "overdue"');
+    expect(stampFn).toContain('.eq("status", "sent")');
+    expect(stampFn).toContain('.not("due_date", "is", null)');
+    expect(stampFn).toContain('.lt("due_date", today)');
+    expect(stampFn).not.toContain('chased_at');
+    expect(stampFn).not.toContain('from("quotes")');
+    expect(stampFn).not.toContain('cron.schedule');
+
+    expect(hop).not.toContain('CREATE TABLE');
+    expect(hop).not.toContain('ADD COLUMN');
+    expect(hop).not.toContain('cron.schedule');
+
+    expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
+    expect(page).toContain('hub-invoice-more');
+    expect(css).toContain('.hub-invoices .btn-primary');
+    expect(css).toMatch(/\.hub-invoices \.btn-primary[\s\S]*min-height:\s*44px/);
+    expect(css).toMatch(/\.hub-invoices \.btn-primary[\s\S]*height:\s*44px/);
+
+    expect(quotesPage).not.toContain('stampSentPastDueOverdue');
+    expect(quotesPage).not.toContain('shouldStampInvoiceStatusOverdue');
+    expect(quoteNext).not.toContain('stampSentPastDueOverdue');
+    expect(quoteNext).not.toContain('due=overdue');
   });
 });

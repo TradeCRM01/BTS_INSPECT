@@ -624,6 +624,24 @@ function invoiceOverdueForAutofire(invoice: Record<string, unknown>, today: stri
   return !!due && due < today;
 }
 
+/** Persist stored overdue on sent rows past Perth today. Skips any other status. No due_date is not overdue. */
+async function stampSentPastDueOverdue(
+  admin: ReturnType<typeof createClient>,
+  today: string,
+  companyId?: string | null,
+): Promise<{ error: string | null }> {
+  let q = admin
+    .from("invoices")
+    .update({ status: "overdue", updated_at: new Date().toISOString() })
+    .eq("status", "sent")
+    .not("due_date", "is", null)
+    .lt("due_date", today);
+  const scoped = String(companyId ?? "").trim();
+  if (scoped) q = q.eq("company_id", scoped);
+  const { error } = await q;
+  return { error: error?.message ?? null };
+}
+
 const invoiceMissText: Record<string, string> = {
   no_email: "This client has no email. Add one on the client record before you send.",
   no_smtp: "Email is not set up. Add SMTP in Company settings — there is a test send there.",
@@ -1172,6 +1190,8 @@ Deno.serve(async (req) => {
       if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
       const today = todayYmd();
       const autoAllCompanies = cronOk && !userCompanyId;
+      const stamped = await stampSentPastDueOverdue(admin, today, autoAllCompanies ? null : userCompanyId);
+      if (stamped.error) return json({ error: stamped.error, sent: false }, 400);
       const companyIds: string[] = [];
       const settingsByCompany = new Map<string, EmailSettings>();
       if (!autoAllCompanies) {
