@@ -141,7 +141,7 @@ export function AccountingSettingsPage() {
         setActionMsg({ kind: 'miss', text: result.message });
         return;
       }
-      setActionMsg({ kind: 'ok', text: String(result.body.message ?? 'Synced paid invoices to Xero.') });
+      setActionMsg({ kind: 'ok', text: String(result.body.message ?? 'Synced invoices to Xero.') });
       queryClient.invalidateQueries({ queryKey: ['accounting-settings'] });
     } finally {
       setBusyAction(null);
@@ -294,7 +294,7 @@ export function AccountingSettingsPage() {
                   />
                   <ToggleRow
                     label="Sync invoices"
-                    description="Push paid invoices to Xero"
+                    description="Push sent and paid invoices to Xero"
                     checked={syncInvoices}
                     onChange={setSyncInvoices}
                   />
