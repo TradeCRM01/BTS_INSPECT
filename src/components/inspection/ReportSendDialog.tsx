@@ -118,10 +118,10 @@ export function ReportSendDialog({
           )}
 
           {!loading && !ready && (
-            <p className="text-sm text-fail">{blockerMessage || err || 'This report cannot be sent yet.'}</p>
+            <p className="hub-invoice-err">{blockerMessage || err || 'This report cannot be sent yet.'}</p>
           )}
 
-          {err && ready && <p className="text-sm text-fail">{err}</p>}
+          {err && ready && <p className="hub-invoice-err">{err}</p>}
         </div>
 
         <div className="hub-invoice-send-foot">

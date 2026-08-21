@@ -764,7 +764,7 @@ function InspectionCard({
               if (next.label === 'Send' && doc.report_id) onSendReport(doc.report_id);
               else onOpen(next.href);
             }}
-            className="ops-next-control-block"
+            className={next.label === 'No report yet' ? 'ops-next-control-done' : 'ops-next-control-block'}
           >
             {next.label}
           </button>

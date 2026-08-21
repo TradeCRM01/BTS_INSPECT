@@ -7,7 +7,7 @@ import { generatePdf } from '../reports/generatePdf';
 import type { TemplateSchema } from '../types/template';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { Download, Mail, FileText, ChevronLeft, RefreshCw, CreditCard as Edit2, Link2, Plus, PenLine, FilePlus2, Check, Share2 } from 'lucide-react';
+import { FileText, ChevronLeft, CreditCard as Edit2, PenLine, MoreHorizontal } from 'lucide-react';
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
 import { reportIsSent } from '../lib/sendReport';
 import { format } from 'date-fns';
@@ -57,6 +57,20 @@ export function ReportPage() {
   const [sendingReport, setSendingReport] = useState(false);
   const [sendNotice, setSendNotice] = useState('');
   const originalPdfBytesRef = useRef<Uint8Array | null>(null);
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  useEffect(() => {
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    document.addEventListener('pointerdown', onPointer);
+    return () => document.removeEventListener('pointerdown', onPointer);
+  }, []);
 
   useEffect(() => {
     const url = pdfUrl;
@@ -451,49 +465,71 @@ export function ReportPage() {
               <p className="text-xs text-[#6B7280] mt-1">Amendment: {amendmentReason}</p>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => navigate(`/inspections/new?jobId=${id}`)}
-              className="flex items-center gap-1.5 border border-[#2E75B6] text-[#2E75B6] px-3 py-2 rounded-md text-sm font-medium hover:bg-[#EFF6FF] transition-colors"
-            >
-              <Link2 size={15} /> <Plus size={13} /> Add inspection to job
-            </button>
-            {existingReport && (
-              <button
-                onClick={handleCopyClientShareLink}
-                disabled={sharing}
-                className="flex items-center gap-1.5 border border-[#2E75B6] text-[#2E75B6] px-3 py-2 rounded-md text-sm font-medium hover:bg-[#EFF6FF] disabled:opacity-50 transition-colors"
-              >
-                {shareCopied ? <Check size={15} /> : <Share2 size={15} />}
-                {shareCopied ? 'Link copied' : sharing ? 'Creating…' : 'Client share link'}
-              </button>
-            )}
-            {existingReport && (
-              <button
-                onClick={handleAmendAndReissue}
-                disabled={amending}
-                className="flex items-center gap-1.5 border border-amber-300 text-amber-800 px-3 py-2 rounded-md text-sm font-medium hover:bg-amber-50 disabled:opacity-50 transition-colors"
-              >
-                <FilePlus2 size={15} /> {amending ? 'Creating…' : 'Amend & re-issue'}
-              </button>
-            )}
-            {existingReport && (
-              <button onClick={handleEmail} className="flex items-center gap-1.5 border border-[#E5E7EB] text-[#4A5568] px-3 py-2 rounded-md text-sm hover:bg-[#F9FAFB]">
-                <Mail size={15} /> {reportIsSent((existingReport as { sent_at?: string | null }).sent_at) ? 'Send again' : 'Send'}
-              </button>
-            )}
-            {pdfUrl && activeTab !== 'annotate' && (
-              <button onClick={handleDownloadOriginal} className="flex items-center gap-1.5 border border-[#0A2540] text-[#0A2540] px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0A2540]/5">
-                <Download size={15} /> Download PDF
-              </button>
-            )}
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="flex items-center gap-1.5 bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
-            >
-              {generating ? <><LoadingSpinner size="sm" /> Generating...</> : <><RefreshCw size={15} /> {existingReport ? 'Regenerate PDF' : 'Generate PDF'}</>}
-            </button>
+          <div className="hub-invoices">
+            <div className="hub-invoice-editor-act">
+              {existingReport ? (
+                <button type="button" onClick={handleEmail} className="btn-primary">
+                  Send
+                </button>
+              ) : (
+                <button type="button" onClick={handleGenerate} disabled={generating} className="btn-primary">
+                  {generating ? <><LoadingSpinner size="sm" /> Generating...</> : 'Generate PDF'}
+                </button>
+              )}
+              <details ref={moreRef} className="hub-invoice-more">
+                <summary aria-label="More actions">
+                  <MoreHorizontal size={18} />
+                </summary>
+                <div className="hub-invoice-more-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); navigate(`/inspections/new?jobId=${id}`); }}
+                  >
+                    Add inspection to job
+                  </button>
+                  {existingReport && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { closeMore(); void handleCopyClientShareLink(); }}
+                      disabled={sharing}
+                    >
+                      {shareCopied ? 'Link copied' : sharing ? 'Creating…' : 'Client share link'}
+                    </button>
+                  )}
+                  {existingReport && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { closeMore(); void handleAmendAndReissue(); }}
+                      disabled={amending}
+                    >
+                      {amending ? 'Creating…' : 'Amend & re-issue'}
+                    </button>
+                  )}
+                  {pdfUrl && activeTab !== 'annotate' && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { closeMore(); handleDownloadOriginal(); }}
+                    >
+                      Download PDF
+                    </button>
+                  )}
+                  {existingReport && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { closeMore(); void handleGenerate(); }}
+                      disabled={generating}
+                    >
+                      {generating ? 'Generating…' : 'Regenerate PDF'}
+                    </button>
+                  )}
+                </div>
+              </details>
+            </div>
           </div>
         </div>
 

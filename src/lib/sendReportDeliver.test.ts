@@ -24,8 +24,15 @@ describe('report send deliver path', () => {
     expect(dialog).not.toContain('QuoteSend');
     expect(dialog).not.toContain('send-quote');
     expect(page).toContain('ReportSendDialog');
+    expect(page).toContain('hub-invoice-more');
+    expect(page).toContain('btn-primary');
+    expect(page).not.toContain('Send again');
     expect(page).not.toContain('mailto:?subject=');
     expect(page).not.toContain('window.location.href = `mailto:');
+    expect(dialog).toContain('hub-invoice-send');
+    expect(dialog).toContain('Send report');
+    expect(dialog).toContain('SMS To');
+    expect(dialog).toContain('hub-invoice-send-tos');
     expect(edge).toContain('reportId');
     expect(edge).toContain('from("reports")');
     expect(edge).toContain('api.resend.com/emails');
@@ -72,5 +79,7 @@ describe('report send deliver path', () => {
     expect(jobHub).not.toContain('mailto:?subject=');
     expect(list).toContain('ReportSendDialog');
     expect(list).toContain('hasReport');
+    expect(list).toContain('No report yet');
+    expect(list).toContain('ops-next-control-done');
   });
 });
