@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,6 +22,11 @@ import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
 import {
+  jobClientEmailRow,
+  jobClientEmailSaveToast,
+  saveJobClientEmail,
+} from '../lib/saveJobClientEmail';
+import {
   deliverInvoiceReceiptAfterMarkPaid,
   invoiceMarkPaidReceiptToast,
   invoiceMarkPaidSheetMissLine,
@@ -34,7 +39,7 @@ import {
   INVOICE_MARKED_PAID_MESSAGE,
 } from '../lib/xeroAccounting';
 import { INVOICE_STATUS_LABELS, formatMoney } from '../types/fsm';
-import { Plus, Receipt, Download, X, MoreHorizontal } from 'lucide-react';
+import { Plus, Receipt, Download, X, MoreHorizontal, Mail } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 const padInv = (n: number | null) => String(n ?? 0).padStart(4, '0');
@@ -355,17 +360,18 @@ function InvoiceHit({
       <span className={`hub-invoices-pill is-${status}`}>{INVOICE_STATUS_LABELS[status]}</span>
       <span className="hub-invoices-total">{money ?? ''}</span>
       <span className="hub-invoices-row-next" onClick={e => e.stopPropagation()}>
-        <InvoiceNextControl invoice={invoice} smtpReady={smtpReady} onSend={onSend} />
+        <InvoiceNextControl invoice={invoice} smtpReady={smtpReady} onOpen={onOpen} onSend={onSend} />
       </span>
     </div>
   );
 }
 
 function InvoiceNextControl({
-  invoice, smtpReady, onSend,
+  invoice, smtpReady, onOpen, onSend,
 }: {
   invoice: InvoiceWithDetails;
   smtpReady: boolean | null;
+  onOpen: () => void;
   onSend: (invoiceId: string) => void;
 }) {
   const queryClient = useQueryClient();
@@ -410,7 +416,7 @@ function InvoiceNextControl({
   };
 
   let primary: ReactNode = null;
-  if (next.key === 'setup_email' || next.key === 'add_email') {
+  if (next.key === 'setup_email') {
     primary = next.href ? (
       <Link
         to={next.href}
@@ -420,6 +426,17 @@ function InvoiceNextControl({
         {next.label}
       </Link>
     ) : null;
+  } else if (next.key === 'add_email') {
+    primary = (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="hub-next"
+        title={next.detail}
+      >
+        {next.label}
+      </button>
+    );
   } else if (next.key === 'send' || next.key === 'mark_paid') {
     const chasePrimary = next.key === 'send' && next.status === 'overdue';
     primary = (
@@ -488,6 +505,8 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   onRequestSend: (invoiceId: string) => void;
 }) {
   const { profile, company } = useAuth();
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -501,6 +520,8 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const [err, setErr] = useState('');
   const [xeroMiss, setXeroMiss] = useState('');
   const [savedId, setSavedId] = useState<string | null>(invoice?.id ?? null);
+  const [clientEmailDraft, setClientEmailDraft] = useState(invoice?.client_email ?? '');
+  const [writtenClientEmail, setWrittenClientEmail] = useState<{ clientId: string; email: string | null } | null>(null);
 
   const [form, setForm] = useState<EditorState>({
     client_id: invoice?.client_id ?? presetClientId ?? '',
@@ -551,6 +572,40 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const clientJobs = useMemo(() => jobs.filter(j => form.client_id && j.client_id === form.client_id), [jobs, form.client_id]);
   const selectedClient = clients.find(c => c.id === form.client_id);
   const selectedJob = jobs.find(j => j.id === form.job_id);
+  const emailClientBase = selectedClient ?? (
+    form.client_id && invoice?.client_id === form.client_id
+      ? { id: form.client_id, email: invoice.client_email ?? null }
+      : null
+  );
+  const emailClient = emailClientBase && writtenClientEmail?.clientId === emailClientBase.id
+    ? { ...emailClientBase, email: writtenClientEmail.email }
+    : emailClientBase;
+  const emailRow = jobClientEmailRow({ clientId: form.client_id || null, client: emailClient });
+
+  useEffect(() => {
+    setClientEmailDraft(emailClient?.email ?? '');
+  }, [emailClient?.id, emailClient?.email]);
+
+  const saveClientEmail = useMutation({
+    mutationFn: async () => {
+      return saveJobClientEmail({
+        clientId: form.client_id || null,
+        email: clientEmailDraft,
+      });
+    },
+    onSuccess: (result) => {
+      setWrittenClientEmail({ clientId: result.clientId, email: result.email });
+      setClients(cs => cs.map(c => c.id === result.clientId ? { ...c, email: result.email } : c));
+      setClientEmailDraft(result.email ?? '');
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice'] });
+      queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      const toast = jobClientEmailSaveToast(result.email);
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
   const rawSubtotal = useMemo(() => calcSubtotal(form.line_items), [form.line_items]);
   const gst = useMemo(
     () => calcDocumentTotals(rawSubtotal, parseFloat(form.tax_rate) || 0),
@@ -561,7 +616,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     status: form.status,
     due_date: form.due_date,
     client_id: form.client_id || null,
-    client_email: selectedClient?.email,
+    client_email: emailClient?.email,
     line_items: form.line_items,
   }, { smtpReady }));
   const displayStatus = next.status;
@@ -780,11 +835,6 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                 Set up email
               </Link>
             )}
-            {next.key === 'add_email' && next.href && (
-              <Link to={next.href} className="btn-primary" title={next.detail}>
-                Add client email
-              </Link>
-            )}
             {next.key === 'send' && (
               <button type="button" onClick={() => void startSend()} disabled={saving} className="btn-primary">
                 {saving ? 'Saving...' : next.status === 'overdue' ? 'Send again' : 'Send invoice'}
@@ -874,6 +924,38 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             <div className="min-w-0">
               <p className="hub-invoice-kicker">Bill to</p>
               {selectedClient?.name ? <p className="hub-invoice-to-name">{selectedClient.name}</p> : null}
+              {emailRow.kind === 'mailto' && (
+                <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
+                  <Mail size={13} /> {emailRow.email}
+                </a>
+              )}
+              {emailRow.kind === 'edit' && (
+                <form
+                  className="job-client-email"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    saveClientEmail.mutate();
+                  }}
+                >
+                  <Mail size={13} />
+                  <input
+                    type="email"
+                    value={clientEmailDraft}
+                    onChange={e => setClientEmailDraft(e.target.value)}
+                    placeholder="Email"
+                    className="form-input-sm"
+                    aria-label="Client email"
+                    autoComplete="email"
+                  />
+                  <button
+                    type="submit"
+                    className="job-client-email-save"
+                    disabled={saveClientEmail.isPending}
+                  >
+                    Save
+                  </button>
+                </form>
+              )}
               <OpsSiteRow
                 hub
                 site={editorSite}

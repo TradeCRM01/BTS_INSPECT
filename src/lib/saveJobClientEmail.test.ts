@@ -252,7 +252,17 @@ describe('job-sheet client email — wiring', () => {
     expect(deliver).not.toContain('saveJobClientEmail');
     expect(send).not.toContain('saveJobClientEmail');
     expect(dialog).not.toContain('saveJobClientEmail');
-    expect(invoicesPage).not.toContain('saveJobClientEmail');
+
+    const startSend = invoicesPage.indexOf('const startSend');
+    const startSendFn = invoicesPage.slice(startSend, invoicesPage.indexOf('const editorMoney'));
+    const patchPaid = invoicesPage.indexOf('const patchPaid');
+    const patchPaidFn = invoicesPage.slice(patchPaid, invoicesPage.indexOf('let primary'));
+    const finishPaid = invoicesPage.indexOf('const finishPaid');
+    const finishPaidFn = invoicesPage.slice(finishPaid, invoicesPage.indexOf('const id = savedId'));
+    expect(startSendFn).not.toContain('saveJobClientEmail');
+    expect(startSendFn).toContain('onRequestSend');
+    expect(patchPaidFn).not.toContain('saveJobClientEmail');
+    expect(finishPaidFn).not.toContain('saveJobClientEmail');
   });
 
   it('keeps Flameboy look shots for empty save, saved email, and no-client', () => {
