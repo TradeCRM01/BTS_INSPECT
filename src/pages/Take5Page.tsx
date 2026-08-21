@@ -395,7 +395,7 @@ function Take5FillPage() {
                 {saveHint === 'saved' ? 'Saved' : saveHint === 'saving' ? 'Saving…' : 'Save failed'}
               </span>
             )}
-            <Link to={`/jha/new?docId=${jhaId}`} className="text-accent min-h-[44px] inline-flex items-center">
+            <Link to={`/jha/new?docId=${jhaId}`} className="job-swms-quiet">
               Parent JHA
             </Link>
           </div>
@@ -509,14 +509,14 @@ function Take5FillPage() {
             {existing?.signature && !hasStroke && (
               <div>
                 <p className="ops-field-label">Saved signature</p>
-                <img src={existing.signature} alt="Saved signature" className="h-20 object-contain bg-white border border-rule rounded-md px-2" />
+                <img src={existing.signature} alt="Saved signature" className="job-swms-sign h-20 object-contain px-2" />
               </div>
             )}
             <div>
               <label className="ops-field-label">
                 {existing?.signature && !hasStroke ? 'Re-sign' : 'Signature'}
               </label>
-              <div className="border border-rule rounded-md overflow-hidden bg-white">
+              <div className="job-swms-sign">
                 <SignatureCanvas
                   ref={sigRef}
                   canvasProps={{ className: 'w-full h-36' }}
@@ -526,7 +526,7 @@ function Take5FillPage() {
               </div>
               <button
                 type="button"
-                className="text-xs text-muted mt-1 hover:underline min-h-[44px]"
+                className="job-swms-quiet mt-1"
                 onClick={() => { sigRef.current?.clear(); setHasStroke(false); }}
               >
                 Clear signature
@@ -536,9 +536,9 @@ function Take5FillPage() {
         </section>
 
         {pdfUrl && (
-          <div id="take5-pdf" className="ops-card p-4 flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-navy">Take 5 PDF ready</span>
-            <a href={pdfUrl} download={`Take5-${jha?.report_number || 'draft'}.pdf`} className="ops-next-control">
+          <div id="take5-pdf" className="ops-card flex items-center justify-between gap-3">
+            <span className="ops-section-title">Take 5 PDF ready</span>
+            <a href={pdfUrl} download={`Take5-${jha?.report_number || 'draft'}.pdf`} className="job-swms-quiet">
               <Download size={14} /> Download
             </a>
           </div>

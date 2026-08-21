@@ -941,8 +941,8 @@ export function JobDetailPage() {
             icon={ShieldAlert}
             count={(take5s ?? []).length}
             action={(take5s ?? []).length > 0 ? (
-              <button type="button" onClick={startTake5} className="ops-link text-xs">
-                <Plus size={12} className="inline" /> Another Take 5
+              <button type="button" onClick={startTake5} className="ops-link">
+                Another Take 5
               </button>
             ) : undefined}
             emptyTitle="No Take 5 on this job"
