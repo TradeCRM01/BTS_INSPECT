@@ -502,17 +502,31 @@ function invoiceSmsBody(opts: {
   return `${who} sent invoice #${padInvoiceNumber(opts.invoiceNumber)}. Total (inc GST): ${opts.totalLabel}.${due} The PDF is in your email.`;
 }
 
-function invoiceCopyKind(status: string): "first" | "chase" {
+function invoiceCopyKind(status: string): "first" | "chase" | "receipt" {
+  if (status === "paid") return "receipt";
   return status === "draft" ? "first" : "chase";
 }
 
+function invoiceDeliverCopyKind(args: {
+  status: string;
+  mode: "manual" | "auto";
+  purpose?: string;
+}): "first" | "chase" | "receipt" {
+  if (args.purpose === "receipt" || args.status === "paid") return "receipt";
+  if (args.mode === "auto") return "chase";
+  return invoiceCopyKind(args.status);
+}
+
 function invoiceSubject(opts: {
-  kind: "first" | "chase";
+  kind: "first" | "chase" | "receipt";
   invoiceNumber: unknown;
   companyName: string;
   dueLabel: string;
 }): string {
   const who = opts.companyName.trim() || "your contractor";
+  if (opts.kind === "receipt") {
+    return `Receipt for invoice #${padInvoiceNumber(opts.invoiceNumber)} from ${who}`;
+  }
   if (opts.kind === "chase") {
     const due = opts.dueLabel ? ` — due ${opts.dueLabel}` : "";
     return `Overdue invoice #${padInvoiceNumber(opts.invoiceNumber)} from ${who}${due}`;
@@ -565,6 +579,39 @@ function invoiceChaseSmsBody(opts: {
   return `${who}: invoice #${padInvoiceNumber(opts.invoiceNumber)} is overdue.${due} Total (inc GST): ${opts.totalLabel}. The PDF is in your email.`;
 }
 
+function invoiceReceiptHtml(opts: {
+  clientName: string;
+  companyName: string;
+  invoiceNumber: unknown;
+  totalLabel: string;
+}): string {
+  const client = escapeHtml(opts.clientName.trim() || "there");
+  const company = escapeHtml(opts.companyName.trim() || "us");
+  const number = escapeHtml(`#${padInvoiceNumber(opts.invoiceNumber)}`);
+  return `
+      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
+        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">Receipt</div>
+          <h1 style="margin:8px 0 0;font-size:20px">${number}</h1>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+          <p>Hi ${client},</p>
+          <p>Thank you. ${company} has received payment for invoice ${number}.</p>
+          <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${escapeHtml(opts.totalLabel)}</strong></p>
+          <p>The invoice PDF is attached as your receipt. Reply to this email if you have a question.</p>
+        </div>
+      </div>`;
+}
+
+function invoiceReceiptSmsBody(opts: {
+  companyName: string;
+  invoiceNumber: unknown;
+  totalLabel: string;
+}): string {
+  const who = opts.companyName.trim() || "your contractor";
+  return `${who} received payment for invoice #${padInvoiceNumber(opts.invoiceNumber)}. Total (inc GST): ${opts.totalLabel}. The receipt PDF is in your email.`;
+}
+
 function alreadyChasedInvoice(invoice: Record<string, unknown>): boolean {
   return String(invoice.chased_at ?? "").trim() !== "";
 }
@@ -587,8 +634,13 @@ const invoiceMissText: Record<string, string> = {
   no_due_date: "This invoice has no due date — chase was not sent.",
   not_overdue: "Chase is for overdue invoices.",
   paid: "This invoice is paid.",
+  not_paid: "Receipt is for paid invoices.",
   already_chased: "Already chased — invoice was not sent again.",
   send_failed: "Invoice was not sent.",
+  no_receipt_pdf: "The invoice PDF could not be attached — receipt was not sent.",
+  no_receipt_email: "This client has no email — receipt was not sent.",
+  no_receipt_smtp: "Email is not set up — receipt was not sent.",
+  no_receipt_invoice: "Invoice not found — receipt was not sent.",
 };
 
 async function deliverInvoiceSend(opts: {
@@ -601,12 +653,21 @@ async function deliverInvoiceSend(opts: {
   attachmentIn?: { filename?: string; content?: string };
   mode: "manual" | "auto";
   today: string;
+  purpose?: string;
 }): Promise<Record<string, unknown>> {
   const invoice = opts.invoice;
   const invoiceId = String(invoice.id ?? "");
   const extra = { invoiceId };
+  const purpose = String(opts.purpose ?? "").trim();
+  const receiptSend = purpose === "receipt" || (opts.mode === "manual" && invoice.status === "paid");
 
-  if (invoice.status === "paid") {
+  if (purpose === "receipt" && invoice.status !== "paid") {
+    return miss("not_paid", invoiceMissText.not_paid, extra);
+  }
+  if (invoice.status === "paid" && opts.mode === "auto") {
+    return miss("paid", invoiceMissText.paid, extra);
+  }
+  if (invoice.status === "paid" && !receiptSend) {
     return miss("paid", invoiceMissText.paid, extra);
   }
   if (opts.mode === "auto" && alreadyChasedInvoice(invoice)) {
@@ -625,13 +686,13 @@ async function deliverInvoiceSend(opts: {
 
   const to = prefillTo(opts.client?.email);
   if (!to) {
-    return miss("no_email", invoiceMissText.no_email, {
+    return miss("no_email", receiptSend ? invoiceMissText.no_receipt_email : invoiceMissText.no_email, {
       ...extra,
       href: `/clients/${invoice.client_id}`,
     });
   }
   if (!emailSettingsReady(opts.settings) || !opts.settings) {
-    return miss("no_smtp", invoiceMissText.no_smtp, {
+    return miss("no_smtp", receiptSend ? invoiceMissText.no_receipt_smtp : invoiceMissText.no_smtp, {
       ...extra,
       href: "/settings/company",
       to,
@@ -649,13 +710,17 @@ async function deliverInvoiceSend(opts: {
     }
   }
   if (!pdfContent || !pdfFilename) {
-    return miss("no_pdf", invoiceMissText.no_pdf, { ...extra, to });
+    return miss("no_pdf", receiptSend ? invoiceMissText.no_receipt_pdf : invoiceMissText.no_pdf, { ...extra, to });
   }
 
   const toName = String(opts.client?.name ?? "").trim() || "Client";
   const companyName = String(opts.company?.name ?? "").trim() || "us";
   const dueLabel = formatDueLabel(invoice.due_date);
-  const copyKind = opts.mode === "auto" ? "chase" : invoiceCopyKind(String(invoice.status ?? ""));
+  const copyKind = invoiceDeliverCopyKind({
+    status: String(invoice.status ?? ""),
+    mode: opts.mode,
+    purpose,
+  });
   const subject = invoiceSubject({
     kind: copyKind,
     invoiceNumber: invoice.invoice_number,
@@ -670,6 +735,13 @@ async function deliverInvoiceSend(opts: {
       totalLabel: formatAud(invoice.total),
       dueLabel,
       paymentTerms: String(invoice.payment_terms ?? "").trim(),
+    })
+    : copyKind === "receipt"
+    ? invoiceReceiptHtml({
+      clientName: toName,
+      companyName,
+      invoiceNumber: invoice.invoice_number,
+      totalLabel: formatAud(invoice.total),
     })
     : invoiceHtml({
       clientName: toName,
@@ -706,6 +778,12 @@ async function deliverInvoiceSend(opts: {
         totalLabel: formatAud(invoice.total),
         dueLabel,
       })
+      : copyKind === "receipt"
+      ? invoiceReceiptSmsBody({
+        companyName,
+        invoiceNumber: invoice.invoice_number,
+        totalLabel: formatAud(invoice.total),
+      })
       : invoiceSmsBody({
         companyName,
         invoiceNumber: invoice.invoice_number,
@@ -728,7 +806,7 @@ async function deliverInvoiceSend(opts: {
 
   const sentAt = new Date().toISOString();
   const invoicePatch: Record<string, unknown> = { updated_at: sentAt };
-  if (invoice.status === "draft" || invoice.status === "overdue") {
+  if (copyKind !== "receipt" && (invoice.status === "draft" || invoice.status === "overdue")) {
     invoicePatch.status = "sent";
   }
   if (copyKind === "chase") {
@@ -748,7 +826,10 @@ async function deliverInvoiceSend(opts: {
     to,
     sms,
     chased_at: invoicePatch.chased_at ?? null,
-    message: withSmsMessage(`Invoice sent to ${to}`, sms),
+    message: withSmsMessage(
+      copyKind === "receipt" ? `Receipt sent to ${to}` : `Invoice sent to ${to}`,
+      sms,
+    ),
   };
 }
 
@@ -854,6 +935,7 @@ Deno.serve(async (req) => {
     const inspectionId = String(body.inspectionId ?? body.inspection_id ?? "").trim();
     const invoiceId = String(body.invoiceId ?? body.invoice_id ?? "").trim();
     const reportId = String(body.reportId ?? body.report_id ?? "").trim();
+    const purpose = String(body.purpose ?? "").trim();
     const due = String(body.due ?? "").trim();
     const appUrl = String(body.appUrl ?? body.app_url ?? "").replace(/\/$/, "")
       || "https://bts-inspect.pages.dev";
@@ -1207,7 +1289,11 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (!invoice) {
-        return json({ sent: false, reason: "no_invoice", message: invoiceMissText.no_invoice }, 404);
+        return json({
+          sent: false,
+          reason: "no_invoice",
+          message: purpose === "receipt" ? invoiceMissText.no_receipt_invoice : invoiceMissText.no_invoice,
+        }, 404);
       }
 
       const { data: client } = invoice.client_id
@@ -1238,6 +1324,7 @@ Deno.serve(async (req) => {
         attachmentIn,
         mode: "manual",
         today: todayYmd(),
+        purpose,
       });
       const status = result.reason === "no_invoice" ? 404 : 200;
       return json(result, status);
