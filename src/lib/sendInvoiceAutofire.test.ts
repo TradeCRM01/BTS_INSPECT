@@ -443,7 +443,9 @@ describe('second overdue chase — chased_at 7+ Perth days old', () => {
     const perthSameDay = new Date('2026-08-20T15:30:00.000Z'); // 20 Aug 23:30 Perth
     expect(secondChaseOnOrBeforeYmd(perthSameDay)).toBe('2026-08-13');
     expect(invoiceDueForSecondChase({ chased_at: lastInstantOfDay7 }, perthSameDay)).toBe(false);
-    expect(invoiceDueForSecondChase({ chased_at: perthDay7Start }, perthSameDay)).toBe(true);
+    // 13 Aug 16:00 UTC is 14 Aug 00:00 Perth — UTC date looks like day 7, Perth date is only 6 days on 20 Aug
+    expect(invoiceDueForSecondChase({ chased_at: perthDay7Start }, perthSameDay)).toBe(false);
+    expect(invoiceDueForSecondChase({ chased_at: '2026-08-13T15:59:59.000Z' }, perthSameDay)).toBe(true);
   });
 
   it('first chase still only takes chased_at is null — 7-day-old rows wait for the second slice', () => {
