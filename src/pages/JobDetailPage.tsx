@@ -22,14 +22,15 @@ import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { recommendJobAction } from '../lib/jobNextAction';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel, recommendJhaListAction } from '../lib/jhaNextAction';
-import { livingSwmsSummary } from '../lib/livingJha';
+import { livingSwmsSummary, livingTake5Summary } from '../lib/livingJha';
+import { take5CardHint, take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
 import { inspectionStatusClass, inspectionStatusLabel } from '../lib/inspectionNextAction';
 import { withInspectionDueNext } from '../lib/inspectionDueReminder';
 import type { TemplateSchema } from '../types/template';
 import { clientRecordHref } from '../lib/clientRecords';
 import {
   Calendar, Clock, User, Phone, Mail, Edit3, ChevronDown,
-  FileText, ShieldCheck, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
+  FileText, ShieldCheck, ShieldAlert, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
   Play, Square, MoreHorizontal,
 } from 'lucide-react';
 import {
@@ -60,6 +61,20 @@ type JobJha = {
   template_snapshot: { name?: string } | null;
   meta: Record<string, string> | null;
   steps?: Array<{ hazards?: string | null; description?: string | null }> | null;
+};
+
+type JobTake5 = {
+  id: string;
+  jha_document_id: string;
+  status: string;
+  meta: Record<string, string> | null;
+  stop_think: string | null;
+  identify_hazards: string | null;
+  control_actions: string | null;
+  signature: string | null;
+  signed_name: string | null;
+  go_no_go: string | null;
+  created_at: string;
 };
 
 type JobQuote = {
@@ -242,6 +257,22 @@ export function JobDetailPage() {
       return (data ?? []) as JobJha[];
     },
     enabled: !!id && !!profile,
+  });
+
+  const { data: take5s } = useQuery<JobTake5[]>({
+    queryKey: ['job-take5s', id, (jhas ?? []).map(doc => doc.id).join(',')],
+    queryFn: async () => {
+      const jhaIds = (jhas ?? []).map(doc => doc.id);
+      if (jhaIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('jha_take5')
+        .select('id, jha_document_id, status, meta, stop_think, identify_hazards, control_actions, signature, signed_name, go_no_go, created_at')
+        .in('jha_document_id', jhaIds)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as JobTake5[];
+    },
+    enabled: !!id && !!profile && !!jhas,
   });
 
   const { data: quotes } = useQuery<JobQuote[]>({
@@ -490,6 +521,17 @@ export function JobDetailPage() {
     }
     setShowJhaPicker(open => !open);
     scrollToId('job-swms');
+  };
+
+  const startTake5 = () => {
+    if (jhas === undefined) return;
+    const parent = jhas[0];
+    if (!parent) {
+      showToast('Start a JHA / SWMS first, then Start Take 5');
+      startJha();
+      return;
+    }
+    navigate(take5FillPath(parent.id));
   };
 
   const handleInvoice = () => {
@@ -893,6 +935,74 @@ export function JobDetailPage() {
               );
             })}
           </JobRelatedSection>
+
+          <JobRelatedSection
+            title="Take 5"
+            icon={ShieldAlert}
+            count={(take5s ?? []).length}
+            action={(take5s ?? []).length > 0 ? (
+              <button type="button" onClick={startTake5} className="ops-link">
+                Another Take 5
+              </button>
+            ) : undefined}
+            emptyTitle="No Take 5 on this job"
+            emptyAction={
+              <button type="button" onClick={startTake5} className="btn-primary">
+                Start Take 5
+              </button>
+            }
+          >
+            {(take5s ?? []).map((row, index) => {
+              const living = livingTake5Summary({
+                meta: row.meta,
+                identify_hazards: row.identify_hazards,
+                stop_think: row.stop_think,
+                control_actions: row.control_actions,
+                job,
+                members: teamMembers ?? [],
+              });
+              const href = take5FillPath(row.jha_document_id, row.id);
+              const ctx = take5ListContext({
+                status: row.status,
+                meta: living.meta,
+                stop_think: row.stop_think,
+                identify_hazards: row.identify_hazards,
+                control_actions: row.control_actions,
+                signature: row.signature,
+                job_title: job.title,
+                job_address: job.address,
+                livingSite: living.site,
+              });
+              const nextOnDoc = recommendTake5ListAction(ctx);
+              const parent = (jhas ?? []).find(doc => doc.id === row.jha_document_id);
+              const title = row.signed_name || 'Take 5';
+              const metaBits = [
+                living.site || 'Site follows this job',
+                living.crewLabel || 'Crew follows this job',
+                living.hazardLabel || 'No hazards on this Take 5',
+                row.go_no_go === 'stop' ? 'STOP' : 'GO',
+                parent?.report_number,
+                format(new Date(row.created_at), 'd MMM yyyy'),
+              ];
+              return (
+                <JobRelatedRow
+                  key={row.id}
+                  href={href}
+                  icon={ShieldAlert}
+                  title={title}
+                  meta={metaBits.filter(Boolean).join(' · ')}
+                  trailing={<OpsStatus className={take5StatusClass(row.status)}>{take5StatusLabel(row.status)}</OpsStatus>}
+                  action={
+                    index === 0 ? (
+                      <Link to={href} className="btn-primary shrink-0">
+                        {take5CardHint(ctx) === 'Open' ? 'Open Take 5' : nextOnDoc.label}
+                      </Link>
+                    ) : undefined
+                  }
+                />
+              );
+            })}
+          </JobRelatedSection>
           </div>
 
           <JobRelatedSection
@@ -1084,6 +1194,7 @@ export function JobDetailPage() {
             queryClient.invalidateQueries({ queryKey: ['jobs'] });
             queryClient.invalidateQueries({ queryKey: ['job-children', id] });
             queryClient.invalidateQueries({ queryKey: ['job-jhas', id] });
+            queryClient.invalidateQueries({ queryKey: ['job-take5s', id] });
             queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
             showToast('Job updated');
           }}

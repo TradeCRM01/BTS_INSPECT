@@ -199,6 +199,9 @@ export function SchedulePage() {
       queryClient.invalidateQueries({ queryKey: ['job'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
       queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
+      queryClient.invalidateQueries({ queryKey: ['job-take5s'] });
+      queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
+      queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
     },
   });
 

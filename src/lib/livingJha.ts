@@ -241,3 +241,99 @@ export function livingSwmsSummary(input: {
     meta: applied.meta,
   };
 }
+
+/**
+ * Take 5 site is the same living job site, stored on meta.location.
+ * Crew uses the same assigned_team merge as the parent JHA.
+ * Checks (stop_think / identify_hazards / controls) stay on the Take 5 row.
+ */
+export function applyLivingJobToTake5(
+  meta: Record<string, string | undefined> | null | undefined,
+  job: LivingJob | null | undefined,
+  members: LivingMember[],
+  opts?: LivingJhaApplyOpts,
+): {
+  meta: Record<string, string>;
+  crew: JhaCrewMember[];
+  siteName: string;
+  changed: boolean;
+} {
+  const current = asMeta(meta);
+  const applied = applyLivingJobToJha(
+    { ...current, siteName: current.location || current.siteName },
+    job,
+    members,
+    opts,
+  );
+  if (!job) {
+    return {
+      meta: current,
+      crew: applied.crew,
+      siteName: current.location || current.siteName || '',
+      changed: false,
+    };
+  }
+
+  const next = { ...current };
+  if (applied.siteName) next.location = applied.siteName;
+  next.crewSignOns = applied.meta.crewSignOns;
+
+  return {
+    meta: next,
+    crew: applied.crew,
+    siteName: next.location || applied.siteName,
+    changed: applied.changed,
+  };
+}
+
+export function livingTake5MetaPatches(
+  rows: Array<{ id: string; meta?: Record<string, string> | null }>,
+  job: LivingJob,
+  members: LivingMember[],
+  opts?: LivingJhaApplyOpts,
+): Array<{ id: string; meta: Record<string, string> }> {
+  const patches: Array<{ id: string; meta: Record<string, string> }> = [];
+  for (const row of rows) {
+    const applied = applyLivingJobToTake5(row.meta ?? {}, job, members, opts);
+    if (applied.changed) patches.push({ id: row.id, meta: applied.meta });
+  }
+  return patches;
+}
+
+export function livingTake5HazardLines(input: {
+  identify_hazards?: string | null;
+  stop_think?: string | null;
+  control_actions?: string | null;
+}): string[] {
+  const identify = (input.identify_hazards ?? '').trim();
+  if (identify) return [identify];
+  const fallback = [(input.stop_think ?? '').trim(), (input.control_actions ?? '').trim()].filter(Boolean);
+  return fallback;
+}
+
+export function livingTake5Summary(input: {
+  meta?: Record<string, string> | null;
+  identify_hazards?: string | null;
+  stop_think?: string | null;
+  control_actions?: string | null;
+  job: LivingJob | null | undefined;
+  members: LivingMember[];
+}): {
+  site: string;
+  crew: JhaCrewMember[];
+  crewLabel: string;
+  hazards: string[];
+  hazardLabel: string;
+  meta: Record<string, string>;
+} {
+  const applied = applyLivingJobToTake5(input.meta ?? {}, input.job, input.members);
+  const hazards = livingTake5HazardLines(input);
+  return {
+    site: applied.siteName,
+    crew: applied.crew,
+    crewLabel: livingCrewLabel(applied.crew),
+    hazards,
+    hazardLabel: livingHazardLabel(hazards),
+    meta: applied.meta,
+  };
+}

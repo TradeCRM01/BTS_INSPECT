@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyLivingJobToJha,
+  applyLivingJobToTake5,
   livingCrewSlotId,
   livingHazardLines,
   livingJobSite,
   livingJhaMetaPatches,
   livingSwmsSummary,
+  livingTake5HazardLines,
+  livingTake5MetaPatches,
+  livingTake5Summary,
   mergeLivingCrew,
 } from './livingJha';
 import type { JhaCrewMember } from '../types/jha';
 import { jhaCardHint, jhaListContext } from './jhaNextAction';
+import { take5CardHint, take5ListContext } from './take5NextAction';
 
 const job = {
   id: 'job-1',
@@ -170,5 +175,86 @@ describe('jhaListContext living overlay', () => {
     expect(ctx.crewNamed).toBe(true);
     expect(ctx.crewSigned).toBe(false);
     expect(jhaCardHint(ctx)).toBe('Get signatures');
+  });
+});
+
+describe('applyLivingJobToTake5', () => {
+  it('is a no-op without a job', () => {
+    const applied = applyLivingJobToTake5({ location: 'Plant A' }, null, members);
+    expect(applied.changed).toBe(false);
+    expect(applied.siteName).toBe('Plant A');
+  });
+
+  it('writes the live job site onto meta.location and merges assigned crew', () => {
+    const applied = applyLivingJobToTake5(
+      { location: 'Old yard', date: '2026-08-20', time: '07:00' },
+      job,
+      members,
+    );
+    expect(applied.changed).toBe(true);
+    expect(applied.siteName).toBe('12 Site Rd, Geelong');
+    expect(applied.meta.location).toBe('12 Site Rd, Geelong');
+    expect(applied.meta.date).toBe('2026-08-20');
+    expect(applied.meta.time).toBe('07:00');
+    expect(applied.crew).toHaveLength(2);
+    expect(applied.crew.map(c => c.profileId)).toEqual(['sam', 'pat']);
+  });
+
+  it('does not mark changed when location and crew already match the job', () => {
+    const first = applyLivingJobToTake5({}, job, members, { today: '2026-08-21' });
+    const second = applyLivingJobToTake5(first.meta, job, members, { today: '2026-08-21' });
+    expect(second.changed).toBe(false);
+  });
+
+  it('keeps Take 5 checks on the document — living sync does not invent or clear them', () => {
+    const checks = {
+      identify_hazards: 'Live parts',
+      stop_think: 'Isolate',
+      control_actions: 'Lock out',
+    };
+    expect(livingTake5HazardLines(checks)).toEqual(['Live parts']);
+    const summary = livingTake5Summary({
+      meta: { location: 'Old' },
+      ...checks,
+      job,
+      members,
+    });
+    expect(summary.site).toBe('12 Site Rd, Geelong');
+    expect(summary.hazardLabel).toBe('Live parts');
+    expect(summary.crewLabel).toContain('Sam Tradie');
+  });
+
+  it('patches only Take 5s whose snapshot drifted from the job', () => {
+    const current = applyLivingJobToTake5({}, job, members, { today: '2026-08-21' });
+    const patches = livingTake5MetaPatches(
+      [
+        { id: 'fresh', meta: current.meta },
+        { id: 'stale', meta: { location: 'Old yard' } },
+      ],
+      job,
+      members,
+      { today: '2026-08-21' },
+    );
+    expect(patches.map(p => p.id)).toEqual(['stale']);
+    expect(patches[0].meta.location).toBe('12 Site Rd, Geelong');
+  });
+});
+
+describe('take5ListContext living overlay', () => {
+  it('uses the live job site so a stale Take 5 location is still current', () => {
+    const living = applyLivingJobToTake5({ location: '' }, job, members);
+    const ctx = take5ListContext({
+      status: 'draft',
+      meta: { location: '' },
+      stop_think: '',
+      identify_hazards: '',
+      control_actions: '',
+      signature: null,
+      livingSite: living.siteName,
+      job_title: job.title,
+      job_address: job.address,
+    });
+    expect(ctx.hasSite).toBe(true);
+    expect(take5CardHint(ctx)).toBe('Continue');
   });
 });

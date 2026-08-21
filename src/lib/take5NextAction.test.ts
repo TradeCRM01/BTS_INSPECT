@@ -106,4 +106,18 @@ describe('recommendTake5ListAction', () => {
     });
     expect(take5CardHint(ctx)).toBe('Continue');
   });
+
+  it('treats a living job site as site identity even when Take 5 location is empty', () => {
+    const ctx = take5ListContext({
+      status: 'draft',
+      meta: { location: '' },
+      stop_think: '',
+      identify_hazards: '',
+      control_actions: '',
+      signature: null,
+      livingSite: '12 Site Rd, Geelong',
+    });
+    expect(ctx.hasSite).toBe(true);
+    expect(take5CardHint(ctx)).toBe('Continue');
+  });
 });

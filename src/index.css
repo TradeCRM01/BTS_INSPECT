@@ -2047,6 +2047,26 @@
     background: color-mix(in srgb, #2E75B6 12%, #fff);
   }
 
+  #job-swms .ops-link {
+    color: var(--job-muted);
+    font-size: 14px;
+    font-weight: 500;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 0 8px;
+    cursor: pointer;
+  }
+
+  #job-swms .ops-link:hover {
+    color: var(--job-action);
+    text-decoration: none;
+  }
+
   #job-swms .btn-primary,
   .hub-job-swms .btn-primary {
     background: #2E75B6;
@@ -2513,6 +2533,71 @@
     border-radius: 16px;
     overflow: hidden;
     box-shadow: none;
+  }
+
+  .hub-job-swms .job-swms-quiet {
+    color: var(--job-muted);
+    font-size: 14px;
+    font-weight: 500;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    background: none;
+    border: none;
+    box-shadow: none;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .hub-job-swms .job-swms-quiet:hover {
+    color: var(--job-action);
+    text-decoration: none;
+  }
+
+  .hub-job-swms .ops-choice {
+    flex: 1;
+    min-height: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid var(--job-line);
+    background: var(--job-sheet);
+    color: var(--job-muted);
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: none;
+  }
+
+  .hub-job-swms .ops-choice-pass {
+    background: var(--job-pass);
+    color: #fff;
+    border-color: var(--job-pass);
+  }
+
+  .hub-job-swms .ops-choice-fail {
+    background: var(--job-fail);
+    color: #fff;
+    border-color: var(--job-fail);
+  }
+
+  .hub-job-swms .ops-alert {
+    border-radius: 12px;
+    border: 1px solid var(--job-fail);
+    background: var(--job-sheet);
+    color: var(--job-fail);
+    box-shadow: none;
+  }
+
+  .hub-job-swms .job-swms-sign {
+    border: 1px solid var(--job-line);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--job-sheet);
+  }
+
+  .hub-job-swms #take5-pdf {
+    padding: 16px;
   }
 
   @media (max-width: 639px) {

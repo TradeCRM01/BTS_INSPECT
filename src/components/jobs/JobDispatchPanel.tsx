@@ -40,7 +40,10 @@ export function JobDispatchPanel({
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
       queryClient.invalidateQueries({ queryKey: ['job-jhas', job.id] });
+      queryClient.invalidateQueries({ queryKey: ['job-take5s', job.id] });
       queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
+      queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
+      queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
     },
     onError: (e: Error) => showToast(e.message),
   });

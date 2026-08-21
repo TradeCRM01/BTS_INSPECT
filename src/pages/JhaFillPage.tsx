@@ -28,7 +28,7 @@ import { JhaSwmsLibraryPicker } from '../components/jha/JhaSwmsLibraryPicker';
 import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { EMPTY_SWMS, HRCW_CATEGORIES, parseSwmsMeta, type JhaSwmsData } from '../lib/swmsHrcw';
 import { jhaFillContext, jhaStatusClass, jhaStatusLabel, recommendJhaFillAction } from '../lib/jhaNextAction';
-import { applyLivingJobToJha, livingJobSite } from '../lib/livingJha';
+import { applyLivingJobToJha, livingJobSite, livingTake5MetaPatches } from '../lib/livingJha';
 import { take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
 import {
   ChevronDown, ChevronLeft, Plus, Trash2, ShieldCheck, FileText,
@@ -305,8 +305,41 @@ export function JhaFillPage() {
           .update({ meta: merged })
           .eq('id', docIdState)
           .eq('job_id', selectedJobForLiving.id);
-        if (upErr) setError(upErr.message);
-        else queryClient.invalidateQueries({ queryKey: ['job-jhas', selectedJobForLiving.id] });
+        if (upErr) {
+          setError(upErr.message);
+          return;
+        }
+        const { data: take5s, error: take5LoadErr } = await supabase
+          .from('jha_take5')
+          .select('id, meta')
+          .eq('jha_document_id', docIdState);
+        if (take5LoadErr) {
+          setError(take5LoadErr.message);
+          return;
+        }
+        const take5Patches = livingTake5MetaPatches(
+          take5s ?? [],
+          selectedJobForLiving,
+          membersReady ? teamMembers : [],
+          {
+            skipCrew: !membersReady && (selectedJobForLiving.assigned_team ?? []).length > 0,
+            currentUserId: profile?.id,
+          },
+        );
+        for (const patch of take5Patches) {
+          const { error: take5UpErr } = await supabase
+            .from('jha_take5')
+            .update({ meta: patch.meta, updated_at: new Date().toISOString() })
+            .eq('id', patch.id)
+            .eq('jha_document_id', docIdState);
+          if (take5UpErr) {
+            setError(take5UpErr.message);
+            return;
+          }
+        }
+        queryClient.invalidateQueries({ queryKey: ['job-jhas', selectedJobForLiving.id] });
+        queryClient.invalidateQueries({ queryKey: ['job-take5s', selectedJobForLiving.id] });
+        queryClient.invalidateQueries({ queryKey: ['jha-take5-list', docIdState] });
       });
   }, [livingJobKey, membersReady, teamMembers, selectedJobForLiving, docIdState, profile?.id, queryClient]);
 
@@ -1440,6 +1473,7 @@ export function JhaFillPage() {
                             parent_site: meta.siteName,
                             job_title: selectedJob?.title,
                             job_address: selectedJob?.address,
+                            livingSite: livingJobSite(selectedJob),
                           }));
                           return (
                             <li key={t.id}>

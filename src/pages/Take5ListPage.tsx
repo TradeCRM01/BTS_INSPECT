@@ -13,6 +13,7 @@ import {
   take5StatusLabel,
   recommendTake5ListAction,
 } from '../lib/take5NextAction';
+import { applyLivingJobToTake5, livingCrewLabel, livingJobSite } from '../lib/livingJha';
 import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, OpsDocHead, OpsSiteRow, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
 
@@ -34,6 +35,8 @@ type Take5ListRow = {
   parent_task?: string | null;
   job_title?: string | null;
   job_address?: string | null;
+  job_assigned_team?: string[] | null;
+  job_id?: string | null;
 };
 
 export function Take5ListPage() {
@@ -41,6 +44,16 @@ export function Take5ListPage() {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'all' | 'draft' | 'completed'>('all');
+
+  const { data: members = [] } = useQuery({
+    queryKey: ['company-members-jha', profile?.company_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_company_members', { p_company_id: profile!.company_id });
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; name: string; email: string; role: string }>;
+    },
+    enabled: !!profile?.company_id,
+  });
 
   const { data: rows, isLoading, isError, refetch } = useQuery({
     queryKey: ['jha-take5-all', status],
@@ -60,8 +73,8 @@ export function Take5ListPage() {
       const jhaMap = new Map((jhas ?? []).map(j => [j.id, j]));
       const jobIds = [...new Set((jhas ?? []).map(j => j.job_id).filter(Boolean))] as string[];
       const { data: jobs } = jobIds.length
-        ? await supabase.from('jobs').select('id, title, address').in('id', jobIds)
-        : { data: [] as Array<{ id: string; title: string | null; address: string | null }> };
+        ? await supabase.from('jobs').select('id, title, address, assigned_team').in('id', jobIds)
+        : { data: [] as Array<{ id: string; title: string | null; address: string | null; assigned_team: string[] | null }> };
       const jobMap = new Map((jobs ?? []).map(j => [j.id, j]));
       return list.map(row => {
         const jha = jhaMap.get(row.jha_document_id);
@@ -72,8 +85,10 @@ export function Take5ListPage() {
           parent_report: jha?.report_number ?? null,
           parent_site: jhaMeta.siteName || null,
           parent_task: jhaMeta.taskName || jhaMeta.documentTitle || null,
+          job_id: jha?.job_id ?? null,
           job_title: job?.title ?? null,
           job_address: job?.address ?? null,
+          job_assigned_team: job?.assigned_team ?? null,
         };
       });
     },
@@ -145,7 +160,7 @@ export function Take5ListPage() {
           <EmptyState
             icon={ShieldAlert}
             title="No Take 5s yet"
-            message="Open a job and start or open a JHA, then tap New Take 5 under SWMS, Take 5 & extras. That is how a leading hand starts one at the workface — this list is for opening and finishing them."
+            message="Open a job and tap Start Take 5 on the SWMS / Take 5 tray. That is how a leading hand starts one at the workface — this list is for opening and finishing them."
             action={
               <Link to="/jha" className="ops-next-control min-w-[160px]">
                 Open JHA documents
@@ -167,11 +182,13 @@ export function Take5ListPage() {
             <Take5Group
               title="Needs action"
               rows={openRows}
+              members={members}
               onOpen={href => navigate(href)}
             />
             <Take5Group
               title="Done"
               rows={doneRows}
+              members={members}
               onOpen={href => navigate(href)}
             />
           </div>
@@ -184,10 +201,12 @@ export function Take5ListPage() {
 function Take5Group({
   title,
   rows,
+  members,
   onOpen,
 }: {
   title: string;
   rows: Take5ListRow[];
+  members: Array<{ id: string; name: string; email: string; role: string }>;
   onOpen: (href: string) => void;
 }) {
   if (rows.length === 0) return null;
@@ -199,7 +218,7 @@ function Take5Group({
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {rows.map(row => (
-          <Take5Card key={row.id} row={row} onOpen={onOpen} />
+          <Take5Card key={row.id} row={row} members={members} onOpen={onOpen} />
         ))}
       </div>
     </div>
@@ -208,16 +227,26 @@ function Take5Group({
 
 function Take5Card({
   row,
+  members,
   onOpen,
 }: {
   row: Take5ListRow;
+  members: Array<{ id: string; name: string; email: string; role: string }>;
   onOpen: (href: string) => void;
 }) {
-  const next = recommendTake5ListAction(take5ListContext(row));
+  const livingJob = row.job_id
+    ? { id: row.job_id, title: row.job_title, address: row.job_address, assigned_team: row.job_assigned_team }
+    : null;
+  const living = applyLivingJobToTake5(row.meta, livingJob, members);
+  const next = recommendTake5ListAction(take5ListContext({
+    ...row,
+    livingSite: living.siteName,
+  }));
   const href = take5FillPath(row.jha_document_id, row.id);
-  const site = opsSiteLabel(row.meta?.location, row.parent_site, row.job_address, row.job_title, row.parent_task);
+  const site = opsSiteLabel(living.siteName, livingJobSite(livingJob), row.meta?.location, row.parent_site, row.job_address, row.job_title, row.parent_task);
   const when = format(parseISO(row.signed_at || row.created_at), 'd MMM yyyy');
   const goStop = row.go_no_go === 'stop' ? 'STOP' : 'GO';
+  const crew = livingCrewLabel(living.crew);
 
   return (
     <div
@@ -234,9 +263,9 @@ function Take5Card({
         trailing={<OpsStatus className={take5StatusClass(row.status)}>{take5StatusLabel(row.status)}</OpsStatus>}
       />
       <div className="ops-card-body">
-        <OpsSiteRow site={site} mapsQuery={row.meta?.location || row.parent_site || row.job_address || null} />
+        <OpsSiteRow site={site} mapsQuery={living.siteName || row.job_address || row.meta?.location || row.parent_site || null} />
         <p className="ops-meta mt-1 truncate">
-          {[row.parent_task || row.job_title, goStop, row.signed_name].filter(Boolean).join(' · ')}
+          {[row.parent_task || row.job_title, crew, goStop, row.signed_name].filter(Boolean).join(' · ')}
         </p>
         <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
           <button type="button" onClick={() => onOpen(href)} className="ops-next-control-block">
