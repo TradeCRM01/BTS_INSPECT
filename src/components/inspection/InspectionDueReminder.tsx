@@ -104,40 +104,42 @@ export function InspectionDueReminder({
         <h2 className="ops-section-title">Due test reminder</h2>
       </div>
       <div className="job-reminder-body">
-        <label className="block">
-          <span className="ops-field-label">To</span>
-          <input
-            type="email"
-            readOnly
-            value={to}
-            placeholder="No client email"
-            className="form-input"
-            aria-label="Due reminder recipient"
-          />
-        </label>
+        <div className="job-reminder-tos">
+          <label className="block">
+            <span className="ops-field-label">To</span>
+            <input
+              type="email"
+              readOnly
+              value={to}
+              placeholder="No client email"
+              className="form-input"
+              aria-label="Due reminder recipient"
+            />
+          </label>
 
-        <label className="block">
-          <span className="ops-field-label">SMS</span>
-          <input
-            type="tel"
-            readOnly
-            value={smsTo || (client?.phone ?? '').trim()}
-            placeholder="No client phone"
-            className="form-input"
-            aria-label="Due reminder SMS recipient"
-          />
-        </label>
+          <label className="block">
+            <span className="ops-field-label">SMS To</span>
+            <input
+              type="tel"
+              readOnly
+              value={smsTo}
+              placeholder="No client phone"
+              className="form-input tabular-nums"
+              aria-label="Due reminder SMS To"
+            />
+          </label>
+        </div>
 
         {awaitingSmtp ? (
           <p className="job-reminder-meta">Checking email settings…</p>
         ) : decision.send ? (
-          <p className="job-reminder-meta">Auto-sends the day it is due (Australia/Perth). SMS uses the client phone when present.</p>
+          <p className="job-reminder-meta">Auto-sends the day it is due (Australia/Perth).</p>
         ) : (
           <p className="job-reminder-miss">{decision.message}</p>
         )}
 
         {decision.send && !smsTo && (
-          <p className="job-reminder-meta">{missSmsMessage('no_phone')}</p>
+          <p className="job-reminder-miss">{missSmsMessage('no_phone')}</p>
         )}
 
         {sentAt && (

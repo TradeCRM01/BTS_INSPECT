@@ -101,19 +101,21 @@ export function InvoiceSendDialog({
 
           {!loading && ready && decision.ok && (
             <>
-              <div className="hub-invoice-send-field">
-                <p className="hub-invoice-kicker">To</p>
-                <p className="hub-invoice-send-value">{decision.to}</p>
-                <p className="hub-invoice-muted">{decision.toName} — already on the invoice.</p>
-              </div>
-              <div className="hub-invoice-send-field">
-                <p className="hub-invoice-kicker">SMS</p>
-                <p className="hub-invoice-send-value">{decision.smsTo || 'No client phone'}</p>
-                <p className="hub-invoice-muted">
-                  {decision.smsTo
-                    ? 'Same send — the client phone already on the record.'
-                    : decision.smsMessage}
-                </p>
+              <div className="hub-invoice-send-tos">
+                <div className="hub-invoice-send-field">
+                  <p className="hub-invoice-kicker">To</p>
+                  <p className="hub-invoice-send-value">{decision.to}</p>
+                  <p className="hub-invoice-muted">{decision.toName} — already on the invoice.</p>
+                </div>
+                <div className="hub-invoice-send-field">
+                  <p className="hub-invoice-kicker">SMS To</p>
+                  <p className={`hub-invoice-send-value tabular-nums${decision.smsTo ? '' : ' is-miss'}`}>
+                    {decision.smsTo || 'No client phone'}
+                  </p>
+                  {decision.smsTo ? null : (
+                    <p className="hub-invoice-muted">{decision.smsMessage}</p>
+                  )}
+                </div>
               </div>
               <div className="hub-invoice-send-field">
                 <p className="hub-invoice-kicker">Subject</p>
