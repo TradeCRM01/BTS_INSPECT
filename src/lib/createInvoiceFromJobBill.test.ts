@@ -33,6 +33,7 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
     expect(page).toContain('JOB_BILL_INVOICE_CREATED');
     expect(page).toContain('JOB_BILL_INVOICE_EXISTS');
     expect(page).toContain('JOB_BILL_INVOICE_NO_LINES');
+    expect(page).toContain("showToast(e.message, 'info')");
 
     expect(panel).toContain('createInvoiceFromJobBill');
   });

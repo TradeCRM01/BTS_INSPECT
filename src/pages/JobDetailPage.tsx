@@ -412,7 +412,7 @@ export function JobDetailPage() {
       showToast(result.existing ? JOB_BILL_INVOICE_EXISTS : JOB_BILL_INVOICE_CREATED);
     },
     onError: (e: Error) => {
-      showToast(e.message);
+      showToast(e.message, 'info');
       if (e.message === JOB_BILL_INVOICE_NO_LINES) {
         setBillOpen(true);
         setTimeout(() => scrollToId('job-bill'), 50);
