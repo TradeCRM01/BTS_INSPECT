@@ -58,7 +58,7 @@ export function InstallPrompt() {
           {isIos ? <Smartphone size={20} className="text-white" /> : <Monitor size={20} className="text-white" />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm">Install BTS Inspect</p>
+          <p className="font-semibold text-sm">Install Grafter</p>
           {isIos ? (
             <p className="text-xs text-white/70 mt-0.5">
               Tap <span className="font-medium text-white">Share</span> then{' '}

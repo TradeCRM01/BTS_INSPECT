@@ -1,44 +1,49 @@
+import {
+  GRAFTER_CREAM,
+  GRAFTER_MARK_VIEWBOX,
+  GRAFTER_NAVY,
+  GRAFTER_TILE_RX,
+  GRAFTER_ICON_RX,
+  grafterBarPath,
+  grafterBars,
+  type GrafterSurface,
+} from './grafterMark';
+
 interface BtsMarkProps {
   size?: number;
   className?: string;
+  /** light = navy+blue bars on cream (sidebar / lockup). icon = cream+blue on navy squircle. */
+  surface?: GrafterSurface;
+  /** When false, bars sit on the parent cream ground with no tile. */
+  framed?: boolean;
 }
 
 /**
- * Product mark for BTS Inspect. A blue tile with a folded field document
- * and a check — readable at 24–32px in the navy header and at login size.
+ * Signed Grafter software mark: three left-aligned speed-bar capsules
+ * with cut right ends. Not for customer invoices, quotes, or reports.
  */
-export function BtsMark({ size = 32, className }: BtsMarkProps) {
+export function BtsMark({ size = 32, className, surface = 'light', framed = true }: BtsMarkProps) {
+  const bars = grafterBars(surface);
+  const ground = surface === 'icon' ? GRAFTER_NAVY : GRAFTER_CREAM;
+  const rx = surface === 'icon' ? GRAFTER_ICON_RX : GRAFTER_TILE_RX;
+
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 32 32"
+      viewBox={`0 0 ${GRAFTER_MARK_VIEWBOX} ${GRAFTER_MARK_VIEWBOX}`}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       aria-hidden
+      data-grafter-mark={surface}
     >
-      <rect width="32" height="32" rx="6" fill="#2E75B6" />
-      <rect x="0.5" y="0.5" width="31" height="31" rx="5.5" stroke="white" strokeOpacity="0.22" />
-      <path
-        d="M10 8.25h8.6L22 11.7V23.75H10V8.25Z"
-        stroke="white"
-        strokeWidth="1.7"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M18.6 8.25V11.7H22"
-        stroke="white"
-        strokeWidth="1.7"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M13.1 17.15 15.35 19.4 19.7 14.2"
-        stroke="white"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      {framed ? (
+        <rect width={GRAFTER_MARK_VIEWBOX} height={GRAFTER_MARK_VIEWBOX} rx={rx} fill={ground} />
+      ) : null}
+      {bars.map((bar) => (
+        <path key={bar.id} d={grafterBarPath(bar)} fill={bar.fill} data-grafter-bar={bar.id} />
+      ))}
     </svg>
   );
 }
