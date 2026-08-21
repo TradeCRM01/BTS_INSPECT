@@ -4205,8 +4205,24 @@
   }
 
   /* ── App chrome (navy Looplet craft: hairlines, no mega-menu shadow) ─ */
+  /* Signed-in header / nav only. Saved report_theme paints navy / accent. */
   .shell-header {
-    @apply bg-navy text-white sticky top-0 z-40 flex-shrink-0 border-b border-white/10;
+    --shell-navy: #0A2540;
+    --shell-accent: #2E75B6;
+    @apply text-white sticky top-0 z-40 flex-shrink-0 border-b border-white/10;
+    background-color: var(--shell-navy);
+  }
+
+  .shell-header .bg-navy {
+    background-color: var(--shell-navy);
+  }
+
+  .shell-header .bg-accent {
+    background-color: var(--shell-accent);
+  }
+
+  .shell-header .border-accent {
+    border-color: var(--shell-accent);
   }
 
   .auth-navy {
@@ -4218,7 +4234,8 @@
   }
 
   .shell-menu {
-    @apply absolute top-full z-50 min-w-[200px] bg-navy border border-white/15 py-1;
+    @apply absolute top-full z-50 min-w-[200px] border border-white/15 py-1;
+    background-color: var(--shell-navy, #0A2540);
   }
 
   .shell-menu-item {

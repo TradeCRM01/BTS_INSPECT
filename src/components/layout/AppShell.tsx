@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type CSSProperties } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { DevConsole } from '../ui/DevConsole';
 import { BrandLockup } from '../brand/BrandLockup';
+import { resolveAppShellColors } from './appShellTheme';
 import {
   ClipboardList, LayoutTemplate, Settings, LogOut,
   User, Menu, X, Zap, ChevronDown, Users, BrainCircuit, RotateCw, Sparkles, FileText,
@@ -224,6 +225,10 @@ export function AppShell({ children }: AppShellProps) {
     groupCloseTimer.current = setTimeout(() => setOpenGroup(null), 150);
   };
 
+  const chrome = resolveAppShellColors(
+    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
+  );
+
   const renderGroupMenu = (group: NavGroup) => (
     group.items.map((item) => {
       const ItemIcon = item.icon;
@@ -244,7 +249,14 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="bg-zebra flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
-      <header className="shell-header" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
+      <header
+        className="shell-header"
+        style={{
+          paddingTop: 'max(12px, env(safe-area-inset-top))',
+          '--shell-navy': chrome.navy,
+          '--shell-accent': chrome.accent,
+        } as CSSProperties}
+      >
         <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3">
           <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label="Grafter">
             <BrandLockup size="header" />
