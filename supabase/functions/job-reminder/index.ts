@@ -616,6 +616,42 @@ function alreadyChasedInvoice(invoice: Record<string, unknown>): boolean {
   return String(invoice.chased_at ?? "").trim() !== "";
 }
 
+const SECOND_OVERDUE_CHASE_PERTH_DAYS = 7;
+
+function addCalendarDaysYmd(ymd: string, days: number): string {
+  const day = dateOnly(ymd);
+  if (!day) return "";
+  const [y, m, d] = day.split("-").map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + days));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-${String(next.getUTCDate()).padStart(2, "0")}`;
+}
+
+/** Perth midnight as timestamptz. Australia/Perth is UTC+8 year-round. */
+function perthDayStartIso(ymd: string): string {
+  const day = dateOnly(ymd);
+  if (!day) return "";
+  return `${day}T00:00:00+08:00`;
+}
+
+function secondChaseOnOrBeforeYmd(today: string): string {
+  return addCalendarDaysYmd(today, -SECOND_OVERDUE_CHASE_PERTH_DAYS);
+}
+
+/** Exclusive upper bound: chased_at < start of Perth day (today minus 6). */
+function secondChaseChasedAtBeforeIso(today: string): string {
+  const exclusiveDay = addCalendarDaysYmd(today, -(SECOND_OVERDUE_CHASE_PERTH_DAYS - 1));
+  return perthDayStartIso(exclusiveDay);
+}
+
+function invoiceDueForSecondChase(invoice: Record<string, unknown>, today: string): boolean {
+  const raw = String(invoice.chased_at ?? "").trim();
+  if (!raw) return false;
+  const chasedAt = new Date(raw);
+  if (Number.isNaN(chasedAt.getTime())) return false;
+  const chasedDay = ymdInTimeZone(chasedAt, COMPANY_TZ);
+  return chasedDay <= secondChaseOnOrBeforeYmd(today);
+}
+
 function invoiceOverdueForAutofire(invoice: Record<string, unknown>, today: string): boolean {
   const status = String(invoice.status ?? "");
   if (status === "paid" || status === "draft") return false;
@@ -688,7 +724,7 @@ async function deliverInvoiceSend(opts: {
   if (invoice.status === "paid" && !receiptSend) {
     return miss("paid", invoiceMissText.paid, extra);
   }
-  if (opts.mode === "auto" && alreadyChasedInvoice(invoice)) {
+  if (opts.mode === "auto" && alreadyChasedInvoice(invoice) && !invoiceDueForSecondChase(invoice, opts.today)) {
     return miss("already_chased", invoiceMissText.already_chased, extra);
   }
   if (opts.mode === "auto" && !invoiceOverdueForAutofire(invoice, opts.today)) {
@@ -1249,6 +1285,61 @@ Deno.serve(async (req) => {
       const results: Array<Record<string, unknown>> = [];
 
       for (const invoice of invoices) {
+        const companyId = String(invoice.company_id ?? "");
+        if (!companyId || !companyIds.includes(companyId)) continue;
+        if (!companyCache.has(companyId)) {
+          const { data: company } = await admin
+            .from("companies")
+            .select("name")
+            .eq("id", companyId)
+            .maybeSingle();
+          companyCache.set(companyId, company ?? {});
+        }
+        if (!settingsByCompany.has(companyId)) {
+          const { data: smtpRow } = await admin
+            .from("email_settings")
+            .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+            .eq("company_id", companyId)
+            .maybeSingle();
+          if (smtpRow) settingsByCompany.set(companyId, smtpRow as EmailSettings);
+        }
+        const clientId = String(invoice.client_id ?? "").trim();
+        results.push(await deliverInvoiceSend({
+          admin,
+          invoice,
+          companyId,
+          company: companyCache.get(companyId) ?? null,
+          settings: settingsByCompany.get(companyId) ?? null,
+          client: clientId ? clients.get(clientId) ?? null : null,
+          mode: "auto",
+          today,
+        }));
+      }
+
+      const firstChaseIds = new Set(invoices.map((row) => String(row.id ?? "")).filter(Boolean));
+      const secondBefore = secondChaseChasedAtBeforeIso(today);
+      const { data: secondDueRows, error: secondDueErr } = await admin
+        .from("invoices")
+        .select("id, company_id, client_id, status, invoice_number, line_items, total, due_date, payment_terms, chased_at")
+        .in("company_id", companyIds)
+        .in("status", ["sent", "overdue"])
+        .lt("due_date", today)
+        .not("chased_at", "is", null)
+        .lt("chased_at", secondBefore);
+      if (secondDueErr) return json({ error: secondDueErr.message, sent: false }, 400);
+      const secondInvoices = (secondDueRows ?? []).filter((row) => !firstChaseIds.has(String(row.id ?? "")));
+
+      const secondClientIds = [...new Set(secondInvoices.map((row) => String(row.client_id ?? "")).filter(Boolean))]
+        .filter((id) => !clients.has(id));
+      if (secondClientIds.length > 0) {
+        const { data: secondClientRows } = await admin
+          .from("clients")
+          .select("id, name, email, phone")
+          .in("id", secondClientIds);
+        for (const row of secondClientRows ?? []) clients.set(row.id, row);
+      }
+
+      for (const invoice of secondInvoices) {
         const companyId = String(invoice.company_id ?? "");
         if (!companyId || !companyIds.includes(companyId)) continue;
         if (!companyCache.has(companyId)) {

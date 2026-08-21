@@ -138,6 +138,7 @@ describe('invoice send deliver path', () => {
     expect(statusBlock).not.toContain('sms.sent');
     expect(statusBlock).not.toContain('status: "paid"');
     expect(deliver).toContain('mode === "auto" && alreadyChasedInvoice');
+    expect(deliver).toContain('invoiceDueForSecondChase');
     expect(deliver).toContain('copyKind === "chase"');
     expect(deliver).toContain('copyKind === "receipt"');
     expect(deliver).toContain('copyKind !== "receipt"');
@@ -199,6 +200,9 @@ describe('Perth overdue auto-fire rides job-reminder due=overdue', () => {
     expect(overdue.indexOf('stampSentPastDueOverdue')).toBeLessThan(overdue.indexOf('deliverInvoiceSend'));
     expect(overdue).toContain('deliverInvoiceSend');
     expect(overdue).toContain('mode: "auto"');
+    expect(overdue).toContain('.is("chased_at", null)');
+    expect(overdue).toContain('secondChaseChasedAtBeforeIso');
+    expect(overdue.indexOf('.is("chased_at", null)')).toBeLessThan(overdue.indexOf('secondChaseChasedAtBeforeIso'));
     expect(overdue).not.toContain('cron.schedule');
     expect(overdue).not.toContain('from("quotes")');
     expect(overdue).not.toContain('xero-accounting');

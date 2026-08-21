@@ -11,6 +11,7 @@ import {
   prefillReminderTo,
   prefillSmsTo,
   todayYmd,
+  ymdInTimeZone,
   type ReminderEmailSettings,
   type SmsCredentials,
   type SmsDecision,
@@ -452,6 +453,7 @@ export type OverdueInvoiceQueryScope = {
   inFilters: Record<string, string[]>;
   lt?: Record<string, string>;
   isNull?: string[];
+  notNull?: string[];
 };
 
 export type OverdueChaseInvoice = InvoiceSendInvoice;
@@ -474,16 +476,77 @@ export const OVERDUE_INVOICE_AUTO_FIRE_PATH = [
   'UPDATE invoices.status=overdue where status=sent and due_date < perth_today (already-overdue/no due_date stay put)',
   'email_settings where Resend is ready (companies without SMTP are not scanned)',
   'invoices where company_id = settings.company_id and status in (sent, overdue) and due_date < perth_today and chased_at is null',
-  'skip already_chased; skip paid; skip draft; skip no client email; skip no stored PDF',
-  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'then invoices where company_id = settings.company_id and status in (sent, overdue) and due_date < perth_today and chased_at <= perth_today minus 7 days (last-7-day rows skip)',
+  'skip already_chased in the last 7 Perth days; skip paid; skip draft; skip no client email; skip no stored PDF',
+  'POST https://api.resend.com/emails with email_settings.smtp_pass — same deliverInvoiceSend auto chase copy',
   'POST https://api.twilio.com SMS beside email — miss does not flip chased_at',
   'UPDATE invoices.chased_at only when Resend returns 2xx',
 ] as const;
+
+/** Fixed Perth gap for this slice. Not a settings column. Not chase_count. */
+export const SECOND_OVERDUE_CHASE_PERTH_DAYS = 7;
 
 export const OVERDUE_INVOICE_STATUSES = ['sent', 'overdue'] as const;
 
 export function alreadyChasedInvoice(invoice: { chased_at?: string | null } | null | undefined): boolean {
   return Boolean((invoice?.chased_at ?? '').trim());
+}
+
+/** Calendar add on a YYYY-MM-DD. Used for perth_today minus 7 — not wall-clock hours. */
+export function addCalendarDaysYmd(ymd: string, days: number): string {
+  const day = dateOnly(ymd);
+  if (!day) return '';
+  const [y, m, d] = day.split('-').map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + days));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
+}
+
+/** Perth midnight as timestamptz. Australia/Perth is UTC+8 year-round. */
+export function perthDayStartIso(ymd: string): string {
+  const day = dateOnly(ymd);
+  if (!day) return '';
+  return `${day}T00:00:00+08:00`;
+}
+
+export function secondChaseOnOrBeforeYmd(now = new Date()): string {
+  return addCalendarDaysYmd(todayYmd(now), -SECOND_OVERDUE_CHASE_PERTH_DAYS);
+}
+
+/**
+ * Exclusive upper bound for chased_at.
+ * Perth date of chased_at <= today minus 7  <=>  chased_at < start of Perth day (today minus 6).
+ */
+export function secondChaseChasedAtBeforeIso(now = new Date()): string {
+  const exclusiveDay = addCalendarDaysYmd(todayYmd(now), -(SECOND_OVERDUE_CHASE_PERTH_DAYS - 1));
+  return perthDayStartIso(exclusiveDay);
+}
+
+export function invoiceChasedOnPerthDay(
+  invoice: { chased_at?: string | null } | null | undefined,
+): string | null {
+  const raw = (invoice?.chased_at ?? '').trim();
+  if (!raw) return null;
+  const chasedAt = new Date(raw);
+  if (Number.isNaN(chasedAt.getTime())) return null;
+  return ymdInTimeZone(chasedAt);
+}
+
+/** Last chase was 7 or more Perth days ago. Null chased_at is the first-chase slice. */
+export function invoiceDueForSecondChase(
+  invoice: { chased_at?: string | null } | null | undefined,
+  now = new Date(),
+): boolean {
+  const chasedDay = invoiceChasedOnPerthDay(invoice);
+  if (!chasedDay) return false;
+  return chasedDay <= secondChaseOnOrBeforeYmd(now);
+}
+
+/** Chased in the last 7 Perth days — skip. Does not include unchased rows. */
+export function recentlyChasedInvoice(
+  invoice: { chased_at?: string | null } | null | undefined,
+  now = new Date(),
+): boolean {
+  return alreadyChasedInvoice(invoice) && !invoiceDueForSecondChase(invoice, now);
 }
 
 export function missOverdueChaseMessage(reason: OverdueInvoiceMissReason): string {
@@ -658,6 +721,40 @@ export function overdueUnchasedInvoiceQuery(args: {
   };
 }
 
+export function overdueSecondChaseCompanyFilter(companyId: string, now = new Date()) {
+  const id = companyId.trim();
+  if (!id) return null;
+  return {
+    table: 'invoices' as const,
+    company_id: id,
+    due_before: todayYmd(now),
+    chased_at_before: secondChaseChasedAtBeforeIso(now),
+    chased_on_or_before: secondChaseOnOrBeforeYmd(now),
+    status: OVERDUE_INVOICE_STATUSES,
+    timeZone: 'Australia/Perth' as const,
+    second_chase_perth_days: SECOND_OVERDUE_CHASE_PERTH_DAYS,
+  };
+}
+
+export function overdueSecondChaseInvoiceQuery(args: {
+  companyId: string;
+  now?: Date;
+}): OverdueInvoiceQueryScope | null {
+  const companyId = args.companyId.trim();
+  if (!companyId) return null;
+  return {
+    table: 'invoices',
+    columns: INVOICE_SEND_INVOICE_COLUMNS,
+    eq: { company_id: companyId },
+    inFilters: { status: [...OVERDUE_INVOICE_STATUSES] },
+    lt: {
+      due_date: todayYmd(args.now),
+      chased_at: secondChaseChasedAtBeforeIso(args.now),
+    },
+    notNull: ['chased_at'],
+  };
+}
+
 export function isOverdueInvoiceQueryScoped(scope: OverdueInvoiceQueryScope | null): boolean {
   if (!scope) return false;
   if (scope.columns.trim() === '' || scope.columns.trim() === '*') return false;
@@ -669,9 +766,25 @@ export function isOverdueInvoiceQueryScoped(scope: OverdueInvoiceQueryScope | nu
   return false;
 }
 
+export function isOverdueSecondChaseQueryScoped(scope: OverdueInvoiceQueryScope | null): boolean {
+  if (!scope) return false;
+  if (scope.columns.trim() === '' || scope.columns.trim() === '*') return false;
+  if (scope.table !== 'invoices') return false;
+  return !!scope.eq.company_id
+    && !!scope.lt?.due_date
+    && !!scope.lt?.chased_at
+    && (scope.notNull ?? []).includes('chased_at')
+    && !(scope.isNull ?? []).includes('chased_at');
+}
+
 export function wouldScanLedgerToChaseOverdue(scope: OverdueInvoiceQueryScope | null): boolean {
   if (scope == null) return false;
   return !isOverdueInvoiceQueryScoped(scope);
+}
+
+export function wouldScanLedgerToSecondChaseOverdue(scope: OverdueInvoiceQueryScope | null): boolean {
+  if (scope == null) return false;
+  return !isOverdueSecondChaseQueryScoped(scope);
 }
 
 type OverdueFilterBuilder = {
@@ -679,6 +792,7 @@ type OverdueFilterBuilder = {
   in: (column: string, values: readonly string[]) => OverdueFilterBuilder;
   lt: (column: string, value: string) => OverdueFilterBuilder;
   is: (column: string, value: null) => OverdueFilterBuilder;
+  not: (column: string, op: string, value: null) => OverdueFilterBuilder;
 };
 
 export function applyOverdueInvoiceScope<T>(
@@ -697,6 +811,9 @@ export function applyOverdueInvoiceScope<T>(
   }
   for (const column of scope.isNull ?? []) {
     q = q.is(column, null) as typeof q;
+  }
+  for (const column of scope.notNull ?? []) {
+    q = q.not(column, 'is', null) as typeof q;
   }
   return q;
 }
@@ -771,6 +888,73 @@ export function selectAutoFireOverdueInvoices(
   now = new Date(),
 ): OverdueInvoicePick {
   return selectOverdueUnchasedInvoices(invoices, clients, settings, companyId, now);
+}
+
+/**
+ * Second chase on the same hop. Same SMTP / overdue / client-email gates as first chase.
+ * Only rows whose last chase is 7 or more Perth days old.
+ */
+export function selectOverdueSecondChaseInvoices(
+  invoices: OverdueChaseInvoice[],
+  clients: Map<string, InvoiceSendClient> | InvoiceSendClient[],
+  settings: ReminderEmailSettings | SmtpSettingsRow | null | undefined,
+  companyId: string,
+  now = new Date(),
+): OverdueInvoicePick {
+  const clientMap = clients instanceof Map
+    ? clients
+    : new Map(clients.map(c => [c.id, c]));
+  const selected: OverdueInvoicePick['selected'] = [];
+  const missed: OverdueInvoicePick['missed'] = [];
+
+  for (const invoice of invoices) {
+    if (invoice.company_id !== companyId) continue;
+    if (!alreadyChasedInvoice(invoice)) continue;
+    if (recentlyChasedInvoice(invoice, now)) {
+      missed.push({ invoice, reason: 'already_chased', message: missOverdueChaseMessage('already_chased') });
+      continue;
+    }
+    if (invoice.status === 'paid') {
+      missed.push({ invoice, reason: 'paid', message: missOverdueChaseMessage('paid') });
+      continue;
+    }
+    if (!invoiceOverdueForAutofire(invoice, now)) {
+      const reason: OverdueInvoiceMissReason = dateOnly(invoice.due_date) ? 'not_overdue' : 'no_due_date';
+      missed.push({ invoice, reason, message: missOverdueChaseMessage(reason) });
+      continue;
+    }
+    if (!invoice.client_id) {
+      missed.push({ invoice, reason: 'no_client', message: missOverdueChaseMessage('no_client') });
+      continue;
+    }
+    if (!invoiceHasChargeableLines(invoice.line_items)) {
+      missed.push({ invoice, reason: 'no_lines', message: missOverdueChaseMessage('no_lines') });
+      continue;
+    }
+    if (!isSmtpReady(settings)) {
+      missed.push({ invoice, reason: 'no_smtp', message: missOverdueChaseMessage('no_smtp') });
+      continue;
+    }
+    const client = clientMap.get(invoice.client_id) ?? null;
+    const to = clientEmailForSend(client?.email);
+    if (!to) {
+      missed.push({ invoice, reason: 'no_email', message: missOverdueChaseMessage('no_email') });
+      continue;
+    }
+    selected.push({ invoice, client: client!, to });
+  }
+
+  return { selected, missed };
+}
+
+export function selectAutoFireSecondChaseInvoices(
+  invoices: OverdueChaseInvoice[],
+  clients: Map<string, InvoiceSendClient> | InvoiceSendClient[],
+  settings: ReminderEmailSettings | SmtpSettingsRow | null | undefined,
+  companyId: string,
+  now = new Date(),
+): OverdueInvoicePick {
+  return selectOverdueSecondChaseInvoices(invoices, clients, settings, companyId, now);
 }
 
 export function resolveOverdueInvoiceCaller(args: {

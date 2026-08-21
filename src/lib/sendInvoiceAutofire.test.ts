@@ -4,25 +4,42 @@ import { describe, expect, it } from 'vitest';
 import { INSPECTION_DUE_AUTO_FIRE_PATH } from './inspectionDueReminder';
 import { AUTO_FIRE_CLICK_PATH } from './jobReminder';
 import {
+  addCalendarDaysYmd,
   alreadyChasedInvoice,
   applyOverdueInvoiceScope,
   applyOverdueStampScope,
   invoiceChasedAtPatchAfterSend,
+  invoiceChaseHtml,
+  invoiceChaseSubject,
+  invoiceDueForSecondChase,
   invoiceOverdueForAutofire,
   invoiceOverdueStampPatch,
+  invoiceReceiptHtml,
+  invoiceReceiptSubject,
   invoiceStatusAfterOverdueStamp,
+  invoiceSendCopyKind,
   missOverdueChaseMessage,
   OVERDUE_INVOICE_AUTO_FIRE_PATH,
   overdueInvoiceCompanyFilter,
   overdueInvoiceStampQuery,
+  overdueSecondChaseCompanyFilter,
+  overdueSecondChaseInvoiceQuery,
   overdueUnchasedInvoiceQuery,
+  perthDayStartIso,
+  recentlyChasedInvoice,
   resolveOverdueInvoiceCaller,
+  SECOND_OVERDUE_CHASE_PERTH_DAYS,
+  secondChaseChasedAtBeforeIso,
+  secondChaseOnOrBeforeYmd,
   selectAutoFireOverdueInvoices,
+  selectAutoFireSecondChaseInvoices,
   selectInvoicesToStampOverdue,
+  selectOverdueSecondChaseInvoices,
   selectOverdueUnchasedInvoices,
   shouldStampInvoiceStatusOverdue,
   shouldWriteInvoiceChasedAt,
   wouldScanLedgerToChaseOverdue,
+  wouldScanLedgerToSecondChaseOverdue,
   wouldScanLedgerToStampOverdue,
   type InvoiceSendClient,
   type InvoiceSendInvoice,
@@ -92,8 +109,14 @@ describe('overdue auto-fire (cron, not Send again)', () => {
     expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/Send again/);
     const stampStep = OVERDUE_INVOICE_AUTO_FIRE_PATH.findIndex(step => step.includes('UPDATE invoices.status=overdue'));
     const chaseStep = OVERDUE_INVOICE_AUTO_FIRE_PATH.findIndex(step => step.includes('chased_at is null'));
+    const secondChaseStep = OVERDUE_INVOICE_AUTO_FIRE_PATH.findIndex(step => step.includes('chased_at <= perth_today minus 7 days'));
     expect(stampStep).toBeGreaterThan(OVERDUE_INVOICE_AUTO_FIRE_PATH.findIndex(step => step.includes('due=overdue')));
     expect(chaseStep).toBeGreaterThan(stampStep);
+    expect(secondChaseStep).toBeGreaterThan(chaseStep);
+    expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).toMatch(/last-7-day rows skip/);
+    expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).toMatch(/same deliverInvoiceSend auto chase copy/);
+    expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/chase_count/);
+    expect(OVERDUE_INVOICE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/settings column/);
   });
 
   it('auto-selects Perth-overdue unchased invoices with email when SMTP is ready', () => {
@@ -364,6 +387,230 @@ describe('chased_at write rules stay Resend 2xx only', () => {
     expect(shouldWriteInvoiceChasedAt(true, 'chase')).toBe(true);
     expect(shouldWriteInvoiceChasedAt(false, 'chase')).toBe(false);
   });
+
+  it('second chase refreshes the same chased_at column only after Resend 2xx — miss keeps the old stamp', () => {
+    const previous = '2026-08-14T01:00:00.000Z';
+    expect(invoiceDueForSecondChase({ chased_at: previous }, now)).toBe(true);
+    expect(invoiceChasedAtPatchAfterSend(true, 'chase', sentAt)).toEqual({
+      chased_at: '2026-08-21T01:00:00.000Z',
+    });
+    expect(invoiceChasedAtPatchAfterSend(false, 'chase', sentAt)).toBeNull();
+    expect(invoiceChasedAtPatchAfterSend(true, 'receipt', sentAt)).toBeNull();
+    expect(shouldWriteInvoiceChasedAt(false, 'chase')).toBe(false);
+  });
+});
+
+describe('second overdue chase — chased_at 7+ Perth days old', () => {
+  const sevenDaysAgo = '2026-08-14T01:00:00.000Z'; // 14 Aug 09:00 Perth
+  const sixDaysAgo = '2026-08-15T01:00:00.000Z'; // 15 Aug 09:00 Perth
+  const perthDay7Start = '2026-08-13T16:00:00.000Z'; // 14 Aug 00:00 Perth
+  const perthDay6Start = '2026-08-14T16:00:00.000Z'; // 15 Aug 00:00 Perth
+  const lastInstantOfDay7 = '2026-08-14T15:59:59.000Z'; // 14 Aug 23:59 Perth
+
+  it('fixes the gap at 7 Perth days — not a setting, not chase_count', () => {
+    expect(SECOND_OVERDUE_CHASE_PERTH_DAYS).toBe(7);
+    expect(addCalendarDaysYmd('2026-08-21', -7)).toBe('2026-08-14');
+    expect(addCalendarDaysYmd('2026-09-03', -7)).toBe('2026-08-27');
+    expect(secondChaseOnOrBeforeYmd(now)).toBe('2026-08-14');
+    expect(secondChaseChasedAtBeforeIso(now)).toBe('2026-08-15T00:00:00+08:00');
+    expect(perthDayStartIso('2026-08-15')).toBe('2026-08-15T00:00:00+08:00');
+    expect(new Date(secondChaseChasedAtBeforeIso(now)).toISOString()).toBe('2026-08-14T16:00:00.000Z');
+  });
+
+  it('treats exactly 7 Perth days as due, and the last 7 Perth days as skip', () => {
+    expect(invoiceDueForSecondChase({ chased_at: sevenDaysAgo }, now)).toBe(true);
+    expect(invoiceDueForSecondChase({ chased_at: perthDay7Start }, now)).toBe(true);
+    expect(invoiceDueForSecondChase({ chased_at: lastInstantOfDay7 }, now)).toBe(true);
+    expect(invoiceDueForSecondChase({ chased_at: sixDaysAgo }, now)).toBe(false);
+    expect(invoiceDueForSecondChase({ chased_at: perthDay6Start }, now)).toBe(false);
+    expect(invoiceDueForSecondChase({ chased_at: '2026-08-21T01:00:00.000Z' }, now)).toBe(false);
+    expect(invoiceDueForSecondChase({ chased_at: null }, now)).toBe(false);
+    expect(invoiceDueForSecondChase({ chased_at: '  ' }, now)).toBe(false);
+    expect(invoiceDueForSecondChase({ chased_at: 'not-a-date' }, now)).toBe(false);
+
+    expect(recentlyChasedInvoice({ chased_at: sixDaysAgo }, now)).toBe(true);
+    expect(recentlyChasedInvoice({ chased_at: sevenDaysAgo }, now)).toBe(false);
+    expect(recentlyChasedInvoice({ chased_at: null }, now)).toBe(false);
+    expect(alreadyChasedInvoice({ chased_at: sevenDaysAgo })).toBe(true);
+    expect(alreadyChasedInvoice({ chased_at: null })).toBe(false);
+  });
+
+  it('uses Australia/Perth when UTC is still the previous evening', () => {
+    const perthNextDay = new Date('2026-08-20T16:30:00.000Z'); // 21 Aug 00:30 Perth
+    expect(secondChaseOnOrBeforeYmd(perthNextDay)).toBe('2026-08-14');
+    expect(invoiceDueForSecondChase({ chased_at: lastInstantOfDay7 }, perthNextDay)).toBe(true);
+    expect(invoiceDueForSecondChase({ chased_at: perthDay6Start }, perthNextDay)).toBe(false);
+    const perthSameDay = new Date('2026-08-20T15:30:00.000Z'); // 20 Aug 23:30 Perth
+    expect(secondChaseOnOrBeforeYmd(perthSameDay)).toBe('2026-08-13');
+    expect(invoiceDueForSecondChase({ chased_at: lastInstantOfDay7 }, perthSameDay)).toBe(false);
+    expect(invoiceDueForSecondChase({ chased_at: perthDay7Start }, perthSameDay)).toBe(true);
+  });
+
+  it('first chase still only takes chased_at is null — 7-day-old rows wait for the second slice', () => {
+    const unchased = invoice();
+    const stale = invoice({ id: 'stale', chased_at: sevenDaysAgo });
+    const recent = invoice({ id: 'recent', chased_at: sixDaysAgo });
+    const first = selectAutoFireOverdueInvoices([unchased, stale, recent], [client], smtp, 'co-1', now);
+    expect(first.selected.map(s => s.invoice.id)).toEqual(['inv-1']);
+    expect(first.missed.map(m => m.invoice.id).sort()).toEqual(['recent', 'stale']);
+    expect(first.missed.every(m => m.reason === 'already_chased')).toBe(true);
+
+    const second = selectAutoFireSecondChaseInvoices([unchased, stale, recent], [client], smtp, 'co-1', now);
+    expect(second.selected.map(s => s.invoice.id)).toEqual(['stale']);
+    expect(second.selected[0]?.to).toBe('jane@acme.com.au');
+    expect(second.missed.map(m => m.invoice.id)).toEqual(['recent']);
+    expect(second.missed[0]?.reason).toBe('already_chased');
+    expect(second.missed[0]?.message).toMatch(/already chased/i);
+  });
+
+  it('does not double-send a row that belongs to the other slice', () => {
+    const rows = [
+      invoice(),
+      invoice({ id: 'stale', chased_at: sevenDaysAgo }),
+    ];
+    const firstIds = new Set(selectAutoFireOverdueInvoices(rows, [client], smtp, 'co-1', now).selected.map(s => s.invoice.id));
+    const secondIds = new Set(selectAutoFireSecondChaseInvoices(rows, [client], smtp, 'co-1', now).selected.map(s => s.invoice.id));
+    expect([...firstIds]).toEqual(['inv-1']);
+    expect([...secondIds]).toEqual(['stale']);
+    expect([...firstIds].some(id => secondIds.has(id))).toBe(false);
+  });
+
+  it('does not send a second chase without SMTP — and does not scan other companies', () => {
+    const pick = selectOverdueSecondChaseInvoices(
+      [invoice({ chased_at: sevenDaysAgo }), invoice({ id: 'other', company_id: 'co-2', chased_at: sevenDaysAgo })],
+      [client],
+      null,
+      'co-1',
+      now,
+    );
+    expect(pick.selected).toEqual([]);
+    expect(pick.missed).toHaveLength(1);
+    expect(pick.missed[0]).toMatchObject({ reason: 'no_smtp', invoice: { id: 'inv-1' } });
+  });
+
+  it('drafts stay draft and paid stay paid on the second slice', () => {
+    const paid = selectOverdueSecondChaseInvoices(
+      [invoice({ status: 'paid', chased_at: sevenDaysAgo })],
+      [client],
+      smtp,
+      'co-1',
+      now,
+    );
+    expect(paid.selected).toEqual([]);
+    expect(paid.missed[0]?.reason).toBe('paid');
+
+    const draft = selectOverdueSecondChaseInvoices(
+      [invoice({ status: 'draft', chased_at: sevenDaysAgo })],
+      [client],
+      smtp,
+      'co-1',
+      now,
+    );
+    expect(draft.selected).toEqual([]);
+    expect(draft.missed[0]?.reason).toBe('not_overdue');
+  });
+
+  it('names the same honest misses as first chase — no email, no client, no lines, not overdue', () => {
+    const noEmail = selectOverdueSecondChaseInvoices(
+      [invoice({ chased_at: sevenDaysAgo })],
+      [{ ...client, email: null }],
+      smtp,
+      'co-1',
+      now,
+    );
+    expect(noEmail.missed[0]?.reason).toBe('no_email');
+
+    const noClient = selectOverdueSecondChaseInvoices(
+      [invoice({ client_id: null, chased_at: sevenDaysAgo })],
+      [client],
+      smtp,
+      'co-1',
+      now,
+    );
+    expect(noClient.missed[0]?.reason).toBe('no_client');
+
+    const noLines = selectOverdueSecondChaseInvoices(
+      [invoice({ line_items: [{ description: 'Labour', quantity: 0, unit_price: 10 }], chased_at: sevenDaysAgo })],
+      [client],
+      smtp,
+      'co-1',
+      now,
+    );
+    expect(noLines.missed[0]?.reason).toBe('no_lines');
+
+    const dueToday = selectOverdueSecondChaseInvoices(
+      [invoice({ due_date: '2026-08-21', chased_at: sevenDaysAgo })],
+      [client],
+      smtp,
+      'co-1',
+      now,
+    );
+    expect(dueToday.missed[0]?.reason).toBe('not_overdue');
+  });
+
+  it('second chase reuses first-chase copy — not receipt copy', () => {
+    expect(invoiceSendCopyKind({ status: 'overdue', due_date: '2026-08-01' })).toBe('chase');
+    expect(invoiceChaseSubject(18, 'BTS Electrical', '14 Aug 2026'))
+      .toBe('Overdue invoice #0018 from BTS Electrical — due 14 Aug 2026');
+    expect(invoiceChaseHtml({
+      clientName: 'Jane',
+      companyName: 'BTS Electrical',
+      invoiceNumber: 18,
+      totalLabel: '$484.00',
+      dueLabel: '14 Aug 2026',
+      paymentTerms: 'Net 30',
+      attachedPdf: true,
+    })).toContain('is chasing overdue invoice');
+    expect(invoiceReceiptSubject(18, 'BTS Electrical')).toContain('Receipt for invoice');
+    expect(invoiceReceiptHtml({
+      clientName: 'Jane',
+      companyName: 'BTS Electrical',
+      invoiceNumber: 18,
+      totalLabel: '$484.00',
+      attachedPdf: true,
+    })).toContain('has received payment');
+    expect(invoiceChaseHtml({
+      clientName: 'Jane',
+      companyName: 'BTS Electrical',
+      invoiceNumber: 18,
+      totalLabel: '$484.00',
+      dueLabel: '14 Aug 2026',
+      attachedPdf: true,
+    })).not.toContain('has received payment');
+  });
+
+  it('keeps the second query scoped to company + Perth overdue + chased_at before today minus 6 Perth midnights', () => {
+    const filter = overdueSecondChaseCompanyFilter('co-1', now);
+    expect(filter).toEqual({
+      table: 'invoices',
+      company_id: 'co-1',
+      due_before: '2026-08-21',
+      chased_at_before: '2026-08-15T00:00:00+08:00',
+      chased_on_or_before: '2026-08-14',
+      status: ['sent', 'overdue'],
+      timeZone: 'Australia/Perth',
+      second_chase_perth_days: 7,
+    });
+    expect(overdueSecondChaseCompanyFilter('')).toBeNull();
+    const scope = overdueSecondChaseInvoiceQuery({ companyId: 'co-1', now });
+    expect(wouldScanLedgerToSecondChaseOverdue(scope)).toBe(false);
+    expect(scope?.eq).toEqual({ company_id: 'co-1' });
+    expect(scope?.lt).toEqual({
+      due_date: '2026-08-21',
+      chased_at: '2026-08-15T00:00:00+08:00',
+    });
+    expect(scope?.notNull).toEqual(['chased_at']);
+    expect(scope?.isNull).toBeUndefined();
+    expect(scope?.inFilters.status).toEqual(['sent', 'overdue']);
+    expect(wouldScanLedgerToSecondChaseOverdue({
+      table: 'invoices',
+      columns: 'id, status',
+      eq: { company_id: 'co-1' },
+      inFilters: {},
+    })).toBe(true);
+    expect(overdueSecondChaseInvoiceQuery({ companyId: '' })).toBeNull();
+    expect(wouldScanLedgerToChaseOverdue(scope)).toBe(true);
+  });
 });
 
 describe('override auth — auto-fire does not use invoiceId', () => {
@@ -430,6 +677,46 @@ describe('scoped query — not a ledger scan', () => {
     expect(calls).toContain('is:chased_at:null');
     expect(calls.some(call => call.startsWith('eq:id:'))).toBe(false);
   });
+
+  it('filters second chase by company, past due, not-null chased_at, and Perth 7-day cutoff', () => {
+    const calls: string[] = [];
+    const builder = {
+      select(columns: string) {
+        calls.push(`select:${columns}`);
+        return this;
+      },
+      eq(column: string, value: string) {
+        calls.push(`eq:${column}:${value}`);
+        return this;
+      },
+      in(column: string, values: readonly string[]) {
+        calls.push(`in:${column}:${values.join(',')}`);
+        return this;
+      },
+      lt(column: string, value: string) {
+        calls.push(`lt:${column}:${value}`);
+        return this;
+      },
+      is(column: string, value: null) {
+        calls.push(`is:${column}:${value}`);
+        return this;
+      },
+      not(column: string, op: string, value: null) {
+        calls.push(`not:${column}:${op}:${value}`);
+        return this;
+      },
+    };
+    const scope = overdueSecondChaseInvoiceQuery({ companyId: 'co-1', now }) as OverdueInvoiceQueryScope;
+    applyOverdueInvoiceScope(builder, scope);
+    expect(calls[0]).toMatch(/^select:/);
+    expect(calls).toContain('eq:company_id:co-1');
+    expect(calls).toContain('in:status:sent,overdue');
+    expect(calls).toContain('lt:due_date:2026-08-21');
+    expect(calls).toContain('lt:chased_at:2026-08-15T00:00:00+08:00');
+    expect(calls).toContain('not:chased_at:is:null');
+    expect(calls.some(call => call.includes('is:chased_at:null'))).toBe(false);
+    expect(calls.some(call => call.startsWith('eq:id:'))).toBe(false);
+  });
 });
 
 describe('performance — overdue unchased, not a ledger walk', () => {
@@ -454,6 +741,19 @@ describe('performance — overdue unchased, not a ledger walk', () => {
     mixed.push(invoice());
     const started = performance.now();
     const pick = selectOverdueUnchasedInvoices(mixed, [client], smtp, 'co-1', now);
+    const elapsed = performance.now() - started;
+    expect(pick.selected.map(s => s.invoice.id)).toEqual(['inv-1']);
+    expect(elapsed).toBeLessThan(80);
+  });
+
+  it('second chase does not walk other companies even when handed a mixed ledger', () => {
+    const mixed: InvoiceSendInvoice[] = [];
+    for (let i = 0; i < 4000; i++) {
+      mixed.push(invoice({ id: `other-${i}`, company_id: 'co-other', chased_at: '2026-08-01T01:00:00.000Z' }));
+    }
+    mixed.push(invoice({ chased_at: '2026-08-14T01:00:00.000Z' }));
+    const started = performance.now();
+    const pick = selectOverdueSecondChaseInvoices(mixed, [client], smtp, 'co-1', now);
     const elapsed = performance.now() - started;
     expect(pick.selected.map(s => s.invoice.id)).toEqual(['inv-1']);
     expect(elapsed).toBeLessThan(80);
@@ -519,12 +819,25 @@ describe('Perth overdue auto-fire source lock', () => {
     expect(overdue.indexOf('stampSentPastDueOverdue')).toBeLessThan(overdue.indexOf('companyIds.length === 0'));
     expect(overdue.indexOf('stampSentPastDueOverdue')).toBeLessThan(overdue.indexOf('.in("status", ["sent", "overdue"])'));
     expect(overdue.indexOf('stampSentPastDueOverdue')).toBeLessThan(overdue.indexOf('deliverInvoiceSend'));
+    expect(overdue).toContain('.is("chased_at", null)');
+    expect(overdue).toContain('.lt("chased_at", secondBefore)');
+    expect(overdue).toContain('.not("chased_at", "is", null)');
+    expect(overdue).toContain('secondChaseChasedAtBeforeIso');
+    expect(overdue.indexOf('.is("chased_at", null)')).toBeLessThan(overdue.indexOf('.lt("chased_at", secondBefore)'));
+    expect(overdue.indexOf('deliverInvoiceSend')).toBeLessThan(overdue.indexOf('secondChaseChasedAtBeforeIso'));
+    const firstDeliver = overdue.indexOf('deliverInvoiceSend');
+    const secondQuery = overdue.indexOf('secondChaseChasedAtBeforeIso');
+    const secondDeliver = overdue.indexOf('deliverInvoiceSend', secondQuery);
+    expect(secondDeliver).toBeGreaterThan(secondQuery);
+    expect(firstDeliver).toBeGreaterThan(-1);
     expect(overdue).toContain('todayYmd()');
     expect(overdue).not.toContain('cron.schedule');
     expect(overdue).not.toContain('CREATE TABLE');
     expect(overdue).not.toContain('ADD COLUMN');
     expect(overdue).not.toContain('from("quotes")');
     expect(overdue).not.toContain('purpose: "receipt"');
+    expect(overdue).not.toContain('chase_count');
+    expect(overdue).not.toContain('invoiceReceiptHtml');
 
     const stampStart = edge.indexOf('async function stampSentPastDueOverdue');
     const stampFn = edge.slice(stampStart, edge.indexOf('const invoiceMissText'));
@@ -535,6 +848,17 @@ describe('Perth overdue auto-fire source lock', () => {
     expect(stampFn).not.toContain('chased_at');
     expect(stampFn).not.toContain('from("quotes")');
     expect(stampFn).not.toContain('cron.schedule');
+
+    expect(edge).toContain('const SECOND_OVERDUE_CHASE_PERTH_DAYS = 7');
+    expect(edge).toContain('function invoiceDueForSecondChase');
+    expect(edge).toContain('function secondChaseChasedAtBeforeIso');
+    const deliverStart = edge.indexOf('async function deliverInvoiceSend');
+    const deliverFn = edge.slice(deliverStart, edge.indexOf('function reportSiteName'));
+    expect(deliverFn).toContain('mode === "auto" && alreadyChasedInvoice');
+    expect(deliverFn).toContain('invoiceDueForSecondChase');
+    expect(deliverFn).toContain('invoiceChaseHtml');
+    expect(deliverFn.indexOf('if (!res.ok)')).toBeLessThan(deliverFn.indexOf('invoicePatch.chased_at = sentAt'));
+    expect(deliverFn).not.toContain('chase_count');
 
     expect(hop).not.toContain('CREATE TABLE');
     expect(hop).not.toContain('ADD COLUMN');
