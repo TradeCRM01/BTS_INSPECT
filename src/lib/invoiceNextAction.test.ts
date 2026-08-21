@@ -113,6 +113,51 @@ describe('recommendInvoiceAction', () => {
       hasLines: true,
     }, now).key).toBe('send');
   });
+
+  it('flips to Send after a real client email — Send again if overdue, blank/invalid stay add_email', () => {
+    const afterSave = invoiceActionContext(
+      {
+        status: 'draft',
+        client_id: 'c1',
+        client_email: 'jane@acme.com.au',
+        line_items: [{ description: 'Board', quantity: 1 }],
+      },
+      { smtpReady: true },
+    );
+    expect(recommendInvoiceAction(afterSave, now)).toMatchObject({ key: 'send', label: 'Send' });
+
+    const overdueAfterSave = invoiceActionContext(
+      {
+        status: 'sent',
+        due_date: '2026-08-19',
+        client_id: 'c1',
+        client_email: 'jane@acme.com.au',
+        line_items: [{ description: 'Board', quantity: 1 }],
+      },
+      { smtpReady: true },
+    );
+    expect(recommendInvoiceAction(overdueAfterSave, now)).toMatchObject({
+      key: 'send',
+      label: 'Send again',
+    });
+
+    expect(recommendInvoiceAction(invoiceActionContext(
+      { status: 'draft', client_id: 'c1', client_email: null, line_items: [{ description: 'Board', quantity: 1 }] },
+      { smtpReady: true },
+    ), now).key).toBe('add_email');
+    expect(recommendInvoiceAction(invoiceActionContext(
+      { status: 'draft', client_id: 'c1', client_email: '', line_items: [{ description: 'Board', quantity: 1 }] },
+      { smtpReady: true },
+    ), now).key).toBe('add_email');
+    expect(recommendInvoiceAction(invoiceActionContext(
+      { status: 'draft', client_id: 'c1', client_email: 'not-an-email', line_items: [{ description: 'Board', quantity: 1 }] },
+      { smtpReady: true },
+    ), now).key).toBe('add_email');
+    expect(recommendInvoiceAction(invoiceActionContext(
+      { status: 'draft', client_id: null, client_email: 'jane@acme.com.au', line_items: [{ description: 'Board', quantity: 1 }] },
+      { smtpReady: true },
+    ), now).label).toBe('Add a client');
+  });
 });
 
 describe('invoiceActionContext / invoiceCardHint', () => {
