@@ -34,7 +34,6 @@ import {
   type DueInspectionJob,
 } from './inspectionDueReminder';
 import {
-  missSmsMessage,
   prefillReminderTo,
   prefillSmsTo,
   type ReminderClient,
@@ -473,7 +472,8 @@ describe('due-test reminder contact write — wiring', () => {
     expect(due).toContain('job-client-email-save');
     expect(due).toContain('aria-label="Client email"');
     expect(due).toContain('clientId: resolvedClientId');
-    expect(due).toContain('client: liveClient');
+    expect(due).toContain('id: liveClient.id');
+    expect(due).toContain('email: liveClient.email ?? null');
     expect(due).not.toContain('ClientEmailDialog');
     expect(due).not.toContain('className="btn-primary job-client-email-save"');
     expect(handle).toContain('saveJobClientEmail');

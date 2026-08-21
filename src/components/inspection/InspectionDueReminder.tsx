@@ -79,11 +79,15 @@ export function InspectionDueReminder({
   const resolvedClientId = resolveInspectionClientId(inspection, job);
   const emailRow = jobClientEmailRow({
     clientId: resolvedClientId,
-    client: liveClient,
+    client: liveClient
+      ? { id: liveClient.id, email: liveClient.email ?? null }
+      : null,
   });
   const phoneRow = jobClientPhoneRow({
     clientId: resolvedClientId,
-    client: liveClient,
+    client: liveClient
+      ? { id: liveClient.id, phone: liveClient.phone ?? null }
+      : null,
   });
   const to = prefillReminderTo(liveClient);
   const smsTo = prefillSmsTo(liveClient?.phone);
