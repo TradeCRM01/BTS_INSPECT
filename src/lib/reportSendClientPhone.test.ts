@@ -170,7 +170,7 @@ describe('report-send client phone — save / miss', () => {
     expect(clientId).toBe('c-insp');
     expect(jobClientPhoneRow({
       clientId,
-      client: { id: 'c-insp', phone: null },
+      client: { id: inspClient.id, phone: inspClient.phone },
     })).toEqual({ kind: 'edit', clientId: 'c-insp', phone: '' });
   });
 
