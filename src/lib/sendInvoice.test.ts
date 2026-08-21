@@ -3,8 +3,11 @@ import {
   applyInvoiceSendScope,
   blobToBase64,
   clientEmailForSend,
+  clientPhoneForSms,
   commercialPdfDataForInvoice,
   decideInvoiceSend,
+  decideInvoiceSms,
+  invoiceSmsBody,
   INVOICE_SEND_PIPE,
   invoiceAttachmentOrMiss,
   invoiceByIdQuery,
@@ -115,6 +118,8 @@ describe('decideInvoiceSend', () => {
       toName: 'Acme Plumbing',
       subject: 'Invoice #0018 from BTS Electrical',
       filename: 'invoice-0018.pdf',
+      smsTo: '+61412345678',
+      smsMessage: null,
     });
   });
 
@@ -153,6 +158,48 @@ describe('decideInvoiceSend', () => {
     expect(decision.ok).toBe(true);
     if (!decision.ok) return;
     expect(decision.to).toBe('jane@acme.com.au');
+  });
+
+  it('still emails when the client has no phone — SMS is an honest miss, not a blocker', () => {
+    const decision = decideInvoiceSend(bundle({ client: { ...client, phone: null } }));
+    expect(decision.ok).toBe(true);
+    if (!decision.ok) return;
+    expect(decision.to).toBe('jane@acme.com.au');
+    expect(decision.smsTo).toBeNull();
+    expect(decision.smsMessage).toMatch(/no phone/i);
+  });
+});
+
+describe('invoice SMS beside email', () => {
+  it('prefills SMS To from clients.phone and refuses junk', () => {
+    expect(clientPhoneForSms('0412 345 678')).toBe('+61412345678');
+    expect(clientPhoneForSms('  +61 412 345 678  ')).toBe('+61412345678');
+    expect(clientPhoneForSms('')).toBeNull();
+    expect(clientPhoneForSms(null)).toBeNull();
+    expect(clientPhoneForSms('call me')).toBeNull();
+  });
+
+  it('does not block email when SMS credentials are missing', () => {
+    const sms = decideInvoiceSms({ phone: '0412 345 678', credentials: null });
+    expect(sms.send).toBe(false);
+    if (sms.send) return;
+    expect(sms.reason).toBe('no_sms_credentials');
+    expect(decideInvoiceSend(bundle()).ok).toBe(true);
+  });
+
+  it('names the SMS from the invoice number and total — no portal', () => {
+    const body = invoiceSmsBody({
+      companyName: 'BTS Electrical',
+      invoiceNumber: 18,
+      totalLabel: '$484.00',
+      dueLabel: '19 Sep 2026',
+    });
+    expect(body).toContain('#0018');
+    expect(body).toContain('$484.00');
+    expect(body).toContain('19 Sep 2026');
+    expect(body).toMatch(/PDF is in your email/);
+    expect(body).not.toContain('portal');
+    expect(body).not.toContain('quote');
   });
 });
 
@@ -238,6 +285,8 @@ describe('INVOICE_SEND_PIPE', () => {
     expect(pipe).toMatch(/api\.resend\.com/);
     expect(pipe).toMatch(/email_settings/);
     expect(pipe).toMatch(/2xx/);
+    expect(pipe).toMatch(/Twilio/);
+    expect(pipe).toMatch(/clients\.phone/);
     expect(pipe).not.toMatch(/send-quote/);
   });
 });

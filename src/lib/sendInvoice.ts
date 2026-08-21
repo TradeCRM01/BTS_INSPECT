@@ -4,9 +4,14 @@ import { asStringList } from './asStringList';
 import { linesFromQuoteItems, type CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import type { InvoiceLineItem, InvoiceStatus } from '../types/fsm';
 import {
+  decideSmsBeside,
   emailSettingsReady,
+  missSmsMessage,
   prefillReminderTo,
+  prefillSmsTo,
   type ReminderEmailSettings,
+  type SmsCredentials,
+  type SmsDecision,
 } from './jobReminder';
 
 export const COMPANY_EMAIL_SETTINGS_HREF = '/settings/company';
@@ -41,6 +46,8 @@ export type InvoiceSendDecision =
       toName: string;
       subject: string;
       filename: string;
+      smsTo: string | null;
+      smsMessage: string | null;
     }
   | {
       ok: false;
@@ -124,6 +131,7 @@ export const INVOICE_SEND_PIPE = [
   'To = client.email (never invented)',
   'attach existing invoice PDF (stored reports path or commercial generateCommercialPdf)',
   'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'SMS beside: clients.phone via Twilio edge secrets on job-reminder (email status unchanged if SMS misses)',
   'UPDATE invoices.status = sent only when Resend returns 2xx',
 ] as const;
 
@@ -135,6 +143,30 @@ export function padInvoiceNumber(n: number | null | undefined): string {
 export function clientEmailForSend(email: string | null | undefined): string | null {
   const to = prefillReminderTo({ id: '', email });
   return to || null;
+}
+
+/** Client SMS To from clients.phone. Empty is an honest miss, not a send blocker. */
+export function clientPhoneForSms(phone: string | null | undefined): string | null {
+  const to = prefillSmsTo(phone);
+  return to || null;
+}
+
+export function decideInvoiceSms(args: {
+  phone?: string | null;
+  credentials?: SmsCredentials | null;
+}): SmsDecision {
+  return decideSmsBeside({ phone: args.phone, credentials: args.credentials });
+}
+
+export function invoiceSmsBody(opts: {
+  companyName: string;
+  invoiceNumber: number | null | undefined;
+  totalLabel: string;
+  dueLabel: string | null;
+}): string {
+  const who = opts.companyName.trim() || 'your contractor';
+  const due = opts.dueLabel ? ` Due ${opts.dueLabel}.` : '';
+  return `${who} sent invoice #${padInvoiceNumber(opts.invoiceNumber)}. Total (inc GST): ${opts.totalLabel}.${due} The PDF is in your email.`;
 }
 
 /** Same Resend gate as job-reminder / due inspections. */
@@ -329,12 +361,15 @@ export function decideInvoiceSend(bundle: InvoiceSendBundle): InvoiceSendDecisio
       href: invoice.client_id ? `/clients/${invoice.client_id}` : undefined,
     };
   }
+  const smsTo = clientPhoneForSms(bundle.client?.phone);
   return {
     ok: true,
     to,
     toName: (bundle.client?.name ?? '').trim() || 'Client',
     subject: invoiceSendSubject(invoice.invoice_number, bundle.company.name),
     filename: invoicePdfFilename(invoice.invoice_number),
+    smsTo,
+    smsMessage: smsTo ? null : missSmsMessage('no_phone'),
   };
 }
 

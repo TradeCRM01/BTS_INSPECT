@@ -8,10 +8,11 @@ import {
   decideInspectionDueSend,
   inspectionDueHref,
   prefillReminderTo,
+  prefillSmsTo,
   type DueInspection,
   type DueInspectionJob,
 } from '../../lib/inspectionDueReminder';
-import type { ReminderClient, ReminderEmailSettings } from '../../lib/jobReminder';
+import { missSmsMessage, type ReminderClient, type ReminderEmailSettings } from '../../lib/jobReminder';
 
 export function InspectionDueReminder({
   inspection,
@@ -32,6 +33,7 @@ export function InspectionDueReminder({
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const to = prefillReminderTo(client);
+  const smsTo = prefillSmsTo(client?.phone);
   const companyId = company?.id ?? job?.company_id ?? '';
 
   const { data: settings, isFetched: settingsFetched } = useQuery<ReminderEmailSettings | null>({
@@ -89,7 +91,7 @@ export function InspectionDueReminder({
       queryClient.invalidateQueries({ queryKey: ['inspections'] });
       queryClient.invalidateQueries({ queryKey: ['job-inspections'] });
       queryClient.invalidateQueries({ queryKey: ['client-inspections'] });
-      showToast(data.message ?? `Reminder sent to ${to}`);
+      showToast(data.message ?? `Reminder sent to ${to}${smsTo ? '' : ` ${missSmsMessage('no_phone')}`}`);
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   });
@@ -102,17 +104,31 @@ export function InspectionDueReminder({
         <h2 className="ops-section-title">Due test reminder</h2>
       </div>
       <div className="job-reminder-body">
-        <label className="block">
-          <span className="ops-field-label">To</span>
-          <input
-            type="email"
-            readOnly
-            value={to}
-            placeholder="No client email"
-            className="form-input"
-            aria-label="Due reminder recipient"
-          />
-        </label>
+        <div className="job-reminder-tos">
+          <label className="block">
+            <span className="ops-field-label">To</span>
+            <input
+              type="email"
+              readOnly
+              value={to}
+              placeholder="No client email"
+              className="form-input"
+              aria-label="Due reminder recipient"
+            />
+          </label>
+
+          <label className="block">
+            <span className="ops-field-label">SMS To</span>
+            <input
+              type="tel"
+              readOnly
+              value={smsTo}
+              placeholder="No client phone"
+              className="form-input tabular-nums"
+              aria-label="Due reminder SMS To"
+            />
+          </label>
+        </div>
 
         {awaitingSmtp ? (
           <p className="job-reminder-meta">Checking email settings…</p>
@@ -120,6 +136,10 @@ export function InspectionDueReminder({
           <p className="job-reminder-meta">Auto-sends the day it is due (Australia/Perth).</p>
         ) : (
           <p className="job-reminder-miss">{decision.message}</p>
+        )}
+
+        {decision.send && !smsTo && (
+          <p className="job-reminder-miss">{missSmsMessage('no_phone')}</p>
         )}
 
         {sentAt && (

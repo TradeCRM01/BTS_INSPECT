@@ -21,7 +21,7 @@ export function InvoiceSendDialog({
   invoiceId: string;
   company: InvoiceSendCompany & { id: string };
   onClose: () => void;
-  onSent: (to: string) => void;
+  onSent: (to: string, message?: string) => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -68,7 +68,7 @@ export function InvoiceSendDialog({
         setErr(result.message);
         return;
       }
-      onSent(result.to);
+      onSent(result.to, result.message);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not send the invoice.');
     } finally {
@@ -101,10 +101,21 @@ export function InvoiceSendDialog({
 
           {!loading && ready && decision.ok && (
             <>
-              <div className="hub-invoice-send-field">
-                <p className="hub-invoice-kicker">To</p>
-                <p className="hub-invoice-send-value">{decision.to}</p>
-                <p className="hub-invoice-muted">{decision.toName} — already on the invoice.</p>
+              <div className="hub-invoice-send-tos">
+                <div className="hub-invoice-send-field">
+                  <p className="hub-invoice-kicker">To</p>
+                  <p className="hub-invoice-send-value">{decision.to}</p>
+                  <p className="hub-invoice-muted">{decision.toName} — already on the invoice.</p>
+                </div>
+                <div className="hub-invoice-send-field">
+                  <p className="hub-invoice-kicker">SMS To</p>
+                  <p className={`hub-invoice-send-value tabular-nums${decision.smsTo ? '' : ' is-miss'}`}>
+                    {decision.smsTo || 'No client phone'}
+                  </p>
+                  {decision.smsTo ? null : (
+                    <p className="hub-invoice-muted">{decision.smsMessage}</p>
+                  )}
+                </div>
               </div>
               <div className="hub-invoice-send-field">
                 <p className="hub-invoice-kicker">Subject</p>

@@ -8,7 +8,9 @@ import type { Client, Job } from '../../types/crm';
 import {
   decideReminderSend,
   jobScheduleHref,
+  missSmsMessage,
   prefillReminderTo,
+  prefillSmsTo,
   type ReminderEmailSettings,
 } from '../../lib/jobReminder';
 
@@ -31,6 +33,7 @@ export function JobClientReminder({
   const [params] = useSearchParams();
   const rescheduleAsked = params.get('reschedule') === '1';
   const to = prefillReminderTo(client);
+  const smsTo = prefillSmsTo(client?.phone);
   const companyId = company?.id ?? job.company_id;
 
   const { data: settings, isFetched: settingsFetched } = useQuery<ReminderEmailSettings | null>({
@@ -84,7 +87,7 @@ export function JobClientReminder({
       queryClient.invalidateQueries({ queryKey: ['job', job.id] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
-      showToast(data.message ?? `Reminder sent to ${to}`);
+      showToast(data.message ?? `Reminder sent to ${to}${smsTo ? '' : ` ${missSmsMessage('no_phone')}`}`);
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   });
@@ -101,17 +104,31 @@ export function JobClientReminder({
           <p className="job-reminder-reschedule">Client asked to reschedule.</p>
         )}
 
-        <label className="block">
-          <span className="ops-field-label">To</span>
-          <input
-            type="email"
-            readOnly
-            value={to}
-            placeholder="No client email"
-            className="form-input"
-            aria-label="Reminder recipient"
-          />
-        </label>
+        <div className="job-reminder-tos">
+          <label className="block">
+            <span className="ops-field-label">To</span>
+            <input
+              type="email"
+              readOnly
+              value={to}
+              placeholder="No client email"
+              className="form-input"
+              aria-label="Reminder recipient"
+            />
+          </label>
+
+          <label className="block">
+            <span className="ops-field-label">SMS To</span>
+            <input
+              type="tel"
+              readOnly
+              value={smsTo}
+              placeholder="No client phone"
+              className="form-input tabular-nums"
+              aria-label="Reminder SMS To"
+            />
+          </label>
+        </div>
 
         {awaitingSmtp ? (
           <p className="job-reminder-meta">Checking email settings…</p>
@@ -119,6 +136,10 @@ export function JobClientReminder({
           <p className="job-reminder-meta">Auto-sends the day before (Australia/Perth).</p>
         ) : (
           <p className="job-reminder-miss">{decision.message}</p>
+        )}
+
+        {decision.send && !smsTo && (
+          <p className="job-reminder-miss">{missSmsMessage('no_phone')}</p>
         )}
 
         {sentAt && (

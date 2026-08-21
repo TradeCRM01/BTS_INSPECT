@@ -5,6 +5,15 @@ import {
   AUTO_FIRE_CLICK_PATH,
   autoFireJobFilter,
   buildReminderEmail,
+  buildReminderSms,
+  decideSmsBeside,
+  formatEmailAndSmsMessage,
+  JOB_REMINDER_SMS_PIPE,
+  missSmsMessage,
+  prefillSmsTo,
+  smsCredentialsReady,
+  smsResultFromMiss,
+  smsResultFromSend,
   clientRescheduleMailto,
   COMPANY_TIME_ZONE,
   dateOnly,
@@ -233,6 +242,77 @@ describe('honest misses — no send', () => {
       client_reminder_sent_at: '2026-08-21T09:00:00.000Z',
       client_reminder_sent_for_date: '2026-08-22',
     });
+  });
+});
+
+describe('SMS beside email — same send, independent outcome', () => {
+  const twilio = {
+    accountSid: 'ACtest',
+    authToken: 'token',
+    fromNumber: '+61400000000',
+  };
+
+  it('prefills SMS To from clients.phone and never invents a number', () => {
+    expect(prefillSmsTo('0832110000')).toBe('+61832110000');
+    expect(prefillSmsTo('0412 345 678')).toBe('+61412345678');
+    expect(prefillSmsTo('+61 412 345 678')).toBe('+61412345678');
+    expect(prefillSmsTo('412345678')).toBe('+61412345678');
+    expect(prefillSmsTo('')).toBe('');
+    expect(prefillSmsTo('   ')).toBe('');
+    expect(prefillSmsTo(null)).toBe('');
+    expect(prefillSmsTo('no-digits')).toBe('');
+    expect(prefillSmsTo('12')).toBe('');
+  });
+
+  it('needs Twilio sid, token, and from — secrets stay on the edge', () => {
+    expect(smsCredentialsReady(null)).toBe(false);
+    expect(smsCredentialsReady({ ...twilio, accountSid: '' })).toBe(false);
+    expect(smsCredentialsReady({ ...twilio, authToken: '  ' })).toBe(false);
+    expect(smsCredentialsReady({ ...twilio, fromNumber: '' })).toBe(false);
+    expect(smsCredentialsReady(twilio)).toBe(true);
+  });
+
+  it('honest miss if no phone or no credentials — email eligibility is unchanged', () => {
+    expect(decideSmsBeside({ phone: null, credentials: twilio })).toMatchObject({
+      send: false, reason: 'no_phone',
+    });
+    expect(missSmsMessage('no_phone')).toMatch(/no phone/i);
+    expect(decideSmsBeside({ phone: '0412 345 678', credentials: null })).toMatchObject({
+      send: false, reason: 'no_sms_credentials',
+    });
+    expect(missSmsMessage('no_sms_credentials')).toBe('SMS is not set up.');
+    const email = reminderEligibility({
+      job: job(), client, settings: smtp, companyId: 'co-1', now,
+    });
+    expect(email.ok).toBe(true);
+    expect(shouldRecordReminderSent(true)).toBe(true);
+    expect(shouldRecordReminderSent(false)).toBe(false);
+  });
+
+  it('email still records sent when SMS misses; SMS success does not write sent-at', () => {
+    expect(smsResultFromMiss('no_phone').sent).toBe(false);
+    expect(smsResultFromSend(false, '+61412345678', 'Twilio 21211').message).toMatch(/Twilio 21211/);
+    expect(smsResultFromSend(true, '+61412345678').sent).toBe(true);
+    expect(shouldRecordReminderSent(true)).toBe(true);
+    expect(formatEmailAndSmsMessage('Reminder sent to sam@acme.example', smsResultFromMiss('no_phone')))
+      .toMatch(/Reminder sent to sam@acme.example.+no phone/i);
+  });
+
+  it('SMS body is the same visit, not a new product', () => {
+    const body = buildReminderSms({
+      job: job(),
+      company: { name: 'BTS Electrical', phone: '1300 000 000' },
+    });
+    expect(body).toMatch(/#0042/);
+    expect(body).toMatch(/tomorrow/);
+    expect(body).toMatch(/12 Smith St/);
+    expect(body).toMatch(/1300 000 000/);
+    expect(body).not.toMatch(/portal/i);
+    expect(JOB_REMINDER_SMS_PIPE.join(' ')).toMatch(/job-reminder/);
+    expect(JOB_REMINDER_SMS_PIPE.join(' ')).toMatch(/api\.twilio\.com/);
+    expect(JOB_REMINDER_SMS_PIPE.join(' ')).toMatch(/clients\.phone/);
+    expect(JOB_REMINDER_SMS_PIPE.join(' ')).not.toMatch(/sms_settings/);
+    expect(JOB_REMINDER_SMS_PIPE.join(' ')).not.toMatch(/send-quote/);
   });
 });
 

@@ -881,6 +881,10 @@
     color: var(--job-muted);
   }
 
+  #job-schedule .job-reminder-tos .form-input {
+    text-overflow: clip;
+  }
+
   #job-schedule .btn-primary {
     background: #2E75B6;
     color: #fff;
@@ -953,6 +957,12 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
+    gap: 16px;
+  }
+
+  #job-schedule .job-reminder-tos {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 16px;
   }
 
@@ -1097,6 +1107,10 @@
     color: var(--job-muted);
   }
 
+  #inspection-due .job-reminder-tos .form-input {
+    text-overflow: clip;
+  }
+
   #inspection-due .btn-primary {
     background: #2E75B6;
     color: #fff;
@@ -1128,6 +1142,12 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
+    gap: 16px;
+  }
+
+  #inspection-due .job-reminder-tos {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 16px;
   }
 
@@ -1815,6 +1835,12 @@
     gap: 16px;
   }
 
+  .hub-invoice-send-tos {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
   .hub-invoice-send-field .hub-invoice-kicker {
     margin-bottom: 8px;
   }
@@ -1823,6 +1849,14 @@
     font-size: 14px;
     font-weight: 600;
     color: #0A2540;
+  }
+
+  .hub-invoice-send-tos > :first-child .hub-invoice-send-value {
+    white-space: nowrap;
+  }
+
+  .hub-invoice-send-value.is-miss {
+    font-weight: 500;
   }
 
   .hub-invoice-pdf {
@@ -1871,6 +1905,12 @@
       max-width: calc(100vw - 16px) !important;
       max-height: calc(100dvh - 16px) !important;
       border-radius: 16px !important;
+    }
+
+    #job-schedule .job-reminder-tos,
+    #inspection-due .job-reminder-tos {
+      grid-template-columns: 1fr;
+      gap: 16px;
     }
   }
 
