@@ -195,6 +195,8 @@ describe('Perth overdue auto-fire rides job-reminder due=overdue', () => {
     expect(edge).toContain('api.twilio.com');
     const overdueStart = edge.indexOf('if (due === "overdue")');
     const overdue = edge.slice(overdueStart, edge.indexOf('if (invoiceId)'));
+    expect(overdue).toContain('stampSentPastDueOverdue');
+    expect(overdue.indexOf('stampSentPastDueOverdue')).toBeLessThan(overdue.indexOf('deliverInvoiceSend'));
     expect(overdue).toContain('deliverInvoiceSend');
     expect(overdue).toContain('mode: "auto"');
     expect(overdue).not.toContain('cron.schedule');

@@ -28,7 +28,7 @@ describe('effectiveInvoiceStatus', () => {
 });
 
 describe('persistableInvoiceStatus', () => {
-  it('stores sent instead of overdue so due date can compute it', () => {
+  it('UI form still stores sent instead of overdue — Perth hop stamps separately', () => {
     expect(persistableInvoiceStatus('overdue')).toBe('sent');
     expect(persistableInvoiceStatus('sent')).toBe('sent');
     expect(persistableInvoiceStatus('paid')).toBe('paid');
