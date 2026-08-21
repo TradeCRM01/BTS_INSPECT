@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -128,6 +128,18 @@ describe('signed Grafter speed-bar mark', () => {
 
     expect(src('tailwind.config.js')).toContain("cream: '#F5F0E6'");
     expect(src('src/index.css')).toContain('--ops-cream: #F5F0E6');
+  });
+
+  it('LOOK frames cover login lockup, header mark, and PWA icon only', () => {
+    for (const rel of [
+      'docs/look/grafter-mark-login-desktop.png',
+      'docs/look/grafter-mark-login-ute.png',
+      'docs/look/grafter-mark-header-desktop.png',
+      'docs/look/grafter-mark-header-ute.png',
+      'docs/look/grafter-mark-icon.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+    }
   });
 });
 
