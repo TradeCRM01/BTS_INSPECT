@@ -92,6 +92,13 @@ describe('invoice send deliver path', () => {
     expect(dialog).toContain('chaseCopy');
     expect(dialog).toContain(' · Overdue');
     expect(dialog).not.toContain('Send again');
+    expect(dialog).toContain('invoiceSendXeroMissLine');
+    expect(dialog).toContain('hub-invoice-send-xero-miss');
+    expect(dialog).toContain('keepOpen: true');
+    expect(dialog).not.toContain('Connect Xero');
+    expect(dialog).not.toContain('xero-accounting');
+    expect(page).toContain('keepOpen');
+    expect(page).not.toContain('Connect Xero');
     expect(invoiceCss).toContain('--invoice-page: #F4F6F8');
     expect(invoiceCss).toContain('--invoice-sheet: #FFFFFF');
     expect(invoiceCss).toContain('--invoice-ink: #0A2540');
@@ -102,6 +109,8 @@ describe('invoice send deliver path', () => {
     expect(invoiceCss).toContain('white-space: nowrap');
     expect(invoiceCss).toContain('text-overflow: clip');
     expect(invoiceCss).not.toContain('text-overflow: ellipsis');
+    expect(invoiceCss).toContain('.hub-invoice-send-xero-miss');
+    expect(invoiceCss).toContain('color: #5B6B7C');
   });
 
   it('SMS miss does not flip invoice status or chased_at — sent follows email 2xx only', () => {

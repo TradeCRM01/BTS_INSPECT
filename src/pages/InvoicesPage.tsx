@@ -302,15 +302,15 @@ export function InvoicesPage() {
             logo_url: company.logo_url ?? null,
           }}
           onClose={() => setSendingInvoiceId(null)}
-          onSent={(to, message) => {
-            setSendingInvoiceId(null);
+          onSent={(to, message, opts) => {
+            if (!opts?.keepOpen) setSendingInvoiceId(null);
             queryClient.invalidateQueries({ queryKey: ['invoices'] });
             queryClient.invalidateQueries({ queryKey: ['invoice'] });
             queryClient.invalidateQueries({ queryKey: ['client-invoices'] });
             if (editingInvoice?.id === sendingInvoiceId) {
               setEditingInvoice(inv => inv ? { ...inv, status: 'sent' } : inv);
             }
-            showToast(message ?? `Invoice sent to ${to}`);
+            if (!opts?.keepOpen) showToast(message ?? `Invoice sent to ${to}`);
           }}
         />
       )}

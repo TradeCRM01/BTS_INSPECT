@@ -13,6 +13,7 @@ import {
   invoicesForXeroSync,
   invoicesStillToPush,
   decideXeroPushOnSend,
+  invoiceSendXeroMissLine,
   pushInvoiceToXeroAfterSend,
   wouldScanLedgerToSyncOneInvoice,
   xeroAccountingSyncQuery,
@@ -255,6 +256,11 @@ describe('decideXeroSync', () => {
     expect(decideXeroPushOnSend({ sendSucceeded: true, invoiceId: 'inv-1' }))
       .toEqual({ ok: true, invoiceId: 'inv-1' });
     expect(xeroPushOnSendBody('inv-1')).toEqual({ action: 'sync', invoiceId: 'inv-1' });
+    expect(invoiceSendXeroMissLine({ ok: true, message: 'Pushed 1 invoice to Xero.' })).toBeNull();
+    expect(invoiceSendXeroMissLine({ ok: false, message: xeroMissMessage('not_connected') }))
+      .toBe('Invoice sent. Xero is not connected.');
+    expect(invoiceSendXeroMissLine({ ok: false, message: xeroMissMessage('invoice_sync_off') }))
+      .toBe('Invoice sent. Invoice sync is off.');
   });
 
   it('misses when invoice sync is off or there is nothing to push', () => {

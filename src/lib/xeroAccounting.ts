@@ -155,6 +155,17 @@ export function xeroPushOnSendBody(invoiceId: string): { action: 'sync'; invoice
 export type XeroAfterSendResult = { ok: boolean; message: string };
 
 /**
+ * Quiet line on the existing invoice Send sheet after a successful send.
+ * Names the miss. Does not unsend. Not a second primary.
+ */
+export function invoiceSendXeroMissLine(xero: XeroAfterSendResult): string | null {
+  if (xero.ok) return null;
+  if (/not connected/i.test(xero.message)) return 'Invoice sent. Xero is not connected.';
+  if (/turned off/i.test(xero.message)) return 'Invoice sent. Invoice sync is off.';
+  return `Invoice sent. ${xero.message}`;
+}
+
+/**
  * Call the existing xero-accounting sync for one invoice.
  * Misses stay misses. Callers must not flip Send to failed.
  */

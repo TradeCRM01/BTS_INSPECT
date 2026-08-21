@@ -1877,6 +1877,13 @@
     font-weight: 500;
   }
 
+  .hub-invoice-send-xero-miss {
+    font-size: 14px;
+    font-weight: 500;
+    color: #5B6B7C;
+    margin: 0;
+  }
+
   .hub-invoice-pdf {
     display: inline-flex;
     align-items: center;

@@ -11,6 +11,7 @@ import {
   type InvoiceSendDecision,
 } from '../../lib/sendInvoice';
 import { deliverInvoice, loadInvoiceSendBundle } from '../../lib/sendInvoiceDeliver';
+import { invoiceSendXeroMissLine } from '../../lib/xeroAccounting';
 
 export function InvoiceSendDialog({
   invoiceId,
@@ -21,13 +22,14 @@ export function InvoiceSendDialog({
   invoiceId: string;
   company: InvoiceSendCompany & { id: string };
   onClose: () => void;
-  onSent: (to: string, message?: string) => void;
+  onSent: (to: string, message?: string, opts?: { keepOpen?: boolean }) => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [bundle, setBundle] = useState<InvoiceSendBundle | null>(null);
   const [decision, setDecision] = useState<InvoiceSendDecision | null>(null);
   const [err, setErr] = useState('');
+  const [xeroMiss, setXeroMiss] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +56,7 @@ export function InvoiceSendDialog({
     if (!decision?.ok) return;
     setSending(true);
     setErr('');
+    setXeroMiss('');
     try {
       const result = await deliverInvoice({
         invoiceId,
@@ -66,6 +69,12 @@ export function InvoiceSendDialog({
       });
       if (!result.ok) {
         setErr(result.message);
+        return;
+      }
+      const miss = invoiceSendXeroMissLine(result.xero);
+      if (miss) {
+        setXeroMiss(miss);
+        onSent(result.to, result.message, { keepOpen: true });
         return;
       }
       onSent(result.to, result.message);
@@ -130,6 +139,9 @@ export function InvoiceSendDialog({
                 <p className="hub-invoice-kicker">PDF</p>
                 <p className="hub-invoice-pdf">{pdfName}</p>
               </div>
+              {xeroMiss ? (
+                <p className="hub-invoice-send-xero-miss">{xeroMiss}</p>
+              ) : null}
             </>
           )}
 
