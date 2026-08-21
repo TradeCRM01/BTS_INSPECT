@@ -29,6 +29,12 @@ import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { jobInvoiceActionFlags, recommendJobAction } from '../lib/jobNextAction';
 import { jobDraftSendToast, sendJobDraftInvoice } from '../lib/sendJobDraftInvoice';
 import {
+  JOB_CLIENT_ATTACH_NO_CLIENTS,
+  attachJobClient,
+  jobClientAttachRow,
+  jobClientAttachToast,
+} from '../lib/attachJobClient';
+import {
   jobClientEmailRow,
   jobClientEmailSaveToast,
   saveJobClientEmail,
@@ -153,6 +159,7 @@ export function JobDetailPage() {
   const [billOpen, setBillOpen] = useState(true);
   const [sendingReportId, setSendingReportId] = useState<string | null>(null);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
+  const [clientAttachDraft, setClientAttachDraft] = useState('');
 
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ['job', id],
@@ -176,9 +183,29 @@ export function JobDetailPage() {
     enabled: !!job?.client_id,
   });
 
+  const attachClientsQuery = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['job-attach-clients', profile?.company_id],
+    queryFn: async () => {
+      if (!profile?.company_id) return [];
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name')
+        .eq('archived', false)
+        .eq('company_id', profile.company_id)
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string }[];
+    },
+    enabled: !!job && !job.client_id && !!profile?.company_id,
+  });
+
   useEffect(() => {
     setClientEmailDraft(client?.email ?? '');
   }, [client?.id, client?.email]);
+
+  useEffect(() => {
+    setClientAttachDraft('');
+  }, [job?.id]);
 
   const { data: parentJob } = useQuery<{ id: string; title: string; job_number: number | null } | null>({
     queryKey: ['job-parent', job?.parent_job_id],
@@ -447,6 +474,27 @@ export function JobDetailPage() {
     onError: (e: Error) => showToast(e.message, 'info'),
   });
 
+  const attachClient = useMutation({
+    mutationFn: async () => {
+      return attachJobClient({
+        jobId: job?.id,
+        jobClientId: job?.client_id,
+        clientId: clientAttachDraft,
+        companyClients: attachClientsQuery.data ?? [],
+      });
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['job', id] });
+      queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+      queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      setClientAttachDraft('');
+      const toast = jobClientAttachToast();
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
+
   const saveClientEmail = useMutation({
     mutationFn: async () => {
       return saveJobClientEmail({
@@ -655,6 +703,14 @@ export function JobDetailPage() {
     (next.key === 'send' && sendJobDraft.isPending);
 
   const emailRow = jobClientEmailRow({ clientId: job.client_id, client: client ?? null });
+  const attachRow = jobClientAttachRow({
+    jobClientId: job.client_id,
+    companyClients: job.client_id
+      ? []
+      : attachClientsQuery.isFetched
+        ? (attachClientsQuery.data ?? [])
+        : null,
+  });
 
   const runNext = () => {
     if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
@@ -745,7 +801,39 @@ export function JobDetailPage() {
             )}
 
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 ops-meta">
-              {client ? (
+              {attachRow.kind === 'pick' ? (
+                <form
+                  className="job-client-attach"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    attachClient.mutate();
+                  }}
+                >
+                  <User size={13} />
+                  <select
+                    value={clientAttachDraft}
+                    onChange={e => setClientAttachDraft(e.target.value)}
+                    className="form-input-sm"
+                    aria-label="Attach client"
+                  >
+                    <option value="">Client</option>
+                    {attachRow.clients.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    className="job-client-attach-save"
+                    disabled={attachClient.isPending || !clientAttachDraft}
+                  >
+                    Save
+                  </button>
+                </form>
+              ) : attachRow.kind === 'miss' ? (
+                <span className="flex items-center gap-1.5 ops-meta">
+                  <User size={13} /> {JOB_CLIENT_ATTACH_NO_CLIENTS}
+                </span>
+              ) : client ? (
                 <Link to={clientRecordHref(client.id)} className="flex items-center gap-1.5 text-accent hover:underline">
                   <User size={13} /> {client.name}
                 </Link>
