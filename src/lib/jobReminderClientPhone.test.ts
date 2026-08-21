@@ -1,17 +1,17 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { clientEmailForSend } from './sendInvoice';
+import { clientPhoneForSms } from './sendInvoice';
 import {
-  JOB_CLIENT_EMAIL_NO_CLIENT,
-  decideJobClientEmailSave,
-  jobClientEmailRow,
-  jobClientEmailToStore,
-} from './saveJobClientEmail';
+  JOB_CLIENT_PHONE_NO_CLIENT,
+  decideJobClientPhoneSave,
+  jobClientPhoneRow,
+  jobClientPhoneToStore,
+} from './saveJobClientPhone';
 import {
   decideReminderSend,
-  missMessage,
-  prefillReminderTo,
+  missSmsMessage,
+  prefillSmsTo,
   type ReminderClient,
   type ReminderEmailSettings,
   type ReminderJob,
@@ -59,62 +59,63 @@ function client(over: Partial<ReminderClient> = {}): ReminderClient {
     company_id: 'co-1',
     name: 'Acme Plants',
     contact_person: 'Sam',
-    email: null,
-    phone: '0412 345 678',
+    email: 'alex@acme.example',
+    phone: null,
     ...over,
   };
 }
 
-describe('24h reminder client email — save / miss', () => {
-  it('reuses saveJobClientEmail on this job client_id — blank stays empty, no second client', () => {
-    expect(decideJobClientEmailSave({ clientId: 'c1', email: '  jane@acme.com.au  ' })).toEqual({
+describe('24h reminder client phone — save / miss', () => {
+  it('reuses saveJobClientPhone on this job client_id — blank stays empty, no second client', () => {
+    expect(decideJobClientPhoneSave({ clientId: 'c1', phone: '  0412 345 678  ' })).toEqual({
       action: 'write',
       clientId: 'c1',
-      email: 'jane@acme.com.au',
+      phone: '0412 345 678',
     });
-    expect(decideJobClientEmailSave({ clientId: 'c1', email: '' })).toEqual({
+    expect(decideJobClientPhoneSave({ clientId: 'c1', phone: '' })).toEqual({
       action: 'write',
       clientId: 'c1',
-      email: null,
+      phone: null,
     });
-    expect(decideJobClientEmailSave({ clientId: null, email: 'jane@acme.com.au' })).toEqual({
+    expect(decideJobClientPhoneSave({ clientId: null, phone: '0412 345 678' })).toEqual({
       action: 'miss',
       reason: 'no_client',
-      message: JOB_CLIENT_EMAIL_NO_CLIENT,
+      message: JOB_CLIENT_PHONE_NO_CLIENT,
     });
-    expect(jobClientEmailRow({ clientId: null, client: { id: 'c1', email: null } }).kind).toBe('none');
-    expect(jobClientEmailRow({ clientId: 'c1', client: null }).kind).toBe('none');
-    expect(jobClientEmailRow({
+    expect(jobClientPhoneRow({ clientId: null, client: { id: 'c1', phone: null } }).kind).toBe('none');
+    expect(jobClientPhoneRow({ clientId: 'c1', client: null }).kind).toBe('none');
+    expect(jobClientPhoneRow({
       clientId: 'c1',
-      client: { id: 'c1', email: null },
-    })).toEqual({ kind: 'edit', clientId: 'c1', email: '' });
+      client: { id: 'c1', phone: null },
+    })).toEqual({ kind: 'edit', clientId: 'c1', phone: '' });
   });
 
-  it('opens the write field when the existing client has no sendable email — invalid stays an honest miss', () => {
-    expect(jobClientEmailRow({
+  it('opens the write field when the existing client has no sendable phone — invalid stays an honest miss', () => {
+    expect(jobClientPhoneRow({
       clientId: 'c1',
-      client: { id: 'c1', email: null },
-    })).toEqual({ kind: 'edit', clientId: 'c1', email: '' });
-    expect(jobClientEmailRow({
+      client: { id: 'c1', phone: null },
+    })).toEqual({ kind: 'edit', clientId: 'c1', phone: '' });
+    expect(jobClientPhoneRow({
       clientId: 'c1',
-      client: { id: 'c1', email: 'not-an-email' },
-    })).toEqual({ kind: 'edit', clientId: 'c1', email: 'not-an-email' });
-    expect(clientEmailForSend(jobClientEmailToStore(''))).toBeNull();
-    expect(clientEmailForSend(jobClientEmailToStore('not-an-email'))).toBeNull();
-    expect(prefillReminderTo({ id: 'c1', email: jobClientEmailToStore('not-an-email') })).toBe('');
+      client: { id: 'c1', phone: 'call me' },
+    })).toEqual({ kind: 'edit', clientId: 'c1', phone: 'call me' });
+    expect(clientPhoneForSms(jobClientPhoneToStore(''))).toBeNull();
+    expect(clientPhoneForSms(jobClientPhoneToStore('call me'))).toBeNull();
+    expect(clientPhoneForSms(jobClientPhoneToStore('12'))).toBeNull();
+    expect(prefillSmsTo(jobClientPhoneToStore('not-a-phone'))).toBe('');
   });
 
-  it('already-has-email stays the signed To — does not replace a good address with an empty editor', () => {
-    expect(jobClientEmailRow({
+  it('already-has-phone stays the signed SMS To — does not replace a good number with an empty editor', () => {
+    expect(jobClientPhoneRow({
       clientId: 'c1',
-      client: { id: 'c1', email: '  alex@acme.example  ' },
-    })).toEqual({ kind: 'mailto', clientId: 'c1', email: 'alex@acme.example' });
-    expect(prefillReminderTo({ id: 'c1', email: 'alex@acme.example' })).toBe('alex@acme.example');
+      client: { id: 'c1', phone: '  0412 345 678  ' },
+    })).toEqual({ kind: 'tel', clientId: 'c1', phone: '0412 345 678' });
+    expect(prefillSmsTo('0412 345 678')).toBe('+61412345678');
   });
 
   it('hides the editor when there is no client — does not invent one', () => {
-    expect(jobClientEmailRow({ clientId: null, client: null }).kind).toBe('none');
-    expect(jobClientEmailRow({ clientId: '', client: { id: 'c1', email: null } }).kind).toBe('none');
+    expect(jobClientPhoneRow({ clientId: null, client: null }).kind).toBe('none');
+    expect(jobClientPhoneRow({ clientId: '', client: { id: 'c1', phone: null } }).kind).toBe('none');
     const miss = decideReminderSend({
       ...base,
       job: job({ client_id: null }),
@@ -124,51 +125,77 @@ describe('24h reminder client email — save / miss', () => {
     expect(miss.send).toBe(false);
     if (miss.send) return;
     expect(miss.reason).toBe('no_email');
-    expect(miss.message).toBe(missMessage('no_email'));
+    expect(prefillSmsTo(null)).toBe('');
   });
 
-  it('keeps blank / invalid as an honest no_email miss — Send uses a real saved address', () => {
-    expect(clientEmailForSend(jobClientEmailToStore(''))).toBeNull();
-    expect(clientEmailForSend(jobClientEmailToStore('not-an-email'))).toBeNull();
-    expect(clientEmailForSend(jobClientEmailToStore('jane@acme.com.au'))).toBe('jane@acme.com.au');
-    expect(missMessage('no_email')).toMatch(/no email/i);
+  it('keeps blank / invalid as an honest no-phone miss — SMS To uses a real saved number', () => {
+    expect(clientPhoneForSms(jobClientPhoneToStore(''))).toBeNull();
+    expect(clientPhoneForSms(jobClientPhoneToStore('call me'))).toBeNull();
+    expect(clientPhoneForSms(jobClientPhoneToStore('0412 345 678'))).toBe('+61412345678');
+    expect(missSmsMessage('no_phone')).toMatch(/no phone/i);
 
     const afterBlank = decideReminderSend({
       ...base,
       job: job(),
-      client: client({ email: jobClientEmailToStore('') }),
+      client: client({ phone: jobClientPhoneToStore('') }),
       settings: smtp,
     });
-    expect(afterBlank.send).toBe(false);
-    if (!afterBlank.send) expect(afterBlank.reason).toBe('no_email');
+    expect(afterBlank.send).toBe(true);
+    expect(prefillSmsTo(jobClientPhoneToStore(''))).toBe('');
 
     const afterInvalid = decideReminderSend({
       ...base,
       job: job(),
-      client: client({ email: jobClientEmailToStore('not-an-email') }),
+      client: client({ phone: jobClientPhoneToStore('call me') }),
       settings: smtp,
     });
-    expect(afterInvalid.send).toBe(false);
-    if (!afterInvalid.send) expect(afterInvalid.reason).toBe('no_email');
+    expect(afterInvalid.send).toBe(true);
+    expect(prefillSmsTo(jobClientPhoneToStore('call me'))).toBe('');
 
     const afterSave = decideReminderSend({
       ...base,
       job: job(),
-      client: client({ email: jobClientEmailToStore('jane@acme.com.au') }),
+      client: client({ phone: jobClientPhoneToStore('0412 345 678') }),
       settings: smtp,
     });
     expect(afterSave.send).toBe(true);
-    if (!afterSave.send) return;
-    expect(afterSave.to).toBe('jane@acme.com.au');
+    expect(prefillSmsTo(jobClientPhoneToStore('0412 345 678'))).toBe('+61412345678');
+  });
+
+  it('does not invent a send gate — phone write leaves decideReminderSend as signed', () => {
+    const readyNoPhone = decideReminderSend({
+      ...base,
+      job: job(),
+      client: client({ email: 'alex@acme.example', phone: null }),
+      settings: smtp,
+    });
+    expect(readyNoPhone.send).toBe(true);
+
+    const readyWithPhone = decideReminderSend({
+      ...base,
+      job: job(),
+      client: client({ email: 'alex@acme.example', phone: '0412 345 678' }),
+      settings: smtp,
+    });
+    expect(readyWithPhone.send).toBe(true);
+
+    const stillEmailMiss = decideReminderSend({
+      ...base,
+      job: job(),
+      client: client({ email: null, phone: jobClientPhoneToStore('0412 345 678') }),
+      settings: smtp,
+    });
+    expect(stillEmailMiss.send).toBe(false);
+    if (!stillEmailMiss.send) expect(stillEmailMiss.reason).toBe('no_email');
   });
 });
 
-describe('24h reminder client email — wiring', () => {
-  it('saves clients.email on the existing reminder tray miss via saveJobClientEmail and does not auto-send', () => {
-    const save = src('src/lib/saveJobClientEmail.ts');
+describe('24h reminder client phone — wiring', () => {
+  it('saves clients.phone on the existing reminder tray miss via saveJobClientPhone and does not auto-send or auto-SMS', () => {
+    const save = src('src/lib/saveJobClientPhone.ts');
     const reminder = src('src/components/jobs/JobClientReminder.tsx');
     const logic = src('src/lib/jobReminder.ts');
-    const handleSaveStart = reminder.indexOf('const saveEmail');
+    const handleSaveStart = reminder.indexOf('const savePhone');
     const handleSaveEnd = reminder.indexOf('const send = useMutation');
     expect(handleSaveStart).toBeGreaterThan(-1);
     expect(handleSaveEnd).toBeGreaterThan(handleSaveStart);
@@ -176,7 +203,7 @@ describe('24h reminder client email — wiring', () => {
     const handleSendFn = reminder.slice(handleSaveEnd, reminder.indexOf('const sentAt'));
 
     expect(save).toContain("from('clients')");
-    expect(save).toContain('update({ email:');
+    expect(save).toContain('update({ phone:');
     expect(save).toContain('.eq(\'id\', decision.clientId)');
     expect(save).not.toContain('insert({');
     expect(save).not.toContain('CREATE TABLE');
@@ -184,57 +211,61 @@ describe('24h reminder client email — wiring', () => {
     expect(save).not.toContain('cron.schedule');
     expect(save).not.toContain('job-reminder');
     expect(save).not.toContain('JobClientReminder');
+    expect(save).not.toContain('sendSms');
+    expect(save).not.toContain('decideSmsBeside');
 
-    expect(reminder).toContain('saveJobClientEmail');
-    expect(reminder).toContain('jobClientEmailRow');
-    expect(reminder).toContain('jobClientEmailSaveToast');
-    expect(reminder).toContain('saveEmail.mutate()');
-    expect(reminder).toContain('job-client-email');
-    expect(reminder).toContain('job-client-email-save');
-    expect(reminder).toContain('aria-label="Client email"');
+    expect(reminder).toContain('saveJobClientPhone');
+    expect(reminder).toContain('jobClientPhoneRow');
+    expect(reminder).toContain('jobClientPhoneSaveToast');
+    expect(reminder).toContain('savePhone.mutate()');
+    expect(reminder).toContain('job-client-phone');
+    expect(reminder).toContain('job-client-phone-save');
+    expect(reminder).toContain('aria-label="Client phone"');
     expect(reminder).toContain("kind === 'edit'");
-    expect(reminder).toContain('jobClientEmailRow({');
+    expect(reminder).toContain('jobClientPhoneRow({');
     expect(reminder).toContain('clientId: job.client_id');
     expect(reminder).toContain('client: liveClient');
-    expect(reminder).not.toContain('ClientEmailDialog');
-    expect(reminder).not.toContain('ReminderEmailDialog');
-    expect(reminder).not.toContain('AU_EMAIL_PLACEHOLDER');
-    expect(reminder).not.toContain('className="btn-primary job-client-email-save"');
-    expect(reminder).not.toContain('className="ops-next-control-block job-client-email-save"');
-    expect(reminder).not.toContain('job-client-email-addr');
+    expect(reminder).not.toContain('ClientPhoneDialog');
+    expect(reminder).not.toContain('ReminderPhoneDialog');
+    expect(reminder).not.toContain('AU_PHONE_PLACEHOLDER');
+    expect(reminder).not.toContain('className="btn-primary job-client-phone-save"');
+    expect(reminder).not.toContain('className="ops-next-control-block job-client-phone-save"');
+    expect(reminder).not.toContain('job-client-phone-num');
 
-    expect(handle).toContain('saveJobClientEmail');
-    expect(handle).toContain('emailRow.clientId');
-    expect(handle).toContain('clientEmailDraft');
+    expect(handle).toContain('saveJobClientPhone');
+    expect(handle).toContain('phoneRow.clientId');
+    expect(handle).toContain('clientPhoneDraft');
     expect(handle).toContain("invalidateQueries({ queryKey: ['job-client', result.clientId] })");
     expect(handle).not.toContain("functions.invoke('job-reminder'");
     expect(handle).not.toContain('send.mutate');
     expect(handle).not.toContain('insert({');
     expect(handle).not.toContain('client_reminder_sent_at');
     expect(handle).not.toContain('cron.schedule');
+    expect(handle).not.toContain('sendSms');
+    expect(handle).not.toContain('decideSmsBeside');
 
     expect(handleSendFn).toContain("functions.invoke('job-reminder'");
-    expect(handleSendFn).not.toContain('saveJobClientEmail');
+    expect(handleSendFn).not.toContain('saveJobClientPhone');
     expect(handleSendFn).toContain('if (!decision.send)');
 
-    expect(logic).not.toContain('saveJobClientEmail');
+    expect(logic).not.toContain('saveJobClientPhone');
   });
 
   it('does not add a second 44px — Save is muted on the miss, primary stays Send tomorrow reminder', () => {
     const reminder = src('src/components/jobs/JobClientReminder.tsx');
     const css = src('src/index.css');
-    const reminderCssStart = css.indexOf('#job-schedule .job-reminder .job-client-email');
+    const reminderCssStart = css.indexOf('#job-schedule .job-reminder .job-client-phone');
     expect(reminderCssStart).toBeGreaterThan(-1);
-    const reminderCss = css.slice(reminderCssStart, css.indexOf('/* end reminder client email */'));
+    const reminderCss = css.slice(reminderCssStart, css.indexOf('/* end reminder client phone */'));
 
     expect(reminder).toContain('className="btn-primary"');
     expect(reminder).toContain('Send tomorrow reminder');
-    expect(reminder).toContain('job-client-email-save');
+    expect(reminder).toContain('job-client-phone-save');
     expect(reminder).toContain('disabled={awaitingSmtp || !decision.send || send.isPending}');
     expect(reminder).not.toContain('Open client');
-    expect(reminder).not.toContain('Add client email');
-    expect(reminder).not.toContain('className="btn-primary job-client-email-save"');
-    expect(reminderCss).toContain('.job-client-email-save');
+    expect(reminder).not.toContain('Add client phone');
+    expect(reminder).not.toContain('className="btn-primary job-client-phone-save"');
+    expect(reminderCss).toContain('.job-client-phone-save');
     expect(reminderCss).not.toContain('min-height: 44px');
     expect(reminderCss).not.toContain('min-h-[44px]');
     expect(reminderCss).not.toContain('ops-next-control');
@@ -248,7 +279,7 @@ describe('24h reminder client email — wiring', () => {
     expect(reminderCss).toContain('#5B6B7C');
     expect(reminderCss).toContain('#0A2540');
     expect(reminderCss).toContain('#2E75B6');
-    expect(reminderCss).toMatch(/\.job-client-email-save[\s\S]*color: #5B6B7C/);
+    expect(reminderCss).toMatch(/\.job-client-phone-save[\s\S]*color: #5B6B7C/);
 
     const primaryCss = css.slice(
       css.indexOf('#job-schedule .btn-primary'),
@@ -265,10 +296,10 @@ describe('24h reminder client email — wiring', () => {
     expect(reminderCss).not.toContain('sky-500');
   });
 
-  it('disables Send tomorrow reminder on no_email until a sendable save — no auto-send', () => {
+  it('does not change Send tomorrow reminder enablement — phone does not invent a send gate', () => {
     const reminder = src('src/components/jobs/JobClientReminder.tsx');
     const handle = reminder.slice(
-      reminder.indexOf('const saveEmail'),
+      reminder.indexOf('const savePhone'),
       reminder.indexOf('const send = useMutation'),
     );
     const handleSendFn = reminder.slice(
@@ -282,29 +313,36 @@ describe('24h reminder client email — wiring', () => {
 
     expect(sendBtn).toContain('Send tomorrow reminder');
     expect(sendBtn).toContain('disabled={awaitingSmtp || !decision.send || send.isPending}');
-    expect(handle).toContain('saveJobClientEmail');
+    expect(handle).toContain('saveJobClientPhone');
     expect(handle).not.toContain("functions.invoke('job-reminder'");
     expect(handle).not.toContain('send.mutate');
     expect(handleSendFn).toContain("functions.invoke('job-reminder'");
-    expect(handleSendFn).not.toContain('saveJobClientEmail');
+    expect(handleSendFn).not.toContain('saveJobClientPhone');
 
     const afterSave = decideReminderSend({
       ...base,
       job: job(),
-      client: client({ email: jobClientEmailToStore('jane@acme.com.au') }),
+      client: client({ phone: jobClientPhoneToStore('0412 345 678') }),
       settings: smtp,
     });
     expect(afterSave.send).toBe(true);
-    const stillMiss = decideReminderSend({
+    const stillReady = decideReminderSend({
       ...base,
       job: job(),
-      client: client({ email: jobClientEmailToStore('') }),
+      client: client({ phone: jobClientPhoneToStore('') }),
       settings: smtp,
     });
-    expect(stillMiss.send).toBe(false);
+    expect(stillReady.send).toBe(true);
+    const stillEmailMiss = decideReminderSend({
+      ...base,
+      job: job(),
+      client: client({ email: null, phone: jobClientPhoneToStore('0412 345 678') }),
+      settings: smtp,
+    });
+    expect(stillEmailMiss.send).toBe(false);
   });
 
-  it('leaves the signed email field and job-sheet / invoice-sheet / report-send signed', () => {
+  it('leaves the signed #49 email field and job-sheet / invoice-sheet / report-send signed', () => {
     const reminder = src('src/components/jobs/JobClientReminder.tsx');
     const page = src('src/pages/JobDetailPage.tsx');
     const invoicesPage = src('src/pages/InvoicesPage.tsx');
@@ -315,19 +353,19 @@ describe('24h reminder client email — wiring', () => {
     expect(reminder).toContain('jobClientEmailRow');
     expect(reminder).toContain('job-client-email');
     expect(reminder).toContain('job-client-email-save');
-    expect(reminder).toContain('aria-label="Client email"');
     expect(reminder).toContain('JOB_REMINDER_NO_EMAIL_FIELD');
+    expect(reminder).toContain('aria-label="Client email"');
     expect(reminder).toContain('SMS To');
     expect(reminder).toContain('aria-label="Reminder SMS To"');
     expect(reminder).toContain('prefillSmsTo(liveClient?.phone)');
 
-    expect(page).toContain('saveJobClientEmail');
-    expect(page).toContain('jobClientEmailRow({ clientId: job.client_id, client: client ?? null })');
+    expect(page).toContain('saveJobClientPhone');
+    expect(page).toContain('jobClientPhoneRow({ clientId: job.client_id, client: client ?? null })');
     expect(page).toContain('JobClientReminder');
-    expect(invoicesPage).toContain('saveJobClientEmail');
-    expect(dialog).toContain('saveJobClientEmail');
-    expect(due).not.toContain('saveJobClientEmail');
-    expect(due).not.toContain('job-client-email');
+    expect(invoicesPage).toContain('saveJobClientPhone');
+    expect(dialog).toContain('saveJobClientPhone');
+    expect(due).not.toContain('saveJobClientPhone');
+    expect(due).not.toContain('job-client-phone');
   });
 
   it('does not launch 24h autofire or change job-reminder cron', () => {
@@ -341,22 +379,22 @@ describe('24h reminder client email — wiring', () => {
     expect(reminder).not.toContain('due=tomorrow');
     expect(reminder).not.toContain('invoke_job_client_reminders');
     expect(reminder).not.toContain('selectAutoFireJobs');
-    expect(logic).not.toContain('saveJobClientEmail');
-    expect(cron).not.toContain('saveJobClientEmail');
-    expect(cron057).not.toContain('saveJobClientEmail');
-    expect(edge).not.toContain('saveJobClientEmail');
+    expect(logic).not.toContain('saveJobClientPhone');
+    expect(cron).not.toContain('saveJobClientPhone');
+    expect(cron057).not.toContain('saveJobClientPhone');
+    expect(edge).not.toContain('saveJobClientPhone');
     expect(cron).toContain('SELECT public.invoke_job_client_reminders()');
     expect(cron).toContain('{"due":"tomorrow","source":"cron"}');
   });
 
-  it('points the no_email editor miss at the field on this tray — does not bounce to the client record', () => {
+  it('points the no_phone editor miss at the field on this tray — does not bounce to the client record', () => {
     const reminder = src('src/components/jobs/JobClientReminder.tsx');
-    expect(reminder).toContain('JOB_REMINDER_NO_EMAIL_FIELD');
+    expect(reminder).toContain('JOB_REMINDER_NO_PHONE_FIELD');
     expect(reminder).toContain('Add one below before you send.');
-    expect(reminder).toContain('This client has no email. Add one below before you send.');
-    expect(reminder).toContain('noEmailFieldMiss');
+    expect(reminder).toContain('This client has no phone. Add one below before you send.');
+    expect(reminder).toContain('noPhoneFieldMiss');
     expect(reminder).toContain("kind === 'edit'");
-    const emptyMiss = reminder.indexOf('{noEmailFieldMiss && (');
+    const emptyMiss = reminder.indexOf('{noPhoneFieldMiss && (');
     const tos = reminder.indexOf('<div className="job-reminder-tos">');
     expect(emptyMiss).toBeGreaterThan(-1);
     expect(tos).toBeGreaterThan(emptyMiss);
@@ -364,19 +402,19 @@ describe('24h reminder client email — wiring', () => {
     expect(reminder).not.toContain('client record');
     expect(reminder).not.toContain('/clients/');
     expect(reminder).not.toContain('Open client');
-    expect(src('src/lib/jobReminder.ts')).toContain('This client has no email — reminder was not sent.');
+    expect(src('src/lib/jobReminder.ts')).toContain('This client has no phone — SMS was not sent.');
   });
 
-  it('keeps Flameboy look shots for empty, saved, already-has-email, and no-client', () => {
+  it('keeps Flameboy look shots for empty, saved, already-has-phone, and no-client', () => {
     const shots = [
-      'docs/look/job-reminder-email-empty-desktop.png',
-      'docs/look/job-reminder-email-empty-ute.png',
-      'docs/look/job-reminder-email-saved-desktop.png',
-      'docs/look/job-reminder-email-saved-ute.png',
-      'docs/look/job-reminder-email-has-email-desktop.png',
-      'docs/look/job-reminder-email-has-email-ute.png',
-      'docs/look/job-reminder-email-no-client-desktop.png',
-      'docs/look/job-reminder-email-no-client-ute.png',
+      'docs/look/job-reminder-phone-empty-desktop.png',
+      'docs/look/job-reminder-phone-empty-ute.png',
+      'docs/look/job-reminder-phone-saved-desktop.png',
+      'docs/look/job-reminder-phone-saved-ute.png',
+      'docs/look/job-reminder-phone-has-phone-desktop.png',
+      'docs/look/job-reminder-phone-has-phone-ute.png',
+      'docs/look/job-reminder-phone-no-client-desktop.png',
+      'docs/look/job-reminder-phone-no-client-ute.png',
     ];
     for (const shot of shots) {
       expect(existsSync(resolve(process.cwd(), shot)), shot).toBe(true);
@@ -384,7 +422,7 @@ describe('24h reminder client email — wiring', () => {
   });
 
   it('leaves quote convert / PR #17 off this control', () => {
-    const save = src('src/lib/saveJobClientEmail.ts');
+    const save = src('src/lib/saveJobClientPhone.ts');
     const reminder = src('src/components/jobs/JobClientReminder.tsx');
     const quoteConvert = src('src/lib/convertQuoteToInvoice.ts');
     const quotesPage = src('src/pages/QuotesPage.tsx');
@@ -392,9 +430,9 @@ describe('24h reminder client email — wiring', () => {
     expect(save).not.toContain('convertQuoteToInvoice');
     expect(save).not.toContain('sendQuote');
     expect(save).not.toContain('QuoteSendDialog');
-    expect(quoteConvert).not.toContain('saveJobClientEmail');
-    expect(quotesPage).not.toContain('saveJobClientEmail');
-    expect(quoteNext).not.toContain('saveJobClientEmail');
+    expect(quoteConvert).not.toContain('saveJobClientPhone');
+    expect(quotesPage).not.toContain('saveJobClientPhone');
+    expect(quoteNext).not.toContain('saveJobClientPhone');
     expect(reminder).not.toContain('QuoteSendDialog');
     expect(reminder).not.toContain('sendQuote');
     expect(reminder).not.toContain('sendQuoteDeliver');
