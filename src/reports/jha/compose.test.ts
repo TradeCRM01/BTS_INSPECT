@@ -119,7 +119,9 @@ describe('JHA document report_theme colours', () => {
 
     const fill = src('src/pages/JhaFillPage.tsx');
     expect(fill).toContain('jhaPdfCompanyFrom');
+    expect(fill).toContain('jhaDocumentColors');
     expect(fill).toContain('report_theme');
+    expect(fill).toContain('jha-doc-theme');
     expect(fill.match(/jhaPdfCompanyFrom/g)?.length).toBeGreaterThanOrEqual(2);
 
     const renderer = src('src/reports/jha/Renderer.tsx');
@@ -146,5 +148,24 @@ describe('JHA document report_theme colours', () => {
 
     const settings = src('src/pages/CompanySettingsPage.tsx');
     expect(settings).toContain('report_theme');
+
+    const list = src('src/pages/JhaDocumentsPage.tsx');
+    expect(list).toContain('jhaDocumentColors');
+    expect(list).toContain('jha-doc-theme');
+    expect(list).not.toMatch(/Grafter|Relovi/);
+
+    const css = src('src/index.css');
+    expect(css).toContain('.jha-doc-theme .ops-doc-head');
+    expect(css).toContain('var(--jha-navy, #0A2540)');
+    expect(css).not.toMatch(/Grafter|Relovi/);
+
+    for (const rel of [
+      'docs/look/jha-theme-blank-desktop.png',
+      'docs/look/jha-theme-blank-ute.png',
+      'docs/look/jha-theme-saved-desktop.png',
+      'docs/look/jha-theme-saved-ute.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+    }
   });
 });

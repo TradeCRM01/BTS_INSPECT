@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,6 +9,7 @@ import { PageError } from '../components/ui/PageError';
 import { NextBanner, OpsDocHead, OpsStatus, opsSiteLabel } from '../components/ui';
 import { nanoid } from '../lib/nanoid';
 import { generateJhaPdf, jhaPdfCompanyFrom } from '../reports/generateJhaPdf';
+import { jhaDocumentColors } from '../reports/jha/theme';
 import {
   LIKELIHOOD_OPTIONS,
   CONSEQUENCE_OPTIONS,
@@ -859,10 +860,21 @@ export function JhaFillPage() {
             : null;
 
   const jobBound = !!jobId;
+  const docColors = jhaDocumentColors(
+    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
+  );
 
   return (
     <AppShell>
-      <div className={jobBound ? 'hub-job-swms' : undefined}>
+      <div
+        className={jobBound ? 'hub-job-swms jha-doc-theme' : 'jha-doc-theme'}
+        style={{
+          '--jha-navy': docColors.navy,
+          '--jha-accent': docColors.accent,
+          '--jha-navy-light': docColors.navyLight,
+          '--jha-accent-light': docColors.accentLight,
+        } as CSSProperties}
+      >
       <div className="ops-page-fill">
         <div className="flex items-center justify-between gap-3 mb-3">
           <button
