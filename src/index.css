@@ -1828,9 +1828,19 @@
   }
 
   .hub-invoice-send-tos {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
     gap: 16px;
+  }
+
+  .hub-invoice-send-tos > :first-child {
+    flex: 1 1 18rem;
+    min-width: min(100%, 18rem);
+  }
+
+  .hub-invoice-send-tos > :last-child {
+    flex: 0 1 auto;
   }
 
   .hub-invoice-send-field .hub-invoice-kicker {
@@ -1841,7 +1851,6 @@
     font-size: 14px;
     font-weight: 600;
     color: #0A2540;
-    overflow-wrap: anywhere;
   }
 
   .hub-invoice-send-value.is-miss {
@@ -1897,9 +1906,21 @@
     }
 
     #job-schedule .job-reminder-tos,
-    #inspection-due .job-reminder-tos,
-    .hub-invoice-send-tos {
+    #inspection-due .job-reminder-tos {
       gap: 8px;
+    }
+
+    .hub-invoice-send-tos {
+      flex-direction: column;
+      flex-wrap: nowrap;
+      gap: 16px;
+    }
+
+    .hub-invoice-send-tos > :first-child,
+    .hub-invoice-send-tos > :last-child {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: 100%;
     }
   }
 
