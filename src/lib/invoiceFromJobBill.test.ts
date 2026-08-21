@@ -171,7 +171,10 @@ describe('decideJobBillInvoice', () => {
       message: JOB_BILL_INVOICE_NO_CLIENT,
     });
     expect(decideJobBillInvoice({ clientId: '', lines, existing: [] }).action).toBe('miss');
-    expect(decideJobBillInvoice({ clientId: undefined, lines, existing: [] }).reason).toBe('no_client');
+    expect(decideJobBillInvoice({ clientId: undefined, lines, existing: [] })).toMatchObject({
+      action: 'miss',
+      reason: 'no_client',
+    });
   });
 
   it('misses without inventing bill lines', () => {
@@ -220,7 +223,7 @@ describe('decideJobBillInvoice', () => {
       clientId: 'client-1',
       lines: empty,
       existing: [],
-    }).reason).toBe('no_lines');
+    })).toMatchObject({ action: 'miss', reason: 'no_lines' });
   });
 });
 
