@@ -323,8 +323,8 @@ describe('invoice-sheet client phone — wiring', () => {
     expect(jobPage).toContain('jobClientPhoneRow');
     expect(jobPage).toContain('job-client-phone-save');
     expect(jobPage).toContain('jobClientPhoneRow({ clientId: job.client_id, client: client ?? null })');
-    expect(dialog).not.toContain('saveJobClientPhone');
-    expect(dialog).not.toContain('jobClientPhoneRow');
+    expect(dialog).toContain('saveJobClientPhone');
+    expect(dialog).toContain('jobClientPhoneRow');
     expect(reportSend).not.toContain('saveJobClientPhone');
     expect(reminder).not.toContain('saveJobClientPhone');
     expect(reminderEdge).not.toContain('saveJobClientPhone');

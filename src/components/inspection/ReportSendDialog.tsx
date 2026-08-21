@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Mail, User } from 'lucide-react';
+import { Mail, Phone, User } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { supabase } from '../../lib/supabase';
 import {
@@ -15,6 +15,7 @@ import {
 } from '../../lib/sendReport';
 import { deliverReport, loadReportSendBundle } from '../../lib/sendReportDeliver';
 import { jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
+import { jobClientPhoneRow, saveJobClientPhone } from '../../lib/saveJobClientPhone';
 import {
   REPORT_CLIENT_ATTACH_NO_CLIENTS,
   attachReportClient,
@@ -40,10 +41,12 @@ export function ReportSendDialog({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
+  const [savingPhone, setSavingPhone] = useState(false);
   const [bundle, setBundle] = useState<ReportSendBundle | null>(null);
   const [decision, setDecision] = useState<ReportSendDecision | null>(null);
   const [err, setErr] = useState('');
   const [clientEmailDraft, setClientEmailDraft] = useState('');
+  const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [savingAttach, setSavingAttach] = useState(false);
 
@@ -58,6 +61,7 @@ export function ReportSendDialog({
         setBundle(loaded);
         setDecision(decideReportSend(loaded));
         setClientEmailDraft(loaded.client?.email ?? '');
+        setClientPhoneDraft(loaded.client?.phone ?? '');
         setClientAttachDraft('');
       } catch (e) {
         if (!cancelled) setErr(e instanceof Error ? e.message : 'Could not load this report.');
@@ -75,10 +79,16 @@ export function ReportSendDialog({
     clientId: reportClientId,
     client: bundle?.client ?? null,
   });
+  const phoneRow = jobClientPhoneRow({
+    clientId: reportClientId,
+    client: bundle?.client ?? null,
+  });
   const noEmailMiss = decision != null && !decision.ok && decision.blocker === 'no_email';
   const noClientMiss = decision != null && !decision.ok && decision.blocker === 'no_client';
   const smtpMiss = decision != null && !decision.ok && decision.blocker === 'no_smtp';
   const showEmailEditor = !loading && noEmailMiss && emailRow.kind === 'edit';
+  const showPhoneEditor = !loading && !smtpMiss && !noClientMiss && phoneRow.kind === 'edit';
+  const showPhoneInkOnMiss = !loading && noEmailMiss && phoneRow.kind === 'tel';
 
   const attachClientsQuery = useQuery<{ id: string; name: string }[]>({
     queryKey: ['report-attach-clients', company.id],
@@ -140,6 +150,7 @@ export function ReportSendDialog({
       setBundle(next);
       setDecision(decideReportSend(next));
       setClientEmailDraft(next.client?.email ?? '');
+      setClientPhoneDraft(next.client?.phone ?? '');
       setClientAttachDraft('');
       void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
       void queryClient.invalidateQueries({ queryKey: ['job'] });
@@ -173,6 +184,30 @@ export function ReportSendDialog({
       setErr(e instanceof Error ? e.message : 'Could not save the email.');
     } finally {
       setSavingEmail(false);
+    }
+  };
+
+  const handleSavePhone = async () => {
+    if (phoneRow.kind !== 'edit' || !bundle) return;
+    setSavingPhone(true);
+    setErr('');
+    try {
+      const result = await saveJobClientPhone({
+        clientId: phoneRow.clientId,
+        phone: clientPhoneDraft,
+      });
+      const next: ReportSendBundle = {
+        ...bundle,
+        client: bundle.client ? { ...bundle.client, phone: result.phone } : bundle.client,
+      };
+      setBundle(next);
+      setDecision(decideReportSend(next));
+      setClientPhoneDraft(result.phone ?? '');
+      void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not save the phone.');
+    } finally {
+      setSavingPhone(false);
     }
   };
 
@@ -232,11 +267,42 @@ export function ReportSendDialog({
                 </div>
                 <div className="hub-invoice-send-field">
                   <p className="hub-invoice-kicker">SMS To</p>
-                  <p className={`hub-invoice-send-value tabular-nums${decision.smsTo ? '' : ' is-miss'}`}>
-                    {decision.smsTo || 'No client phone'}
-                  </p>
-                  {decision.smsTo ? null : (
-                    <p className="hub-invoice-muted">{decision.smsMessage}</p>
+                  {showPhoneEditor && phoneRow.kind === 'edit' ? (
+                    <form
+                      className="job-client-phone"
+                      onSubmit={e => {
+                        e.preventDefault();
+                        void handleSavePhone();
+                      }}
+                    >
+                      <Phone size={13} />
+                      <input
+                        type="tel"
+                        value={clientPhoneDraft}
+                        onChange={e => setClientPhoneDraft(e.target.value)}
+                        placeholder="Phone"
+                        className="form-input-sm"
+                        aria-label="Client phone"
+                        autoComplete="tel"
+                        inputMode="tel"
+                      />
+                      <button
+                        type="submit"
+                        className="job-client-phone-save"
+                        disabled={savingPhone}
+                      >
+                        Save
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <p className={`hub-invoice-send-value tabular-nums${decision.smsTo ? '' : ' is-miss'}`}>
+                        {decision.smsTo || 'No client phone'}
+                      </p>
+                      {decision.smsTo ? null : (
+                        <p className="hub-invoice-muted">{decision.smsMessage}</p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -305,6 +371,39 @@ export function ReportSendDialog({
                     type="submit"
                     className="job-client-email-save"
                     disabled={savingEmail}
+                  >
+                    Save
+                  </button>
+                </form>
+              )}
+              {showPhoneInkOnMiss && phoneRow.kind === 'tel' && (
+                <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num">
+                  <Phone size={13} /> {phoneRow.phone}
+                </a>
+              )}
+              {showPhoneEditor && noEmailMiss && phoneRow.kind === 'edit' && (
+                <form
+                  className="job-client-phone"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    void handleSavePhone();
+                  }}
+                >
+                  <Phone size={13} />
+                  <input
+                    type="tel"
+                    value={clientPhoneDraft}
+                    onChange={e => setClientPhoneDraft(e.target.value)}
+                    placeholder="Phone"
+                    className="form-input-sm"
+                    aria-label="Client phone"
+                    autoComplete="tel"
+                    inputMode="tel"
+                  />
+                  <button
+                    type="submit"
+                    className="job-client-phone-save"
+                    disabled={savingPhone}
                   >
                     Save
                   </button>
