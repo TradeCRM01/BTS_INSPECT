@@ -2620,6 +2620,18 @@
     text-decoration: none;
   }
 
+  /* Phone stays one line on the existing client row — never wrap, never a second chip. */
+  .job-cal-host .job-client-phone,
+  .job-cal-host a.job-client-phone-num {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .job-cal-host a.job-client-phone-num {
+    color: #0A2540;
+    text-decoration: none;
+  }
+
   .job-cal-act {
     display: flex;
     flex-wrap: wrap;
