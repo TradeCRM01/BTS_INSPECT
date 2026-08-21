@@ -766,9 +766,11 @@ describe('invoice sheet Mark paid stays the one surface', () => {
     expect(invoicesPage).not.toMatch(/myob/i);
     expect(invoicesPage).not.toContain('create table');
 
-    const listPaid = invoicesPage.indexOf("persistableInvoiceStatus('paid')");
-    const listAttach = invoicesPage.indexOf('attachXeroPaymentAfterMarkPaid');
-    expect(listPaid).toBeGreaterThan(-1);
+    const listFn = invoicesPage.indexOf('const patchPaid');
+    const listPaid = invoicesPage.indexOf("persistableInvoiceStatus('paid')", listFn);
+    const listAttach = invoicesPage.indexOf('attachXeroPaymentAfterMarkPaid', listFn);
+    expect(listFn).toBeGreaterThan(-1);
+    expect(listPaid).toBeGreaterThan(listFn);
     expect(listAttach).toBeGreaterThan(listPaid);
     const listAfterAttach = invoicesPage.slice(listAttach, invoicesPage.indexOf('const persist'));
     expect(listAfterAttach).not.toMatch(/status:\s*'sent'/);
