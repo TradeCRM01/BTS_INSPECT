@@ -7,7 +7,8 @@ import {
   NO_SMTP_MESSAGE,
 } from './sendInvoice';
 import { jobDraftSendToast, sendJobDraftInvoice } from './sendJobDraftInvoice';
-import type { DeliverInvoiceResult } from './sendInvoiceDeliver';
+import type { DeliverInvoiceResult, InvoicePdfBuilder } from './sendInvoiceDeliver';
+import type { InvoiceSendCompany } from './sendInvoice';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -30,15 +31,20 @@ function sentOk(over?: Partial<Extract<DeliverInvoiceResult, { ok: true }>>): De
 
 describe('sendJobDraftInvoice', () => {
   it('delivers the existing draft through deliverInvoice — same invoiceId pipe', async () => {
-    const deliver = vi.fn(async (args: { invoiceId: string }) => sentOk());
+    const deliver = vi.fn(async (_args: {
+      invoiceId: string;
+      company: InvoiceSendCompany & { id: string };
+      buildPdf: InvoicePdfBuilder;
+    }) => sentOk());
     const result = await sendJobDraftInvoice({
       invoices: [draft],
       company,
       deliver,
     });
     expect(deliver).toHaveBeenCalledTimes(1);
-    expect(deliver.mock.calls[0][0].invoiceId).toBe('inv-draft');
-    expect(deliver.mock.calls[0][0].company.id).toBe('co-1');
+    const called = deliver.mock.calls[0]?.[0];
+    expect(called?.invoiceId).toBe('inv-draft');
+    expect(called?.company.id).toBe('co-1');
     expect(result).toEqual(sentOk());
   });
 
