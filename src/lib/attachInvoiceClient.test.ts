@@ -303,7 +303,8 @@ describe('invoice-sheet attach client — wiring', () => {
     expect(editor).toContain("next.key === 'send'");
     expect(editor).toContain('className="btn-primary"');
     expect(editor).toContain('job-client-attach-save');
-    expect(editor).toContain('Add client email');
+    expect(editor).toContain('{next.label}');
+    expect(editor).toContain("next.key === 'add_email'");
     expect(editor).toContain('Send again');
     expect(editor).toContain('Mark paid');
     expect(editor).not.toContain('className="btn-primary job-client-attach-save"');
