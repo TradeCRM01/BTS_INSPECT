@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { InspectionDueReminder } from '../components/inspection/InspectionDueReminder';
 import { QuestionRenderer } from '../components/inspection/QuestionRenderer';
 import { evaluateShowIf } from '../lib/conditionEval';
 import type { TemplateSchema, Section, Question } from '../types/template';
@@ -41,7 +42,7 @@ interface PendingSave {
 export function InspectionFillPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, company } = useAuth();
 
   const [responses, setResponses] = useState<Record<string, unknown>>({});
   const [meta, setMeta] = useState<Record<string, string>>({});
@@ -94,12 +95,30 @@ export function InspectionFillPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, title, client_id, address, job_number')
+        .select('id, title, client_id, address, job_number, scheduled_date, company_id, start_time')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
     enabled: !!profile,
+  });
+
+  const fillClientId = (inspection as { client_id?: string | null } | null)?.client_id
+    ?? jobs.find(j => j.id === jobId)?.client_id
+    ?? null;
+
+  const { data: dueClient } = useQuery({
+    queryKey: ['inspection-due-client', fillClientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, company_id, name, email, phone, contact_person')
+        .eq('id', fillClientId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!fillClientId,
   });
 
   useEffect(() => {
@@ -636,6 +655,37 @@ export function InspectionFillPage() {
             )}
           </div>
         </section>
+
+        <InspectionDueReminder
+          inspection={{
+            id: inspection.id,
+            inspector_id: inspection.inspector_id,
+            client_id: (inspection as { client_id?: string | null }).client_id ?? selectedJob?.client_id ?? null,
+            crm_job_id: jobId || null,
+            status: inspection.status,
+            archived: (inspection as { archived?: boolean | null }).archived ?? false,
+            meta,
+            responses,
+            template_snapshot: inspection.template_snapshot as { name?: string; schema?: TemplateSchema },
+            completed_at: inspection.completed_at,
+            started_at: inspection.started_at,
+            due_on: (inspection as { due_on?: string | null }).due_on ?? null,
+            due_reminder_sent_at: (inspection as { due_reminder_sent_at?: string | null }).due_reminder_sent_at ?? null,
+            due_reminder_sent_for_date: (inspection as { due_reminder_sent_for_date?: string | null }).due_reminder_sent_for_date ?? null,
+          }}
+          job={selectedJob ? {
+            id: selectedJob.id,
+            company_id: (selectedJob as { company_id?: string }).company_id ?? company?.id ?? '',
+            client_id: selectedJob.client_id,
+            title: selectedJob.title,
+            scheduled_date: (selectedJob as { scheduled_date?: string | null }).scheduled_date ?? null,
+            start_time: (selectedJob as { start_time?: string | null }).start_time ?? null,
+            address: selectedJob.address,
+            job_number: selectedJob.job_number,
+          } : null}
+          client={dueClient ?? null}
+          company={company}
+        />
 
         {visibleSections.length > 0 && (
           <div className="ops-tabs mb-3">

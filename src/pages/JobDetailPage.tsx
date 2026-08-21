@@ -21,6 +21,8 @@ import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { recommendJobAction } from '../lib/jobNextAction';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel } from '../lib/jhaNextAction';
 import { inspectionStatusClass, inspectionStatusLabel } from '../lib/inspectionNextAction';
+import { withInspectionDueNext } from '../lib/inspectionDueReminder';
+import type { TemplateSchema } from '../types/template';
 import { clientRecordHref } from '../lib/clientRecords';
 import {
   Calendar, Clock, User, Phone, Mail, Edit3, ChevronDown,
@@ -39,7 +41,12 @@ type JobInspection = {
   id: string;
   status: string;
   started_at: string;
-  template_snapshot: { name?: string } | null;
+  template_snapshot: { name?: string; schema?: TemplateSchema } | null;
+  meta?: Record<string, string> | null;
+  responses?: Record<string, unknown> | null;
+  crm_job_id?: string | null;
+  due_on?: string | null;
+  archived?: boolean | null;
 };
 
 type JobJha = {
@@ -180,7 +187,7 @@ export function JobDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inspections')
-        .select('id, status, started_at, template_snapshot')
+        .select('id, status, started_at, template_snapshot, meta, responses, crm_job_id, due_on, archived')
         .eq('crm_job_id', id!)
         .order('started_at', { ascending: false });
       if (error) throw error;
@@ -189,7 +196,7 @@ export function JobDetailPage() {
       if (linkedId && !list.some(i => i.id === linkedId)) {
         const { data: extra } = await supabase
           .from('inspections')
-          .select('id, status, started_at, template_snapshot')
+          .select('id, status, started_at, template_snapshot, meta, responses, crm_job_id, due_on, archived')
           .eq('id', linkedId)
           .maybeSingle();
         if (extra) list.push(extra as JobInspection);
@@ -741,18 +748,38 @@ export function JobDetailPage() {
             emptyTitle="No inspection on this job yet."
             emptyAction={<Link to={inspectHref} className="ops-link">Start inspection</Link>}
           >
-            {(inspections ?? []).map(insp => (
+            {(inspections ?? []).map(insp => {
+              const next = withInspectionDueNext(
+                { ...insp, crm_job_id: insp.crm_job_id ?? job.id },
+                {
+                  id: job.id,
+                  company_id: job.company_id,
+                  client_id: job.client_id,
+                  scheduled_date: job.scheduled_date,
+                  job_number: job.job_number,
+                  title: job.title,
+                  address: job.address,
+                },
+                { href: inspectionHref(insp.status, insp.id), label: 'Open', actionable: true },
+              );
+              return (
               <JobRelatedRow
                 key={insp.id}
-                href={inspectionHref(insp.status, insp.id)}
+                href={next.href}
                 icon={FileText}
                 title={insp.template_snapshot?.name ?? 'Inspection'}
                 meta={format(new Date(insp.started_at), 'd MMM yyyy')}
                 trailing={
                   <OpsStatus className={inspectionStatusClass(insp.status)}>{inspectionStatusLabel(insp.status)}</OpsStatus>
                 }
+                action={
+                  next.label === 'Remind client' ? (
+                    <Link to={next.href} className="ops-link text-xs">{next.label}</Link>
+                  ) : undefined
+                }
               />
-            ))}
+              );
+            })}
           </JobRelatedSection>
 
           <JobRelatedSection
