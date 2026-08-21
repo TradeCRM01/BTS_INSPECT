@@ -17,7 +17,7 @@ import {
   type SmsDecision,
 } from './jobReminder';
 import { effectiveInvoiceStatus } from './invoiceStatus';
-import { companyDocumentLogoUrl } from './companyLogo';
+import { companyDocumentLogoUrl, companyReportTheme } from './companyLogo';
 
 export const COMPANY_EMAIL_SETTINGS_HREF = '/settings/company';
 
@@ -70,6 +70,7 @@ export type InvoiceSendCompany = {
   email?: string | null;
   website?: string | null;
   logo_url?: string | null;
+  report_theme?: Record<string, unknown> | null;
 };
 
 export type InvoiceSendInvoice = {
@@ -1168,6 +1169,7 @@ export function invoiceSendCompanyFrom(company: {
   email?: string | null;
   website?: string | null;
   logo_url?: string | null;
+  report_theme?: Record<string, unknown> | null;
 } | null | undefined): (InvoiceSendCompany & { id: string }) | null {
   const id = (company?.id ?? '').trim();
   if (!id) return null;
@@ -1180,6 +1182,7 @@ export function invoiceSendCompanyFrom(company: {
     email: company?.email ?? null,
     website: company?.website ?? null,
     logo_url: companyDocumentLogoUrl(company),
+    report_theme: companyReportTheme(company),
   };
 }
 
@@ -1295,6 +1298,7 @@ export function commercialPdfDataForInvoice(bundle: InvoiceSendBundle, now = new
       email: bundle.company.email ?? null,
       website: bundle.company.website ?? null,
       logo_url: companyDocumentLogoUrl(bundle.company),
+      report_theme: companyReportTheme(bundle.company),
     },
     inclusions: asStringList(invoice.inclusions),
     exclusions: asStringList(invoice.exclusions),
