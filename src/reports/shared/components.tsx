@@ -66,7 +66,7 @@ export function RunningHeader({
       <View style={sh.headerLeft}>
         {logoUrl ? (
           <>
-            <Image src={logoUrl} style={{ width: 90, height: 36, objectFit: 'contain', marginRight: 10 }} />
+            <Image src={logoUrl} style={{ width: 56, height: 24, objectFit: 'contain', marginRight: 8 }} />
             <View>
               <Text style={sh.headerCompany}>{companyName.toUpperCase()}</Text>
               <Text style={sh.headerSub}>INSPECTION REPORT</Text>
@@ -375,7 +375,7 @@ export function SignatureBlock({
   );
 }
 
-/** Company letterhead for inspection cover pages (logo or navy name plate — no hardcoded brand assets). */
+/** Company letterhead for inspection cover pages (stored mark when set — no invented fallback). */
 export function CoverLetterhead({
   companyName,
   logoUrl,
@@ -399,12 +399,11 @@ export function CoverLetterhead({
     >
       <View style={{ flex: 1, paddingRight: 16 }}>
         {logoUrl ? (
-          <Image src={logoUrl} style={{ width: 160, height: 56, objectFit: 'contain' }} />
-        ) : (
-          <Text style={{ fontFamily: pdfFonts.body, fontSize: 22, fontWeight: 700, color: '#FFFFFF', letterSpacing: 0.4 }}>
-            {companyName}
-          </Text>
-        )}
+          <Image src={logoUrl} style={{ width: 96, height: 36, objectFit: 'contain', marginBottom: 8 }} />
+        ) : null}
+        <Text style={{ fontFamily: pdfFonts.body, fontSize: logoUrl ? 14 : 22, fontWeight: 700, color: '#FFFFFF', letterSpacing: 0.4 }}>
+          {companyName}
+        </Text>
         {contactLine ? (
           <Text style={{ fontFamily: pdfFonts.body, fontSize: 7.5, color: 'rgba(255,255,255,0.55)', marginTop: 8 }}>
             {contactLine}

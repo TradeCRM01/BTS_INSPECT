@@ -67,8 +67,8 @@ const s = StyleSheet.create({
     paddingBottom: 14,
     marginBottom: 16,
   },
-  brandBlock: { flexDirection: 'row', alignItems: 'center', maxWidth: '62%' },
-  logo: { width: 72, height: 40, objectFit: 'contain', marginRight: 12 },
+  brandBlock: { flexDirection: 'row', alignItems: 'flex-start', maxWidth: '62%' },
+  logo: { width: 56, height: 32, objectFit: 'contain', marginRight: 10, marginTop: 1 },
   companyName: {
     fontSize: 14,
     fontWeight: 700,

@@ -370,19 +370,17 @@ export function CompanySettingsPage() {
           </div>
         </div>
 
-        {/* Logo */}
-        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
-          <h2 className="text-sm font-semibold text-[#1A1A1A] mb-3">Company Logo</h2>
-          <div className="flex items-center gap-4">
+        {/* Logo — existing company settings strip only. Not a branding page. */}
+        <div className="company-logo-strip">
+          <h2 className="company-logo-strip-title">Company Logo</h2>
+          <div className="company-logo-strip-row">
             {logoUrl ? (
-              <img src={logoUrl} alt="Company logo" className="h-12 object-contain border border-[#E5E7EB] rounded p-1" />
+              <img src={logoUrl} alt="Company logo" className="company-logo-strip-mark" />
             ) : (
-              <div className="w-20 h-12 border-2 border-dashed border-[#E5E7EB] rounded flex items-center justify-center">
-                <span className="text-xs text-[#4A5568]">No logo</span>
-              </div>
+              <p className="company-logo-strip-miss">No logo yet</p>
             )}
-            <label className="flex items-center gap-1.5 text-sm border border-[#E5E7EB] text-[#4A5568] px-3 py-2 rounded cursor-pointer hover:bg-[#F9FAFB]">
-              <Upload size={14} /> {uploadingLogo ? 'Uploading...' : logoUrl ? 'Replace Logo' : 'Upload Logo'}
+            <label className="company-logo-strip-ctl">
+              <Upload size={14} /> {uploadingLogo ? 'Uploading...' : logoUrl ? 'Replace' : 'Add a logo'}
               <input
                 type="file"
                 accept={COMPANY_LOGO_ACCEPT}
@@ -396,15 +394,15 @@ export function CompanySettingsPage() {
                 type="button"
                 onClick={handleLogoRemove}
                 disabled={uploadingLogo || removingLogo}
-                className="flex items-center gap-1.5 text-sm border border-[#E5E7EB] text-[#4A5568] px-3 py-2 rounded hover:bg-[#F9FAFB] disabled:opacity-50"
+                className="company-logo-strip-clear"
               >
-                <Trash2 size={14} /> {removingLogo ? 'Removing...' : 'Remove'}
+                {removingLogo ? 'Removing...' : 'Clear'}
               </button>
             ) : null}
           </div>
-          <p className="text-xs text-[#4A5568] mt-2">Your company mark on invoices, quotes, and reports. Not the Grafter app icon.</p>
+          <p className="company-logo-strip-hint">Your company mark on invoices, quotes, and reports.</p>
           {logoError ? (
-            <p className="text-sm text-red-600 mt-2 flex items-center gap-1.5">
+            <p className="company-logo-strip-err">
               <AlertCircle size={14} /> {logoError}
             </p>
           ) : null}

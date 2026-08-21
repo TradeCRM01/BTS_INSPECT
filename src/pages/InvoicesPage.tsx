@@ -21,7 +21,7 @@ import { invoiceActionContext, invoiceListBucket, invoiceOverflowPaidAction, rec
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
-import { commercialPdfCompanyFrom } from '../lib/companyLogo';
+import { commercialPdfCompanyFrom, companyDocumentLogoUrl } from '../lib/companyLogo';
 import {
   jobClientEmailRow,
   jobClientEmailSaveToast,
@@ -704,6 +704,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     line_items: form.line_items,
   }, { smtpReady }));
   const displayStatus = next.status;
+  const sheetLogo = companyDocumentLogoUrl(company);
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
@@ -1002,6 +1003,9 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
 
           <div className="hub-invoice-letterhead">
             <div className="min-w-0">
+              {sheetLogo ? (
+                <img src={sheetLogo} alt="" className="hub-invoice-letterhead-mark" />
+              ) : null}
               <p className="hub-invoice-kicker">From</p>
               <p className="hub-invoice-from-name">{company?.name ?? 'Your company'}</p>
               {company?.abn ? <p className="hub-invoice-muted">ABN {company.abn}</p> : null}
