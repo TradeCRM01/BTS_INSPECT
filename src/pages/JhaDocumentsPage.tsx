@@ -13,6 +13,7 @@ import {
   jhaStatusLabel,
   recommendJhaListAction,
 } from '../lib/jhaNextAction';
+import { applyLivingJobToJha, livingJobSite } from '../lib/livingJha';
 import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, OpsDocHead, OpsSiteRow, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
 
@@ -32,6 +33,7 @@ type DocRow = {
   client_name?: string | null;
   job_title?: string | null;
   job_address?: string | null;
+  job_assigned_team?: string[] | null;
 };
 
 function jhaHref(id: string) {
@@ -59,6 +61,16 @@ export function JhaDocumentsPage() {
     onError: (err) => {
       setDupError(err instanceof Error ? err.message : 'Could not duplicate JHA');
     },
+  });
+
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ['company-members-jha', profile?.company_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_company_members', { p_company_id: profile!.company_id });
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; name: string; email: string; role: string }>;
+    },
+    enabled: !!profile?.company_id,
   });
 
   const { data: templates } = useQuery({
@@ -90,7 +102,7 @@ export function JhaDocumentsPage() {
       const jobIds = [...new Set(list.map(d => d.job_id).filter(Boolean))] as string[];
       const [clientsRes, jobsRes] = await Promise.all([
         clientIds.length ? supabase.from('clients').select('id, name').in('id', clientIds) : Promise.resolve({ data: [], error: null }),
-        jobIds.length ? supabase.from('jobs').select('id, title, address').in('id', jobIds) : Promise.resolve({ data: [], error: null }),
+        jobIds.length ? supabase.from('jobs').select('id, title, address, assigned_team').in('id', jobIds) : Promise.resolve({ data: [], error: null }),
       ]);
       const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c.name]));
       const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j]));
@@ -99,6 +111,7 @@ export function JhaDocumentsPage() {
         client_name: d.client_id ? clientMap.get(d.client_id) ?? null : null,
         job_title: d.job_id ? jobMap.get(d.job_id)?.title ?? null : null,
         job_address: d.job_id ? jobMap.get(d.job_id)?.address ?? null : null,
+        job_assigned_team: d.job_id ? jobMap.get(d.job_id)?.assigned_team ?? null : null,
       }));
     },
     enabled: !!profile,
@@ -214,6 +227,7 @@ export function JhaDocumentsPage() {
             <JhaGroup
               title="Needs action"
               docs={openDocs}
+              members={teamMembers}
               onOpen={id => navigate(jhaHref(id))}
               onDuplicate={id => duplicateMutation.mutate(id)}
               duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
@@ -221,6 +235,7 @@ export function JhaDocumentsPage() {
             <JhaGroup
               title="Published"
               docs={publishedDocs}
+              members={teamMembers}
               onOpen={id => navigate(jhaHref(id))}
               onDuplicate={id => duplicateMutation.mutate(id)}
               duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
@@ -235,12 +250,14 @@ export function JhaDocumentsPage() {
 function JhaGroup({
   title,
   docs,
+  members,
   onOpen,
   onDuplicate,
   duplicatingId,
 }: {
   title: string;
   docs: DocRow[];
+  members: Array<{ id: string; name: string; email: string; role: string }>;
   onOpen: (id: string) => void;
   onDuplicate: (id: string) => void;
   duplicatingId?: string;
@@ -257,6 +274,7 @@ function JhaGroup({
           <JhaDocCard
             key={d.id}
             doc={d}
+            members={members}
             onOpen={() => onOpen(d.id)}
             onDuplicate={() => onDuplicate(d.id)}
             duplicating={duplicatingId === d.id}
@@ -269,17 +287,35 @@ function JhaGroup({
 
 function JhaDocCard({
   doc,
+  members,
   onOpen,
   onDuplicate,
   duplicating,
 }: {
   doc: DocRow;
+  members: Array<{ id: string; name: string; email: string; role: string }>;
   onOpen: () => void;
   onDuplicate: () => void;
   duplicating: boolean;
 }) {
-  const next = recommendJhaListAction(jhaListContext(doc));
-  const site = opsSiteLabel(doc.meta?.siteName, doc.job_address, doc.job_title, doc.meta?.taskName);
+  const livingJob = doc.job_id
+    ? { id: doc.job_id, title: doc.job_title, address: doc.job_address, assigned_team: doc.job_assigned_team }
+    : null;
+  const living = applyLivingJobToJha(doc.meta, livingJob, members);
+  const next = recommendJhaListAction(jhaListContext({
+    ...doc,
+    meta: living.meta,
+    livingSite: living.siteName,
+    livingCrew: living.crew,
+  }));
+  const site = opsSiteLabel(
+    living.siteName,
+    livingJobSite(livingJob),
+    doc.meta?.siteName,
+    doc.job_address,
+    doc.job_title,
+    doc.meta?.taskName,
+  );
   const title = doc.meta?.documentTitle || doc.meta?.taskName || doc.template_snapshot?.name || 'JHA';
   const when = format(parseISO(doc.completed_at || doc.created_at), 'd MMM yyyy');
 
@@ -298,7 +334,7 @@ function JhaDocCard({
         trailing={<OpsStatus className={jhaStatusClass(doc.status)}>{jhaStatusLabel(doc.status)}</OpsStatus>}
       />
       <div className="ops-card-body">
-        <OpsSiteRow site={site} mapsQuery={doc.meta?.siteName || doc.job_address || null} />
+        <OpsSiteRow site={site} mapsQuery={living.siteName || doc.job_address || doc.meta?.siteName || null} />
         <p className="ops-meta mt-1 truncate">{title}</p>
         {(doc.job_title || doc.client_name || doc.meta?.clientName) && (
           <p className="ops-meta mt-0.5 truncate">

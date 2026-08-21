@@ -28,6 +28,7 @@ import { JhaSwmsLibraryPicker } from '../components/jha/JhaSwmsLibraryPicker';
 import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { EMPTY_SWMS, HRCW_CATEGORIES, parseSwmsMeta, type JhaSwmsData } from '../lib/swmsHrcw';
 import { jhaFillContext, jhaStatusClass, jhaStatusLabel, recommendJhaFillAction } from '../lib/jhaNextAction';
+import { applyLivingJobToJha, livingJobSite } from '../lib/livingJha';
 import { take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
 import {
   ChevronDown, ChevronLeft, Plus, Trash2, ShieldCheck, FileText,
@@ -121,6 +122,10 @@ export function JhaFillPage() {
   const [showMoreIdentity, setShowMoreIdentity] = useState(false);
   const [showMoreDoc, setShowMoreDoc] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const crewRef = useRef(crew);
+  const metaRef = useRef(meta);
+  crewRef.current = crew;
+  metaRef.current = meta;
 
   const { data: template, isLoading: tmplLoading } = useQuery({
     queryKey: ['jha-template-for-fill', templateId],
@@ -163,11 +168,21 @@ export function JhaFillPage() {
   const { data: jobs = [] } = useQuery({
     queryKey: ['jobs-for-jha'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('jobs').select('id, title, client_id, address').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('jobs').select('id, title, client_id, address, assigned_team').order('created_at', { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
     enabled: !!profile,
+  });
+
+  const { data: teamMembers = [], isSuccess: membersReady } = useQuery({
+    queryKey: ['company-members-jha', profile?.company_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_company_members', { p_company_id: profile!.company_id });
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; name: string; email: string; role: string }>;
+    },
+    enabled: !!profile?.company_id,
   });
 
   const { data: take5List = [] } = useQuery({
@@ -244,10 +259,56 @@ export function JhaFillPage() {
     const clientName = clients.find(c => c.id === (job.client_id || presetClientId))?.name ?? '';
     setMeta(prev => ({
       ...prev,
-      siteName: prev.siteName || job.address || job.title || '',
+      siteName: livingJobSite(job) || prev.siteName || '',
       clientName: prev.clientName || clientName,
     }));
   }, [isEditMode, presetJobId, presetClientId, jobs, clients]);
+
+  const selectedJobForLiving = jobs.find(j => j.id === jobId);
+  const livingJobKey = selectedJobForLiving
+    ? `${selectedJobForLiving.id}\0${selectedJobForLiving.address ?? ''}\0${(selectedJobForLiving.assigned_team ?? []).join(',')}`
+    : '';
+
+  useEffect(() => {
+    if (!selectedJobForLiving) return;
+    const applied = applyLivingJobToJha(
+      { ...metaRef.current, crewSignOns: JSON.stringify(crewRef.current) },
+      selectedJobForLiving,
+      membersReady ? teamMembers : [],
+      {
+        skipCrew: !membersReady && (selectedJobForLiving.assigned_team ?? []).length > 0,
+        currentUserId: profile?.id,
+      },
+    );
+    if (!applied.changed) return;
+    setMeta(prev => ({ ...prev, siteName: applied.siteName || prev.siteName }));
+    setCrew(applied.crew);
+    if (!docIdState) return;
+    void supabase
+      .from('jha_documents')
+      .select('meta')
+      .eq('id', docIdState)
+      .eq('job_id', selectedJobForLiving.id)
+      .maybeSingle()
+      .then(async ({ data, error: loadErr }) => {
+        if (loadErr) {
+          setError(loadErr.message);
+          return;
+        }
+        const merged = {
+          ...((data?.meta ?? {}) as Record<string, string>),
+          siteName: applied.siteName,
+          crewSignOns: JSON.stringify(applied.crew),
+        };
+        const { error: upErr } = await supabase
+          .from('jha_documents')
+          .update({ meta: merged })
+          .eq('id', docIdState)
+          .eq('job_id', selectedJobForLiving.id);
+        if (upErr) setError(upErr.message);
+        else queryClient.invalidateQueries({ queryKey: ['job-jhas', selectedJobForLiving.id] });
+      });
+  }, [livingJobKey, membersReady, teamMembers, selectedJobForLiving, docIdState, profile?.id, queryClient]);
 
   useEffect(() => {
     if (isEditMode || librarySeeded || !template?.schema) return;
@@ -298,8 +359,11 @@ export function JhaFillPage() {
   function markUnsaved() { setSaveState('unsaved'); }
 
   function persistableMeta(): Record<string, string> {
+    const job = jobs.find(j => j.id === jobId);
+    const siteName = job ? (livingJobSite(job) || meta.siteName || '') : (meta.siteName ?? '');
     return {
       ...meta,
+      siteName,
       crewSignOns: JSON.stringify(crew),
       swms: JSON.stringify(swms),
       linkedSwmsIds: JSON.stringify(linkedSwmsIds),
@@ -354,7 +418,10 @@ export function JhaFillPage() {
   function validate(): string[] {
     const errors: string[] = [];
     if (schema?.meta.requiresTaskName && !meta.taskName?.trim()) errors.push('Task / Activity name is required');
-    if (schema?.meta.requiresSiteName && !meta.siteName?.trim()) errors.push('Site / Location is required');
+    const boundJob = jobs.find(j => j.id === jobId);
+    if (schema?.meta.requiresSiteName && !(livingJobSite(boundJob) || meta.siteName?.trim())) {
+      errors.push('Site / Location is required');
+    }
     if (schema?.meta.requiresDate && !meta.date?.trim()) errors.push('Date is required');
     if (schema?.meta.requiresSupervisor && !meta.supervisor?.trim()) errors.push('Supervisor is required');
     if (schema?.meta.requiresClient && !meta.clientName?.trim()) errors.push('Client is required');
@@ -460,6 +527,7 @@ export function JhaFillPage() {
       setSaveState('saved');
       queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
       queryClient.invalidateQueries({ queryKey: ['jha-document', savedId] });
+      if (jobId) queryClient.invalidateQueries({ queryKey: ['job-jhas', jobId] });
       return savedId;
     } catch (err) {
       console.error('Save failed:', err);
@@ -761,10 +829,10 @@ export function JhaFillPage() {
         <div className="flex items-center justify-between gap-3 mb-3">
           <button
             type="button"
-            onClick={() => navigate('/jha')}
+            onClick={() => navigate(jobId ? `/jobs/${jobId}` : '/jha')}
             className="ops-back"
           >
-            <ChevronLeft size={16} /> JHA documents
+            <ChevronLeft size={16} /> {jobId ? 'Back to job' : 'JHA documents'}
           </button>
           <div className="flex items-center gap-2 text-xs">
             {saveHint && (
@@ -844,13 +912,22 @@ export function JhaFillPage() {
                   <label className="ops-field-label">
                     Site / location{schema.meta.requiresSiteName && <span className="text-fail"> *</span>}
                   </label>
-                  <input
-                    type="text"
-                    value={meta.siteName ?? ''}
-                    onChange={e => updateMeta('siteName', e.target.value)}
-                    placeholder="Where is the work?"
-                    className="ops-field-site"
-                  />
+                  {jobId && selectedJob ? (
+                    <>
+                      <p className="ops-field-site">{livingJobSite(selectedJob) || 'No site address on this job yet'}</p>
+                      <p className="ops-meta mt-1">
+                        Site comes from this job. Change the job address and this SWMS updates.
+                      </p>
+                    </>
+                  ) : (
+                    <input
+                      type="text"
+                      value={meta.siteName ?? ''}
+                      onChange={e => updateMeta('siteName', e.target.value)}
+                      placeholder="Where is the work?"
+                      className="ops-field-site"
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="ops-field-label">Job</label>
@@ -866,8 +943,8 @@ export function JhaFillPage() {
                         if (name) updateMeta('clientName', name);
                       }
                       if (job) {
-                        const nextSite = job.address || job.title || '';
-                        if (nextSite && !(meta.siteName ?? '').trim()) updateMeta('siteName', nextSite);
+                        const nextSite = livingJobSite(job);
+                        if (nextSite) updateMeta('siteName', nextSite);
                       }
                       markUnsaved();
                     }}
@@ -1101,6 +1178,11 @@ export function JhaFillPage() {
             </section>
 
             <div id="jha-crew">
+              {jobId && selectedJob && (
+                <p className="ops-meta mb-2 px-1">
+                  Crew on this SWMS follows who is assigned on the job. Sign here. Walk-ons can still be added.
+                </p>
+              )}
               {profile?.company_id && (
                 <JhaCrewRegister
                   companyId={profile.company_id}

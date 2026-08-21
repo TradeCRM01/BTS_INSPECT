@@ -9,6 +9,7 @@ import { X, Trash2, GitBranch } from 'lucide-react';
 import { format } from 'date-fns';
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { jobSiteAddressFromClient, visibleClientContacts } from '../../lib/clientRecords';
+import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 
 interface JobFormModalProps {
   job: Job | null;
@@ -126,8 +127,16 @@ export function JobFormModal({
 
     if (job) {
       const { error } = await supabase.from('jobs').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', job.id);
+      if (error) { setSaving(false); setErr(error.message); return; }
+      try {
+        await persistLivingJobOnBoundJhas(job.id);
+      } catch (syncErr) {
+        setSaving(false);
+        setErr(syncErr instanceof Error ? syncErr.message : 'Job saved, but this job’s SWMS could not be updated.');
+        onSaved(job.id);
+        return;
+      }
       setSaving(false);
-      if (error) { setErr(error.message); return; }
       onSaved(job.id);
       return;
     }
