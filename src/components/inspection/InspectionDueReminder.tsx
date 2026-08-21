@@ -292,6 +292,38 @@ export function InspectionDueReminder({
         {noPhoneFieldMiss && (
           <p className="job-reminder-miss">{DUE_REMINDER_NO_PHONE_FIELD}</p>
         )}
+        {noClientFieldMiss && (
+          <p className="job-reminder-miss">{DUE_REMINDER_NO_CLIENT_FIELD}</p>
+        )}
+        {attachRow.kind === 'pick' && (
+          <form
+            className="job-client-attach"
+            onSubmit={e => {
+              e.preventDefault();
+              attachClient.mutate();
+            }}
+          >
+            <User size={13} />
+            <select
+              value={clientAttachDraft}
+              onChange={e => setClientAttachDraft(e.target.value)}
+              className="form-input-sm"
+              aria-label="Attach client"
+            >
+              <option value="">Client</option>
+              {attachRow.clients.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="job-client-attach-save"
+              disabled={attachClient.isPending || !clientAttachDraft}
+            >
+              Save
+            </button>
+          </form>
+        )}
 
         <div className="job-reminder-tos">
           <label className="block">
@@ -384,38 +416,6 @@ export function InspectionDueReminder({
           <p className="job-reminder-miss">{missText}</p>
         )}
 
-        {noClientFieldMiss && (
-          <p className="job-reminder-miss">{DUE_REMINDER_NO_CLIENT_FIELD}</p>
-        )}
-        {attachRow.kind === 'pick' && (
-          <form
-            className="job-client-attach"
-            onSubmit={e => {
-              e.preventDefault();
-              attachClient.mutate();
-            }}
-          >
-            <User size={13} />
-            <select
-              value={clientAttachDraft}
-              onChange={e => setClientAttachDraft(e.target.value)}
-              className="form-input-sm"
-              aria-label="Attach client"
-            >
-              <option value="">Client</option>
-              {attachRow.clients.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="job-client-attach-save"
-              disabled={attachClient.isPending || !clientAttachDraft}
-            >
-              Save
-            </button>
-          </form>
-        )}
         {noClientsNamedMiss && (
           <p className="job-reminder-miss">{JOB_CLIENT_ATTACH_NO_CLIENTS}</p>
         )}

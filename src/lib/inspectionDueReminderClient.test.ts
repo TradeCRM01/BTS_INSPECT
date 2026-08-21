@@ -657,14 +657,14 @@ describe('due-test reminder contact write — wiring', () => {
 
     const emailMiss = due.indexOf('{noEmailFieldMiss && (');
     const phoneMiss = due.indexOf('{noPhoneFieldMiss && (');
-    const tos = due.indexOf('<div className="job-reminder-tos">');
     const clientMiss = due.indexOf('{noClientFieldMiss && (');
     const attach = due.indexOf('{attachRow.kind === \'pick\' && (');
+    const tos = due.indexOf('<div className="job-reminder-tos">');
     expect(emailMiss).toBeGreaterThan(-1);
     expect(phoneMiss).toBeGreaterThan(emailMiss);
-    expect(tos).toBeGreaterThan(phoneMiss);
-    expect(clientMiss).toBeGreaterThan(tos);
+    expect(clientMiss).toBeGreaterThan(phoneMiss);
     expect(attach).toBeGreaterThan(clientMiss);
+    expect(tos).toBeGreaterThan(attach);
 
     expect(due).not.toContain('Add one on the client record');
     expect(due).not.toContain('client record');
