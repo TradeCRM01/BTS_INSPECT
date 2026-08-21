@@ -380,7 +380,7 @@ export function InspectionDueReminder({
           <p className="job-reminder-meta">Checking email settings…</p>
         ) : decision.send ? (
           <p className="job-reminder-meta">Auto-sends the day it is due (Australia/Perth).</p>
-        ) : noEmailFieldMiss || noClientFieldMiss ? null : (
+        ) : noEmailFieldMiss || noClientFieldMiss || noClientsNamedMiss ? null : (
           <p className="job-reminder-miss">{missText}</p>
         )}
 
@@ -416,7 +416,7 @@ export function InspectionDueReminder({
             </button>
           </form>
         )}
-        {noClientsNamedMiss && missText !== JOB_CLIENT_ATTACH_NO_CLIENTS && (
+        {noClientsNamedMiss && (
           <p className="job-reminder-miss">{JOB_CLIENT_ATTACH_NO_CLIENTS}</p>
         )}
 

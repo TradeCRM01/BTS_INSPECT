@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { clientEmailForSend, clientPhoneForSms } from './sendInvoice';
@@ -553,15 +553,15 @@ describe('due-test reminder contact write — wiring', () => {
     const due = src('src/components/inspection/InspectionDueReminder.tsx');
     const css = src('src/index.css');
     const emailCss = css.slice(
-      css.indexOf('#inspection-due .job-reminder .job-client-email'),
+      css.indexOf('#inspection-due .job-client-email'),
       css.indexOf('/* end due reminder client email */'),
     );
     const phoneCss = css.slice(
-      css.indexOf('#inspection-due .job-reminder .job-client-phone'),
+      css.indexOf('#inspection-due .job-client-phone'),
       css.indexOf('/* end due reminder client phone */'),
     );
     const attachCss = css.slice(
-      css.indexOf('#inspection-due .job-reminder .job-client-attach'),
+      css.indexOf('#inspection-due .job-client-attach'),
       css.indexOf('/* end due reminder client attach */'),
     );
 
@@ -681,6 +681,7 @@ describe('due-test reminder contact write — wiring', () => {
     expect(due).toContain("kind === 'miss'");
     expect(JOB_CLIENT_ATTACH_NO_CLIENTS).toBe('No clients to attach');
     expect(due).toContain('noClientsNamedMiss && !decision.send && decision.reason === \'no_email\'');
+    expect(due).toContain('noEmailFieldMiss || noClientFieldMiss || noClientsNamedMiss');
     expect(due).not.toContain('Create client');
     expect(due).not.toContain('No client (walk-up)');
   });
@@ -767,6 +768,26 @@ describe('due-test reminder contact write — wiring', () => {
     expect(edge).not.toContain('saveJobClientEmail');
     expect(edge).not.toContain('saveJobClientPhone');
     expect(edge).not.toContain('attachJobClient');
+  });
+
+  it('keeps Flameboy look shots for empty email, empty phone, attach pick, no-clients, and already-has', () => {
+    const shots = [
+      'docs/look/due-reminder-email-empty-desktop.png',
+      'docs/look/due-reminder-email-empty-ute.png',
+      'docs/look/due-reminder-phone-empty-desktop.png',
+      'docs/look/due-reminder-phone-empty-ute.png',
+      'docs/look/due-reminder-attach-pick-desktop.png',
+      'docs/look/due-reminder-attach-pick-ute.png',
+      'docs/look/due-reminder-attach-no-clients-desktop.png',
+      'docs/look/due-reminder-attach-no-clients-ute.png',
+      'docs/look/due-reminder-already-has-desktop.png',
+      'docs/look/due-reminder-already-has-ute.png',
+      'docs/look/due-reminder-after-attach-no-email-desktop.png',
+      'docs/look/due-reminder-after-attach-no-email-ute.png',
+    ];
+    for (const shot of shots) {
+      expect(existsSync(resolve(process.cwd(), shot)), shot).toBe(true);
+    }
   });
 
   it('leaves quote convert / PR #17 off this control', () => {
