@@ -103,19 +103,11 @@ export function QuoteSendDialog({
 
           {!loading && ready && decision.ok && (
             <>
-              <div>
-                <p className="hub-quote-send-label">To</p>
-                <p className="hub-quote-send-value">{decision.to}</p>
-                <p className="ops-meta mt-1">{decision.toName} — already on the quote. No retype.</p>
-              </div>
-              <div>
-                <p className="hub-quote-send-label">Subject</p>
-                <p className="hub-quote-send-value">{decision.subject}</p>
-              </div>
-              <div>
-                <p className="hub-quote-send-label">Attached</p>
-                <p className="hub-quote-send-value">{decision.filename}</p>
-              </div>
+              <p className="hub-quote-send-sentence">
+                To {decision.toName} at {decision.to}.
+              </p>
+              <p className="hub-whisper">{decision.subject}</p>
+              <p className="hub-whisper">{decision.filename}</p>
             </>
           )}
 

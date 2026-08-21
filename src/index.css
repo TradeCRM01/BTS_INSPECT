@@ -503,64 +503,106 @@
     text-align: right;
   }
 
-  /* Quote surfaces only: navy room, light type, luminous chrome. Clients stay signed white. */
+  /* Quote surfaces only: a navy room with one light. Clients stay signed white. */
+  .hub-quotes.ops-page,
+  .overlay-backdrop:has(.hub-quote-editor),
+  .overlay-backdrop:has(.hub-quote-send) {
+    --hub-light: radial-gradient(
+      ellipse 78% 58% at 16% 4%,
+      color-mix(in srgb, var(--ops-accent) 42%, #fff 8%) 0%,
+      color-mix(in srgb, var(--ops-accent) 16%, transparent) 34%,
+      transparent 62%
+    );
+    --hub-depth: linear-gradient(
+      180deg,
+      color-mix(in srgb, #04101c 18%, transparent) 0%,
+      transparent 28%,
+      color-mix(in srgb, #04101c 52%, var(--ops-navy)) 100%
+    );
+    background:
+      var(--hub-light),
+      var(--hub-depth),
+      var(--ops-navy);
+    color: #fff;
+    color-scheme: dark;
+  }
+
   .hub-quotes.ops-page {
+    position: relative;
+    isolation: isolate;
     max-width: none;
     width: 100%;
     min-height: calc(100dvh - 3.5rem);
     margin: 0;
-    background: var(--ops-navy);
-    color: #fff;
-    color-scheme: dark;
     padding-top: 3.5rem;
     padding-bottom: 5.5rem;
     padding-left: max(1.25rem, calc((100% - 1080px) / 2));
     padding-right: max(1.25rem, calc((100% - 1080px) / 2));
   }
 
-  .hub-quotes .ops-page-title {
-    font-size: 3.5rem;
-    line-height: 0.88;
-    letter-spacing: -0.055em;
+  .hub-quotes .ops-page-title,
+  .hub-quote-editor-title,
+  .hub-quote-send-title {
+    font-size: 3.75rem;
+    line-height: 0.84;
+    letter-spacing: -0.06em;
     font-weight: 600;
     color: #fff;
+    text-shadow:
+      0 0 28px color-mix(in srgb, #fff 32%, transparent),
+      0 0 72px color-mix(in srgb, var(--ops-accent) 38%, transparent);
   }
 
   @media (min-width: 640px) {
-    .hub-quotes .ops-page-title {
-      font-size: 5.25rem;
+    .hub-quotes .ops-page-title,
+    .hub-quote-editor-title,
+    .hub-quote-send-title {
+      font-size: 6.25rem;
     }
   }
 
   .hub-quotes .ops-page-head {
-    margin-bottom: 4.25rem;
+    margin-bottom: 4.75rem;
+    align-items: flex-end;
   }
 
-  .hub-quotes .ops-meta {
-    color: color-mix(in srgb, #fff 42%, transparent);
+  .hub-quotes .ops-meta,
+  .hub-quote-editor .ops-meta,
+  .hub-quote-send .ops-meta {
+    color: color-mix(in srgb, #fff 34%, transparent);
+  }
+
+  .hub-whisper {
+    font-size: 0.78rem;
+    letter-spacing: 0.01em;
+    color: color-mix(in srgb, #fff 30%, transparent);
+    line-height: 1.35;
   }
 
   .hub-quotes .hub-row-name {
-    font-size: 1.65rem;
+    font-size: 1.85rem;
     color: #fff;
+    text-shadow: 0 0 36px color-mix(in srgb, var(--ops-accent) 22%, transparent);
   }
 
   @media (min-width: 640px) {
     .hub-quotes .hub-row-name {
-      font-size: 2rem;
+      font-size: 2.35rem;
     }
   }
 
-  .hub-quotes .hub-signal-amount {
+  .hub-quotes .hub-signal-amount,
+  .hub-quote-editor .hub-signal-amount {
     color: #fff;
+    text-shadow: 0 0 36px color-mix(in srgb, var(--ops-accent) 22%, transparent);
   }
 
   .hub-quotes .hub-row .hub-signal-amount {
-    font-size: 1.45rem;
+    font-size: 1.55rem;
   }
 
   .hub-quotes-group {
-    color: var(--ops-accent);
+    color: color-mix(in srgb, #fff 32%, transparent);
   }
 
   .hub-quotes .hub-next {
@@ -576,52 +618,56 @@
     padding-left: 1.15rem;
     padding-right: 1.15rem;
     border: none;
-    box-shadow: none;
+    box-shadow: 0 0 28px color-mix(in srgb, #fff 22%, transparent);
   }
 
   .hub-quotes .btn-primary:hover,
   .hub-quote-editor .btn-primary:hover,
   .hub-quote-send .btn-primary:hover {
-    background: color-mix(in srgb, #fff 88%, var(--ops-accent));
+    background: #fff;
     color: var(--ops-navy);
   }
 
   .hub-quotes-chrome {
-    margin-bottom: 3.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
+    margin-bottom: 4.25rem;
+  }
+
+  .hub-quotes-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 1.1rem;
   }
 
   .hub-quotes-chrome .form-input {
-    color: #fff;
-    border-bottom-color: color-mix(in srgb, var(--ops-accent) 45%, transparent);
+    color: color-mix(in srgb, #fff 70%, transparent);
+    border-bottom-color: color-mix(in srgb, #fff 16%, transparent);
     caret-color: #fff;
   }
 
   .hub-quotes-chrome .form-input::placeholder {
-    color: color-mix(in srgb, #fff 38%, transparent);
+    color: color-mix(in srgb, #fff 28%, transparent);
   }
 
   .hub-quotes-chrome .form-input:focus {
-    border-bottom-color: #fff;
+    border-bottom-color: color-mix(in srgb, #fff 45%, transparent);
   }
 
   .hub-quotes-chrome .hub-chrome-filter {
-    color: color-mix(in srgb, #fff 40%, transparent);
+    color: color-mix(in srgb, #fff 28%, transparent);
+    min-height: 44px;
+    padding: 0;
+    background: none;
+    border: none;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
   }
 
   .hub-quotes-chrome .hub-chrome-filter-on {
-    color: #fff;
-  }
-
-  .hub-quotes-chrome .ops-seg button {
-    color: color-mix(in srgb, #fff 38%, transparent) !important;
-    background: transparent !important;
-  }
-
-  .hub-quotes-chrome .ops-seg button.bg-navy,
-  .hub-quotes-chrome .ops-seg button[class*="bg-navy"] {
-    color: #fff !important;
-    opacity: 1;
-    box-shadow: inset 0 -1px 0 var(--ops-accent);
+    color: color-mix(in srgb, #fff 62%, transparent);
   }
 
   .hub-quotes .ops-section-title {
@@ -629,12 +675,11 @@
   }
 
   .hub-quotes .text-muted {
-    color: color-mix(in srgb, #fff 38%, transparent);
+    color: color-mix(in srgb, #fff 32%, transparent);
   }
 
   .overlay-backdrop:has(.hub-quote-editor),
   .overlay-backdrop:has(.hub-quote-send) {
-    background: var(--ops-navy);
     padding: 0;
     align-items: stretch;
     justify-content: stretch;
@@ -646,7 +691,7 @@
   .overlay-panel-md:has(.hub-quote-send) {
     box-shadow: none !important;
     border: none !important;
-    background: var(--ops-navy) !important;
+    background: transparent !important;
     color: #fff;
     color-scheme: dark;
     border-radius: 0 !important;
@@ -674,8 +719,8 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 2.25rem 0 2.5rem;
-    gap: 2.5rem;
+    padding: 2.5rem 0 2.75rem;
+    gap: 3rem;
   }
 
   .hub-quote-editor-head,
@@ -684,28 +729,7 @@
     align-items: flex-end;
     justify-content: space-between;
     gap: 1.5rem;
-    padding: 2.5rem 0 0;
-  }
-
-  .hub-quote-editor-title,
-  .hub-quote-send-title {
-    font-size: 3.15rem;
-    line-height: 0.88;
-    letter-spacing: -0.055em;
-    font-weight: 600;
-    color: #fff;
-  }
-
-  @media (min-width: 640px) {
-    .hub-quote-editor-title,
-    .hub-quote-send-title {
-      font-size: 5rem;
-    }
-  }
-
-  .hub-quote-editor .ops-meta,
-  .hub-quote-send .ops-meta {
-    color: color-mix(in srgb, #fff 42%, transparent);
+    padding: 2.75rem 0 0;
   }
 
   .hub-quote-close {
@@ -715,7 +739,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    color: color-mix(in srgb, #fff 55%, transparent);
+    color: color-mix(in srgb, #fff 34%, transparent);
     flex-shrink: 0;
     background: none;
     border: none;
@@ -726,72 +750,65 @@
   }
 
   .hub-quote-editor-identity {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1.5rem;
     padding: 0;
   }
 
-  .hub-quote-editor-identity .hub-row-signal {
+  .hub-quote-editor-head .hub-row-signal {
     text-align: right;
     flex-shrink: 0;
+    padding-bottom: 0.35rem;
   }
 
   @media (max-width: 639px) {
-    .hub-quote-editor-identity {
-      flex-direction: column;
-      gap: 1.5rem;
+    .hub-quote-editor-head {
+      flex-wrap: wrap;
+      align-items: flex-start;
     }
 
-    .hub-quote-editor-identity .hub-row-signal {
+    .hub-quote-editor-head .hub-row-signal {
       text-align: left;
+      order: 3;
+      width: 100%;
+      padding-top: 0.5rem;
+    }
+
+    .hub-quote-close {
+      margin-left: auto;
     }
   }
 
-  .hub-quote-editor-identity .hub-signal-amount,
-  .hub-quote-send .hub-signal-amount {
-    font-size: 2.35rem;
+  .hub-quote-editor .hub-signal-amount {
+    font-size: 2.6rem;
     font-weight: 600;
-    letter-spacing: -0.045em;
-    line-height: 1.02;
-    color: #fff;
+    letter-spacing: -0.05em;
+    line-height: 0.95;
     font-variant-numeric: tabular-nums;
   }
 
   @media (min-width: 640px) {
-    .hub-quote-editor-identity .hub-signal-amount {
-      font-size: 3.25rem;
+    .hub-quote-editor .hub-signal-amount {
+      font-size: 4.25rem;
     }
-  }
-
-  .hub-quote-to-label {
-    font-size: 0.7rem;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ops-accent);
-    margin-bottom: 0.35rem;
   }
 
   .hub-quote-to-name {
     font-size: 1.05rem;
     font-weight: 500;
     letter-spacing: -0.02em;
-    color: color-mix(in srgb, #fff 88%, transparent);
-    line-height: 1.25;
+    color: color-mix(in srgb, #fff 48%, transparent);
+    line-height: 1.3;
     margin-bottom: 0.35rem;
   }
 
-  .hub-quote-editor .ops-hub-site {
-    color: color-mix(in srgb, #fff 70%, transparent);
-    font-size: 1rem;
+  .hub-quote-editor .ops-hub-site,
+  .hub-quote-editor .ops-link {
+    color: color-mix(in srgb, #fff 28%, transparent);
+    font-size: 0.92rem;
     font-weight: 500;
   }
 
-  .hub-quote-editor .ops-link,
   .hub-quote-send .ops-link {
-    color: var(--ops-accent);
+    color: color-mix(in srgb, #fff 34%, transparent);
   }
 
   .hub-quote-editor-tools {
@@ -799,7 +816,13 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 1.15rem;
-    padding: 1.15rem 0 0;
+    padding: 1.35rem 0 0;
+    opacity: 0.28;
+  }
+
+  .hub-quote-editor-tools:hover,
+  .hub-quote-editor-tools:focus-within {
+    opacity: 0.7;
   }
 
   .hub-quote-editor-act {
@@ -820,7 +843,7 @@
   .hub-quote-editor-body .form-input-sm {
     background: transparent;
     border-color: transparent;
-    border-bottom: 1px solid color-mix(in srgb, var(--ops-accent) 35%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, #fff 16%, transparent);
     border-radius: 0;
     box-shadow: none;
     min-height: 36px;
@@ -833,12 +856,12 @@
   .hub-quote-editor-body .form-input-sm:focus {
     box-shadow: none;
     border-color: transparent;
-    border-bottom-color: #fff;
+    border-bottom-color: color-mix(in srgb, #fff 50%, transparent);
   }
 
   .hub-quote-editor-body .form-input::placeholder,
   .hub-quote-editor-body .form-input-sm::placeholder {
-    color: color-mix(in srgb, #fff 32%, transparent);
+    color: color-mix(in srgb, #fff 28%, transparent);
   }
 
   .hub-quote-editor-body select,
@@ -856,23 +879,23 @@
   .hub-quote-editor-body [class*="border-[#E5E7EB]"],
   .hub-quote-editor-body [class*="border-[#F3F4F6]"],
   .hub-quote-editor-body [class*="border-gray"] {
-    border-color: color-mix(in srgb, var(--ops-accent) 28%, transparent) !important;
+    border-color: color-mix(in srgb, #fff 14%, transparent) !important;
   }
 
   .hub-quote-editor-body [class*="text-[#1A1A1A]"],
   .hub-quote-editor-body [class*="text-[#4A5568]"],
   .hub-quote-editor-body [class*="text-[#9CA3AF]"] {
-    color: color-mix(in srgb, #fff 48%, transparent) !important;
+    color: color-mix(in srgb, #fff 42%, transparent) !important;
   }
 
   .hub-quote-editor-math {
-    opacity: 0.45;
+    opacity: 0.4;
     pointer-events: none;
   }
 
   .hub-quote-editor-math .font-semibold {
     font-weight: 500;
-    color: color-mix(in srgb, #fff 55%, transparent);
+    color: color-mix(in srgb, #fff 50%, transparent);
     border-color: transparent;
   }
 
@@ -887,40 +910,33 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    max-width: 720px;
+    max-width: 780px;
     margin: 0 auto;
     padding-bottom: 2.5rem;
   }
 
   .hub-quote-send-body {
-    padding: 3.5rem 0 2.5rem;
+    padding: 4.5rem 0 2.75rem;
     display: flex;
     flex-direction: column;
-    gap: 2.25rem;
+    gap: 1rem;
     flex: 1;
   }
 
-  .hub-quote-send-label {
-    display: block;
-    font-size: 0.7rem;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ops-accent);
-    margin-bottom: 0.4rem;
-  }
-
-  .hub-quote-send-value {
-    font-size: 1.45rem;
+  .hub-quote-send-sentence {
+    font-size: 1.85rem;
     font-weight: 600;
-    letter-spacing: -0.035em;
+    letter-spacing: -0.04em;
+    line-height: 1.15;
     color: #fff;
-    line-height: 1.2;
+    text-shadow: 0 0 40px color-mix(in srgb, var(--ops-accent) 28%, transparent);
+    max-width: 18ch;
   }
 
   @media (min-width: 640px) {
-    .hub-quote-send-value {
-      font-size: 1.75rem;
+    .hub-quote-send-sentence {
+      font-size: 2.75rem;
+      max-width: 22ch;
     }
   }
 

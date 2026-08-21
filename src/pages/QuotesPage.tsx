@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, OpsSiteRow, LoadingSpinner } from '../components/ui';
+import { PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
@@ -86,7 +86,6 @@ export function QuotesPage() {
   const [search, setSearch] = useState('');
   const [editingQuote, setEditingQuote] = useState<QuoteListItem | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [viewMode, setViewMode] = useViewMode('quotes');
   const [searchParams, setSearchParams] = useSearchParams();
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null);
@@ -223,17 +222,18 @@ export function QuotesPage() {
 
         <div className="hub-quotes-chrome">
           <SearchBar value={search} onChange={setSearch} placeholder="Search quotes, clients..." className="max-w-sm flex-1" />
-          <ViewToggle mode={viewMode} onChange={setViewMode} />
-          {STATUS_FILTERS.map(tab => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setStatusFilter(tab.key)}
-              className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          <div className="hub-quotes-filters">
+            {STATUS_FILTERS.map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setStatusFilter(tab.key)}
+                className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {isLoading ? (
@@ -251,18 +251,12 @@ export function QuotesPage() {
               </button>
             ) : undefined}
           />
-        ) : viewMode === 'grid' ? (
+        ) : (
           <div className="hub-trays">
             <QuoteGroup title="Drafts" quotes={draftQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
             <QuoteGroup title="Sent — waiting" quotes={sentQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
             <QuoteGroup title="Accepted" quotes={acceptedQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
             <QuoteGroup title="Closed" quotes={closedQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
-          </div>
-        ) : (
-          <div className="hub-stack hub-stack-tight">
-            {filtered.map(q => (
-              <QuoteHit key={q.id} quote={q} onOpen={() => openQuote(q)} onSend={() => setSendingQuoteId(q.id)} />
-            ))}
           </div>
         )}
       </div>
@@ -324,7 +318,7 @@ function QuoteGroup({
 
 function QuoteHit({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () => void; onSend: () => void }) {
   const site = visibleSite(quote.job_address);
-  const description = quote.description?.trim() ?? '';
+  const whisper = [quote.client_name, site].filter(Boolean).join(' · ');
   const money = quoteMoney(quote.total);
   return (
     <div
@@ -336,13 +330,11 @@ function QuoteHit({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () 
     >
       <div className="min-w-0 flex-1">
         <p className="hub-row-name">{quoteTitle(quote)}</p>
-        {quote.client_name ? <p className="ops-meta truncate">{quote.client_name}</p> : null}
-        {site ? <p className="ops-meta truncate">{site}</p> : null}
-        {description ? <p className="ops-meta truncate">{description}</p> : null}
+        {whisper ? <p className="hub-whisper truncate">{whisper}</p> : null}
       </div>
       <div className="hub-row-signal">
         {money ? <p className="hub-signal-amount">{money}</p> : null}
-        <p className="ops-meta">{QUOTE_STATUS_LABELS[quote.status]}</p>
+        <p className="hub-whisper">{QUOTE_STATUS_LABELS[quote.status]}</p>
         <div onClick={e => e.stopPropagation()}>
           <QuoteNextControl quote={quote} onSend={onSend} />
         </div>
@@ -699,10 +691,16 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
       <div className="overlay-panel-xl hub-quote-editor" onClick={e => e.stopPropagation()}>
         <div className="hub-quote-editor-room">
         <div className="hub-quote-editor-head">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className="hub-quote-editor-title">{editorTitle}</h2>
-            <p className="ops-meta">{QUOTE_STATUS_LABELS[form.status]}</p>
+            <p className="hub-whisper">{QUOTE_STATUS_LABELS[form.status]}</p>
           </div>
+          {editorMoney ? (
+            <div className="hub-row-signal">
+              <p className="hub-signal-amount">{editorMoney}</p>
+              <p className="hub-whisper">inc GST</p>
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={onClose}
@@ -716,10 +714,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         <div className="hub-quote-editor-identity">
           <div className="min-w-0">
             {selectedClient?.name ? (
-              <>
-                <p className="hub-quote-to-label">To</p>
-                <p className="hub-quote-to-name">{selectedClient.name}</p>
-              </>
+              <p className="hub-quote-to-name">To {selectedClient.name}</p>
             ) : null}
             <OpsSiteRow
               hub
@@ -729,7 +724,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
               mapsQuery={selectedJob?.address || selectedClient?.address}
             />
             {form.validity_date ? (
-              <p className="ops-meta mt-2">Valid {format(parseISO(form.validity_date), 'd MMM yyyy')}</p>
+              <p className="hub-whisper mt-2">Valid {format(parseISO(form.validity_date), 'd MMM yyyy')}</p>
             ) : null}
             <div className="hub-quote-editor-tools">
               {form.status === 'sent' && (
@@ -757,12 +752,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
               </button>
             </div>
           </div>
-          {editorMoney ? (
-            <div className="hub-row-signal">
-              <p className="hub-signal-amount">{editorMoney}</p>
-              <p className="ops-meta">inc GST</p>
-            </div>
-          ) : null}
         </div>
 
         <div className="hub-quote-editor-act">
