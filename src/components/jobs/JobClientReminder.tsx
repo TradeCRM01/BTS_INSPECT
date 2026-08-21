@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Mail, MoreHorizontal, Phone } from 'lucide-react';
+import { Mail, MoreHorizontal, Phone, User } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../ui';
 import type { Client, Job } from '../../types/crm';
@@ -13,6 +13,12 @@ import {
   prefillSmsTo,
   type ReminderEmailSettings,
 } from '../../lib/jobReminder';
+import {
+  JOB_CLIENT_ATTACH_NO_CLIENTS,
+  attachJobClient,
+  jobClientAttachRow,
+  jobClientAttachToast,
+} from '../../lib/attachJobClient';
 import {
   JOB_CLIENT_EMAIL_NO_CLIENT,
   jobClientEmailRow,
@@ -52,6 +58,7 @@ export function JobClientReminder({
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [clientEmailDraft, setClientEmailDraft] = useState(client?.email ?? '');
   const [emailOverride, setEmailOverride] = useState<string | null | undefined>(undefined);
   const [clientPhoneDraft, setClientPhoneDraft] = useState(client?.phone ?? '');
@@ -74,6 +81,32 @@ export function JobClientReminder({
   const to = prefillReminderTo(liveClient);
   const smsTo = prefillSmsTo(liveClient?.phone);
   const companyId = company?.id ?? job.company_id;
+  const noClientMiss = !job.client_id;
+
+  const attachClientsQuery = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['job-attach-clients', companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name')
+        .eq('archived', false)
+        .eq('company_id', companyId)
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string }[];
+    },
+    enabled: noClientMiss && !!companyId,
+  });
+  const attachRow = jobClientAttachRow({
+    jobClientId: job.client_id,
+    companyClients: job.client_id
+      ? []
+      : attachClientsQuery.isFetched
+        ? (attachClientsQuery.data ?? [])
+        : null,
+  });
+  const noClientsNamedMiss = noClientMiss && attachRow.kind === 'miss';
 
   const { data: settings, isFetched: settingsFetched } = useQuery<ReminderEmailSettings | null>({
     queryKey: ['email-settings', companyId],
@@ -110,9 +143,12 @@ export function JobClientReminder({
     && phoneRow.kind === 'edit';
   const missText = noEmailFieldMiss
     ? JOB_REMINDER_NO_EMAIL_FIELD
-    : (!decision.send ? decision.message : '');
+    : (noClientsNamedMiss && !decision.send && decision.reason === 'no_email')
+      ? JOB_CLIENT_ATTACH_NO_CLIENTS
+      : (!decision.send ? decision.message : '');
 
   useEffect(() => {
+    setClientAttachDraft('');
     setEmailOverride(undefined);
     setClientEmailDraft(client?.email ?? '');
     setPhoneOverride(undefined);
@@ -123,6 +159,27 @@ export function JobClientReminder({
     if (!rescheduleAsked) return;
     document.getElementById('job-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [rescheduleAsked, job.id]);
+
+  const attachClient = useMutation({
+    mutationFn: async () => {
+      return attachJobClient({
+        jobId: job.id,
+        jobClientId: job.client_id,
+        clientId: clientAttachDraft,
+        companyClients: attachClientsQuery.data ?? [],
+      });
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['job', job.id] });
+      queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
+      setClientAttachDraft('');
+      const toast = jobClientAttachToast();
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
 
   const saveEmail = useMutation({
     mutationFn: async () => {
@@ -299,6 +356,39 @@ export function JobClientReminder({
           <p className="job-reminder-meta">Auto-sends the day before (Australia/Perth).</p>
         ) : noEmailFieldMiss ? null : (
           <p className="job-reminder-miss">{missText}</p>
+        )}
+
+        {attachRow.kind === 'pick' && (
+          <form
+            className="job-client-attach"
+            onSubmit={e => {
+              e.preventDefault();
+              attachClient.mutate();
+            }}
+          >
+            <User size={13} />
+            <select
+              value={clientAttachDraft}
+              onChange={e => setClientAttachDraft(e.target.value)}
+              className="form-input-sm"
+              aria-label="Attach client"
+            >
+              <option value="">Client</option>
+              {attachRow.clients.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="job-client-attach-save"
+              disabled={attachClient.isPending || !clientAttachDraft}
+            >
+              Save
+            </button>
+          </form>
+        )}
+        {noClientsNamedMiss && missText !== JOB_CLIENT_ATTACH_NO_CLIENTS && (
+          <p className="job-reminder-miss">{JOB_CLIENT_ATTACH_NO_CLIENTS}</p>
         )}
 
         {decision.send && !smsTo && !noPhoneFieldMiss && (
