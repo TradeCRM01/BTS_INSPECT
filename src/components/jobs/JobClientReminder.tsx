@@ -278,6 +278,41 @@ export function JobClientReminder({
         {noPhoneFieldMiss && (
           <p className="job-reminder-miss">{JOB_REMINDER_NO_PHONE_FIELD}</p>
         )}
+        {noClientFieldMiss && (
+          <p className="job-reminder-miss">{JOB_REMINDER_NO_CLIENT_FIELD}</p>
+        )}
+        {attachRow.kind === 'pick' && (
+          <form
+            className="job-client-attach"
+            onSubmit={e => {
+              e.preventDefault();
+              attachClient.mutate();
+            }}
+          >
+            <User size={13} />
+            <select
+              value={clientAttachDraft}
+              onChange={e => setClientAttachDraft(e.target.value)}
+              className="form-input-sm"
+              aria-label="Attach client"
+            >
+              <option value="">Client</option>
+              {attachRow.clients.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="job-client-attach-save"
+              disabled={attachClient.isPending || !clientAttachDraft}
+            >
+              Save
+            </button>
+          </form>
+        )}
+        {noClientsNamedMiss && (
+          <p className="job-reminder-miss">{JOB_CLIENT_ATTACH_NO_CLIENTS}</p>
+        )}
 
         <div className="job-reminder-tos">
           <label className="block">
@@ -366,44 +401,8 @@ export function JobClientReminder({
           <p className="job-reminder-meta">Checking email settings…</p>
         ) : decision.send ? (
           <p className="job-reminder-meta">Auto-sends the day before (Australia/Perth).</p>
-        ) : noEmailFieldMiss || noClientFieldMiss ? null : (
+        ) : noEmailFieldMiss || noClientFieldMiss || noClientsNamedMiss ? null : (
           <p className="job-reminder-miss">{missText}</p>
-        )}
-
-        {noClientFieldMiss && (
-          <p className="job-reminder-miss">{JOB_REMINDER_NO_CLIENT_FIELD}</p>
-        )}
-        {attachRow.kind === 'pick' && (
-          <form
-            className="job-client-attach"
-            onSubmit={e => {
-              e.preventDefault();
-              attachClient.mutate();
-            }}
-          >
-            <User size={13} />
-            <select
-              value={clientAttachDraft}
-              onChange={e => setClientAttachDraft(e.target.value)}
-              className="form-input-sm"
-              aria-label="Attach client"
-            >
-              <option value="">Client</option>
-              {attachRow.clients.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="job-client-attach-save"
-              disabled={attachClient.isPending || !clientAttachDraft}
-            >
-              Save
-            </button>
-          </form>
-        )}
-        {noClientsNamedMiss && missText !== JOB_CLIENT_ATTACH_NO_CLIENTS && (
-          <p className="job-reminder-miss">{JOB_CLIENT_ATTACH_NO_CLIENTS}</p>
         )}
 
         {decision.send && !smsTo && !noPhoneFieldMiss && (

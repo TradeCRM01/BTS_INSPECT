@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -555,8 +555,10 @@ describe('24h reminder attach client — wiring', () => {
     expect(reminder).toContain('job-client-attach');
     const emptyMiss = reminder.indexOf('{noClientFieldMiss && (');
     const attach = reminder.indexOf('{attachRow.kind === \'pick\' && (');
+    const tos = reminder.indexOf('<div className="job-reminder-tos">');
     expect(emptyMiss).toBeGreaterThan(-1);
     expect(attach).toBeGreaterThan(emptyMiss);
+    expect(tos).toBeGreaterThan(attach);
     expect(reminder).not.toContain('Add one on the client record');
     expect(reminder).not.toContain('client record');
     expect(reminder).not.toContain('/clients/');
@@ -570,10 +572,31 @@ describe('24h reminder attach client — wiring', () => {
     expect(reminder).toContain('JOB_CLIENT_ATTACH_NO_CLIENTS');
     expect(reminder).toContain("kind === 'miss'");
     expect(JOB_CLIENT_ATTACH_NO_CLIENTS).toBe('No clients to attach');
-    expect(reminder).toContain('noClientsNamedMiss && !decision.send && decision.reason === \'no_email\'');
+    expect(reminder).toContain('noEmailFieldMiss || noClientFieldMiss || noClientsNamedMiss ? null');
+    expect(reminder).toContain('{noClientsNamedMiss && (');
     expect(reminder).toContain("kind === 'pick'");
+    const namedMiss = reminder.indexOf('{noClientsNamedMiss && (');
+    const tos = reminder.indexOf('<div className="job-reminder-tos">');
+    expect(namedMiss).toBeGreaterThan(-1);
+    expect(tos).toBeGreaterThan(namedMiss);
     expect(reminder).not.toContain('Create client');
     expect(reminder).not.toContain('No client (walk-up)');
+  });
+
+  it('keeps Flameboy look shots for pick, after-attach no-email, no-clients, and linked', () => {
+    const shots = [
+      'docs/look/job-reminder-attach-pick-desktop.png',
+      'docs/look/job-reminder-attach-pick-ute.png',
+      'docs/look/job-reminder-attach-no-email-desktop.png',
+      'docs/look/job-reminder-attach-no-email-ute.png',
+      'docs/look/job-reminder-attach-no-clients-desktop.png',
+      'docs/look/job-reminder-attach-no-clients-ute.png',
+      'docs/look/job-reminder-attach-linked-desktop.png',
+      'docs/look/job-reminder-attach-linked-ute.png',
+    ];
+    for (const shot of shots) {
+      expect(existsSync(resolve(process.cwd(), shot)), shot).toBe(true);
+    }
   });
 
   it('already-has-client keeps the signed To / SMS To — no picker', () => {
