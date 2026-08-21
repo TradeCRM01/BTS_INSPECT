@@ -240,6 +240,7 @@ export interface Invoice {
 export interface InvoiceWithDetails extends Invoice {
   client_name?: string | null;
   client_email?: string | null;
+  client_phone?: string | null;
   job_title?: string | null;
   job_address?: string | null;
 }

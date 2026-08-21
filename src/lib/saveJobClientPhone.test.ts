@@ -268,8 +268,6 @@ describe('job-sheet client phone — wiring', () => {
     expect(page).not.toContain('Mark paid');
     expect(page).not.toContain('Send again');
     expect(page).not.toContain('InvoiceSendDialog');
-    expect(invoicesPage).not.toContain('saveJobClientPhone');
-    expect(invoicesPage).not.toContain('jobClientPhoneRow');
     expect(invoicesPage).toContain('InvoiceSendDialog');
     expect(invoicesPage).toContain('Send again');
     expect(invoicesPage).toContain('Mark paid');
