@@ -301,6 +301,69 @@ function invoiceSmsBody(opts: {
   return `${who} sent invoice #${padInvoiceNumber(opts.invoiceNumber)}. Total (inc GST): ${opts.totalLabel}.${due} The PDF is in your email.`;
 }
 
+function invoiceCopyKind(status: string): "first" | "chase" {
+  return status === "draft" ? "first" : "chase";
+}
+
+function invoiceSubject(opts: {
+  kind: "first" | "chase";
+  invoiceNumber: unknown;
+  companyName: string;
+  dueLabel: string;
+}): string {
+  const who = opts.companyName.trim() || "your contractor";
+  if (opts.kind === "chase") {
+    const due = opts.dueLabel ? ` — due ${opts.dueLabel}` : "";
+    return `Overdue invoice #${padInvoiceNumber(opts.invoiceNumber)} from ${who}${due}`;
+  }
+  return `Invoice #${padInvoiceNumber(opts.invoiceNumber)} from ${who}`;
+}
+
+function invoiceChaseHtml(opts: {
+  clientName: string;
+  companyName: string;
+  invoiceNumber: unknown;
+  totalLabel: string;
+  dueLabel: string;
+  paymentTerms: string;
+}): string {
+  const client = escapeHtml(opts.clientName.trim() || "there");
+  const company = escapeHtml(opts.companyName.trim() || "us");
+  const number = escapeHtml(`#${padInvoiceNumber(opts.invoiceNumber)}`);
+  const due = opts.dueLabel
+    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">This invoice is overdue. Due <strong>${escapeHtml(opts.dueLabel)}</strong>.</p>`
+    : `<p style="color:#4A5568;font-size:15px;line-height:1.6;">This invoice is overdue.</p>`;
+  const terms = opts.paymentTerms
+    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Payment terms: ${escapeHtml(opts.paymentTerms)}</p>`
+    : "";
+  return `
+      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
+        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">Overdue invoice</div>
+          <h1 style="margin:8px 0 0;font-size:20px">${number}</h1>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+          <p>Hi ${client},</p>
+          <p>${company} is chasing overdue invoice ${number}.</p>
+          <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${escapeHtml(opts.totalLabel)}</strong></p>
+          ${due}
+          ${terms}
+          <p>The invoice PDF is attached. Reply to this email if you have a question about the charges.</p>
+        </div>
+      </div>`;
+}
+
+function invoiceChaseSmsBody(opts: {
+  companyName: string;
+  invoiceNumber: unknown;
+  totalLabel: string;
+  dueLabel: string;
+}): string {
+  const who = opts.companyName.trim() || "your contractor";
+  const due = opts.dueLabel ? ` Due ${opts.dueLabel}.` : "";
+  return `${who}: invoice #${padInvoiceNumber(opts.invoiceNumber)} is overdue.${due} Total (inc GST): ${opts.totalLabel}. The PDF is in your email.`;
+}
+
 function reportSiteName(meta: unknown): string {
   const row = (meta ?? {}) as { siteName?: unknown };
   return String(row.siteName ?? "").trim() || "Site";
@@ -508,7 +571,7 @@ Deno.serve(async (req) => {
 
       const { data: invoice } = await admin
         .from("invoices")
-        .select("id, company_id, client_id, status, invoice_number, line_items, total, due_date, payment_terms")
+        .select("id, company_id, client_id, status, invoice_number, line_items, total, due_date, payment_terms, chased_at")
         .eq("id", invoiceId)
         .eq("company_id", userCompanyId)
         .maybeSingle();
@@ -586,15 +649,31 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const toName = String(client?.name ?? "").trim() || "Client";
       const companyName = String(company?.name ?? "").trim() || "us";
-      const subject = `Invoice #${padInvoiceNumber(invoice.invoice_number)} from ${companyName}`;
-      const html = invoiceHtml({
-        clientName: toName,
-        companyName,
+      const dueLabel = formatDueLabel(invoice.due_date);
+      const copyKind = invoiceCopyKind(String(invoice.status ?? ""));
+      const subject = invoiceSubject({
+        kind: copyKind,
         invoiceNumber: invoice.invoice_number,
-        totalLabel: formatAud(invoice.total),
-        dueLabel: formatDueLabel(invoice.due_date),
-        paymentTerms: String(invoice.payment_terms ?? "").trim(),
+        companyName,
+        dueLabel,
       });
+      const html = copyKind === "chase"
+        ? invoiceChaseHtml({
+          clientName: toName,
+          companyName,
+          invoiceNumber: invoice.invoice_number,
+          totalLabel: formatAud(invoice.total),
+          dueLabel,
+          paymentTerms: String(invoice.payment_terms ?? "").trim(),
+        })
+        : invoiceHtml({
+          clientName: toName,
+          companyName,
+          invoiceNumber: invoice.invoice_number,
+          totalLabel: formatAud(invoice.total),
+          dueLabel,
+          paymentTerms: String(invoice.payment_terms ?? "").trim(),
+        });
 
       const fromHeader = `${settings.from_name} <${settings.from_email}>`;
       const res = await fetch("https://api.resend.com/emails", {
@@ -615,12 +694,19 @@ Deno.serve(async (req) => {
 
       const sms = await sendTwilioSms(
         client?.phone,
-        invoiceSmsBody({
-          companyName,
-          invoiceNumber: invoice.invoice_number,
-          totalLabel: formatAud(invoice.total),
-          dueLabel: formatDueLabel(invoice.due_date),
-        }),
+        copyKind === "chase"
+          ? invoiceChaseSmsBody({
+            companyName,
+            invoiceNumber: invoice.invoice_number,
+            totalLabel: formatAud(invoice.total),
+            dueLabel,
+          })
+          : invoiceSmsBody({
+            companyName,
+            invoiceNumber: invoice.invoice_number,
+            totalLabel: formatAud(invoice.total),
+            dueLabel,
+          }),
       );
 
       if (!res.ok) {
@@ -642,10 +728,18 @@ Deno.serve(async (req) => {
         });
       }
 
+      const sentAt = new Date().toISOString();
+      const invoicePatch: Record<string, unknown> = { updated_at: sentAt };
       if (invoice.status === "draft" || invoice.status === "overdue") {
+        invoicePatch.status = "sent";
+      }
+      if (copyKind === "chase") {
+        invoicePatch.chased_at = sentAt;
+      }
+      if (invoicePatch.status || invoicePatch.chased_at) {
         await admin
           .from("invoices")
-          .update({ status: "sent", updated_at: new Date().toISOString() })
+          .update(invoicePatch)
           .eq("id", invoice.id)
           .eq("company_id", userCompanyId);
       }
@@ -655,6 +749,7 @@ Deno.serve(async (req) => {
         invoiceId: invoice.id,
         to,
         sms,
+        chased_at: invoicePatch.chased_at ?? null,
         message: withSmsMessage(`Invoice sent to ${to}`, sms),
       });
     }

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -17,7 +17,7 @@ import type { CommercialPdfData } from '../reports/commercial/CommercialDocument
 import { asStringList } from '../lib/asStringList';
 import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
 import { effectiveInvoiceStatus, persistableInvoiceStatus } from '../lib/invoiceStatus';
-import { invoiceActionContext, invoiceListBucket, recommendInvoiceAction, type InvoiceActionKey } from '../lib/invoiceNextAction';
+import { invoiceActionContext, invoiceListBucket, invoiceOverflowPaidAction, recommendInvoiceAction, type InvoiceActionKey } from '../lib/invoiceNextAction';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
@@ -360,21 +360,9 @@ function InvoiceNextControl({
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [busy, setBusy] = useState<InvoiceActionKey | null>(null);
-  const next = recommendInvoiceAction(invoiceActionContext(invoice, { smtpReady }));
-  if (next.key === 'none') return null;
-
-  if (next.key === 'setup_email' || next.key === 'add_email') {
-    if (!next.href) return null;
-    return (
-      <Link
-        to={next.href}
-        className="hub-next"
-        title={next.detail}
-      >
-        {next.label}
-      </Link>
-    );
-  }
+  const ctx = invoiceActionContext(invoice, { smtpReady });
+  const next = recommendInvoiceAction(ctx);
+  const overflowPaid = invoiceOverflowPaidAction(ctx);
 
   const patchPaid = async () => {
     setBusy('mark_paid');
@@ -392,18 +380,58 @@ function InvoiceNextControl({
     }
   };
 
+  let primary: ReactNode = null;
+  if (next.key === 'setup_email' || next.key === 'add_email') {
+    primary = next.href ? (
+      <Link
+        to={next.href}
+        className="hub-next"
+        title={next.detail}
+      >
+        {next.label}
+      </Link>
+    ) : null;
+  } else if (next.key === 'send' || next.key === 'mark_paid') {
+    const chasePrimary = next.key === 'send' && next.status === 'overdue';
+    primary = (
+      <button
+        type="button"
+        onClick={() => {
+          if (next.key === 'send') onSend(invoice.id);
+          if (next.key === 'mark_paid') void patchPaid();
+        }}
+        disabled={!!busy}
+        className={chasePrimary ? 'btn-primary' : 'hub-next'}
+        title={next.detail}
+      >
+        {busy && next.key !== 'mark_paid' ? 'Working…' : next.label}
+      </button>
+    );
+  }
+
+  if (!primary && !overflowPaid) return null;
+
   return (
-    <button
-      type="button"
-      onClick={() => {
-        if (next.key === 'send') onSend(invoice.id);
-        if (next.key === 'mark_paid') void patchPaid();
-      }}
-      disabled={!!busy}
-      className="hub-next"
-    >
-      {busy ? 'Working…' : next.label}
-    </button>
+    <span className="hub-invoice-editor-act">
+      {primary}
+      {overflowPaid ? (
+        <details className="hub-invoice-more">
+          <summary aria-label="More actions">
+            <MoreHorizontal size={18} />
+          </summary>
+          <div className="hub-invoice-more-menu" role="menu">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => void patchPaid()}
+              disabled={!!busy}
+            >
+              {busy === 'mark_paid' ? 'Working…' : overflowPaid.label}
+            </button>
+          </div>
+        </details>
+      ) : null}
+    </span>
   );
 }
 
@@ -700,7 +728,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             )}
             {next.key === 'send' && (
               <button type="button" onClick={() => void startSend()} disabled={saving} className="btn-primary">
-                {saving ? 'Saving...' : 'Send invoice'}
+                {saving ? 'Saving...' : next.status === 'overdue' ? 'Send again' : 'Send invoice'}
               </button>
             )}
             {next.key === 'mark_paid' && (

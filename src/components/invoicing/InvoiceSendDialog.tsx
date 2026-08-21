@@ -82,6 +82,7 @@ export function InvoiceSendDialog({
   const invoiceLabel = bundle?.invoice
     ? `Invoice #${padInvoiceNumber(bundle.invoice.invoice_number)}`
     : '';
+  const chaseCopy = ready && decision.ok && /overdue/i.test(decision.subject);
   const pdfName = ready && decision.ok
     ? (bundle?.existingPdf?.filename ?? decision.filename)
     : '';
@@ -92,7 +93,11 @@ export function InvoiceSendDialog({
         <div className="hub-invoice-send-head">
           <div className="min-w-0">
             <h2 className="hub-invoice-send-title">Send invoice</h2>
-            {invoiceLabel ? <p className="hub-invoice-muted mt-1">{invoiceLabel}</p> : null}
+            {invoiceLabel ? (
+              <p className="hub-invoice-muted mt-1">
+                {invoiceLabel}{chaseCopy ? ' · Overdue' : ''}
+              </p>
+            ) : null}
           </div>
         </div>
 
