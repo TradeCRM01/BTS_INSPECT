@@ -27,6 +27,12 @@ import {
   saveJobClientEmail,
 } from '../lib/saveJobClientEmail';
 import {
+  INVOICE_CLIENT_ATTACH_NO_CLIENTS,
+  attachInvoiceClient,
+  invoiceClientAttachRow,
+  invoiceClientAttachToast,
+} from '../lib/attachInvoiceClient';
+import {
   deliverInvoiceReceiptAfterMarkPaid,
   invoiceMarkPaidReceiptToast,
   invoiceMarkPaidSheetMissLine,
@@ -39,7 +45,7 @@ import {
   INVOICE_MARKED_PAID_MESSAGE,
 } from '../lib/xeroAccounting';
 import { INVOICE_STATUS_LABELS, formatMoney } from '../types/fsm';
-import { Plus, Receipt, Download, X, MoreHorizontal, Mail } from 'lucide-react';
+import { Plus, Receipt, Download, X, MoreHorizontal, Mail, User } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 const padInv = (n: number | null) => String(n ?? 0).padStart(4, '0');
@@ -426,7 +432,7 @@ function InvoiceNextControl({
         {next.label}
       </Link>
     ) : null;
-  } else if (next.key === 'add_email') {
+  } else if (next.key === 'add_email' || next.label === 'Add a client') {
     primary = (
       <button
         type="button"
@@ -522,6 +528,8 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const [xeroMiss, setXeroMiss] = useState('');
   const [savedId, setSavedId] = useState<string | null>(invoice?.id ?? null);
   const [clientEmailDraft, setClientEmailDraft] = useState(invoice?.client_email ?? '');
+  const [clientAttachDraft, setClientAttachDraft] = useState('');
+  const [clientsLoaded, setClientsLoaded] = useState(false);
   const [writtenClientEmail, setWrittenClientEmail] = useState<{ clientId: string; email: string | null } | null>(null);
 
   const [form, setForm] = useState<EditorState>({
@@ -556,6 +564,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         supabase.from('price_book_items').select('*').eq('is_active', true).order('description'),
       ]);
       if (c.data) setClients(c.data as Client[]);
+      setClientsLoaded(true);
       if (j.data) setJobs(j.data as Job[]);
       if (s.data) setStockItems(s.data as StockItem[]);
       if (pb.data) setPriceBookItems(pb.data as PriceBookItem[]);
@@ -582,10 +591,41 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     ? { ...emailClientBase, email: writtenClientEmail.email }
     : emailClientBase;
   const emailRow = jobClientEmailRow({ clientId: form.client_id || null, client: emailClient });
+  const invoiceId = savedId ?? invoice?.id ?? null;
+  const attachRow = invoiceClientAttachRow({
+    invoiceClientId: form.client_id || null,
+    companyClients: form.client_id
+      ? []
+      : (!invoiceId || !clientsLoaded)
+        ? null
+        : clients,
+  });
 
   useEffect(() => {
     setClientEmailDraft(emailClient?.email ?? '');
   }, [emailClient?.id, emailClient?.email]);
+
+  const attachClient = useMutation({
+    mutationFn: async () => {
+      return attachInvoiceClient({
+        invoiceId: savedId ?? invoice?.id,
+        invoiceClientId: form.client_id || invoice?.client_id || null,
+        clientId: clientAttachDraft,
+        companyClients: clients,
+      });
+    },
+    onSuccess: (result) => {
+      setForm(f => ({ ...f, client_id: result.clientId }));
+      setClientAttachDraft('');
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice'] });
+      queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      const toast = invoiceClientAttachToast();
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
 
   const saveClientEmail = useMutation({
     mutationFn: async () => {
@@ -934,39 +974,73 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             </div>
             <div className="min-w-0">
               <p className="hub-invoice-kicker">Bill to</p>
-              {selectedClient?.name ? <p className="hub-invoice-to-name">{selectedClient.name}</p> : null}
-              {emailRow.kind === 'mailto' && (
-                <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
-                  <Mail size={13} /> {emailRow.email}
-                </a>
-              )}
-              {emailRow.kind === 'edit' && (
+              {attachRow.kind === 'pick' ? (
                 <form
-                  className="job-client-email"
+                  className="job-client-attach"
                   onSubmit={e => {
                     e.preventDefault();
-                    saveClientEmail.mutate();
+                    attachClient.mutate();
                   }}
                 >
-                  <Mail size={13} />
-                  <input
-                    ref={emailInputRef}
-                    type="email"
-                    value={clientEmailDraft}
-                    onChange={e => setClientEmailDraft(e.target.value)}
-                    placeholder="Email"
+                  <User size={13} />
+                  <select
+                    value={clientAttachDraft}
+                    onChange={e => setClientAttachDraft(e.target.value)}
                     className="form-input-sm"
-                    aria-label="Client email"
-                    autoComplete="email"
-                  />
+                    aria-label="Attach client"
+                  >
+                    <option value="">Client</option>
+                    {attachRow.clients.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
                   <button
                     type="submit"
-                    className="job-client-email-save"
-                    disabled={saveClientEmail.isPending}
+                    className="job-client-attach-save"
+                    disabled={attachClient.isPending || !clientAttachDraft}
                   >
                     Save
                   </button>
                 </form>
+              ) : attachRow.kind === 'miss' ? (
+                <p className="hub-invoice-muted">{INVOICE_CLIENT_ATTACH_NO_CLIENTS}</p>
+              ) : (
+                <>
+                  {selectedClient?.name ? <p className="hub-invoice-to-name">{selectedClient.name}</p> : null}
+                  {emailRow.kind === 'mailto' && (
+                    <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
+                      <Mail size={13} /> {emailRow.email}
+                    </a>
+                  )}
+                  {emailRow.kind === 'edit' && (
+                    <form
+                      className="job-client-email"
+                      onSubmit={e => {
+                        e.preventDefault();
+                        saveClientEmail.mutate();
+                      }}
+                    >
+                      <Mail size={13} />
+                      <input
+                        ref={emailInputRef}
+                        type="email"
+                        value={clientEmailDraft}
+                        onChange={e => setClientEmailDraft(e.target.value)}
+                        placeholder="Email"
+                        className="form-input-sm"
+                        aria-label="Client email"
+                        autoComplete="email"
+                      />
+                      <button
+                        type="submit"
+                        className="job-client-email-save"
+                        disabled={saveClientEmail.isPending}
+                      >
+                        Save
+                      </button>
+                    </form>
+                  )}
+                </>
               )}
               <OpsSiteRow
                 hub
