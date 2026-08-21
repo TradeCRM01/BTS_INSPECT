@@ -300,7 +300,7 @@ export function AccountingSettingsPage() {
                   />
                   <ToggleRow
                     label="Sync payments"
-                    description="Saved preference only — this slice does not run a payments sync"
+                    description="Attach a payment in Xero when Mark paid succeeds. Does not pull Xero payments."
                     checked={syncPayments}
                     onChange={setSyncPayments}
                   />

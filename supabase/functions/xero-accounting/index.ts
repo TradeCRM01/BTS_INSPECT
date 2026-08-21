@@ -1,11 +1,14 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
+  canAttachPaymentWhenInvoiceSyncOff,
   connectSuccessPatch,
   decideXeroConnect,
+  decideXeroPaymentAttach,
   decideXeroSync,
   disconnectAccountingPatch,
   invoicesForXeroSync,
   invoicesStillToPush,
+  paidInvoicesAlreadyInXero,
   parseXeroTokenResponse,
   xeroAccountingSyncQuery,
   pickXeroTenant,
@@ -13,14 +16,17 @@ import {
   resolveXeroRedirectUri,
   settingsHaveXeroCipher,
   shouldAttachXeroPayment,
+  shouldAttachXeroPaymentOnMarkPaid,
   shouldStampLastSyncedAt,
   signXeroOAuthState,
   verifyXeroOAuthState,
+  wantsXeroPaymentAttach,
   XERO_SYNCABLE_INVOICE_STATUSES,
   xeroAuthorizeUrl,
   xeroClientResponseHasSecrets,
   xeroInvoicePayload,
   xeroMissMessage,
+  xeroPaymentAttachedMessage,
   xeroPaymentPayload,
   xeroSyncAlreadyMessage,
   xeroSyncPushedMessage,
@@ -449,7 +455,12 @@ Deno.serve(async (req: Request) => {
         syncInvoices: row?.sync_invoices,
         invoiceCount: 1,
       });
-      if (!decided.ok && decided.code !== "nothing_to_push" && decided.code !== "no_paid_invoices") {
+      if (
+        !decided.ok
+        && decided.code !== "nothing_to_push"
+        && decided.code !== "no_paid_invoices"
+        && decided.code !== "invoice_sync_off"
+      ) {
         return miss(decided.code);
       }
 
@@ -471,7 +482,17 @@ Deno.serve(async (req: Request) => {
         syncInvoices: row?.sync_invoices,
         invoiceCount: syncable.length,
       });
-      if (!syncDecision.ok) return miss(syncDecision.code);
+      const paymentOnly = Boolean(
+        invoiceId
+        && !syncDecision.ok
+        && syncDecision.code === "invoice_sync_off"
+        && canAttachPaymentWhenInvoiceSyncOff({
+          invoiceId,
+          invoice: syncable[0] ?? null,
+          settings: row?.settings,
+        }),
+      );
+      if (!syncDecision.ok && !paymentOnly) return miss(syncDecision.code);
 
       const accessToken = await liveAccessToken(admin, ctx.companyId, row);
       if (!accessToken) return miss("not_connected", "Xero token refresh failed.");
@@ -497,9 +518,10 @@ Deno.serve(async (req: Request) => {
         for (const client of clients ?? []) clientsById.set(client.id, client);
       }
 
-      const toPush = invoicesStillToPush(syncable, row.settings);
+      const toPush = paymentOnly ? [] : invoicesStillToPush(syncable, row.settings);
       let settings = row.settings ?? {};
       let pushed = 0;
+      let attached = 0;
       const failures: string[] = [];
 
       for (const invoice of toPush) {
@@ -519,7 +541,15 @@ Deno.serve(async (req: Request) => {
           failures.push(`${payload.InvoiceNumber}: ${xeroErrorDetail(created.json, created.text)}`);
           continue;
         }
-        if (shouldAttachXeroPayment(invoice) && bank?.AccountID && Number(invoice.total) > 0) {
+        if (
+          shouldAttachXeroPaymentOnMarkPaid({
+            invoiceId,
+            syncPayments: row.sync_payments,
+            invoice,
+          })
+          && bank?.AccountID
+          && Number(invoice.total) > 0
+        ) {
           const pay = await xeroJson("/Payments", accessToken, tenantId, {
             method: "POST",
             body: JSON.stringify({
@@ -533,13 +563,52 @@ Deno.serve(async (req: Request) => {
           });
           if (!pay.ok) {
             failures.push(`${payload.InvoiceNumber}: invoice pushed, payment rejected ${xeroErrorDetail(pay.json, pay.text)}`);
+          } else {
+            attached += 1;
           }
         }
         settings = recordPaidInvoiceSync(settings, invoice.id, createdInvoice.InvoiceID);
         pushed += 1;
       }
 
-      const stamp = shouldStampLastSyncedAt({ pushed });
+      if (invoiceId) {
+        for (const invoice of paidInvoicesAlreadyInXero(syncable, row.settings)) {
+          const gate = decideXeroPaymentAttach({
+            connectionStatus: row.connection_status,
+            provider: row.provider,
+            tenantId: row.tenant_id,
+            hasTokenCipher: settingsHaveXeroCipher(row.settings),
+            syncPayments: row.sync_payments,
+            status: invoice.status,
+            xeroInvoiceId: invoice.xeroInvoiceId,
+            amount: Number(invoice.total),
+            bankAccountId: bank?.AccountID,
+          });
+          if (!gate.ok) {
+            if (pushed === 0) return miss(gate.code);
+            failures.push(`${invoice.id}: ${xeroMissMessage(gate.code)}`);
+            continue;
+          }
+          const pay = await xeroJson("/Payments", accessToken, tenantId, {
+            method: "POST",
+            body: JSON.stringify({
+              Payments: [xeroPaymentPayload({
+                xeroInvoiceId: gate.xeroInvoiceId,
+                amount: Number(invoice.total) || 0,
+                accountId: String(bank?.AccountID),
+                date: invoice.updated_at || invoice.created_at,
+              })],
+            }),
+          });
+          if (!pay.ok) {
+            failures.push(`${invoice.id}: payment rejected ${xeroErrorDetail(pay.json, pay.text)}`);
+            continue;
+          }
+          attached += 1;
+        }
+      }
+
+      const stamp = shouldStampLastSyncedAt({ pushed }) || attached > 0;
       const lastSyncedAt = stamp ? new Date().toISOString() : row.last_synced_at ?? null;
       await admin
         .from("accounting_settings")
@@ -551,6 +620,12 @@ Deno.serve(async (req: Request) => {
         .eq("company_id", ctx.companyId)
         .eq("id", row.id);
 
+      const wantedPayment = wantsXeroPaymentAttach(syncable, invoiceId);
+      if (wantedPayment && attached === 0) {
+        if (row.sync_payments === false) return miss("payment_sync_off");
+        if (failures.length) return miss("xero_rejected", failures[0]);
+        return miss("nothing_to_attach");
+      }
       if (pushed === 0 && failures.length) {
         return miss("xero_rejected", failures[0]);
       }
@@ -558,8 +633,10 @@ Deno.serve(async (req: Request) => {
         return json({
           ok: true,
           pushed: 0,
+          attached,
           already: syncable.length,
-          message: xeroSyncAlreadyMessage(),
+          lastSyncedAt,
+          message: attached > 0 ? xeroPaymentAttachedMessage({ attached }) : xeroSyncAlreadyMessage(),
         });
       }
 
@@ -568,6 +645,7 @@ Deno.serve(async (req: Request) => {
       return json({
         ok: true,
         pushed,
+        attached,
         already: syncable.length - toPush.length,
         failed: failures.length,
         lastSyncedAt,

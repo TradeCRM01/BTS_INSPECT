@@ -3,9 +3,13 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   ACCOUNTING_SETTINGS_PUBLIC_COLUMNS,
+  attachXeroPaymentAfterMarkPaid,
+  canAttachPaymentWhenInvoiceSyncOff,
   canUseAccountingSettings,
   connectSuccessPatch,
   decideXeroConnect,
+  decideXeroPaymentAttach,
+  decideXeroPaymentOnMarkPaid,
   decideXeroSync,
   disconnectAccountingPatch,
   hasXeroCredentials,
@@ -13,10 +17,16 @@ import {
   invoicesForXeroSync,
   invoicesStillToPush,
   decideXeroPushOnSend,
+  invoiceMarkPaidToast,
+  invoiceMarkPaidXeroMissLine,
   invoiceSendXeroMissLine,
+  INVOICE_MARKED_PAID_MESSAGE,
+  paidInvoicesAlreadyInXero,
   pushInvoiceToXeroAfterSend,
   wouldScanLedgerToSyncOneInvoice,
   xeroAccountingSyncQuery,
+  xeroPaymentAttachedMessage,
+  xeroPaymentOnMarkPaidBody,
   xeroPushOnSendBody,
   isAccountingRedirectUri,
   paidInvoicesForXeroSync,
@@ -31,10 +41,12 @@ import {
   resolveXeroRedirectUri,
   settingsHaveXeroCipher,
   shouldAttachXeroPayment,
+  shouldAttachXeroPaymentOnMarkPaid,
   shouldStampLastSyncedAt,
   signXeroOAuthState,
   syncedPaidInvoiceMap,
   verifyXeroOAuthState,
+  wantsXeroPaymentAttach,
   xeroAuthorizeUrl,
   xeroClientResponseHasSecrets,
   xeroInvoiceNumber,
@@ -321,6 +333,123 @@ describe('xero invoice / payment payload', () => {
     expect(shouldAttachXeroPayment({ status: 'sent' })).toBe(false);
     expect(shouldAttachXeroPayment({ status: 'overdue' })).toBe(false);
     expect(shouldAttachXeroPayment({ status: 'draft' })).toBe(false);
+    expect(shouldAttachXeroPayment({ status: 'chased' })).toBe(false);
+  });
+
+  it('keeps Sync now attach signed and gates Mark paid on payments sync', () => {
+    expect(shouldAttachXeroPaymentOnMarkPaid({
+      invoice: paid,
+      syncPayments: false,
+    })).toBe(true);
+    expect(shouldAttachXeroPaymentOnMarkPaid({
+      invoiceId: 'inv-paid',
+      invoice: paid,
+      syncPayments: true,
+    })).toBe(true);
+    expect(shouldAttachXeroPaymentOnMarkPaid({
+      invoiceId: 'inv-paid',
+      invoice: paid,
+      syncPayments: false,
+    })).toBe(false);
+    expect(shouldAttachXeroPaymentOnMarkPaid({
+      invoiceId: 'inv-sent',
+      invoice: { ...paid, status: 'sent' },
+      syncPayments: true,
+    })).toBe(false);
+  });
+});
+
+describe('decideXeroPaymentOnMarkPaid / attach gates', () => {
+  const connected = {
+    connectionStatus: 'connected',
+    provider: 'xero',
+    tenantId: 'tenant-1',
+    hasTokenCipher: true,
+    syncPayments: true,
+    status: 'paid',
+    xeroInvoiceId: 'xero-1',
+    amount: 484,
+    bankAccountId: 'bank-1',
+  };
+
+  it('starts only after Mark paid succeeded on a paid invoice id', () => {
+    expect(decideXeroPaymentOnMarkPaid({ paidSucceeded: false, invoiceId: 'inv-1', status: 'paid' }))
+      .toEqual({ ok: false, code: 'nothing_to_attach' });
+    expect(decideXeroPaymentOnMarkPaid({ paidSucceeded: true, invoiceId: '  ', status: 'paid' }))
+      .toEqual({ ok: false, code: 'nothing_to_attach' });
+    expect(decideXeroPaymentOnMarkPaid({ paidSucceeded: true, invoiceId: 'inv-1', status: 'sent' }))
+      .toEqual({ ok: false, code: 'nothing_to_attach' });
+    expect(decideXeroPaymentOnMarkPaid({ paidSucceeded: true, invoiceId: 'inv-1', status: 'overdue' }))
+      .toEqual({ ok: false, code: 'nothing_to_attach' });
+    expect(decideXeroPaymentOnMarkPaid({ paidSucceeded: true, invoiceId: 'inv-1', status: 'draft' }))
+      .toEqual({ ok: false, code: 'nothing_to_attach' });
+    expect(decideXeroPaymentOnMarkPaid({ paidSucceeded: true, invoiceId: 'inv-1', status: 'paid' }))
+      .toEqual({ ok: true, invoiceId: 'inv-1' });
+    expect(xeroPaymentOnMarkPaidBody('inv-1')).toEqual({ action: 'sync', invoiceId: 'inv-1' });
+    expect(xeroPaymentOnMarkPaidBody('inv-1')).toEqual(xeroPushOnSendBody('inv-1'));
+  });
+
+  it('names not-connected, payments-sync-off, and nothing-to-attach', () => {
+    expect(decideXeroPaymentAttach(connected)).toEqual({ ok: true, xeroInvoiceId: 'xero-1' });
+    expect(decideXeroPaymentAttach({ ...connected, connectionStatus: 'disconnected' }))
+      .toEqual({ ok: false, code: 'not_connected' });
+    expect(decideXeroPaymentAttach({ ...connected, syncPayments: false }))
+      .toEqual({ ok: false, code: 'payment_sync_off' });
+    expect(decideXeroPaymentAttach({ ...connected, status: 'sent' }))
+      .toEqual({ ok: false, code: 'nothing_to_attach' });
+    expect(decideXeroPaymentAttach({ ...connected, xeroInvoiceId: '' }))
+      .toEqual({ ok: false, code: 'nothing_to_attach' });
+    expect(decideXeroPaymentAttach({ ...connected, amount: 0 }))
+      .toEqual({ ok: false, code: 'nothing_to_attach' });
+    expect(decideXeroPaymentAttach({ ...connected, bankAccountId: '' }))
+      .toEqual({ ok: false, code: 'nothing_to_attach' });
+    expect(xeroMissMessage('payment_sync_off')).toMatch(/Payments sync is turned off/);
+    expect(xeroMissMessage('nothing_to_attach')).toMatch(/Nothing to attach/);
+  });
+
+  it('finds an already-pushed paid invoice and refuses invoice-sync-off attach on sent', () => {
+    const settings = recordPaidInvoiceSync({}, 'inv-paid', 'xero-1');
+    const sent = { ...paid, id: 'inv-sent', status: 'sent' };
+    expect(paidInvoicesAlreadyInXero([paid, sent], settings)).toEqual([
+      { ...paid, xeroInvoiceId: 'xero-1' },
+    ]);
+    expect(paidInvoicesAlreadyInXero([sent], settings)).toEqual([]);
+    expect(canAttachPaymentWhenInvoiceSyncOff({
+      invoiceId: 'inv-paid',
+      invoice: paid,
+      settings,
+    })).toBe(true);
+    expect(canAttachPaymentWhenInvoiceSyncOff({
+      invoiceId: 'inv-sent',
+      invoice: sent,
+      settings,
+    })).toBe(false);
+    expect(canAttachPaymentWhenInvoiceSyncOff({
+      invoiceId: '',
+      invoice: paid,
+      settings,
+    })).toBe(false);
+    expect(wantsXeroPaymentAttach([paid], 'inv-paid')).toBe(true);
+    expect(wantsXeroPaymentAttach([sent], 'inv-sent')).toBe(false);
+    expect(wantsXeroPaymentAttach([paid], '')).toBe(false);
+  });
+
+  it('names the Mark paid miss without inventing a payment success', () => {
+    expect(invoiceMarkPaidXeroMissLine({ ok: true, message: 'Attached payment in Xero.' })).toBeNull();
+    expect(invoiceMarkPaidXeroMissLine({ ok: false, message: xeroMissMessage('not_connected') }))
+      .toBe('Invoice marked as paid. Xero is not connected.');
+    expect(invoiceMarkPaidXeroMissLine({ ok: false, message: xeroMissMessage('payment_sync_off') }))
+      .toBe('Invoice marked as paid. Payments sync is off.');
+    expect(invoiceMarkPaidXeroMissLine({ ok: false, message: xeroMissMessage('invoice_sync_off') }))
+      .toBe('Invoice marked as paid. Invoice sync is off.');
+    expect(invoiceMarkPaidXeroMissLine({ ok: false, message: xeroMissMessage('nothing_to_attach') }))
+      .toBe('Invoice marked as paid. Nothing to attach in Xero.');
+    expect(invoiceMarkPaidToast({ ok: true, message: 'Attached payment in Xero.' }))
+      .toBe(INVOICE_MARKED_PAID_MESSAGE);
+    expect(invoiceMarkPaidToast({ ok: false, message: xeroMissMessage('not_connected') }))
+      .toBe('Invoice marked as paid. Xero is not connected.');
+    expect(xeroPaymentAttachedMessage()).toBe('Attached payment in Xero.');
+    expect(xeroPaymentAttachedMessage({ attached: 2 })).toBe('Attached 2 payments in Xero.');
   });
 });
 
@@ -477,6 +606,10 @@ describe('existing xero edge + accounting page stay the one path', () => {
     expect(page).toContain("action: 'sync'");
     expect(page).toContain('Sync now');
     expect(page).toContain('Push sent and paid invoices to Xero');
+    expect(page).toContain('Attach a payment in Xero when Mark paid succeeds');
+    expect(page).toMatch(/Does not pull Xero payments/);
+    expect(page).not.toMatch(/Relovi/);
+    expect(page).not.toContain('this slice does not run a payments sync');
     expect(page).not.toContain('invoiceId');
     expect(page).not.toContain('/settings/xero-sent');
     expect(page).not.toMatch(/myob/i);
@@ -488,6 +621,22 @@ describe('existing xero edge + accounting page stay the one path', () => {
     expect(edge).toContain('invoicesForXeroSync');
     expect(edge).toContain('.in("status", [...XERO_SYNCABLE_INVOICE_STATUSES])');
     expect(edge).toContain('shouldAttachXeroPayment');
+    expect(edge).not.toMatch(/create table/i);
+    expect(edge).not.toMatch(/cron\.schedule/i);
+    expect(edge).not.toMatch(/myob/i);
+  });
+
+  it('attaches a paid invoice payment on the existing sync action — not a payments pull', () => {
+    expect(edge).toContain('paidInvoicesAlreadyInXero');
+    expect(edge).toContain('decideXeroPaymentAttach');
+    expect(edge).toContain('shouldAttachXeroPaymentOnMarkPaid');
+    expect(edge).toContain('wantsXeroPaymentAttach');
+    expect(edge).toContain('payment_sync_off');
+    expect(edge).toContain('nothing_to_attach');
+    expect(edge).toContain('xeroPaymentAttachedMessage');
+    expect(edge).toContain('invoicesStillToPush');
+    expect(edge).not.toMatch(/from\("payments"\)/);
+    expect(edge).not.toMatch(/xero.*payment.*pull/i);
     expect(edge).not.toMatch(/create table/i);
     expect(edge).not.toMatch(/cron\.schedule/i);
     expect(edge).not.toMatch(/myob/i);
@@ -546,5 +695,110 @@ describe('pushInvoiceToXeroAfterSend', () => {
       error: null,
     }), { sendSucceeded: true, invoiceId: 'inv-1' });
     expect(pushed).toEqual({ ok: true, message: 'Pushed 1 invoice to Xero.' });
+  });
+});
+
+describe('attachXeroPaymentAfterMarkPaid', () => {
+  it('does not invoke xero-accounting when Mark paid missed or the invoice is not paid', async () => {
+    const calls: unknown[] = [];
+    const missed = await attachXeroPaymentAfterMarkPaid(async (name, opts) => {
+      calls.push({ name, opts });
+      return { data: { ok: true, attached: 1 }, error: null };
+    }, { paidSucceeded: false, invoiceId: 'inv-1', status: 'paid' });
+    expect(calls).toEqual([]);
+    expect(missed.ok).toBe(false);
+    expect(missed.message).toMatch(/Nothing to attach/);
+
+    const sent = await attachXeroPaymentAfterMarkPaid(async (name, opts) => {
+      calls.push({ name, opts });
+      return { data: { ok: true, attached: 1 }, error: null };
+    }, { paidSucceeded: true, invoiceId: 'inv-1', status: 'sent' });
+    expect(calls).toEqual([]);
+    expect(sent).toEqual({ ok: false, message: xeroMissMessage('nothing_to_attach') });
+  });
+
+  it('calls the existing sync action for that paid invoice and keeps Mark paid on a miss', async () => {
+    const connectedMiss = await attachXeroPaymentAfterMarkPaid(async (name, opts) => {
+      expect(name).toBe('xero-accounting');
+      expect(opts.body).toEqual({ action: 'sync', invoiceId: 'inv-1' });
+      return {
+        data: { ok: false, miss: xeroMissMessage('not_connected') },
+        error: { message: 'Edge Function returned a non-2xx status code' },
+      };
+    }, { paidSucceeded: true, invoiceId: 'inv-1', status: 'paid' });
+    expect(connectedMiss).toEqual({ ok: false, message: xeroMissMessage('not_connected') });
+
+    const paymentsOff = await attachXeroPaymentAfterMarkPaid(async () => ({
+      data: { ok: false, miss: xeroMissMessage('payment_sync_off') },
+      error: null,
+    }), { paidSucceeded: true, invoiceId: 'inv-1', status: 'paid' });
+    expect(paymentsOff).toEqual({ ok: false, message: xeroMissMessage('payment_sync_off') });
+
+    const attached = await attachXeroPaymentAfterMarkPaid(async () => ({
+      data: { ok: true, attached: 1, message: xeroPaymentAttachedMessage({ attached: 1 }) },
+      error: null,
+    }), { paidSucceeded: true, invoiceId: 'inv-1', status: 'paid' });
+    expect(attached).toEqual({ ok: true, message: 'Attached payment in Xero.' });
+
+    const already = await attachXeroPaymentAfterMarkPaid(async () => ({
+      data: { ok: true, pushed: 0, attached: 0, message: xeroSyncAlreadyMessage() },
+      error: null,
+    }), { paidSucceeded: true, invoiceId: 'inv-1', status: 'paid' });
+    expect(already).toEqual({ ok: false, message: xeroMissMessage('nothing_to_attach') });
+  });
+});
+
+describe('invoice sheet Mark paid stays the one surface', () => {
+  const invoicesPage = readFileSync(resolve(process.cwd(), 'src/pages/InvoicesPage.tsx'), 'utf8');
+  const deliver = readFileSync(resolve(process.cwd(), 'src/lib/sendInvoiceDeliver.ts'), 'utf8');
+  const dialog = readFileSync(resolve(process.cwd(), 'src/components/invoicing/InvoiceSendDialog.tsx'), 'utf8');
+  const accounting = readFileSync(resolve(process.cwd(), 'src/pages/AccountingSettingsPage.tsx'), 'utf8');
+
+  it('attaches after local paid on the existing sheet — never unmarks, no new dialog', () => {
+    expect(invoicesPage).toContain('attachXeroPaymentAfterMarkPaid');
+    expect(invoicesPage).toContain('invoiceMarkPaidXeroMissLine');
+    expect(invoicesPage).toContain('invoiceMarkPaidToast');
+    expect(invoicesPage).toContain('markPaid: true');
+    expect(invoicesPage).toContain('hub-invoice-send-xero-miss');
+    expect(invoicesPage).toContain("status: persistableInvoiceStatus('paid')");
+    expect(invoicesPage).not.toContain('MarkPaidDialog');
+    expect(invoicesPage).not.toContain('XeroPaymentDialog');
+    expect(invoicesPage).not.toContain('Connect Xero');
+    expect(invoicesPage).not.toMatch(/myob/i);
+    expect(invoicesPage).not.toContain('create table');
+
+    const listFn = invoicesPage.indexOf('const patchPaid');
+    const listPaid = invoicesPage.indexOf("persistableInvoiceStatus('paid')", listFn);
+    const listAttach = invoicesPage.indexOf('attachXeroPaymentAfterMarkPaid', listFn);
+    expect(listFn).toBeGreaterThan(-1);
+    expect(listPaid).toBeGreaterThan(listFn);
+    expect(listAttach).toBeGreaterThan(listPaid);
+    const listAfterAttach = invoicesPage.slice(listAttach, invoicesPage.indexOf('const persist'));
+    expect(listAfterAttach).not.toMatch(/status:\s*'sent'/);
+    expect(listAfterAttach).not.toContain("persistableInvoiceStatus('sent')");
+    expect(listAfterAttach).toContain('invoiceMarkPaidToast');
+
+    const finishPaid = invoicesPage.indexOf('const finishPaid');
+    const finishStatus = invoicesPage.indexOf('status: storedStatus', finishPaid);
+    const finishAttach = invoicesPage.indexOf('attachXeroPaymentAfterMarkPaid', finishPaid);
+    expect(finishPaid).toBeGreaterThan(-1);
+    expect(finishStatus).toBeGreaterThan(finishPaid);
+    expect(finishAttach).toBeGreaterThan(finishStatus);
+    const afterFinish = invoicesPage.slice(finishAttach, invoicesPage.indexOf('const startSend'));
+    expect(afterFinish).not.toMatch(/status:\s*'sent'/);
+    expect(afterFinish).not.toContain("persistableInvoiceStatus('sent')");
+    expect(afterFinish).toContain('invoiceMarkPaidXeroMissLine');
+  });
+
+  it('leaves push-on-send and Sync now on their signed paths', () => {
+    expect(deliver).toContain('pushInvoiceToXeroAfterSend');
+    expect(deliver).not.toContain('attachXeroPaymentAfterMarkPaid');
+    expect(dialog).toContain('invoiceSendXeroMissLine');
+    expect(dialog).not.toContain('attachXeroPaymentAfterMarkPaid');
+    expect(dialog).not.toContain('invoiceMarkPaidXeroMissLine');
+    expect(accounting).toContain("action: 'sync'");
+    expect(accounting).toContain('Sync now');
+    expect(accounting).not.toContain('invoiceId');
+    expect(accounting).not.toContain('attachXeroPaymentAfterMarkPaid');
   });
 });

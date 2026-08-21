@@ -63,6 +63,7 @@ describe('invoice send deliver path', () => {
     expect(INVOICE_SEND_PIPE.join(' ')).toMatch(/job-reminder/);
     expect(INVOICE_SEND_PIPE.join(' ')).toMatch(/xero-accounting/);
     expect(deliver).toContain('pushInvoiceToXeroAfterSend');
+    expect(deliver).not.toContain('attachXeroPaymentAfterMarkPaid');
     expect(deliver).toContain('sendSucceeded: true');
     const jobInvoke = deliver.indexOf("invoke('job-reminder'");
     const sentCheck = deliver.lastIndexOf("if (!data?.sent)");
@@ -98,6 +99,8 @@ describe('invoice send deliver path', () => {
     expect(dialog).not.toContain('Connect Xero');
     expect(dialog).not.toContain('xero-accounting');
     expect(page).toContain('keepOpen');
+    expect(page).toContain('attachXeroPaymentAfterMarkPaid');
+    expect(page).toContain('markPaid: true');
     expect(page).not.toContain('Connect Xero');
     expect(invoiceCss).toContain('--invoice-page: #F4F6F8');
     expect(invoiceCss).toContain('--invoice-sheet: #FFFFFF');
@@ -111,6 +114,8 @@ describe('invoice send deliver path', () => {
     expect(invoiceCss).not.toContain('text-overflow: ellipsis');
     expect(invoiceCss).toContain('.hub-invoice-send-xero-miss');
     expect(invoiceCss).toContain('color: #5B6B7C');
+    expect(invoiceCss).toContain('.hub-invoice-editor .hub-invoice-send-xero-miss');
+    expect(invoiceCss).toContain('margin: 0 0 16px');
   });
 
   it('SMS miss does not flip invoice status or chased_at — sent follows email 2xx only', () => {

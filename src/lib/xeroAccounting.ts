@@ -21,11 +21,15 @@ export type XeroMissCode =
   | 'not_connected'
   | 'not_xero'
   | 'invoice_sync_off'
+  | 'payment_sync_off'
   | 'nothing_to_push'
+  | 'nothing_to_attach'
   | 'no_paid_invoices'
   | 'xero_rejected'
   | 'quickbooks_not_in_slice'
   | 'not_admin';
+
+export const INVOICE_MARKED_PAID_MESSAGE = 'Invoice marked as paid';
 
 /** Stored invoice statuses that already left the draft tray — same push as paid. */
 export const XERO_SYNCABLE_INVOICE_STATUSES = ['sent', 'overdue', 'paid'] as const;
@@ -84,6 +88,10 @@ export function xeroMissMessage(code: XeroMissCode, detail?: string): string {
       return 'Connect is only wired for Xero on this page.';
     case 'invoice_sync_off':
       return 'Invoice sync is turned off in settings. Invoices were not pushed.';
+    case 'payment_sync_off':
+      return 'Payments sync is turned off in settings. Payment was not attached.';
+    case 'nothing_to_attach':
+      return 'Nothing to attach in Xero.';
     case 'nothing_to_push':
     case 'no_paid_invoices':
       return 'No sent or paid invoices to sync for this company.';
@@ -187,6 +195,86 @@ export async function pushInvoiceToXeroAfterSend(
       ok: true,
       message: String(result.body.message ?? xeroSyncPushedMessage({
         pushed: Number.isFinite(pushed) ? pushed : 0,
+      })),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error && err.message.trim() ? err.message : xeroMissMessage('token_failed'),
+    };
+  }
+}
+
+export type XeroAfterPaidResult = XeroAfterSendResult;
+
+/**
+ * After Mark paid succeeds locally. Paid-only. Connected / payments-sync
+ * misses live on the existing sync path. Callers must not unmark paid.
+ */
+export function decideXeroPaymentOnMarkPaid(input: {
+  paidSucceeded: boolean;
+  invoiceId?: string | null;
+  status?: string | null;
+}): { ok: true; invoiceId: string } | { ok: false; code: XeroMissCode } {
+  if (!input.paidSucceeded) return { ok: false, code: 'nothing_to_attach' };
+  if (input.status != null && input.status !== 'paid') return { ok: false, code: 'nothing_to_attach' };
+  const invoiceId = (input.invoiceId ?? '').trim();
+  if (!invoiceId) return { ok: false, code: 'nothing_to_attach' };
+  return { ok: true, invoiceId };
+}
+
+export function xeroPaymentOnMarkPaidBody(invoiceId: string): { action: 'sync'; invoiceId: string } {
+  return xeroPushOnSendBody(invoiceId);
+}
+
+/**
+ * Quiet line on the existing invoice sheet after Mark paid succeeds.
+ * Names the miss. Does not unmark paid. Not a second primary.
+ */
+export function invoiceMarkPaidXeroMissLine(xero: XeroAfterPaidResult): string | null {
+  if (xero.ok) return null;
+  if (/not connected/i.test(xero.message)) return `${INVOICE_MARKED_PAID_MESSAGE}. Xero is not connected.`;
+  if (/payments sync/i.test(xero.message)) return `${INVOICE_MARKED_PAID_MESSAGE}. Payments sync is off.`;
+  if (/invoice sync/i.test(xero.message) || /turned off/i.test(xero.message)) {
+    return `${INVOICE_MARKED_PAID_MESSAGE}. Invoice sync is off.`;
+  }
+  if (/nothing to attach/i.test(xero.message)) return `${INVOICE_MARKED_PAID_MESSAGE}. Nothing to attach in Xero.`;
+  return `${INVOICE_MARKED_PAID_MESSAGE}. ${xero.message}`;
+}
+
+export function invoiceMarkPaidToast(xero: XeroAfterPaidResult): string {
+  return invoiceMarkPaidXeroMissLine(xero) ?? INVOICE_MARKED_PAID_MESSAGE;
+}
+
+/**
+ * Call the existing xero-accounting sync so that one paid invoice can
+ * attach its payment. Misses stay misses. Callers must not unmark paid.
+ */
+export async function attachXeroPaymentAfterMarkPaid(
+  invoke: (
+    name: string,
+    opts: { body: { action: 'sync'; invoiceId: string } },
+  ) => Promise<{ data: unknown; error?: { message?: string } | null }>,
+  input: { paidSucceeded: boolean; invoiceId: string; status?: string | null },
+): Promise<XeroAfterPaidResult> {
+  const gate = decideXeroPaymentOnMarkPaid(input);
+  if (!gate.ok) return { ok: false, message: xeroMissMessage(gate.code) };
+  try {
+    const { data, error } = await invoke(XERO_FUNCTION_NAME, { body: xeroPaymentOnMarkPaidBody(gate.invoiceId) });
+    const result = readXeroFunctionResult(data, error ?? null);
+    if (!result.ok) return { ok: false, message: result.message };
+    const attached = Number(result.body.attached);
+    if (Number.isFinite(attached) && attached <= 0 && wantsXeroPaymentAttach(
+      [{ status: input.status ?? 'paid' }],
+      gate.invoiceId,
+    )) {
+      const message = String(result.body.message ?? '');
+      if (/already in Xero/i.test(message)) return { ok: false, message: xeroMissMessage('nothing_to_attach') };
+    }
+    return {
+      ok: true,
+      message: String(result.body.message ?? xeroPaymentAttachedMessage({
+        attached: Number.isFinite(attached) ? attached : 1,
       })),
     };
   } catch (err) {
@@ -323,6 +411,74 @@ export function shouldAttachXeroPayment(invoice: { status: string }): boolean {
   return invoice.status === 'paid';
 }
 
+/**
+ * Sync now (no invoiceId) keeps the signed attach. Mark paid / single-invoice
+ * attach only when payments sync is on.
+ */
+export function shouldAttachXeroPaymentOnMarkPaid(input: {
+  invoiceId?: string | null;
+  syncPayments?: boolean | null;
+  invoice: { status: string };
+}): boolean {
+  if (!shouldAttachXeroPayment(input.invoice)) return false;
+  if (!(input.invoiceId ?? '').trim()) return true;
+  return input.syncPayments !== false;
+}
+
+export function wantsXeroPaymentAttach(
+  invoices: { status: string }[],
+  invoiceId?: string | null,
+): boolean {
+  return Boolean((invoiceId ?? '').trim() && invoices.some((inv) => shouldAttachXeroPayment(inv)));
+}
+
+export function paidInvoicesAlreadyInXero<T extends { id: string; status: string }>(
+  invoices: T[],
+  settings: unknown,
+): Array<T & { xeroInvoiceId: string }> {
+  const map = syncedPaidInvoiceMap(settings);
+  return invoices
+    .filter((inv) => shouldAttachXeroPayment(inv) && Boolean(map[inv.id]))
+    .map((inv) => ({ ...inv, xeroInvoiceId: map[inv.id] }));
+}
+
+/** Already-pushed paid invoice can attach when invoice sync is off. Sync now cannot. */
+export function canAttachPaymentWhenInvoiceSyncOff(input: {
+  invoiceId?: string | null;
+  invoice?: { id: string; status: string } | null;
+  settings: unknown;
+}): boolean {
+  if (!(input.invoiceId ?? '').trim() || !input.invoice) return false;
+  if (!shouldAttachXeroPayment(input.invoice)) return false;
+  return Boolean(syncedPaidInvoiceMap(input.settings)[input.invoice.id]);
+}
+
+export function decideXeroPaymentAttach(input: {
+  connectionStatus?: string | null;
+  provider?: string | null;
+  tenantId?: string | null;
+  hasTokenCipher?: boolean;
+  syncPayments?: boolean | null;
+  status?: string | null;
+  xeroInvoiceId?: string | null;
+  amount?: number | null;
+  bankAccountId?: string | null;
+}): { ok: true; xeroInvoiceId: string } | { ok: false; code: XeroMissCode } {
+  const connected =
+    input.provider === 'xero'
+    && input.connectionStatus === 'connected'
+    && Boolean(input.tenantId?.trim())
+    && input.hasTokenCipher === true;
+  if (!connected) return { ok: false, code: 'not_connected' };
+  if (input.syncPayments === false) return { ok: false, code: 'payment_sync_off' };
+  if (!shouldAttachXeroPayment({ status: input.status ?? '' })) return { ok: false, code: 'nothing_to_attach' };
+  const xeroInvoiceId = (input.xeroInvoiceId ?? '').trim();
+  if (!xeroInvoiceId) return { ok: false, code: 'nothing_to_attach' };
+  if (!(Number(input.amount) > 0)) return { ok: false, code: 'nothing_to_attach' };
+  if (!(input.bankAccountId ?? '').trim()) return { ok: false, code: 'nothing_to_attach' };
+  return { ok: true, xeroInvoiceId };
+}
+
 export function xeroSyncAlreadyMessage(): string {
   return 'Invoices are already in Xero.';
 }
@@ -338,6 +494,11 @@ export function xeroSyncPushedMessage(input: {
   }
   if (input.firstFailure) bits.push(`Some misses: ${input.firstFailure}`);
   return bits.join(' ');
+}
+
+export function xeroPaymentAttachedMessage(input?: { attached?: number }): string {
+  const n = input?.attached ?? 1;
+  return n === 1 ? 'Attached payment in Xero.' : `Attached ${n} payments in Xero.`;
 }
 
 export function xeroInvoiceNumber(invoice: Pick<SyncableInvoice, 'id' | 'invoice_number'>): string {
