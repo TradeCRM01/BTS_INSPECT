@@ -817,16 +817,9 @@
   .hub-quote-toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    justify-content: flex-end;
+    gap: 8px;
     padding: 0 0 16px;
-  }
-
-  .hub-quote-editor-tools {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 16px;
   }
 
   .hub-quote-editor .ops-link,
@@ -844,6 +837,72 @@
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .hub-quote-more {
+    position: relative;
+  }
+
+  .hub-quote-more > summary {
+    list-style: none;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: #5B6B7C;
+    cursor: pointer;
+    background: none;
+    border: none;
+    box-shadow: none;
+    user-select: none;
+  }
+
+  .hub-quote-more > summary::-webkit-details-marker,
+  .hub-quote-more > summary::marker {
+    display: none;
+    content: '';
+  }
+
+  .hub-quote-more-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 6;
+    min-width: 200px;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #D5DCE3;
+    border-radius: 16px;
+    box-shadow: none;
+  }
+
+  .hub-quote-more-menu button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: #0A2540;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .hub-quote-more-menu button:disabled {
+    color: #5B6B7C;
+    cursor: not-allowed;
+  }
+
+  .hub-quote-err {
+    margin: 0 0 16px;
+    font-size: 14px;
+    color: #B42318;
   }
 
   .hub-quote-close {

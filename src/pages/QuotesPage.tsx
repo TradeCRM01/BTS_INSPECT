@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -29,7 +29,7 @@ import {
 } from '../lib/quoteNextAction';
 import { COMPANY_EMAIL_SETTINGS_HREF, isSmtpReady } from '../lib/sendQuote';
 import { QUOTE_STATUS_LABELS, formatMoney } from '../types/fsm';
-import { Plus, FileText, X } from 'lucide-react';
+import { Plus, FileText, X, MoreHorizontal } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | QuoteStatus;
@@ -462,6 +462,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const [converting, setConverting] = useState(false);
   const [invoicing, setInvoicing] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const moreRef = useRef<HTMLDetailsElement>(null);
   const [err, setErr] = useState('');
   const [savedId, setSavedId] = useState<string | null>(quote?.id ?? null);
   const [invoiceId, setInvoiceId] = useState<string | null>(quote?.invoice_id ?? null);
@@ -687,38 +689,23 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const editorTitle = quote?.quote_number != null ? quoteTitle(quote) : 'New quote';
   const docLines = form.line_items.filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0);
 
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  useEffect(() => {
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    document.addEventListener('pointerdown', onPointer);
+    return () => document.removeEventListener('pointerdown', onPointer);
+  }, []);
+
   return (
     <div className="overlay-backdrop">
       <div className="overlay-panel-xl hub-quote-editor" onClick={e => e.stopPropagation()}>
         <div className="hub-quote-toolbar">
-          <div className="hub-quote-editor-tools">
-            {form.status === 'sent' && (
-              <button
-                type="button"
-                onClick={() => void persist('declined', { close: false, message: 'Quote declined' })}
-                disabled={saving}
-                className="ops-link"
-              >
-                Decline
-              </button>
-            )}
-            {form.status === 'accepted' && invoiceId && (
-              <button type="button" onClick={() => navigate(invoiceHref(invoiceId))} className="ops-link">
-                Open invoice
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setShowPreview(true)}
-              disabled={!previewData}
-              className="ops-link"
-            >
-              Preview PDF
-            </button>
-            <button type="button" onClick={() => void persist(form.status, { close: true })} disabled={saving} className="ops-link">
-              {saving ? 'Saving...' : quote || savedId ? 'Save' : 'Save draft'}
-            </button>
-          </div>
           <div className="hub-quote-editor-act">
             {next.key === 'setup_email' && (
               <button type="button" onClick={() => navigate(COMPANY_EMAIL_SETTINGS_HREF)} className="btn-primary">
@@ -760,11 +747,61 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
                 {invoicing ? 'Creating...' : 'Create invoice'}
               </button>
             )}
+            <details ref={moreRef} className="hub-quote-more">
+              <summary aria-label="More actions">
+                <MoreHorizontal size={18} />
+              </summary>
+              <div className="hub-quote-more-menu" role="menu">
+                {form.status === 'sent' && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); void persist('declined', { close: false, message: 'Quote declined' }); }}
+                    disabled={saving}
+                  >
+                    Decline
+                  </button>
+                )}
+                {form.status === 'accepted' && invoiceId && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); navigate(invoiceHref(invoiceId)); }}
+                  >
+                    Open invoice
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { closeMore(); setShowPreview(true); }}
+                  disabled={!previewData}
+                >
+                  Preview PDF
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { closeMore(); void persist(form.status, { close: true }); }}
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : quote || savedId ? 'Save' : 'Save draft'}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { closeMore(); setShowEdit(true); }}
+                >
+                  Edit quote
+                </button>
+              </div>
+            </details>
             <button type="button" onClick={onClose} className="hub-quote-close" aria-label="Close">
               <X size={18} />
             </button>
           </div>
         </div>
+        {err ? <p className="hub-quote-err">{err}</p> : null}
 
         <div className="hub-quote-sheet">
           <div className="hub-quote-banner">
@@ -837,8 +874,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           ) : null}
         </div>
 
-        <details className="hub-quote-edit">
-          <summary>Edit quote</summary>
+        {showEdit ? (
+        <div className="hub-quote-edit">
         <div className="overlay-body hub-quote-editor-body">
           <div className="grid grid-cols-2 gap-6">
             <Field label="Client" required>
@@ -917,7 +954,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
 
           {err && <p className="text-sm text-fail">{err}</p>}
         </div>
-        </details>
+        </div>
+        ) : null}
       </div>
 
       {showPreview && previewData && (
