@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Mail } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../ui';
 import type { Client, Job } from '../../types/crm';
@@ -92,70 +92,63 @@ export function JobClientReminder({
   const sentAt = job.client_reminder_sent_at;
 
   return (
-    <div className="ops-tray mb-5">
+    <div className="ops-tray job-reminder">
       <div className="ops-tray-head">
-        <h2 className="ops-section-title flex items-center gap-1.5">
-          <Bell size={14} /> 24h client reminder
-        </h2>
-        <Link to={jobScheduleHref(job.id)} className="ops-link">
-          Job schedule
-        </Link>
+        <h2 className="ops-section-title">24h client reminder</h2>
       </div>
-      <div className="px-3 pb-3 pt-2">
+      <div className="job-reminder-body">
         {rescheduleAsked && (
-          <p className="ops-meta mb-3">
-            Client asked to reschedule — pick a new date on the schedule above. No retype.
-          </p>
+          <p className="job-reminder-reschedule">Client asked to reschedule.</p>
         )}
 
-        <label className="block mb-3">
-          <span className="ops-field-label flex items-center gap-1.5">
-            <Mail size={12} /> To
-          </span>
+        <label className="block">
+          <span className="ops-field-label">To</span>
           <input
             type="email"
             readOnly
             value={to}
             placeholder="No client email"
-            className="form-input bg-zebra"
+            className="form-input"
             aria-label="Reminder recipient"
           />
         </label>
 
         {awaitingSmtp ? (
-          <p className="ops-meta mb-3">Checking email settings…</p>
+          <p className="job-reminder-meta">Checking email settings…</p>
         ) : decision.send ? (
-          <p className="ops-meta mb-3">
-            Auto-sends the day before (Australia/Perth). Send is an override. The email includes an “I need to reschedule” reply that opens this job schedule.
-          </p>
+          <p className="job-reminder-meta">Auto-sends the day before (Australia/Perth).</p>
         ) : (
-          <p className="ops-meta mb-3">{decision.message}</p>
+          <p className="job-reminder-miss">{decision.message}</p>
         )}
 
         {sentAt && (
-          <p className="ops-meta mb-3">
-            Reminded {new Date(sentAt).toLocaleString()}
+          <p className="job-reminder-meta">
+            Reminded <span className="tabular-nums">{new Date(sentAt).toLocaleString()}</span>
             {decision.send ? '' : ' — last successful send.'}
           </p>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="job-reminder-act">
           <button
             type="button"
             className="btn-primary"
             disabled={awaitingSmtp || !decision.send || send.isPending}
             onClick={() => send.mutate()}
           >
-            {send.isPending ? 'Sending…' : 'Send now'}
+            {send.isPending ? 'Sending…' : 'Send tomorrow reminder'}
           </button>
-          {decision.send && (
-            <a href={decision.rescheduleMailto} className="ops-link text-xs">
-              Reschedule reply
-            </a>
-          )}
-          <Link to="/settings/company" className="ops-link text-xs">
-            Email settings
-          </Link>
+          <details className="job-reminder-more">
+            <summary aria-label="More">
+              <MoreHorizontal size={16} />
+            </summary>
+            <div className="job-reminder-more-menu">
+              {decision.send && (
+                <a href={decision.rescheduleMailto}>Reschedule reply</a>
+              )}
+              <Link to="/settings/company">Email settings</Link>
+              <Link to={jobScheduleHref(job.id)}>Job schedule</Link>
+            </div>
+          </details>
         </div>
       </div>
     </div>
