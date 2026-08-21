@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -12,15 +12,18 @@ import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineI
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
+import { InvoiceSendDialog } from '../components/invoicing/InvoiceSendDialog';
 import { ActionButton } from '../components/invoicing/DocNextAction';
 import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
 import { effectiveInvoiceStatus, persistableInvoiceStatus } from '../lib/invoiceStatus';
-import { invoiceListBucket, recommendInvoiceAction, type InvoiceActionKey } from '../lib/invoiceNextAction';
+import { invoiceActionContext, invoiceListBucket, recommendInvoiceAction, type InvoiceActionKey } from '../lib/invoiceNextAction';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
+import { isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
+import { loadInvoiceEditorRow } from '../lib/sendInvoiceDeliver';
 import { INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, formatMoney } from '../types/fsm';
 import { Plus, Receipt, Download, Eye, Check, Send } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
@@ -47,7 +50,33 @@ export function InvoicesPage() {
   const [editingInvoice, setEditingInvoice] = useState<InvoiceWithDetails | null>(null);
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useViewMode('invoices');
+  const invoiceIdParam = searchParams.get('id');
+
+  const { data: smtpSettings } = useQuery<SmtpSettingsRow | null>({
+    queryKey: ['email-settings', profile?.company_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('email_settings')
+        .select('smtp_host, smtp_pass, from_name, from_email')
+        .eq('company_id', profile!.company_id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as SmtpSettingsRow) ?? null;
+    },
+    enabled: !!profile?.company_id,
+  });
+  const smtpReady = smtpSettings === undefined ? null : isSmtpReady(smtpSettings);
+
+  const { data: openedInvoice } = useQuery<InvoiceWithDetails | null>({
+    queryKey: ['invoice', invoiceIdParam, profile?.company_id],
+    queryFn: async () => {
+      if (!invoiceIdParam || !profile?.company_id) return null;
+      return loadInvoiceEditorRow(invoiceIdParam, profile.company_id);
+    },
+    enabled: !!invoiceIdParam && !!profile?.company_id,
+  });
 
   const { data: invoices, isLoading, error } = useQuery<InvoiceWithDetails[]>({
     queryKey: ['invoices'],
@@ -62,16 +91,17 @@ export function InvoicesPage() {
       const clientIds = [...new Set(list.map(i => i.client_id).filter(Boolean))] as string[];
       const jobIds = [...new Set(list.map(i => i.job_id).filter(Boolean))] as string[];
       const [clientsRes, jobsRes] = await Promise.all([
-        clientIds.length ? supabase.from('clients').select('id, name').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+        clientIds.length ? supabase.from('clients').select('id, name, email').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string; email: string | null }[] }),
         jobIds.length ? supabase.from('jobs').select('id, title, address').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string; address: string | null }[] }),
       ]);
-      const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c.name]));
+      const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c]));
       const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j]));
       return list.map(i => ({
         ...i,
         inclusions: asStringList(i.inclusions),
         exclusions: asStringList(i.exclusions),
-        client_name: i.client_id ? clientMap.get(i.client_id) ?? null : null,
+        client_name: i.client_id ? clientMap.get(i.client_id)?.name ?? null : null,
+        client_email: i.client_id ? clientMap.get(i.client_id)?.email ?? null : null,
         job_title: i.job_id ? jobMap.get(i.job_id)?.title ?? null : null,
         job_address: i.job_id ? jobMap.get(i.job_id)?.address ?? null : null,
       }));
@@ -124,10 +154,9 @@ export function InvoicesPage() {
     const invoiceId = searchParams.get('id');
     const clientId = searchParams.get('client');
     if (invoiceId) {
-      if (!invoices) return;
-      const inv = invoices.find(i => i.id === invoiceId);
-      if (!inv) return;
-      setEditingInvoice(inv);
+      if (openedInvoice === undefined) return;
+      if (!openedInvoice) return;
+      setEditingInvoice(openedInvoice);
       setPresetClientId(null);
       setShowForm(true);
       const next = new URLSearchParams(searchParams);
@@ -143,7 +172,7 @@ export function InvoicesPage() {
     const next = new URLSearchParams(searchParams);
     next.delete('client');
     setSearchParams(next, { replace: true });
-  }, [searchParams, invoices, setSearchParams]);
+  }, [searchParams, openedInvoice, setSearchParams]);
 
   function openInvoice(inv: InvoiceWithDetails | null) {
     setEditingInvoice(inv);
@@ -157,9 +186,12 @@ export function InvoicesPage() {
       setPresetClientId(null);
     }
     queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    queryClient.invalidateQueries({ queryKey: ['invoice'] });
     queryClient.invalidateQueries({ queryKey: ['client-invoices'] });
     queryClient.invalidateQueries({ queryKey: ['clients'] });
-    showToast(opts?.message ?? (editingInvoice ? 'Invoice updated' : 'Invoice created'));
+    if (opts?.message !== '') {
+      showToast(opts?.message ?? (editingInvoice ? 'Invoice updated' : 'Invoice created'));
+    }
   }
 
   if (error) return <AppShell><PageError message="Could not load invoices" /></AppShell>;
@@ -223,10 +255,10 @@ export function InvoicesPage() {
           />
         ) : viewMode === 'grid' ? (
           <div className="space-y-4">
-            <InvoiceGroup title="Overdue" invoices={overdueInvoices} onOpen={openInvoice} />
-            <InvoiceGroup title="Drafts" invoices={draftInvoices} onOpen={openInvoice} />
-            <InvoiceGroup title="Awaiting payment" invoices={awaitingInvoices} onOpen={openInvoice} />
-            <InvoiceGroup title="Paid" invoices={paidInvoices} onOpen={openInvoice} />
+            <InvoiceGroup title="Overdue" invoices={overdueInvoices} smtpReady={smtpReady} onOpen={openInvoice} onSend={setSendingInvoiceId} />
+            <InvoiceGroup title="Drafts" invoices={draftInvoices} smtpReady={smtpReady} onOpen={openInvoice} onSend={setSendingInvoiceId} />
+            <InvoiceGroup title="Awaiting payment" invoices={awaitingInvoices} smtpReady={smtpReady} onOpen={openInvoice} onSend={setSendingInvoiceId} />
+            <InvoiceGroup title="Paid" invoices={paidInvoices} smtpReady={smtpReady} onOpen={openInvoice} onSend={setSendingInvoiceId} />
           </div>
         ) : (
           <div className="ops-table">
@@ -267,7 +299,7 @@ export function InvoicesPage() {
                           {inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : '—'}
                         </td>
                         <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
-                          <InvoiceNextControl invoice={inv} />
+                          <InvoiceNextControl invoice={inv} smtpReady={smtpReady} onSend={setSendingInvoiceId} />
                         </td>
                       </tr>
                     );
@@ -285,8 +317,37 @@ export function InvoicesPage() {
           invoice={editingInvoice}
           presetClientId={presetClientId}
           defaultTaxRate={company?.default_tax_rate ?? DEFAULT_TAX_RATE}
+          smtpReady={smtpReady}
           onClose={() => { setShowForm(false); setPresetClientId(null); }}
           onSaved={handleSaved}
+          onRequestSend={setSendingInvoiceId}
+        />
+      )}
+
+      {sendingInvoiceId && company?.id && (
+        <InvoiceSendDialog
+          invoiceId={sendingInvoiceId}
+          company={{
+            id: company.id,
+            name: company.name,
+            abn: company.abn ?? null,
+            licence_number: company.licence_number ?? null,
+            phone: company.phone ?? null,
+            email: company.email ?? null,
+            website: company.website ?? null,
+            logo_url: company.logo_url ?? null,
+          }}
+          onClose={() => setSendingInvoiceId(null)}
+          onSent={(to) => {
+            setSendingInvoiceId(null);
+            queryClient.invalidateQueries({ queryKey: ['invoices'] });
+            queryClient.invalidateQueries({ queryKey: ['invoice'] });
+            queryClient.invalidateQueries({ queryKey: ['client-invoices'] });
+            if (editingInvoice?.id === sendingInvoiceId) {
+              setEditingInvoice(inv => inv ? { ...inv, status: 'sent' } : inv);
+            }
+            showToast(`Invoice sent to ${to}`);
+          }}
         />
       )}
     </AppShell>
@@ -294,11 +355,13 @@ export function InvoicesPage() {
 }
 
 function InvoiceGroup({
-  title, invoices, onOpen,
+  title, invoices, smtpReady, onOpen, onSend,
 }: {
   title: string;
   invoices: InvoiceWithDetails[];
+  smtpReady: boolean | null;
   onOpen: (inv: InvoiceWithDetails) => void;
+  onSend: (invoiceId: string) => void;
 }) {
   if (invoices.length === 0) return null;
   return (
@@ -309,15 +372,22 @@ function InvoiceGroup({
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {invoices.map(inv => (
-          <InvoiceCard key={inv.id} invoice={inv} onOpen={() => onOpen(inv)} />
+          <InvoiceCard key={inv.id} invoice={inv} smtpReady={smtpReady} onOpen={() => onOpen(inv)} onSend={onSend} />
         ))}
       </div>
     </div>
   );
 }
 
-function InvoiceCard({ invoice, onOpen }: { invoice: InvoiceWithDetails; onOpen: () => void }) {
-  const next = recommendInvoiceAction(invoice);
+function InvoiceCard({
+  invoice, smtpReady, onOpen, onSend,
+}: {
+  invoice: InvoiceWithDetails;
+  smtpReady: boolean | null;
+  onOpen: () => void;
+  onSend: (invoiceId: string) => void;
+}) {
+  const next = recommendInvoiceAction(invoiceActionContext(invoice, { smtpReady }));
   const overdue = next.status === 'overdue';
   return (
     <div
@@ -344,7 +414,7 @@ function InvoiceCard({ invoice, onOpen }: { invoice: InvoiceWithDetails; onOpen:
           {next.key === 'none' ? (
             <span className="ops-next-control-done">{next.label}</span>
           ) : (
-            <InvoiceNextControl invoice={invoice} />
+            <InvoiceNextControl invoice={invoice} smtpReady={smtpReady} onSend={onSend} />
           )}
         </div>
         {invoice.client_name && <p className="ops-meta mt-2 truncate">{invoice.client_name}</p>}
@@ -358,22 +428,41 @@ function InvoiceCard({ invoice, onOpen }: { invoice: InvoiceWithDetails; onOpen:
   );
 }
 
-function InvoiceNextControl({ invoice }: { invoice: InvoiceWithDetails }) {
+function InvoiceNextControl({
+  invoice, smtpReady, onSend,
+}: {
+  invoice: InvoiceWithDetails;
+  smtpReady: boolean | null;
+  onSend: (invoiceId: string) => void;
+}) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [busy, setBusy] = useState<InvoiceActionKey | null>(null);
-  const next = recommendInvoiceAction(invoice);
+  const next = recommendInvoiceAction(invoiceActionContext(invoice, { smtpReady }));
   if (next.key === 'none') return <span className="ops-next-hint">{next.label}</span>;
 
-  const patchStatus = async (status: InvoiceStatus, message: string) => {
-    setBusy(status === 'paid' ? 'mark_paid' : 'send');
+  if (next.key === 'setup_email' || next.key === 'add_email') {
+    if (!next.href) return <span className="ops-next-hint">{next.label}</span>;
+    return (
+      <Link
+        to={next.href}
+        className="ops-next-control-block"
+        title={next.detail}
+      >
+        {next.label}
+      </Link>
+    );
+  }
+
+  const patchPaid = async () => {
+    setBusy('mark_paid');
     try {
       const { error } = await supabase.from('invoices')
-        .update({ status: persistableInvoiceStatus(status), updated_at: new Date().toISOString() })
+        .update({ status: persistableInvoiceStatus('paid'), updated_at: new Date().toISOString() })
         .eq('id', invoice.id);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      showToast(message);
+      showToast('Invoice marked as paid');
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'Could not update invoice');
     } finally {
@@ -385,8 +474,8 @@ function InvoiceNextControl({ invoice }: { invoice: InvoiceWithDetails }) {
     <button
       type="button"
       onClick={() => {
-        if (next.key === 'send') void patchStatus('sent', 'Invoice marked as sent');
-        if (next.key === 'mark_paid') void patchStatus('paid', 'Invoice marked as paid');
+        if (next.key === 'send') onSend(invoice.id);
+        if (next.key === 'mark_paid') void patchPaid();
       }}
       disabled={!!busy}
       className={next.status === 'overdue' ? 'ops-next-control-bad' : 'ops-next-control-block'}
@@ -410,12 +499,14 @@ interface EditorState {
   exclusions: string[];
 }
 
-function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, onSaved }: {
+function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady, onClose, onSaved, onRequestSend }: {
   invoice: InvoiceWithDetails | null;
   presetClientId?: string | null;
   defaultTaxRate: number;
+  smtpReady: boolean | null;
   onClose: () => void;
   onSaved: (opts?: { close?: boolean; message?: string }) => void;
+  onRequestSend: (invoiceId: string) => void;
 }) {
   const { profile, company } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
@@ -444,6 +535,12 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
     inclusions: asStringList(invoice?.inclusions),
     exclusions: asStringList(invoice?.exclusions),
   });
+
+  useEffect(() => {
+    if (!invoice) return;
+    const stored = invoice.status === 'overdue' ? 'sent' : invoice.status;
+    setForm(f => (f.status === stored ? f : { ...f, status: stored }));
+  }, [invoice]);
 
   useEffect(() => {
     if (!profile?.company_id) return;
@@ -478,7 +575,13 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
     [rawSubtotal, form.tax_rate],
   );
   const { subtotal, taxAmount, total: grandTotal } = gst;
-  const next = recommendInvoiceAction({ status: form.status, due_date: form.due_date });
+  const next = recommendInvoiceAction(invoiceActionContext({
+    status: form.status,
+    due_date: form.due_date,
+    client_id: form.client_id || null,
+    client_email: selectedClient?.email,
+    line_items: form.line_items,
+  }, { smtpReady }));
   const displayStatus = next.status;
 
   const previewData = useMemo((): CommercialPdfData | null => {
@@ -560,9 +663,9 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
     }
   };
 
-  const persist = async (status: InvoiceStatus, opts?: { close?: boolean; message?: string }) => {
-    if (!profile?.company_id) return;
-    if (!form.client_id) { setErr('Please select a client'); return; }
+  const persist = async (status: InvoiceStatus, opts?: { close?: boolean; message?: string }): Promise<string | null> => {
+    if (!profile?.company_id) return null;
+    if (!form.client_id) { setErr('Please select a client'); return null; }
     const cleanLines: InvoiceLineItem[] = form.line_items
       .filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0)
       .map(li => ({
@@ -576,7 +679,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
         cost_model_id: li.cost_model_id ?? null,
       }));
-    if (cleanLines.length === 0) { setErr('Add at least one line item'); return; }
+    if (cleanLines.length === 0) { setErr('Add at least one line item'); return null; }
     setSaving(true); setErr('');
     const storedStatus = persistableInvoiceStatus(status);
     const payload = {
@@ -602,14 +705,14 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
       if (error) {
         if (error.code === '23505') {
           setErr('An invoice already exists for this quote');
-          return;
+          return null;
         }
         setErr(error.message);
-        return;
+        return null;
       }
       setForm(f => ({ ...f, status: storedStatus }));
       onSaved({ close: opts?.close ?? false, message: opts?.message ?? 'Invoice updated' });
-      return;
+      return id;
     }
     const { data, error } = await supabase.from('invoices').insert({
       ...payload,
@@ -621,14 +724,21 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
     if (error) {
       if (error.code === '23505') {
         setErr('An invoice already exists for this quote');
-        return;
+        return null;
       }
       setErr(error.message);
-      return;
+      return null;
     }
     setSavedId(data.id as string);
     setForm(f => ({ ...f, status: storedStatus }));
     onSaved({ close: opts?.close ?? true, message: opts?.message ?? 'Invoice created' });
+    return data.id as string;
+  };
+
+  const startSend = async () => {
+    const keep = form.status === 'paid' ? 'paid' : form.status === 'sent' ? 'sent' : 'draft';
+    const id = await persist(keep, { close: false, message: '' });
+    if (id) onRequestSend(id);
   };
 
   return (
@@ -665,9 +775,19 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
           {next.key !== 'none' && (
             <div className="pb-3">
               {next.key === 'send' && (
-                <ActionButton recommended onClick={() => void persist('sent', { close: false, message: 'Invoice marked as sent' })} disabled={saving}>
+                <ActionButton recommended onClick={() => void startSend()} disabled={saving}>
                   <Send size={14} /> {saving ? 'Saving...' : 'Send'}
                 </ActionButton>
+              )}
+              {next.key === 'setup_email' && next.href && (
+                <Link to={next.href} className="ops-next-control-block" title={next.detail}>
+                  Set up email
+                </Link>
+              )}
+              {next.key === 'add_email' && next.href && (
+                <Link to={next.href} className="ops-next-control-block" title={next.detail}>
+                  Add client email
+                </Link>
               )}
               {next.key === 'mark_paid' && (
                 <ActionButton recommended onClick={() => void persist('paid', { close: false, message: 'Invoice marked as paid' })} disabled={saving}>
@@ -790,9 +910,19 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, onClose, 
 
         <div className="ops-sticky flex flex-col gap-2">
           {next.key === 'send' && (
-            <ActionButton recommended onClick={() => void persist('sent', { close: false, message: 'Invoice marked as sent' })} disabled={saving}>
+            <ActionButton recommended onClick={() => void startSend()} disabled={saving}>
               <Send size={14} /> {saving ? 'Saving...' : 'Send'}
             </ActionButton>
+          )}
+          {next.key === 'setup_email' && next.href && (
+            <Link to={next.href} className="ops-next-control-block" title={next.detail}>
+              Set up email
+            </Link>
+          )}
+          {next.key === 'add_email' && next.href && (
+            <Link to={next.href} className="ops-next-control-block" title={next.detail}>
+              Add client email
+            </Link>
           )}
           {next.key === 'mark_paid' && (
             <ActionButton recommended onClick={() => void persist('paid', { close: false, message: 'Invoice marked as paid' })} disabled={saving}>
