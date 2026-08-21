@@ -64,9 +64,14 @@ describe('invoice send deliver path', () => {
     expect(INVOICE_SEND_PIPE.join(' ')).toMatch(/xero-accounting/);
     expect(deliver).toContain('pushInvoiceToXeroAfterSend');
     expect(deliver).toContain('sendSucceeded: true');
-    expect(deliver.indexOf("invoke('job-reminder'")).toBeLessThan(deliver.indexOf('pushInvoiceToXeroAfterSend'));
-    expect(deliver.lastIndexOf("if (!data?.sent)")).toBeLessThan(deliver.indexOf('pushInvoiceToXeroAfterSend'));
-    expect(deliver.indexOf('return { ok: true, to, markedSent: true')).toBeGreaterThan(deliver.indexOf('pushInvoiceToXeroAfterSend'));
+    const jobInvoke = deliver.indexOf("invoke('job-reminder'");
+    const sentCheck = deliver.lastIndexOf("if (!data?.sent)");
+    const xeroAfterSend = deliver.lastIndexOf('pushInvoiceToXeroAfterSend');
+    const sendOk = deliver.indexOf('return { ok: true, to, markedSent: true');
+    expect(jobInvoke).toBeGreaterThan(-1);
+    expect(xeroAfterSend).toBeGreaterThan(sentCheck);
+    expect(xeroAfterSend).toBeGreaterThan(jobInvoke);
+    expect(sendOk).toBeGreaterThan(xeroAfterSend);
   });
 
   it('chase look stays on the signed Send sheet — one 44px Send again, Mark paid in …', () => {
