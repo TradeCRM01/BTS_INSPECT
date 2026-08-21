@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { COMPANY_EMAIL_SETTINGS_HREF } from './sendInvoice';
 import { jobClientEmailRow, jobClientEmailToStore } from './saveJobClientEmail';
 import {
   decideReportSend,
@@ -506,7 +505,7 @@ describe('report-send attach client — wiring', () => {
     expect(invoiceDialog).not.toContain('attachReportClient');
     expect(invoiceDialog).toContain('Open client');
     expect(invoiceDialog).toContain('Company settings');
-    expect(send).toContain(COMPANY_EMAIL_SETTINGS_HREF);
+    expect(send).toContain('href: COMPANY_EMAIL_SETTINGS_HREF');
   });
 
   it('keeps Flameboy look shots for pick, after-attach no-email, no-clients, and linked', () => {

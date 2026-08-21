@@ -112,14 +112,17 @@ export async function attachReportClient(input: {
     if (error) throw error;
     return { target: 'job', jobId: decision.jobId, clientId: decision.clientId };
   }
-  const { error } = await supabase
-    .from('inspections')
-    .update({ client_id: decision.clientId })
-    .eq('id', decision.inspectionId);
-  if (error) throw error;
-  return {
-    target: 'inspection',
-    inspectionId: decision.inspectionId,
-    clientId: decision.clientId,
-  };
+  if (decision.target === 'inspection') {
+    const { error } = await supabase
+      .from('inspections')
+      .update({ client_id: decision.clientId })
+      .eq('id', decision.inspectionId);
+    if (error) throw error;
+    return {
+      target: 'inspection',
+      inspectionId: decision.inspectionId,
+      clientId: decision.clientId,
+    };
+  }
+  throw new Error(REPORT_CLIENT_ATTACH_NO_TARGET);
 }
