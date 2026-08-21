@@ -9,6 +9,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, OpsDocHead, PageError } from '../components/ui';
 import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { parseCrewSignOns, type JhaCrewMember } from '../types/jha';
+import { livingJobSite } from '../lib/livingJha';
 
 export function JhaCrewSignPage() {
   const [params] = useSearchParams();
@@ -27,13 +28,27 @@ export function JhaCrewSignPage() {
     queryFn: async () => {
       const { data, error: qErr } = await supabase
         .from('jha_documents')
-        .select('id, meta, status, report_number, template_snapshot, company_id')
+        .select('id, meta, status, report_number, template_snapshot, company_id, job_id')
         .eq('id', docId!)
         .maybeSingle();
       if (qErr) throw qErr;
       return data;
     },
     enabled: !!docId,
+  });
+
+  const { data: boundJob } = useQuery({
+    queryKey: ['jha-sign-job', doc?.job_id],
+    queryFn: async () => {
+      const { data, error: jobErr } = await supabase
+        .from('jobs')
+        .select('id, title, address')
+        .eq('id', doc!.job_id!)
+        .maybeSingle();
+      if (jobErr) throw jobErr;
+      return data;
+    },
+    enabled: !!doc?.job_id,
   });
 
   const crew = parseCrewSignOns((doc?.meta as Record<string, string> | undefined)?.crewSignOns);
@@ -88,6 +103,7 @@ export function JhaCrewSignPage() {
       setDone(true);
       queryClient.invalidateQueries({ queryKey: ['jha-document', doc.id] });
       queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
+      if (doc.job_id) queryClient.invalidateQueries({ queryKey: ['job-jhas', doc.job_id] });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save signature');
     } finally {
@@ -120,19 +136,23 @@ export function JhaCrewSignPage() {
   }
 
   const meta = doc.meta as Record<string, string>;
+  const livingSite = livingJobSite(boundJob) || meta.siteName;
 
   return (
     <AppShell>
       <div className="max-w-[640px] mx-auto px-4 py-6">
-        <Link to={docId ? `/jha/new?docId=${docId}` : '/jha'} className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] mb-4 min-h-[44px]">
-          <ChevronLeft size={16} /> Back to JHA
+        <Link
+          to={doc.job_id ? `/jobs/${doc.job_id}` : (docId ? `/jha/new?docId=${docId}` : '/jha')}
+          className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] mb-4 min-h-[44px]"
+        >
+          <ChevronLeft size={16} /> {doc.job_id ? 'Back to job' : 'Back to JHA'}
         </Link>
 
         <article className="ops-card overflow-hidden mb-4">
           <OpsDocHead
             kind="JHA"
             id={doc.report_number || 'Draft'}
-            meta={[meta.taskName, meta.siteName].filter(Boolean).join(' · ') || 'Crew sign-on'}
+            meta={[meta.taskName, livingSite].filter(Boolean).join(' · ') || 'Crew sign-on'}
           />
           <div className="ops-card-body space-y-4">
             <p className="text-sm font-semibold text-navy">Sign onto this JHA</p>

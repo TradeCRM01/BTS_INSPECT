@@ -14,6 +14,7 @@ import {
 } from '../components/crm/BoardViews';
 import { pickEmployeeColor } from '../lib/jobColors';
 import { rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
+import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
 import {
@@ -189,11 +190,15 @@ export function SchedulePage() {
       };
       const { error } = await supabase.from('jobs').update(updates).eq('id', jobId);
       if (error) throw error;
+      if (updates.assigned_team) {
+        await persistLivingJobOnBoundJhas(jobId);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['job'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
+      queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
     },
   });
 

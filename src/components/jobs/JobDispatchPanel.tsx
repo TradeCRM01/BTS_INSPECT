@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { useToast } from '../ui';
 import type { Job } from '../../types/crm';
 
@@ -30,11 +31,16 @@ export function JobDispatchPanel({
         .update({ ...patch, updated_at: new Date().toISOString() })
         .eq('id', job.id);
       if (error) throw error;
+      if ('assigned_team' in patch || 'address' in patch) {
+        await persistLivingJobOnBoundJhas(job.id);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job', job.id] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
+      queryClient.invalidateQueries({ queryKey: ['job-jhas', job.id] });
+      queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
     },
     onError: (e: Error) => showToast(e.message),
   });

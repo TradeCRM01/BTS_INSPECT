@@ -19,7 +19,8 @@ import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { recommendJobAction } from '../lib/jobNextAction';
-import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel } from '../lib/jhaNextAction';
+import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel, recommendJhaListAction } from '../lib/jhaNextAction';
+import { livingSwmsSummary } from '../lib/livingJha';
 import { inspectionStatusClass, inspectionStatusLabel } from '../lib/inspectionNextAction';
 import { withInspectionDueNext } from '../lib/inspectionDueReminder';
 import type { TemplateSchema } from '../types/template';
@@ -27,7 +28,7 @@ import { clientRecordHref } from '../lib/clientRecords';
 import {
   Calendar, Clock, User, Phone, Mail, Edit3, ChevronDown,
   FileText, ShieldCheck, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
-  Play, Square,
+  Play, Square, MoreHorizontal,
 } from 'lucide-react';
 import {
   buildJobClockOnEntry,
@@ -56,6 +57,7 @@ type JobJha = {
   created_at: string;
   template_snapshot: { name?: string } | null;
   meta: Record<string, string> | null;
+  steps?: Array<{ hazards?: string | null; description?: string | null }> | null;
 };
 
 type JobQuote = {
@@ -231,7 +233,7 @@ export function JobDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('jha_documents')
-        .select('id, status, report_number, created_at, template_snapshot, meta')
+        .select('id, status, report_number, created_at, template_snapshot, meta, steps')
         .eq('job_id', id!)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -485,6 +487,7 @@ export function JobDetailPage() {
       return;
     }
     setShowJhaPicker(open => !open);
+    scrollToId('job-swms');
   };
 
   const handleInvoice = () => {
@@ -649,25 +652,27 @@ export function JobDetailPage() {
               >
                 <Calendar size={14} /> Schedule / crew
               </ActionButton>
-              <div className="relative">
-                <ActionButton recommended={false} onClick={startJha}>
-                  <ShieldCheck size={14} /> Start JHA
-                </ActionButton>
-                {showJhaPicker && (jhaTemplates ?? []).length > 1 && (
-                  <div className="absolute z-20 mt-1 w-64 bg-white border border-rule rounded-lg py-1">
-                    {(jhaTemplates ?? []).map(t => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => navigate(jhaStartHref(t.id))}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-zebra"
-                      >
-                        {t.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {(jhas ?? []).length > 0 && (
+                <div className="relative">
+                  <ActionButton recommended={false} onClick={startJha}>
+                    <ShieldCheck size={14} /> Another JHA
+                  </ActionButton>
+                  {showJhaPicker && (jhaTemplates ?? []).length > 1 && (
+                    <div className="absolute z-20 mt-1 w-64 bg-white border border-rule rounded-lg py-1">
+                      {(jhaTemplates ?? []).map(t => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => navigate(jhaStartHref(t.id))}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-zebra"
+                        >
+                          {t.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <Link to={inspectHref} className={actionClass(false)}>
                 <ClipboardList size={14} /> Start inspection
               </Link>
@@ -782,32 +787,104 @@ export function JobDetailPage() {
             })}
           </JobRelatedSection>
 
+          <div id="job-swms">
           <JobRelatedSection
-            title="JHAs"
+            title="JHA / SWMS"
             icon={ShieldCheck}
             count={(jhas ?? []).length}
-            emptyTitle="Do the JHA before anyone starts on site."
+            action={(jhas ?? []).length > 0 ? (
+              <details className="job-swms-more">
+                <summary aria-label="More">
+                  <MoreHorizontal size={16} />
+                </summary>
+                <div className="job-swms-more-menu">
+                  {(jhaTemplates ?? []).length <= 1 ? (
+                    <button type="button" onClick={startJha}>Another JHA</button>
+                  ) : (
+                    (jhaTemplates ?? []).map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => navigate(jhaStartHref(t.id))}
+                      >
+                        {t.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </details>
+            ) : undefined}
+            emptyTitle="No JHA/SWMS on this job"
             emptyAction={
-              <button type="button" onClick={startJha} className="ops-link">
-                Start JHA
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={startJha}
+                  className="btn-primary"
+                >
+                  Start JHA / SWMS
+                </button>
+                {showJhaPicker && (jhaTemplates ?? []).length > 1 && (jhas ?? []).length === 0 && (
+                  <div className="job-swms-picker">
+                    {(jhaTemplates ?? []).map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => navigate(jhaStartHref(t.id))}
+                      >
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             }
           >
-            {(jhas ?? []).map(doc => {
-              const title = doc.meta?.siteName || doc.meta?.taskName || doc.template_snapshot?.name || 'JHA';
-              const hint = jhaCardHint(jhaListContext(doc));
+            {(jhas ?? []).map((doc, index) => {
+              const living = livingSwmsSummary({
+                meta: doc.meta,
+                steps: doc.steps,
+                job,
+                members: teamMembers ?? [],
+              });
+              const href = `/jha/new?docId=${doc.id}`;
+              const ctx = jhaListContext({
+                status: doc.status,
+                meta: living.meta,
+                job_title: job.title,
+                job_address: job.address,
+                livingSite: living.site,
+                livingCrew: living.crew,
+              });
+              const nextOnDoc = recommendJhaListAction(ctx);
+              const title = doc.meta?.documentTitle || doc.meta?.taskName || doc.template_snapshot?.name || 'JHA / SWMS';
+              const metaBits = [
+                living.site || 'Site follows this job',
+                living.crewLabel || 'Crew follows this job',
+                living.hazardLabel || 'No hazards on this document',
+                doc.report_number,
+                format(new Date(doc.created_at), 'd MMM yyyy'),
+              ];
               return (
                 <JobRelatedRow
                   key={doc.id}
-                  href={`/jha/new?docId=${doc.id}`}
+                  href={href}
                   icon={ShieldCheck}
                   title={title}
-                  meta={[doc.report_number, hint, format(new Date(doc.created_at), 'd MMM yyyy')].filter(Boolean).join(' · ')}
+                  meta={metaBits.filter(Boolean).join(' · ')}
                   trailing={<OpsStatus className={jhaStatusClass(doc.status)}>{jhaStatusLabel(doc.status)}</OpsStatus>}
+                  action={
+                    index === 0 ? (
+                      <Link to={href} className="btn-primary shrink-0">
+                        {jhaCardHint(ctx) === 'Open' ? 'Open SWMS' : nextOnDoc.label}
+                      </Link>
+                    ) : undefined
+                  }
                 />
               );
             })}
           </JobRelatedSection>
+          </div>
 
           <JobRelatedSection
             title="Quotes"
@@ -997,6 +1074,8 @@ export function JobDetailPage() {
             queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
             queryClient.invalidateQueries({ queryKey: ['jobs'] });
             queryClient.invalidateQueries({ queryKey: ['job-children', id] });
+            queryClient.invalidateQueries({ queryKey: ['job-jhas', id] });
+            queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
             showToast('Job updated');
           }}
         />

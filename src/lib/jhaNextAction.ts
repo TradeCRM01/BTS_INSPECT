@@ -146,11 +146,14 @@ export function jhaListContext(doc: {
   meta?: Record<string, string> | null;
   job_title?: string | null;
   job_address?: string | null;
+  livingSite?: string | null;
+  livingCrew?: JhaCrewMember[];
 }): JhaListActionContext {
-  const crew: JhaCrewMember[] = parseCrewSignOns(doc.meta?.crewSignOns);
+  const crew: JhaCrewMember[] = doc.livingCrew ?? parseCrewSignOns(doc.meta?.crewSignOns);
   return {
     status: doc.status,
     hasSite: jhaHasSiteIdentity([
+      doc.livingSite,
       doc.meta?.siteName,
       doc.job_address,
       doc.job_title,
