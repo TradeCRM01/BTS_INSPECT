@@ -160,6 +160,14 @@ describe('decideInvoiceSend', () => {
     expect(decision.to).toBe('jane@acme.com.au');
   });
 
+  it('still allows Send again on an overdue invoice — same pipe, no new chase', () => {
+    const decision = decideInvoiceSend(bundle({ invoice: { ...invoice, status: 'overdue' } }));
+    expect(decision.ok).toBe(true);
+    if (!decision.ok) return;
+    expect(decision.to).toBe('jane@acme.com.au');
+    expect(decision.subject).toBe('Invoice #0018 from BTS Electrical');
+  });
+
   it('still emails when the client has no phone — SMS is an honest miss, not a blocker', () => {
     const decision = decideInvoiceSend(bundle({ client: { ...client, phone: null } }));
     expect(decision.ok).toBe(true);
@@ -207,6 +215,8 @@ describe('invoiceStatusAfterSend', () => {
   it('marks sent only when delivery succeeded', () => {
     expect(invoiceStatusAfterSend(true, 'draft')).toBe('sent');
     expect(invoiceStatusAfterSend(false, 'draft')).toBe('draft');
+    expect(invoiceStatusAfterSend(true, 'overdue')).toBe('sent');
+    expect(invoiceStatusAfterSend(false, 'overdue')).toBe('overdue');
     expect(invoiceStatusPatchAfterSend(true)).toEqual({ status: 'sent' });
     expect(invoiceStatusPatchAfterSend(false)).toBeNull();
     expect(shouldRecordInvoiceSent(true, 'draft')).toBe(true);

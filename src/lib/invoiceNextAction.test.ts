@@ -3,6 +3,7 @@ import {
   invoiceActionContext,
   invoiceCardHint,
   invoiceListBucket,
+  invoiceOverflowPaidAction,
   recommendInvoiceAction,
 } from './invoiceNextAction';
 
@@ -58,17 +59,40 @@ describe('recommendInvoiceAction', () => {
     expect(recommendInvoiceAction({ ...readyDraft, hasLines: false }, now).label).toBe('Add line items');
   });
 
-  it('marks paid after send — overdue is still mark paid', () => {
+  it('sends again when overdue — mark paid recedes to overflow', () => {
+    const overdue = { ...readyDraft, status: 'sent', due_date: '2026-08-19' };
     expect(recommendInvoiceAction({ status: 'sent', due_date: '2026-08-21' }, now)).toMatchObject({
       key: 'mark_paid',
       detail: 'Invoice was sent. Waiting on payment.',
     });
-    expect(recommendInvoiceAction({ status: 'sent', due_date: '2026-08-19' }, now)).toMatchObject({
-      key: 'mark_paid',
+    expect(recommendInvoiceAction(overdue, now)).toMatchObject({
+      key: 'send',
+      label: 'Send again',
       status: 'overdue',
-      detail: 'This invoice is overdue.',
     });
+    expect(recommendInvoiceAction(overdue, now).detail).toMatch(/overdue/i);
+    expect(invoiceOverflowPaidAction(overdue, now)).toMatchObject({
+      key: 'mark_paid',
+      label: 'Mark paid',
+      status: 'overdue',
+    });
+    expect(invoiceOverflowPaidAction({ status: 'sent', due_date: '2026-08-21' }, now)).toBeNull();
     expect(recommendInvoiceAction({ status: 'paid', due_date: '2026-08-01' }, now).key).toBe('none');
+  });
+
+  it('is honest on overdue when email is not ready — mark paid stays overflow', () => {
+    const overdue = { ...readyDraft, status: 'sent', due_date: '2026-08-19' };
+    expect(recommendInvoiceAction({ ...overdue, smtpReady: false }, now)).toMatchObject({
+      key: 'setup_email',
+      label: 'Set up email',
+      status: 'overdue',
+    });
+    expect(recommendInvoiceAction({ ...overdue, hasClientEmail: false }, now)).toMatchObject({
+      key: 'add_email',
+      label: 'Add client email',
+      status: 'overdue',
+    });
+    expect(invoiceOverflowPaidAction({ ...overdue, smtpReady: false }, now)?.key).toBe('mark_paid');
   });
 
   it('does not treat unknown SMTP / email as a miss while they are still loading', () => {
@@ -109,6 +133,7 @@ describe('invoiceActionContext / invoiceCardHint', () => {
 
   it('uses the next action label, not a spreadsheet status', () => {
     expect(invoiceCardHint({ status: 'sent', due_date: '2026-08-21' }, now)).toBe('Mark paid');
+    expect(invoiceCardHint({ ...readyDraft, status: 'sent', due_date: '2026-08-19' }, now)).toBe('Send again');
     expect(invoiceCardHint({ status: 'paid' }, now)).toBe('Paid');
   });
 });

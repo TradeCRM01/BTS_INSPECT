@@ -13,6 +13,7 @@ describe('invoice send deliver path', () => {
     const deliver = readFileSync(resolve(process.cwd(), 'src/lib/sendInvoiceDeliver.ts'), 'utf8');
     const dialog = readFileSync(resolve(process.cwd(), 'src/components/invoicing/InvoiceSendDialog.tsx'), 'utf8');
     const page = readFileSync(resolve(process.cwd(), 'src/pages/InvoicesPage.tsx'), 'utf8');
+    const nextAction = readFileSync(resolve(process.cwd(), 'src/lib/invoiceNextAction.ts'), 'utf8');
     const edge = readFileSync(resolve(process.cwd(), 'supabase/functions/job-reminder/index.ts'), 'utf8');
 
     expect(deliver).toContain("invoke('job-reminder'");
@@ -23,8 +24,14 @@ describe('invoice send deliver path', () => {
     expect(dialog).not.toContain('QuoteSend');
     expect(dialog).not.toContain('send-quote');
     expect(page).toContain('InvoiceSendDialog');
+    expect(page).toContain('invoiceOverflowPaidAction');
+    expect(page).toContain('Send again');
+    expect(nextAction).toContain("label: 'Send again'");
+    expect(nextAction).toContain('invoiceOverflowPaidAction');
     expect(page).not.toContain('QuoteSendDialog');
     expect(page).not.toContain('send-quote');
+    expect(page).not.toContain('InvoiceChase');
+    expect(page).not.toContain('ChaseDialog');
     expect(edge).toContain('invoiceId');
     expect(edge).toContain('from("invoices")');
     expect(edge).toContain('api.resend.com/emails');
