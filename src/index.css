@@ -1024,6 +1024,174 @@
     text-decoration: none;
   }
 
+  /* Due-test override tray on the fill page only. Same document grammar as the signed job-schedule reminder. */
+  #inspection-due {
+    --job-page: #F4F6F8;
+    --job-sheet: #FFFFFF;
+    --job-ink: #0A2540;
+    --job-muted: #5B6B7C;
+    --job-line: #D5DCE3;
+    --job-action: #2E75B6;
+    font-family: Inter, system-ui, sans-serif;
+    color: var(--job-ink);
+    background: var(--job-sheet);
+    border: 1px solid var(--job-line);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: none;
+    margin-bottom: 16px;
+  }
+
+  #inspection-due .ops-tray-head {
+    padding: 16px;
+    border-bottom: 1px solid var(--job-line);
+    background: transparent;
+  }
+
+  #inspection-due .ops-section-title {
+    font-size: 14px;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--job-ink);
+  }
+
+  #inspection-due .ops-field-label {
+    color: var(--job-muted);
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+
+  #inspection-due .form-input,
+  #inspection-due .form-input:focus {
+    height: 44px;
+    min-height: 44px;
+    background: var(--job-sheet);
+    color: var(--job-ink);
+    border: 1px solid var(--job-line);
+    border-radius: 12px;
+    box-shadow: none;
+    outline: none;
+    --tw-ring-shadow: 0 0 #0000;
+    font-size: 14px;
+  }
+
+  #inspection-due .form-input:focus {
+    border-color: var(--job-action);
+  }
+
+  #inspection-due .form-input::placeholder {
+    color: var(--job-muted);
+  }
+
+  #inspection-due .btn-primary {
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    transform: none;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  #inspection-due .btn-primary:hover {
+    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+    color: #fff;
+  }
+
+  #inspection-due .btn-primary:active {
+    transform: none;
+  }
+
+  #inspection-due .btn-primary:disabled {
+    opacity: 0.45;
+  }
+
+  #inspection-due .job-reminder-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  #inspection-due .job-reminder-meta {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--job-muted);
+  }
+
+  #inspection-due .job-reminder-miss {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--job-ink);
+  }
+
+  #inspection-due .job-reminder-act {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #inspection-due .job-reminder-more {
+    position: relative;
+  }
+
+  #inspection-due .job-reminder-more > summary {
+    list-style: none;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: var(--job-muted);
+    cursor: pointer;
+    background: none;
+    border: none;
+    box-shadow: none;
+    user-select: none;
+  }
+
+  #inspection-due .job-reminder-more > summary::-webkit-details-marker,
+  #inspection-due .job-reminder-more > summary::marker {
+    display: none;
+    content: '';
+  }
+
+  #inspection-due .job-reminder-more-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 6;
+    min-width: 200px;
+    padding: 8px;
+    background: var(--job-sheet);
+    border: 1px solid var(--job-line);
+    border-radius: 16px;
+    box-shadow: none;
+  }
+
+  #inspection-due .job-reminder-more-menu a {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 12px;
+    color: var(--job-ink);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
   /* ── App chrome (navy Looplet craft: hairlines, no mega-menu shadow) ─ */
   .shell-header {
     @apply bg-navy text-white sticky top-0 z-40 flex-shrink-0 border-b border-white/10;

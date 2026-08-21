@@ -321,7 +321,7 @@ export function clientInspectionQuery(jobIds: string[]): HubQueryScope | null {
   if (jobIds.length === 0) return null;
   return {
     table: 'inspections',
-    columns: 'id, status, started_at, template_snapshot, crm_job_id, meta, responses',
+    columns: 'id, status, started_at, template_snapshot, crm_job_id, meta, responses, due_on',
     eq: {},
     inFilters: { crm_job_id: jobIds },
   };

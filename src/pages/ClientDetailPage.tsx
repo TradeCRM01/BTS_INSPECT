@@ -26,6 +26,7 @@ import {
   inspectionOpenPath,
   recommendInspectionListAction,
 } from '../lib/inspectionNextAction';
+import { withInspectionDueNext } from '../lib/inspectionDueReminder';
 import type { TemplateSchema } from '../types/template';
 import {
   applyHubScope,
@@ -66,6 +67,7 @@ type ClientInspection = {
   meta: Record<string, string> | null;
   responses: Record<string, unknown> | null;
   template_snapshot: { name?: string; schema?: TemplateSchema } | null;
+  due_on?: string | null;
 };
 
 function padNum(n: number | null | undefined): string {
@@ -334,7 +336,7 @@ export function ClientDetailPage() {
           >
             {(inspections ?? []).map(insp => {
               const job = insp.crm_job_id ? jobById.get(insp.crm_job_id) : undefined;
-              const next = recommendInspectionListAction(inspectionListContext({
+              const recommended = recommendInspectionListAction(inspectionListContext({
                 status: insp.status,
                 meta: insp.meta,
                 job_title: job?.title ?? null,
@@ -342,10 +344,23 @@ export function ClientDetailPage() {
                 template_snapshot: insp.template_snapshot,
                 responses: insp.responses,
               }));
+              const next = withInspectionDueNext(
+                insp,
+                job ? {
+                  id: job.id,
+                  company_id: job.company_id,
+                  client_id: job.client_id,
+                  scheduled_date: job.scheduled_date,
+                  job_number: job.job_number,
+                  title: job.title,
+                  address: job.address,
+                } : null,
+                { href: inspectionOpenPath(insp.id, recommended.key), label: recommended.label, actionable: true },
+              );
               return (
                 <JobRelatedRow
                   key={insp.id}
-                  href={inspectionOpenPath(insp.id, next.key)}
+                  href={next.href}
                   icon={ClipboardList}
                   title={insp.template_snapshot?.name ?? 'Inspection'}
                   meta={[
@@ -353,7 +368,7 @@ export function ClientDetailPage() {
                     format(new Date(insp.started_at), 'd MMM yyyy'),
                   ].filter(Boolean).join(' · ')}
                   action={
-                    <Link to={inspectionOpenPath(insp.id, next.key)} className={nextQuiet}>
+                    <Link to={next.href} className={nextQuiet}>
                       {next.label}
                     </Link>
                   }

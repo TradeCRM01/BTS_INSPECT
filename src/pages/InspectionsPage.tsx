@@ -22,6 +22,7 @@ import {
   inspectionStatusLabel,
   recommendInspectionListAction,
 } from '../lib/inspectionNextAction';
+import { withInspectionDueNext } from '../lib/inspectionDueReminder';
 
 interface Inspection {
   id: string;
@@ -39,6 +40,10 @@ interface Inspection {
   job_title?: string | null;
   job_address?: string | null;
   job_number?: number | null;
+  job_scheduled_date?: string | null;
+  job_company_id?: string | null;
+  job_client_id?: string | null;
+  due_on?: string | null;
 }
 
 const ArchiveMenu = memo(function ArchiveMenu({ inspection, onToggle, onDelete, onAddInspection, onSendToDrive, isAdmin, isDeleting }: {
@@ -218,7 +223,7 @@ export function InspectionsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inspections')
-        .select('id, status, meta, started_at, completed_at, template_snapshot, inspector_id, archived, parent_inspection_id, crm_job_id, responses')
+        .select('id, status, meta, started_at, completed_at, template_snapshot, inspector_id, archived, parent_inspection_id, crm_job_id, responses, due_on')
         .order('started_at', { ascending: false });
       if (error) throw error;
 
@@ -230,7 +235,7 @@ export function InspectionsPage() {
           ? supabase.from('profiles').select('id, name').in('id', inspectorIds)
           : Promise.resolve({ data: [], error: null }),
         jobIds.length
-          ? supabase.from('jobs').select('id, title, address, job_number').in('id', jobIds)
+          ? supabase.from('jobs').select('id, title, address, job_number, scheduled_date, company_id, client_id').in('id', jobIds)
           : Promise.resolve({ data: [], error: null }),
       ]);
       const nameMap = Object.fromEntries((profilesRes.data ?? []).map(p => [p.id, p.name]));
@@ -248,6 +253,9 @@ export function InspectionsPage() {
         job_title: i.crm_job_id ? jobMap.get(i.crm_job_id)?.title ?? null : null,
         job_address: i.crm_job_id ? jobMap.get(i.crm_job_id)?.address ?? null : null,
         job_number: i.crm_job_id ? jobMap.get(i.crm_job_id)?.job_number ?? null : null,
+        job_scheduled_date: i.crm_job_id ? jobMap.get(i.crm_job_id)?.scheduled_date ?? null : null,
+        job_company_id: i.crm_job_id ? jobMap.get(i.crm_job_id)?.company_id ?? null : null,
+        job_client_id: i.crm_job_id ? jobMap.get(i.crm_job_id)?.client_id ?? null : null,
       })) as Inspection[];
     },
     enabled: !!profile,
@@ -643,8 +651,19 @@ function InspectionCard({
   onSendToDrive: () => void;
   deleting: boolean;
 }) {
-  const next = recommendInspectionListAction(inspectionListContext(doc));
-  const href = inspectionOpenPath(doc.id, next.key);
+  const recommended = recommendInspectionListAction(inspectionListContext(doc));
+  const next = withInspectionDueNext(
+    doc,
+    doc.crm_job_id ? {
+      id: doc.crm_job_id,
+      company_id: doc.job_company_id ?? '',
+      client_id: doc.job_client_id ?? null,
+      scheduled_date: doc.job_scheduled_date ?? null,
+      job_number: doc.job_number ?? null,
+    } : null,
+    { href: inspectionOpenPath(doc.id, recommended.key), label: recommended.label, actionable: true },
+  );
+  const href = next.href;
   const site = opsSiteLabel(doc.meta?.siteName, doc.meta?.siteAddress, doc.job_address, doc.job_title);
   const title = doc.template_snapshot?.name || 'Inspection';
   const when = format(parseISO(doc.completed_at || doc.started_at), 'd MMM yyyy');
