@@ -82,16 +82,49 @@ export function InvoiceSendDialog({
   const invoiceLabel = bundle?.invoice
     ? `Invoice #${padInvoiceNumber(bundle.invoice.invoice_number)}`
     : '';
+  const pdfName = ready && decision.ok
+    ? (bundle?.existingPdf?.filename ?? decision.filename)
+    : '';
 
   return (
-    <Modal
-      open
-      onClose={onClose}
-      size="md"
-      title="Send invoice"
-      subtitle={invoiceLabel || undefined}
-      footer={(
-        <div className="flex items-center justify-between gap-2">
+    <Modal open onClose={onClose} size="md">
+      <div className="hub-invoice-send">
+        <div className="hub-invoice-send-head">
+          <div className="min-w-0">
+            <h2 className="hub-invoice-send-title">Send invoice</h2>
+            {invoiceLabel ? <p className="hub-invoice-muted mt-1">{invoiceLabel}</p> : null}
+          </div>
+        </div>
+
+        <div className="hub-invoice-send-body">
+          {loading && <p className="hub-invoice-muted">Loading send details…</p>}
+
+          {!loading && ready && decision.ok && (
+            <>
+              <div className="hub-invoice-send-field">
+                <p className="hub-invoice-kicker">To</p>
+                <p className="hub-invoice-send-value">{decision.to}</p>
+                <p className="hub-invoice-muted">{decision.toName} — already on the invoice.</p>
+              </div>
+              <div className="hub-invoice-send-field">
+                <p className="hub-invoice-kicker">Subject</p>
+                <p className="hub-invoice-send-value">{decision.subject}</p>
+              </div>
+              <div className="hub-invoice-send-field">
+                <p className="hub-invoice-kicker">PDF</p>
+                <p className="hub-invoice-pdf">{pdfName}</p>
+              </div>
+            </>
+          )}
+
+          {!loading && !ready && (
+            <p className="text-sm text-fail">{blockerMessage || err || 'This invoice cannot be sent yet.'}</p>
+          )}
+
+          {err && ready && <p className="text-sm text-fail">{err}</p>}
+        </div>
+
+        <div className="hub-invoice-send-foot">
           <button type="button" onClick={onClose} className="ops-link shrink-0">
             Cancel
           </button>
@@ -106,44 +139,6 @@ export function InvoiceSendDialog({
             </Link>
           )}
         </div>
-      )}
-    >
-      <div className="px-5 py-4 space-y-3">
-        {loading && <p className="ops-meta">Loading send details…</p>}
-
-        {!loading && ready && decision.ok && (
-          <>
-            <label className="block">
-              <span className="ops-field-label">To</span>
-              <input
-                type="email"
-                readOnly
-                value={decision.to}
-                className="form-input"
-                aria-label="Invoice recipient"
-              />
-              <p className="ops-meta mt-1">{decision.toName} — already on the invoice.</p>
-            </label>
-            <div>
-              <p className="ops-field-label">Subject</p>
-              <p className="text-sm text-navy">{decision.subject}</p>
-            </div>
-            <div>
-              <p className="ops-field-label">PDF</p>
-              <p className="ops-meta">
-                {bundle?.existingPdf?.filename
-                  ? `${bundle.existingPdf.filename} (already on file)`
-                  : decision.filename}
-              </p>
-            </div>
-          </>
-        )}
-
-        {!loading && !ready && (
-          <p className="text-sm text-fail">{blockerMessage || err || 'This invoice cannot be sent yet.'}</p>
-        )}
-
-        {err && ready && <p className="text-sm text-fail">{err}</p>}
       </div>
     </Modal>
   );

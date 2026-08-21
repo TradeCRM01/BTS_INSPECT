@@ -1,11 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, OpsDocHead, OpsFromTo, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
-import { SkeletonRow } from '../components/ui/Skeletons';
+import { PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineItem } from '../components/invoicing/LineItemEditor';
@@ -13,7 +12,6 @@ import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariat
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
 import { InvoiceSendDialog } from '../components/invoicing/InvoiceSendDialog';
-import { ActionButton } from '../components/invoicing/DocNextAction';
 import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
@@ -24,13 +22,41 @@ import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
 import { loadInvoiceEditorRow } from '../lib/sendInvoiceDeliver';
-import { INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, formatMoney } from '../types/fsm';
-import { Plus, Receipt, Download, Eye, Check, Send } from 'lucide-react';
+import { INVOICE_STATUS_LABELS, formatMoney } from '../types/fsm';
+import { Plus, Receipt, Download, X, MoreHorizontal } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 const padInv = (n: number | null) => String(n ?? 0).padStart(4, '0');
 
 type StatusFilter = 'all' | InvoiceStatus;
+
+function visibleSite(...parts: Array<string | null | undefined>): string {
+  for (const part of parts) {
+    const trimmed = part?.trim();
+    if (trimmed && trimmed !== 'No site address') return trimmed;
+  }
+  return '';
+}
+
+function invoiceTitle(invoice: { invoice_number?: number | null }): string {
+  return invoice.invoice_number != null ? `Invoice #${padInv(invoice.invoice_number)}` : 'Invoice';
+}
+
+function invoiceRef(invoice: { invoice_number?: number | null }): string {
+  return invoice.invoice_number != null ? `#${padInv(invoice.invoice_number)}` : 'Invoice';
+}
+
+function invoiceMoney(total: number | string | null | undefined): string | null {
+  const n = Number(total ?? 0);
+  return n > 0 ? formatMoney(n) : null;
+}
+
+function suburbFromSite(site: string): string {
+  const parts = site.split(',').map(part => part.trim()).filter(Boolean);
+  if (parts.length < 2) return site;
+  const loc = parts[1].replace(/\b(NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\b.*$/i, '').trim();
+  return loc || parts[1];
+}
 
 const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -51,7 +77,6 @@ export function InvoicesPage() {
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useViewMode('invoices');
   const invoiceIdParam = searchParams.get('id');
 
   const { data: smtpSettings } = useQuery<SmtpSettingsRow | null>({
@@ -109,18 +134,6 @@ export function InvoicesPage() {
     enabled: !!profile,
   });
 
-  const totals = useMemo(() => {
-    const list = invoices ?? [];
-    return {
-      outstanding: list.filter(i => {
-        const s = effectiveInvoiceStatus(i);
-        return s === 'sent' || s === 'overdue';
-      }).reduce((s, i) => s + Number(i.total), 0),
-      overdue: list.filter(i => effectiveInvoiceStatus(i) === 'overdue').reduce((s, i) => s + Number(i.total), 0),
-      paid: list.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total), 0),
-    };
-  }, [invoices]);
-
   const filtered = useMemo(() => {
     const list = invoices ?? [];
     return list.filter(i => {
@@ -134,21 +147,16 @@ export function InvoicesPage() {
     });
   }, [invoices, statusFilter, search]);
 
-  const overdueInvoices = filtered.filter(i => invoiceListBucket(i) === 'overdue');
-  const draftInvoices = filtered.filter(i => invoiceListBucket(i) === 'draft');
-  const awaitingInvoices = filtered.filter(i => invoiceListBucket(i) === 'awaiting');
-  const paidInvoices = filtered.filter(i => invoiceListBucket(i) === 'paid');
-
-  const counts = useMemo(() => {
-    const list = invoices ?? [];
-    return {
-      all: list.length,
-      draft: list.filter(i => effectiveInvoiceStatus(i) === 'draft').length,
-      sent: list.filter(i => effectiveInvoiceStatus(i) === 'sent').length,
-      overdue: list.filter(i => effectiveInvoiceStatus(i) === 'overdue').length,
-      paid: list.filter(i => i.status === 'paid').length,
+  const listInvoices = useMemo(() => {
+    const rank = (inv: InvoiceWithDetails) => {
+      const bucket = invoiceListBucket(inv);
+      if (bucket === 'overdue') return 0;
+      if (bucket === 'draft') return 1;
+      if (bucket === 'awaiting') return 2;
+      return 3;
     };
-  }, [invoices]);
+    return [...filtered].sort((a, b) => rank(a) - rank(b));
+  }, [filtered]);
 
   useEffect(() => {
     const invoiceId = searchParams.get('id');
@@ -200,46 +208,37 @@ export function InvoicesPage() {
 
   return (
     <AppShell>
-      <div className="ops-page">
+      <div className="ops-page hub-invoices">
         <div className="ops-page-head">
           <div>
             <h1 className="ops-page-title">Invoices</h1>
-            <p className="ops-meta mt-0.5">
-              {filtered.length} of {invoices?.length ?? 0} invoices
-            </p>
           </div>
           <button
             onClick={() => openInvoice(null)}
             className="btn-primary"
           >
-            <Plus size={16} /> New Invoice
+            <Plus size={16} /> New invoice
           </button>
         </div>
 
-        <div className="ops-due-box mb-3">
-          <span className="ops-meta font-semibold uppercase tracking-wide">Amount due</span>
-          <span className="ops-money text-lg">{isLoading ? '—' : formatMoney(totals.outstanding)}</span>
-        </div>
-
-        <div className="flex items-center gap-3 mb-3 flex-wrap">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search invoices or clients..." className="max-w-sm flex-1" />
-          <div className="ops-tabs flex-1">
+        <div className="hub-invoices-chrome">
+          <div className="hub-invoices-filters">
             {STATUS_FILTERS.map(tab => (
               <button
                 key={tab.key}
+                type="button"
                 onClick={() => setStatusFilter(tab.key)}
-                className={`ops-tab ${statusFilter === tab.key ? 'ops-tab-active' : ''}`}
+                className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
               >
                 {tab.label}
-                <span className={`ml-1.5 ${tab.key === 'overdue' && counts.overdue > 0 ? 'text-fail' : ''}`}>{counts[tab.key]}</span>
               </button>
             ))}
           </div>
-          <ViewToggle mode={viewMode} onChange={setViewMode} />
+          <SearchBar value={search} onChange={setSearch} placeholder="Search invoices or clients..." className="max-w-sm" />
         </div>
 
         {isLoading ? (
-          <SkeletonRow />
+          <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={Receipt}
@@ -249,64 +248,29 @@ export function InvoicesPage() {
               : 'Try another status or search.'}
             action={filteredEmpty ? (
               <button onClick={() => openInvoice(null)} className="btn-primary">
-                <Plus size={16} /> Create an invoice
+                <Plus size={16} /> New invoice
               </button>
             ) : undefined}
           />
-        ) : viewMode === 'grid' ? (
-          <div className="space-y-4">
-            <InvoiceGroup title="Overdue" invoices={overdueInvoices} smtpReady={smtpReady} onOpen={openInvoice} onSend={setSendingInvoiceId} />
-            <InvoiceGroup title="Drafts" invoices={draftInvoices} smtpReady={smtpReady} onOpen={openInvoice} onSend={setSendingInvoiceId} />
-            <InvoiceGroup title="Awaiting payment" invoices={awaitingInvoices} smtpReady={smtpReady} onOpen={openInvoice} onSend={setSendingInvoiceId} />
-            <InvoiceGroup title="Paid" invoices={paidInvoices} smtpReady={smtpReady} onOpen={openInvoice} onSend={setSendingInvoiceId} />
-          </div>
         ) : (
-          <div className="ops-table">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-zebra text-left ops-meta font-medium uppercase tracking-wide">
-                    <th className="px-3 py-2">Invoice #</th>
-                    <th className="px-3 py-2">Site</th>
-                    <th className="px-3 py-2">Status</th>
-                    <th className="px-3 py-2 text-right">Total (inc GST)</th>
-                    <th className="px-3 py-2">Due</th>
-                    <th className="px-3 py-2">Next</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-rule">
-                  {filtered.map(inv => {
-                    const status = effectiveInvoiceStatus(inv);
-                    return (
-                      <tr
-                        key={inv.id}
-                        onClick={() => openInvoice(inv)}
-                        className={`hover:bg-zebra cursor-pointer transition-colors ${status === 'overdue' ? 'bg-fail/5' : ''}`}
-                      >
-                        <td className="px-3 py-2 font-medium text-accent">#{padInv(inv.invoice_number)}</td>
-                        <td className="px-3 py-2">
-                          <p className="text-sm font-semibold text-navy truncate">{opsSiteLabel(inv.job_address)}</p>
-                          <p className="ops-meta truncate">{inv.client_name ?? '—'}</p>
-                        </td>
-                        <td className="px-3 py-2">
-                          <OpsStatus className={INVOICE_STATUS_STYLES[status]}>{INVOICE_STATUS_LABELS[status]}</OpsStatus>
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <span className="ops-money text-base">{formatMoney(Number(inv.total))}</span>
-                          <span className="block ops-meta">{gstLabel(Number(inv.tax_rate))} {formatMoney(Number(inv.tax_amount))}</span>
-                        </td>
-                        <td className={`px-3 py-2 ${status === 'overdue' ? 'text-fail font-semibold' : 'ops-meta'}`}>
-                          {inv.due_date ? format(parseISO(inv.due_date), 'd MMM yyyy') : '—'}
-                        </td>
-                        <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
-                          <InvoiceNextControl invoice={inv} smtpReady={smtpReady} onSend={setSendingInvoiceId} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          <div className="hub-invoices-sheet">
+            <div className="hub-invoices-thead">
+              <span>#</span>
+              <span>Customer</span>
+              <span>Suburb</span>
+              <span>Status</span>
+              <span>Total inc GST</span>
+              <span />
             </div>
+            {listInvoices.map(inv => (
+              <InvoiceHit
+                key={inv.id}
+                invoice={inv}
+                smtpReady={smtpReady}
+                onOpen={() => openInvoice(inv)}
+                onSend={setSendingInvoiceId}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -354,32 +318,7 @@ export function InvoicesPage() {
   );
 }
 
-function InvoiceGroup({
-  title, invoices, smtpReady, onOpen, onSend,
-}: {
-  title: string;
-  invoices: InvoiceWithDetails[];
-  smtpReady: boolean | null;
-  onOpen: (inv: InvoiceWithDetails) => void;
-  onSend: (invoiceId: string) => void;
-}) {
-  if (invoices.length === 0) return null;
-  return (
-    <div>
-      <h2 className={`ops-group-title ${title === 'Overdue' ? 'text-fail' : ''}`}>
-        {title}
-        <span className="normal-case font-normal"> ({invoices.length})</span>
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-        {invoices.map(inv => (
-          <InvoiceCard key={inv.id} invoice={inv} smtpReady={smtpReady} onOpen={() => onOpen(inv)} onSend={onSend} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function InvoiceCard({
+function InvoiceHit({
   invoice, smtpReady, onOpen, onSend,
 }: {
   invoice: InvoiceWithDetails;
@@ -387,43 +326,26 @@ function InvoiceCard({
   onOpen: () => void;
   onSend: (invoiceId: string) => void;
 }) {
-  const next = recommendInvoiceAction(invoiceActionContext(invoice, { smtpReady }));
-  const overdue = next.status === 'overdue';
+  const status = effectiveInvoiceStatus(invoice);
+  const site = visibleSite(invoice.job_address);
+  const suburb = site ? suburbFromSite(site) : '';
+  const money = invoiceMoney(invoice.total);
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-      className="ops-card ops-card-hover group cursor-pointer"
+      className="hub-invoices-row"
     >
-      <OpsDocHead
-        kind="Invoice"
-        id={`INV-${padInv(invoice.invoice_number)}`}
-        trailing={<OpsStatus className={INVOICE_STATUS_STYLES[next.status]}>{INVOICE_STATUS_LABELS[next.status]}</OpsStatus>}
-      />
-      <div className="ops-card-body">
-        <div className="flex items-start justify-between gap-2">
-          <OpsSiteRow site={opsSiteLabel(invoice.job_address)} />
-          <div className="shrink-0">
-            <p className="ops-money">{formatMoney(Number(invoice.total))}</p>
-            <p className="ops-meta text-right">inc GST</p>
-          </div>
-        </div>
-        <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
-          {next.key === 'none' ? (
-            <span className="ops-next-control-done">{next.label}</span>
-          ) : (
-            <InvoiceNextControl invoice={invoice} smtpReady={smtpReady} onSend={onSend} />
-          )}
-        </div>
-        {invoice.client_name && <p className="ops-meta mt-2 truncate">{invoice.client_name}</p>}
-        {invoice.due_date && (
-          <p className={`ops-meta mt-0.5 ${overdue ? 'text-fail font-semibold' : ''}`}>
-            Due {format(parseISO(invoice.due_date), 'd MMM yyyy')}
-          </p>
-        )}
-      </div>
+      <span className="hub-invoices-ref">{invoiceRef(invoice)}</span>
+      <span className="truncate">{invoice.client_name || ''}</span>
+      <span className="truncate hub-invoices-muted">{suburb}</span>
+      <span className={`hub-invoices-pill is-${status}`}>{INVOICE_STATUS_LABELS[status]}</span>
+      <span className="hub-invoices-total">{money ?? ''}</span>
+      <span className="hub-invoices-row-next" onClick={e => e.stopPropagation()}>
+        <InvoiceNextControl invoice={invoice} smtpReady={smtpReady} onSend={onSend} />
+      </span>
     </div>
   );
 }
@@ -439,14 +361,14 @@ function InvoiceNextControl({
   const { showToast } = useToast();
   const [busy, setBusy] = useState<InvoiceActionKey | null>(null);
   const next = recommendInvoiceAction(invoiceActionContext(invoice, { smtpReady }));
-  if (next.key === 'none') return <span className="ops-next-hint">{next.label}</span>;
+  if (next.key === 'none') return null;
 
   if (next.key === 'setup_email' || next.key === 'add_email') {
-    if (!next.href) return <span className="ops-next-hint">{next.label}</span>;
+    if (!next.href) return null;
     return (
       <Link
         to={next.href}
-        className="ops-next-control-block"
+        className="hub-next"
         title={next.detail}
       >
         {next.label}
@@ -478,7 +400,7 @@ function InvoiceNextControl({
         if (next.key === 'mark_paid') void patchPaid();
       }}
       disabled={!!busy}
-      className={next.status === 'overdue' ? 'ops-next-control-bad' : 'ops-next-control-block'}
+      className="hub-next"
     >
       {busy ? 'Working…' : next.label}
     </button>
@@ -517,6 +439,8 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const [importing, setImporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const moreRef = useRef<HTMLDetailsElement>(null);
   const [err, setErr] = useState('');
   const [savedId, setSavedId] = useState<string | null>(invoice?.id ?? null);
 
@@ -741,84 +665,175 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     if (id) onRequestSend(id);
   };
 
+  const editorMoney = invoiceMoney(grandTotal);
+  const editorSite = visibleSite(selectedJob?.address, selectedClient?.address);
+  const editorTitle = invoice?.invoice_number != null ? invoiceTitle(invoice) : 'New invoice';
+  const docLines = form.line_items.filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  useEffect(() => {
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    document.addEventListener('pointerdown', onPointer);
+    return () => document.removeEventListener('pointerdown', onPointer);
+  }, []);
+
   return (
     <div className="overlay-backdrop">
-      <div className="overlay-panel-xl ops-doc-panel" onClick={e => e.stopPropagation()}>
-        <OpsDocHead
-          kind="Invoice"
-          id={invoice?.invoice_number != null ? `INV-${padInv(invoice.invoice_number)}` : 'INV-DRAFT'}
-          meta={form.due_date ? `Due ${format(parseISO(form.due_date), 'd MMM yyyy')}` : undefined}
-          trailing={<OpsStatus className={INVOICE_STATUS_STYLES[displayStatus]}>{INVOICE_STATUS_LABELS[displayStatus]}</OpsStatus>}
-          onClose={onClose}
-        />
+      <div className="overlay-panel-xl hub-invoice-editor" onClick={e => e.stopPropagation()}>
+        <div className="hub-invoice-toolbar">
+          <div className="hub-invoice-editor-act">
+            {next.key === 'setup_email' && next.href && (
+              <Link to={next.href} className="btn-primary" title={next.detail}>
+                Set up email
+              </Link>
+            )}
+            {next.key === 'add_email' && next.href && (
+              <Link to={next.href} className="btn-primary" title={next.detail}>
+                Add client email
+              </Link>
+            )}
+            {next.key === 'send' && (
+              <button type="button" onClick={() => void startSend()} disabled={saving} className="btn-primary">
+                {saving ? 'Saving...' : 'Send invoice'}
+              </button>
+            )}
+            {next.key === 'mark_paid' && (
+              <button
+                type="button"
+                onClick={() => void persist('paid', { close: false, message: 'Invoice marked as paid' })}
+                disabled={saving}
+                className="btn-primary"
+              >
+                {saving ? 'Saving...' : 'Mark paid'}
+              </button>
+            )}
+            <details ref={moreRef} className="hub-invoice-more">
+              <summary aria-label="More actions">
+                <MoreHorizontal size={18} />
+              </summary>
+              <div className="hub-invoice-more-menu" role="menu">
+                {form.status !== 'paid' && next.key !== 'mark_paid' && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); void persist('paid', { close: false, message: 'Invoice marked as paid' }); }}
+                    disabled={saving}
+                  >
+                    Mark paid
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { closeMore(); setShowPreview(true); }}
+                  disabled={!previewData}
+                >
+                  Preview PDF
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { closeMore(); void persist(form.status, { close: true }); }}
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : invoice || savedId ? 'Save' : 'Save draft'}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { closeMore(); setShowEdit(true); }}
+                >
+                  Edit invoice
+                </button>
+              </div>
+            </details>
+            <button type="button" onClick={onClose} className="hub-invoice-close" aria-label="Close">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+        {err ? <p className="hub-invoice-err">{err}</p> : null}
 
-        <div className="px-4 border-b border-rule">
-          <OpsFromTo
-            fromName={company?.name ?? 'Your company'}
-            fromDetail={[company?.abn ? `ABN ${company.abn}` : null, company?.licence_number ? `Licence ${company.licence_number}` : null].filter(Boolean).join(' · ') || null}
-            toName={selectedClient?.name ?? 'Select a client'}
-            toDetail={quoteClientDetailFromClient(selectedClient, selectedJob?.address)}
-          />
-          <div className="flex items-start justify-between gap-2 py-3">
-            <OpsSiteRow
-              hub
-              site={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
-              phone={selectedClient?.phone}
-              email={selectedClient?.email}
-              mapsQuery={selectedJob?.address || selectedClient?.address}
-            />
-            <div className="shrink-0">
-              <p className="ops-money text-lg">{formatMoney(grandTotal)}</p>
-              <p className="ops-meta text-right">inc GST</p>
+        <div className="hub-invoice-sheet">
+          <div className="hub-invoice-banner">
+            <div className="hub-invoice-banner-mark">
+              <p className="hub-invoice-kicker">Invoice</p>
+              <h2 className="hub-invoice-editor-title">{editorTitle}</h2>
+              <p className="hub-invoice-banner-meta">
+                {INVOICE_STATUS_LABELS[displayStatus]}
+                {form.due_date ? ` · Due ${format(parseISO(form.due_date), 'd MMM yyyy')}` : ''}
+              </p>
             </div>
           </div>
-          {next.key !== 'none' && (
-            <div className="pb-3">
-              {next.key === 'send' && (
-                <ActionButton recommended onClick={() => void startSend()} disabled={saving}>
-                  <Send size={14} /> {saving ? 'Saving...' : 'Send'}
-                </ActionButton>
-              )}
-              {next.key === 'setup_email' && next.href && (
-                <Link to={next.href} className="ops-next-control-block" title={next.detail}>
-                  Set up email
-                </Link>
-              )}
-              {next.key === 'add_email' && next.href && (
-                <Link to={next.href} className="ops-next-control-block" title={next.detail}>
-                  Add client email
-                </Link>
-              )}
-              {next.key === 'mark_paid' && (
-                <ActionButton recommended onClick={() => void persist('paid', { close: false, message: 'Invoice marked as paid' })} disabled={saving}>
-                  <Check size={14} /> {saving ? 'Saving...' : 'Mark paid'}
-                </ActionButton>
-              )}
+
+          <div className="hub-invoice-letterhead">
+            <div className="min-w-0">
+              <p className="hub-invoice-kicker">From</p>
+              <p className="hub-invoice-from-name">{company?.name ?? 'Your company'}</p>
+              {company?.abn ? <p className="hub-invoice-muted">ABN {company.abn}</p> : null}
+              {company?.licence_number ? <p className="hub-invoice-muted">Lic {company.licence_number}</p> : null}
             </div>
-          )}
+            <div className="min-w-0">
+              <p className="hub-invoice-kicker">Bill to</p>
+              {selectedClient?.name ? <p className="hub-invoice-to-name">{selectedClient.name}</p> : null}
+              <OpsSiteRow
+                hub
+                site={editorSite}
+                mapsQuery={selectedJob?.address || selectedClient?.address}
+              />
+            </div>
+          </div>
+
+          <div className="hub-invoice-table">
+            <table className="hub-invoice-lines">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Qty</th>
+                  <th>Unit</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {docLines.map((li, idx) => {
+                  const qty = parseFloat(li.quantity) || 0;
+                  const unit = parseFloat(li.unit_price) || 0;
+                  return (
+                    <tr key={`${li.description}-${idx}`}>
+                      <td>{li.description}</td>
+                      <td className="hub-invoice-num">{qty}</td>
+                      <td className="hub-invoice-num">{formatMoney(unit)}</td>
+                      <td className="hub-invoice-num">{formatMoney(qty * unit)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="hub-invoice-gst">
+            <span>Subtotal (ex GST)</span>
+            <span className="hub-invoice-num">{formatMoney(subtotal)}</span>
+            <span>{gstLabel(parseFloat(form.tax_rate) || 0)}</span>
+            <span className="hub-invoice-num">{formatMoney(taxAmount)}</span>
+          </div>
+          {editorMoney ? (
+            <div className="hub-invoice-totalbar">
+              <span>Total (inc GST)</span>
+              <span className="hub-invoice-num">{editorMoney}</span>
+            </div>
+          ) : null}
         </div>
 
-        <div className="px-3 py-2 border-b border-rule flex flex-wrap gap-2">
-          {form.status !== 'paid' && next.key !== 'mark_paid' && (
-            <ActionButton
-              recommended={false}
-              onClick={() => void persist('paid', { close: false, message: 'Invoice marked as paid' })}
-              disabled={saving}
-            >
-              <Check size={14} /> Mark paid
-            </ActionButton>
-          )}
-          <button
-            type="button"
-            onClick={() => setShowPreview(true)}
-            disabled={!previewData}
-            className="btn-ghost"
-          >
-            <Eye size={14} /> Preview PDF
-          </button>
-        </div>
-
-        <div className="overlay-body">
+        {showEdit ? (
+        <div className="hub-invoice-edit">
+        <div className="overlay-body hub-invoice-editor-body">
           <Field label="Client" required>
             <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value, job_id: '', quote_id: '' }))} className="form-input cursor-pointer">
               <option value="">Select a client...</option>
@@ -877,12 +892,14 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             onChange={lines => setForm(f => ({ ...f, line_items: lines }))}
           />
 
-          <DocumentGstTotals
-            subtotal={subtotal}
-            taxRate={parseFloat(form.tax_rate) || 0}
-            taxAmount={taxAmount}
-            total={grandTotal}
-          />
+          <div className="hub-invoice-editor-math">
+            <DocumentGstTotals
+              subtotal={subtotal}
+              taxRate={parseFloat(form.tax_rate) || 0}
+              taxAmount={taxAmount}
+              total={grandTotal}
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="GST rate (%)">
@@ -905,37 +922,10 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
               className="form-input min-h-[60px] resize-y" placeholder="Notes for the client..." />
           </Field>
 
-          {err && <p className="text-sm text-red-600">{err}</p>}
+          {err && <p className="text-sm text-fail">{err}</p>}
         </div>
-
-        <div className="ops-sticky flex flex-col gap-2">
-          {next.key === 'send' && (
-            <ActionButton recommended onClick={() => void startSend()} disabled={saving}>
-              <Send size={14} /> {saving ? 'Saving...' : 'Send'}
-            </ActionButton>
-          )}
-          {next.key === 'setup_email' && next.href && (
-            <Link to={next.href} className="ops-next-control-block" title={next.detail}>
-              Set up email
-            </Link>
-          )}
-          {next.key === 'add_email' && next.href && (
-            <Link to={next.href} className="ops-next-control-block" title={next.detail}>
-              Add client email
-            </Link>
-          )}
-          {next.key === 'mark_paid' && (
-            <ActionButton recommended onClick={() => void persist('paid', { close: false, message: 'Invoice marked as paid' })} disabled={saving}>
-              <Check size={14} /> {saving ? 'Saving...' : 'Mark paid'}
-            </ActionButton>
-          )}
-          <div className="flex items-center gap-2">
-            <button onClick={() => void persist(form.status, { close: true })} disabled={saving} className="btn-secondary">
-              {saving ? 'Saving...' : invoice || savedId ? 'Save' : 'Save draft'}
-            </button>
-            <button onClick={onClose} className="btn-ghost ml-auto">Cancel</button>
-          </div>
         </div>
+        ) : null}
       </div>
 
       {showPreview && previewData && (
@@ -948,7 +938,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block ops-meta font-medium mb-1">{label}{required && <span className="text-red-500"> *</span>}</label>
+      <label className="block ops-meta font-medium mb-1">{label}{required && <span className="hub-invoice-req"> *</span>}</label>
       {children}
     </div>
   );
