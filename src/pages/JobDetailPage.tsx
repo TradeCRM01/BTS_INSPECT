@@ -18,6 +18,12 @@ import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY
 import { formatMoney, INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatDuration } from '../types/fsm';
 import type { InvoiceStatus, Timesheet } from '../types/fsm';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
+import { createInvoiceFromJobBill } from '../lib/createInvoiceFromJobBill';
+import {
+  JOB_BILL_INVOICE_CREATED,
+  JOB_BILL_INVOICE_EXISTS,
+  JOB_BILL_INVOICE_NO_LINES,
+} from '../lib/invoiceFromJobBill';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { recommendJobAction } from '../lib/jobNextAction';
@@ -390,6 +396,30 @@ export function JobDetailPage() {
     onError: (e: Error) => showToast(e.message),
   });
 
+  const invoiceFromJobBill = useMutation({
+    mutationFn: async () => {
+      if (!profile?.id || !profile.company_id || !id) throw new Error('Not signed in');
+      return createInvoiceFromJobBill({
+        jobId: id,
+        companyId: profile.company_id,
+        profileId: profile.id,
+        taxRate: Number(company?.default_tax_rate) || DEFAULT_TAX_RATE,
+      });
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      showToast(result.existing ? JOB_BILL_INVOICE_EXISTS : JOB_BILL_INVOICE_CREATED);
+    },
+    onError: (e: Error) => {
+      showToast(e.message, 'info');
+      if (e.message === JOB_BILL_INVOICE_NO_LINES) {
+        setBillOpen(true);
+        setTimeout(() => scrollToId('job-bill'), 50);
+      }
+    },
+  });
+
   const updateStatus = useMutation({
     mutationFn: async (status: JobStatus) => {
       const { error } = await supabase
@@ -558,17 +588,7 @@ export function JobDetailPage() {
   };
 
   const handleInvoice = () => {
-    if (acceptedQuote && !(invoices ?? []).some(inv => inv.quote_id === acceptedQuote.id)) {
-      invoiceFromQuote.mutate(acceptedQuote.id);
-      return;
-    }
-    setBillOpen(true);
-    setTimeout(() => scrollToId('job-bill'), 50);
-    if ((costTotals?.lines ?? 0) > 0) {
-      showToast('Invoice from the job bill below');
-    } else {
-      showToast('Add bill lines, or invoice from an accepted quote');
-    }
+    invoiceFromJobBill.mutate();
   };
 
   const next = recommendJobAction({
@@ -633,6 +653,7 @@ export function JobDetailPage() {
                 <button
                   type="button"
                   className="ops-next-control-block"
+                  disabled={next.key === 'invoice' && invoiceFromJobBill.isPending}
                   onClick={() => {
                     if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
                     else if (next.key === 'jha') startJha();
@@ -746,7 +767,7 @@ export function JobDetailPage() {
               <ActionButton
                 recommended={false}
                 onClick={handleInvoice}
-                disabled={invoiceFromQuote.isPending}
+                disabled={invoiceFromJobBill.isPending}
               >
                 <Receipt size={14} /> Invoice
               </ActionButton>
@@ -1104,7 +1125,7 @@ export function JobDetailPage() {
             count={(invoices ?? []).length}
             emptyTitle="Nothing invoiced yet. Invoice an accepted quote, or from the job bill."
             emptyAction={
-              <button type="button" onClick={handleInvoice} className="ops-link">
+              <button type="button" onClick={handleInvoice} disabled={invoiceFromJobBill.isPending} className="ops-link">
                 Invoice this job
               </button>
             }
@@ -1221,6 +1242,7 @@ export function JobDetailPage() {
               <button
                 type="button"
                 className="ops-next-control-block"
+                disabled={next.key === 'invoice' && invoiceFromJobBill.isPending}
                 onClick={() => {
                   if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
                   else if (next.key === 'jha') startJha();

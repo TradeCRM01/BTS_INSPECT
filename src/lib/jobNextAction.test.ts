@@ -121,6 +121,16 @@ describe('recommendJobAction', () => {
       clockedOn: true,
       hasAcceptedQuote: true,
     }).key).toBe('invoice');
+    expect(recommendJobAction({
+      ...base,
+      status: 'completed',
+      clockedOn: true,
+      hasBillLines: true,
+    })).toMatchObject({ key: 'invoice', label: 'Invoice', detail: 'Invoice from the job bill.' });
+    expect(recommendJobAction({
+      ...base,
+      hasBillLines: true,
+    }).key).toBe('invoice');
   });
 
   it('does not nag for clock-on after the job is invoiced', () => {
