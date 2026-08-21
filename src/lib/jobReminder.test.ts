@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   alreadyRemindedForScheduledDate,
@@ -319,9 +321,13 @@ describe('SMS beside email — same send, independent outcome', () => {
 describe('auto-fire (cron, not the tray)', () => {
   it('documents the click path that actually mails without a user', () => {
     expect(AUTO_FIRE_CLICK_PATH[0]).toMatch(/pg_cron/);
-    expect(AUTO_FIRE_CLICK_PATH.join(' → ')).toMatch(/send_due_job_client_reminders/);
+    expect(AUTO_FIRE_CLICK_PATH.join(' → ')).toMatch(/invoke_job_client_reminders/);
+    expect(AUTO_FIRE_CLICK_PATH.join(' ')).toMatch(/due=tomorrow/);
+    expect(AUTO_FIRE_CLICK_PATH.join(' ')).toMatch(/functions\/v1\/job-reminder/);
     expect(AUTO_FIRE_CLICK_PATH.join(' ')).toMatch(/api\.resend\.com/);
-    expect(AUTO_FIRE_CLICK_PATH.join(' ')).not.toMatch(/vault/i);
+    expect(AUTO_FIRE_CLICK_PATH.join(' ')).toMatch(/api\.twilio\.com/);
+    expect(AUTO_FIRE_CLICK_PATH.join(' ')).not.toMatch(/send_due_job_client_reminders/);
+    expect(AUTO_FIRE_CLICK_PATH.join(' ')).not.toMatch(/send-quote/);
   });
 
   it('auto-selects tomorrow Perth jobs with email when SMTP is ready', () => {
@@ -623,5 +629,56 @@ describe('reschedule target exists on the existing job schedule', () => {
     expect(email.to).toBe('sam@acme.example');
     expect(email.html).not.toContain('undefined');
     expect(email.text).toMatch(/Switchboard test/);
+  });
+});
+
+describe('Perth auto-fire rides job-reminder — not SQL Resend', () => {
+  const cron = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20260821200000_062_job_reminder_edge_autofire.sql'),
+    'utf8',
+  );
+  const edge = readFileSync(
+    resolve(process.cwd(), 'supabase/functions/job-reminder/index.ts'),
+    'utf8',
+  );
+
+  it('restores invoke_job_client_reminders to pg_net due=tomorrow', () => {
+    expect(cron).toContain('CREATE OR REPLACE FUNCTION public.invoke_job_client_reminders()');
+    expect(cron).toContain('net.http_post');
+    expect(cron).toContain("/functions/v1/job-reminder");
+    expect(cron).toContain('{"due":"tomorrow","source":"cron"}');
+    expect(cron).toContain('{"due":"today","source":"cron"}');
+    expect(cron).toContain("SELECT public.invoke_job_client_reminders()");
+    expect(cron).toContain('job-client-reminder-perth-morning');
+    expect(cron).toContain('job-client-reminder-perth-afternoon');
+    expect(cron).not.toContain('CREATE TABLE');
+    expect(cron).not.toContain('job-client-reminder-perth-evening');
+    expect(cron).not.toMatch(/cron\.schedule\(\s*'inspection-due-reminder/);
+  });
+
+  it('retires the 058 SQL-only Resend autofire so cron cannot double-send', () => {
+    const retired = cron.slice(
+      cron.indexOf('CREATE OR REPLACE FUNCTION public.send_due_job_client_reminders()'),
+      cron.indexOf('CREATE OR REPLACE FUNCTION public.invoke_job_client_reminders()'),
+    );
+    expect(retired).toMatch(/Retired/);
+    expect(retired).not.toContain('api.resend.com');
+    expect(retired).not.toContain('http((');
+    expect(cron).not.toMatch(/SELECT public\.send_due_job_client_reminders\(\)/);
+  });
+
+  it('edge due=tomorrow still sends SMS beside email; SMS miss does not write sent-at', () => {
+    expect(edge).toContain('due === "tomorrow"');
+    expect(edge).toContain('api.twilio.com');
+    expect(edge).toContain('client_reminder_sent_at');
+    const jobStart = edge.indexOf('if (jobId)');
+    const jobBlock = edge.slice(jobStart);
+    const emailFail = jobBlock.indexOf('if (!res.ok)');
+    const statusWrite = jobBlock.indexOf('client_reminder_sent_at: sentAt');
+    expect(emailFail).toBeGreaterThan(-1);
+    expect(statusWrite).toBeGreaterThan(emailFail);
+    const statusBlock = jobBlock.slice(statusWrite, statusWrite + 280);
+    expect(statusBlock).not.toContain('sms.sent');
+    expect(edge).not.toContain('send_due_job_client_reminders');
   });
 });

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { TemplateSchema } from '../types/template';
 import {
@@ -351,13 +353,15 @@ describe('auto-fire (cron, not the tray)', () => {
     expect(INSPECTION_DUE_AUTO_FIRE_PATH[1]).toBe(AUTO_FIRE_CLICK_PATH[1]);
     expect(INSPECTION_DUE_AUTO_FIRE_PATH[0]).toMatch(/job-client-reminder-perth-morning/);
     expect(INSPECTION_DUE_AUTO_FIRE_PATH[1]).toMatch(/job-client-reminder-perth-afternoon/);
-    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' → ')).toMatch(/send_due_inspection_reminders/);
-    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' → ')).toMatch(/send_due_job_client_reminders/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' → ')).toMatch(/invoke_job_client_reminders/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).toMatch(/due=today/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).toMatch(/functions\/v1\/job-reminder/);
     expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).toMatch(/api\.resend\.com/);
-    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/vault/i);
-    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/inspection-due-reminder/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).toMatch(/api\.twilio\.com/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/send_due_inspection_reminders/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/send_due_job_client_reminders/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/inspection-due-reminder-perth/);
     expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/tray/i);
-    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/functions\/v1/);
   });
 
   it('auto-selects Perth-today inspections with email when SMTP is ready', () => {
@@ -442,9 +446,14 @@ describe('do not double-mail', () => {
 });
 
 describe('override auth — auto-fire does not use this', () => {
-  it('auto-fire is the SQL send-due path, not an edge due=today hop', () => {
-    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).toMatch(/send_due_inspection_reminders/);
-    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/due=today/);
+  it('auto-fire is the job-reminder due=today hop, not SQL Resend', () => {
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).toMatch(/due=today/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/send_due_inspection_reminders/);
+    expect(resolveInspectionDueCaller({
+      hasUser: false,
+      cronAuthorized: true,
+      due: 'today',
+    })).toEqual({ ok: true, caller: { kind: 'cron' } });
     expect(resolveInspectionDueCaller({
       hasUser: false,
       cronAuthorized: false,
@@ -636,5 +645,49 @@ describe('existing inspection surface — no new route', () => {
   it('inspectionDueOnToday follows Perth, not UTC', () => {
     expect(inspectionDueOnToday(insp(), job(), now)).toBe(true);
     expect(inspectionDueOnToday(insp({ meta: { next_test_date: tomorrow } }), job(), now)).toBe(false);
+  });
+});
+
+describe('Perth inspection auto-fire rides job-reminder due=today', () => {
+  const cron = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20260821200000_062_job_reminder_edge_autofire.sql'),
+    'utf8',
+  );
+  const edge = readFileSync(
+    resolve(process.cwd(), 'supabase/functions/job-reminder/index.ts'),
+    'utf8',
+  );
+
+  it('same Perth cron invokes due=today — no new cron stack', () => {
+    expect(cron).toContain('{"due":"today","source":"cron"}');
+    expect(cron).toContain("SELECT public.invoke_job_client_reminders()");
+    expect(cron).not.toMatch(/SELECT public\.send_due_inspection_reminders\(\)/);
+    expect(cron).not.toContain('CREATE TABLE');
+    expect(edge).toContain('due === "today"');
+    expect(edge).not.toContain('send_due_inspection_reminders');
+    expect(edge).toContain('due_reminder_sent_at');
+    expect(edge).toContain('api.twilio.com');
+  });
+
+  it('retires the 060 SQL-only Resend autofire', () => {
+    const retired = cron.slice(
+      cron.indexOf('CREATE OR REPLACE FUNCTION public.send_due_inspection_reminders('),
+      cron.indexOf('CREATE OR REPLACE FUNCTION public.invoke_job_client_reminders()'),
+    );
+    expect(retired).toMatch(/Retired/);
+    expect(retired).not.toContain('api.resend.com');
+    expect(retired).not.toContain('http((');
+  });
+
+  it('SMS miss does not flip due_reminder_sent_at — sent follows email 2xx only', () => {
+    const deliverStart = edge.indexOf('async function deliverInspectionDue');
+    const deliver = edge.slice(deliverStart, edge.indexOf('function invoiceSmsBody'));
+    const emailFail = deliver.indexOf('if (!res.ok)');
+    const statusWrite = deliver.indexOf('due_reminder_sent_at: sentAt');
+    expect(emailFail).toBeGreaterThan(-1);
+    expect(statusWrite).toBeGreaterThan(emailFail);
+    const statusBlock = deliver.slice(statusWrite, statusWrite + 280);
+    expect(statusBlock).toContain('due_reminder_sent_for_date');
+    expect(statusBlock).not.toContain('sms.sent');
   });
 });

@@ -572,18 +572,21 @@ export function wouldScanUnscopedInspections(scope: InspectionDueQueryScope | nu
 
 /**
  * How auto-fire actually runs — same Perth cron as the 24h job ping.
- * No tray click. No new notify module. No Vault hop.
- * pg_cron job-client-reminder-* → send_due_inspection_reminders() → Resend → sent-at on 2xx.
+ * No tray click. No new notify module. No new cron stack.
+ * pg_cron job-client-reminder-* → invoke_job_client_reminders() → job-reminder due=today.
+ * SQL-only Resend (060) is retired so cron cannot double-send or stay email-only.
  */
 export const INSPECTION_DUE_AUTO_FIRE_PATH = [
   'pg_cron job-client-reminder-perth-morning (0 23 * * * UTC = 07:00 Australia/Perth)',
   'pg_cron job-client-reminder-perth-afternoon (0 8 * * * UTC = 16:00 Australia/Perth)',
-  'SELECT public.send_due_job_client_reminders(); SELECT public.send_due_inspection_reminders()',
+  'SELECT public.invoke_job_client_reminders()',
+  'pg_net POST /functions/v1/job-reminder due=today source=cron',
   'perth_today = (timezone(Australia/Perth, now()))::date',
   'email_settings where Resend is ready (companies without SMTP are not scanned)',
   'inspections where due_on = perth_today and archived is not true, company via job / client / inspector',
   'skip already_sent for this due_on; skip no client email; skip no due date',
   'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.twilio.com SMS beside email — miss does not flip sent-at',
   'UPDATE due_reminder_sent_at / due_reminder_sent_for_date only when Resend returns 2xx',
 ] as const;
 
@@ -693,7 +696,7 @@ export function resolveInspectionDueCaller(args: {
     }
     return { ok: false, error: 'Unauthorized' };
   }
-  return { ok: false, error: 'inspectionId is required for the override; auto-fire is send_due_inspection_reminders()' };
+  return { ok: false, error: 'inspectionId or due=today is required' };
 }
 
 /**
