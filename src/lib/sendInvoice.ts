@@ -4,11 +4,13 @@ import { asStringList } from './asStringList';
 import { linesFromQuoteItems, type CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import type { InvoiceLineItem, InvoiceStatus } from '../types/fsm';
 import {
+  dateOnly,
   decideSmsBeside,
   emailSettingsReady,
   missSmsMessage,
   prefillReminderTo,
   prefillSmsTo,
+  todayYmd,
   type ReminderEmailSettings,
   type SmsCredentials,
   type SmsDecision,
@@ -354,6 +356,270 @@ export function invoiceChasedAtPatchAfterSend(
 
 export function shouldWriteInvoiceChasedAt(sendOk: boolean, kind: InvoiceSendCopyKind): boolean {
   return sendOk === true && kind === 'chase';
+}
+
+export type OverdueInvoiceMissReason =
+  | 'no_email'
+  | 'no_smtp'
+  | 'no_invoice'
+  | 'no_client'
+  | 'no_lines'
+  | 'no_pdf'
+  | 'no_phone'
+  | 'no_due_date'
+  | 'not_overdue'
+  | 'paid'
+  | 'already_chased'
+  | 'wrong_company';
+
+export type OverdueInvoiceQueryScope = {
+  table: 'invoices' | 'clients' | 'email_settings';
+  columns: string;
+  eq: Record<string, string>;
+  inFilters: Record<string, string[]>;
+  lt?: Record<string, string>;
+  isNull?: string[];
+};
+
+export type OverdueChaseInvoice = InvoiceSendInvoice;
+
+export type OverdueInvoiceCaller =
+  | { kind: 'user'; companyId: string }
+  | { kind: 'cron' };
+
+/**
+ * How overdue chase auto-fire actually runs — same Perth cron as the 24h job ping.
+ * No Send again click. No new notify module. No new cron stack.
+ * pg_cron job-client-reminder-* → invoke_job_client_reminders() → job-reminder due=overdue.
+ */
+export const OVERDUE_INVOICE_AUTO_FIRE_PATH = [
+  'pg_cron job-client-reminder-perth-morning (0 23 * * * UTC = 07:00 Australia/Perth)',
+  'pg_cron job-client-reminder-perth-afternoon (0 8 * * * UTC = 16:00 Australia/Perth)',
+  'SELECT public.invoke_job_client_reminders()',
+  'pg_net POST /functions/v1/job-reminder due=overdue source=cron',
+  'perth_today = (timezone(Australia/Perth, now()))::date',
+  'email_settings where Resend is ready (companies without SMTP are not scanned)',
+  'invoices where company_id = settings.company_id and status in (sent, overdue) and due_date < perth_today and chased_at is null',
+  'skip already_chased; skip paid; skip draft; skip no client email; skip no stored PDF',
+  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.twilio.com SMS beside email — miss does not flip chased_at',
+  'UPDATE invoices.chased_at only when Resend returns 2xx',
+] as const;
+
+export const OVERDUE_INVOICE_STATUSES = ['sent', 'overdue'] as const;
+
+export function alreadyChasedInvoice(invoice: { chased_at?: string | null } | null | undefined): boolean {
+  return Boolean((invoice?.chased_at ?? '').trim());
+}
+
+export function missOverdueChaseMessage(reason: OverdueInvoiceMissReason): string {
+  switch (reason) {
+    case 'no_email':
+      return NO_EMAIL_MESSAGE;
+    case 'no_smtp':
+      return NO_SMTP_MESSAGE;
+    case 'no_invoice':
+      return 'Invoice not found.';
+    case 'no_client':
+      return 'Pick a client before you can send this invoice.';
+    case 'no_lines':
+      return NO_LINES_MESSAGE;
+    case 'no_pdf':
+      return NO_PDF_MESSAGE;
+    case 'no_phone':
+      return missSmsMessage('no_phone');
+    case 'no_due_date':
+      return 'This invoice has no due date — chase was not sent.';
+    case 'not_overdue':
+      return 'Chase is for overdue invoices.';
+    case 'paid':
+      return 'This invoice is paid.';
+    case 'already_chased':
+      return 'Already chased — invoice was not sent again.';
+    case 'wrong_company':
+      return 'This invoice is not in this company.';
+    default:
+      return 'Invoice was not sent.';
+  }
+}
+
+/** Perth calendar. Sent / overdue with due_date before today. Draft and paid never auto-fire. */
+export function invoiceOverdueForAutofire(
+  inv: { status: string; due_date?: string | null },
+  now = new Date(),
+): boolean {
+  if (inv.status === 'paid' || inv.status === 'draft') return false;
+  if (inv.status !== 'sent' && inv.status !== 'overdue') return false;
+  const due = dateOnly(inv.due_date);
+  if (!due) return false;
+  return due < todayYmd(now);
+}
+
+export function overdueInvoiceCompanyFilter(companyId: string, now = new Date()) {
+  const id = companyId.trim();
+  if (!id) return null;
+  return {
+    table: 'invoices' as const,
+    company_id: id,
+    due_before: todayYmd(now),
+    status: OVERDUE_INVOICE_STATUSES,
+    chased_at: null,
+    timeZone: 'Australia/Perth',
+  };
+}
+
+export function overdueUnchasedInvoiceQuery(args: {
+  companyId: string;
+  now?: Date;
+}): OverdueInvoiceQueryScope | null {
+  const companyId = args.companyId.trim();
+  if (!companyId) return null;
+  return {
+    table: 'invoices',
+    columns: INVOICE_SEND_INVOICE_COLUMNS,
+    eq: { company_id: companyId },
+    inFilters: { status: [...OVERDUE_INVOICE_STATUSES] },
+    lt: { due_date: todayYmd(args.now) },
+    isNull: ['chased_at'],
+  };
+}
+
+export function isOverdueInvoiceQueryScoped(scope: OverdueInvoiceQueryScope | null): boolean {
+  if (!scope) return false;
+  if (scope.columns.trim() === '' || scope.columns.trim() === '*') return false;
+  if (scope.table === 'invoices') {
+    return !!scope.eq.company_id && !!scope.lt?.due_date && (scope.isNull ?? []).includes('chased_at');
+  }
+  if (scope.table === 'email_settings') return !!scope.eq.company_id;
+  if (scope.table === 'clients') return !!scope.eq.id;
+  return false;
+}
+
+export function wouldScanLedgerToChaseOverdue(scope: OverdueInvoiceQueryScope | null): boolean {
+  if (scope == null) return false;
+  return !isOverdueInvoiceQueryScoped(scope);
+}
+
+type OverdueFilterBuilder = {
+  eq: (column: string, value: string) => OverdueFilterBuilder;
+  in: (column: string, values: readonly string[]) => OverdueFilterBuilder;
+  lt: (column: string, value: string) => OverdueFilterBuilder;
+  is: (column: string, value: null) => OverdueFilterBuilder;
+};
+
+export function applyOverdueInvoiceScope<T>(
+  fromBuilder: { select: (columns: string) => T },
+  scope: OverdueInvoiceQueryScope,
+): T & OverdueFilterBuilder {
+  let q = fromBuilder.select(scope.columns) as T & OverdueFilterBuilder;
+  for (const [column, value] of Object.entries(scope.eq)) {
+    q = q.eq(column, value) as typeof q;
+  }
+  for (const [column, values] of Object.entries(scope.inFilters ?? {})) {
+    q = q.in(column, values) as typeof q;
+  }
+  for (const [column, value] of Object.entries(scope.lt ?? {})) {
+    q = q.lt(column, value) as typeof q;
+  }
+  for (const column of scope.isNull ?? []) {
+    q = q.is(column, null) as typeof q;
+  }
+  return q;
+}
+
+export type OverdueInvoicePick = {
+  selected: Array<{ invoice: OverdueChaseInvoice; client: InvoiceSendClient; to: string }>;
+  missed: Array<{ invoice: OverdueChaseInvoice; reason: OverdueInvoiceMissReason; message: string }>;
+};
+
+/**
+ * Cron auto-select. SMTP must be ready or nothing is mailed.
+ * Defence in depth: even if a mixed ledger is passed, only this company's
+ * overdue unchased invoices with a client email are selected.
+ */
+export function selectOverdueUnchasedInvoices(
+  invoices: OverdueChaseInvoice[],
+  clients: Map<string, InvoiceSendClient> | InvoiceSendClient[],
+  settings: ReminderEmailSettings | SmtpSettingsRow | null | undefined,
+  companyId: string,
+  now = new Date(),
+): OverdueInvoicePick {
+  const clientMap = clients instanceof Map
+    ? clients
+    : new Map(clients.map(c => [c.id, c]));
+  const selected: OverdueInvoicePick['selected'] = [];
+  const missed: OverdueInvoicePick['missed'] = [];
+
+  for (const invoice of invoices) {
+    if (invoice.company_id !== companyId) continue;
+    if (alreadyChasedInvoice(invoice)) {
+      missed.push({ invoice, reason: 'already_chased', message: missOverdueChaseMessage('already_chased') });
+      continue;
+    }
+    if (invoice.status === 'paid') {
+      missed.push({ invoice, reason: 'paid', message: missOverdueChaseMessage('paid') });
+      continue;
+    }
+    if (!invoiceOverdueForAutofire(invoice, now)) {
+      const reason: OverdueInvoiceMissReason = dateOnly(invoice.due_date) ? 'not_overdue' : 'no_due_date';
+      missed.push({ invoice, reason, message: missOverdueChaseMessage(reason) });
+      continue;
+    }
+    if (!invoice.client_id) {
+      missed.push({ invoice, reason: 'no_client', message: missOverdueChaseMessage('no_client') });
+      continue;
+    }
+    if (!invoiceHasChargeableLines(invoice.line_items)) {
+      missed.push({ invoice, reason: 'no_lines', message: missOverdueChaseMessage('no_lines') });
+      continue;
+    }
+    if (!isSmtpReady(settings)) {
+      missed.push({ invoice, reason: 'no_smtp', message: missOverdueChaseMessage('no_smtp') });
+      continue;
+    }
+    const client = clientMap.get(invoice.client_id) ?? null;
+    const to = clientEmailForSend(client?.email);
+    if (!to) {
+      missed.push({ invoice, reason: 'no_email', message: missOverdueChaseMessage('no_email') });
+      continue;
+    }
+    selected.push({ invoice, client: client!, to });
+  }
+
+  return { selected, missed };
+}
+
+export function selectAutoFireOverdueInvoices(
+  invoices: OverdueChaseInvoice[],
+  clients: Map<string, InvoiceSendClient> | InvoiceSendClient[],
+  settings: ReminderEmailSettings | SmtpSettingsRow | null | undefined,
+  companyId: string,
+  now = new Date(),
+): OverdueInvoicePick {
+  return selectOverdueUnchasedInvoices(invoices, clients, settings, companyId, now);
+}
+
+export function resolveOverdueInvoiceCaller(args: {
+  hasUser: boolean;
+  userCompanyId?: string | null;
+  cronAuthorized: boolean;
+  invoiceId?: string;
+  due?: string;
+}): { ok: true; caller: OverdueInvoiceCaller } | { ok: false; error: string } {
+  const invoiceId = (args.invoiceId ?? '').trim();
+  const due = (args.due ?? '').trim();
+  if (invoiceId) {
+    if (!args.hasUser || !args.userCompanyId) return { ok: false, error: 'Unauthorized' };
+    return { ok: true, caller: { kind: 'user', companyId: args.userCompanyId } };
+  }
+  if (due === 'overdue') {
+    if (args.cronAuthorized) return { ok: true, caller: { kind: 'cron' } };
+    if (args.hasUser && args.userCompanyId) {
+      return { ok: true, caller: { kind: 'user', companyId: args.userCompanyId } };
+    }
+    return { ok: false, error: 'Unauthorized' };
+  }
+  return { ok: false, error: 'invoiceId or due=overdue is required' };
 }
 
 export function invoiceByIdQuery(args: { companyId: string; invoiceId: string }): InvoiceSendQueryScope | null {

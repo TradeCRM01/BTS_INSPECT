@@ -565,6 +565,193 @@ function invoiceChaseSmsBody(opts: {
   return `${who}: invoice #${padInvoiceNumber(opts.invoiceNumber)} is overdue.${due} Total (inc GST): ${opts.totalLabel}. The PDF is in your email.`;
 }
 
+function alreadyChasedInvoice(invoice: Record<string, unknown>): boolean {
+  return String(invoice.chased_at ?? "").trim() !== "";
+}
+
+function invoiceOverdueForAutofire(invoice: Record<string, unknown>, today: string): boolean {
+  const status = String(invoice.status ?? "");
+  if (status === "paid" || status === "draft") return false;
+  if (status !== "sent" && status !== "overdue") return false;
+  const due = dateOnly(invoice.due_date);
+  return !!due && due < today;
+}
+
+const invoiceMissText: Record<string, string> = {
+  no_email: "This client has no email. Add one on the client record before you send.",
+  no_smtp: "Email is not set up. Add SMTP in Company settings — there is a test send there.",
+  no_invoice: "Invoice not found.",
+  no_client: "Pick a client before you can send this invoice.",
+  no_lines: "Add at least one line item before you send.",
+  no_pdf: "The invoice PDF could not be attached — invoice was not sent.",
+  no_due_date: "This invoice has no due date — chase was not sent.",
+  not_overdue: "Chase is for overdue invoices.",
+  paid: "This invoice is paid.",
+  already_chased: "Already chased — invoice was not sent again.",
+  send_failed: "Invoice was not sent.",
+};
+
+async function deliverInvoiceSend(opts: {
+  admin: ReturnType<typeof createClient>;
+  invoice: Record<string, unknown>;
+  companyId: string;
+  company: { name?: string | null } | null;
+  settings: EmailSettings | null;
+  client: Record<string, unknown> | null;
+  attachmentIn?: { filename?: string; content?: string };
+  mode: "manual" | "auto";
+  today: string;
+}): Promise<Record<string, unknown>> {
+  const invoice = opts.invoice;
+  const invoiceId = String(invoice.id ?? "");
+  const extra = { invoiceId };
+
+  if (invoice.status === "paid") {
+    return miss("paid", invoiceMissText.paid, extra);
+  }
+  if (opts.mode === "auto" && alreadyChasedInvoice(invoice)) {
+    return miss("already_chased", invoiceMissText.already_chased, extra);
+  }
+  if (opts.mode === "auto" && !invoiceOverdueForAutofire(invoice, opts.today)) {
+    const reason = dateOnly(invoice.due_date) ? "not_overdue" : "no_due_date";
+    return miss(reason, invoiceMissText[reason], extra);
+  }
+  if (!invoice.client_id) {
+    return miss("no_client", invoiceMissText.no_client, extra);
+  }
+  if (!hasChargeableLines(invoice.line_items)) {
+    return miss("no_lines", invoiceMissText.no_lines, extra);
+  }
+
+  const to = prefillTo(opts.client?.email);
+  if (!to) {
+    return miss("no_email", invoiceMissText.no_email, {
+      ...extra,
+      href: `/clients/${invoice.client_id}`,
+    });
+  }
+  if (!emailSettingsReady(opts.settings) || !opts.settings) {
+    return miss("no_smtp", invoiceMissText.no_smtp, {
+      ...extra,
+      href: "/settings/company",
+      to,
+    });
+  }
+
+  let pdfFilename = String(opts.attachmentIn?.filename ?? "").trim();
+  let pdfContent = String(opts.attachmentIn?.content ?? "").trim();
+  if (!pdfContent || !pdfFilename) {
+    const storedPath = `invoices/${opts.companyId}/${invoiceId}.pdf`;
+    const { data: stored } = await opts.admin.storage.from("reports").download(storedPath);
+    if (stored) {
+      pdfFilename = `invoice-${padInvoiceNumber(invoice.invoice_number)}.pdf`;
+      pdfContent = await blobToBase64(stored);
+    }
+  }
+  if (!pdfContent || !pdfFilename) {
+    return miss("no_pdf", invoiceMissText.no_pdf, { ...extra, to });
+  }
+
+  const toName = String(opts.client?.name ?? "").trim() || "Client";
+  const companyName = String(opts.company?.name ?? "").trim() || "us";
+  const dueLabel = formatDueLabel(invoice.due_date);
+  const copyKind = opts.mode === "auto" ? "chase" : invoiceCopyKind(String(invoice.status ?? ""));
+  const subject = invoiceSubject({
+    kind: copyKind,
+    invoiceNumber: invoice.invoice_number,
+    companyName,
+    dueLabel,
+  });
+  const html = copyKind === "chase"
+    ? invoiceChaseHtml({
+      clientName: toName,
+      companyName,
+      invoiceNumber: invoice.invoice_number,
+      totalLabel: formatAud(invoice.total),
+      dueLabel,
+      paymentTerms: String(invoice.payment_terms ?? "").trim(),
+    })
+    : invoiceHtml({
+      clientName: toName,
+      companyName,
+      invoiceNumber: invoice.invoice_number,
+      totalLabel: formatAud(invoice.total),
+      dueLabel,
+      paymentTerms: String(invoice.payment_terms ?? "").trim(),
+    });
+
+  const fromHeader = `${opts.settings.from_name} <${opts.settings.from_email}>`;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${opts.settings.smtp_pass}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: fromHeader,
+      to: [to],
+      reply_to: opts.settings.from_email,
+      subject,
+      html,
+      attachments: [{ filename: pdfFilename, content: pdfContent }],
+    }),
+  });
+
+  const sms = await sendTwilioSms(
+    opts.client?.phone,
+    copyKind === "chase"
+      ? invoiceChaseSmsBody({
+        companyName,
+        invoiceNumber: invoice.invoice_number,
+        totalLabel: formatAud(invoice.total),
+        dueLabel,
+      })
+      : invoiceSmsBody({
+        companyName,
+        invoiceNumber: invoice.invoice_number,
+        totalLabel: formatAud(invoice.total),
+        dueLabel,
+      }),
+  );
+
+  if (!res.ok) {
+    const bodyText = await res.text();
+    let message = `Resend API error (${res.status})`;
+    try {
+      const parsed = JSON.parse(bodyText);
+      message = parsed.message ?? parsed.error ?? message;
+    } catch {
+      if (bodyText) message = bodyText.slice(0, 200);
+    }
+    return miss("send_failed", withSmsMessage(message, sms), { ...extra, to, sms });
+  }
+
+  const sentAt = new Date().toISOString();
+  const invoicePatch: Record<string, unknown> = { updated_at: sentAt };
+  if (invoice.status === "draft" || invoice.status === "overdue") {
+    invoicePatch.status = "sent";
+  }
+  if (copyKind === "chase") {
+    invoicePatch.chased_at = sentAt;
+  }
+  if (invoicePatch.status || invoicePatch.chased_at) {
+    await opts.admin
+      .from("invoices")
+      .update(invoicePatch)
+      .eq("id", invoice.id)
+      .eq("company_id", opts.companyId);
+  }
+
+  return {
+    sent: true,
+    invoiceId: invoice.id,
+    to,
+    sms,
+    chased_at: invoicePatch.chased_at ?? null,
+    message: withSmsMessage(`Invoice sent to ${to}`, sms),
+  };
+}
+
 function reportSiteName(
   meta: unknown,
   job?: { address?: unknown; title?: unknown } | null,
@@ -899,6 +1086,116 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (due === "overdue") {
+      if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
+      const today = todayYmd();
+      const autoAllCompanies = cronOk && !userCompanyId;
+      const companyIds: string[] = [];
+      const settingsByCompany = new Map<string, EmailSettings>();
+      if (!autoAllCompanies) {
+        companyIds.push(userCompanyId!);
+        const { data: smtpRow } = await admin
+          .from("email_settings")
+          .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+          .eq("company_id", userCompanyId!)
+          .maybeSingle();
+        if (smtpRow) settingsByCompany.set(userCompanyId!, smtpRow as EmailSettings);
+      } else {
+        const { data: smtpRows } = await admin
+          .from("email_settings")
+          .select("company_id, smtp_host, smtp_pass, from_name, from_email");
+        for (const row of smtpRows ?? []) {
+          if (row.company_id && emailSettingsReady(row as EmailSettings)) {
+            companyIds.push(row.company_id);
+            settingsByCompany.set(row.company_id, row as EmailSettings);
+          }
+        }
+      }
+
+      if (companyIds.length === 0) {
+        return json({
+          sent: false,
+          count: 0,
+          missed: 0,
+          results: [],
+          sms: null,
+          message: invoiceMissText.no_smtp,
+        });
+      }
+
+      const { data: dueRows, error: dueErr } = await admin
+        .from("invoices")
+        .select("id, company_id, client_id, status, invoice_number, line_items, total, due_date, payment_terms, chased_at")
+        .in("company_id", companyIds)
+        .in("status", ["sent", "overdue"])
+        .lt("due_date", today)
+        .is("chased_at", null);
+      if (dueErr) return json({ error: dueErr.message, sent: false }, 400);
+      const invoices = dueRows ?? [];
+
+      const clientIds = [...new Set(invoices.map((row) => String(row.client_id ?? "")).filter(Boolean))];
+      const clients = new Map<string, Record<string, unknown>>();
+      if (clientIds.length > 0) {
+        const { data: clientRows } = await admin
+          .from("clients")
+          .select("id, name, email, phone")
+          .in("id", clientIds);
+        for (const row of clientRows ?? []) clients.set(row.id, row);
+      }
+
+      const companyCache = new Map<string, { name?: string | null }>();
+      const results: Array<Record<string, unknown>> = [];
+
+      for (const invoice of invoices) {
+        const companyId = String(invoice.company_id ?? "");
+        if (!companyId || !companyIds.includes(companyId)) continue;
+        if (!companyCache.has(companyId)) {
+          const { data: company } = await admin
+            .from("companies")
+            .select("name")
+            .eq("id", companyId)
+            .maybeSingle();
+          companyCache.set(companyId, company ?? {});
+        }
+        if (!settingsByCompany.has(companyId)) {
+          const { data: smtpRow } = await admin
+            .from("email_settings")
+            .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+            .eq("company_id", companyId)
+            .maybeSingle();
+          if (smtpRow) settingsByCompany.set(companyId, smtpRow as EmailSettings);
+        }
+        const clientId = String(invoice.client_id ?? "").trim();
+        results.push(await deliverInvoiceSend({
+          admin,
+          invoice,
+          companyId,
+          company: companyCache.get(companyId) ?? null,
+          settings: settingsByCompany.get(companyId) ?? null,
+          client: clientId ? clients.get(clientId) ?? null : null,
+          mode: "auto",
+          today,
+        }));
+      }
+
+      const sent = results.filter((r) => r.sent);
+      const missed = results.filter((r) => !r.sent);
+      const firstSms = (sent[0]?.sms ?? missed[0]?.sms) as SmsSendResult | undefined;
+      const emailMessage = sent.length === 1
+        ? String(sent[0]?.message ?? "Invoice sent")
+        : sent.length > 1
+        ? `Invoices chased: ${sent.length}`
+        : String(missed[0]?.message ?? "No overdue invoices to chase.");
+      return json({
+        sent: sent.length > 0,
+        count: sent.length,
+        missed: missed.length,
+        results,
+        sms: firstSms ?? null,
+        message: emailMessage,
+      });
+    }
+
     if (invoiceId) {
       if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
 
@@ -910,181 +1207,40 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (!invoice) {
-        return json({ sent: false, reason: "no_invoice", message: "Invoice not found." }, 404);
-      }
-      if (invoice.status === "paid") {
-        return json({ sent: false, reason: "paid", message: "This invoice is paid.", invoiceId });
-      }
-      if (!invoice.client_id) {
-        return json({ sent: false, reason: "no_client", message: "Pick a client before you can send this invoice.", invoiceId });
-      }
-      if (!hasChargeableLines(invoice.line_items)) {
-        return json({ sent: false, reason: "no_lines", message: "Add at least one line item before you send.", invoiceId });
+        return json({ sent: false, reason: "no_invoice", message: invoiceMissText.no_invoice }, 404);
       }
 
-      const { data: client } = await admin
-        .from("clients")
-        .select("id, name, email, phone")
-        .eq("id", invoice.client_id)
-        .maybeSingle();
-      const to = prefillTo(client?.email);
-      if (!to) {
-        return json({
-          sent: false,
-          reason: "no_email",
-          message: "This client has no email. Add one on the client record before you send.",
-          href: `/clients/${invoice.client_id}`,
-          invoiceId,
-        });
-      }
-
+      const { data: client } = invoice.client_id
+        ? await admin
+          .from("clients")
+          .select("id, name, email, phone")
+          .eq("id", invoice.client_id)
+          .maybeSingle()
+        : { data: null };
       const { data: smtpRow } = await admin
         .from("email_settings")
         .select("company_id, smtp_host, smtp_pass, from_name, from_email")
         .eq("company_id", userCompanyId)
         .maybeSingle();
-      const settings = smtpRow as EmailSettings | null;
-      if (!emailSettingsReady(settings) || !settings) {
-        return json({
-          sent: false,
-          reason: "no_smtp",
-          message: "Email is not set up. Add SMTP in Company settings — there is a test send there.",
-          href: "/settings/company",
-          invoiceId,
-          to,
-        });
-      }
-
-      let pdfFilename = String(attachmentIn?.filename ?? "").trim();
-      let pdfContent = String(attachmentIn?.content ?? "").trim();
-      if (!pdfContent || !pdfFilename) {
-        const storedPath = `invoices/${userCompanyId}/${invoiceId}.pdf`;
-        const { data: stored } = await admin.storage.from("reports").download(storedPath);
-        if (stored) {
-          pdfFilename = `invoice-${padInvoiceNumber(invoice.invoice_number)}.pdf`;
-          pdfContent = await blobToBase64(stored);
-        }
-      }
-      if (!pdfContent || !pdfFilename) {
-        return json({
-          sent: false,
-          reason: "no_pdf",
-          message: "The invoice PDF could not be attached — invoice was not sent.",
-          invoiceId,
-          to,
-        });
-      }
-
       const { data: company } = await admin
         .from("companies")
         .select("name")
         .eq("id", userCompanyId)
         .maybeSingle();
-      const toName = String(client?.name ?? "").trim() || "Client";
-      const companyName = String(company?.name ?? "").trim() || "us";
-      const dueLabel = formatDueLabel(invoice.due_date);
-      const copyKind = invoiceCopyKind(String(invoice.status ?? ""));
-      const subject = invoiceSubject({
-        kind: copyKind,
-        invoiceNumber: invoice.invoice_number,
-        companyName,
-        dueLabel,
+
+      const result = await deliverInvoiceSend({
+        admin,
+        invoice,
+        companyId: userCompanyId,
+        company,
+        settings: smtpRow as EmailSettings | null,
+        client,
+        attachmentIn,
+        mode: "manual",
+        today: todayYmd(),
       });
-      const html = copyKind === "chase"
-        ? invoiceChaseHtml({
-          clientName: toName,
-          companyName,
-          invoiceNumber: invoice.invoice_number,
-          totalLabel: formatAud(invoice.total),
-          dueLabel,
-          paymentTerms: String(invoice.payment_terms ?? "").trim(),
-        })
-        : invoiceHtml({
-          clientName: toName,
-          companyName,
-          invoiceNumber: invoice.invoice_number,
-          totalLabel: formatAud(invoice.total),
-          dueLabel,
-          paymentTerms: String(invoice.payment_terms ?? "").trim(),
-        });
-
-      const fromHeader = `${settings.from_name} <${settings.from_email}>`;
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${settings.smtp_pass}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: fromHeader,
-          to: [to],
-          reply_to: settings.from_email,
-          subject,
-          html,
-          attachments: [{ filename: pdfFilename, content: pdfContent }],
-        }),
-      });
-
-      const sms = await sendTwilioSms(
-        client?.phone,
-        copyKind === "chase"
-          ? invoiceChaseSmsBody({
-            companyName,
-            invoiceNumber: invoice.invoice_number,
-            totalLabel: formatAud(invoice.total),
-            dueLabel,
-          })
-          : invoiceSmsBody({
-            companyName,
-            invoiceNumber: invoice.invoice_number,
-            totalLabel: formatAud(invoice.total),
-            dueLabel,
-          }),
-      );
-
-      if (!res.ok) {
-        const bodyText = await res.text();
-        let message = `Resend API error (${res.status})`;
-        try {
-          const parsed = JSON.parse(bodyText);
-          message = parsed.message ?? parsed.error ?? message;
-        } catch {
-          if (bodyText) message = bodyText.slice(0, 200);
-        }
-        return json({
-          sent: false,
-          reason: "send_failed",
-          message: withSmsMessage(message, sms),
-          invoiceId,
-          to,
-          sms,
-        });
-      }
-
-      const sentAt = new Date().toISOString();
-      const invoicePatch: Record<string, unknown> = { updated_at: sentAt };
-      if (invoice.status === "draft" || invoice.status === "overdue") {
-        invoicePatch.status = "sent";
-      }
-      if (copyKind === "chase") {
-        invoicePatch.chased_at = sentAt;
-      }
-      if (invoicePatch.status || invoicePatch.chased_at) {
-        await admin
-          .from("invoices")
-          .update(invoicePatch)
-          .eq("id", invoice.id)
-          .eq("company_id", userCompanyId);
-      }
-
-      return json({
-        sent: true,
-        invoiceId: invoice.id,
-        to,
-        sms,
-        chased_at: invoicePatch.chased_at ?? null,
-        message: withSmsMessage(`Invoice sent to ${to}`, sms),
-      });
+      const status = result.reason === "no_invoice" ? 404 : 200;
+      return json(result, status);
     }
 
     if (reportId) {
@@ -1269,7 +1425,7 @@ Deno.serve(async (req) => {
     } else if (due === "tomorrow") {
       if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else {
-      return json({ error: "jobId, inspectionId, invoiceId, reportId, due=tomorrow, or due=today is required", sent: false }, 400);
+      return json({ error: "jobId, inspectionId, invoiceId, reportId, due=tomorrow, due=today, or due=overdue is required", sent: false }, 400);
     }
 
     const autoAllCompanies = due === "tomorrow" && cronOk && !jobId;
