@@ -38,7 +38,7 @@ describe('invoice send deliver path', () => {
     expect(edge).toContain('from("invoices")');
     expect(edge).toContain('api.resend.com/emails');
     expect(edge).toContain('email_settings');
-    expect(edge).toContain('status: "sent"');
+    expect(edge).toContain('invoicePatch.status = "sent"');
     expect(edge).toContain('chased_at');
     expect(edge).toContain('alreadyChasedToday');
     expect(edge).toContain('is chasing overdue invoice');
@@ -61,7 +61,7 @@ describe('invoice send deliver path', () => {
 
   it('SMS miss does not flip invoice status or chased_at — sent follows email 2xx only', () => {
     const edge = readFileSync(resolve(process.cwd(), 'supabase/functions/job-reminder/index.ts'), 'utf8');
-    expect(edge).toMatch(/status: "sent"/);
+    expect(edge).toMatch(/invoicePatch\.status = "sent"/);
     expect(edge).toMatch(/sendTwilioSms/);
     const invoiceStart = edge.indexOf('if (invoiceId)');
     const invoiceBlock = edge.slice(invoiceStart, edge.indexOf('if (reportId)'));
@@ -72,7 +72,7 @@ describe('invoice send deliver path', () => {
     expect(statusWrite).toBeGreaterThan(emailFail);
     expect(chasedWrite).toBeGreaterThan(emailFail);
     const statusBlock = invoiceBlock.slice(statusWrite, statusWrite + 420);
-    expect(statusBlock).toContain('status: "sent"');
+    expect(statusBlock).toContain('invoicePatch.status = "sent"');
     expect(statusBlock).toContain('chased_at');
     expect(statusBlock).not.toContain('sms.sent');
     expect(statusBlock).not.toContain('status: "paid"');
