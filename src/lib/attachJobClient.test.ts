@@ -149,7 +149,7 @@ describe('decideJobClientAttach', () => {
       jobClientId: null,
       clientId: 'c-arch',
       companyClients: [{ id: 'c-arch', name: 'Old Co', archived: true }],
-    }).reason).toBe('no_clients');
+    })).toMatchObject({ action: 'miss', reason: 'no_clients' });
   });
 
   it('does not clobber a job that already has client_id', () => {
@@ -218,7 +218,7 @@ describe('job-sheet attach client — wiring', () => {
   it('writes jobs.client_id on this job and does not invent a client', () => {
     const attach = src('src/lib/attachJobClient.ts');
     const page = src('src/pages/JobDetailPage.tsx');
-    const handleStart = page.indexOf('const attachClient');
+    const handleStart = page.indexOf('const attachClient = useMutation');
     const handleEnd = page.indexOf('const saveClientEmail');
     expect(handleStart).toBeGreaterThan(-1);
     expect(handleEnd).toBeGreaterThan(handleStart);
