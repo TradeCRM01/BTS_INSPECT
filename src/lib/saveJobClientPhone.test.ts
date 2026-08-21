@@ -299,8 +299,8 @@ describe('job-sheet client phone — wiring', () => {
     const dialog = src('src/components/inspection/ReportSendDialog.tsx');
     const reportSend = src('src/lib/sendReport.ts');
     const page = src('src/pages/JobDetailPage.tsx');
-    expect(dialog).not.toContain('saveJobClientPhone');
-    expect(dialog).not.toContain('jobClientPhoneRow');
+    expect(dialog).toContain('saveJobClientPhone');
+    expect(dialog).toContain('jobClientPhoneRow');
     expect(reportSend).not.toContain('saveJobClientPhone');
     expect(page).toContain('saveJobClientEmail');
     expect(page).toContain('jobClientEmailRow');
