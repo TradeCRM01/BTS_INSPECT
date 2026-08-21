@@ -300,7 +300,7 @@ export function AccountingSettingsPage() {
                   />
                   <ToggleRow
                     label="Sync payments"
-                    description="Attach a payment in Xero when Mark paid succeeds. Does not pull Xero payments into Relovi."
+                    description="Attach a payment in Xero when Mark paid succeeds. Does not pull Xero payments."
                     checked={syncPayments}
                     onChange={setSyncPayments}
                   />

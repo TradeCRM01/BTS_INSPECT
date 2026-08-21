@@ -608,6 +608,7 @@ describe('existing xero edge + accounting page stay the one path', () => {
     expect(page).toContain('Push sent and paid invoices to Xero');
     expect(page).toContain('Attach a payment in Xero when Mark paid succeeds');
     expect(page).toMatch(/Does not pull Xero payments/);
+    expect(page).not.toMatch(/Relovi/);
     expect(page).not.toContain('this slice does not run a payments sync');
     expect(page).not.toContain('invoiceId');
     expect(page).not.toContain('/settings/xero-sent');

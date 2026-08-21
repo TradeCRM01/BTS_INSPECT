@@ -1884,6 +1884,10 @@
     margin: 0;
   }
 
+  .hub-invoice-editor .hub-invoice-send-xero-miss {
+    margin: 0 0 16px;
+  }
+
   .hub-invoice-pdf {
     display: inline-flex;
     align-items: center;

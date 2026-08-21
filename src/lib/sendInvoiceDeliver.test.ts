@@ -114,6 +114,8 @@ describe('invoice send deliver path', () => {
     expect(invoiceCss).not.toContain('text-overflow: ellipsis');
     expect(invoiceCss).toContain('.hub-invoice-send-xero-miss');
     expect(invoiceCss).toContain('color: #5B6B7C');
+    expect(invoiceCss).toContain('.hub-invoice-editor .hub-invoice-send-xero-miss');
+    expect(invoiceCss).toContain('margin: 0 0 16px');
   });
 
   it('SMS miss does not flip invoice status or chased_at — sent follows email 2xx only', () => {
