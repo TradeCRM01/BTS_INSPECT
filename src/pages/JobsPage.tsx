@@ -12,6 +12,7 @@ import {
   JOB_PRIORITY_DOT,
 } from '../types/crm';
 import { jobListBucket, jobListNext } from '../lib/jobNextAction';
+import { withReminderNext } from '../lib/jobReminder';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { Plus, Briefcase, Search, Calendar, Clock } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -228,7 +229,7 @@ export function JobsPage() {
                   {filtered.map(job => {
                     const rail = JOB_STATUS_RAIL[job.status];
                     const jobDate = job.scheduled_date ? parseISO(job.scheduled_date) : null;
-                    const next = jobListNext(job);
+                    const next = withReminderNext(job, jobListNext(job));
                     return (
                       <tr key={job.id} onClick={() => navigate(next.href)}
                         className="hover:bg-zebra cursor-pointer transition-colors" style={{ borderLeft: `3px solid ${rail}` }}>
@@ -297,7 +298,7 @@ function JobGroup({
 
 function JobCard({ job }: { job: JobCardModel }) {
   const navigate = useNavigate();
-  const next = jobListNext(job);
+  const next = withReminderNext(job, jobListNext(job));
   const site = opsSiteLabel(job.address, job.client_address);
   const mapsQuery = (job.address || job.client_address)?.trim() || null;
   const jobNo = job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : 'JOB';

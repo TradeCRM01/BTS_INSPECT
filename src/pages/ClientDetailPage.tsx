@@ -16,6 +16,7 @@ import { format, parseISO, differenceInDays } from 'date-fns';
 import { ClientForm } from './ClientsPage';
 import type { ComplianceItem } from '../types/compliance';
 import { jobListNext } from '../lib/jobNextAction';
+import { withReminderNext } from '../lib/jobReminder';
 import { quoteActionContext, recommendQuoteAction } from '../lib/quoteNextAction';
 import { recommendInvoiceAction } from '../lib/invoiceNextAction';
 import { pickReusableInvoice } from '../lib/invoiceFromQuote';
@@ -236,7 +237,7 @@ export function ClientDetailPage() {
             emptyAction={<Link to={newJobHref} className="ops-link">New job</Link>}
           >
             {(jobs ?? []).map(job => {
-              const next = jobListNext(job);
+              const next = withReminderNext(job, jobListNext(job));
               const title = jobRowTitle(job);
               return (
                 <JobRelatedRow
