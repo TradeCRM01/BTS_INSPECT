@@ -22,6 +22,12 @@ import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
 import { loadInvoiceEditorRow } from '../lib/sendInvoiceDeliver';
+import {
+  attachXeroPaymentAfterMarkPaid,
+  invoiceMarkPaidToast,
+  invoiceMarkPaidXeroMissLine,
+  INVOICE_MARKED_PAID_MESSAGE,
+} from '../lib/xeroAccounting';
 import { INVOICE_STATUS_LABELS, formatMoney } from '../types/fsm';
 import { Plus, Receipt, Download, X, MoreHorizontal } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
@@ -366,15 +372,23 @@ function InvoiceNextControl({
 
   const patchPaid = async () => {
     setBusy('mark_paid');
+    let paid = false;
     try {
       const { error } = await supabase.from('invoices')
         .update({ status: persistableInvoiceStatus('paid'), updated_at: new Date().toISOString() })
         .eq('id', invoice.id);
       if (error) throw error;
+      paid = true;
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      showToast('Invoice marked as paid');
+      const xero = await attachXeroPaymentAfterMarkPaid(
+        (name, opts) => supabase.functions.invoke(name, opts),
+        { paidSucceeded: true, invoiceId: invoice.id, status: 'paid' },
+      );
+      showToast(invoiceMarkPaidToast(xero));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Could not update invoice');
+      showToast(paid
+        ? INVOICE_MARKED_PAID_MESSAGE
+        : (err instanceof Error ? err.message : 'Could not update invoice'));
     } finally {
       setBusy(null);
     }
@@ -470,6 +484,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const [showEdit, setShowEdit] = useState(false);
   const moreRef = useRef<HTMLDetailsElement>(null);
   const [err, setErr] = useState('');
+  const [xeroMiss, setXeroMiss] = useState('');
   const [savedId, setSavedId] = useState<string | null>(invoice?.id ?? null);
 
   const [form, setForm] = useState<EditorState>({
@@ -615,7 +630,11 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     }
   };
 
-  const persist = async (status: InvoiceStatus, opts?: { close?: boolean; message?: string }): Promise<string | null> => {
+  const persist = async (status: InvoiceStatus, opts?: {
+    close?: boolean;
+    message?: string;
+    markPaid?: boolean;
+  }): Promise<string | null> => {
     if (!profile?.company_id) return null;
     if (!form.client_id) { setErr('Please select a client'); return null; }
     const cleanLines: InvoiceLineItem[] = form.line_items
@@ -632,7 +651,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         cost_model_id: li.cost_model_id ?? null,
       }));
     if (cleanLines.length === 0) { setErr('Add at least one line item'); return null; }
-    setSaving(true); setErr('');
+    setSaving(true); setErr(''); setXeroMiss('');
     const storedStatus = persistableInvoiceStatus(status);
     const payload = {
       client_id: form.client_id || null,
@@ -650,11 +669,22 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       inclusions: form.inclusions,
       exclusions: form.exclusions,
     };
+    const finishPaid = async (savedInvoiceId: string) => {
+      setForm(f => ({ ...f, status: storedStatus }));
+      if (opts?.markPaid && storedStatus === 'paid') {
+        const xero = await attachXeroPaymentAfterMarkPaid(
+          (name, invokeOpts) => supabase.functions.invoke(name, invokeOpts),
+          { paidSucceeded: true, invoiceId: savedInvoiceId, status: 'paid' },
+        );
+        setXeroMiss(invoiceMarkPaidXeroMissLine(xero) ?? '');
+      }
+    };
+
     const id = savedId ?? invoice?.id;
     if (id) {
       const { error } = await supabase.from('invoices').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id);
-      setSaving(false);
       if (error) {
+        setSaving(false);
         if (error.code === '23505') {
           setErr('An invoice already exists for this quote');
           return null;
@@ -662,7 +692,8 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         setErr(error.message);
         return null;
       }
-      setForm(f => ({ ...f, status: storedStatus }));
+      await finishPaid(id);
+      setSaving(false);
       onSaved({ close: opts?.close ?? false, message: opts?.message ?? 'Invoice updated' });
       return id;
     }
@@ -672,8 +703,8 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       company_id: profile.company_id,
       created_by: profile.id,
     }).select('id').single();
-    setSaving(false);
     if (error) {
+      setSaving(false);
       if (error.code === '23505') {
         setErr('An invoice already exists for this quote');
         return null;
@@ -682,7 +713,8 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       return null;
     }
     setSavedId(data.id as string);
-    setForm(f => ({ ...f, status: storedStatus }));
+    await finishPaid(data.id as string);
+    setSaving(false);
     onSaved({ close: opts?.close ?? true, message: opts?.message ?? 'Invoice created' });
     return data.id as string;
   };
@@ -734,7 +766,11 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             {next.key === 'mark_paid' && (
               <button
                 type="button"
-                onClick={() => void persist('paid', { close: false, message: 'Invoice marked as paid' })}
+                onClick={() => void persist('paid', {
+                  close: false,
+                  message: INVOICE_MARKED_PAID_MESSAGE,
+                  markPaid: true,
+                })}
                 disabled={saving}
                 className="btn-primary"
               >
@@ -750,7 +786,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => { closeMore(); void persist('paid', { close: false, message: 'Invoice marked as paid' }); }}
+                    onClick={() => { closeMore(); void persist('paid', { close: false, message: INVOICE_MARKED_PAID_MESSAGE, markPaid: true }); }}
                     disabled={saving}
                   >
                     Mark paid
@@ -787,6 +823,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           </div>
         </div>
         {err ? <p className="hub-invoice-err">{err}</p> : null}
+        {xeroMiss ? <p className="hub-invoice-send-xero-miss">{xeroMiss}</p> : null}
 
         <div className="hub-invoice-sheet">
           <div className="hub-invoice-banner">
