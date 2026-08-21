@@ -290,6 +290,207 @@ function inspectionDueSmsBody(opts: {
   ].filter(Boolean).join(" ");
 }
 
+function todayYmd(now = new Date(), timeZone = COMPANY_TZ): string {
+  return ymdInTimeZone(now, timeZone);
+}
+
+function alreadyRemindedForDueDate(row: Record<string, unknown>, dueDate: string | null): boolean {
+  const day = dateOnly(dueDate ?? row.due_on);
+  if (!day || !row.due_reminder_sent_at) return false;
+  const sentFor = dateOnly(row.due_reminder_sent_for_date);
+  if (sentFor) return sentFor === day;
+  return true;
+}
+
+function isOpenInspection(status: unknown): boolean {
+  const s = String(status ?? "").trim();
+  return s !== "completed" && s !== "issued" && s !== "sent";
+}
+
+function inspectionTemplateName(snapshot: unknown): string {
+  const name = String((snapshot as { name?: unknown } | null)?.name ?? "").trim();
+  return name || "Inspection";
+}
+
+function resolveInspectionDueOn(
+  inspection: Record<string, unknown>,
+  job: Record<string, unknown> | null,
+): string | null {
+  const explicit = dateOnly(inspection.due_on);
+  if (explicit) return explicit;
+  if (!isOpenInspection(inspection.status)) return null;
+  return dateOnly(job?.scheduled_date);
+}
+
+function resolveInspectionCompanyId(
+  job: Record<string, unknown> | null,
+  client: Record<string, unknown> | null,
+  inspectorCompanyId: string | null,
+): string | null {
+  return String(job?.company_id ?? client?.company_id ?? inspectorCompanyId ?? "").trim() || null;
+}
+
+const inspectionMissText: Record<string, string> = {
+  no_email: "This client has no email — reminder was not sent.",
+  no_due_date: "This inspection has no due date — reminder was not sent.",
+  not_due: "Reminder is for inspections due today.",
+  no_smtp: "Email is not set up.",
+  archived: "This inspection is archived — reminder was not sent.",
+  already_sent: "Already reminded for this due date.",
+  send_failed: "Reminder was not sent.",
+  no_inspection: "Inspection not found.",
+  wrong_company: "This inspection is not in this company.",
+};
+
+function inspectionDueHtml(opts: {
+  greeting: string;
+  companyName: string;
+  label: string;
+  when: string;
+  site: string;
+  companyPhone: string;
+  duePhrase: string;
+}): string {
+  return `
+      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
+        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">BTS Inspect</div>
+          <h1 style="margin:8px 0 0;font-size:20px">Test due today</h1>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+          <p>Hi ${escapeHtml(opts.greeting)},</p>
+          <p>${escapeHtml(opts.companyName)} — your <strong>${escapeHtml(opts.label)}</strong> ${opts.duePhrase}.</p>
+          <div style="margin:20px 0;padding:16px;background:#F9FAFB;border-radius:8px">
+            <p style="margin:0;color:#4A5568;font-size:14px;line-height:1.6">
+              <strong>Inspection:</strong> ${escapeHtml(opts.label)}<br/>
+              <strong>Due:</strong> ${escapeHtml(opts.when)}
+              ${opts.site ? `<br/><strong>Site:</strong> ${escapeHtml(opts.site)}` : ""}
+            </p>
+          </div>
+          <p>Reply to book it in — the inspection, job, and date are already filled in.</p>
+          ${opts.companyPhone ? `<p style="font-size:13px;color:#6B7280">Or call ${escapeHtml(opts.companyPhone)}.</p>` : ""}
+          <p style="font-size:12px;color:#6B7280">You're receiving this because this test is due on the inspection record.</p>
+        </div>
+      </div>`;
+}
+
+async function deliverInspectionDue(opts: {
+  admin: ReturnType<typeof createClient>;
+  inspection: Record<string, unknown>;
+  companyId: string;
+  company: { name?: string | null; phone?: string | null; email?: string | null } | null;
+  settings: EmailSettings | null;
+  job: Record<string, unknown> | null;
+  client: Record<string, unknown> | null;
+  mode: "auto" | "manual";
+  today: string;
+}): Promise<Record<string, unknown>> {
+  const to = prefillTo(opts.client?.email);
+  const dueOn = resolveInspectionDueOn(opts.inspection, opts.job);
+  const extra = { inspectionId: opts.inspection.id, to: to || null, dueOn };
+
+  if (opts.inspection.archived === true) {
+    return miss("archived", inspectionMissText.archived, extra);
+  }
+  if (!dueOn) {
+    return miss("no_due_date", inspectionMissText.no_due_date, extra);
+  }
+  if (opts.mode === "auto" && dueOn !== opts.today) {
+    return miss("not_due", inspectionMissText.not_due, { ...extra, dueOn });
+  }
+  if (opts.mode === "manual" && dueOn > opts.today) {
+    return miss("not_due", inspectionMissText.not_due, { ...extra, dueOn });
+  }
+  if (opts.mode === "auto" && alreadyRemindedForDueDate(opts.inspection, dueOn)) {
+    return miss("already_sent", inspectionMissText.already_sent, { ...extra, dueOn });
+  }
+  if (!to) {
+    return miss("no_email", inspectionMissText.no_email, { ...extra, to: null, dueOn });
+  }
+  if (!emailSettingsReady(opts.settings) || !opts.settings) {
+    return miss("no_smtp", inspectionMissText.no_smtp, { ...extra, to, dueOn });
+  }
+
+  const templateName = inspectionTemplateName(opts.inspection.template_snapshot);
+  const jobNumber = opts.job?.job_number;
+  const label = jobNumber != null ? `#${padJobNumber(jobNumber)} ${templateName}` : templateName;
+  const site = String(
+    opts.job?.address
+      ?? (opts.inspection.meta as { siteAddress?: string; siteName?: string } | null)?.siteAddress
+      ?? (opts.inspection.meta as { siteName?: string } | null)?.siteName
+      ?? "",
+  ).trim();
+  const when = formatJobDate(dueOn);
+  const open = isOpenInspection(opts.inspection.status);
+  const duePhrase = open ? "is due today" : "next test is due today";
+  const companyName = String(opts.company?.name ?? "").trim() || "us";
+  const companyPhone = String(opts.company?.phone ?? "").trim();
+  const greeting = String(opts.client?.contact_person || opts.client?.name || "there").trim();
+  const subject = `Reminder: ${label} ${duePhrase} (${when})`;
+  const html = inspectionDueHtml({
+    greeting,
+    companyName,
+    label,
+    when,
+    site,
+    companyPhone,
+    duePhrase,
+  });
+
+  const fromHeader = `${opts.settings.from_name} <${opts.settings.from_email}>`;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${opts.settings.smtp_pass}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: fromHeader,
+      to: [to],
+      reply_to: opts.settings.from_email,
+      subject,
+      html,
+    }),
+  });
+
+  const sms = await sendTwilioSms(
+    opts.client?.phone,
+    inspectionDueSmsBody({ label, when, site, companyPhone, open }),
+  );
+
+  if (!res.ok) {
+    const bodyText = await res.text();
+    let message = `Resend API error (${res.status})`;
+    try {
+      const parsed = JSON.parse(bodyText);
+      message = parsed.message ?? parsed.error ?? message;
+    } catch {
+      if (bodyText) message = bodyText.slice(0, 200);
+    }
+    return miss("send_failed", withSmsMessage(message, sms), { ...extra, to, dueOn, sms });
+  }
+
+  const sentAt = new Date().toISOString();
+  await opts.admin
+    .from("inspections")
+    .update({
+      due_reminder_sent_at: sentAt,
+      due_reminder_sent_for_date: dueOn,
+    })
+    .eq("id", opts.inspection.id);
+
+  return {
+    sent: true,
+    inspectionId: opts.inspection.id,
+    to,
+    dueOn,
+    sms,
+    due_reminder_sent_at: sentAt,
+    due_reminder_sent_for_date: dueOn,
+    message: "Reminder sent",
+  };
+}
+
 function invoiceSmsBody(opts: {
   companyName: string;
   invoiceNumber: unknown;
@@ -476,100 +677,225 @@ Deno.serve(async (req) => {
 
     if (inspectionId) {
       if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
-      const { data: rows, error: rpcErr } = await admin.rpc("send_due_inspection_reminders", {
-        p_company_id: userCompanyId,
-        p_inspection_id: inspectionId,
-      });
-      if (rpcErr) return json({ error: rpcErr.message, sent: false }, 400);
-      const results = (rows ?? []) as Array<{
-        out_company_id: string | null;
-        out_inspection_id: string | null;
-        out_sent: boolean;
-        out_reason: string;
-      }>;
-      const missText: Record<string, string> = {
-        no_email: "This client has no email — reminder was not sent.",
-        no_due_date: "This inspection has no due date — reminder was not sent.",
-        not_due: "Reminder is for inspections due today.",
-        no_smtp: "Email is not set up.",
-        archived: "This inspection is archived — reminder was not sent.",
-        already_sent: "Already reminded for this due date.",
-        send_failed: "Reminder was not sent.",
-        no_inspection: "Inspection not found.",
-      };
-      const sentRows = results.filter((r) => r.out_sent);
-      const missedRows = results.filter((r) => !r.out_sent);
-      const attemptedEmail = results.some((r) => r.out_sent || r.out_reason === "send_failed");
-
-      let sms: SmsSendResult | null = null;
-      if (attemptedEmail) {
-        const { data: insp } = await admin
-          .from("inspections")
-          .select("id, client_id, crm_job_id, status, archived, meta, template_snapshot, due_on")
-          .eq("id", inspectionId)
-          .maybeSingle();
-        let jobRow: Record<string, unknown> | null = null;
-        if (insp?.crm_job_id) {
-          const { data: oneJob } = await admin
-            .from("jobs")
-            .select("id, company_id, client_id, title, address, job_number, scheduled_date")
-            .eq("id", insp.crm_job_id)
-            .eq("company_id", userCompanyId)
-            .maybeSingle();
-          jobRow = oneJob;
-        }
-        const clientId = String(insp?.client_id ?? jobRow?.client_id ?? "").trim();
-        let clientPhone = "";
-        if (clientId) {
-          const { data: oneClient } = await admin
-            .from("clients")
-            .select("id, name, email, phone, contact_person")
-            .eq("id", clientId)
-            .eq("company_id", userCompanyId)
-            .maybeSingle();
-          clientPhone = String(oneClient?.phone ?? "");
-        }
-        const { data: company } = await admin
-          .from("companies")
-          .select("name, phone")
-          .eq("id", userCompanyId)
-          .maybeSingle();
-        const dueOn = dateOnly(insp?.due_on ?? jobRow?.scheduled_date) ?? "";
-        const templateName = String((insp?.template_snapshot as { name?: string } | null)?.name ?? "").trim() || "Inspection";
-        const jobNumber = jobRow?.job_number;
-        const label = jobNumber != null ? `#${padJobNumber(jobNumber)} ${templateName}` : templateName;
-        const site = String(jobRow?.address ?? (insp?.meta as { siteAddress?: string; siteName?: string } | null)?.siteAddress ?? (insp?.meta as { siteName?: string } | null)?.siteName ?? "").trim();
-        const when = dueOn ? formatJobDate(dueOn) : "today";
-        const open = String(insp?.status ?? "") !== "completed" && String(insp?.status ?? "") !== "issued";
-        sms = await sendTwilioSms(
-          clientPhone,
-          inspectionDueSmsBody({
-            label,
-            when,
-            site,
-            companyPhone: String(company?.phone ?? "").trim(),
-            open,
-          }),
-        );
+      const { data: insp } = await admin
+        .from("inspections")
+        .select("id, inspector_id, client_id, crm_job_id, status, archived, meta, responses, template_snapshot, due_on, due_reminder_sent_at, due_reminder_sent_for_date")
+        .eq("id", inspectionId)
+        .maybeSingle();
+      if (!insp) {
+        return json({
+          sent: false,
+          reason: "no_inspection",
+          message: inspectionMissText.no_inspection,
+          inspectionId,
+        });
       }
 
-      const emailMessage = sentRows.length > 0
-        ? (sentRows.length === 1 ? "Reminder sent" : `Reminders sent: ${sentRows.length}`)
-        : (missText[missedRows[0]?.out_reason] ?? "Reminder was not sent.");
+      let jobRow: Record<string, unknown> | null = null;
+      if (insp.crm_job_id) {
+        const { data: oneJob } = await admin
+          .from("jobs")
+          .select("id, company_id, client_id, title, address, job_number, scheduled_date")
+          .eq("id", insp.crm_job_id)
+          .maybeSingle();
+        jobRow = oneJob;
+      }
+      const clientId = String(insp.client_id ?? jobRow?.client_id ?? "").trim();
+      let clientRow: Record<string, unknown> | null = null;
+      if (clientId) {
+        const { data: oneClient } = await admin
+          .from("clients")
+          .select("id, company_id, name, email, phone, contact_person")
+          .eq("id", clientId)
+          .maybeSingle();
+        clientRow = oneClient;
+      }
+      let inspectorCompanyId: string | null = null;
+      if (insp.inspector_id) {
+        const { data: inspector } = await admin
+          .from("profiles")
+          .select("id, company_id")
+          .eq("id", insp.inspector_id)
+          .maybeSingle();
+        inspectorCompanyId = String(inspector?.company_id ?? "").trim() || null;
+      }
+      const resolvedCompany = resolveInspectionCompanyId(jobRow, clientRow, inspectorCompanyId);
+      if (!resolvedCompany || resolvedCompany !== userCompanyId) {
+        return json({
+          sent: false,
+          reason: resolvedCompany ? "wrong_company" : "no_inspection",
+          message: resolvedCompany
+            ? inspectionMissText.wrong_company
+            : inspectionMissText.no_inspection,
+          inspectionId,
+        });
+      }
+
+      const { data: company } = await admin
+        .from("companies")
+        .select("name, email, phone")
+        .eq("id", userCompanyId)
+        .maybeSingle();
+      const { data: smtpRow } = await admin
+        .from("email_settings")
+        .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+        .eq("company_id", userCompanyId)
+        .maybeSingle();
+
+      const result = await deliverInspectionDue({
+        admin,
+        inspection: insp,
+        companyId: userCompanyId,
+        company,
+        settings: smtpRow as EmailSettings | null,
+        job: jobRow,
+        client: clientRow,
+        mode: "manual",
+        today: todayYmd(),
+      });
+      const sms = (result.sms as SmsSendResult | undefined) ?? null;
+      const emailMessage = result.sent
+        ? "Reminder sent"
+        : String(result.message ?? inspectionMissText[String(result.reason)] ?? "Reminder was not sent.");
       return json({
-        sent: sentRows.length > 0,
-        count: sentRows.length,
-        missed: missedRows.length,
-        results: results.map((r) => ({
-          sent: r.out_sent,
-          inspectionId: r.out_inspection_id,
-          reason: r.out_reason,
-          message: r.out_sent
-            ? "Reminder sent"
-            : (missText[r.out_reason] ?? r.out_reason),
-        })),
+        sent: !!result.sent,
+        count: result.sent ? 1 : 0,
+        missed: result.sent ? 0 : 1,
+        results: [result],
         sms,
         message: sms ? withSmsMessage(emailMessage, sms) : emailMessage,
+      });
+    }
+
+    if (due === "today") {
+      if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
+      const today = todayYmd();
+      const autoAllCompanies = cronOk && !userCompanyId;
+      const companyIds: string[] = [];
+      const settingsByCompany = new Map<string, EmailSettings>();
+      if (!autoAllCompanies) {
+        companyIds.push(userCompanyId!);
+        const { data: smtpRow } = await admin
+          .from("email_settings")
+          .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+          .eq("company_id", userCompanyId!)
+          .maybeSingle();
+        if (smtpRow) settingsByCompany.set(userCompanyId!, smtpRow as EmailSettings);
+      } else {
+        const { data: smtpRows } = await admin
+          .from("email_settings")
+          .select("company_id, smtp_host, smtp_pass, from_name, from_email");
+        for (const row of smtpRows ?? []) {
+          if (row.company_id && emailSettingsReady(row as EmailSettings)) {
+            companyIds.push(row.company_id);
+            settingsByCompany.set(row.company_id, row as EmailSettings);
+          }
+        }
+      }
+
+      const { data: dueRows, error: dueErr } = await admin
+        .from("inspections")
+        .select("id, inspector_id, client_id, crm_job_id, status, archived, meta, responses, template_snapshot, due_on, due_reminder_sent_at, due_reminder_sent_for_date")
+        .eq("due_on", today);
+      if (dueErr) return json({ error: dueErr.message, sent: false }, 400);
+      const inspections = (dueRows ?? []).filter((row) => row.archived !== true);
+
+      const jobIds = [...new Set(inspections.map((i) => String(i.crm_job_id ?? "")).filter(Boolean))];
+      const jobs = new Map<string, Record<string, unknown>>();
+      if (jobIds.length > 0) {
+        const { data: jobRows } = await admin
+          .from("jobs")
+          .select("id, company_id, client_id, title, address, job_number, scheduled_date")
+          .in("id", jobIds);
+        for (const row of jobRows ?? []) jobs.set(row.id, row);
+      }
+
+      const clientIds = [...new Set(
+        inspections.map((i) => {
+          const job = i.crm_job_id ? jobs.get(String(i.crm_job_id)) : null;
+          return String(i.client_id ?? job?.client_id ?? "").trim();
+        }).filter(Boolean),
+      )];
+      const clients = new Map<string, Record<string, unknown>>();
+      if (clientIds.length > 0) {
+        const { data: clientRows } = await admin
+          .from("clients")
+          .select("id, company_id, name, email, phone, contact_person")
+          .in("id", clientIds);
+        for (const row of clientRows ?? []) clients.set(row.id, row);
+      }
+
+      const inspectorIds = [...new Set(inspections.map((i) => String(i.inspector_id ?? "")).filter(Boolean))];
+      const inspectorCompany = new Map<string, string>();
+      if (inspectorIds.length > 0) {
+        const { data: profiles } = await admin
+          .from("profiles")
+          .select("id, company_id")
+          .in("id", inspectorIds);
+        for (const row of profiles ?? []) {
+          if (row.company_id) inspectorCompany.set(row.id, row.company_id);
+        }
+      }
+
+      const companyCache = new Map<string, { name?: string | null; phone?: string | null; email?: string | null }>();
+      const results: Array<Record<string, unknown>> = [];
+
+      for (const insp of inspections) {
+        const jobRow = insp.crm_job_id ? jobs.get(String(insp.crm_job_id)) ?? null : null;
+        const clientId = String(insp.client_id ?? jobRow?.client_id ?? "").trim();
+        const clientRow = clientId ? clients.get(clientId) ?? null : null;
+        const resolvedCompany = resolveInspectionCompanyId(
+          jobRow,
+          clientRow,
+          insp.inspector_id ? inspectorCompany.get(String(insp.inspector_id)) ?? null : null,
+        );
+        if (!resolvedCompany || !companyIds.includes(resolvedCompany)) continue;
+
+        if (!companyCache.has(resolvedCompany)) {
+          const { data: company } = await admin
+            .from("companies")
+            .select("name, email, phone")
+            .eq("id", resolvedCompany)
+            .maybeSingle();
+          companyCache.set(resolvedCompany, company ?? {});
+        }
+        if (!settingsByCompany.has(resolvedCompany)) {
+          const { data: smtpRow } = await admin
+            .from("email_settings")
+            .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+            .eq("company_id", resolvedCompany)
+            .maybeSingle();
+          if (smtpRow) settingsByCompany.set(resolvedCompany, smtpRow as EmailSettings);
+        }
+
+        results.push(await deliverInspectionDue({
+          admin,
+          inspection: insp,
+          companyId: resolvedCompany,
+          company: companyCache.get(resolvedCompany) ?? null,
+          settings: settingsByCompany.get(resolvedCompany) ?? null,
+          job: jobRow,
+          client: clientRow,
+          mode: "auto",
+          today,
+        }));
+      }
+
+      const sent = results.filter((r) => r.sent);
+      const missed = results.filter((r) => !r.sent);
+      const firstSms = (sent[0]?.sms ?? missed[0]?.sms) as SmsSendResult | undefined;
+      const emailMessage = sent.length === 1
+        ? "Reminder sent"
+        : sent.length > 1
+        ? `Reminders sent: ${sent.length}`
+        : String(missed[0]?.message ?? "Reminder was not sent.");
+      return json({
+        sent: sent.length > 0,
+        count: sent.length,
+        missed: missed.length,
+        results,
+        sms: firstSms ?? null,
+        message: firstSms && sent.length <= 1 ? withSmsMessage(emailMessage, firstSms) : emailMessage,
       });
     }
 
@@ -943,7 +1269,7 @@ Deno.serve(async (req) => {
     } else if (due === "tomorrow") {
       if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else {
-      return json({ error: "jobId, inspectionId, invoiceId, reportId, or due=tomorrow is required", sent: false }, 400);
+      return json({ error: "jobId, inspectionId, invoiceId, reportId, due=tomorrow, or due=today is required", sent: false }, 400);
     }
 
     const autoAllCompanies = due === "tomorrow" && cronOk && !jobId;

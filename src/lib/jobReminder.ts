@@ -595,31 +595,35 @@ export type TomorrowReminderPick = {
 };
 
 /**
- * How auto-fire actually runs — no tray click, no Vault hop.
- * pg_cron → send_due_job_client_reminders() → scoped jobs → Resend → sent-at on 2xx.
+ * How auto-fire actually runs — no tray click, no new cron stack.
+ * pg_cron → invoke_job_client_reminders() → pg_net job-reminder due=tomorrow.
+ * SMS rides the same hop. SQL-only Resend (058) is retired.
  */
 export const AUTO_FIRE_CLICK_PATH = [
   'pg_cron job-client-reminder-perth-morning (0 23 * * * UTC = 07:00 Australia/Perth)',
   'pg_cron job-client-reminder-perth-afternoon (0 8 * * * UTC = 16:00 Australia/Perth)',
-  'SELECT public.send_due_job_client_reminders()',
+  'SELECT public.invoke_job_client_reminders()',
+  'pg_net POST /functions/v1/job-reminder {"due":"tomorrow","source":"cron"}',
+  'vault project_url + service_role_key / job_reminder_cron_secret (same 057 secrets)',
   'perth_tomorrow = (timezone(Australia/Perth, now()))::date + 1',
   'email_settings where Resend is ready (companies without SMTP are not scanned)',
   'jobs where company_id = settings.company_id and scheduled_date = perth_tomorrow and status in (scheduled, in_progress)',
   'skip already_sent for this scheduled_date; skip no client email',
   'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.twilio.com SMS beside email — miss does not flip sent-at',
   'UPDATE client_reminder_sent_at / client_reminder_sent_for_date only when Resend returns 2xx',
 ] as const;
 
 /**
- * SMS rides the same job-reminder invoke as email (tray, invoice Send, due=tomorrow).
+ * SMS rides the same job-reminder invoke as email (tray, invoice Send, due=tomorrow, due=today).
  * Twilio secrets stay on the edge. Email sent-at is unchanged if SMS misses.
  */
 export const JOB_REMINDER_SMS_PIPE = [
-  'supabase.functions.invoke job-reminder (same body as email: jobId / inspectionId / invoiceId / reportId / due=tomorrow)',
+  'supabase.functions.invoke job-reminder (same body as email: jobId / inspectionId / invoiceId / reportId / due=tomorrow / due=today)',
   'To = clients.phone (never invented; AU 0… → +61…)',
   'POST https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json with TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_FROM_NUMBER',
   'honest miss: no_phone / no_sms_credentials / send_failed — email still sends',
-  'client_reminder_sent_at / invoice status / reports.sent_at follow email 2xx only',
+  'client_reminder_sent_at / invoice status / reports.sent_at / due_reminder_sent_at follow email 2xx only',
 ] as const;
 
 /** Same calendar rule the SQL cron uses: (timezone('Australia/Perth', now()))::date + 1 */
