@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Mail, MoreHorizontal } from 'lucide-react';
+import { Mail, MoreHorizontal, Phone } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../ui';
 import type { Client, Job } from '../../types/crm';
@@ -19,10 +19,20 @@ import {
   jobClientEmailSaveToast,
   saveJobClientEmail,
 } from '../../lib/saveJobClientEmail';
+import {
+  JOB_CLIENT_PHONE_NO_CLIENT,
+  jobClientPhoneRow,
+  jobClientPhoneSaveToast,
+  saveJobClientPhone,
+} from '../../lib/saveJobClientPhone';
 
 /** Honest no_email miss on this tray — write the address below. Not a failed-send line. */
 export const JOB_REMINDER_NO_EMAIL_FIELD =
   'This client has no email. Add one below before you send.';
+
+/** Honest no_phone miss on this tray — write the number on SMS To. Not a failed-send line. */
+export const JOB_REMINDER_NO_PHONE_FIELD =
+  'This client has no phone. Add one below before you send.';
 
 export function JobClientReminder({
   job,
@@ -44,10 +54,20 @@ export function JobClientReminder({
   const { showToast } = useToast();
   const [clientEmailDraft, setClientEmailDraft] = useState(client?.email ?? '');
   const [emailOverride, setEmailOverride] = useState<string | null | undefined>(undefined);
+  const [clientPhoneDraft, setClientPhoneDraft] = useState(client?.phone ?? '');
+  const [phoneOverride, setPhoneOverride] = useState<string | null | undefined>(undefined);
   const liveClient = client
-    ? { ...client, email: emailOverride !== undefined ? emailOverride : client.email }
+    ? {
+        ...client,
+        email: emailOverride !== undefined ? emailOverride : client.email,
+        phone: phoneOverride !== undefined ? phoneOverride : client.phone,
+      }
     : client;
   const emailRow = jobClientEmailRow({
+    clientId: job.client_id,
+    client: liveClient,
+  });
+  const phoneRow = jobClientPhoneRow({
     clientId: job.client_id,
     client: liveClient,
   });
@@ -83,6 +103,11 @@ export function JobClientReminder({
     && !decision.send
     && decision.reason === 'no_email'
     && emailRow.kind === 'edit';
+  const noPhoneFieldMiss =
+    !awaitingSmtp
+    && decision.send
+    && !smsTo
+    && phoneRow.kind === 'edit';
   const missText = noEmailFieldMiss
     ? JOB_REMINDER_NO_EMAIL_FIELD
     : (!decision.send ? decision.message : '');
@@ -90,7 +115,9 @@ export function JobClientReminder({
   useEffect(() => {
     setEmailOverride(undefined);
     setClientEmailDraft(client?.email ?? '');
-  }, [job.id, client?.id, client?.email]);
+    setPhoneOverride(undefined);
+    setClientPhoneDraft(client?.phone ?? '');
+  }, [job.id, client?.id, client?.email, client?.phone]);
 
   useEffect(() => {
     if (!rescheduleAsked) return;
@@ -112,6 +139,26 @@ export function JobClientReminder({
       setClientEmailDraft(result.email ?? '');
       queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
       const toast = jobClientEmailSaveToast(result.email);
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
+
+  const savePhone = useMutation({
+    mutationFn: async () => {
+      if (phoneRow.kind !== 'edit') {
+        throw new Error(JOB_CLIENT_PHONE_NO_CLIENT);
+      }
+      return saveJobClientPhone({
+        clientId: phoneRow.clientId,
+        phone: clientPhoneDraft,
+      });
+    },
+    onSuccess: (result) => {
+      setPhoneOverride(result.phone);
+      setClientPhoneDraft(result.phone ?? '');
+      queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+      const toast = jobClientPhoneSaveToast(result.phone);
       showToast(toast.message, toast.kind);
     },
     onError: (e: Error) => showToast(e.message, 'info'),
@@ -159,6 +206,9 @@ export function JobClientReminder({
         {noEmailFieldMiss && (
           <p className="job-reminder-miss">{JOB_REMINDER_NO_EMAIL_FIELD}</p>
         )}
+        {noPhoneFieldMiss && (
+          <p className="job-reminder-miss">{JOB_REMINDER_NO_PHONE_FIELD}</p>
+        )}
 
         <div className="job-reminder-tos">
           <label className="block">
@@ -203,14 +253,43 @@ export function JobClientReminder({
 
           <label className="block">
             <span className="ops-field-label">SMS To</span>
-            <input
-              type="tel"
-              readOnly
-              value={smsTo}
-              placeholder="No client phone"
-              className="form-input tabular-nums"
-              aria-label="Reminder SMS To"
-            />
+            {phoneRow.kind === 'edit' ? (
+              <form
+                className="job-client-phone"
+                onSubmit={e => {
+                  e.preventDefault();
+                  savePhone.mutate();
+                }}
+              >
+                <Phone size={13} />
+                <input
+                  type="tel"
+                  value={clientPhoneDraft}
+                  onChange={e => setClientPhoneDraft(e.target.value)}
+                  placeholder="Phone"
+                  className="form-input-sm tabular-nums"
+                  aria-label="Client phone"
+                  autoComplete="tel"
+                  inputMode="tel"
+                />
+                <button
+                  type="submit"
+                  className="job-client-phone-save"
+                  disabled={savePhone.isPending}
+                >
+                  Save
+                </button>
+              </form>
+            ) : (
+              <input
+                type="tel"
+                readOnly
+                value={smsTo}
+                placeholder="No client phone"
+                className="form-input tabular-nums"
+                aria-label="Reminder SMS To"
+              />
+            )}
           </label>
         </div>
 
@@ -222,7 +301,7 @@ export function JobClientReminder({
           <p className="job-reminder-miss">{missText}</p>
         )}
 
-        {decision.send && !smsTo && (
+        {decision.send && !smsTo && !noPhoneFieldMiss && (
           <p className="job-reminder-miss">{missSmsMessage('no_phone')}</p>
         )}
 
