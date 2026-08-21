@@ -365,11 +365,13 @@ export function SchedulePage() {
             <div className="lg:hidden space-y-3">
               <NeedsDateRail
                 jobs={needsDate}
+                teamMembers={teamMembers ?? []}
                 onJobClick={job => navigate(`/jobs/${job.id}`)}
                 onDragStart={handleRailDragStart}
               />
               <PhoneDayList
                 jobs={onBoard}
+                teamMembers={teamMembers ?? []}
                 currentDate={currentDate}
                 onJobClick={job => navigate(`/jobs/${job.id}`)}
                 onDragStart={handleRailDragStart}
@@ -404,6 +406,7 @@ export function SchedulePage() {
                 className="w-72 shrink-0 sticky top-3"
                 alwaysShow
                 jobs={needsDate}
+                teamMembers={teamMembers ?? []}
                 onJobClick={job => navigate(`/jobs/${job.id}`)}
                 onDragStart={handleRailDragStart}
               />

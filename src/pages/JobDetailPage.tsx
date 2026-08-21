@@ -9,6 +9,8 @@ import { JobFormModal } from '../components/crm/JobFormModal';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
 import { JobClientReminder } from '../components/jobs/JobClientReminder';
+import { JobCalendarOverflow } from '../components/jobs/JobCalendarOverflow';
+import { calendarSite } from '../lib/jobCalendar';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import type { Client, Job, JobStatus } from '../types/crm';
@@ -526,7 +528,7 @@ export function JobDetailPage() {
           { label: job.job_number != null ? `#${padNum(job.job_number)} ${job.title}` : job.title },
         ]} />
 
-        <article className="ops-card overflow-hidden mb-4">
+        <article className="ops-card job-cal-host overflow-hidden mb-4">
           <OpsPhotoStamp
             src={coverPhotoUrl}
             hub
@@ -705,6 +707,11 @@ export function JobDetailPage() {
               <button type="button" onClick={() => setShowEdit(true)} className="btn-ghost ml-auto">
                 <Edit3 size={14} /> Details
               </button>
+              <JobCalendarOverflow
+                job={job}
+                site={calendarSite(job.address, client?.address)}
+                crewNames={assigned}
+              />
             </div>
           </div>
         </article>

@@ -2152,6 +2152,13 @@
     cursor: not-allowed;
   }
 
+  /* Calendar overflow sits inside existing job/board cards — lift the host so … is not clipped. */
+  .job-cal-host:has(.job-cal-more[open]) {
+    overflow: visible;
+    z-index: 8;
+    position: relative;
+  }
+
   .hub-job-swms {
     background: var(--job-page);
     min-height: calc(100dvh - 3.5rem);
