@@ -33,7 +33,7 @@ import { take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, re
 import {
   ChevronDown, ChevronLeft, Plus, Trash2, ShieldCheck, FileText,
   Download, AlertCircle, HardHat, Check, X, CheckCircle, Printer,
-  Phone, RefreshCw, ShieldAlert, Package, Copy,
+  Phone, RefreshCw, ShieldAlert, Package, Copy, MoreHorizontal,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { duplicateJhaDocument } from '../lib/duplicateJhaDocument';
@@ -823,8 +823,11 @@ export function JhaFillPage() {
           : saveState === 'error' ? 'Save failed'
             : null;
 
+  const jobBound = !!jobId;
+
   return (
     <AppShell>
+      <div className={jobBound ? 'hub-job-swms' : undefined}>
       <div className="ops-page-fill">
         <div className="flex items-center justify-between gap-3 mb-3">
           <button
@@ -842,6 +845,42 @@ export function JhaFillPage() {
               </span>
             )}
             <span className="text-muted">Rev v{docVersion}</span>
+            {jobBound && (
+              <details className="job-swms-more">
+                <summary aria-label="More">
+                  <MoreHorizontal size={16} />
+                </summary>
+                <div className="job-swms-more-menu">
+                  {docIdState && (
+                    <button
+                      type="button"
+                      onClick={() => void handleDuplicate()}
+                      disabled={duplicating || publishing}
+                    >
+                      {duplicating ? 'Duplicating…' : 'Duplicate as new draft'}
+                    </button>
+                  )}
+                  {isPublished && (
+                    <button type="button" onClick={handleAmend}>
+                      Amend / re-brief
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void handleDownloadPack()}
+                    disabled={publishing || !docIdState}
+                  >
+                    Client pack
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab(activeTab === 'preview' ? 'form' : 'preview')}
+                  >
+                    {activeTab === 'preview' ? 'Fill' : 'PDF'}
+                  </button>
+                </div>
+              </details>
+            )}
           </div>
         </div>
 
@@ -914,10 +953,8 @@ export function JhaFillPage() {
                   </label>
                   {jobId && selectedJob ? (
                     <>
-                      <p className="ops-field-site">{livingJobSite(selectedJob) || 'No site address on this job yet'}</p>
-                      <p className="ops-meta mt-1">
-                        Site comes from this job. Change the job address and this SWMS updates.
-                      </p>
+                      <p className="job-swms-site">{livingJobSite(selectedJob) || 'No site address on this job yet'}</p>
+                      <p className="ops-meta mt-1">Site follows this job.</p>
                     </>
                   ) : (
                     <input
@@ -1180,7 +1217,7 @@ export function JhaFillPage() {
             <div id="jha-crew">
               {jobId && selectedJob && (
                 <p className="ops-meta mb-2 px-1">
-                  Crew on this SWMS follows who is assigned on the job. Sign here. Walk-ons can still be added.
+                  Crew follows who is assigned on this job.
                 </p>
               )}
               {profile?.company_id && (
@@ -1428,6 +1465,7 @@ export function JhaFillPage() {
                     )}
                   </div>
 
+                  {!jobBound && (
                   <div className="flex flex-col gap-2">
                     {docIdState && (
                       <button
@@ -1460,6 +1498,7 @@ export function JhaFillPage() {
                       <Package size={14} /> Client pack
                     </button>
                   </div>
+                  )}
                 </div>
               )}
             </section>
@@ -1502,11 +1541,12 @@ export function JhaFillPage() {
             type="button"
             onClick={runNext}
             disabled={nextBusy}
-            className="ops-next-control-block"
+            className={jobBound ? 'btn-primary job-swms-primary' : 'ops-next-control-block'}
           >
             {publishing ? <><LoadingSpinner size="sm" /> Publishing…</> : next.label}
           </button>
         </div>
+      </div>
       </div>
     </AppShell>
   );

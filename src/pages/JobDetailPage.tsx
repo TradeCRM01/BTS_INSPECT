@@ -28,7 +28,7 @@ import { clientRecordHref } from '../lib/clientRecords';
 import {
   Calendar, Clock, User, Phone, Mail, Edit3, ChevronDown,
   FileText, ShieldCheck, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
-  Play, Square,
+  Play, Square, MoreHorizontal,
 } from 'lucide-react';
 import {
   buildJobClockOnEntry,
@@ -792,24 +792,45 @@ export function JobDetailPage() {
             title="JHA / SWMS"
             icon={ShieldCheck}
             count={(jhas ?? []).length}
-            emptyTitle="No JHA/SWMS on this job yet. This job does not have a safety document — start one from a template so site, crew, and hazards live here."
+            action={(jhas ?? []).length > 0 ? (
+              <details className="job-swms-more">
+                <summary aria-label="More">
+                  <MoreHorizontal size={16} />
+                </summary>
+                <div className="job-swms-more-menu">
+                  {(jhaTemplates ?? []).length <= 1 ? (
+                    <button type="button" onClick={startJha}>Another JHA</button>
+                  ) : (
+                    (jhaTemplates ?? []).map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => navigate(jhaStartHref(t.id))}
+                      >
+                        {t.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </details>
+            ) : undefined}
+            emptyTitle="No JHA/SWMS on this job"
             emptyAction={
               <div className="relative">
                 <button
                   type="button"
                   onClick={startJha}
-                  className={next.key === 'jha' ? 'ops-link' : 'ops-next-control'}
+                  className="btn-primary"
                 >
                   Start JHA / SWMS
                 </button>
                 {showJhaPicker && (jhaTemplates ?? []).length > 1 && (jhas ?? []).length === 0 && (
-                  <div className="absolute z-20 mt-1 w-64 bg-white border border-rule rounded-lg py-1">
+                  <div className="job-swms-picker">
                     {(jhaTemplates ?? []).map(t => (
                       <button
                         key={t.id}
                         type="button"
                         onClick={() => navigate(jhaStartHref(t.id))}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-zebra"
                       >
                         {t.name}
                       </button>
@@ -838,9 +859,9 @@ export function JobDetailPage() {
               const nextOnDoc = recommendJhaListAction(ctx);
               const title = doc.meta?.documentTitle || doc.meta?.taskName || doc.template_snapshot?.name || 'JHA / SWMS';
               const metaBits = [
-                living.site || 'Site follows this job — add an address in job details',
-                living.crewLabel || 'Crew follows who is assigned on this job',
-                living.hazardLabel || 'Hazards live on this document — open to add them',
+                living.site || 'Site follows this job',
+                living.crewLabel || 'Crew follows this job',
+                living.hazardLabel || 'No hazards on this document',
                 doc.report_number,
                 format(new Date(doc.created_at), 'd MMM yyyy'),
               ];
@@ -854,7 +875,7 @@ export function JobDetailPage() {
                   trailing={<OpsStatus className={jhaStatusClass(doc.status)}>{jhaStatusLabel(doc.status)}</OpsStatus>}
                   action={
                     index === 0 ? (
-                      <Link to={href} className="ops-next-control w-auto px-3 shrink-0">
+                      <Link to={href} className="btn-primary shrink-0">
                         {jhaCardHint(ctx) === 'Open' ? 'Open SWMS' : nextOnDoc.label}
                       </Link>
                     ) : undefined

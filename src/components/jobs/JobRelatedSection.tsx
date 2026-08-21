@@ -33,12 +33,12 @@ export function JobRelatedSection({
         {action}
       </div>
       {visible.length === 0 ? (
-        <div className="px-3 py-3">
+        <div className="ops-tray-empty">
           <p className="text-sm text-navy">{emptyTitle}</p>
-          {emptyAction && <div className="mt-2">{emptyAction}</div>}
+          {emptyAction && <div className="ops-tray-empty-act">{emptyAction}</div>}
         </div>
       ) : (
-        <div className="divide-y divide-rule">{children}</div>
+        <div className="ops-related-list">{children}</div>
       )}
     </section>
   );
@@ -63,16 +63,16 @@ export function JobRelatedRow({
     <>
       <Icon size={15} className="text-accent shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-navy truncate">{title}</p>
+        <p className="ops-related-title text-sm font-semibold text-navy truncate">{title}</p>
         {meta && <p className="ops-meta truncate">{meta}</p>}
       </div>
       {trailing}
     </>
   );
 
-  const className = 'flex items-center gap-2.5 px-3 py-2.5 hover:bg-zebra transition-colors';
+  const className = 'ops-related-main flex items-center gap-2.5 px-3 py-2.5 hover:bg-zebra transition-colors';
   return (
-    <div className="flex items-center gap-2 pr-2">
+    <div className="ops-related-row flex items-center gap-2 pr-2">
       {href ? (
         <Link to={href} className={`${className} min-w-0 flex-1`}>
           {inner}
