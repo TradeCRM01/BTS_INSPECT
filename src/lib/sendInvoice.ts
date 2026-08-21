@@ -1,8 +1,13 @@
 import { format, parseISO } from 'date-fns';
-import { mailtoHref, quoteClientDetailFromClient } from './clientRecords';
+import { quoteClientDetailFromClient } from './clientRecords';
 import { asStringList } from './asStringList';
 import { linesFromQuoteItems, type CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import type { InvoiceLineItem, InvoiceStatus } from '../types/fsm';
+import {
+  emailSettingsReady,
+  prefillReminderTo,
+  type ReminderEmailSettings,
+} from './jobReminder';
 
 export const COMPANY_EMAIL_SETTINGS_HREF = '/settings/company';
 
@@ -105,24 +110,36 @@ export const INVOICE_SEND_JOB_COLUMNS = 'id, address';
 
 export const NO_EMAIL_MESSAGE = 'This client has no email. Add one on the client record before you send.';
 export const NO_SMTP_MESSAGE = 'Email is not set up. Add SMTP in Company settings — there is a test send there.';
+export const NO_LINES_MESSAGE = 'Add at least one line item before you send.';
+export const NO_PDF_MESSAGE = 'The invoice PDF could not be attached — invoice was not sent.';
+
+/**
+ * Same pipe as job / due reminders on main.
+ * One invoice by id + company → email_settings + Resend → sent only on 2xx.
+ */
+export const INVOICE_SEND_PIPE = [
+  'supabase.functions.invoke job-reminder',
+  'invoiceId (one invoice, company_id scoped — not the ledger)',
+  'email_settings where Resend is ready (companies without SMTP are not mailed)',
+  'To = client.email (never invented)',
+  'attach existing invoice PDF (stored reports path or commercial generateCommercialPdf)',
+  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'UPDATE invoices.status = sent only when Resend returns 2xx',
+] as const;
 
 export function padInvoiceNumber(n: number | null | undefined): string {
   return String(n ?? 0).padStart(4, '0');
 }
 
-/** Trim and require a real address. Do not invent one. */
+/** Trim and require a real address. Same rule as job / due reminder To. */
 export function clientEmailForSend(email: string | null | undefined): string | null {
-  const href = mailtoHref(email);
-  if (!href) return null;
-  return href.slice('mailto:'.length);
+  const to = prefillReminderTo({ id: '', email });
+  return to || null;
 }
 
-export function isSmtpReady(settings: SmtpSettingsRow | null | undefined): boolean {
-  if (!settings) return false;
-  const host = String(settings.smtp_host ?? '').trim().toLowerCase();
-  const pass = String(settings.smtp_pass ?? '').trim();
-  const from = String(settings.from_email ?? '').trim();
-  return host.includes('resend') && !!pass && from.includes('@');
+/** Same Resend gate as job-reminder / due inspections. */
+export function isSmtpReady(settings: SmtpSettingsRow | ReminderEmailSettings | null | undefined): boolean {
+  return emailSettingsReady(settings);
 }
 
 export function invoiceHasChargeableLines(
@@ -293,7 +310,7 @@ export function decideInvoiceSend(bundle: InvoiceSendBundle): InvoiceSendDecisio
     return { ok: false, blocker: 'no_client', message: 'Pick a client before you can send this invoice.' };
   }
   if (!invoiceHasChargeableLines(invoice.line_items)) {
-    return { ok: false, blocker: 'no_lines', message: 'Add at least one line item before you send.' };
+    return { ok: false, blocker: 'no_lines', message: NO_LINES_MESSAGE };
   }
   if (!isSmtpReady(bundle.smtp)) {
     return {
@@ -344,6 +361,22 @@ export function pickInvoicePdfAttachment(args: {
     };
   }
   return null;
+}
+
+export function invoiceAttachmentOrMiss(
+  attachment: InvoicePdfAttachment | null | undefined,
+): { ok: true; attachment: InvoicePdfAttachment } | { ok: false; reason: 'no_pdf'; message: string } {
+  if (!attachment?.content || !attachment.filename) {
+    return { ok: false, reason: 'no_pdf', message: NO_PDF_MESSAGE };
+  }
+  return {
+    ok: true,
+    attachment: {
+      filename: attachment.filename,
+      content: attachment.content,
+      contentType: attachment.contentType || 'application/pdf',
+    },
+  };
 }
 
 export function commercialPdfDataForInvoice(bundle: InvoiceSendBundle, now = new Date()): CommercialPdfData | null {

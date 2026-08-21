@@ -84,6 +84,78 @@ function padJobNumber(n: unknown): string {
   return String(n ?? 0).padStart(4, "0");
 }
 
+function padInvoiceNumber(n: unknown): string {
+  return String(n ?? 0).padStart(4, "0");
+}
+
+function hasChargeableLines(items: unknown): boolean {
+  if (!Array.isArray(items)) return false;
+  return items.some((li) => {
+    const row = li as { description?: unknown; quantity?: unknown };
+    return String(row?.description ?? "").trim() !== "" && Number(row?.quantity) > 0;
+  });
+}
+
+function formatAud(amount: unknown): string {
+  return new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format(Number(amount) || 0);
+}
+
+function formatDueLabel(ymd: unknown): string {
+  const day = dateOnly(ymd);
+  if (!day) return "";
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function invoiceHtml(opts: {
+  clientName: string;
+  companyName: string;
+  invoiceNumber: unknown;
+  totalLabel: string;
+  dueLabel: string;
+  paymentTerms: string;
+}): string {
+  const client = escapeHtml(opts.clientName.trim() || "there");
+  const company = escapeHtml(opts.companyName.trim() || "us");
+  const number = escapeHtml(`#${padInvoiceNumber(opts.invoiceNumber)}`);
+  const due = opts.dueLabel
+    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Due <strong>${escapeHtml(opts.dueLabel)}</strong>.</p>`
+    : "";
+  const terms = opts.paymentTerms
+    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Payment terms: ${escapeHtml(opts.paymentTerms)}</p>`
+    : "";
+  return `
+      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
+        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">Invoice</div>
+          <h1 style="margin:8px 0 0;font-size:20px">${number}</h1>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+          <p>Hi ${client},</p>
+          <p>${company} has sent you invoice ${number}.</p>
+          <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${escapeHtml(opts.totalLabel)}</strong></p>
+          ${due}
+          ${terms}
+          <p>The invoice PDF is attached. Reply to this email if you have a question about the charges.</p>
+        </div>
+      </div>`;
+}
+
 function formatJobDate(ymd: string): string {
   const [y, m, d] = ymd.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-AU", {
@@ -150,10 +222,14 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const jobId = String(body.jobId ?? body.job_id ?? "").trim();
     const inspectionId = String(body.inspectionId ?? body.inspection_id ?? "").trim();
+    const invoiceId = String(body.invoiceId ?? body.invoice_id ?? "").trim();
     const due = String(body.due ?? "").trim();
     const appUrl = String(body.appUrl ?? body.app_url ?? "").replace(/\/$/, "")
       || "https://bts-inspect.pages.dev";
     const tomorrow = tomorrowYmd();
+    const attachmentIn = body.attachment as
+      | { filename?: string; content?: string }
+      | undefined;
 
     if (inspectionId) {
       if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
@@ -198,12 +274,150 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (invoiceId) {
+      if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
+
+      const { data: invoice } = await admin
+        .from("invoices")
+        .select("id, company_id, client_id, status, invoice_number, line_items, total, due_date, payment_terms")
+        .eq("id", invoiceId)
+        .eq("company_id", userCompanyId)
+        .maybeSingle();
+
+      if (!invoice) {
+        return json({ sent: false, reason: "no_invoice", message: "Invoice not found." }, 404);
+      }
+      if (invoice.status === "paid") {
+        return json({ sent: false, reason: "paid", message: "This invoice is paid.", invoiceId });
+      }
+      if (!invoice.client_id) {
+        return json({ sent: false, reason: "no_client", message: "Pick a client before you can send this invoice.", invoiceId });
+      }
+      if (!hasChargeableLines(invoice.line_items)) {
+        return json({ sent: false, reason: "no_lines", message: "Add at least one line item before you send.", invoiceId });
+      }
+
+      const { data: client } = await admin
+        .from("clients")
+        .select("id, name, email")
+        .eq("id", invoice.client_id)
+        .maybeSingle();
+      const to = prefillTo(client?.email);
+      if (!to) {
+        return json({
+          sent: false,
+          reason: "no_email",
+          message: "This client has no email. Add one on the client record before you send.",
+          href: `/clients/${invoice.client_id}`,
+          invoiceId,
+        });
+      }
+
+      const { data: smtpRow } = await admin
+        .from("email_settings")
+        .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+        .eq("company_id", userCompanyId)
+        .maybeSingle();
+      const settings = smtpRow as EmailSettings | null;
+      if (!emailSettingsReady(settings) || !settings) {
+        return json({
+          sent: false,
+          reason: "no_smtp",
+          message: "Email is not set up. Add SMTP in Company settings — there is a test send there.",
+          href: "/settings/company",
+          invoiceId,
+          to,
+        });
+      }
+
+      let pdfFilename = String(attachmentIn?.filename ?? "").trim();
+      let pdfContent = String(attachmentIn?.content ?? "").trim();
+      if (!pdfContent || !pdfFilename) {
+        const storedPath = `invoices/${userCompanyId}/${invoiceId}.pdf`;
+        const { data: stored } = await admin.storage.from("reports").download(storedPath);
+        if (stored) {
+          pdfFilename = `invoice-${padInvoiceNumber(invoice.invoice_number)}.pdf`;
+          pdfContent = await blobToBase64(stored);
+        }
+      }
+      if (!pdfContent || !pdfFilename) {
+        return json({
+          sent: false,
+          reason: "no_pdf",
+          message: "The invoice PDF could not be attached — invoice was not sent.",
+          invoiceId,
+          to,
+        });
+      }
+
+      const { data: company } = await admin
+        .from("companies")
+        .select("name")
+        .eq("id", userCompanyId)
+        .maybeSingle();
+      const toName = String(client?.name ?? "").trim() || "Client";
+      const companyName = String(company?.name ?? "").trim() || "us";
+      const subject = `Invoice #${padInvoiceNumber(invoice.invoice_number)} from ${companyName}`;
+      const html = invoiceHtml({
+        clientName: toName,
+        companyName,
+        invoiceNumber: invoice.invoice_number,
+        totalLabel: formatAud(invoice.total),
+        dueLabel: formatDueLabel(invoice.due_date),
+        paymentTerms: String(invoice.payment_terms ?? "").trim(),
+      });
+
+      const fromHeader = `${settings.from_name} <${settings.from_email}>`;
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${settings.smtp_pass}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: fromHeader,
+          to: [to],
+          reply_to: settings.from_email,
+          subject,
+          html,
+          attachments: [{ filename: pdfFilename, content: pdfContent }],
+        }),
+      });
+
+      if (!res.ok) {
+        const bodyText = await res.text();
+        let message = `Resend API error (${res.status})`;
+        try {
+          const parsed = JSON.parse(bodyText);
+          message = parsed.message ?? parsed.error ?? message;
+        } catch {
+          if (bodyText) message = bodyText.slice(0, 200);
+        }
+        return json({ sent: false, reason: "send_failed", message, invoiceId, to });
+      }
+
+      if (invoice.status === "draft" || invoice.status === "overdue") {
+        await admin
+          .from("invoices")
+          .update({ status: "sent", updated_at: new Date().toISOString() })
+          .eq("id", invoice.id)
+          .eq("company_id", userCompanyId);
+      }
+
+      return json({
+        sent: true,
+        invoiceId: invoice.id,
+        to,
+        message: `Invoice sent to ${to}`,
+      });
+    }
+
     if (jobId) {
       if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else if (due === "tomorrow") {
       if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else {
-      return json({ error: "jobId or due=tomorrow is required", sent: false }, 400);
+      return json({ error: "jobId, inspectionId, invoiceId, or due=tomorrow is required", sent: false }, 400);
     }
 
     const autoAllCompanies = due === "tomorrow" && cronOk && !jobId;

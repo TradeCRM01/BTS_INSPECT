@@ -1,19 +1,16 @@
-import { format, parseISO } from 'date-fns';
 import { supabase } from './supabase';
-import { formatMoney } from '../types/fsm';
 import {
   applyInvoiceSendScope,
   blobToBase64,
   decideInvoiceSend,
+  invoiceAttachmentOrMiss,
   invoiceByIdQuery,
+  invoicePdfFilename,
   invoicePdfStoragePath,
   invoiceSendClientQuery,
-  invoiceSendHtml,
   invoiceSendJobQuery,
   invoiceSendQueries,
-  invoiceStatusPatchAfterSend,
   pickInvoicePdfAttachment,
-  shouldRecordInvoiceSent,
   type InvoicePdfAttachment,
   type InvoiceSendBundle,
   type InvoiceSendCompany,
@@ -97,9 +94,11 @@ async function readFunctionError(error: { context?: unknown }): Promise<{ error?
 }
 
 /**
- * Email the invoice, then mark sent only if delivery succeeded.
+ * Email the invoice through the job-reminder Resend pipe, then treat
+ * sent as true only if that function reports delivery.
  * Callers must not flip status themselves on a failed result.
- * Attaches an existing stored PDF when one is on file; otherwise builds one.
+ * Attaches an existing stored PDF when one is on file; otherwise the
+ * existing commercial invoice PDF.
  */
 export async function deliverInvoice(args: {
   invoiceId: string;
@@ -117,7 +116,7 @@ export async function deliverInvoice(args: {
     try {
       const pdf = await args.buildPdf(bundle);
       generated = {
-        filename: decision.filename,
+        filename: decision.filename || invoicePdfFilename(bundle.invoice?.invoice_number),
         content: await blobToBase64(pdf),
         contentType: 'application/pdf',
       };
@@ -126,31 +125,19 @@ export async function deliverInvoice(args: {
     }
   }
 
-  const attachment = pickInvoicePdfAttachment({
+  const picked = invoiceAttachmentOrMiss(pickInvoicePdfAttachment({
     existing: bundle.existingPdf,
     generated,
-  });
+  }));
+  if (!picked.ok) {
+    return { ok: false, message: picked.message, markedSent: false };
+  }
 
-  const dueLabel = bundle.invoice?.due_date
-    ? format(parseISO(bundle.invoice.due_date), 'd MMM yyyy')
-    : null;
-  const html = invoiceSendHtml({
-    clientName: decision.toName,
-    companyName: args.company.name,
-    invoiceNumber: bundle.invoice?.invoice_number,
-    totalLabel: formatMoney(Number(bundle.invoice?.total) || 0),
-    dueLabel,
-    paymentTerms: bundle.invoice?.payment_terms ?? null,
-    attachedPdf: !!attachment,
-  });
-
-  const { data, error } = await supabase.functions.invoke('send-invoice', {
+  const { data, error } = await supabase.functions.invoke('job-reminder', {
     body: {
       invoiceId: args.invoiceId,
-      to: decision.to,
-      subject: decision.subject,
-      html,
-      attachment: attachment ?? undefined,
+      appUrl: typeof window !== 'undefined' ? window.location.origin : '',
+      attachment: picked.attachment,
     },
   });
 
@@ -158,7 +145,7 @@ export async function deliverInvoice(args: {
     const fromBody = await readFunctionError(error);
     return {
       ok: false,
-      message: fromBody?.error || error.message || 'Could not send the invoice.',
+      message: fromBody?.error || fromBody?.message || error.message || 'Could not send the invoice.',
       markedSent: false,
       href: fromBody?.href,
     };
@@ -171,26 +158,19 @@ export async function deliverInvoice(args: {
       href: data.href,
     };
   }
-  if (!data?.success) {
+  if (data?.sent === false) {
+    return {
+      ok: false,
+      message: String(data.message ?? data.results?.[0]?.message ?? 'Invoice was not sent.'),
+      markedSent: false,
+      href: data.href,
+    };
+  }
+  if (!data?.sent) {
     return { ok: false, message: 'Invoice was not sent.', markedSent: false };
   }
 
-  const currentStatus = bundle.invoice?.status ?? 'draft';
-  if (shouldRecordInvoiceSent(true, currentStatus)) {
-    const patch = invoiceStatusPatchAfterSend(true);
-    if (patch) {
-      const { error: statusErr } = await supabase
-        .from('invoices')
-        .update({ ...patch, updated_at: new Date().toISOString() })
-        .eq('id', args.invoiceId)
-        .eq('company_id', args.company.id);
-      if (statusErr) {
-        // Email already went. Status write is best-effort; the edge function also marks sent.
-      }
-    }
-  }
-
-  return { ok: true, to: decision.to, markedSent: true };
+  return { ok: true, to: String(data.to ?? decision.to), markedSent: true };
 }
 
 /** Open one invoice by id + company. Does not read the company invoice ledger. */

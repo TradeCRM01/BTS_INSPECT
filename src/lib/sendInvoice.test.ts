@@ -5,6 +5,8 @@ import {
   clientEmailForSend,
   commercialPdfDataForInvoice,
   decideInvoiceSend,
+  INVOICE_SEND_PIPE,
+  invoiceAttachmentOrMiss,
   invoiceByIdQuery,
   invoiceHasChargeableLines,
   invoicePdfFilename,
@@ -18,6 +20,8 @@ import {
   invoiceStatusPatchAfterSend,
   isInvoiceSendScoped,
   isSmtpReady,
+  NO_LINES_MESSAGE,
+  NO_PDF_MESSAGE,
   pickInvoiceByIdAndCompany,
   pickInvoicePdfAttachment,
   shouldRecordInvoiceSent,
@@ -89,7 +93,7 @@ describe('isSmtpReady', () => {
     expect(isSmtpReady(null)).toBe(false);
     expect(isSmtpReady({ ...smtp, smtp_host: '' })).toBe(false);
     expect(isSmtpReady({ ...smtp, smtp_pass: '  ' })).toBe(false);
-    expect(isSmtpReady({ ...smtp, from_email: 'office' })).toBe(false);
+    expect(isSmtpReady({ ...smtp, from_email: '' })).toBe(false);
     expect(isSmtpReady({ ...smtp, smtp_host: 'smtp.gmail.com' })).toBe(false);
   });
 });
@@ -135,9 +139,11 @@ describe('decideInvoiceSend', () => {
 
   it('blocks send when there is no client, no priced lines, or the invoice is paid', () => {
     expect(decideInvoiceSend(bundle({ invoice: { ...invoice, client_id: null } })).ok).toBe(false);
-    expect(decideInvoiceSend(bundle({
+    const noLines = decideInvoiceSend(bundle({
       invoice: { ...invoice, line_items: [{ description: 'Labour', quantity: 0, unit_price: 10 }] },
-    })).ok).toBe(false);
+    }));
+    expect(noLines.ok).toBe(false);
+    if (!noLines.ok) expect(noLines.message).toBe(NO_LINES_MESSAGE);
     expect(decideInvoiceSend(bundle({ invoice: { ...invoice, status: 'paid' } })).ok).toBe(false);
     expect(decideInvoiceSend(bundle({ invoice: null })).ok).toBe(false);
   });
@@ -220,6 +226,19 @@ describe('pickInvoicePdfAttachment', () => {
       content: 'GENERATED',
       contentType: 'application/pdf',
     });
+    expect(invoiceAttachmentOrMiss(null)).toEqual({ ok: false, reason: 'no_pdf', message: NO_PDF_MESSAGE });
+    expect(invoiceAttachmentOrMiss({ filename: 'invoice-0018.pdf', content: 'EXISTING' }).ok).toBe(true);
+  });
+});
+
+describe('INVOICE_SEND_PIPE', () => {
+  it('uses the job-reminder Resend pipe — not send-quote', () => {
+    const pipe = INVOICE_SEND_PIPE.join(' ');
+    expect(pipe).toMatch(/job-reminder/);
+    expect(pipe).toMatch(/api\.resend\.com/);
+    expect(pipe).toMatch(/email_settings/);
+    expect(pipe).toMatch(/2xx/);
+    expect(pipe).not.toMatch(/send-quote/);
   });
 });
 
