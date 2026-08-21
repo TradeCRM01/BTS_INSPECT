@@ -13,9 +13,11 @@ function toTimeInput(t: string | null | undefined): string {
 export function JobDispatchPanel({
   job,
   teamMembers,
+  rescheduleBanner = null,
 }: {
   job: Job;
   teamMembers: { id: string; name: string }[];
+  rescheduleBanner?: string | null;
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -69,6 +71,9 @@ export function JobDispatchPanel({
       </div>
 
       <div className="px-3 pb-3 pt-2">
+        {rescheduleBanner && (
+          <p className="job-reschedule-banner" role="status">{rescheduleBanner}</p>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <label className="block">
             <span className="ops-field-label">Date</span>

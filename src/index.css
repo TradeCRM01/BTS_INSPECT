@@ -987,6 +987,13 @@
     color: var(--job-muted);
   }
 
+  #job-schedule .job-reschedule-banner {
+    margin: 0 0 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--job-ink);
+  }
+
   #job-schedule .job-reminder-act {
     display: flex;
     flex-wrap: wrap;

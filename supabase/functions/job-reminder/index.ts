@@ -1381,7 +1381,7 @@ Deno.serve(async (req) => {
         const companyName = String(company?.name ?? "").trim() || "us";
         const companyPhone = String(company?.phone ?? "").trim();
         const greeting = String(client?.contact_person || client?.name || "there").trim();
-        const scheduleUrl = `${appUrl}/jobs/${job.id}#job-schedule`;
+        const scheduleUrl = `${appUrl}/jobs/${job.id}?reschedule=1#job-schedule`;
         const subject = `Reminder: ${label} is booked for tomorrow (${when})`;
         const mailtoSubject = encodeURIComponent(`Reschedule request — ${label} on ${when}`);
         const mailtoBody = encodeURIComponent(
