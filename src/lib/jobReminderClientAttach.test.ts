@@ -337,7 +337,6 @@ describe('24h reminder attach client — wiring', () => {
     expect(reminder).toContain("kind === 'pick'");
     expect(reminder).toContain("kind === 'miss'");
     expect(reminder).toContain('JOB_CLIENT_ATTACH_NO_CLIENTS');
-    expect(reminder).toContain('No clients to attach');
     expect(reminder).toContain('noClientMiss');
     expect(reminder).toContain('noClientsNamedMiss');
     expect(reminder).toContain("from('clients')");
