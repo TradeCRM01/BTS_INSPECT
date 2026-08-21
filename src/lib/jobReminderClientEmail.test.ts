@@ -326,8 +326,8 @@ describe('24h reminder client email — wiring', () => {
     expect(page).toContain('JobClientReminder');
     expect(invoicesPage).toContain('saveJobClientEmail');
     expect(dialog).toContain('saveJobClientEmail');
-    expect(due).not.toContain('saveJobClientEmail');
-    expect(due).not.toContain('job-client-email');
+    expect(due).toContain('saveJobClientEmail');
+    expect(due).toContain('job-client-email');
   });
 
   it('does not launch 24h autofire or change job-reminder cron', () => {
