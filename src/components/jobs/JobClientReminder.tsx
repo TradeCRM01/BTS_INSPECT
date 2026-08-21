@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MoreHorizontal } from 'lucide-react';
+import { Mail, MoreHorizontal } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../ui';
 import type { Client, Job } from '../../types/crm';
@@ -13,6 +13,16 @@ import {
   prefillSmsTo,
   type ReminderEmailSettings,
 } from '../../lib/jobReminder';
+import {
+  JOB_CLIENT_EMAIL_NO_CLIENT,
+  jobClientEmailRow,
+  jobClientEmailSaveToast,
+  saveJobClientEmail,
+} from '../../lib/saveJobClientEmail';
+
+/** Honest no_email miss on this tray — write the address below. Not a failed-send line. */
+export const JOB_REMINDER_NO_EMAIL_FIELD =
+  'This client has no email. Add one below before you send.';
 
 export function JobClientReminder({
   job,
@@ -32,8 +42,17 @@ export function JobClientReminder({
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const to = prefillReminderTo(client);
-  const smsTo = prefillSmsTo(client?.phone);
+  const [clientEmailDraft, setClientEmailDraft] = useState(client?.email ?? '');
+  const [emailOverride, setEmailOverride] = useState<string | null | undefined>(undefined);
+  const liveClient = client
+    ? { ...client, email: emailOverride !== undefined ? emailOverride : client.email }
+    : client;
+  const emailRow = jobClientEmailRow({
+    clientId: job.client_id,
+    client: liveClient,
+  });
+  const to = prefillReminderTo(liveClient);
+  const smsTo = prefillSmsTo(liveClient?.phone);
   const companyId = company?.id ?? job.company_id;
 
   const { data: settings, isFetched: settingsFetched } = useQuery<ReminderEmailSettings | null>({
@@ -52,18 +71,51 @@ export function JobClientReminder({
 
   const decision = decideReminderSend({
     job,
-    client,
+    client: liveClient,
     settings: settings ?? null,
     company: company ?? {},
     companyId,
     appUrl: typeof window !== 'undefined' ? window.location.origin : '',
   });
   const awaitingSmtp = !settingsFetched && !!companyId;
+  const noEmailFieldMiss =
+    !awaitingSmtp
+    && !decision.send
+    && decision.reason === 'no_email'
+    && emailRow.kind === 'edit';
+  const missText = noEmailFieldMiss
+    ? JOB_REMINDER_NO_EMAIL_FIELD
+    : (!decision.send ? decision.message : '');
+
+  useEffect(() => {
+    setEmailOverride(undefined);
+    setClientEmailDraft(client?.email ?? '');
+  }, [job.id, client?.id, client?.email]);
 
   useEffect(() => {
     if (!rescheduleAsked) return;
     document.getElementById('job-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [rescheduleAsked, job.id]);
+
+  const saveEmail = useMutation({
+    mutationFn: async () => {
+      if (emailRow.kind !== 'edit') {
+        throw new Error(JOB_CLIENT_EMAIL_NO_CLIENT);
+      }
+      return saveJobClientEmail({
+        clientId: emailRow.clientId,
+        email: clientEmailDraft,
+      });
+    },
+    onSuccess: (result) => {
+      setEmailOverride(result.email);
+      setClientEmailDraft(result.email ?? '');
+      queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+      const toast = jobClientEmailSaveToast(result.email);
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
 
   const send = useMutation({
     mutationFn: async () => {
@@ -104,17 +156,49 @@ export function JobClientReminder({
           <p className="job-reminder-reschedule">Client asked to reschedule.</p>
         )}
 
+        {noEmailFieldMiss && (
+          <p className="job-reminder-miss">{JOB_REMINDER_NO_EMAIL_FIELD}</p>
+        )}
+
         <div className="job-reminder-tos">
           <label className="block">
             <span className="ops-field-label">To</span>
-            <input
-              type="email"
-              readOnly
-              value={to}
-              placeholder="No client email"
-              className="form-input"
-              aria-label="Reminder recipient"
-            />
+            {emailRow.kind === 'edit' ? (
+              <form
+                className="job-client-email"
+                onSubmit={e => {
+                  e.preventDefault();
+                  saveEmail.mutate();
+                }}
+              >
+                <Mail size={13} />
+                <input
+                  type="email"
+                  value={clientEmailDraft}
+                  onChange={e => setClientEmailDraft(e.target.value)}
+                  placeholder="Email"
+                  className="form-input-sm"
+                  aria-label="Client email"
+                  autoComplete="email"
+                />
+                <button
+                  type="submit"
+                  className="job-client-email-save"
+                  disabled={saveEmail.isPending}
+                >
+                  Save
+                </button>
+              </form>
+            ) : (
+              <input
+                type="email"
+                readOnly
+                value={to}
+                placeholder="No client email"
+                className="form-input"
+                aria-label="Reminder recipient"
+              />
+            )}
           </label>
 
           <label className="block">
@@ -134,8 +218,8 @@ export function JobClientReminder({
           <p className="job-reminder-meta">Checking email settings…</p>
         ) : decision.send ? (
           <p className="job-reminder-meta">Auto-sends the day before (Australia/Perth).</p>
-        ) : (
-          <p className="job-reminder-miss">{decision.message}</p>
+        ) : noEmailFieldMiss ? null : (
+          <p className="job-reminder-miss">{missText}</p>
         )}
 
         {decision.send && !smsTo && (
