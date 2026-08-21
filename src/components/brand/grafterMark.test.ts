@@ -29,8 +29,13 @@ const DOCUMENT_PDF_HELPERS = [
   'src/reports/electrical_3000/compose.ts',
   'src/reports/generic_inspection/compose.ts',
   'src/lib/sendInvoice.ts',
-  'src/lib/companyLogo.ts',
 ] as const;
+
+function importsGrafterMark(body: string): boolean {
+  return /from ['"][^'"]*components\/brand/.test(body)
+    || /from ['"][^'"]*grafterMark['"]/.test(body)
+    || /import\s*\{[^}]*\b(BtsMark|BrandLockup|grafterBars|grafterBarPath|grafterIconSvg)\b/.test(body);
+}
 
 describe('signed Grafter speed-bar mark', () => {
   it('has three left-aligned capsules: navy, longer blue, navy, with cut right ends', () => {
@@ -120,6 +125,9 @@ describe('signed Grafter speed-bar mark', () => {
     expect(manifest).toContain("short_name: 'Grafter'");
     expect(manifest).toContain('icon-192.svg');
     expect(manifest).toContain('icon-512.svg');
+
+    expect(src('tailwind.config.js')).toContain("cream: '#F5F0E6'");
+    expect(src('src/index.css')).toContain('--ops-cream: #F5F0E6');
   });
 });
 
@@ -127,6 +135,7 @@ describe('customer documents stay off the Grafter mark', () => {
   it('PDF helpers do not import or fall back to the Grafter mark', () => {
     for (const rel of DOCUMENT_PDF_HELPERS) {
       const body = src(rel);
+      expect(importsGrafterMark(body)).toBe(false);
       expect(body).not.toContain('BtsMark');
       expect(body).not.toContain('BrandLockup');
       expect(body).not.toContain('grafterMark');
@@ -135,10 +144,14 @@ describe('customer documents stay off the Grafter mark', () => {
       expect(body).not.toContain('/icon.svg');
       expect(body).not.toContain('/icon-192.svg');
       expect(body).not.toContain('/icon-512.svg');
-      expect(body).not.toMatch(/from ['"].*components\/brand/);
     }
 
-    expect(src('src/lib/companyLogo.ts')).toContain('companyDocumentLogoUrl');
-    expect(src('src/lib/companyLogo.ts')).toContain('logo_url');
+    const logo = src('src/lib/companyLogo.ts');
+    expect(importsGrafterMark(logo)).toBe(false);
+    expect(logo).toContain('companyDocumentLogoUrl');
+    expect(logo).toContain('logo_url');
+    expect(logo).toContain('Never invents a Grafter G, BtsMark, or BrandLockup fallback');
+    expect(logo).not.toMatch(/from ['"].*components\/brand/);
+    expect(logo).not.toContain('/icon.svg');
   });
 });

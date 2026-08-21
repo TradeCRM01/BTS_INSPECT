@@ -27,9 +27,7 @@ export function BrandLockup({ size = 'header', tagline }: BrandLockupProps) {
         data-grafter-lockup="auth"
       >
         <BtsMark size={40} framed={false} />
-        <span className={`${wordmarkClass} text-2xl`}>
-          Grafter
-        </span>
+        <span className={`${wordmarkClass} text-2xl`}>Grafter</span>
       </div>
       {tagline ? (
         <p className="text-sm text-white/55 mt-0 tracking-tight">{tagline}</p>
