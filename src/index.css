@@ -2311,7 +2311,8 @@
     font-weight: 500;
   }
 
-  .job-cal-host .job-client-email {
+  .job-cal-host .job-client-email,
+  .job-cal-host .job-client-attach {
     display: inline-flex;
     align-items: center;
     flex-wrap: nowrap;
@@ -2321,7 +2322,8 @@
     color: #5B6B7C;
   }
 
-  .job-cal-host .job-client-email .form-input-sm {
+  .job-cal-host .job-client-email .form-input-sm,
+  .job-cal-host .job-client-attach .form-input-sm {
     width: auto;
     min-width: 12ch;
     max-width: none;
@@ -2345,7 +2347,12 @@
     word-break: keep-all;
   }
 
-  .job-cal-host .job-client-email .form-input-sm:focus {
+  .job-cal-host .job-client-attach .form-input-sm {
+    cursor: pointer;
+  }
+
+  .job-cal-host .job-client-email .form-input-sm:focus,
+  .job-cal-host .job-client-attach .form-input-sm:focus {
     border-color: #2E75B6;
     box-shadow: none;
     outline: none;
@@ -2355,7 +2362,8 @@
     color: #5B6B7C;
   }
 
-  .job-cal-host .job-client-email-save {
+  .job-cal-host .job-client-email-save,
+  .job-cal-host .job-client-attach-save {
     appearance: none;
     background: none;
     border: none;
@@ -2368,7 +2376,8 @@
     cursor: pointer;
   }
 
-  .job-cal-host .job-client-email-save:disabled {
+  .job-cal-host .job-client-email-save:disabled,
+  .job-cal-host .job-client-attach-save:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
