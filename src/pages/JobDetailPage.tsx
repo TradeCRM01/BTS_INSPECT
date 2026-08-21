@@ -28,6 +28,11 @@ import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { jobInvoiceActionFlags, recommendJobAction } from '../lib/jobNextAction';
 import { jobDraftSendToast, sendJobDraftInvoice } from '../lib/sendJobDraftInvoice';
+import {
+  jobClientEmailRow,
+  jobClientEmailSaveToast,
+  saveJobClientEmail,
+} from '../lib/saveJobClientEmail';
 import { isJobRescheduleQuery, jobOfficeRescheduleBanner } from '../lib/jobReminder';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel, recommendJhaListAction } from '../lib/jhaNextAction';
 import { livingInspectionSummary, livingSwmsSummary, livingTake5Summary } from '../lib/livingJha';
@@ -147,6 +152,7 @@ export function JobDetailPage() {
   const [showJhaPicker, setShowJhaPicker] = useState(false);
   const [billOpen, setBillOpen] = useState(true);
   const [sendingReportId, setSendingReportId] = useState<string | null>(null);
+  const [clientEmailDraft, setClientEmailDraft] = useState('');
 
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ['job', id],
@@ -169,6 +175,10 @@ export function JobDetailPage() {
     },
     enabled: !!job?.client_id,
   });
+
+  useEffect(() => {
+    setClientEmailDraft(client?.email ?? '');
+  }, [client?.id, client?.email]);
 
   const { data: parentJob } = useQuery<{ id: string; title: string; job_number: number | null } | null>({
     queryKey: ['job-parent', job?.parent_job_id],
@@ -437,6 +447,22 @@ export function JobDetailPage() {
     onError: (e: Error) => showToast(e.message, 'info'),
   });
 
+  const saveClientEmail = useMutation({
+    mutationFn: async () => {
+      return saveJobClientEmail({
+        clientId: job?.client_id,
+        email: clientEmailDraft,
+      });
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['job-client', job?.client_id] });
+      setClientEmailDraft(result.email ?? '');
+      const toast = jobClientEmailSaveToast(result.email);
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
+
   const updateStatus = useMutation({
     mutationFn: async (status: JobStatus) => {
       const { error } = await supabase
@@ -628,6 +654,8 @@ export function JobDetailPage() {
     (next.key === 'invoice' && invoiceFromJobBill.isPending) ||
     (next.key === 'send' && sendJobDraft.isPending);
 
+  const emailRow = jobClientEmailRow({ clientId: job.client_id, client: client ?? null });
+
   const runNext = () => {
     if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
     else if (next.key === 'jha') startJha();
@@ -731,10 +759,37 @@ export function JobDetailPage() {
                   <Phone size={13} /> {client.phone}
                 </a>
               )}
-              {client?.email && (
-                <a href={`mailto:${client.email}`} className="flex items-center gap-1.5 text-accent hover:underline">
-                  <Mail size={13} /> {client.email}
+              {emailRow.kind === 'mailto' && (
+                <a href={`mailto:${emailRow.email}`} className="flex items-center gap-1.5 text-accent hover:underline">
+                  <Mail size={13} /> {emailRow.email}
                 </a>
+              )}
+              {emailRow.kind === 'edit' && (
+                <form
+                  className="job-client-email"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    saveClientEmail.mutate();
+                  }}
+                >
+                  <Mail size={13} />
+                  <input
+                    type="email"
+                    value={clientEmailDraft}
+                    onChange={e => setClientEmailDraft(e.target.value)}
+                    placeholder="Email"
+                    className="form-input-sm"
+                    aria-label="Client email"
+                    autoComplete="email"
+                  />
+                  <button
+                    type="submit"
+                    className="job-client-email-save"
+                    disabled={saveClientEmail.isPending}
+                  >
+                    Save
+                  </button>
+                </form>
               )}
               <span className="flex items-center gap-1.5">
                 <Users size={13} />
