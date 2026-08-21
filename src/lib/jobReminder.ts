@@ -1,13 +1,16 @@
 import type { JobStatus } from '../types/crm';
 
 export const JOB_REMINDER_COLUMNS =
-  'id, company_id, client_id, title, status, scheduled_date, start_time, end_time, address, job_number, client_reminder_sent_at';
+  'id, company_id, client_id, title, status, scheduled_date, start_time, end_time, address, job_number, client_reminder_sent_at, client_reminder_sent_for_date';
 
 export const JOB_REMINDER_CLIENT_COLUMNS =
   'id, company_id, name, email, phone, contact_person';
 
 export const JOB_REMINDER_SMTP_COLUMNS =
   'company_id, smtp_host, smtp_pass, from_name, from_email';
+
+/** Company-local calendar. Edge runtime is UTC; Perth is UTC+8 year-round. */
+export const COMPANY_TIME_ZONE = 'Australia/Perth';
 
 export type ReminderMissReason =
   | 'no_email'
@@ -16,7 +19,8 @@ export type ReminderMissReason =
   | 'no_smtp'
   | 'closed'
   | 'wrong_company'
-  | 'no_job';
+  | 'no_job'
+  | 'already_sent';
 
 export type ReminderQueryScope = {
   table: 'jobs' | 'clients' | 'email_settings';
@@ -37,6 +41,7 @@ export type ReminderJob = {
   address?: string | null;
   job_number?: number | null;
   client_reminder_sent_at?: string | null;
+  client_reminder_sent_for_date?: string | null;
 };
 
 export type ReminderClient = {
@@ -71,16 +76,32 @@ export function dateOnly(isoDate: string | null | undefined): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
 }
 
-export function todayYmd(now = new Date()): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
+export function ymdInTimeZone(now: Date, timeZone = COMPANY_TIME_ZONE): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const y = parts.find(p => p.type === 'year')?.value;
+  const m = parts.find(p => p.type === 'month')?.value;
+  const d = parts.find(p => p.type === 'day')?.value;
+  if (!y || !m || !d) {
+    throw new Error(`Could not read calendar day in ${timeZone}`);
+  }
   return `${y}-${m}-${d}`;
 }
 
-export function tomorrowYmd(now = new Date()): string {
-  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  return todayYmd(next);
+export function todayYmd(now = new Date(), timeZone = COMPANY_TIME_ZONE): string {
+  return ymdInTimeZone(now, timeZone);
+}
+
+/** Perth calendar tomorrow — not the UTC date, not the runtime's local date. */
+export function tomorrowYmd(now = new Date(), timeZone = COMPANY_TIME_ZONE): string {
+  const today = ymdInTimeZone(now, timeZone);
+  const [y, m, d] = today.split('-').map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + 1));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
 }
 
 export function formatJobDate(ymd: string): string {
@@ -147,6 +168,8 @@ export function missMessage(reason: ReminderMissReason): string {
       return 'This job is not in this company.';
     case 'no_job':
       return 'Job not found.';
+    case 'already_sent':
+      return 'Already reminded for this scheduled date.';
   }
 }
 
@@ -349,9 +372,31 @@ export function decideReminderSend(args: {
   };
 }
 
-/** Status/sent only after a successful send. */
-export function reminderSuccessPatch(sentAt = new Date()): { client_reminder_sent_at: string } {
-  return { client_reminder_sent_at: sentAt.toISOString() };
+/**
+ * Skip auto-mail when a successful send already covers this scheduled_date.
+ * A later date change (sent_for_date !== scheduled_date) may send again.
+ */
+export function alreadyRemindedForScheduledDate(job: {
+  scheduled_date?: string | null;
+  client_reminder_sent_at?: string | null;
+  client_reminder_sent_for_date?: string | null;
+}): boolean {
+  const day = dateOnly(job.scheduled_date);
+  if (!day || !job.client_reminder_sent_at) return false;
+  const sentFor = dateOnly(job.client_reminder_sent_for_date);
+  if (sentFor) return sentFor === day;
+  return true;
+}
+
+/** Status/sent only after a successful send. Tied to the booked date. */
+export function reminderSuccessPatch(
+  scheduledDate: string,
+  sentAt = new Date(),
+): { client_reminder_sent_at: string; client_reminder_sent_for_date: string | null } {
+  return {
+    client_reminder_sent_at: sentAt.toISOString(),
+    client_reminder_sent_for_date: dateOnly(scheduledDate),
+  };
 }
 
 export function shouldRecordReminderSent(sendOk: boolean): boolean {
@@ -458,6 +503,10 @@ export function selectTomorrowReminderJobs(
       missed.push({ job, reason: 'closed', message: missMessage('closed') });
       continue;
     }
+    if (alreadyRemindedForScheduledDate(job)) {
+      missed.push({ job, reason: 'already_sent', message: missMessage('already_sent') });
+      continue;
+    }
     const client = job.client_id ? clientMap.get(job.client_id) ?? null : null;
     const to = prefillReminderTo(client);
     if (!to) {
@@ -488,6 +537,62 @@ export function withReminderNext<T extends {
   if (!current.actionable) return current;
   if (!isJobDueTomorrow(job, now)) return current;
   return { href: jobScheduleHref(job.id), label: 'Remind client', actionable: true };
+}
+
+export type ReminderCaller =
+  | { kind: 'user'; companyId: string }
+  | { kind: 'cron' };
+
+export function isCronAuthorized(args: {
+  authHeader?: string | null;
+  cronHeader?: string | null;
+  serviceRoleKey?: string | null;
+  cronSecret?: string | null;
+}): boolean {
+  const bearer = (args.authHeader ?? '').replace(/^Bearer\s+/i, '').trim();
+  const service = (args.serviceRoleKey ?? '').trim();
+  const secret = (args.cronSecret ?? '').trim();
+  const cronH = (args.cronHeader ?? '').trim();
+  if (service && bearer && bearer === service) return true;
+  if (secret && bearer && bearer === secret) return true;
+  if (secret && cronH && cronH === secret) return true;
+  return false;
+}
+
+/**
+ * jobId (manual tray) always needs a logged-in member.
+ * due=tomorrow may be cron (no user JWT) or a member sending their company.
+ */
+export function resolveReminderCaller(args: {
+  hasUser: boolean;
+  userCompanyId?: string | null;
+  cronAuthorized: boolean;
+  jobId?: string;
+  due?: string;
+}): { ok: true; caller: ReminderCaller } | { ok: false; error: string } {
+  const jobId = (args.jobId ?? '').trim();
+  const due = (args.due ?? '').trim();
+  if (jobId) {
+    if (!args.hasUser || !args.userCompanyId) return { ok: false, error: 'Unauthorized' };
+    return { ok: true, caller: { kind: 'user', companyId: args.userCompanyId } };
+  }
+  if (due === 'tomorrow') {
+    if (args.cronAuthorized) return { ok: true, caller: { kind: 'cron' } };
+    if (args.hasUser && args.userCompanyId) {
+      return { ok: true, caller: { kind: 'user', companyId: args.userCompanyId } };
+    }
+    return { ok: false, error: 'Unauthorized' };
+  }
+  return { ok: false, error: 'jobId or due=tomorrow is required' };
+}
+
+export function cronEmailSettingsQuery(): ReminderQueryScope {
+  return {
+    table: 'email_settings',
+    columns: JOB_REMINDER_SMTP_COLUMNS,
+    eq: {},
+    inFilters: {},
+  };
 }
 
 export function parseMailto(href: string): { to: string; subject: string; body: string } | null {

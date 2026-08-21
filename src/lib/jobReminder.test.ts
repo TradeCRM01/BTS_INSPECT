@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  alreadyRemindedForScheduledDate,
   applyReminderScope,
   buildReminderEmail,
   clientRescheduleMailto,
+  COMPANY_TIME_ZONE,
   dateOnly,
   decideReminderSend,
   emailSettingsReady,
+  isCronAuthorized,
   isExistingScheduleSurface,
   isJobDueTomorrow,
   isReminderQueryScoped,
@@ -19,6 +22,7 @@ import {
   reminderEligibility,
   reminderEmailSettingsQuery,
   reminderSuccessPatch,
+  resolveReminderCaller,
   selectTomorrowReminderJobs,
   shouldRecordReminderSent,
   tomorrowReminderQuery,
@@ -30,7 +34,8 @@ import {
   type ReminderJob,
 } from './jobReminder';
 
-const now = new Date(2026, 7, 21); // Fri 21 Aug 2026 local — tomorrow is 22 Aug
+/** 16:00 Friday 21 Aug 2026 in Australia/Perth (08:00 UTC). Tomorrow in Perth is 22 Aug. */
+const now = new Date('2026-08-21T08:00:00.000Z');
 const tomorrow = '2026-08-22';
 
 const smtp: ReminderEmailSettings = {
@@ -65,11 +70,44 @@ function job(over: Partial<ReminderJob> = {}): ReminderJob {
 }
 
 describe('tomorrow window', () => {
-  it('uses the local calendar day, not UTC shift', () => {
+  it('uses Australia/Perth, not the runtime calendar', () => {
+    expect(COMPANY_TIME_ZONE).toBe('Australia/Perth');
     expect(tomorrowYmd(now)).toBe('2026-08-22');
     expect(dateOnly('2026-08-22T00:00:00.000Z')).toBe('2026-08-22');
     expect(dateOnly('  ')).toBeNull();
     expect(dateOnly('not-a-date')).toBeNull();
+  });
+
+  it('at 4pm Perth, tomorrow is the Perth next day (not UTC)', () => {
+    const fourPmPerth = new Date('2026-08-21T08:00:00.000Z');
+    expect(tomorrowYmd(fourPmPerth)).toBe('2026-08-22');
+    expect(isJobDueTomorrow(job({ scheduled_date: '2026-08-22' }), fourPmPerth)).toBe(true);
+    expect(tomorrowReminderQuery({ companyId: 'co-1', now: fourPmPerth })?.eq.scheduled_date).toBe('2026-08-22');
+  });
+
+  it('after midnight Perth, UTC date is a day behind — still uses Perth tomorrow', () => {
+    // 00:00 Sat 22 Aug Perth = 16:00 Fri 21 Aug UTC
+    const midnightPerth = new Date('2026-08-21T16:00:00.000Z');
+    expect(midnightPerth.toISOString().slice(0, 10)).toBe('2026-08-21');
+    expect(tomorrowYmd(midnightPerth, 'UTC')).toBe('2026-08-22');
+    expect(tomorrowYmd(midnightPerth)).toBe('2026-08-23');
+    expect(isJobDueTomorrow(job({ scheduled_date: '2026-08-22' }), midnightPerth)).toBe(false);
+    expect(isJobDueTomorrow(job({ scheduled_date: '2026-08-23' }), midnightPerth)).toBe(true);
+    expect(tomorrowReminderQuery({ companyId: 'co-1', now: midnightPerth })?.eq.scheduled_date).toBe('2026-08-23');
+  });
+
+  it('before 8am Perth, UTC is still yesterday — does not mail UTC-tomorrow', () => {
+    // 07:00 Fri 21 Aug Perth = 23:00 Thu 20 Aug UTC
+    const morningPerth = new Date('2026-08-20T23:00:00.000Z');
+    expect(morningPerth.toISOString().slice(0, 10)).toBe('2026-08-20');
+    expect(tomorrowYmd(morningPerth, 'UTC')).toBe('2026-08-21');
+    expect(tomorrowYmd(morningPerth)).toBe('2026-08-22');
+    expect(selectTomorrowReminderJobs(
+      [job({ scheduled_date: '2026-08-21' }), job({ id: 'due', scheduled_date: '2026-08-22' })],
+      [client],
+      'co-1',
+      morningPerth,
+    ).selected.map(s => s.job.id)).toEqual(['due']);
   });
 
   it('only open jobs booked tomorrow are due', () => {
@@ -187,9 +225,84 @@ describe('honest misses — no send', () => {
     expect(shouldRecordReminderSent(false)).toBe(false);
     expect(shouldRecordReminderSent(true)).toBe(true);
     const sentAt = new Date('2026-08-21T09:00:00.000Z');
-    expect(reminderSuccessPatch(sentAt)).toEqual({
+    expect(reminderSuccessPatch('2026-08-22', sentAt)).toEqual({
       client_reminder_sent_at: '2026-08-21T09:00:00.000Z',
+      client_reminder_sent_for_date: '2026-08-22',
     });
+  });
+});
+
+describe('do not double-mail', () => {
+  it('skips a job already reminded for this scheduled_date', () => {
+    expect(alreadyRemindedForScheduledDate(job({
+      client_reminder_sent_at: '2026-08-21T01:00:00.000Z',
+      client_reminder_sent_for_date: tomorrow,
+    }))).toBe(true);
+    const pick = selectTomorrowReminderJobs(
+      [job({
+        client_reminder_sent_at: '2026-08-21T01:00:00.000Z',
+        client_reminder_sent_for_date: tomorrow,
+      })],
+      [client],
+      'co-1',
+      now,
+    );
+    expect(pick.selected).toEqual([]);
+    expect(pick.missed[0]?.reason).toBe('already_sent');
+  });
+
+  it('may send again after the scheduled date changes', () => {
+    const moved = job({
+      scheduled_date: '2026-08-22',
+      client_reminder_sent_at: '2026-08-18T01:00:00.000Z',
+      client_reminder_sent_for_date: '2026-08-19',
+    });
+    expect(alreadyRemindedForScheduledDate(moved)).toBe(false);
+    expect(selectTomorrowReminderJobs([moved], [client], 'co-1', now).selected).toHaveLength(1);
+  });
+
+  it('legacy sent-at without a for-date still skips auto (no double-mail)', () => {
+    expect(alreadyRemindedForScheduledDate(job({
+      client_reminder_sent_at: '2026-08-21T01:00:00.000Z',
+      client_reminder_sent_for_date: null,
+    }))).toBe(true);
+  });
+});
+
+describe('cron vs tray auth', () => {
+  it('cron due=tomorrow does not need a user JWT', () => {
+    expect(isCronAuthorized({
+      authHeader: 'Bearer cron-secret',
+      cronSecret: 'cron-secret',
+    })).toBe(true);
+    expect(isCronAuthorized({
+      cronHeader: 'cron-secret',
+      cronSecret: 'cron-secret',
+    })).toBe(true);
+    expect(isCronAuthorized({
+      authHeader: 'Bearer service-role',
+      serviceRoleKey: 'service-role',
+    })).toBe(true);
+    expect(isCronAuthorized({ authHeader: 'Bearer user-jwt' })).toBe(false);
+    expect(resolveReminderCaller({
+      hasUser: false,
+      cronAuthorized: true,
+      due: 'tomorrow',
+    })).toEqual({ ok: true, caller: { kind: 'cron' } });
+  });
+
+  it('single-jobId send still requires a logged-in member', () => {
+    expect(resolveReminderCaller({
+      hasUser: false,
+      cronAuthorized: true,
+      jobId: 'job-1',
+    })).toEqual({ ok: false, error: 'Unauthorized' });
+    expect(resolveReminderCaller({
+      hasUser: true,
+      userCompanyId: 'co-1',
+      cronAuthorized: false,
+      jobId: 'job-1',
+    })).toEqual({ ok: true, caller: { kind: 'user', companyId: 'co-1' } });
   });
 });
 
