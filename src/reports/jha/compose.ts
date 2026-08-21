@@ -17,6 +17,8 @@ import {
 } from '../../types/jha';
 import { hrcwLabel, parseSwmsMeta } from '../../lib/swmsHrcw';
 import { format } from 'date-fns';
+import { jhaReportTheme } from './theme';
+import type { PdfThemeTokens } from '../shared/styles';
 
 interface ComposeInput {
   document: {
@@ -45,6 +47,7 @@ interface ComposeInput {
     website?: string | null;
     logo_url?: string | null;
     address?: string | null;
+    report_theme?: PdfThemeTokens | Record<string, unknown> | null;
   };
   reportNumber: string;
   photoUrlMap?: Map<string, string>;
@@ -186,6 +189,7 @@ export function composeJhaReport(input: ComposeInput): JhaReportData {
     companyWebsite: company.website ?? undefined,
     companyLogoUrl: company.logo_url ?? undefined,
     companyAddress: company.address ?? undefined,
+    theme: jhaReportTheme(company.report_theme),
     siteContact: document.meta.siteContact || undefined,
     clientName: document.meta.clientName || undefined,
     plantArea: document.meta.plantArea || undefined,

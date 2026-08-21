@@ -329,6 +329,7 @@ export function InvoicesPage() {
             email: company.email ?? null,
             website: company.website ?? null,
             logo_url: company.logo_url ?? null,
+            report_theme: (company as { report_theme?: Record<string, unknown> | null }).report_theme ?? null,
           }}
           onClose={() => setSendingInvoiceId(null)}
           onSent={(to, message, opts) => {

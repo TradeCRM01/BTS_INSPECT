@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
@@ -16,6 +16,7 @@ import {
 import { applyLivingJobToJha, livingJobSite } from '../lib/livingJha';
 import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, OpsDocHead, OpsSiteRow, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
+import { jhaDocumentColors } from '../reports/jha/theme';
 
 type DocRow = {
   id: string;
@@ -41,7 +42,10 @@ function jhaHref(id: string) {
 }
 
 export function JhaDocumentsPage() {
-  const { profile } = useAuth();
+  const { profile, company } = useAuth();
+  const docColors = jhaDocumentColors(
+    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
+  );
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [q, setQ] = useState('');
@@ -228,6 +232,7 @@ export function JhaDocumentsPage() {
               title="Needs action"
               docs={openDocs}
               members={teamMembers}
+              theme={docColors}
               onOpen={id => navigate(jhaHref(id))}
               onDuplicate={id => duplicateMutation.mutate(id)}
               duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
@@ -236,6 +241,7 @@ export function JhaDocumentsPage() {
               title="Published"
               docs={publishedDocs}
               members={teamMembers}
+              theme={docColors}
               onOpen={id => navigate(jhaHref(id))}
               onDuplicate={id => duplicateMutation.mutate(id)}
               duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
@@ -251,6 +257,7 @@ function JhaGroup({
   title,
   docs,
   members,
+  theme,
   onOpen,
   onDuplicate,
   duplicatingId,
@@ -258,6 +265,7 @@ function JhaGroup({
   title: string;
   docs: DocRow[];
   members: Array<{ id: string; name: string; email: string; role: string }>;
+  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: (id: string) => void;
   onDuplicate: (id: string) => void;
   duplicatingId?: string;
@@ -275,6 +283,7 @@ function JhaGroup({
             key={d.id}
             doc={d}
             members={members}
+            theme={theme}
             onOpen={() => onOpen(d.id)}
             onDuplicate={() => onDuplicate(d.id)}
             duplicating={duplicatingId === d.id}
@@ -288,12 +297,14 @@ function JhaGroup({
 function JhaDocCard({
   doc,
   members,
+  theme,
   onOpen,
   onDuplicate,
   duplicating,
 }: {
   doc: DocRow;
   members: Array<{ id: string; name: string; email: string; role: string }>;
+  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: () => void;
   onDuplicate: () => void;
   duplicating: boolean;
@@ -325,7 +336,13 @@ function JhaDocCard({
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-      className="ops-card ops-card-hover group w-full cursor-pointer"
+      className="jha-doc-theme ops-card ops-card-hover group w-full cursor-pointer"
+      style={{
+        '--jha-navy': theme.navy,
+        '--jha-accent': theme.accent,
+        '--jha-navy-light': theme.navyLight,
+        '--jha-accent-light': theme.accentLight,
+      } as CSSProperties}
     >
       <OpsDocHead
         kind="JHA"

@@ -3573,7 +3573,7 @@
   }
 
   .hub-job-swms .ops-doc-head {
-    background: #0A2540;
+    background: var(--jha-navy, #0A2540);
     color: #fff;
     padding: 24px;
   }
@@ -3691,8 +3691,8 @@
   }
 
   .hub-job-swms .ops-tab-active {
-    color: #2E75B6;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    color: var(--jha-accent, #2E75B6);
+    box-shadow: inset 0 -2px 0 var(--jha-accent, #2E75B6);
     border: none;
   }
 
@@ -3767,9 +3767,9 @@
   }
 
   .hub-job-swms table thead th {
-    background: #0A2540;
+    background: var(--jha-navy, #0A2540);
     color: #fff;
-    border-color: #0A2540;
+    border-color: var(--jha-navy, #0A2540);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.08em;
@@ -3893,6 +3893,19 @@
 
   .take5-doc-theme .ops-choice[data-stop]:not(.ops-choice-fail) {
     color: #B42318;
+  }
+
+  /* JHA document chrome only — saved report_theme paints banner / table navy. */
+  .jha-doc-theme {
+    --jha-navy: #0A2540;
+    --jha-accent: #2E75B6;
+    --jha-navy-light: #153558;
+    --jha-accent-light: #D6E8F7;
+  }
+
+  .jha-doc-theme .ops-doc-head {
+    background: var(--jha-navy, #0A2540);
+    color: #fff;
   }
 
   @media (max-width: 639px) {

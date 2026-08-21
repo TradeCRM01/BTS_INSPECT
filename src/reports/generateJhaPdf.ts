@@ -33,10 +33,31 @@ interface JhaGenerateInput {
     email?: string | null;
     website?: string | null;
     logo_url?: string | null;
+    report_theme?: Record<string, unknown> | null;
   };
   reportNumber: string;
   /** Client pack: includes SWMS + photo appendix emphasis */
   packMode?: boolean;
+}
+
+export function jhaPdfCompanyFrom(company: {
+  name: string;
+  abn?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  logo_url?: string | null;
+  report_theme?: Record<string, unknown> | null;
+}) {
+  return {
+    name: company.name,
+    abn: company.abn ?? null,
+    phone: company.phone ?? null,
+    email: company.email ?? null,
+    website: company.website ?? null,
+    logo_url: company.logo_url ?? null,
+    report_theme: company.report_theme ?? null,
+  };
 }
 
 let fontsRegistered = false;
