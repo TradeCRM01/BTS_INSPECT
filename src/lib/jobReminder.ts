@@ -480,6 +480,67 @@ export type TomorrowReminderPick = {
 };
 
 /**
+ * How auto-fire actually runs — no tray click, no Vault hop.
+ * pg_cron → send_due_job_client_reminders() → scoped jobs → Resend → sent-at on 2xx.
+ */
+export const AUTO_FIRE_CLICK_PATH = [
+  'pg_cron job-client-reminder-perth-morning (0 23 * * * UTC = 07:00 Australia/Perth)',
+  'pg_cron job-client-reminder-perth-afternoon (0 8 * * * UTC = 16:00 Australia/Perth)',
+  'SELECT public.send_due_job_client_reminders()',
+  'perth_tomorrow = (timezone(Australia/Perth, now()))::date + 1',
+  'email_settings where Resend is ready (companies without SMTP are not scanned)',
+  'jobs where company_id = settings.company_id and scheduled_date = perth_tomorrow and status in (scheduled, in_progress)',
+  'skip already_sent for this scheduled_date; skip no client email',
+  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'UPDATE client_reminder_sent_at / client_reminder_sent_for_date only when Resend returns 2xx',
+] as const;
+
+/** Same calendar rule the SQL cron uses: (timezone('Australia/Perth', now()))::date + 1 */
+export function perthTomorrowSqlDate(now = new Date()): string {
+  return tomorrowYmd(now, COMPANY_TIME_ZONE);
+}
+
+export function autoFireJobFilter(companyId: string, now = new Date()) {
+  const id = companyId.trim();
+  if (!id) return null;
+  return {
+    table: 'jobs' as const,
+    company_id: id,
+    scheduled_date: perthTomorrowSqlDate(now),
+    status: ['scheduled', 'in_progress'] as const,
+    timeZone: COMPANY_TIME_ZONE,
+  };
+}
+
+/**
+ * Cron auto-select. SMTP must be ready or nothing is mailed.
+ * Still only tomorrow + this company + open jobs — not the ledger.
+ */
+export function selectAutoFireJobs(
+  jobs: ReminderJob[],
+  clients: Map<string, ReminderClient> | ReminderClient[],
+  settings: ReminderEmailSettings | null | undefined,
+  companyId: string,
+  now = new Date(),
+): TomorrowReminderPick {
+  const tomorrow = perthTomorrowSqlDate(now);
+  const scoped = jobs.filter(job => (
+    job.company_id === companyId && dateOnly(job.scheduled_date) === tomorrow
+  ));
+  if (!emailSettingsReady(settings)) {
+    return {
+      selected: [],
+      missed: scoped.map(job => ({
+        job,
+        reason: 'no_smtp' as const,
+        message: missMessage('no_smtp'),
+      })),
+    };
+  }
+  return selectTomorrowReminderJobs(scoped, clients, companyId, now);
+}
+
+/**
  * Who gets mailed. Defence in depth: even if a mixed ledger is passed,
  * only this company's open jobs due tomorrow with a client email are selected.
  */

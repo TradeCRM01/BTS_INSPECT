@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   alreadyRemindedForScheduledDate,
   applyReminderScope,
+  AUTO_FIRE_CLICK_PATH,
+  autoFireJobFilter,
   buildReminderEmail,
   clientRescheduleMailto,
   COMPANY_TIME_ZONE,
@@ -21,8 +23,10 @@ import {
   reminderClientsQuery,
   reminderEligibility,
   reminderEmailSettingsQuery,
+  perthTomorrowSqlDate,
   reminderSuccessPatch,
   resolveReminderCaller,
+  selectAutoFireJobs,
   selectTomorrowReminderJobs,
   shouldRecordReminderSent,
   tomorrowReminderQuery,
@@ -229,6 +233,81 @@ describe('honest misses — no send', () => {
       client_reminder_sent_at: '2026-08-21T09:00:00.000Z',
       client_reminder_sent_for_date: '2026-08-22',
     });
+  });
+});
+
+describe('auto-fire (cron, not the tray)', () => {
+  it('documents the click path that actually mails without a user', () => {
+    expect(AUTO_FIRE_CLICK_PATH[0]).toMatch(/pg_cron/);
+    expect(AUTO_FIRE_CLICK_PATH.join(' → ')).toMatch(/send_due_job_client_reminders/);
+    expect(AUTO_FIRE_CLICK_PATH.join(' ')).toMatch(/api\.resend\.com/);
+    expect(AUTO_FIRE_CLICK_PATH.join(' ')).not.toMatch(/vault/i);
+  });
+
+  it('auto-selects tomorrow Perth jobs with email when SMTP is ready', () => {
+    const pick = selectAutoFireJobs(
+      [job(), job({ id: 'today', scheduled_date: '2026-08-21' })],
+      [client],
+      smtp,
+      'co-1',
+      now,
+    );
+    expect(perthTomorrowSqlDate(now)).toBe('2026-08-22');
+    expect(pick.selected.map(s => s.job.id)).toEqual(['job-1']);
+    expect(pick.selected[0]?.to).toBe('sam@acme.example');
+  });
+
+  it('does not send without SMTP — and does not scan other companies', () => {
+    const pick = selectAutoFireJobs(
+      [job(), job({ id: 'other', company_id: 'co-2' })],
+      [client],
+      null,
+      'co-1',
+      now,
+    );
+    expect(pick.selected).toEqual([]);
+    expect(pick.missed.every(m => m.reason === 'no_smtp')).toBe(true);
+    expect(pick.missed.map(m => m.job.id)).toEqual(['job-1']);
+  });
+
+  it('does not send without a client email', () => {
+    const pick = selectAutoFireJobs(
+      [job()],
+      [{ id: 'c1', email: null }],
+      smtp,
+      'co-1',
+      now,
+    );
+    expect(pick.selected).toEqual([]);
+    expect(pick.missed[0]?.reason).toBe('no_email');
+  });
+
+  it('skips already-sent for this scheduled_date', () => {
+    const pick = selectAutoFireJobs(
+      [job({
+        client_reminder_sent_at: '2026-08-21T01:00:00.000Z',
+        client_reminder_sent_for_date: tomorrow,
+      })],
+      [client],
+      smtp,
+      'co-1',
+      now,
+    );
+    expect(pick.selected).toEqual([]);
+    expect(pick.missed[0]?.reason).toBe('already_sent');
+  });
+
+  it('keeps the auto query scoped to company + Perth tomorrow + open', () => {
+    const filter = autoFireJobFilter('co-1', now);
+    expect(filter).toEqual({
+      table: 'jobs',
+      company_id: 'co-1',
+      scheduled_date: '2026-08-22',
+      status: ['scheduled', 'in_progress'],
+      timeZone: 'Australia/Perth',
+    });
+    expect(autoFireJobFilter('')).toBeNull();
+    expect(wouldScanUnscopedJobs(tomorrowReminderQuery({ companyId: 'co-1', now }))).toBe(false);
   });
 });
 

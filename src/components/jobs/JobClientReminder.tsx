@@ -7,7 +7,6 @@ import { useToast } from '../ui';
 import type { Client, Job } from '../../types/crm';
 import {
   decideReminderSend,
-  isJobDueTomorrow,
   jobScheduleHref,
   prefillReminderTo,
   type ReminderEmailSettings,
@@ -90,7 +89,6 @@ export function JobClientReminder({
     onError: (e: Error) => showToast(e.message, 'error'),
   });
 
-  const dueTomorrow = isJobDueTomorrow(job);
   const sentAt = job.client_reminder_sent_at;
 
   return (
@@ -128,7 +126,7 @@ export function JobClientReminder({
           <p className="ops-meta mb-3">Checking email settings…</p>
         ) : decision.send ? (
           <p className="ops-meta mb-3">
-            Client is booked tomorrow. The email includes an “I need to reschedule” reply that opens this job schedule.
+            Auto-sends the day before (Australia/Perth). Send is an override. The email includes an “I need to reschedule” reply that opens this job schedule.
           </p>
         ) : (
           <p className="ops-meta mb-3">{decision.message}</p>
@@ -148,7 +146,7 @@ export function JobClientReminder({
             disabled={awaitingSmtp || !decision.send || send.isPending}
             onClick={() => send.mutate()}
           >
-            {send.isPending ? 'Sending…' : dueTomorrow ? 'Send tomorrow reminder' : 'Send reminder'}
+            {send.isPending ? 'Sending…' : 'Send now'}
           </button>
           {decision.send && (
             <a href={decision.rescheduleMailto} className="ops-link text-xs">
