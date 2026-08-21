@@ -18,6 +18,7 @@ import {
   persistCompanyLogo,
   removeCompanyLogo,
   type CompanyLogoClient,
+  type CompanyLogoFileIn,
 } from './companyLogo';
 
 function src(rel: string): string {
@@ -81,7 +82,7 @@ const invoice: InvoiceSendInvoice = {
 function invoiceBundle(logo_url: string | null | undefined): InvoiceSendBundle {
   return {
     invoice,
-    client: { id: 'c1', name: 'Acme Plumbing', email: 'jane@acme.test' },
+    client: { id: 'c1', name: 'Acme Plumbing', email: 'jane@acme.test', phone: '0412 345 678', address: '12 Smith St' },
     jobAddress: 'Warehouse B',
     smtp: {
       smtp_host: 'smtp.resend.com',
@@ -91,6 +92,11 @@ function invoiceBundle(logo_url: string | null | undefined): InvoiceSendBundle {
     },
     company: { name: 'Acme Electrical', logo_url },
   };
+}
+
+function fakeLogoFile(type: string, size: number, name: string): Blob & CompanyLogoFileIn {
+  const blob = new Blob([new Uint8Array(Math.max(size, 1))], { type });
+  return Object.assign(blob, { name });
 }
 
 function memoryLogoClient(seed: Record<string, string | null> = {}): CompanyLogoClient & {
@@ -170,11 +176,7 @@ describe('decideCompanyLogoUpload', () => {
 describe('persistCompanyLogo', () => {
   it('upload persists logo_url on this company only', async () => {
     const client = memoryLogoClient({ co1: null, co2: null });
-    const file = Object.assign(new Blob(['png'], { type: 'image/png' }), {
-      type: 'image/png',
-      size: 12,
-      name: 'mark.png',
-    });
+    const file = fakeLogoFile('image/png', 12, 'mark.png');
     const result = await persistCompanyLogo(client, { companyId: 'co1', file });
     expect(result).toEqual({
       ok: true,
@@ -188,11 +190,7 @@ describe('persistCompanyLogo', () => {
 
   it('does not persist an invalid file — this company stays blank', async () => {
     const client = memoryLogoClient({ co1: null });
-    const file = Object.assign(new Blob(['%PDF'], { type: 'application/pdf' }), {
-      type: 'application/pdf',
-      size: 20,
-      name: 'not-a-logo.pdf',
-    });
+    const file = fakeLogoFile('application/pdf', 20, 'not-a-logo.pdf');
     const result = await persistCompanyLogo(client, { companyId: 'co1', file });
     expect(result).toMatchObject({ ok: false, reason: 'invalid_file', message: COMPANY_LOGO_INVALID_FILE });
     expect(client.companies.co1).toBeNull();
@@ -205,11 +203,7 @@ describe('persistCompanyLogo', () => {
     expect(cleared).toEqual({ ok: true, companyId: 'co1', logo_url: null });
     expect(client.companies.co1).toBeNull();
 
-    const file = Object.assign(new Blob(['png'], { type: 'image/png' }), {
-      type: 'image/png',
-      size: 12,
-      name: 'new.png',
-    });
+    const file = fakeLogoFile('image/png', 12, 'new.png');
     const replaced = await persistCompanyLogo(client, { companyId: 'co1', file });
     expect(replaced.ok).toBe(true);
     if (replaced.ok) expect(replaced.logo_url).toBe('https://cdn.example.com/co1/logo.png');
@@ -287,13 +281,13 @@ describe('companyLogoClientFromSupabase', () => {
     const uploads: Array<{ bucket: string; path: string }> = [];
     const client = companyLogoClientFromSupabase({
       storage: {
-        from(bucket) {
+        from(bucket: string) {
           return {
-            async upload(path) {
+            async upload(path: string) {
               uploads.push({ bucket, path });
               return { error: null };
             },
-            getPublicUrl(path) {
+            getPublicUrl(path: string) {
               return { data: { publicUrl: `https://files.test/${path}` } };
             },
             async remove() {
@@ -302,11 +296,11 @@ describe('companyLogoClientFromSupabase', () => {
           };
         },
       },
-      from(table) {
+      from(table: string) {
         return {
-          update(row) {
+          update(row: { logo_url: string | null }) {
             return {
-              async eq(_column, id) {
+              async eq(_column: string, id: string) {
                 writes.push({ table, row, id });
                 return { error: null };
               },
@@ -315,11 +309,7 @@ describe('companyLogoClientFromSupabase', () => {
         };
       },
     });
-    const file = Object.assign(new Blob(['png'], { type: 'image/png' }), {
-      type: 'image/png',
-      size: 12,
-      name: 'mark.png',
-    });
+    const file = fakeLogoFile('image/png', 12, 'mark.png');
     const result = await persistCompanyLogo(client, { companyId: 'co1', file });
     expect(result).toMatchObject({ ok: true, logo_url: 'https://files.test/co1/logo.png' });
     expect(uploads).toEqual([{ bucket: 'logos', path: 'co1/logo.png' }]);
