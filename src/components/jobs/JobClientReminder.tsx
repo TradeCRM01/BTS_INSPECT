@@ -40,6 +40,10 @@ export const JOB_REMINDER_NO_EMAIL_FIELD =
 export const JOB_REMINDER_NO_PHONE_FIELD =
   'This client has no phone. Add one below before you send.';
 
+/** Honest no-client miss on this tray — pick an existing client below. Not a failed-send line. */
+export const JOB_REMINDER_NO_CLIENT_FIELD =
+  'This job has no client. Add one below before you send.';
+
 export function JobClientReminder({
   job,
   client,
@@ -141,11 +145,19 @@ export function JobClientReminder({
     && decision.send
     && !smsTo
     && phoneRow.kind === 'edit';
+  const noClientFieldMiss =
+    !awaitingSmtp
+    && noClientMiss
+    && attachRow.kind !== 'miss'
+    && !decision.send
+    && decision.reason === 'no_email';
   const missText = noEmailFieldMiss
     ? JOB_REMINDER_NO_EMAIL_FIELD
-    : (noClientsNamedMiss && !decision.send && decision.reason === 'no_email')
-      ? JOB_CLIENT_ATTACH_NO_CLIENTS
-      : (!decision.send ? decision.message : '');
+    : noClientFieldMiss
+      ? JOB_REMINDER_NO_CLIENT_FIELD
+      : (noClientsNamedMiss && !decision.send && decision.reason === 'no_email')
+        ? JOB_CLIENT_ATTACH_NO_CLIENTS
+        : (!decision.send ? decision.message : '');
 
   useEffect(() => {
     setClientAttachDraft('');
@@ -354,10 +366,13 @@ export function JobClientReminder({
           <p className="job-reminder-meta">Checking email settings…</p>
         ) : decision.send ? (
           <p className="job-reminder-meta">Auto-sends the day before (Australia/Perth).</p>
-        ) : noEmailFieldMiss ? null : (
+        ) : noEmailFieldMiss || noClientFieldMiss ? null : (
           <p className="job-reminder-miss">{missText}</p>
         )}
 
+        {noClientFieldMiss && (
+          <p className="job-reminder-miss">{JOB_REMINDER_NO_CLIENT_FIELD}</p>
+        )}
         {attachRow.kind === 'pick' && (
           <form
             className="job-client-attach"

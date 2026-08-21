@@ -337,6 +337,7 @@ describe('24h reminder attach client — wiring', () => {
     expect(reminder).toContain("kind === 'pick'");
     expect(reminder).toContain("kind === 'miss'");
     expect(reminder).toContain('JOB_CLIENT_ATTACH_NO_CLIENTS');
+    expect(reminder).toContain('JOB_REMINDER_NO_CLIENT_FIELD');
     expect(reminder).toContain('noClientMiss');
     expect(reminder).toContain('noClientsNamedMiss');
     expect(reminder).toContain("from('clients')");
@@ -384,6 +385,7 @@ describe('24h reminder attach client — wiring', () => {
     expect(reminder).toContain('saveJobClientEmail');
     expect(reminder).toContain('saveEmail.mutate()');
     expect(reminder).toContain('JOB_REMINDER_NO_EMAIL_FIELD');
+    expect(reminder).toContain('JOB_REMINDER_NO_CLIENT_FIELD');
     expect(reminder).toContain('jobClientPhoneRow({');
     expect(reminder).toContain("phoneRow.kind === 'edit'");
     expect(reminder).toContain('job-client-phone');
@@ -502,6 +504,7 @@ describe('24h reminder attach client — wiring', () => {
     expect(reminder).toContain('job-client-email');
     expect(reminder).toContain('job-client-email-save');
     expect(reminder).toContain('JOB_REMINDER_NO_EMAIL_FIELD');
+    expect(reminder).toContain('JOB_REMINDER_NO_CLIENT_FIELD');
     expect(reminder).toContain('saveJobClientPhone');
     expect(reminder).toContain('jobClientPhoneRow');
     expect(reminder).toContain('job-client-phone');
@@ -541,22 +544,24 @@ describe('24h reminder attach client — wiring', () => {
     expect(cron).toContain('{"due":"tomorrow","source":"cron"}');
   });
 
-  it('keeps the existing no-client miss and puts the attach control on this tray — does not bounce to the client record', () => {
+  it('points the no-client miss at the picker — miss first, then the quiet field', () => {
     const reminder = src('src/components/jobs/JobClientReminder.tsx');
+    expect(reminder).toContain('JOB_REMINDER_NO_CLIENT_FIELD');
+    expect(reminder).toContain('This job has no client. Add one below before you send.');
+    expect(reminder).toContain('Add one below before you send.');
+    expect(reminder).toContain('noClientFieldMiss');
     expect(reminder).toContain('noClientMiss');
     expect(reminder).toContain("kind === 'pick'");
     expect(reminder).toContain('job-client-attach');
-    expect(src('src/lib/jobReminder.ts')).toContain('This client has no email — reminder was not sent.');
-    const tos = reminder.indexOf('<div className="job-reminder-tos">');
-    const missSlot = reminder.indexOf('{awaitingSmtp ? (');
+    const emptyMiss = reminder.indexOf('{noClientFieldMiss && (');
     const attach = reminder.indexOf('{attachRow.kind === \'pick\' && (');
-    expect(tos).toBeGreaterThan(-1);
-    expect(missSlot).toBeGreaterThan(tos);
-    expect(attach).toBeGreaterThan(missSlot);
+    expect(emptyMiss).toBeGreaterThan(-1);
+    expect(attach).toBeGreaterThan(emptyMiss);
     expect(reminder).not.toContain('Add one on the client record');
     expect(reminder).not.toContain('client record');
     expect(reminder).not.toContain('/clients/');
     expect(reminder).not.toContain('Open client');
+    expect(src('src/lib/jobReminder.ts')).toContain('This client has no email — reminder was not sent.');
   });
 
   it('shows one honest No clients to attach miss — no fake picker', () => {
