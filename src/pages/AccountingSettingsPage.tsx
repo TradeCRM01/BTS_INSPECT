@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,11 +7,23 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { format, parseISO } from 'date-fns';
-import { Building2, Check, X, RefreshCw, AlertCircle, Construction, Settings as SettingsIcon } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
+import {
+  ACCOUNTING_SETTINGS_PATH,
+  ACCOUNTING_SETTINGS_PUBLIC_COLUMNS,
+  XERO_FUNCTION_NAME,
+  canUseAccountingSettings,
+  parseXeroCallbackSearch,
+  preferenceInsertDefaults,
+  preferenceSavePayload,
+  readXeroFunctionResult,
+  xeroMissMessage,
+} from '../lib/xeroAccounting';
 
 export function AccountingSettingsPage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [provider, setProvider] = useState('none');
   const [autoSync, setAutoSync] = useState(false);
   const [syncInvoices, setSyncInvoices] = useState(true);
@@ -19,15 +31,18 @@ export function AccountingSettingsPage() {
   const [syncSuppliers, setSyncSuppliers] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
+  const [actionMsg, setActionMsg] = useState<{ kind: 'ok' | 'miss'; text: string } | null>(null);
+  const [busyAction, setBusyAction] = useState<'connect' | 'sync' | 'disconnect' | 'callback' | null>(null);
+  const callbackLock = useRef(false);
 
-  const isAdmin = profile?.role === 'admin';
+  const isAdmin = canUseAccountingSettings(profile?.role);
 
   const { data: settings, isLoading, error } = useQuery({
     queryKey: ['accounting-settings'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('accounting_settings')
-        .select('*')
+        .select(ACCOUNTING_SETTINGS_PUBLIC_COLUMNS)
         .eq('company_id', profile!.company_id)
         .maybeSingle();
       if (error) throw error;
@@ -46,23 +61,25 @@ export function AccountingSettingsPage() {
     }
   }, [settings]);
 
+  const connected = settings?.provider === 'xero'
+    && settings?.connection_status === 'connected'
+    && Boolean(settings?.tenant_id);
+
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
-        company_id: profile!.company_id,
+      const payload = preferenceSavePayload({
+        companyId: profile!.company_id,
         provider,
-        auto_sync: autoSync,
-        sync_invoices: syncInvoices,
-        sync_payments: syncPayments,
-        sync_suppliers: syncSuppliers,
-        connection_status: 'disconnected',
-        updated_at: new Date().toISOString(),
-      };
+        autoSync,
+        syncInvoices,
+        syncPayments,
+        syncSuppliers,
+      });
       if (settings) {
         const { error } = await supabase.from('accounting_settings').update(payload).eq('id', settings.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('accounting_settings').insert(payload);
+        const { error } = await supabase.from('accounting_settings').insert(preferenceInsertDefaults(payload));
         if (error) throw error;
       }
     },
@@ -78,99 +95,241 @@ export function AccountingSettingsPage() {
     saveMutation.mutate(undefined, { onSettled: () => setSaving(false) });
   };
 
+  async function invokeXero(body: Record<string, unknown>) {
+    const { data, error } = await supabase.functions.invoke(XERO_FUNCTION_NAME, { body });
+    return readXeroFunctionResult(data, error);
+  }
+
+  function accountingRedirectUri() {
+    return `${window.location.origin}${ACCOUNTING_SETTINGS_PATH}`;
+  }
+
+  function clearCallbackParams() {
+    navigate(ACCOUNTING_SETTINGS_PATH, { replace: true });
+  }
+
+  async function handleConnect() {
+    setActionMsg(null);
+    setBusyAction('connect');
+    try {
+      const result = await invokeXero({
+        action: 'connect',
+        provider,
+        redirectUri: accountingRedirectUri(),
+      });
+      if (!result.ok) {
+        setActionMsg({ kind: 'miss', text: result.message });
+        return;
+      }
+      const url = String(result.body.authorizeUrl ?? '');
+      if (!url) {
+        setActionMsg({ kind: 'miss', text: xeroMissMessage('token_failed') });
+        return;
+      }
+      window.location.assign(url);
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleSync() {
+    setActionMsg(null);
+    setBusyAction('sync');
+    try {
+      const result = await invokeXero({ action: 'sync' });
+      if (!result.ok) {
+        setActionMsg({ kind: 'miss', text: result.message });
+        return;
+      }
+      setActionMsg({ kind: 'ok', text: String(result.body.message ?? 'Synced paid invoices to Xero.') });
+      queryClient.invalidateQueries({ queryKey: ['accounting-settings'] });
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleDisconnect() {
+    setActionMsg(null);
+    setBusyAction('disconnect');
+    try {
+      const result = await invokeXero({ action: 'disconnect' });
+      if (!result.ok) {
+        setActionMsg({ kind: 'miss', text: result.message });
+        return;
+      }
+      setActionMsg({ kind: 'ok', text: 'Xero disconnected. Tokens and tenant were cleared.' });
+      queryClient.invalidateQueries({ queryKey: ['accounting-settings'] });
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  useEffect(() => {
+    if (!isAdmin || callbackLock.current) return;
+    const parsed = parseXeroCallbackSearch(window.location.search);
+    if (!window.location.search) return;
+    callbackLock.current = true;
+    if (!parsed.ok) {
+      setActionMsg({ kind: 'miss', text: xeroMissMessage(parsed.code) });
+      clearCallbackParams();
+      return;
+    }
+    setBusyAction('callback');
+    void invokeXero({
+      action: 'callback',
+      code: parsed.code,
+      state: parsed.state,
+      redirectUri: accountingRedirectUri(),
+    }).then((result) => {
+      if (!result.ok) setActionMsg({ kind: 'miss', text: result.message });
+      else {
+        setActionMsg({ kind: 'ok', text: 'Xero connected.' });
+        queryClient.invalidateQueries({ queryKey: ['accounting-settings'] });
+      }
+    }).finally(() => {
+      setBusyAction(null);
+      clearCallbackParams();
+    });
+  }, [isAdmin, queryClient, navigate]);
+
   if (profile && !isAdmin) return <Navigate to="/" replace />;
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error) return <AppShell><PageError message="Could not load accounting settings" /></AppShell>;
 
+  const lastSynced = settings?.last_synced_at
+    ? format(parseISO(settings.last_synced_at), 'dd MMM yyyy, HH:mm')
+    : null;
+
+  const missText = actionMsg?.kind === 'miss'
+    ? actionMsg.text
+    : !connected
+      ? (provider === 'quickbooks' ? xeroMissMessage('quickbooks_not_in_slice') : xeroMissMessage('not_connected'))
+      : null;
+
   return (
     <AppShell>
-      <div className="page-shell-narrow">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold text-[#1A1A1A]">Accounting Integration</h1>
-          <p className="text-sm text-[#4A5568] mt-0.5">Prepare preferences for Xero or QuickBooks sync</p>
-        </div>
+      <div id="accounting-settings">
+        <div className="acct-page">
+          <h1 className="ops-page-title">Accounting</h1>
 
-        <div className="rounded-xl p-4 mb-4 border bg-amber-50 border-amber-200">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-amber-100 shrink-0">
-              <Construction size={20} className="text-amber-700" />
+          <section className="ops-tray">
+            <div className="ops-tray-head">
+              <h2 className="ops-section-title">Xero</h2>
             </div>
-            <div>
-              <p className="text-sm font-medium text-amber-900">OAuth connection coming soon</p>
-              <p className="text-xs text-amber-800 mt-0.5">
-                You can save preferred provider and sync options now. Live Connect / Sync for Xero and QuickBooks is not wired yet â€” those buttons previously did nothing.
-              </p>
+            <div className="acct-body">
+              {connected ? (
+                <>
+                  <p className="acct-status">Xero connected</p>
+                  <p className="acct-meta">
+                    Tenant {settings?.tenant_id}
+                    {lastSynced ? ` · Last synced ${lastSynced}` : ''}
+                  </p>
+                </>
+              ) : null}
+              {missText && <p className="acct-miss">{missText}</p>}
+              {actionMsg?.kind === 'ok' && <p className="acct-meta">{actionMsg.text}</p>}
+              {savedMsg && <p className="acct-meta">Saved</p>}
+
+              <div className="acct-act">
+                {connected ? (
+                  <button
+                    type="button"
+                    onClick={handleSync}
+                    disabled={busyAction !== null}
+                    className="btn-primary"
+                  >
+                    {busyAction === 'sync' ? 'Syncing…' : 'Sync now'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleConnect}
+                    disabled={busyAction !== null}
+                    className="btn-primary"
+                  >
+                    {busyAction === 'connect' || busyAction === 'callback' ? 'Connecting…' : 'Connect Xero'}
+                  </button>
+                )}
+                <details className="acct-more">
+                  <summary aria-label="More">
+                    <MoreHorizontal size={16} />
+                  </summary>
+                  <div className="acct-more-menu">
+                    {connected && (
+                      <button
+                        type="button"
+                        onClick={handleDisconnect}
+                        disabled={busyAction !== null}
+                      >
+                        {busyAction === 'disconnect' ? 'Disconnecting…' : 'Disconnect'}
+                      </button>
+                    )}
+                    <button type="button" onClick={handleSave} disabled={saving}>
+                      {saving ? 'Saving…' : 'Save preferences'}
+                    </button>
+                  </div>
+                </details>
+              </div>
             </div>
-          </div>
-        </div>
+          </section>
 
-        <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5 mb-4">
-          <h2 className="text-sm font-semibold text-[#1A1A1A] mb-3">Select Provider</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <ProviderCard
-              name="None" icon={X} description="No integration"
-              active={provider === 'none'} onClick={() => setProvider('none')} color="#6B7280"
-            />
-            <ProviderCard
-              name="Xero" icon={Building2} description="Cloud accounting"
-              active={provider === 'xero'} onClick={() => setProvider('xero')} color="#13B5EA"
-            />
-            <ProviderCard
-              name="QuickBooks" icon={Building2} description="Intuit accounting"
-              active={provider === 'quickbooks'} onClick={() => setProvider('quickbooks')} color="#2CA01C"
-            />
-          </div>
-        </div>
-
-        {provider !== 'none' && (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5 mb-4">
-            <h2 className="text-sm font-semibold text-[#1A1A1A] mb-3">Sync Settings</h2>
-            <div className="space-y-3">
-              <ToggleRow label="Automatic sync" description="Sync data automatically every hour" checked={autoSync} onChange={setAutoSync} />
-              <ToggleRow label="Sync invoices" description="Push invoices to accounting software" checked={syncInvoices} onChange={setSyncInvoices} />
-              <ToggleRow label="Sync payments" description="Record payments in accounting software" checked={syncPayments} onChange={setSyncPayments} />
-              <ToggleRow label="Sync suppliers" description="Keep supplier records in sync" checked={syncSuppliers} onChange={setSyncSuppliers} />
+          <section className="ops-tray">
+            <div className="ops-tray-head">
+              <h2 className="ops-section-title">Preferences</h2>
             </div>
-            {settings?.last_synced_at && (
-              <p className="text-xs text-[#4A5568] mt-3 flex items-center gap-1">
-                <AlertCircle size={12} />
-                Last synced: {format(parseISO(settings.last_synced_at), 'dd MMM yyyy, HH:mm')}
-              </p>
-            )}
-          </div>
-        )}
+            <div className="acct-body">
+              <div className="acct-choices" role="group" aria-label="Provider">
+                <ProviderChoice name="None" active={provider === 'none'} onClick={() => setProvider('none')} />
+                <ProviderChoice name="Xero" active={provider === 'xero'} onClick={() => setProvider('xero')} />
+                <ProviderChoice name="QuickBooks" active={provider === 'quickbooks'} onClick={() => setProvider('quickbooks')} />
+              </div>
 
-        <div className="flex items-center justify-end gap-3">
-          {savedMsg && <span className="text-sm text-green-600 font-medium flex items-center gap-1"><Check size={16} /> Saved</span>}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
-          >
-            {saving ? <RefreshCw size={16} className="animate-spin" /> : <SettingsIcon size={16} />}
-            Save Settings
-          </button>
+              {provider !== 'none' && (
+                <div className="acct-toggles">
+                  <ToggleRow
+                    label="Automatic sync"
+                    description="Saved preference only — this slice syncs when you click Sync now"
+                    checked={autoSync}
+                    onChange={setAutoSync}
+                  />
+                  <ToggleRow
+                    label="Sync invoices"
+                    description="Push paid invoices to Xero"
+                    checked={syncInvoices}
+                    onChange={setSyncInvoices}
+                  />
+                  <ToggleRow
+                    label="Sync payments"
+                    description="Saved preference only — this slice does not run a payments sync"
+                    checked={syncPayments}
+                    onChange={setSyncPayments}
+                  />
+                  <ToggleRow
+                    label="Sync suppliers"
+                    description="Saved preference only — suppliers are not in this slice"
+                    checked={syncSuppliers}
+                    onChange={setSyncSuppliers}
+                  />
+                </div>
+              )}
+            </div>
+          </section>
         </div>
       </div>
     </AppShell>
   );
 }
 
-function ProviderCard({ name, icon: Icon, description, active, onClick, color }: {
-  name: string; icon: React.ComponentType<{ size?: number; className?: string }>; description: string; active: boolean; onClick: () => void; color: string;
+function ProviderChoice({ name, active, onClick }: {
+  name: string; active: boolean; onClick: () => void;
 }) {
   return (
-    <button onClick={onClick}
-      className={`p-4 rounded-lg border-2 text-left transition-all ${
-        active ? 'border-[#0A2540] bg-blue-50' : 'border-[#E5E7EB] hover:border-[#9CA3AF] bg-white'
-      }`}>
-      <div className="flex items-center gap-2 mb-1">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}15` }}>
-          <Icon size={18} style={{ color }} />
-        </div>
-        <span className="text-sm font-semibold text-[#1A1A1A]">{name}</span>
-      </div>
-      <p className="text-xs text-[#4A5568]">{description}</p>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`acct-choice${active ? ' is-on' : ''}`}
+    >
+      {name}
     </button>
   );
 }
@@ -179,17 +338,19 @@ function ToggleRow({ label, description, checked, onChange }: {
   label: string; description: string; checked: boolean; onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between p-3 rounded-lg border border-[#E5E7EB] cursor-pointer hover:bg-[#F9FAFB] transition-colors">
-      <div>
-        <p className="text-sm font-medium text-[#1A1A1A]">{label}</p>
-        <p className="text-xs text-[#4A5568]">{description}</p>
-      </div>
+    <label className="acct-toggle">
+      <span>
+        <span className="acct-toggle-label">{label}</span>
+        <span className="acct-meta">{description}</span>
+      </span>
       <button
         type="button"
+        role="switch"
+        aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative w-11 h-6 rounded-full transition-colors ${checked ? 'bg-[#0A2540]' : 'bg-gray-300'}`}
+        className={`acct-switch${checked ? ' is-on' : ''}`}
       >
-        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-5' : ''}`} />
+        <span className="acct-switch-knob" />
       </button>
     </label>
   );
