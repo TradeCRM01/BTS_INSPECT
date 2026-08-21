@@ -603,7 +603,7 @@ export const AUTO_FIRE_CLICK_PATH = [
   'pg_cron job-client-reminder-perth-morning (0 23 * * * UTC = 07:00 Australia/Perth)',
   'pg_cron job-client-reminder-perth-afternoon (0 8 * * * UTC = 16:00 Australia/Perth)',
   'SELECT public.invoke_job_client_reminders()',
-  'pg_net POST /functions/v1/job-reminder {"due":"tomorrow","source":"cron"}',
+  'pg_net POST /functions/v1/job-reminder due=tomorrow source=cron',
   'vault project_url + service_role_key / job_reminder_cron_secret (same 057 secrets)',
   'perth_tomorrow = (timezone(Australia/Perth, now()))::date + 1',
   'email_settings where Resend is ready (companies without SMTP are not scanned)',

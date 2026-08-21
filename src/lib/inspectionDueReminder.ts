@@ -580,7 +580,7 @@ export const INSPECTION_DUE_AUTO_FIRE_PATH = [
   'pg_cron job-client-reminder-perth-morning (0 23 * * * UTC = 07:00 Australia/Perth)',
   'pg_cron job-client-reminder-perth-afternoon (0 8 * * * UTC = 16:00 Australia/Perth)',
   'SELECT public.invoke_job_client_reminders()',
-  'pg_net POST /functions/v1/job-reminder {"due":"today","source":"cron"}',
+  'pg_net POST /functions/v1/job-reminder due=today source=cron',
   'perth_today = (timezone(Australia/Perth, now()))::date',
   'email_settings where Resend is ready (companies without SMTP are not scanned)',
   'inspections where due_on = perth_today and archived is not true, company via job / client / inspector',
