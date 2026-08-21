@@ -692,15 +692,16 @@
       grid-template-areas:
         "ref total"
         "cust next"
-        "meta next";
+        "sub next"
+        "pill next";
       gap: 0.2rem 0.75rem;
       padding: 0.85rem 1rem;
     }
 
     .hub-quotes-row > :nth-child(1) { grid-area: ref; }
     .hub-quotes-row > :nth-child(2) { grid-area: cust; }
-    .hub-quotes-row > :nth-child(3),
-    .hub-quotes-row > :nth-child(4) { grid-area: meta; }
+    .hub-quotes-row > :nth-child(3) { grid-area: sub; }
+    .hub-quotes-row > :nth-child(4) { grid-area: pill; }
     .hub-quotes-row > :nth-child(5) { grid-area: total; text-align: right; }
     .hub-quotes-row > :nth-child(6) { grid-area: next; }
   }
@@ -900,6 +901,21 @@
     padding: 0.85rem 1.25rem;
     font-size: 0.95rem;
     font-weight: 600;
+  }
+
+  .hub-quote-edit {
+    margin-top: 0.85rem;
+    padding: 0 0.15rem;
+  }
+
+  .hub-quote-edit summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #5B6B7C;
+    cursor: pointer;
   }
 
   .hub-quote-editor .overlay-body,

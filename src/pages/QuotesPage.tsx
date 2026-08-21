@@ -835,6 +835,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           ) : null}
         </div>
 
+        <details className="hub-quote-edit">
+          <summary>Edit quote</summary>
         <div className="overlay-body hub-quote-editor-body">
           <div className="grid grid-cols-2 gap-6">
             <Field label="Client" required>
@@ -913,6 +915,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
 
           {err && <p className="text-sm text-fail">{err}</p>}
         </div>
+        </details>
       </div>
 
       {showPreview && previewData && (
