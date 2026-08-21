@@ -448,6 +448,16 @@ describe('cron vs tray auth', () => {
       cronAuthorized: true,
       due: 'tomorrow',
     })).toEqual({ ok: true, caller: { kind: 'cron' } });
+    expect(resolveReminderCaller({
+      hasUser: false,
+      cronAuthorized: true,
+      due: 'overdue',
+    })).toEqual({ ok: true, caller: { kind: 'cron' } });
+    expect(resolveReminderCaller({
+      hasUser: false,
+      cronAuthorized: false,
+      due: 'overdue',
+    })).toEqual({ ok: false, error: 'Unauthorized' });
   });
 
   it('single-jobId send still requires a logged-in member', () => {

@@ -4,15 +4,18 @@ import { asStringList } from './asStringList';
 import { linesFromQuoteItems, type CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import type { InvoiceLineItem, InvoiceStatus } from '../types/fsm';
 import {
+  COMPANY_TIME_ZONE,
   decideSmsBeside,
   emailSettingsReady,
   missSmsMessage,
   prefillReminderTo,
   prefillSmsTo,
+  ymdInTimeZone,
   type ReminderEmailSettings,
   type SmsCredentials,
   type SmsDecision,
 } from './jobReminder';
+import { effectiveInvoiceStatus } from './invoiceStatus';
 
 export const COMPANY_EMAIL_SETTINGS_HREF = '/settings/company';
 
@@ -83,6 +86,7 @@ export type InvoiceSendInvoice = {
   notes: string | null;
   inclusions: unknown;
   exclusions: unknown;
+  chased_at?: string | null;
 };
 
 export type InvoiceSendClient = {
@@ -109,7 +113,7 @@ export type InvoicePdfAttachment = {
 };
 
 export const INVOICE_SEND_INVOICE_COLUMNS =
-  'id, company_id, invoice_number, client_id, job_id, quote_id, source, status, line_items, subtotal, tax_rate, tax_amount, total, payment_terms, due_date, notes, inclusions, exclusions, created_by, created_at, updated_at';
+  'id, company_id, invoice_number, client_id, job_id, quote_id, source, status, line_items, subtotal, tax_rate, tax_amount, total, payment_terms, due_date, notes, inclusions, exclusions, chased_at, created_by, created_at, updated_at';
 
 export const INVOICE_SEND_CLIENT_COLUMNS = 'id, name, email, phone, address';
 export const INVOICE_SEND_SMTP_COLUMNS = 'smtp_host, smtp_pass, from_name, from_email';
@@ -131,8 +135,9 @@ export const INVOICE_SEND_PIPE = [
   'To = client.email (never invented)',
   'attach existing invoice PDF (stored reports path or commercial generateCommercialPdf)',
   'POST https://api.resend.com/emails with email_settings.smtp_pass',
-  'SMS beside: clients.phone via Twilio edge secrets on job-reminder (email status unchanged if SMS misses)',
-  'UPDATE invoices.status = sent only when Resend returns 2xx',
+  'SMS beside: clients.phone via Twilio edge secrets on job-reminder (email status / chased_at unchanged if SMS misses)',
+  'UPDATE invoices.status = sent only when Resend returns 2xx (never paid)',
+  'UPDATE invoices.chased_at only when Resend returns 2xx on overdue / sent-again',
 ] as const;
 
 export function padInvoiceNumber(n: number | null | undefined): string {
@@ -158,6 +163,24 @@ export function decideInvoiceSms(args: {
   return decideSmsBeside({ phone: args.phone, credentials: args.credentials });
 }
 
+export type InvoiceSendCopyKind = 'first' | 'chase';
+
+export function invoiceDueLabel(dueDate: string | null | undefined): string | null {
+  const day = (dueDate ?? '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  return format(parseISO(day), 'd MMM yyyy');
+}
+
+/** Draft first-send stays signed invoice Send. Overdue / sent-again is chase copy. */
+export function invoiceSendCopyKind(
+  inv: { status: string; due_date?: string | null },
+  now = new Date(),
+): InvoiceSendCopyKind {
+  if (inv.status === 'draft' || inv.status === 'paid') return 'first';
+  if (inv.status === 'sent' || inv.status === 'overdue') return 'chase';
+  return effectiveInvoiceStatus(inv, now) === 'overdue' ? 'chase' : 'first';
+}
+
 export function invoiceSmsBody(opts: {
   companyName: string;
   invoiceNumber: number | null | undefined;
@@ -167,6 +190,17 @@ export function invoiceSmsBody(opts: {
   const who = opts.companyName.trim() || 'your contractor';
   const due = opts.dueLabel ? ` Due ${opts.dueLabel}.` : '';
   return `${who} sent invoice #${padInvoiceNumber(opts.invoiceNumber)}. Total (inc GST): ${opts.totalLabel}.${due} The PDF is in your email.`;
+}
+
+export function invoiceChaseSmsBody(opts: {
+  companyName: string;
+  invoiceNumber: number | null | undefined;
+  totalLabel: string;
+  dueLabel: string | null;
+}): string {
+  const who = opts.companyName.trim() || 'your contractor';
+  const due = opts.dueLabel ? ` Due ${opts.dueLabel}.` : '';
+  return `${who}: invoice #${padInvoiceNumber(opts.invoiceNumber)} is overdue.${due} Total (inc GST): ${opts.totalLabel}. The PDF is in your email.`;
 }
 
 /** Same Resend gate as job-reminder / due inspections. */
@@ -183,6 +217,16 @@ export function invoiceHasChargeableLines(
 export function invoiceSendSubject(invoiceNumber: number | null | undefined, companyName: string): string {
   const who = companyName.trim() || 'your contractor';
   return `Invoice #${padInvoiceNumber(invoiceNumber)} from ${who}`;
+}
+
+export function invoiceChaseSubject(
+  invoiceNumber: number | null | undefined,
+  companyName: string,
+  dueLabel?: string | null,
+): string {
+  const who = companyName.trim() || 'your contractor';
+  const due = dueLabel?.trim() ? ` — due ${dueLabel.trim()}` : '';
+  return `Overdue invoice #${padInvoiceNumber(invoiceNumber)} from ${who}${due}`;
 }
 
 export function invoicePdfFilename(invoiceNumber: number | null | undefined): string {
@@ -236,6 +280,45 @@ export function invoiceSendHtml(opts: {
       </div>`;
 }
 
+export function invoiceChaseHtml(opts: {
+  clientName: string;
+  companyName: string;
+  invoiceNumber: number | null | undefined;
+  totalLabel: string;
+  dueLabel: string | null;
+  paymentTerms?: string | null;
+  attachedPdf: boolean;
+}): string {
+  const client = escapeHtml(opts.clientName.trim() || 'there');
+  const company = escapeHtml(opts.companyName.trim() || 'us');
+  const number = escapeHtml(`#${padInvoiceNumber(opts.invoiceNumber)}`);
+  const total = escapeHtml(opts.totalLabel);
+  const due = opts.dueLabel
+    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">This invoice is overdue. Due <strong>${escapeHtml(opts.dueLabel)}</strong>.</p>`
+    : '<p style="color:#4A5568;font-size:15px;line-height:1.6;">This invoice is overdue.</p>';
+  const terms = opts.paymentTerms?.trim()
+    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Payment terms: ${escapeHtml(opts.paymentTerms.trim())}</p>`
+    : '';
+  const pdfLine = opts.attachedPdf
+    ? '<p>The invoice PDF is attached. Reply to this email if you have a question about the charges.</p>'
+    : '<p>Reply to this email if you have a question about the charges.</p>';
+  return `
+      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
+        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">Overdue invoice</div>
+          <h1 style="margin:8px 0 0;font-size:20px">${number}</h1>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+          <p>Hi ${client},</p>
+          <p>${company} is chasing overdue invoice ${number}.</p>
+          <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${total}</strong></p>
+          ${due}
+          ${terms}
+          ${pdfLine}
+        </div>
+      </div>`;
+}
+
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -258,6 +341,51 @@ export function invoiceStatusPatchAfterSend(sendSucceeded: boolean): { status: '
 
 export function shouldRecordInvoiceSent(sendOk: boolean, currentStatus: string): boolean {
   return sendOk === true && currentStatus !== 'paid';
+}
+
+/** chased_at is overdue / sent-again only. Failure and SMS miss must not invent it. */
+export function invoiceChasedAtPatchAfterSend(
+  sendSucceeded: boolean,
+  kind: InvoiceSendCopyKind,
+  now = new Date(),
+): { chased_at: string } | null {
+  if (!sendSucceeded || kind !== 'chase') return null;
+  return { chased_at: now.toISOString() };
+}
+
+export function shouldWriteInvoiceChasedAt(sendOk: boolean, kind: InvoiceSendCopyKind): boolean {
+  return sendOk === true && kind === 'chase';
+}
+
+export function alreadyChasedToday(
+  chasedAt: string | null | undefined,
+  now = new Date(),
+  timeZone = COMPANY_TIME_ZONE,
+): boolean {
+  if (!chasedAt) return false;
+  const chased = new Date(chasedAt);
+  if (Number.isNaN(chased.getTime())) return false;
+  return ymdInTimeZone(chased, timeZone) === ymdInTimeZone(now, timeZone);
+}
+
+/** Cron due=overdue: sent invoices whose due_date is before Perth today. Skip paid/draft. */
+export function isEffectiveOverdueForChase(
+  inv: { status: string; due_date?: string | null },
+  perthToday: string,
+): boolean {
+  if (inv.status === 'paid' || inv.status === 'draft') return false;
+  if (inv.status !== 'sent' && inv.status !== 'overdue') return false;
+  const due = (inv.due_date ?? '').trim().slice(0, 10);
+  return !!due && due < perthToday;
+}
+
+export function shouldCronChaseInvoice(
+  inv: { status: string; due_date?: string | null; chased_at?: string | null },
+  perthToday: string,
+  now = new Date(),
+): boolean {
+  if (!isEffectiveOverdueForChase(inv, perthToday)) return false;
+  return !alreadyChasedToday(inv.chased_at, now);
 }
 
 export function invoiceByIdQuery(args: { companyId: string; invoiceId: string }): InvoiceSendQueryScope | null {
@@ -362,11 +490,15 @@ export function decideInvoiceSend(bundle: InvoiceSendBundle): InvoiceSendDecisio
     };
   }
   const smsTo = clientPhoneForSms(bundle.client?.phone);
+  const dueLabel = invoiceDueLabel(invoice.due_date);
+  const kind = invoiceSendCopyKind(invoice);
   return {
     ok: true,
     to,
     toName: (bundle.client?.name ?? '').trim() || 'Client',
-    subject: invoiceSendSubject(invoice.invoice_number, bundle.company.name),
+    subject: kind === 'chase'
+      ? invoiceChaseSubject(invoice.invoice_number, bundle.company.name, dueLabel)
+      : invoiceSendSubject(invoice.invoice_number, bundle.company.name),
     filename: invoicePdfFilename(invoice.invoice_number),
     smsTo,
     smsMessage: smsTo ? null : missSmsMessage('no_phone'),

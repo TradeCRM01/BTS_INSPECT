@@ -8,6 +8,15 @@ import {
   decideInvoiceSend,
   decideInvoiceSms,
   invoiceSmsBody,
+  invoiceChaseHtml,
+  invoiceChaseSmsBody,
+  invoiceChaseSubject,
+  invoiceChasedAtPatchAfterSend,
+  invoiceDueLabel,
+  invoiceSendCopyKind,
+  alreadyChasedToday,
+  shouldCronChaseInvoice,
+  shouldWriteInvoiceChasedAt,
   INVOICE_SEND_PIPE,
   invoiceAttachmentOrMiss,
   invoiceByIdQuery,
@@ -160,12 +169,21 @@ describe('decideInvoiceSend', () => {
     expect(decision.to).toBe('jane@acme.com.au');
   });
 
-  it('still allows Send again on an overdue invoice — same pipe, no new chase', () => {
+  it('still allows Send again on an overdue invoice — same pipe, chase copy', () => {
     const decision = decideInvoiceSend(bundle({ invoice: { ...invoice, status: 'overdue' } }));
     expect(decision.ok).toBe(true);
     if (!decision.ok) return;
     expect(decision.to).toBe('jane@acme.com.au');
-    expect(decision.subject).toBe('Invoice #0018 from BTS Electrical');
+    expect(decision.subject).toBe('Overdue invoice #0018 from BTS Electrical — due 19 Sep 2026');
+    expect(decision.subject).toMatch(/overdue/i);
+    expect(decision.subject).toMatch(/19 Sep 2026/);
+  });
+
+  it('paid still blocks send', () => {
+    const decision = decideInvoiceSend(bundle({ invoice: { ...invoice, status: 'paid' } }));
+    expect(decision.ok).toBe(false);
+    if (decision.ok) return;
+    expect(decision.blocker).toBe('paid');
   });
 
   it('still emails when the client has no phone — SMS is an honest miss, not a blocker', () => {
@@ -208,6 +226,7 @@ describe('invoice SMS beside email', () => {
     expect(body).toMatch(/PDF is in your email/);
     expect(body).not.toContain('portal');
     expect(body).not.toContain('quote');
+    expect(body).not.toMatch(/overdue/i);
   });
 });
 
@@ -217,6 +236,7 @@ describe('invoiceStatusAfterSend', () => {
     expect(invoiceStatusAfterSend(false, 'draft')).toBe('draft');
     expect(invoiceStatusAfterSend(true, 'overdue')).toBe('sent');
     expect(invoiceStatusAfterSend(false, 'overdue')).toBe('overdue');
+    expect(invoiceStatusAfterSend(true, 'paid')).toBe('paid');
     expect(invoiceStatusPatchAfterSend(true)).toEqual({ status: 'sent' });
     expect(invoiceStatusPatchAfterSend(false)).toBeNull();
     expect(shouldRecordInvoiceSent(true, 'draft')).toBe(true);
@@ -230,10 +250,50 @@ describe('invoiceStatusAfterSend', () => {
   });
 });
 
+describe('invoices.chased_at', () => {
+  const now = new Date('2026-08-21T01:00:00.000Z');
+
+  it('writes chased_at only after a successful chase — never on first-send, fail, or SMS miss', () => {
+    expect(invoiceChasedAtPatchAfterSend(true, 'chase', now)).toEqual({ chased_at: now.toISOString() });
+    expect(invoiceChasedAtPatchAfterSend(false, 'chase', now)).toBeNull();
+    expect(invoiceChasedAtPatchAfterSend(true, 'first', now)).toBeNull();
+    expect(shouldWriteInvoiceChasedAt(true, 'chase')).toBe(true);
+    expect(shouldWriteInvoiceChasedAt(false, 'chase')).toBe(false);
+    expect(shouldWriteInvoiceChasedAt(true, 'first')).toBe(false);
+  });
+
+  it('one chase per Perth day — skip if chased_at is already today', () => {
+    expect(alreadyChasedToday('2026-08-21T01:00:00.000Z', now)).toBe(true);
+    expect(alreadyChasedToday('2026-08-20T01:00:00.000Z', now)).toBe(false);
+    expect(alreadyChasedToday(null, now)).toBe(false);
+    expect(shouldCronChaseInvoice({
+      status: 'sent', due_date: '2026-08-19', chased_at: '2026-08-21T01:00:00.000Z',
+    }, '2026-08-21', now)).toBe(false);
+    expect(shouldCronChaseInvoice({
+      status: 'sent', due_date: '2026-08-19', chased_at: null,
+    }, '2026-08-21', now)).toBe(true);
+    expect(shouldCronChaseInvoice({
+      status: 'draft', due_date: '2026-08-19',
+    }, '2026-08-21', now)).toBe(false);
+    expect(shouldCronChaseInvoice({
+      status: 'paid', due_date: '2026-08-19',
+    }, '2026-08-21', now)).toBe(false);
+    expect(shouldCronChaseInvoice({
+      status: 'sent', due_date: '2026-08-22',
+    }, '2026-08-21', now)).toBe(false);
+  });
+});
+
 describe('invoice send copy / document name', () => {
   it('names the PDF and subject from the invoice number', () => {
     expect(invoicePdfFilename(18)).toBe('invoice-0018.pdf');
     expect(invoiceSendSubject(18, 'BTS Electrical')).toBe('Invoice #0018 from BTS Electrical');
+    expect(invoiceChaseSubject(18, 'BTS Electrical', '19 Sep 2026'))
+      .toBe('Overdue invoice #0018 from BTS Electrical — due 19 Sep 2026');
+    expect(invoiceSendCopyKind({ status: 'draft' })).toBe('first');
+    expect(invoiceSendCopyKind({ status: 'overdue', due_date: '2026-08-01' })).toBe('chase');
+    expect(invoiceSendCopyKind({ status: 'sent', due_date: '2026-08-01' })).toBe('chase');
+    expect(invoiceDueLabel('2026-09-19')).toBe('19 Sep 2026');
     expect(invoicePdfStoragePath('co1', 'inv-1')).toBe('invoices/co1/inv-1.pdf');
     expect(invoicePdfStoragePath('', 'inv-1')).toBe('');
   });
@@ -255,6 +315,34 @@ describe('invoice send copy / document name', () => {
     expect(html).toContain('Net 30');
     expect(html).not.toContain('portal');
     expect(html).not.toContain('quote');
+    expect(html).not.toMatch(/overdue/i);
+    expect(html).toContain('has sent you invoice');
+  });
+
+  it('overdue / sent-again uses chase copy with overdue and due date', () => {
+    const html = invoiceChaseHtml({
+      clientName: 'Jane',
+      companyName: 'BTS Electrical',
+      invoiceNumber: 18,
+      totalLabel: '$484.00',
+      dueLabel: '19 Aug 2026',
+      paymentTerms: 'Net 30',
+      attachedPdf: true,
+    });
+    expect(html).toMatch(/overdue/i);
+    expect(html).toContain('19 Aug 2026');
+    expect(html).toContain('#0018');
+    expect(html).not.toContain('has sent you invoice');
+    expect(html).not.toContain('portal');
+    const sms = invoiceChaseSmsBody({
+      companyName: 'BTS Electrical',
+      invoiceNumber: 18,
+      totalLabel: '$484.00',
+      dueLabel: '19 Aug 2026',
+    });
+    expect(sms).toMatch(/overdue/i);
+    expect(sms).toContain('19 Aug 2026');
+    expect(sms).toContain('#0018');
   });
 
   it('does not claim a PDF is attached when none exists', () => {
