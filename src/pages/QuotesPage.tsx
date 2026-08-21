@@ -719,8 +719,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             <OpsSiteRow
               hub
               site={editorSite}
-              phone={selectedClient?.phone}
-              email={selectedClient?.email}
               mapsQuery={selectedJob?.address || selectedClient?.address}
             />
             {form.validity_date ? (
