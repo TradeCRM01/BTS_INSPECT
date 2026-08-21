@@ -108,7 +108,7 @@ type FilterBuilder = {
 
 export function isOpenInspectionStatus(status: string | null | undefined): boolean {
   const s = (status ?? '').trim();
-  return s !== 'completed' && s !== 'issued';
+  return s !== 'completed' && s !== 'issued' && s !== 'sent';
 }
 
 export function isArchivedInspection(row: Pick<DueInspection, 'archived'>): boolean {

@@ -48,15 +48,18 @@ describe('inspection status', () => {
     expect(inspectionStatusLabel('draft')).toBe('Draft');
     expect(inspectionStatusLabel('completed')).toBe('Ready');
     expect(inspectionStatusLabel('issued')).toBe('Issued');
+    expect(inspectionStatusLabel('sent')).toBe('Sent');
     expect(inspectionStatusClass('draft')).toBe('ops-status-wait');
     expect(inspectionStatusClass('completed')).toBe('ops-status-progress');
     expect(inspectionStatusClass('issued')).toBe('ops-status-ok');
+    expect(inspectionStatusClass('sent')).toBe('ops-status-ok');
   });
 
-  it('buckets drafts as open and completed/issued as done', () => {
+  it('buckets drafts as open and completed/issued/sent as done', () => {
     expect(inspectionListBucket('draft')).toBe('open');
     expect(inspectionListBucket('completed')).toBe('done');
     expect(inspectionListBucket('issued')).toBe('done');
+    expect(inspectionListBucket('sent')).toBe('done');
   });
 });
 
@@ -124,6 +127,12 @@ describe('recommendInspectionListAction', () => {
     expect(recommendInspectionListAction({ status: 'draft', hasSite: true, requiredComplete: true }).key).toBe('review');
     expect(recommendInspectionListAction({ status: 'completed', hasSite: true, requiredComplete: true }).key).toBe('pdf');
     expect(recommendInspectionListAction({ status: 'issued', hasSite: true, requiredComplete: true }).label).toBe('View PDF');
+    expect(recommendInspectionListAction({
+      status: 'issued', hasSite: true, requiredComplete: true, hasReport: true, reportId: 'rep-1',
+    }).label).toBe('Send');
+    expect(recommendInspectionListAction({
+      status: 'issued', hasSite: true, requiredComplete: true, hasReport: false,
+    }).label).toBe('No report yet');
   });
 
   it('opens fill, review, or the report from the next key', () => {
@@ -131,6 +140,7 @@ describe('recommendInspectionListAction', () => {
     expect(inspectionOpenPath('abc', 'site')).toBe('/inspections/abc');
     expect(inspectionOpenPath('abc', 'review')).toBe('/inspections/abc/review');
     expect(inspectionOpenPath('abc', 'pdf')).toBe('/inspections/abc/report');
+    expect(inspectionOpenPath('abc', 'send')).toBe('/inspections/abc/report');
   });
 
   it('reads site and completeness off the list row', () => {

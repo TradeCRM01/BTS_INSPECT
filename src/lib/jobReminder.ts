@@ -615,11 +615,11 @@ export const AUTO_FIRE_CLICK_PATH = [
  * Twilio secrets stay on the edge. Email sent-at is unchanged if SMS misses.
  */
 export const JOB_REMINDER_SMS_PIPE = [
-  'supabase.functions.invoke job-reminder (same body as email: jobId / inspectionId / invoiceId / due=tomorrow)',
+  'supabase.functions.invoke job-reminder (same body as email: jobId / inspectionId / invoiceId / reportId / due=tomorrow)',
   'To = clients.phone (never invented; AU 0… → +61…)',
   'POST https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json with TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_FROM_NUMBER',
   'honest miss: no_phone / no_sms_credentials / send_failed — email still sends',
-  'client_reminder_sent_at / invoice status follow email 2xx only',
+  'client_reminder_sent_at / invoice status / reports.sent_at follow email 2xx only',
 ] as const;
 
 /** Same calendar rule the SQL cron uses: (timezone('Australia/Perth', now()))::date + 1 */
