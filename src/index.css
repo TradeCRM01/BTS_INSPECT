@@ -2528,6 +2528,7 @@
   }
 
   .job-cal-host .job-client-email,
+  .job-cal-host .job-client-phone,
   .job-cal-host .job-client-attach {
     display: inline-flex;
     align-items: center;
@@ -2539,6 +2540,7 @@
   }
 
   .job-cal-host .job-client-email .form-input-sm,
+  .job-cal-host .job-client-phone .form-input-sm,
   .job-cal-host .job-client-attach .form-input-sm {
     width: auto;
     min-width: 12ch;
@@ -2568,17 +2570,20 @@
   }
 
   .job-cal-host .job-client-email .form-input-sm:focus,
+  .job-cal-host .job-client-phone .form-input-sm:focus,
   .job-cal-host .job-client-attach .form-input-sm:focus {
     border-color: #2E75B6;
     box-shadow: none;
     outline: none;
   }
 
-  .job-cal-host .job-client-email .form-input-sm::placeholder {
+  .job-cal-host .job-client-email .form-input-sm::placeholder,
+  .job-cal-host .job-client-phone .form-input-sm::placeholder {
     color: #5B6B7C;
   }
 
   .job-cal-host .job-client-email-save,
+  .job-cal-host .job-client-phone-save,
   .job-cal-host .job-client-attach-save {
     appearance: none;
     background: none;
@@ -2593,12 +2598,14 @@
   }
 
   .job-cal-host .job-client-email-save:disabled,
+  .job-cal-host .job-client-phone-save:disabled,
   .job-cal-host .job-client-attach-save:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
-  .job-cal-host .job-client-email-addr {
+  .job-cal-host .job-client-email-addr,
+  .job-cal-host .job-client-phone-num {
     display: inline-flex;
     align-items: center;
     gap: 8px;
