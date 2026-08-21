@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { MoreHorizontal } from 'lucide-react';
-import { useToast } from '../ui';
 import {
   buildJobCalendar,
   downloadJobCalendar,
@@ -19,8 +18,8 @@ export function JobCalendarOverflow({
   crewNames?: string[];
   members?: CalendarMember[];
 }) {
-  const { showToast } = useToast();
   const detailsRef = useRef<HTMLDetailsElement>(null);
+  const preview = buildJobCalendar(job, { site, crewNames, members });
 
   useEffect(() => {
     const node = detailsRef.current;
@@ -33,29 +32,28 @@ export function JobCalendarOverflow({
   }, []);
 
   const addToCalendar = () => {
-    const built = buildJobCalendar(job, { site, crewNames, members });
+    if (!preview.ok) return;
     detailsRef.current && (detailsRef.current.open = false);
-    if (!built.ok) {
-      showToast(built.message, 'info');
-      return;
-    }
-    downloadJobCalendar(built);
+    downloadJobCalendar(preview);
   };
 
   return (
     <details
       ref={detailsRef}
-      className="job-swms-more job-cal-more"
+      className="job-cal-more"
       onClick={e => e.stopPropagation()}
       onPointerDown={e => e.stopPropagation()}
     >
       <summary aria-label="More">
         <MoreHorizontal size={16} />
       </summary>
-      <div className="job-swms-more-menu" role="menu">
+      <div className="job-cal-more-menu" role="menu">
         <button type="button" role="menuitem" onClick={addToCalendar}>
           Add to calendar
         </button>
+        {preview.ok ? null : (
+          <p className="job-cal-miss">{preview.message}</p>
+        )}
       </div>
     </details>
   );

@@ -2152,9 +2152,119 @@
     cursor: not-allowed;
   }
 
-  /* Calendar overflow sits inside existing job/board cards — lift the host so … is not clipped. */
-  .job-cal-host:has(.job-cal-more[open]) {
-    overflow: visible;
+  /* Job hub action row + schedule board cards only. Signed overflow grammar. */
+  .hub-job-cal,
+  .hub-board-cal,
+  .job-cal-host {
+    --job-page: #F4F6F8;
+    --job-sheet: #FFFFFF;
+    --job-ink: #0A2540;
+    --job-muted: #5B6B7C;
+    --job-line: #D5DCE3;
+    --job-action: #2E75B6;
+  }
+
+  .ops-card.job-cal-host {
+    background: #FFFFFF;
+    border: 1px solid #D5DCE3;
+    border-radius: 16px;
+    box-shadow: none;
+  }
+
+  .job-cal-host .ops-card-body {
+    padding: 16px;
+  }
+
+  .job-cal-host .ops-meta {
+    color: #5B6B7C;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .job-cal-act {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .job-cal-quiet {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .job-cal-more {
+    position: relative;
+  }
+
+  .job-cal-more > summary {
+    list-style: none;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: #5B6B7C;
+    cursor: pointer;
+    background: none;
+    border: none;
+    box-shadow: none;
+    user-select: none;
+  }
+
+  .job-cal-more > summary::-webkit-details-marker,
+  .job-cal-more > summary::marker {
+    display: none;
+    content: '';
+  }
+
+  .job-cal-more-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 12;
+    min-width: 200px;
+    padding: 8px;
+    background: #FFFFFF;
+    border: 1px solid #D5DCE3;
+    border-radius: 16px;
+    box-shadow: none;
+  }
+
+  .job-cal-more-menu button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: #0A2540;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .job-cal-miss {
+    margin: 0;
+    padding: 8px 12px;
+    color: #5B6B7C;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  /* … sheet sits on top of the card — do not clip. */
+  .job-cal-host:has(.job-cal-more[open]),
+  .ops-board:has(.job-cal-more[open]),
+  .ops-tray:has(.job-cal-more[open]),
+  .job-cal-board-scroll:has(.job-cal-more[open]) {
+    overflow: visible !important;
     z-index: 8;
     position: relative;
   }

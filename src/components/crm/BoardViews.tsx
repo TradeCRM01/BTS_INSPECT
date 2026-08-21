@@ -407,7 +407,7 @@ export const DayBoardView = memo(function DayBoardView({
         </p>
       </div>
 
-      <div ref={scrollRef} className="overflow-x-auto">
+      <div ref={scrollRef} className="overflow-x-auto job-cal-board-scroll">
         <div className="flex sticky top-0 z-20 bg-white border-b border-rule">
           <div className="shrink-0 border-r border-rule bg-zebra" style={{ width: LABEL_WIDTH }}>
             <div className="px-3 py-2 flex items-center gap-1.5">

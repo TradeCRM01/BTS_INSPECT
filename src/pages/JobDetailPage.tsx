@@ -522,13 +522,13 @@ export function JobDetailPage() {
 
   return (
     <AppShell>
-      <div className="page-shell-narrow">
+      <div className="page-shell-narrow hub-job-cal">
         <Breadcrumbs items={[
           { label: 'Jobs', to: '/jobs' },
           { label: job.job_number != null ? `#${padNum(job.job_number)} ${job.title}` : job.title },
         ]} />
 
-        <article className="ops-card job-cal-host overflow-hidden mb-4">
+        <article className="ops-card job-cal-host mb-4">
           <OpsPhotoStamp
             src={coverPhotoUrl}
             hub
@@ -647,7 +647,7 @@ export function JobDetailPage() {
               <p className="mt-2 ops-meta whitespace-pre-wrap line-clamp-4">{job.description}</p>
             )}
 
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-2 job-cal-act">
               <ActionButton
                 recommended={false}
                 onClick={() => scrollToId('job-schedule')}
@@ -704,14 +704,16 @@ export function JobDetailPage() {
                   <Play size={14} /> Clock on
                 </button>
               )}
-              <button type="button" onClick={() => setShowEdit(true)} className="btn-ghost ml-auto">
-                <Edit3 size={14} /> Details
-              </button>
-              <JobCalendarOverflow
-                job={job}
-                site={calendarSite(job.address, client?.address)}
-                crewNames={assigned}
-              />
+              <div className="job-cal-quiet">
+                <button type="button" onClick={() => setShowEdit(true)} className="btn-ghost">
+                  <Edit3 size={14} /> Details
+                </button>
+                <JobCalendarOverflow
+                  job={job}
+                  site={calendarSite(job.address, client?.address)}
+                  crewNames={assigned}
+                />
+              </div>
             </div>
           </div>
         </article>

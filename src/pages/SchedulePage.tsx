@@ -242,7 +242,7 @@ export function SchedulePage() {
 
   return (
     <AppShell>
-      <div className="ops-page">
+      <div className="ops-page hub-board-cal">
         <div className="ops-page-head">
           <div>
             <h1 className="ops-page-title">Schedule</h1>
