@@ -1,6 +1,7 @@
 import type { JobStatus } from '../types/crm';
+import { effectiveInvoiceStatus } from './invoiceStatus';
 
-export type JobActionKey = 'schedule' | 'crew' | 'jha' | 'inspect' | 'invoice' | 'clock' | 'none';
+export type JobActionKey = 'schedule' | 'crew' | 'jha' | 'inspect' | 'invoice' | 'send' | 'clock' | 'none';
 
 export type JobListBucket = 'needs_date' | 'on_board' | 'upcoming' | 'closed';
 
@@ -11,10 +12,60 @@ export type JobActionContext = {
   jhaCount: number;
   inspectionCount: number;
   invoiceCount: number;
+  /** Draft on this job, and none sent / paid / overdue. Optional for older callers. */
+  hasDraftInvoice?: boolean;
+  /** Sent, paid, or overdue already exists on this job. Optional for older callers. */
+  hasIssuedInvoice?: boolean;
   hasAcceptedQuote: boolean;
   hasBillLines: boolean;
   clockedOn: boolean;
 };
+
+export type JobInvoiceNextRow = {
+  id?: string;
+  status: string;
+  due_date?: string | null;
+};
+
+export type JobInvoiceActionFlags = {
+  invoiceCount: number;
+  hasDraftInvoice: boolean;
+  hasIssuedInvoice: boolean;
+};
+
+/** Draft vs already-issued for job-sheet Next. Overdue counts as issued — chase stays off this control. */
+export function jobInvoiceActionFlags(
+  invoices: JobInvoiceNextRow[] | null | undefined,
+  now = new Date(),
+): JobInvoiceActionFlags {
+  const rows = invoices ?? [];
+  let hasDraftInvoice = false;
+  let hasIssuedInvoice = false;
+  for (const inv of rows) {
+    const status = effectiveInvoiceStatus(inv, now);
+    if (status === 'draft') hasDraftInvoice = true;
+    else if (status === 'sent' || status === 'paid' || status === 'overdue') hasIssuedInvoice = true;
+  }
+  return { invoiceCount: rows.length, hasDraftInvoice, hasIssuedInvoice };
+}
+
+/**
+ * The draft this job-sheet Send should deliver. Null when none, or when
+ * a sent / paid / overdue invoice already exists (chase stays on the invoice sheet).
+ */
+export function pickJobDraftToSend<T extends JobInvoiceNextRow & { id: string }>(
+  invoices: T[] | null | undefined,
+  now = new Date(),
+): T | null {
+  const rows = invoices ?? [];
+  const flags = jobInvoiceActionFlags(rows, now);
+  if (flags.hasIssuedInvoice || !flags.hasDraftInvoice) return null;
+  return rows.find(inv => effectiveInvoiceStatus(inv, now) === 'draft') ?? null;
+}
+
+function jobHasUnsentDraftOnly(ctx: JobActionContext): boolean {
+  return ctx.hasDraftInvoice === true && ctx.hasIssuedInvoice !== true;
+}
 
 export type RecommendedJobAction = {
   key: JobActionKey;
@@ -125,7 +176,7 @@ export function recommendJobAction(ctx: JobActionContext): RecommendedJobAction 
   if (ctx.status === 'cancelled') {
     return { key: 'none', label: 'Cancelled', detail: 'This job is cancelled.' };
   }
-  if (ctx.status === 'completed' && ctx.invoiceCount > 0) {
+  if (ctx.status === 'completed' && ctx.invoiceCount > 0 && !jobHasUnsentDraftOnly(ctx)) {
     return { key: 'none', label: 'Invoiced', detail: 'This job is complete and invoiced.' };
   }
   if (!ctx.scheduledDate) {
@@ -144,6 +195,13 @@ export function recommendJobAction(ctx: JobActionContext): RecommendedJobAction 
     return { key: 'invoice', label: 'Invoice', detail: ctx.hasAcceptedQuote
       ? 'Accepted quote is ready to invoice.'
       : 'Invoice from the job bill.' };
+  }
+  if (jobHasUnsentDraftOnly(ctx)) {
+    return {
+      key: 'send',
+      label: 'Send',
+      detail: 'Email this invoice to the client. Status becomes sent only if it delivers.',
+    };
   }
   if (!ctx.clockedOn && (ctx.status === 'scheduled' || ctx.status === 'in_progress')) {
     return { key: 'clock', label: 'Clock on', detail: 'Clock on when you start work.' };

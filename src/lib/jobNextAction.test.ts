@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boardDispatchHint, jobCardHint, jobListBucket, jobListNext, partitionScheduleJobs, recommendJobAction } from './jobNextAction';
+import { boardDispatchHint, jobCardHint, jobInvoiceActionFlags, jobListBucket, jobListNext, partitionScheduleJobs, pickJobDraftToSend, recommendJobAction } from './jobNextAction';
 
 const now = new Date(2026, 7, 20); // 20 Aug 2026 local
 
@@ -140,5 +140,96 @@ describe('recommendJobAction', () => {
       invoiceCount: 1,
       clockedOn: false,
     }).key).toBe('none');
+  });
+
+  it('sends the draft when the job has one and none is sent', () => {
+    expect(recommendJobAction({
+      ...base,
+      status: 'completed',
+      invoiceCount: 1,
+      hasDraftInvoice: true,
+      hasIssuedInvoice: false,
+      clockedOn: true,
+    })).toMatchObject({
+      key: 'send',
+      label: 'Send',
+      detail: 'Email this invoice to the client. Status becomes sent only if it delivers.',
+    });
+    expect(recommendJobAction({
+      ...base,
+      status: 'in_progress',
+      invoiceCount: 1,
+      hasDraftInvoice: true,
+      hasIssuedInvoice: false,
+      clockedOn: true,
+    }).key).toBe('send');
+  });
+
+  it('keeps Invoiced when every invoice is already sent, paid, or overdue', () => {
+    expect(recommendJobAction({
+      ...base,
+      status: 'completed',
+      invoiceCount: 1,
+      hasDraftInvoice: false,
+      hasIssuedInvoice: true,
+      clockedOn: true,
+    })).toMatchObject({ key: 'none', label: 'Invoiced' });
+    expect(recommendJobAction({
+      ...base,
+      status: 'completed',
+      invoiceCount: 2,
+      hasDraftInvoice: true,
+      hasIssuedInvoice: true,
+      clockedOn: true,
+    }).label).toBe('Invoiced');
+  });
+
+  it('does not put Send ahead of date, crew, or paperwork', () => {
+    const draft = {
+      invoiceCount: 1,
+      hasDraftInvoice: true,
+      hasIssuedInvoice: false,
+    };
+    expect(recommendJobAction({ ...base, ...draft, scheduledDate: null }).key).toBe('schedule');
+    expect(recommendJobAction({ ...base, ...draft, crewCount: 0 }).key).toBe('crew');
+    expect(recommendJobAction({ ...base, ...draft, jhaCount: 0 }).key).toBe('jha');
+    expect(recommendJobAction({ ...base, ...draft, inspectionCount: 0 }).key).toBe('inspect');
+  });
+});
+
+describe('jobInvoiceActionFlags / pickJobDraftToSend', () => {
+  const now = new Date(2026, 7, 20);
+
+  it('flags a draft-only job as Send, not issued', () => {
+    expect(jobInvoiceActionFlags([
+      { id: 'inv-1', status: 'draft', due_date: null },
+    ], now)).toEqual({
+      invoiceCount: 1,
+      hasDraftInvoice: true,
+      hasIssuedInvoice: false,
+    });
+  });
+
+  it('treats sent, paid, and overdue as issued — including sent past due', () => {
+    expect(jobInvoiceActionFlags([{ id: 's', status: 'sent', due_date: '2026-09-01' }], now).hasIssuedInvoice).toBe(true);
+    expect(jobInvoiceActionFlags([{ id: 'p', status: 'paid', due_date: '2026-08-01' }], now).hasIssuedInvoice).toBe(true);
+    expect(jobInvoiceActionFlags([{ id: 'o', status: 'overdue', due_date: '2026-08-01' }], now).hasIssuedInvoice).toBe(true);
+    expect(jobInvoiceActionFlags([{ id: 'late', status: 'sent', due_date: '2026-08-01' }], now)).toEqual({
+      invoiceCount: 1,
+      hasDraftInvoice: false,
+      hasIssuedInvoice: true,
+    });
+  });
+
+  it('picks the draft only when none is issued', () => {
+    expect(pickJobDraftToSend([
+      { id: 'newer', status: 'draft', due_date: null },
+      { id: 'older', status: 'draft', due_date: null },
+    ], now)?.id).toBe('newer');
+    expect(pickJobDraftToSend([
+      { id: 'draft', status: 'draft', due_date: null },
+      { id: 'sent', status: 'sent', due_date: '2026-09-01' },
+    ], now)).toBeNull();
+    expect(pickJobDraftToSend([], now)).toBeNull();
   });
 });

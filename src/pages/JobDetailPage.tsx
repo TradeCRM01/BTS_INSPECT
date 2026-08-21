@@ -26,7 +26,8 @@ import {
 } from '../lib/invoiceFromJobBill';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
-import { recommendJobAction } from '../lib/jobNextAction';
+import { jobInvoiceActionFlags, recommendJobAction } from '../lib/jobNextAction';
+import { jobDraftSendToast, sendJobDraftInvoice } from '../lib/sendJobDraftInvoice';
 import { isJobRescheduleQuery, jobOfficeRescheduleBanner } from '../lib/jobReminder';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel, recommendJhaListAction } from '../lib/jhaNextAction';
 import { livingInspectionSummary, livingSwmsSummary, livingTake5Summary } from '../lib/livingJha';
@@ -420,6 +421,22 @@ export function JobDetailPage() {
     },
   });
 
+  const sendJobDraft = useMutation({
+    mutationFn: async () => {
+      return sendJobDraftInvoice({
+        invoices: invoices ?? [],
+        company,
+      });
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      const toast = jobDraftSendToast(result);
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
+
   const updateStatus = useMutation({
     mutationFn: async (status: JobStatus) => {
       const { error } = await supabase
@@ -591,17 +608,33 @@ export function JobDetailPage() {
     invoiceFromJobBill.mutate();
   };
 
+  const handleSend = () => {
+    sendJobDraft.mutate();
+  };
+
   const next = recommendJobAction({
     status: job.status,
     scheduledDate: job.scheduled_date,
     crewCount: (job.assigned_team ?? []).length,
     jhaCount: (jhas ?? []).length,
     inspectionCount: (inspections ?? []).length,
-    invoiceCount: (invoices ?? []).length,
+    ...jobInvoiceActionFlags(invoices ?? []),
     hasAcceptedQuote: !!acceptedQuote,
     hasBillLines: (costTotals?.lines ?? 0) > 0,
     clockedOn: !!runningEntry,
   });
+
+  const nextBusy =
+    (next.key === 'invoice' && invoiceFromJobBill.isPending) ||
+    (next.key === 'send' && sendJobDraft.isPending);
+
+  const runNext = () => {
+    if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
+    else if (next.key === 'jha') startJha();
+    else if (next.key === 'invoice') handleInvoice();
+    else if (next.key === 'send') handleSend();
+    else if (next.key === 'clock') clockOnJob.mutate();
+  };
 
   const inspectHref = `/inspections/new?jobId=${job.id}`;
 
@@ -653,13 +686,8 @@ export function JobDetailPage() {
                 <button
                   type="button"
                   className="ops-next-control-block"
-                  disabled={next.key === 'invoice' && invoiceFromJobBill.isPending}
-                  onClick={() => {
-                    if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
-                    else if (next.key === 'jha') startJha();
-                    else if (next.key === 'invoice') handleInvoice();
-                    else if (next.key === 'clock') clockOnJob.mutate();
-                  }}
+                  disabled={nextBusy}
+                  onClick={runNext}
                 >
                   {next.label}
                 </button>
@@ -1242,13 +1270,8 @@ export function JobDetailPage() {
               <button
                 type="button"
                 className="ops-next-control-block"
-                disabled={next.key === 'invoice' && invoiceFromJobBill.isPending}
-                onClick={() => {
-                  if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
-                  else if (next.key === 'jha') startJha();
-                  else if (next.key === 'invoice') handleInvoice();
-                  else if (next.key === 'clock') clockOnJob.mutate();
-                }}
+                disabled={nextBusy}
+                onClick={runNext}
               >
                 {next.label}
               </button>

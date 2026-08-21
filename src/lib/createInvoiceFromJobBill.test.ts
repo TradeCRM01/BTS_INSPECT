@@ -41,7 +41,7 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
   it('handleInvoice raises from the job bill — quote convert stays off this control', () => {
     const page = src('src/pages/JobDetailPage.tsx');
     const handleStart = page.indexOf('const handleInvoice');
-    const handleEnd = page.indexOf('const next = recommendJobAction');
+    const handleEnd = page.indexOf('const handleSend');
     expect(handleStart).toBeGreaterThan(-1);
     expect(handleEnd).toBeGreaterThan(handleStart);
     const handle = page.slice(handleStart, handleEnd);
@@ -56,7 +56,7 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
     const builder = src('src/lib/invoiceFromJobBill.ts');
     const page = src('src/pages/JobDetailPage.tsx');
     const handleStart = page.indexOf('const handleInvoice');
-    const handle = page.slice(handleStart, page.indexOf('const next = recommendJobAction'));
+    const handle = page.slice(handleStart, page.indexOf('const handleSend'));
 
     for (const body of [create, builder]) {
       expect(body).not.toContain('chased_at');
