@@ -1,7 +1,8 @@
-import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { format } from 'date-fns';
-import { RunningHeader, RunningFooter, SignatureBlock } from '../shared/components';
-import { pdfColors, pdfFonts } from '../shared/styles';
+import { RunningFooter } from '../shared/components';
+import { pdfColors, pdfFonts, type PdfColors, type PdfThemeTokens } from '../shared/styles';
+import { take5DocumentColors } from './theme';
 
 export interface Take5ReportData {
   parentReportNumber: string;
@@ -21,6 +22,8 @@ export interface Take5ReportData {
   signedName: string;
   signature: string | null;
   signedAt: string;
+  /** Saved companies.report_theme palette (navy, accent, accentLight, navyLight). */
+  theme?: PdfThemeTokens | null;
 }
 
 const styles = StyleSheet.create({
@@ -72,18 +75,166 @@ const styles = StyleSheet.create({
   },
 });
 
+function Take5RunningHeader({
+  companyName,
+  reportNumber,
+  logoUrl,
+  colors,
+}: {
+  companyName: string;
+  reportNumber: string;
+  logoUrl?: string | null;
+  colors: PdfColors;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 28,
+        paddingVertical: 8,
+        borderBottomWidth: 2,
+        borderBottomColor: colors.accent,
+        backgroundColor: colors.white,
+      }}
+      fixed
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {logoUrl ? (
+          <>
+            <Image src={logoUrl} style={{ width: 56, height: 24, objectFit: 'contain', marginRight: 8 }} />
+            <View>
+              <Text style={{ fontFamily: pdfFonts.body, fontSize: 10, fontWeight: 700, color: colors.navy, letterSpacing: 0.3 }}>
+                {companyName.toUpperCase()}
+              </Text>
+              <Text style={{ fontFamily: pdfFonts.body, fontSize: 7, color: colors.textMuted, marginTop: 1 }}>
+                INSPECTION REPORT
+              </Text>
+            </View>
+          </>
+        ) : (
+          <View style={{ backgroundColor: colors.navy, borderRadius: 3, paddingHorizontal: 7, paddingVertical: 4 }}>
+            <Text style={{ fontFamily: pdfFonts.body, fontSize: 10, fontWeight: 700, color: '#FFFFFF', letterSpacing: 0.5 }}>
+              {companyName.toUpperCase()}
+            </Text>
+          </View>
+        )}
+      </View>
+      <Text style={{ fontFamily: pdfFonts.mono, fontSize: 7.5, color: colors.textMuted, textAlign: 'right' }}>
+        {reportNumber}
+      </Text>
+    </View>
+  );
+}
+
+function Take5SignatureBlock({
+  signatureUrl,
+  name,
+  date,
+  colors,
+}: {
+  signatureUrl?: string | null;
+  name: string;
+  date: string;
+  colors: PdfColors;
+}) {
+  return (
+    <View style={{ marginTop: 8 }}>
+      <View
+        style={{
+          width: 280,
+          borderWidth: 1,
+          borderColor: colors.accent,
+          borderRadius: 3,
+          overflow: 'hidden',
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: colors.accentLight,
+            paddingHorizontal: 10,
+            paddingVertical: 5,
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderBottomWidth: 0.5,
+            borderBottomColor: colors.accent,
+          }}
+        >
+          <View
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: 4,
+              backgroundColor: colors.accent,
+              marginRight: 6,
+            }}
+          />
+          <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: colors.accent, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase' }}>
+            Digitally Signed
+          </Text>
+        </View>
+        {signatureUrl ? (
+          <View style={{ paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.white, borderBottomWidth: 0.5, borderBottomColor: colors.rule }}>
+            <Image
+              src={signatureUrl}
+              style={{ width: 220, height: 60, objectFit: 'contain' }}
+            />
+          </View>
+        ) : (
+          <View style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 10, backgroundColor: colors.white }}>
+            <Text style={{ fontFamily: pdfFonts.body, fontSize: 18, fontWeight: 700, color: colors.navy, letterSpacing: 0.3 }}>
+              {name}
+            </Text>
+          </View>
+        )}
+        <View
+          style={{
+            flexDirection: 'row',
+            paddingHorizontal: 12,
+            paddingVertical: 7,
+            backgroundColor: colors.zebra,
+            borderTopWidth: 0.5,
+            borderTopColor: colors.rule,
+            gap: 24,
+          }}
+        >
+          <View>
+            <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 }}>
+              Signed By
+            </Text>
+            <Text style={{ fontFamily: pdfFonts.body, fontSize: 8.5, color: colors.navy, fontWeight: 700 }}>
+              {name}
+            </Text>
+          </View>
+          <View>
+            <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 }}>
+              Date Signed
+            </Text>
+            <Text style={{ fontFamily: pdfFonts.mono, fontSize: 8.5, color: colors.navy, fontWeight: 700 }}>
+              {date}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export function Take5ReportRenderer({ data }: { data: Take5ReportData }) {
   const go = data.goNoGo === 'go';
+  const colors = take5DocumentColors(data.theme);
   return (
     <Document title={`Take5 - ${data.parentReportNumber || data.parentTaskName}`}>
       <Page size="A4" style={styles.page}>
-        <RunningHeader
+        <Take5RunningHeader
           companyName={data.companyName}
           reportNumber={data.parentReportNumber || 'TAKE5'}
           logoUrl={data.companyLogoUrl ?? undefined}
+          colors={colors}
         />
         <View style={styles.body}>
-          <Text style={styles.title}>Take 5 — Point of work risk assessment</Text>
+          <Text style={[styles.title, { color: colors.navy }]}>Take 5 — Point of work risk assessment</Text>
           <Text style={styles.subtitle}>
             Companion to JHA {data.parentReportNumber || '—'} · Does not replace the parent JHA on permit-controlled work.
           </Text>
@@ -128,7 +279,7 @@ export function Take5ReportRenderer({ data }: { data: Take5ReportData }) {
             { label: '4. Control actions', value: data.controlActions },
           ].map(s => (
             <View key={s.label} style={styles.section}>
-              <Text style={styles.label}>{s.label}</Text>
+              <Text style={[styles.label, { color: colors.navy }]}>{s.label}</Text>
               <View style={styles.box}>
                 <Text>{s.value || '—'}</Text>
               </View>
@@ -136,11 +287,12 @@ export function Take5ReportRenderer({ data }: { data: Take5ReportData }) {
           ))}
 
           <View style={{ marginTop: 16 }}>
-            <Text style={styles.label}>Worker / Take 5 sign-on</Text>
-            <SignatureBlock
+            <Text style={[styles.label, { color: colors.navy }]}>Worker / Take 5 sign-on</Text>
+            <Take5SignatureBlock
               signatureUrl={data.signature}
               name={data.signedName || '—'}
               date={data.signedAt || format(new Date(), 'd MMM yyyy')}
+              colors={colors}
             />
           </View>
         </View>
