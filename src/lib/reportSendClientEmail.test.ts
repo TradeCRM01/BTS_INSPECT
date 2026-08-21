@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { clientEmailForSend, COMPANY_EMAIL_SETTINGS_HREF } from './sendInvoice';
+import { clientEmailForSend } from './sendInvoice';
 import {
   decideReportSend,
   NO_CLIENT_MESSAGE,
@@ -294,7 +294,7 @@ describe('report-send client email — wiring', () => {
     expect(send).toContain('NO_SMTP_MESSAGE');
     expect(send).toContain('clientEmailForSend');
     expect(send).toContain('COMPANY_EMAIL_SETTINGS_HREF');
-    expect(send).toContain(COMPANY_EMAIL_SETTINGS_HREF);
+    expect(send).toContain('href: COMPANY_EMAIL_SETTINGS_HREF');
     expect(send).toContain('resolveReportClientId');
     expect(send).toContain('sent_at');
     expect(send).toContain('smsTo');
