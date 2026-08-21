@@ -46,7 +46,8 @@ describe('invoice send deliver path', () => {
     expect(cron).toContain('ALTER TABLE invoices');
     expect(cron).not.toContain('CREATE TABLE');
     expect(cron).not.toContain('cron.schedule');
-    expect(cron).not.toContain('due=overdue');
+    expect(cron).not.toContain('net.http_post');
+    expect(cron).not.toContain('invoke_job_client_reminders');
     expect(deliver).not.toContain('chased_at');
     expect(dialog).not.toContain('chased_at');
     expect(page).not.toContain('chased_at');
