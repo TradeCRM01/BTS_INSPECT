@@ -8,6 +8,7 @@ import { LoadingSpinner, PageError, Breadcrumbs, useToast, ActionButton, actionC
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
+import { JobClientReminder } from '../components/jobs/JobClientReminder';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import type { Client, Job, JobStatus } from '../types/crm';
@@ -698,6 +699,7 @@ export function JobDetailPage() {
 
         <div id="job-schedule">
           <JobDispatchPanel job={job} teamMembers={teamMembers ?? []} />
+          <JobClientReminder job={job} client={client ?? null} company={company} />
         </div>
 
         {stages.length > 0 && (

@@ -779,6 +779,251 @@
     max-width: min(1200px, 100%);
   }
 
+  /* Job schedule tray only: Looplet document grammar. Not a global restyle. */
+  #job-schedule {
+    --job-page: #F4F6F8;
+    --job-sheet: #FFFFFF;
+    --job-ink: #0A2540;
+    --job-muted: #5B6B7C;
+    --job-line: #D5DCE3;
+    --job-action: #2E75B6;
+    font-family: Inter, system-ui, sans-serif;
+    color: var(--job-ink);
+  }
+
+  #job-schedule .ops-tray {
+    background: var(--job-sheet);
+    border: 1px solid var(--job-line);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: none;
+    margin-bottom: 16px;
+  }
+
+  #job-schedule .ops-tray-head {
+    padding: 16px;
+    border-bottom: 1px solid var(--job-line);
+    background: transparent;
+  }
+
+  #job-schedule .ops-section-title {
+    font-size: 14px;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--job-ink);
+  }
+
+  #job-schedule .ops-section-title svg {
+    color: var(--job-ink);
+  }
+
+  #job-schedule .ops-link {
+    color: var(--job-muted);
+    font-size: 14px;
+    font-weight: 500;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    box-shadow: none;
+  }
+
+  #job-schedule .ops-link:hover {
+    color: var(--job-action);
+    text-decoration: none;
+  }
+
+  #job-schedule .ops-field-label {
+    color: var(--job-muted);
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+
+  #job-schedule .ops-meta {
+    color: var(--job-muted);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  #job-schedule .form-input,
+  #job-schedule .form-input:focus {
+    height: 44px;
+    min-height: 44px;
+    background: var(--job-sheet);
+    color: var(--job-ink);
+    border: 1px solid var(--job-line);
+    border-radius: 12px;
+    box-shadow: none;
+    outline: none;
+    --tw-ring-shadow: 0 0 #0000;
+    font-size: 14px;
+  }
+
+  #job-schedule .form-input:focus {
+    border-color: var(--job-action);
+  }
+
+  #job-schedule .form-input::placeholder {
+    color: var(--job-muted);
+  }
+
+  #job-schedule .btn-primary {
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    transform: none;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  #job-schedule .btn-primary:hover {
+    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+    color: #fff;
+  }
+
+  #job-schedule .btn-primary:active {
+    transform: none;
+  }
+
+  #job-schedule .btn-primary:disabled {
+    opacity: 0.45;
+  }
+
+  #job-schedule .ops-tray > .px-3 {
+    padding: 16px;
+  }
+
+  #job-schedule .grid {
+    gap: 16px;
+  }
+
+  #job-schedule .mb-3 {
+    margin-bottom: 16px;
+  }
+
+  #job-schedule .mb-2 {
+    margin-bottom: 8px;
+  }
+
+  #job-schedule .flex.flex-wrap.gap-1\.5 {
+    gap: 8px;
+  }
+
+  #job-schedule .flex.flex-wrap.gap-1\.5 > button {
+    border-radius: 999px;
+    min-height: 44px;
+    padding: 0 12px;
+    box-shadow: none;
+    border-color: var(--job-line);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  #job-schedule .flex.flex-wrap.gap-1\.5 > button.bg-navy {
+    background: #0A2540;
+    color: #fff;
+    border-color: #0A2540;
+  }
+
+  #job-schedule .flex.flex-wrap.gap-1\.5 > button.bg-zebra {
+    background: var(--job-page);
+    color: var(--job-muted);
+  }
+
+  #job-schedule .job-reminder-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  #job-schedule .job-reminder-meta {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--job-muted);
+  }
+
+  #job-schedule .job-reminder-miss {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--job-ink);
+  }
+
+  #job-schedule .job-reminder-reschedule {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--job-muted);
+  }
+
+  #job-schedule .job-reminder-act {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #job-schedule .job-reminder-more {
+    position: relative;
+  }
+
+  #job-schedule .job-reminder-more > summary {
+    list-style: none;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: var(--job-muted);
+    cursor: pointer;
+    background: none;
+    border: none;
+    box-shadow: none;
+    user-select: none;
+  }
+
+  #job-schedule .job-reminder-more > summary::-webkit-details-marker,
+  #job-schedule .job-reminder-more > summary::marker {
+    display: none;
+    content: '';
+  }
+
+  #job-schedule .job-reminder-more-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 6;
+    min-width: 200px;
+    padding: 8px;
+    background: var(--job-sheet);
+    border: 1px solid var(--job-line);
+    border-radius: 16px;
+    box-shadow: none;
+  }
+
+  #job-schedule .job-reminder-more-menu a {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 12px;
+    color: var(--job-ink);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
   /* ── App chrome (navy Looplet craft: hairlines, no mega-menu shadow) ─ */
   .shell-header {
     @apply bg-navy text-white sticky top-0 z-40 flex-shrink-0 border-b border-white/10;

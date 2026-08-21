@@ -35,6 +35,8 @@ export interface Job {
   color: string | null;
   budget: number | null;
   parent_job_id?: string | null;
+  client_reminder_sent_at?: string | null;
+  client_reminder_sent_for_date?: string | null;
 }
 
 export interface ClientWithStats extends Client {
