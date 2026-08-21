@@ -315,6 +315,49 @@ export function jobRescheduleQueryHref(jobId: string): string {
   return `/jobs/${encodeURIComponent(jobId)}?reschedule=1#job-schedule`;
 }
 
+export function jobRescheduleUrl(appUrl: string, jobId: string): string {
+  const base = appUrl.replace(/\/$/, '');
+  return `${base}${jobRescheduleQueryHref(jobId)}`;
+}
+
+/** Office link: ?reschedule=1 on the existing job page — not a new route. */
+export function isJobRescheduleQuery(
+  search: string | { get: (key: string) => string | null } | null | undefined,
+): boolean {
+  if (search == null) return false;
+  if (typeof search === 'string') {
+    const q = search.startsWith('?') ? search.slice(1) : search;
+    return new URLSearchParams(q).get('reschedule') === '1';
+  }
+  return search.get('reschedule') === '1';
+}
+
+export type JobOfficeRescheduleBanner = {
+  kind: 'dated' | 'empty';
+  message: string;
+  booked: string | null;
+};
+
+/** Honest office banner on #job-schedule. Empty when the job has no date. */
+export function jobOfficeRescheduleBanner(
+  job: Pick<ReminderJob, 'scheduled_date'>,
+): JobOfficeRescheduleBanner {
+  const day = dateOnly(job.scheduled_date);
+  if (!day) {
+    return {
+      kind: 'empty',
+      booked: null,
+      message: 'This visit needs a new date. No day is booked yet.',
+    };
+  }
+  const booked = formatJobDate(day);
+  return {
+    kind: 'dated',
+    booked,
+    message: `This visit needs a new date. Currently booked ${booked}. Pick the new day on the schedule below.`,
+  };
+}
+
 export function isExistingScheduleSurface(href: string): boolean {
   return /^\/jobs\/[^/]+(?:\?reschedule=1)?#job-schedule$/.test(href);
 }
@@ -338,7 +381,7 @@ export function clientRescheduleMailto(args: {
     site ? `Site: ${site}` : null,
     '',
     'Open the job schedule (no retype — the date is already on the job):',
-    jobScheduleUrl(args.appUrl, args.job.id),
+    jobRescheduleUrl(args.appUrl, args.job.id),
   ].filter(line => line !== null).join('\n');
   return `mailto:${encodeURIComponent(args.to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }

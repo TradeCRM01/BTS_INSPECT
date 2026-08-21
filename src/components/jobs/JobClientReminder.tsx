@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -18,6 +18,7 @@ export function JobClientReminder({
   job,
   client,
   company,
+  rescheduleAsked = false,
 }: {
   job: Job;
   client: Client | null;
@@ -27,11 +28,10 @@ export function JobClientReminder({
     email?: string | null;
     phone?: string | null;
   } | null;
+  rescheduleAsked?: boolean;
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const [params] = useSearchParams();
-  const rescheduleAsked = params.get('reschedule') === '1';
   const to = prefillReminderTo(client);
   const smsTo = prefillSmsTo(client?.phone);
   const companyId = company?.id ?? job.company_id;

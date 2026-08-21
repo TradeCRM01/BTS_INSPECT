@@ -21,11 +21,15 @@ import {
   dateOnly,
   decideReminderSend,
   emailSettingsReady,
+  formatJobDate,
   isCronAuthorized,
   isExistingScheduleSurface,
   isJobDueTomorrow,
   isReminderQueryScoped,
+  isJobRescheduleQuery,
+  jobOfficeRescheduleBanner,
   jobRescheduleQueryHref,
+  jobRescheduleUrl,
   jobScheduleHref,
   jobScheduleUrl,
   missMessage,
@@ -548,10 +552,66 @@ describe('reschedule target exists on the existing job schedule', () => {
     expect(jobRescheduleQueryHref('job-1')).toBe('/jobs/job-1?reschedule=1#job-schedule');
     expect(jobScheduleUrl('https://bts-inspect.pages.dev/', 'job-1'))
       .toBe('https://bts-inspect.pages.dev/jobs/job-1#job-schedule');
+    expect(jobRescheduleUrl('https://bts-inspect.pages.dev/', 'job-1'))
+      .toBe('https://bts-inspect.pages.dev/jobs/job-1?reschedule=1#job-schedule');
     expect(isExistingScheduleSurface(jobScheduleHref('job-1'))).toBe(true);
     expect(isExistingScheduleSurface(jobRescheduleQueryHref('job-1'))).toBe(true);
     expect(isExistingScheduleSurface('/notify')).toBe(false);
     expect(isExistingScheduleSurface('/portal/reschedule')).toBe(false);
+  });
+
+  it('honors ?reschedule=1 only — not a new route', () => {
+    expect(isJobRescheduleQuery('reschedule=1')).toBe(true);
+    expect(isJobRescheduleQuery('?reschedule=1')).toBe(true);
+    expect(isJobRescheduleQuery(new URLSearchParams('reschedule=1'))).toBe(true);
+    expect(isJobRescheduleQuery('reschedule=0')).toBe(false);
+    expect(isJobRescheduleQuery('')).toBe(false);
+    expect(isJobRescheduleQuery(null)).toBe(false);
+  });
+
+  it('office banner is honest — booked day or empty, never invented', () => {
+    const dated = jobOfficeRescheduleBanner(job());
+    expect(dated.kind).toBe('dated');
+    expect(dated.booked).toBe(formatJobDate('2026-08-22'));
+    expect(dated.message).toMatch(/needs a new date/i);
+    expect(dated.message).toContain(formatJobDate('2026-08-22'));
+    expect(dated.message).not.toMatch(/2026-08-2[13]/);
+
+    const empty = jobOfficeRescheduleBanner(job({ scheduled_date: null }));
+    expect(empty.kind).toBe('empty');
+    expect(empty.booked).toBeNull();
+    expect(empty.message).toMatch(/needs a new date/i);
+    expect(empty.message).toMatch(/no day is booked yet/i);
+    expect(empty.message).not.toMatch(/\d{1,2} \w{3} \d{4}/);
+
+    expect(jobOfficeRescheduleBanner(job({ scheduled_date: '  ' })).kind).toBe('empty');
+    expect(jobOfficeRescheduleBanner(job({ scheduled_date: undefined })).kind).toBe('empty');
+  });
+
+  it('JobDetailPage honors the query on the existing schedule block — no new dialog or route', () => {
+    const page = readFileSync(resolve(process.cwd(), 'src/pages/JobDetailPage.tsx'), 'utf8');
+    const panel = readFileSync(resolve(process.cwd(), 'src/components/jobs/JobDispatchPanel.tsx'), 'utf8');
+    const reminder = readFileSync(resolve(process.cwd(), 'src/components/jobs/JobClientReminder.tsx'), 'utf8');
+
+    expect(page).toContain('isJobRescheduleQuery');
+    expect(page).toContain('jobOfficeRescheduleBanner');
+    expect(page).toContain('id="job-schedule"');
+    expect(page).toContain('rescheduleBanner');
+    expect(page).toContain('JobDispatchPanel');
+    expect(page).not.toContain('RescheduleDialog');
+    expect(page).not.toContain('ReschedulePage');
+    expect(page).not.toContain('/portal/reschedule');
+    expect(page).not.toContain('createPortal');
+
+    expect(panel).toContain('rescheduleBanner');
+    expect(panel).toContain('job.scheduled_date ?? \'\'');
+    expect(panel).toContain('scheduled_date: e.target.value || null');
+    expect(panel).not.toContain('btn-primary');
+    expect(panel).not.toContain('new Date().toISOString().slice(0, 10)');
+
+    expect(reminder).toContain('btn-primary');
+    expect(reminder).toContain('Send tomorrow reminder');
+    expect(reminder).toContain('rescheduleAsked');
   });
 
   it('client reschedule mailto is prefilled — no retype', () => {
@@ -567,7 +627,7 @@ describe('reschedule target exists on the existing job schedule', () => {
     expect(mail!.subject).toMatch(/#0042/);
     expect(mail!.subject).toMatch(/22 Aug 2026/);
     expect(mail!.body).toMatch(/need to reschedule/i);
-    expect(mail!.body).toContain('/jobs/job-1#job-schedule');
+    expect(mail!.body).toContain('/jobs/job-1?reschedule=1#job-schedule');
     expect(mail!.body).toContain('12 Smith St');
   });
 

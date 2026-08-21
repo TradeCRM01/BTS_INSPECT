@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +21,7 @@ import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { recommendJobAction } from '../lib/jobNextAction';
+import { isJobRescheduleQuery, jobOfficeRescheduleBanner } from '../lib/jobReminder';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel, recommendJhaListAction } from '../lib/jhaNextAction';
 import { livingInspectionSummary, livingSwmsSummary, livingTake5Summary } from '../lib/livingJha';
 import { take5CardHint, take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
@@ -127,6 +128,8 @@ function scrollToId(id: string) {
 
 export function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const rescheduleAsked = isJobRescheduleQuery(searchParams);
   const { profile, company } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -501,12 +504,13 @@ export function JobDetailPage() {
   useEffect(() => {
     if (!job) return;
     const hash = window.location.hash.replace(/^#/, '');
-    if (!hash) return;
+    const target = hash || (rescheduleAsked ? 'job-schedule' : '');
+    if (!target) return;
     const t = window.setTimeout(() => {
-      document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
     return () => window.clearTimeout(t);
-  }, [job]);
+  }, [job, rescheduleAsked]);
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !job) return <AppShell><PageError message="Could not load this job" /></AppShell>;
@@ -780,8 +784,17 @@ export function JobDetailPage() {
         </article>
 
         <div id="job-schedule">
-          <JobDispatchPanel job={job} teamMembers={teamMembers ?? []} />
-          <JobClientReminder job={job} client={client ?? null} company={company} />
+          <JobDispatchPanel
+            job={job}
+            teamMembers={teamMembers ?? []}
+            rescheduleBanner={rescheduleAsked ? jobOfficeRescheduleBanner(job).message : null}
+          />
+          <JobClientReminder
+            job={job}
+            client={client ?? null}
+            company={company}
+            rescheduleAsked={rescheduleAsked}
+          />
         </div>
 
         {stages.length > 0 && (
