@@ -13,6 +13,10 @@ import {
 import { deliverReport, loadReportSendBundle } from '../../lib/sendReportDeliver';
 import { jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
 
+/** Honest no_email miss — write the address on this dialog. */
+export const REPORT_SEND_NO_EMAIL_FIELD =
+  'This client has no email. Add one below before you send.';
+
 export function ReportSendDialog({
   reportId,
   company,
@@ -89,7 +93,6 @@ export function ReportSendDialog({
   };
 
   const handleSend = async () => {
-    if (!decision?.ok) return;
     setSending(true);
     setErr('');
     try {
@@ -108,7 +111,9 @@ export function ReportSendDialog({
 
   const ready = decision?.ok === true;
   const blockerHref = decision && !decision.ok ? decision.href : undefined;
-  const blockerMessage = decision && !decision.ok ? decision.message : '';
+  const blockerMessage = noEmailMiss
+    ? REPORT_SEND_NO_EMAIL_FIELD
+    : (decision && !decision.ok ? decision.message : '');
   const reportLabel = bundle?.report?.report_number
     ? `Report ${bundle.report.report_number}`
     : '';
@@ -204,7 +209,7 @@ export function ReportSendDialog({
             Cancel
           </button>
           {showSend && (
-            <button type="button" onClick={() => void handleSend()} disabled={sending} className="btn-primary">
+            <button type="button" onClick={() => void handleSend()} disabled={sending || !ready} className="btn-primary">
               {sending ? 'Sending…' : 'Send report'}
             </button>
           )}

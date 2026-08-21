@@ -241,7 +241,7 @@ describe('report-send client email — wiring', () => {
 
     expect(handleSendFn).toContain('deliverReport');
     expect(handleSendFn).not.toContain('saveJobClientEmail');
-    expect(handleSendFn).toContain('if (!decision?.ok) return');
+    expect(handleSendFn).not.toContain('if (!decision?.ok) return');
 
     expect(send).not.toContain('saveJobClientEmail');
     expect(deliver).not.toContain('saveJobClientEmail');
@@ -258,6 +258,7 @@ describe('report-send client email — wiring', () => {
     expect(dialog).toContain('Send report');
     expect(dialog).toContain('job-client-email-save');
     expect(dialog).toContain('showSend');
+    expect(dialog).toContain('disabled={sending || !ready}');
     expect(dialog).not.toContain('Open client');
     expect(dialog).not.toContain('Add client email');
     expect(dialog).not.toContain('className="btn-primary job-client-email-save"');
@@ -278,6 +279,43 @@ describe('report-send client email — wiring', () => {
     expect(sendCss).toContain('#2E75B6');
     expect(sendCss).toMatch(/\.job-client-email-save[\s\S]*color: #5B6B7C/);
     expect(sendCss).toMatch(/\.job-client-email-addr[\s\S]*color: #0A2540/);
+  });
+
+  it('disables Send report on no_email until a sendable save — no silent handleSend return', () => {
+    const dialog = src('src/components/inspection/ReportSendDialog.tsx');
+    const handleSave = dialog.slice(dialog.indexOf('const handleSaveEmail'), dialog.indexOf('const handleSend'));
+    const handleSendFn = dialog.slice(dialog.indexOf('const handleSend'), dialog.indexOf('const ready'));
+    const sendBtn = dialog.slice(dialog.indexOf('{showSend &&'), dialog.indexOf('{showSmtpSettings'));
+
+    expect(dialog).toContain('disabled={sending || !ready}');
+    expect(sendBtn).toContain('Send report');
+    expect(sendBtn).toContain('disabled={sending || !ready}');
+    expect(handleSave).toContain('decideReportSend(next)');
+    expect(handleSave).not.toContain('deliverReport');
+    expect(handleSave).not.toContain('onSent');
+    expect(handleSendFn).toContain('deliverReport');
+    expect(handleSendFn).not.toContain('if (!decision?.ok) return');
+    expect(handleSendFn).not.toMatch(/if \(!decision\?\.ok\) return/);
+
+    const afterSave = decideReportSend(bundle({
+      client: { ...jobClient, email: jobClientEmailToStore('jane@acme.com.au') },
+    }));
+    expect(afterSave.ok).toBe(true);
+    const stillMiss = decideReportSend(bundle({
+      client: { ...jobClient, email: jobClientEmailToStore('') },
+    }));
+    expect(stillMiss.ok).toBe(false);
+  });
+
+  it('points the no_email miss at the field on this dialog — does not bounce to the client record', () => {
+    const dialog = src('src/components/inspection/ReportSendDialog.tsx');
+    expect(dialog).toContain('REPORT_SEND_NO_EMAIL_FIELD');
+    expect(dialog).toContain('Add one below before you send.');
+    expect(dialog).toContain('This client has no email. Add one below before you send.');
+    expect(dialog).not.toContain('Add one on the client record');
+    expect(dialog).not.toContain('client record');
+    expect(dialog).not.toContain('/clients/');
+    expect(dialog).not.toContain('Open client');
   });
 
   it('leaves sendReport / PDF / SMS beside / sent_at and SMTP Company settings as signed', () => {
