@@ -171,7 +171,9 @@ describe('job-sheet client email — wiring', () => {
     expect(page).toContain('saveClientEmail.mutate()');
     expect(page).toContain('job-client-email');
     expect(page).toContain('job-client-email-save');
+    expect(page).toContain('job-client-email-addr');
     expect(page).toContain("aria-label=\"Client email\"");
+    expect(page).not.toContain('mailto:${emailRow.email}`} className="flex items-center gap-1.5 text-accent');
     expect(page).toContain("invalidateQueries({ queryKey: ['job-client', job?.client_id] })");
     expect(page).toContain("kind === 'edit'");
     expect(page).toContain("kind === 'mailto'");
@@ -206,12 +208,23 @@ describe('job-sheet client email — wiring', () => {
     expect(page).toContain('ops-next-control-block');
     expect(page).toContain("next.key === 'send'");
     expect(page).toContain('job-client-email-save');
+    expect(page).toContain('job-client-email-addr');
     expect(page).not.toContain('className="ops-next-control-block job-client-email-save"');
     expect(clientCss).toContain('.job-client-email-save');
+    expect(clientCss).toContain('.job-client-email-addr');
     expect(clientCss).not.toContain('min-height: 44px');
     expect(clientCss).not.toContain('min-h-[44px]');
     expect(clientCss).not.toContain('ops-next-control');
-    expect(clientCss).toContain('#2E75B6');
+    expect(clientCss).toContain('font-size: 12px');
+    expect(clientCss).toContain('#D5DCE3');
+    expect(clientCss).toContain('gap: 8px');
+    expect(clientCss).toContain('white-space: nowrap');
+    expect(clientCss).toContain('text-overflow: clip');
+    expect(clientCss).not.toContain('ellipsis');
+    expect(clientCss).toContain('#5B6B7C');
+    expect(clientCss).toContain('#0A2540');
+    expect(clientCss).toMatch(/\.job-client-email-save[\s\S]*color: #5B6B7C/);
+    expect(clientCss).toMatch(/\.job-client-email-addr[\s\S]*color: #0A2540/);
   });
 
   it('leaves Invoice-sheet Send / Send again / Mark paid and SMTP Company settings as signed', () => {

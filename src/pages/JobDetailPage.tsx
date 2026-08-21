@@ -760,7 +760,7 @@ export function JobDetailPage() {
                 </a>
               )}
               {emailRow.kind === 'mailto' && (
-                <a href={`mailto:${emailRow.email}`} className="flex items-center gap-1.5 text-accent hover:underline">
+                <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
                   <Mail size={13} /> {emailRow.email}
                 </a>
               )}
