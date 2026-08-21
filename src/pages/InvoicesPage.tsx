@@ -27,6 +27,11 @@ import {
   saveJobClientEmail,
 } from '../lib/saveJobClientEmail';
 import {
+  jobClientPhoneRow,
+  jobClientPhoneSaveToast,
+  saveJobClientPhone,
+} from '../lib/saveJobClientPhone';
+import {
   INVOICE_CLIENT_ATTACH_NO_CLIENTS,
   attachInvoiceClient,
   invoiceClientAttachRow,
@@ -45,7 +50,7 @@ import {
   INVOICE_MARKED_PAID_MESSAGE,
 } from '../lib/xeroAccounting';
 import { INVOICE_STATUS_LABELS, formatMoney } from '../types/fsm';
-import { Plus, Receipt, Download, X, MoreHorizontal, Mail, User } from 'lucide-react';
+import { Plus, Receipt, Download, X, MoreHorizontal, Mail, Phone, User } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 const padInv = (n: number | null) => String(n ?? 0).padStart(4, '0');
@@ -138,7 +143,7 @@ export function InvoicesPage() {
       const clientIds = [...new Set(list.map(i => i.client_id).filter(Boolean))] as string[];
       const jobIds = [...new Set(list.map(i => i.job_id).filter(Boolean))] as string[];
       const [clientsRes, jobsRes] = await Promise.all([
-        clientIds.length ? supabase.from('clients').select('id, name, email').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string; email: string | null }[] }),
+        clientIds.length ? supabase.from('clients').select('id, name, email, phone').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string; email: string | null; phone: string | null }[] }),
         jobIds.length ? supabase.from('jobs').select('id, title, address').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string; address: string | null }[] }),
       ]);
       const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c]));
@@ -149,6 +154,7 @@ export function InvoicesPage() {
         exclusions: asStringList(i.exclusions),
         client_name: i.client_id ? clientMap.get(i.client_id)?.name ?? null : null,
         client_email: i.client_id ? clientMap.get(i.client_id)?.email ?? null : null,
+        client_phone: i.client_id ? clientMap.get(i.client_id)?.phone ?? null : null,
         job_title: i.job_id ? jobMap.get(i.job_id)?.title ?? null : null,
         job_address: i.job_id ? jobMap.get(i.job_id)?.address ?? null : null,
       }));
@@ -528,9 +534,11 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const [xeroMiss, setXeroMiss] = useState('');
   const [savedId, setSavedId] = useState<string | null>(invoice?.id ?? null);
   const [clientEmailDraft, setClientEmailDraft] = useState(invoice?.client_email ?? '');
+  const [clientPhoneDraft, setClientPhoneDraft] = useState(invoice?.client_phone ?? '');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [clientsLoaded, setClientsLoaded] = useState(false);
   const [writtenClientEmail, setWrittenClientEmail] = useState<{ clientId: string; email: string | null } | null>(null);
+  const [writtenClientPhone, setWrittenClientPhone] = useState<{ clientId: string; phone: string | null } | null>(null);
 
   const [form, setForm] = useState<EditorState>({
     client_id: invoice?.client_id ?? presetClientId ?? '',
@@ -591,6 +599,15 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     ? { ...emailClientBase, email: writtenClientEmail.email }
     : emailClientBase;
   const emailRow = jobClientEmailRow({ clientId: form.client_id || null, client: emailClient });
+  const phoneClientBase = selectedClient
+    ? { id: selectedClient.id, phone: selectedClient.phone ?? null }
+    : (form.client_id && invoice?.client_id === form.client_id && invoice.client_phone !== undefined
+      ? { id: form.client_id, phone: invoice.client_phone ?? null }
+      : null);
+  const phoneClient = phoneClientBase && writtenClientPhone?.clientId === phoneClientBase.id
+    ? { ...phoneClientBase, phone: writtenClientPhone.phone }
+    : phoneClientBase;
+  const phoneRow = jobClientPhoneRow({ clientId: form.client_id || null, client: phoneClient });
   const invoiceId = savedId ?? invoice?.id ?? null;
   const attachRow = invoiceClientAttachRow({
     invoiceClientId: form.client_id || null,
@@ -604,6 +621,10 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   useEffect(() => {
     setClientEmailDraft(emailClient?.email ?? '');
   }, [emailClient?.id, emailClient?.email]);
+
+  useEffect(() => {
+    setClientPhoneDraft(phoneClient?.phone ?? '');
+  }, [phoneClient?.id, phoneClient?.phone]);
 
   const attachClient = useMutation({
     mutationFn: async () => {
@@ -643,6 +664,27 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       const toast = jobClientEmailSaveToast(result.email);
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
+
+  const saveClientPhone = useMutation({
+    mutationFn: async () => {
+      return saveJobClientPhone({
+        clientId: form.client_id || null,
+        phone: clientPhoneDraft,
+      });
+    },
+    onSuccess: (result) => {
+      setWrittenClientPhone({ clientId: result.clientId, phone: result.phone });
+      setClients(cs => cs.map(c => c.id === result.clientId ? { ...c, phone: result.phone } : c));
+      setClientPhoneDraft(result.phone ?? '');
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice'] });
+      queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      const toast = jobClientPhoneSaveToast(result.phone);
       showToast(toast.message, toast.kind);
     },
     onError: (e: Error) => showToast(e.message, 'info'),
@@ -1007,6 +1049,39 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
               ) : (
                 <>
                   {selectedClient?.name ? <p className="hub-invoice-to-name">{selectedClient.name}</p> : null}
+                  {phoneRow.kind === 'tel' && (
+                    <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num">
+                      <Phone size={13} /> {phoneRow.phone}
+                    </a>
+                  )}
+                  {phoneRow.kind === 'edit' && (
+                    <form
+                      className="job-client-phone"
+                      onSubmit={e => {
+                        e.preventDefault();
+                        saveClientPhone.mutate();
+                      }}
+                    >
+                      <Phone size={13} />
+                      <input
+                        type="tel"
+                        value={clientPhoneDraft}
+                        onChange={e => setClientPhoneDraft(e.target.value)}
+                        placeholder="Phone"
+                        className="form-input-sm"
+                        aria-label="Client phone"
+                        autoComplete="tel"
+                        inputMode="tel"
+                      />
+                      <button
+                        type="submit"
+                        className="job-client-phone-save"
+                        disabled={saveClientPhone.isPending}
+                      >
+                        Save
+                      </button>
+                    </form>
+                  )}
                   {emailRow.kind === 'mailto' && (
                     <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
                       <Mail size={13} /> {emailRow.email}

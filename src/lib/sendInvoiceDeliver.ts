@@ -432,7 +432,7 @@ export async function loadInvoiceEditorRow(
   ]);
   if (clientRes.error) throw clientRes.error;
   if (jobRes.error) throw jobRes.error;
-  const client = clientRes.data as { name?: string | null; email?: string | null } | null;
+  const client = clientRes.data as { name?: string | null; email?: string | null; phone?: string | null } | null;
   const job = jobRes.data as { title?: string | null; address?: string | null } | null;
   return {
     ...inv,
@@ -440,6 +440,7 @@ export async function loadInvoiceEditorRow(
     exclusions: asStringList(inv.exclusions),
     client_name: client?.name ?? null,
     client_email: client?.email ?? null,
+    client_phone: client?.phone ?? null,
     job_title: job?.title ?? null,
     job_address: job?.address ?? null,
   };
