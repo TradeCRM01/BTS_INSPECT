@@ -881,6 +881,10 @@
     color: var(--job-muted);
   }
 
+  #job-schedule .job-reminder-tos .form-input {
+    text-overflow: clip;
+  }
+
   #job-schedule .btn-primary {
     background: #2E75B6;
     color: #fff;
@@ -1101,6 +1105,10 @@
 
   #inspection-due .form-input::placeholder {
     color: var(--job-muted);
+  }
+
+  #inspection-due .job-reminder-tos .form-input {
+    text-overflow: clip;
   }
 
   #inspection-due .btn-primary {
@@ -1829,18 +1837,8 @@
 
   .hub-invoice-send-tos {
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
+    flex-direction: column;
     gap: 16px;
-  }
-
-  .hub-invoice-send-tos > :first-child {
-    flex: 1 1 18rem;
-    min-width: min(100%, 18rem);
-  }
-
-  .hub-invoice-send-tos > :last-child {
-    flex: 0 1 auto;
   }
 
   .hub-invoice-send-field .hub-invoice-kicker {
@@ -1851,6 +1849,10 @@
     font-size: 14px;
     font-weight: 600;
     color: #0A2540;
+  }
+
+  .hub-invoice-send-tos > :first-child .hub-invoice-send-value {
+    white-space: nowrap;
   }
 
   .hub-invoice-send-value.is-miss {
@@ -1907,20 +1909,8 @@
 
     #job-schedule .job-reminder-tos,
     #inspection-due .job-reminder-tos {
-      gap: 8px;
-    }
-
-    .hub-invoice-send-tos {
-      flex-direction: column;
-      flex-wrap: nowrap;
+      grid-template-columns: 1fr;
       gap: 16px;
-    }
-
-    .hub-invoice-send-tos > :first-child,
-    .hub-invoice-send-tos > :last-child {
-      flex: 1 1 auto;
-      min-width: 0;
-      width: 100%;
     }
   }
 
