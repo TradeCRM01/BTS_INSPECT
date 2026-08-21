@@ -7,7 +7,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { format, parseISO } from 'date-fns';
-import { Building2, Check, X, RefreshCw, AlertCircle, Construction, Settings as SettingsIcon } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import {
   ACCOUNTING_SETTINGS_PATH,
   ACCOUNTING_SETTINGS_PUBLIC_COLUMNS,
@@ -196,154 +196,140 @@ export function AccountingSettingsPage() {
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error) return <AppShell><PageError message="Could not load accounting settings" /></AppShell>;
 
+  const lastSynced = settings?.last_synced_at
+    ? format(parseISO(settings.last_synced_at), 'dd MMM yyyy, HH:mm')
+    : null;
+
+  const missText = actionMsg?.kind === 'miss'
+    ? actionMsg.text
+    : !connected
+      ? (provider === 'quickbooks' ? xeroMissMessage('quickbooks_not_in_slice') : xeroMissMessage('not_connected'))
+      : null;
+
   return (
     <AppShell>
-      <div className="page-shell-narrow">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold text-[#1A1A1A]">Accounting Integration</h1>
-          <p className="text-sm text-[#4A5568] mt-0.5">Connect Xero and push paid invoices from this company</p>
-        </div>
+      <div id="accounting-settings">
+        <div className="acct-page">
+          <h1 className="ops-page-title">Accounting</h1>
 
-        <div className={`rounded-xl p-4 mb-4 border ${connected ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-          <div className="flex items-start gap-3">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${connected ? 'bg-green-100' : 'bg-amber-100'}`}>
-              {connected
-                ? <Check size={20} className="text-green-700" />
-                : <Construction size={20} className="text-amber-700" />}
+          <section className="ops-tray">
+            <div className="ops-tray-head">
+              <h2 className="ops-section-title">Xero</h2>
             </div>
-            <div>
-              <p className={`text-sm font-medium ${connected ? 'text-green-900' : 'text-amber-900'}`}>
-                {connected ? 'Xero connected' : 'Xero connect is live on this page'}
-              </p>
-              <p className={`text-xs mt-0.5 ${connected ? 'text-green-800' : 'text-amber-800'}`}>
-                {connected
-                  ? `Tenant ${settings?.tenant_id}. Sync pushes paid invoices only.`
-                  : 'Connect starts a real Xero OAuth path. QuickBooks Connect stays an honest miss for this slice.'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5 mb-4">
-          <h2 className="text-sm font-semibold text-[#1A1A1A] mb-3">Select Provider</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <ProviderCard
-              name="None" icon={X} description="No integration"
-              active={provider === 'none'} onClick={() => setProvider('none')} color="#6B7280"
-            />
-            <ProviderCard
-              name="Xero" icon={Building2} description="Cloud accounting"
-              active={provider === 'xero'} onClick={() => setProvider('xero')} color="#13B5EA"
-            />
-            <ProviderCard
-              name="QuickBooks" icon={Building2} description="Intuit accounting"
-              active={provider === 'quickbooks'} onClick={() => setProvider('quickbooks')} color="#2CA01C"
-            />
-          </div>
-        </div>
-
-        {provider !== 'none' && (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5 mb-4">
-            <h2 className="text-sm font-semibold text-[#1A1A1A] mb-3">Sync Settings</h2>
-            <div className="space-y-3">
-              <ToggleRow label="Automatic sync" description="Saved preference only — this slice syncs when you click Sync" checked={autoSync} onChange={setAutoSync} />
-              <ToggleRow label="Sync invoices" description="Push paid invoices to Xero" checked={syncInvoices} onChange={setSyncInvoices} />
-              <ToggleRow label="Sync payments" description="Saved preference only — this slice does not run a payments sync" checked={syncPayments} onChange={setSyncPayments} />
-              <ToggleRow label="Sync suppliers" description="Saved preference only — suppliers are not in this slice" checked={syncSuppliers} onChange={setSyncSuppliers} />
-            </div>
-            {settings?.last_synced_at && (
-              <p className="text-xs text-[#4A5568] mt-3 flex items-center gap-1">
-                <AlertCircle size={12} />
-                Last synced: {format(parseISO(settings.last_synced_at), 'dd MMM yyyy, HH:mm')}
-              </p>
-            )}
-          </div>
-        )}
-
-        {provider !== 'none' && (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5 mb-4">
-            <h2 className="text-sm font-semibold text-[#1A1A1A] mb-3">Connection</h2>
-            <p className="text-sm text-[#4A5568] mb-3">
-              {provider === 'xero'
-                ? (connected ? `Connected to tenant ${settings?.tenant_id}.` : 'Not connected.')
-                : 'QuickBooks is listed here only. Connect is not wired in this slice.'}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {!connected && (
-                <button
-                  type="button"
-                  onClick={handleConnect}
-                  disabled={busyAction !== null}
-                  className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
-                >
-                  {busyAction === 'connect' || busyAction === 'callback'
-                    ? <RefreshCw size={16} className="animate-spin" />
-                    : <Building2 size={16} />}
-                  Connect
-                </button>
-              )}
-              {connected && provider === 'xero' && (
+            <div className="acct-body">
+              {connected ? (
                 <>
+                  <p className="acct-status">Xero connected</p>
+                  <p className="acct-meta">
+                    Tenant {settings?.tenant_id}
+                    {lastSynced ? ` · Last synced ${lastSynced}` : ''}
+                  </p>
+                </>
+              ) : null}
+              {missText && <p className="acct-miss">{missText}</p>}
+              {actionMsg?.kind === 'ok' && <p className="acct-meta">{actionMsg.text}</p>}
+              {savedMsg && <p className="acct-meta">Saved</p>}
+
+              <div className="acct-act">
+                {connected ? (
                   <button
                     type="button"
                     onClick={handleSync}
                     disabled={busyAction !== null}
-                    className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
+                    className="btn-primary"
                   >
-                    {busyAction === 'sync' ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                    Sync
+                    {busyAction === 'sync' ? 'Syncing…' : 'Sync now'}
                   </button>
+                ) : (
                   <button
                     type="button"
-                    onClick={handleDisconnect}
+                    onClick={handleConnect}
                     disabled={busyAction !== null}
-                    className="flex items-center gap-2 border border-[#E5E7EB] text-[#1A1A1A] px-4 py-2 rounded-md text-sm font-medium hover:bg-[#F9FAFB] disabled:opacity-50"
+                    className="btn-primary"
                   >
-                    {busyAction === 'disconnect' ? <RefreshCw size={16} className="animate-spin" /> : <X size={16} />}
-                    Disconnect
+                    {busyAction === 'connect' || busyAction === 'callback' ? 'Connecting…' : 'Connect Xero'}
                   </button>
-                </>
+                )}
+                <details className="acct-more">
+                  <summary aria-label="More">
+                    <MoreHorizontal size={16} />
+                  </summary>
+                  <div className="acct-more-menu">
+                    {connected && (
+                      <button
+                        type="button"
+                        onClick={handleDisconnect}
+                        disabled={busyAction !== null}
+                      >
+                        {busyAction === 'disconnect' ? 'Disconnecting…' : 'Disconnect'}
+                      </button>
+                    )}
+                    <button type="button" onClick={handleSave} disabled={saving}>
+                      {saving ? 'Saving…' : 'Save preferences'}
+                    </button>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </section>
+
+          <section className="ops-tray">
+            <div className="ops-tray-head">
+              <h2 className="ops-section-title">Preferences</h2>
+            </div>
+            <div className="acct-body">
+              <div className="acct-choices" role="group" aria-label="Provider">
+                <ProviderChoice name="None" active={provider === 'none'} onClick={() => setProvider('none')} />
+                <ProviderChoice name="Xero" active={provider === 'xero'} onClick={() => setProvider('xero')} />
+                <ProviderChoice name="QuickBooks" active={provider === 'quickbooks'} onClick={() => setProvider('quickbooks')} />
+              </div>
+
+              {provider !== 'none' && (
+                <div className="acct-toggles">
+                  <ToggleRow
+                    label="Automatic sync"
+                    description="Saved preference only — this slice syncs when you click Sync now"
+                    checked={autoSync}
+                    onChange={setAutoSync}
+                  />
+                  <ToggleRow
+                    label="Sync invoices"
+                    description="Push paid invoices to Xero"
+                    checked={syncInvoices}
+                    onChange={setSyncInvoices}
+                  />
+                  <ToggleRow
+                    label="Sync payments"
+                    description="Saved preference only — this slice does not run a payments sync"
+                    checked={syncPayments}
+                    onChange={setSyncPayments}
+                  />
+                  <ToggleRow
+                    label="Sync suppliers"
+                    description="Saved preference only — suppliers are not in this slice"
+                    checked={syncSuppliers}
+                    onChange={setSyncSuppliers}
+                  />
+                </div>
               )}
             </div>
-            {actionMsg && (
-              <p className={`text-sm mt-3 ${actionMsg.kind === 'ok' ? 'text-green-700' : 'text-amber-800'}`}>
-                {actionMsg.text}
-              </p>
-            )}
-          </div>
-        )}
-
-        <div className="flex items-center justify-end gap-3">
-          {savedMsg && <span className="text-sm text-green-600 font-medium flex items-center gap-1"><Check size={16} /> Saved</span>}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
-          >
-            {saving ? <RefreshCw size={16} className="animate-spin" /> : <SettingsIcon size={16} />}
-            Save Settings
-          </button>
+          </section>
         </div>
       </div>
     </AppShell>
   );
 }
 
-function ProviderCard({ name, icon: Icon, description, active, onClick, color }: {
-  name: string; icon: React.ComponentType<{ size?: number; className?: string }>; description: string; active: boolean; onClick: () => void; color: string;
+function ProviderChoice({ name, active, onClick }: {
+  name: string; active: boolean; onClick: () => void;
 }) {
   return (
-    <button onClick={onClick}
-      className={`p-4 rounded-lg border-2 text-left transition-all ${
-        active ? 'border-[#0A2540] bg-blue-50' : 'border-[#E5E7EB] hover:border-[#9CA3AF] bg-white'
-      }`}>
-      <div className="flex items-center gap-2 mb-1">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}15` }}>
-          <Icon size={18} style={{ color }} />
-        </div>
-        <span className="text-sm font-semibold text-[#1A1A1A]">{name}</span>
-      </div>
-      <p className="text-xs text-[#4A5568]">{description}</p>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`acct-choice${active ? ' is-on' : ''}`}
+    >
+      {name}
     </button>
   );
 }
@@ -352,17 +338,19 @@ function ToggleRow({ label, description, checked, onChange }: {
   label: string; description: string; checked: boolean; onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between p-3 rounded-lg border border-[#E5E7EB] cursor-pointer hover:bg-[#F9FAFB] transition-colors">
-      <div>
-        <p className="text-sm font-medium text-[#1A1A1A]">{label}</p>
-        <p className="text-xs text-[#4A5568]">{description}</p>
-      </div>
+    <label className="acct-toggle">
+      <span>
+        <span className="acct-toggle-label">{label}</span>
+        <span className="acct-meta">{description}</span>
+      </span>
       <button
         type="button"
+        role="switch"
+        aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative w-11 h-6 rounded-full transition-colors ${checked ? 'bg-[#0A2540]' : 'bg-gray-300'}`}
+        className={`acct-switch${checked ? ' is-on' : ''}`}
       >
-        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-5' : ''}`} />
+        <span className="acct-switch-knob" />
       </button>
     </label>
   );
