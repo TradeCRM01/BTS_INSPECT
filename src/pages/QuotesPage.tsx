@@ -334,7 +334,7 @@ function QuoteHit({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () 
       <span className="hub-quotes-ref">{quoteRef(quote)}</span>
       <span className="truncate">{quote.client_name || ''}</span>
       <span className="truncate hub-quotes-muted">{suburb}</span>
-      <span className="hub-quotes-pill">{QUOTE_STATUS_LABELS[quote.status]}</span>
+      <span className={`hub-quotes-pill is-${quote.status}`}>{QUOTE_STATUS_LABELS[quote.status]}</span>
       <span className="hub-quotes-total">{money ?? ''}</span>
       <span className="hub-quotes-row-next" onClick={e => e.stopPropagation()}>
         <QuoteNextControl quote={quote} onSend={onSend} />
@@ -796,41 +796,43 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             </div>
           </div>
 
-          <table className="hub-quote-lines">
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Qty</th>
-                <th>Unit</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {docLines.map((li, idx) => {
-                const qty = parseFloat(li.quantity) || 0;
-                const unit = parseFloat(li.unit_price) || 0;
-                return (
-                  <tr key={`${li.description}-${idx}`}>
-                    <td>{li.description}</td>
-                    <td>{qty}</td>
-                    <td>{formatMoney(unit)}</td>
-                    <td>{formatMoney(qty * unit)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="hub-quote-table">
+            <table className="hub-quote-lines">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Qty</th>
+                  <th>Unit</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {docLines.map((li, idx) => {
+                  const qty = parseFloat(li.quantity) || 0;
+                  const unit = parseFloat(li.unit_price) || 0;
+                  return (
+                    <tr key={`${li.description}-${idx}`}>
+                      <td>{li.description}</td>
+                      <td className="hub-quote-num">{qty}</td>
+                      <td className="hub-quote-num">{formatMoney(unit)}</td>
+                      <td className="hub-quote-num">{formatMoney(qty * unit)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
           <div className="hub-quote-gst">
             <span>Subtotal (ex GST)</span>
-            <span>{formatMoney(subtotal)}</span>
+            <span className="hub-quote-num">{formatMoney(subtotal)}</span>
             <span>{`GST (${parseFloat(form.tax_rate) || 0}%)`}</span>
-            <span>{formatMoney(taxAmount)}</span>
+            <span className="hub-quote-num">{formatMoney(taxAmount)}</span>
           </div>
           {editorMoney ? (
             <div className="hub-quote-totalbar">
               <span>Total (inc GST)</span>
-              <span>{editorMoney}</span>
+              <span className="hub-quote-num">{editorMoney}</span>
             </div>
           ) : null}
         </div>
@@ -928,7 +930,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block ops-meta font-medium mb-1">{label}{required && <span className="text-red-500"> *</span>}</label>
+      <label className="block ops-meta font-medium mb-1">{label}{required && <span className="hub-quote-req"> *</span>}</label>
       {children}
     </div>
   );
