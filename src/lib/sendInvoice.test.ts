@@ -363,6 +363,8 @@ describe('INVOICE_SEND_PIPE', () => {
     expect(pipe).toMatch(/Twilio/);
     expect(pipe).toMatch(/clients\.phone/);
     expect(pipe).not.toMatch(/send-quote/);
+    expect(pipe).toMatch(/xero-accounting/);
+    expect(pipe).toMatch(/invoiceId only/);
   });
 });
 

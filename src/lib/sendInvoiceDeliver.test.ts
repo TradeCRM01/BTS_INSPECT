@@ -61,6 +61,17 @@ describe('invoice send deliver path', () => {
     expect(edge).not.toContain('from("quotes")');
     expect(edge).not.toContain('send-quote');
     expect(INVOICE_SEND_PIPE.join(' ')).toMatch(/job-reminder/);
+    expect(INVOICE_SEND_PIPE.join(' ')).toMatch(/xero-accounting/);
+    expect(deliver).toContain('pushInvoiceToXeroAfterSend');
+    expect(deliver).toContain('sendSucceeded: true');
+    const jobInvoke = deliver.indexOf("invoke('job-reminder'");
+    const sentCheck = deliver.lastIndexOf("if (!data?.sent)");
+    const xeroAfterSend = deliver.lastIndexOf('pushInvoiceToXeroAfterSend');
+    const sendOk = deliver.indexOf('return { ok: true, to, markedSent: true');
+    expect(jobInvoke).toBeGreaterThan(-1);
+    expect(xeroAfterSend).toBeGreaterThan(sentCheck);
+    expect(xeroAfterSend).toBeGreaterThan(jobInvoke);
+    expect(sendOk).toBeGreaterThan(xeroAfterSend);
   });
 
   it('chase look stays on the signed Send sheet — one 44px Send again, Mark paid in …', () => {
@@ -81,6 +92,13 @@ describe('invoice send deliver path', () => {
     expect(dialog).toContain('chaseCopy');
     expect(dialog).toContain(' · Overdue');
     expect(dialog).not.toContain('Send again');
+    expect(dialog).toContain('invoiceSendXeroMissLine');
+    expect(dialog).toContain('hub-invoice-send-xero-miss');
+    expect(dialog).toContain('keepOpen: true');
+    expect(dialog).not.toContain('Connect Xero');
+    expect(dialog).not.toContain('xero-accounting');
+    expect(page).toContain('keepOpen');
+    expect(page).not.toContain('Connect Xero');
     expect(invoiceCss).toContain('--invoice-page: #F4F6F8');
     expect(invoiceCss).toContain('--invoice-sheet: #FFFFFF');
     expect(invoiceCss).toContain('--invoice-ink: #0A2540');
@@ -91,6 +109,8 @@ describe('invoice send deliver path', () => {
     expect(invoiceCss).toContain('white-space: nowrap');
     expect(invoiceCss).toContain('text-overflow: clip');
     expect(invoiceCss).not.toContain('text-overflow: ellipsis');
+    expect(invoiceCss).toContain('.hub-invoice-send-xero-miss');
+    expect(invoiceCss).toContain('color: #5B6B7C');
   });
 
   it('SMS miss does not flip invoice status or chased_at — sent follows email 2xx only', () => {

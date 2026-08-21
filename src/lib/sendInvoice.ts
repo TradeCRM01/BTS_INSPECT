@@ -136,6 +136,7 @@ export const INVOICE_SEND_PIPE = [
   'SMS beside: clients.phone via Twilio edge secrets on job-reminder (email status / chased_at unchanged if SMS misses)',
   'UPDATE invoices.status = sent only when Resend returns 2xx (never paid)',
   'UPDATE invoices.chased_at only when Resend returns 2xx on overdue / sent-again',
+  'After Resend 2xx: invoke xero-accounting action=sync for this invoiceId only when connected and invoice sync is on (honest miss does not unsend)',
 ] as const;
 
 export function padInvoiceNumber(n: number | null | undefined): string {

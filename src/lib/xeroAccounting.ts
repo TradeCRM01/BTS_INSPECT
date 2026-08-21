@@ -137,6 +137,66 @@ export function decideXeroSync(input: {
   return { ok: true };
 }
 
+/** After Resend 2xx only. Connected / sync-off misses live on the existing sync path. */
+export function decideXeroPushOnSend(input: {
+  sendSucceeded: boolean;
+  invoiceId?: string | null;
+}): { ok: true; invoiceId: string } | { ok: false; code: XeroMissCode } {
+  if (!input.sendSucceeded) return { ok: false, code: 'nothing_to_push' };
+  const invoiceId = (input.invoiceId ?? '').trim();
+  if (!invoiceId) return { ok: false, code: 'nothing_to_push' };
+  return { ok: true, invoiceId };
+}
+
+export function xeroPushOnSendBody(invoiceId: string): { action: 'sync'; invoiceId: string } {
+  return { action: 'sync', invoiceId: invoiceId.trim() };
+}
+
+export type XeroAfterSendResult = { ok: boolean; message: string };
+
+/**
+ * Quiet line on the existing invoice Send sheet after a successful send.
+ * Names the miss. Does not unsend. Not a second primary.
+ */
+export function invoiceSendXeroMissLine(xero: XeroAfterSendResult): string | null {
+  if (xero.ok) return null;
+  if (/not connected/i.test(xero.message)) return 'Invoice sent. Xero is not connected.';
+  if (/turned off/i.test(xero.message)) return 'Invoice sent. Invoice sync is off.';
+  return `Invoice sent. ${xero.message}`;
+}
+
+/**
+ * Call the existing xero-accounting sync for one invoice.
+ * Misses stay misses. Callers must not flip Send to failed.
+ */
+export async function pushInvoiceToXeroAfterSend(
+  invoke: (
+    name: string,
+    opts: { body: { action: 'sync'; invoiceId: string } },
+  ) => Promise<{ data: unknown; error?: { message?: string } | null }>,
+  input: { sendSucceeded: boolean; invoiceId: string },
+): Promise<XeroAfterSendResult> {
+  const gate = decideXeroPushOnSend(input);
+  if (!gate.ok) return { ok: false, message: xeroMissMessage(gate.code) };
+  try {
+    const { data, error } = await invoke(XERO_FUNCTION_NAME, { body: xeroPushOnSendBody(gate.invoiceId) });
+    const result = readXeroFunctionResult(data, error ?? null);
+    if (!result.ok) return { ok: false, message: result.message };
+    const pushed = Number(result.body.pushed);
+    return {
+      ok: true,
+      message: String(result.body.message ?? xeroSyncPushedMessage({
+        pushed: Number.isFinite(pushed) ? pushed : 0,
+      })),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error && err.message.trim() ? err.message : xeroMissMessage('token_failed'),
+    };
+  }
+}
+
 export function isAccountingRedirectUri(uri: string): boolean {
   try {
     const url = new URL(uri);
@@ -203,11 +263,51 @@ export function invoiceAlreadySentForXeroSync(invoice: {
   return Boolean((invoice.chased_at ?? '').trim());
 }
 
+export const XERO_SYNC_INVOICE_COLUMNS =
+  'id, company_id, invoice_number, client_id, status, line_items, subtotal, tax_rate, tax_amount, total, due_date, notes, chased_at, created_at, updated_at';
+
+export type XeroAccountingSyncQuery = {
+  columns: string;
+  eq: Record<string, string>;
+  inStatus: readonly XeroSyncableInvoiceStatus[] | null;
+};
+
+/** One invoice by id + company, or this company's sent/overdue/paid tray. No new table. */
+export function xeroAccountingSyncQuery(args: {
+  companyId: string;
+  invoiceId?: string | null;
+}): XeroAccountingSyncQuery | null {
+  const companyId = args.companyId.trim();
+  const invoiceId = (args.invoiceId ?? '').trim();
+  if (!companyId) return null;
+  if (invoiceId) {
+    return {
+      columns: XERO_SYNC_INVOICE_COLUMNS,
+      eq: { id: invoiceId, company_id: companyId },
+      inStatus: null,
+    };
+  }
+  return {
+    columns: XERO_SYNC_INVOICE_COLUMNS,
+    eq: { company_id: companyId },
+    inStatus: XERO_SYNCABLE_INVOICE_STATUSES,
+  };
+}
+
+export function wouldScanLedgerToSyncOneInvoice(query: XeroAccountingSyncQuery | null): boolean {
+  if (!query) return false;
+  return !query.eq.id || !query.eq.company_id;
+}
+
 export function invoicesForXeroSync<T extends SyncableInvoice>(
   invoices: T[],
   companyId: string,
+  invoiceId?: string | null,
 ): T[] {
-  return invoices.filter((inv) => inv.company_id === companyId && invoiceAlreadySentForXeroSync(inv));
+  const rows = invoices.filter((inv) => inv.company_id === companyId && invoiceAlreadySentForXeroSync(inv));
+  const id = (invoiceId ?? '').trim();
+  if (!id) return rows;
+  return rows.filter((inv) => inv.id === id);
 }
 
 /** Same filter as invoicesForXeroSync — paid stays on this map, not a second sync. */
