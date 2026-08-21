@@ -39,6 +39,11 @@ import {
   jobClientEmailSaveToast,
   saveJobClientEmail,
 } from '../lib/saveJobClientEmail';
+import {
+  jobClientPhoneRow,
+  jobClientPhoneSaveToast,
+  saveJobClientPhone,
+} from '../lib/saveJobClientPhone';
 import { isJobRescheduleQuery, jobOfficeRescheduleBanner } from '../lib/jobReminder';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel, recommendJhaListAction } from '../lib/jhaNextAction';
 import { livingInspectionSummary, livingSwmsSummary, livingTake5Summary } from '../lib/livingJha';
@@ -159,6 +164,7 @@ export function JobDetailPage() {
   const [billOpen, setBillOpen] = useState(true);
   const [sendingReportId, setSendingReportId] = useState<string | null>(null);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
+  const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
 
   const { data: job, isLoading, error } = useQuery<Job>({
@@ -202,6 +208,10 @@ export function JobDetailPage() {
   useEffect(() => {
     setClientEmailDraft(client?.email ?? '');
   }, [client?.id, client?.email]);
+
+  useEffect(() => {
+    setClientPhoneDraft(client?.phone ?? '');
+  }, [client?.id, client?.phone]);
 
   useEffect(() => {
     setClientAttachDraft('');
@@ -511,6 +521,22 @@ export function JobDetailPage() {
     onError: (e: Error) => showToast(e.message, 'info'),
   });
 
+  const saveClientPhone = useMutation({
+    mutationFn: async () => {
+      return saveJobClientPhone({
+        clientId: job?.client_id,
+        phone: clientPhoneDraft,
+      });
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['job-client', job?.client_id] });
+      setClientPhoneDraft(result.phone ?? '');
+      const toast = jobClientPhoneSaveToast(result.phone);
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
+
   const updateStatus = useMutation({
     mutationFn: async (status: JobStatus) => {
       const { error } = await supabase
@@ -703,6 +729,7 @@ export function JobDetailPage() {
     (next.key === 'send' && sendJobDraft.isPending);
 
   const emailRow = jobClientEmailRow({ clientId: job.client_id, client: client ?? null });
+  const phoneRow = jobClientPhoneRow({ clientId: job.client_id, client: client ?? null });
   const attachRow = jobClientAttachRow({
     jobClientId: job.client_id,
     companyClients: job.client_id
@@ -842,10 +869,38 @@ export function JobDetailPage() {
                   <User size={13} /> No client
                 </span>
               )}
-              {client?.phone && (
-                <a href={`tel:${client.phone}`} className="flex items-center gap-1.5 text-accent hover:underline">
-                  <Phone size={13} /> {client.phone}
+              {phoneRow.kind === 'tel' && (
+                <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num">
+                  <Phone size={13} /> {phoneRow.phone}
                 </a>
+              )}
+              {phoneRow.kind === 'edit' && (
+                <form
+                  className="job-client-phone"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    saveClientPhone.mutate();
+                  }}
+                >
+                  <Phone size={13} />
+                  <input
+                    type="tel"
+                    value={clientPhoneDraft}
+                    onChange={e => setClientPhoneDraft(e.target.value)}
+                    placeholder="Phone"
+                    className="form-input-sm"
+                    aria-label="Client phone"
+                    autoComplete="tel"
+                    inputMode="tel"
+                  />
+                  <button
+                    type="submit"
+                    className="job-client-phone-save"
+                    disabled={saveClientPhone.isPending}
+                  >
+                    Save
+                  </button>
+                </form>
               )}
               {emailRow.kind === 'mailto' && (
                 <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
