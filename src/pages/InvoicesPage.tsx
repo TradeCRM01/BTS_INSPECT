@@ -392,6 +392,7 @@ function InvoiceNextControl({
       </Link>
     ) : null;
   } else if (next.key === 'send' || next.key === 'mark_paid') {
+    const chasePrimary = next.key === 'send' && next.status === 'overdue';
     primary = (
       <button
         type="button"
@@ -400,7 +401,7 @@ function InvoiceNextControl({
           if (next.key === 'mark_paid') void patchPaid();
         }}
         disabled={!!busy}
-        className="hub-next"
+        className={chasePrimary ? 'btn-primary' : 'hub-next'}
         title={next.detail}
       >
         {busy && next.key !== 'mark_paid' ? 'Working…' : next.label}

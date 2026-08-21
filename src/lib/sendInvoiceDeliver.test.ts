@@ -27,6 +27,7 @@ describe('invoice send deliver path', () => {
     expect(page).toContain('InvoiceSendDialog');
     expect(page).toContain('invoiceOverflowPaidAction');
     expect(page).toContain('Send again');
+    expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
     expect(nextAction).toContain("label: 'Send again'");
     expect(nextAction).toContain('invoiceOverflowPaidAction');
     expect(page).not.toContain('QuoteSendDialog');
@@ -60,6 +61,36 @@ describe('invoice send deliver path', () => {
     expect(edge).not.toContain('from("quotes")');
     expect(edge).not.toContain('send-quote');
     expect(INVOICE_SEND_PIPE.join(' ')).toMatch(/job-reminder/);
+  });
+
+  it('chase look stays on the signed Send sheet — one 44px Send again, Mark paid in …', () => {
+    const page = readFileSync(resolve(process.cwd(), 'src/pages/InvoicesPage.tsx'), 'utf8');
+    const dialog = readFileSync(resolve(process.cwd(), 'src/components/invoicing/InvoiceSendDialog.tsx'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
+    const invoiceCss = css.slice(css.indexOf('/* Invoice surfaces only'), css.indexOf('/* Job-hub JHA/SWMS'));
+
+    expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
+    expect(page).toContain('hub-invoice-more');
+    expect(page).toContain('Mark paid');
+    expect(page).not.toContain('InvoiceChase');
+    expect(page).not.toContain('ChaseDialog');
+    expect(dialog).toContain('hub-invoice-send');
+    expect(dialog).toContain('SMS To');
+    expect(dialog).toContain('hub-invoice-send-tos');
+    expect(dialog).toContain('Send invoice');
+    expect(dialog).toContain('chaseCopy');
+    expect(dialog).toContain(' · Overdue');
+    expect(dialog).not.toContain('Send again');
+    expect(invoiceCss).toContain('--invoice-page: #F4F6F8');
+    expect(invoiceCss).toContain('--invoice-sheet: #FFFFFF');
+    expect(invoiceCss).toContain('--invoice-ink: #0A2540');
+    expect(invoiceCss).toContain('--invoice-muted: #5B6B7C');
+    expect(invoiceCss).toContain('--invoice-line: #D5DCE3');
+    expect(invoiceCss).toContain('--invoice-action: #2E75B6');
+    expect(invoiceCss).toContain('min-height: 44px');
+    expect(invoiceCss).toContain('white-space: nowrap');
+    expect(invoiceCss).toContain('text-overflow: clip');
+    expect(invoiceCss).not.toContain('text-overflow: ellipsis');
   });
 
   it('SMS miss does not flip invoice status or chased_at — sent follows email 2xx only', () => {

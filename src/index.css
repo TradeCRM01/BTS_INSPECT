@@ -1367,7 +1367,7 @@
   .hub-invoices-thead,
   .hub-invoices-row {
     display: grid;
-    grid-template-columns: 72px minmax(0, 1.4fr) minmax(0, 1fr) 104px 120px 112px;
+    grid-template-columns: 72px minmax(0, 1.4fr) minmax(0, 1fr) 104px 120px minmax(188px, max-content);
     gap: 16px;
     align-items: center;
     padding: 16px;
@@ -1452,6 +1452,14 @@
 
   .hub-invoices-row-next {
     text-align: right;
+  }
+
+  .hub-invoices-row-next .hub-invoice-editor-act {
+    justify-content: flex-end;
+  }
+
+  .hub-invoices-row-next .btn-primary {
+    flex-shrink: 0;
   }
 
   .hub-invoices .hub-next {
@@ -1853,6 +1861,9 @@
 
   .hub-invoice-send-tos > :first-child .hub-invoice-send-value {
     white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: keep-all;
   }
 
   .hub-invoice-send-value.is-miss {
