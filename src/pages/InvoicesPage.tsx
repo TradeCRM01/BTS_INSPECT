@@ -517,6 +517,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const [showPreview, setShowPreview] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const moreRef = useRef<HTMLDetailsElement>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState('');
   const [xeroMiss, setXeroMiss] = useState('');
   const [savedId, setSavedId] = useState<string | null>(invoice?.id ?? null);
@@ -835,6 +836,16 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                 Set up email
               </Link>
             )}
+            {next.key === 'add_email' && (
+              <button
+                type="button"
+                className="btn-primary"
+                title={next.detail}
+                onClick={() => emailInputRef.current?.focus()}
+              >
+                {next.label}
+              </button>
+            )}
             {next.key === 'send' && (
               <button type="button" onClick={() => void startSend()} disabled={saving} className="btn-primary">
                 {saving ? 'Saving...' : next.status === 'overdue' ? 'Send again' : 'Send invoice'}
@@ -939,6 +950,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                 >
                   <Mail size={13} />
                   <input
+                    ref={emailInputRef}
                     type="email"
                     value={clientEmailDraft}
                     onChange={e => setClientEmailDraft(e.target.value)}

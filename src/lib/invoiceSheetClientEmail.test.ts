@@ -120,7 +120,9 @@ describe('invoice-sheet client email — wiring', () => {
     expect(editor).toContain('jobClientEmailRow({ clientId: form.client_id || null');
     expect(editor).not.toContain('ClientEmailDialog');
     expect(editor).not.toContain('InvoiceClientEmailDialog');
-    expect(editor).not.toContain('Add client email');
+    expect(editor).toContain("next.key === 'add_email'");
+    expect(editor).toContain('{next.label}');
+    expect(editor).toContain('emailInputRef.current?.focus()');
     expect(editor).not.toContain('className="btn-primary job-client-email-save"');
     expect(editor).not.toContain('className="ops-next-control-block job-client-email-save"');
     expect(editor).not.toContain('QuoteSendDialog');
@@ -154,9 +156,11 @@ describe('invoice-sheet client email — wiring', () => {
     const clientCss = invoiceCss.slice(clientCssStart, invoiceCss.indexOf('.hub-invoice-table'));
 
     expect(editor).toContain('hub-invoice-editor-act');
+    expect(editor).toContain("next.key === 'add_email'");
     expect(editor).toContain("next.key === 'send'");
     expect(editor).toContain('className="btn-primary"');
     expect(editor).toContain('job-client-email-save');
+    expect(editor).toContain('Add client email');
     expect(editor).toContain('Send again');
     expect(editor).toContain('Mark paid');
     expect(clientCss).toContain('.job-client-email-save');
