@@ -22,7 +22,7 @@ import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { recommendJobAction } from '../lib/jobNextAction';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel, recommendJhaListAction } from '../lib/jhaNextAction';
-import { livingSwmsSummary, livingTake5Summary } from '../lib/livingJha';
+import { livingInspectionSummary, livingSwmsSummary, livingTake5Summary } from '../lib/livingJha';
 import { take5CardHint, take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
 import { inspectionStatusClass, inspectionStatusLabel } from '../lib/inspectionNextAction';
 import { withInspectionDueNext } from '../lib/inspectionDueReminder';
@@ -841,13 +841,28 @@ export function JobDetailPage() {
               const sendSurface = reportSendSurface(report);
               const displayStatus = inspectionDisplayStatus(insp.status, report?.sent_at);
               const done = insp.status === 'completed' || insp.status === 'issued' || insp.status === 'sent';
+              const living = livingInspectionSummary({
+                meta: insp.meta,
+                job: {
+                  id: job.id,
+                  title: job.title,
+                  address: job.address,
+                  client_id: job.client_id,
+                  client_name: client?.name ?? '',
+                },
+                skipClient: !!job.client_id && !client,
+              });
               return (
               <JobRelatedRow
                 key={insp.id}
                 href={next.href}
                 icon={FileText}
                 title={insp.template_snapshot?.name ?? 'Inspection'}
-                meta={format(new Date(insp.started_at), 'd MMM yyyy')}
+                meta={[
+                  living.site || 'Site follows this job',
+                  living.clientName || 'Client follows this job',
+                  format(new Date(insp.started_at), 'd MMM yyyy'),
+                ].filter(Boolean).join(' · ')}
                 trailing={
                   <OpsStatus className={inspectionStatusClass(displayStatus)}>{inspectionStatusLabel(displayStatus)}</OpsStatus>
                 }

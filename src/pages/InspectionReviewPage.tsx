@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { evaluateShowIf } from '../lib/conditionEval';
 import type { TemplateSchema, SignOffRole, InspectionCountersign } from '../types/template';
 import { parseCountersignatures } from '../types/template';
+import { applyLivingJobToInspection } from '../lib/livingJha';
 import { CheckCircle, AlertCircle, ChevronLeft, ClipboardCheck, ImageOff, Check, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -130,6 +131,21 @@ export function InspectionReviewPage() {
       return data;
     },
     enabled: !!id,
+  });
+
+  const crmJobId = (inspection as { crm_job_id?: string | null } | null)?.crm_job_id ?? null;
+  const { data: boundJob } = useQuery({
+    queryKey: ['inspection-review-job', crmJobId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, title, address, client_id')
+        .eq('id', crmJobId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!crmJobId,
   });
 
   const { data: photoRecords } = useQuery({
@@ -308,7 +324,9 @@ export function InspectionReviewPage() {
         </button>
         <div className="flex-1">
           <p className="text-sm font-medium">Review Inspection</p>
-          <p className="text-[11px] text-white/60">{meta?.siteName ?? 'Inspection'}</p>
+          <p className="text-[11px] text-white/60">
+            {applyLivingJobToInspection(meta, boundJob).siteName || (boundJob ? 'Inspection' : (meta?.siteName || 'Inspection'))}
+          </p>
         </div>
       </div>
 

@@ -9,7 +9,8 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { FileText, ChevronLeft, CreditCard as Edit2, PenLine, MoreHorizontal } from 'lucide-react';
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
-import { reportIsSent } from '../lib/sendReport';
+import { reportIsSent, reportPdfFilename, reportSiteName } from '../lib/sendReport';
+import { applyLivingJobToInspection } from '../lib/livingJha';
 import { format } from 'date-fns';
 import { PdfViewer } from '../components/pdf/PdfViewer';
 import { AnnotationToolbar } from '../components/pdf/AnnotationToolbar';
@@ -104,6 +105,34 @@ export function ReportPage() {
     enabled: !!id,
   });
 
+  const crmJobId = (inspection as { crm_job_id?: string | null } | null)?.crm_job_id ?? null;
+  const { data: boundJob } = useQuery({
+    queryKey: ['inspection-report-job', crmJobId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, title, address, client_id, job_number')
+        .eq('id', crmJobId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!crmJobId,
+  });
+  const { data: boundJobClient } = useQuery({
+    queryKey: ['inspection-report-job-client', boundJob?.client_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name')
+        .eq('id', boundJob!.client_id!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!boundJob?.client_id,
+  });
+
   const { data: existingReport } = useQuery({
     queryKey: ['report', id],
     queryFn: async () => {
@@ -175,6 +204,26 @@ export function ReportPage() {
     return () => { cancelled = true; };
   }, [pdfUrl]);
 
+  function livingReportJob() {
+    return boundJob
+      ? {
+          id: boundJob.id,
+          title: boundJob.title,
+          address: boundJob.address,
+          client_id: boundJob.client_id,
+          client_name: boundJobClient?.name ?? '',
+        }
+      : null;
+  }
+
+  function livingReportMeta(raw: Record<string, string> | null | undefined): Record<string, string> {
+    return applyLivingJobToInspection(
+      raw,
+      livingReportJob(),
+      { skipClient: !!boundJob?.client_id && !boundJobClient },
+    ).meta;
+  }
+
   async function handleGenerate() {
     if (!inspection || !profile || !company) return;
     setGenerating(true);
@@ -189,11 +238,12 @@ export function ReportPage() {
         schema: TemplateSchema;
         report_renderer: string;
       };
+      const livingMeta = livingReportMeta(inspection.meta as Record<string, string>);
 
       const blob = await generatePdf({
         inspection: {
           id: inspection.id,
-          meta: inspection.meta as Record<string, string>,
+          meta: livingMeta,
           responses: inspection.responses as Record<string, unknown>,
           completed_at: inspection.completed_at,
           doc_version: (inspection as { doc_version?: number | null }).doc_version ?? 1,
@@ -213,9 +263,10 @@ export function ReportPage() {
       setPdfBlob(blob);
       setPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url; });
 
-      const meta = inspection.meta as Record<string, string>;
-      const siteName = (meta.siteName ?? 'Site').replace(/[<>:"/\\|?*]/g, '_');
-      const filename = `${siteName} - ${rn}.pdf`;
+      const filename = reportPdfFilename({
+        siteName: reportSiteName(livingMeta, boundJob),
+        reportNumber: rn,
+      });
       const storagePath = `${inspection.id}/${filename}`;
       const { error: upErr } = await supabase.storage
         .from('reports')
@@ -241,9 +292,10 @@ export function ReportPage() {
   function handleDownloadOriginal() {
     const rn = reportNumber ?? existingReport?.report_number;
     if (!pdfBlob || !rn) return;
-    const meta = inspection?.meta as Record<string, string> ?? {};
-    const siteName = (meta.siteName ?? 'Site').replace(/[<>:"/\\|?*]/g, '_');
-    const filename = `${siteName} - ${rn}.pdf`;
+    const filename = reportPdfFilename({
+      siteName: reportSiteName(inspection?.meta as Record<string, string> ?? {}, boundJob),
+      reportNumber: rn,
+    });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(pdfBlob);
     a.download = filename;
@@ -260,8 +312,7 @@ export function ReportPage() {
     setDownloading(true);
     try {
       const flattened = await flattenAnnotations(sourceBytes, annotations);
-      const meta = inspection?.meta as Record<string, string> ?? {};
-      const siteName = (meta.siteName ?? 'Site').replace(/[<>:"/\\|?*]/g, '_');
+      const siteName = reportSiteName(inspection?.meta as Record<string, string> ?? {}, boundJob).replace(/[<>:"/\\|?*]/g, '_');
       const filename = `${siteName} - ${rn} (annotated).pdf`;
       const blob = new Blob([flattened as BlobPart], { type: 'application/pdf' });
       const a = document.createElement('a');
@@ -433,7 +484,7 @@ export function ReportPage() {
     );
   }
 
-  const meta = inspection?.meta as Record<string, string> ?? {};
+  const meta = livingReportMeta(inspection?.meta as Record<string, string> ?? {});
   const showPdf = pdfUrl || existingReport;
   const docVersion = (inspection as { doc_version?: number | null } | undefined)?.doc_version ?? 1;
   const amendmentReason = (inspection as { amendment_reason?: string | null } | undefined)?.amendment_reason;
@@ -448,7 +499,7 @@ export function ReportPage() {
         <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-semibold text-[#1A1A1A]">{meta.siteName ?? 'Inspection Report'}</h1>
+              <h1 className="text-xl font-semibold text-[#1A1A1A]">{meta.siteName || 'Inspection Report'}</h1>
               {docVersion > 1 && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
                   v{docVersion}

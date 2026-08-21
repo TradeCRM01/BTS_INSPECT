@@ -21,6 +21,7 @@ import {
   inspectionStatusLabel,
   recommendInspectionFillAction,
 } from '../lib/inspectionNextAction';
+import { applyLivingJobToInspection } from '../lib/livingJha';
 
 type SaveStatus = 'saved' | 'saving' | 'error' | 'offline';
 
@@ -37,6 +38,7 @@ interface PendingSave {
   responses: Record<string, unknown>;
   meta: Record<string, string>;
   crm_job_id: string | null;
+  client_id: string | null;
 }
 
 export function InspectionFillPage() {
@@ -56,6 +58,8 @@ export function InspectionFillPage() {
   const [showMoreIdentity, setShowMoreIdentity] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const pendingSaveRef = useRef<PendingSave | null>(null);
+  const metaRef = useRef<Record<string, string>>({});
+  const responsesRef = useRef<Record<string, unknown>>({});
 
   const { data: inspection, isLoading, isError, refetch } = useQuery({
     queryKey: ['inspection', id],
@@ -103,9 +107,12 @@ export function InspectionFillPage() {
     enabled: !!profile,
   });
 
-  const fillClientId = (inspection as { client_id?: string | null } | null)?.client_id
-    ?? jobs.find(j => j.id === jobId)?.client_id
+  const selectedJobForLiving = jobs.find(j => j.id === jobId);
+  const fillClientId = selectedJobForLiving?.client_id
+    ?? (inspection as { client_id?: string | null } | null)?.client_id
     ?? null;
+  metaRef.current = meta;
+  responsesRef.current = responses;
 
   const { data: dueClient } = useQuery({
     queryKey: ['inspection-due-client', fillClientId],
@@ -179,6 +186,7 @@ export function InspectionFillPage() {
           responses: payload.responses as unknown as Record<string, unknown>,
           meta: payload.meta as unknown as Record<string, unknown>,
           crm_job_id: payload.crm_job_id,
+          client_id: payload.client_id,
         })
         .eq('id', id);
       if (error) throw error;
@@ -199,19 +207,27 @@ export function InspectionFillPage() {
   }, [saveInspection]);
 
   function persist(nextResponses = responses, nextMeta = meta, nextJobId = jobId) {
+    const job = jobs.find(j => j.id === (nextJobId || ''));
     debouncedSave({
       responses: nextResponses,
       meta: nextMeta,
       crm_job_id: nextJobId || null,
+      client_id: job
+        ? (job.client_id ?? null)
+        : ((inspection as { client_id?: string | null } | null)?.client_id ?? null),
     });
   }
 
   async function flushAndNavigate(path: string) {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    const job = jobs.find(j => j.id === jobId);
     await saveInspection({
       responses,
       meta,
       crm_job_id: jobId || null,
+      client_id: job
+        ? (job.client_id ?? null)
+        : ((inspection as { client_id?: string | null } | null)?.client_id ?? null),
     });
     navigate(path);
   }
@@ -222,6 +238,30 @@ export function InspectionFillPage() {
     }, 30000);
     return () => clearInterval(interval);
   }, [saveInspection]);
+
+  const livingJob = selectedJobForLiving
+    ? {
+        id: selectedJobForLiving.id,
+        title: selectedJobForLiving.title,
+        address: selectedJobForLiving.address,
+        client_id: selectedJobForLiving.client_id,
+        client_name: dueClient?.id === selectedJobForLiving.client_id ? (dueClient.name ?? '') : '',
+      }
+    : null;
+  const livingJobKey = livingJob
+    ? `${livingJob.id}\0${livingJob.address ?? ''}\0${livingJob.title ?? ''}\0${livingJob.client_id ?? ''}\0${livingJob.client_name}`
+    : '';
+
+  useEffect(() => {
+    if (!livingJob) return;
+    const skipClient = !!livingJob.client_id && !livingJob.client_name;
+    const applied = applyLivingJobToInspection(metaRef.current, livingJob, { skipClient });
+    if (!applied.changed) return;
+    setMeta(applied.meta);
+    persist(responsesRef.current, applied.meta, livingJob.id);
+  // persist reads latest refs; key is the live job identity.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [livingJobKey]);
 
   function updateResponse(key: string, value: unknown) {
     const newResponses = { ...responses, [key]: value };
@@ -280,13 +320,30 @@ export function InspectionFillPage() {
 
   const currentSection = visibleSections[currentSectionIdx] ?? null;
   const isLastSection = visibleSections.length === 0 || currentSectionIdx === visibleSections.length - 1;
-  const selectedJob = jobs.find(j => j.id === jobId);
-  const siteLabel = opsSiteLabel(meta.siteName, meta.siteAddress, selectedJob?.address, selectedJob?.title);
+  const selectedJob = selectedJobForLiving ?? jobs.find(j => j.id === jobId);
+  const living = applyLivingJobToInspection(
+    meta,
+    selectedJob
+      ? {
+          id: selectedJob.id,
+          title: selectedJob.title,
+          address: selectedJob.address,
+          client_id: selectedJob.client_id,
+          client_name: dueClient?.id === selectedJob.client_id ? (dueClient.name ?? '') : '',
+        }
+      : null,
+    { skipClient: !!selectedJob?.client_id && dueClient?.id !== selectedJob.client_id },
+  );
+  const siteLabel = selectedJob
+    ? opsSiteLabel(living.siteName, living.siteAddress)
+    : opsSiteLabel(meta.siteName, meta.siteAddress);
   const statusKey = inspection.status || 'draft';
   const next = recommendInspectionFillAction(inspectionFillContext({
     status: statusKey,
     saveNeeded: saveStatus === 'error',
-    siteParts: [meta.siteName, meta.siteAddress, selectedJob?.address, selectedJob?.title],
+    siteParts: selectedJob
+      ? [living.siteName, living.siteAddress]
+      : [meta.siteName, meta.siteAddress],
     isLastSection,
   }));
   const nextBusy = saveStatus === 'saving';
@@ -586,11 +643,17 @@ export function InspectionFillPage() {
                   const nextJob = e.target.value;
                   setJobId(nextJob);
                   const job = jobs.find(j => j.id === nextJob);
-                  const nextMeta = { ...meta };
+                  let nextMeta = { ...meta };
                   if (job) {
-                    if (!(meta.siteName ?? '').trim()) nextMeta.siteName = job.address || job.title || '';
-                    if (!(meta.siteAddress ?? '').trim() && job.address) nextMeta.siteAddress = job.address;
-                    if (job.job_number != null && !(meta.jobNumber ?? '').trim()) {
+                    const applied = applyLivingJobToInspection(meta, {
+                      id: job.id,
+                      title: job.title,
+                      address: job.address,
+                      client_id: job.client_id,
+                      client_name: dueClient?.id === job.client_id ? (dueClient.name ?? '') : '',
+                    }, { skipClient: !!job.client_id && dueClient?.id !== job.client_id });
+                    nextMeta = applied.meta;
+                    if (job.job_number != null && !(nextMeta.jobNumber ?? '').trim()) {
                       nextMeta.jobNumber = String(job.job_number).padStart(4, '0');
                     }
                     setMeta(nextMeta);
@@ -660,7 +723,7 @@ export function InspectionFillPage() {
           inspection={{
             id: inspection.id,
             inspector_id: inspection.inspector_id,
-            client_id: (inspection as { client_id?: string | null }).client_id ?? selectedJob?.client_id ?? null,
+            client_id: selectedJob?.client_id ?? (inspection as { client_id?: string | null }).client_id ?? null,
             crm_job_id: jobId || null,
             status: inspection.status,
             archived: (inspection as { archived?: boolean | null }).archived ?? false,

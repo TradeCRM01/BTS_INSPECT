@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyLivingJobToInspection,
   applyLivingJobToJha,
   applyLivingJobToTake5,
   livingCrewSlotId,
   livingHazardLines,
+  livingInspectionPatches,
+  livingInspectionSummary,
   livingJobSite,
   livingJhaMetaPatches,
   livingSwmsSummary,
@@ -256,5 +259,107 @@ describe('take5ListContext living overlay', () => {
     });
     expect(ctx.hasSite).toBe(true);
     expect(take5CardHint(ctx)).toBe('Continue');
+  });
+});
+
+const inspectionJob = {
+  ...job,
+  client_id: 'c1',
+  client_name: 'Acme Plumbing',
+};
+
+describe('applyLivingJobToInspection', () => {
+  it('is a no-op without a job — keeps the snapshot, invents nothing', () => {
+    const applied = applyLivingJobToInspection({ siteName: 'Plant A', clientName: 'Old Co' }, null);
+    expect(applied.changed).toBe(false);
+    expect(applied.siteName).toBe('Plant A');
+    expect(applied.clientName).toBe('Old Co');
+    expect(applied.clientId).toBeNull();
+  });
+
+  it('writes the live job site and client onto inspection meta', () => {
+    const applied = applyLivingJobToInspection(
+      { siteName: 'Old yard', siteAddress: 'Old Rd', clientName: 'Old Co', extra: 'keep' },
+      inspectionJob,
+    );
+    expect(applied.changed).toBe(true);
+    expect(applied.siteName).toBe('12 Site Rd, Geelong');
+    expect(applied.siteAddress).toBe('12 Site Rd, Geelong');
+    expect(applied.clientName).toBe('Acme Plumbing');
+    expect(applied.clientId).toBe('c1');
+    expect(applied.meta.siteName).toBe('12 Site Rd, Geelong');
+    expect(applied.meta.clientName).toBe('Acme Plumbing');
+    expect(applied.meta.extra).toBe('keep');
+  });
+
+  it('clears a stale site when the bound job has no address or title', () => {
+    const applied = applyLivingJobToInspection(
+      { siteName: 'Stale plant', siteAddress: 'Old Rd' },
+      { id: 'job-1', title: '', address: '', client_id: 'c1', client_name: 'Acme Plumbing' },
+    );
+    expect(applied.changed).toBe(true);
+    expect(applied.siteName).toBe('');
+    expect(applied.siteAddress).toBe('');
+    expect(applied.meta.siteName).toBe('');
+  });
+
+  it('does not invent an address from anything except jobs.address / title', () => {
+    const applied = applyLivingJobToInspection(
+      { siteName: 'Plant A', siteAddress: 'Invented St' },
+      { id: 'job-1', title: 'Switchboard upgrade', address: '', client_id: null, client_name: '' },
+    );
+    expect(applied.siteName).toBe('Switchboard upgrade');
+    expect(applied.siteAddress).toBe('');
+    expect(applied.clientName).toBe('');
+    expect(applied.clientId).toBeNull();
+  });
+
+  it('does not mark changed when site and client already match the job', () => {
+    const first = applyLivingJobToInspection({}, inspectionJob);
+    const second = applyLivingJobToInspection(first.meta, inspectionJob);
+    expect(second.changed).toBe(false);
+  });
+
+  it('skips client invent when the job client name has not loaded', () => {
+    const applied = applyLivingJobToInspection(
+      { clientName: 'Keep me' },
+      { ...inspectionJob, client_name: '' },
+      { skipClient: true },
+    );
+    expect(applied.clientName).toBe('Keep me');
+    expect(applied.siteName).toBe('12 Site Rd, Geelong');
+  });
+
+  it('keeps inspection check answers on the document — living sync does not invent or clear them', () => {
+    const responses = { 'q-site': 'DB1', stop_think: 'Isolate', identify_hazards: 'Live parts' };
+    const applied = applyLivingJobToInspection({ siteName: 'Old' }, inspectionJob);
+    expect(applied.meta.siteName).toBe('12 Site Rd, Geelong');
+    expect(responses).toEqual({ 'q-site': 'DB1', stop_think: 'Isolate', identify_hazards: 'Live parts' });
+    expect(applied.meta).not.toHaveProperty('stop_think');
+    expect(applied.meta).not.toHaveProperty('q-site');
+  });
+
+  it('patches only inspections whose site/client drifted from the job', () => {
+    const current = applyLivingJobToInspection({}, inspectionJob);
+    const patches = livingInspectionPatches(
+      [
+        { id: 'fresh', meta: current.meta, client_id: 'c1' },
+        { id: 'stale', meta: { siteName: 'Old yard' }, client_id: 'c-old' },
+      ],
+      inspectionJob,
+    );
+    expect(patches.map(p => p.id)).toEqual(['stale']);
+    expect(patches[0].meta.siteName).toBe('12 Site Rd, Geelong');
+    expect(patches[0].clientId).toBe('c1');
+  });
+
+  it('summarises the live job site and client for the job hub', () => {
+    const summary = livingInspectionSummary({
+      meta: { siteName: 'Old', clientName: 'Old Co' },
+      job: inspectionJob,
+    });
+    expect(summary.site).toBe('12 Site Rd, Geelong');
+    expect(summary.clientName).toBe('Acme Plumbing');
+    expect(summary.jobBound).toBe(true);
   });
 });

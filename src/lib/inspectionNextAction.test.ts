@@ -161,4 +161,29 @@ describe('recommendInspectionListAction', () => {
     });
     expect(recommendInspectionListAction(ready).key).toBe('review');
   });
+
+  it('uses the live job site when bound — a stale snapshot is not enough', () => {
+    const boundEmpty = inspectionListContext({
+      status: 'draft',
+      meta: { siteName: 'Stale plant' },
+      job_address: '',
+      livingSite: '',
+      jobBound: true,
+      template_snapshot: { schema },
+      responses: { 'q-site': 'DB1', 'q-circ__a1': 'Lights' },
+    });
+    expect(boundEmpty.hasSite).toBe(false);
+    expect(recommendInspectionListAction(boundEmpty).label).toBe('Add site');
+
+    const boundLive = inspectionListContext({
+      status: 'draft',
+      meta: { siteName: 'Stale plant' },
+      livingSite: '12 Site Rd, Geelong',
+      jobBound: true,
+      template_snapshot: { schema },
+      responses: { 'q-site': 'DB1', 'q-circ__a1': 'Lights' },
+    });
+    expect(boundLive.hasSite).toBe(true);
+    expect(recommendInspectionListAction(boundLive).key).toBe('review');
+  });
 });
