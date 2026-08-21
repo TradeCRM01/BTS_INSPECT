@@ -103,6 +103,7 @@ export function ReportSendDialog({
         ? (attachClientsQuery.data ?? [])
         : null,
   });
+  const noClientsNamedMiss = noClientMiss && attachRow.kind === 'miss';
 
   const handleAttach = async () => {
     if (!bundle || attachRow.kind !== 'pick') return;
@@ -196,7 +197,9 @@ export function ReportSendDialog({
   const blockerHref = decision && !decision.ok ? decision.href : undefined;
   const blockerMessage = noEmailMiss
     ? REPORT_SEND_NO_EMAIL_FIELD
-    : (decision && !decision.ok ? decision.message : '');
+    : noClientsNamedMiss
+      ? REPORT_CLIENT_ATTACH_NO_CLIENTS
+      : (decision && !decision.ok ? decision.message : '');
   const reportLabel = bundle?.report?.report_number
     ? `Report ${bundle.report.report_number}`
     : '';
@@ -279,9 +282,6 @@ export function ReportSendDialog({
                     Save
                   </button>
                 </form>
-              )}
-              {noClientMiss && attachRow.kind === 'miss' && (
-                <p className="hub-invoice-muted">{REPORT_CLIENT_ATTACH_NO_CLIENTS}</p>
               )}
               {showEmailEditor && emailRow.kind === 'edit' && (
                 <form
