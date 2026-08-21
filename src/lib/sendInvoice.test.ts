@@ -14,8 +14,6 @@ import {
   invoiceChasedAtPatchAfterSend,
   invoiceDueLabel,
   invoiceSendCopyKind,
-  alreadyChasedToday,
-  shouldCronChaseInvoice,
   shouldWriteInvoiceChasedAt,
   INVOICE_SEND_PIPE,
   invoiceAttachmentOrMiss,
@@ -260,27 +258,6 @@ describe('invoices.chased_at', () => {
     expect(shouldWriteInvoiceChasedAt(true, 'chase')).toBe(true);
     expect(shouldWriteInvoiceChasedAt(false, 'chase')).toBe(false);
     expect(shouldWriteInvoiceChasedAt(true, 'first')).toBe(false);
-  });
-
-  it('one chase per Perth day — skip if chased_at is already today', () => {
-    expect(alreadyChasedToday('2026-08-21T01:00:00.000Z', now)).toBe(true);
-    expect(alreadyChasedToday('2026-08-20T01:00:00.000Z', now)).toBe(false);
-    expect(alreadyChasedToday(null, now)).toBe(false);
-    expect(shouldCronChaseInvoice({
-      status: 'sent', due_date: '2026-08-19', chased_at: '2026-08-21T01:00:00.000Z',
-    }, '2026-08-21', now)).toBe(false);
-    expect(shouldCronChaseInvoice({
-      status: 'sent', due_date: '2026-08-19', chased_at: null,
-    }, '2026-08-21', now)).toBe(true);
-    expect(shouldCronChaseInvoice({
-      status: 'draft', due_date: '2026-08-19',
-    }, '2026-08-21', now)).toBe(false);
-    expect(shouldCronChaseInvoice({
-      status: 'paid', due_date: '2026-08-19',
-    }, '2026-08-21', now)).toBe(false);
-    expect(shouldCronChaseInvoice({
-      status: 'sent', due_date: '2026-08-22',
-    }, '2026-08-21', now)).toBe(false);
   });
 });
 

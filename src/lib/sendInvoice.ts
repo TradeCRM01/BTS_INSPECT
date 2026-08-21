@@ -4,13 +4,11 @@ import { asStringList } from './asStringList';
 import { linesFromQuoteItems, type CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import type { InvoiceLineItem, InvoiceStatus } from '../types/fsm';
 import {
-  COMPANY_TIME_ZONE,
   decideSmsBeside,
   emailSettingsReady,
   missSmsMessage,
   prefillReminderTo,
   prefillSmsTo,
-  ymdInTimeZone,
   type ReminderEmailSettings,
   type SmsCredentials,
   type SmsDecision,
@@ -355,37 +353,6 @@ export function invoiceChasedAtPatchAfterSend(
 
 export function shouldWriteInvoiceChasedAt(sendOk: boolean, kind: InvoiceSendCopyKind): boolean {
   return sendOk === true && kind === 'chase';
-}
-
-export function alreadyChasedToday(
-  chasedAt: string | null | undefined,
-  now = new Date(),
-  timeZone = COMPANY_TIME_ZONE,
-): boolean {
-  if (!chasedAt) return false;
-  const chased = new Date(chasedAt);
-  if (Number.isNaN(chased.getTime())) return false;
-  return ymdInTimeZone(chased, timeZone) === ymdInTimeZone(now, timeZone);
-}
-
-/** Cron due=overdue: sent invoices whose due_date is before Perth today. Skip paid/draft. */
-export function isEffectiveOverdueForChase(
-  inv: { status: string; due_date?: string | null },
-  perthToday: string,
-): boolean {
-  if (inv.status === 'paid' || inv.status === 'draft') return false;
-  if (inv.status !== 'sent' && inv.status !== 'overdue') return false;
-  const due = (inv.due_date ?? '').trim().slice(0, 10);
-  return !!due && due < perthToday;
-}
-
-export function shouldCronChaseInvoice(
-  inv: { status: string; due_date?: string | null; chased_at?: string | null },
-  perthToday: string,
-  now = new Date(),
-): boolean {
-  if (!isEffectiveOverdueForChase(inv, perthToday)) return false;
-  return !alreadyChasedToday(inv.chased_at, now);
 }
 
 export function invoiceByIdQuery(args: { companyId: string; invoiceId: string }): InvoiceSendQueryScope | null {

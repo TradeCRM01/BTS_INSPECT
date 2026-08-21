@@ -615,7 +615,7 @@ export const AUTO_FIRE_CLICK_PATH = [
  * Twilio secrets stay on the edge. Email sent-at is unchanged if SMS misses.
  */
 export const JOB_REMINDER_SMS_PIPE = [
-  'supabase.functions.invoke job-reminder (same body as email: jobId / inspectionId / invoiceId / reportId / due=tomorrow / due=overdue)',
+  'supabase.functions.invoke job-reminder (same body as email: jobId / inspectionId / invoiceId / reportId / due=tomorrow)',
   'To = clients.phone (never invented; AU 0… → +61…)',
   'POST https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json with TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_FROM_NUMBER',
   'honest miss: no_phone / no_sms_credentials / send_failed — email still sends',
@@ -764,7 +764,7 @@ export function resolveReminderCaller(args: {
     if (!args.hasUser || !args.userCompanyId) return { ok: false, error: 'Unauthorized' };
     return { ok: true, caller: { kind: 'user', companyId: args.userCompanyId } };
   }
-  if (due === 'tomorrow' || due === 'overdue') {
+  if (due === 'tomorrow') {
     if (args.cronAuthorized) return { ok: true, caller: { kind: 'cron' } };
     if (args.hasUser && args.userCompanyId) {
       return { ok: true, caller: { kind: 'user', companyId: args.userCompanyId } };
