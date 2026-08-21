@@ -113,8 +113,24 @@ describe('Take 5 document report_theme colours', () => {
     expect(fill).toContain('take5PdfCompanyFrom');
     expect(fill).toContain('report_theme');
     expect(fill).toContain('take5ReportTheme');
+    expect(fill).toContain('take5DocumentColors');
+    expect(fill).toContain('take5-doc-theme');
     expect(fill).not.toContain('CompanySettingsPage');
     expect(fill).not.toContain('setReportTheme');
+    expect(fill).not.toContain('AppShell theme');
+
+    const css = src('src/index.css');
+    expect(css).toContain('.take5-doc-theme');
+    expect(css).toContain('.take5-doc-theme .ops-doc-head');
+    expect(css).toContain('.take5-doc-theme #take5-sign .ops-tray-head');
+    expect(css).toContain('--take5-navy: #0A2540');
+    expect(css).toContain('--take5-accent: #2E75B6');
+    expect(css).toContain('.ops-choice[data-go]:not(.ops-choice-pass)');
+    expect(css).toContain('.ops-choice[data-stop]:not(.ops-choice-fail)');
+    expect(css).toContain('#1B7F3A');
+    expect(css).toContain('#B42318');
+    expect(css).not.toMatch(/\.take5-doc-theme \.ops-choice-pass\s*\{[^}]*--take5/);
+    expect(css).not.toMatch(/\.take5-doc-theme \.btn-primary/);
 
     const renderer = src('src/reports/take5/Renderer.tsx');
     expect(renderer).toContain('take5DocumentColors');

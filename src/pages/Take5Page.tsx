@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, NextBanner, OpsDocHead, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
 import { generateTake5Pdf, take5PdfCompanyFrom } from '../reports/generateTake5Pdf';
-import { take5ReportTheme } from '../reports/take5/theme';
+import { take5DocumentColors, take5ReportTheme } from '../reports/take5/theme';
 import { Take5ListPage } from './Take5ListPage';
 import { applyLivingJobToTake5, livingCrewLabel, livingJobSite } from '../lib/livingJha';
 import {
@@ -382,10 +382,21 @@ function Take5FillPage() {
     jhaMeta.taskName,
     when,
   ].filter(Boolean).join(' · ');
+  const docColors = take5DocumentColors(
+    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
+  );
 
   return (
     <AppShell>
-      <div className={jobBound ? 'hub-job-swms' : undefined}>
+      <div
+        className={jobBound ? 'hub-job-swms take5-doc-theme' : 'take5-doc-theme'}
+        style={{
+          '--take5-navy': docColors.navy,
+          '--take5-accent': docColors.accent,
+          '--take5-navy-light': docColors.navyLight,
+          '--take5-accent-light': docColors.accentLight,
+        } as CSSProperties}
+      >
       <div className="ops-page-fill">
         <div className="flex items-center justify-between gap-3 mb-3">
           <button
@@ -491,6 +502,7 @@ function Take5FillPage() {
                 <button
                   type="button"
                   onClick={() => setGoNoGo('go')}
+                  data-go
                   className={`ops-choice ${goNoGo === 'go' ? 'ops-choice-pass' : ''}`}
                 >
                   GO — proceed
@@ -498,6 +510,7 @@ function Take5FillPage() {
                 <button
                   type="button"
                   onClick={() => setGoNoGo('stop')}
+                  data-stop
                   className={`ops-choice ${goNoGo === 'stop' ? 'ops-choice-fail' : ''}`}
                 >
                   STOP — do not proceed
