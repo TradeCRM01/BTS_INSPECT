@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { clientEmailForSend } from './sendInvoice';
@@ -294,6 +294,20 @@ describe('report-send client email — wiring', () => {
     expect(dialog).not.toContain('sky-500');
     expect(sendCss).not.toContain('indigo-500');
     expect(sendCss).not.toContain('sky-500');
+  });
+
+  it('keeps Flameboy look shots for no-email miss, after-save ready, and no-client', () => {
+    const shots = [
+      'docs/look/report-send-email-miss-desktop.png',
+      'docs/look/report-send-email-miss-ute.png',
+      'docs/look/report-send-email-ready-desktop.png',
+      'docs/look/report-send-email-ready-ute.png',
+      'docs/look/report-send-email-no-client-desktop.png',
+      'docs/look/report-send-email-no-client-ute.png',
+    ];
+    for (const shot of shots) {
+      expect(existsSync(resolve(process.cwd(), shot)), shot).toBe(true);
+    }
   });
 
   it('disables Send report on no_email until a sendable save — no silent handleSend return', () => {
