@@ -23,6 +23,9 @@ import {
   recommendInspectionListAction,
 } from '../lib/inspectionNextAction';
 import { withInspectionDueNext } from '../lib/inspectionDueReminder';
+import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
+import { inspectionDisplayStatus } from '../lib/sendReport';
+import { useToast } from '../components/ui';
 
 interface Inspection {
   id: string;
@@ -44,6 +47,8 @@ interface Inspection {
   job_company_id?: string | null;
   job_client_id?: string | null;
   due_on?: string | null;
+  report_id?: string | null;
+  report_sent_at?: string | null;
 }
 
 const ArchiveMenu = memo(function ArchiveMenu({ inspection, onToggle, onDelete, onAddInspection, onSendToDrive, isAdmin, isDeleting }: {
@@ -206,6 +211,7 @@ export function InspectionsPage() {
   const { profile, company } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const isAdmin = profile?.role === 'admin';
 
   const [search, setSearch] = useState('');
@@ -217,6 +223,7 @@ export function InspectionsPage() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [sendToDriveFor, setSendToDriveFor] = useState<string | null>(null);
+  const [sendingReportId, setSendingReportId] = useState<string | null>(null);
 
   const { data: inspections, isLoading, isError, refetch } = useQuery({
     queryKey: ['inspections'],
@@ -230,16 +237,22 @@ export function InspectionsPage() {
       const list = (data ?? []) as Inspection[];
       const inspectorIds = [...new Set(list.map(i => i.inspector_id))];
       const jobIds = [...new Set(list.map(i => i.crm_job_id).filter(Boolean))] as string[];
-      const [profilesRes, jobsRes] = await Promise.all([
+      const inspectionIds = list.map(i => i.id);
+      const [profilesRes, jobsRes, reportsRes] = await Promise.all([
         inspectorIds.length
           ? supabase.from('profiles').select('id, name').in('id', inspectorIds)
           : Promise.resolve({ data: [], error: null }),
         jobIds.length
           ? supabase.from('jobs').select('id, title, address, job_number, scheduled_date, company_id, client_id').in('id', jobIds)
           : Promise.resolve({ data: [], error: null }),
+        inspectionIds.length && profile?.company_id
+          ? supabase.from('reports').select('id, inspection_id, sent_at').in('inspection_id', inspectionIds).eq('company_id', profile.company_id)
+          : Promise.resolve({ data: [], error: null }),
       ]);
+      if (reportsRes.error) throw reportsRes.error;
       const nameMap = Object.fromEntries((profilesRes.data ?? []).map(p => [p.id, p.name]));
       const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j]));
+      const reportMap = new Map((reportsRes.data ?? []).map(r => [r.inspection_id, r]));
 
       return list.map(i => ({
         ...i,
@@ -248,6 +261,8 @@ export function InspectionsPage() {
         responses: (i.responses ?? {}) as Record<string, unknown>,
         inspector_name: nameMap[i.inspector_id] ?? 'Unknown',
         archived: i.archived ?? false,
+        report_id: reportMap.get(i.id)?.id ?? null,
+        report_sent_at: reportMap.get(i.id)?.sent_at ?? null,
         parent_inspection_id: i.parent_inspection_id ?? null,
         crm_job_id: i.crm_job_id ?? null,
         job_title: i.crm_job_id ? jobMap.get(i.crm_job_id)?.title ?? null : null,
@@ -520,6 +535,7 @@ export function InspectionsPage() {
               onDelete={handleDelete}
               onAddInspection={id => navigate(`/inspections/new?jobId=${id}`)}
               onSendToDrive={id => setSendToDriveFor(id)}
+              onSendReport={setSendingReportId}
               deleting={deleteMutation.isPending}
             />
             <InspectionGroup
@@ -533,6 +549,7 @@ export function InspectionsPage() {
               onDelete={handleDelete}
               onAddInspection={id => navigate(`/inspections/new?jobId=${id}`)}
               onSendToDrive={id => setSendToDriveFor(id)}
+              onSendReport={setSendingReportId}
               deleting={deleteMutation.isPending}
             />
           </div>
@@ -571,6 +588,27 @@ export function InspectionsPage() {
           </div>
         </div>
       )}
+      {sendingReportId && company?.id && (
+        <ReportSendDialog
+          reportId={sendingReportId}
+          company={{
+            id: company.id,
+            name: company.name,
+            abn: (company as { abn?: string | null }).abn ?? null,
+            licence_number: (company as { licence_number?: string | null }).licence_number ?? null,
+            phone: (company as { phone?: string | null }).phone ?? null,
+            email: (company as { email?: string | null }).email ?? null,
+            website: (company as { website?: string | null }).website ?? null,
+            logo_url: (company as { logo_url?: string | null }).logo_url ?? null,
+          }}
+          onClose={() => setSendingReportId(null)}
+          onSent={(_to, message) => {
+            setSendingReportId(null);
+            queryClient.invalidateQueries({ queryKey: ['inspections'] });
+            showToast(message ?? 'Report sent.');
+          }}
+        />
+      )}
     </AppShell>
   );
 }
@@ -586,6 +624,7 @@ function InspectionGroup({
   onDelete,
   onAddInspection,
   onSendToDrive,
+  onSendReport,
   deleting,
 }: {
   title: string;
@@ -598,6 +637,7 @@ function InspectionGroup({
   onDelete: (id: string) => void;
   onAddInspection: (id: string) => void;
   onSendToDrive: (id: string) => void;
+  onSendReport: (reportId: string) => void;
   deleting: boolean;
 }) {
   if (docs.length === 0) return null;
@@ -620,6 +660,7 @@ function InspectionGroup({
             onDelete={onDelete}
             onAddInspection={() => onAddInspection(d.id)}
             onSendToDrive={() => onSendToDrive(d.id)}
+            onSendReport={onSendReport}
             deleting={deleting}
           />
         ))}
@@ -638,6 +679,7 @@ function InspectionCard({
   onDelete,
   onAddInspection,
   onSendToDrive,
+  onSendReport,
   deleting,
 }: {
   doc: Inspection;
@@ -649,9 +691,14 @@ function InspectionCard({
   onDelete: (id: string) => void;
   onAddInspection: () => void;
   onSendToDrive: () => void;
+  onSendReport: (reportId: string) => void;
   deleting: boolean;
 }) {
-  const recommended = recommendInspectionListAction(inspectionListContext(doc));
+  const recommended = recommendInspectionListAction(inspectionListContext({
+    ...doc,
+    hasReport: !!doc.report_id,
+    reportId: doc.report_id ?? null,
+  }));
   const next = withInspectionDueNext(
     doc,
     doc.crm_job_id ? {
@@ -663,7 +710,8 @@ function InspectionCard({
     } : null,
     { href: inspectionOpenPath(doc.id, recommended.key), label: recommended.label, actionable: true },
   );
-  const href = next.href;
+  const href = inspectionOpenPath(doc.id, recommended.key === 'send' ? 'pdf' : recommended.key);
+  const displayStatus = inspectionDisplayStatus(doc.status, doc.report_sent_at);
   const site = opsSiteLabel(doc.meta?.siteName, doc.meta?.siteAddress, doc.job_address, doc.job_title);
   const title = doc.template_snapshot?.name || 'Inspection';
   const when = format(parseISO(doc.completed_at || doc.started_at), 'd MMM yyyy');
@@ -683,7 +731,7 @@ function InspectionCard({
         meta={when}
         trailing={
           <div className="flex items-center gap-1">
-            <OpsStatus className={inspectionStatusClass(doc.status)}>{inspectionStatusLabel(doc.status)}</OpsStatus>
+            <OpsStatus className={inspectionStatusClass(displayStatus)}>{inspectionStatusLabel(displayStatus)}</OpsStatus>
             {isAdmin && (
               <ArchiveMenu
                 inspection={doc}
@@ -710,7 +758,14 @@ function InspectionCard({
           <p className="ops-meta mt-0.5">Linked inspection</p>
         )}
         <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
-          <button type="button" onClick={() => onOpen(href)} className="ops-next-control-block">
+          <button
+            type="button"
+            onClick={() => {
+              if (next.label === 'Send' && doc.report_id) onSendReport(doc.report_id);
+              else onOpen(next.href);
+            }}
+            className="ops-next-control-block"
+          >
             {next.label}
           </button>
           <label className="flex items-center gap-2 mt-1 min-h-[44px] text-xs text-muted px-1">

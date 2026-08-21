@@ -26,6 +26,8 @@ import { livingSwmsSummary, livingTake5Summary } from '../lib/livingJha';
 import { take5CardHint, take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
 import { inspectionStatusClass, inspectionStatusLabel } from '../lib/inspectionNextAction';
 import { withInspectionDueNext } from '../lib/inspectionDueReminder';
+import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
+import { inspectionDisplayStatus, reportSendSurface } from '../lib/sendReport';
 import type { TemplateSchema } from '../types/template';
 import { clientRecordHref } from '../lib/clientRecords';
 import {
@@ -114,7 +116,7 @@ function padNum(n: number | null | undefined): string {
 }
 
 function inspectionHref(status: string, id: string): string {
-  return status === 'completed' || status === 'issued'
+  return status === 'completed' || status === 'issued' || status === 'sent'
     ? `/inspections/${id}/report`
     : `/inspections/${id}`;
 }
@@ -134,6 +136,7 @@ export function JobDetailPage() {
   const [showTimeEntry, setShowTimeEntry] = useState(false);
   const [showJhaPicker, setShowJhaPicker] = useState(false);
   const [billOpen, setBillOpen] = useState(true);
+  const [sendingReportId, setSendingReportId] = useState<string | null>(null);
 
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ['job', id],
@@ -223,6 +226,22 @@ export function JobDetailPage() {
       return list;
     },
     enabled: !!id && !!profile && !!job,
+  });
+
+  const { data: jobReports } = useQuery<Array<{ id: string; inspection_id: string; report_number: string | null; sent_at: string | null }>>({
+    queryKey: ['job-reports', id, (inspections ?? []).map(i => i.id).join(',')],
+    queryFn: async () => {
+      const ids = (inspections ?? []).map(i => i.id);
+      if (ids.length === 0 || !profile?.company_id) return [];
+      const { data, error } = await supabase
+        .from('reports')
+        .select('id, inspection_id, report_number, sent_at')
+        .in('inspection_id', ids)
+        .eq('company_id', profile.company_id);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; inspection_id: string; report_number: string | null; sent_at: string | null }>;
+    },
+    enabled: !!id && !!profile?.company_id && !!inspections && inspections.length > 0,
   });
 
   const { data: coverPhotoUrl } = useQuery<string | null>({
@@ -818,6 +837,10 @@ export function JobDetailPage() {
                 },
                 { href: inspectionHref(insp.status, insp.id), label: 'Open', actionable: true },
               );
+              const report = (jobReports ?? []).find(r => r.inspection_id === insp.id) ?? null;
+              const sendSurface = reportSendSurface(report);
+              const displayStatus = inspectionDisplayStatus(insp.status, report?.sent_at);
+              const done = insp.status === 'completed' || insp.status === 'issued' || insp.status === 'sent';
               return (
               <JobRelatedRow
                 key={insp.id}
@@ -826,11 +849,17 @@ export function JobDetailPage() {
                 title={insp.template_snapshot?.name ?? 'Inspection'}
                 meta={format(new Date(insp.started_at), 'd MMM yyyy')}
                 trailing={
-                  <OpsStatus className={inspectionStatusClass(insp.status)}>{inspectionStatusLabel(insp.status)}</OpsStatus>
+                  <OpsStatus className={inspectionStatusClass(displayStatus)}>{inspectionStatusLabel(displayStatus)}</OpsStatus>
                 }
                 action={
                   next.label === 'Remind client' ? (
                     <Link to={next.href} className="ops-link text-xs">{next.label}</Link>
+                  ) : sendSurface.kind === 'send' ? (
+                    <button type="button" className="ops-link text-xs" onClick={() => setSendingReportId(sendSurface.reportId)}>
+                      Send
+                    </button>
+                  ) : done ? (
+                    <span className="ops-meta text-xs">No report yet</span>
                   ) : undefined
                 }
               />
@@ -1227,6 +1256,28 @@ export function JobDetailPage() {
             setShowTimeEntry(false);
             invalidateTime();
             showToast('Time entry saved');
+          }}
+        />
+      )}
+      {sendingReportId && company?.id && (
+        <ReportSendDialog
+          reportId={sendingReportId}
+          company={{
+            id: company.id,
+            name: company.name,
+            abn: (company as { abn?: string | null }).abn ?? null,
+            licence_number: (company as { licence_number?: string | null }).licence_number ?? null,
+            phone: (company as { phone?: string | null }).phone ?? null,
+            email: (company as { email?: string | null }).email ?? null,
+            website: (company as { website?: string | null }).website ?? null,
+            logo_url: (company as { logo_url?: string | null }).logo_url ?? null,
+          }}
+          onClose={() => setSendingReportId(null)}
+          onSent={(_to, message) => {
+            setSendingReportId(null);
+            queryClient.invalidateQueries({ queryKey: ['job-reports', id] });
+            queryClient.invalidateQueries({ queryKey: ['job-inspections', id] });
+            showToast(message ?? 'Report sent.');
           }}
         />
       )}

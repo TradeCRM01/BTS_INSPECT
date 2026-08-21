@@ -8,6 +8,8 @@ import type { TemplateSchema } from '../types/template';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { Download, Mail, FileText, ChevronLeft, RefreshCw, CreditCard as Edit2, Link2, Plus, PenLine, FilePlus2, Check, Share2 } from 'lucide-react';
+import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
+import { reportIsSent } from '../lib/sendReport';
 import { format } from 'date-fns';
 import { PdfViewer } from '../components/pdf/PdfViewer';
 import { AnnotationToolbar } from '../components/pdf/AnnotationToolbar';
@@ -52,6 +54,8 @@ export function ReportPage() {
   const [amending, setAmending] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [sendingReport, setSendingReport] = useState(false);
+  const [sendNotice, setSendNotice] = useState('');
   const originalPdfBytesRef = useRef<Uint8Array | null>(null);
 
   useEffect(() => {
@@ -261,11 +265,17 @@ export function ReportPage() {
   }
 
   function handleEmail() {
-    const meta = inspection?.meta as Record<string, string> ?? {};
-    const rn = reportNumber ?? existingReport?.report_number ?? '';
-    const subject = encodeURIComponent(`Inspection Report — ${meta.siteName ?? 'Site'} — ${rn}`);
-    const body = encodeURIComponent(`Please find attached the inspection report for ${meta.siteName ?? 'the site'}.\n\nReport Number: ${rn}`);
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    if (!existingReport?.id) {
+      setError('No report yet. Generate the PDF before you send.');
+      return;
+    }
+    if (!company?.id) {
+      setError('Could not load company for send.');
+      return;
+    }
+    setError('');
+    setSendNotice('');
+    setSendingReport(true);
   }
 
   async function handleAmendAndReissue() {
@@ -432,7 +442,10 @@ export function ReportPage() {
               )}
             </div>
             {existingReport && (
-              <p className="text-sm text-[#4A5568] font-mono mt-0.5">{existingReport.report_number}</p>
+              <p className="text-sm text-[#4A5568] font-mono mt-0.5">
+                {existingReport.report_number}
+                {reportIsSent((existingReport as { sent_at?: string | null }).sent_at) ? ' · Sent' : ''}
+              </p>
             )}
             {docVersion > 1 && amendmentReason && (
               <p className="text-xs text-[#6B7280] mt-1">Amendment: {amendmentReason}</p>
@@ -464,9 +477,9 @@ export function ReportPage() {
                 <FilePlus2 size={15} /> {amending ? 'Creating…' : 'Amend & re-issue'}
               </button>
             )}
-            {showPdf && (
+            {existingReport && (
               <button onClick={handleEmail} className="flex items-center gap-1.5 border border-[#E5E7EB] text-[#4A5568] px-3 py-2 rounded-md text-sm hover:bg-[#F9FAFB]">
-                <Mail size={15} /> Email to client
+                <Mail size={15} /> {reportIsSent((existingReport as { sent_at?: string | null }).sent_at) ? 'Send again' : 'Send'}
               </button>
             )}
             {pdfUrl && activeTab !== 'annotate' && (
@@ -516,6 +529,11 @@ export function ReportPage() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mt-3">
             {error}
+          </div>
+        )}
+        {sendNotice && !error && (
+          <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-sm mt-3">
+            {sendNotice}
           </div>
         )}
 
@@ -607,6 +625,28 @@ export function ReportPage() {
           )}
         </div>
       </div>
+      {sendingReport && existingReport?.id && company?.id && (
+        <ReportSendDialog
+          reportId={existingReport.id}
+          company={{
+            id: company.id,
+            name: company.name,
+            abn: (company as { abn?: string | null }).abn ?? null,
+            licence_number: (company as { licence_number?: string | null }).licence_number ?? null,
+            phone: (company as { phone?: string | null }).phone ?? null,
+            email: (company as { email?: string | null }).email ?? null,
+            website: (company as { website?: string | null }).website ?? null,
+            logo_url: (company as { logo_url?: string | null }).logo_url ?? null,
+          }}
+          onClose={() => setSendingReport(false)}
+          onSent={(_to, message) => {
+            setSendingReport(false);
+            setSendNotice(message ?? 'Report sent.');
+            queryClient.invalidateQueries({ queryKey: ['report', id] });
+            queryClient.invalidateQueries({ queryKey: ['inspection', id] });
+          }}
+        />
+      )}
     </AppShell>
   );
 }

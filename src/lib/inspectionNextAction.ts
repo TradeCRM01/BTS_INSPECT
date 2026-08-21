@@ -2,7 +2,7 @@ import { evaluateShowIf } from './conditionEval';
 import { isNaAnswer } from '../types/template';
 import type { Section, TemplateSchema } from '../types/template';
 
-export type InspectionActionKey = 'save' | 'site' | 'section' | 'review' | 'pdf' | 'open';
+export type InspectionActionKey = 'save' | 'site' | 'section' | 'review' | 'pdf' | 'open' | 'send';
 
 export type InspectionListBucket = 'open' | 'done';
 
@@ -23,18 +23,22 @@ export type InspectionListActionContext = {
   status: string;
   hasSite: boolean;
   requiredComplete: boolean;
+  hasReport?: boolean;
+  reportId?: string | null;
 };
 
 export const INSPECTION_STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
   completed: 'Ready',
   issued: 'Issued',
+  sent: 'Sent',
 };
 
 export const INSPECTION_STATUS_STYLES: Record<string, string> = {
   draft: 'ops-status-wait',
   completed: 'ops-status-progress',
   issued: 'ops-status-ok',
+  sent: 'ops-status-ok',
 };
 
 export function inspectionStatusLabel(status: string): string {
@@ -46,7 +50,7 @@ export function inspectionStatusClass(status: string): string {
 }
 
 export function inspectionListBucket(status: string): InspectionListBucket {
-  return status === 'completed' || status === 'issued' ? 'done' : 'open';
+  return status === 'completed' || status === 'issued' || status === 'sent' ? 'done' : 'open';
 }
 
 export function inspectionHasSiteIdentity(parts: Array<string | null | undefined>): boolean {
@@ -127,7 +131,7 @@ export function recommendInspectionFillAction(ctx: InspectionFillActionContext):
   if (ctx.saveNeeded) {
     return { key: 'save', label: 'Save', detail: 'Save this inspection so answers and photos stay on the job.' };
   }
-  if (ctx.status === 'completed' || ctx.status === 'issued') {
+  if (ctx.status === 'completed' || ctx.status === 'issued' || ctx.status === 'sent') {
     return { key: 'pdf', label: 'View PDF', detail: 'This inspection is done. Open the report for the job file.' };
   }
   if (!ctx.hasSite) {
@@ -141,7 +145,13 @@ export function recommendInspectionFillAction(ctx: InspectionFillActionContext):
 
 /** List-card next — open fill, review, or the PDF as appropriate. */
 export function recommendInspectionListAction(ctx: InspectionListActionContext): RecommendedInspectionAction {
-  if (ctx.status === 'issued' || ctx.status === 'completed') {
+  if (ctx.hasReport === true) {
+    return { key: 'send', label: 'Send', detail: 'Email this report to the client. Status becomes sent only if it delivers.' };
+  }
+  if (ctx.status === 'issued' || ctx.status === 'completed' || ctx.status === 'sent') {
+    if (ctx.hasReport === false) {
+      return { key: 'pdf', label: 'No report yet', detail: 'Generate the report before you can send it.' };
+    }
     return { key: 'pdf', label: 'View PDF', detail: 'Open the inspection report.' };
   }
   if (!ctx.hasSite) {
@@ -157,7 +167,7 @@ export function inspectionOpenPath(
   id: string,
   nextKey: InspectionActionKey,
 ): string {
-  if (nextKey === 'pdf') return `/inspections/${id}/report`;
+  if (nextKey === 'pdf' || nextKey === 'send') return `/inspections/${id}/report`;
   if (nextKey === 'review') return `/inspections/${id}/review`;
   return `/inspections/${id}`;
 }
@@ -169,6 +179,8 @@ export function inspectionListContext(row: {
   job_address?: string | null;
   template_snapshot?: { schema?: TemplateSchema; name?: string } | null;
   responses?: Record<string, unknown> | null;
+  hasReport?: boolean;
+  reportId?: string | null;
 }): InspectionListActionContext {
   return {
     status: row.status,
@@ -179,6 +191,8 @@ export function inspectionListContext(row: {
       row.job_title,
     ]),
     requiredComplete: inspectionRequiredComplete(row.template_snapshot?.schema, row.responses),
+    hasReport: row.hasReport,
+    reportId: row.reportId ?? null,
   };
 }
 

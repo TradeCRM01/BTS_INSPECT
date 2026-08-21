@@ -301,6 +301,47 @@ function invoiceSmsBody(opts: {
   return `${who} sent invoice #${padInvoiceNumber(opts.invoiceNumber)}. Total (inc GST): ${opts.totalLabel}.${due} The PDF is in your email.`;
 }
 
+function reportSiteName(meta: unknown): string {
+  const row = (meta ?? {}) as { siteName?: unknown };
+  return String(row.siteName ?? "").trim() || "Site";
+}
+
+function reportHtml(opts: {
+  clientName: string;
+  companyName: string;
+  reportNumber: string;
+  siteName: string;
+}): string {
+  const client = escapeHtml(opts.clientName.trim() || "there");
+  const company = escapeHtml(opts.companyName.trim() || "us");
+  const number = escapeHtml(opts.reportNumber.trim() || "report");
+  const site = escapeHtml(opts.siteName.trim() || "the site");
+  return `
+      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
+        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">Inspection report</div>
+          <h1 style="margin:8px 0 0;font-size:20px">${number}</h1>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+          <p>Hi ${client},</p>
+          <p>${company} has sent you the inspection report for <strong>${site}</strong>.</p>
+          <p style="color:#4A5568;font-size:15px;line-height:1.6;">Report number: <strong>${number}</strong></p>
+          <p>The inspection report PDF is attached. Reply to this email if you have a question.</p>
+        </div>
+      </div>`;
+}
+
+function reportSmsBody(opts: {
+  companyName: string;
+  reportNumber: string;
+  siteName: string;
+}): string {
+  const who = opts.companyName.trim() || "your contractor";
+  const number = opts.reportNumber.trim() || "report";
+  const site = opts.siteName.trim() || "the site";
+  return `${who} sent inspection report ${number} for ${site}. The PDF is in your email.`;
+}
+
 function bearerToken(header: string | null): string {
   return (header ?? "").replace(/^Bearer\s+/i, "").trim();
 }
@@ -354,6 +395,7 @@ Deno.serve(async (req) => {
     const jobId = String(body.jobId ?? body.job_id ?? "").trim();
     const inspectionId = String(body.inspectionId ?? body.inspection_id ?? "").trim();
     const invoiceId = String(body.invoiceId ?? body.invoice_id ?? "").trim();
+    const reportId = String(body.reportId ?? body.report_id ?? "").trim();
     const due = String(body.due ?? "").trim();
     const appUrl = String(body.appUrl ?? body.app_url ?? "").replace(/\/$/, "")
       || "https://bts-inspect.pages.dev";
@@ -617,12 +659,187 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (reportId) {
+      if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
+
+      const { data: report } = await admin
+        .from("reports")
+        .select("id, company_id, inspection_id, report_number, pdf_storage_path, sent_at")
+        .eq("id", reportId)
+        .eq("company_id", userCompanyId)
+        .maybeSingle();
+
+      if (!report) {
+        return json({ sent: false, reason: "no_report", message: "No report yet. Generate the PDF before you send.", reportId }, 404);
+      }
+
+      const { data: inspection } = await admin
+        .from("inspections")
+        .select("id, client_id, crm_job_id, status, meta, template_snapshot")
+        .eq("id", report.inspection_id)
+        .maybeSingle();
+
+      let jobRow: { id: string; client_id?: string | null; address?: string | null; title?: string | null } | null = null;
+      if (inspection?.crm_job_id) {
+        const { data: oneJob } = await admin
+          .from("jobs")
+          .select("id, client_id, address, title")
+          .eq("id", inspection.crm_job_id)
+          .eq("company_id", userCompanyId)
+          .maybeSingle();
+        jobRow = oneJob;
+      }
+
+      const clientId = String(inspection?.client_id ?? jobRow?.client_id ?? "").trim();
+      if (!clientId) {
+        return json({
+          sent: false,
+          reason: "no_client",
+          message: "This job has no client. Add one before you can send the report.",
+          reportId,
+        });
+      }
+
+      const { data: client } = await admin
+        .from("clients")
+        .select("id, name, email, phone")
+        .eq("id", clientId)
+        .maybeSingle();
+      const to = prefillTo(client?.email);
+      if (!to) {
+        return json({
+          sent: false,
+          reason: "no_email",
+          message: "This client has no email. Add one on the client record before you send.",
+          href: `/clients/${clientId}`,
+          reportId,
+        });
+      }
+
+      const { data: smtpRow } = await admin
+        .from("email_settings")
+        .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+        .eq("company_id", userCompanyId)
+        .maybeSingle();
+      const settings = smtpRow as EmailSettings | null;
+      if (!emailSettingsReady(settings) || !settings) {
+        return json({
+          sent: false,
+          reason: "no_smtp",
+          message: "Email is not set up. Add SMTP in Company settings — there is a test send there.",
+          href: "/settings/company",
+          reportId,
+          to,
+        });
+      }
+
+      let pdfFilename = String(attachmentIn?.filename ?? "").trim();
+      let pdfContent = String(attachmentIn?.content ?? "").trim();
+      if (!pdfContent || !pdfFilename) {
+        const storedPath = String(report.pdf_storage_path ?? "").trim();
+        if (storedPath) {
+          const { data: stored } = await admin.storage.from("reports").download(storedPath);
+          if (stored) {
+            pdfFilename = storedPath.split("/").pop() || `${report.report_number || "report"}.pdf`;
+            pdfContent = await blobToBase64(stored);
+          }
+        }
+      }
+      if (!pdfContent || !pdfFilename) {
+        return json({
+          sent: false,
+          reason: "no_pdf",
+          message: "The report PDF could not be attached — report was not sent.",
+          reportId,
+          to,
+        });
+      }
+
+      const { data: company } = await admin
+        .from("companies")
+        .select("name")
+        .eq("id", userCompanyId)
+        .maybeSingle();
+      const toName = String(client?.name ?? "").trim() || "Client";
+      const companyName = String(company?.name ?? "").trim() || "us";
+      const siteName = reportSiteName(inspection?.meta);
+      const reportNumber = String(report.report_number ?? "").trim() || "report";
+      const subject = `Inspection Report — ${siteName} — ${reportNumber} from ${companyName}`;
+      const html = reportHtml({
+        clientName: toName,
+        companyName,
+        reportNumber,
+        siteName,
+      });
+
+      const fromHeader = `${settings.from_name} <${settings.from_email}>`;
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${settings.smtp_pass}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: fromHeader,
+          to: [to],
+          reply_to: settings.from_email,
+          subject,
+          html,
+          attachments: [{ filename: pdfFilename, content: pdfContent }],
+        }),
+      });
+
+      const sms = await sendTwilioSms(
+        client?.phone,
+        reportSmsBody({
+          companyName,
+          reportNumber,
+          siteName,
+        }),
+      );
+
+      if (!res.ok) {
+        const bodyText = await res.text();
+        let message = `Resend API error (${res.status})`;
+        try {
+          const parsed = JSON.parse(bodyText);
+          message = parsed.message ?? parsed.error ?? message;
+        } catch {
+          if (bodyText) message = bodyText.slice(0, 200);
+        }
+        return json({
+          sent: false,
+          reason: "send_failed",
+          message: withSmsMessage(message, sms),
+          reportId,
+          to,
+          sms,
+        });
+      }
+
+      const sentAt = new Date().toISOString();
+      await admin
+        .from("reports")
+        .update({ sent_at: sentAt })
+        .eq("id", report.id)
+        .eq("company_id", userCompanyId);
+
+      return json({
+        sent: true,
+        reportId: report.id,
+        to,
+        sms,
+        sent_at: sentAt,
+        message: withSmsMessage(`Report ${reportNumber} sent to ${to}`, sms),
+      });
+    }
+
     if (jobId) {
       if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else if (due === "tomorrow") {
       if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else {
-      return json({ error: "jobId, inspectionId, invoiceId, or due=tomorrow is required", sent: false }, 400);
+      return json({ error: "jobId, inspectionId, invoiceId, reportId, or due=tomorrow is required", sent: false }, 400);
     }
 
     const autoAllCompanies = due === "tomorrow" && cronOk && !jobId;

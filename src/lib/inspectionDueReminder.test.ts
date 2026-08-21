@@ -176,6 +176,8 @@ describe('who is due — existing inspection/testing dates', () => {
     expect(resolveInspectionDueDate(insp({ crm_job_id: null }), null)).toBeNull();
     expect(isOpenInspectionStatus('draft')).toBe(true);
     expect(isOpenInspectionStatus('completed')).toBe(false);
+    expect(isOpenInspectionStatus('issued')).toBe(false);
+    expect(isOpenInspectionStatus('sent')).toBe(false);
   });
 
   it('completed inspections do not invent a due date from the last job date', () => {
