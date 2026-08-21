@@ -56,6 +56,13 @@ export function companyDocumentLogoUrl(
   return url || null;
 }
 
+export function companyReportTheme(
+  company: { report_theme?: Record<string, unknown> | null } | null | undefined,
+): Record<string, unknown> | null {
+  const theme = company?.report_theme;
+  return theme && typeof theme === 'object' ? theme : null;
+}
+
 /** Invoice / quote letterhead company block. Logo is the stored company mark or omitted. */
 export function commercialPdfCompanyFrom(company: {
   name: string;
@@ -65,6 +72,7 @@ export function commercialPdfCompanyFrom(company: {
   email?: string | null;
   website?: string | null;
   logo_url?: string | null;
+  report_theme?: Record<string, unknown> | null;
 }): {
   name: string;
   abn: string | null;
@@ -73,6 +81,7 @@ export function commercialPdfCompanyFrom(company: {
   email: string | null;
   website: string | null;
   logo_url: string | null;
+  report_theme: Record<string, unknown> | null;
 } {
   return {
     name: company.name,
@@ -82,6 +91,7 @@ export function commercialPdfCompanyFrom(company: {
     email: company.email ?? null,
     website: company.website ?? null,
     logo_url: companyDocumentLogoUrl(company),
+    report_theme: companyReportTheme(company),
   };
 }
 

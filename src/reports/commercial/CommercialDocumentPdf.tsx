@@ -1,9 +1,20 @@
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
-import { pdfColors, pdfFonts } from '../shared/styles';
+import {
+  parseReportTheme,
+  pdfFonts,
+  resolvePdfColors,
+  type PdfColors,
+  type PdfThemeTokens,
+} from '../shared/styles';
 import { formatMoney } from '../../types/fsm';
 import type { QuoteLineItem, InvoiceLineItem } from '../../types/fsm';
 import { gstLabel } from '../../lib/gst';
 import { companyDocumentLogoUrl } from '../../lib/companyLogo';
+
+/** Saved companies.report_theme on this document, or the existing commercial default. */
+export function commercialDocumentColors(theme?: unknown): PdfColors {
+  return resolvePdfColors(parseReportTheme(theme));
+}
 
 export type CommercialDocKind = 'quote' | 'invoice' | 'purchase_order';
 
@@ -33,6 +44,7 @@ export interface CommercialPdfData {
     email?: string | null;
     website?: string | null;
     logo_url?: string | null;
+    report_theme?: PdfThemeTokens | Record<string, unknown> | null;
   };
   inclusions: string[];
   exclusions: string[];
@@ -49,129 +61,131 @@ export interface CommercialPdfData {
   paymentTerms?: string | null;
 }
 
-const s = StyleSheet.create({
-  page: {
-    fontFamily: pdfFonts.body,
-    fontSize: 9,
-    color: pdfColors.text,
-    paddingTop: 28,
-    paddingBottom: 40,
-    paddingHorizontal: 36,
-  },
-  letterhead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    borderBottomWidth: 2.5,
-    borderBottomColor: pdfColors.navy,
-    paddingBottom: 14,
-    marginBottom: 16,
-  },
-  brandBlock: { flexDirection: 'row', alignItems: 'flex-start', maxWidth: '62%' },
-  logo: { width: 56, height: 32, objectFit: 'contain', marginRight: 10, marginTop: 1 },
-  companyName: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: pdfColors.navy,
-    letterSpacing: 0.4,
-  },
-  companyMeta: { fontSize: 7.5, color: pdfColors.textMuted, marginTop: 2, lineHeight: 1.35 },
-  docMeta: { alignItems: 'flex-end' },
-  docTitle: {
-    fontSize: 16,
-    fontWeight: 700,
-    color: pdfColors.navy,
-    letterSpacing: 1,
-  },
-  docNumber: { fontSize: 10, color: pdfColors.accent, fontWeight: 700, marginTop: 4 },
-  metaRow: { fontSize: 8, color: pdfColors.textSecondary, marginTop: 3 },
-  partyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    gap: 16,
-  },
-  partyBox: { flex: 1 },
-  partyLabel: {
-    fontSize: 7,
-    fontWeight: 700,
-    color: pdfColors.textMuted,
-    letterSpacing: 0.6,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-  },
-  partyValue: { fontSize: 10, fontWeight: 700, color: pdfColors.navy },
-  partySub: { fontSize: 8, color: pdfColors.textSecondary, marginTop: 2 },
-  sectionTitle: {
-    fontSize: 10,
-    fontWeight: 700,
-    color: pdfColors.navy,
-    marginBottom: 8,
-    paddingBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: pdfColors.rule,
-  },
-  twoCol: { flexDirection: 'row', gap: 14, marginBottom: 18 },
-  col: { flex: 1 },
-  colHead: {
-    fontSize: 8,
-    fontWeight: 700,
-    color: pdfColors.white,
-    backgroundColor: pdfColors.navy,
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-    marginBottom: 6,
-  },
-  colHeadAmber: { backgroundColor: '#92400E' },
-  bullet: { flexDirection: 'row', marginBottom: 4, paddingRight: 4 },
-  bulletMark: { width: 10, fontSize: 8, color: pdfColors.accent },
-  bulletText: { flex: 1, fontSize: 8.5, color: pdfColors.textSecondary, lineHeight: 1.35 },
-  emptyHint: { fontSize: 8, color: pdfColors.textMuted, fontStyle: 'italic' },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: pdfColors.navy,
-    paddingVertical: 6,
-    paddingHorizontal: 6,
-  },
-  th: { color: pdfColors.white, fontSize: 7.5, fontWeight: 700 },
-  row: {
-    flexDirection: 'row',
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-    borderBottomWidth: 0.5,
-    borderBottomColor: pdfColors.rule,
-  },
-  rowAlt: { backgroundColor: pdfColors.zebra },
-  td: { fontSize: 8, color: pdfColors.text },
-  totals: { marginTop: 10, alignSelf: 'flex-end', width: 200 },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
-  totalLabel: { fontSize: 8.5, color: pdfColors.textSecondary },
-  totalValue: { fontSize: 8.5, color: pdfColors.text },
-  grandRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 4,
-    paddingTop: 6,
-    borderTopWidth: 1.5,
-    borderTopColor: pdfColors.navy,
-  },
-  grandLabel: { fontSize: 10, fontWeight: 700, color: pdfColors.navy },
-  grandValue: { fontSize: 10, fontWeight: 700, color: pdfColors.navy },
-  notes: { marginTop: 16 },
-  notesBody: { fontSize: 8.5, color: pdfColors.textSecondary, lineHeight: 1.4 },
-  footer: {
-    position: 'absolute',
-    bottom: 18,
-    left: 36,
-    right: 36,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 0.5,
-    borderTopColor: pdfColors.rule,
-    paddingTop: 6,
-  },
-  footerText: { fontSize: 7, color: pdfColors.textMuted },
-});
+function commercialStyles(colors: PdfColors) {
+  return StyleSheet.create({
+    page: {
+      fontFamily: pdfFonts.body,
+      fontSize: 9,
+      color: colors.text,
+      paddingTop: 28,
+      paddingBottom: 40,
+      paddingHorizontal: 36,
+    },
+    letterhead: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      borderBottomWidth: 2.5,
+      borderBottomColor: colors.navy,
+      paddingBottom: 14,
+      marginBottom: 16,
+    },
+    brandBlock: { flexDirection: 'row', alignItems: 'flex-start', maxWidth: '62%' },
+    logo: { width: 56, height: 32, objectFit: 'contain', marginRight: 10, marginTop: 1 },
+    companyName: {
+      fontSize: 14,
+      fontWeight: 700,
+      color: colors.navy,
+      letterSpacing: 0.4,
+    },
+    companyMeta: { fontSize: 7.5, color: colors.textMuted, marginTop: 2, lineHeight: 1.35 },
+    docMeta: { alignItems: 'flex-end' },
+    docTitle: {
+      fontSize: 16,
+      fontWeight: 700,
+      color: colors.navy,
+      letterSpacing: 1,
+    },
+    docNumber: { fontSize: 10, color: colors.accent, fontWeight: 700, marginTop: 4 },
+    metaRow: { fontSize: 8, color: colors.textSecondary, marginTop: 3 },
+    partyRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+      gap: 16,
+    },
+    partyBox: { flex: 1 },
+    partyLabel: {
+      fontSize: 7,
+      fontWeight: 700,
+      color: colors.textMuted,
+      letterSpacing: 0.6,
+      marginBottom: 4,
+      textTransform: 'uppercase',
+    },
+    partyValue: { fontSize: 10, fontWeight: 700, color: colors.navy },
+    partySub: { fontSize: 8, color: colors.textSecondary, marginTop: 2 },
+    sectionTitle: {
+      fontSize: 10,
+      fontWeight: 700,
+      color: colors.navy,
+      marginBottom: 8,
+      paddingBottom: 4,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.rule,
+    },
+    twoCol: { flexDirection: 'row', gap: 14, marginBottom: 18 },
+    col: { flex: 1 },
+    colHead: {
+      fontSize: 8,
+      fontWeight: 700,
+      color: colors.white,
+      backgroundColor: colors.navy,
+      paddingVertical: 5,
+      paddingHorizontal: 8,
+      marginBottom: 6,
+    },
+    colHeadAmber: { backgroundColor: '#92400E' },
+    bullet: { flexDirection: 'row', marginBottom: 4, paddingRight: 4 },
+    bulletMark: { width: 10, fontSize: 8, color: colors.accent },
+    bulletText: { flex: 1, fontSize: 8.5, color: colors.textSecondary, lineHeight: 1.35 },
+    emptyHint: { fontSize: 8, color: colors.textMuted, fontStyle: 'italic' },
+    tableHeader: {
+      flexDirection: 'row',
+      backgroundColor: colors.navy,
+      paddingVertical: 6,
+      paddingHorizontal: 6,
+    },
+    th: { color: colors.white, fontSize: 7.5, fontWeight: 700 },
+    row: {
+      flexDirection: 'row',
+      paddingVertical: 5,
+      paddingHorizontal: 6,
+      borderBottomWidth: 0.5,
+      borderBottomColor: colors.rule,
+    },
+    rowAlt: { backgroundColor: colors.zebra },
+    td: { fontSize: 8, color: colors.text },
+    totals: { marginTop: 10, alignSelf: 'flex-end', width: 200 },
+    totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
+    totalLabel: { fontSize: 8.5, color: colors.textSecondary },
+    totalValue: { fontSize: 8.5, color: colors.text },
+    grandRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 4,
+      paddingTop: 6,
+      borderTopWidth: 1.5,
+      borderTopColor: colors.navy,
+    },
+    grandLabel: { fontSize: 10, fontWeight: 700, color: colors.navy },
+    grandValue: { fontSize: 10, fontWeight: 700, color: colors.navy },
+    notes: { marginTop: 16 },
+    notesBody: { fontSize: 8.5, color: colors.textSecondary, lineHeight: 1.4 },
+    footer: {
+      position: 'absolute',
+      bottom: 18,
+      left: 36,
+      right: 36,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      borderTopWidth: 0.5,
+      borderTopColor: colors.rule,
+      paddingTop: 6,
+    },
+    footerText: { fontSize: 7, color: colors.textMuted },
+  });
+}
 
 function kindLabel(kind: CommercialDocKind): string {
   if (kind === 'quote') return 'QUOTATION';
@@ -181,6 +195,8 @@ function kindLabel(kind: CommercialDocKind): string {
 
 export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
   const { company } = data;
+  const colors = commercialDocumentColors(company.report_theme);
+  const s = commercialStyles(colors);
   const logoUrl = companyDocumentLogoUrl(company);
   const contactBits = [company.phone, company.email, company.website].filter(Boolean).join('  ·  ');
   const abnBits = [
@@ -219,7 +235,7 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
             <Text style={s.partyValue}>{data.clientName || '—'}</Text>
             {data.clientDetail ? <Text style={s.partySub}>{data.clientDetail}</Text> : null}
             {data.description?.trim() ? (
-              <Text style={[s.partySub, { marginTop: 6, fontWeight: 700, color: pdfColors.navy }]}>
+              <Text style={[s.partySub, { marginTop: 6, fontWeight: 700, color: colors.navy }]}>
                 {data.description.trim()}
               </Text>
             ) : null}
@@ -283,7 +299,7 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
           const amount = (li.quantity || 0) * (li.unit_price || 0);
           return (
             <View key={i} style={i % 2 === 1 ? [s.row, s.rowAlt] : s.row} wrap={false}>
-              <Text style={[s.td, { width: '18%', color: pdfColors.textMuted }]}>{li.charge_type || '—'}</Text>
+              <Text style={[s.td, { width: '18%', color: colors.textMuted }]}>{li.charge_type || '—'}</Text>
               <Text style={[s.td, { width: '42%' }]}>{li.description}</Text>
               <Text style={[s.td, { width: '10%', textAlign: 'right' }]}>{li.quantity}</Text>
               <Text style={[s.td, { width: '15%', textAlign: 'right' }]}>{formatMoney(li.unit_price)}</Text>
