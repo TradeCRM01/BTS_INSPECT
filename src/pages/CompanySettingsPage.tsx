@@ -4,7 +4,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Trash, Palette } from 'lucide-react';
+import { Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Palette } from 'lucide-react';
+import {
+  COMPANY_LOGO_ACCEPT,
+  companyLogoClientFromSupabase,
+  decideCompanyLogoUpload,
+  persistCompanyLogo,
+  removeCompanyLogo,
+} from '../lib/companyLogo';
 
 interface EmailSettings {
   smtp_host: string;
@@ -57,7 +64,9 @@ export function CompanySettingsPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [removingLogo, setRemovingLogo] = useState(false);
   const [logoUrl, setLogoUrl] = useState(company?.logo_url ?? '');
+  const [logoError, setLogoError] = useState('');
 
   // Inspection renderers
   const [renderers, setRenderers] = useState<Array<{ id: string; key: string; label: string; built_in: boolean }>>([]);
@@ -111,6 +120,7 @@ export function CompanySettingsPage() {
 
   useEffect(() => {
     if (company) {
+      setLogoUrl(company.logo_url ?? '');
       loadRenderers();
       if (isAdmin) loadEmailSettings();
       const theme = (company as { report_theme?: Partial<ReportTheme> | null }).report_theme;
@@ -279,18 +289,40 @@ export function CompanySettingsPage() {
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file || !company) return;
+    setLogoError('');
+    const decision = decideCompanyLogoUpload({ companyId: company.id, file });
+    if (!decision.ok) {
+      setLogoError(decision.message);
+      return;
+    }
     setUploadingLogo(true);
-    const path = `${company.id}/logo.png`;
-    const { error } = await supabase.storage.from('logos').upload(path, file, { contentType: file.type, upsert: true });
-    if (!error) {
-      const { data } = supabase.storage.from('logos').getPublicUrl(path);
-      const newUrl = data.publicUrl + `?t=${Date.now()}`;
-      setLogoUrl(newUrl);
-      await supabase.from('companies').update({ logo_url: data.publicUrl }).eq('id', company.id);
+    const result = await persistCompanyLogo(companyLogoClientFromSupabase(supabase), {
+      companyId: company.id,
+      file,
+    });
+    if (!result.ok) {
+      setLogoError(result.message);
+    } else {
+      setLogoUrl(`${result.logo_url}?t=${Date.now()}`);
+      await refreshProfile();
     }
     setUploadingLogo(false);
-    e.target.value = '';
+  }
+
+  async function handleLogoRemove() {
+    if (!company) return;
+    setLogoError('');
+    setRemovingLogo(true);
+    const result = await removeCompanyLogo(companyLogoClientFromSupabase(supabase), company.id);
+    if (!result.ok) {
+      setLogoError(result.message);
+    } else {
+      setLogoUrl('');
+      await refreshProfile();
+    }
+    setRemovingLogo(false);
   }
 
   const inputClass = 'w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent text-sm';
@@ -338,23 +370,42 @@ export function CompanySettingsPage() {
           </div>
         </div>
 
-        {/* Logo */}
-        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
-          <h2 className="text-sm font-semibold text-[#1A1A1A] mb-3">Company Logo</h2>
-          <div className="flex items-center gap-4">
+        {/* Logo — existing company settings strip only. Not a branding page. */}
+        <div className="company-logo-strip">
+          <h2 className="company-logo-strip-title">Company Logo</h2>
+          <div className="company-logo-strip-row">
             {logoUrl ? (
-              <img src={logoUrl} alt="Company logo" className="h-12 object-contain border border-[#E5E7EB] rounded p-1" />
+              <img src={logoUrl} alt="Company logo" className="company-logo-strip-mark" />
             ) : (
-              <div className="w-20 h-12 border-2 border-dashed border-[#E5E7EB] rounded flex items-center justify-center">
-                <span className="text-xs text-[#4A5568]">No logo</span>
-              </div>
+              <p className="company-logo-strip-miss">No logo yet</p>
             )}
-            <label className="flex items-center gap-1.5 text-sm border border-[#E5E7EB] text-[#4A5568] px-3 py-2 rounded cursor-pointer hover:bg-[#F9FAFB]">
-              <Upload size={14} /> {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
-              <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} className="sr-only" />
+            <label className="company-logo-strip-ctl">
+              <Upload size={14} /> {uploadingLogo ? 'Uploading...' : logoUrl ? 'Replace' : 'Add a logo'}
+              <input
+                type="file"
+                accept={COMPANY_LOGO_ACCEPT}
+                onChange={handleLogoUpload}
+                disabled={uploadingLogo || removingLogo}
+                className="sr-only"
+              />
             </label>
+            {logoUrl ? (
+              <button
+                type="button"
+                onClick={handleLogoRemove}
+                disabled={uploadingLogo || removingLogo}
+                className="company-logo-strip-clear"
+              >
+                {removingLogo ? 'Removing...' : 'Clear'}
+              </button>
+            ) : null}
           </div>
-          <p className="text-xs text-[#4A5568] mt-2">PNG or SVG recommended. Used on PDF reports.</p>
+          <p className="company-logo-strip-hint">Your company mark on invoices, quotes, and reports.</p>
+          {logoError ? (
+            <p className="company-logo-strip-err">
+              <AlertCircle size={14} /> {logoError}
+            </p>
+          ) : null}
         </div>
 
         {/* Report branding / theme — admin only */}

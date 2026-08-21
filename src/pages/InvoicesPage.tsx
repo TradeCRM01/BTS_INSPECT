@@ -21,6 +21,7 @@ import { invoiceActionContext, invoiceListBucket, invoiceOverflowPaidAction, rec
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
+import { commercialPdfCompanyFrom, companyDocumentLogoUrl } from '../lib/companyLogo';
 import {
   jobClientEmailRow,
   jobClientEmailSaveToast,
@@ -703,6 +704,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     line_items: form.line_items,
   }, { smtpReady }));
   const displayStatus = next.status;
+  const sheetLogo = companyDocumentLogoUrl(company);
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
@@ -727,15 +729,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       secondaryValue: form.due_date ? format(parseISO(form.due_date), 'd MMM yyyy') : '—',
       clientName: selectedClient?.name ?? '—',
       clientDetail: quoteClientDetailFromClient(selectedClient, selectedJob?.address),
-      company: {
-        name: company.name,
-        abn: company.abn ?? null,
-        licence_number: company.licence_number ?? null,
-        phone: company.phone ?? null,
-        email: company.email ?? null,
-        website: company.website ?? null,
-        logo_url: company.logo_url ?? null,
-      },
+      company: commercialPdfCompanyFrom(company),
       inclusions: form.inclusions,
       exclusions: form.exclusions,
       lines: linesFromQuoteItems(cleanLines),
@@ -1009,6 +1003,9 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
 
           <div className="hub-invoice-letterhead">
             <div className="min-w-0">
+              {sheetLogo ? (
+                <img src={sheetLogo} alt="" className="hub-invoice-letterhead-mark" />
+              ) : null}
               <p className="hub-invoice-kicker">From</p>
               <p className="hub-invoice-from-name">{company?.name ?? 'Your company'}</p>
               {company?.abn ? <p className="hub-invoice-muted">ABN {company.abn}</p> : null}

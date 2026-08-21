@@ -13,6 +13,7 @@ import {
   type InspectionPhotoIn,
 } from '../shared/inspectionCompose';
 import { parseReportTheme, type PdfThemeTokens } from '../shared/styles';
+import { companyDocumentLogoUrl } from '../../lib/companyLogo';
 
 interface ComposeInput {
   inspection: {
@@ -78,7 +79,7 @@ export function composeGenericReport(input: ComposeInput): GenericReportData {
     companyPhone: company.phone ?? undefined,
     companyEmail: company.email ?? undefined,
     companyWebsite: company.website ?? undefined,
-    companyLogoUrl: company.logo_url ?? undefined,
+    companyLogoUrl: companyDocumentLogoUrl(company) ?? undefined,
     overallVerdict,
     overallVerdictLabel: verdictLabel(overallVerdict),
     layoutMode: template.schema.meta.layoutMode ?? 'checklist',

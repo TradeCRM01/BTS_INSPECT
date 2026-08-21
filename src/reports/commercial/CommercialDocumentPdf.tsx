@@ -3,6 +3,7 @@ import { pdfColors, pdfFonts } from '../shared/styles';
 import { formatMoney } from '../../types/fsm';
 import type { QuoteLineItem, InvoiceLineItem } from '../../types/fsm';
 import { gstLabel } from '../../lib/gst';
+import { companyDocumentLogoUrl } from '../../lib/companyLogo';
 
 export type CommercialDocKind = 'quote' | 'invoice' | 'purchase_order';
 
@@ -66,8 +67,8 @@ const s = StyleSheet.create({
     paddingBottom: 14,
     marginBottom: 16,
   },
-  brandBlock: { flexDirection: 'row', alignItems: 'center', maxWidth: '62%' },
-  logo: { width: 72, height: 40, objectFit: 'contain', marginRight: 12 },
+  brandBlock: { flexDirection: 'row', alignItems: 'flex-start', maxWidth: '62%' },
+  logo: { width: 56, height: 32, objectFit: 'contain', marginRight: 10, marginTop: 1 },
   companyName: {
     fontSize: 14,
     fontWeight: 700,
@@ -180,6 +181,7 @@ function kindLabel(kind: CommercialDocKind): string {
 
 export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
   const { company } = data;
+  const logoUrl = companyDocumentLogoUrl(company);
   const contactBits = [company.phone, company.email, company.website].filter(Boolean).join('  ·  ');
   const abnBits = [
     company.abn ? `ABN ${company.abn}` : null,
@@ -192,8 +194,8 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
         {/* 1. Letterhead */}
         <View style={s.letterhead}>
           <View style={s.brandBlock}>
-            {company.logo_url ? (
-              <Image src={company.logo_url} style={s.logo} />
+            {logoUrl ? (
+              <Image src={logoUrl} style={s.logo} />
             ) : null}
             <View>
               <Text style={s.companyName}>{company.name.toUpperCase()}</Text>

@@ -21,6 +21,7 @@ import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { padQuoteNumber } from '../lib/quoteJobFields';
+import { commercialPdfCompanyFrom } from '../lib/companyLogo';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import {
   quoteActionContext,
@@ -569,15 +570,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
       secondaryValue: form.validity_date ? format(parseISO(form.validity_date), 'd MMM yyyy') : '—',
       clientName: selectedClient?.name ?? '—',
       clientDetail: quoteClientDetailFromClient(selectedClient, selectedJob?.address),
-      company: {
-        name: company.name,
-        abn: company.abn ?? null,
-        licence_number: company.licence_number ?? null,
-        phone: company.phone ?? null,
-        email: company.email ?? null,
-        website: company.website ?? null,
-        logo_url: company.logo_url ?? null,
-      },
+      company: commercialPdfCompanyFrom(company),
       inclusions: form.inclusions,
       exclusions: form.exclusions,
       description: form.description.trim() || null,

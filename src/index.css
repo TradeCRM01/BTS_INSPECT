@@ -604,6 +604,112 @@
 
   /* End client sheet contact write */
 
+  /* Company settings logo strip only — quiet 12px hairline. Not a branding page. */
+  .company-logo-strip {
+    background: #FFFFFF;
+    border: 1px solid #D5DCE3;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 16px;
+    font-family: Inter, system-ui, sans-serif;
+    box-shadow: none;
+  }
+
+  .company-logo-strip-title {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #5B6B7C;
+  }
+
+  .company-logo-strip-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .company-logo-strip-mark {
+    display: block;
+    height: 32px;
+    width: auto;
+    max-width: 160px;
+    object-fit: contain;
+  }
+
+  .company-logo-strip-miss {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #0A2540;
+  }
+
+  .company-logo-strip-ctl {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 24px;
+    padding: 0 8px;
+    border: 1px solid #D5DCE3;
+    border-radius: 8px;
+    background: #FFFFFF;
+    color: #5B6B7C;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: none;
+  }
+
+  .company-logo-strip-ctl:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .company-logo-strip-clear {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 8px;
+    border: none;
+    background: none;
+    color: #5B6B7C;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: none;
+  }
+
+  .company-logo-strip-clear:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .company-logo-strip-hint {
+    margin: 8px 0 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: #5B6B7C;
+  }
+
+  .company-logo-strip-err {
+    margin: 8px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #B42318;
+  }
+
   .ops-section-title {
     @apply text-sm font-semibold tracking-tight text-navy;
   }
@@ -2241,6 +2347,15 @@
     grid-template-columns: 1fr 1fr;
     gap: 24px;
     padding: 24px;
+  }
+
+  .hub-invoice-letterhead-mark {
+    display: block;
+    height: 32px;
+    width: auto;
+    max-width: 140px;
+    object-fit: contain;
+    margin-bottom: 8px;
   }
 
   .hub-invoice-from-name,
