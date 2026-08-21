@@ -172,7 +172,7 @@ describe('job-sheet client email — wiring', () => {
     expect(page).toContain('job-client-email');
     expect(page).toContain('job-client-email-save');
     expect(page).toContain("aria-label=\"Client email\"");
-    expect(page).toContain("invalidateQueries({ queryKey: ['job-client', job.client_id] })");
+    expect(page).toContain("invalidateQueries({ queryKey: ['job-client', job?.client_id] })");
     expect(page).toContain("kind === 'edit'");
     expect(page).toContain("kind === 'mailto'");
     expect(page).toContain('No client');
@@ -183,7 +183,7 @@ describe('job-sheet client email — wiring', () => {
     expect(page).not.toContain('AU_EMAIL_PLACEHOLDER');
 
     expect(handle).toContain('saveJobClientEmail');
-    expect(handle).toContain('job.client_id');
+    expect(handle).toContain('job?.client_id');
     expect(handle).toContain('clientEmailDraft');
     expect(handle).not.toContain('sendJobDraftInvoice');
     expect(handle).not.toContain('sendJobDraft.mutate');
@@ -235,7 +235,7 @@ describe('job-sheet client email — wiring', () => {
     expect(send).toContain('NO_SMTP_MESSAGE');
     expect(send).toContain('COMPANY_EMAIL_SETTINGS_HREF');
     expect(send).toContain(COMPANY_EMAIL_SETTINGS_HREF);
-    expect(deliver).toContain('deliverInvoiceSend');
+    expect(deliver).toContain('export async function deliverInvoice');
     expect(deliver).not.toContain('saveJobClientEmail');
     expect(send).not.toContain('saveJobClientEmail');
     expect(dialog).not.toContain('saveJobClientEmail');
