@@ -5,6 +5,7 @@ import {
   applyInspectionDueScope,
   belongsToCompany,
   buildInspectionDueEmail,
+  buildInspectionDueSms,
   decideInspectionDueSend,
   dueDatesFromCustomFields,
   dueDatesFromDateQuestions,
@@ -39,7 +40,16 @@ import {
   type DueInspection,
   type DueInspectionJob,
 } from './inspectionDueReminder';
-import { AUTO_FIRE_CLICK_PATH, COMPANY_TIME_ZONE, type ReminderClient, type ReminderEmailSettings } from './jobReminder';
+import {
+  AUTO_FIRE_CLICK_PATH,
+  COMPANY_TIME_ZONE,
+  decideSmsBeside,
+  missSmsMessage,
+  prefillSmsTo,
+  shouldRecordReminderSent,
+  type ReminderClient,
+  type ReminderEmailSettings,
+} from './jobReminder';
 
 /** 16:00 Friday 21 Aug 2026 in Australia/Perth (08:00 UTC). Today in Perth is 21 Aug. */
 const now = new Date('2026-08-21T08:00:00.000Z');
@@ -589,6 +599,36 @@ describe('existing inspection surface — no new route', () => {
     expect(email.html).not.toContain('undefined');
     expect(email.text).toMatch(/RCD test/i);
     expect(prefillReminderTo(client)).toBe('sam@acme.example');
+  });
+
+  it('SMS rides the same due send — phone from the client, email sent-at unchanged', () => {
+    expect(prefillSmsTo(client.phone)).toBe('+61832110000');
+    expect(decideSmsBeside({ phone: null }).send).toBe(false);
+    expect(missSmsMessage('no_phone')).toMatch(/no phone/i);
+    const body = buildInspectionDueSms({
+      inspection: insp(),
+      job: job(),
+      company: { name: 'BTS Electrical', phone: '1300 111 222' },
+      dueOn: today,
+    });
+    expect(body).toMatch(/RCD test/i);
+    expect(body).toMatch(/due today/);
+    expect(body).toMatch(/12 Smith St/);
+    expect(body).not.toMatch(/portal/i);
+    expect(shouldRecordReminderSent(true)).toBe(true);
+    expect(shouldRecordInspectionDueSent(true)).toBe(true);
+    expect(shouldRecordInspectionDueSent(false)).toBe(false);
+    const noPhone = decideInspectionDueSend({
+      inspection: insp(),
+      job: job(),
+      client: { ...client, phone: null },
+      settings: smtp,
+      company: { name: 'BTS Electrical' },
+      companyId: 'co-1',
+      appUrl: 'https://bts-inspect.pages.dev',
+      now,
+    });
+    expect(noPhone.send).toBe(true);
   });
 
   it('inspectionDueOnToday follows Perth, not UTC', () => {

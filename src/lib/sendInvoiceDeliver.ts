@@ -17,10 +17,11 @@ import {
   type SmtpSettingsRow,
 } from './sendInvoice';
 import { asStringList } from './asStringList';
+import { formatEmailAndSmsMessage, type SmsSendResult } from './jobReminder';
 import type { InvoiceWithDetails } from '../types/fsm';
 
 export type DeliverInvoiceResult =
-  | { ok: true; to: string; markedSent: true }
+  | { ok: true; to: string; markedSent: true; message: string; sms: SmsSendResult | null }
   | { ok: false; message: string; markedSent: false; href?: string };
 
 export type InvoicePdfBuilder = (bundle: InvoiceSendBundle) => Promise<Blob>;
@@ -170,7 +171,11 @@ export async function deliverInvoice(args: {
     return { ok: false, message: 'Invoice was not sent.', markedSent: false };
   }
 
-  return { ok: true, to: String(data.to ?? decision.to), markedSent: true };
+  const to = String(data.to ?? decision.to);
+  const sms = (data?.sms ?? null) as SmsSendResult | null;
+  const message = String(data.message ?? '').trim()
+    || formatEmailAndSmsMessage(`Invoice sent to ${to}`, sms);
+  return { ok: true, to, markedSent: true, message, sms };
 }
 
 /** Open one invoice by id + company. Does not read the company invoice ledger. */

@@ -8,6 +8,7 @@ import {
   isCronAuthorized,
   padJobNumber,
   prefillReminderTo,
+  prefillSmsTo,
   reminderClientsQuery,
   reminderEmailSettingsQuery,
   todayYmd,
@@ -23,6 +24,7 @@ export {
   formatJobDate,
   isCronAuthorized,
   prefillReminderTo,
+  prefillSmsTo,
   reminderClientsQuery,
   reminderEmailSettingsQuery,
   todayYmd,
@@ -412,6 +414,25 @@ export function buildInspectionDueEmail(args: {
       </div>`;
 
   return { to: args.to, subject, html, text, dueHref, dueUrl };
+}
+
+export function buildInspectionDueSms(args: {
+  inspection: DueInspection;
+  job?: DueInspectionJob | null;
+  company: ReminderCompany;
+  dueOn: string;
+}): string {
+  const when = formatJobDate(args.dueOn);
+  const label = inspectionDueLabel(args.inspection, args.job);
+  const site = (args.job?.address ?? args.inspection.meta?.siteAddress ?? args.inspection.meta?.siteName ?? '').trim();
+  const companyPhone = (args.company.phone ?? '').trim();
+  const open = isOpenInspectionStatus(args.inspection.status);
+  const duePhrase = open ? 'is due today' : 'next test is due today';
+  return [
+    `Reminder: ${label} ${duePhrase} (${when}).`,
+    site ? `Site: ${site}.` : null,
+    `Reply to book it in${companyPhone ? ` or call ${companyPhone}` : ''}.`,
+  ].filter(line => line !== null).join(' ');
 }
 
 export type InspectionDueDecision =

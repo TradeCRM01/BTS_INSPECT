@@ -170,6 +170,137 @@ function miss(reason: string, message: string, extra: Record<string, unknown> = 
   return { sent: false, reason, message, ...extra };
 }
 
+type SmsMissReason = "no_phone" | "no_sms_credentials" | "send_failed";
+
+type SmsSendResult = {
+  sent: boolean;
+  to: string | null;
+  reason?: SmsMissReason;
+  message: string;
+};
+
+function prefillSmsTo(phone: unknown): string {
+  const raw = String(phone ?? "").trim();
+  if (!raw) return "";
+  const compact = raw.replace(/[^\d+]/g, "");
+  if (!compact || compact === "+") return "";
+  const digits = compact.startsWith("+")
+    ? compact.slice(1).replace(/\D/g, "")
+    : compact.replace(/\D/g, "");
+  if (digits.length < 8 || digits.length > 15) return "";
+  if (digits.length === 10 && digits.startsWith("0")) return `+61${digits.slice(1)}`;
+  if (digits.length === 9 && digits.startsWith("4")) return `+61${digits}`;
+  return `+${digits}`;
+}
+
+function twilioCreds() {
+  return {
+    accountSid: (Deno.env.get("TWILIO_ACCOUNT_SID") ?? "").trim(),
+    authToken: (Deno.env.get("TWILIO_AUTH_TOKEN") ?? "").trim(),
+    fromNumber: prefillSmsTo(Deno.env.get("TWILIO_FROM_NUMBER") ?? Deno.env.get("TWILIO_PHONE_NUMBER")),
+  };
+}
+
+function smsCredentialsReady(): boolean {
+  const creds = twilioCreds();
+  return !!creds.accountSid && !!creds.authToken && !!creds.fromNumber;
+}
+
+function missSms(reason: SmsMissReason, to: string | null = null, extra = ""): SmsSendResult {
+  const base = reason === "no_phone"
+    ? "This client has no phone — SMS was not sent."
+    : reason === "no_sms_credentials"
+    ? "SMS is not set up."
+    : (extra ? `SMS was not sent: ${extra}` : "SMS was not sent.");
+  return { sent: false, to, reason, message: base };
+}
+
+function withSmsMessage(emailMessage: string, sms: SmsSendResult): string {
+  return `${emailMessage} ${sms.message}`.trim();
+}
+
+async function sendTwilioSms(toPhone: unknown, body: string): Promise<SmsSendResult> {
+  const to = prefillSmsTo(toPhone);
+  if (!to) return missSms("no_phone");
+  if (!smsCredentialsReady()) return missSms("no_sms_credentials", to);
+  const creds = twilioCreds();
+  const auth = btoa(`${creds.accountSid}:${creds.authToken}`);
+  const params = new URLSearchParams({
+    To: to,
+    From: creds.fromNumber,
+    Body: body,
+  });
+  try {
+    const res = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${creds.accountSid}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params,
+      },
+    );
+    if (res.ok) return { sent: true, to, message: `SMS sent to ${to}` };
+    const bodyText = await res.text();
+    let detail = `Twilio error (${res.status})`;
+    try {
+      const parsed = JSON.parse(bodyText);
+      detail = parsed.message ?? parsed.error_message ?? detail;
+    } catch {
+      if (bodyText) detail = bodyText.slice(0, 200);
+    }
+    return missSms("send_failed", to, detail);
+  } catch (err) {
+    return missSms("send_failed", to, String(err));
+  }
+}
+
+function jobReminderSmsBody(opts: {
+  jobNumber: unknown;
+  title: unknown;
+  whenLine: string;
+  site: string;
+  companyName: string;
+  companyPhone: string;
+}): string {
+  const number = opts.jobNumber != null ? `#${padJobNumber(opts.jobNumber)}` : "Job";
+  const title = String(opts.title ?? "Job").trim() || "Job";
+  const label = `${number} ${title}`.trim();
+  return [
+    `Reminder: ${label} is booked for tomorrow (${opts.whenLine}).`,
+    opts.site ? `Site: ${opts.site}.` : "",
+    `Need to reschedule? Reply or call ${opts.companyPhone || opts.companyName}.`,
+  ].filter(Boolean).join(" ");
+}
+
+function inspectionDueSmsBody(opts: {
+  label: string;
+  when: string;
+  site: string;
+  companyPhone: string;
+  open: boolean;
+}): string {
+  const duePhrase = opts.open ? "is due today" : "next test is due today";
+  return [
+    `Reminder: ${opts.label} ${duePhrase} (${opts.when}).`,
+    opts.site ? `Site: ${opts.site}.` : "",
+    `Reply to book it in${opts.companyPhone ? ` or call ${opts.companyPhone}` : ""}.`,
+  ].filter(Boolean).join(" ");
+}
+
+function invoiceSmsBody(opts: {
+  companyName: string;
+  invoiceNumber: unknown;
+  totalLabel: string;
+  dueLabel: string;
+}): string {
+  const who = opts.companyName.trim() || "your contractor";
+  const due = opts.dueLabel ? ` Due ${opts.dueLabel}.` : "";
+  return `${who} sent invoice #${padInvoiceNumber(opts.invoiceNumber)}. Total (inc GST): ${opts.totalLabel}.${due} The PDF is in your email.`;
+}
+
 function bearerToken(header: string | null): string {
   return (header ?? "").replace(/^Bearer\s+/i, "").trim();
 }
@@ -256,6 +387,63 @@ Deno.serve(async (req) => {
       };
       const sentRows = results.filter((r) => r.out_sent);
       const missedRows = results.filter((r) => !r.out_sent);
+      const attemptedEmail = results.some((r) => r.out_sent || r.out_reason === "send_failed");
+
+      let sms: SmsSendResult | null = null;
+      if (attemptedEmail) {
+        const { data: insp } = await admin
+          .from("inspections")
+          .select("id, client_id, crm_job_id, status, archived, meta, template_snapshot, due_on")
+          .eq("id", inspectionId)
+          .maybeSingle();
+        let jobRow: Record<string, unknown> | null = null;
+        if (insp?.crm_job_id) {
+          const { data: oneJob } = await admin
+            .from("jobs")
+            .select("id, company_id, client_id, title, address, job_number, scheduled_date")
+            .eq("id", insp.crm_job_id)
+            .eq("company_id", userCompanyId)
+            .maybeSingle();
+          jobRow = oneJob;
+        }
+        const clientId = String(insp?.client_id ?? jobRow?.client_id ?? "").trim();
+        let clientPhone = "";
+        if (clientId) {
+          const { data: oneClient } = await admin
+            .from("clients")
+            .select("id, name, email, phone, contact_person")
+            .eq("id", clientId)
+            .eq("company_id", userCompanyId)
+            .maybeSingle();
+          clientPhone = String(oneClient?.phone ?? "");
+        }
+        const { data: company } = await admin
+          .from("companies")
+          .select("name, phone")
+          .eq("id", userCompanyId)
+          .maybeSingle();
+        const dueOn = dateOnly(insp?.due_on ?? jobRow?.scheduled_date) ?? "";
+        const templateName = String((insp?.template_snapshot as { name?: string } | null)?.name ?? "").trim() || "Inspection";
+        const jobNumber = jobRow?.job_number;
+        const label = jobNumber != null ? `#${padJobNumber(jobNumber)} ${templateName}` : templateName;
+        const site = String(jobRow?.address ?? (insp?.meta as { siteAddress?: string; siteName?: string } | null)?.siteAddress ?? (insp?.meta as { siteName?: string } | null)?.siteName ?? "").trim();
+        const when = dueOn ? formatJobDate(dueOn) : "today";
+        const open = String(insp?.status ?? "") !== "completed" && String(insp?.status ?? "") !== "issued";
+        sms = await sendTwilioSms(
+          clientPhone,
+          inspectionDueSmsBody({
+            label,
+            when,
+            site,
+            companyPhone: String(company?.phone ?? "").trim(),
+            open,
+          }),
+        );
+      }
+
+      const emailMessage = sentRows.length > 0
+        ? (sentRows.length === 1 ? "Reminder sent" : `Reminders sent: ${sentRows.length}`)
+        : (missText[missedRows[0]?.out_reason] ?? "Reminder was not sent.");
       return json({
         sent: sentRows.length > 0,
         count: sentRows.length,
@@ -268,9 +456,8 @@ Deno.serve(async (req) => {
             ? "Reminder sent"
             : (missText[r.out_reason] ?? r.out_reason),
         })),
-        message: sentRows.length > 0
-          ? (sentRows.length === 1 ? "Reminder sent" : `Reminders sent: ${sentRows.length}`)
-          : (missText[missedRows[0]?.out_reason] ?? "Reminder was not sent."),
+        sms,
+        message: sms ? withSmsMessage(emailMessage, sms) : emailMessage,
       });
     }
 
@@ -299,7 +486,7 @@ Deno.serve(async (req) => {
 
       const { data: client } = await admin
         .from("clients")
-        .select("id, name, email")
+        .select("id, name, email, phone")
         .eq("id", invoice.client_id)
         .maybeSingle();
       const to = prefillTo(client?.email);
@@ -384,6 +571,16 @@ Deno.serve(async (req) => {
         }),
       });
 
+      const sms = await sendTwilioSms(
+        client?.phone,
+        invoiceSmsBody({
+          companyName,
+          invoiceNumber: invoice.invoice_number,
+          totalLabel: formatAud(invoice.total),
+          dueLabel: formatDueLabel(invoice.due_date),
+        }),
+      );
+
       if (!res.ok) {
         const bodyText = await res.text();
         let message = `Resend API error (${res.status})`;
@@ -393,7 +590,14 @@ Deno.serve(async (req) => {
         } catch {
           if (bodyText) message = bodyText.slice(0, 200);
         }
-        return json({ sent: false, reason: "send_failed", message, invoiceId, to });
+        return json({
+          sent: false,
+          reason: "send_failed",
+          message: withSmsMessage(message, sms),
+          invoiceId,
+          to,
+          sms,
+        });
       }
 
       if (invoice.status === "draft" || invoice.status === "overdue") {
@@ -408,7 +612,8 @@ Deno.serve(async (req) => {
         sent: true,
         invoiceId: invoice.id,
         to,
-        message: `Invoice sent to ${to}`,
+        sms,
+        message: withSmsMessage(`Invoice sent to ${to}`, sms),
       });
     }
 
@@ -580,6 +785,18 @@ Deno.serve(async (req) => {
           }),
         });
 
+        const sms = await sendTwilioSms(
+          client?.phone,
+          jobReminderSmsBody({
+            jobNumber: job.job_number,
+            title,
+            whenLine,
+            site,
+            companyName,
+            companyPhone,
+          }),
+        );
+
         if (!res.ok) {
           const bodyText = await res.text();
           let message = `Resend API error (${res.status})`;
@@ -589,7 +806,7 @@ Deno.serve(async (req) => {
           } catch {
             if (bodyText) message = bodyText.slice(0, 200);
           }
-          results.push(miss("send_failed", message, { jobId: job.id, to }));
+          results.push(miss("send_failed", message, { jobId: job.id, to, sms }));
           continue;
         }
 
@@ -608,6 +825,7 @@ Deno.serve(async (req) => {
           sent: true,
           jobId: job.id,
           to,
+          sms,
           scheduleHref: `/jobs/${job.id}#job-schedule`,
           client_reminder_sent_at: sentAt,
           client_reminder_sent_for_date: scheduled,
@@ -617,16 +835,19 @@ Deno.serve(async (req) => {
 
     const sent = results.filter((r) => r.sent);
     const missed = results.filter((r) => !r.sent);
+    const firstSms = (sent[0]?.sms ?? missed[0]?.sms) as SmsSendResult | undefined;
+    const emailMessage = sent.length === 1
+      ? `Reminder sent to ${sent[0].to}`
+      : sent.length > 1
+      ? `Reminders sent: ${sent.length}`
+      : (missed[0]?.message as string) ?? "Reminder was not sent.";
     return json({
       sent: sent.length > 0,
       count: sent.length,
       missed: missed.length,
       results,
-      message: sent.length === 1
-        ? `Reminder sent to ${sent[0].to}`
-        : sent.length > 1
-        ? `Reminders sent: ${sent.length}`
-        : (missed[0]?.message as string) ?? "Reminder was not sent.",
+      sms: firstSms ?? null,
+      message: firstSms && sent.length <= 1 ? withSmsMessage(emailMessage, firstSms) : emailMessage,
     });
   } catch (err) {
     return json({ error: String(err), sent: false }, 500);

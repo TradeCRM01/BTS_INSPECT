@@ -22,6 +22,29 @@ export type ReminderMissReason =
   | 'no_job'
   | 'already_sent';
 
+/** SMS is beside email — these never flip email sent-at. */
+export type SmsMissReason =
+  | 'no_phone'
+  | 'no_sms_credentials'
+  | 'send_failed';
+
+export type SmsCredentials = {
+  accountSid?: string | null;
+  authToken?: string | null;
+  fromNumber?: string | null;
+};
+
+export type SmsDecision =
+  | { send: true; to: string }
+  | { send: false; reason: SmsMissReason; message: string; to: string | null };
+
+export type SmsSendResult = {
+  sent: boolean;
+  to: string | null;
+  reason?: SmsMissReason;
+  message: string;
+};
+
 export type ReminderQueryScope = {
   table: 'jobs' | 'clients' | 'email_settings';
   columns: string;
@@ -143,6 +166,79 @@ export function prefillReminderTo(client: ReminderClient | null | undefined): st
   const email = (client?.email ?? '').trim();
   if (!email || !email.includes('@')) return '';
   return email;
+}
+
+/**
+ * Client SMS To: E.164 from clients.phone, or empty. Never invent a number.
+ * AU national 0XXXXXXXXX becomes +61XXXXXXXXX. Already-international stays as-is.
+ */
+export function prefillSmsTo(phone: string | null | undefined): string {
+  const raw = (phone ?? '').trim();
+  if (!raw) return '';
+  const compact = raw.replace(/[^\d+]/g, '');
+  if (!compact || compact === '+') return '';
+  const digits = compact.startsWith('+') ? compact.slice(1).replace(/\D/g, '') : compact.replace(/\D/g, '');
+  if (digits.length < 8 || digits.length > 15) return '';
+  if (digits.length === 10 && digits.startsWith('0')) return `+61${digits.slice(1)}`;
+  if (digits.length === 9 && digits.startsWith('4')) return `+61${digits}`;
+  return `+${digits}`;
+}
+
+export function smsCredentialsReady(creds: SmsCredentials | null | undefined): boolean {
+  const sid = (creds?.accountSid ?? '').trim();
+  const token = (creds?.authToken ?? '').trim();
+  const from = prefillSmsTo(creds?.fromNumber);
+  return !!sid && !!token && !!from;
+}
+
+export function missSmsMessage(reason: SmsMissReason): string {
+  switch (reason) {
+    case 'no_phone':
+      return 'This client has no phone — SMS was not sent.';
+    case 'no_sms_credentials':
+      return 'SMS is not set up.';
+    case 'send_failed':
+      return 'SMS was not sent.';
+  }
+}
+
+export function decideSmsBeside(args: {
+  phone?: string | null;
+  credentials?: SmsCredentials | null;
+}): SmsDecision {
+  const to = prefillSmsTo(args.phone);
+  if (!to) {
+    return { send: false, reason: 'no_phone', message: missSmsMessage('no_phone'), to: null };
+  }
+  if (!smsCredentialsReady(args.credentials)) {
+    return { send: false, reason: 'no_sms_credentials', message: missSmsMessage('no_sms_credentials'), to };
+  }
+  return { send: true, to };
+}
+
+export function smsResultFromMiss(reason: SmsMissReason, to: string | null = null): SmsSendResult {
+  return { sent: false, to, reason, message: missSmsMessage(reason) };
+}
+
+export function smsResultFromSend(ok: boolean, to: string, providerMessage?: string): SmsSendResult {
+  if (ok) return { sent: true, to, message: `SMS sent to ${to}` };
+  const detail = (providerMessage ?? '').trim();
+  return {
+    sent: false,
+    to,
+    reason: 'send_failed',
+    message: detail ? `SMS was not sent: ${detail}` : missSmsMessage('send_failed'),
+  };
+}
+
+/** Email line first; SMS outcome is appended. Email sent-at is not this string. */
+export function formatEmailAndSmsMessage(
+  emailMessage: string,
+  sms: SmsSendResult | null | undefined,
+): string {
+  const email = emailMessage.trim();
+  if (!sms?.message) return email;
+  return `${email} ${sms.message}`;
 }
 
 export function emailSettingsReady(settings: ReminderEmailSettings | null | undefined): boolean {
@@ -335,6 +431,25 @@ export function buildReminderEmail(args: {
   return { to: args.to, subject, html, text, rescheduleMailto, scheduleHref, scheduleUrl };
 }
 
+export function buildReminderSms(args: {
+  job: ReminderJob;
+  company: ReminderCompany;
+}): string {
+  const day = dateOnly(args.job.scheduled_date) ?? '';
+  const when = day ? formatJobDate(day) : 'tomorrow';
+  const start = (args.job.start_time ?? '').slice(0, 5);
+  const whenLine = start ? `${when} at ${start}` : when;
+  const label = jobLabel(args.job);
+  const site = (args.job.address ?? '').trim();
+  const companyName = (args.company.name ?? '').trim() || 'us';
+  const companyPhone = (args.company.phone ?? '').trim();
+  return [
+    `Reminder: ${label} is booked for tomorrow (${whenLine}).`,
+    site ? `Site: ${site}.` : null,
+    `Need to reschedule? Reply or call ${companyPhone || companyName}.`,
+  ].filter(line => line !== null).join(' ');
+}
+
 export type ReminderDecision =
   | ({ send: true } & ReturnType<typeof buildReminderEmail>)
   | {
@@ -493,6 +608,18 @@ export const AUTO_FIRE_CLICK_PATH = [
   'skip already_sent for this scheduled_date; skip no client email',
   'POST https://api.resend.com/emails with email_settings.smtp_pass',
   'UPDATE client_reminder_sent_at / client_reminder_sent_for_date only when Resend returns 2xx',
+] as const;
+
+/**
+ * SMS rides the same job-reminder invoke as email (tray, invoice Send, due=tomorrow).
+ * Twilio secrets stay on the edge. Email sent-at is unchanged if SMS misses.
+ */
+export const JOB_REMINDER_SMS_PIPE = [
+  'supabase.functions.invoke job-reminder (same body as email: jobId / inspectionId / invoiceId / due=tomorrow)',
+  'To = clients.phone (never invented; AU 0… → +61…)',
+  'POST https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json with TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_FROM_NUMBER',
+  'honest miss: no_phone / no_sms_credentials / send_failed — email still sends',
+  'client_reminder_sent_at / invoice status follow email 2xx only',
 ] as const;
 
 /** Same calendar rule the SQL cron uses: (timezone('Australia/Perth', now()))::date + 1 */

@@ -302,7 +302,7 @@ export function InvoicesPage() {
             logo_url: company.logo_url ?? null,
           }}
           onClose={() => setSendingInvoiceId(null)}
-          onSent={(to) => {
+          onSent={(to, message) => {
             setSendingInvoiceId(null);
             queryClient.invalidateQueries({ queryKey: ['invoices'] });
             queryClient.invalidateQueries({ queryKey: ['invoice'] });
@@ -310,7 +310,7 @@ export function InvoicesPage() {
             if (editingInvoice?.id === sendingInvoiceId) {
               setEditingInvoice(inv => inv ? { ...inv, status: 'sent' } : inv);
             }
-            showToast(`Invoice sent to ${to}`);
+            showToast(message ?? `Invoice sent to ${to}`);
           }}
         />
       )}

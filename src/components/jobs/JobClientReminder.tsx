@@ -8,7 +8,9 @@ import type { Client, Job } from '../../types/crm';
 import {
   decideReminderSend,
   jobScheduleHref,
+  missSmsMessage,
   prefillReminderTo,
+  prefillSmsTo,
   type ReminderEmailSettings,
 } from '../../lib/jobReminder';
 
@@ -31,6 +33,7 @@ export function JobClientReminder({
   const [params] = useSearchParams();
   const rescheduleAsked = params.get('reschedule') === '1';
   const to = prefillReminderTo(client);
+  const smsTo = prefillSmsTo(client?.phone);
   const companyId = company?.id ?? job.company_id;
 
   const { data: settings, isFetched: settingsFetched } = useQuery<ReminderEmailSettings | null>({
@@ -84,7 +87,7 @@ export function JobClientReminder({
       queryClient.invalidateQueries({ queryKey: ['job', job.id] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
-      showToast(data.message ?? `Reminder sent to ${to}`);
+      showToast(data.message ?? `Reminder sent to ${to}${smsTo ? '' : ` ${missSmsMessage('no_phone')}`}`);
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   });
@@ -113,12 +116,28 @@ export function JobClientReminder({
           />
         </label>
 
+        <label className="block">
+          <span className="ops-field-label">SMS</span>
+          <input
+            type="tel"
+            readOnly
+            value={smsTo || (client?.phone ?? '').trim()}
+            placeholder="No client phone"
+            className="form-input"
+            aria-label="Reminder SMS recipient"
+          />
+        </label>
+
         {awaitingSmtp ? (
           <p className="job-reminder-meta">Checking email settings…</p>
         ) : decision.send ? (
-          <p className="job-reminder-meta">Auto-sends the day before (Australia/Perth).</p>
+          <p className="job-reminder-meta">Auto-sends the day before (Australia/Perth). SMS uses the client phone when present.</p>
         ) : (
           <p className="job-reminder-miss">{decision.message}</p>
+        )}
+
+        {decision.send && !smsTo && (
+          <p className="job-reminder-meta">{missSmsMessage('no_phone')}</p>
         )}
 
         {sentAt && (

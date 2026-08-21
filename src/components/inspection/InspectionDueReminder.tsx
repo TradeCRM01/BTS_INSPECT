@@ -8,10 +8,11 @@ import {
   decideInspectionDueSend,
   inspectionDueHref,
   prefillReminderTo,
+  prefillSmsTo,
   type DueInspection,
   type DueInspectionJob,
 } from '../../lib/inspectionDueReminder';
-import type { ReminderClient, ReminderEmailSettings } from '../../lib/jobReminder';
+import { missSmsMessage, type ReminderClient, type ReminderEmailSettings } from '../../lib/jobReminder';
 
 export function InspectionDueReminder({
   inspection,
@@ -32,6 +33,7 @@ export function InspectionDueReminder({
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const to = prefillReminderTo(client);
+  const smsTo = prefillSmsTo(client?.phone);
   const companyId = company?.id ?? job?.company_id ?? '';
 
   const { data: settings, isFetched: settingsFetched } = useQuery<ReminderEmailSettings | null>({
@@ -89,7 +91,7 @@ export function InspectionDueReminder({
       queryClient.invalidateQueries({ queryKey: ['inspections'] });
       queryClient.invalidateQueries({ queryKey: ['job-inspections'] });
       queryClient.invalidateQueries({ queryKey: ['client-inspections'] });
-      showToast(data.message ?? `Reminder sent to ${to}`);
+      showToast(data.message ?? `Reminder sent to ${to}${smsTo ? '' : ` ${missSmsMessage('no_phone')}`}`);
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   });
@@ -114,12 +116,28 @@ export function InspectionDueReminder({
           />
         </label>
 
+        <label className="block">
+          <span className="ops-field-label">SMS</span>
+          <input
+            type="tel"
+            readOnly
+            value={smsTo || (client?.phone ?? '').trim()}
+            placeholder="No client phone"
+            className="form-input"
+            aria-label="Due reminder SMS recipient"
+          />
+        </label>
+
         {awaitingSmtp ? (
           <p className="job-reminder-meta">Checking email settings…</p>
         ) : decision.send ? (
-          <p className="job-reminder-meta">Auto-sends the day it is due (Australia/Perth).</p>
+          <p className="job-reminder-meta">Auto-sends the day it is due (Australia/Perth). SMS uses the client phone when present.</p>
         ) : (
           <p className="job-reminder-miss">{decision.message}</p>
+        )}
+
+        {decision.send && !smsTo && (
+          <p className="job-reminder-meta">{missSmsMessage('no_phone')}</p>
         )}
 
         {sentAt && (

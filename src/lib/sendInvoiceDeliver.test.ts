@@ -30,9 +30,26 @@ describe('invoice send deliver path', () => {
     expect(edge).toContain('api.resend.com/emails');
     expect(edge).toContain('email_settings');
     expect(edge).toContain('status: "sent"');
+    expect(edge).toContain('api.twilio.com');
+    expect(edge).toContain('TWILIO_ACCOUNT_SID');
+    expect(edge).toContain('client?.phone');
+    expect(edge).not.toContain('sms_settings');
     expect(edge).not.toContain('from("quotes")');
     expect(edge).not.toContain('send-quote');
     expect(INVOICE_SEND_PIPE.join(' ')).toMatch(/job-reminder/);
+  });
+
+  it('SMS miss does not flip invoice status — sent follows email 2xx only', () => {
+    const edge = readFileSync(resolve(process.cwd(), 'supabase/functions/job-reminder/index.ts'), 'utf8');
+    expect(edge).toMatch(/status: "sent"/);
+    expect(edge).toMatch(/sendTwilioSms/);
+    const emailFail = edge.indexOf('if (!res.ok)');
+    const statusWrite = edge.indexOf('if (invoice.status === "draft"');
+    expect(emailFail).toBeGreaterThan(-1);
+    expect(statusWrite).toBeGreaterThan(emailFail);
+    const statusBlock = edge.slice(statusWrite, statusWrite + 280);
+    expect(statusBlock).toContain('status: "sent"');
+    expect(statusBlock).not.toContain('sms.sent');
   });
 
   it('loads the invoice by id + company before send', () => {
