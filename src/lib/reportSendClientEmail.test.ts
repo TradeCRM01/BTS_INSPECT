@@ -279,6 +279,21 @@ describe('report-send client email — wiring', () => {
     expect(sendCss).toContain('#2E75B6');
     expect(sendCss).toMatch(/\.job-client-email-save[\s\S]*color: #5B6B7C/);
     expect(sendCss).toMatch(/\.job-client-email-addr[\s\S]*color: #0A2540/);
+
+    const primaryCss = css.slice(
+      css.indexOf('.hub-invoice-send .btn-primary'),
+      css.indexOf('.hub-invoices-chrome'),
+    );
+    expect(primaryCss).toContain('.btn-primary:disabled');
+    expect(primaryCss).toContain('.btn-primary:disabled:hover');
+    expect(primaryCss).toContain('opacity: 0.45');
+    expect(primaryCss).toContain('cursor: not-allowed');
+    expect(primaryCss).toMatch(/\.btn-primary:disabled:hover[\s\S]*background: #2E75B6/);
+    expect(css).toContain('.hub-invoice-send-body > .hub-invoice-err');
+    expect(dialog).not.toContain('indigo-500');
+    expect(dialog).not.toContain('sky-500');
+    expect(sendCss).not.toContain('indigo-500');
+    expect(sendCss).not.toContain('sky-500');
   });
 
   it('disables Send report on no_email until a sendable save — no silent handleSend return', () => {
