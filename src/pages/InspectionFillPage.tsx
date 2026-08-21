@@ -350,6 +350,7 @@ export function InspectionFillPage() {
   const jobNumber = meta.jobNumber
     || (selectedJob?.job_number != null ? String(selectedJob.job_number).padStart(4, '0') : '');
   const when = inspection.started_at ? format(new Date(inspection.started_at), 'd MMM yyyy') : null;
+  const jobBound = !!jobId;
 
   function getSectionCompletion(sec: Section) {
     return inspectionSectionCompletion(sec, responses);
@@ -587,14 +588,15 @@ export function InspectionFillPage() {
 
   return (
     <AppShell>
+      <div className={jobBound ? 'hub-job-swms' : undefined}>
       <div className="ops-page-fill">
         <div className="flex items-center justify-between gap-3 mb-3">
           <button
             type="button"
-            onClick={() => navigate('/inspections')}
+            onClick={() => navigate(jobBound ? `/jobs/${jobId}` : '/inspections')}
             className="ops-back"
           >
-            <ChevronLeft size={16} /> Inspections
+            <ChevronLeft size={16} /> {jobBound ? 'Back to job' : 'Inspections'}
           </button>
           {saveHint && (
             <span className={`text-xs ${saveStatus === 'error' ? 'text-fail' : saveStatus === 'saving' ? 'text-warning' : 'text-pass flex items-center gap-1'}`}>
@@ -628,15 +630,22 @@ export function InspectionFillPage() {
           <div className="px-3 pb-3 pt-2 space-y-3">
             <div>
               <label className="ops-field-label">
-                Site / location<span className="text-fail"> *</span>
+                Site / location{!jobBound && <span className="text-fail"> *</span>}
               </label>
-              <input
-                type="text"
-                value={meta.siteName ?? ''}
-                onChange={e => updateMeta('siteName', e.target.value)}
-                placeholder="Where is this inspection?"
-                className="ops-field-site"
-              />
+              {jobBound ? (
+                <>
+                  <p className="job-swms-site">{living.siteName || 'No site address on this job yet'}</p>
+                  <p className="ops-meta mt-1">Site follows this job.</p>
+                </>
+              ) : (
+                <input
+                  type="text"
+                  value={meta.siteName ?? ''}
+                  onChange={e => updateMeta('siteName', e.target.value)}
+                  placeholder="Where is this inspection?"
+                  className="ops-field-site"
+                />
+              )}
             </div>
             <div>
               <label className="ops-field-label">Job</label>
@@ -671,34 +680,45 @@ export function InspectionFillPage() {
                 ))}
               </select>
             </div>
+            {jobBound && (
+              <p className="ops-meta">
+                {living.clientName
+                  ? `Client follows this job · ${living.clientName}`
+                  : 'Client follows this job'}
+              </p>
+            )}
             <button
               type="button"
               onClick={() => setShowMoreIdentity(v => !v)}
-              className="flex items-center gap-1 text-xs font-semibold text-accent min-h-[44px]"
+              className={jobBound ? 'job-swms-quiet' : 'flex items-center gap-1 text-xs font-semibold text-accent min-h-[44px]'}
             >
               <ChevronDown size={14} className={showMoreIdentity ? 'rotate-180' : ''} />
               {showMoreIdentity ? 'Hide extra details' : 'More job details'}
             </button>
             {showMoreIdentity && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-rule">
-                <div>
-                  <label className="ops-field-label">Site address</label>
-                  <input
-                    type="text"
-                    value={meta.siteAddress ?? ''}
-                    onChange={e => updateMeta('siteAddress', e.target.value)}
-                    className="ops-field"
-                  />
-                </div>
-                <div>
-                  <label className="ops-field-label">Client</label>
-                  <input
-                    type="text"
-                    value={meta.clientName ?? ''}
-                    onChange={e => updateMeta('clientName', e.target.value)}
-                    className="ops-field"
-                  />
-                </div>
+                {!jobBound && (
+                  <>
+                    <div>
+                      <label className="ops-field-label">Site address</label>
+                      <input
+                        type="text"
+                        value={meta.siteAddress ?? ''}
+                        onChange={e => updateMeta('siteAddress', e.target.value)}
+                        className="ops-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="ops-field-label">Client</label>
+                      <input
+                        type="text"
+                        value={meta.clientName ?? ''}
+                        onChange={e => updateMeta('clientName', e.target.value)}
+                        className="ops-field"
+                      />
+                    </div>
+                  </>
+                )}
                 <div>
                   <label className="ops-field-label">Job number</label>
                   <input
@@ -854,11 +874,12 @@ export function InspectionFillPage() {
             type="button"
             onClick={runNext}
             disabled={nextBusy}
-            className="ops-next-control-block"
+            className={jobBound ? 'btn-primary job-swms-primary' : 'ops-next-control-block'}
           >
             {saveStatus === 'saving' && next.key === 'save' ? <><LoadingSpinner size="sm" /> Saving…</> : next.label}
           </button>
         </div>
+      </div>
       </div>
     </AppShell>
   );

@@ -811,6 +811,7 @@ export function JobDetailPage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
+          <div id="job-insp">
           <JobRelatedSection
             title="Inspections"
             icon={ClipboardList}
@@ -881,6 +882,7 @@ export function JobDetailPage() {
               );
             })}
           </JobRelatedSection>
+          </div>
 
           <div id="job-swms">
           <JobRelatedSection

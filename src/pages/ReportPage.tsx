@@ -499,13 +499,27 @@ export function ReportPage() {
         <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-semibold text-[#1A1A1A]">{meta.siteName || 'Inspection Report'}</h1>
+              <h1 className="text-xl font-semibold text-[#0A2540]">
+                {boundJob
+                  ? (meta.siteName || 'No site address on this job yet')
+                  : (meta.siteName || 'Inspection Report')}
+              </h1>
               {docVersion > 1 && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
                   v{docVersion}
                 </span>
               )}
             </div>
+            {boundJob && (
+              <>
+                <p className="text-xs font-medium mt-1 text-[#5B6B7C]">Site follows this job.</p>
+                <p className="text-xs font-medium text-[#5B6B7C]">
+                  {meta.clientName
+                    ? `Client follows this job · ${meta.clientName}`
+                    : 'Client follows this job'}
+                </p>
+              </>
+            )}
             {existingReport && (
               <p className="text-sm text-[#4A5568] font-mono mt-0.5">
                 {existingReport.report_number}
