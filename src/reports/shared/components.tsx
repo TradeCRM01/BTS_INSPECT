@@ -56,28 +56,24 @@ export function RunningHeader({
   companyName,
   reportNumber,
   logoUrl,
-  colors,
 }: {
   companyName: string;
   reportNumber: string;
   logoUrl?: string | null;
-  colors?: { navy?: string; accent?: string };
 }) {
-  const navy = colors?.navy || pdfColors.navy;
-  const accent = colors?.accent || pdfColors.accent;
   return (
-    <View style={[sh.headerWrap, { borderBottomColor: accent }]} fixed>
+    <View style={sh.headerWrap} fixed>
       <View style={sh.headerLeft}>
         {logoUrl ? (
           <>
             <Image src={logoUrl} style={{ width: 90, height: 36, objectFit: 'contain', marginRight: 10 }} />
             <View>
-              <Text style={[sh.headerCompany, { color: navy }]}>{companyName.toUpperCase()}</Text>
+              <Text style={sh.headerCompany}>{companyName.toUpperCase()}</Text>
               <Text style={sh.headerSub}>INSPECTION REPORT</Text>
             </View>
           </>
         ) : (
-          <View style={{ backgroundColor: navy, borderRadius: 3, paddingHorizontal: 7, paddingVertical: 4 }}>
+          <View style={{ backgroundColor: pdfColors.navy, borderRadius: 3, paddingHorizontal: 7, paddingVertical: 4 }}>
             <Text style={{ fontFamily: pdfFonts.body, fontSize: 10, fontWeight: 700, color: '#FFFFFF', letterSpacing: 0.5 }}>
               {companyName.toUpperCase()}
             </Text>
@@ -270,22 +266,17 @@ export function SignatureBlock({
   licenceNumber,
   date,
   roleLabel,
-  colors,
 }: {
   signatureUrl?: string | null;
   name: string;
   licenceNumber?: string;
   date: string;
   roleLabel?: string;
-  colors?: { navy?: string; accent?: string; accentLight?: string };
 }) {
-  const navy = colors?.navy || pdfColors.navy;
-  const accent = colors?.accent || pdfColors.accent;
-  const accentLight = colors?.accentLight || pdfColors.accentLight;
   return (
     <View style={{ marginTop: 8 }}>
       {roleLabel ? (
-        <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, fontWeight: 700, color: navy, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, fontWeight: 700, color: pdfColors.navy, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
           {roleLabel}
         </Text>
       ) : null}
@@ -293,7 +284,7 @@ export function SignatureBlock({
         style={{
           width: 280,
           borderWidth: 1,
-          borderColor: accent,
+          borderColor: pdfColors.accent,
           borderRadius: 3,
           overflow: 'hidden',
         }}
@@ -301,13 +292,13 @@ export function SignatureBlock({
         {/* Header strip */}
         <View
           style={{
-            backgroundColor: accentLight,
+            backgroundColor: pdfColors.accentLight,
             paddingHorizontal: 10,
             paddingVertical: 5,
             flexDirection: 'row',
             alignItems: 'center',
             borderBottomWidth: 0.5,
-            borderBottomColor: accent,
+            borderBottomColor: pdfColors.accent,
           }}
         >
           <View
@@ -315,11 +306,11 @@ export function SignatureBlock({
               width: 7,
               height: 7,
               borderRadius: 4,
-              backgroundColor: accent,
+              backgroundColor: pdfColors.accent,
               marginRight: 6,
             }}
           />
-          <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: accent, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase' }}>
+          <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: pdfColors.accent, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase' }}>
             Digitally Signed
           </Text>
         </View>
@@ -334,7 +325,7 @@ export function SignatureBlock({
           </View>
         ) : (
           <View style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 10, backgroundColor: pdfColors.white }}>
-            <Text style={{ fontFamily: pdfFonts.body, fontSize: 18, fontWeight: 700, color: navy, letterSpacing: 0.3 }}>
+            <Text style={{ fontFamily: pdfFonts.body, fontSize: 18, fontWeight: 700, color: pdfColors.navy, letterSpacing: 0.3 }}>
               {name}
             </Text>
           </View>
@@ -356,7 +347,7 @@ export function SignatureBlock({
             <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: pdfColors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 }}>
               Signed By
             </Text>
-            <Text style={{ fontFamily: pdfFonts.body, fontSize: 8.5, color: navy, fontWeight: 700 }}>
+            <Text style={{ fontFamily: pdfFonts.body, fontSize: 8.5, color: pdfColors.navy, fontWeight: 700 }}>
               {name}
             </Text>
           </View>
@@ -365,7 +356,7 @@ export function SignatureBlock({
               <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: pdfColors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 }}>
                 Licence No
               </Text>
-              <Text style={{ fontFamily: pdfFonts.mono, fontSize: 8.5, color: navy, fontWeight: 700 }}>
+              <Text style={{ fontFamily: pdfFonts.mono, fontSize: 8.5, color: pdfColors.navy, fontWeight: 700 }}>
                 {licenceNumber}
               </Text>
             </View>
@@ -374,7 +365,7 @@ export function SignatureBlock({
             <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: pdfColors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 }}>
               Date Signed
             </Text>
-            <Text style={{ fontFamily: pdfFonts.mono, fontSize: 8.5, color: navy, fontWeight: 700 }}>
+            <Text style={{ fontFamily: pdfFonts.mono, fontSize: 8.5, color: pdfColors.navy, fontWeight: 700 }}>
               {date}
             </Text>
           </View>

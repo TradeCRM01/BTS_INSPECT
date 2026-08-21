@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -123,8 +124,25 @@ describe('JHA document report_theme colours', () => {
 
     const renderer = src('src/reports/jha/Renderer.tsx');
     expect(renderer).toContain('jhaDocumentColors');
-    expect(renderer).toContain('colors={brand}');
+    expect(renderer).toContain('function JhaRunningHeader');
+    expect(renderer).toContain('function JhaSignatureBlock');
+    expect(renderer).toContain('colors.navy');
+    expect(renderer).toContain('colors.accent');
+    expect(renderer).toContain('colors.accentLight');
+    expect(renderer).not.toContain('RunningHeader,');
+    expect(renderer).not.toContain('SignatureBlock,');
+    expect(renderer).toMatch(/RunningFooter, MetadataGrid/);
     expect(renderer).not.toMatch(/Grafter|Relovi/);
+
+    const shared = src('src/reports/shared/components.tsx');
+    expect(shared).not.toContain('colors?:');
+    expect(shared).toContain('export function RunningHeader({');
+    expect(shared).toContain('export function SignatureBlock({');
+    const sharedDiff = execSync(
+      'git diff dc99d9ed967e04abb2b7958eeb5c6bfb40f54caf -- src/reports/shared/components.tsx',
+      { encoding: 'utf8' },
+    );
+    expect(sharedDiff).toBe('');
 
     const settings = src('src/pages/CompanySettingsPage.tsx');
     expect(settings).toContain('report_theme');
