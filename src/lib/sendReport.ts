@@ -147,7 +147,7 @@ export function reportSiteName(
   meta: Record<string, string | null> | null | undefined,
   job?: Pick<ReportSendJob, 'address' | 'title'> | null,
 ): string {
-  if (job) return livingJobSite(job) || 'Site';
+  if (job) return livingJobSite({ id: '', address: job.address, title: job.title }) || 'Site';
   return (meta?.siteName ?? '').trim() || 'Site';
 }
 

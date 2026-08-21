@@ -57,7 +57,7 @@ function crewFingerprint(crew: JhaCrewMember[]): string {
 }
 
 /** Job site is the living SWMS / inspection site: address first, then job title. */
-export function livingJobSite(job: { address?: string | null; title?: string | null } | null | undefined): string {
+export function livingJobSite(job: LivingJob | { address?: string | null; title?: string | null } | null | undefined): string {
   if (!job) return '';
   return (job.address ?? '').trim() || (job.title ?? '').trim();
 }
@@ -390,7 +390,7 @@ export function applyLivingJobToInspection(
   const clientName = opts?.skipClient ? currentClientName : livingJobClientName(job);
   const clientId = livingJobClientId(job);
 
-  const next = { ...current, siteName, siteAddress };
+  const next: Record<string, string> = { ...current, siteName, siteAddress };
   if (!opts?.skipClient) next.clientName = clientName;
 
   const changed =

@@ -245,7 +245,7 @@ export function InspectionFillPage() {
         title: selectedJobForLiving.title,
         address: selectedJobForLiving.address,
         client_id: selectedJobForLiving.client_id,
-        client_name: dueClient?.id === selectedJobForLiving.client_id ? (dueClient.name ?? '') : '',
+        client_name: dueClient && dueClient.id === selectedJobForLiving.client_id ? (dueClient.name ?? '') : '',
       }
     : null;
   const livingJobKey = livingJob
@@ -329,7 +329,7 @@ export function InspectionFillPage() {
           title: selectedJob.title,
           address: selectedJob.address,
           client_id: selectedJob.client_id,
-          client_name: dueClient?.id === selectedJob.client_id ? (dueClient.name ?? '') : '',
+          client_name: dueClient && dueClient.id === selectedJob.client_id ? (dueClient.name ?? '') : '',
         }
       : null,
     { skipClient: !!selectedJob?.client_id && dueClient?.id !== selectedJob.client_id },
@@ -557,6 +557,9 @@ export function InspectionFillPage() {
         responses,
         meta,
         crm_job_id: jobId || null,
+        client_id: selectedJob
+          ? (selectedJob.client_id ?? null)
+          : ((inspection as { client_id?: string | null } | null)?.client_id ?? null),
       });
       return;
     }
@@ -650,7 +653,7 @@ export function InspectionFillPage() {
                       title: job.title,
                       address: job.address,
                       client_id: job.client_id,
-                      client_name: dueClient?.id === job.client_id ? (dueClient.name ?? '') : '',
+                      client_name: dueClient && dueClient.id === job.client_id ? (dueClient.name ?? '') : '',
                     }, { skipClient: !!job.client_id && dueClient?.id !== job.client_id });
                     nextMeta = applied.meta;
                     if (job.job_number != null && !(nextMeta.jobNumber ?? '').trim()) {
