@@ -124,10 +124,12 @@ export function take5ListContext(row: {
   parent_site?: string | null;
   job_title?: string | null;
   job_address?: string | null;
+  livingSite?: string | null;
 }): Take5ListActionContext {
   return {
     status: row.status,
     hasSite: take5HasSiteIdentity([
+      row.livingSite,
       row.meta?.location,
       row.parent_site,
       row.job_address,

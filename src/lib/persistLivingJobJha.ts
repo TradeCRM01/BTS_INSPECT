@@ -1,16 +1,18 @@
 import { supabase } from './supabase';
 import {
   applyLivingJobToJha,
+  applyLivingJobToTake5,
   livingJhaMetaPatches,
+  livingTake5MetaPatches,
   type LivingJob,
   type LivingMember,
 } from './livingJha';
 
-export { applyLivingJobToJha, livingJhaMetaPatches };
+export { applyLivingJobToJha, applyLivingJobToTake5, livingJhaMetaPatches, livingTake5MetaPatches };
 
 /**
- * Keep every JHA/SWMS bound to this job current with the job's site and crew.
- * Scoped to this job_id only. Hazards stay on each document's steps.
+ * Keep every JHA/SWMS and Take 5 bound to this job current with the job's site and crew.
+ * Scoped to this job_id only. JHA hazards stay on steps; Take 5 checks stay on the Take 5 row.
  */
 export async function persistLivingJobOnBoundJhas(jobId: string): Promise<{ updated: number }> {
   if (!jobId) return { updated: 0 };
@@ -59,5 +61,22 @@ export async function persistLivingJobOnBoundJhas(jobId: string): Promise<{ upda
       .eq('job_id', jobId);
     if (upErr) throw upErr;
   }
-  return { updated: patches.length };
+
+  const jhaIds = docs.map(doc => doc.id);
+  const { data: take5s, error: take5Err } = await supabase
+    .from('jha_take5')
+    .select('id, meta')
+    .in('jha_document_id', jhaIds);
+  if (take5Err) throw take5Err;
+
+  const take5Patches = livingTake5MetaPatches(take5s ?? [], livingJob, members);
+  for (const patch of take5Patches) {
+    const { error: upErr } = await supabase
+      .from('jha_take5')
+      .update({ meta: patch.meta, updated_at: new Date().toISOString() })
+      .eq('id', patch.id);
+    if (upErr) throw upErr;
+  }
+
+  return { updated: patches.length + take5Patches.length };
 }

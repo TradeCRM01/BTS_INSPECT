@@ -10,6 +10,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, NextBanner, OpsDocHead, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
 import { generateTake5Pdf } from '../reports/generateTake5Pdf';
 import { Take5ListPage } from './Take5ListPage';
+import { applyLivingJobToTake5, livingCrewLabel, livingJobSite } from '../lib/livingJha';
 import {
   recommendTake5FillAction,
   take5FillContext,
@@ -38,6 +39,13 @@ type JhaForTake5 = {
   meta: Record<string, string> | null;
   status: string;
   job_id: string | null;
+};
+
+type JobForTake5 = {
+  id: string;
+  title: string | null;
+  address: string | null;
+  assigned_team: string[] | null;
 };
 
 export function Take5Page() {
@@ -69,7 +77,10 @@ function Take5FillPage() {
     date: format(new Date(), 'yyyy-MM-dd'),
     time: format(new Date(), 'HH:mm'),
     location: '',
+    crewSignOns: '',
   });
+  const metaRef = useRef(meta);
+  metaRef.current = meta;
   const [statusKey, setStatusKey] = useState('draft');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -108,13 +119,23 @@ function Take5FillPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, title, address')
+        .select('id, title, address, assigned_team')
         .eq('id', jha!.job_id!)
         .maybeSingle();
       if (error) throw error;
-      return data as { id: string; title: string | null; address: string | null } | null;
+      return data as JobForTake5 | null;
     },
     enabled: !!jha?.job_id,
+  });
+
+  const { data: teamMembers = [], isSuccess: membersReady } = useQuery({
+    queryKey: ['company-members-jha', profile?.company_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_company_members', { p_company_id: profile!.company_id });
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; name: string; email: string; role: string }>;
+    },
+    enabled: !!profile?.company_id,
   });
 
   useEffect(() => {
@@ -133,24 +154,79 @@ function Take5FillPage() {
       date: existing.meta?.date || format(new Date(), 'yyyy-MM-dd'),
       time: existing.meta?.time || format(new Date(), 'HH:mm'),
       location: existing.meta?.location || '',
+      crewSignOns: existing.meta?.crewSignOns || '',
     });
   }, [existing, profile?.name]);
 
-  useEffect(() => {
-    if (existing || !jha) return;
-    const site = (jha.meta?.siteName || job?.address || job?.title || '').trim();
-    if (!site) return;
-    setMeta(m => (m.location ? m : { ...m, location: site }));
-  }, [existing, jha, job]);
+  const livingJobKey = job
+    ? `${job.id}\0${job.address ?? ''}\0${(job.assigned_team ?? []).join(',')}`
+    : '';
 
+  useEffect(() => {
+    if (!job) return;
+    const applied = applyLivingJobToTake5(
+      metaRef.current,
+      job,
+      membersReady ? teamMembers : [],
+      {
+        skipCrew: !membersReady && (job.assigned_team ?? []).length > 0,
+        currentUserId: profile?.id,
+      },
+    );
+    if (!applied.changed) return;
+    setMeta(prev => ({
+      ...prev,
+      location: applied.siteName || prev.location,
+      crewSignOns: applied.meta.crewSignOns ?? prev.crewSignOns,
+    }));
+    if (!rowId) return;
+    void supabase
+      .from('jha_take5')
+      .select('meta')
+      .eq('id', rowId)
+      .maybeSingle()
+      .then(async ({ data, error: loadErr }) => {
+        if (loadErr) {
+          setError(loadErr.message);
+          return;
+        }
+        const merged = applyLivingJobToTake5(
+          (data?.meta ?? {}) as Record<string, string>,
+          job,
+          membersReady ? teamMembers : [],
+          {
+            skipCrew: !membersReady && (job.assigned_team ?? []).length > 0,
+            currentUserId: profile?.id,
+          },
+        );
+        if (!merged.changed) return;
+        const { error: upErr } = await supabase
+          .from('jha_take5')
+          .update({ meta: merged.meta, updated_at: new Date().toISOString() })
+          .eq('id', rowId);
+        if (upErr) setError(upErr.message);
+        else if (job.id) queryClient.invalidateQueries({ queryKey: ['job-take5s', job.id] });
+      });
+  }, [livingJobKey, membersReady, teamMembers, job, rowId, profile?.id, queryClient]);
+
+  const jobBound = !!job;
+  const living = applyLivingJobToTake5(
+    meta,
+    job,
+    membersReady ? teamMembers : [],
+    {
+      skipCrew: !membersReady && (job?.assigned_team ?? []).length > 0,
+      currentUserId: profile?.id,
+    },
+  );
   const jhaMeta = (jha?.meta ?? {}) as Record<string, string>;
-  const siteLabel = opsSiteLabel(meta.location, jhaMeta.siteName, job?.address, job?.title, jhaMeta.taskName);
+  const siteLabel = opsSiteLabel(living.siteName, meta.location, jhaMeta.siteName, job?.address, job?.title, jhaMeta.taskName);
   const signed = hasStroke || !!existing?.signature;
   const next = recommendTake5FillAction(take5FillContext({
     status: statusKey,
     saved: !!rowId,
     hasPdf: !!pdfUrl,
-    siteParts: [meta.location, jhaMeta.siteName, job?.address, job?.title],
+    siteParts: [living.siteName, meta.location, jhaMeta.siteName, job?.address, job?.title],
     stopThink,
     identifyHazards: identify,
     controlActions: controls,
@@ -181,7 +257,7 @@ function Take5FillPage() {
         jha_document_id: jhaId,
         created_by: profile.id,
         status,
-        meta,
+        meta: jobBound ? { ...meta, location: living.siteName || meta.location, crewSignOns: living.meta.crewSignOns } : meta,
         stop_think: stopThink,
         identify_hazards: identify,
         assess_risk: assess,
@@ -207,6 +283,7 @@ function Take5FillPage() {
       queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
       queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
       queryClient.invalidateQueries({ queryKey: ['jha-take5', take5Id || rowId] });
+      if (job?.id) queryClient.invalidateQueries({ queryKey: ['job-take5s', job.id] });
       setStatusKey(status);
       setSaveHint('saved');
       return true;
@@ -226,13 +303,13 @@ function Take5FillPage() {
     const blob = await generateTake5Pdf({
       parentReportNumber: jha.report_number || '',
       parentTaskName: jhaMeta.taskName || '',
-      parentSiteName: jhaMeta.siteName || '',
+      parentSiteName: living.siteName || jhaMeta.siteName || '',
       companyName: company.name,
       companyLogoUrl: company.logo_url,
       inspectorName: profile.name,
       date: meta.date,
       time: meta.time,
-      location: meta.location,
+      location: living.siteName || meta.location,
       stopThink,
       identifyHazards: identify,
       assessRisk: assess,
@@ -293,6 +370,7 @@ function Take5FillPage() {
   const when = meta.date ? format(new Date(meta.date), 'd MMM yyyy') : null;
   const headMeta = [
     siteLabel !== 'No site address' ? siteLabel : null,
+    livingCrewLabel(living.crew) || null,
     job?.title,
     jhaMeta.taskName,
     when,
@@ -300,14 +378,15 @@ function Take5FillPage() {
 
   return (
     <AppShell>
+      <div className={jobBound ? 'hub-job-swms' : undefined}>
       <div className="ops-page-fill">
         <div className="flex items-center justify-between gap-3 mb-3">
           <button
             type="button"
-            onClick={() => navigate('/jha/take5')}
+            onClick={() => navigate(job ? `/jobs/${job.id}` : '/jha/take5')}
             className="ops-back"
           >
-            <ChevronLeft size={16} /> Take 5s
+            <ChevronLeft size={16} /> {job ? 'Back to job' : 'Take 5s'}
           </button>
           <div className="flex items-center gap-2 text-xs">
             {saveHint && (
@@ -356,14 +435,28 @@ function Take5FillPage() {
           <div className="px-3 pb-3 pt-2 space-y-3">
             <div>
               <label className="ops-field-label">Location / face</label>
-              <input
-                type="text"
-                value={meta.location}
-                onChange={e => setMeta(m => ({ ...m, location: e.target.value }))}
-                placeholder="Where is this check? (board, roof, plant room…)"
-                className="ops-field-site"
-              />
+              {jobBound ? (
+                <>
+                  <p className="job-swms-site">{livingJobSite(job) || 'No site address on this job yet'}</p>
+                  <p className="ops-meta mt-1">Site follows this job.</p>
+                </>
+              ) : (
+                <input
+                  type="text"
+                  value={meta.location}
+                  onChange={e => setMeta(m => ({ ...m, location: e.target.value }))}
+                  placeholder="Where is this check? (board, roof, plant room…)"
+                  className="ops-field-site"
+                />
+              )}
             </div>
+            {jobBound && (
+              <p className="ops-meta">
+                {livingCrewLabel(living.crew)
+                  ? `Crew follows this job · ${livingCrewLabel(living.crew)}`
+                  : 'Crew follows this job'}
+              </p>
+            )}
             {(job?.title || jhaMeta.siteName) && (
               <p className="ops-meta">
                 {[job?.title, jhaMeta.siteName, jha?.report_number].filter(Boolean).join(' · ')}
@@ -458,11 +551,12 @@ function Take5FillPage() {
             type="button"
             onClick={runNext}
             disabled={saving}
-            className="ops-next-control-block"
+            className={jobBound ? 'btn-primary job-swms-primary' : 'ops-next-control-block'}
           >
             {saving ? <><LoadingSpinner size="sm" /> Saving…</> : next.label}
           </button>
         </div>
+      </div>
       </div>
     </AppShell>
   );
