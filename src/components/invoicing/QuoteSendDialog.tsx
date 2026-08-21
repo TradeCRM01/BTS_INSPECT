@@ -86,28 +86,29 @@ export function QuoteSendDialog({
       <div className="hub-quote-send">
         <div className="hub-quote-send-head">
           <div className="min-w-0">
-            <h2 className="hub-quote-send-title">Send</h2>
-            {quoteLabel ? <p className="ops-meta mt-2">{quoteLabel}</p> : null}
+            <h2 className="hub-quote-send-title">Send quote</h2>
+            {quoteLabel ? <p className="hub-quote-muted mt-1">{quoteLabel}</p> : null}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ops-link shrink-0"
-          >
-            Cancel
-          </button>
         </div>
 
         <div className="hub-quote-send-body">
-          {loading && <p className="ops-meta">Loading send details…</p>}
+          {loading && <p className="hub-quote-muted">Loading send details…</p>}
 
           {!loading && ready && decision.ok && (
             <>
-              <p className="hub-quote-send-sentence">
-                To {decision.toName} at {decision.to}.
-              </p>
-              <p className="hub-whisper">{decision.subject}</p>
-              <p className="hub-whisper">{decision.filename}</p>
+              <div className="hub-quote-send-field">
+                <p className="hub-quote-kicker">To</p>
+                <p className="hub-quote-send-value">{decision.to}</p>
+                <p className="hub-quote-muted">{decision.toName} — already on the quote.</p>
+              </div>
+              <div className="hub-quote-send-field">
+                <p className="hub-quote-kicker">Subject</p>
+                <p className="hub-quote-send-value">{decision.subject}</p>
+              </div>
+              <div className="hub-quote-send-field">
+                <p className="hub-quote-kicker">PDF</p>
+                <p className="hub-quote-pdf">{decision.filename}</p>
+              </div>
             </>
           )}
 
@@ -119,9 +120,12 @@ export function QuoteSendDialog({
         </div>
 
         <div className="hub-quote-send-foot">
+          <button type="button" onClick={onClose} className="ops-link shrink-0">
+            Cancel
+          </button>
           {ready && (
             <button type="button" onClick={() => void handleSend()} disabled={sending} className="btn-primary">
-              {sending ? 'Sending…' : 'Send'}
+              {sending ? 'Sending…' : 'Send quote'}
             </button>
           )}
           {!ready && blockerHref && !loading && (

@@ -48,9 +48,20 @@ function quoteTitle(quote: { quote_number?: number | null }): string {
   return quote.quote_number != null ? `Quote #${padQuoteNumber(quote.quote_number)}` : 'Quote';
 }
 
+function quoteRef(quote: { quote_number?: number | null }): string {
+  return quote.quote_number != null ? `#${padQuoteNumber(quote.quote_number)}` : 'Quote';
+}
+
 function quoteMoney(total: number | string | null | undefined): string | null {
   const n = Number(total ?? 0);
   return n > 0 ? formatMoney(n) : null;
+}
+
+function suburbFromSite(site: string): string {
+  const parts = site.split(',').map(part => part.trim()).filter(Boolean);
+  if (parts.length < 2) return site;
+  const loc = parts[1].replace(/\b(NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\b.*$/i, '').trim();
+  return loc || parts[1];
 }
 
 function useCompanySmtpReady(companyId: string | null | undefined) {
@@ -147,10 +158,16 @@ export function QuotesPage() {
     });
   }, [quotes, statusFilter, search]);
 
-  const draftQuotes = filtered.filter(q => quoteListBucket(q.status) === 'draft');
-  const sentQuotes = filtered.filter(q => quoteListBucket(q.status) === 'sent');
-  const acceptedQuotes = filtered.filter(q => quoteListBucket(q.status) === 'accepted');
-  const closedQuotes = filtered.filter(q => quoteListBucket(q.status) === 'closed');
+  const listQuotes = useMemo(() => {
+    const rank = (status: QuoteStatus) => {
+      const bucket = quoteListBucket(status);
+      if (bucket === 'draft') return 0;
+      if (bucket === 'sent') return 1;
+      if (bucket === 'accepted') return 2;
+      return 3;
+    };
+    return [...filtered].sort((a, b) => rank(a.status) - rank(b.status));
+  }, [filtered]);
 
   useEffect(() => {
     const quoteId = searchParams.get('id');
@@ -216,12 +233,11 @@ export function QuotesPage() {
             <h1 className="ops-page-title">Quotes</h1>
           </div>
           <button onClick={() => openQuote(null)} className="btn-primary">
-            <Plus size={16} /> New Quote
+            <Plus size={16} /> New quote
           </button>
         </div>
 
         <div className="hub-quotes-chrome">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search quotes, clients..." className="max-w-sm flex-1" />
           <div className="hub-quotes-filters">
             {STATUS_FILTERS.map(tab => (
               <button
@@ -234,6 +250,7 @@ export function QuotesPage() {
               </button>
             ))}
           </div>
+          <SearchBar value={search} onChange={setSearch} placeholder="Search quotes, clients..." className="max-w-sm" />
         </div>
 
         {isLoading ? (
@@ -247,16 +264,23 @@ export function QuotesPage() {
               : 'Try another status or search.'}
             action={filteredEmpty ? (
               <button onClick={() => openQuote(null)} className="btn-primary">
-                <Plus size={16} /> New Quote
+                <Plus size={16} /> New quote
               </button>
             ) : undefined}
           />
         ) : (
-          <div className="hub-trays">
-            <QuoteGroup title="Drafts" quotes={draftQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
-            <QuoteGroup title="Sent — waiting" quotes={sentQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
-            <QuoteGroup title="Accepted" quotes={acceptedQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
-            <QuoteGroup title="Closed" quotes={closedQuotes} onOpen={openQuote} onSend={setSendingQuoteId} />
+          <div className="hub-quotes-sheet">
+            <div className="hub-quotes-thead">
+              <span>#</span>
+              <span>Customer</span>
+              <span>Suburb</span>
+              <span>Status</span>
+              <span>Total inc GST</span>
+              <span />
+            </div>
+            {listQuotes.map(q => (
+              <QuoteHit key={q.id} quote={q} onOpen={() => openQuote(q)} onSend={() => setSendingQuoteId(q.id)} />
+            ))}
           </div>
         )}
       </div>
@@ -295,30 +319,9 @@ export function QuotesPage() {
   );
 }
 
-function QuoteGroup({
-  title, quotes, onOpen, onSend,
-}: {
-  title: string;
-  quotes: QuoteListItem[];
-  onOpen: (q: QuoteListItem) => void;
-  onSend: (quoteId: string) => void;
-}) {
-  if (quotes.length === 0) return null;
-  return (
-    <div>
-      <h2 className="hub-quotes-group">{title}</h2>
-      <div className="hub-stack">
-        {quotes.map(q => (
-          <QuoteHit key={q.id} quote={q} onOpen={() => onOpen(q)} onSend={() => onSend(q.id)} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function QuoteHit({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () => void; onSend: () => void }) {
   const site = visibleSite(quote.job_address);
-  const whisper = [quote.client_name, site].filter(Boolean).join(' · ');
+  const suburb = site ? suburbFromSite(site) : '';
   const money = quoteMoney(quote.total);
   return (
     <div
@@ -326,19 +329,16 @@ function QuoteHit({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () 
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-      className="hub-row"
+      className="hub-quotes-row"
     >
-      <div className="min-w-0 flex-1">
-        <p className="hub-row-name">{quoteTitle(quote)}</p>
-        {whisper ? <p className="hub-whisper truncate">{whisper}</p> : null}
-      </div>
-      <div className="hub-row-signal">
-        {money ? <p className="hub-signal-amount">{money}</p> : null}
-        <p className="hub-whisper">{QUOTE_STATUS_LABELS[quote.status]}</p>
-        <div onClick={e => e.stopPropagation()}>
-          <QuoteNextControl quote={quote} onSend={onSend} />
-        </div>
-      </div>
+      <span className="hub-quotes-ref">{quoteRef(quote)}</span>
+      <span className="truncate">{quote.client_name || ''}</span>
+      <span className="truncate hub-quotes-muted">{suburb}</span>
+      <span className="hub-quotes-pill">{QUOTE_STATUS_LABELS[quote.status]}</span>
+      <span className="hub-quotes-total">{money ?? ''}</span>
+      <span className="hub-quotes-row-next" onClick={e => e.stopPropagation()}>
+        <QuoteNextControl quote={quote} onSend={onSend} />
+      </span>
     </div>
   );
 }
@@ -685,115 +685,154 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const editorMoney = quoteMoney(grandTotal);
   const editorSite = visibleSite(selectedJob?.address, selectedClient?.address);
   const editorTitle = quote?.quote_number != null ? quoteTitle(quote) : 'New quote';
+  const docLines = form.line_items.filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0);
 
   return (
     <div className="overlay-backdrop">
       <div className="overlay-panel-xl hub-quote-editor" onClick={e => e.stopPropagation()}>
-        <div className="hub-quote-editor-room">
-        <div className="hub-quote-editor-head">
-          <div className="min-w-0 flex-1">
-            <h2 className="hub-quote-editor-title">{editorTitle}</h2>
-            <p className="hub-whisper">{QUOTE_STATUS_LABELS[form.status]}</p>
-          </div>
-          {editorMoney ? (
-            <div className="hub-row-signal">
-              <p className="hub-signal-amount">{editorMoney}</p>
-              <p className="hub-whisper">inc GST</p>
-            </div>
-          ) : null}
-          <button
-            type="button"
-            onClick={onClose}
-            className="hub-quote-close"
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="hub-quote-editor-identity">
-          <div className="min-w-0">
-            {selectedClient?.name ? (
-              <p className="hub-quote-to-name">To {selectedClient.name}</p>
-            ) : null}
-            <OpsSiteRow
-              hub
-              site={editorSite}
-              mapsQuery={selectedJob?.address || selectedClient?.address}
-            />
-            {form.validity_date ? (
-              <p className="hub-whisper mt-2">Valid {format(parseISO(form.validity_date), 'd MMM yyyy')}</p>
-            ) : null}
-            <div className="hub-quote-editor-tools">
-              {form.status === 'sent' && (
-                <button
-                  type="button"
-                  onClick={() => void persist('declined', { close: false, message: 'Quote declined' })}
-                  disabled={saving}
-                  className="ops-link"
-                >
-                  Decline
-                </button>
-              )}
-              {form.status === 'accepted' && invoiceId && (
-                <button type="button" onClick={() => navigate(invoiceHref(invoiceId))} className="ops-link">
-                  Open invoice
-                </button>
-              )}
+        <div className="hub-quote-toolbar">
+          <div className="hub-quote-editor-tools">
+            {form.status === 'sent' && (
               <button
                 type="button"
-                onClick={() => setShowPreview(true)}
-                disabled={!previewData}
+                onClick={() => void persist('declined', { close: false, message: 'Quote declined' })}
+                disabled={saving}
                 className="ops-link"
               >
-                Preview PDF
+                Decline
               </button>
-            </div>
+            )}
+            {form.status === 'accepted' && invoiceId && (
+              <button type="button" onClick={() => navigate(invoiceHref(invoiceId))} className="ops-link">
+                Open invoice
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowPreview(true)}
+              disabled={!previewData}
+              className="ops-link"
+            >
+              Preview PDF
+            </button>
+            <button type="button" onClick={() => void persist(form.status, { close: true })} disabled={saving} className="ops-link">
+              {saving ? 'Saving...' : quote || savedId ? 'Save' : 'Save draft'}
+            </button>
+          </div>
+          <div className="hub-quote-editor-act">
+            {next.key === 'setup_email' && (
+              <button type="button" onClick={() => navigate(COMPANY_EMAIL_SETTINGS_HREF)} className="btn-primary">
+                Set up email
+              </button>
+            )}
+            {next.key === 'add_email' && form.client_id && (
+              <button type="button" onClick={() => navigate(`/clients/${form.client_id}`)} className="btn-primary">
+                Add client email
+              </button>
+            )}
+            {next.key === 'send' && (
+              <button type="button" onClick={() => void handleSend()} disabled={saving} className="btn-primary">
+                {saving ? 'Saving...' : 'Send quote'}
+              </button>
+            )}
+            {next.key === 'accept' && (
+              <button
+                type="button"
+                onClick={() => void persist('accepted', { close: false, message: 'Quote accepted' })}
+                disabled={saving}
+                className="btn-primary"
+              >
+                {saving ? 'Saving...' : 'Mark accepted'}
+              </button>
+            )}
+            {next.key === 'convert_job' && (
+              <button type="button" onClick={() => void handleConvert()} disabled={converting} className="btn-primary">
+                {converting ? 'Converting...' : 'Convert to job'}
+              </button>
+            )}
+            {next.key === 'open_job' && (
+              <button type="button" onClick={() => navigate(`/jobs/${form.job_id}`)} className="btn-primary">
+                Open job
+              </button>
+            )}
+            {next.key === 'invoice' && (
+              <button type="button" onClick={() => void handleInvoice()} disabled={invoicing} className="btn-primary">
+                {invoicing ? 'Creating...' : 'Create invoice'}
+              </button>
+            )}
+            <button type="button" onClick={onClose} className="hub-quote-close" aria-label="Close">
+              <X size={18} />
+            </button>
           </div>
         </div>
 
-        <div className="hub-quote-editor-act">
-          {next.key === 'setup_email' && (
-            <button type="button" onClick={() => navigate(COMPANY_EMAIL_SETTINGS_HREF)} className="btn-primary">
-              Set up email
-            </button>
-          )}
-          {next.key === 'add_email' && form.client_id && (
-            <button type="button" onClick={() => navigate(`/clients/${form.client_id}`)} className="btn-primary">
-              Add client email
-            </button>
-          )}
-          {next.key === 'send' && (
-            <button type="button" onClick={() => void handleSend()} disabled={saving} className="btn-primary">
-              {saving ? 'Saving...' : 'Send'}
-            </button>
-          )}
-          {next.key === 'accept' && (
-            <button
-              type="button"
-              onClick={() => void persist('accepted', { close: false, message: 'Quote accepted' })}
-              disabled={saving}
-              className="btn-primary"
-            >
-              {saving ? 'Saving...' : 'Mark accepted'}
-            </button>
-          )}
-          {next.key === 'convert_job' && (
-            <button type="button" onClick={() => void handleConvert()} disabled={converting} className="btn-primary">
-              {converting ? 'Converting...' : 'Convert to job'}
-            </button>
-          )}
-          {next.key === 'open_job' && (
-            <button type="button" onClick={() => navigate(`/jobs/${form.job_id}`)} className="btn-primary">
-              Open job
-            </button>
-          )}
-          {next.key === 'invoice' && (
-            <button type="button" onClick={() => void handleInvoice()} disabled={invoicing} className="btn-primary">
-              {invoicing ? 'Creating...' : 'Create invoice'}
-            </button>
-          )}
-        </div>
+        <div className="hub-quote-sheet">
+          <div className="hub-quote-banner">
+            <div className="hub-quote-banner-mark">
+              <p className="hub-quote-kicker">Quotation</p>
+              <h2 className="hub-quote-editor-title">{editorTitle}</h2>
+              <p className="hub-quote-banner-meta">
+                {QUOTE_STATUS_LABELS[form.status]}
+                {form.validity_date ? ` · Valid ${format(parseISO(form.validity_date), 'd MMM yyyy')}` : ''}
+              </p>
+            </div>
+          </div>
+
+          <div className="hub-quote-letterhead">
+            <div className="min-w-0">
+              <p className="hub-quote-kicker">From</p>
+              <p className="hub-quote-from-name">{company?.name ?? 'BTS Electrical'}</p>
+              {company?.abn ? <p className="hub-quote-muted">ABN {company.abn}</p> : null}
+              {company?.licence_number ? <p className="hub-quote-muted">Lic {company.licence_number}</p> : null}
+            </div>
+            <div className="min-w-0">
+              <p className="hub-quote-kicker">To</p>
+              {selectedClient?.name ? <p className="hub-quote-to-name">{selectedClient.name}</p> : null}
+              <OpsSiteRow
+                hub
+                site={editorSite}
+                mapsQuery={selectedJob?.address || selectedClient?.address}
+              />
+            </div>
+          </div>
+
+          <table className="hub-quote-lines">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Qty</th>
+                <th>Unit</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {docLines.map((li, idx) => {
+                const qty = parseFloat(li.quantity) || 0;
+                const unit = parseFloat(li.unit_price) || 0;
+                return (
+                  <tr key={`${li.description}-${idx}`}>
+                    <td>{li.description}</td>
+                    <td>{qty}</td>
+                    <td>{formatMoney(unit)}</td>
+                    <td>{formatMoney(qty * unit)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div className="hub-quote-gst">
+            <span>Subtotal (ex GST)</span>
+            <span>{formatMoney(subtotal)}</span>
+            <span>{`GST (${parseFloat(form.tax_rate) || 0}%)`}</span>
+            <span>{formatMoney(taxAmount)}</span>
+          </div>
+          {editorMoney ? (
+            <div className="hub-quote-totalbar">
+              <span>Total (inc GST)</span>
+              <span>{editorMoney}</span>
+            </div>
+          ) : null}
         </div>
 
         <div className="overlay-body hub-quote-editor-body">
@@ -873,9 +912,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           </Field>
 
           {err && <p className="text-sm text-fail">{err}</p>}
-          <button type="button" onClick={() => void persist(form.status, { close: true })} disabled={saving} className="ops-link">
-            {saving ? 'Saving...' : quote || savedId ? 'Save' : 'Save draft'}
-          </button>
         </div>
       </div>
 

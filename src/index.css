@@ -503,244 +503,268 @@
     text-align: right;
   }
 
-  /* Quote surfaces only: a navy room with one light. Clients stay signed white. */
-  .hub-quotes.ops-page,
-  .overlay-backdrop:has(.hub-quote-editor),
-  .overlay-backdrop:has(.hub-quote-send) {
-    isolation: isolate;
-    overflow: hidden;
-    color: #fff;
-    color-scheme: dark;
-    background:
-      radial-gradient(circle at 14% 10%, rgba(255, 255, 255, 0.22) 0%, transparent 28%),
-      radial-gradient(ellipse 90% 70% at 12% 0%, color-mix(in srgb, var(--ops-accent) 48%, #fff) 0%, color-mix(in srgb, var(--ops-accent) 22%, transparent) 36%, transparent 64%),
-      linear-gradient(180deg, #123a58 0%, var(--ops-navy) 42%, #061320 100%);
-  }
-
-  .hub-quotes.ops-page::before,
-  .overlay-backdrop:has(.hub-quote-editor)::before,
-  .overlay-backdrop:has(.hub-quote-send)::before {
-    content: '';
-    position: absolute;
-    top: -5.5rem;
-    left: -4.5rem;
-    width: 28rem;
-    height: 22rem;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.5) 0%, color-mix(in srgb, var(--ops-accent) 55%, #fff) 26%, transparent 70%);
-    filter: blur(42px);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .hub-quotes.ops-page > *,
-  .overlay-backdrop:has(.hub-quote-editor) > *,
-  .overlay-backdrop:has(.hub-quote-send) > * {
-    position: relative;
-    z-index: 1;
-  }
-
+  /* Quote surfaces only: Looplet craft. Clients stay signed. */
   .hub-quotes.ops-page {
-    position: relative;
+    --quote-page: #F4F6F8;
+    --quote-sheet: #FFFFFF;
+    --quote-ink: #0A2540;
+    --quote-muted: #5B6B7C;
+    --quote-line: #D5DCE3;
+    --quote-action: #2E75B6;
     max-width: none;
     width: 100%;
     min-height: calc(100dvh - 3.5rem);
     margin: 0;
-    padding-top: 3.5rem;
-    padding-bottom: 5.5rem;
-    padding-left: max(1.25rem, calc((100% - 1080px) / 2));
-    padding-right: max(1.25rem, calc((100% - 1080px) / 2));
+    background: var(--quote-page);
+    color: var(--quote-ink);
+    padding: 1.25rem 1rem 2.5rem;
   }
 
-  .hub-quotes .ops-page-title,
-  .hub-quote-editor-title,
-  .hub-quote-send-title {
-    font-size: 3.75rem;
-    line-height: 0.84;
-    letter-spacing: -0.06em;
+  .hub-quotes .ops-page-title {
+    font-size: 22px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
     font-weight: 600;
-    color: #fff;
-    text-shadow:
-      0 0 36px rgba(255, 255, 255, 0.45),
-      0 0 90px color-mix(in srgb, var(--ops-accent) 55%, transparent);
-  }
-
-  @media (min-width: 640px) {
-    .hub-quotes .ops-page-title,
-    .hub-quote-editor-title,
-    .hub-quote-send-title {
-      font-size: 6.25rem;
-    }
+    color: var(--quote-ink);
+    text-shadow: none;
   }
 
   .hub-quotes .ops-page-head {
-    margin-bottom: 4.75rem;
-    align-items: flex-end;
-  }
-
-  .hub-quotes .ops-meta,
-  .hub-quote-editor .ops-meta,
-  .hub-quote-send .ops-meta {
-    color: color-mix(in srgb, #fff 34%, transparent);
-  }
-
-  .hub-whisper {
-    font-size: 0.78rem;
-    letter-spacing: 0.01em;
-    color: color-mix(in srgb, #fff 30%, transparent);
-    line-height: 1.35;
-  }
-
-  .hub-quotes .hub-row-name {
-    font-size: 1.85rem;
-    color: #fff;
-    text-shadow: 0 0 36px color-mix(in srgb, var(--ops-accent) 22%, transparent);
-  }
-
-  @media (min-width: 640px) {
-    .hub-quotes .hub-row-name {
-      font-size: 2.35rem;
-    }
-  }
-
-  .hub-quotes .hub-signal-amount,
-  .hub-quote-editor .hub-signal-amount {
-    color: #fff;
-    text-shadow: 0 0 36px color-mix(in srgb, var(--ops-accent) 22%, transparent);
-  }
-
-  .hub-quotes .hub-row .hub-signal-amount {
-    font-size: 1.55rem;
-  }
-
-  .hub-quotes-group {
-    color: color-mix(in srgb, #fff 32%, transparent);
-  }
-
-  .hub-quotes .hub-next {
-    color: var(--ops-accent);
+    max-width: 1100px;
+    margin: 0 auto 1rem;
+    padding-top: 0.25rem;
+    margin-bottom: 1rem;
+    align-items: center;
   }
 
   .hub-quotes .btn-primary,
   .hub-quote-editor .btn-primary,
   .hub-quote-send .btn-primary {
-    background: #fff;
-    color: var(--ops-navy);
+    background: #2E75B6;
+    color: #fff;
     min-height: 44px;
-    padding-left: 1.15rem;
-    padding-right: 1.15rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
     border: none;
-    box-shadow: 0 0 28px color-mix(in srgb, #fff 22%, transparent);
+    box-shadow: none;
   }
 
   .hub-quotes .btn-primary:hover,
   .hub-quote-editor .btn-primary:hover,
   .hub-quote-send .btn-primary:hover {
-    background: #fff;
-    color: var(--ops-navy);
+    background: #2563a0;
+    color: #fff;
   }
 
   .hub-quotes-chrome {
+    max-width: 1100px;
+    margin: 0 auto 0.85rem;
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.65rem;
-    margin-bottom: 4.25rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
   }
 
   .hub-quotes-filters {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.15rem 1.1rem;
+    gap: 0.15rem;
   }
 
   .hub-quotes-chrome .form-input {
-    color: color-mix(in srgb, #fff 70%, transparent);
-    border-bottom-color: color-mix(in srgb, #fff 16%, transparent);
-    caret-color: #fff;
+    background: #fff;
+    color: var(--quote-ink);
+    border: 1px solid var(--quote-line);
+    border-radius: 6px;
+    min-height: 40px;
+    padding-left: 0.75rem !important;
   }
 
   .hub-quotes-chrome .form-input::placeholder {
-    color: color-mix(in srgb, #fff 28%, transparent);
+    color: var(--quote-muted);
   }
 
   .hub-quotes-chrome .form-input:focus {
-    border-bottom-color: color-mix(in srgb, #fff 45%, transparent);
+    border-color: #2E75B6;
+    box-shadow: none;
   }
 
   .hub-quotes-chrome .hub-chrome-filter {
-    color: color-mix(in srgb, #fff 28%, transparent);
+    color: var(--quote-muted);
     min-height: 44px;
-    padding: 0;
+    padding: 0 0.65rem;
     background: none;
     border: none;
-    font-size: 0.78rem;
-    letter-spacing: 0.02em;
+    font-size: 0.8125rem;
   }
 
   .hub-quotes-chrome .hub-chrome-filter-on {
-    color: color-mix(in srgb, #fff 62%, transparent);
+    color: var(--quote-ink);
+    box-shadow: inset 0 -2px 0 #2E75B6;
   }
 
-  .hub-quotes .ops-section-title {
+  .hub-quotes-sheet {
+    max-width: 1100px;
+    margin: 0 auto;
+    background: #fff;
+    border: 1px solid var(--quote-line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .hub-quotes-thead,
+  .hub-quotes-row {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1.4fr) minmax(0, 1fr) 6.25rem 7rem 6.25rem;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.7rem 1rem;
+  }
+
+  .hub-quotes-thead {
+    background: #0A2540;
     color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
-  .hub-quotes .text-muted {
-    color: color-mix(in srgb, #fff 32%, transparent);
+  .hub-quotes-row {
+    background: #fff;
+    border-top: 1px solid var(--quote-line);
+    cursor: pointer;
+    color: var(--quote-ink);
+    font-size: 0.875rem;
+  }
+
+  .hub-quotes-ref {
+    font-weight: 600;
+  }
+
+  .hub-quotes-muted,
+  .hub-quote-muted {
+    color: #5B6B7C;
+  }
+
+  .hub-quotes-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 22px;
+    padding: 0 0.5rem;
+    border: 1px solid var(--quote-line);
+    border-radius: 999px;
+    font-size: 0.7rem;
+    color: #5B6B7C;
+    width: fit-content;
+  }
+
+  .hub-quotes-total {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .hub-quotes-row-next {
+    text-align: right;
+  }
+
+  .hub-quotes .hub-next {
+    color: #2E75B6;
+    background: none;
+    border: none;
+    padding: 0;
+    min-height: 44px;
+    cursor: pointer;
+    text-align: right;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  @media (max-width: 639px) {
+    .hub-quotes-thead {
+      display: none;
+    }
+
+    .hub-quotes-row {
+      grid-template-columns: 1fr auto;
+      grid-template-areas:
+        "ref total"
+        "cust next"
+        "meta next";
+      gap: 0.2rem 0.75rem;
+      padding: 0.85rem 1rem;
+    }
+
+    .hub-quotes-row > :nth-child(1) { grid-area: ref; }
+    .hub-quotes-row > :nth-child(2) { grid-area: cust; }
+    .hub-quotes-row > :nth-child(3),
+    .hub-quotes-row > :nth-child(4) { grid-area: meta; }
+    .hub-quotes-row > :nth-child(5) { grid-area: total; text-align: right; }
+    .hub-quotes-row > :nth-child(6) { grid-area: next; }
   }
 
   .overlay-backdrop:has(.hub-quote-editor),
   .overlay-backdrop:has(.hub-quote-send) {
-    padding: 0;
-    align-items: stretch;
-    justify-content: stretch;
+    background: rgb(244 246 248 / 0.92);
+    padding: 0.75rem;
+    align-items: flex-start;
+    justify-content: center;
   }
 
-  .hub-quote-editor,
-  .hub-quote-send,
-  .overlay-panel-xl.hub-quote-editor,
-  .overlay-panel-md:has(.hub-quote-send) {
+  .overlay-panel-xl.hub-quote-editor {
+    background: #F4F6F8 !important;
+    color: #0A2540;
     box-shadow: none !important;
     border: none !important;
-    background: transparent !important;
-    color: #fff;
-    color-scheme: dark;
     border-radius: 0 !important;
     width: 100% !important;
-    max-width: 100% !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    min-height: 100%;
-  }
-
-  .overlay-panel-xl.hub-quote-editor,
-  .overlay-panel-md:has(.hub-quote-send) {
+    max-width: 920px !important;
+    height: auto !important;
+    max-height: 96vh !important;
+    min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
+    padding: 0.75rem 0.75rem 1.25rem;
   }
 
-  .hub-quote-editor,
-  .hub-quote-send {
-    padding-left: max(1.25rem, calc((100% - 1080px) / 2));
-    padding-right: max(1.25rem, calc((100% - 1080px) / 2));
+  .overlay-panel-md:has(.hub-quote-send) {
+    background: #fff !important;
+    color: #0A2540;
+    box-shadow: 0 16px 40px rgb(10 37 64 / 0.12) !important;
+    border: 1px solid #D5DCE3 !important;
+    border-radius: 8px !important;
+    width: min(520px, 96vw) !important;
+    max-width: min(520px, 96vw) !important;
+    height: auto !important;
+    max-height: 92vh !important;
   }
 
-  .hub-quote-editor-room {
-    min-height: 100dvh;
+  .hub-quote-toolbar {
     display: flex;
-    flex-direction: column;
+    align-items: center;
     justify-content: space-between;
-    padding: 2.5rem 0 2.75rem;
-    gap: 3rem;
+    gap: 0.75rem;
+    padding: 0 0.15rem 0.75rem;
   }
 
-  .hub-quote-editor-head,
-  .hub-quote-send-head {
+  .hub-quote-editor-tools {
     display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 1.5rem;
-    padding: 2.75rem 0 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  .hub-quote-editor .ops-link,
+  .hub-quote-send .ops-link {
+    color: #5B6B7C;
+  }
+
+  .hub-quote-editor-act {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .hub-quote-close {
@@ -750,213 +774,224 @@
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    color: color-mix(in srgb, #fff 34%, transparent);
+    color: #5B6B7C;
     flex-shrink: 0;
     background: none;
     border: none;
   }
 
-  .hub-quote-close:hover {
+  .hub-quote-sheet {
+    background: #fff;
+    border: 1px solid #D5DCE3;
+    overflow: hidden;
+  }
+
+  .hub-quote-banner {
+    background: #0A2540;
     color: #fff;
+    padding: 1.25rem 1.25rem 1.15rem;
   }
 
-  .hub-quote-editor-identity {
-    padding: 0;
-  }
-
-  .hub-quote-editor-head .hub-row-signal {
-    text-align: right;
-    flex-shrink: 0;
-    padding-bottom: 0.35rem;
-  }
-
-  @media (max-width: 639px) {
-    .hub-quote-editor-head {
-      flex-wrap: wrap;
-      align-items: flex-start;
-    }
-
-    .hub-quote-editor-head .hub-row-signal {
-      text-align: left;
-      order: 3;
-      width: 100%;
-      padding-top: 0.5rem;
-    }
-
-    .hub-quote-close {
-      margin-left: auto;
-    }
-  }
-
-  .hub-quote-editor .hub-signal-amount {
-    font-size: 2.6rem;
+  .hub-quote-kicker {
+    font-size: 0.68rem;
     font-weight: 600;
-    letter-spacing: -0.05em;
-    line-height: 0.95;
-    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #2E75B6;
+    margin-bottom: 0.2rem;
   }
 
-  @media (min-width: 640px) {
-    .hub-quote-editor .hub-signal-amount {
-      font-size: 4.25rem;
-    }
+  .hub-quote-banner .hub-quote-kicker {
+    color: rgb(255 255 255 / 0.62);
   }
 
-  .hub-quote-to-name {
-    font-size: 1.05rem;
-    font-weight: 500;
+  .hub-quote-editor-title,
+  .hub-quote-send-title {
+    font-size: 1.35rem;
+    line-height: 1.15;
     letter-spacing: -0.02em;
-    color: color-mix(in srgb, #fff 48%, transparent);
-    line-height: 1.3;
-    margin-bottom: 0.35rem;
+    font-weight: 600;
+    color: #fff;
+    text-shadow: none;
   }
 
-  .hub-quote-editor .ops-hub-site,
-  .hub-quote-editor .ops-link {
-    color: color-mix(in srgb, #fff 28%, transparent);
-    font-size: 0.92rem;
+  .hub-quote-send-title {
+    color: #0A2540;
+    font-size: 1.15rem;
+  }
+
+  .hub-quote-banner-meta {
+    margin-top: 0.25rem;
+    font-size: 0.78rem;
+    color: rgb(255 255 255 / 0.62);
+  }
+
+  .hub-quote-letterhead {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    padding: 1.25rem;
+  }
+
+  .hub-quote-from-name,
+  .hub-quote-to-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #0A2540;
+    line-height: 1.3;
+  }
+
+  .hub-quote-editor .ops-hub-site {
+    color: #5B6B7C;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 
-  .hub-quote-send .ops-link {
-    color: color-mix(in srgb, #fff 34%, transparent);
+  .hub-quote-lines {
+    width: 100%;
+    border-collapse: collapse;
   }
 
-  .hub-quote-editor-tools {
+  .hub-quote-lines th {
+    background: #0A2540;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 0.65rem 1rem;
+  }
+
+  .hub-quote-lines th:nth-child(2),
+  .hub-quote-lines th:nth-child(3),
+  .hub-quote-lines th:nth-child(4),
+  .hub-quote-lines td:nth-child(2),
+  .hub-quote-lines td:nth-child(3),
+  .hub-quote-lines td:nth-child(4) {
+    text-align: right;
+  }
+
+  .hub-quote-lines td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid #D5DCE3;
+    font-size: 0.875rem;
+    color: #0A2540;
+  }
+
+  .hub-quote-gst {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.35rem 1.5rem;
+    justify-content: end;
+    padding: 0.85rem 1.25rem;
+    font-size: 0.8125rem;
+    color: #5B6B7C;
+    max-width: 20rem;
+    margin-left: auto;
+  }
+
+  .hub-quote-totalbar {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 1.15rem;
-    padding: 1.35rem 0 0;
-    opacity: 0.16;
-  }
-
-  .hub-quote-editor-tools:hover,
-  .hub-quote-editor-tools:focus-within {
-    opacity: 0.7;
-  }
-
-  .hub-quote-editor-act {
-    display: flex;
-    align-items: center;
-    padding-bottom: 0.25rem;
+    justify-content: space-between;
+    background: #0A2540;
+    color: #fff;
+    padding: 0.85rem 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 600;
   }
 
   .hub-quote-editor .overlay-body,
   .hub-quote-editor-body {
-    padding: 3.5rem 0 4.5rem;
+    padding: 1.25rem 0.15rem 0.5rem;
     display: flex;
     flex-direction: column;
-    gap: 1.75rem;
+    gap: 1.15rem;
   }
 
   .hub-quote-editor-body .form-input,
   .hub-quote-editor-body .form-input-sm {
-    background: transparent;
-    border-color: transparent;
-    border-bottom: 1px solid color-mix(in srgb, #fff 16%, transparent);
-    border-radius: 0;
+    background: #fff;
+    border: 1px solid #D5DCE3;
+    border-radius: 6px;
     box-shadow: none;
-    min-height: 36px;
-    padding-left: 0;
-    padding-right: 0;
-    color: #fff;
-  }
-
-  .hub-quote-editor-body .form-input:focus,
-  .hub-quote-editor-body .form-input-sm:focus {
-    box-shadow: none;
-    border-color: transparent;
-    border-bottom-color: color-mix(in srgb, #fff 50%, transparent);
-  }
-
-  .hub-quote-editor-body .form-input::placeholder,
-  .hub-quote-editor-body .form-input-sm::placeholder {
-    color: color-mix(in srgb, #fff 28%, transparent);
-  }
-
-  .hub-quote-editor-body select,
-  .hub-quote-editor-body option {
-    background: var(--ops-navy);
-    color: #fff;
-  }
-
-  .hub-quote-editor-body [class*="bg-[#F9FAFB]"],
-  .hub-quote-editor-body [class*="bg-white"],
-  .hub-quote-editor-body [class*="bg-[#EFF6FF]"] {
-    background: transparent !important;
-  }
-
-  .hub-quote-editor-body [class*="border-[#E5E7EB]"],
-  .hub-quote-editor-body [class*="border-[#F3F4F6]"],
-  .hub-quote-editor-body [class*="border-gray"] {
-    border-color: color-mix(in srgb, #fff 14%, transparent) !important;
-  }
-
-  .hub-quote-editor-body [class*="text-[#1A1A1A]"],
-  .hub-quote-editor-body [class*="text-[#4A5568]"],
-  .hub-quote-editor-body [class*="text-[#9CA3AF]"] {
-    color: color-mix(in srgb, #fff 42%, transparent) !important;
+    color: #0A2540;
   }
 
   .hub-quote-editor-math {
-    opacity: 0.4;
-    pointer-events: none;
-  }
-
-  .hub-quote-editor-math .font-semibold {
-    font-weight: 500;
-    color: color-mix(in srgb, #fff 50%, transparent);
-    border-color: transparent;
-  }
-
-  .hub-quote-editor .btn-primary,
-  .hub-quote-send .btn-primary {
-    width: auto;
-    min-width: 10.5rem;
+    display: none;
   }
 
   .hub-quote-send {
-    min-height: 100%;
+    background: #fff;
+    color: #0A2540;
+    padding: 1.15rem 1.25rem 1.15rem;
+  }
+
+  .hub-quote-send-head {
     display: flex;
-    flex-direction: column;
+    align-items: flex-start;
     justify-content: space-between;
-    max-width: 780px;
-    margin: 0 auto;
-    padding-bottom: 2.5rem;
+    gap: 1rem;
   }
 
   .hub-quote-send-body {
-    padding: 4.5rem 0 2.75rem;
+    padding: 1.15rem 0;
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    flex: 1;
   }
 
-  .hub-quote-send-sentence {
-    font-size: 1.85rem;
+  .hub-quote-send-field .hub-quote-kicker {
+    margin-bottom: 0.3rem;
+  }
+
+  .hub-quote-send-value {
+    font-size: 0.95rem;
     font-weight: 600;
-    letter-spacing: -0.04em;
-    line-height: 1.15;
-    color: #fff;
-    text-shadow: 0 0 40px color-mix(in srgb, var(--ops-accent) 28%, transparent);
-    max-width: 18ch;
+    color: #0A2540;
   }
 
-  @media (min-width: 640px) {
-    .hub-quote-send-sentence {
-      font-size: 2.75rem;
-      max-width: 22ch;
-    }
+  .hub-quote-pdf {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 0 0.7rem;
+    border: 1px solid #D5DCE3;
+    border-radius: 6px;
+    background: #F4F6F8;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #0A2540;
   }
 
   .hub-quote-send-foot {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: flex-end;
     gap: 1rem;
-    padding: 0 0 0.5rem;
+    padding-top: 0.25rem;
+    border-top: 1px solid #D5DCE3;
+  }
+
+  @media (max-width: 639px) {
+    .hub-quote-letterhead {
+      grid-template-columns: 1fr;
+    }
+
+    .overlay-backdrop:has(.hub-quote-editor),
+    .overlay-backdrop:has(.hub-quote-send) {
+      padding: 0;
+    }
+
+    .overlay-panel-xl.hub-quote-editor,
+    .overlay-panel-md:has(.hub-quote-send) {
+      width: 100% !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+      border-radius: 0 !important;
+    }
   }
 
   .ops-section-title {
