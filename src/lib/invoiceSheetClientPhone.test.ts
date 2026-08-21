@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { clientPhoneForSms, COMPANY_EMAIL_SETTINGS_HREF } from './sendInvoice';
@@ -331,6 +331,22 @@ describe('invoice-sheet client phone — wiring', () => {
     expect(invoicesPage).toContain('saveJobClientEmail');
     expect(invoicesPage).toContain('job-client-email');
     expect(invoicesPage).toContain('job-client-email-save');
+  });
+
+  it('keeps Flameboy look shots for empty, saved, already-has-phone, and no-client', () => {
+    const shots = [
+      'docs/look/invoice-client-phone-empty-desktop.png',
+      'docs/look/invoice-client-phone-empty-ute.png',
+      'docs/look/invoice-client-phone-saved-desktop.png',
+      'docs/look/invoice-client-phone-saved-ute.png',
+      'docs/look/invoice-client-phone-has-phone-desktop.png',
+      'docs/look/invoice-client-phone-has-phone-ute.png',
+      'docs/look/invoice-client-phone-no-client-desktop.png',
+      'docs/look/invoice-client-phone-no-client-ute.png',
+    ];
+    for (const shot of shots) {
+      expect(existsSync(resolve(process.cwd(), shot)), shot).toBe(true);
+    }
   });
 
   it('leaves quote convert / PR #17 off this control', () => {
