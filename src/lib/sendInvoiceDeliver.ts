@@ -27,7 +27,6 @@ import { formatEmailAndSmsMessage, type SmsSendResult } from './jobReminder';
 import {
   INVOICE_MARKED_PAID_MESSAGE,
   pushInvoiceToXeroAfterSend,
-  type XeroAfterPaidResult,
   type XeroAfterSendResult,
 } from './xeroAccounting';
 import { generateCommercialPdf } from '../reports/commercial/generateCommercialPdf';

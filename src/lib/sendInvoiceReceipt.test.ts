@@ -406,7 +406,8 @@ describe('receipt source lock — Mark paid sheet, existing pipe, quotes off', (
 
   it('reuses deliverInvoiceSend / invoiceId — receipt copy, no chased_at, paid stays paid', () => {
     expect(deliver).toContain("invoke('job-reminder'");
-    expect(deliver).toContain('purpose: \'receipt\'');
+    expect(deliver).toContain('invoiceReceiptOnMarkPaidBody');
+    expect(send).toContain("purpose: 'receipt'");
     expect(deliver).toContain('deliverInvoiceReceiptAfterMarkPaid');
     expect(deliver).toContain('decideInvoiceReceipt');
     expect(deliver).not.toContain('attachXeroPaymentAfterMarkPaid');
@@ -425,13 +426,14 @@ describe('receipt source lock — Mark paid sheet, existing pipe, quotes off', (
     expect(xero).toContain('attachXeroPaymentAfterMarkPaid');
     expect(xero).toContain('decideXeroPaymentOnMarkPaid');
 
+    expect(edge).toContain('has received payment');
+    expect(edge).toContain('Receipt for invoice');
+    expect(edge).toContain('received payment for invoice');
     const deliverStart = edge.indexOf('async function deliverInvoiceSend');
     const deliverFn = edge.slice(deliverStart, edge.indexOf('function reportSiteName'));
     expect(deliverFn).toContain('purpose === "receipt"');
     expect(deliverFn).toContain('invoiceReceiptHtml');
     expect(deliverFn).toContain('invoiceReceiptSmsBody');
-    expect(deliverFn).toContain('has received payment');
-    expect(deliverFn).toContain('Receipt for invoice');
     expect(deliverFn).toContain('copyKind === "receipt"');
     expect(deliverFn).toContain('copyKind !== "receipt"');
     expect(deliverFn).toContain('invoicePatch.chased_at = sentAt');
