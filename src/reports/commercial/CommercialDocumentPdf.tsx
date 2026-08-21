@@ -3,6 +3,7 @@ import { pdfColors, pdfFonts } from '../shared/styles';
 import { formatMoney } from '../../types/fsm';
 import type { QuoteLineItem, InvoiceLineItem } from '../../types/fsm';
 import { gstLabel } from '../../lib/gst';
+import { companyDocumentLogoUrl } from '../../lib/companyLogo';
 
 export type CommercialDocKind = 'quote' | 'invoice' | 'purchase_order';
 
@@ -180,6 +181,7 @@ function kindLabel(kind: CommercialDocKind): string {
 
 export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
   const { company } = data;
+  const logoUrl = companyDocumentLogoUrl(company);
   const contactBits = [company.phone, company.email, company.website].filter(Boolean).join('  ·  ');
   const abnBits = [
     company.abn ? `ABN ${company.abn}` : null,
@@ -192,8 +194,8 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
         {/* 1. Letterhead */}
         <View style={s.letterhead}>
           <View style={s.brandBlock}>
-            {company.logo_url ? (
-              <Image src={company.logo_url} style={s.logo} />
+            {logoUrl ? (
+              <Image src={logoUrl} style={s.logo} />
             ) : null}
             <View>
               <Text style={s.companyName}>{company.name.toUpperCase()}</Text>

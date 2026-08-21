@@ -17,6 +17,7 @@ import {
   type SmsDecision,
 } from './jobReminder';
 import { effectiveInvoiceStatus } from './invoiceStatus';
+import { companyDocumentLogoUrl } from './companyLogo';
 
 export const COMPANY_EMAIL_SETTINGS_HREF = '/settings/company';
 
@@ -1178,7 +1179,7 @@ export function invoiceSendCompanyFrom(company: {
     phone: company?.phone ?? null,
     email: company?.email ?? null,
     website: company?.website ?? null,
-    logo_url: company?.logo_url ?? null,
+    logo_url: companyDocumentLogoUrl(company),
   };
 }
 
@@ -1293,7 +1294,7 @@ export function commercialPdfDataForInvoice(bundle: InvoiceSendBundle, now = new
       phone: bundle.company.phone ?? null,
       email: bundle.company.email ?? null,
       website: bundle.company.website ?? null,
-      logo_url: bundle.company.logo_url ?? null,
+      logo_url: companyDocumentLogoUrl(bundle.company),
     },
     inclusions: asStringList(invoice.inclusions),
     exclusions: asStringList(invoice.exclusions),

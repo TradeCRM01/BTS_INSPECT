@@ -13,6 +13,7 @@ import {
   type InspectionPhotoIn,
 } from '../shared/inspectionCompose';
 import { parseReportTheme, type PdfThemeTokens } from '../shared/styles';
+import { companyDocumentLogoUrl } from '../../lib/companyLogo';
 
 interface ComposeInput {
   inspection: {
@@ -92,7 +93,7 @@ export function composeElectricalReport(input: ComposeInput): ElectricalReportDa
       phone: company.phone ?? undefined,
       email: company.email ?? undefined,
       website: company.website ?? undefined,
-      logoUrl: company.logo_url ?? undefined,
+      logoUrl: companyDocumentLogoUrl(company) ?? undefined,
     },
   };
 }
