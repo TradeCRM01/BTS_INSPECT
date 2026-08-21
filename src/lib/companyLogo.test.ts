@@ -251,13 +251,17 @@ describe('company logo on documents', () => {
     const electricalCompose = src('src/reports/electrical_3000/compose.ts');
     const genericCompose = src('src/reports/generic_inspection/compose.ts');
     const invoiceSend = src('src/lib/sendInvoice.ts');
+    const generatePdf = src('src/reports/generatePdf.ts');
+    const generateJhaPdf = src('src/reports/generateJhaPdf.ts');
+    const generateTake5Pdf = src('src/reports/generateTake5Pdf.ts');
     const settings = src('src/pages/CompanySettingsPage.tsx');
     const quotesPage = src('src/pages/QuotesPage.tsx');
     const invoicesPage = src('src/pages/InvoicesPage.tsx');
 
-    for (const body of [commercial, shared, electricalCompose, genericCompose, invoiceSend]) {
+    for (const body of [commercial, shared, electricalCompose, genericCompose, invoiceSend, generatePdf, generateJhaPdf, generateTake5Pdf]) {
       expect(body).not.toContain('BtsMark');
       expect(body).not.toContain('BrandLockup');
+      expect(body).not.toContain('grafterMark');
       expect(body).not.toMatch(/grafter/i);
       expect(body).not.toContain('/icon.svg');
     }

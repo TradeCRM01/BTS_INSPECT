@@ -10,6 +10,7 @@ export default {
       colors: {
         navy: '#0A2540',
         accent: '#2E75B6',
+        cream: '#F5F0E6',
         pass: '#1B7F3A',
         fail: '#B42318',
         warning: '#B54708',

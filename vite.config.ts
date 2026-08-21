@@ -21,8 +21,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'icon-192.svg', 'icon-512.svg'],
       manifest: {
-        name: 'BTS Inspect',
-        short_name: 'BTS Inspect',
+        name: 'Grafter',
+        short_name: 'Grafter',
         description: 'Field inspection and reporting platform',
         theme_color: '#0A2540',
         background_color: '#F9FAFB',

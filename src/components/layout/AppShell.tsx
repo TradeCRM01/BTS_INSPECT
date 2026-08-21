@@ -246,7 +246,7 @@ export function AppShell({ children }: AppShellProps) {
     <div className="bg-zebra flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
       <header className="shell-header" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
         <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3">
-          <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label="BTS Inspect">
+          <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label="Grafter">
             <BrandLockup size="header" />
           </Link>
 
