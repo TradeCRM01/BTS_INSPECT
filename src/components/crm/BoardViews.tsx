@@ -20,6 +20,8 @@ import {
   format, isToday, addDays, startOfWeek,
 } from 'date-fns';
 import { Clock, Plus, Users } from 'lucide-react';
+import { JobCalendarOverflow } from '../jobs/JobCalendarOverflow';
+import { calendarSite } from '../../lib/jobCalendar';
 
 export interface TeamMember {
   id: string;
@@ -82,7 +84,7 @@ interface JobBlockProps {
 }
 
 const JobBlock = memo(function JobBlock({
-  job, onClick, onDragStart, compact, dragging, fill = true, detail = false,
+  job, teamMembers, onClick, onDragStart, compact, dragging, fill = true, detail = false,
 }: JobBlockProps) {
   const rail = JOB_STATUS_RAIL[job.status];
   const hint = boardDispatchHint(job);
@@ -90,22 +92,44 @@ const JobBlock = memo(function JobBlock({
   const site = opsSiteLabel(job.address, job.client_address);
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       draggable={!!onDragStart}
       onDragStart={onDragStart}
       onClick={e => { e.stopPropagation(); onClick(); }}
-      className={`${fill ? 'absolute left-1 right-1' : 'w-full'} ops-card ops-card-hover cursor-pointer active:scale-[0.98] ${
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          onClick();
+        }
+      }}
+      className={`${fill ? 'absolute left-1 right-1' : 'w-full'} ops-card job-cal-host ops-card-hover cursor-pointer active:scale-[0.98] ${
         dragging ? 'opacity-40' : ''
       }`}
       style={{ borderLeftWidth: 3, borderLeftColor: rail }}
     >
-      <div className="px-1.5 py-1 text-left">
-        {!compact && (
-          <div className="mb-1">
+      <div className="px-1.5 py-1 text-left relative">
+        {compact ? (
+          <div className="absolute top-0 right-0 z-10">
+            <JobCalendarOverflow
+              job={job}
+              site={calendarSite(job.address, job.client_address)}
+              members={teamMembers}
+            />
+          </div>
+        ) : (
+          <div className="flex items-start justify-between gap-1 mb-1">
             <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+            <JobCalendarOverflow
+              job={job}
+              site={calendarSite(job.address, job.client_address)}
+              members={teamMembers}
+            />
           </div>
         )}
-        <p className={`${compact ? 'ops-chip-site' : 'ops-card-site'} truncate`}>
+        <p className={`${compact ? 'ops-chip-site pr-10' : 'ops-card-site'} truncate`}>
           {compact && job.start_time ? `${job.start_time.slice(0, 5)} · ` : ''}
           {formatJobNumber(job.job_number) || 'JOB'} | {site}
         </p>
@@ -117,16 +141,17 @@ const JobBlock = memo(function JobBlock({
         )}
         <span className={`mt-1 ${detail ? 'ops-next-control-block' : 'ops-next-control-sm'}`}>{next}</span>
       </div>
-    </button>
+    </div>
   );
 });
 
 // ── Unscheduled tray (jobs that would otherwise vanish) ──────────
 
 export const NeedsDateRail = memo(function NeedsDateRail({
-  jobs, onJobClick, onDragStart, alwaysShow = false, className = '',
+  jobs, teamMembers, onJobClick, onDragStart, alwaysShow = false, className = '',
 }: {
   jobs: JobWithClient[];
+  teamMembers?: TeamMember[];
   onJobClick: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
   alwaysShow?: boolean;
@@ -147,19 +172,33 @@ export const NeedsDateRail = memo(function NeedsDateRail({
           jobs.map(job => {
             const site = opsSiteLabel(job.address, job.client_address);
             return (
-              <button
+              <div
                 key={job.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 draggable
                 onDragStart={e => onDragStart(e, job.id)}
                 onClick={() => onJobClick(job)}
-                className="ops-card ops-card-hover w-full text-left active:scale-[0.98]"
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onJobClick(job);
+                  }
+                }}
+                className="ops-card job-cal-host ops-card-hover w-full text-left active:scale-[0.98] cursor-pointer"
                 style={{ borderLeftWidth: 3, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
               >
                 <div className="ops-card-body">
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}</p>
-                    <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                      <JobCalendarOverflow
+                        job={job}
+                        site={calendarSite(job.address, job.client_address)}
+                        members={teamMembers}
+                      />
+                    </div>
                   </div>
                   <div className="ops-card-footer">
                     <span className="ops-next-control-block">Set a date</span>
@@ -167,7 +206,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
                   {job.client_name && <p className="ops-meta mt-1.5 truncate">{job.client_name}</p>}
                   {job.title && <p className="ops-meta mt-0.5 truncate">{job.title}</p>}
                 </div>
-              </button>
+              </div>
             );
           })
         )}
@@ -179,9 +218,10 @@ export const NeedsDateRail = memo(function NeedsDateRail({
 // ── Phone day list (no hour grid) ────────────────────────────────
 
 export const PhoneDayList = memo(function PhoneDayList({
-  jobs, currentDate, onJobClick, onDragStart,
+  jobs, teamMembers, currentDate, onJobClick, onDragStart,
 }: {
   jobs: JobWithClient[];
+  teamMembers?: TeamMember[];
   currentDate: Date;
   onJobClick: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
@@ -207,19 +247,33 @@ export const PhoneDayList = memo(function PhoneDayList({
           const mapsQuery = (job.address || job.client_address)?.trim() || null;
           const next = boardDispatchHint(job) ?? jobCardHint(job);
           return (
-            <button
+            <div
               key={job.id}
-              type="button"
+              role="button"
+              tabIndex={0}
               draggable
               onDragStart={e => onDragStart(e, job.id)}
               onClick={() => onJobClick(job)}
-              className="ops-card ops-card-hover w-full text-left"
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onJobClick(job);
+                }
+              }}
+              className="ops-card job-cal-host ops-card-hover w-full text-left cursor-pointer"
               style={{ borderLeftWidth: 4, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
             >
               <div className="ops-card-body">
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}</p>
-                  <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                    <JobCalendarOverflow
+                      job={job}
+                      site={calendarSite(job.address, job.client_address)}
+                      members={teamMembers}
+                    />
+                  </div>
                 </div>
                 <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
                 <div className="ops-card-footer">
@@ -236,7 +290,7 @@ export const PhoneDayList = memo(function PhoneDayList({
                   {job.title && <p className="ops-meta truncate">{job.title}</p>}
                 </div>
               </div>
-            </button>
+            </div>
           );
         })
       )}
@@ -353,7 +407,7 @@ export const DayBoardView = memo(function DayBoardView({
         </p>
       </div>
 
-      <div ref={scrollRef} className="overflow-x-auto">
+      <div ref={scrollRef} className="overflow-x-auto job-cal-board-scroll">
         <div className="flex sticky top-0 z-20 bg-white border-b border-rule">
           <div className="shrink-0 border-r border-rule bg-zebra" style={{ width: LABEL_WIDTH }}>
             <div className="px-3 py-2 flex items-center gap-1.5">
