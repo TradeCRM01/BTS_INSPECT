@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
@@ -16,6 +16,7 @@ import {
 import { applyLivingJobToTake5, livingCrewLabel, livingJobSite } from '../lib/livingJha';
 import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, OpsDocHead, OpsSiteRow, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
+import { take5DocumentColors } from '../reports/take5/theme';
 
 type Take5ListRow = {
   id: string;
@@ -40,7 +41,10 @@ type Take5ListRow = {
 };
 
 export function Take5ListPage() {
-  const { profile } = useAuth();
+  const { profile, company } = useAuth();
+  const docColors = take5DocumentColors(
+    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
+  );
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'all' | 'draft' | 'completed'>('all');
@@ -183,12 +187,14 @@ export function Take5ListPage() {
               title="Needs action"
               rows={openRows}
               members={members}
+              theme={docColors}
               onOpen={href => navigate(href)}
             />
             <Take5Group
               title="Done"
               rows={doneRows}
               members={members}
+              theme={docColors}
               onOpen={href => navigate(href)}
             />
           </div>
@@ -202,11 +208,13 @@ function Take5Group({
   title,
   rows,
   members,
+  theme,
   onOpen,
 }: {
   title: string;
   rows: Take5ListRow[];
   members: Array<{ id: string; name: string; email: string; role: string }>;
+  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: (href: string) => void;
 }) {
   if (rows.length === 0) return null;
@@ -218,7 +226,7 @@ function Take5Group({
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {rows.map(row => (
-          <Take5Card key={row.id} row={row} members={members} onOpen={onOpen} />
+          <Take5Card key={row.id} row={row} members={members} theme={theme} onOpen={onOpen} />
         ))}
       </div>
     </div>
@@ -228,10 +236,12 @@ function Take5Group({
 function Take5Card({
   row,
   members,
+  theme,
   onOpen,
 }: {
   row: Take5ListRow;
   members: Array<{ id: string; name: string; email: string; role: string }>;
+  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: (href: string) => void;
 }) {
   const livingJob = row.job_id
@@ -254,7 +264,13 @@ function Take5Card({
       tabIndex={0}
       onClick={() => onOpen(href)}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(href); } }}
-      className="ops-card ops-card-hover group w-full cursor-pointer"
+      className="take5-doc-theme ops-card ops-card-hover group w-full cursor-pointer"
+      style={{
+        '--take5-navy': theme.navy,
+        '--take5-accent': theme.accent,
+        '--take5-navy-light': theme.navyLight,
+        '--take5-accent-light': theme.accentLight,
+      } as CSSProperties}
     >
       <OpsDocHead
         kind="Take 5"
