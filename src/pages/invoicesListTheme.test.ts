@@ -15,26 +15,27 @@ const savedTheme = {
   navyLight: '#2A5366',
 };
 
-describe('invoice editor overlay report_theme colours', () => {
-  it('paints the editor banner from the saved companies.report_theme palette', () => {
+describe('invoice list sheet report_theme colours', () => {
+  it('paints the list thead from the saved companies.report_theme palette', () => {
     expect(commercialDocumentColors(savedTheme)).toMatchObject(savedTheme);
+    expect(commercialDocumentColors(savedTheme).navy).toBe('#1B3A4B');
+    expect(commercialDocumentColors(savedTheme).accent).toBe('#C45C26');
 
     const invoices = src('src/pages/InvoicesPage.tsx');
-    const editor = invoices.split('function InvoiceEditorModal')[1] ?? '';
-    expect(editor).toContain('commercialDocumentColors');
-    expect(editor).toContain('report_theme');
-    expect(editor).toContain('invoice-doc-theme');
-    expect(editor).toContain("'--invoice-navy': docColors.navy");
-    expect(editor).toContain("'--invoice-accent': docColors.accent");
-    expect(editor).toContain('overlay-panel-xl hub-invoice-editor');
-    expect(editor).not.toContain('ops-doc-panel');
-    expect(editor).not.toContain('OpsDocHead');
-    expect(editor).not.toContain('CompanySettingsPage');
-    expect(editor).not.toContain('setReportTheme');
-    expect(editor).not.toMatch(/Grafter|Relovi|Littleloop|Manrope/);
+    const page = invoices.split('function InvoiceHit')[0] ?? '';
+    expect(page).toContain('commercialDocumentColors');
+    expect(page).toContain('report_theme');
+    expect(page).toContain('invoice-doc-theme');
+    expect(page).toContain("'--invoice-navy': listColors.navy");
+    expect(page).toContain("'--invoice-accent': listColors.accent");
+    expect(page).not.toContain('CompanySettingsPage');
+    expect(page).not.toContain('setReportTheme');
+    expect(page).not.toMatch(/Grafter|Relovi|Littleloop|Manrope/);
+    expect(page).not.toContain('ops-card');
+    expect(page).not.toContain('OpsDocHead');
   });
 
-  it('keeps the existing editor banner colours when the theme is blank', () => {
+  it('keeps the existing list thead colours when the theme is blank', () => {
     expect(commercialDocumentColors(null).navy).toBe('#0A2540');
     expect(commercialDocumentColors(null).accent).toBe('#2E75B6');
     expect(commercialDocumentColors({})).toEqual(defaultPdfColors);
@@ -48,7 +49,7 @@ describe('invoice editor overlay report_theme colours', () => {
     expect(JSON.stringify(colors)).not.toMatch(/cream|grafter|relovi|littleloop/i);
   });
 
-  it('does not add a settings page, recast Send, or edit shared PDF chrome', () => {
+  it('does not add a settings page, recast Send, or turn the sheet into quote cards', () => {
     const app = src('src/App.tsx');
     expect(app).toContain('CompanySettingsPage');
     expect(app).not.toContain('InvoiceTheme');
@@ -56,10 +57,18 @@ describe('invoice editor overlay report_theme colours', () => {
     expect(existsSync(resolve(process.cwd(), 'src/pages/ReportThemePage.tsx'))).toBe(false);
 
     const css = src('src/index.css');
-    expect(css).toContain('.invoice-doc-theme .hub-invoice-banner');
+    expect(css).toContain('.invoice-doc-theme .hub-invoices-thead');
+    expect(css).toContain('.invoice-doc-theme .hub-invoices-chrome .hub-chrome-filter-on');
     expect(css).not.toMatch(/\.invoice-doc-theme \.btn-primary/);
     expect(css).not.toMatch(/\.invoice-doc-theme \.ops-next-control/);
     expect(css).not.toMatch(/\.invoice-doc-theme \.ops-doc-head/);
+
+    const invoices = src('src/pages/InvoicesPage.tsx');
+    const hit = invoices.split('function InvoiceHit')[1]?.split('function InvoiceEditorModal')[0] ?? '';
+    expect(hit).toContain('hub-invoices-row');
+    expect(hit).not.toContain('invoice-doc-theme');
+    expect(hit).not.toContain('ops-card');
+    expect(hit).not.toContain('OpsDocHead');
 
     const send = src('src/components/invoicing/InvoiceSendDialog.tsx');
     expect(send).toContain('hub-invoice-send');
@@ -69,16 +78,12 @@ describe('invoice editor overlay report_theme colours', () => {
     expect(shared).not.toContain('colors?:');
   });
 
-  it('does not recast list rows, quote editor, JHA, Take 5, AppShell, or the Grafter mark', () => {
+  it('does not disturb invoice editor, quote list, JHA, Take 5, AppShell, or the Grafter mark', () => {
     const invoices = src('src/pages/InvoicesPage.tsx');
-    const list = invoices.split('function InvoiceEditorModal')[0] ?? '';
-    const hit = list.split('function InvoiceHit')[1] ?? '';
-    expect(list).toContain('commercialPdfCompanyFrom');
-    expect(list).toContain('invoice-doc-theme');
-    expect(hit).not.toContain('invoice-doc-theme');
-    expect(hit).not.toContain('ops-card');
-    expect(hit).not.toContain('quote-doc-theme');
-    expect(list).not.toContain('quote-doc-theme');
+    const editor = invoices.split('function InvoiceEditorModal')[1] ?? '';
+    expect(editor).toContain('invoice-doc-theme');
+    expect(editor).toContain('hub-invoice-banner');
+    expect(editor).toContain("'--invoice-navy': docColors.navy");
 
     const quotes = src('src/pages/QuotesPage.tsx');
     expect(quotes).toContain('quote-doc-theme');

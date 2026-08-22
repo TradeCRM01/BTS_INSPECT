@@ -96,6 +96,9 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
 
 export function InvoicesPage() {
   const { profile, company } = useAuth();
+  const listColors = commercialDocumentColors(
+    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
+  );
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -237,7 +240,15 @@ export function InvoicesPage() {
 
   return (
     <AppShell>
-      <div className="ops-page hub-invoices">
+      <div
+        className="invoice-doc-theme ops-page hub-invoices"
+        style={{
+          '--invoice-navy': listColors.navy,
+          '--invoice-accent': listColors.accent,
+          '--invoice-navy-light': listColors.navyLight,
+          '--invoice-accent-light': listColors.accentLight,
+        } as CSSProperties}
+      >
         <div className="ops-page-head">
           <div>
             <h1 className="ops-page-title">Invoices</h1>
