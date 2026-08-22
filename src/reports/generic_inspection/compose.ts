@@ -12,8 +12,9 @@ import {
   collectDefects,
   type InspectionPhotoIn,
 } from '../shared/inspectionCompose';
-import { parseReportTheme, type PdfThemeTokens } from '../shared/styles';
+import type { PdfThemeTokens } from '../shared/styles';
 import { companyDocumentLogoUrl } from '../../lib/companyLogo';
+import { inspectionReportTheme } from './theme';
 
 interface ComposeInput {
   inspection: {
@@ -83,7 +84,7 @@ export function composeGenericReport(input: ComposeInput): GenericReportData {
     overallVerdict,
     overallVerdictLabel: verdictLabel(overallVerdict),
     layoutMode: template.schema.meta.layoutMode ?? 'checklist',
-    theme: parseReportTheme(company.report_theme),
+    theme: inspectionReportTheme(company.report_theme),
     docVersion: inspection.doc_version ?? 1,
     amendmentReason: inspection.amendment_reason || meta.amendmentReason || undefined,
     sections,

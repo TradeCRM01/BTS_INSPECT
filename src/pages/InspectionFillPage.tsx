@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -22,6 +22,7 @@ import {
   recommendInspectionFillAction,
 } from '../lib/inspectionNextAction';
 import { applyLivingJobToInspection } from '../lib/livingJha';
+import { inspectionDocumentColors } from '../reports/generic_inspection/theme';
 
 type SaveStatus = 'saved' | 'saving' | 'error' | 'offline';
 
@@ -586,9 +587,21 @@ export function InspectionFillPage() {
           : saveStatus === 'offline' ? 'Offline'
             : null;
 
+  const docColors = inspectionDocumentColors(
+    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
+  );
+
   return (
     <AppShell>
-      <div className={jobBound ? 'hub-job-swms' : undefined}>
+      <div
+        className={jobBound ? 'hub-job-swms insp-doc-theme' : 'insp-doc-theme'}
+        style={{
+          '--insp-navy': docColors.navy,
+          '--insp-accent': docColors.accent,
+          '--insp-navy-light': docColors.navyLight,
+          '--insp-accent-light': docColors.accentLight,
+        } as CSSProperties}
+      >
       <div className="ops-page-fill">
         <div className="flex items-center justify-between gap-3 mb-3">
           <button

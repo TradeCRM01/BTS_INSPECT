@@ -3,7 +3,8 @@ import React from 'react';
 import { registerFonts } from './shared/fonts';
 import { reportRegistry, type RendererKey } from './registry';
 import type { TemplateSchema } from '../types/template';
-import { defaultPdfColors, parseReportTheme, pdfColors, resolvePdfColors } from './shared/styles';
+import { inspectionReportTheme } from './generic_inspection/theme';
+import { defaultPdfColors, pdfColors, resolvePdfColors } from './shared/styles';
 
 interface GenerateInput {
   inspection: {
@@ -52,7 +53,7 @@ export async function generatePdf(input: GenerateInput): Promise<Blob> {
     fontsRegistered = true;
   }
 
-  Object.assign(pdfColors, resolvePdfColors(parseReportTheme(input.company.report_theme)));
+  Object.assign(pdfColors, resolvePdfColors(inspectionReportTheme(input.company.report_theme)));
 
   try {
     const rendererKey = getRendererKey(input.template.report_renderer);

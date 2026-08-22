@@ -1,20 +1,27 @@
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
 import type { GenericReportData, GenericAnswer } from './types';
 import {
-  RunningHeader, RunningFooter, SectionHeaderBar,
-  MetadataGrid, PhotoThumb, VerdictPill, SignatureBlock,
-  CoverLetterhead, OverallVerdictStamp, DefectRegister,
+  RunningFooter,
+  MetadataGrid, PhotoThumb, VerdictPill,
+  OverallVerdictStamp, DefectRegister,
 } from '../shared/components';
 import { TestScheduleTable } from '../shared/TestScheduleTable';
-import { pdfColors, pdfFonts } from '../shared/styles';
+import { pdfColors as stockPdfColors, pdfFonts, type PdfColors } from '../shared/styles';
 import { formatMeasured } from '../shared/inspectionCompose';
 import { isNaAnswer } from '../../types/template';
+import {
+  InspectionCoverLetterhead,
+  InspectionRunningHeader,
+  InspectionSectionHeaderBar,
+  InspectionSignatureBlock,
+} from './chrome';
+import { inspectionDocumentColors } from './theme';
 
 const styles = StyleSheet.create({
   page: {
     fontFamily: pdfFonts.body,
     fontSize: 9,
-    color: pdfColors.text,
+    color: stockPdfColors.text,
     paddingTop: 0,
     paddingBottom: 40,
     paddingHorizontal: 0,
@@ -23,7 +30,7 @@ const styles = StyleSheet.create({
   coverPage: {
     fontFamily: pdfFonts.body,
     fontSize: 9,
-    color: pdfColors.text,
+    color: stockPdfColors.text,
     paddingBottom: 0,
     paddingHorizontal: 0,
   },
@@ -33,38 +40,38 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
-    borderBottomColor: pdfColors.rule,
+    borderBottomColor: stockPdfColors.rule,
   },
   questionLabel: {
     fontFamily: pdfFonts.body,
     fontSize: 8,
-    color: pdfColors.textMuted,
+    color: stockPdfColors.textMuted,
     width: '38%',
     paddingRight: 8,
   },
   questionValue: {
     fontFamily: pdfFonts.body,
     fontSize: 8.5,
-    color: pdfColors.text,
+    color: stockPdfColors.text,
     fontWeight: 700,
     flex: 1,
   },
   noAnswer: {
     fontFamily: pdfFonts.body,
     fontSize: 8.5,
-    color: pdfColors.rule,
+    color: stockPdfColors.rule,
     flex: 1,
   },
   comment: {
     fontFamily: pdfFonts.body,
     fontSize: 7.5,
-    color: pdfColors.textSecondary,
+    color: stockPdfColors.textSecondary,
     fontStyle: 'italic',
     paddingHorizontal: 8,
     paddingBottom: 6,
-    backgroundColor: pdfColors.ruleLight,
+    backgroundColor: stockPdfColors.ruleLight,
     borderBottomWidth: 0.5,
-    borderBottomColor: pdfColors.rule,
+    borderBottomColor: stockPdfColors.rule,
   },
   photoGrid: {
     flexDirection: 'row',
@@ -72,7 +79,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingBottom: 8,
     paddingTop: 4,
-    backgroundColor: pdfColors.ruleLight,
+    backgroundColor: stockPdfColors.ruleLight,
   },
 });
 
@@ -98,15 +105,15 @@ function renderAnswerValue(answer: GenericAnswer): string {
   return String(value);
 }
 
-function AnswerBlock({ answer, index, compact }: { answer: GenericAnswer; index: number; compact?: boolean }) {
+function AnswerBlock({ answer, index, compact, colors }: { answer: GenericAnswer; index: number; compact?: boolean; colors: PdfColors }) {
   const displayVal = renderAnswerValue(answer);
-  const bg = index % 2 !== 0 ? pdfColors.zebra : pdfColors.white;
+  const bg = index % 2 !== 0 ? colors.zebra : colors.white;
   const showPhotos = !compact && answer.photos && answer.photos.length > 0;
 
   if (answer.type === 'heading') {
     return (
-      <View style={{ paddingHorizontal: 8, paddingTop: 8, paddingBottom: 3, backgroundColor: pdfColors.zebra, borderBottomWidth: 0.5, borderBottomColor: pdfColors.rule }}>
-        <Text style={{ fontFamily: pdfFonts.body, fontSize: 7.5, fontWeight: 700, color: pdfColors.navy, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+      <View style={{ paddingHorizontal: 8, paddingTop: 8, paddingBottom: 3, backgroundColor: colors.zebra, borderBottomWidth: 0.5, borderBottomColor: colors.rule }}>
+        <Text style={{ fontFamily: pdfFonts.body, fontSize: 7.5, fontWeight: 700, color: colors.navy, textTransform: 'uppercase', letterSpacing: 0.8 }}>
           {answer.label}
         </Text>
       </View>
@@ -118,7 +125,7 @@ function AnswerBlock({ answer, index, compact }: { answer: GenericAnswer; index:
     return (
       <View style={[styles.questionRow, { backgroundColor: bg, alignItems: 'center' }]}>
         <Text style={styles.questionLabel}>{answer.label}</Text>
-        <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, color: pdfColors.accent, flex: 1 }}>
+        <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, color: colors.accent, flex: 1 }}>
           See sign-off page
         </Text>
       </View>
@@ -208,6 +215,7 @@ function isVisibleAnswer(a: GenericAnswer): boolean {
 }
 
 export function GenericInspectionRenderer({ data }: { data: GenericReportData }) {
+  const pdfColors = inspectionDocumentColors(data.theme);
   const isCertificate = data.layoutMode === 'certificate';
   const useSchedule = data.layoutMode === 'test_schedule' || data.layoutMode === 'certificate';
 
@@ -240,10 +248,11 @@ export function GenericInspectionRenderer({ data }: { data: GenericReportData })
     <Document title={docTitle}>
       {/* ── COVER PAGE ── */}
       <Page size="A4" style={styles.coverPage}>
-        <CoverLetterhead
+        <InspectionCoverLetterhead
           companyName={data.companyName}
           logoUrl={data.companyLogoUrl}
           contactLine={contactParts || undefined}
+          colors={pdfColors}
         />
 
         <View style={{ paddingHorizontal: 40, paddingTop: 20, flex: 1 }}>
@@ -284,10 +293,11 @@ export function GenericInspectionRenderer({ data }: { data: GenericReportData })
 
       {/* ── CONTENT (multi-page wrap enabled) ── */}
       <Page size="A4" style={styles.page} wrap>
-        <RunningHeader
+        <InspectionRunningHeader
           companyName={data.companyName}
           reportNumber={data.reportNumber}
           logoUrl={data.companyLogoUrl}
+          colors={pdfColors}
         />
         <View style={styles.body}>
           {data.sections.map((sec, si) => {
@@ -300,14 +310,16 @@ export function GenericInspectionRenderer({ data }: { data: GenericReportData })
                     title={sec.title.toUpperCase()}
                     sectionNumber={String(si + 1).padStart(2, '0')}
                     instances={sec.instances}
+                    colors={pdfColors}
                   />
                 );
               }
               return (
                 <View key={sec.id} style={styles.sectionBody}>
-                  <SectionHeaderBar
+                  <InspectionSectionHeaderBar
                     number={String(si + 1).padStart(2, '0')}
                     title={sec.title.toUpperCase()}
+                    colors={pdfColors}
                   />
                   {sec.description ? (
                     <Text style={{ fontSize: 8, color: pdfColors.textMuted, marginBottom: 8, fontStyle: 'italic', paddingHorizontal: 8 }}>
@@ -323,7 +335,7 @@ export function GenericInspectionRenderer({ data }: { data: GenericReportData })
                       </View>
                       <View style={{ borderWidth: 0.5, borderTopWidth: 0, borderColor: pdfColors.rule }}>
                         {inst.answers.filter(isVisibleAnswer).map((answer, ai) => (
-                          <AnswerBlock key={ai} answer={answer} index={ai} compact={isCertificate} />
+                          <AnswerBlock key={ai} answer={answer} index={ai} compact={isCertificate} colors={pdfColors} />
                         ))}
                       </View>
                     </View>
@@ -338,9 +350,10 @@ export function GenericInspectionRenderer({ data }: { data: GenericReportData })
 
             return (
               <View key={sec.id} style={styles.sectionBody}>
-                <SectionHeaderBar
+                <InspectionSectionHeaderBar
                   number={String(si + 1).padStart(2, '0')}
                   title={sec.title.toUpperCase()}
+                  colors={pdfColors}
                 />
                 {sec.description ? (
                   <Text style={{ fontSize: 8, color: pdfColors.textMuted, marginBottom: 8, fontStyle: 'italic', paddingHorizontal: 8 }}>
@@ -350,7 +363,7 @@ export function GenericInspectionRenderer({ data }: { data: GenericReportData })
 
                 <View style={{ borderWidth: 0.5, borderColor: pdfColors.rule }}>
                   {visibleAnswers.map((answer, ai) => (
-                    <AnswerBlock key={ai} answer={answer} index={ai} compact={isCertificate} />
+                    <AnswerBlock key={ai} answer={answer} index={ai} compact={isCertificate} colors={pdfColors} />
                   ))}
                 </View>
               </View>
@@ -362,13 +375,14 @@ export function GenericInspectionRenderer({ data }: { data: GenericReportData })
 
       {/* ── DEFECT REGISTER ── */}
       <Page size="A4" style={styles.page} wrap>
-        <RunningHeader
+        <InspectionRunningHeader
           companyName={data.companyName}
           reportNumber={data.reportNumber}
           logoUrl={data.companyLogoUrl}
+          colors={pdfColors}
         />
         <View style={styles.body}>
-          <SectionHeaderBar number="D" title="NON-CONFORMANCE / DEFECT REGISTER" />
+          <InspectionSectionHeaderBar number="D" title="NON-CONFORMANCE / DEFECT REGISTER" colors={pdfColors} />
           <Text style={{ fontSize: 8, color: pdfColors.textMuted, marginBottom: 12, paddingHorizontal: 4 }}>
             Fail-flagged checklist items and measurements outside configured limits. Action notes come from inspector comments.
           </Text>
@@ -380,13 +394,14 @@ export function GenericInspectionRenderer({ data }: { data: GenericReportData })
       {/* ── PHOTO APPENDIX ── */}
       {data.photoAppendix.length > 0 && (
         <Page size="A4" style={styles.page} wrap>
-          <RunningHeader
+          <InspectionRunningHeader
             companyName={data.companyName}
             reportNumber={data.reportNumber}
             logoUrl={data.companyLogoUrl}
+            colors={pdfColors}
           />
           <View style={styles.body}>
-            <SectionHeaderBar number="A" title="PHOTO APPENDIX" />
+            <InspectionSectionHeaderBar number="A" title="PHOTO APPENDIX" colors={pdfColors} />
             <Text style={{ fontSize: 8, color: pdfColors.textMuted, marginBottom: 12, paddingHorizontal: 4 }}>
               Evidence photos captured during this inspection.
             </Text>
@@ -415,13 +430,14 @@ export function GenericInspectionRenderer({ data }: { data: GenericReportData })
 
       {/* ── SIGN-OFF PAGE ── */}
       <Page size="A4" style={styles.page}>
-        <RunningHeader
+        <InspectionRunningHeader
           companyName={data.companyName}
           reportNumber={data.reportNumber}
           logoUrl={data.companyLogoUrl}
+          colors={pdfColors}
         />
         <View style={styles.body}>
-          <SectionHeaderBar number="S" title="SIGN-OFF & CERTIFICATION" />
+          <InspectionSectionHeaderBar number="S" title="SIGN-OFF & CERTIFICATION" colors={pdfColors} />
           <Text style={{ fontSize: 8.5, color: pdfColors.textSecondary, marginBottom: 16, paddingHorizontal: 4, lineHeight: 1.4 }}>
             The undersigned confirms that the inspection findings in this report are true and correct
             to the best of their knowledge at the date of issue.
@@ -435,12 +451,13 @@ export function GenericInspectionRenderer({ data }: { data: GenericReportData })
             name: data.inspectorName,
           }]).map((sig, i) => (
             <View key={i} style={{ marginBottom: 16 }}>
-              <SignatureBlock
+              <InspectionSignatureBlock
                 roleLabel={sig.label}
                 signatureUrl={sig.signatureUrl}
                 name={sig.name}
                 licenceNumber={data.inspectorLicence}
                 date={data.signoffDate}
+                colors={pdfColors}
               />
             </View>
           ))}
@@ -452,11 +469,12 @@ export function GenericInspectionRenderer({ data }: { data: GenericReportData })
               </Text>
               {data.countersignatures.map((c, i) => (
                 <View key={i} style={{ marginBottom: 16 }}>
-                  <SignatureBlock
+                  <InspectionSignatureBlock
                     roleLabel={c.roleLabel}
                     signatureUrl={c.signatureUrl}
                     name={c.name}
                     date={c.date || data.signoffDate}
+                    colors={pdfColors}
                   />
                 </View>
               ))}

@@ -1,64 +1,71 @@
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
 import type { ElectricalReportData, ElectricalAnswer } from './types';
 import {
-  RunningHeader, RunningFooter, SectionHeaderBar,
-  VerdictPill, MetadataGrid, PhotoThumb, SignatureBlock,
-  CoverLetterhead, OverallVerdictStamp, DefectRegister,
+  RunningFooter,
+  VerdictPill, MetadataGrid, PhotoThumb,
+  OverallVerdictStamp, DefectRegister,
 } from '../shared/components';
 import { TestScheduleTable } from '../shared/TestScheduleTable';
-import { pdfColors, pdfFonts } from '../shared/styles';
+import { pdfColors as stockPdfColors, pdfFonts, type PdfColors } from '../shared/styles';
 import { formatMeasured } from '../shared/inspectionCompose';
 import { isNaAnswer } from '../../types/template';
+import {
+  InspectionCoverLetterhead,
+  InspectionRunningHeader,
+  InspectionSectionHeaderBar,
+  InspectionSignatureBlock,
+} from '../generic_inspection/chrome';
+import { inspectionDocumentColors } from '../generic_inspection/theme';
 
 const s = StyleSheet.create({
   page: {
     fontFamily: pdfFonts.body,
     fontSize: 9,
-    color: pdfColors.text,
+    color: stockPdfColors.text,
     paddingTop: 0,
     paddingBottom: 40,
     paddingHorizontal: 0,
   },
   body: { paddingHorizontal: 28, paddingTop: 18 },
-  coverPage: { fontFamily: pdfFonts.body, fontSize: 9, color: pdfColors.text, paddingBottom: 0, paddingHorizontal: 0 },
+  coverPage: { fontFamily: pdfFonts.body, fontSize: 9, color: stockPdfColors.text, paddingBottom: 0, paddingHorizontal: 0 },
   sectionBody: { marginBottom: 16 },
   questionRow: {
     flexDirection: 'row',
     paddingVertical: 5,
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
-    borderBottomColor: pdfColors.rule,
+    borderBottomColor: stockPdfColors.rule,
   },
   questionLabel: {
     fontFamily: pdfFonts.body,
     fontSize: 8,
-    color: pdfColors.textMuted,
+    color: stockPdfColors.textMuted,
     width: '42%',
     paddingRight: 8,
   },
   questionValue: {
     fontFamily: pdfFonts.body,
     fontSize: 8.5,
-    color: pdfColors.text,
+    color: stockPdfColors.text,
     fontWeight: 700,
     flex: 1,
   },
   noAnswer: {
     fontFamily: pdfFonts.body,
     fontSize: 8.5,
-    color: pdfColors.rule,
+    color: stockPdfColors.rule,
     flex: 1,
   },
   comment: {
     fontFamily: pdfFonts.body,
     fontSize: 7.5,
-    color: pdfColors.textSecondary,
+    color: stockPdfColors.textSecondary,
     fontStyle: 'italic',
     paddingHorizontal: 8,
     paddingBottom: 6,
-    backgroundColor: pdfColors.ruleLight,
+    backgroundColor: stockPdfColors.ruleLight,
     borderBottomWidth: 0.5,
-    borderBottomColor: pdfColors.rule,
+    borderBottomColor: stockPdfColors.rule,
   },
   photoGrid: {
     flexDirection: 'row',
@@ -66,16 +73,16 @@ const s = StyleSheet.create({
     paddingHorizontal: 8,
     paddingBottom: 8,
     paddingTop: 4,
-    backgroundColor: pdfColors.ruleLight,
+    backgroundColor: stockPdfColors.ruleLight,
   },
   instanceHeader: {
-    backgroundColor: pdfColors.zebra,
+    backgroundColor: stockPdfColors.zebra,
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderBottomWidth: 0.5,
-    borderBottomColor: pdfColors.rule,
+    borderBottomColor: stockPdfColors.rule,
     borderTopWidth: 0.5,
-    borderTopColor: pdfColors.rule,
+    borderTopColor: stockPdfColors.rule,
   },
 });
 
@@ -100,14 +107,14 @@ function renderAnswerValue(answer: ElectricalAnswer): string {
   return String(value);
 }
 
-function AnswerRow({ answer, index }: { answer: ElectricalAnswer; index: number }) {
+function AnswerRow({ answer, index, colors }: { answer: ElectricalAnswer; index: number; colors: PdfColors }) {
   const displayVal = renderAnswerValue(answer);
-  const bg = index % 2 !== 0 ? pdfColors.zebra : pdfColors.white;
+  const bg = index % 2 !== 0 ? colors.zebra : colors.white;
 
   if (answer.type === 'heading') {
     return (
-      <View style={{ paddingHorizontal: 8, paddingTop: 8, paddingBottom: 3, backgroundColor: pdfColors.zebra, borderBottomWidth: 0.5, borderBottomColor: pdfColors.rule }}>
-        <Text style={{ fontFamily: pdfFonts.body, fontSize: 7.5, fontWeight: 700, color: pdfColors.navy, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+      <View style={{ paddingHorizontal: 8, paddingTop: 8, paddingBottom: 3, backgroundColor: colors.zebra, borderBottomWidth: 0.5, borderBottomColor: colors.rule }}>
+        <Text style={{ fontFamily: pdfFonts.body, fontSize: 7.5, fontWeight: 700, color: colors.navy, textTransform: 'uppercase', letterSpacing: 0.8 }}>
           {answer.label}
         </Text>
       </View>
@@ -118,7 +125,7 @@ function AnswerRow({ answer, index }: { answer: ElectricalAnswer; index: number 
     return (
       <View style={[s.questionRow, { backgroundColor: bg, alignItems: 'center' }]}>
         <Text style={s.questionLabel}>{answer.label}</Text>
-        <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, color: pdfColors.accent, flex: 1 }}>
+        <Text style={{ fontFamily: pdfFonts.body, fontSize: 8, color: colors.accent, flex: 1 }}>
           See sign-off page
         </Text>
       </View>
@@ -218,6 +225,7 @@ function isVisibleAnswer(a: ElectricalAnswer): boolean {
 }
 
 export function ElectricalReport({ data }: { data: ElectricalReportData }) {
+  const pdfColors = inspectionDocumentColors(data.theme);
   const { meta, company } = data;
 
   const coverMeta = [
@@ -248,10 +256,11 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
   return (
     <Document title={docTitle}>
       <Page size="A4" style={s.coverPage}>
-        <CoverLetterhead
+        <InspectionCoverLetterhead
           companyName={company.name}
           logoUrl={company.logoUrl}
           contactLine={contactParts || undefined}
+          colors={pdfColors}
         />
 
         <View style={{ paddingHorizontal: 40, paddingTop: 20, flex: 1 }}>
@@ -286,7 +295,7 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
       </Page>
 
       <Page size="A4" style={s.page} wrap>
-        <RunningHeader companyName={company.name} reportNumber={meta.reportNumber} logoUrl={company.logoUrl} />
+        <InspectionRunningHeader companyName={company.name} reportNumber={meta.reportNumber} logoUrl={company.logoUrl} colors={pdfColors} />
         <View style={s.body}>
           {data.sections.map((sec, si) => {
             if (sec.isRepeating && sec.instances) {
@@ -299,14 +308,16 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
                     title={sec.title.toUpperCase()}
                     sectionNumber={String(si + 1).padStart(2, '0')}
                     instances={sec.instances}
+                    colors={pdfColors}
                   />
                 );
               }
               return (
                 <View key={sec.id} style={s.sectionBody}>
-                  <SectionHeaderBar
+                  <InspectionSectionHeaderBar
                     number={String(si + 1).padStart(2, '0')}
                     title={sec.title.toUpperCase()}
+                    colors={pdfColors}
                   />
                   {sec.description ? (
                     <Text style={{ fontSize: 8, color: pdfColors.textMuted, marginBottom: 8, fontStyle: 'italic', paddingHorizontal: 8 }}>
@@ -322,7 +333,7 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
                       </View>
                       <View style={{ borderWidth: 0.5, borderTopWidth: 0, borderColor: pdfColors.rule }}>
                         {inst.answers.filter(isVisibleAnswer).map((answer, ai) => (
-                          <AnswerRow key={ai} answer={answer} index={ai} />
+                          <AnswerRow key={ai} answer={answer} index={ai} colors={pdfColors} />
                         ))}
                       </View>
                     </View>
@@ -337,9 +348,10 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
 
             return (
               <View key={sec.id} style={s.sectionBody}>
-                <SectionHeaderBar
+                <InspectionSectionHeaderBar
                   number={String(si + 1).padStart(2, '0')}
                   title={sec.title.toUpperCase()}
+                  colors={pdfColors}
                 />
                 {sec.description ? (
                   <Text style={{ fontSize: 8, color: pdfColors.textMuted, marginBottom: 8, fontStyle: 'italic', paddingHorizontal: 8 }}>
@@ -348,7 +360,7 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
                 ) : null}
                 <View style={{ borderWidth: 0.5, borderColor: pdfColors.rule }}>
                   {visibleAnswers.map((answer, ai) => (
-                    <AnswerRow key={ai} answer={answer} index={ai} />
+                    <AnswerRow key={ai} answer={answer} index={ai} colors={pdfColors} />
                   ))}
                 </View>
               </View>
@@ -359,9 +371,9 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
       </Page>
 
       <Page size="A4" style={s.page} wrap>
-        <RunningHeader companyName={company.name} reportNumber={meta.reportNumber} logoUrl={company.logoUrl} />
+        <InspectionRunningHeader companyName={company.name} reportNumber={meta.reportNumber} logoUrl={company.logoUrl} colors={pdfColors} />
         <View style={s.body}>
-          <SectionHeaderBar number="D" title="NON-CONFORMANCE / DEFECT REGISTER" />
+          <InspectionSectionHeaderBar number="D" title="NON-CONFORMANCE / DEFECT REGISTER" colors={pdfColors} />
           <Text style={{ fontSize: 8, color: pdfColors.textMuted, marginBottom: 12, paddingHorizontal: 4 }}>
             Fail-flagged verification items and measurements outside allowable limits.
           </Text>
@@ -372,9 +384,9 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
 
       {data.photoAppendix.length > 0 && (
         <Page size="A4" style={s.page} wrap>
-          <RunningHeader companyName={company.name} reportNumber={meta.reportNumber} logoUrl={company.logoUrl} />
+          <InspectionRunningHeader companyName={company.name} reportNumber={meta.reportNumber} logoUrl={company.logoUrl} colors={pdfColors} />
           <View style={s.body}>
-            <SectionHeaderBar number="A" title="PHOTO APPENDIX" />
+            <InspectionSectionHeaderBar number="A" title="PHOTO APPENDIX" colors={pdfColors} />
             <Text style={{ fontSize: 8, color: pdfColors.textMuted, marginBottom: 12, paddingHorizontal: 4 }}>
               Evidence photos captured during this verification.
             </Text>
@@ -397,9 +409,9 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
       )}
 
       <Page size="A4" style={s.page}>
-        <RunningHeader companyName={company.name} reportNumber={meta.reportNumber} logoUrl={company.logoUrl} />
+        <InspectionRunningHeader companyName={company.name} reportNumber={meta.reportNumber} logoUrl={company.logoUrl} colors={pdfColors} />
         <View style={s.body}>
-          <SectionHeaderBar number="S" title="SIGN-OFF & CERTIFICATION" />
+          <InspectionSectionHeaderBar number="S" title="SIGN-OFF & CERTIFICATION" colors={pdfColors} />
           <Text style={{ fontSize: 8.5, color: pdfColors.textSecondary, marginBottom: 16, paddingHorizontal: 4, lineHeight: 1.4 }}>
             The undersigned confirms that the electrical verification findings in this report are true
             and correct to the best of their knowledge at the date of test.
@@ -412,12 +424,13 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
             : [{ label: 'Licensed electrician / inspector', signatureUrl: undefined, name: meta.inspector }]
           ).map((sig, i) => (
             <View key={i} style={{ marginBottom: 16 }}>
-              <SignatureBlock
+              <InspectionSignatureBlock
                 roleLabel={sig.label}
                 signatureUrl={sig.signatureUrl}
                 name={sig.name}
                 licenceNumber={meta.licenceNumber || company.licenceNumber}
                 date={meta.dateOfTest}
+                colors={pdfColors}
               />
             </View>
           ))}
@@ -429,11 +442,12 @@ export function ElectricalReport({ data }: { data: ElectricalReportData }) {
               </Text>
               {data.countersignatures.map((c, i) => (
                 <View key={i} style={{ marginBottom: 16 }}>
-                  <SignatureBlock
+                  <InspectionSignatureBlock
                     roleLabel={c.roleLabel}
                     signatureUrl={c.signatureUrl}
                     name={c.name}
                     date={c.date || meta.dateOfTest}
+                    colors={pdfColors}
                   />
                 </View>
               ))}
