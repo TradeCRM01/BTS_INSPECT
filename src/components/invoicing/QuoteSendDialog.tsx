@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { Mail } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { generateCommercialPdf } from '../../reports/commercial/generateCommercialPdf';
 import { padQuoteNumber } from '../../lib/quoteJobFields';
@@ -11,6 +13,11 @@ import {
   type QuoteSendDecision,
 } from '../../lib/sendQuote';
 import { deliverQuote, loadQuoteSendBundle } from '../../lib/sendQuoteDeliver';
+import { jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
+
+/** Honest no_email miss — write the address on this dialog. */
+export const QUOTE_SEND_NO_EMAIL_FIELD =
+  'This client has no email. Add one below before you send.';
 
 export function QuoteSendDialog({
   quoteId,
@@ -23,11 +30,14 @@ export function QuoteSendDialog({
   onClose: () => void;
   onSent: (to: string, message?: string) => void;
 }) {
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
   const [bundle, setBundle] = useState<QuoteSendBundle | null>(null);
   const [decision, setDecision] = useState<QuoteSendDecision | null>(null);
   const [err, setErr] = useState('');
+  const [clientEmailDraft, setClientEmailDraft] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +49,7 @@ export function QuoteSendDialog({
         if (cancelled) return;
         setBundle(loaded);
         setDecision(decideQuoteSend(loaded));
+        setClientEmailDraft(loaded.client?.email ?? '');
       } catch (e) {
         if (!cancelled) setErr(e instanceof Error ? e.message : 'Could not load this quote.');
       } finally {
@@ -49,6 +60,40 @@ export function QuoteSendDialog({
   // Company identity is the send scope; latest company fields are used on each load.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quoteId, company.id]);
+
+  const quoteClientId = bundle?.quote?.client_id ?? null;
+  const emailRow = jobClientEmailRow({
+    clientId: quoteClientId,
+    client: bundle?.client ?? null,
+  });
+  const noEmailMiss = decision != null && !decision.ok && decision.blocker === 'no_email';
+  const smtpMiss = decision != null && !decision.ok && decision.blocker === 'no_smtp';
+  const showEmailEditor = !loading && noEmailMiss && emailRow.kind === 'edit';
+
+  const handleSaveEmail = async () => {
+    if (emailRow.kind !== 'edit' || !bundle) return;
+    setSavingEmail(true);
+    setErr('');
+    try {
+      const result = await saveJobClientEmail({
+        clientId: emailRow.clientId,
+        email: clientEmailDraft,
+      });
+      const next: QuoteSendBundle = {
+        ...bundle,
+        client: bundle.client ? { ...bundle.client, email: result.email } : bundle.client,
+      };
+      setBundle(next);
+      setDecision(decideQuoteSend(next));
+      setClientEmailDraft(result.email ?? '');
+      void queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not save the email.');
+    } finally {
+      setSavingEmail(false);
+    }
+  };
 
   const handleSend = async () => {
     setSending(true);
@@ -77,14 +122,13 @@ export function QuoteSendDialog({
 
   const ready = decision?.ok === true;
   const blockerHref = decision && !decision.ok ? decision.href : undefined;
-  const smtpMiss = decision != null && !decision.ok && decision.blocker === 'no_smtp';
-  const noEmailMiss = decision != null && !decision.ok && decision.blocker === 'no_email';
-  const blockerMessage = decision && !decision.ok ? decision.message : '';
+  const blockerMessage = noEmailMiss
+    ? QUOTE_SEND_NO_EMAIL_FIELD
+    : (decision && !decision.ok ? decision.message : '');
   const quoteLabel = bundle?.quote ? `Quote #${padQuoteNumber(bundle.quote.quote_number)}` : '';
   const pdfName = ready && decision.ok ? decision.filename : '';
-  const showSend = !loading && ready;
+  const showSend = !loading && (ready || (noEmailMiss && emailRow.kind === 'edit'));
   const showSmtpSettings = !loading && smtpMiss && !!blockerHref;
-  const showOpenClient = !loading && noEmailMiss && !!blockerHref;
 
   return (
     <Modal open onClose={onClose} size="md">
@@ -129,7 +173,36 @@ export function QuoteSendDialog({
           )}
 
           {!loading && !ready && (
-            <p className="hub-invoice-err">{blockerMessage || err || 'This quote cannot be sent yet.'}</p>
+            <>
+              <p className="hub-invoice-err">{blockerMessage || err || 'This quote cannot be sent yet.'}</p>
+              {showEmailEditor && emailRow.kind === 'edit' && (
+                <form
+                  className="job-client-email"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    void handleSaveEmail();
+                  }}
+                >
+                  <Mail size={13} />
+                  <input
+                    type="email"
+                    value={clientEmailDraft}
+                    onChange={e => setClientEmailDraft(e.target.value)}
+                    placeholder="Email"
+                    className="form-input-sm"
+                    aria-label="Client email"
+                    autoComplete="email"
+                  />
+                  <button
+                    type="submit"
+                    className="job-client-email-save"
+                    disabled={savingEmail}
+                  >
+                    Save
+                  </button>
+                </form>
+              )}
+            </>
           )}
 
           {err && ready && <p className="hub-invoice-err">{err}</p>}
@@ -150,11 +223,6 @@ export function QuoteSendDialog({
           {showSmtpSettings && blockerHref && (
             <Link to={blockerHref} className="btn-primary" onClick={onClose}>
               Company settings
-            </Link>
-          )}
-          {showOpenClient && blockerHref && (
-            <Link to={blockerHref} className="btn-primary" onClick={onClose}>
-              Open client
             </Link>
           )}
         </div>

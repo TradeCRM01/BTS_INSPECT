@@ -27,7 +27,7 @@ describe('quote send deliver path', () => {
     expect(dialog).toContain('SMS To');
     expect(dialog).toContain('hub-invoice-send-tos');
     expect(dialog).not.toContain('send-quote');
-    expect(dialog).not.toContain('saveJobClientEmail');
+    expect(dialog).toContain('saveJobClientEmail');
     expect(dialog).not.toContain('saveJobClientPhone');
     expect(dialog).not.toContain('attachQuoteClient');
     expect(dialog).not.toContain('Relovi');
