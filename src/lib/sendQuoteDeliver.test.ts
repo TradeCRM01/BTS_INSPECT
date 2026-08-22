@@ -29,7 +29,7 @@ describe('quote send deliver path', () => {
     expect(dialog).not.toContain('send-quote');
     expect(dialog).toContain('saveJobClientEmail');
     expect(dialog).toContain('saveJobClientPhone');
-    expect(dialog).not.toContain('attachQuoteClient');
+    expect(dialog).toContain('attachQuoteClient');
     expect(dialog).not.toContain('Relovi');
     expect(dialog).not.toContain('Littleloop');
     expect(page).toContain('QuoteSendDialog');
