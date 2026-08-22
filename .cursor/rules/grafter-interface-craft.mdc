@@ -1,0 +1,14 @@
+---
+description: Grafter Interface Craft Manual — LOOK and UI quality floor
+alwaysApply: true
+---
+
+Product wordmark is **Grafter**. Never Relovi. Never Littleloop.
+
+Before LOOK or visual CSS, read `.cursor/skills/grafter-interface-craft/SKILL.md`. Overlay: `docs/interface-craft/grafter-overlay.md` (wins on conflict). Full spec: `docs/interface-craft/manual.md`. Part VIII then wins over Parts I–VII.
+
+Paint from `companies.report_theme` keys only (`navy`, `accent`, `accentLight`, `navyLight`; blanks `#0A2540` / `#2E75B6` / `#D6E8F7` / `#153558`) plus existing `--ops-*`. UI face is Inter. Data face is JetBrains Mono.
+
+Do not recast `.btn-primary` or `.ops-next-control` globally. Do not invent a theme editor. Do not edit `src/reports/shared/components.tsx`. One surface per PR. Stay off PR #17 unless asked.
+
+LOOK must pass the Part IX rubric (≥24/30), squint test, and Chanel's rule before screenshots.
