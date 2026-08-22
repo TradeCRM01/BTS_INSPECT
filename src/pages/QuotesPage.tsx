@@ -34,13 +34,19 @@ import {
   saveJobClientPhone,
 } from '../lib/saveJobClientPhone';
 import {
+  QUOTE_CLIENT_ATTACH_NO_CLIENTS,
+  attachQuoteClient,
+  quoteClientAttachRow,
+  quoteClientAttachToast,
+} from '../lib/attachQuoteClient';
+import {
   quoteActionContext,
   quoteListBucket,
   recommendQuoteAction,
   type QuoteActionKey,
 } from '../lib/quoteNextAction';
 import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatMoney } from '../types/fsm';
-import { Plus, FileText, ArrowRight, Eye, Receipt, Send, Check, Mail, Phone } from 'lucide-react';
+import { Plus, FileText, ArrowRight, Eye, Receipt, Send, Check, Mail, Phone, User } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | QuoteStatus;
@@ -496,10 +502,12 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
+  const [clientsLoaded, setClientsLoaded] = useState(false);
   const [writtenClientEmail, setWrittenClientEmail] = useState<{ clientId: string; email: string | null } | null>(null);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [writtenClientPhone, setWrittenClientPhone] = useState<{ clientId: string; phone: string | null } | null>(null);
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
+  const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [jobs, setJobs] = useState<Job[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [priceBookItems, setPriceBookItems] = useState<PriceBookItem[]>([]);
@@ -538,6 +546,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         supabase.from('price_book_items').select('*').eq('is_active', true).order('description'),
       ]);
       if (c.data) setClients(c.data as Client[]);
+      setClientsLoaded(true);
       if (j.data) setJobs(j.data as Job[]);
       if (s.data) setStockItems(s.data as StockItem[]);
       if (pb.data) setPriceBookItems(pb.data as PriceBookItem[]);
@@ -557,6 +566,15 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
     ? { ...phoneClientBase, phone: writtenClientPhone.phone }
     : phoneClientBase;
   const phoneRow = jobClientPhoneRow({ clientId: form.client_id || null, client: phoneClient });
+  const quoteId = savedId ?? quote?.id ?? null;
+  const attachRow = quoteClientAttachRow({
+    quoteClientId: form.client_id || null,
+    companyClients: form.client_id
+      ? []
+      : (!quoteId || !clientsLoaded)
+        ? null
+        : clients,
+  });
   const rawSubtotal = useMemo(() => calcSubtotal(form.line_items), [form.line_items]);
   const gst = useMemo(
     () => calcDocumentTotals(rawSubtotal, parseFloat(form.tax_rate) || 0),
@@ -579,6 +597,27 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   useEffect(() => {
     setClientPhoneDraft(phoneClient?.phone ?? '');
   }, [phoneClient?.id, phoneClient?.phone]);
+
+  const attachClient = useMutation({
+    mutationFn: async () => {
+      return attachQuoteClient({
+        quoteId: savedId ?? quote?.id,
+        quoteClientId: form.client_id || null,
+        clientId: clientAttachDraft,
+        companyClients: clients,
+      });
+    },
+    onSuccess: (result) => {
+      setForm(f => ({ ...f, client_id: result.clientId, job_id: '' }));
+      setClientAttachDraft('');
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      const toast = quoteClientAttachToast();
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
 
   const saveClientEmail = useMutation({
     mutationFn: async () => {
@@ -866,6 +905,38 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
                 <option value="">Select a client...</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              {attachRow.kind === 'pick' && (
+                <form
+                  className="job-client-attach"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    attachClient.mutate();
+                  }}
+                >
+                  <User size={13} />
+                  <select
+                    value={clientAttachDraft}
+                    onChange={e => setClientAttachDraft(e.target.value)}
+                    className="form-input-sm"
+                    aria-label="Attach client"
+                  >
+                    <option value="">Client</option>
+                    {attachRow.clients.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    className="job-client-attach-save"
+                    disabled={attachClient.isPending || !clientAttachDraft}
+                  >
+                    Save
+                  </button>
+                </form>
+              )}
+              {attachRow.kind === 'miss' && (
+                <p className="ops-meta mt-2">{QUOTE_CLIENT_ATTACH_NO_CLIENTS}</p>
+              )}
               {selectedClient && (
                 <div className="mt-2 flex flex-col gap-1">
                   {visibleClientContacts(emailClient ?? selectedClient).filter(line => line.kind !== 'mailto' && line.kind !== 'tel').map(line => (

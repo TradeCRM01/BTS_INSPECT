@@ -181,7 +181,7 @@ describe('quote-sheet client email — wiring', () => {
     expect(editor).toContain('job-client-email');
   });
 
-  it('leaves quote send delivery / PR #17 / convert / attach off this control', () => {
+  it('leaves quote send delivery / PR #17 / convert off this control', () => {
     const save = src('src/lib/saveJobClientEmail.ts');
     const page = src('src/pages/QuotesPage.tsx');
     const quoteConvert = src('src/lib/convertQuoteToInvoice.ts');
@@ -199,6 +199,7 @@ describe('quote-sheet client email — wiring', () => {
     expect(page).not.toContain('sendQuote');
     expect(page).not.toContain('sendQuoteDeliver');
     expect(page).toContain('saveJobClientPhone');
+    expect(page).toContain('attachQuoteClient');
     expect(page).not.toContain('attachInvoiceClient');
     expect(page).not.toContain('attachJobClient');
     expect(page).not.toContain('Relovi');
