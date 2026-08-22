@@ -4193,6 +4193,19 @@
     box-shadow: inset 0 -2px 0 var(--quote-accent, #2E75B6);
   }
 
+  /* Invoice editor overlay only. Saved report_theme paints banner. List and Send stay as signed. */
+  .invoice-doc-theme {
+    --invoice-navy: #0A2540;
+    --invoice-accent: #2E75B6;
+    --invoice-navy-light: #153558;
+    --invoice-accent-light: #D6E8F7;
+  }
+
+  .invoice-doc-theme .hub-invoice-banner {
+    background: var(--invoice-navy, #0A2540);
+    box-shadow: inset 0 -2px 0 var(--invoice-accent, #2E75B6);
+  }
+
   @media (max-width: 639px) {
     :is(#job-swms, #job-insp) .ops-tray-empty .btn-primary,
     :is(#job-swms, #job-insp) .ops-related-row .btn-primary {

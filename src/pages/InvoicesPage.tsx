@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -12,7 +12,7 @@ import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariat
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
 import { InvoiceSendDialog } from '../components/invoicing/InvoiceSendDialog';
-import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
+import { commercialDocumentColors, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
@@ -706,6 +706,9 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   }, { smtpReady }));
   const displayStatus = next.status;
   const sheetLogo = companyDocumentLogoUrl(company);
+  const docColors = commercialDocumentColors(
+    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
+  );
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
@@ -905,7 +908,16 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
 
   return (
     <div className="overlay-backdrop">
-      <div className="overlay-panel-xl hub-invoice-editor" onClick={e => e.stopPropagation()}>
+      <div
+        className="invoice-doc-theme overlay-panel-xl hub-invoice-editor"
+        onClick={e => e.stopPropagation()}
+        style={{
+          '--invoice-navy': docColors.navy,
+          '--invoice-accent': docColors.accent,
+          '--invoice-navy-light': docColors.navyLight,
+          '--invoice-accent-light': docColors.accentLight,
+        } as CSSProperties}
+      >
         <div className="hub-invoice-toolbar">
           <div className="hub-invoice-editor-act">
             {next.key === 'setup_email' && next.href && (
