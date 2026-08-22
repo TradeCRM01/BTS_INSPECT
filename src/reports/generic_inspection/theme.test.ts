@@ -185,4 +185,15 @@ describe('inspection-report document report_theme colours', () => {
     const settings = src('src/pages/CompanySettingsPage.tsx');
     expect(settings).toContain('report_theme');
   });
+
+  it('LOOK frames cover blank and saved inspection fill chrome only', () => {
+    for (const rel of [
+      'docs/look/inspection-theme-blank-desktop.png',
+      'docs/look/inspection-theme-blank-ute.png',
+      'docs/look/inspection-theme-saved-desktop.png',
+      'docs/look/inspection-theme-saved-ute.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+    }
+  });
 });
