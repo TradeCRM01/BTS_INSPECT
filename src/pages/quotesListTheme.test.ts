@@ -46,7 +46,7 @@ describe('quote list cards report_theme colours', () => {
     expect(JSON.stringify(colors)).not.toMatch(/cream|grafter|relovi|littleloop/i);
   });
 
-  it('does not add a settings page, recast Send, or paint the quote editor overlay', () => {
+  it('does not add a settings page or recast Send', () => {
     const app = src('src/App.tsx');
     expect(app).toContain('CompanySettingsPage');
     expect(app).not.toContain('QuoteTheme');
@@ -61,9 +61,8 @@ describe('quote list cards report_theme colours', () => {
     expect(css).not.toMatch(/\.quote-doc-theme \.ops-next-control/);
 
     const quotes = src('src/pages/QuotesPage.tsx');
-    const editor = quotes.split('function QuoteEditorModal')[1] ?? '';
-    expect(editor).toContain('overlay-panel-xl ops-doc-panel');
-    expect(editor).not.toContain('quote-doc-theme');
+    expect(quotes).toContain('overlay-panel-xl ops-doc-panel');
+    expect(quotes.split('function QuoteEditorModal')[1]).toContain('quote-doc-theme');
 
     const shared = src('src/reports/shared/components.tsx');
     expect(shared).not.toContain('colors?:');

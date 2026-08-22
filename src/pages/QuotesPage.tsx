@@ -677,6 +677,10 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
     onError: (e: Error) => showToast(e.message, 'info'),
   });
 
+  const docColors = commercialDocumentColors(
+    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
+  );
+
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
     const cleanLines: QuoteLineItem[] = form.line_items
@@ -824,7 +828,16 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
 
   return (
     <div className="overlay-backdrop">
-      <div className="overlay-panel-xl ops-doc-panel hub-quote-editor" onClick={e => e.stopPropagation()}>
+      <div
+        className="quote-doc-theme overlay-panel-xl ops-doc-panel hub-quote-editor"
+        onClick={e => e.stopPropagation()}
+        style={{
+          '--quote-navy': docColors.navy,
+          '--quote-accent': docColors.accent,
+          '--quote-navy-light': docColors.navyLight,
+          '--quote-accent-light': docColors.accentLight,
+        } as CSSProperties}
+      >
         <OpsDocHead
           kind="Quotation"
           id={quote?.quote_number != null ? `QT-${padQuoteNumber(quote.quote_number)}` : 'QT-DRAFT'}
