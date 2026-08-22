@@ -58,7 +58,8 @@ describe('invoice send deliver path', () => {
     expect(edge).toContain('TWILIO_ACCOUNT_SID');
     expect(edge).toContain('client?.phone');
     expect(edge).not.toContain('sms_settings');
-    expect(edge).not.toContain('from("quotes")');
+    const invoiceDeliverFn = edge.slice(edge.indexOf('async function deliverInvoiceSend'), edge.indexOf('function reportSiteName'));
+    expect(invoiceDeliverFn).not.toContain('from("quotes")');
     expect(edge).not.toContain('send-quote');
     expect(INVOICE_SEND_PIPE.join(' ')).toMatch(/job-reminder/);
     expect(INVOICE_SEND_PIPE.join(' ')).toMatch(/xero-accounting/);

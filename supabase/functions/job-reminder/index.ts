@@ -935,6 +935,171 @@ function reportSmsBody(opts: {
   return `${who} sent inspection report ${number} for ${site}. The PDF is in your email.`;
 }
 
+const quoteMissText: Record<string, string> = {
+  no_email: "This client has no email. Add one on the client record before you send.",
+  no_smtp: "Email is not set up. Add SMTP in Company settings — there is a test send there.",
+  no_quote: "Quote not found.",
+  no_client: "Pick a client before you can send this quote.",
+  no_lines: "Add the work and materials so the quote has a price.",
+  no_pdf: "The quote PDF could not be attached — quote was not sent.",
+  send_failed: "Quote was not sent.",
+};
+
+function quoteHtml(opts: {
+  clientName: string;
+  companyName: string;
+  quoteNumber: unknown;
+  totalLabel: string;
+  validityLabel: string;
+}): string {
+  const client = escapeHtml(opts.clientName.trim() || "there");
+  const company = escapeHtml(opts.companyName.trim() || "us");
+  const number = escapeHtml(`#${padInvoiceNumber(opts.quoteNumber)}`);
+  const total = escapeHtml(opts.totalLabel);
+  const valid = opts.validityLabel
+    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Valid until <strong>${escapeHtml(opts.validityLabel)}</strong>.</p>`
+    : "";
+  return `
+      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
+        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">Quote</div>
+          <h1 style="margin:8px 0 0;font-size:20px">${number}</h1>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+          <p>Hi ${client},</p>
+          <p>${company} has sent you quote ${number}.</p>
+          <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${total}</strong></p>
+          ${valid}
+          <p>The quote PDF is attached. Reply to this email if you want to go ahead or change the scope.</p>
+        </div>
+      </div>`;
+}
+
+function quoteSmsBody(opts: {
+  companyName: string;
+  quoteNumber: unknown;
+  totalLabel: string;
+  validityLabel: string;
+}): string {
+  const who = opts.companyName.trim() || "your contractor";
+  const valid = opts.validityLabel ? ` Valid until ${opts.validityLabel}.` : "";
+  return `${who} sent quote #${padInvoiceNumber(opts.quoteNumber)}. Total (inc GST): ${opts.totalLabel}.${valid} The PDF is in your email.`;
+}
+
+async function deliverQuoteSend(opts: {
+  admin: ReturnType<typeof createClient>;
+  quote: Record<string, unknown>;
+  companyId: string;
+  company: { name?: string | null } | null;
+  settings: EmailSettings | null;
+  client: Record<string, unknown> | null;
+  attachmentIn?: { filename?: string; content?: string };
+}): Promise<Record<string, unknown>> {
+  const quote = opts.quote;
+  const quoteId = String(quote.id ?? "");
+  const extra = { quoteId };
+
+  if (!quote.client_id) {
+    return miss("no_client", quoteMissText.no_client, extra);
+  }
+  if (!hasChargeableLines(quote.line_items)) {
+    return miss("no_lines", quoteMissText.no_lines, extra);
+  }
+
+  const to = prefillTo(opts.client?.email);
+  if (!to) {
+    return miss("no_email", quoteMissText.no_email, {
+      ...extra,
+      href: `/clients/${quote.client_id}`,
+    });
+  }
+  if (!emailSettingsReady(opts.settings) || !opts.settings) {
+    return miss("no_smtp", quoteMissText.no_smtp, {
+      ...extra,
+      href: "/settings/company",
+      to,
+    });
+  }
+
+  const pdfFilename = String(opts.attachmentIn?.filename ?? "").trim();
+  const pdfContent = String(opts.attachmentIn?.content ?? "").trim();
+  if (!pdfContent || !pdfFilename) {
+    return miss("no_pdf", quoteMissText.no_pdf, { ...extra, to });
+  }
+
+  const toName = String(opts.client?.name ?? "").trim() || "Client";
+  const companyName = String(opts.company?.name ?? "").trim() || "us";
+  const validityLabel = formatDueLabel(quote.validity_date);
+  const subject = `Quote #${padInvoiceNumber(quote.quote_number)} from ${companyName}`;
+  const html = quoteHtml({
+    clientName: toName,
+    companyName,
+    quoteNumber: quote.quote_number,
+    totalLabel: formatAud(quote.total),
+    validityLabel,
+  });
+
+  const fromHeader = `${opts.settings.from_name} <${opts.settings.from_email}>`;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${opts.settings.smtp_pass}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: fromHeader,
+      to: [to],
+      reply_to: opts.settings.from_email,
+      subject,
+      html,
+      attachments: [{ filename: pdfFilename, content: pdfContent }],
+    }),
+  });
+
+  const sms = await sendTwilioSms(
+    opts.client?.phone,
+    quoteSmsBody({
+      companyName,
+      quoteNumber: quote.quote_number,
+      totalLabel: formatAud(quote.total),
+      validityLabel,
+    }),
+  );
+
+  if (!res.ok) {
+    const bodyText = await res.text();
+    let message = `Resend API error (${res.status})`;
+    try {
+      const parsed = JSON.parse(bodyText);
+      message = parsed.message ?? parsed.error ?? message;
+    } catch {
+      if (bodyText) message = bodyText.slice(0, 200);
+    }
+    return miss("send_failed", withSmsMessage(message, sms), { ...extra, to, sms });
+  }
+
+  const sentAt = new Date().toISOString();
+  const quotePatch: Record<string, unknown> = { updated_at: sentAt };
+  if (quote.status === "draft") {
+    quotePatch.status = "sent";
+  }
+  if (quotePatch.status) {
+    await opts.admin
+      .from("quotes")
+      .update(quotePatch)
+      .eq("id", quote.id)
+      .eq("company_id", opts.companyId);
+  }
+
+  return {
+    sent: true,
+    quoteId: quote.id,
+    to,
+    sms,
+    message: withSmsMessage(`Quote sent to ${to}`, sms),
+  };
+}
+
 function bearerToken(header: string | null): string {
   return (header ?? "").replace(/^Bearer\s+/i, "").trim();
 }
@@ -989,6 +1154,7 @@ Deno.serve(async (req) => {
     const inspectionId = String(body.inspectionId ?? body.inspection_id ?? "").trim();
     const invoiceId = String(body.invoiceId ?? body.invoice_id ?? "").trim();
     const reportId = String(body.reportId ?? body.report_id ?? "").trim();
+    const quoteId = String(body.quoteId ?? body.quote_id ?? "").trim();
     const purpose = String(body.purpose ?? "").trim();
     const due = String(body.due ?? "").trim();
     const appUrl = String(body.appUrl ?? body.app_url ?? "").replace(/\/$/, "")
@@ -1618,12 +1784,62 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (quoteId) {
+      if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
+
+      const { data: quote } = await admin
+        .from("quotes")
+        .select("id, company_id, client_id, status, quote_number, line_items, total, validity_date")
+        .eq("id", quoteId)
+        .eq("company_id", userCompanyId)
+        .maybeSingle();
+
+      if (!quote) {
+        return json({
+          sent: false,
+          reason: "no_quote",
+          message: quoteMissText.no_quote,
+          quoteId,
+        }, 404);
+      }
+
+      const { data: client } = quote.client_id
+        ? await admin
+          .from("clients")
+          .select("id, name, email, phone")
+          .eq("id", quote.client_id)
+          .maybeSingle()
+        : { data: null };
+      const { data: smtpRow } = await admin
+        .from("email_settings")
+        .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+        .eq("company_id", userCompanyId)
+        .maybeSingle();
+      const { data: company } = await admin
+        .from("companies")
+        .select("name")
+        .eq("id", userCompanyId)
+        .maybeSingle();
+
+      const result = await deliverQuoteSend({
+        admin,
+        quote,
+        companyId: userCompanyId,
+        company,
+        settings: smtpRow as EmailSettings | null,
+        client,
+        attachmentIn,
+      });
+      const status = result.reason === "no_quote" ? 404 : 200;
+      return json(result, status);
+    }
+
     if (jobId) {
       if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else if (due === "tomorrow") {
       if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else {
-      return json({ error: "jobId, inspectionId, invoiceId, reportId, due=tomorrow, due=today, or due=overdue is required", sent: false }, 400);
+      return json({ error: "jobId, inspectionId, invoiceId, reportId, quoteId, due=tomorrow, due=today, or due=overdue is required", sent: false }, 400);
     }
 
     const autoAllCompanies = due === "tomorrow" && cronOk && !jobId;

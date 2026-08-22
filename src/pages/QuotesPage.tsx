@@ -17,6 +17,8 @@ import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariat
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
 import { ActionButton } from '../components/invoicing/DocNextAction';
+import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
+import { quoteSendCompanyFrom } from '../lib/sendQuote';
 import { commercialDocumentColors, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
@@ -76,6 +78,8 @@ export function QuotesPage() {
   const [viewMode, setViewMode] = useViewMode('quotes');
   const [searchParams, setSearchParams] = useSearchParams();
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
+  const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null);
+  const sendCompany = quoteSendCompanyFrom(company);
 
   const { data: quotes, isLoading, error } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes'],
@@ -197,7 +201,9 @@ export function QuotesPage() {
     queryClient.invalidateQueries({ queryKey: ['quotes'] });
     queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
     queryClient.invalidateQueries({ queryKey: ['clients'] });
-    showToast(opts?.message ?? (editingQuote ? 'Quote updated' : 'Quote created'));
+    if (opts?.message !== '') {
+      showToast(opts?.message ?? (editingQuote ? 'Quote updated' : 'Quote created'));
+    }
   }
 
   if (error) return <AppShell><PageError message="Could not load quotes" /></AppShell>;
@@ -258,10 +264,10 @@ export function QuotesPage() {
           />
         ) : viewMode === 'grid' ? (
           <div className="space-y-4">
-            <QuoteGroup title="Drafts" quotes={draftQuotes} theme={docColors} onOpen={openQuote} />
-            <QuoteGroup title="Sent — waiting" quotes={sentQuotes} theme={docColors} onOpen={openQuote} />
-            <QuoteGroup title="Accepted" quotes={acceptedQuotes} theme={docColors} onOpen={openQuote} />
-            <QuoteGroup title="Closed" quotes={closedQuotes} theme={docColors} onOpen={openQuote} />
+            <QuoteGroup title="Drafts" quotes={draftQuotes} theme={docColors} onOpen={openQuote} onSend={setSendingQuoteId} />
+            <QuoteGroup title="Sent — waiting" quotes={sentQuotes} theme={docColors} onOpen={openQuote} onSend={setSendingQuoteId} />
+            <QuoteGroup title="Accepted" quotes={acceptedQuotes} theme={docColors} onOpen={openQuote} onSend={setSendingQuoteId} />
+            <QuoteGroup title="Closed" quotes={closedQuotes} theme={docColors} onOpen={openQuote} onSend={setSendingQuoteId} />
           </div>
         ) : (
           <div className="ops-table">
@@ -279,7 +285,7 @@ export function QuotesPage() {
                 </thead>
                 <tbody className="divide-y divide-rule">
                   {filtered.map(q => (
-                    <QuoteRow key={q.id} quote={q} onOpen={() => openQuote(q)} />
+                    <QuoteRow key={q.id} quote={q} onOpen={() => openQuote(q)} onSend={setSendingQuoteId} />
                   ))}
                 </tbody>
               </table>
@@ -296,6 +302,24 @@ export function QuotesPage() {
           defaultTaxRate={company?.default_tax_rate ?? DEFAULT_TAX_RATE}
           onClose={() => { setShowForm(false); setPresetClientId(null); }}
           onSaved={handleSaved}
+          onRequestSend={setSendingQuoteId}
+        />
+      )}
+
+      {sendingQuoteId && sendCompany && (
+        <QuoteSendDialog
+          quoteId={sendingQuoteId}
+          company={sendCompany}
+          onClose={() => setSendingQuoteId(null)}
+          onSent={(to, message) => {
+            setSendingQuoteId(null);
+            queryClient.invalidateQueries({ queryKey: ['quotes'] });
+            queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
+            if (editingQuote?.id === sendingQuoteId) {
+              setEditingQuote(q => q ? { ...q, status: 'sent' } : q);
+            }
+            showToast(message ?? `Quote sent to ${to}`);
+          }}
         />
       )}
     </AppShell>
@@ -303,12 +327,13 @@ export function QuotesPage() {
 }
 
 function QuoteGroup({
-  title, quotes, theme, onOpen,
+  title, quotes, theme, onOpen, onSend,
 }: {
   title: string;
   quotes: QuoteListItem[];
   theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: (q: QuoteListItem) => void;
+  onSend: (quoteId: string) => void;
 }) {
   if (quotes.length === 0) return null;
   return (
@@ -319,7 +344,7 @@ function QuoteGroup({
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {quotes.map(q => (
-          <QuoteCard key={q.id} quote={q} theme={theme} onOpen={() => onOpen(q)} />
+          <QuoteCard key={q.id} quote={q} theme={theme} onOpen={() => onOpen(q)} onSend={onSend} />
         ))}
       </div>
     </div>
@@ -330,10 +355,12 @@ function QuoteCard({
   quote,
   theme,
   onOpen,
+  onSend,
 }: {
   quote: QuoteListItem;
   theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: () => void;
+  onSend: (quoteId: string) => void;
 }) {
   const next = recommendQuoteAction(quoteActionContext(quote));
   return (
@@ -364,7 +391,7 @@ function QuoteCard({
           </div>
         </div>
         <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
-          <QuoteNextControl quote={quote} />
+          <QuoteNextControl quote={quote} onSend={onSend} />
           {next.key === 'none' && (
             <span className="ops-next-control-done">{next.label}</span>
           )}
@@ -383,7 +410,7 @@ function QuoteCard({
   );
 }
 
-function QuoteRow({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void }) {
+function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () => void; onSend: (quoteId: string) => void }) {
   const next = recommendQuoteAction(quoteActionContext(quote));
   return (
     <tr onClick={onOpen} className="hover:bg-zebra cursor-pointer transition-colors">
@@ -404,14 +431,14 @@ function QuoteRow({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void 
         {next.key === 'none' ? (
           <span className="ops-next-hint">{next.label}</span>
         ) : (
-          <QuoteNextControl quote={quote} />
+          <QuoteNextControl quote={quote} onSend={onSend} />
         )}
       </td>
     </tr>
   );
 }
 
-function QuoteNextControl({ quote }: { quote: QuoteListItem }) {
+function QuoteNextControl({ quote, onSend }: { quote: QuoteListItem; onSend: (quoteId: string) => void }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { profile, company } = useAuth();
@@ -435,14 +462,7 @@ function QuoteNextControl({ quote }: { quote: QuoteListItem }) {
 
   const handle = () => {
     if (next.key === 'send') {
-      void run('send', async () => {
-        const { error } = await supabase.from('quotes')
-          .update({ status: 'sent', updated_at: new Date().toISOString() })
-          .eq('id', quote.id);
-        if (error) throw error;
-        queryClient.invalidateQueries({ queryKey: ['quotes'] });
-        showToast('Quote marked as sent');
-      });
+      onSend(quote.id);
       return;
     }
     if (next.key === 'accept') {
@@ -508,12 +528,13 @@ interface EditorState {
   scheduled_date: string;
 }
 
-function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSaved }: {
+function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSaved, onRequestSend }: {
   quote: QuoteListItem | null;
   presetClientId?: string | null;
   defaultTaxRate: number;
   onClose: () => void;
   onSaved: (opts?: { close?: boolean; message?: string }) => void;
+  onRequestSend: (quoteId: string) => void;
 }) {
   const { profile, company } = useAuth();
   const navigate = useNavigate();
@@ -615,6 +636,12 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   useEffect(() => {
     setClientPhoneDraft(phoneClient?.phone ?? '');
   }, [phoneClient?.id, phoneClient?.phone]);
+
+  useEffect(() => {
+    if (quote?.status === 'sent' && form.status === 'draft') {
+      setForm(f => ({ ...f, status: 'sent' }));
+    }
+  }, [quote?.status, form.status]);
 
   const attachClient = useMutation({
     mutationFn: async () => {
@@ -777,6 +804,11 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
     return data.id as string;
   };
 
+  const startSend = async () => {
+    const id = await persist('draft', { close: false, message: '' });
+    if (id) onRequestSend(id);
+  };
+
   const handleInvoice = async () => {
     const id = savedId ?? quote?.id;
     if (!id || form.status !== 'accepted' || !profile?.id) return;
@@ -875,7 +907,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           {next.key !== 'none' && next.key !== 'open_invoice' && (
             <div className="mt-2 pb-3">
               {next.key === 'send' && (
-                <ActionButton recommended onClick={() => void persist('sent', { close: false, message: 'Quote marked as sent' })} disabled={saving}>
+                <ActionButton recommended onClick={() => void startSend()} disabled={saving}>
                   <Send size={14} /> {saving ? 'Saving...' : 'Send'}
                 </ActionButton>
               )}
@@ -1120,7 +1152,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
 
         <div className="ops-sticky flex flex-col gap-2">
           {next.key === 'send' && (
-            <ActionButton recommended onClick={() => void persist('sent', { close: false, message: 'Quote marked as sent' })} disabled={saving}>
+            <ActionButton recommended onClick={() => void startSend()} disabled={saving}>
               <Send size={14} /> {saving ? 'Saving...' : 'Send'}
             </ActionButton>
           )}

@@ -810,7 +810,8 @@ describe('Perth overdue auto-fire source lock', () => {
     expect(xero).toContain('attachXeroPaymentAfterMarkPaid');
     expect(quotesPage).not.toContain('due=overdue');
     expect(quotesPage).not.toContain('chased_at');
-    expect(edge).not.toContain('from("quotes")');
+    const invoiceBlock = edge.slice(edge.indexOf('if (invoiceId)'), edge.indexOf('if (reportId)'));
+    expect(invoiceBlock).not.toContain('from("quotes")');
     expect(edge).not.toContain('send-quote');
   });
 
