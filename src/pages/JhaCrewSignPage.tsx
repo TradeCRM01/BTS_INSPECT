@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -6,49 +6,22 @@ import { ChevronLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError } from '../components/ui';
+import { LoadingSpinner, OpsDocHead, PageError } from '../components/ui';
 import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { parseCrewSignOns, type JhaCrewMember } from '../types/jha';
 import { livingJobSite } from '../lib/livingJha';
-import { jhaDocumentColors } from '../reports/jha/theme';
-
-function CrewSignShell({
-  themeStyle,
-  children,
-}: {
-  themeStyle: CSSProperties;
-  children: ReactNode;
-}) {
-  return (
-    <AppShell>
-      <div className="jha-crew-sign" style={themeStyle}>
-        {children}
-      </div>
-    </AppShell>
-  );
-}
 
 export function JhaCrewSignPage() {
   const [params] = useSearchParams();
   const docId = params.get('docId');
   const crewId = params.get('crewId');
-  const { profile, company } = useAuth();
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [signature, setSignature] = useState('');
-  const [copied, setCopied] = useState(false);
-  const docColors = jhaDocumentColors(
-    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
-  );
-  const themeStyle = {
-    '--jha-navy': docColors.navy,
-    '--jha-accent': docColors.accent,
-    '--jha-navy-light': docColors.navyLight,
-    '--jha-accent-light': docColors.accentLight,
-  } as CSSProperties;
 
   const { data: doc, isLoading, isError, refetch } = useQuery({
     queryKey: ['jha-document-sign', docId],
@@ -138,141 +111,107 @@ export function JhaCrewSignPage() {
     }
   }
 
-  async function copyReportNumber(id: string) {
-    try {
-      await navigator.clipboard.writeText(id);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
-    } catch {
-      setCopied(false);
-    }
-  }
-
   if (!docId || !crewId) {
     return (
-      <CrewSignShell themeStyle={themeStyle}>
-        <div className="jha-crew-sign-page">
+      <AppShell>
+        <div className="max-w-[640px] mx-auto px-4 py-6">
           <PageError message="Invalid sign link." onRetry={() => navigate('/jha')} />
         </div>
-      </CrewSignShell>
+      </AppShell>
     );
   }
 
   if (isLoading) {
-    return (
-      <CrewSignShell themeStyle={themeStyle}>
-        <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
-      </CrewSignShell>
-    );
+    return <AppShell><div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div></AppShell>;
   }
 
   if (isError || !doc) {
     return (
-      <CrewSignShell themeStyle={themeStyle}>
-        <div className="jha-crew-sign-page">
+      <AppShell>
+        <div className="max-w-[640px] mx-auto px-4 py-6">
           <PageError onRetry={refetch} />
         </div>
-      </CrewSignShell>
+      </AppShell>
     );
   }
 
   const meta = doc.meta as Record<string, string>;
   const livingSite = livingJobSite(boundJob) || meta.siteName;
-  const signed = done || !!member?.signature;
-  const reportId = doc.report_number || 'Draft';
-  const siteLine = [meta.taskName, livingSite].filter(Boolean).join(' · ') || 'Crew sign-on';
 
   return (
-    <CrewSignShell themeStyle={themeStyle}>
-      <div className="jha-crew-sign-page">
+    <AppShell>
+      <div className="max-w-[640px] mx-auto px-4 py-6">
         <Link
           to={doc.job_id ? `/jobs/${doc.job_id}` : (docId ? `/jha/new?docId=${docId}` : '/jha')}
-          className="jha-crew-sign-back"
+          className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] mb-4 min-h-[44px]"
         >
           <ChevronLeft size={16} /> {doc.job_id ? 'Back to job' : 'Back to JHA'}
         </Link>
 
-        <article className="jha-crew-sign-main">
-          <div className="jha-crew-sign-ident">
-            <p className="jha-crew-sign-eyebrow">JHA</p>
-            <button
-              type="button"
-              className={`jha-crew-sign-chip${signed ? ' is-signed' : ''}`}
-              onClick={() => void copyReportNumber(reportId)}
-              title={copied ? 'Copied' : 'Copy report number'}
-            >
-              {reportId}
-            </button>
+        <article className="ops-card overflow-hidden mb-4">
+          <OpsDocHead
+            kind="JHA"
+            id={doc.report_number || 'Draft'}
+            meta={[meta.taskName, livingSite].filter(Boolean).join(' · ') || 'Crew sign-on'}
+          />
+          <div className="ops-card-body space-y-4">
+            <p className="text-sm font-semibold text-navy">Sign onto this JHA</p>
+
+        {!member && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-lg text-sm">
+            This crew line was removed or the link is outdated.
           </div>
+        )}
 
-          <h1 className="jha-crew-sign-title">Sign onto this JHA</h1>
-          <p className="jha-crew-sign-site">{siteLine}</p>
-          {member && (
-            <p className="jha-crew-sign-who">
-              Signing as <span className="jha-crew-sign-name">{member.name || profile?.name}</span>
-              <span className="jha-crew-sign-role"> · {member.role || 'Worker'}</span>
-            </p>
-          )}
-
-          {!member && (
-            <div className="jha-crew-sign-notice" role="status">
-              This crew line was removed or the link is outdated.
+        {member && (
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-[#6B7280]">Signing as</p>
+              <p className="text-sm font-medium">{member.name || profile?.name}</p>
+              <p className="text-xs text-[#9CA3AF]">{member.role || 'Worker'}</p>
             </div>
-          )}
 
-          {member && member.profileId && profile && member.profileId !== profile.id && (
-            <div className="jha-crew-sign-notice" role="status">
-              This slot is for another team member. Log in as them, or ask the JHA creator to collect the signature on their device.
-            </div>
-          )}
-
-          {member && signed && (
-            <div className="jha-crew-sign-done">
-              <p>
-                Signed
-                {member.signedAt ? (
-                  <>
-                    {' '}
-                    <span className="jha-crew-sign-when">
-                      {format(new Date(member.signedAt), 'd MMM yyyy HH:mm')}
-                    </span>
-                  </>
-                ) : null}
-                . Thank you.
-              </p>
-              {(signature || member.signature) && (
-                <img src={signature || member.signature} alt="Signature" className="jha-crew-sign-mark" />
-              )}
-            </div>
-          )}
-
-          {member && !signed && (
-            <>
-              <div className="jha-crew-sign-field">
-                <p className="jha-crew-sign-label">Signature</p>
-                <SignatureCapture
-                  value={signature}
-                  nameHint={member.name || profile?.name || ''}
-                  onChange={setSignature}
-                  onClear={() => setSignature('')}
-                  heightClass="h-36"
-                />
+            {member.profileId && profile && member.profileId !== profile.id && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2 rounded-md text-sm">
+                This slot is for another team member. Log in as them, or ask the JHA creator to collect the signature on their device.
               </div>
-              {error && <p className="jha-crew-sign-error" role="alert">{error}</p>}
-              <div className="jha-crew-sign-actions">
+            )}
+
+            {done || member.signature ? (
+              <div className="text-sm text-[#1B7F3A] space-y-2">
+                <p>Signed {member.signedAt ? format(new Date(member.signedAt), 'd MMM yyyy HH:mm') : ''}. Thank you.</p>
+                {(signature || member.signature) && (
+                  <img src={signature || member.signature} alt="Signature" className="h-16 object-contain" />
+                )}
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="text-xs font-medium text-[#4A5568] mb-1 block">Your signature</label>
+                  <SignatureCapture
+                    value={signature}
+                    nameHint={member.name || profile?.name || ''}
+                    onChange={setSignature}
+                    onClear={() => setSignature('')}
+                    heightClass="h-36"
+                  />
+                </div>
+                {error && <p className="text-sm text-red-600">{error}</p>}
                 <button
                   type="button"
                   disabled={saving || !canSign || !signature}
                   onClick={() => void submit()}
-                  className="jha-crew-sign-primary"
+                  className="ops-next-control-block"
                 >
                   {saving ? 'Saving…' : 'Confirm sign-on'}
                 </button>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
+        )}
+          </div>
         </article>
       </div>
-    </CrewSignShell>
+    </AppShell>
   );
 }
