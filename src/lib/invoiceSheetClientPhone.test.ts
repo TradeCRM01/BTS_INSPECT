@@ -359,7 +359,7 @@ describe('invoice-sheet client phone — wiring', () => {
     expect(save).not.toContain('sendQuote');
     expect(save).not.toContain('QuoteSendDialog');
     expect(quoteConvert).not.toContain('saveJobClientPhone');
-    expect(quotesPage).not.toContain('saveJobClientPhone');
+    expect(quotesPage).toContain('saveJobClientPhone');
     expect(quoteNext).not.toContain('saveJobClientPhone');
     expect(page).not.toContain('QuoteSendDialog');
     expect(page).not.toContain('sendQuote');

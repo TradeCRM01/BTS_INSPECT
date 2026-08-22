@@ -65,7 +65,7 @@ describe('quote-sheet client email — wiring', () => {
     expect(editorStart).toBeGreaterThan(-1);
     const editor = page.slice(editorStart);
     const handleSaveStart = editor.indexOf('const saveClientEmail');
-    const handleSaveEnd = editor.indexOf('const previewData');
+    const handleSaveEnd = editor.indexOf('const saveClientPhone');
     expect(handleSaveStart).toBeGreaterThan(-1);
     expect(handleSaveEnd).toBeGreaterThan(handleSaveStart);
     const handle = editor.slice(handleSaveStart, handleSaveEnd);
@@ -181,7 +181,7 @@ describe('quote-sheet client email — wiring', () => {
     expect(editor).toContain('job-client-email');
   });
 
-  it('leaves quote send delivery / PR #17 / convert / phone / attach off this control', () => {
+  it('leaves quote send delivery / PR #17 / convert / attach off this control', () => {
     const save = src('src/lib/saveJobClientEmail.ts');
     const page = src('src/pages/QuotesPage.tsx');
     const quoteConvert = src('src/lib/convertQuoteToInvoice.ts');
@@ -198,7 +198,7 @@ describe('quote-sheet client email — wiring', () => {
     expect(page).not.toContain('QuoteSendDialog');
     expect(page).not.toContain('sendQuote');
     expect(page).not.toContain('sendQuoteDeliver');
-    expect(page).not.toContain('saveJobClientPhone');
+    expect(page).toContain('saveJobClientPhone');
     expect(page).not.toContain('attachInvoiceClient');
     expect(page).not.toContain('attachJobClient');
     expect(page).not.toContain('Relovi');

@@ -431,7 +431,7 @@ describe('24h reminder client phone — wiring', () => {
     expect(save).not.toContain('sendQuote');
     expect(save).not.toContain('QuoteSendDialog');
     expect(quoteConvert).not.toContain('saveJobClientPhone');
-    expect(quotesPage).not.toContain('saveJobClientPhone');
+    expect(quotesPage).toContain('saveJobClientPhone');
     expect(quoteNext).not.toContain('saveJobClientPhone');
     expect(reminder).not.toContain('QuoteSendDialog');
     expect(reminder).not.toContain('sendQuote');

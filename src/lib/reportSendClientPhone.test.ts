@@ -476,7 +476,7 @@ describe('report-send client phone — wiring', () => {
     expect(save).not.toContain('sendQuote');
     expect(save).not.toContain('QuoteSendDialog');
     expect(quoteConvert).not.toContain('saveJobClientPhone');
-    expect(quotesPage).not.toContain('saveJobClientPhone');
+    expect(quotesPage).toContain('saveJobClientPhone');
     expect(quoteNext).not.toContain('saveJobClientPhone');
     expect(dialog).not.toContain('QuoteSendDialog');
     expect(dialog).not.toContain('sendQuote');

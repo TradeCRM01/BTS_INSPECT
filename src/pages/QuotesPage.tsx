@@ -29,13 +29,18 @@ import {
   saveJobClientEmail,
 } from '../lib/saveJobClientEmail';
 import {
+  jobClientPhoneRow,
+  jobClientPhoneSaveToast,
+  saveJobClientPhone,
+} from '../lib/saveJobClientPhone';
+import {
   quoteActionContext,
   quoteListBucket,
   recommendQuoteAction,
   type QuoteActionKey,
 } from '../lib/quoteNextAction';
 import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatMoney } from '../types/fsm';
-import { Plus, FileText, ArrowRight, Eye, Receipt, Send, Check, Mail } from 'lucide-react';
+import { Plus, FileText, ArrowRight, Eye, Receipt, Send, Check, Mail, Phone } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | QuoteStatus;
@@ -493,6 +498,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const [clients, setClients] = useState<Client[]>([]);
   const [writtenClientEmail, setWrittenClientEmail] = useState<{ clientId: string; email: string | null } | null>(null);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
+  const [writtenClientPhone, setWrittenClientPhone] = useState<{ clientId: string; phone: string | null } | null>(null);
+  const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [jobs, setJobs] = useState<Job[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [priceBookItems, setPriceBookItems] = useState<PriceBookItem[]>([]);
@@ -545,6 +552,11 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
     ? { ...emailClientBase, email: writtenClientEmail.email }
     : emailClientBase;
   const emailRow = jobClientEmailRow({ clientId: form.client_id || null, client: emailClient });
+  const phoneClientBase = selectedClient ?? null;
+  const phoneClient = phoneClientBase && writtenClientPhone?.clientId === phoneClientBase.id
+    ? { ...phoneClientBase, phone: writtenClientPhone.phone }
+    : phoneClientBase;
+  const phoneRow = jobClientPhoneRow({ clientId: form.client_id || null, client: phoneClient });
   const rawSubtotal = useMemo(() => calcSubtotal(form.line_items), [form.line_items]);
   const gst = useMemo(
     () => calcDocumentTotals(rawSubtotal, parseFloat(form.tax_rate) || 0),
@@ -564,6 +576,10 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
     setClientEmailDraft(emailClient?.email ?? '');
   }, [emailClient?.id, emailClient?.email]);
 
+  useEffect(() => {
+    setClientPhoneDraft(phoneClient?.phone ?? '');
+  }, [phoneClient?.id, phoneClient?.phone]);
+
   const saveClientEmail = useMutation({
     mutationFn: async () => {
       return saveJobClientEmail({
@@ -579,6 +595,26 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
       queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       const toast = jobClientEmailSaveToast(result.email);
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
+
+  const saveClientPhone = useMutation({
+    mutationFn: async () => {
+      return saveJobClientPhone({
+        clientId: form.client_id || null,
+        phone: clientPhoneDraft,
+      });
+    },
+    onSuccess: (result) => {
+      setWrittenClientPhone({ clientId: result.clientId, phone: result.phone });
+      setClients(cs => cs.map(c => c.id === result.clientId ? { ...c, phone: result.phone } : c));
+      setClientPhoneDraft(result.phone ?? '');
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      const toast = jobClientPhoneSaveToast(result.phone);
       showToast(toast.message, toast.kind);
     },
     onError: (e: Error) => showToast(e.message, 'info'),
@@ -606,7 +642,12 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
       secondaryLabel: 'Valid until',
       secondaryValue: form.validity_date ? format(parseISO(form.validity_date), 'd MMM yyyy') : '—',
       clientName: selectedClient?.name ?? '—',
-      clientDetail: quoteClientDetailFromClient(emailClient, selectedJob?.address),
+      clientDetail: quoteClientDetailFromClient(
+        selectedClient
+          ? { ...selectedClient, email: emailClient?.email ?? selectedClient.email, phone: phoneClient?.phone ?? selectedClient.phone }
+          : selectedClient,
+        selectedJob?.address,
+      ),
       company: commercialPdfCompanyFrom(company),
       inclusions: form.inclusions,
       exclusions: form.exclusions,
@@ -619,7 +660,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
       total: grandTotal,
       notes: form.notes.trim() || null,
     };
-  }, [company, form, quote, selectedClient, emailClient, selectedJob, subtotal, taxAmount, grandTotal]);
+  }, [company, form, quote, selectedClient, emailClient, phoneClient, selectedJob, subtotal, taxAmount, grandTotal]);
 
   const buildPayload = (status: QuoteStatus) => {
     const cleanLines: QuoteLineItem[] = form.line_items
@@ -740,13 +781,18 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             fromName={company?.name ?? 'Your company'}
             fromDetail={[company?.abn ? `ABN ${company.abn}` : null, company?.licence_number ? `Licence ${company.licence_number}` : null].filter(Boolean).join(' · ') || null}
             toName={selectedClient?.name ?? 'Select a client'}
-            toDetail={quoteClientDetailFromClient(emailClient, selectedJob?.address)}
+            toDetail={quoteClientDetailFromClient(
+              selectedClient
+                ? { ...selectedClient, email: emailClient?.email ?? selectedClient.email, phone: phoneClient?.phone ?? selectedClient.phone }
+                : selectedClient,
+              selectedJob?.address,
+            )}
           />
           <div className="flex items-start justify-between gap-2 py-3">
             <OpsSiteRow
               hub
               site={opsSiteLabel(selectedJob?.address, selectedClient?.address)}
-              phone={selectedClient?.phone}
+              phone={phoneClient?.phone}
               email={emailClient?.email}
               mapsQuery={selectedJob?.address || selectedClient?.address}
             />
@@ -822,7 +868,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
               </select>
               {selectedClient && (
                 <div className="mt-2 flex flex-col gap-1">
-                  {visibleClientContacts(emailClient ?? selectedClient).filter(line => line.kind !== 'mailto').map(line => (
+                  {visibleClientContacts(emailClient ?? selectedClient).filter(line => line.kind !== 'mailto' && line.kind !== 'tel').map(line => (
                     <a
                       key={line.kind}
                       href={line.href}
@@ -833,6 +879,39 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
                       {line.label}
                     </a>
                   ))}
+                  {phoneRow.kind === 'tel' && (
+                    <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num">
+                      <Phone size={13} /> {phoneRow.phone}
+                    </a>
+                  )}
+                  {phoneRow.kind === 'edit' && (
+                    <form
+                      className="job-client-phone"
+                      onSubmit={e => {
+                        e.preventDefault();
+                        saveClientPhone.mutate();
+                      }}
+                    >
+                      <Phone size={13} />
+                      <input
+                        type="tel"
+                        value={clientPhoneDraft}
+                        onChange={e => setClientPhoneDraft(e.target.value)}
+                        placeholder="Phone"
+                        className="form-input-sm"
+                        aria-label="Client phone"
+                        autoComplete="tel"
+                        inputMode="tel"
+                      />
+                      <button
+                        type="submit"
+                        className="job-client-phone-save"
+                        disabled={saveClientPhone.isPending}
+                      >
+                        Save
+                      </button>
+                    </form>
+                  )}
                   {emailRow.kind === 'mailto' && (
                     <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
                       <Mail size={13} /> {emailRow.email}
