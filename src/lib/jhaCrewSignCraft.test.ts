@@ -53,5 +53,16 @@ describe('JHA crew sign-on craft', () => {
     expect(page).not.toContain('#3E6FD1');
     expect(existsSync(resolve(process.cwd(), 'src/pages/ReportThemePage.tsx'))).toBe(false);
     expect(src('src/reports/shared/components.tsx')).not.toContain('jha-crew-sign');
+
+    for (const rel of [
+      'docs/look/jha-crew-sign-ready-blank-desktop.png',
+      'docs/look/jha-crew-sign-ready-blank-ute.png',
+      'docs/look/jha-crew-sign-ready-saved-desktop.png',
+      'docs/look/jha-crew-sign-ready-saved-ute.png',
+      'docs/look/jha-crew-sign-signed-blank-desktop.png',
+      'docs/look/jha-crew-sign-signed-blank-ute.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+    }
   });
 });
