@@ -3909,73 +3909,163 @@
     color: #fff;
   }
 
-  /* JHA crew sign-on only. Craft bar on this page; does not recast fill, list, or .ops-next-control globally. */
+  /* JHA crew sign-on only — full Interface Craft trial. Does not recast fill, list, or global .btn-primary / .ops-next-control. */
   .jha-crew-sign {
+    --jha-navy: #0A2540;
+    --jha-accent: #2E75B6;
+    --jha-navy-light: #153558;
+    --jha-accent-light: #D6E8F7;
+    --jha-cream: #F5F0E6;
+    --jha-raised: #ffffff;
     --jha-pass: #1B7F3A;
     --jha-warn: #B54708;
     --jha-fail: #B42318;
-    --jha-cream: #F5F0E6;
-    font-family: Inter, system-ui, sans-serif;
+    --jha-fg: var(--jha-navy, #0A2540);
+    --jha-fg-2: color-mix(in srgb, var(--jha-navy, #0A2540) 58%, #fff);
+    --jha-fg-3: color-mix(in srgb, var(--jha-navy, #0A2540) 42%, #fff);
+    --jha-hair: color-mix(in srgb, var(--jha-navy, #0A2540) 8%, transparent);
+    --jha-line: color-mix(in srgb, var(--jha-navy, #0A2540) 14%, transparent);
+    --jha-hover: color-mix(in srgb, var(--jha-navy, #0A2540) 4%, transparent);
+    --font-ui: Inter, system-ui, sans-serif;
+    --font-data: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    --dur-fast: 140ms;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    min-height: calc(100dvh - 3.5rem);
+    background: var(--jha-cream, #F5F0E6);
+    color: var(--jha-fg);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.5;
+    text-box: trim-both cap alphabetic;
   }
 
   .jha-crew-sign-page {
-    max-width: 640px;
+    max-width: 40rem;
     margin: 0 auto;
-    padding: 16px 16px 40px;
+    padding: 24px 24px 64px;
   }
 
-  .jha-crew-sign .ops-back {
-    color: color-mix(in srgb, var(--jha-navy, #0A2540) 55%, #fff);
-    margin-bottom: 16px;
-    transition: color 140ms cubic-bezier(0.16, 1, 0.3, 1);
+  .jha-crew-sign-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 44px;
+    margin-bottom: 24px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--jha-fg-2);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color var(--dur-fast) var(--ease-out);
   }
 
-  .jha-crew-sign .ops-back:hover {
-    color: var(--jha-navy, #0A2540);
+  .jha-crew-sign-back:hover {
+    color: var(--jha-fg);
   }
 
-  .jha-crew-sign .ops-back svg {
+  .jha-crew-sign-back svg {
     transform: translateX(-1px);
     flex-shrink: 0;
   }
 
-  .jha-crew-sign-sheet.ops-card {
-    background: #fff;
-    border: 1px solid color-mix(in srgb, var(--jha-navy, #0A2540) 8%, transparent);
-    border-radius: 12px;
+  .jha-crew-sign-sheet {
+    background: var(--jha-raised);
+    border: 1px solid var(--jha-hair);
+    border-radius: 16px;
     overflow: hidden;
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.7),
-      0 1px 2px color-mix(in srgb, var(--jha-navy, #0A2540) 6%, transparent),
-      0 4px 12px color-mix(in srgb, var(--jha-navy, #0A2540) 5%, transparent),
-      0 12px 28px color-mix(in srgb, var(--jha-navy, #0A2540) 4%, transparent);
+      inset 0 1px 0 rgb(255 255 255 / 0.72),
+      0 1px 2px color-mix(in srgb, var(--jha-navy, #0A2540) 5%, transparent),
+      0 4px 10px color-mix(in srgb, var(--jha-navy, #0A2540) 5%, transparent),
+      0 12px 28px color-mix(in srgb, var(--jha-navy, #0A2540) 6%, transparent);
   }
 
-  .jha-crew-sign .ops-doc-head {
-    padding: 16px 16px 14px;
-    box-shadow: inset 0 -1px 0 color-mix(in srgb, #fff 10%, transparent);
-  }
-
-  .jha-crew-sign .ops-doc-id {
-    font-family: 'JetBrains Mono', ui-monospace, monospace;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.011em;
-  }
-
-  .jha-crew-sign-body.ops-card-body {
+  .jha-crew-sign-ident {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 16px;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 24px 24px 0;
+  }
+
+  .jha-crew-sign-eyebrow,
+  .jha-crew-sign-kicker,
+  .jha-crew-sign-label {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--jha-fg-3);
+  }
+
+  .jha-crew-sign-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px 2px 6px;
+    font-family: var(--font-data);
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+    color: var(--jha-fg);
+    background: color-mix(in srgb, var(--jha-navy, #0A2540) 6%, #fff);
+    border: 1px solid var(--jha-hair);
+    border-left: 3px solid var(--jha-accent, #2E75B6);
+    border-radius: 6px;
+    box-shadow: inset 0 1px 2px color-mix(in srgb, var(--jha-navy, #0A2540) 4%, transparent);
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out);
+  }
+
+  .jha-crew-sign-chip:hover {
+    background: color-mix(in srgb, var(--jha-navy, #0A2540) 10%, #fff);
+  }
+
+  .jha-crew-sign-chip.is-signed {
+    border-left-color: var(--jha-pass, #1B7F3A);
+  }
+
+  .jha-crew-sign-chip::after {
+    content: '⧉';
+    font-size: 10px;
+    color: var(--jha-fg-3);
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out);
+  }
+
+  .jha-crew-sign-chip:hover::after {
+    opacity: 1;
+  }
+
+  .jha-crew-sign-site {
+    margin: 0;
+    max-width: 65ch;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--jha-fg-2);
+  }
+
+  .jha-crew-sign-body {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 24px;
   }
 
   .jha-crew-sign-title {
     margin: 0;
-    font-size: 14px;
+    max-width: 65ch;
+    font-size: 22px;
     font-weight: 600;
-    line-height: 1.5;
-    letter-spacing: 0;
-    color: var(--jha-navy, #0A2540);
+    line-height: 1.35;
+    letter-spacing: -0.011em;
+    color: var(--jha-fg);
+    text-wrap: balance;
   }
 
   .jha-crew-sign-who {
@@ -3984,22 +4074,12 @@
     gap: 4px;
   }
 
-  .jha-crew-sign-kicker,
-  .jha-crew-sign-label {
-    margin: 0;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: color-mix(in srgb, var(--jha-navy, #0A2540) 48%, #fff);
-  }
-
   .jha-crew-sign-name {
     margin: 0;
     font-size: 14px;
     font-weight: 600;
     line-height: 1.5;
-    color: var(--jha-navy, #0A2540);
+    color: var(--jha-fg);
   }
 
   .jha-crew-sign-role {
@@ -4007,7 +4087,7 @@
     font-size: 12px;
     font-weight: 400;
     line-height: 1.45;
-    color: color-mix(in srgb, var(--jha-navy, #0A2540) 48%, #fff);
+    color: var(--jha-fg-3);
   }
 
   .jha-crew-sign-field {
@@ -4031,13 +4111,14 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    margin: 0;
     font-size: 14px;
     line-height: 1.5;
     color: var(--jha-pass, #1B7F3A);
   }
 
   .jha-crew-sign-when {
-    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-family: var(--font-data);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
     letter-spacing: 0;
@@ -4057,19 +4138,33 @@
     color: var(--jha-fail, #B42318);
   }
 
-  .jha-crew-sign .ops-next-control-block {
-    background: var(--jha-accent, #2E75B6);
+  .jha-crew-sign-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 16px;
+    border: none;
     border-radius: 8px;
+    background: var(--jha-accent, #2E75B6);
+    color: #fff;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0;
+    cursor: pointer;
     box-shadow: none;
-    transition: background 140ms cubic-bezier(0.16, 1, 0.3, 1), opacity 140ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition: background var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
   }
 
-  .jha-crew-sign .ops-next-control-block:hover:not(:disabled) {
+  .jha-crew-sign-primary:hover:not(:disabled) {
     background: color-mix(in srgb, var(--jha-accent, #2E75B6) 86%, var(--jha-navy, #0A2540));
   }
 
-  .jha-crew-sign .ops-next-control-block:disabled {
+  .jha-crew-sign-primary:disabled {
     opacity: 0.45;
+    cursor: not-allowed;
   }
 
   .jha-crew-sign :where(a, button, input, select, textarea, [tabindex]):focus-visible {
@@ -4078,18 +4173,42 @@
     border-radius: inherit;
   }
 
-  .jha-crew-sign .jha-crew-sign-field [class*="border-[#E5E7EB]"],
-  .jha-crew-sign .jha-crew-sign-field [class*="border-[#D1D5DB]"] {
-    border-color: color-mix(in srgb, var(--jha-navy, #0A2540) 10%, transparent) !important;
+  /* Shared SignatureCapture: demote its filled navy buttons so Confirm stays the only primary. */
+  .jha-crew-sign-field > div {
+    border: 1px solid var(--jha-hair) !important;
+    border-radius: 8px;
+    background: var(--jha-raised) !important;
+    overflow: hidden;
+    box-shadow: none;
   }
 
-  .jha-crew-sign .jha-crew-sign-field button[class*="bg-[#0A2540]"] {
-    background: var(--jha-navy, #0A2540);
+  .jha-crew-sign-field > div > div:first-child {
+    background: color-mix(in srgb, var(--jha-cream, #F5F0E6) 70%, #fff) !important;
+    border-bottom: 1px solid var(--jha-hair) !important;
+  }
+
+  .jha-crew-sign-field [class*="border-[#E5E7EB]"],
+  .jha-crew-sign-field [class*="border-[#D1D5DB]"],
+  .jha-crew-sign-field [class*="border-[#F3F4F6]"] {
+    border-color: var(--jha-hair) !important;
+  }
+
+  .jha-crew-sign-field button[class*="bg-[#0A2540]"] {
+    background: transparent !important;
+    color: var(--jha-fg) !important;
+    border: 1px solid var(--jha-line);
     min-height: 44px;
     border-radius: 8px;
+    font-weight: 500;
   }
 
-  .jha-crew-sign .jha-crew-sign-field button[class*="py-2"] {
+  .jha-crew-sign-field button[class*="py-2"] {
+    min-height: 44px;
+  }
+
+  .jha-crew-sign-field input {
+    border-color: var(--jha-line) !important;
+    border-radius: 8px;
     min-height: 44px;
   }
 
@@ -4103,11 +4222,7 @@
 
   @media (max-width: 639px) {
     .jha-crew-sign-page {
-      padding: 8px 8px 32px;
-    }
-
-    .jha-crew-sign-sheet.ops-card {
-      border-radius: 12px;
+      padding: 16px 16px 48px;
     }
   }
 

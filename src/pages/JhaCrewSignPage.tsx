@@ -6,7 +6,7 @@ import { ChevronLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, OpsDocHead, PageError } from '../components/ui';
+import { LoadingSpinner, PageError } from '../components/ui';
 import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { parseCrewSignOns, type JhaCrewMember } from '../types/jha';
 import { livingJobSite } from '../lib/livingJha';
@@ -21,7 +21,7 @@ function CrewSignShell({
 }) {
   return (
     <AppShell>
-      <div className="jha-doc-theme jha-crew-sign" style={themeStyle}>
+      <div className="jha-crew-sign" style={themeStyle}>
         {children}
       </div>
     </AppShell>
@@ -39,6 +39,7 @@ export function JhaCrewSignPage() {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [signature, setSignature] = useState('');
+  const [copied, setCopied] = useState(false);
   const docColors = jhaDocumentColors(
     (company as { report_theme?: unknown } | null)?.report_theme ?? null,
   );
@@ -137,6 +138,16 @@ export function JhaCrewSignPage() {
     }
   }
 
+  async function copyReportNumber(id: string) {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   if (!docId || !crewId) {
     return (
       <CrewSignShell themeStyle={themeStyle}>
@@ -168,28 +179,38 @@ export function JhaCrewSignPage() {
   const meta = doc.meta as Record<string, string>;
   const livingSite = livingJobSite(boundJob) || meta.siteName;
   const signed = done || !!member?.signature;
+  const reportId = doc.report_number || 'Draft';
+  const siteLine = [meta.taskName, livingSite].filter(Boolean).join(' · ') || 'Crew sign-on';
 
   return (
     <CrewSignShell themeStyle={themeStyle}>
       <div className="jha-crew-sign-page">
         <Link
           to={doc.job_id ? `/jobs/${doc.job_id}` : (docId ? `/jha/new?docId=${docId}` : '/jha')}
-          className="ops-back"
+          className="jha-crew-sign-back"
         >
           <ChevronLeft size={16} /> {doc.job_id ? 'Back to job' : 'Back to JHA'}
         </Link>
 
-        <article className="ops-card jha-crew-sign-sheet">
-          <OpsDocHead
-            kind="JHA"
-            id={doc.report_number || 'Draft'}
-            meta={[meta.taskName, livingSite].filter(Boolean).join(' · ') || 'Crew sign-on'}
-          />
-          <div className="ops-card-body jha-crew-sign-body">
-            <p className="jha-crew-sign-title">Sign onto this JHA</p>
+        <article className="jha-crew-sign-sheet">
+          <header className="jha-crew-sign-ident">
+            <p className="jha-crew-sign-eyebrow">JHA</p>
+            <button
+              type="button"
+              className={`jha-crew-sign-chip${signed ? ' is-signed' : ''}`}
+              onClick={() => void copyReportNumber(reportId)}
+              title={copied ? 'Copied' : 'Copy report number'}
+            >
+              {reportId}
+            </button>
+            <p className="jha-crew-sign-site">{siteLine}</p>
+          </header>
+
+          <div className="jha-crew-sign-body">
+            <h1 className="jha-crew-sign-title">Sign onto this JHA</h1>
 
             {!member && (
-              <div className="jha-crew-sign-notice is-warn" role="status">
+              <div className="jha-crew-sign-notice" role="status">
                 This crew line was removed or the link is outdated.
               </div>
             )}
@@ -203,7 +224,7 @@ export function JhaCrewSignPage() {
                 </div>
 
                 {member.profileId && profile && member.profileId !== profile.id && (
-                  <div className="jha-crew-sign-notice is-warn" role="status">
+                  <div className="jha-crew-sign-notice" role="status">
                     This slot is for another team member. Log in as them, or ask the JHA creator to collect the signature on their device.
                   </div>
                 )}
@@ -243,7 +264,7 @@ export function JhaCrewSignPage() {
                       type="button"
                       disabled={saving || !canSign || !signature}
                       onClick={() => void submit()}
-                      className="ops-next-control-block"
+                      className="jha-crew-sign-primary"
                     >
                       {saving ? 'Saving…' : 'Confirm sign-on'}
                     </button>
