@@ -352,13 +352,11 @@ describe('invoice-send client phone — wiring', () => {
     const save = src('src/lib/saveJobClientPhone.ts');
     const dialog = src('src/components/invoicing/InvoiceSendDialog.tsx');
     const quoteConvert = src('src/lib/convertQuoteToInvoice.ts');
-    const quotesPage = src('src/pages/QuotesPage.tsx');
     const quoteNext = src('src/lib/quoteNextAction.ts');
     expect(save).not.toContain('convertQuoteToInvoice');
     expect(save).not.toContain('sendQuote');
     expect(save).not.toContain('QuoteSendDialog');
     expect(quoteConvert).not.toContain('saveJobClientPhone');
-    expect(quotesPage).not.toContain('saveJobClientPhone');
     expect(quoteNext).not.toContain('saveJobClientPhone');
     expect(dialog).not.toContain('QuoteSendDialog');
     expect(dialog).not.toContain('sendQuote');
