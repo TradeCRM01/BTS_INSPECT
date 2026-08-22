@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect, type CSSProperties } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import SignatureCanvas from 'react-signature-canvas';
@@ -8,6 +8,8 @@ import { evaluateShowIf } from '../lib/conditionEval';
 import type { TemplateSchema, SignOffRole, InspectionCountersign } from '../types/template';
 import { parseCountersignatures } from '../types/template';
 import { applyLivingJobToInspection } from '../lib/livingJha';
+import { useAuth } from '../contexts/AuthContext';
+import { inspectionDocumentColors } from '../reports/generic_inspection/theme';
 import { CheckCircle, AlertCircle, ChevronLeft, ClipboardCheck, ImageOff, Check, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -15,11 +17,13 @@ function CountersignSlot({
   role,
   name,
   signature,
+  navy,
   onChange,
 }: {
   role: SignOffRole;
   name: string;
   signature: string;
+  navy: string;
   onChange: (patch: { name?: string; signature?: string }) => void;
 }) {
   const sigRef = useRef<SignatureCanvas>(null);
@@ -71,7 +75,7 @@ function CountersignSlot({
             <div className="bg-white relative">
               <SignatureCanvas
                 ref={sigRef}
-                penColor="#0A2540"
+                penColor={navy}
                 canvasProps={{ className: 'w-full h-36 touch-none', style: { touchAction: 'none', display: 'block' } }}
               />
               <p className="absolute bottom-2 left-0 right-0 text-center text-[10px] text-[#C0C9D4] pointer-events-none select-none">
@@ -85,7 +89,7 @@ function CountersignSlot({
               <button
                 type="button"
                 onClick={handleDone}
-                className="flex items-center gap-1.5 text-xs font-medium text-white bg-[#0A2540] px-3 py-1.5 rounded hover:bg-[#0d2f4e]"
+                className="insp-review-navy flex items-center gap-1.5 text-xs font-medium text-white px-3 py-1.5 rounded hover:opacity-90"
               >
                 <Check size={12} /> Done
               </button>
@@ -100,6 +104,16 @@ function CountersignSlot({
 export function InspectionReviewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { company } = useAuth();
+  const docColors = inspectionDocumentColors(
+    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
+  );
+  const themeStyle = {
+    '--insp-navy': docColors.navy,
+    '--insp-accent': docColors.accent,
+    '--insp-navy-light': docColors.navyLight,
+    '--insp-accent-light': docColors.accentLight,
+  } as CSSProperties;
   const [countersignDraft, setCountersignDraft] = useState<Record<string, { name: string; signature: string }>>({});
 
   const { data: inspection, isLoading, isError, refetch } = useQuery({
@@ -201,8 +215,8 @@ export function InspectionReviewPage() {
 
   if (isLoading || !inspection) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 animate-spin rounded-full border-2 border-[#0A2540] border-t-transparent" />
+      <div className="insp-doc-theme min-h-screen flex items-center justify-center" style={themeStyle}>
+        <div className="insp-review-spin w-8 h-8 animate-spin rounded-full border-2" />
       </div>
     );
   }
@@ -316,9 +330,9 @@ export function InspectionReviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB]">
+    <div className="insp-doc-theme min-h-screen bg-[#F9FAFB]" style={themeStyle}>
       {/* Header */}
-      <div className="bg-[#0A2540] text-white sticky top-0 z-40 h-14 flex items-center px-4 gap-3">
+      <div className="insp-review-head text-white sticky top-0 z-40 h-14 flex items-center px-4 gap-3">
         <button onClick={() => navigate(`/inspections/${id}`)} className="p-1.5 rounded hover:bg-white/10">
           <ChevronLeft size={20} />
         </button>
@@ -385,12 +399,12 @@ export function InspectionReviewPage() {
                   {(sectionInstanceMap[sec.id] ?? []).map((instanceId, idx) => (
                     <div key={instanceId}>
                       <div className="px-4 py-2 bg-[#F0F4F8]">
-                        <p className="text-xs font-semibold text-[#0A2540]">{sec.repeatLabel ?? 'Item'} {idx + 1}</p>
+                        <p className="insp-review-ink text-xs font-semibold">{sec.repeatLabel ?? 'Item'} {idx + 1}</p>
                       </div>
                       {sec.questions.map(q => {
                         if (q.type === 'heading') return (
                           <div key={q.id} className="px-4 py-2 bg-[#F9FAFB]">
-                            <p className="text-[11px] font-semibold text-[#0A2540] uppercase tracking-wide">{q.label}</p>
+                            <p className="insp-review-ink text-[11px] font-semibold uppercase tracking-wide">{q.label}</p>
                           </div>
                         );
                         if (!evaluateShowIf(q.showIf, responses)) return null;
@@ -438,7 +452,7 @@ export function InspectionReviewPage() {
                     if (q.type === 'heading') {
                       return (
                         <div key={q.id} className="px-4 py-2 bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                          <p className="text-[11px] font-semibold text-[#0A2540] uppercase tracking-wide">{q.label}</p>
+                          <p className="insp-review-ink text-[11px] font-semibold uppercase tracking-wide">{q.label}</p>
                         </div>
                       );
                     }
@@ -498,6 +512,7 @@ export function InspectionReviewPage() {
               <CountersignSlot
                 key={role.id}
                 role={role}
+                navy={docColors.navy}
                 name={countersignDraft[role.id]?.name ?? ''}
                 signature={countersignDraft[role.id]?.signature ?? ''}
                 onChange={patch =>
