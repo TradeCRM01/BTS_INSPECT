@@ -80,4 +80,15 @@ describe('Take 5 list cards report_theme colours', () => {
     const mark = src('src/components/brand/grafterMark.ts');
     expect(mark).toContain('GRAFTER_NAVY');
   });
+
+  it('LOOK frames cover blank and saved Take 5 list cards only', () => {
+    for (const rel of [
+      'docs/look/take5-list-theme-blank-desktop.png',
+      'docs/look/take5-list-theme-blank-ute.png',
+      'docs/look/take5-list-theme-saved-desktop.png',
+      'docs/look/take5-list-theme-saved-ute.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+    }
+  });
 });
