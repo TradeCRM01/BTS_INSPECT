@@ -180,7 +180,6 @@ describe('quote-send client phone — wiring', () => {
     expect(dialog).not.toContain('QuoteClientPhoneDialog');
     expect(dialog).not.toContain('AU_PHONE_PLACEHOLDER');
     expect(dialog).not.toContain('className="btn-primary job-client-phone-save"');
-    expect(dialog).not.toContain('attachQuoteClient');
 
     expect(handle).toContain('saveJobClientPhone');
     expect(handle).toContain('phoneRow.clientId');
@@ -191,6 +190,7 @@ describe('quote-send client phone — wiring', () => {
     expect(handle).not.toContain('onSent');
     expect(handle).not.toContain('sendSms');
     expect(handle).not.toContain('job-reminder');
+    expect(handle).not.toContain('attachQuoteClient');
 
     expect(handleSendFn).toContain('deliverQuote');
     expect(handleSendFn).not.toContain('saveJobClientPhone');
@@ -230,7 +230,6 @@ describe('quote-send client phone — wiring', () => {
     expect(dialog).toContain("phoneRow.kind === 'edit'");
     expect(dialog).toContain("phoneRow.kind === 'tel'");
     expect(dialog).toContain('!noClientMiss');
-    expect(dialog).not.toContain('attachQuoteClient');
   });
 
   it('does not change Send enablement unless decideQuoteSend already needs phone', () => {

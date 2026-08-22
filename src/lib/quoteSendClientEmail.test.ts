@@ -164,7 +164,6 @@ describe('quote-send client email — wiring', () => {
     expect(dialog).not.toContain('AU_EMAIL_PLACEHOLDER');
     expect(dialog).not.toContain('className="btn-primary job-client-email-save"');
     expect(dialog).not.toContain('className="ops-next-control-block job-client-email-save"');
-    expect(dialog).not.toContain('attachQuoteClient');
     expect(dialog).toContain('saveJobClientEmail');
 
     expect(handle).toContain('saveJobClientEmail');
@@ -176,6 +175,7 @@ describe('quote-send client email — wiring', () => {
     expect(handle).not.toContain('onSent');
     expect(handle).not.toContain('insert({');
     expect(handle).not.toContain('chased_at');
+    expect(handle).not.toContain('attachQuoteClient');
 
     expect(handleSendFn).toContain('deliverQuote');
     expect(handleSendFn).not.toContain('saveJobClientEmail');

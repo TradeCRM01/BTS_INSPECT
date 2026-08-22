@@ -1,20 +1,28 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { Mail, Phone } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Mail, Phone, User } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { generateCommercialPdf } from '../../reports/commercial/generateCommercialPdf';
 import { padQuoteNumber } from '../../lib/quoteJobFields';
+import { supabase } from '../../lib/supabase';
 import {
   commercialPdfDataForQuote,
   decideQuoteSend,
+  QUOTE_SEND_CLIENT_COLUMNS,
   type QuoteSendBundle,
+  type QuoteSendClient,
   type QuoteSendCompany,
   type QuoteSendDecision,
 } from '../../lib/sendQuote';
 import { deliverQuote, loadQuoteSendBundle } from '../../lib/sendQuoteDeliver';
 import { jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
 import { jobClientPhoneRow, saveJobClientPhone } from '../../lib/saveJobClientPhone';
+import {
+  QUOTE_CLIENT_ATTACH_NO_CLIENTS,
+  attachQuoteClient,
+  quoteClientAttachRow,
+} from '../../lib/attachQuoteClient';
 
 /** Honest no_email miss — write the address on this dialog. */
 export const QUOTE_SEND_NO_EMAIL_FIELD =
@@ -41,6 +49,8 @@ export function QuoteSendDialog({
   const [err, setErr] = useState('');
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
+  const [clientAttachDraft, setClientAttachDraft] = useState('');
+  const [savingAttach, setSavingAttach] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +90,71 @@ export function QuoteSendDialog({
   const showEmailEditor = !loading && noEmailMiss && emailRow.kind === 'edit';
   const showPhoneEditor = !loading && !smtpMiss && !noClientMiss && phoneRow.kind === 'edit';
   const showPhoneInkOnMiss = !loading && noEmailMiss && phoneRow.kind === 'tel';
+
+  const attachClientsQuery = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['quote-attach-clients', company.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name')
+        .eq('archived', false)
+        .eq('company_id', company.id)
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string }[];
+    },
+    enabled: !loading && noClientMiss && !!company.id,
+  });
+
+  const attachRow = quoteClientAttachRow({
+    quoteClientId,
+    companyClients: quoteClientId
+      ? []
+      : attachClientsQuery.isFetched
+        ? (attachClientsQuery.data ?? [])
+        : null,
+  });
+  const noClientsNamedMiss = noClientMiss && attachRow.kind === 'miss';
+
+  const handleAttach = async () => {
+    if (!bundle?.quote || attachRow.kind !== 'pick') return;
+    setSavingAttach(true);
+    setErr('');
+    try {
+      const result = await attachQuoteClient({
+        quoteId: bundle.quote.id,
+        quoteClientId,
+        clientId: clientAttachDraft,
+        companyClients: attachClientsQuery.data ?? [],
+      });
+      const clientRes = await supabase
+        .from('clients')
+        .select(QUOTE_SEND_CLIENT_COLUMNS)
+        .eq('id', result.clientId)
+        .maybeSingle();
+      if (clientRes.error) throw clientRes.error;
+      const attached = (clientRes.data ?? null) as QuoteSendClient | null;
+      const picked = attachRow.clients.find(c => c.id === result.clientId);
+      const next: QuoteSendBundle = {
+        ...bundle,
+        quote: { ...bundle.quote, client_id: result.clientId },
+        client: attached ?? (picked
+          ? { id: picked.id, name: picked.name, email: null, phone: null, address: null }
+          : null),
+      };
+      setBundle(next);
+      setDecision(decideQuoteSend(next));
+      setClientEmailDraft(next.client?.email ?? '');
+      setClientPhoneDraft(next.client?.phone ?? '');
+      setClientAttachDraft('');
+      void queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not attach the client.');
+    } finally {
+      setSavingAttach(false);
+    }
+  };
 
   const handleSaveEmail = async () => {
     if (emailRow.kind !== 'edit' || !bundle) return;
@@ -160,10 +235,12 @@ export function QuoteSendDialog({
   const blockerHref = decision && !decision.ok ? decision.href : undefined;
   const blockerMessage = noEmailMiss
     ? QUOTE_SEND_NO_EMAIL_FIELD
-    : (decision && !decision.ok ? decision.message : '');
+    : noClientsNamedMiss
+      ? QUOTE_CLIENT_ATTACH_NO_CLIENTS
+      : (decision && !decision.ok ? decision.message : '');
   const quoteLabel = bundle?.quote ? `Quote #${padQuoteNumber(bundle.quote.quote_number)}` : '';
   const pdfName = ready && decision.ok ? decision.filename : '';
-  const showSend = !loading && (ready || (noEmailMiss && emailRow.kind === 'edit'));
+  const showSend = !loading && (ready || (noEmailMiss && emailRow.kind === 'edit') || noClientMiss);
   const showSmtpSettings = !loading && smtpMiss && !!blockerHref;
 
   return (
@@ -242,6 +319,35 @@ export function QuoteSendDialog({
           {!loading && !ready && (
             <>
               <p className="hub-invoice-err">{blockerMessage || err || 'This quote cannot be sent yet.'}</p>
+              {noClientMiss && attachRow.kind === 'pick' && (
+                <form
+                  className="job-client-attach"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    void handleAttach();
+                  }}
+                >
+                  <User size={13} />
+                  <select
+                    value={clientAttachDraft}
+                    onChange={e => setClientAttachDraft(e.target.value)}
+                    className="form-input-sm"
+                    aria-label="Attach client"
+                  >
+                    <option value="">Client</option>
+                    {attachRow.clients.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    className="job-client-attach-save"
+                    disabled={savingAttach || !clientAttachDraft}
+                  >
+                    Save
+                  </button>
+                </form>
+              )}
               {showEmailEditor && emailRow.kind === 'edit' && (
                 <form
                   className="job-client-email"
