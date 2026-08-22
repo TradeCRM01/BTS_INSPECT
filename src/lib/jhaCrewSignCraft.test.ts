@@ -12,11 +12,11 @@ describe('JHA crew sign-on craft', () => {
     expect(page).toContain('jhaDocumentColors');
     expect(page).toContain('report_theme');
     expect(page).toContain('jha-crew-sign');
-    expect(page).toContain('jha-crew-sign-rail');
     expect(page).toContain('jha-crew-sign-chip');
     expect(page).toContain('jha-crew-sign-primary');
     expect(page).toContain('jha-crew-sign-eyebrow');
     expect(page).toContain('Confirm sign-on');
+    expect(page).not.toContain('jha-crew-sign-rail');
     expect(page).not.toContain('OpsDocHead');
     expect(page).not.toContain('jha-doc-theme');
     expect(page).not.toContain('ops-next-control-block');
@@ -44,14 +44,14 @@ describe('JHA crew sign-on craft', () => {
     const css = src('src/index.css');
     expect(css).toContain('.jha-crew-sign-chip');
     expect(css).toContain('.jha-crew-sign-primary');
-    expect(css).toContain('.jha-crew-sign-rail');
-    expect(css).toContain('Manrope');
     expect(css).toContain('#F5F0E6');
     expect(css).toContain('JetBrains Mono');
     expect(css).toContain('#1B7F3A');
+    expect(css).not.toContain('.jha-crew-sign-rail');
+    expect(css).not.toContain('Manrope');
     expect(css).not.toMatch(/^\s*\.btn-primary\s*\{[^}]*--jha-accent/m);
     expect(css).not.toContain('#3E6FD1');
-    expect(src('index.html')).toContain('Manrope');
+    expect(src('index.html')).not.toContain('Manrope');
   });
 
   it('does not invent a theme editor or a second palette', () => {

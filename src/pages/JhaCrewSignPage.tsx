@@ -192,8 +192,8 @@ export function JhaCrewSignPage() {
           <ChevronLeft size={16} /> {doc.job_id ? 'Back to job' : 'Back to JHA'}
         </Link>
 
-        <article className="jha-crew-sign-sheet">
-          <aside className="jha-crew-sign-rail">
+        <article className="jha-crew-sign-main">
+          <div className="jha-crew-sign-ident">
             <p className="jha-crew-sign-eyebrow">JHA</p>
             <button
               type="button"
@@ -203,64 +203,63 @@ export function JhaCrewSignPage() {
             >
               {reportId}
             </button>
-            <p className="jha-crew-sign-site">{siteLine}</p>
-            {member && (
-              <div className="jha-crew-sign-who">
-                <p className="jha-crew-sign-kicker">Signing as</p>
-                <p className="jha-crew-sign-name">{member.name || profile?.name}</p>
-                <p className="jha-crew-sign-role">{member.role || 'Worker'}</p>
+          </div>
+
+          <h1 className="jha-crew-sign-title">Sign onto this JHA</h1>
+          <p className="jha-crew-sign-site">{siteLine}</p>
+          {member && (
+            <p className="jha-crew-sign-who">
+              Signing as <span className="jha-crew-sign-name">{member.name || profile?.name}</span>
+              <span className="jha-crew-sign-role"> · {member.role || 'Worker'}</span>
+            </p>
+          )}
+
+          {!member && (
+            <div className="jha-crew-sign-notice" role="status">
+              This crew line was removed or the link is outdated.
+            </div>
+          )}
+
+          {member && member.profileId && profile && member.profileId !== profile.id && (
+            <div className="jha-crew-sign-notice" role="status">
+              This slot is for another team member. Log in as them, or ask the JHA creator to collect the signature on their device.
+            </div>
+          )}
+
+          {member && signed && (
+            <div className="jha-crew-sign-done">
+              <p>
+                Signed
+                {member.signedAt ? (
+                  <>
+                    {' '}
+                    <span className="jha-crew-sign-when">
+                      {format(new Date(member.signedAt), 'd MMM yyyy HH:mm')}
+                    </span>
+                  </>
+                ) : null}
+                . Thank you.
+              </p>
+              {(signature || member.signature) && (
+                <img src={signature || member.signature} alt="Signature" className="jha-crew-sign-mark" />
+              )}
+            </div>
+          )}
+
+          {member && !signed && (
+            <>
+              <div className="jha-crew-sign-field">
+                <p className="jha-crew-sign-label">Signature</p>
+                <SignatureCapture
+                  value={signature}
+                  nameHint={member.name || profile?.name || ''}
+                  onChange={setSignature}
+                  onClear={() => setSignature('')}
+                  heightClass="h-36"
+                />
               </div>
-            )}
-          </aside>
-
-          <div className="jha-crew-sign-body">
-            <h1 className="jha-crew-sign-title">Sign onto this JHA</h1>
-
-            {!member && (
-              <div className="jha-crew-sign-notice" role="status">
-                This crew line was removed or the link is outdated.
-              </div>
-            )}
-
-            {member && member.profileId && profile && member.profileId !== profile.id && (
-              <div className="jha-crew-sign-notice" role="status">
-                This slot is for another team member. Log in as them, or ask the JHA creator to collect the signature on their device.
-              </div>
-            )}
-
-            {member && signed && (
-              <div className="jha-crew-sign-done">
-                <p>
-                  Signed
-                  {member.signedAt ? (
-                    <>
-                      {' '}
-                      <span className="jha-crew-sign-when">
-                        {format(new Date(member.signedAt), 'd MMM yyyy HH:mm')}
-                      </span>
-                    </>
-                  ) : null}
-                  . Thank you.
-                </p>
-                {(signature || member.signature) && (
-                  <img src={signature || member.signature} alt="Signature" className="jha-crew-sign-mark" />
-                )}
-              </div>
-            )}
-
-            {member && !signed && (
-              <>
-                <div className="jha-crew-sign-field">
-                  <p className="jha-crew-sign-label">Your signature</p>
-                  <SignatureCapture
-                    value={signature}
-                    nameHint={member.name || profile?.name || ''}
-                    onChange={setSignature}
-                    onClear={() => setSignature('')}
-                    heightClass="h-36"
-                  />
-                </div>
-                {error && <p className="jha-crew-sign-error" role="alert">{error}</p>}
+              {error && <p className="jha-crew-sign-error" role="alert">{error}</p>}
+              <div className="jha-crew-sign-actions">
                 <button
                   type="button"
                   disabled={saving || !canSign || !signature}
@@ -269,9 +268,9 @@ export function JhaCrewSignPage() {
                 >
                   {saving ? 'Saving…' : 'Confirm sign-on'}
                 </button>
-              </>
-            )}
-          </div>
+              </div>
+            </>
+          )}
         </article>
       </div>
     </CrewSignShell>
