@@ -272,7 +272,7 @@ describe('job-sheet client phone — wiring', () => {
     expect(invoicesPage).toContain('Send again');
     expect(invoicesPage).toContain('Mark paid');
     expect(dialog).toContain('deliverInvoice');
-    expect(dialog).not.toContain('saveJobClientPhone');
+    expect(dialog).toContain('saveJobClientPhone');
     expect(invoiceNext).toContain("label: 'Send again'");
     expect(invoiceNext).toContain('invoiceOverflowPaidAction');
     expect(invoiceNext).toContain('COMPANY_EMAIL_SETTINGS_HREF');

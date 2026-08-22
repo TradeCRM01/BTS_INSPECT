@@ -164,7 +164,6 @@ describe('invoice-send client email — wiring', () => {
     expect(dialog).not.toContain('AU_EMAIL_PLACEHOLDER');
     expect(dialog).not.toContain('className="btn-primary job-client-email-save"');
     expect(dialog).not.toContain('className="ops-next-control-block job-client-email-save"');
-    expect(dialog).not.toContain('saveJobClientPhone');
     expect(dialog).not.toContain('attachInvoiceClient');
     expect(dialog).not.toContain('attachReportClient');
 

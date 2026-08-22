@@ -293,8 +293,8 @@ describe('invoice-sheet client phone — wiring', () => {
     expect(page).toContain('deliverInvoiceReceiptAfterMarkPaid');
     expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
     expect(dialog).toContain('deliverInvoice');
-    expect(dialog).not.toContain('saveJobClientPhone');
-    expect(dialog).not.toContain('jobClientPhoneRow');
+    expect(dialog).toContain('saveJobClientPhone');
+    expect(dialog).toContain('jobClientPhoneRow');
     expect(invoiceNext).toContain("label: 'Send again'");
     expect(invoiceNext).toContain('invoiceOverflowPaidAction');
     expect(invoiceNext).toContain('COMPANY_EMAIL_SETTINGS_HREF');
