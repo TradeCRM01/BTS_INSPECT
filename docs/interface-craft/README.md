@@ -9,4 +9,4 @@ This folder is the **LOOK standard** for Grafter.
 
 Agents: read `.cursor/skills/grafter-interface-craft/SKILL.md` first. Then the overlay. Then the manual if you must choose.
 
-Product wordmark is **Grafter**. Never Relovi. Never Littleloop.
+Product wordmark is **Grafter**.

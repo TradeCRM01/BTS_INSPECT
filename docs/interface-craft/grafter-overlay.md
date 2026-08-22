@@ -7,7 +7,7 @@ Part VIII still wins over Parts I–VII when this overlay is silent.
 ## Product
 
 - Wordmark: **Grafter**.
-- Never Relovi. Never Littleloop. Never a second product name in UI, PDFs, PR titles, or LOOK copy.
+- Wordmark is Grafter in UI, PDFs, PR titles, and LOOK copy. Do not name another product.
 - Tenant company names (e.g. a customer's trading name) stay as data. They are not the product.
 
 ## How LOOK work ships
@@ -33,7 +33,7 @@ Part VIII still wins over Parts I–VII when this overlay is silent.
 
 Root CSS already has `--ops-navy`, `--ops-accent`, `--ops-cream` (`#F5F0E6`), `--ops-pass` (`#1B7F3A`), `--ops-fail` (`#B42318`), `--ops-warning` (`#B54708`), `--ops-ink`, `--ops-muted`, `--ops-rule`, `--ops-zebra`.
 
-**Paint LOOK from those.** Do not introduce a second accent (`#3E6FD1` or otherwise). Do not dump a 14-step OKLCH ramp into global `:root` in one PR. Do not switch the canvas to a new cream hex. Warm Technical here means: stone-warm cream already on `--ops-cream`, cold navy/blue already on navy + accent, mono already on `.font-mono`.
+**Paint LOOK from those.** Do not introduce a second accent. Do not dump a 14-step OKLCH ramp into global `:root` in one PR. Do not switch the canvas to a new cream hex. Warm Technical here means: stone-warm cream already on `--ops-cream`, cold navy/blue already on navy + accent, mono already on `.font-mono`.
 
 Complete Inspection / pass stays `#1B7F3A`. Danger stays `#B42318`. Warning stays `#B54708`.
 

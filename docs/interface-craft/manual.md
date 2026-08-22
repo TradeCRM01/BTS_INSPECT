@@ -3,7 +3,7 @@
 
 **Audience:** an AI build agent (the "UI bot") and the human directing it.
 **Domain:** dense, professional, trade/field-service CRM software — not a marketing site.
-**Product:** Grafter. Never Relovi. Never Littleloop.
+**Product:** Grafter.
 **How to use this document:** Parts I–VII are theory and doctrine. Part VIII is the machine-readable token spec. Part IX is the review rubric. When the bot must choose, `grafter-overlay.md` wins, then Part VIII, then prose elsewhere.
 
 ---
@@ -531,7 +531,7 @@ Job numbers format as `#0001`. Target treatment (land on job list / job hub, not
 - Recasting `.btn-primary` / `.ops-next-control` globally.
 - A new theme editor or new `report_theme` keys.
 - Grafter mark on customer PDFs.
-- Relovi or Littleloop anywhere.
+- Any other product name.
 
 ---
 

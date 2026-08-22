@@ -3,7 +3,7 @@ description: Grafter Interface Craft Manual — LOOK and UI quality floor
 alwaysApply: true
 ---
 
-Product wordmark is **Grafter**. Never Relovi. Never Littleloop.
+Product wordmark is **Grafter**.
 
 Before LOOK or visual CSS, read `.cursor/skills/grafter-interface-craft/SKILL.md`. Overlay: `docs/interface-craft/grafter-overlay.md` (wins on conflict). Full spec: `docs/interface-craft/manual.md`. Part VIII then wins over Parts I–VII.
 

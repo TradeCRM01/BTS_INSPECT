@@ -20,11 +20,7 @@ describe('Grafter Interface Craft Manual', () => {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
       const body = src(rel);
       expect(body).toContain('Grafter');
-      const leftover = body
-        .replace(/Never Relovi\.?/g, '')
-        .replace(/Never Littleloop\.?/g, '')
-        .replace(/Relovi or Littleloop anywhere\.?/g, '');
-      expect(leftover).not.toMatch(/Relovi|Littleloop/);
+      expect(body).not.toMatch(/Relovi|Littleloop/);
     }
 
     const overlay = src('docs/interface-craft/grafter-overlay.md');

@@ -13,7 +13,7 @@ description: >-
 Read this skill before LOOK or visual CSS. Full doctrine: `docs/interface-craft/manual.md`.
 **Overlay (wins on conflict):** `docs/interface-craft/grafter-overlay.md`.
 
-Product wordmark is **Grafter**. Never Relovi. Never Littleloop.
+Product wordmark is **Grafter**.
 
 ## When doctrine conflicts
 
