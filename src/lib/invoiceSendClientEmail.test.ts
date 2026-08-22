@@ -164,7 +164,6 @@ describe('invoice-send client email — wiring', () => {
     expect(dialog).not.toContain('AU_EMAIL_PLACEHOLDER');
     expect(dialog).not.toContain('className="btn-primary job-client-email-save"');
     expect(dialog).not.toContain('className="ops-next-control-block job-client-email-save"');
-    expect(dialog).not.toContain('attachInvoiceClient');
     expect(dialog).not.toContain('attachReportClient');
 
     expect(handle).toContain('saveJobClientEmail');
@@ -281,8 +280,7 @@ describe('invoice-send client email — wiring', () => {
     expect(dialog).not.toContain('Add one on the client record');
     expect(dialog).not.toContain('client record');
     expect(dialog).not.toContain('/clients/');
-    expect(dialog).toContain('Open client');
-    expect(dialog).toContain('showOpenClient');
+    expect(dialog).not.toContain('Open client');
   });
 
   it('leaves sendInvoice / PDF / SMS beside / SMTP Company settings as signed', () => {

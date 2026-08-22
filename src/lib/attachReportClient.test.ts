@@ -502,8 +502,8 @@ describe('report-send attach client — wiring', () => {
     expect(deliver).toContain('sent_at');
     expect(deliver).not.toContain('attachReportClient');
     expect(deliver).not.toContain('saveJobClientEmail');
-    expect(invoiceDialog).not.toContain('attachReportClient');
-    expect(invoiceDialog).toContain('Open client');
+    expect(invoiceDialog).toContain('attachInvoiceClient');
+    expect(invoiceDialog).not.toContain('Open client');
     expect(invoiceDialog).toContain('Company settings');
     expect(send).toContain('href: COMPANY_EMAIL_SETTINGS_HREF');
   });

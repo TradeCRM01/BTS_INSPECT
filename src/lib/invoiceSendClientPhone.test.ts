@@ -186,7 +186,6 @@ describe('invoice-send client phone — wiring', () => {
     expect(dialog).not.toContain('AU_PHONE_PLACEHOLDER');
     expect(dialog).not.toContain('className="btn-primary job-client-phone-save"');
     expect(dialog).not.toContain('className="ops-next-control-block job-client-phone-save"');
-    expect(dialog).not.toContain('attachInvoiceClient');
 
     expect(handle).toContain('saveJobClientPhone');
     expect(handle).toContain('phoneRow.clientId');
@@ -221,7 +220,6 @@ describe('invoice-send client phone — wiring', () => {
     expect(dialog).toContain('job-client-phone-num');
     expect(dialog).toContain('showSend');
     expect(dialog).toContain('disabled={sending || !ready}');
-    expect(dialog).toContain('Open client');
     expect(dialog).not.toContain('Add client phone');
     expect(dialog).not.toContain('className="btn-primary job-client-phone-save"');
     expect(sendCss).toContain('.job-client-phone-save');
@@ -258,15 +256,15 @@ describe('invoice-send client phone — wiring', () => {
     expect(sendCss).not.toContain('sky-500');
   });
 
-  it('keeps Open client when this invoice has no client — no phone editor without a client', () => {
+  it('keeps the attach picker when this invoice has no client — no phone editor without a client', () => {
     const dialog = src('src/components/invoicing/InvoiceSendDialog.tsx');
     expect(jobClientPhoneRow({ clientId: null, client: { id: 'c1', phone: null } }).kind).toBe('none');
-    expect(dialog).toContain('Open client');
-    expect(dialog).toContain('showOpenClient');
+    expect(dialog).toContain('invoiceClientAttachRow');
+    expect(dialog).toContain('job-client-attach');
     expect(dialog).toContain("phoneRow.kind === 'edit'");
     expect(dialog).toContain("phoneRow.kind === 'tel'");
     expect(dialog).toContain('!noClientMiss');
-    expect(dialog).not.toContain('attachInvoiceClient');
+    expect(dialog).toContain('attachInvoiceClient');
     expect(dialog.indexOf("showPhoneEditor && noEmailMiss")).toBeGreaterThan(dialog.indexOf('!noClientMiss'));
   });
 

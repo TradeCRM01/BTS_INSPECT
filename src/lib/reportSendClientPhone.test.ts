@@ -431,8 +431,8 @@ describe('report-send client phone — wiring', () => {
     expect(deliver).toContain('sent_at');
     expect(deliver).not.toContain('saveJobClientPhone');
     expect(send).not.toContain('saveJobClientPhone');
-    expect(invoiceDialog).toContain('saveJobClientPhone');
-    expect(invoiceDialog).toContain('Open client');
+    expect(invoiceDialog).toContain('attachInvoiceClient');
+    expect(invoiceDialog).not.toContain('Open client');
     expect(invoiceDialog).toContain('Company settings');
   });
 

@@ -370,8 +370,8 @@ describe('report-send client email — wiring', () => {
     expect(deliver).toContain('sent_at');
     expect(deliver).not.toContain('saveJobClientEmail');
     expect(send).not.toContain('saveJobClientEmail');
-    expect(invoiceDialog).toContain('saveJobClientEmail');
-    expect(invoiceDialog).toContain('Open client');
+    expect(invoiceDialog).toContain('attachInvoiceClient');
+    expect(invoiceDialog).not.toContain('Open client');
     expect(invoiceDialog).toContain('Company settings');
   });
 

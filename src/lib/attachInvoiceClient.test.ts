@@ -360,7 +360,7 @@ describe('invoice-sheet attach client — wiring', () => {
     expect(page).toContain('deliverInvoiceReceiptAfterMarkPaid');
     expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
     expect(dialog).toContain('deliverInvoice');
-    expect(dialog).not.toContain('attachInvoiceClient');
+    expect(dialog).toContain('attachInvoiceClient');
     expect(invoiceNext).toContain("label: 'Send again'");
     expect(invoiceNext).toContain('invoiceOverflowPaidAction');
     expect(invoiceNext).toContain('COMPANY_EMAIL_SETTINGS_HREF');

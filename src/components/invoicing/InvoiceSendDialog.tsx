@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { Mail, Phone } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Mail, Phone, User } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { generateCommercialPdf } from '../../reports/commercial/generateCommercialPdf';
+import { supabase } from '../../lib/supabase';
 import {
   commercialPdfDataForInvoice,
   decideInvoiceSend,
+  INVOICE_SEND_CLIENT_COLUMNS,
   padInvoiceNumber,
   type InvoiceSendBundle,
+  type InvoiceSendClient,
   type InvoiceSendCompany,
   type InvoiceSendDecision,
 } from '../../lib/sendInvoice';
@@ -16,6 +19,11 @@ import { deliverInvoice, loadInvoiceSendBundle } from '../../lib/sendInvoiceDeli
 import { invoiceSendXeroMissLine } from '../../lib/xeroAccounting';
 import { jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
 import { jobClientPhoneRow, saveJobClientPhone } from '../../lib/saveJobClientPhone';
+import {
+  INVOICE_CLIENT_ATTACH_NO_CLIENTS,
+  attachInvoiceClient,
+  invoiceClientAttachRow,
+} from '../../lib/attachInvoiceClient';
 
 /** Honest no_email miss — write the address on this dialog. */
 export const INVOICE_SEND_NO_EMAIL_FIELD =
@@ -43,6 +51,8 @@ export function InvoiceSendDialog({
   const [xeroMiss, setXeroMiss] = useState('');
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
+  const [clientAttachDraft, setClientAttachDraft] = useState('');
+  const [savingAttach, setSavingAttach] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +92,71 @@ export function InvoiceSendDialog({
   const showEmailEditor = !loading && noEmailMiss && emailRow.kind === 'edit';
   const showPhoneEditor = !loading && !smtpMiss && !noClientMiss && phoneRow.kind === 'edit';
   const showPhoneInkOnMiss = !loading && noEmailMiss && phoneRow.kind === 'tel';
+
+  const attachClientsQuery = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['invoice-attach-clients', company.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name')
+        .eq('archived', false)
+        .eq('company_id', company.id)
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string }[];
+    },
+    enabled: !loading && noClientMiss && !!company.id,
+  });
+
+  const attachRow = invoiceClientAttachRow({
+    invoiceClientId,
+    companyClients: invoiceClientId
+      ? []
+      : attachClientsQuery.isFetched
+        ? (attachClientsQuery.data ?? [])
+        : null,
+  });
+  const noClientsNamedMiss = noClientMiss && attachRow.kind === 'miss';
+
+  const handleAttach = async () => {
+    if (!bundle?.invoice || attachRow.kind !== 'pick') return;
+    setSavingAttach(true);
+    setErr('');
+    try {
+      const result = await attachInvoiceClient({
+        invoiceId: bundle.invoice.id,
+        invoiceClientId,
+        clientId: clientAttachDraft,
+        companyClients: attachClientsQuery.data ?? [],
+      });
+      const clientRes = await supabase
+        .from('clients')
+        .select(INVOICE_SEND_CLIENT_COLUMNS)
+        .eq('id', result.clientId)
+        .maybeSingle();
+      if (clientRes.error) throw clientRes.error;
+      const attached = (clientRes.data ?? null) as InvoiceSendClient | null;
+      const picked = attachRow.clients.find(c => c.id === result.clientId);
+      const next: InvoiceSendBundle = {
+        ...bundle,
+        invoice: { ...bundle.invoice, client_id: result.clientId },
+        client: attached ?? (picked
+          ? { id: picked.id, name: picked.name, email: null, phone: null, address: null }
+          : null),
+      };
+      setBundle(next);
+      setDecision(decideInvoiceSend(next));
+      setClientEmailDraft(next.client?.email ?? '');
+      setClientPhoneDraft(next.client?.phone ?? '');
+      setClientAttachDraft('');
+      void queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not attach the client.');
+    } finally {
+      setSavingAttach(false);
+    }
+  };
 
   const handleSaveEmail = async () => {
     if (emailRow.kind !== 'edit' || !bundle) return;
@@ -169,7 +244,9 @@ export function InvoiceSendDialog({
   const blockerHref = decision && !decision.ok ? decision.href : undefined;
   const blockerMessage = noEmailMiss
     ? INVOICE_SEND_NO_EMAIL_FIELD
-    : (decision && !decision.ok ? decision.message : '');
+    : noClientsNamedMiss
+      ? INVOICE_CLIENT_ATTACH_NO_CLIENTS
+      : (decision && !decision.ok ? decision.message : '');
   const invoiceLabel = bundle?.invoice
     ? `Invoice #${padInvoiceNumber(bundle.invoice.invoice_number)}`
     : '';
@@ -177,9 +254,8 @@ export function InvoiceSendDialog({
   const pdfName = ready && decision.ok
     ? (bundle?.existingPdf?.filename ?? decision.filename)
     : '';
-  const showSend = !loading && (ready || (noEmailMiss && emailRow.kind === 'edit'));
+  const showSend = !loading && (ready || (noEmailMiss && emailRow.kind === 'edit') || noClientMiss);
   const showSmtpSettings = !loading && smtpMiss && !!blockerHref;
-  const showOpenClient = !loading && !ready && !showEmailEditor && !smtpMiss && !!blockerHref;
 
   return (
     <Modal open onClose={onClose} size="md">
@@ -264,6 +340,35 @@ export function InvoiceSendDialog({
           {!loading && !ready && (
             <>
               <p className="hub-invoice-err">{blockerMessage || err || 'This invoice cannot be sent yet.'}</p>
+              {noClientMiss && attachRow.kind === 'pick' && (
+                <form
+                  className="job-client-attach"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    void handleAttach();
+                  }}
+                >
+                  <User size={13} />
+                  <select
+                    value={clientAttachDraft}
+                    onChange={e => setClientAttachDraft(e.target.value)}
+                    className="form-input-sm"
+                    aria-label="Attach client"
+                  >
+                    <option value="">Client</option>
+                    {attachRow.clients.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    className="job-client-attach-save"
+                    disabled={savingAttach || !clientAttachDraft}
+                  >
+                    Save
+                  </button>
+                </form>
+              )}
               {showEmailEditor && emailRow.kind === 'edit' && (
                 <form
                   className="job-client-email"
@@ -345,11 +450,6 @@ export function InvoiceSendDialog({
           {showSmtpSettings && blockerHref && (
             <Link to={blockerHref} className="btn-primary" onClick={onClose}>
               Company settings
-            </Link>
-          )}
-          {showOpenClient && blockerHref && (
-            <Link to={blockerHref} className="btn-primary" onClick={onClose}>
-              Open client
             </Link>
           )}
         </div>
