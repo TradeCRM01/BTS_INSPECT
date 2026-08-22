@@ -42,7 +42,8 @@ describe('report send deliver path', () => {
     expect(edge).toContain('api.twilio.com');
     expect(edge).toContain('TWILIO_ACCOUNT_SID');
     expect(edge).toContain('client?.phone');
-    expect(edge).not.toContain('from("quotes")');
+    const reportBlock = edge.slice(edge.indexOf('if (reportId)'), edge.indexOf('if (quoteId)'));
+    expect(reportBlock).not.toContain('from("quotes")');
     expect(edge).not.toContain('send-quote');
     expect(REPORT_SEND_PIPE.join(' ')).toMatch(/job-reminder/);
   });

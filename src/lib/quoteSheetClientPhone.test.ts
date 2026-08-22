@@ -201,7 +201,8 @@ describe('quote-sheet client phone — wiring', () => {
 
     expect(editor).toContain("next.key === 'send'");
     expect(editor).toContain('ActionButton recommended');
-    expect(editor).toContain('Quote marked as sent');
+    expect(editor).toContain('startSend');
+    expect(editor).not.toContain('Quote marked as sent');
     expect(editor).toContain('job-client-phone-save');
     expect(editor).toContain('job-client-phone-num');
     expect(editor).toContain('job-client-email-save');
@@ -243,7 +244,8 @@ describe('quote-sheet client phone — wiring', () => {
     expect(listNext).not.toContain('type="tel"');
     expect(listNext).not.toContain('saveJobClientPhone');
     expect(listNext).toContain("next.key === 'send'");
-    expect(listNext).toContain('Quote marked as sent');
+    expect(listNext).toContain('onSend(quote.id)');
+    expect(listNext).not.toContain('Quote marked as sent');
     expect(editor).toContain('type="tel"');
     expect(editor).toContain('job-client-phone');
     expect(editor).toContain('saveJobClientEmail');
@@ -263,8 +265,7 @@ describe('quote-sheet client phone — wiring', () => {
     expect(quoteNext).not.toContain('saveJobClientPhone');
     expect(quoteNext).not.toContain('add_email');
     expect(quoteNext).not.toContain('sendQuote');
-    expect(page).not.toContain('QuoteSendDialog');
-    expect(page).not.toContain('sendQuote');
+    expect(page).toContain('QuoteSendDialog');
     expect(page).not.toContain('sendQuoteDeliver');
     expect(page).toContain('saveJobClientEmail');
     expect(page).toContain('attachQuoteClient');

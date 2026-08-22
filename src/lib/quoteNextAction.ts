@@ -71,7 +71,7 @@ export function recommendQuoteAction(ctx: QuoteActionContext): RecommendedQuoteA
     return {
       key: 'send',
       label: 'Send',
-      detail: 'Mark as sent when you give this to the client. Preview the PDF if you need a copy.',
+      detail: 'Send this quote to the client. Preview the PDF if you need a copy.',
     };
   }
   if (ctx.status === 'sent') {
