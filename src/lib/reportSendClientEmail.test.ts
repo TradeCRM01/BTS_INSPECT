@@ -385,7 +385,7 @@ describe('report-send client email — wiring', () => {
     expect(save).not.toContain('sendQuote');
     expect(save).not.toContain('QuoteSendDialog');
     expect(quoteConvert).not.toContain('saveJobClientEmail');
-    expect(quotesPage).not.toContain('saveJobClientEmail');
+    expect(quotesPage).toContain('saveJobClientEmail');
     expect(quoteNext).not.toContain('saveJobClientEmail');
     expect(dialog).not.toContain('QuoteSendDialog');
     expect(dialog).not.toContain('sendQuote');

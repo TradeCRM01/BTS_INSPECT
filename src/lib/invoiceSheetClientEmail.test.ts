@@ -257,7 +257,7 @@ describe('invoice-sheet client email — wiring', () => {
     expect(save).not.toContain('sendQuote');
     expect(save).not.toContain('QuoteSendDialog');
     expect(quoteConvert).not.toContain('saveJobClientEmail');
-    expect(quotesPage).not.toContain('saveJobClientEmail');
+    expect(quotesPage).toContain('saveJobClientEmail');
     expect(quoteNext).not.toContain('saveJobClientEmail');
     expect(page).not.toContain('QuoteSendDialog');
     expect(page).not.toContain('sendQuote');
