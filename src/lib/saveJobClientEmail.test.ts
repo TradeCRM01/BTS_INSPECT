@@ -251,7 +251,7 @@ describe('job-sheet client email — wiring', () => {
     expect(deliver).toContain('export async function deliverInvoice');
     expect(deliver).not.toContain('saveJobClientEmail');
     expect(send).not.toContain('saveJobClientEmail');
-    expect(dialog).not.toContain('saveJobClientEmail');
+    expect(dialog).toContain('saveJobClientEmail');
 
     const startSend = invoicesPage.indexOf('const startSend');
     const startSendFn = invoicesPage.slice(startSend, invoicesPage.indexOf('const editorMoney'));
