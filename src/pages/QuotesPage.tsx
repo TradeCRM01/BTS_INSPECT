@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, type CSSProperties } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -17,7 +17,7 @@ import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariat
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
 import { ActionButton } from '../components/invoicing/DocNextAction';
-import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
+import { commercialDocumentColors, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { padQuoteNumber } from '../lib/quoteJobFields';
@@ -64,6 +64,9 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
 
 export function QuotesPage() {
   const { profile, company } = useAuth();
+  const docColors = commercialDocumentColors(
+    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
+  );
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -255,10 +258,10 @@ export function QuotesPage() {
           />
         ) : viewMode === 'grid' ? (
           <div className="space-y-4">
-            <QuoteGroup title="Drafts" quotes={draftQuotes} onOpen={openQuote} />
-            <QuoteGroup title="Sent — waiting" quotes={sentQuotes} onOpen={openQuote} />
-            <QuoteGroup title="Accepted" quotes={acceptedQuotes} onOpen={openQuote} />
-            <QuoteGroup title="Closed" quotes={closedQuotes} onOpen={openQuote} />
+            <QuoteGroup title="Drafts" quotes={draftQuotes} theme={docColors} onOpen={openQuote} />
+            <QuoteGroup title="Sent — waiting" quotes={sentQuotes} theme={docColors} onOpen={openQuote} />
+            <QuoteGroup title="Accepted" quotes={acceptedQuotes} theme={docColors} onOpen={openQuote} />
+            <QuoteGroup title="Closed" quotes={closedQuotes} theme={docColors} onOpen={openQuote} />
           </div>
         ) : (
           <div className="ops-table">
@@ -300,10 +303,11 @@ export function QuotesPage() {
 }
 
 function QuoteGroup({
-  title, quotes, onOpen,
+  title, quotes, theme, onOpen,
 }: {
   title: string;
   quotes: QuoteListItem[];
+  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: (q: QuoteListItem) => void;
 }) {
   if (quotes.length === 0) return null;
@@ -315,14 +319,22 @@ function QuoteGroup({
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {quotes.map(q => (
-          <QuoteCard key={q.id} quote={q} onOpen={() => onOpen(q)} />
+          <QuoteCard key={q.id} quote={q} theme={theme} onOpen={() => onOpen(q)} />
         ))}
       </div>
     </div>
   );
 }
 
-function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void }) {
+function QuoteCard({
+  quote,
+  theme,
+  onOpen,
+}: {
+  quote: QuoteListItem;
+  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
+  onOpen: () => void;
+}) {
   const next = recommendQuoteAction(quoteActionContext(quote));
   return (
     <div
@@ -330,7 +342,13 @@ function QuoteCard({ quote, onOpen }: { quote: QuoteListItem; onOpen: () => void
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-      className="ops-card ops-card-hover group w-full cursor-pointer"
+      className="quote-doc-theme ops-card ops-card-hover group w-full cursor-pointer"
+      style={{
+        '--quote-navy': theme.navy,
+        '--quote-accent': theme.accent,
+        '--quote-navy-light': theme.navyLight,
+        '--quote-accent-light': theme.accentLight,
+      } as CSSProperties}
     >
       <OpsDocHead
         kind="Quotation"

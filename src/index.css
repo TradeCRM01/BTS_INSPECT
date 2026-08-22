@@ -4142,41 +4142,23 @@
     color: #fff;
   }
 
-  /* Inspection document chrome only. Saved report_theme paints banner / titles. */
-  .insp-doc-theme {
-    --insp-navy: #0A2540;
-    --insp-accent: #2E75B6;
-    --insp-navy-light: #153558;
-    --insp-accent-light: #D6E8F7;
-  }
-
-  .insp-doc-theme .ops-doc-head {
-    background: var(--insp-navy, #0A2540);
-    color: #fff;
-    box-shadow: inset 0 -2px 0 var(--insp-accent, #2E75B6);
-  }
-
-  .insp-doc-theme .ops-section-title {
-    color: var(--insp-navy, #0A2540);
-  }
-
-  /* Inspection review / sign-off chrome only. Complete stays pass green. */
-  .insp-doc-theme .insp-review-head {
-    background: var(--insp-navy, #0A2540);
-    box-shadow: inset 0 -2px 0 var(--insp-accent, #2E75B6);
-  }
-
-  .insp-doc-theme .insp-review-navy {
-    background: var(--insp-navy, #0A2540);
-  }
-
-  .insp-doc-theme .insp-review-ink {
-    color: var(--insp-navy, #0A2540);
-  }
-
   .insp-doc-theme .insp-review-spin {
     border-color: var(--insp-navy, #0A2540);
     border-top-color: transparent;
+  }
+
+  /* Quote list cards only. Saved report_theme paints banner. Editor overlay stays default. */
+  .quote-doc-theme {
+    --quote-navy: #0A2540;
+    --quote-accent: #2E75B6;
+    --quote-navy-light: #153558;
+    --quote-accent-light: #D6E8F7;
+  }
+
+  .quote-doc-theme .ops-doc-head {
+    background: var(--quote-navy, #0A2540);
+    color: #fff;
+    box-shadow: inset 0 -2px 0 var(--quote-accent, #2E75B6);
   }
 
   @media (max-width: 639px) {
