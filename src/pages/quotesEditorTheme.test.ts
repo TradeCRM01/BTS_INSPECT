@@ -74,4 +74,15 @@ describe('quote editor overlay report_theme colours', () => {
     const mark = src('src/components/brand/grafterMark.ts');
     expect(mark).toContain('GRAFTER_NAVY');
   });
+
+  it('LOOK frames cover blank and saved quote editor chrome only', () => {
+    for (const rel of [
+      'docs/look/quotes-editor-theme-blank-desktop.png',
+      'docs/look/quotes-editor-theme-blank-ute.png',
+      'docs/look/quotes-editor-theme-saved-desktop.png',
+      'docs/look/quotes-editor-theme-saved-ute.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+    }
+  });
 });
