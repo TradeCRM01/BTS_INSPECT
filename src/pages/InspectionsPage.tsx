@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, memo, useCallback } from 'react';
+import { useState, useMemo, useRef, memo, useCallback, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -27,6 +27,7 @@ import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
 import { inspectionDisplayStatus } from '../lib/sendReport';
 import { useToast } from '../components/ui';
 import { applyLivingJobToInspection } from '../lib/livingJha';
+import { inspectionDocumentColors } from '../reports/generic_inspection/theme';
 
 interface Inspection {
   id: string;
@@ -211,6 +212,9 @@ const ArchiveMenu = memo(function ArchiveMenu({ inspection, onToggle, onDelete, 
 
 export function InspectionsPage() {
   const { profile, company } = useAuth();
+  const docColors = inspectionDocumentColors(
+    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
+  );
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -541,6 +545,7 @@ export function InspectionsPage() {
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               isAdmin={isAdmin}
+              theme={docColors}
               onOpen={href => navigate(href)}
               onArchive={handleArchiveToggle}
               onDelete={handleDelete}
@@ -555,6 +560,7 @@ export function InspectionsPage() {
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               isAdmin={isAdmin}
+              theme={docColors}
               onOpen={href => navigate(href)}
               onArchive={handleArchiveToggle}
               onDelete={handleDelete}
@@ -630,6 +636,7 @@ function InspectionGroup({
   selectedIds,
   onToggleSelect,
   isAdmin,
+  theme,
   onOpen,
   onArchive,
   onDelete,
@@ -643,6 +650,7 @@ function InspectionGroup({
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   isAdmin: boolean;
+  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: (href: string) => void;
   onArchive: (id: string, archived: boolean) => void;
   onDelete: (id: string) => void;
@@ -666,6 +674,7 @@ function InspectionGroup({
             selected={selectedIds.has(d.id)}
             onToggleSelect={() => onToggleSelect(d.id)}
             isAdmin={isAdmin}
+            theme={theme}
             onOpen={onOpen}
             onArchive={onArchive}
             onDelete={onDelete}
@@ -685,6 +694,7 @@ function InspectionCard({
   selected,
   onToggleSelect,
   isAdmin,
+  theme,
   onOpen,
   onArchive,
   onDelete,
@@ -697,6 +707,7 @@ function InspectionCard({
   selected: boolean;
   onToggleSelect: () => void;
   isAdmin: boolean;
+  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: (href: string) => void;
   onArchive: (id: string, archived: boolean) => void;
   onDelete: (id: string) => void;
@@ -750,7 +761,13 @@ function InspectionCard({
       tabIndex={0}
       onClick={() => onOpen(href)}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(href); } }}
-      className={`ops-card ops-card-hover group w-full cursor-pointer ${doc.archived ? 'opacity-70' : ''}`}
+      className={`insp-doc-theme ops-card ops-card-hover group w-full cursor-pointer ${doc.archived ? 'opacity-70' : ''}`}
+      style={{
+        '--insp-navy': theme.navy,
+        '--insp-accent': theme.accent,
+        '--insp-navy-light': theme.navyLight,
+        '--insp-accent-light': theme.accentLight,
+      } as CSSProperties}
     >
       <OpsDocHead
         kind="Inspection"
