@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Mail } from 'lucide-react';
+import { Mail, Phone } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { generateCommercialPdf } from '../../reports/commercial/generateCommercialPdf';
 import { padQuoteNumber } from '../../lib/quoteJobFields';
@@ -14,6 +14,7 @@ import {
 } from '../../lib/sendQuote';
 import { deliverQuote, loadQuoteSendBundle } from '../../lib/sendQuoteDeliver';
 import { jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
+import { jobClientPhoneRow, saveJobClientPhone } from '../../lib/saveJobClientPhone';
 
 /** Honest no_email miss — write the address on this dialog. */
 export const QUOTE_SEND_NO_EMAIL_FIELD =
@@ -34,10 +35,12 @@ export function QuoteSendDialog({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
+  const [savingPhone, setSavingPhone] = useState(false);
   const [bundle, setBundle] = useState<QuoteSendBundle | null>(null);
   const [decision, setDecision] = useState<QuoteSendDecision | null>(null);
   const [err, setErr] = useState('');
   const [clientEmailDraft, setClientEmailDraft] = useState('');
+  const [clientPhoneDraft, setClientPhoneDraft] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +53,7 @@ export function QuoteSendDialog({
         setBundle(loaded);
         setDecision(decideQuoteSend(loaded));
         setClientEmailDraft(loaded.client?.email ?? '');
+        setClientPhoneDraft(loaded.client?.phone ?? '');
       } catch (e) {
         if (!cancelled) setErr(e instanceof Error ? e.message : 'Could not load this quote.');
       } finally {
@@ -66,9 +70,16 @@ export function QuoteSendDialog({
     clientId: quoteClientId,
     client: bundle?.client ?? null,
   });
+  const phoneRow = jobClientPhoneRow({
+    clientId: quoteClientId,
+    client: bundle?.client ?? null,
+  });
   const noEmailMiss = decision != null && !decision.ok && decision.blocker === 'no_email';
+  const noClientMiss = decision != null && !decision.ok && decision.blocker === 'no_client';
   const smtpMiss = decision != null && !decision.ok && decision.blocker === 'no_smtp';
   const showEmailEditor = !loading && noEmailMiss && emailRow.kind === 'edit';
+  const showPhoneEditor = !loading && !smtpMiss && !noClientMiss && phoneRow.kind === 'edit';
+  const showPhoneInkOnMiss = !loading && noEmailMiss && phoneRow.kind === 'tel';
 
   const handleSaveEmail = async () => {
     if (emailRow.kind !== 'edit' || !bundle) return;
@@ -92,6 +103,31 @@ export function QuoteSendDialog({
       setErr(e instanceof Error ? e.message : 'Could not save the email.');
     } finally {
       setSavingEmail(false);
+    }
+  };
+
+  const handleSavePhone = async () => {
+    if (phoneRow.kind !== 'edit' || !bundle) return;
+    setSavingPhone(true);
+    setErr('');
+    try {
+      const result = await saveJobClientPhone({
+        clientId: phoneRow.clientId,
+        phone: clientPhoneDraft,
+      });
+      const next: QuoteSendBundle = {
+        ...bundle,
+        client: bundle.client ? { ...bundle.client, phone: result.phone } : bundle.client,
+      };
+      setBundle(next);
+      setDecision(decideQuoteSend(next));
+      setClientPhoneDraft(result.phone ?? '');
+      void queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not save the phone.');
+    } finally {
+      setSavingPhone(false);
     }
   };
 
@@ -153,11 +189,42 @@ export function QuoteSendDialog({
                 </div>
                 <div className="hub-invoice-send-field">
                   <p className="hub-invoice-kicker">SMS To</p>
-                  <p className={`hub-invoice-send-value tabular-nums${decision.smsTo ? '' : ' is-miss'}`}>
-                    {decision.smsTo || 'No client phone'}
-                  </p>
-                  {decision.smsTo ? null : (
-                    <p className="hub-invoice-muted">{decision.smsMessage}</p>
+                  {showPhoneEditor && phoneRow.kind === 'edit' ? (
+                    <form
+                      className="job-client-phone"
+                      onSubmit={e => {
+                        e.preventDefault();
+                        void handleSavePhone();
+                      }}
+                    >
+                      <Phone size={13} />
+                      <input
+                        type="tel"
+                        value={clientPhoneDraft}
+                        onChange={e => setClientPhoneDraft(e.target.value)}
+                        placeholder="Phone"
+                        className="form-input-sm"
+                        aria-label="Client phone"
+                        autoComplete="tel"
+                        inputMode="tel"
+                      />
+                      <button
+                        type="submit"
+                        className="job-client-phone-save"
+                        disabled={savingPhone}
+                      >
+                        Save
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <p className={`hub-invoice-send-value tabular-nums${decision.smsTo ? '' : ' is-miss'}`}>
+                        {decision.smsTo || 'No client phone'}
+                      </p>
+                      {decision.smsTo ? null : (
+                        <p className="hub-invoice-muted">{decision.smsMessage}</p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -197,6 +264,39 @@ export function QuoteSendDialog({
                     type="submit"
                     className="job-client-email-save"
                     disabled={savingEmail}
+                  >
+                    Save
+                  </button>
+                </form>
+              )}
+              {showPhoneInkOnMiss && phoneRow.kind === 'tel' && (
+                <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num">
+                  <Phone size={13} /> {phoneRow.phone}
+                </a>
+              )}
+              {showPhoneEditor && noEmailMiss && phoneRow.kind === 'edit' && (
+                <form
+                  className="job-client-phone"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    void handleSavePhone();
+                  }}
+                >
+                  <Phone size={13} />
+                  <input
+                    type="tel"
+                    value={clientPhoneDraft}
+                    onChange={e => setClientPhoneDraft(e.target.value)}
+                    placeholder="Phone"
+                    className="form-input-sm"
+                    aria-label="Client phone"
+                    autoComplete="tel"
+                    inputMode="tel"
+                  />
+                  <button
+                    type="submit"
+                    className="job-client-phone-save"
+                    disabled={savingPhone}
                   >
                     Save
                   </button>
