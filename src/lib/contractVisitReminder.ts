@@ -49,12 +49,15 @@ export const CONTRACT_VISIT_AUTO_FIRE_PATH = [
   'SELECT public.invoke_job_client_reminders()',
   'pg_net POST /functions/v1/job-reminder due=contract source=cron',
   'perth_today = (timezone(Australia/Perth, now()))::date',
-  'email_settings where Resend is ready (companies without SMTP are not scanned)',
+  'email_settings where Resend is ready (companies without SMTP are not scanned for send)',
   'service_contracts where next_service_date = perth_today and status = active',
   'skip already_sent for this next_service_date; skip no client email; skip no due date',
   'POST https://api.resend.com/emails with email_settings.smtp_pass',
   'POST https://api.twilio.com SMS beside email — miss does not flip sent-at',
   'UPDATE service_reminder_sent_at / service_reminder_sent_for_date only when Resend returns 2xx',
+  'then auto_generate_jobs where next_service_date = perth_today and status = active (SMTP not required)',
+  'created_by = oldest company admin, else oldest profile — never invented',
+  'INSERT jobs then CAS next_service_date; delete job if the roll loses',
 ] as const;
 
 export type ContractVisitReminderBlocker =

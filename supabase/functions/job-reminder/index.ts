@@ -1464,6 +1464,177 @@ async function deliverContractVisitSend(opts: {
   };
 }
 
+const CONTRACT_FREQUENCY_STEP: Record<string, { unit: "days" | "months"; n: number }> = {
+  weekly: { unit: "days", n: 7 },
+  fortnightly: { unit: "days", n: 14 },
+  monthly: { unit: "months", n: 1 },
+  quarterly: { unit: "months", n: 3 },
+  "semi-annual": { unit: "months", n: 6 },
+  annual: { unit: "months", n: 12 },
+};
+
+const contractJobMissText: Record<string, string> = {
+  wrong_company: "This contract is not in this company.",
+  not_active: "Only active contracts can create a service job.",
+  no_client: "This contract has no client — job was not created.",
+  no_next_date: "This contract has no next service date — job was not created.",
+  not_due: "Job create is for visits due today.",
+  past_end: "Next service is after the contract end date — job was not created.",
+  unknown_frequency: "Service frequency is not recognised — job was not created.",
+  no_creator: "This company has no team member to own the job — job was not created.",
+  already_rolled: "A job was already created for this visit.",
+};
+
+function ymdFromUtc(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+function addCalendarDays(ymd: string, days: number): string | null {
+  const day = dateOnly(ymd);
+  if (!day) return null;
+  const [y, m, d] = day.split("-").map(Number);
+  return ymdFromUtc(new Date(Date.UTC(y, m - 1, d + days)));
+}
+
+function addCalendarMonths(ymd: string, months: number): string | null {
+  const day = dateOnly(ymd);
+  if (!day) return null;
+  const [y, m, d] = day.split("-").map(Number);
+  const monthIndex = m - 1 + months;
+  const lastDay = new Date(Date.UTC(y, monthIndex + 1, 0)).getUTCDate();
+  return ymdFromUtc(new Date(Date.UTC(y, monthIndex, Math.min(d, lastDay))));
+}
+
+function nextServiceDateAfter(fromYmd: string, frequency: string, endDate: unknown): string | null {
+  const from = dateOnly(fromYmd);
+  if (!from) return null;
+  const step = CONTRACT_FREQUENCY_STEP[frequency];
+  if (!step) return null;
+  const rolled = step.unit === "days" ? addCalendarDays(from, step.n) : addCalendarMonths(from, step.n);
+  if (!rolled) return null;
+  const end = dateOnly(endDate);
+  if (end && rolled > end) return null;
+  return rolled;
+}
+
+function pickContractJobCreator(
+  members: Array<{ id?: string | null; role?: string | null }> | null | undefined,
+): string | null {
+  const rows = (members ?? [])
+    .map((m) => ({ id: String(m.id ?? "").trim(), role: String(m.role ?? "").trim() }))
+    .filter((m) => m.id);
+  if (rows.length === 0) return null;
+  return (rows.find((m) => m.role === "admin") ?? rows[0]).id;
+}
+
+function jobFieldsFromContract(
+  contract: Record<string, unknown>,
+  clientAddress: string | null,
+  dueOn: string,
+): Record<string, unknown> {
+  const number = String(contract.contract_number ?? "").trim();
+  const body = String(contract.description ?? "").trim();
+  const description = [number, body].filter(Boolean).join("\n") || null;
+  const titleBase = String(contract.title ?? "").trim() || "Service visit";
+  return {
+    client_id: String(contract.client_id ?? "").trim(),
+    title: `${titleBase} - ${formatJobDate(dueOn)}`,
+    description,
+    address: String(clientAddress ?? "").trim() || null,
+    budget: null,
+    status: "scheduled",
+    priority: "medium",
+    scheduled_date: dueOn,
+  };
+}
+
+async function createContractVisitJob(opts: {
+  admin: ReturnType<typeof createClient>;
+  contract: Record<string, unknown>;
+  companyId: string;
+  createdBy: string | null;
+  clientAddress: string | null;
+  today: string;
+}): Promise<Record<string, unknown>> {
+  const contract = opts.contract;
+  const contractId = String(contract.id ?? "");
+  const extra = { contractId };
+
+  if (String(contract.company_id ?? "").trim() !== opts.companyId) {
+    return { ok: false, reason: "wrong_company", message: contractJobMissText.wrong_company, ...extra };
+  }
+  if (String(contract.status ?? "").trim() !== "active") {
+    return { ok: false, reason: "not_active", message: contractJobMissText.not_active, ...extra };
+  }
+  if (!String(contract.client_id ?? "").trim()) {
+    return { ok: false, reason: "no_client", message: contractJobMissText.no_client, ...extra };
+  }
+  const dueOn = dateOnly(contract.next_service_date);
+  if (!dueOn) {
+    return { ok: false, reason: "no_next_date", message: contractJobMissText.no_next_date, ...extra };
+  }
+  if (dueOn !== opts.today) {
+    return { ok: false, reason: "not_due", message: contractJobMissText.not_due, ...extra, dueOn };
+  }
+  const end = dateOnly(contract.end_date);
+  if (end && dueOn > end) {
+    return { ok: false, reason: "past_end", message: contractJobMissText.past_end, ...extra, dueOn };
+  }
+  if (!CONTRACT_FREQUENCY_STEP[String(contract.service_frequency ?? "")]) {
+    return { ok: false, reason: "unknown_frequency", message: contractJobMissText.unknown_frequency, ...extra, dueOn };
+  }
+  if (!opts.createdBy) {
+    return { ok: false, reason: "no_creator", message: contractJobMissText.no_creator, ...extra, dueOn };
+  }
+
+  const next = nextServiceDateAfter(dueOn, String(contract.service_frequency), contract.end_date);
+  const fields = jobFieldsFromContract(contract, opts.clientAddress, dueOn);
+  const { data: jobData, error: jobErr } = await opts.admin
+    .from("jobs")
+    .insert({
+      company_id: opts.companyId,
+      created_by: opts.createdBy,
+      ...fields,
+    })
+    .select("id")
+    .single();
+  if (jobErr || !jobData?.id) {
+    return { ok: false, reason: "send_failed", message: jobErr?.message ?? "Job was not created.", ...extra, dueOn };
+  }
+  const jobId = jobData.id as string;
+  const sentAt = new Date().toISOString();
+  const { data: rolled, error: rollErr } = await opts.admin
+    .from("service_contracts")
+    .update({
+      last_service_date: dueOn,
+      next_service_date: next,
+      updated_at: sentAt,
+    })
+    .eq("id", contract.id)
+    .eq("company_id", opts.companyId)
+    .eq("next_service_date", dueOn)
+    .select("id")
+    .maybeSingle();
+  if (rollErr || !rolled) {
+    await opts.admin.from("jobs").delete().eq("id", jobId);
+    return {
+      ok: false,
+      reason: "already_rolled",
+      message: contractJobMissText.already_rolled,
+      ...extra,
+      dueOn,
+    };
+  }
+  return {
+    ok: true,
+    jobId,
+    contractId,
+    dueOn,
+    nextServiceDate: next,
+    lastServiceDate: dueOn,
+  };
+}
+
 function bearerToken(header: string | null): string {
   return (header ?? "").replace(/^Bearer\s+/i, "").trim();
 }
@@ -1780,87 +1951,130 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (companyIds.length === 0) {
-        return json({
-          sent: false,
-          count: 0,
-          missed: 0,
-          results: [],
-          sms: null,
-          message: contractMissText.no_smtp,
-        });
-      }
-
-      const { data: dueRows, error: dueErr } = await admin
-        .from("service_contracts")
-        .select("id, company_id, client_id, title, description, contract_number, status, end_date, service_frequency, next_service_date, last_service_date, auto_generate_jobs, service_reminder_sent_at, service_reminder_sent_for_date")
-        .in("company_id", companyIds)
-        .eq("status", "active")
-        .eq("next_service_date", today);
-      if (dueErr) return json({ error: dueErr.message, sent: false }, 400);
-      const contracts = dueRows ?? [];
-
-      const clientIds = [...new Set(contracts.map((row) => String(row.client_id ?? "")).filter(Boolean))];
-      const clients = new Map<string, Record<string, unknown>>();
-      if (clientIds.length > 0) {
-        const { data: clientRows } = await admin
-          .from("clients")
-          .select("id, company_id, name, email, phone, contact_person, address")
-          .in("id", clientIds);
-        for (const row of clientRows ?? []) clients.set(row.id, row);
-      }
-
-      const companyCache = new Map<string, { name?: string | null; phone?: string | null; email?: string | null }>();
       const results: Array<Record<string, unknown>> = [];
+      if (companyIds.length > 0) {
+        const { data: dueRows, error: dueErr } = await admin
+          .from("service_contracts")
+          .select("id, company_id, client_id, title, description, contract_number, status, end_date, service_frequency, next_service_date, last_service_date, auto_generate_jobs, service_reminder_sent_at, service_reminder_sent_for_date")
+          .in("company_id", companyIds)
+          .eq("status", "active")
+          .eq("next_service_date", today);
+        if (dueErr) return json({ error: dueErr.message, sent: false }, 400);
+        const contracts = dueRows ?? [];
 
-      for (const contract of contracts) {
+        const clientIds = [...new Set(contracts.map((row) => String(row.client_id ?? "")).filter(Boolean))];
+        const clients = new Map<string, Record<string, unknown>>();
+        if (clientIds.length > 0) {
+          const { data: clientRows } = await admin
+            .from("clients")
+            .select("id, company_id, name, email, phone, contact_person, address")
+            .in("id", clientIds);
+          for (const row of clientRows ?? []) clients.set(row.id, row);
+        }
+
+        const companyCache = new Map<string, { name?: string | null; phone?: string | null; email?: string | null }>();
+
+        for (const contract of contracts) {
+          const companyId = String(contract.company_id ?? "").trim();
+          if (!companyId || !companyIds.includes(companyId)) continue;
+          const clientId = String(contract.client_id ?? "").trim();
+          const clientRow = clientId ? clients.get(clientId) ?? null : null;
+
+          if (!companyCache.has(companyId)) {
+            const { data: company } = await admin
+              .from("companies")
+              .select("name, email, phone")
+              .eq("id", companyId)
+              .maybeSingle();
+            companyCache.set(companyId, company ?? {});
+          }
+          if (!settingsByCompany.has(companyId)) {
+            const { data: smtpRow } = await admin
+              .from("email_settings")
+              .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+              .eq("company_id", companyId)
+              .maybeSingle();
+            if (smtpRow) settingsByCompany.set(companyId, smtpRow as EmailSettings);
+          }
+
+          results.push(await deliverContractVisitSend({
+            admin,
+            contract,
+            companyId,
+            company: companyCache.get(companyId) ?? null,
+            settings: settingsByCompany.get(companyId) ?? null,
+            client: clientRow,
+            mode: "auto",
+            today,
+          }));
+        }
+      }
+
+      let jobQuery = admin
+        .from("service_contracts")
+        .select("id, company_id, client_id, title, description, contract_number, status, end_date, service_frequency, next_service_date, last_service_date, auto_generate_jobs")
+        .eq("status", "active")
+        .eq("next_service_date", today)
+        .eq("auto_generate_jobs", true);
+      if (!autoAllCompanies) {
+        jobQuery = jobQuery.eq("company_id", userCompanyId!);
+      }
+      const { data: jobRows, error: jobErr } = await jobQuery;
+      if (jobErr) return json({ error: jobErr.message, sent: false }, 400);
+      const jobContracts = jobRows ?? [];
+
+      const jobClientIds = [...new Set(jobContracts.map((row) => String(row.client_id ?? "")).filter(Boolean))];
+      const jobClients = new Map<string, Record<string, unknown>>();
+      if (jobClientIds.length > 0) {
+        const { data: jobClientRows } = await admin
+          .from("clients")
+          .select("id, address")
+          .in("id", jobClientIds);
+        for (const row of jobClientRows ?? []) jobClients.set(row.id, row);
+      }
+
+      const creatorByCompany = new Map<string, string | null>();
+      const jobResults: Array<Record<string, unknown>> = [];
+      for (const contract of jobContracts) {
         const companyId = String(contract.company_id ?? "").trim();
-        if (!companyId || !companyIds.includes(companyId)) continue;
-        const clientId = String(contract.client_id ?? "").trim();
-        const clientRow = clientId ? clients.get(clientId) ?? null : null;
-
-        if (!companyCache.has(companyId)) {
-          const { data: company } = await admin
-            .from("companies")
-            .select("name, email, phone")
-            .eq("id", companyId)
-            .maybeSingle();
-          companyCache.set(companyId, company ?? {});
-        }
-        if (!settingsByCompany.has(companyId)) {
-          const { data: smtpRow } = await admin
-            .from("email_settings")
-            .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+        if (!companyId) continue;
+        if (!autoAllCompanies && companyId !== userCompanyId) continue;
+        if (!creatorByCompany.has(companyId)) {
+          const { data: members } = await admin
+            .from("profiles")
+            .select("id, role")
             .eq("company_id", companyId)
-            .maybeSingle();
-          if (smtpRow) settingsByCompany.set(companyId, smtpRow as EmailSettings);
+            .order("created_at");
+          creatorByCompany.set(companyId, pickContractJobCreator(members ?? []));
         }
-
-        results.push(await deliverContractVisitSend({
+        const clientId = String(contract.client_id ?? "").trim();
+        const address = clientId ? String(jobClients.get(clientId)?.address ?? "").trim() || null : null;
+        jobResults.push(await createContractVisitJob({
           admin,
           contract,
           companyId,
-          company: companyCache.get(companyId) ?? null,
-          settings: settingsByCompany.get(companyId) ?? null,
-          client: clientRow,
-          mode: "auto",
+          createdBy: creatorByCompany.get(companyId) ?? null,
+          clientAddress: address,
           today,
         }));
       }
 
       const sent = results.filter((r) => r.sent);
       const missed = results.filter((r) => !r.sent);
+      const jobsCreated = jobResults.filter((r) => r.ok);
       const firstSms = (sent[0]?.sms ?? missed[0]?.sms) as SmsSendResult | undefined;
       const emailMessage = sent.length === 1
         ? "Reminder sent"
         : sent.length > 1
         ? `Reminders sent: ${sent.length}`
-        : String(missed[0]?.message ?? "Reminder was not sent.");
+        : String(missed[0]?.message ?? (jobsCreated.length ? `Created ${jobsCreated.length} job${jobsCreated.length === 1 ? "" : "s"}` : "Reminder was not sent."));
       return json({
         sent: sent.length > 0,
         count: sent.length,
         missed: missed.length,
         results,
+        jobsCreated: jobsCreated.length,
+        jobResults,
         sms: firstSms ?? null,
         message: firstSms && sent.length <= 1 ? withSmsMessage(emailMessage, firstSms) : emailMessage,
       });
