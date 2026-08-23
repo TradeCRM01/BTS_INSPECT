@@ -1754,6 +1754,118 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (due === "contract") {
+      if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
+      const today = todayYmd();
+      const autoAllCompanies = cronOk && !userCompanyId;
+      const companyIds: string[] = [];
+      const settingsByCompany = new Map<string, EmailSettings>();
+      if (!autoAllCompanies) {
+        companyIds.push(userCompanyId!);
+        const { data: smtpRow } = await admin
+          .from("email_settings")
+          .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+          .eq("company_id", userCompanyId!)
+          .maybeSingle();
+        if (smtpRow) settingsByCompany.set(userCompanyId!, smtpRow as EmailSettings);
+      } else {
+        const { data: smtpRows } = await admin
+          .from("email_settings")
+          .select("company_id, smtp_host, smtp_pass, from_name, from_email");
+        for (const row of smtpRows ?? []) {
+          if (row.company_id && emailSettingsReady(row as EmailSettings)) {
+            companyIds.push(row.company_id);
+            settingsByCompany.set(row.company_id, row as EmailSettings);
+          }
+        }
+      }
+
+      if (companyIds.length === 0) {
+        return json({
+          sent: false,
+          count: 0,
+          missed: 0,
+          results: [],
+          sms: null,
+          message: contractMissText.no_smtp,
+        });
+      }
+
+      const { data: dueRows, error: dueErr } = await admin
+        .from("service_contracts")
+        .select("id, company_id, client_id, title, description, contract_number, status, end_date, service_frequency, next_service_date, last_service_date, auto_generate_jobs, service_reminder_sent_at, service_reminder_sent_for_date")
+        .in("company_id", companyIds)
+        .eq("status", "active")
+        .eq("next_service_date", today);
+      if (dueErr) return json({ error: dueErr.message, sent: false }, 400);
+      const contracts = dueRows ?? [];
+
+      const clientIds = [...new Set(contracts.map((row) => String(row.client_id ?? "")).filter(Boolean))];
+      const clients = new Map<string, Record<string, unknown>>();
+      if (clientIds.length > 0) {
+        const { data: clientRows } = await admin
+          .from("clients")
+          .select("id, company_id, name, email, phone, contact_person, address")
+          .in("id", clientIds);
+        for (const row of clientRows ?? []) clients.set(row.id, row);
+      }
+
+      const companyCache = new Map<string, { name?: string | null; phone?: string | null; email?: string | null }>();
+      const results: Array<Record<string, unknown>> = [];
+
+      for (const contract of contracts) {
+        const companyId = String(contract.company_id ?? "").trim();
+        if (!companyId || !companyIds.includes(companyId)) continue;
+        const clientId = String(contract.client_id ?? "").trim();
+        const clientRow = clientId ? clients.get(clientId) ?? null : null;
+
+        if (!companyCache.has(companyId)) {
+          const { data: company } = await admin
+            .from("companies")
+            .select("name, email, phone")
+            .eq("id", companyId)
+            .maybeSingle();
+          companyCache.set(companyId, company ?? {});
+        }
+        if (!settingsByCompany.has(companyId)) {
+          const { data: smtpRow } = await admin
+            .from("email_settings")
+            .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+            .eq("company_id", companyId)
+            .maybeSingle();
+          if (smtpRow) settingsByCompany.set(companyId, smtpRow as EmailSettings);
+        }
+
+        results.push(await deliverContractVisitSend({
+          admin,
+          contract,
+          companyId,
+          company: companyCache.get(companyId) ?? null,
+          settings: settingsByCompany.get(companyId) ?? null,
+          client: clientRow,
+          mode: "auto",
+          today,
+        }));
+      }
+
+      const sent = results.filter((r) => r.sent);
+      const missed = results.filter((r) => !r.sent);
+      const firstSms = (sent[0]?.sms ?? missed[0]?.sms) as SmsSendResult | undefined;
+      const emailMessage = sent.length === 1
+        ? "Reminder sent"
+        : sent.length > 1
+        ? `Reminders sent: ${sent.length}`
+        : String(missed[0]?.message ?? "Reminder was not sent.");
+      return json({
+        sent: sent.length > 0,
+        count: sent.length,
+        missed: missed.length,
+        results,
+        sms: firstSms ?? null,
+        message: firstSms && sent.length <= 1 ? withSmsMessage(emailMessage, firstSms) : emailMessage,
+      });
+    }
+
     if (due === "overdue") {
       if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
       const today = todayYmd();

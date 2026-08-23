@@ -38,6 +38,25 @@ export const CONTRACT_VISIT_REMINDER_PIPE = [
   'UPDATE service_reminder_sent_at / service_reminder_sent_for_date only when Resend returns 2xx',
 ] as const;
 
+/**
+ * How auto-fire actually runs — same Perth cron as the 24h job ping.
+ * No tray click. No new notify module. No new cron stack.
+ * pg_cron job-client-reminder-* → invoke_job_client_reminders() → job-reminder due=contract.
+ */
+export const CONTRACT_VISIT_AUTO_FIRE_PATH = [
+  'pg_cron job-client-reminder-perth-morning (0 23 * * * UTC = 07:00 Australia/Perth)',
+  'pg_cron job-client-reminder-perth-afternoon (0 8 * * * UTC = 16:00 Australia/Perth)',
+  'SELECT public.invoke_job_client_reminders()',
+  'pg_net POST /functions/v1/job-reminder due=contract source=cron',
+  'perth_today = (timezone(Australia/Perth, now()))::date',
+  'email_settings where Resend is ready (companies without SMTP are not scanned)',
+  'service_contracts where next_service_date = perth_today and status = active',
+  'skip already_sent for this next_service_date; skip no client email; skip no due date',
+  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.twilio.com SMS beside email — miss does not flip sent-at',
+  'UPDATE service_reminder_sent_at / service_reminder_sent_for_date only when Resend returns 2xx',
+] as const;
+
 export type ContractVisitReminderBlocker =
   | 'not_found'
   | 'not_active'
