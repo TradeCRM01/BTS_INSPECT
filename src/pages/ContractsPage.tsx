@@ -8,7 +8,7 @@ import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCa
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
-import { Plus, FileText, X, Trash2, Pencil, Briefcase } from 'lucide-react';
+import { Plus, FileText, X, Trash2, Pencil, Briefcase, Mail } from 'lucide-react';
 import type { ServiceContract, ServiceContractWithClient, ContractStatus } from '../types/fsm';
 import { CONTRACT_STATUS_LABELS, CONTRACT_STATUS_STYLES, BILLING_CYCLE_LABELS, SERVICE_FREQUENCY_LABELS, formatMoney } from '../types/fsm';
 import type { Client } from '../types/crm';
@@ -18,6 +18,7 @@ import {
   createContractServiceJob,
   dateOnly,
 } from '../lib/createContractServiceJob';
+import { ContractVisitReminderDialog } from '../components/contracts/ContractVisitReminderDialog';
 
 const STATUS_TABS: { key: 'all' | ContractStatus; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -35,7 +36,15 @@ function formatContractDay(ymd: string, pattern: string): string {
 }
 
 export function ContractsPage() {
-  const { profile } = useAuth();
+  const { profile, company } = useAuth();
+  const remindCompany = profile?.company_id
+    ? {
+        id: profile.company_id,
+        name: company?.name ?? '',
+        email: company?.email ?? null,
+        phone: company?.phone ?? null,
+      }
+    : null;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -44,6 +53,7 @@ export function ContractsPage() {
   const [editingContract, setEditingContract] = useState<ServiceContract | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ServiceContractWithClient | null>(null);
+  const [remindContractId, setRemindContractId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useViewMode('contracts', 'list');
 
   const { data: contracts, isLoading, error } = useQuery({
@@ -252,6 +262,7 @@ export function ContractsPage() {
                   creating={creating}
                   onEdit={() => { setEditingContract(c); setShowForm(true); }}
                   onCreateJob={() => createJobMutation.mutate(c)}
+                  onRemind={() => setRemindContractId(c.id)}
                   onDelete={() => setDeleteTarget(c)} />)}
               </tbody>
             </table>
@@ -279,14 +290,23 @@ export function ContractsPage() {
                     <span className="font-semibold text-[#1A1A1A]">{formatMoney(Number(c.contract_value))}</span>
                   </div>
                   {c.status === 'active' && c.next_service_date && (
-                    <button
-                      type="button"
-                      disabled={creating}
-                      onClick={e => { e.stopPropagation(); createJobMutation.mutate(c); }}
-                      className="mt-3 text-sm font-medium text-[#2E75B6] hover:underline disabled:opacity-50"
-                    >
-                      Create job
-                    </button>
+                    <div className="mt-3 flex items-center gap-3">
+                      <button
+                        type="button"
+                        disabled={creating}
+                        onClick={e => { e.stopPropagation(); createJobMutation.mutate(c); }}
+                        className="text-sm font-medium text-[#2E75B6] hover:underline disabled:opacity-50"
+                      >
+                        Create job
+                      </button>
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setRemindContractId(c.id); }}
+                        className="text-sm font-medium text-[#2E75B6] hover:underline"
+                      >
+                        Remind
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -299,7 +319,21 @@ export function ContractsPage() {
         <ContractForm contract={editingContract} creating={creating}
           onClose={() => setShowForm(false)}
           onCreateJob={editingContract ? () => createJobMutation.mutate(editingContract) : undefined}
+          onRemind={editingContract ? () => setRemindContractId(editingContract.id) : undefined}
           onSaved={() => { setShowForm(false); queryClient.invalidateQueries({ queryKey: ['service-contracts'] }); showToast(editingContract ? 'Contract updated' : 'Contract created'); }} />
+      )}
+
+      {remindContractId && remindCompany && (
+        <ContractVisitReminderDialog
+          contractId={remindContractId}
+          company={remindCompany}
+          onClose={() => setRemindContractId(null)}
+          onSent={(to, message) => {
+            setRemindContractId(null);
+            queryClient.invalidateQueries({ queryKey: ['service-contracts'] });
+            showToast(message || `Reminder sent to ${to}`);
+          }}
+        />
       )}
 
       <ConfirmDialog
@@ -314,11 +348,12 @@ export function ContractsPage() {
   );
 }
 
-function ContractRow({ contract, creating, onEdit, onCreateJob, onDelete }: {
+function ContractRow({ contract, creating, onEdit, onCreateJob, onRemind, onDelete }: {
   contract: ServiceContractWithClient;
   creating: boolean;
   onEdit: () => void;
   onCreateJob: () => void;
+  onRemind: () => void;
   onDelete: () => void;
 }) {
   const overdue = contractDueBucket(contract.next_service_date) === 'overdue';
@@ -326,6 +361,7 @@ function ContractRow({ contract, creating, onEdit, onCreateJob, onDelete }: {
   const menuItems: MenuEntry[] = [
     { label: 'Edit', icon: Pencil, onClick: onEdit },
     ...(canCreate ? [{ label: creating ? 'Creating…' : 'Create job', icon: Briefcase, onClick: onCreateJob, disabled: creating }] : []),
+    ...(canCreate ? [{ label: 'Remind', icon: Mail, onClick: onRemind }] : []),
     { divider: true },
     { label: 'Delete', icon: Trash2, onClick: onDelete, variant: 'danger' },
   ];
@@ -360,12 +396,13 @@ function ContractRow({ contract, creating, onEdit, onCreateJob, onDelete }: {
   );
 }
 
-function ContractForm({ contract, creating, onClose, onSaved, onCreateJob }: {
+function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRemind }: {
   contract: ServiceContract | null;
   creating: boolean;
   onClose: () => void;
   onSaved: () => void;
   onCreateJob?: () => void;
+  onRemind?: () => void;
 }) {
   const { profile } = useAuth();
   const [form, setForm] = useState({
@@ -485,6 +522,11 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob }: {
             {onCreateJob && (
               <button type="button" disabled={creating || saving} onClick={onCreateJob} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-[#F9FAFB] disabled:opacity-50">
                 {creating ? 'Creating…' : 'Create job'}
+              </button>
+            )}
+            {onRemind && (
+              <button type="button" disabled={saving} onClick={onRemind} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-[#F9FAFB] disabled:opacity-50">
+                Remind
               </button>
             )}
             <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>

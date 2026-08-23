@@ -407,6 +407,8 @@ export interface ServiceContract {
   last_service_date: string | null;
   auto_generate_jobs: boolean;
   notes: string | null;
+  service_reminder_sent_at?: string | null;
+  service_reminder_sent_for_date?: string | null;
   created_at: string;
   updated_at: string;
 }

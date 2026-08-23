@@ -1265,6 +1265,205 @@ async function deliverPurchaseOrderSend(opts: {
   };
 }
 
+const contractMissText: Record<string, string> = {
+  no_email: "This client has no email — reminder was not sent.",
+  no_next_date: "This contract has no next service date — reminder was not sent.",
+  not_due: "Reminder is for visits due today.",
+  no_smtp: "Email is not set up.",
+  not_active: "Only active contracts can send a visit reminder.",
+  already_sent: "Already reminded for this visit date.",
+  no_contract: "Contract not found.",
+  no_client: "Pick a client before you can remind them.",
+  past_end: "Next service is after the contract end date — reminder was not sent.",
+  wrong_company: "This contract is not in this company.",
+  send_failed: "Reminder was not sent.",
+};
+
+function alreadyRemindedForVisit(row: Record<string, unknown>, dueDate: string | null): boolean {
+  const day = dateOnly(dueDate ?? row.next_service_date);
+  if (!day || !row.service_reminder_sent_at) return false;
+  const sentFor = dateOnly(row.service_reminder_sent_for_date);
+  if (sentFor) return sentFor === day;
+  return true;
+}
+
+function contractVisitLabel(contract: Record<string, unknown>): string {
+  const title = String(contract.title ?? "").trim() || "Service visit";
+  const number = String(contract.contract_number ?? "").trim();
+  return number ? `${title} (${number})` : title;
+}
+
+function contractVisitDuePhrase(dueOn: string, today: string): string {
+  return dueOn < today ? "is overdue" : "is due today";
+}
+
+function contractVisitHtml(opts: {
+  greeting: string;
+  companyName: string;
+  label: string;
+  when: string;
+  site: string;
+  companyPhone: string;
+  duePhrase: string;
+}): string {
+  return `
+      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
+        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">${escapeHtml(opts.companyName)}</div>
+          <h1 style="margin:8px 0 0;font-size:20px">Service visit due</h1>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+          <p>Hi ${escapeHtml(opts.greeting)},</p>
+          <p>${escapeHtml(opts.companyName)} — your <strong>${escapeHtml(opts.label)}</strong> ${escapeHtml(opts.duePhrase)}.</p>
+          <div style="margin:20px 0;padding:16px;background:#F9FAFB;border-radius:8px">
+            <p style="margin:0;color:#4A5568;font-size:14px;line-height:1.6">
+              <strong>Visit:</strong> ${escapeHtml(opts.label)}<br/>
+              <strong>Due:</strong> ${escapeHtml(opts.when)}
+              ${opts.site ? `<br/><strong>Site:</strong> ${escapeHtml(opts.site)}` : ""}
+            </p>
+          </div>
+          <p>Reply to book it in — the visit is already on the contract.</p>
+          ${opts.companyPhone ? `<p style="font-size:13px;color:#6B7280">Or call ${escapeHtml(opts.companyPhone)}.</p>` : ""}
+          <p style="font-size:12px;color:#6B7280">You're receiving this because this service visit is due on the contract.</p>
+        </div>
+      </div>`;
+}
+
+function contractVisitSmsBody(opts: {
+  label: string;
+  when: string;
+  site: string;
+  companyPhone: string;
+  duePhrase: string;
+}): string {
+  return [
+    `Reminder: ${opts.label} ${opts.duePhrase} (${opts.when}).`,
+    opts.site ? `Site: ${opts.site}.` : "",
+    `Reply to book it in${opts.companyPhone ? ` or call ${opts.companyPhone}` : ""}.`,
+  ].filter(Boolean).join(" ");
+}
+
+async function deliverContractVisitSend(opts: {
+  admin: ReturnType<typeof createClient>;
+  contract: Record<string, unknown>;
+  companyId: string;
+  company: { name?: string | null; phone?: string | null; email?: string | null } | null;
+  settings: EmailSettings | null;
+  client: Record<string, unknown> | null;
+  mode: "auto" | "manual";
+  today: string;
+}): Promise<Record<string, unknown>> {
+  const contract = opts.contract;
+  const contractId = String(contract.id ?? "");
+  const to = prefillTo(opts.client?.email);
+  const dueOn = dateOnly(contract.next_service_date);
+  const extra = { contractId, to: to || null, dueOn };
+
+  if (String(contract.company_id ?? "").trim() !== opts.companyId) {
+    return miss("wrong_company", contractMissText.wrong_company, extra);
+  }
+  if (String(contract.status ?? "").trim() !== "active") {
+    return miss("not_active", contractMissText.not_active, extra);
+  }
+  if (!contract.client_id || !opts.client) {
+    return miss("no_client", contractMissText.no_client, extra);
+  }
+  if (!dueOn) {
+    return miss("no_next_date", contractMissText.no_next_date, extra);
+  }
+  const end = dateOnly(contract.end_date);
+  if (end && dueOn > end) {
+    return miss("past_end", contractMissText.past_end, extra);
+  }
+  if (opts.mode === "auto" && dueOn !== opts.today) {
+    return miss("not_due", contractMissText.not_due, { ...extra, dueOn });
+  }
+  if (opts.mode === "manual" && dueOn > opts.today) {
+    return miss("not_due", contractMissText.not_due, { ...extra, dueOn });
+  }
+  if (opts.mode === "auto" && alreadyRemindedForVisit(contract, dueOn)) {
+    return miss("already_sent", contractMissText.already_sent, { ...extra, dueOn });
+  }
+  if (!to) {
+    return miss("no_email", contractMissText.no_email, { ...extra, to: null, dueOn });
+  }
+  if (!emailSettingsReady(opts.settings) || !opts.settings) {
+    return miss("no_smtp", contractMissText.no_smtp, { ...extra, to, dueOn });
+  }
+
+  const label = contractVisitLabel(contract);
+  const site = String(opts.client.address ?? "").trim();
+  const when = formatJobDate(dueOn);
+  const duePhrase = contractVisitDuePhrase(dueOn, opts.today);
+  const companyName = String(opts.company?.name ?? "").trim() || "us";
+  const companyPhone = String(opts.company?.phone ?? "").trim();
+  const greeting = String(opts.client.contact_person || opts.client.name || "there").trim();
+  const subject = `Reminder: ${label} ${duePhrase} (${when})`;
+  const html = contractVisitHtml({
+    greeting,
+    companyName,
+    label,
+    when,
+    site,
+    companyPhone,
+    duePhrase,
+  });
+
+  const fromHeader = `${opts.settings.from_name} <${opts.settings.from_email}>`;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${opts.settings.smtp_pass}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: fromHeader,
+      to: [to],
+      reply_to: opts.settings.from_email,
+      subject,
+      html,
+    }),
+  });
+
+  const sms = await sendTwilioSms(
+    opts.client?.phone,
+    contractVisitSmsBody({ label, when, site, companyPhone, duePhrase }),
+  );
+
+  if (!res.ok) {
+    const bodyText = await res.text();
+    let message = `Resend API error (${res.status})`;
+    try {
+      const parsed = JSON.parse(bodyText);
+      message = parsed.message ?? parsed.error ?? message;
+    } catch {
+      if (bodyText) message = bodyText.slice(0, 200);
+    }
+    return miss("send_failed", withSmsMessage(message, sms), { ...extra, to, dueOn, sms });
+  }
+
+  const sentAt = new Date().toISOString();
+  await opts.admin
+    .from("service_contracts")
+    .update({
+      service_reminder_sent_at: sentAt,
+      service_reminder_sent_for_date: dueOn,
+    })
+    .eq("id", contract.id)
+    .eq("company_id", opts.companyId);
+
+  return {
+    sent: true,
+    contractId: contract.id,
+    to,
+    dueOn,
+    sms,
+    service_reminder_sent_at: sentAt,
+    service_reminder_sent_for_date: dueOn,
+    message: "Reminder sent",
+  };
+}
+
 function bearerToken(header: string | null): string {
   return (header ?? "").replace(/^Bearer\s+/i, "").trim();
 }
@@ -1321,6 +1520,7 @@ Deno.serve(async (req) => {
     const reportId = String(body.reportId ?? body.report_id ?? "").trim();
     const quoteId = String(body.quoteId ?? body.quote_id ?? "").trim();
     const purchaseOrderId = String(body.purchaseOrderId ?? body.purchase_order_id ?? "").trim();
+    const contractId = String(body.contractId ?? body.contract_id ?? "").trim();
     const purpose = String(body.purpose ?? "").trim();
     const due = String(body.due ?? "").trim();
     const appUrl = String(body.appUrl ?? body.app_url ?? "").replace(/\/$/, "")
@@ -2050,12 +2250,75 @@ Deno.serve(async (req) => {
       return json(result, status);
     }
 
+    if (contractId) {
+      if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
+
+      const { data: contract } = await admin
+        .from("service_contracts")
+        .select("id, company_id, client_id, title, description, contract_number, status, end_date, service_frequency, next_service_date, last_service_date, auto_generate_jobs, service_reminder_sent_at, service_reminder_sent_for_date")
+        .eq("id", contractId)
+        .eq("company_id", userCompanyId)
+        .maybeSingle();
+
+      if (!contract) {
+        return json({
+          sent: false,
+          reason: "no_contract",
+          message: contractMissText.no_contract,
+          contractId,
+        }, 404);
+      }
+
+      const { data: client } = contract.client_id
+        ? await admin
+          .from("clients")
+          .select("id, name, email, phone, contact_person, address")
+          .eq("id", contract.client_id)
+          .maybeSingle()
+        : { data: null };
+      const { data: smtpRow } = await admin
+        .from("email_settings")
+        .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+        .eq("company_id", userCompanyId)
+        .maybeSingle();
+      const { data: company } = await admin
+        .from("companies")
+        .select("name, email, phone")
+        .eq("id", userCompanyId)
+        .maybeSingle();
+
+      const result = await deliverContractVisitSend({
+        admin,
+        contract,
+        companyId: userCompanyId,
+        company,
+        settings: smtpRow as EmailSettings | null,
+        client,
+        mode: "manual",
+        today: todayYmd(),
+      });
+      const sms = (result.sms as SmsSendResult | undefined) ?? null;
+      const emailMessage = result.sent
+        ? "Reminder sent"
+        : String(result.message ?? contractMissText[String(result.reason)] ?? "Reminder was not sent.");
+      return json({
+        sent: !!result.sent,
+        count: result.sent ? 1 : 0,
+        missed: result.sent ? 0 : 1,
+        results: [result],
+        sms,
+        to: result.to ?? null,
+        message: sms ? withSmsMessage(emailMessage, sms) : emailMessage,
+        href: result.href,
+      });
+    }
+
     if (jobId) {
       if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else if (due === "tomorrow") {
       if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else {
-      return json({ error: "jobId, inspectionId, invoiceId, reportId, quoteId, purchaseOrderId, due=tomorrow, due=today, or due=overdue is required", sent: false }, 400);
+      return json({ error: "jobId, inspectionId, invoiceId, reportId, quoteId, purchaseOrderId, contractId, due=tomorrow, due=today, or due=overdue is required", sent: false }, 400);
     }
 
     const autoAllCompanies = due === "tomorrow" && cronOk && !jobId;

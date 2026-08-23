@@ -44,7 +44,6 @@ describe('contract service job client path', () => {
     expect(page).not.toContain('report_theme');
     expect(page).not.toContain('OpsDocHead');
 
-    expect(edge).not.toContain('service_contracts');
     expect(edge).not.toContain('createContractServiceJob');
   });
 });
