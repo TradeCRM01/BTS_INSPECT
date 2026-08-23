@@ -80,6 +80,44 @@ function escapeHtml(value: string) {
     .replace(/"/g, "&quot;");
 }
 
+/** Company ways to pay, printed on invoice send/chase mail. Not quotes, POs, or receipts. */
+function invoicePayHowHtml(raw: unknown): string {
+  if (!Array.isArray(raw)) return "";
+  const blocks: string[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+    const r = row as Record<string, unknown>;
+    const kind = String(r.kind ?? "").trim();
+    const labelRaw = String(r.label ?? "").trim();
+    const accountName = String(r.account_name ?? "").trim();
+    const bsb = String(r.bsb ?? "").trim();
+    const accountNumber = String(r.account_number ?? "").trim();
+    const payid = String(r.payid ?? "").trim();
+    const notes = String(r.notes ?? "").trim();
+    const lines: string[] = [];
+    if (kind === "bank_transfer") {
+      if (!accountName && !bsb && !accountNumber) continue;
+      if (accountName) lines.push(`Account name: ${accountName}`);
+      if (bsb) lines.push(`BSB: ${bsb}`);
+      if (accountNumber) lines.push(`Account number: ${accountNumber}`);
+    } else if (kind === "payid") {
+      if (!payid) continue;
+      lines.push(`PayID: ${payid}`);
+      if (accountName) lines.push(`Account name: ${accountName}`);
+    } else if (!notes) {
+      continue;
+    }
+    if (notes) lines.push(notes);
+    if (!lines.length) continue;
+    const label = labelRaw || (kind === "payid" ? "PayID" : kind === "bank_transfer" ? "Bank transfer" : "Other");
+    blocks.push(
+      `<p style="color:#4A5568;font-size:15px;line-height:1.6;"><strong>${escapeHtml(label)}</strong><br/>${lines.map((line) => escapeHtml(line)).join("<br/>")}</p>`,
+    );
+  }
+  if (!blocks.length) return "";
+  return `<p style="color:#1A1A1A;font-size:15px;font-weight:600;line-height:1.6;">How to pay</p>${blocks.join("")}`;
+}
+
 function padJobNumber(n: unknown): string {
   return String(n ?? 0).padStart(4, "0");
 }
@@ -129,6 +167,7 @@ function invoiceHtml(opts: {
   totalLabel: string;
   dueLabel: string;
   paymentTerms: string;
+  paymentMethods?: unknown;
 }): string {
   const client = escapeHtml(opts.clientName.trim() || "there");
   const company = escapeHtml(opts.companyName.trim() || "us");
@@ -139,6 +178,7 @@ function invoiceHtml(opts: {
   const terms = opts.paymentTerms
     ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Payment terms: ${escapeHtml(opts.paymentTerms)}</p>`
     : "";
+  const payHow = invoicePayHowHtml(opts.paymentMethods);
   return `
       <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
         <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
@@ -151,6 +191,7 @@ function invoiceHtml(opts: {
           <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${escapeHtml(opts.totalLabel)}</strong></p>
           ${due}
           ${terms}
+          ${payHow}
           <p>The invoice PDF is attached. Reply to this email if you have a question about the charges.</p>
         </div>
       </div>`;
@@ -541,6 +582,7 @@ function invoiceChaseHtml(opts: {
   totalLabel: string;
   dueLabel: string;
   paymentTerms: string;
+  paymentMethods?: unknown;
 }): string {
   const client = escapeHtml(opts.clientName.trim() || "there");
   const company = escapeHtml(opts.companyName.trim() || "us");
@@ -551,6 +593,7 @@ function invoiceChaseHtml(opts: {
   const terms = opts.paymentTerms
     ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Payment terms: ${escapeHtml(opts.paymentTerms)}</p>`
     : "";
+  const payHow = invoicePayHowHtml(opts.paymentMethods);
   return `
       <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
         <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
@@ -563,6 +606,7 @@ function invoiceChaseHtml(opts: {
           <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${escapeHtml(opts.totalLabel)}</strong></p>
           ${due}
           ${terms}
+          ${payHow}
           <p>The invoice PDF is attached. Reply to this email if you have a question about the charges.</p>
         </div>
       </div>`;
@@ -701,7 +745,7 @@ async function deliverInvoiceSend(opts: {
   admin: ReturnType<typeof createClient>;
   invoice: Record<string, unknown>;
   companyId: string;
-  company: { name?: string | null } | null;
+  company: { name?: string | null; payment_methods?: unknown } | null;
   settings: EmailSettings | null;
   client: Record<string, unknown> | null;
   attachmentIn?: { filename?: string; content?: string };
@@ -789,6 +833,7 @@ async function deliverInvoiceSend(opts: {
       totalLabel: formatAud(invoice.total),
       dueLabel,
       paymentTerms: String(invoice.payment_terms ?? "").trim(),
+      paymentMethods: opts.company?.payment_methods,
     })
     : copyKind === "receipt"
     ? invoiceReceiptHtml({
@@ -804,6 +849,7 @@ async function deliverInvoiceSend(opts: {
       totalLabel: formatAud(invoice.total),
       dueLabel,
       paymentTerms: String(invoice.payment_terms ?? "").trim(),
+      paymentMethods: opts.company?.payment_methods,
     });
 
   const fromHeader = `${opts.settings.from_name} <${opts.settings.from_email}>`;
@@ -2139,7 +2185,7 @@ Deno.serve(async (req) => {
         for (const row of clientRows ?? []) clients.set(row.id, row);
       }
 
-      const companyCache = new Map<string, { name?: string | null }>();
+      const companyCache = new Map<string, { name?: string | null; payment_methods?: unknown }>();
       const results: Array<Record<string, unknown>> = [];
 
       for (const invoice of invoices) {
@@ -2148,7 +2194,7 @@ Deno.serve(async (req) => {
         if (!companyCache.has(companyId)) {
           const { data: company } = await admin
             .from("companies")
-            .select("name")
+            .select("name, payment_methods")
             .eq("id", companyId)
             .maybeSingle();
           companyCache.set(companyId, company ?? {});
@@ -2203,7 +2249,7 @@ Deno.serve(async (req) => {
         if (!companyCache.has(companyId)) {
           const { data: company } = await admin
             .from("companies")
-            .select("name")
+            .select("name, payment_methods")
             .eq("id", companyId)
             .maybeSingle();
           companyCache.set(companyId, company ?? {});
@@ -2279,7 +2325,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const { data: company } = await admin
         .from("companies")
-        .select("name")
+        .select("name, payment_methods")
         .eq("id", userCompanyId)
         .maybeSingle();
 

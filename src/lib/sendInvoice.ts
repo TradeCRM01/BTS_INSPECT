@@ -18,6 +18,7 @@ import {
 } from './jobReminder';
 import { effectiveInvoiceStatus } from './invoiceStatus';
 import { companyDocumentLogoUrl, companyReportTheme } from './companyLogo';
+import { companyPaymentMethodsForDocument } from './companyPaymentMethods';
 
 export const COMPANY_EMAIL_SETTINGS_HREF = '/settings/company';
 
@@ -71,6 +72,7 @@ export type InvoiceSendCompany = {
   website?: string | null;
   logo_url?: string | null;
   report_theme?: Record<string, unknown> | null;
+  payment_methods?: unknown;
 };
 
 export type InvoiceSendInvoice = {
@@ -296,6 +298,7 @@ export function invoiceSendHtml(opts: {
   totalLabel: string;
   dueLabel: string | null;
   paymentTerms?: string | null;
+  paymentMethods?: unknown;
   attachedPdf: boolean;
 }): string {
   const client = escapeHtml(opts.clientName.trim() || 'there');
@@ -308,6 +311,7 @@ export function invoiceSendHtml(opts: {
   const terms = opts.paymentTerms?.trim()
     ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Payment terms: ${escapeHtml(opts.paymentTerms.trim())}</p>`
     : '';
+  const payHow = invoicePayHowHtml(opts.paymentMethods);
   const pdfLine = opts.attachedPdf
     ? '<p>The invoice PDF is attached. Reply to this email if you have a question about the charges.</p>'
     : '<p>Reply to this email if you have a question about the charges.</p>';
@@ -323,6 +327,7 @@ export function invoiceSendHtml(opts: {
           <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${total}</strong></p>
           ${due}
           ${terms}
+          ${payHow}
           ${pdfLine}
         </div>
       </div>`;
@@ -335,6 +340,7 @@ export function invoiceChaseHtml(opts: {
   totalLabel: string;
   dueLabel: string | null;
   paymentTerms?: string | null;
+  paymentMethods?: unknown;
   attachedPdf: boolean;
 }): string {
   const client = escapeHtml(opts.clientName.trim() || 'there');
@@ -347,6 +353,7 @@ export function invoiceChaseHtml(opts: {
   const terms = opts.paymentTerms?.trim()
     ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Payment terms: ${escapeHtml(opts.paymentTerms.trim())}</p>`
     : '';
+  const payHow = invoicePayHowHtml(opts.paymentMethods);
   const pdfLine = opts.attachedPdf
     ? '<p>The invoice PDF is attached. Reply to this email if you have a question about the charges.</p>'
     : '<p>Reply to this email if you have a question about the charges.</p>';
@@ -362,6 +369,7 @@ export function invoiceChaseHtml(opts: {
           <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${total}</strong></p>
           ${due}
           ${terms}
+          ${payHow}
           ${pdfLine}
         </div>
       </div>`;
@@ -402,6 +410,16 @@ export function escapeHtml(value: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+export function invoicePayHowHtml(raw: unknown): string {
+  const methods = companyPaymentMethodsForDocument(raw);
+  if (!methods.length) return '';
+  const blocks = methods.map(method => {
+    const lines = method.lines.map(line => escapeHtml(line)).join('<br/>');
+    return `<p style="color:#4A5568;font-size:15px;line-height:1.6;"><strong>${escapeHtml(method.label)}</strong><br/>${lines}</p>`;
+  }).join('');
+  return `<p style="color:#1A1A1A;font-size:15px;font-weight:600;line-height:1.6;">How to pay</p>${blocks}`;
 }
 
 /** Status write after a send attempt. Failure must not flip draft → sent. */
@@ -1170,6 +1188,7 @@ export function invoiceSendCompanyFrom(company: {
   website?: string | null;
   logo_url?: string | null;
   report_theme?: Record<string, unknown> | null;
+  payment_methods?: unknown;
 } | null | undefined): (InvoiceSendCompany & { id: string }) | null {
   const id = (company?.id ?? '').trim();
   if (!id) return null;
@@ -1183,6 +1202,7 @@ export function invoiceSendCompanyFrom(company: {
     website: company?.website ?? null,
     logo_url: companyDocumentLogoUrl(company),
     report_theme: companyReportTheme(company),
+    payment_methods: company?.payment_methods ?? [],
   };
 }
 
@@ -1309,6 +1329,7 @@ export function commercialPdfDataForInvoice(bundle: InvoiceSendBundle, now = new
     total: Number(invoice.total) || 0,
     notes: invoice.notes?.trim() || null,
     paymentTerms: invoice.payment_terms?.trim() || null,
+    paymentMethods: companyPaymentMethodsForDocument(bundle.company.payment_methods),
   };
 }
 

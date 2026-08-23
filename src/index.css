@@ -3019,6 +3019,15 @@
     font-size: 16px;
   }
 
+  .hub-invoice-pay {
+    margin: 0 16px 16px;
+    padding-top: 8px;
+  }
+
+  .hub-invoice-pay-method {
+    margin-top: 8px;
+  }
+
   .hub-invoice-edit {
     margin-top: 16px;
     padding: 0;

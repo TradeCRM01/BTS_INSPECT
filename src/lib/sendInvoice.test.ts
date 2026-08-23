@@ -26,6 +26,7 @@ import {
   invoicePdfStoragePath,
   invoiceSendClientQuery,
   invoiceSendHtml,
+  invoicePayHowHtml,
   invoiceSendJobQuery,
   invoiceSendQueries,
   invoiceSendSubject,
@@ -300,6 +301,51 @@ describe('invoice send copy / document name', () => {
     expect(html).not.toContain('quote');
     expect(html).not.toMatch(/overdue/i);
     expect(html).toContain('has sent you invoice');
+    expect(html).not.toContain('How to pay');
+  });
+
+  it('includes company payment methods on send and chase mail, not the receipt', () => {
+    const paymentMethods = [{
+      id: 'pm-bank',
+      kind: 'bank_transfer' as const,
+      label: 'Bank transfer',
+      account_name: 'BTS Electrical Pty Ltd',
+      bsb: '066-000',
+      account_number: '12345678',
+      payid: '',
+      notes: 'Use the invoice number as the reference.',
+    }];
+    expect(invoicePayHowHtml(paymentMethods)).toContain('How to pay');
+    expect(invoicePayHowHtml(paymentMethods)).toContain('066-000');
+    expect(invoicePayHowHtml([])).toBe('');
+    expect(invoicePayHowHtml(null)).toBe('');
+
+    const send = invoiceSendHtml({
+      clientName: 'Jane',
+      companyName: 'BTS Electrical',
+      invoiceNumber: 18,
+      totalLabel: '$484.00',
+      dueLabel: '19 Sep 2026',
+      paymentTerms: 'Net 30',
+      paymentMethods,
+      attachedPdf: true,
+    });
+    expect(send).toContain('How to pay');
+    expect(send).toContain('Bank transfer');
+    expect(send).toContain('066-000');
+
+    const chase = invoiceChaseHtml({
+      clientName: 'Jane',
+      companyName: 'BTS Electrical',
+      invoiceNumber: 18,
+      totalLabel: '$484.00',
+      dueLabel: '19 Aug 2026',
+      paymentTerms: 'Net 30',
+      paymentMethods,
+      attachedPdf: true,
+    });
+    expect(chase).toContain('How to pay');
+    expect(chase).toContain('12345678');
   });
 
   it('overdue / sent-again uses chase copy with overdue and due date', () => {
@@ -349,6 +395,7 @@ describe('invoice send copy / document name', () => {
     expect(html).not.toContain('is chasing');
     expect(html).not.toContain('has sent you invoice');
     expect(html).not.toContain('portal');
+    expect(html).not.toContain('How to pay');
     const sms = invoiceReceiptSmsBody({
       companyName: 'BTS Electrical',
       invoiceNumber: 18,
@@ -421,6 +468,34 @@ describe('commercialPdfDataForInvoice', () => {
     expect(pdf?.clientDetail).toContain('jane@acme.com.au');
     expect(pdf?.lines).toHaveLength(1);
     expect(pdf?.secondaryValue).toBe('19 Sep 2026');
+  });
+
+  it('prints company payment methods on the invoice PDF data', () => {
+    const pdf = commercialPdfDataForInvoice(bundle({
+      company: {
+        ...company,
+        payment_methods: [{
+          id: 'pm-bank',
+          kind: 'bank_transfer',
+          label: 'Bank transfer',
+          account_name: 'BTS Electrical Pty Ltd',
+          bsb: '066-000',
+          account_number: '12345678',
+          payid: '',
+          notes: 'Use the invoice number as the reference.',
+        }],
+      },
+    }), new Date('2026-08-20T10:00:00'));
+    expect(pdf?.paymentMethods).toEqual([{
+      label: 'Bank transfer',
+      lines: [
+        'Account name: BTS Electrical Pty Ltd',
+        'BSB: 066-000',
+        'Account number: 12345678',
+        'Use the invoice number as the reference.',
+      ],
+    }]);
+    expect(commercialPdfDataForInvoice(bundle())?.paymentMethods).toEqual([]);
   });
 });
 
