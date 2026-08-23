@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -12,7 +12,7 @@ import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariat
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
 import { InvoiceSendDialog } from '../components/invoicing/InvoiceSendDialog';
-import { commercialDocumentColors, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
+import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
@@ -96,9 +96,6 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
 
 export function InvoicesPage() {
   const { profile, company } = useAuth();
-  const listColors = commercialDocumentColors(
-    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
-  );
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -240,15 +237,7 @@ export function InvoicesPage() {
 
   return (
     <AppShell>
-      <div
-        className="invoice-doc-theme ops-page hub-invoices"
-        style={{
-          '--invoice-navy': listColors.navy,
-          '--invoice-accent': listColors.accent,
-          '--invoice-navy-light': listColors.navyLight,
-          '--invoice-accent-light': listColors.accentLight,
-        } as CSSProperties}
-      >
+      <div className="ops-page hub-invoices">
         <div className="ops-page-head">
           <div>
             <h1 className="ops-page-title">Invoices</h1>
@@ -717,9 +706,6 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   }, { smtpReady }));
   const displayStatus = next.status;
   const sheetLogo = companyDocumentLogoUrl(company);
-  const docColors = commercialDocumentColors(
-    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
-  );
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
@@ -919,16 +905,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
 
   return (
     <div className="overlay-backdrop">
-      <div
-        className="invoice-doc-theme overlay-panel-xl hub-invoice-editor"
-        onClick={e => e.stopPropagation()}
-        style={{
-          '--invoice-navy': docColors.navy,
-          '--invoice-accent': docColors.accent,
-          '--invoice-navy-light': docColors.navyLight,
-          '--invoice-accent-light': docColors.accentLight,
-        } as CSSProperties}
-      >
+      <div className="overlay-panel-xl hub-invoice-editor" onClick={e => e.stopPropagation()}>
         <div className="hub-invoice-toolbar">
           <div className="hub-invoice-editor-act">
             {next.key === 'setup_email' && next.href && (
