@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Mail } from 'lucide-react';
+import { Mail, Phone } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { generateCommercialPdf } from '../../reports/commercial/generateCommercialPdf';
 import {
@@ -14,6 +14,7 @@ import {
 } from '../../lib/sendPurchaseOrder';
 import { deliverPurchaseOrder, loadPurchaseOrderSendBundle } from '../../lib/sendPurchaseOrderDeliver';
 import { saveSupplierEmail, supplierEmailRow } from '../../lib/saveSupplierEmail';
+import { saveSupplierPhone, supplierPhoneRow } from '../../lib/saveSupplierPhone';
 
 /** Honest no_email miss — write the address on this dialog. */
 export const PO_SEND_NO_EMAIL_FIELD =
@@ -34,10 +35,12 @@ export function PurchaseOrderSendDialog({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
+  const [savingPhone, setSavingPhone] = useState(false);
   const [bundle, setBundle] = useState<PurchaseOrderSendBundle | null>(null);
   const [decision, setDecision] = useState<PurchaseOrderSendDecision | null>(null);
   const [err, setErr] = useState('');
   const [supplierEmailDraft, setSupplierEmailDraft] = useState('');
+  const [supplierPhoneDraft, setSupplierPhoneDraft] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +53,7 @@ export function PurchaseOrderSendDialog({
         setBundle(loaded);
         setDecision(decidePurchaseOrderSend(loaded));
         setSupplierEmailDraft(loaded.supplier?.email ?? '');
+        setSupplierPhoneDraft(loaded.supplier?.phone ?? '');
       } catch (e) {
         if (!cancelled) setErr(e instanceof Error ? e.message : 'Could not load this purchase order.');
       } finally {
@@ -66,9 +70,16 @@ export function PurchaseOrderSendDialog({
     supplierId: poSupplierId,
     supplier: bundle?.supplier ?? null,
   });
+  const phoneRow = supplierPhoneRow({
+    supplierId: poSupplierId,
+    supplier: bundle?.supplier ?? null,
+  });
   const noEmailMiss = decision != null && !decision.ok && decision.blocker === 'no_email';
+  const noSupplierMiss = decision != null && !decision.ok && decision.blocker === 'no_supplier';
   const smtpMiss = decision != null && !decision.ok && decision.blocker === 'no_smtp';
   const showEmailEditor = !loading && noEmailMiss && emailRow.kind === 'edit';
+  const showPhoneEditor = !loading && !smtpMiss && !noSupplierMiss && phoneRow.kind === 'edit';
+  const showPhoneInkOnMiss = !loading && noEmailMiss && phoneRow.kind === 'tel';
 
   const handleSaveEmail = async () => {
     if (emailRow.kind !== 'edit' || !bundle) return;
@@ -91,6 +102,30 @@ export function PurchaseOrderSendDialog({
       setErr(e instanceof Error ? e.message : 'Could not save the email.');
     } finally {
       setSavingEmail(false);
+    }
+  };
+
+  const handleSavePhone = async () => {
+    if (phoneRow.kind !== 'edit' || !bundle) return;
+    setSavingPhone(true);
+    setErr('');
+    try {
+      const result = await saveSupplierPhone({
+        supplierId: phoneRow.supplierId,
+        phone: supplierPhoneDraft,
+      });
+      const next: PurchaseOrderSendBundle = {
+        ...bundle,
+        supplier: bundle.supplier ? { ...bundle.supplier, phone: result.phone } : bundle.supplier,
+      };
+      setBundle(next);
+      setDecision(decidePurchaseOrderSend(next));
+      setSupplierPhoneDraft(result.phone ?? '');
+      void queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not save the phone.');
+    } finally {
+      setSavingPhone(false);
     }
   };
 
@@ -152,11 +187,42 @@ export function PurchaseOrderSendDialog({
                 </div>
                 <div className="hub-invoice-send-field">
                   <p className="hub-invoice-kicker">SMS To</p>
-                  <p className={`hub-invoice-send-value tabular-nums${decision.smsTo ? '' : ' is-miss'}`}>
-                    {decision.smsTo || 'No supplier phone'}
-                  </p>
-                  {decision.smsTo ? null : (
-                    <p className="hub-invoice-muted">{decision.smsMessage}</p>
+                  {showPhoneEditor && phoneRow.kind === 'edit' ? (
+                    <form
+                      className="job-client-phone"
+                      onSubmit={e => {
+                        e.preventDefault();
+                        void handleSavePhone();
+                      }}
+                    >
+                      <Phone size={13} />
+                      <input
+                        type="tel"
+                        value={supplierPhoneDraft}
+                        onChange={e => setSupplierPhoneDraft(e.target.value)}
+                        placeholder="Phone"
+                        className="form-input-sm"
+                        aria-label="Supplier phone"
+                        autoComplete="tel"
+                        inputMode="tel"
+                      />
+                      <button
+                        type="submit"
+                        className="job-client-phone-save"
+                        disabled={savingPhone}
+                      >
+                        Save
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <p className={`hub-invoice-send-value tabular-nums${decision.smsTo ? '' : ' is-miss'}`}>
+                        {decision.smsTo || 'No supplier phone'}
+                      </p>
+                      {decision.smsTo ? null : (
+                        <p className="hub-invoice-muted">{decision.smsMessage}</p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -196,6 +262,39 @@ export function PurchaseOrderSendDialog({
                     type="submit"
                     className="job-client-email-save"
                     disabled={savingEmail}
+                  >
+                    Save
+                  </button>
+                </form>
+              )}
+              {showPhoneInkOnMiss && phoneRow.kind === 'tel' && (
+                <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num">
+                  <Phone size={13} /> {phoneRow.phone}
+                </a>
+              )}
+              {showPhoneEditor && noEmailMiss && phoneRow.kind === 'edit' && (
+                <form
+                  className="job-client-phone"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    void handleSavePhone();
+                  }}
+                >
+                  <Phone size={13} />
+                  <input
+                    type="tel"
+                    value={supplierPhoneDraft}
+                    onChange={e => setSupplierPhoneDraft(e.target.value)}
+                    placeholder="Phone"
+                    className="form-input-sm"
+                    aria-label="Supplier phone"
+                    autoComplete="tel"
+                    inputMode="tel"
+                  />
+                  <button
+                    type="submit"
+                    className="job-client-phone-save"
+                    disabled={savingPhone}
                   >
                     Save
                   </button>

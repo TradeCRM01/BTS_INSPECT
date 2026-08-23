@@ -162,7 +162,6 @@ describe('purchase-order-send supplier email — wiring', () => {
     expect(dialog).not.toContain('AU_EMAIL_PLACEHOLDER');
     expect(dialog).not.toContain('className="btn-primary job-client-email-save"');
     expect(dialog).not.toContain('className="ops-next-control-block job-client-email-save"');
-    expect(dialog).not.toContain('saveSupplierPhone');
     expect(dialog).not.toContain('attachSupplier');
     expect(dialog).not.toContain('Relovi');
     expect(dialog).not.toContain('Littleloop');
