@@ -117,6 +117,18 @@ function menuItemClass(active: boolean) {
   return `shell-menu-item ${active ? 'shell-menu-item-active' : ''}`;
 }
 
+function useFinePointerHover() {
+  const [fineHover, setFineHover] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(hover: hover) and (pointer: fine)');
+    const sync = () => setFineHover(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  return fineHover;
+}
+
 export function AppShell({ children }: AppShellProps) {
   const { profile, company, signOut } = useAuth();
   const isAdmin = profile?.role === 'admin';
@@ -134,6 +146,7 @@ export function AppShell({ children }: AppShellProps) {
   const logoTapCountRef = useRef(0);
   const logoTapTimerRef = useRef<NodeJS.Timeout>();
   const groupCloseTimer = useRef<NodeJS.Timeout>();
+  const fineHover = useFinePointerHover();
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -211,6 +224,15 @@ export function AppShell({ children }: AppShellProps) {
     setMenuOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (!openGroup) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenGroup(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [openGroup]);
+
   async function handleSignOut() {
     await signOut();
     navigate('/login');
@@ -272,16 +294,20 @@ export function AppShell({ children }: AppShellProps) {
                 <div
                   key={group.label}
                   className="relative h-full flex items-center"
-                  onMouseEnter={() => handleGroupEnter(group.label)}
-                  onMouseLeave={handleGroupLeave}
+                  onMouseEnter={() => {
+                    if (fineHover) handleGroupEnter(group.label);
+                  }}
+                  onMouseLeave={() => {
+                    if (fineHover) handleGroupLeave();
+                  }}
                 >
                   <button
+                    type="button"
+                    aria-expanded={isOpen}
+                    aria-haspopup="menu"
                     onClick={() => {
-                      if (isOpen) {
-                        setOpenGroup(null);
-                      } else {
-                        setOpenGroup(group.label);
-                      }
+                      if (fineHover) return;
+                      setOpenGroup(isOpen ? null : group.label);
                     }}
                   className={`flex items-center gap-1.5 h-full px-3 text-sm font-medium tracking-tight border-b-2 transition-colors ${
                       groupActive
@@ -296,7 +322,9 @@ export function AppShell({ children }: AppShellProps) {
 
                   {isOpen && (
                     <>
-                      <div className="fixed inset-0 z-40" onClick={() => setOpenGroup(null)} />
+                      {!fineHover && (
+                        <div className="fixed inset-0 z-40" onClick={() => setOpenGroup(null)} />
+                      )}
                       <div className="shell-menu left-0">
                         {renderGroupMenu(group)}
                       </div>
