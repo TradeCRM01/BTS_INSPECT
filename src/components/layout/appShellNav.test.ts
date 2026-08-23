@@ -22,6 +22,21 @@ describe('AppShell desktop nav hover menus', () => {
     expect(shell).toContain('<GlobalSearchTrigger');
   });
 
+  it('orders the desktop bar Dashboard, CRM, Field Work, then the rest', () => {
+    const shell = src('src/components/layout/AppShell.tsx');
+    const decl = shell
+      .slice(shell.indexOf('const NAV_GROUPS'), shell.indexOf('const FIELD_SHORTCUTS'))
+      .replace(/\s+/g, ' ')
+      .trim();
+    expect(decl).toContain(
+      'OFFICE_GROUPS[0], OFFICE_GROUPS[1], FIELD_GROUP, ...OFFICE_GROUPS.slice(2)',
+    );
+
+    const office = shell.slice(shell.indexOf('const OFFICE_GROUPS'), shell.indexOf('const NAV_GROUPS'));
+    expect(office).toMatch(/label: 'Dashboard'[\s\S]*label: 'CRM'[\s\S]*label: 'Financials'[\s\S]*label: 'Inventory'/);
+    expect(shell).toContain("label: 'Field Work'");
+  });
+
   it('keeps tap-to-toggle on the mobile accordion and does not restyle chrome', () => {
     const shell = src('src/components/layout/AppShell.tsx');
     const css = src('src/index.css');

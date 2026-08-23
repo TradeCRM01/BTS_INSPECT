@@ -81,7 +81,12 @@ const OFFICE_GROUPS: NavGroup[] = [
   },
 ];
 
-const NAV_GROUPS: NavGroup[] = [FIELD_GROUP, ...OFFICE_GROUPS];
+const NAV_GROUPS: NavGroup[] = [
+  OFFICE_GROUPS[0],
+  OFFICE_GROUPS[1],
+  FIELD_GROUP,
+  ...OFFICE_GROUPS.slice(2),
+];
 
 const FIELD_SHORTCUTS = [
   { to: '/inspections', label: 'Inspections' },
