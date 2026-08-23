@@ -1,20 +1,28 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { Mail, Phone } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Mail, Phone, User } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { generateCommercialPdf } from '../../reports/commercial/generateCommercialPdf';
+import { supabase } from '../../lib/supabase';
 import {
   commercialPdfDataForPurchaseOrder,
   decidePurchaseOrderSend,
   padPurchaseOrderNumber,
+  PURCHASE_ORDER_SEND_SUPPLIER_COLUMNS,
   type PurchaseOrderSendBundle,
   type PurchaseOrderSendCompany,
   type PurchaseOrderSendDecision,
+  type PurchaseOrderSendSupplier,
 } from '../../lib/sendPurchaseOrder';
 import { deliverPurchaseOrder, loadPurchaseOrderSendBundle } from '../../lib/sendPurchaseOrderDeliver';
 import { saveSupplierEmail, supplierEmailRow } from '../../lib/saveSupplierEmail';
 import { saveSupplierPhone, supplierPhoneRow } from '../../lib/saveSupplierPhone';
+import {
+  PO_SUPPLIER_ATTACH_NO_SUPPLIERS,
+  attachPoSupplier,
+  poSupplierAttachRow,
+} from '../../lib/attachPoSupplier';
 
 /** Honest no_email miss — write the address on this dialog. */
 export const PO_SEND_NO_EMAIL_FIELD =
@@ -36,11 +44,13 @@ export function PurchaseOrderSendDialog({
   const [sending, setSending] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
   const [savingPhone, setSavingPhone] = useState(false);
+  const [savingAttach, setSavingAttach] = useState(false);
   const [bundle, setBundle] = useState<PurchaseOrderSendBundle | null>(null);
   const [decision, setDecision] = useState<PurchaseOrderSendDecision | null>(null);
   const [err, setErr] = useState('');
   const [supplierEmailDraft, setSupplierEmailDraft] = useState('');
   const [supplierPhoneDraft, setSupplierPhoneDraft] = useState('');
+  const [supplierAttachDraft, setSupplierAttachDraft] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +90,70 @@ export function PurchaseOrderSendDialog({
   const showEmailEditor = !loading && noEmailMiss && emailRow.kind === 'edit';
   const showPhoneEditor = !loading && !smtpMiss && !noSupplierMiss && phoneRow.kind === 'edit';
   const showPhoneInkOnMiss = !loading && noEmailMiss && phoneRow.kind === 'tel';
+
+  const attachSuppliersQuery = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['po-attach-suppliers', company.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('suppliers')
+        .select('id, name')
+        .eq('archived', false)
+        .eq('company_id', company.id)
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string }[];
+    },
+    enabled: !loading && noSupplierMiss && !!company.id,
+  });
+
+  const attachRow = poSupplierAttachRow({
+    poSupplierId,
+    companySuppliers: poSupplierId
+      ? []
+      : attachSuppliersQuery.isFetched
+        ? (attachSuppliersQuery.data ?? [])
+        : null,
+  });
+  const noSuppliersNamedMiss = noSupplierMiss && attachRow.kind === 'miss';
+
+  const handleAttach = async () => {
+    if (!bundle?.po || attachRow.kind !== 'pick') return;
+    setSavingAttach(true);
+    setErr('');
+    try {
+      const result = await attachPoSupplier({
+        purchaseOrderId: bundle.po.id,
+        poSupplierId,
+        supplierId: supplierAttachDraft,
+        companySuppliers: attachSuppliersQuery.data ?? [],
+      });
+      const supplierRes = await supabase
+        .from('suppliers')
+        .select(PURCHASE_ORDER_SEND_SUPPLIER_COLUMNS)
+        .eq('id', result.supplierId)
+        .maybeSingle();
+      if (supplierRes.error) throw supplierRes.error;
+      const attached = (supplierRes.data ?? null) as PurchaseOrderSendSupplier | null;
+      const picked = attachRow.suppliers.find(s => s.id === result.supplierId);
+      const next: PurchaseOrderSendBundle = {
+        ...bundle,
+        po: { ...bundle.po, supplier_id: result.supplierId },
+        supplier: attached ?? (picked
+          ? { id: picked.id, name: picked.name, email: null, phone: null, address: null }
+          : null),
+      };
+      setBundle(next);
+      setDecision(decidePurchaseOrderSend(next));
+      setSupplierEmailDraft(next.supplier?.email ?? '');
+      setSupplierPhoneDraft(next.supplier?.phone ?? '');
+      setSupplierAttachDraft('');
+      void queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not attach the supplier.');
+    } finally {
+      setSavingAttach(false);
+    }
+  };
 
   const handleSaveEmail = async () => {
     if (emailRow.kind !== 'edit' || !bundle) return;
@@ -158,10 +232,12 @@ export function PurchaseOrderSendDialog({
   const blockerHref = decision && !decision.ok ? decision.href : undefined;
   const blockerMessage = noEmailMiss
     ? PO_SEND_NO_EMAIL_FIELD
-    : (decision && !decision.ok ? decision.message : '');
+    : noSuppliersNamedMiss
+      ? PO_SUPPLIER_ATTACH_NO_SUPPLIERS
+      : (decision && !decision.ok ? decision.message : '');
   const poLabel = bundle?.po ? `PO #${padPurchaseOrderNumber(bundle.po.po_number)}` : '';
   const pdfName = ready && decision.ok ? decision.filename : '';
-  const showSend = !loading && (ready || (noEmailMiss && emailRow.kind === 'edit'));
+  const showSend = !loading && (ready || (noEmailMiss && emailRow.kind === 'edit') || noSupplierMiss);
   const showSmtpSettings = !loading && smtpMiss && !!blockerHref;
 
   return (
@@ -240,6 +316,35 @@ export function PurchaseOrderSendDialog({
           {!loading && !ready && (
             <>
               <p className="hub-invoice-err">{blockerMessage || err || 'This purchase order cannot be sent yet.'}</p>
+              {noSupplierMiss && attachRow.kind === 'pick' && (
+                <form
+                  className="job-client-attach"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    void handleAttach();
+                  }}
+                >
+                  <User size={13} />
+                  <select
+                    value={supplierAttachDraft}
+                    onChange={e => setSupplierAttachDraft(e.target.value)}
+                    className="form-input-sm"
+                    aria-label="Attach supplier"
+                  >
+                    <option value="">Supplier</option>
+                    {attachRow.suppliers.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    className="job-client-attach-save"
+                    disabled={savingAttach || !supplierAttachDraft}
+                  >
+                    Save
+                  </button>
+                </form>
+              )}
               {showEmailEditor && emailRow.kind === 'edit' && (
                 <form
                   className="job-client-email"

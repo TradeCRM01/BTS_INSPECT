@@ -182,7 +182,6 @@ describe('purchase-order-send supplier phone — wiring', () => {
     expect(dialog).not.toContain('SupplierPhoneDialog');
     expect(dialog).not.toContain('AU_PHONE_PLACEHOLDER');
     expect(dialog).not.toContain('className="btn-primary job-client-phone-save"');
-    expect(dialog).not.toContain('attachSupplier');
     expect(dialog).not.toContain('Relovi');
     expect(dialog).not.toContain('Littleloop');
     expect(dialog).not.toContain('Manrope');
@@ -196,7 +195,6 @@ describe('purchase-order-send supplier phone — wiring', () => {
     expect(handle).not.toContain('onSent');
     expect(handle).not.toContain('sendSms');
     expect(handle).not.toContain('job-reminder');
-    expect(handle).not.toContain('attachSupplier');
 
     expect(handleSendFn).toContain('deliverPurchaseOrder');
     expect(handleSendFn).not.toContain('saveSupplierPhone');

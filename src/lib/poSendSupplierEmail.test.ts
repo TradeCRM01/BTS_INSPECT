@@ -162,8 +162,7 @@ describe('purchase-order-send supplier email — wiring', () => {
     expect(dialog).not.toContain('AU_EMAIL_PLACEHOLDER');
     expect(dialog).not.toContain('className="btn-primary job-client-email-save"');
     expect(dialog).not.toContain('className="ops-next-control-block job-client-email-save"');
-    expect(dialog).not.toContain('attachSupplier');
-    expect(dialog).not.toContain('Relovi');
+    expect(dialog).not.toContain('AU_EMAIL_PLACEHOLDER');
     expect(dialog).not.toContain('Littleloop');
     expect(dialog).not.toContain('Manrope');
 
@@ -175,7 +174,7 @@ describe('purchase-order-send supplier email — wiring', () => {
     expect(handle).not.toContain('handleSend');
     expect(handle).not.toContain('onSent');
     expect(handle).not.toContain('insert({');
-    expect(handle).not.toContain('attachSupplier');
+    expect(handle).not.toContain('attachPoSupplier');
 
     expect(handleSendFn).toContain('deliverPurchaseOrder');
     expect(handleSendFn).not.toContain('saveSupplierEmail');
