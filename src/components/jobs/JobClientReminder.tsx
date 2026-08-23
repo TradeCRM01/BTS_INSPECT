@@ -423,7 +423,7 @@ export function JobClientReminder({
             disabled={awaitingSmtp || !decision.send || send.isPending}
             onClick={() => send.mutate()}
           >
-            {send.isPending ? 'Sending…' : 'Send tomorrow reminder'}
+            {send.isPending ? 'Sending…' : "Send reminder for tomorrow's work"}
           </button>
           <details className="job-reminder-more">
             <summary aria-label="More">
