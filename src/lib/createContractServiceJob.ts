@@ -123,6 +123,15 @@ export function isContractActive(status: string | null | undefined): boolean {
   return (status ?? '').trim() === 'active';
 }
 
+/** Save will not write a contract without a calendar next-service day. */
+export function requireNextServiceDate(
+  value: string | null | undefined,
+): { ok: true; nextServiceDate: string } | { ok: false; message: string } {
+  const day = dateOnly(value);
+  if (!day) return { ok: false, message: 'Next service date is required.' };
+  return { ok: true, nextServiceDate: day };
+}
+
 export function missContractJobMessage(reason: ContractJobBlocker): string {
   switch (reason) {
     case 'not_active':
