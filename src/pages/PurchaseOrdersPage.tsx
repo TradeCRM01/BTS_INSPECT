@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, SearchBar, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
+import { PurchaseOrderSendDialog } from '../components/invoicing/PurchaseOrderSendDialog';
+import { poStatusOnSave, purchaseOrderSendCompanyFrom } from '../lib/sendPurchaseOrder';
 import type {
   PurchaseOrderWithDetails, PurchaseOrder, POLineItem, POStatus,
   Supplier, StockItem,
@@ -29,7 +31,7 @@ const STATUS_TABS: { key: StatusFilter; label: string }[] = [
 ];
 
 export function PurchaseOrdersPage() {
-  const { profile } = useAuth();
+  const { profile, company } = useAuth();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [search, setSearch] = useState('');
@@ -37,7 +39,9 @@ export function PurchaseOrdersPage() {
   const [editingPO, setEditingPO] = useState<PurchaseOrderWithDetails | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [receivingPO, setReceivingPO] = useState<PurchaseOrderWithDetails | null>(null);
+  const [sendingPoId, setSendingPoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useViewMode('purchase-orders', 'list');
+  const sendCompany = purchaseOrderSendCompanyFrom(company);
 
   const { data: pos, isLoading, error } = useQuery<PurchaseOrderWithDetails[]>({
     queryKey: ['purchase-orders'],
@@ -175,6 +179,7 @@ export function PurchaseOrdersPage() {
                 {filtered.map(po => (
                   <PORow key={po.id} po={po}
                     onOpen={() => { setEditingPO(po); setShowEditor(true); }}
+                    onSend={setSendingPoId}
                     onReceive={() => setReceivingPO(po)} />
                 ))}
               </tbody>
@@ -196,6 +201,12 @@ export function PurchaseOrdersPage() {
                   <p className="text-lg font-bold text-[#1A1A1A] mb-2">{formatMoney(po.total)}</p>
                   <div className="flex items-center justify-between text-xs text-[#4A5568]">
                     <span>Expected: {po.expected_delivery_date ? format(parseISO(po.expected_delivery_date), 'd MMM yyyy') : 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</span>
+                    {po.status === 'draft' && (
+                      <button onClick={(e) => { e.stopPropagation(); setSendingPoId(po.id); }}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-[#2E75B6] bg-[#EFF6FF] rounded-md hover:bg-[#DBEAFE] transition-colors">
+                        Send
+                      </button>
+                    )}
                     {canReceive && (
                       <button onClick={(e) => { e.stopPropagation(); setReceivingPO(po); }}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-[#F7931A] bg-[#F7931A]/10 rounded-md hover:bg-[#F7931A]/20 transition-colors">
@@ -214,7 +225,27 @@ export function PurchaseOrdersPage() {
         <POEditorModal
           po={editingPO}
           onClose={() => setShowEditor(false)}
-          onSaved={() => { setShowEditor(false); queryClient.invalidateQueries({ queryKey: ['purchase-orders'] }); showToast(editingPO ? 'PO updated' : 'PO created'); }}
+          onSaved={({ close, message } = {}) => {
+            if (close !== false) setShowEditor(false);
+            queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+            if (message) showToast(message);
+          }}
+          onRequestSend={setSendingPoId}
+        />
+      )}
+      {sendingPoId && sendCompany && (
+        <PurchaseOrderSendDialog
+          purchaseOrderId={sendingPoId}
+          company={sendCompany}
+          onClose={() => setSendingPoId(null)}
+          onSent={(to, message) => {
+            setSendingPoId(null);
+            queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+            if (editingPO?.id === sendingPoId) {
+              setEditingPO(po => po ? { ...po, status: 'sent' } : po);
+            }
+            showToast(message || `Purchase order sent to ${to}`);
+          }}
         />
       )}
       {receivingPO && (
@@ -230,9 +261,10 @@ export function PurchaseOrdersPage() {
 
 // ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ PO Row ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
 
-function PORow({ po, onOpen, onReceive }: {
+function PORow({ po, onOpen, onSend, onReceive }: {
   po: PurchaseOrderWithDetails;
   onOpen: () => void;
+  onSend: (poId: string) => void;
   onReceive: () => void;
 }) {
   const canReceive = po.status === 'sent' || po.status === 'partially_received';
@@ -258,6 +290,12 @@ function PORow({ po, onOpen, onReceive }: {
       </td>
       <td className="px-4 py-3 text-[#6B7280]">{format(parseISO(po.created_at), 'd MMM yyyy')}</td>
       <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+        {po.status === 'draft' && (
+          <button onClick={() => onSend(po.id)}
+            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-[#2E75B6] bg-[#EFF6FF] rounded-md hover:bg-[#DBEAFE] transition-colors">
+            Send
+          </button>
+        )}
         {canReceive && (
           <button onClick={onReceive}
             className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-[#F7931A] bg-[#F7931A]/10 rounded-md hover:bg-[#F7931A]/20 transition-colors">
@@ -286,10 +324,11 @@ function fromPOLineEdit(li: POLineEdit): POLineItem {
   return { description: li.description, quantity: parseFloat(li.quantity) || 0, unit_cost: parseFloat(li.unit_cost) || 0, received_quantity: li.received_quantity, stock_item_id: li.stock_item_id ?? null };
 }
 
-function POEditorModal({ po, onClose, onSaved }: {
+function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
   po: PurchaseOrderWithDetails | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (opts?: { close?: boolean; message?: string }) => void;
+  onRequestSend: (poId: string) => void;
 }) {
   const { profile, company } = useAuth();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -297,6 +336,7 @@ function POEditorModal({ po, onClose, onSaved }: {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [showStockPicker, setShowStockPicker] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(po?.id ?? null);
 
   const [form, setForm] = useState({
     supplier_id: po?.supplier_id ?? '',
@@ -337,29 +377,52 @@ function POEditorModal({ po, onClose, onSaved }: {
     setShowStockPicker(false);
   };
 
-  const handleSave = async () => {
-    if (!profile?.company_id) return;
+  const persist = async (status: POStatus, opts?: { close?: boolean; message?: string }) => {
+    if (!profile?.company_id) return null;
     const validLines: POLineItem[] = lines.filter(l => l.description.trim()).map(fromPOLineEdit);
-    if (!form.supplier_id) { setErr('Please select a supplier'); return; }
+    if (!form.supplier_id) { setErr('Please select a supplier'); return null; }
     setSaving(true); setErr('');
 
+    const nextStatus = poStatusOnSave(status, po?.status ?? 'draft');
     const payload = {
       supplier_id: form.supplier_id || null,
       job_id: form.job_id || null,
-      status: form.status,
+      status: nextStatus,
       line_items: validLines as any,
       subtotal, tax_rate: parseFloat(form.tax_rate) || 0, tax_amount: taxAmount, total: grandTotal,
       expected_delivery_date: form.expected_delivery_date || null,
       notes: form.notes.trim() || null,
     };
 
-    const { error } = po
-      ? await supabase.from('purchase_orders').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', po.id)
-      : await supabase.from('purchase_orders').insert({ ...payload, company_id: profile.company_id, created_by: profile.id });
+    const id = savedId ?? po?.id;
+    if (id) {
+      const { error } = await supabase.from('purchase_orders').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id);
+      setSaving(false);
+      if (error) { setErr(error.message); return null; }
+      setForm(f => ({ ...f, status: nextStatus }));
+      onSaved({ close: opts?.close ?? false, message: opts?.message ?? 'PO updated' });
+      return id;
+    }
 
+    const { data, error } = await supabase.from('purchase_orders')
+      .insert({ ...payload, company_id: profile.company_id, created_by: profile.id })
+      .select('id')
+      .single();
     setSaving(false);
-    if (error) { setErr(error.message); return; }
-    onSaved();
+    if (error) { setErr(error.message); return null; }
+    setSavedId(data.id as string);
+    setForm(f => ({ ...f, status: nextStatus }));
+    onSaved({ close: opts?.close ?? true, message: opts?.message ?? 'PO created' });
+    return data.id as string;
+  };
+
+  const startSend = async () => {
+    const id = await persist('draft', { close: false, message: '' });
+    if (id) onRequestSend(id);
+  };
+
+  const handleSave = async () => {
+    await persist(form.status, { close: true });
   };
 
   return (
@@ -486,7 +549,13 @@ function POEditorModal({ po, onClose, onSaved }: {
                 <Field label="Status">
                   <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as POStatus }))}
                     className="form-input cursor-pointer">
-                    {(Object.keys(PO_STATUS_LABELS) as POStatus[]).map(s => (
+                    {(Object.keys(PO_STATUS_LABELS) as POStatus[]).filter(s => {
+                      const current = po?.status ?? 'draft';
+                      if (s === 'sent' && current !== 'sent' && current !== 'partially_received' && current !== 'received') {
+                        return false;
+                      }
+                      return true;
+                    }).map(s => (
                       <option key={s} value={s}>{PO_STATUS_LABELS[s]}</option>
                     ))}
                   </select>
@@ -529,6 +598,11 @@ function POEditorModal({ po, onClose, onSaved }: {
             className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">
             {saving ? 'Saving...' : po ? 'Save Changes' : 'Create PO'}
           </button>
+          {(!po || po.status === 'draft' || form.status === 'draft') && (
+            <button type="button" onClick={() => void startSend()} disabled={saving} className="btn-primary">
+              Send
+            </button>
+          )}
         </div>
       </div>
 

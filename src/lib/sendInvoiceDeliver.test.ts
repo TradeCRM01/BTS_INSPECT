@@ -60,6 +60,7 @@ describe('invoice send deliver path', () => {
     expect(edge).not.toContain('sms_settings');
     const invoiceDeliverFn = edge.slice(edge.indexOf('async function deliverInvoiceSend'), edge.indexOf('function reportSiteName'));
     expect(invoiceDeliverFn).not.toContain('from("quotes")');
+    expect(invoiceDeliverFn).not.toContain('from("purchase_orders")');
     expect(edge).not.toContain('send-quote');
     expect(INVOICE_SEND_PIPE.join(' ')).toMatch(/job-reminder/);
     expect(INVOICE_SEND_PIPE.join(' ')).toMatch(/xero-accounting/);
@@ -206,6 +207,7 @@ describe('Perth overdue auto-fire rides job-reminder due=overdue', () => {
     expect(overdue.indexOf('.is("chased_at", null)')).toBeLessThan(overdue.indexOf('secondChaseChasedAtBeforeIso'));
     expect(overdue).not.toContain('cron.schedule');
     expect(overdue).not.toContain('from("quotes")');
+    expect(overdue).not.toContain('from("purchase_orders")');
     expect(overdue).not.toContain('xero-accounting');
     const invoiceStart = edge.indexOf('if (invoiceId)');
     const invoiceBlock = edge.slice(invoiceStart, edge.indexOf('if (reportId)'));

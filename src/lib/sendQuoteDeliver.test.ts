@@ -57,7 +57,11 @@ describe('quote send deliver path', () => {
     const edge = readFileSync(resolve(process.cwd(), 'supabase/functions/job-reminder/index.ts'), 'utf8');
     expect(edge).toMatch(/sendTwilioSms/);
     const deliverStart = edge.indexOf('async function deliverQuoteSend');
-    const deliverFn = edge.slice(deliverStart, edge.indexOf('function bearerToken'));
+    const poDeliver = edge.indexOf('async function deliverPurchaseOrderSend');
+    const deliverFn = edge.slice(
+      deliverStart,
+      poDeliver > -1 ? poDeliver : edge.indexOf('function bearerToken'),
+    );
     const emailFail = deliverFn.indexOf('if (!res.ok)');
     const statusWrite = deliverFn.indexOf('quotePatch.status = "sent"');
     expect(emailFail).toBeGreaterThan(-1);

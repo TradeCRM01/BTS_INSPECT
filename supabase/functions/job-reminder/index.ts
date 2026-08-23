@@ -1100,6 +1100,171 @@ async function deliverQuoteSend(opts: {
   };
 }
 
+const poMissText: Record<string, string> = {
+  no_email: "This supplier has no email. Add one on the supplier record before you send.",
+  no_smtp: "Email is not set up. Add SMTP in Company settings — there is a test send there.",
+  no_po: "Purchase order not found.",
+  no_supplier: "Pick a supplier before you can send this purchase order.",
+  no_lines: "Add the goods so the purchase order has a price.",
+  no_pdf: "The purchase order PDF could not be attached — purchase order was not sent.",
+  send_failed: "Purchase order was not sent.",
+};
+
+function poHtml(opts: {
+  supplierName: string;
+  companyName: string;
+  poNumber: unknown;
+  totalLabel: string;
+  expectedLabel: string;
+}): string {
+  const supplier = escapeHtml(opts.supplierName.trim() || "there");
+  const company = escapeHtml(opts.companyName.trim() || "us");
+  const number = escapeHtml(`#${padInvoiceNumber(opts.poNumber)}`);
+  const total = escapeHtml(opts.totalLabel);
+  const expected = opts.expectedLabel
+    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Expected <strong>${escapeHtml(opts.expectedLabel)}</strong>.</p>`
+    : "";
+  return `
+      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
+        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">Purchase order</div>
+          <h1 style="margin:8px 0 0;font-size:20px">${number}</h1>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+          <p>Hi ${supplier},</p>
+          <p>${company} has sent you purchase order ${number}.</p>
+          <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${total}</strong></p>
+          ${expected}
+          <p>The purchase order PDF is attached. Reply to this email if you need to change the order.</p>
+        </div>
+      </div>`;
+}
+
+function poSmsBody(opts: {
+  companyName: string;
+  poNumber: unknown;
+  totalLabel: string;
+  expectedLabel: string;
+}): string {
+  const who = opts.companyName.trim() || "your contractor";
+  const expected = opts.expectedLabel ? ` Expected ${opts.expectedLabel}.` : "";
+  return `${who} sent purchase order #${padInvoiceNumber(opts.poNumber)}. Total (inc GST): ${opts.totalLabel}.${expected} The PDF is in your email.`;
+}
+
+async function deliverPurchaseOrderSend(opts: {
+  admin: ReturnType<typeof createClient>;
+  po: Record<string, unknown>;
+  companyId: string;
+  company: { name?: string | null } | null;
+  settings: EmailSettings | null;
+  supplier: Record<string, unknown> | null;
+  attachmentIn?: { filename?: string; content?: string };
+}): Promise<Record<string, unknown>> {
+  const po = opts.po;
+  const purchaseOrderId = String(po.id ?? "");
+  const extra = { purchaseOrderId };
+
+  if (!po.supplier_id) {
+    return miss("no_supplier", poMissText.no_supplier, extra);
+  }
+  if (!hasChargeableLines(po.line_items)) {
+    return miss("no_lines", poMissText.no_lines, extra);
+  }
+
+  const to = prefillTo(opts.supplier?.email);
+  if (!to) {
+    return miss("no_email", poMissText.no_email, {
+      ...extra,
+      href: `/suppliers/${po.supplier_id}`,
+    });
+  }
+  if (!emailSettingsReady(opts.settings) || !opts.settings) {
+    return miss("no_smtp", poMissText.no_smtp, {
+      ...extra,
+      href: "/settings/company",
+      to,
+    });
+  }
+
+  const pdfFilename = String(opts.attachmentIn?.filename ?? "").trim();
+  const pdfContent = String(opts.attachmentIn?.content ?? "").trim();
+  if (!pdfContent || !pdfFilename) {
+    return miss("no_pdf", poMissText.no_pdf, { ...extra, to });
+  }
+
+  const toName = String(opts.supplier?.name ?? "").trim() || "Supplier";
+  const companyName = String(opts.company?.name ?? "").trim() || "us";
+  const expectedLabel = formatDueLabel(po.expected_delivery_date);
+  const subject = `Purchase order #${padInvoiceNumber(po.po_number)} from ${companyName}`;
+  const html = poHtml({
+    supplierName: toName,
+    companyName,
+    poNumber: po.po_number,
+    totalLabel: formatAud(po.total),
+    expectedLabel,
+  });
+
+  const fromHeader = `${opts.settings.from_name} <${opts.settings.from_email}>`;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${opts.settings.smtp_pass}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: fromHeader,
+      to: [to],
+      reply_to: opts.settings.from_email,
+      subject,
+      html,
+      attachments: [{ filename: pdfFilename, content: pdfContent }],
+    }),
+  });
+
+  const sms = await sendTwilioSms(
+    opts.supplier?.phone,
+    poSmsBody({
+      companyName,
+      poNumber: po.po_number,
+      totalLabel: formatAud(po.total),
+      expectedLabel,
+    }),
+  );
+
+  if (!res.ok) {
+    const bodyText = await res.text();
+    let message = `Resend API error (${res.status})`;
+    try {
+      const parsed = JSON.parse(bodyText);
+      message = parsed.message ?? parsed.error ?? message;
+    } catch {
+      if (bodyText) message = bodyText.slice(0, 200);
+    }
+    return miss("send_failed", withSmsMessage(message, sms), { ...extra, to, sms });
+  }
+
+  const sentAt = new Date().toISOString();
+  const poPatch: Record<string, unknown> = { updated_at: sentAt };
+  if (po.status === "draft") {
+    poPatch.status = "sent";
+  }
+  if (poPatch.status) {
+    await opts.admin
+      .from("purchase_orders")
+      .update(poPatch)
+      .eq("id", po.id)
+      .eq("company_id", opts.companyId);
+  }
+
+  return {
+    sent: true,
+    purchaseOrderId: po.id,
+    to,
+    sms,
+    message: withSmsMessage(`Purchase order sent to ${to}`, sms),
+  };
+}
+
 function bearerToken(header: string | null): string {
   return (header ?? "").replace(/^Bearer\s+/i, "").trim();
 }
@@ -1155,6 +1320,7 @@ Deno.serve(async (req) => {
     const invoiceId = String(body.invoiceId ?? body.invoice_id ?? "").trim();
     const reportId = String(body.reportId ?? body.report_id ?? "").trim();
     const quoteId = String(body.quoteId ?? body.quote_id ?? "").trim();
+    const purchaseOrderId = String(body.purchaseOrderId ?? body.purchase_order_id ?? "").trim();
     const purpose = String(body.purpose ?? "").trim();
     const due = String(body.due ?? "").trim();
     const appUrl = String(body.appUrl ?? body.app_url ?? "").replace(/\/$/, "")
@@ -1834,12 +2000,62 @@ Deno.serve(async (req) => {
       return json(result, status);
     }
 
+    if (purchaseOrderId) {
+      if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
+
+      const { data: po } = await admin
+        .from("purchase_orders")
+        .select("id, company_id, supplier_id, status, po_number, line_items, total, expected_delivery_date")
+        .eq("id", purchaseOrderId)
+        .eq("company_id", userCompanyId)
+        .maybeSingle();
+
+      if (!po) {
+        return json({
+          sent: false,
+          reason: "no_po",
+          message: poMissText.no_po,
+          purchaseOrderId,
+        }, 404);
+      }
+
+      const { data: supplier } = po.supplier_id
+        ? await admin
+          .from("suppliers")
+          .select("id, name, email, phone")
+          .eq("id", po.supplier_id)
+          .maybeSingle()
+        : { data: null };
+      const { data: smtpRow } = await admin
+        .from("email_settings")
+        .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+        .eq("company_id", userCompanyId)
+        .maybeSingle();
+      const { data: company } = await admin
+        .from("companies")
+        .select("name")
+        .eq("id", userCompanyId)
+        .maybeSingle();
+
+      const result = await deliverPurchaseOrderSend({
+        admin,
+        po,
+        companyId: userCompanyId,
+        company,
+        settings: smtpRow as EmailSettings | null,
+        supplier,
+        attachmentIn,
+      });
+      const status = result.reason === "no_po" ? 404 : 200;
+      return json(result, status);
+    }
+
     if (jobId) {
       if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else if (due === "tomorrow") {
       if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else {
-      return json({ error: "jobId, inspectionId, invoiceId, reportId, quoteId, due=tomorrow, due=today, or due=overdue is required", sent: false }, 400);
+      return json({ error: "jobId, inspectionId, invoiceId, reportId, quoteId, purchaseOrderId, due=tomorrow, due=today, or due=overdue is required", sent: false }, 400);
     }
 
     const autoAllCompanies = due === "tomorrow" && cronOk && !jobId;

@@ -812,6 +812,7 @@ describe('Perth overdue auto-fire source lock', () => {
     expect(quotesPage).not.toContain('chased_at');
     const invoiceBlock = edge.slice(edge.indexOf('if (invoiceId)'), edge.indexOf('if (reportId)'));
     expect(invoiceBlock).not.toContain('from("quotes")');
+    expect(invoiceBlock).not.toContain('from("purchase_orders")');
     expect(edge).not.toContain('send-quote');
   });
 
@@ -838,6 +839,7 @@ describe('Perth overdue auto-fire source lock', () => {
     expect(overdue).not.toContain('CREATE TABLE');
     expect(overdue).not.toContain('ADD COLUMN');
     expect(overdue).not.toContain('from("quotes")');
+    expect(overdue).not.toContain('from("purchase_orders")');
     expect(overdue).not.toContain('purpose: "receipt"');
     expect(overdue).not.toContain('chase_count');
     expect(overdue).not.toContain('invoiceReceiptHtml');
@@ -850,6 +852,7 @@ describe('Perth overdue auto-fire source lock', () => {
     expect(stampFn).toContain('.lt("due_date", today)');
     expect(stampFn).not.toContain('chased_at');
     expect(stampFn).not.toContain('from("quotes")');
+    expect(stampFn).not.toContain('from("purchase_orders")');
     expect(stampFn).not.toContain('cron.schedule');
 
     expect(edge).toContain('const SECOND_OVERDUE_CHASE_PERTH_DAYS = 7');

@@ -44,6 +44,7 @@ describe('report send deliver path', () => {
     expect(edge).toContain('client?.phone');
     const reportBlock = edge.slice(edge.indexOf('if (reportId)'), edge.indexOf('if (quoteId)'));
     expect(reportBlock).not.toContain('from("quotes")');
+    expect(reportBlock).not.toContain('from("purchase_orders")');
     expect(edge).not.toContain('send-quote');
     expect(REPORT_SEND_PIPE.join(' ')).toMatch(/job-reminder/);
   });

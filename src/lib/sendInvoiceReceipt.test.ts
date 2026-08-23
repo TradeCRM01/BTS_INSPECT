@@ -441,6 +441,7 @@ describe('receipt source lock — Mark paid sheet, existing pipe, quotes off', (
     expect(deliverFn).toContain('mode === "auto"');
     expect(deliverFn.indexOf('if (!res.ok)')).toBeLessThan(deliverFn.indexOf('invoicePatch.chased_at = sentAt'));
     expect(deliverFn).not.toContain('from("quotes")');
+    expect(deliverFn).not.toContain('from("purchase_orders")');
     expect(deliverFn).not.toContain('send-quote');
 
     const invoiceStart = edge.indexOf('if (invoiceId)');
