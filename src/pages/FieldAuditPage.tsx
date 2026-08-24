@@ -32,6 +32,7 @@ import {
   AUDIT_STOCK_ID,
   AUDIT_SUPPLIER_ID,
   AUDIT_TAKE5_ID,
+  AUDIT_TEMPLATE_ID,
 } from '../lib/devFieldAuditDocs';
 import { InvoiceSendDialog } from '../components/invoicing/InvoiceSendDialog';
 import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
@@ -270,7 +271,7 @@ export function FieldAuditPage() {
         {' · '}
         <Link className="text-[#2E75B6] underline" to={`/inspections/${AUDIT_INSPECTION_ID}/report`}>Inspection report</Link>
         {' · '}
-        <Link className="text-[#2E75B6] underline" to="/inspections/new">New inspection</Link>
+        <Link className="text-[#2E75B6] underline" to={`/inspections/new?templateId=${AUDIT_TEMPLATE_ID}`}>New inspection</Link>
         {' · '}
         <Link className="text-[#2E75B6] underline" to={`/jobs/${AUDIT_DOC_JOB_ID}`}>Job</Link>
         {' · '}

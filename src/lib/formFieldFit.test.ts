@@ -204,7 +204,7 @@ describe('form fields fit their type', () => {
     expect(page).toContain('Send quote');
     expect(page).toContain('Send PO');
     expect(page).toContain('Send report');
-    expect(page).toContain('Review inspection');
+    expect(page).toContain(`/inspections/new?templateId=`);
     expect(page).toContain('Crew sign');
     expect(page).toContain('Edit invoice');
     expect(page).toContain('Reset password');
