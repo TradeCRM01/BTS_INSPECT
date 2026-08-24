@@ -176,6 +176,8 @@ export function FieldAuditPage() {
         <Link className="text-[#2E75B6] underline" to="/price-books">Price books</Link>
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/schedule">Schedule</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/settings/team">Team</Link>
       </p>
 
       <section className="space-y-2">
@@ -416,6 +418,10 @@ export function FieldAuditPage() {
             <label className="ops-field-label">Job description</label>
             <textarea value={help} onChange={e => setHelp(e.target.value)} rows={2} className="ops-field resize-none" />
           </div>
+          <div>
+            <label className="ops-field-label">1. Stop & think — what am I about to do?</label>
+            <textarea value={help} onChange={e => setHelp(e.target.value)} rows={3} className="ops-field resize-none" />
+          </div>
         </div>
         <div className="space-y-3">
           <QuestionRenderer question={TEXT_Q} value={answer} onChange={val => setAnswer(String(val ?? ''))} inspectionId="audit" />
@@ -530,7 +536,28 @@ export function FieldAuditPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium">Search with leading icon + clients chrome</h2>
+        <h2 className="text-sm font-medium">Team invite (not form-input)</h2>
+        <div className="overlay-panel-md border border-[#E5E7EB] rounded-xl bg-white p-4 max-w-md space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Full name</label>
+            <input
+              type="text"
+              value="Jane Field Supervisor Warehouse Roof"
+              readOnly
+              className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-sm text-[#1A1A1A]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Email address</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-sm text-[#1A1A1A]"
+            />
+          </div>
+        </div>
+      </section>
         <div className="relative max-w-md">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] pointer-events-none" />
           <input
