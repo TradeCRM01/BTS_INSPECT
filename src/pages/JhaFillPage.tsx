@@ -29,6 +29,7 @@ import { JhaSwmsLibraryPicker } from '../components/jha/JhaSwmsLibraryPicker';
 import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { EMPTY_SWMS, HRCW_CATEGORIES, parseSwmsMeta, type JhaSwmsData } from '../lib/swmsHrcw';
 import { getAuditClients, getAuditJhaDoc, getAuditJobs, getAuditTake5List, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { jhaFillContext, jhaStatusClass, jhaStatusLabel, recommendJhaFillAction } from '../lib/jhaNextAction';
 import { applyLivingJobToJha, livingJobSite, livingTake5MetaPatches } from '../lib/livingJha';
 import { take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
@@ -295,7 +296,7 @@ export function JhaFillPage() {
     if (!applied.changed) return;
     setMeta(prev => ({ ...prev, siteName: applied.siteName || prev.siteName }));
     setCrew(applied.crew);
-    if (!docIdState) return;
+    if (!docIdState || isDevFieldAuditAuth()) return;
     void supabase
       .from('jha_documents')
       .select('meta')

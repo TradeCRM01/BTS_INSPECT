@@ -207,6 +207,9 @@ describe('form fields fit their type', () => {
     expect(src('src/pages/InspectionFillPage.tsx')).toContain('getAuditInspection');
     expect(src('src/pages/JhaFillPage.tsx')).toContain('getAuditJhaDoc');
     expect(src('src/pages/Take5Page.tsx')).toContain('getAuditTake5');
+    expect(src('src/pages/Take5Page.tsx')).toContain('isDevFieldAuditAuth()');
+    expect(src('src/pages/JhaFillPage.tsx')).toContain('isDevFieldAuditAuth()');
+    expect(src('src/pages/InspectionFillPage.tsx')).toContain('isDevFieldAuditAuth()');
     expect(src('src/lib/sendInvoiceDeliver.ts')).toContain('getAuditInvoiceSendBundle');
     expect(src('src/lib/sendQuoteDeliver.ts')).toContain('getAuditQuoteSendBundle');
     expect(src('src/lib/sendPurchaseOrderDeliver.ts')).toContain('getAuditPurchaseOrderSendBundle');

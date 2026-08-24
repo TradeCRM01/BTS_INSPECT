@@ -24,6 +24,7 @@ import {
 import { applyLivingJobToInspection } from '../lib/livingJha';
 import { inspectionDocumentColors } from '../reports/generic_inspection/theme';
 import { getAuditClient, getAuditInspection, getAuditJobs } from '../lib/devFieldAuditDocs';
+import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 
 type SaveStatus = 'saved' | 'saving' | 'error' | 'offline';
 
@@ -186,6 +187,11 @@ export function InspectionFillPage() {
 
   const saveInspection = useCallback(async (payload: PendingSave) => {
     if (!id) return;
+    if (isDevFieldAuditAuth()) {
+      setSaveStatus('saved');
+      pendingSaveRef.current = null;
+      return;
+    }
     setSaveStatus('saving');
     try {
       const { error } = await supabase

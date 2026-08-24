@@ -19,6 +19,7 @@ import {
   take5StatusLabel,
 } from '../lib/take5NextAction';
 import { getAuditJhaDoc, getAuditJob, getAuditTake5, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 
 type Take5Row = {
   id: string;
@@ -197,7 +198,7 @@ function Take5FillPage() {
       location: applied.siteName || prev.location,
       crewSignOns: applied.meta.crewSignOns ?? prev.crewSignOns,
     }));
-    if (!rowId) return;
+    if (!rowId || isDevFieldAuditAuth()) return;
     void supabase
       .from('jha_take5')
       .select('meta')
