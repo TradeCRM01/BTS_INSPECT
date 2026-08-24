@@ -242,6 +242,8 @@ describe('form fields fit their type', () => {
     expect(src('src/components/template-editor/ShowIfEditor.tsx')).toContain('flex flex-col sm:flex-row sm:flex-wrap');
     expect(src('src/pages/AiConsolePage.tsx')).toContain('max-md:absolute');
     expect(src('src/pages/DashboardPage.tsx')).toContain('getAuditDashboardWidgets');
+    expect(src('src/pages/ReportsListPage.tsx')).toContain('getAuditDriveUploads');
+    expect(src('src/lib/devFieldAuditDocs.ts')).toContain('getAuditDriveUploads');
     expect(src('src/components/pricebooks/PriceBookPdfImportModal.tsx')).toContain('isDevFieldAuditAuth');
     expect(src('src/components/pricebooks/PriceBookPdfImportModal.tsx')).toContain('20mm PVC conduit');
     expect(page).toContain('to="/"');

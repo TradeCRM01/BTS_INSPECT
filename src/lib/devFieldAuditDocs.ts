@@ -23,6 +23,7 @@ export const AUDIT_STOCK_ID = 'audit-stock-item';
 export const AUDIT_SUPPLIER_ID = 'audit-supplier';
 export const AUDIT_TEMPLATE_ID = 'audit-template';
 export const AUDIT_CONTRACT_ID = 'audit-contract';
+export const AUDIT_DRIVE_PDF_ID = 'audit-drive-pdf';
 
 const NOW = '2026-08-24T00:00:00.000Z';
 
@@ -587,6 +588,21 @@ export function getAuditContractVisitReminderBundle(
     smtp: AUDIT_SMTP,
     company,
   };
+}
+
+export function getAuditDriveUploads() {
+  if (!isDevFieldAuditAuth()) return null;
+  return [{
+    id: AUDIT_DRIVE_PDF_ID,
+    filename: 'warehouse-roof-quote.pdf',
+    storage_path: 'audit/warehouse-roof-quote.pdf',
+    file_size: 245760,
+    title: 'Warehouse roof quote',
+    created_at: NOW,
+    folder_id: null,
+    position_x: 32,
+    position_y: 32,
+  }];
 }
 
 export function getAuditDashboardWidgets() {

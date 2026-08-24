@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { nanoid } from '../lib/nanoid';
-import { getAuditEmptyList } from '../lib/devFieldAuditDocs';
+import { getAuditDriveUploads, getAuditEmptyList } from '../lib/devFieldAuditDocs';
+import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import {
   isFileSystemAccessSupported, pickBackupFolder,
   hasStoredBackupDir, clearBackupDir, syncToBackup, syncOne,
@@ -241,6 +242,8 @@ export function ReportsListPage() {
   const { data: allUploads } = useQuery<UploadedPdfRow[]>({
     queryKey: ['uploaded-pdfs'],
     queryFn: async () => {
+      const mockUploads = getAuditDriveUploads();
+      if (mockUploads) return mockUploads as UploadedPdfRow[];
       const empty = getAuditEmptyList();
       if (empty) return empty as UploadedPdfRow[];
       const { data, error } = await supabase
@@ -661,6 +664,11 @@ export function ReportsListPage() {
 
   async function handleRename() {
     if (!renamingItem || !renameValue.trim()) return;
+    if (isDevFieldAuditAuth()) {
+      setRenamingItem(null);
+      setRenameValue('');
+      return;
+    }
     const name = renameValue.trim();
     if (renamingItem.kind === 'folder') {
       await supabase.from('folders').update({ name }).eq('id', renamingItem.id);
