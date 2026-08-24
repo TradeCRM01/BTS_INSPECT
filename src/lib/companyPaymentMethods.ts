@@ -126,3 +126,11 @@ export function companyPaymentMethodsSavePayload(methods: CompanyPaymentMethod[]
     notes: method.notes.trim(),
   }));
 }
+
+/** PostgREST wording when 066 has not been applied on the live project. */
+export function companyPaymentMethodsSaveError(message: string): string {
+  if (/payment_methods/i.test(message) && /schema cache|column/i.test(message)) {
+    return 'The live database still needs companies.payment_methods. Run 066 in the Supabase SQL editor (same as 055/064). Do not db push.';
+  }
+  return message;
+}

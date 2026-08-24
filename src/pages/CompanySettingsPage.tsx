@@ -16,6 +16,7 @@ import {
 import {
   blankCompanyPaymentMethod,
   COMPANY_PAYMENT_KIND_LABEL,
+  companyPaymentMethodsSaveError,
   companyPaymentMethodsSavePayload,
   parseCompanyPaymentMethods,
   type CompanyPaymentKind,
@@ -351,7 +352,7 @@ export function CompanySettingsPage() {
       .update({ payment_methods: companyPaymentMethodsSavePayload(paymentMethods) })
       .eq('id', company.id);
     if (error) {
-      setPayError(error.message);
+      setPayError(companyPaymentMethodsSaveError(error.message));
     } else {
       await refreshProfile();
       setSavedPay(true);

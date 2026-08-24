@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   blankCompanyPaymentMethod,
   companyPaymentMethodsForDocument,
+  companyPaymentMethodsSaveError,
   companyPaymentMethodsSavePayload,
   formatCompanyPaymentMethodLines,
   parseCompanyPaymentMethods,
@@ -62,6 +63,10 @@ describe('company payment methods', () => {
     ]);
     expect(formatCompanyPaymentMethodLines(bank)[1]).toBe('BSB: 066-000');
     expect(companyPaymentMethodsSavePayload([bank])[0].bsb).toBe('066-000');
+    expect(
+      companyPaymentMethodsSaveError("Could not find the 'payment_methods' column of 'companies' in the schema cache"),
+    ).toMatch(/Run 066/);
+    expect(companyPaymentMethodsSaveError('permission denied')).toBe('permission denied');
   });
 
   it('lives on companies, in company settings, and on invoices — not quotes or Xero', () => {
