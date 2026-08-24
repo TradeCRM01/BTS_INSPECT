@@ -450,7 +450,7 @@ export function TemplateEditorPage() {
     <AppShell>
       {/* Top bar */}
       <div className="bg-white border-b border-[#E5E7EB] sticky top-0 z-30 shadow-sm">
-        <div className="max-w-[1200px] mx-auto px-3 md:px-4 py-2 md:py-0 md:h-12 flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3">
+        <div className="max-w-[1200px] mx-auto px-3 md:px-4 py-2 md:py-1 md:min-h-12 flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3">
           <button
             onClick={() => navigate('/templates')}
             className="text-[#4A5568] hover:text-[#1A1A1A] flex items-center gap-1 text-sm min-h-10 md:min-h-0"
@@ -461,13 +461,13 @@ export function TemplateEditorPage() {
           <input
             value={templateName}
             onChange={e => { setTemplateName(e.target.value); setSaveState('unsaved'); }}
-            className="font-medium text-sm text-[#1A1A1A] border border-[#E5E7EB] md:border-none outline-none bg-white md:bg-transparent min-w-0 flex-1 px-2 md:px-0 py-2 md:py-0 rounded md:rounded-none min-h-10 md:min-h-0"
+            className="font-medium text-sm text-[#1A1A1A] border border-[#E5E7EB] md:border-none outline-none bg-white md:bg-transparent min-w-0 flex-1 px-2 md:px-0 py-2 rounded md:rounded-none min-h-[44px]"
             placeholder="Template name"
           />
           <select
             value={renderer}
             onChange={e => { setRenderer(e.target.value); setSaveState('unsaved'); }}
-            className="text-xs border border-[#E5E7EB] rounded px-2 py-2 md:py-1 text-[#4A5568] bg-white min-h-10 md:min-h-0"
+            className="text-xs border border-[#E5E7EB] rounded px-2 py-2 text-[#4A5568] bg-white min-h-[44px]"
           >
             {renderers.map(r => (
               <option key={r.key} value={r.key}>{r.label}</option>

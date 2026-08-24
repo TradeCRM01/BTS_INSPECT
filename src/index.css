@@ -1147,6 +1147,41 @@
     @apply block text-sm font-medium text-ink mb-1.5;
   }
 
+  /*
+    16px type is forced on every input (iOS zoom). A 32px box clips glyphs on
+    desktop too — not only under 768px. Chip / status pills are excepted below.
+  */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="color"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]),
+  textarea,
+  select:not(.ops-status) {
+    min-height: 44px;
+    line-height: 1.25;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* Status pills are not form fields — keep compact type, do not inherit 16px/44px. */
+  select.ops-status {
+    font-size: 10px !important;
+    min-height: 24px;
+    height: auto;
+    line-height: 1.2;
+    max-width: none;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  /* Inline 24px chips keep 12px type so they are not iOS-zoomed or 44px-tall. */
+  .job-client-email .form-input-sm,
+  .job-client-phone .form-input-sm,
+  .job-client-attach .form-input-sm {
+    font-size: 12px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    max-width: none;
+  }
+
   /* ── Fullscreen-friendly overlays ─────────────────────────────── */
   .overlay-backdrop {
     @apply fixed inset-0 z-50 flex items-stretch sm:items-center justify-center bg-black/50 overflow-y-auto p-0 sm:p-3;
@@ -1239,8 +1274,8 @@
     @apply md:col-span-2 xl:col-span-3;
   }
 
-  /* Phone overlays: two-up / three-up field grids clip native date/time and 16px type. */
-  @media (max-width: 640px) {
+  /* Overlays: two-up / three-up / four-up field grids clip native date/time and 16px type. */
+  @media (max-width: 768px) {
     .overlay-panel .grid.grid-cols-2,
     .overlay-panel-lg .grid.grid-cols-2,
     .overlay-panel-xl .grid.grid-cols-2,
@@ -1250,7 +1285,27 @@
     .overlay-panel-lg .grid.grid-cols-3,
     .overlay-panel-xl .grid.grid-cols-3,
     .overlay-panel-sm .grid.grid-cols-3,
-    .overlay-panel-md .grid.grid-cols-3 {
+    .overlay-panel-md .grid.grid-cols-3,
+    .overlay-panel .grid.grid-cols-4,
+    .overlay-panel-lg .grid.grid-cols-4,
+    .overlay-panel-xl .grid.grid-cols-4,
+    .overlay-panel-sm .grid.grid-cols-4,
+    .overlay-panel-md .grid.grid-cols-4,
+    .overlay-panel .grid.sm\:grid-cols-2,
+    .overlay-panel-lg .grid.sm\:grid-cols-2,
+    .overlay-panel-xl .grid.sm\:grid-cols-2,
+    .overlay-panel-sm .grid.sm\:grid-cols-2,
+    .overlay-panel-md .grid.sm\:grid-cols-2,
+    .overlay-panel .grid.sm\:grid-cols-3,
+    .overlay-panel-lg .grid.sm\:grid-cols-3,
+    .overlay-panel-xl .grid.sm\:grid-cols-3,
+    .overlay-panel-sm .grid.sm\:grid-cols-3,
+    .overlay-panel-md .grid.sm\:grid-cols-3,
+    .overlay-panel .grid.sm\:grid-cols-4,
+    .overlay-panel-lg .grid.sm\:grid-cols-4,
+    .overlay-panel-xl .grid.sm\:grid-cols-4,
+    .overlay-panel-sm .grid.sm\:grid-cols-4,
+    .overlay-panel-md .grid.sm\:grid-cols-4 {
       grid-template-columns: minmax(0, 1fr);
     }
   }
@@ -4638,17 +4693,6 @@
       font-size: 16px !important;
     }
 
-    /* 16px type in a 32px box clips glyphs. Date/time native UI needs this too. */
-    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="color"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]),
-    textarea,
-    select {
-      min-height: 44px;
-      line-height: 1.25;
-      max-width: 100%;
-      min-width: 0;
-      box-sizing: border-box;
-    }
-
     /* Due-test quiet Save is muted 12px text — not a second 44px. */
     #inspection-due .job-client-email-save,
     #inspection-due .job-client-phone-save,
@@ -4657,16 +4701,6 @@
       min-width: 0;
       height: auto;
       width: auto;
-    }
-
-    /* Inline 24px chips keep 12px type so they are not iOS-zoomed or 44px-tall. */
-    .job-client-email .form-input-sm,
-    .job-client-phone .form-input-sm,
-    .job-client-attach .form-input-sm {
-      font-size: 12px !important;
-      height: 24px !important;
-      min-height: 24px !important;
-      max-width: none;
     }
   }
 }

@@ -254,7 +254,7 @@ export function LineItemEditor({
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search stock by name, SKU, category..."
-              className="w-full min-h-[44px] h-auto py-2 pl-7 pr-7 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+              className="w-full min-h-[44px] h-auto py-2 pl-8 pr-8 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
             />
             <button type="button" onClick={closePicker}
               className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#1A1A1A]">
@@ -291,7 +291,7 @@ export function LineItemEditor({
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search price book by description, code, category..."
-              className="w-full min-h-[44px] h-auto py-2 pl-7 pr-7 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+              className="w-full min-h-[44px] h-auto py-2 pl-8 pr-8 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
             />
             <button type="button" onClick={closePicker}
               className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#1A1A1A]">

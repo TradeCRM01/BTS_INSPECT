@@ -343,7 +343,7 @@ export function PriceBookPdfImportModal({
                           <input
                             value={r.unit}
                             onChange={e => updateRow(r.key, { unit: e.target.value })}
-                            className="form-input-sm w-16"
+                            className="form-input-sm min-w-[4.5rem] w-full"
                           />
                         </td>
                         <td className="px-3 py-2">

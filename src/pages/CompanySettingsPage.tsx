@@ -418,7 +418,7 @@ export function CompanySettingsPage() {
             <p className="text-xs text-[#4A5568] mb-4">
               Applies to inspection PDF letterhead accents (navy bars, accent highlights).
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               {(
                 [
                   { key: 'navy', label: 'Navy' },
@@ -484,7 +484,7 @@ export function CompanySettingsPage() {
                 value={newRendererLabel}
                 onChange={e => setNewRendererLabel(e.target.value)}
                 placeholder="e.g. Roof Inspection, HVAC Check"
-                className="w-full px-3 py-2 border border-[#E5E7EB] rounded text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                className="w-full min-h-[44px] px-3 py-2 border border-[#E5E7EB] rounded text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
                 autoFocus
               />
               <div className="flex gap-2">

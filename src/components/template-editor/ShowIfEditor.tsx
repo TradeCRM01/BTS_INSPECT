@@ -121,7 +121,7 @@ export function ShowIfEditor({ value, questions, onChange, label = 'Show only if
                   next[i] = { ...cond, value: e.target.value };
                   setConditions(group.logic, next);
                 }}
-                className="text-xs min-h-[44px] h-auto border border-[#E5E7EB] rounded px-2 py-2 bg-white focus:outline-none w-24 min-w-0"
+                className="text-xs min-h-[44px] h-auto border border-[#E5E7EB] rounded px-2 py-2 bg-white focus:outline-none flex-1 min-w-0"
                 placeholder="value"
               />
             )}

@@ -161,7 +161,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
             <input
               value={question.helpText ?? ''}
               onChange={e => onChange({ helpText: e.target.value })}
-              className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-xs text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#2E75B6] bg-white"
+              className="w-full min-h-[44px] px-2.5 py-2 border border-[#E5E7EB] rounded text-xs text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#2E75B6] bg-white"
               placeholder="Additional context shown below the label..."
             />
           </div>
@@ -235,7 +235,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
 
           {(question.type === 'number' || question.type === 'slider') && (
             <div className="space-y-2">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                 <div>
                   <label className="block text-xs font-medium text-[#4A5568] mb-1">Unit</label>
                   <input

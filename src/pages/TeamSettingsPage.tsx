@@ -390,7 +390,7 @@ export function TeamSettingsPage() {
                   <input
                     readOnly
                     value={lastInviteLink}
-                    className="flex-1 min-w-0 text-xs px-2 py-1.5 border border-emerald-200 rounded bg-white text-[#1A1A1A]"
+                    className="flex-1 min-w-0 min-h-[44px] text-xs px-2 py-2 border border-emerald-200 rounded bg-white text-[#1A1A1A]"
                     onFocus={e => e.target.select()}
                   />
                   <button

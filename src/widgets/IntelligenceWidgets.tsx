@@ -152,7 +152,7 @@ export function AiAgentWidget({}: WidgetProps) {
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           disabled={busy}
           placeholder="Ask the agent…"
-          className="flex-1 text-[11px] border border-[#E5E7EB] rounded-lg px-2 py-1.5 outline-none focus:border-[#2E75B6] disabled:opacity-50"
+          className="flex-1 min-w-0 min-h-[44px] text-[11px] border border-[#E5E7EB] rounded-lg px-2 py-2 outline-none focus:border-[#2E75B6] disabled:opacity-50"
         />
         <button onClick={() => send()} disabled={!input.trim() || busy}
           className="w-7 h-7 rounded-lg bg-[#0A2540] text-white flex items-center justify-center disabled:opacity-40 shrink-0">

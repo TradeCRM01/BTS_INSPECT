@@ -1,9 +1,45 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
+}
+
+function walkTsx(dir: string, acc: string[] = []): string[] {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const next = join(dir, entry.name);
+    if (entry.isDirectory()) walkTsx(next, acc);
+    else if (entry.name.endsWith('.tsx')) acc.push(next);
+  }
+  return acc;
+}
+
+function openingTag(text: string, start: number): string {
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '{') depth += 1;
+    else if (ch === '}') depth = Math.max(0, depth - 1);
+    else if (ch === '>' && depth === 0) return text.slice(start, i + 1);
+  }
+  return text.slice(start, start + 400);
+}
+
+function fieldClassNames(text: string): string[] {
+  const out: string[] = [];
+  const re = /<(input|select|textarea)\b/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text))) {
+    const tag = openingTag(text, match.index);
+    if (/type="(checkbox|radio|hidden|file|color|range)"/.test(tag)) continue;
+    const m =
+      tag.match(/className="([^"]+)"/)
+      || tag.match(/className=\{`([^`]+)`\}/)
+      || tag.match(/className=\{([A-Za-z_][\w]*)\}/);
+    if (m) out.push(m[1]);
+  }
+  return out;
 }
 
 describe('form fields fit their type', () => {
@@ -19,6 +55,15 @@ describe('form fields fit their type', () => {
     expect(css).toContain('input:not([type="checkbox"])');
     expect(css).toContain('min-height: 44px');
     expect(css).toContain('.relative > button.absolute');
+    expect(css).toContain('select:not(.ops-status)');
+    expect(css).toContain('select.ops-status');
+  });
+
+  it('keeps the 44px floor on every viewport, not only phones', () => {
+    const css = src('src/index.css');
+    const global = css.slice(0, css.lastIndexOf('/* Mobile-friendly touch targets'));
+    expect(global).toContain('select:not(.ops-status)');
+    expect(global).toMatch(/min-height:\s*44px/);
   });
 
   it('stacks invoice line items on a phone instead of a 980px clipped grid', () => {
@@ -27,19 +72,19 @@ describe('form fields fit their type', () => {
     expect(editor).toContain('col-span-2 sm:col-span-1');
     expect(editor).not.toContain('min-w-[980px]');
     expect(editor).toContain('hidden sm:grid');
+    expect(editor).toContain('pl-8');
   });
 
-  it('keeps 24px email/phone chips from inheriting the 44px mobile min-height', () => {
+  it('keeps 24px email/phone chips from inheriting the 44px min-height', () => {
     const css = src('src/index.css');
-    const mobile = css.slice(css.lastIndexOf('@media (max-width: 768px)'));
-    expect(mobile).toContain('.job-client-email .form-input-sm');
-    expect(mobile).toMatch(/min-height:\s*24px\s*!important/);
+    expect(css).toContain('.job-client-email .form-input-sm');
+    expect(css).toMatch(/min-height:\s*24px\s*!important/);
   });
 
   it('stacks overlay form grids on a phone so fields are not half-width clipped', () => {
     const css = src('src/index.css');
-    expect(css).toContain('@media (max-width: 640px)');
     expect(css).toContain('.overlay-panel .grid.grid-cols-2');
+    expect(css).toContain('.overlay-panel .grid.grid-cols-4');
     expect(css).toContain('grid-template-columns: minmax(0, 1fr)');
   });
 
@@ -56,9 +101,39 @@ describe('form fields fit their type', () => {
     const chrome = css.slice(css.indexOf('.hub-clients-chrome .form-input {'), css.indexOf('.hub-clients-chrome .form-input:focus'));
     expect(chrome).toContain('min-height: 44px');
     expect(chrome).not.toContain('min-height: 36px');
-    expect(src('src/pages/TemplateEditorPage.tsx')).toContain('min-h-[44px]');
+    const templateEditor = src('src/pages/TemplateEditorPage.tsx');
+    const nameField = templateEditor.slice(
+      templateEditor.indexOf('value={templateName}'),
+      templateEditor.indexOf('placeholder="Template name"'),
+    );
+    const rendererField = templateEditor.slice(
+      templateEditor.indexOf('value={renderer}'),
+      templateEditor.indexOf('{renderers.map'),
+    );
+    expect(nameField).toContain('min-h-[44px]');
+    expect(rendererField).toContain('min-h-[44px]');
+    expect(nameField).not.toContain('md:min-h-0');
+    expect(rendererField).not.toContain('md:min-h-0');
     expect(src('src/pages/PurchaseOrdersPage.tsx')).toMatch(/min-h-\[44px\][\s\S]*text-right/);
     expect(src('src/pages/AiAssistantPage.tsx')).toContain("minHeight: '44px'");
     expect(src('src/components/jobs/JobCostingPanel.tsx')).toContain('grid-cols-1 sm:grid-cols-4');
+    expect(src('src/components/pdf/AnnotationToolbar.tsx')).toContain('min-h-[44px]');
+    expect(src('src/components/ui/SignatureCapture.tsx')).toContain('min-h-[44px]');
+  });
+
+  it('does not pin remaining text fields to h-8/h-9 or undo min-height on desktop', () => {
+    const root = resolve(process.cwd(), 'src');
+    const pinned: string[] = [];
+    const undone: string[] = [];
+    for (const file of walkTsx(root)) {
+      const rel = relative(root, file);
+      const names = fieldClassNames(readFileSync(file, 'utf8'));
+      for (const cls of names) {
+        if (/\bh-[6-9]\b/.test(cls)) pinned.push(`${rel} :: ${cls}`);
+        if (cls.includes('md:min-h-0')) undone.push(`${rel} :: ${cls}`);
+      }
+    }
+    expect(pinned, pinned.join('\n')).toEqual([]);
+    expect(undone, undone.join('\n')).toEqual([]);
   });
 });

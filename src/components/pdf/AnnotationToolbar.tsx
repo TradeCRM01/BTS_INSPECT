@@ -87,7 +87,7 @@ export function AnnotationToolbar({
         <select
           value={fontSize}
           onChange={e => onFontSizeChange(Number(e.target.value))}
-          className="text-sm border border-[#E5E7EB] rounded-md px-2 py-1 text-[#1A1A1A] bg-white"
+          className="text-sm border border-[#E5E7EB] rounded-md px-2 py-2 text-[#1A1A1A] bg-white min-h-[44px]"
         >
           {[10, 12, 14, 16, 18, 20, 24, 28].map(s => (
             <option key={s} value={s}>{s}px</option>
