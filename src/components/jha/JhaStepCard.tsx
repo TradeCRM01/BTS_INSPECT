@@ -143,7 +143,7 @@ export function JhaStepCard({
             onChange={e => onChange({ description: e.target.value })}
             placeholder="Describe the work step..."
             rows={2}
-            className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none bg-white"
+            className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none bg-white"
           />
         </div>
 
@@ -158,7 +158,7 @@ export function JhaStepCard({
               onChange={e => onChange({ hazards: e.target.value })}
               placeholder="One hazard per line…"
               rows={3}
-              className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none bg-white"
+              className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none bg-white"
             />
             <p className="text-[10px] text-[#9CA3AF] mt-1">List each hazard on its own line for the PDF table.</p>
           </div>
@@ -171,7 +171,7 @@ export function JhaStepCard({
               <select
                 value={step.consequence}
                 onChange={e => setLikelihoodConsequence({ consequence: e.target.value })}
-                className="w-full text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
+                className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
               >
                 <option value="">Select consequence…</option>
                 {CONSEQUENCE_OPTIONS.map(c => (
@@ -187,7 +187,7 @@ export function JhaStepCard({
               <select
                 value={step.likelihood}
                 onChange={e => setLikelihoodConsequence({ likelihood: e.target.value })}
-                className="w-full text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
+                className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
               >
                 <option value="">Select likelihood…</option>
                 {LIKELIHOOD_OPTIONS.map(l => (
@@ -383,7 +383,7 @@ export function JhaStepCard({
                 onChange={e => onChange({ residualEscalationNote: e.target.value })}
                 rows={2}
                 placeholder="Who approved proceeding, and what additional controls / hold points apply?"
-                className="w-full text-sm border border-amber-300 rounded px-3 py-2 bg-white resize-none"
+                className="w-full min-h-[88px] h-auto text-sm border border-amber-300 rounded px-3 py-2 bg-white resize-y"
               />
             </div>
           )}

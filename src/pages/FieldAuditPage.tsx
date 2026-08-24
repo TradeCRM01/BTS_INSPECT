@@ -14,10 +14,75 @@ import { blankSolarInputs } from '../features/solar-calculator/draft';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import { JhaCrewRegister } from '../components/jha/JhaCrewRegister';
+import { JhaStepCard } from '../components/jha/JhaStepCard';
 import { MoveStockModal } from '../components/stock/MoveStockModal';
+import { JobClientReminder } from '../components/jobs/JobClientReminder';
+import { InspectionDueReminder } from '../components/inspection/InspectionDueReminder';
 import { enableDevFieldAuditAuth, DEV_AUDIT_COMPANY } from '../lib/devFieldAuditAuth';
 import type { Question } from '../types/template';
-import type { JhaCrewMember } from '../types/jha';
+import type { Client, Job } from '../types/crm';
+import type { JhaCrewMember, JhaStep, JhaTemplateSchema } from '../types/jha';
+
+const AUDIT_JHA_SCHEMA: JhaTemplateSchema = {
+  meta: {
+    requiresTaskName: true,
+    requiresSiteName: true,
+    requiresDate: true,
+    requiresSupervisor: true,
+    maxAcceptableResidualScore: 9,
+  },
+  riskLevels: [
+    { id: 'low', label: 'Low', color: '#166534', score: 1 },
+    { id: 'moderate', label: 'Moderate', color: '#B45309', score: 2 },
+    { id: 'significant', label: 'Significant', color: '#C2410C', score: 3 },
+    { id: 'severe', label: 'Severe', color: '#B91C1C', score: 4 },
+  ],
+  ppeOptions: [],
+  signOffRoles: [],
+  stepLibrary: [],
+};
+
+const AUDIT_JOB: Job = {
+  id: 'audit-job-1',
+  company_id: DEV_AUDIT_COMPANY.id,
+  client_id: 'audit-client-1',
+  title: 'Warehouse roof annual',
+  description: null,
+  status: 'scheduled',
+  priority: 'medium',
+  scheduled_date: '2026-08-25',
+  start_time: '07:30',
+  end_time: '16:00',
+  address: '14 North Wharf Road, Perth WA 6000',
+  assigned_team: [],
+  inspection_id: null,
+  created_by: 'audit',
+  created_at: '2026-08-01T00:00:00.000Z',
+  updated_at: '2026-08-01T00:00:00.000Z',
+  job_number: 42,
+  color: null,
+  budget: null,
+};
+
+const AUDIT_CLIENT: Client = {
+  id: 'audit-client-1',
+  company_id: DEV_AUDIT_COMPANY.id,
+  name: 'Acme Warehousing Pty Ltd',
+  contact_person: 'Site supervisor',
+  phone: null,
+  email: 'site.supervisor@client.example.com',
+  address: '14 North Wharf Road, Perth WA 6000',
+  notes: null,
+  archived: false,
+  created_at: '2026-08-01T00:00:00.000Z',
+};
+
+const AUDIT_CLIENT_NO_EMAIL: Client = {
+  ...AUDIT_CLIENT,
+  id: 'audit-client-2',
+  email: null,
+  phone: '0400 123 456',
+};
 
 const TEXT_Q: Question = {
   id: 'audit-text',
@@ -105,6 +170,34 @@ export function FieldAuditPage() {
   const [showTime, setShowTime] = useState(false);
   const [showMove, setShowMove] = useState(false);
   const [barcode, setBarcode] = useState('SKU-20MM-PVC-CONDUIT-4M');
+  const [stopThink, setStopThink] = useState('Isolate the warehouse roof board before climbing.');
+  const [identify, setIdentify] = useState('Falls from height. Live parts behind the meter.');
+  const [assess, setAssess] = useState('High if unguarded. Likely if the edge is open.');
+  const [controls, setControls] = useState('Harness, exclusion zone, lock-out.');
+  const [adjQty, setAdjQty] = useState('10');
+  const [adjReason, setAdjReason] = useState('Stock count correction — warehouse roof van');
+  const [aiPrompt, setAiPrompt] = useState('Ask me to query data, fix issues, update records…');
+  const [jhaStep, setJhaStep] = useState<JhaStep>({
+    id: 'audit-step-1',
+    description: 'Isolate supply at the warehouse roof board before climbing.',
+    hazards: 'Live parts\nFalls from height',
+    consequence: 'major',
+    likelihood: 'possible',
+    controls: 'Lock out\nHarness',
+    controlMeasures: [{
+      id: 'audit-cm-1',
+      hierarchy: 'isolate',
+      text: 'Lock out the roof board and prove dead',
+      owner: 'Leading hand',
+      verify: 'Visual check before start / LOTO ticket',
+    }],
+    initialRisk: 'significant',
+    residualRisk: 'severe',
+    residualLikelihood: 'almost_certain',
+    residualConsequence: 'catastrophic',
+    residualEscalationNote: 'Supervisor approved proceeding with a spotter and exclusion zone.',
+    photos: [],
+  });
   const [crew, setCrew] = useState<JhaCrewMember[]>([{
     id: 'audit-crew-1',
     name: 'Alex Field — licensed electrician warehouse roof',
@@ -299,14 +392,14 @@ export function FieldAuditPage() {
             <button type="submit" className="job-client-phone-save" onClick={e => e.preventDefault()}>Save</button>
           </form>
         </div>
-        <div id="job-schedule" className="border border-[#E5E7EB] rounded-xl p-3">
+        <div className="border border-[#E5E7EB] rounded-xl p-3">
           <form className="job-reminder job-client-email">
             <Mail size={13} />
             <input type="email" value={chipEmail} onChange={e => setChipEmail(e.target.value)} className="form-input-sm" />
             <button type="submit" className="job-client-email-save" onClick={e => e.preventDefault()}>Save</button>
           </form>
         </div>
-        <div id="inspection-due" className="border border-[#E5E7EB] rounded-xl p-3">
+        <div className="border border-[#E5E7EB] rounded-xl p-3">
           <form className="job-client-attach">
             <User size={13} />
             <select className="form-input-sm" defaultValue="1">
@@ -425,8 +518,69 @@ export function FieldAuditPage() {
           </div>
           <div>
             <label className="ops-field-label">1. Stop & think — what am I about to do?</label>
-            <textarea value={help} onChange={e => setHelp(e.target.value)} rows={3} className="ops-field resize-none" />
+            <textarea value={stopThink} onChange={e => setStopThink(e.target.value)} rows={3} className="ops-field resize-none" />
           </div>
+          <div>
+            <label className="ops-field-label">2. Identify hazards — what could hurt me or others?</label>
+            <textarea value={identify} onChange={e => setIdentify(e.target.value)} rows={3} className="ops-field resize-none" />
+          </div>
+          <div>
+            <label className="ops-field-label">3. Assess the risk — how bad / how likely?</label>
+            <textarea value={assess} onChange={e => setAssess(e.target.value)} rows={3} className="ops-field resize-none" />
+          </div>
+          <div>
+            <label className="ops-field-label">4. Control actions — what will I do to stay safe?</label>
+            <textarea value={controls} onChange={e => setControls(e.target.value)} rows={3} className="ops-field resize-none" />
+          </div>
+        </div>
+        <JhaStepCard
+          step={jhaStep}
+          index={0}
+          schema={AUDIT_JHA_SCHEMA}
+          canDelete={false}
+          maxAcceptableResidual={9}
+          documentId={null}
+          onChange={updates => setJhaStep(s => ({ ...s, ...updates }))}
+          onDelete={() => {}}
+          getRiskInfo={id => AUDIT_JHA_SCHEMA.riskLevels.find(r => r.id === id)}
+        />
+        <div id="job-schedule" className="border border-[#E5E7EB] rounded-xl overflow-hidden">
+          <JobClientReminder job={AUDIT_JOB} client={AUDIT_CLIENT} company={DEV_AUDIT_COMPANY} />
+        </div>
+        <div id="inspection-due" className="border border-[#E5E7EB] rounded-xl overflow-hidden">
+          <InspectionDueReminder
+            inspection={{
+              id: 'audit-insp-1',
+              status: 'in_progress',
+              client_id: AUDIT_CLIENT_NO_EMAIL.id,
+              crm_job_id: AUDIT_JOB.id,
+              due_on: '2026-08-25',
+            }}
+            job={{ ...AUDIT_JOB, client_id: AUDIT_CLIENT_NO_EMAIL.id }}
+            client={AUDIT_CLIENT_NO_EMAIL}
+            company={DEV_AUDIT_COMPANY}
+          />
+        </div>
+        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 space-y-3 max-w-md">
+          <h3 className="text-sm font-semibold">Stock adjustment</h3>
+          <label className="block">
+            <span className="block text-xs font-medium text-[#4A5568] mb-1">Quantity</span>
+            <input type="number" step="any" value={adjQty} onChange={e => setAdjQty(e.target.value)} className="form-input" />
+          </label>
+          <label className="block">
+            <span className="block text-xs font-medium text-[#4A5568] mb-1">Reason</span>
+            <input value={adjReason} onChange={e => setAdjReason(e.target.value)} className="form-input" />
+          </label>
+        </div>
+        <div className="bg-white border border-[#E5E7EB] rounded-2xl px-4 py-2.5 max-w-3xl">
+          <textarea
+            value={aiPrompt}
+            onChange={e => setAiPrompt(e.target.value)}
+            placeholder="Ask me to query data, fix issues, update records… (Enter to send)"
+            rows={1}
+            className="w-full bg-transparent text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] resize-none outline-none leading-relaxed"
+            style={{ minHeight: '44px', maxHeight: '160px' }}
+          />
         </div>
         <div className="space-y-3">
           <QuestionRenderer question={TEXT_Q} value={answer} onChange={val => setAnswer(String(val ?? ''))} inspectionId="audit" />

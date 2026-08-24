@@ -165,6 +165,12 @@ describe('form fields fit their type', () => {
     expect(page).toContain('Price book item (3-up stacks on phones)');
     expect(page).toContain('Managed lists add + JHA score');
     expect(page).toContain('Barcode manual entry + Move stock destination');
+    expect(page).toContain('JhaStepCard');
+    expect(page).toContain('JobClientReminder');
+    expect(page).toContain('InspectionDueReminder');
+    expect(page).toContain('2. Identify hazards');
+    expect(src('src/components/jha/JhaStepCard.tsx')).toContain('min-h-[44px] h-auto');
+    expect(src('src/components/jha/JhaStepCard.tsx')).toContain('min-h-[88px]');
     expect(page).toContain('placeholder="API key"');
     expect(page).toContain('to="/barcode"');
     expect(src('src/components/stock/MoveStockModal.tsx')).toContain('overlay-body');
