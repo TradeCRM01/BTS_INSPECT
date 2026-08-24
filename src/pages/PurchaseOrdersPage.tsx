@@ -318,6 +318,8 @@ interface POLineEdit {
   stock_item_id?: string | null;
 }
 
+const PO_LINE_GRID = 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_80px_112px_96px_32px]';
+
 function toPOLineEdit(li: POLineItem): POLineEdit {
   return { description: li.description, quantity: String(li.quantity), unit_cost: String(li.unit_cost), received_quantity: li.received_quantity ?? 0, stock_item_id: li.stock_item_id ?? null };
 }
@@ -483,58 +485,44 @@ function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
                 </button>
               </div>
             </div>
-            <div className="border border-[#E5E7EB] rounded-lg overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-[#F9FAFB] text-xs text-[#6B7280] uppercase">
-                  <tr>
-                    <th className="px-2 py-2 text-left font-medium">Description</th>
-                    <th className="px-2 py-2 text-right font-medium w-20">Qty</th>
-                    <th className="px-2 py-2 text-right font-medium w-28">Unit Cost</th>
-                    <th className="px-2 py-2 text-right font-medium w-28">Total</th>
-                    <th className="w-10"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F3F4F6]">
-                  {lines.map((line, i) => (
-                    <tr key={i}>
-                      <td className="px-2 py-1.5">
-                        <input value={line.description} onChange={e => updateLine(i, { description: e.target.value })}
-                          className="form-input-sm" placeholder="Item description" />
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <input type="text" inputMode="decimal" value={line.quantity}
-                          onChange={e => {
-                            const raw = e.target.value;
-                            if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
-                            updateLine(i, { quantity: raw });
-                          }}
-                          className="form-input-sm text-right" />
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <input type="text" inputMode="decimal" value={line.unit_cost}
-                          onChange={e => {
-                            const raw = e.target.value;
-                            if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
-                            updateLine(i, { unit_cost: raw });
-                          }}
-                          className="form-input-sm text-right" placeholder="0.00" />
-                      </td>
-                      <td className="px-2 py-1.5 text-right text-sm font-medium text-[#1A1A1A]">
-                        {formatMoney((parseFloat(line.quantity) || 0) * (parseFloat(line.unit_cost) || 0))}
-                      </td>
-                      <td className="px-1 py-1.5 text-center">
-                        <button type="button" onClick={() => removeLine(i)}
-                          className="w-6 h-6 flex items-center justify-center rounded text-[#9CA3AF] hover:text-red-600 hover:bg-red-50">
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {lines.length === 0 && (
-                    <tr><td colSpan={5} className="px-3 py-4 text-center text-sm text-[#9CA3AF]">No line items. Click "Add Line" to start.</td></tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="border border-[#E5E7EB] rounded-lg overflow-hidden">
+              <div className={`hidden lg:grid ${PO_LINE_GRID} gap-2 px-3 py-2 bg-[#F9FAFB] text-xs text-[#6B7280] uppercase`}>
+                <span className="font-medium">Description</span>
+                <span className="text-right font-medium">Qty</span>
+                <span className="text-right font-medium">Unit Cost</span>
+                <span className="text-right font-medium">Total</span>
+                <span />
+              </div>
+              {lines.map((line, i) => (
+                <div key={i} className={`grid ${PO_LINE_GRID} gap-2 px-3 py-2 items-center border-t border-[#F3F4F6] first:border-t-0 lg:first:border-t`}>
+                  <input value={line.description} onChange={e => updateLine(i, { description: e.target.value })}
+                    className="form-input-sm min-w-0 col-span-1 sm:col-span-2 lg:col-span-1" placeholder="Item description" />
+                  <input type="text" inputMode="decimal" value={line.quantity}
+                    onChange={e => {
+                      const raw = e.target.value;
+                      if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                      updateLine(i, { quantity: raw });
+                    }}
+                    className="form-input-sm text-right min-w-0" aria-label="Quantity" />
+                  <input type="text" inputMode="decimal" value={line.unit_cost}
+                    onChange={e => {
+                      const raw = e.target.value;
+                      if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                      updateLine(i, { unit_cost: raw });
+                    }}
+                    className="form-input-sm text-right min-w-0" placeholder="0.00" aria-label="Unit cost" />
+                  <span className="text-sm text-right font-medium text-[#1A1A1A]">
+                    {formatMoney((parseFloat(line.quantity) || 0) * (parseFloat(line.unit_cost) || 0))}
+                  </span>
+                  <button type="button" onClick={() => removeLine(i)}
+                    className="w-7 h-7 flex items-center justify-center rounded text-[#9CA3AF] hover:text-red-600 hover:bg-red-50 justify-self-end">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+              {lines.length === 0 && (
+                <div className="px-3 py-4 text-center text-sm text-[#9CA3AF] border-t border-[#F3F4F6]">No line items. Click "Add Line" to start.</div>
+              )}
             </div>
           </div>
 
@@ -758,34 +746,24 @@ function ReceiveGoodsModal({ po, onClose, onSaved }: {
         </div>
 
         <div className="flex-1 overflow-auto px-5 py-4">
-          <div className="border border-[#E5E7EB] rounded-lg overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[#F9FAFB] text-xs text-[#6B7280] uppercase">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium">Item</th>
-                  <th className="px-3 py-2 text-right font-medium w-20">Ordered</th>
-                  <th className="px-3 py-2 text-right font-medium w-20">Received</th>
-                  <th className="px-3 py-2 text-right font-medium w-24">Receiving Now</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F3F4F6]">
-                {lines.map((line, i) => (
-                  <tr key={i}>
-                    <td className="px-3 py-2 text-[#1A1A1A] truncate max-w-[180px]">{line.description || 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</td>
-                    <td className="px-3 py-2 text-right text-[#4A5568]">{line.quantity}</td>
-                    <td className="px-3 py-2 text-right text-[#4A5568]">{line.received_quantity ?? 0}</td>
-                    <td className="px-3 py-2">
-                      <input type="number" min={0} value={receiving[i] ?? ''}
-                        onChange={e => setReceiving(prev => ({ ...prev, [i]: e.target.value }))}
-                        className="w-full min-h-[44px] h-auto px-2 py-2 text-sm text-right border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
-                    </td>
-                  </tr>
-                ))}
-                {lines.length === 0 && (
-                  <tr><td colSpan={4} className="px-3 py-4 text-center text-sm text-[#9CA3AF]">No line items on this PO.</td></tr>
-                )}
-              </tbody>
-            </table>
+          <div className="border border-[#E5E7EB] rounded-lg overflow-hidden space-y-0">
+            {lines.map((line, i) => (
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-2 px-3 py-3 border-t border-[#F3F4F6] first:border-t-0">
+                <div className="sm:col-span-2 min-w-0">
+                  <p className="text-sm text-[#1A1A1A] break-words">{line.description || '—'}</p>
+                  <p className="text-xs text-[#6B7280] mt-0.5">Ordered {line.quantity} · Received {line.received_quantity ?? 0}</p>
+                </div>
+                <label className="text-xs font-medium text-[#4A5568] sm:col-span-2">
+                  Receiving now
+                  <input type="number" min={0} value={receiving[i] ?? ''}
+                    onChange={e => setReceiving(prev => ({ ...prev, [i]: e.target.value }))}
+                    className="mt-1 w-full min-h-[44px] h-auto px-2 py-2 text-sm text-right border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
+                </label>
+              </div>
+            ))}
+            {lines.length === 0 && (
+              <div className="px-3 py-4 text-center text-sm text-[#9CA3AF]">No line items on this PO.</div>
+            )}
           </div>
           {err && <p className="text-sm text-red-600 mt-3">{err}</p>}
         </div>

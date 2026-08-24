@@ -4692,6 +4692,16 @@
       width: auto;
     }
 
+    /* 24px chips keep a text Save, not a second 44px square beside the field. */
+    .job-client-email-save,
+    .job-client-phone-save,
+    .job-client-attach-save {
+      min-height: 0;
+      min-width: 0;
+      height: auto;
+      width: auto;
+    }
+
     .min-touch-target {
       min-height: 44px;
       min-width: 44px;

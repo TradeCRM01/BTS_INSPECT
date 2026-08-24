@@ -13,8 +13,10 @@ import { SolarWizard } from '../features/solar-calculator/components/SolarWizard
 import { blankSolarInputs } from '../features/solar-calculator/draft';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
-import { enableDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
+import { JhaCrewRegister } from '../components/jha/JhaCrewRegister';
+import { enableDevFieldAuditAuth, DEV_AUDIT_COMPANY } from '../lib/devFieldAuditAuth';
 import type { Question } from '../types/template';
+import type { JhaCrewMember } from '../types/jha';
 
 const TEXT_Q: Question = {
   id: 'audit-text',
@@ -100,6 +102,13 @@ export function FieldAuditPage() {
   const [solarStep, setSolarStep] = useState(1);
   const [showJob, setShowJob] = useState(false);
   const [showTime, setShowTime] = useState(false);
+  const [crew, setCrew] = useState<JhaCrewMember[]>([{
+    id: 'audit-crew-1',
+    name: 'Alex Field — licensed electrician warehouse roof',
+    role: 'Leading hand',
+    date: '2026-08-24',
+    signMode: 'on_device',
+  }]);
   const [lines, setLines] = useState([
     { ...emptyLineItem(20), description: '20mm PVC conduit — 4m lengths', quantity: '12', unit_cost: '4.80', markup_percent: '20', unit_price: '5.76' },
     { ...emptyLineItem(20), description: 'Labour — licensed electrician', quantity: '6', unit_cost: '95', markup_percent: '15', unit_price: '109.25' },
@@ -153,6 +162,20 @@ export function FieldAuditPage() {
         <Link className="text-[#2E75B6] underline" to="/settings/lists">Lists</Link>
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/settings/accounting">Accounting</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/stock">Stock</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/assets">Assets</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/suppliers">Suppliers</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/contracts">Contracts</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/compliance">Compliance</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/price-books">Price books</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/schedule">Schedule</Link>
       </p>
 
       <section className="space-y-2">
@@ -230,10 +253,12 @@ export function FieldAuditPage() {
           <form className="job-client-email">
             <Mail size={13} />
             <input type="email" value={chipEmail} onChange={e => setChipEmail(e.target.value)} className="form-input-sm" />
+            <button type="submit" className="job-client-email-save" onClick={e => e.preventDefault()}>Save</button>
           </form>
           <form className="job-client-phone">
             <Phone size={13} />
             <input type="tel" value={chipPhone} onChange={e => setChipPhone(e.target.value)} className="form-input-sm" />
+            <button type="submit" className="job-client-phone-save" onClick={e => e.preventDefault()}>Save</button>
           </form>
           <form className="job-client-attach">
             <User size={13} />
@@ -241,6 +266,7 @@ export function FieldAuditPage() {
               <option value="">Client</option>
               <option value="1">Acme Warehousing Pty Ltd</option>
             </select>
+            <button type="submit" className="job-client-attach-save" onClick={e => e.preventDefault()}>Save</button>
           </form>
           <select
             value={status}
@@ -256,18 +282,21 @@ export function FieldAuditPage() {
           <form className="job-client-email">
             <Mail size={13} />
             <input type="email" value={chipEmail} onChange={e => setChipEmail(e.target.value)} className="form-input-sm" />
+            <button type="submit" className="job-client-email-save" onClick={e => e.preventDefault()}>Save</button>
           </form>
         </div>
         <div className="hub-invoice-send border border-[#E5E7EB] rounded-xl p-3">
           <form className="job-client-phone">
             <Phone size={13} />
             <input type="tel" value={chipPhone} onChange={e => setChipPhone(e.target.value)} className="form-input-sm" />
+            <button type="submit" className="job-client-phone-save" onClick={e => e.preventDefault()}>Save</button>
           </form>
         </div>
         <div id="job-schedule" className="border border-[#E5E7EB] rounded-xl p-3">
-          <form className="job-client-email">
+          <form className="job-reminder job-client-email">
             <Mail size={13} />
             <input type="email" value={chipEmail} onChange={e => setChipEmail(e.target.value)} className="form-input-sm" />
+            <button type="submit" className="job-client-email-save" onClick={e => e.preventDefault()}>Save</button>
           </form>
         </div>
         <div id="inspection-due" className="border border-[#E5E7EB] rounded-xl p-3">
@@ -276,6 +305,7 @@ export function FieldAuditPage() {
             <select className="form-input-sm" defaultValue="1">
               <option value="1">Acme Warehousing Pty Ltd</option>
             </select>
+            <button type="submit" className="job-client-attach-save" onClick={e => e.preventDefault()}>Save</button>
           </form>
         </div>
       </section>
@@ -306,29 +336,17 @@ export function FieldAuditPage() {
       <section className="space-y-2">
         <h2 className="text-sm font-medium">PO line table + job costing qty</h2>
         <div className="overlay-panel-xl border border-[#E5E7EB] rounded-xl bg-white p-3">
-          <div className="border border-[#E5E7EB] rounded-lg overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[#F9FAFB] text-xs text-[#6B7280] uppercase">
-                <tr>
-                  <th className="px-2 py-2 text-left font-medium">Description</th>
-                  <th className="px-2 py-2 text-right font-medium w-20">Qty</th>
-                  <th className="px-2 py-2 text-right font-medium w-28">Unit Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="px-2 py-1.5">
-                    <input value={poDesc} onChange={e => setPoDesc(e.target.value)} className="form-input-sm" />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <input value={poQty} onChange={e => setPoQty(e.target.value)} className="form-input-sm text-right" />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <input value={poCost} onChange={e => setPoCost(e.target.value)} className="form-input-sm text-right" />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="border border-[#E5E7EB] rounded-lg overflow-hidden">
+            <div className="hidden lg:grid grid-cols-[minmax(0,1fr)_80px_112px] gap-2 px-3 py-2 bg-[#F9FAFB] text-xs text-[#6B7280] uppercase">
+              <span className="font-medium">Description</span>
+              <span className="text-right font-medium">Qty</span>
+              <span className="text-right font-medium">Unit Cost</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_80px_112px] gap-2 px-3 py-2 items-center">
+              <input value={poDesc} onChange={e => setPoDesc(e.target.value)} className="form-input-sm min-w-0 col-span-1 sm:col-span-2 lg:col-span-1" />
+              <input value={poQty} onChange={e => setPoQty(e.target.value)} className="form-input-sm text-right min-w-0" />
+              <input value={poCost} onChange={e => setPoCost(e.target.value)} className="form-input-sm text-right min-w-0" />
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-4">
             <div>
@@ -404,6 +422,43 @@ export function FieldAuditPage() {
           <QuestionRenderer question={NUMBER_Q} value={numberAnswer} onChange={val => setNumberAnswer(String(val ?? ''))} inspectionId="audit" />
           <QuestionRenderer question={DATE_Q} value={dateAnswer} onChange={val => setDateAnswer(String(val ?? ''))} inspectionId="audit" />
           <QuestionRenderer question={LONG_Q} value={longAnswer} onChange={val => setLongAnswer(String(val ?? ''))} inspectionId="audit" />
+        </div>
+        <JhaCrewRegister
+          companyId={DEV_AUDIT_COMPANY.id}
+          documentId={null}
+          crew={crew}
+          onChange={setCrew}
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start border border-[#F3F4F6] rounded-md p-2 bg-[#F9FAFB]">
+          <div className="sm:col-span-3">
+            <label className="text-[10px] text-[#6B7280]">Type</label>
+            <select className="w-full min-h-[44px] h-auto text-xs border border-[#E5E7EB] rounded px-2 py-2 bg-white" defaultValue="administrative">
+              <option value="administrative">5. Administrative</option>
+            </select>
+          </div>
+          <div className="sm:col-span-8">
+            <label className="text-[10px] text-[#6B7280]">Control measure</label>
+            <textarea
+              value={help}
+              onChange={e => setHelp(e.target.value)}
+              rows={4}
+              className="w-full min-h-[5.5rem] text-xs border border-[#E5E7EB] rounded px-2 py-2 bg-white resize-y"
+            />
+          </div>
+          <div className="sm:col-span-5">
+            <label className="text-[10px] text-[#6B7280]">Owner</label>
+            <input value="Leading hand" readOnly className="w-full min-h-[44px] h-auto text-xs border border-[#E5E7EB] rounded px-2 py-2 bg-white" />
+          </div>
+          <div className="sm:col-span-6">
+            <label className="text-[10px] text-[#6B7280]">Verify</label>
+            <input value="Visual check before start" readOnly className="w-full min-h-[44px] h-auto text-xs border border-[#E5E7EB] rounded px-2 py-2 bg-white" />
+          </div>
+          <input
+            value="Warehouse roof — west elevation exclusion zone"
+            readOnly
+            placeholder="Caption"
+            className="w-full min-h-[44px] sm:col-span-12 border-t border-[#E5E7EB] px-1.5 py-2 bg-white"
+          />
         </div>
       </section>
 

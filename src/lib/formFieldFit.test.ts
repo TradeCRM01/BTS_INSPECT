@@ -156,7 +156,12 @@ describe('form fields fit their type', () => {
     expect(page).toContain('TimeEntryForm');
     expect(page).toContain('DocumentVariationsEditor');
     expect(page).toContain('hub-invoice-send');
-    expect(page).toContain('enableDevFieldAuditAuth');
+    expect(page).toContain('JhaCrewRegister');
+    expect(page).toContain('job-client-email-save');
+    expect(src('src/pages/PurchaseOrdersPage.tsx')).toContain('PO_LINE_GRID');
+    expect(src('src/pages/PurchaseOrdersPage.tsx')).toContain('col-span-1 sm:col-span-2 lg:col-span-1');
+    expect(src('src/index.css')).toContain('.job-client-email-save');
+    expect(src('src/index.css')).toMatch(/\.job-client-email-save[\s\S]*min-height:\s*0/);
     expect(src('src/lib/devFieldAuditAuth.ts')).toContain('pageQueryBlocked');
     expect(src('src/pages/InvoicesPage.tsx')).toContain('pageQueryBlocked(error)');
     expect(src('src/pages/JobsPage.tsx')).toContain('pageQueryBlocked(error)');

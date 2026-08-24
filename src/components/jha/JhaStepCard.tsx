@@ -438,7 +438,7 @@ export function JhaStepCard({
                       });
                     }}
                     placeholder="Caption"
-                    className="w-full min-h-[44px] text-[10px] border-t border-[#E5E7EB] px-1.5 py-2 bg-white"
+                    className="w-full min-h-[44px] border-t border-[#E5E7EB] px-1.5 py-2 bg-white"
                   />
                 </div>
               ))}
