@@ -558,6 +558,9 @@ export function FieldAuditPage() {
           </div>
         </div>
       </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium">Search with leading icon + clients chrome</h2>
         <div className="relative max-w-md">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] pointer-events-none" />
           <input
