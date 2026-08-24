@@ -612,7 +612,7 @@ export function CompanySettingsPage() {
                           type={showPass ? 'text' : 'password'}
                           value={emailSettings.smtp_pass}
                           onChange={e => setEmailSettings(s => ({ ...s, smtp_pass: e.target.value }))}
-                          placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                          placeholder="API key"
                           autoComplete="new-password"
                           className={inputClass + ' pr-12'}
                         />
@@ -713,7 +713,7 @@ export function CompanySettingsPage() {
                   <tbody>
                     {registeredUsers?.map(user => (
                       <tr key={user.id} className="border-b border-[#F3F4F6] hover:bg-[#F9FAFB]">
-                        <td className="py-2.5 px-3 text-[#1A1A1A]">{user.name || 'â€”'}</td>
+                        <td className="py-2.5 px-3 text-[#1A1A1A]">{user.name || '—'}</td>
                         <td className="py-2.5 px-3 text-[#4A5568]">{user.email}</td>
                         <td className="py-2.5 px-3 hidden sm:table-cell">
                           <span className="inline-flex px-2 py-0.5 text-xs rounded-full border border-[#E5E7EB] text-[#4A5568] capitalize">
@@ -732,7 +732,7 @@ export function CompanySettingsPage() {
                           )}
                         </td>
                         <td className="py-2.5 px-3 text-[#9CA3AF] hidden md:table-cell text-xs">
-                          {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'â€”'}
+                          {user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}
                         </td>
                       </tr>
                     ))}

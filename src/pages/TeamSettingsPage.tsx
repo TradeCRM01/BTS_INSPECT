@@ -573,7 +573,7 @@ export function TeamSettingsPage() {
               <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shrink-0 mt-0.5">
                 <Crown size={10} /> Admin
               </span>
-              <p className="text-xs text-[#4A5568]">Full access â€” manage team, templates, inspections and company settings. Use the crown button on any member to promote or demote.</p>
+              <p className="text-xs text-[#4A5568]">Full access — manage team, templates, inspections and company settings. Use the crown button on any member to promote or demote.</p>
             </div>
             {ACCESS_OPTIONS.map(opt => (
               <div key={opt.value} className="flex items-start gap-3">

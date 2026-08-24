@@ -309,8 +309,8 @@ export function StockPage() {
                           <td className="px-4 py-3 font-medium text-[#1A1A1A]">
                             <Link to={`/stock/${item.id}`} onClick={e => e.stopPropagation()}>{item.name}</Link>
                           </td>
-                          <td className="px-4 py-3 text-[#4A5568]">{item.sku ?? <span className="text-[#9CA3AF]">â€”</span>}</td>
-                          <td className="px-4 py-3 text-[#4A5568]">{item.category ?? <span className="text-[#9CA3AF]">â€”</span>}</td>
+                          <td className="px-4 py-3 text-[#4A5568]">{item.sku ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                          <td className="px-4 py-3 text-[#4A5568]">{item.category ?? <span className="text-[#9CA3AF]">—</span>}</td>
                           <td className="px-4 py-3 text-[#4A5568]" onClick={e => e.stopPropagation()}>
                             <Link
                               to={`/stock/locations/${encodeLocationKey(item.storage_location)}`}
