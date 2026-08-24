@@ -332,7 +332,7 @@ export function JhaStepCard({
               <select
                 value={step.residualConsequence || ''}
                 onChange={e => setResidualLC({ residualConsequence: e.target.value })}
-                className="w-full text-sm border border-[#E5E7EB] rounded px-2.5 py-2 bg-white"
+                className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-2.5 py-2 bg-white"
               >
                 <option value="">Select…</option>
                 {CONSEQUENCE_OPTIONS.map(c => (
@@ -345,7 +345,7 @@ export function JhaStepCard({
               <select
                 value={step.residualLikelihood || ''}
                 onChange={e => setResidualLC({ residualLikelihood: e.target.value })}
-                className="w-full text-sm border border-[#E5E7EB] rounded px-2.5 py-2 bg-white"
+                className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-2.5 py-2 bg-white"
               >
                 <option value="">Select…</option>
                 {LIKELIHOOD_OPTIONS.map(l => (

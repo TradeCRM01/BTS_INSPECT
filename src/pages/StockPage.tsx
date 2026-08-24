@@ -203,7 +203,7 @@ export function StockPage() {
             <EmptyState
               icon={HardDrive}
               title="No drives yet"
-              message="Add storage locations under Settings â†’ Lists, or assign locations on stock items."
+              message="Add storage locations under Settings → Lists, or assign locations on stock items."
             />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

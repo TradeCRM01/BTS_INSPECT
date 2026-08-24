@@ -690,7 +690,7 @@ export function CompanySettingsPage() {
                 to="/settings/team"
                 className="text-xs font-medium text-[#2E75B6] hover:underline"
               >
-                Manage team â†’
+                Manage team →
               </Link>
             </div>
 

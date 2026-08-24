@@ -265,7 +265,7 @@ export function BarcodeScannerPage() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-[#1A1A1A]">{scanResult.item.name}</p>
-                        <p className="text-xs text-[#6B7280]">SKU: {scanResult.item.sku ?? 'â€”'} Â· Barcode: {scanResult.barcode}</p>
+                        <p className="text-xs text-[#6B7280]">SKU: {scanResult.item.sku ?? '—'} · Barcode: {scanResult.barcode}</p>
                       </div>
                     </div>
 

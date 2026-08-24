@@ -50,7 +50,7 @@ export function MoveStockModal({ items, onClose, onMoved }: MoveStockModalProps)
           stock_item_id: item.id,
           movement_type: 'transferred',
           quantity: 0,
-          reason: `Moved from ${fromLabel} â†’ ${destLabel}`,
+          reason: `Moved from ${fromLabel} → ${destLabel}`,
           created_by: profile.id,
         });
         if (mErr) throw mErr;
@@ -103,7 +103,7 @@ export function MoveStockModal({ items, onClose, onMoved }: MoveStockModalProps)
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="px-5 py-5 space-y-4">
+          <form onSubmit={handleSubmit} className="overlay-body space-y-4">
             {items.length === 1 ? (
               <p className="text-sm text-[#4A5568]">
                 Currently in <span className="font-medium text-[#1A1A1A]">{locationLabel(items[0].storage_location)}</span>
@@ -113,7 +113,7 @@ export function MoveStockModal({ items, onClose, onMoved }: MoveStockModalProps)
                 {items.map((i) => (
                   <li key={i.id} className="truncate">
                     <span className="font-medium text-[#1A1A1A]">{i.name}</span>
-                    <span className="text-[#9CA3AF]"> Â· {locationLabel(i.storage_location)}</span>
+                    <span className="text-[#9CA3AF]"> · {locationLabel(i.storage_location)}</span>
                   </li>
                 ))}
               </ul>
@@ -149,7 +149,7 @@ export function MoveStockModal({ items, onClose, onMoved }: MoveStockModalProps)
                 className="flex-1 flex items-center justify-center gap-2 bg-[#0A2540] text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
               >
                 {moveMutation.isPending ? <LoadingSpinner size="sm" /> : <ArrowRightLeft size={14} />}
-                {moveMutation.isPending ? 'Movingâ€¦' : 'Move'}
+                {moveMutation.isPending ? 'Moving…' : 'Move'}
               </button>
             </div>
           </form>

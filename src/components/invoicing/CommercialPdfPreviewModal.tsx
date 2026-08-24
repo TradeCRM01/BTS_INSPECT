@@ -82,7 +82,7 @@ export function CommercialPdfPreviewModal({ data, onClose }: CommercialPdfPrevie
             {loading && (
               <div className="flex flex-col items-center justify-center h-[70vh] text-[#4A5568]">
                 <Loader2 size={28} className="animate-spin mb-2 text-[#2E75B6]" />
-                <p className="text-sm">Generating PDFâ€¦</p>
+                <p className="text-sm">Generating PDF…</p>
               </div>
             )}
             {error && !loading && (

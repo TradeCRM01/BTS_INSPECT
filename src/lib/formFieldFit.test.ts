@@ -164,6 +164,16 @@ describe('form fields fit their type', () => {
     expect(page).toContain('to="/settings/team"');
     expect(page).toContain('Price book item (3-up stacks on phones)');
     expect(page).toContain('Managed lists add + JHA score');
+    expect(page).toContain('Barcode manual entry + Move stock destination');
+    expect(page).toContain('placeholder="API key"');
+    expect(page).toContain('to="/barcode"');
+    expect(src('src/components/stock/MoveStockModal.tsx')).toContain('overlay-body');
+    expect(src('src/components/stock/MoveStockModal.tsx')).not.toMatch(/Movingâ€/);
+    expect(src('src/pages/BarcodeScannerPage.tsx')).toContain("sku ?? '—'");
+    expect(src('src/pages/BarcodeScannerPage.tsx')).not.toMatch(/sku \?\? 'â€/);
+    expect(src('src/pages/CompanySettingsPage.tsx')).toContain('Manage team →');
+    expect(src('src/pages/StockPage.tsx')).toContain('Settings → Lists');
+    expect(src('src/components/invoicing/CommercialPdfPreviewModal.tsx')).toContain('Generating PDF…');
     expect(src('src/components/expenses/EmployeeCostRatesPanel.tsx')).toContain('form-input-sm w-full text-right min-w-0');
     expect(src('src/components/expenses/EmployeeCostRatesPanel.tsx')).not.toContain('form-input-sm w-20');
     expect(src('src/pages/TeamSettingsPage.tsx')).toContain('className="form-input"');

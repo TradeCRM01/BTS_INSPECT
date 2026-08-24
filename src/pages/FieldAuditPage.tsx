@@ -14,6 +14,7 @@ import { blankSolarInputs } from '../features/solar-calculator/draft';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import { JhaCrewRegister } from '../components/jha/JhaCrewRegister';
+import { MoveStockModal } from '../components/stock/MoveStockModal';
 import { enableDevFieldAuditAuth, DEV_AUDIT_COMPANY } from '../lib/devFieldAuditAuth';
 import type { Question } from '../types/template';
 import type { JhaCrewMember } from '../types/jha';
@@ -102,6 +103,8 @@ export function FieldAuditPage() {
   const [solarStep, setSolarStep] = useState(1);
   const [showJob, setShowJob] = useState(false);
   const [showTime, setShowTime] = useState(false);
+  const [showMove, setShowMove] = useState(false);
+  const [barcode, setBarcode] = useState('SKU-20MM-PVC-CONDUIT-4M');
   const [crew, setCrew] = useState<JhaCrewMember[]>([{
     id: 'audit-crew-1',
     name: 'Alex Field — licensed electrician warehouse roof',
@@ -165,6 +168,8 @@ export function FieldAuditPage() {
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/stock">Stock</Link>
         {' · '}
+        <Link className="text-[#2E75B6] underline" to="/barcode">Barcode</Link>
+        {' · '}
         <Link className="text-[#2E75B6] underline" to="/assets">Assets</Link>
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/suppliers">Suppliers</Link>
@@ -227,7 +232,7 @@ export function FieldAuditPage() {
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="form-input" />
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
               <div>
                 <label className="ops-field-label">SMTP host</label>
                 <input value={smtpHost} onChange={e => setSmtpHost(e.target.value)} className="form-input" />
@@ -484,13 +489,60 @@ export function FieldAuditPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="col-span-1 sm:col-span-2">
             <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">SMTP Host</label>
-            <input value={smtpHost} onChange={e => setSmtpHost(e.target.value)} className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-sm" />
+            <input value={smtpHost} onChange={e => setSmtpHost(e.target.value)} className="form-input" />
           </div>
           <div>
             <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Port</label>
-            <input value={smtpPort} onChange={e => setSmtpPort(e.target.value)} className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-sm" />
+            <input value={smtpPort} onChange={e => setSmtpPort(e.target.value)} className="form-input" />
           </div>
         </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">SMTP Username</label>
+            <input value="apikey" readOnly className="form-input" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">SMTP Password / API Key</label>
+            <div className="relative">
+              <input
+                type={showPw ? 'text' : 'password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="API key"
+                className="form-input pr-12"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(!showPw)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#4A5568]"
+              >
+                {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium">Barcode manual entry + Move stock destination</h2>
+        <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-4">
+          <h3 className="text-sm font-semibold text-[#1A1A1A] mb-3">Manual Entry</h3>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+              <input
+                value={barcode}
+                onChange={e => setBarcode(e.target.value)}
+                placeholder="Enter barcode or SKU..."
+                className="w-full min-h-[44px] h-auto py-2 pl-9 pr-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              />
+            </div>
+            <button type="button" className="flex items-center gap-1.5 bg-[#0A2540] text-white px-3 py-2 rounded-md text-sm font-medium">
+              Lookup
+            </button>
+          </div>
+        </div>
+        <button type="button" onClick={() => setShowMove(true)} className="btn-secondary">Open move stock</button>
       </section>
 
       <section className="space-y-2">
@@ -672,6 +724,15 @@ export function FieldAuditPage() {
           employeeId="audit"
           onClose={() => setShowTime(false)}
           onSaved={() => setShowTime(false)}
+        />
+      )}
+      {showMove && (
+        <MoveStockModal
+          items={[
+            { id: 'audit-stock-1', name: '20mm PVC conduit', storage_location: 'Van 1' },
+            { id: 'audit-stock-2', name: '16mm TPS cable', storage_location: 'Yard A' },
+          ]}
+          onClose={() => setShowMove(false)}
         />
       )}
     </div>
