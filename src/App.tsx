@@ -61,6 +61,7 @@ const ManagedListsSettingsPage = lazy(() => import('./pages/ManagedListsSettings
 const JobsPage = lazy(() => import('./pages/JobsPage').then(m => ({ default: m.JobsPage })));
 const JobDetailPage = lazy(() => import('./pages/JobDetailPage').then(m => ({ default: m.JobDetailPage })));
 const CompliancePage = lazy(() => import('./pages/CompliancePage').then(m => ({ default: m.CompliancePage })));
+const FieldAuditPage = lazy(() => import('./pages/FieldAuditPage').then(m => ({ default: m.FieldAuditPage })));
 
 function PageLoader() {
   return (
@@ -156,6 +157,19 @@ export default function App() {
       <Route path="/jobs" element={<Protected><JobsPage /></Protected>} />
       <Route path="/jobs/:id" element={<Protected><JobDetailPage /></Protected>} />
       <Route path="/compliance" element={<Protected><CompliancePage /></Protected>} />
+
+      {import.meta.env.DEV ? (
+        <Route
+          path="/__field-audit"
+          element={
+            <PageErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <FieldAuditPage />
+              </Suspense>
+            </PageErrorBoundary>
+          }
+        />
+      ) : null}
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

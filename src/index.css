@@ -1173,13 +1173,22 @@
   }
 
   /* Inline 24px chips keep 12px type so they are not iOS-zoomed or 44px-tall. */
+  .job-client-email,
+  .job-client-phone,
+  .job-client-attach {
+    max-width: 100%;
+    min-width: 0;
+  }
+
   .job-client-email .form-input-sm,
   .job-client-phone .form-input-sm,
   .job-client-attach .form-input-sm {
     font-size: 12px !important;
     height: 24px !important;
     min-height: 24px !important;
-    max-width: none;
+    max-width: 100% !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* ── Fullscreen-friendly overlays ─────────────────────────────── */
@@ -1306,7 +1315,7 @@
     .overlay-panel-xl .grid.sm\:grid-cols-4,
     .overlay-panel-sm .grid.sm\:grid-cols-4,
     .overlay-panel-md .grid.sm\:grid-cols-4 {
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) !important;
     }
   }
 

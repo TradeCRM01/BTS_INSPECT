@@ -67,7 +67,7 @@ interface LineItemEditorProps {
 
 type PickerMode = 'stock' | 'pricebook' | null;
 
-const GRID = 'grid-cols-2 sm:grid-cols-[150px_120px_1fr_60px_90px_80px_90px_100px_32px]';
+const GRID = 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-[150px_120px_1fr_60px_90px_80px_90px_100px_32px]';
 const MIN_W = 'min-w-0';
 
 export function LineItemEditor({
@@ -323,7 +323,7 @@ export function LineItemEditor({
       )}
 
       <div className="border border-[#E5E7EB] rounded-lg overflow-hidden overflow-x-auto">
-        <div className={`hidden sm:grid ${GRID} gap-2 px-3 py-2 bg-[#F9FAFB] text-xs font-medium text-[#4A5568] ${MIN_W}`}>
+        <div className={`hidden lg:grid ${GRID} gap-2 px-3 py-2 bg-[#F9FAFB] text-xs font-medium text-[#4A5568] ${MIN_W}`}>
           <span>Cost code</span>
           <span>Nature</span>
           <span>Description</span>
@@ -370,7 +370,7 @@ export function LineItemEditor({
                 allowAdd
                 className="form-input-sm"
               />
-              <div className="min-w-0 flex items-center gap-1 col-span-2 sm:col-span-1">
+              <div className="min-w-0 flex items-center gap-1 col-span-1 sm:col-span-2 lg:col-span-1">
                 {fromStock && <Package size={10} className="text-[#2E75B6] shrink-0" aria-label="From stock" />}
                 {fromBook && <BookOpen size={10} className="text-[#2E75B6] shrink-0" aria-label="From price book" />}
                 <input
@@ -389,7 +389,7 @@ export function LineItemEditor({
                   if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
                   updateLine(idx, { quantity: raw });
                 }}
-                className="form-input-sm text-right"
+                className="form-input-sm text-right min-w-0"
                 aria-label="Quantity"
               />
               <input
@@ -401,7 +401,7 @@ export function LineItemEditor({
                   if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
                   handleCostChange(idx, raw);
                 }}
-                className="form-input-sm text-right"
+                className="form-input-sm text-right min-w-0"
                 placeholder="0.00"
                 aria-label="Unit cost"
               />
@@ -414,7 +414,7 @@ export function LineItemEditor({
                   if (raw !== '' && !/^-?\d*\.?\d*$/.test(raw)) return;
                   handleMarkupChange(idx, raw);
                 }}
-                className="form-input-sm text-right"
+                className="form-input-sm text-right min-w-0"
                 placeholder="0"
                 aria-label="Markup percent"
               />
@@ -427,7 +427,7 @@ export function LineItemEditor({
                   if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
                   updateLine(idx, { unit_price: raw });
                 }}
-                className="form-input-sm text-right font-medium"
+                className="form-input-sm text-right font-medium min-w-0"
                 placeholder="0.00"
                 aria-label="Unit price"
               />

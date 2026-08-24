@@ -68,10 +68,10 @@ describe('form fields fit their type', () => {
 
   it('stacks invoice line items on a phone instead of a 980px clipped grid', () => {
     const editor = src('src/components/invoicing/LineItemEditor.tsx');
-    expect(editor).toContain('grid-cols-2');
-    expect(editor).toContain('col-span-2 sm:col-span-1');
+    expect(editor).toContain('grid-cols-1');
+    expect(editor).toContain('col-span-1 sm:col-span-2 lg:col-span-1');
     expect(editor).not.toContain('min-w-[980px]');
-    expect(editor).toContain('hidden sm:grid');
+    expect(editor).toContain('hidden lg:grid');
     expect(editor).toContain('pl-8');
   });
 
@@ -79,13 +79,14 @@ describe('form fields fit their type', () => {
     const css = src('src/index.css');
     expect(css).toContain('.job-client-email .form-input-sm');
     expect(css).toMatch(/min-height:\s*24px\s*!important/);
+    expect(css).toMatch(/max-width:\s*100%\s*!important/);
   });
 
   it('stacks overlay form grids on a phone so fields are not half-width clipped', () => {
     const css = src('src/index.css');
     expect(css).toContain('.overlay-panel .grid.grid-cols-2');
     expect(css).toContain('.overlay-panel .grid.grid-cols-4');
-    expect(css).toContain('grid-template-columns: minmax(0, 1fr)');
+    expect(css).toContain('grid-template-columns: minmax(0, 1fr) !important');
   });
 
   it('does not pin remaining page fields to h-9', () => {
