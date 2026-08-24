@@ -544,18 +544,7 @@ export function ApplyEmployeeCostModelModal({
                   onClick={() => setSelected({})}>Clear</button>
               </div>
             </div>
-            <div className="border border-[#E5E7EB] rounded-lg overflow-hidden max-h-72 overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-[#F9FAFB] text-xs text-[#6B7280] sticky top-0">
-                  <tr>
-                    <th className="px-3 py-2 text-left w-8"></th>
-                    <th className="px-3 py-2 text-left">Name</th>
-                    <th className="px-3 py-2 text-right">Wage override</th>
-                    <th className="px-3 py-2 text-right">Multiplier</th>
-                    <th className="px-3 py-2 text-right">Est. total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F3F4F6]">
+            <div className="border border-[#E5E7EB] rounded-lg overflow-hidden max-h-72 overflow-y-auto divide-y divide-[#F3F4F6]">
                   {employees.map(emp => {
                     const on = !!selected[emp.id];
                     const mult = parseFloat(multipliers[emp.id] || '1') || 1;
@@ -565,14 +554,15 @@ export function ApplyEmployeeCostModelModal({
                       ? modelHourlyCost(model, wagesOverrideHourly) * periodHours * mult
                       : 0;
                     return (
-                      <tr key={emp.id} className={on ? 'bg-white' : 'bg-[#F9FAFB] opacity-70'}>
-                        <td className="px-3 py-2">
+                      <div key={emp.id} className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[auto_minmax(0,1fr)_8rem_6rem_7rem] gap-2 items-center p-3 ${on ? 'bg-white' : 'bg-[#F9FAFB] opacity-70'}`}>
+                        <label className="flex items-center gap-2 text-sm font-medium text-[#1A1A1A] min-w-0 sm:col-span-2 lg:col-span-2">
                           <input type="checkbox" checked={on}
                             onChange={e => setSelected(s => ({ ...s, [emp.id]: e.target.checked }))}
                             className="rounded border-gray-300" />
-                        </td>
-                        <td className="px-3 py-2 font-medium text-[#1A1A1A]">{emp.name}</td>
-                        <td className="px-3 py-2">
+                          <span className="truncate">{emp.name}</span>
+                        </label>
+                        <div>
+                          <p className="text-[10px] text-[#6B7280] mb-1 lg:hidden">Wage override</p>
                           <input
                             type="text"
                             inputMode="decimal"
@@ -583,11 +573,12 @@ export function ApplyEmployeeCostModelModal({
                               if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
                               setWageOverrides(m => ({ ...m, [emp.id]: raw }));
                             }}
-                            className="form-input-sm w-28 ml-auto text-right"
+                            className="form-input-sm w-full text-right min-w-0"
                             disabled={!on}
                           />
-                        </td>
-                        <td className="px-3 py-2">
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-[#6B7280] mb-1 lg:hidden">Multiplier</p>
                           <input
                             type="text"
                             inputMode="decimal"
@@ -597,19 +588,17 @@ export function ApplyEmployeeCostModelModal({
                               if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
                               setMultipliers(m => ({ ...m, [emp.id]: raw }));
                             }}
-                            className="form-input-sm w-20 ml-auto text-right"
+                            className="form-input-sm w-full text-right min-w-0"
                             disabled={!on}
                             title="1 = full package, 0.5 = half, 1.2 = 20% more"
                           />
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums font-medium">
+                        </div>
+                        <p className="text-right tabular-nums font-medium text-sm">
                           {on ? formatMoney(est) : '—'}
-                        </td>
-                      </tr>
+                        </p>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
             </div>
             <p className="text-[11px] text-[#9CA3AF] mt-1.5">
               Wage override uses the same unit as the wages line (or $/hr when the line is Hours × rate). Multiplier scales the whole package.
