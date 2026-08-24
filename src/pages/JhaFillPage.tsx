@@ -28,6 +28,7 @@ import { JhaCrewRegister } from '../components/jha/JhaCrewRegister';
 import { JhaSwmsLibraryPicker } from '../components/jha/JhaSwmsLibraryPicker';
 import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { EMPTY_SWMS, HRCW_CATEGORIES, parseSwmsMeta, type JhaSwmsData } from '../lib/swmsHrcw';
+import { getAuditClients, getAuditJhaDoc, getAuditJobs, getAuditTake5List, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { jhaFillContext, jhaStatusClass, jhaStatusLabel, recommendJhaFillAction } from '../lib/jhaNextAction';
 import { applyLivingJobToJha, livingJobSite, livingTake5MetaPatches } from '../lib/livingJha';
 import { take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
@@ -145,6 +146,8 @@ export function JhaFillPage() {
   const { data: existingDoc, isLoading: docLoading, isError: docError, refetch: refetchDoc } = useQuery({
     queryKey: ['jha-document', docId],
     queryFn: async () => {
+      const mock = getAuditJhaDoc(docId!);
+      if (mock) return mock as unknown as JhaDocRow;
       const { data, error } = await supabase
         .from('jha_documents')
         .select('*')
@@ -159,6 +162,8 @@ export function JhaFillPage() {
   const { data: clients = [] } = useQuery({
     queryKey: ['clients-for-jha'],
     queryFn: async () => {
+      const mock = getAuditClients();
+      if (mock) return mock.map(c => ({ id: c.id, name: c.name }));
       const { data, error } = await supabase.from('clients').select('id, name').eq('archived', false).order('name');
       if (error) throw error;
       return data ?? [];
@@ -169,6 +174,8 @@ export function JhaFillPage() {
   const { data: jobs = [] } = useQuery({
     queryKey: ['jobs-for-jha'],
     queryFn: async () => {
+      const mock = getAuditJobs();
+      if (mock) return mock;
       const { data, error } = await supabase.from('jobs').select('id, title, client_id, address, assigned_team').order('created_at', { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -179,6 +186,8 @@ export function JhaFillPage() {
   const { data: teamMembers = [], isSuccess: membersReady } = useQuery({
     queryKey: ['company-members-jha', profile?.company_id],
     queryFn: async () => {
+      const mock = getAuditTeamMembers();
+      if (mock) return mock;
       const { data, error } = await supabase.rpc('get_company_members', { p_company_id: profile!.company_id });
       if (error) throw error;
       return (data ?? []) as Array<{ id: string; name: string; email: string; role: string }>;
@@ -189,6 +198,8 @@ export function JhaFillPage() {
   const { data: take5List = [] } = useQuery({
     queryKey: ['jha-take5-list', docIdState],
     queryFn: async () => {
+      const mock = getAuditTake5List(docIdState!);
+      if (mock) return mock;
       const { data, error } = await supabase
         .from('jha_take5')
         .select('id, status, created_at, go_no_go, signed_name, meta, stop_think, identify_hazards, control_actions, signature')

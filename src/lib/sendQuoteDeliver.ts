@@ -17,6 +17,7 @@ import {
 import { type SmtpSettingsRow } from './sendInvoice';
 import { formatEmailAndSmsMessage, type SmsSendResult } from './jobReminder';
 import { generateCommercialPdf } from '../reports/commercial/generateCommercialPdf';
+import { getAuditQuoteSendBundle } from './devFieldAuditDocs';
 
 export type DeliverQuoteResult =
   | { ok: true; to: string; markedSent: true; message: string; sms: SmsSendResult | null }
@@ -34,6 +35,8 @@ export async function loadQuoteSendBundle(
   quoteId: string,
   company: QuoteSendCompany & { id: string },
 ): Promise<QuoteSendBundle> {
+  const mock = getAuditQuoteSendBundle(quoteId, company);
+  if (mock) return mock;
   const scopes = quoteSendQueries({ companyId: company.id, quoteId });
   const quoteRes = await applyQuoteSendScope(supabase.from(scopes.quote.table), scopes.quote).maybeSingle();
   if (quoteRes.error) throw quoteRes.error;

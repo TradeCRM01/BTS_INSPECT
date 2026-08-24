@@ -13,6 +13,7 @@ import { Plus, Search, BookOpen, X, Trash2, Pencil, Star, MoreVertical, DollarSi
 import type { PriceBook, PriceBookItem } from '../types/fsm';
 import { formatMoney } from '../types/fsm';
 import { PriceBookPdfImportModal } from '../components/pricebooks/PriceBookPdfImportModal';
+import { getAuditPriceBookItems, getAuditPriceBooks } from '../lib/devFieldAuditDocs';
 
 export function PriceBooksPage() {
   const { profile, company } = useAuth();
@@ -30,6 +31,8 @@ export function PriceBooksPage() {
   const { data: priceBooks, isLoading, error } = useQuery({
     queryKey: ['price-books'],
     queryFn: async () => {
+      const mock = getAuditPriceBooks();
+      if (mock) return mock;
       const { data, error } = await supabase.from('price_books').select('*').eq('company_id', profile!.company_id).order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as PriceBook[];
@@ -49,6 +52,8 @@ export function PriceBooksPage() {
     queryKey: ['price-book-items', selectedBookId],
     queryFn: async () => {
       if (!selectedBookId) return [];
+      const mock = getAuditPriceBookItems(selectedBookId);
+      if (mock) return mock;
       const { data, error } = await supabase.from('price_book_items').select('*').eq('price_book_id', selectedBookId).order('description');
       if (error) throw error;
       return (data ?? []) as PriceBookItem[];

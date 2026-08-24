@@ -17,6 +17,7 @@ import {
   type ReportSendCompany,
 } from './sendReport';
 import { blobToBase64, type SmtpSettingsRow } from './sendInvoice';
+import { getAuditReportSendBundle } from './devFieldAuditDocs';
 import { formatEmailAndSmsMessage, type SmsSendResult } from './jobReminder';
 
 export type DeliverReportResult =
@@ -27,6 +28,8 @@ export async function loadReportSendBundle(
   reportId: string,
   company: ReportSendCompany & { id: string },
 ): Promise<ReportSendBundle> {
+  const mock = getAuditReportSendBundle(reportId, company);
+  if (mock) return mock;
   const scopes = reportSendQueries({ companyId: company.id, reportId });
   const reportRes = await applyReportSendScope(supabase.from(scopes.report.table), scopes.report).maybeSingle();
   if (reportRes.error) throw reportRes.error;

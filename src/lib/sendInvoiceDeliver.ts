@@ -31,6 +31,7 @@ import {
 } from './xeroAccounting';
 import { generateCommercialPdf } from '../reports/commercial/generateCommercialPdf';
 import type { InvoiceWithDetails } from '../types/fsm';
+import { getAuditInvoiceSendBundle } from './devFieldAuditDocs';
 
 export type DeliverInvoiceResult =
   | { ok: true; to: string; markedSent: true; message: string; sms: SmsSendResult | null; xero: XeroAfterSendResult }
@@ -63,6 +64,8 @@ export async function loadInvoiceSendBundle(
   invoiceId: string,
   company: InvoiceSendCompany & { id: string },
 ): Promise<InvoiceSendBundle> {
+  const mock = getAuditInvoiceSendBundle(invoiceId, company);
+  if (mock) return mock;
   const scopes = invoiceSendQueries({ companyId: company.id, invoiceId });
   const invoiceRes = await applyInvoiceSendScope(supabase.from(scopes.invoice.table), scopes.invoice).maybeSingle();
   if (invoiceRes.error) throw invoiceRes.error;

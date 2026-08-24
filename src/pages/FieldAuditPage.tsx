@@ -19,6 +19,19 @@ import { MoveStockModal } from '../components/stock/MoveStockModal';
 import { JobClientReminder } from '../components/jobs/JobClientReminder';
 import { InspectionDueReminder } from '../components/inspection/InspectionDueReminder';
 import { enableDevFieldAuditAuth, DEV_AUDIT_COMPANY } from '../lib/devFieldAuditAuth';
+import {
+  AUDIT_INSPECTION_ID,
+  AUDIT_INVOICE_ID,
+  AUDIT_JHA_DOC_ID,
+  AUDIT_PO_ID,
+  AUDIT_QUOTE_ID,
+  AUDIT_REPORT_ID,
+  AUDIT_TAKE5_ID,
+} from '../lib/devFieldAuditDocs';
+import { InvoiceSendDialog } from '../components/invoicing/InvoiceSendDialog';
+import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
+import { PurchaseOrderSendDialog } from '../components/invoicing/PurchaseOrderSendDialog';
+import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
 import type { Question } from '../types/template';
 import type { Client, Job } from '../types/crm';
 import type { JhaCrewMember, JhaStep, JhaTemplateSchema } from '../types/jha';
@@ -209,6 +222,17 @@ export function FieldAuditPage() {
     { ...emptyLineItem(20), description: '20mm PVC conduit — 4m lengths', quantity: '12', unit_cost: '4.80', markup_percent: '20', unit_price: '5.76' },
     { ...emptyLineItem(20), description: 'Labour — licensed electrician', quantity: '6', unit_cost: '95', markup_percent: '15', unit_price: '109.25' },
   ]);
+  const [sendSheet, setSendSheet] = useState<null | 'invoice' | 'quote' | 'po' | 'report'>(null);
+  const auditSendCompany = {
+    id: DEV_AUDIT_COMPANY.id,
+    name: DEV_AUDIT_COMPANY.name,
+    abn: DEV_AUDIT_COMPANY.abn ?? null,
+    licence_number: DEV_AUDIT_COMPANY.licence_number ?? null,
+    phone: DEV_AUDIT_COMPANY.phone ?? null,
+    email: DEV_AUDIT_COMPANY.email ?? null,
+    website: DEV_AUDIT_COMPANY.website ?? null,
+    logo_url: DEV_AUDIT_COMPANY.logo_url ?? null,
+  };
 
   useEffect(() => {
     enableDevFieldAuditAuth();
@@ -235,6 +259,8 @@ export function FieldAuditPage() {
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/inspections">Inspections</Link>
         {' · '}
+        <Link className="text-[#2E75B6] underline" to={`/inspections/${AUDIT_INSPECTION_ID}`}>Fill inspection</Link>
+        {' · '}
         <Link className="text-[#2E75B6] underline" to="/inspections/new">New inspection</Link>
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/templates">Templates</Link>
@@ -245,7 +271,11 @@ export function FieldAuditPage() {
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/jha">JHA</Link>
         {' · '}
+        <Link className="text-[#2E75B6] underline" to={`/jha/new?docId=${AUDIT_JHA_DOC_ID}`}>Fill JHA</Link>
+        {' · '}
         <Link className="text-[#2E75B6] underline" to="/jha/take5">Take 5</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to={`/jha/take5?id=${AUDIT_TAKE5_ID}`}>Fill Take 5</Link>
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/solar-estimates">Solar</Link>
         {' · '}
@@ -276,6 +306,14 @@ export function FieldAuditPage() {
         <Link className="text-[#2E75B6] underline" to="/schedule">Schedule</Link>
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/settings/team">Team</Link>
+        {' · '}
+        <button type="button" className="text-[#2E75B6] underline" onClick={() => setSendSheet('invoice')}>Send invoice</button>
+        {' · '}
+        <button type="button" className="text-[#2E75B6] underline" onClick={() => setSendSheet('quote')}>Send quote</button>
+        {' · '}
+        <button type="button" className="text-[#2E75B6] underline" onClick={() => setSendSheet('po')}>Send PO</button>
+        {' · '}
+        <button type="button" className="text-[#2E75B6] underline" onClick={() => setSendSheet('report')}>Send report</button>
       </p>
 
       <section className="space-y-2">
@@ -887,6 +925,38 @@ export function FieldAuditPage() {
             { id: 'audit-stock-2', name: '16mm TPS cable', storage_location: 'Yard A' },
           ]}
           onClose={() => setShowMove(false)}
+        />
+      )}
+      {sendSheet === 'invoice' && (
+        <InvoiceSendDialog
+          invoiceId={AUDIT_INVOICE_ID}
+          company={auditSendCompany}
+          onClose={() => setSendSheet(null)}
+          onSent={() => setSendSheet(null)}
+        />
+      )}
+      {sendSheet === 'quote' && (
+        <QuoteSendDialog
+          quoteId={AUDIT_QUOTE_ID}
+          company={auditSendCompany}
+          onClose={() => setSendSheet(null)}
+          onSent={() => setSendSheet(null)}
+        />
+      )}
+      {sendSheet === 'po' && (
+        <PurchaseOrderSendDialog
+          purchaseOrderId={AUDIT_PO_ID}
+          company={auditSendCompany}
+          onClose={() => setSendSheet(null)}
+          onSent={() => setSendSheet(null)}
+        />
+      )}
+      {sendSheet === 'report' && (
+        <ReportSendDialog
+          reportId={AUDIT_REPORT_ID}
+          company={auditSendCompany}
+          onClose={() => setSendSheet(null)}
+          onSent={() => setSendSheet(null)}
         />
       )}
     </div>

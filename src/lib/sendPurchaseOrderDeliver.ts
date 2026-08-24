@@ -17,6 +17,7 @@ import {
 import { type SmtpSettingsRow } from './sendInvoice';
 import { formatEmailAndSmsMessage, type SmsSendResult } from './jobReminder';
 import { generateCommercialPdf } from '../reports/commercial/generateCommercialPdf';
+import { getAuditPurchaseOrderSendBundle } from './devFieldAuditDocs';
 
 export type DeliverPurchaseOrderResult =
   | { ok: true; to: string; markedSent: true; message: string; sms: SmsSendResult | null }
@@ -34,6 +35,8 @@ export async function loadPurchaseOrderSendBundle(
   purchaseOrderId: string,
   company: PurchaseOrderSendCompany & { id: string },
 ): Promise<PurchaseOrderSendBundle> {
+  const mock = getAuditPurchaseOrderSendBundle(purchaseOrderId, company);
+  if (mock) return mock;
   const scopes = purchaseOrderSendQueries({ companyId: company.id, purchaseOrderId });
   const poRes = await applyPurchaseOrderSendScope(supabase.from(scopes.po.table), scopes.po).maybeSingle();
   if (poRes.error) throw poRes.error;
