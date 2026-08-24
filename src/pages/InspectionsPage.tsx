@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, OpsDocHead, OpsSiteRow, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
@@ -378,8 +379,8 @@ export function InspectionsPage() {
 
   const openDocs = filtered.filter(d => inspectionListBucket(d.status) === 'open');
   const doneDocs = filtered.filter(d => inspectionListBucket(d.status) === 'done');
-  const noneAtAll = !isLoading && !isError && (inspections ?? []).filter(i => showArchived ? i.archived : !i.archived).length === 0;
-  const noneMatch = !isLoading && !isError && (inspections ?? []).length > 0 && filtered.length === 0 && !noneAtAll;
+  const noneAtAll = !isLoading && !pageQueryBlocked(isError) && (inspections ?? []).filter(i => showArchived ? i.archived : !i.archived).length === 0;
+  const noneMatch = !isLoading && !pageQueryBlocked(isError) && (inspections ?? []).length > 0 && filtered.length === 0 && !noneAtAll;
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -512,7 +513,7 @@ export function InspectionsPage() {
         {isLoading && (
           <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
         )}
-        {isError && <PageError onRetry={refetch} />}
+        {pageQueryBlocked(isError) && <PageError onRetry={refetch} />}
 
         {noneAtAll && (
           <EmptyState

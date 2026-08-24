@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { FileText, Search, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import {
   take5FillPath,
@@ -118,8 +119,8 @@ export function Take5ListPage() {
 
   const openRows = filtered.filter(r => take5ListBucket(r.status) === 'open');
   const doneRows = filtered.filter(r => take5ListBucket(r.status) === 'done');
-  const noneAtAll = !isLoading && !isError && (rows ?? []).length === 0;
-  const noneMatch = !isLoading && !isError && (rows ?? []).length > 0 && filtered.length === 0;
+  const noneAtAll = !isLoading && !pageQueryBlocked(isError) && (rows ?? []).length === 0;
+  const noneMatch = !isLoading && !pageQueryBlocked(isError) && (rows ?? []).length > 0 && filtered.length === 0;
 
   return (
     <AppShell>
@@ -158,7 +159,7 @@ export function Take5ListPage() {
         {isLoading && (
           <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
         )}
-        {isError && <PageError onRetry={refetch} />}
+        {pageQueryBlocked(isError) && <PageError onRetry={refetch} />}
 
         {noneAtAll && (
           <EmptyState

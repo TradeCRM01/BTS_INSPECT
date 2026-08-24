@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
@@ -170,7 +171,7 @@ export function ContractsPage() {
 
   const creating = createJobMutation.isPending || createDueMutation.isPending;
 
-  if (error) return <AppShell><PageError message="Could not load contracts" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load contracts" /></AppShell>;
 
   return (
     <AppShell>

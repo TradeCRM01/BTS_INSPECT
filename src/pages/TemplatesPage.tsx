@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner as _LoadingSpinner, PageError } from '../components/ui';
@@ -182,7 +183,7 @@ export function TemplatesPage() {
 
         {isLoading ? (
           <SkeletonList count={5} />
-        ) : isError ? (
+        ) : pageQueryBlocked(isError) ? (
           <PageError onRetry={refetch} />
         ) : activeTab === 'inspections' ? (
           templates?.length === 0 ? (

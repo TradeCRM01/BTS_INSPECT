@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
@@ -241,7 +242,7 @@ export function SchedulePage() {
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  if (error) return <AppShell><PageError message="Could not load schedule" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load schedule" /></AppShell>;
 
   return (
     <AppShell>

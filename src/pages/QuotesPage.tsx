@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, OpsDocHead, OpsFromTo, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
 import { SkeletonRow } from '../components/ui/Skeletons';
@@ -206,7 +207,7 @@ export function QuotesPage() {
     }
   }
 
-  if (error) return <AppShell><PageError message="Could not load quotes" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load quotes" /></AppShell>;
 
   const filteredEmpty = !search && statusFilter === 'all';
 

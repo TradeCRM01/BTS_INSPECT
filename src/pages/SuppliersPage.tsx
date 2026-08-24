@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonCardGrid } from '../components/ui/Skeletons';
@@ -72,7 +73,7 @@ export function SuppliersPage() {
     );
   }, [suppliers, search]);
 
-  if (error) return <AppShell><PageError message="Could not load suppliers" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load suppliers" /></AppShell>;
 
   return (
     <AppShell>

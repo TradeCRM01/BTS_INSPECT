@@ -157,6 +157,10 @@ describe('form fields fit their type', () => {
     expect(page).toContain('DocumentVariationsEditor');
     expect(page).toContain('hub-invoice-send');
     expect(page).toContain('enableDevFieldAuditAuth');
+    expect(src('src/lib/devFieldAuditAuth.ts')).toContain('pageQueryBlocked');
+    expect(src('src/pages/InvoicesPage.tsx')).toContain('pageQueryBlocked(error)');
+    expect(src('src/pages/JobsPage.tsx')).toContain('pageQueryBlocked(error)');
+    expect(src('src/main.tsx')).toContain('isDevFieldAuditAuth()');
   });
 
   it('does not pin remaining text fields to h-8/h-9 or undo min-height on desktop', () => {

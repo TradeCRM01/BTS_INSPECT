@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, useToast } from '../components/ui';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
@@ -21,7 +22,7 @@ export function TimesheetsPage() {
   const presetJobId = searchParams.get('job');
   const [showEntryForm, setShowEntryForm] = useState(() => !!presetJobId);
 
-  const { data: teamMembers } = useQuery({
+  const { data: teamMembers, isFetched: teamFetched } = useQuery({
     queryKey: ['team-members'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_company_members', { p_company_id: profile!.company_id });
@@ -33,11 +34,14 @@ export function TimesheetsPage() {
 
   // Auto-select current user
   useEffect(() => {
-    if (!selectedEmployee && teamMembers && teamMembers.length > 0) {
+    if (selectedEmployee) return;
+    if (teamMembers && teamMembers.length > 0) {
       const me = teamMembers.find(m => m.id === profile?.id);
       setSelectedEmployee(me?.id ?? teamMembers[0].id);
+      return;
     }
-  }, [teamMembers, selectedEmployee, profile]);
+    if (teamFetched && profile?.id) setSelectedEmployee(profile.id);
+  }, [teamMembers, teamFetched, selectedEmployee, profile]);
 
   const weekStart = format(currentWeek, 'yyyy-MM-dd');
   const weekEnd = format(addDays(currentWeek, 6), 'yyyy-MM-dd');
@@ -135,7 +139,7 @@ export function TimesheetsPage() {
   const isClockedIn = !!todayTs?.clock_in && !todayTs?.clock_out;
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
-  if (error) return <AppShell><PageError message="Could not load timesheets" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load timesheets" /></AppShell>;
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeek, i));
 

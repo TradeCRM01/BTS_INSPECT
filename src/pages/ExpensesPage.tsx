@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, useToast } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
@@ -209,7 +210,7 @@ export function ExpensesPage() {
     return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
   }, [filtered]);
 
-  if (error) return <AppShell><PageError message="Could not load expenses" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load expenses" /></AppShell>;
 
   return (
     <AppShell>

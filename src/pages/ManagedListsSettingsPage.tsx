@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, useToast } from '../components/ui';
 import { Plus, Trash2, ArrowUp, ArrowDown, X, ListChecks } from 'lucide-react';
@@ -111,7 +112,7 @@ export function ManagedListsSettingsPage() {
 
   const [newVal, setNewVal] = useState('');
 
-  if (error) return <AppShell><PageError message="Could not load lists" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load lists" /></AppShell>;
 
   const selectedDef = defs?.find(d => d.key === selectedKey);
 

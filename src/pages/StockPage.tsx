@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS, useManagedList } from '../lib/useManagedList';
 import { AppShell } from '../components/layout/AppShell';
@@ -148,7 +149,7 @@ export function StockPage() {
     return [...assigned, unassigned];
   }, [items, locationList, showArchived]);
 
-  if (error) return <AppShell><PageError message="Could not load stock items" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load stock items" /></AppShell>;
 
   return (
     <AppShell>

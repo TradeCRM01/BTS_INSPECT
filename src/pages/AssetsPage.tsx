@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS } from '../lib/useManagedList';
 import { AppShell } from '../components/layout/AppShell';
@@ -85,7 +86,7 @@ export function AssetsPage() {
     };
   }, [assets]);
 
-  if (error) return <AppShell><PageError message="Could not load assets" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load assets" /></AppShell>;
 
   return (
     <AppShell>

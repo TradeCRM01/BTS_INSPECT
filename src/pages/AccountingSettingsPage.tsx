@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
@@ -194,7 +195,7 @@ export function AccountingSettingsPage() {
 
   if (profile && !isAdmin) return <Navigate to="/" replace />;
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
-  if (error) return <AppShell><PageError message="Could not load accounting settings" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load accounting settings" /></AppShell>;
 
   const lastSynced = settings?.last_synced_at
     ? format(parseISO(settings.last_synced_at), 'dd MMM yyyy, HH:mm')

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
@@ -88,7 +89,7 @@ export function CustomerPortalPage() {
   }, [clients, tokens]);
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
-  if (error) return <AppShell><PageError message="Could not load portal tokens" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load portal tokens" /></AppShell>;
 
   const portalBase = typeof window !== 'undefined' ? `${window.location.origin}/p` : '/p';
 

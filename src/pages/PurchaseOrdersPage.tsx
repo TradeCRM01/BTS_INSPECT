@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, SearchBar, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
@@ -84,7 +85,7 @@ export function PurchaseOrdersPage() {
     return list;
   }, [pos, statusFilter, search]);
 
-  if (error) return <AppShell><PageError message="Could not load purchase orders" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load purchase orders" /></AppShell>;
 
   const totals = useMemo(() => {
     const all = pos ?? [];

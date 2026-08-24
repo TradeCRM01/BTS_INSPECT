@@ -35,6 +35,11 @@ export function enableDevFieldAuditAuth(): void {
   }
 }
 
+/** True when a failed list query should hide the page. Never in the DEV field-audit session. */
+export function pageQueryBlocked(error: unknown): boolean {
+  return Boolean(error) && !isDevFieldAuditAuth();
+}
+
 export const DEV_AUDIT_USER = {
   id: AUDIT_USER_ID,
   email: 'field-audit@example.com',
@@ -59,6 +64,7 @@ export const DEV_AUDIT_PROFILE = {
   role: 'admin',
   email: 'field-audit@example.com',
   licence_number: 'EL-12345',
+  template_access: 'edit',
 } as unknown as Profile;
 
 export const DEV_AUDIT_COMPANY = {

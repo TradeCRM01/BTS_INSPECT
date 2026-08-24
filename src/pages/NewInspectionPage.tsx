@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -181,7 +182,7 @@ export function NewInspectionPage() {
     );
   }
 
-  if (isError) return <PageError onRetry={refetch} />;
+  if (pageQueryBlocked(isError)) return <PageError onRetry={refetch} />;
 
   const backTo = parentInspectionId
     ? `/inspections/${parentInspectionId}/report`

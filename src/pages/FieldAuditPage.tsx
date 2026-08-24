@@ -113,12 +113,46 @@ export function FieldAuditPage() {
     <div className="min-h-screen bg-[#F9FAFB] text-[#1A1A1A] p-4 space-y-8 max-w-[1100px] mx-auto">
       <h1 className="text-lg font-semibold">Field audit (dev)</h1>
       <p className="text-sm text-[#4A5568]">
-        Settings pages with a mock session:{' '}
+        Real editors (DEV mock session):{' '}
+        <Link className="text-[#2E75B6] underline" to="/jobs">Jobs</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/invoices">Invoices</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/quotes">Quotes</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/purchase-orders">POs</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/expenses">Expenses</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/clients">Clients</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/timesheets">Timesheets</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/inspections">Inspections</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/inspections/new">New inspection</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/templates">Templates</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/templates/new">New template</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/jha-templates/new">New JHA template</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/jha">JHA</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/jha/take5">Take 5</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/solar-estimates">Solar</Link>
+        {' · '}
         <Link className="text-[#2E75B6] underline" to="/settings/company">Company</Link>
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/settings/profile">Profile</Link>
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/settings/ai">AI</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/settings/lists">Lists</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/settings/accounting">Accounting</Link>
       </p>
 
       <section className="space-y-2">

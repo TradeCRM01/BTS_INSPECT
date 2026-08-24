@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, Breadcrumbs, useToast } from '../components/ui';
 import { format, parseISO } from 'date-fns';
@@ -69,7 +70,7 @@ export function SupplierDetailPage() {
   });
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
-  if (error) return <AppShell><PageError message="Could not load supplier" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load supplier" /></AppShell>;
   if (!supplier) return <AppShell><PageError message="Supplier not found" /></AppShell>;
 
   const pos = purchaseOrders ?? [];
