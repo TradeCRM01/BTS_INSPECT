@@ -80,7 +80,7 @@ export function ShowIfEditor({ value, questions, onChange, label = 'Show only if
 
       <div className="space-y-2">
         {group.conditions.map((cond, i) => (
-          <div key={i} className="flex flex-wrap items-center gap-1.5 p-2 rounded border border-[#E5E7EB] bg-white">
+          <div key={i} className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-1.5 p-2 rounded border border-[#E5E7EB] bg-white">
             {i > 0 && (
               <span className="text-[10px] font-semibold text-[#9CA3AF] uppercase w-full mb-0.5">
                 {group.logic}
@@ -93,7 +93,7 @@ export function ShowIfEditor({ value, questions, onChange, label = 'Show only if
                 next[i] = { ...cond, questionId: e.target.value };
                 setConditions(group.logic, next);
               }}
-              className="text-xs min-h-[44px] h-auto border border-[#E5E7EB] rounded px-2 py-2 bg-white focus:outline-none flex-1 min-w-0 sm:min-w-[140px]"
+              className="text-xs min-h-[44px] h-auto border border-[#E5E7EB] rounded px-2 py-2 bg-white focus:outline-none w-full min-w-0 sm:flex-1 sm:min-w-[140px]"
             >
               {questions.map(q => (
                 <option key={q.id} value={q.id}>{q.sectionTitle} → {q.label || '(unlabelled)'}</option>
@@ -106,7 +106,7 @@ export function ShowIfEditor({ value, questions, onChange, label = 'Show only if
                 next[i] = { ...cond, operator: e.target.value as Condition['operator'] };
                 setConditions(group.logic, next);
               }}
-              className="text-xs min-h-[44px] h-auto border border-[#E5E7EB] rounded px-2 py-2 bg-white focus:outline-none"
+              className="text-xs min-h-[44px] h-auto border border-[#E5E7EB] rounded px-2 py-2 bg-white focus:outline-none w-full min-w-0 sm:w-auto"
             >
               <option value="equals">equals</option>
               <option value="not_equals">not equals</option>
@@ -121,7 +121,7 @@ export function ShowIfEditor({ value, questions, onChange, label = 'Show only if
                   next[i] = { ...cond, value: e.target.value };
                   setConditions(group.logic, next);
                 }}
-                className="text-xs min-h-[44px] h-auto border border-[#E5E7EB] rounded px-2 py-2 bg-white focus:outline-none flex-1 min-w-0"
+                className="text-xs min-h-[44px] h-auto border border-[#E5E7EB] rounded px-2 py-2 bg-white focus:outline-none w-full min-w-0 sm:flex-1"
                 placeholder="value"
               />
             )}

@@ -239,6 +239,7 @@ describe('form fields fit their type', () => {
     expect(src('src/components/layout/AppShell.tsx')).toContain('<GlobalSearch');
     expect(src('src/components/layout/AppShell.tsx')).toContain('setSearchOpen(true)');
     expect(src('src/components/template-editor/QuestionEditor.tsx')).toContain('min-h-[44px] h-auto py-2 text-sm text-[#1A1A1A]');
+    expect(src('src/components/template-editor/ShowIfEditor.tsx')).toContain('flex flex-col sm:flex-row sm:flex-wrap');
     expect(src('src/pages/AiConsolePage.tsx')).toContain('max-md:absolute');
     expect(src('src/main.tsx')).toContain('isDevFieldAuditAuth()');
   });
