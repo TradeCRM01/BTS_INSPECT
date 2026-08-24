@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui';
+import { getAuditDashboardWidgets } from '../lib/devFieldAuditDocs';
+import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import {
   DndContext, DragEndEvent, DragStartEvent, PointerSensor, useSensor, useSensors,
   useDraggable,
@@ -46,6 +48,8 @@ export function DashboardPage() {
   const { data: widgets, isLoading } = useQuery<DashboardWidget[]>({
     queryKey: ['dashboard-widgets'],
     queryFn: async () => {
+      const mock = getAuditDashboardWidgets();
+      if (mock) return mock;
       const { data, error } = await supabase
         .from('dashboard_widgets')
         .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
@@ -177,6 +181,7 @@ export function DashboardPage() {
 
   // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Default content for empty dashboard Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   useEffect(() => {
+    if (isDevFieldAuditAuth()) return;
     if (!isLoading && profile && (widgets?.length === 0)) {
       (async () => {
         const defaults = [

@@ -588,3 +588,45 @@ export function getAuditContractVisitReminderBundle(
     company,
   };
 }
+
+export function getAuditDashboardWidgets() {
+  if (!isDevFieldAuditAuth()) return null;
+  return [
+    {
+      id: 'audit-w-weather',
+      widget_type: 'weather',
+      grid_x: 20,
+      grid_y: 20,
+      grid_w: 280,
+      grid_h: 200,
+      config: { city: 'Perth' },
+    },
+    {
+      id: 'audit-w-bitcoin',
+      widget_type: 'bitcoin',
+      grid_x: 20,
+      grid_y: 240,
+      grid_w: 280,
+      grid_h: 220,
+      config: {},
+    },
+    {
+      id: 'audit-w-crypto',
+      widget_type: 'crypto',
+      grid_x: 20,
+      grid_y: 480,
+      grid_w: 280,
+      grid_h: 180,
+      config: { symbol: 'solana' },
+    },
+    {
+      id: 'audit-w-agent',
+      widget_type: 'ai_agent',
+      grid_x: 320,
+      grid_y: 20,
+      grid_w: 390,
+      grid_h: 360,
+      config: {},
+    },
+  ];
+}

@@ -241,6 +241,10 @@ describe('form fields fit their type', () => {
     expect(src('src/components/template-editor/QuestionEditor.tsx')).toContain('min-h-[44px] h-auto py-2 text-sm text-[#1A1A1A]');
     expect(src('src/components/template-editor/ShowIfEditor.tsx')).toContain('flex flex-col sm:flex-row sm:flex-wrap');
     expect(src('src/pages/AiConsolePage.tsx')).toContain('max-md:absolute');
+    expect(src('src/pages/DashboardPage.tsx')).toContain('getAuditDashboardWidgets');
+    expect(src('src/components/pricebooks/PriceBookPdfImportModal.tsx')).toContain('isDevFieldAuditAuth');
+    expect(src('src/components/pricebooks/PriceBookPdfImportModal.tsx')).toContain('20mm PVC conduit');
+    expect(page).toContain('to="/"');
     expect(src('src/main.tsx')).toContain('isDevFieldAuditAuth()');
   });
 

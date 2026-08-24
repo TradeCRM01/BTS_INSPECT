@@ -342,6 +342,8 @@ export function FieldAuditPage() {
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/schedule">Schedule</Link>
         {' · '}
+        <Link className="text-[#2E75B6] underline" to="/">Dashboard</Link>
+        {' · '}
         <Link className="text-[#2E75B6] underline" to="/settings/team">Team</Link>
         {' · '}
         <button type="button" className="text-[#2E75B6] underline" onClick={() => setSendSheet('invoice')}>Send invoice</button>

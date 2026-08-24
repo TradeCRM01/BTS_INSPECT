@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { FileUp, Loader2, Sparkles, X, Check, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
 import { formatMoney, type PriceBookItem } from '../../types/fsm';
 
 export interface ExtractedPriceLine {
@@ -56,6 +57,36 @@ function fileToBase64(file: File): Promise<{ base64: string; mediaType: string }
   });
 }
 
+function auditReviewSeed(): {
+  fileName: string;
+  meta: { supplier_name: string; invoice_number: string; invoice_date: string };
+  rows: ReviewRow[];
+} | null {
+  if (!isDevFieldAuditAuth()) return null;
+  return {
+    fileName: 'wholesaler-receipt.pdf',
+    meta: {
+      supplier_name: 'Sparky Supplies',
+      invoice_number: 'INV-42',
+      invoice_date: '2026-08-20',
+    },
+    rows: [{
+      key: 'audit-1',
+      selected: true,
+      action: 'insert',
+      matchId: null,
+      code: 'PVC-20',
+      description: '20mm PVC conduit — 4m lengths',
+      unit: 'length',
+      category: 'conduit',
+      cost_price: '4.80',
+      unit_price: '5.76',
+      existingCost: null,
+      existingSell: null,
+    }],
+  };
+}
+
 export function PriceBookPdfImportModal({
   priceBookId,
   existingItems,
@@ -71,13 +102,14 @@ export function PriceBookPdfImportModal({
 }) {
   const { profile, session, company } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<'upload' | 'review'>('upload');
+  const auditSeed = auditReviewSeed();
+  const [step, setStep] = useState<'upload' | 'review'>(auditSeed ? 'review' : 'upload');
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
-  const [meta, setMeta] = useState<{ supplier_name?: string | null; invoice_number?: string | null; invoice_date?: string | null }>({});
-  const [rows, setRows] = useState<ReviewRow[]>([]);
-  const [fileName, setFileName] = useState('');
+  const [meta, setMeta] = useState<{ supplier_name?: string | null; invoice_number?: string | null; invoice_date?: string | null }>(auditSeed?.meta ?? {});
+  const [rows, setRows] = useState<ReviewRow[]>(auditSeed?.rows ?? []);
+  const [fileName, setFileName] = useState(auditSeed?.fileName ?? '');
 
   const selectedCount = useMemo(() => rows.filter(r => r.selected && r.action !== 'skip').length, [rows]);
 
@@ -162,6 +194,7 @@ export function PriceBookPdfImportModal({
 
   async function applyImport() {
     if (!profile?.company_id) return;
+    if (isDevFieldAuditAuth()) return;
     const toApply = rows.filter(r => r.selected && r.action !== 'skip');
     if (toApply.length === 0) {
       setErr('Select at least one line to import');
