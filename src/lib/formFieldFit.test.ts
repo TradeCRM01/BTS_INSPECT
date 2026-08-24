@@ -173,6 +173,8 @@ describe('form fields fit their type', () => {
     expect(src('src/pages/JhaTemplateEditorPage.tsx')).toContain('w-full min-w-0 sm:w-28');
     expect(src('src/pages/InspectionReviewPage.tsx')).toContain('className="form-input"');
     expect(src('src/pages/CompliancePage.tsx')).toContain('tracked items ·');
+    expect(src('src/pages/AiSettingsPage.tsx')).toContain('Most capable —');
+    expect(src('src/pages/AiSettingsPage.tsx')).not.toMatch(/â€/);
     expect(src('src/pages/TimesheetsPage.tsx')).toContain('Week of {format(currentWeek, \'dd MMM\')} —');
     expect(src('src/pages/PurchaseOrdersPage.tsx')).toContain('col-span-1 sm:col-span-2 lg:col-span-1');
     expect(src('src/index.css')).toContain('.job-client-email-save');
