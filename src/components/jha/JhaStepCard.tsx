@@ -260,7 +260,7 @@ export function JhaStepCard({
                 <select
                   value={m.hierarchy}
                   onChange={e => updateMeasure(m.id, { hierarchy: e.target.value as ControlHierarchyId })}
-                  className="w-full text-xs border border-[#E5E7EB] rounded px-2 py-1.5 bg-white"
+                  className="w-full min-h-[44px] h-auto text-xs border border-[#E5E7EB] rounded px-2 py-2 bg-white"
                 >
                   {CONTROL_HIERARCHY.map(h => (
                     <option key={h.id} value={h.id}>{h.order}. {h.label}</option>
@@ -283,7 +283,7 @@ export function JhaStepCard({
                   value={m.text}
                   onChange={e => updateMeasure(m.id, { text: e.target.value })}
                   rows={4}
-                  className="w-full text-xs border border-[#E5E7EB] rounded px-2 py-1.5 bg-white resize-y min-h-[5.5rem]"
+                  className="w-full min-h-[5.5rem] text-xs border border-[#E5E7EB] rounded px-2 py-2 bg-white resize-y"
                   placeholder={"List specific, verifiable actions (one per line)…\ne.g.\n• Barricade exclusion zone\n• Spotter required when reversing"}
                 />
               </div>
@@ -302,7 +302,7 @@ export function JhaStepCard({
                 <input
                   value={m.owner}
                   onChange={e => updateMeasure(m.id, { owner: e.target.value })}
-                  className="w-full text-xs border border-[#E5E7EB] rounded px-2 py-1.5 bg-white"
+                  className="w-full min-h-[44px] h-auto text-xs border border-[#E5E7EB] rounded px-2 py-2 bg-white"
                   placeholder="Accountable person / role"
                 />
               </div>
@@ -311,7 +311,7 @@ export function JhaStepCard({
                 <input
                   value={m.verify}
                   onChange={e => updateMeasure(m.id, { verify: e.target.value })}
-                  className="w-full text-xs border border-[#E5E7EB] rounded px-2 py-1.5 bg-white"
+                  className="w-full min-h-[44px] h-auto text-xs border border-[#E5E7EB] rounded px-2 py-2 bg-white"
                   placeholder="e.g. Visual check before start / LOTO ticket #"
                 />
               </div>

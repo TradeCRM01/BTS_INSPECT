@@ -106,7 +106,7 @@ export function LoginPage() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
-                  className="w-full px-3 py-2.5 pr-10 border text-[#0A2540] placeholder:text-[#5B6B7C]/50 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
+                  className="w-full px-3 py-2.5 pr-12 border text-[#0A2540] placeholder:text-[#5B6B7C]/50 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
                   style={{ borderColor: '#D5DCE3', borderRadius: 12 }}
                   placeholder="••••••••"
                 />

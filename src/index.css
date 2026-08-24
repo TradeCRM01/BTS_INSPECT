@@ -332,7 +332,7 @@
     border-color: transparent;
     border-bottom: 1px solid color-mix(in srgb, var(--ops-rule) 70%, transparent);
     border-radius: 0;
-    min-height: 36px;
+    min-height: 44px;
     box-shadow: none;
     padding-left: 0 !important;
   }
@@ -4618,6 +4618,14 @@
     button, a[role="button"], input[type="checkbox"], input[type="radio"] {
       min-height: 44px;
       min-width: 44px;
+    }
+
+    /* Reveal/clear icons sit inside the field — a 44px hit box would cover the type. */
+    .relative > button.absolute {
+      min-height: 0;
+      min-width: 0;
+      height: auto;
+      width: auto;
     }
 
     .min-touch-target {

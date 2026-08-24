@@ -638,7 +638,7 @@ export function TemplateEditorPage() {
                               type="text"
                               value={field.label}
                               onChange={e => updateCustomField(field.id, { label: e.target.value })}
-                              className="flex-1 min-w-0 text-xs px-2 py-1 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                              className="flex-1 min-w-0 min-h-[44px] h-auto text-xs px-2 py-2 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
                               placeholder="Field label"
                             />
                             <button
@@ -653,7 +653,7 @@ export function TemplateEditorPage() {
                             <select
                               value={field.type}
                               onChange={e => updateCustomField(field.id, { type: e.target.value as any })}
-                              className="flex-1 text-[10px] px-2 py-1 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                              className="flex-1 min-h-[44px] h-auto text-[10px] px-2 py-2 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
                             >
                               <option value="text">Text</option>
                               <option value="long_text">Long Text</option>
@@ -710,7 +710,7 @@ export function TemplateEditorPage() {
                             type="text"
                             value={role.label}
                             onChange={e => updateSignOffRole(role.id, { label: e.target.value })}
-                            className="flex-1 min-w-0 text-xs px-2 py-1 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                            className="flex-1 min-w-0 min-h-[44px] h-auto text-xs px-2 py-2 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
                             placeholder="Role label"
                           />
                           <button
@@ -786,7 +786,7 @@ export function TemplateEditorPage() {
                       <input
                         value={selectedSection.repeatLabel ?? ''}
                         onChange={e => updateSection({ repeatLabel: e.target.value })}
-                        className="flex-1 px-2.5 py-1 border border-[#E5E7EB] rounded text-xs focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                        className="flex-1 min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
                         placeholder='Repeat label, e.g. "Circuit"'
                       />
                     )}

@@ -62,7 +62,7 @@ const RISK_COLORS = [
 ];
 
 const FIELD_INPUT =
-  'w-full min-w-0 text-sm border border-[#E5E7EB] rounded-md px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent';
+  'w-full min-w-0 min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded-md px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (

@@ -18,6 +18,7 @@ describe('form fields fit their type', () => {
     expect(formInputSm).not.toMatch(/\bh-8\b/);
     expect(css).toContain('input:not([type="checkbox"])');
     expect(css).toContain('min-height: 44px');
+    expect(css).toContain('.relative > button.absolute');
   });
 
   it('stacks invoice line items on a phone instead of a 980px clipped grid', () => {
@@ -48,5 +49,16 @@ describe('form fields fit their type', () => {
     expect(src('src/pages/TimesheetsPage.tsx')).not.toMatch(/className="h-9 px-3 text-sm border/);
     expect(src('src/pages/SupplierDetailPage.tsx')).toContain('grid-cols-1 sm:grid-cols-2');
     expect(src('src/pages/AssetsPage.tsx')).toContain('grid-cols-1 sm:grid-cols-2');
+  });
+
+  it('gives the clients search and remaining compact editors room for 16px type', () => {
+    const css = src('src/index.css');
+    const chrome = css.slice(css.indexOf('.hub-clients-chrome .form-input {'), css.indexOf('.hub-clients-chrome .form-input:focus'));
+    expect(chrome).toContain('min-height: 44px');
+    expect(chrome).not.toContain('min-height: 36px');
+    expect(src('src/pages/TemplateEditorPage.tsx')).toContain('min-h-[44px]');
+    expect(src('src/pages/PurchaseOrdersPage.tsx')).toMatch(/min-h-\[44px\][\s\S]*text-right/);
+    expect(src('src/pages/AiAssistantPage.tsx')).toContain("minHeight: '44px'");
+    expect(src('src/components/jobs/JobCostingPanel.tsx')).toContain('grid-cols-1 sm:grid-cols-4');
   });
 });

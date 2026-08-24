@@ -489,7 +489,7 @@ export function TeamSettingsPage() {
                               templateAccess: e.target.value as TemplateAccess,
                             })}
                             disabled={updateAccessMutation.isPending}
-                            className="text-xs border border-[#E5E7EB] rounded-md px-2 py-1.5 text-[#1A1A1A] bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] cursor-pointer disabled:opacity-50"
+                            className="text-xs min-h-[44px] h-auto border border-[#E5E7EB] rounded-md px-2 py-2 text-[#1A1A1A] bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] cursor-pointer disabled:opacity-50"
                           >
                             {ACCESS_OPTIONS.map(o => (
                               <option key={o.value} value={o.value}>{o.label}</option>

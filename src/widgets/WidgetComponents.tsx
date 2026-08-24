@@ -117,7 +117,7 @@ export function WeatherWidget({ config, onConfigChange }: WidgetProps) {
                 setEditing(false);
               }
             }}
-            className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 outline-none focus:border-blue-400"
+            className="flex-1 min-h-[44px] h-auto text-xs border border-gray-200 rounded px-2 py-2 outline-none focus:border-blue-400"
             placeholder="City name…"
             autoFocus
           />
@@ -236,7 +236,7 @@ export function BitcoinWidget({ config, onConfigChange }: WidgetProps) {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 outline-none focus:border-blue-400"
+            className="w-full min-h-[44px] h-auto text-xs border border-gray-200 rounded px-2 py-2 outline-none focus:border-blue-400"
             placeholder="Search coins (e.g. ethereum, solana)…"
             autoFocus
           />
@@ -340,7 +340,7 @@ export function CryptoWidget({ config, onConfigChange }: WidgetProps) {
                 setEditing(false);
               }
             }}
-            className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 outline-none focus:border-blue-400"
+            className="flex-1 min-h-[44px] h-auto text-xs border border-gray-200 rounded px-2 py-2 outline-none focus:border-blue-400"
             placeholder="e.g. solana"
             autoFocus
           />

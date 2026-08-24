@@ -776,7 +776,7 @@ function ReceiveGoodsModal({ po, onClose, onSaved }: {
                     <td className="px-3 py-2">
                       <input type="number" min={0} value={receiving[i] ?? ''}
                         onChange={e => setReceiving(prev => ({ ...prev, [i]: e.target.value }))}
-                        className="w-full px-2 py-1 text-sm text-right border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
+                        className="w-full min-h-[44px] h-auto px-2 py-2 text-sm text-right border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
                     </td>
                   </tr>
                 ))}

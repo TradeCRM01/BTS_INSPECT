@@ -172,7 +172,7 @@ export function ProfileSettingsPage() {
                   onChange={e => setCurrentPassword(e.target.value)}
                   required
                   autoComplete="current-password"
-                  className="w-full px-3 py-2.5 pr-10 border border-[#E5E7EB] rounded-md text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                  className="w-full px-3 py-2.5 pr-12 border border-[#E5E7EB] rounded-md text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
                   placeholder="Enter current password"
                 />
                 <button
@@ -195,7 +195,7 @@ export function ProfileSettingsPage() {
                   onChange={e => setNewPassword(e.target.value)}
                   required
                   autoComplete="new-password"
-                  className="w-full px-3 py-2.5 pr-10 border border-[#E5E7EB] rounded-md text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                  className="w-full px-3 py-2.5 pr-12 border border-[#E5E7EB] rounded-md text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
                   placeholder="At least 8 characters"
                 />
                 <button
@@ -218,7 +218,7 @@ export function ProfileSettingsPage() {
                   onChange={e => setConfirmPassword(e.target.value)}
                   required
                   autoComplete="new-password"
-                  className={`w-full px-3 py-2.5 pr-10 border rounded-md text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent ${
+                  className={`w-full px-3 py-2.5 pr-12 border rounded-md text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent ${
                     confirmPassword && confirmPassword !== newPassword
                       ? 'border-red-300 bg-red-50/30'
                       : 'border-[#E5E7EB]'

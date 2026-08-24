@@ -1087,7 +1087,7 @@ export function ReportsListPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search all files and folders..."
-            className="w-full pl-9 pr-4 py-2 border border-[#E5E7EB] rounded-lg text-sm text-[#1A1A1A] bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]/30 focus:border-[#2E75B6]"
+            className="w-full min-h-[44px] h-auto pl-9 pr-4 py-2 border border-[#E5E7EB] rounded-lg text-sm text-[#1A1A1A] bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]/30 focus:border-[#2E75B6]"
           />
         </div>
 

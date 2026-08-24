@@ -125,7 +125,7 @@ export function SignupPage() {
                   onChange={e => setPassword(e.target.value)}
                   required
                   minLength={8}
-                  className="w-full px-3 py-2.5 pr-10 border border-[#E5E7EB] rounded-md text-[#1A1A1A] placeholder:text-[#4A5568]/50 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
+                  className="w-full px-3 py-2.5 pr-12 border border-[#E5E7EB] rounded-md text-[#1A1A1A] placeholder:text-[#4A5568]/50 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
                   placeholder="Min. 8 characters"
                 />
                 <button

@@ -286,7 +286,7 @@ export function AiAssistantPage() {
                   placeholder="Ask a question… (Enter to send)"
                   rows={1} disabled={streaming}
                   className="w-full bg-transparent text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] resize-none outline-none leading-relaxed"
-                  style={{ minHeight: '24px', maxHeight: '160px' }} />
+                  style={{ minHeight: '44px', maxHeight: '160px' }} />
               </div>
               <button onClick={() => sendMessage()} disabled={!input.trim() || streaming}
                 className="w-9 md:w-10 h-9 md:h-10 rounded-xl bg-[#0A2540] text-white flex items-center justify-center hover:bg-[#0d2f4e] disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0">

@@ -179,7 +179,7 @@ export function AiSettingsPage() {
                       onChange={e => { setNewKey(e.target.value); setTestState('idle'); setTestError(''); }}
                       placeholder="sk-ant-api03-..."
                       autoFocus
-                      className="w-full px-3 py-2.5 pr-10 border border-[#E5E7EB] rounded-md text-sm font-mono text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                      className="w-full px-3 py-2.5 pr-12 border border-[#E5E7EB] rounded-md text-sm font-mono text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
                     />
                     <button
                       type="button"

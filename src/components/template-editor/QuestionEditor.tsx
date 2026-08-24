@@ -219,7 +219,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
                     <input
                       value={opt}
                       onChange={e => updateOption(i, e.target.value)}
-                      className="flex-1 px-2.5 py-1.5 border border-[#E5E7EB] rounded text-xs text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#2E75B6] bg-white"
+                      className="flex-1 min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#2E75B6] bg-white"
                     />
                     <button onClick={() => removeOption(i)} className="text-[#4A5568] hover:text-[#B42318]">
                       <X size={12} />
@@ -241,7 +241,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
                   <input
                     value={question.numberConfig?.unit ?? ''}
                     onChange={e => onChange({ numberConfig: { ...question.numberConfig, unit: e.target.value } })}
-                    className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                    className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
                     placeholder={question.type === 'slider' ? '%' : 'e.g. Ω'}
                   />
                 </div>
@@ -251,7 +251,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
                     type="number"
                     value={question.numberConfig?.min ?? ''}
                     onChange={e => onChange({ numberConfig: { ...question.numberConfig, min: e.target.value !== '' ? Number(e.target.value) : undefined } })}
-                    className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                    className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
                   />
                 </div>
                 <div>
@@ -260,7 +260,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
                     type="number"
                     value={question.numberConfig?.max ?? ''}
                     onChange={e => onChange({ numberConfig: { ...question.numberConfig, max: e.target.value !== '' ? Number(e.target.value) : undefined } })}
-                    className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                    className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
                   />
                 </div>
                 <div>
@@ -271,7 +271,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
                     max={6}
                     value={question.numberConfig?.decimals ?? ''}
                     onChange={e => onChange({ numberConfig: { ...question.numberConfig, decimals: e.target.value !== '' ? Number(e.target.value) : undefined } })}
-                    className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                    className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
                     placeholder="auto"
                   />
                 </div>

@@ -614,7 +614,7 @@ export function CompanySettingsPage() {
                           onChange={e => setEmailSettings(s => ({ ...s, smtp_pass: e.target.value }))}
                           placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                           autoComplete="new-password"
-                          className={inputClass + ' pr-10'}
+                          className={inputClass + ' pr-12'}
                         />
                         <button
                           type="button"

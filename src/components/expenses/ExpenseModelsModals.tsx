@@ -851,7 +851,7 @@ function ManageCostModelsModal({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end rounded-md border-2 border-[#2E75B6]/40 bg-white p-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end rounded-md border-2 border-[#2E75B6]/40 bg-white p-2.5">
                       <div>
                         <label className="text-[10px] font-semibold text-[#0A2540]">
                           {line.amount_mode === 'percent_of_wages' ? '% of wages' : 'Amount ($)'}
@@ -1229,7 +1229,7 @@ function ManageExpenseTemplatesModal({
                 <input value={name} onChange={e => setName(e.target.value)} className="form-input" placeholder="Monthly overheads" />
               </Field>
               {lines.map((line, idx) => (
-                <div key={idx} className="grid grid-cols-2 sm:grid-cols-6 gap-2 border rounded-lg p-2 bg-[#F9FAFB]">
+                <div key={idx} className="grid grid-cols-1 sm:grid-cols-6 gap-2 border rounded-lg p-2 bg-[#F9FAFB]">
                   <select value={line.cost_class} onChange={e => setLines(ls => ls.map((l, i) => i === idx ? { ...l, cost_class: e.target.value as ExpenseCostClass } : l))}
                     className="form-input-sm col-span-1">
                     {(Object.keys(EXPENSE_COST_CLASS_LABELS) as ExpenseCostClass[]).filter(k => k !== 'employee').map(k => (

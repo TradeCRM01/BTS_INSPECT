@@ -544,7 +544,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         </div>
 
         <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div>
               <label className="block text-xs font-medium text-[#4A5568] mb-1">Qty</label>
               <input type="text" inputMode="decimal" value={form.quantity}
