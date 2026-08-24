@@ -110,7 +110,7 @@ function InviteForm({ companyId, accessToken, onClose, onSuccess }: InviteFormPr
     <OverlayPortal>
     <div className="overlay-backdrop backdrop-blur-sm">
       <div className="overlay-panel-md border border-[#E5E7EB]">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] shrink-0">
           <div>
             <h2 className="text-base font-semibold text-[#1A1A1A]">Invite team member</h2>
             <p className="text-xs text-[#4A5568] mt-0.5">They'll get an invitation email from your company to join BTS Inspect.</p>
@@ -120,7 +120,7 @@ function InviteForm({ companyId, accessToken, onClose, onSuccess }: InviteFormPr
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+        <form onSubmit={handleSubmit} className="overlay-body space-y-4">
           <div>
             <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Full name</label>
             <input
@@ -129,7 +129,7 @@ function InviteForm({ companyId, accessToken, onClose, onSuccess }: InviteFormPr
               onChange={e => setName(e.target.value)}
               required
               placeholder="Jane Smith"
-              className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-sm text-[#1A1A1A] placeholder:text-[#4A5568]/50 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
+              className="form-input"
             />
           </div>
 
@@ -141,7 +141,7 @@ function InviteForm({ companyId, accessToken, onClose, onSuccess }: InviteFormPr
               onChange={e => setEmail(e.target.value)}
               required
               placeholder="jane@example.com"
-              className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-sm text-[#1A1A1A] placeholder:text-[#4A5568]/50 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
+              className="form-input"
             />
           </div>
 
@@ -442,7 +442,7 @@ export function TeamSettingsPage() {
                 const isPending = !member.email_confirmed_at && !member.last_sign_in_at;
 
                 return (
-                  <div key={member.id} className="flex items-center gap-4 px-5 py-4">
+                  <div key={member.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-5 py-4">
                     {/* Avatar */}
                     <div className="w-9 h-9 rounded-full bg-[#0A2540]/10 flex items-center justify-center shrink-0">
                       <span className="text-sm font-semibold text-[#0A2540]">
@@ -477,10 +477,10 @@ export function TeamSettingsPage() {
                     </div>
 
                     {/* Controls */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0 w-full sm:w-auto sm:shrink-0">
                       {/* Template access â€” show for non-admin members when I'm admin and not looking at myself */}
                       {isAdmin && !isMemberAdmin && !isMe && (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1 sm:flex-none">
                           <span className="text-xs text-[#4A5568] hidden sm:block">Templates:</span>
                           <select
                             value={member.template_access}
@@ -489,7 +489,7 @@ export function TeamSettingsPage() {
                               templateAccess: e.target.value as TemplateAccess,
                             })}
                             disabled={updateAccessMutation.isPending}
-                            className="text-xs min-h-[44px] h-auto border border-[#E5E7EB] rounded-md px-2 py-2 text-[#1A1A1A] bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] cursor-pointer disabled:opacity-50"
+                            className="form-input-sm min-w-0 w-full sm:w-auto"
                           >
                             {ACCESS_OPTIONS.map(o => (
                               <option key={o.value} value={o.value}>{o.label}</option>

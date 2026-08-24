@@ -53,7 +53,7 @@ function CountersignSlot({
           value={name}
           onChange={e => onChange({ name: e.target.value })}
           placeholder={`Name of ${role.label.toLowerCase()}`}
-          className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+          className="form-input"
         />
       </div>
       <div>

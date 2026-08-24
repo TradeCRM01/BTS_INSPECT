@@ -536,7 +536,7 @@ export function FieldAuditPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium">Team invite (not form-input)</h2>
+        <h2 className="text-sm font-medium">Team invite</h2>
         <div className="overlay-panel-md border border-[#E5E7EB] rounded-xl bg-white p-4 max-w-md space-y-3">
           <div>
             <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Full name</label>
@@ -544,7 +544,7 @@ export function FieldAuditPage() {
               type="text"
               value="Jane Field Supervisor Warehouse Roof"
               readOnly
-              className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-sm text-[#1A1A1A]"
+              className="form-input"
             />
           </div>
           <div>
@@ -553,7 +553,7 @@ export function FieldAuditPage() {
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-sm text-[#1A1A1A]"
+              className="form-input"
             />
           </div>
         </div>

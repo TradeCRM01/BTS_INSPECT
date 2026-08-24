@@ -164,7 +164,12 @@ describe('form fields fit their type', () => {
     expect(page).toContain('to="/settings/team"');
     expect(src('src/components/expenses/EmployeeCostRatesPanel.tsx')).toContain('form-input-sm w-full text-right min-w-0');
     expect(src('src/components/expenses/EmployeeCostRatesPanel.tsx')).not.toContain('form-input-sm w-20');
-    expect(src('src/pages/AssetsPage.tsx')).not.toMatch(/None.{0,8}Ã/);
+    expect(src('src/pages/TeamSettingsPage.tsx')).toContain('className="form-input"');
+    expect(src('src/pages/TeamSettingsPage.tsx')).toContain('flex flex-col sm:flex-row sm:items-center');
+    expect(src('src/pages/JhaTemplateEditorPage.tsx')).not.toContain('className="w-24 min-w-0 text-sm border');
+    expect(src('src/pages/JhaTemplateEditorPage.tsx')).not.toContain('<div className="w-20 shrink-0">');
+    expect(src('src/pages/JhaTemplateEditorPage.tsx')).toContain('w-full min-w-0 sm:w-28');
+    expect(src('src/pages/InspectionReviewPage.tsx')).toContain('className="form-input"');
     expect(src('src/pages/PurchaseOrdersPage.tsx')).toContain('col-span-1 sm:col-span-2 lg:col-span-1');
     expect(src('src/index.css')).toContain('.job-client-email-save');
     expect(src('src/index.css')).toMatch(/\.job-client-email-save[\s\S]*min-height:\s*0/);
