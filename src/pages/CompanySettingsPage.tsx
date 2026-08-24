@@ -573,7 +573,7 @@ export function CompanySettingsPage() {
                 <div className="border-t border-[#E5E7EB] pt-4">
                   <p className="text-xs font-semibold text-[#4A5568] uppercase tracking-wide mb-3">SMTP Server</p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">SMTP Host</label>
                       <input
                         value={emailSettings.smtp_host}

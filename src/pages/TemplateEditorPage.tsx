@@ -752,7 +752,7 @@ export function TemplateEditorPage() {
                 {/* Section settings */}
                 <div className="px-4 py-3 border-b border-[#E5E7EB]">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <label className="block text-xs font-medium text-[#4A5568] mb-1">Section title</label>
                       <input
                         value={selectedSection.title}
@@ -761,7 +761,7 @@ export function TemplateEditorPage() {
                         placeholder="e.g. Visual Inspection"
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <label className="block text-xs font-medium text-[#4A5568] mb-1">Description (optional)</label>
                       <textarea
                         value={selectedSection.description ?? ''}

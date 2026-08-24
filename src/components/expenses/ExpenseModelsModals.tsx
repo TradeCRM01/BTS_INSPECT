@@ -914,7 +914,7 @@ function ManageCostModelsModal({
                         />
                       </div>
                       {line.amount_mode !== 'percent_of_wages' && (
-                        <p className="col-span-2 sm:col-span-4 text-xs text-[#2E75B6] font-medium">
+                        <p className="col-span-1 sm:col-span-4 text-xs text-[#2E75B6] font-medium">
                           → {formatMoney(lineHourly ?? 0)}/hr for this line
                           <span className="text-[#9CA3AF] font-normal ml-1">
                             ({line.time_unit === 'hourly' ? 'already hourly'
@@ -1237,7 +1237,7 @@ function ManageExpenseTemplatesModal({
                     ))}
                   </select>
                   <input value={line.description} onChange={e => setLines(ls => ls.map((l, i) => i === idx ? { ...l, description: e.target.value } : l))}
-                    className="form-input-sm col-span-2" placeholder="Description" />
+                    className="form-input-sm col-span-1 sm:col-span-2" placeholder="Description" />
                   <input value={line.category} onChange={e => setLines(ls => ls.map((l, i) => i === idx ? { ...l, category: e.target.value } : l))}
                     className="form-input-sm" placeholder="Category" />
                   <input

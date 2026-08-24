@@ -57,6 +57,7 @@ describe('form fields fit their type', () => {
     expect(css).toContain('.relative > button.absolute');
     expect(css).toContain('select:not(.ops-status)');
     expect(css).toContain('select.ops-status');
+    expect(src('src/contexts/AuthContext.tsx')).toContain('isDevFieldAuditAuth');
   });
 
   it('keeps the 44px floor on every viewport, not only phones', () => {
@@ -120,6 +121,42 @@ describe('form fields fit their type', () => {
     expect(src('src/components/jobs/JobCostingPanel.tsx')).toContain('grid-cols-1 sm:grid-cols-4');
     expect(src('src/components/pdf/AnnotationToolbar.tsx')).toContain('min-h-[44px]');
     expect(src('src/components/ui/SignatureCapture.tsx')).toContain('min-h-[44px]');
+  });
+
+  it('lets themed 16px fields grow instead of pinning a 44px clip box', () => {
+    const css = src('src/index.css');
+    const jobSchedule = css.slice(
+      css.indexOf('#job-schedule .form-input,'),
+      css.indexOf('#job-schedule .form-input::placeholder'),
+    );
+    expect(jobSchedule).toContain('height: auto');
+    expect(jobSchedule).not.toMatch(/^\s*height:\s*44px/m);
+    const swms = css.slice(
+      css.indexOf('.hub-job-swms .ops-field,'),
+      css.indexOf('.hub-job-swms .ops-field:focus'),
+    );
+    expect(swms).toContain('height: auto');
+    expect(swms).not.toMatch(/^\s*height:\s*44px/m);
+  });
+
+  it('does not let SMTP / template / expense grids span two columns on a phone', () => {
+    expect(src('src/pages/CompanySettingsPage.tsx')).toContain('col-span-1 sm:col-span-2');
+    expect(src('src/pages/CompanySettingsPage.tsx')).not.toMatch(/className="col-span-2"/);
+    expect(src('src/pages/TemplateEditorPage.tsx')).toContain('col-span-1 sm:col-span-2');
+    expect(src('src/components/expenses/ExpenseModelsModals.tsx')).toContain('form-input-sm col-span-1 sm:col-span-2');
+  });
+
+  it('mounts remaining product field chrome on the dev audit page', () => {
+    const page = src('src/pages/FieldAuditPage.tsx');
+    expect(page).toContain('ops-field-site text-lg');
+    expect(page).toContain('QuestionRenderer');
+    expect(page).toContain('SignatureCapture');
+    expect(page).toContain('SolarWizard');
+    expect(page).toContain('JobFormModal');
+    expect(page).toContain('TimeEntryForm');
+    expect(page).toContain('DocumentVariationsEditor');
+    expect(page).toContain('hub-invoice-send');
+    expect(page).toContain('enableDevFieldAuditAuth');
   });
 
   it('does not pin remaining text fields to h-8/h-9 or undo min-height on desktop', () => {
