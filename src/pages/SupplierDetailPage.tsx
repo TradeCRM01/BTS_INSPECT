@@ -201,7 +201,7 @@ export function SupplierDetailPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-[#4A5568]">
-                        {po.created_at ? format(parseISO(po.created_at), 'dd MMM yyyy') : 'Ã¢â‚¬â€'}
+                        {po.created_at ? format(parseISO(po.created_at), 'dd MMM yyyy') : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${PO_STATUS_STYLES[po.status as keyof typeof PO_STATUS_STYLES] ?? 'bg-gray-100 text-gray-700'}`}>

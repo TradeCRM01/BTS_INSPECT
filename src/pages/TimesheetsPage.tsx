@@ -149,7 +149,7 @@ export function TimesheetsPage() {
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-semibold text-[#1A1A1A]">Timesheets</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">Week of {format(currentWeek, 'dd MMM')} ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â {format(addDays(currentWeek, 6), 'dd MMM yyyy')}</p>
+            <p className="text-sm text-[#4A5568] mt-0.5">Week of {format(currentWeek, 'dd MMM')} — {format(addDays(currentWeek, 6), 'dd MMM yyyy')}</p>
           </div>
           <div className="flex items-center gap-2">
             {isClockedIn ? (
@@ -184,7 +184,7 @@ export function TimesheetsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <SummaryCard label="Week Total" value={formatDuration(weekTotal)} accentColor="#0A2540" />
           <SummaryCard label="Days Worked" value={`${myTimesheets.filter(t => t.total_minutes > 0).length}`} accentColor="#2E75B6" />
-          <SummaryCard label="Status" value={todayTs ? TIMESHEET_STATUS_LABELS[todayTs.status] : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'} accentColor="#16A34A" />
+          <SummaryCard label="Status" value={todayTs ? TIMESHEET_STATUS_LABELS[todayTs.status] : '—'} accentColor="#16A34A" />
           <SummaryCard label="Clocked In" value={isClockedIn ? 'Yes' : 'No'} accentColor={isClockedIn ? '#16A34A' : '#6B7280'} />
         </div>
 
@@ -227,10 +227,10 @@ export function TimesheetsPage() {
                           <Clock size={18} className="text-[#0A2540]" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-[#1A1A1A]">{ts ? format(parseISO(ts.date), 'dd MMM') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
+                          <p className="text-sm font-medium text-[#1A1A1A]">{ts ? format(parseISO(ts.date), 'dd MMM') : '—'}</p>
                           <p className="text-xs text-[#4A5568]">
                             {format(new Date(entry.start_time), 'HH:mm')}
-                            {entry.end_time ? ` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ${format(new Date(entry.end_time), 'HH:mm')}` : ' ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â running'}
+                            {entry.end_time ? ` — ${format(new Date(entry.end_time), 'HH:mm')}` : ' — running'}
                           </p>
                         </div>
                       </div>

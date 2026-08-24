@@ -172,10 +172,10 @@ export function AssetsPage() {
                     return (
                       <tr key={asset.id} className="hover:bg-[#F9FAFB] transition-colors">
                         <td className="px-4 py-3 font-medium text-[#1A1A1A]">{asset.name}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.asset_tag ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.serial_number ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.client_name ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.warranty_expiry ? format(parseISO(asset.warranty_expiry), 'd MMM yyyy') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}{warrantyExpired && <AlertTriangle size={11} className="text-[#D97706] ml-1 inline" />}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{asset.asset_tag ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{asset.serial_number ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{asset.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{asset.warranty_expiry ? format(parseISO(asset.warranty_expiry), 'd MMM yyyy') : '—'}{warrantyExpired && <AlertTriangle size={11} className="text-[#D97706] ml-1 inline" />}</td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ASSET_STATUS_STYLES[asset.status]}`}>{ASSET_STATUS_LABELS[asset.status]}</span>
                         </td>

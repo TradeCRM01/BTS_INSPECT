@@ -201,7 +201,7 @@ export function PurchaseOrdersPage() {
                   {po.job_title && <p className="text-xs text-[#4A5568] mb-2 truncate">Job: {po.job_title}</p>}
                   <p className="text-lg font-bold text-[#1A1A1A] mb-2">{formatMoney(po.total)}</p>
                   <div className="flex items-center justify-between text-xs text-[#4A5568]">
-                    <span>Expected: {po.expected_delivery_date ? format(parseISO(po.expected_delivery_date), 'd MMM yyyy') : 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'}</span>
+                    <span>Expected: {po.expected_delivery_date ? format(parseISO(po.expected_delivery_date), 'd MMM yyyy') : '—'}</span>
                     {po.status === 'draft' && (
                       <button onClick={(e) => { e.stopPropagation(); setSendingPoId(po.id); }}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-[#2E75B6] bg-[#EFF6FF] rounded-md hover:bg-[#DBEAFE] transition-colors">
@@ -274,11 +274,11 @@ function PORow({ po, onOpen, onSend, onReceive }: {
       <td className="px-4 py-3 font-semibold text-[#0A2540]">
         #{String(po.po_number).padStart(4, '0')}
       </td>
-      <td className="px-4 py-3 text-[#1A1A1A]">{po.supplier_name ?? <span className="text-[#9CA3AF]">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</span>}</td>
+      <td className="px-4 py-3 text-[#1A1A1A]">{po.supplier_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
       <td className="px-4 py-3 text-[#4A5568]">
         {po.job_title ? (
           <span className="truncate">{po.job_title}</span>
-        ) : <span className="text-[#9CA3AF]">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</span>}
+        ) : <span className="text-[#9CA3AF]">—</span>}
       </td>
       <td className="px-4 py-3">
         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${PO_STATUS_STYLES[po.status]}`}>
@@ -287,7 +287,7 @@ function PORow({ po, onOpen, onSend, onReceive }: {
       </td>
       <td className="px-4 py-3 text-right font-medium text-[#1A1A1A]">{formatMoney(po.total)}</td>
       <td className="px-4 py-3 text-[#4A5568]">
-        {po.expected_delivery_date ? format(parseISO(po.expected_delivery_date), 'd MMM yyyy') : <span className="text-[#9CA3AF]">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</span>}
+        {po.expected_delivery_date ? format(parseISO(po.expected_delivery_date), 'd MMM yyyy') : <span className="text-[#9CA3AF]">—</span>}
       </td>
       <td className="px-4 py-3 text-[#6B7280]">{format(parseISO(po.created_at), 'd MMM yyyy')}</td>
       <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>

@@ -158,7 +158,7 @@ export function CompliancePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compliance-items'] });
-      showToast('Marked as complete ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â next due date calculated');
+      showToast('Marked as complete — next due date calculated');
     },
   });
 
@@ -242,7 +242,7 @@ export function CompliancePage() {
           <div>
             <h1 className="text-xl font-semibold text-[#1A1A1A]">Compliance Tracker</h1>
             <p className="text-sm text-[#4A5568] mt-0.5">
-              {totals.total} tracked items Ãƒâ€šÃ‚Â· {totals.overdue} overdue
+              {totals.total} tracked items · {totals.overdue} overdue
             </p>
           </div>
           <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
@@ -438,7 +438,7 @@ function ComplianceRow({
           )}
         </div>
       </td>
-      <td className="px-4 py-3 text-[#4A5568]">{item.client_name ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
+      <td className="px-4 py-3 text-[#4A5568]">{item.client_name ?? '—'}</td>
       <td className="px-4 py-3">
         <span className={`badge ${COMPLIANCE_STATUS_STYLES[item.status]}`}>
           {COMPLIANCE_STATUS_LABELS[item.status]}
@@ -460,7 +460,7 @@ function ComplianceRow({
       <td className="px-4 py-3 text-[#4A5568]">
         {item.last_completed_date
           ? format(parseISO(item.last_completed_date), 'dd MMM yyyy')
-          : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}
+          : '—'}
       </td>
       <td className="px-4 py-3 relative">
         <ContextMenu items={menuItems} />

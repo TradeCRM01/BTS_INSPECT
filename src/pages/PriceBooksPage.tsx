@@ -193,16 +193,16 @@ export function PriceBooksPage() {
                         : null;
                       return (
                         <tr key={item.id} className="hover:bg-[#F9FAFB] transition-colors">
-                          <td className="px-4 py-3 text-[#6B7280] font-mono text-xs">{item.code ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
+                          <td className="px-4 py-3 text-[#6B7280] font-mono text-xs">{item.code ?? '—'}</td>
                           <td className="px-4 py-3 font-medium text-[#1A1A1A]">{item.description}</td>
-                          <td className="px-4 py-3 text-[#4A5568]">{item.category ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
+                          <td className="px-4 py-3 text-[#4A5568]">{item.category ?? '—'}</td>
                           <td className="px-4 py-3 text-[#4A5568]">{item.unit}</td>
                           <td className="px-4 py-3 text-right font-medium text-[#1A1A1A]">{formatMoney(Number(item.unit_price))}</td>
-                          <td className="px-4 py-3 text-right text-[#4A5568]">{item.cost_price ? formatMoney(Number(item.cost_price)) : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
+                          <td className="px-4 py-3 text-right text-[#4A5568]">{item.cost_price ? formatMoney(Number(item.cost_price)) : '—'}</td>
                           <td className="px-4 py-3 text-right">
                             {margin !== null ? (
                               <span className={`text-xs font-medium ${Number(margin) >= 30 ? 'text-green-600' : Number(margin) >= 15 ? 'text-amber-600' : 'text-red-600'}`}>{margin}%</span>
-                            ) : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}
+                            ) : '—'}
                           </td>
                           <td className="px-4 py-3 relative">
                             <ItemMenu item={item}

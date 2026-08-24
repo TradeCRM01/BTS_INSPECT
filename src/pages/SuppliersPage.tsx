@@ -155,9 +155,9 @@ export function SuppliersPage() {
                       <td className="px-4 py-3">
                         <Link to={`/suppliers/${supplier.id}`} className="font-medium text-[#1A1A1A] hover:text-[#2E75B6]">{supplier.name}</Link>
                       </td>
-                      <td className="px-4 py-3 text-[#4A5568]">{supplier.contact_person ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
-                      <td className="px-4 py-3 text-[#4A5568]">{supplier.phone ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
-                      <td className="px-4 py-3 text-[#4A5568]">{supplier.email ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
+                      <td className="px-4 py-3 text-[#4A5568]">{supplier.contact_person ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                      <td className="px-4 py-3 text-[#4A5568]">{supplier.phone ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                      <td className="px-4 py-3 text-[#4A5568]">{supplier.email ?? <span className="text-[#9CA3AF]">—</span>}</td>
                       <td className="px-4 py-3 text-[#4A5568]">{supplier.default_currency}</td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end">
