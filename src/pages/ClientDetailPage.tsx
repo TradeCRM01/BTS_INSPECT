@@ -12,6 +12,7 @@ import {
 } from '../types/fsm';
 import type { QuoteStatus } from '../types/fsm';
 import { Briefcase, Plus, FileText, ShieldCheck, Receipt, ClipboardList, Mail, Phone } from 'lucide-react';
+import { getAuditClient, getAuditEmptyList } from '../lib/devFieldAuditDocs';
 import {
   jobClientEmailRow,
   jobClientEmailSaveToast,
@@ -122,6 +123,8 @@ export function ClientDetailPage() {
   const { data: client, isLoading, error } = useQuery<Client>({
     queryKey: ['client', id],
     queryFn: async () => {
+      const mock = getAuditClient(id!);
+      if (mock) return mock as Client;
       const { data, error } = await supabase
         .from('clients')
         .select('*')
@@ -141,6 +144,8 @@ export function ClientDetailPage() {
   const { data: jobs } = useQuery<JobWithClient[]>({
     queryKey: ['client-jobs', id, profile?.company_id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as JobWithClient[];
       const { data, error } = await applyHubScope(supabase.from('jobs'), hubScopes!.jobs)
         .order('scheduled_date', { ascending: false, nullsFirst: false });
       if (error) throw error;
@@ -152,6 +157,8 @@ export function ClientDetailPage() {
   const { data: quotes } = useQuery<ClientQuote[]>({
     queryKey: ['client-quotes', id, profile?.company_id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as ClientQuote[];
       const { data, error } = await applyHubScope(supabase.from('quotes'), hubScopes!.quotes)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -163,6 +170,8 @@ export function ClientDetailPage() {
   const { data: invoices } = useQuery<ClientInvoice[]>({
     queryKey: ['client-invoices', id, profile?.company_id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as ClientInvoice[];
       const { data, error } = await applyHubScope(supabase.from('invoices'), hubScopes!.invoices)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -174,6 +183,8 @@ export function ClientDetailPage() {
   const { data: complianceItems } = useQuery<ComplianceItem[]>({
     queryKey: ['client-compliance', id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as ComplianceItem[];
       const { data, error } = await supabase
         .from('compliance_items')
         .select('*')
@@ -191,6 +202,8 @@ export function ClientDetailPage() {
   const { data: inspections } = useQuery<ClientInspection[]>({
     queryKey: ['client-inspections', id, jobIds.join(',')],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as ClientInspection[];
       if (!inspectionScope) return [];
       const { data, error } = await applyHubScope(supabase.from('inspections'), inspectionScope)
         .order('started_at', { ascending: false });

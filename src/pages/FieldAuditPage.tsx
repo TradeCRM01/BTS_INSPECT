@@ -20,12 +20,17 @@ import { JobClientReminder } from '../components/jobs/JobClientReminder';
 import { InspectionDueReminder } from '../components/inspection/InspectionDueReminder';
 import { enableDevFieldAuditAuth, DEV_AUDIT_COMPANY } from '../lib/devFieldAuditAuth';
 import {
+  AUDIT_CREW_ID,
+  AUDIT_DOC_CLIENT_ID,
+  AUDIT_DOC_JOB_ID,
   AUDIT_INSPECTION_ID,
   AUDIT_INVOICE_ID,
   AUDIT_JHA_DOC_ID,
   AUDIT_PO_ID,
   AUDIT_QUOTE_ID,
   AUDIT_REPORT_ID,
+  AUDIT_STOCK_ID,
+  AUDIT_SUPPLIER_ID,
   AUDIT_TAKE5_ID,
 } from '../lib/devFieldAuditDocs';
 import { InvoiceSendDialog } from '../components/invoicing/InvoiceSendDialog';
@@ -261,7 +266,35 @@ export function FieldAuditPage() {
         {' · '}
         <Link className="text-[#2E75B6] underline" to={`/inspections/${AUDIT_INSPECTION_ID}`}>Fill inspection</Link>
         {' · '}
+        <Link className="text-[#2E75B6] underline" to={`/inspections/${AUDIT_INSPECTION_ID}/review`}>Review inspection</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to={`/inspections/${AUDIT_INSPECTION_ID}/report`}>Inspection report</Link>
+        {' · '}
         <Link className="text-[#2E75B6] underline" to="/inspections/new">New inspection</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to={`/jobs/${AUDIT_DOC_JOB_ID}`}>Job</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to={`/clients/${AUDIT_DOC_CLIENT_ID}`}>Client</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to={`/stock/${AUDIT_STOCK_ID}`}>Stock item</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to={`/suppliers/${AUDIT_SUPPLIER_ID}`}>Supplier</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to={`/jha/crew-sign?docId=${AUDIT_JHA_DOC_ID}&crewId=${AUDIT_CREW_ID}`}>Crew sign</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to={`/invoices?id=${AUDIT_INVOICE_ID}`}>Edit invoice</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/reset-password">Reset password</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/drive">Drive</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/portal">Portal</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/jha/swms-library">SWMS library</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/assistant">Assistant</Link>
+        {' · '}
+        <Link className="text-[#2E75B6] underline" to="/ai-console">AI console</Link>
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/templates">Templates</Link>
         {' · '}

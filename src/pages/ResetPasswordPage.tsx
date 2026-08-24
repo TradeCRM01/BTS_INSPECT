@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 import { BrandLockup } from '../components/brand/BrandLockup';
+import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 
 function readAuthHashError(): string | null {
   const raw = window.location.hash.replace(/^#/, '') || window.location.search.replace(/^\?/, '');
@@ -34,6 +35,11 @@ export function ResetPasswordPage() {
       if (window.location.hash) {
         window.history.replaceState(null, '', window.location.pathname);
       }
+      return;
+    }
+
+    if (isDevFieldAuditAuth()) {
+      setSessionReady(true);
       return;
     }
 

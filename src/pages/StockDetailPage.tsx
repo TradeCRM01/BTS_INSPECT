@@ -8,6 +8,7 @@ import { LoadingSpinner, PageError, Breadcrumbs, useToast } from '../components/
 import { StockItemForm } from './StockPage';
 import { MoveStockModal, toMoveTargets } from '../components/stock/MoveStockModal';
 import type { StockItemWithSupplier, StockMovementWithDetails } from '../types/fsm';
+import { getAuditEmptyList, getAuditStockItem } from '../lib/devFieldAuditDocs';
 import {
   getStockLevel, STOCK_LEVEL_STYLES, STOCK_LEVEL_LABELS, formatMoney,
 } from '../types/fsm';
@@ -42,6 +43,8 @@ export function StockDetailPage() {
   const { data: item, isLoading, error } = useQuery<StockItemWithSupplier>({
     queryKey: ['stock-items', id],
     queryFn: async () => {
+      const mock = getAuditStockItem(id!);
+      if (mock) return mock as StockItemWithSupplier;
       const { data, error } = await supabase
         .from('stock_items')
         .select('id, company_id, name, sku, description, category, unit_of_measure, quantity_on_hand, reorder_level, reorder_quantity, storage_location, unit_cost, supplier_id, archived, created_at, updated_at, suppliers!supplier_id(name)')
@@ -58,6 +61,8 @@ export function StockDetailPage() {
   const { data: movements } = useQuery<StockMovementWithDetails[]>({
     queryKey: ['stock-movements', id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as StockMovementWithDetails[];
       const { data, error } = await supabase
         .from('stock_movements')
         .select('id, company_id, stock_item_id, movement_type, quantity, job_id, purchase_order_id, reason, created_by, created_at, jobs!job_id(title), purchase_orders!purchase_order_id(po_number)')

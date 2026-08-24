@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
+import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
 import { useToast } from '../ui';
 import type { Job } from '../../types/crm';
 
@@ -28,6 +29,7 @@ export function JobDispatchPanel({
 
   const save = useMutation({
     mutationFn: async (patch: Record<string, unknown>) => {
+      if (isDevFieldAuditAuth()) return;
       const { error } = await supabase
         .from('jobs')
         .update({ ...patch, updated_at: new Date().toISOString() })

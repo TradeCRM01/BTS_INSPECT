@@ -12,6 +12,7 @@ import {
   StickyNote, FileText, Package, ShoppingCart,
 } from 'lucide-react';
 import type { Supplier } from '../types/fsm';
+import { getAuditEmptyList, getAuditSupplier } from '../lib/devFieldAuditDocs';
 import { PO_STATUS_LABELS, PO_STATUS_STYLES, formatMoney } from '../types/fsm';
 
 export function SupplierDetailPage() {
@@ -25,6 +26,8 @@ export function SupplierDetailPage() {
     queryKey: ['supplier', id],
     queryFn: async () => {
       if (!id) throw new Error('Missing supplier ID');
+      const mock = getAuditSupplier(id);
+      if (mock) return mock as Supplier;
       const { data, error } = await supabase
         .from('suppliers')
         .select('*')
@@ -42,6 +45,8 @@ export function SupplierDetailPage() {
     queryKey: ['supplier-pos', id],
     queryFn: async () => {
       if (!id) return [];
+      const empty = getAuditEmptyList();
+      if (empty) return empty;
       const { data, error } = await supabase
         .from('purchase_orders')
         .select('id, po_number, status, total, created_at, expected_delivery_date')

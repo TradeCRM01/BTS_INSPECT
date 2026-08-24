@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { getAuditEmptyList } from '../../lib/devFieldAuditDocs';
 import { ManagedSelect } from '../ui/ManagedSelect';
 import { LIST_KEYS } from '../../lib/useManagedList';
 import {
@@ -56,6 +57,8 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const { data: costs = [] } = useQuery<JobCost[]>({
     queryKey: ['job-costs', jobId],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as JobCost[];
       const { data, error } = await supabase
         .from('job_costs').select('*').eq('job_id', jobId)
         .order('created_at', { ascending: false });
@@ -73,6 +76,8 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const { data: linkedQuote } = useQuery<{ id: string; quote_number: number | null; total: number } | null>({
     queryKey: ['job-linked-quote', jobId],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return null;
       const { data, error } = await supabase
         .from('quotes')
         .select('id, quote_number, total')
@@ -115,6 +120,8 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const { data: costModels = [] } = useQuery<ExpenseCostModel[]>({
     queryKey: ['expense-cost-models'],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as ExpenseCostModel[];
       const { data, error } = await supabase.from('expense_cost_models').select('*').order('name');
       if (error) throw error;
       return (data ?? []).map(m => {
@@ -306,6 +313,8 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const { data: stockItems = [], refetch: refetchStock } = useQuery<StockItem[]>({
     queryKey: ['stock-items'],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as StockItem[];
       const { data, error } = await supabase
         .from('stock_items').select('*').eq('archived', false)
         .gt('quantity_on_hand', 0).order('name');

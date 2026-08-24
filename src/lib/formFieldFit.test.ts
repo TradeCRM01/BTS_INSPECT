@@ -204,6 +204,10 @@ describe('form fields fit their type', () => {
     expect(page).toContain('Send quote');
     expect(page).toContain('Send PO');
     expect(page).toContain('Send report');
+    expect(page).toContain('Review inspection');
+    expect(page).toContain('Crew sign');
+    expect(page).toContain('Edit invoice');
+    expect(page).toContain('Reset password');
     expect(src('src/pages/InspectionFillPage.tsx')).toContain('getAuditInspection');
     expect(src('src/pages/JhaFillPage.tsx')).toContain('getAuditJhaDoc');
     expect(src('src/pages/Take5Page.tsx')).toContain('getAuditTake5');
@@ -216,6 +220,14 @@ describe('form fields fit their type', () => {
     expect(src('src/lib/sendReportDeliver.ts')).toContain('getAuditReportSendBundle');
     expect(src('src/pages/PriceBooksPage.tsx')).toContain('getAuditPriceBooks');
     expect(src('src/pages/ManagedListsSettingsPage.tsx')).toContain('getAuditListDefinitions');
+    expect(src('src/pages/JobDetailPage.tsx')).toContain('getAuditJob');
+    expect(src('src/pages/ClientDetailPage.tsx')).toContain('getAuditClient');
+    expect(src('src/pages/StockDetailPage.tsx')).toContain('getAuditStockItem');
+    expect(src('src/pages/SupplierDetailPage.tsx')).toContain('getAuditSupplier');
+    expect(src('src/pages/JhaCrewSignPage.tsx')).toContain('getAuditJhaDoc');
+    expect(src('src/pages/InspectionReviewPage.tsx')).toContain('getAuditInspection');
+    expect(src('src/lib/sendInvoiceDeliver.ts')).toContain('getAuditInvoiceEditorRow');
+    expect(src('src/pages/ResetPasswordPage.tsx')).toContain('isDevFieldAuditAuth');
     expect(src('src/lib/devFieldAuditAuth.ts')).toContain('pageQueryBlocked');
     expect(src('src/pages/InvoicesPage.tsx')).toContain('pageQueryBlocked(error)');
     expect(src('src/pages/JobsPage.tsx')).toContain('pageQueryBlocked(error)');

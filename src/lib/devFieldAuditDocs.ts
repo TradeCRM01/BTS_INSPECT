@@ -17,6 +17,10 @@ export const AUDIT_DOC_JOB_ID = 'audit-doc-job';
 export const AUDIT_DOC_CLIENT_ID = 'audit-doc-client';
 export const AUDIT_PRICE_BOOK_ID = 'audit-price-book';
 export const AUDIT_LIST_DEF_ID = 'audit-list-def';
+export const AUDIT_CREW_ID = 'audit-crew-1';
+export const AUDIT_STOCK_ID = 'audit-stock-item';
+export const AUDIT_SUPPLIER_ID = 'audit-supplier';
+export const AUDIT_TEMPLATE_ID = 'audit-template';
 
 const NOW = '2026-08-24T00:00:00.000Z';
 
@@ -62,18 +66,33 @@ const AUDIT_JHA_STEP: JhaStep = {
   photos: [],
 };
 
+export function getAuditEmptyList() {
+  return isDevFieldAuditAuth() ? [] : null;
+}
+
 export function getAuditJobs() {
   if (!isDevFieldAuditAuth()) return null;
   return [{
     id: AUDIT_DOC_JOB_ID,
     company_id: DEV_AUDIT_COMPANY.id,
-    title: 'Switchboard upgrade',
     client_id: AUDIT_DOC_CLIENT_ID,
-    address: '12 Workshop Rd, Perth WA 6000',
-    job_number: 42,
+    title: 'Switchboard upgrade',
+    description: 'Isolate and replace the main board.',
+    status: 'scheduled' as const,
+    priority: 'medium' as const,
     scheduled_date: '2026-08-25',
     start_time: '07:30',
+    end_time: '16:00',
+    address: '12 Workshop Rd, Perth WA 6000',
     assigned_team: [DEV_AUDIT_PROFILE.id],
+    inspection_id: AUDIT_INSPECTION_ID,
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: NOW,
+    updated_at: NOW,
+    job_number: 42,
+    color: null,
+    budget: null,
+    parent_job_id: null,
   }];
 }
 
@@ -81,12 +100,15 @@ export function getAuditClients() {
   if (!isDevFieldAuditAuth()) return null;
   return [{
     id: AUDIT_DOC_CLIENT_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
     name: 'Northside Electrical',
+    contact_person: 'Site supervisor',
     email: 'accounts@northside.example',
     phone: '0400 111 222',
     address: '12 Workshop Rd, Perth WA 6000',
-    company_id: DEV_AUDIT_COMPANY.id,
-    contact_person: 'Site supervisor',
+    notes: null,
+    archived: false,
+    created_at: NOW,
   }];
 }
 
@@ -137,6 +159,7 @@ export function getAuditInspection(id: string) {
           requiresSiteAddress: true,
           requiresClientName: false,
           requiresJobNumber: false,
+          signOffRoles: [{ id: 'client', label: 'Client', required: true }],
         },
         sections: [
           {
@@ -176,6 +199,14 @@ export function getAuditJhaDoc(id: string) {
       date: '2026-08-24',
       supervisor: 'Alex Field',
       documentTitle: 'Field audit JHA',
+      crewSignOns: JSON.stringify([{
+        id: AUDIT_CREW_ID,
+        name: DEV_AUDIT_PROFILE.name,
+        role: 'Electrician',
+        date: '2026-08-24',
+        profileId: DEV_AUDIT_PROFILE.id,
+        signMode: 'on_device',
+      }]),
     },
     steps: [AUDIT_JHA_STEP],
     ppe: [],
@@ -247,6 +278,84 @@ export function getAuditListDefinitions() {
     label: 'Storage locations',
     allow_custom: true,
   }];
+}
+
+export function getAuditStockItem(id: string) {
+  if (!isDevFieldAuditAuth() || id !== AUDIT_STOCK_ID) return null;
+  return {
+    id: AUDIT_STOCK_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    name: '20mm PVC conduit',
+    sku: 'PVC-20',
+    barcode: '1234567890123',
+    description: '4m lengths',
+    category: 'conduit',
+    unit_of_measure: 'length',
+    quantity_on_hand: 24,
+    reorder_level: 10,
+    reorder_quantity: 20,
+    storage_location: 'Van 1',
+    unit_cost: 4.8,
+    supplier_id: AUDIT_SUPPLIER_ID,
+    archived: false,
+    created_at: NOW,
+    updated_at: NOW,
+    supplier_name: 'Sparky Supplies',
+  };
+}
+
+export function getAuditSupplier(id: string) {
+  if (!isDevFieldAuditAuth() || id !== AUDIT_SUPPLIER_ID) return null;
+  return {
+    id: AUDIT_SUPPLIER_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    name: 'Sparky Supplies',
+    contact_person: 'Pat Counter',
+    phone: '03 9111 0000',
+    email: 'orders@sparkysupplies.example',
+    address: '8 Trade St',
+    default_currency: 'AUD',
+    notes: null,
+    archived: false,
+    created_at: NOW,
+  };
+}
+
+export function getAuditTemplates() {
+  if (!isDevFieldAuditAuth()) return null;
+  const inspection = getAuditInspection(AUDIT_INSPECTION_ID);
+  return [{
+    id: AUDIT_TEMPLATE_ID,
+    name: 'Field audit inspection',
+    report_renderer: 'generic_inspection',
+    schema: inspection?.template_snapshot.schema,
+  }];
+}
+
+export function getAuditInvoiceEditorRow(invoiceId: string) {
+  const bundle = getAuditInvoiceSendBundle(invoiceId, {
+    name: DEV_AUDIT_COMPANY.name,
+    abn: null,
+    phone: null,
+    email: null,
+    logo_url: null,
+  });
+  if (!bundle) return null;
+  return {
+    ...bundle.invoice,
+    quote_id: null,
+    source: null,
+    inclusions: bundle.invoice.inclusions ?? [],
+    exclusions: bundle.invoice.exclusions ?? [],
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: NOW,
+    updated_at: NOW,
+    client_name: bundle.client.name,
+    client_email: bundle.client.email,
+    client_phone: bundle.client.phone,
+    job_title: 'Switchboard upgrade',
+    job_address: bundle.jobAddress,
+  };
 }
 
 export function getAuditListItems(defId: string) {

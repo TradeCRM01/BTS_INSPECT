@@ -11,6 +11,7 @@ import { SolarWizard, SOLAR_WIZARD_MAX_STEP } from '../features/solar-calculator
 import { blankSolarInputs, type SolarEstimateInputs } from '../features/solar-calculator/draft';
 import { computeSolarOutputs, mergeInputs } from '../features/solar-calculator/compute';
 import { formatMoney } from '../types/fsm';
+import { getAuditClients, getAuditEmptyList } from '../lib/devFieldAuditDocs';
 
 function clampSolarStep(n: number) {
   if (!Number.isFinite(n) || n < 1) return 1;
@@ -45,6 +46,8 @@ export function SolarEstimatesPage() {
   const { data: quotes = [], isLoading, refetch } = useQuery<SolarQuoteRow[]>({
     queryKey: ['solar-quotes', profile?.company_id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as SolarQuoteRow[];
       const { data, error } = await supabase
         .from('solar_quotes')
         .select('id, title, status, current_step, inputs, outputs, midscale_acknowledged, client_id, updated_at, created_at')
@@ -58,6 +61,8 @@ export function SolarEstimatesPage() {
   const { data: clients = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: ['solar-estimate-clients', profile?.company_id],
     queryFn: async () => {
+      const mock = getAuditClients();
+      if (mock) return mock.map(c => ({ id: c.id, name: c.name }));
       const { data, error } = await supabase
         .from('clients')
         .select('id, name')

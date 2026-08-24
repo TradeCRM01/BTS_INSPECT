@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { nanoid } from '../lib/nanoid';
+import { getAuditEmptyList } from '../lib/devFieldAuditDocs';
 import {
   isFileSystemAccessSupported, pickBackupFolder,
   hasStoredBackupDir, clearBackupDir, syncToBackup, syncOne,
@@ -159,6 +160,8 @@ export function ReportsListPage() {
   useQuery({
     queryKey: ['backup-settings'],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return null;
       const { data } = await supabase
         .from('companies')
         .select('backup_enabled, backup_folder_name, backup_sync_mode, backup_last_synced_at')
@@ -222,6 +225,8 @@ export function ReportsListPage() {
   const { data: allFolders } = useQuery<FolderRow[]>({
     queryKey: ['drive-folders'],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as FolderRow[];
       const { data, error } = await supabase
         .from('folders')
         .select('id, parent_id, name, created_at, position_x, position_y')
@@ -236,6 +241,8 @@ export function ReportsListPage() {
   const { data: allUploads } = useQuery<UploadedPdfRow[]>({
     queryKey: ['uploaded-pdfs'],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as UploadedPdfRow[];
       const { data, error } = await supabase
         .from('uploaded_pdfs')
         .select('id, filename, storage_path, file_size, title, created_at, folder_id, position_x, position_y')
@@ -250,6 +257,8 @@ export function ReportsListPage() {
   const { data: allReports } = useQuery<ReportRow[]>({
     queryKey: ['all-reports'],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as ReportRow[];
       const { data: reports } = await supabase
         .from('reports')
         .select('id, inspection_id, report_number, pdf_storage_path, generated_at, folder_id, position_x, position_y')
@@ -277,6 +286,8 @@ export function ReportsListPage() {
   const { data: allInspections } = useQuery<InspectionRow[]>({
     queryKey: ['drive-inspections'],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as InspectionRow[];
       const { data, error } = await supabase
         .from('inspections')
         .select('id, status, meta, started_at, template_snapshot, folder_id, position_x, position_y')
