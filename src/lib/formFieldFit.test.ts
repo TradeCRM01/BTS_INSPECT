@@ -162,6 +162,8 @@ describe('form fields fit their type', () => {
     expect(src('src/components/pricebooks/PriceBookPdfImportModal.tsx')).not.toContain('<table');
     expect(page).toContain('Stop & think');
     expect(page).toContain('to="/settings/team"');
+    expect(page).toContain('Price book item (3-up stacks on phones)');
+    expect(page).toContain('Managed lists add + JHA score');
     expect(src('src/components/expenses/EmployeeCostRatesPanel.tsx')).toContain('form-input-sm w-full text-right min-w-0');
     expect(src('src/components/expenses/EmployeeCostRatesPanel.tsx')).not.toContain('form-input-sm w-20');
     expect(src('src/pages/TeamSettingsPage.tsx')).toContain('className="form-input"');

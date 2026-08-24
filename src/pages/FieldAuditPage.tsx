@@ -536,6 +536,54 @@ export function FieldAuditPage() {
       </section>
 
       <section className="space-y-2">
+        <h2 className="text-sm font-medium">Price book item (3-up stacks on phones)</h2>
+        <div className="overlay-panel-lg border border-[#E5E7EB] rounded-xl bg-white">
+          <div className="overlay-body space-y-3">
+            <label className="block">
+              <span className="text-sm font-medium text-[#4A5568] mb-1 block">Description *</span>
+              <input value={poDesc} onChange={e => setPoDesc(e.target.value)} className="form-input" />
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-sm font-medium text-[#4A5568] mb-1 block">Code</span>
+                <input value={jobNumber} onChange={e => setJobNumber(e.target.value)} className="form-input" />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-[#4A5568] mb-1 block">Category</span>
+                <ManagedSelect listKey={LIST_KEYS.priceBookCategories} value={workType} onChange={setWorkType} placeholder="Select category..." />
+              </label>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <label className="block">
+                <span className="text-sm font-medium text-[#4A5568] mb-1 block">Unit</span>
+                <input value="each" readOnly className="form-input" />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-[#4A5568] mb-1 block">Unit Price</span>
+                <input value={unitPrice} onChange={e => setUnitPrice(e.target.value)} className="form-input" />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-[#4A5568] mb-1 block">Cost Price</span>
+                <input value={unitCost} onChange={e => setUnitCost(e.target.value)} className="form-input" />
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium">Managed lists add + JHA score</h2>
+        <div className="flex items-center gap-2">
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Add a new item..." className="form-input flex-1" />
+          <button type="button" className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md whitespace-nowrap">Add</button>
+        </div>
+        <label className="block max-w-xs">
+          <span className="block text-sm font-medium text-[#1A1A1A] mb-1">Max acceptable residual risk (L×C)</span>
+          <input type="number" value="9" readOnly className="w-full min-w-0 sm:w-28 text-sm border border-[#E5E7EB] rounded-md px-2.5 py-2 bg-white" />
+        </label>
+      </section>
+
+      <section className="space-y-2">
         <h2 className="text-sm font-medium">Team invite</h2>
         <div className="overlay-panel-md border border-[#E5E7EB] rounded-xl bg-white p-4 max-w-md space-y-3">
           <div>
