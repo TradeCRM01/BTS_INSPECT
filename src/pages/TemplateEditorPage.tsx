@@ -690,7 +690,7 @@ export function TemplateEditorPage() {
                     <select
                       value={schema.meta.layoutMode ?? 'checklist'}
                       onChange={e => setLayoutMode(e.target.value as LayoutMode)}
-                      className="w-full text-xs px-2 py-1.5 border border-[#E5E7EB] rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                      className="w-full min-h-[44px] h-auto text-xs px-2 py-2 border border-[#E5E7EB] rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
                     >
                       <option value="checklist">Checklist</option>
                       <option value="test_schedule">Test schedule</option>
@@ -751,13 +751,13 @@ export function TemplateEditorPage() {
               <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm">
                 {/* Section settings */}
                 <div className="px-4 py-3 border-b border-[#E5E7EB]">
-                  <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                     <div className="col-span-2">
                       <label className="block text-xs font-medium text-[#4A5568] mb-1">Section title</label>
                       <input
                         value={selectedSection.title}
                         onChange={e => updateSection({ title: e.target.value })}
-                        className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                        className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
                         placeholder="e.g. Visual Inspection"
                       />
                     </div>
@@ -767,7 +767,7 @@ export function TemplateEditorPage() {
                         value={selectedSection.description ?? ''}
                         onChange={e => updateSection({ description: e.target.value })}
                         rows={2}
-                        className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent resize-none"
+                        className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent resize-none"
                         placeholder="Instructions for this section..."
                       />
                     </div>

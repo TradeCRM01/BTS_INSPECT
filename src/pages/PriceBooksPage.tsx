@@ -130,7 +130,7 @@ export function PriceBooksPage() {
                 <div className="relative">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
                   <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search items..."
-                    className="h-8 pl-9 pr-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6] w-48" />
+                    className="min-h-[44px] h-auto py-2 pl-9 pr-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6] w-full sm:w-48" />
                 </div>
                 {selectedBookId && (
                   <>
@@ -362,12 +362,12 @@ function PriceBookItemForm({ item, priceBookId, onClose, onSaved }: { item: Pric
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] shrink-0"><h2 className="text-lg font-semibold text-[#1A1A1A]">{item ? 'Edit Item' : 'Add Price Book Item'}</h2><button onClick={onClose}><X size={20} className="text-[#6B7280]" /></button></div>
         <form onSubmit={handleSave} className="overlay-body">
           <Field label="Description *"><input required value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="form-input" placeholder="e.g. Install double power point" /></Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Code"><input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="form-input" placeholder="PP-001" /></Field>
             <Field label="Category"><ManagedSelect listKey={LIST_KEYS.priceBookCategories} value={form.category}
               onChange={v => setForm(f => ({ ...f, category: v }))} placeholder="Select category..." /></Field>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Field label="Unit"><input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="form-input" placeholder="each" /></Field>
             <Field label="Unit Price"><input type="number" min={0} step="0.01" value={form.unit_price} onChange={e => setForm(f => ({ ...f, unit_price: e.target.value }))} className="form-input" placeholder="0.00" /></Field>
             <Field label="Cost Price"><input type="number" min={0} step="0.01" value={form.cost_price} onChange={e => setForm(f => ({ ...f, cost_price: e.target.value }))} className="form-input" placeholder="0.00" /></Field>

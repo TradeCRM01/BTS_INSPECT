@@ -118,7 +118,7 @@ export function AssetsPage() {
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <SearchBar value={search} onChange={setSearch} placeholder="Search by name, tag, serial, manufacturer..." />
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as 'all' | AssetStatus)}
-            className="h-9 px-3 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]">
+            className="min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]">
             <option value="all">All Status</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
@@ -348,7 +348,7 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
             <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               className="form-input" placeholder="e.g. Main Switchboard" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Asset Tag">
               <input value={form.asset_tag} onChange={e => setForm(f => ({ ...f, asset_tag: e.target.value }))}
                 className="form-input" placeholder="AST-001" />
@@ -358,7 +358,7 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
                 className="form-input" placeholder="SN12345" />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Manufacturer">
               <input value={form.manufacturer} onChange={e => setForm(f => ({ ...f, manufacturer: e.target.value }))}
                 className="form-input" placeholder="e.g. Schneider" />
@@ -368,7 +368,7 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
                 className="form-input" placeholder="e.g. NSX160" />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Category"><ManagedSelect listKey={LIST_KEYS.assetCategories} value={form.category}
               onChange={v => setForm(f => ({ ...f, category: v }))} placeholder="Select category..." /></Field>
             <Field label="Client">
@@ -383,7 +383,7 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
             <input value={form.location_description} onChange={e => setForm(f => ({ ...f, location_description: e.target.value }))}
               className="form-input" placeholder="e.g. Main plant room, Level 1" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Install Date">
               <input type="date" value={form.install_date} onChange={e => setForm(f => ({ ...f, install_date: e.target.value }))}
                 className="form-input" />

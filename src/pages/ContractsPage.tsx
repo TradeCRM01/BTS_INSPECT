@@ -475,7 +475,7 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
         </div>
         <form onSubmit={handleSave} className="overlay-body">
           <Field label="Title *"><input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="form-input" placeholder="e.g. Annual Maintenance Agreement" /></Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Client *">
               <select required value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))} className="form-input cursor-pointer">
                 <option value="">Select client...</option>
@@ -484,7 +484,7 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
             </Field>
             <Field label="Contract #"><input value={form.contract_number} onChange={e => setForm(f => ({ ...f, contract_number: e.target.value }))} className="form-input" placeholder="CON-001" /></Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Status">
               <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as ContractStatus }))} className="form-input cursor-pointer">
                 <option value="active">Active</option><option value="pending">Pending</option>
@@ -493,11 +493,11 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
             </Field>
             <Field label="Contract Value"><input type="number" min={0} step="0.01" value={form.contract_value} onChange={e => setForm(f => ({ ...f, contract_value: e.target.value }))} className="form-input" placeholder="0.00" /></Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Start Date"><input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} className="form-input" /></Field>
             <Field label="End Date"><input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} className="form-input" /></Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Billing Cycle">
               <select value={form.billing_cycle} onChange={e => setForm(f => ({ ...f, billing_cycle: e.target.value }))} className="form-input cursor-pointer">
                 {Object.entries(BILLING_CYCLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}

@@ -621,7 +621,7 @@ function ComplianceForm({
               placeholder="Scope of work, what's involved..."
             />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Every (interval) *">
               <input
                 type="number"
@@ -644,7 +644,7 @@ function ComplianceForm({
               </select>
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="First Due Date *">
               <input
                 type="date"

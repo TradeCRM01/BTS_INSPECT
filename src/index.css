@@ -531,6 +531,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -874,6 +875,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -958,6 +960,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -1042,6 +1045,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -1128,12 +1132,15 @@
   }
 
   /* ── Form elements ───────────────────────────────────────────── */
+  /* min-height, not a fixed h-8/h-9: iOS forces 16px type, which a 32px box clips. */
   .form-input {
-    @apply w-full h-9 px-3 text-sm border border-rule rounded-md bg-white text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-colors;
+    @apply w-full min-h-[44px] px-3 py-2 text-sm border border-rule rounded-md bg-white text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-colors;
+    line-height: 1.25;
   }
 
   .form-input-sm {
-    @apply w-full h-8 px-2.5 text-sm border border-rule rounded-md bg-white text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-colors;
+    @apply w-full min-h-[44px] px-2.5 py-2 text-sm border border-rule rounded-md bg-white text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-colors;
+    line-height: 1.25;
   }
 
   .form-label {
@@ -1230,6 +1237,22 @@
 
   .overlay-form-span-all {
     @apply md:col-span-2 xl:col-span-3;
+  }
+
+  /* Phone overlays: two-up / three-up field grids clip native date/time and 16px type. */
+  @media (max-width: 640px) {
+    .overlay-panel .grid.grid-cols-2,
+    .overlay-panel-lg .grid.grid-cols-2,
+    .overlay-panel-xl .grid.grid-cols-2,
+    .overlay-panel-sm .grid.grid-cols-2,
+    .overlay-panel-md .grid.grid-cols-2,
+    .overlay-panel .grid.grid-cols-3,
+    .overlay-panel-lg .grid.grid-cols-3,
+    .overlay-panel-xl .grid.grid-cols-3,
+    .overlay-panel-sm .grid.grid-cols-3,
+    .overlay-panel-md .grid.grid-cols-3 {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 
   .page-shell {
@@ -1529,6 +1552,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -1597,6 +1621,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -1665,6 +1690,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -1914,6 +1940,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -1982,6 +2009,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -2050,6 +2078,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -2405,9 +2434,13 @@
     height: auto !important;
     max-height: 96vh !important;
     min-height: 0;
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: auto;
     padding: 16px 16px 24px;
+  }
+
+  .overlay-panel-xl.hub-quote-editor {
+    overflow-x: auto;
   }
 
   .overlay-panel-md:has(.hub-invoice-send) {
@@ -2625,6 +2658,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -2706,6 +2740,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -2799,6 +2834,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -3019,6 +3055,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -3098,6 +3135,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -3188,6 +3226,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -3604,6 +3643,7 @@
     max-width: none;
     field-sizing: content;
     height: 24px;
+    min-height: 24px;
     padding: 0 8px;
     font-size: 12px !important;
     font-weight: 500;
@@ -4590,6 +4630,17 @@
       font-size: 16px !important;
     }
 
+    /* 16px type in a 32px box clips glyphs. Date/time native UI needs this too. */
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="color"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]),
+    textarea,
+    select {
+      min-height: 44px;
+      line-height: 1.25;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
     /* Due-test quiet Save is muted 12px text — not a second 44px. */
     #inspection-due .job-client-email-save,
     #inspection-due .job-client-phone-save,
@@ -4600,10 +4651,14 @@
       width: auto;
     }
 
-    #inspection-due .job-client-email .form-input-sm,
-    #inspection-due .job-client-phone .form-input-sm,
-    #inspection-due .job-client-attach .form-input-sm {
+    /* Inline 24px chips keep 12px type so they are not iOS-zoomed or 44px-tall. */
+    .job-client-email .form-input-sm,
+    .job-client-phone .form-input-sm,
+    .job-client-attach .form-input-sm {
       font-size: 12px !important;
+      height: 24px !important;
+      min-height: 24px !important;
+      max-width: none;
     }
   }
 }

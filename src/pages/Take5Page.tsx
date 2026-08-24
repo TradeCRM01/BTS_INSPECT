@@ -480,7 +480,7 @@ function Take5FillPage() {
                 {[job?.title, jhaMeta.siteName, jha?.report_number].filter(Boolean).join(' · ')}
               </p>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Date" type="date" value={meta.date} onChange={v => setMeta(m => ({ ...m, date: v }))} />
               <Field label="Time" type="time" value={meta.time} onChange={v => setMeta(m => ({ ...m, time: v }))} />
             </div>

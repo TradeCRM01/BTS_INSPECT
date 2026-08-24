@@ -293,29 +293,29 @@ function SupplierEditForm({ supplier, onClose, onSaved }: {
         <form onSubmit={handleSave} className="p-5 space-y-3">
           <Field label="Name *">
             <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              className="w-full h-9 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
+              className="w-full min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
           </Field>
           <Field label="Contact Name">
             <input value={form.contact_person} onChange={e => setForm(f => ({ ...f, contact_person: e.target.value }))}
-              className="w-full h-9 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
+              className="w-full min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Phone">
               <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                className="w-full h-9 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
+                className="w-full min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
             </Field>
             <Field label="Email">
               <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                className="w-full h-9 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
+                className="w-full min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
             </Field>
           </div>
           <Field label="Address">
             <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-              className="w-full h-9 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
+              className="w-full min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
           </Field>
           <Field label="Default Currency">
             <input value={form.default_currency} onChange={e => setForm(f => ({ ...f, default_currency: e.target.value }))}
-              className="w-full h-9 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
+              className="w-full min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
           </Field>
           <Field label="Notes">
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3}

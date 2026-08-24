@@ -184,7 +184,7 @@ export function SolarWizard({
               </select>
             </Field>
 
-            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-3 grid grid-cols-2 gap-3 max-w-md">
+            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-3 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
               <Field label="STC price low $">
                 <input
                   className="form-input"

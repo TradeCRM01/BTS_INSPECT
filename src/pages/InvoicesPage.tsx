@@ -1189,7 +1189,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             )}
           </Field>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Linked Job">
               <select value={form.job_id} onChange={e => setForm(f => ({ ...f, job_id: e.target.value }))} className="form-input cursor-pointer">
                 <option value="">No linked job</option>
@@ -1234,7 +1234,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="GST rate (%)">
               <input type="number" min={0} step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))}
                 className="form-input" placeholder="0" />

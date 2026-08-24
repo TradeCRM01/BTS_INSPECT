@@ -337,7 +337,7 @@ export function CompanySettingsPage() {
         <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
           <h2 className="text-sm font-semibold text-[#1A1A1A] mb-1">Tax & Markup Defaults</h2>
           <p className="text-xs text-[#4A5568] mb-3">Used as defaults on new quotes, invoices, and purchase orders.</p>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-6">
             <div>
               <label className="text-xs text-[#4A5568] block mb-1">Default Tax Rate</label>
               <div className="flex items-center gap-2">
@@ -548,7 +548,7 @@ export function CompanySettingsPage() {
               <p className="text-xs text-[#4A5568]">Loading...</p>
             ) : (
               <form onSubmit={handleSaveEmailSettings} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">From Name</label>
                     <input
@@ -572,7 +572,7 @@ export function CompanySettingsPage() {
 
                 <div className="border-t border-[#E5E7EB] pt-4">
                   <p className="text-xs font-semibold text-[#4A5568] uppercase tracking-wide mb-3">SMTP Server</p>
-                  <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">SMTP Host</label>
                       <input
@@ -594,7 +594,7 @@ export function CompanySettingsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">SMTP Username</label>
                       <input
@@ -751,7 +751,7 @@ export function CompanySettingsPage() {
               <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Company Name</label>
               <input value={name} onChange={e => setName(e.target.value)} required className={inputClass} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">ABN</label>
                 <input value={abn} onChange={e => setAbn(e.target.value)}

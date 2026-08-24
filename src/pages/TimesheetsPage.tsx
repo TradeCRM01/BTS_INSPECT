@@ -171,7 +171,7 @@ export function TimesheetsPage() {
             <button onClick={() => setCurrentWeek(addDays(currentWeek, 7))} className="p-2 rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB] text-[#4A5568]"><ChevronRight size={18} /></button>
           </div>
           <select value={selectedEmployee ?? ''} onChange={e => setSelectedEmployee(e.target.value)}
-            className="h-9 px-3 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]">
+            className="min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]">
             {(teamMembers ?? []).map(m => <option key={m.id} value={m.id}>{m.name}{m.id === profile?.id ? ' (You)' : ''}</option>)}
           </select>
         </div>

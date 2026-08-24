@@ -446,7 +446,7 @@ function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
         {/* Body */}
         <div className="overlay-body">
           {/* Supplier + Job */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Supplier" required>
               <select value={form.supplier_id} onChange={e => setForm(f => ({ ...f, supplier_id: e.target.value }))}
                 className="form-input cursor-pointer">
@@ -482,7 +482,7 @@ function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
                 </button>
               </div>
             </div>
-            <div className="border border-[#E5E7EB] rounded-lg overflow-hidden">
+            <div className="border border-[#E5E7EB] rounded-lg overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-[#F9FAFB] text-xs text-[#6B7280] uppercase">
                   <tr>
@@ -538,9 +538,9 @@ function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
           </div>
 
           {/* Totals + Tax */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Tax Rate (%)">
                   <input type="number" min={0} step="0.01" value={form.tax_rate}
                     onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))}
@@ -646,7 +646,7 @@ function StockPicker({ onClose, onSelect }: {
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
             <input value={search} onChange={e => setSearch(e.target.value)} autoFocus
               placeholder="Search by name or SKU..."
-              className="w-full h-8 pl-8 pr-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
+              className="w-full min-h-[44px] h-auto py-2 pl-8 pr-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
           </div>
         </div>
         <div className="flex-1 overflow-auto">
@@ -757,7 +757,7 @@ function ReceiveGoodsModal({ po, onClose, onSaved }: {
         </div>
 
         <div className="flex-1 overflow-auto px-5 py-4">
-          <div className="border border-[#E5E7EB] rounded-lg overflow-hidden">
+          <div className="border border-[#E5E7EB] rounded-lg overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-[#F9FAFB] text-xs text-[#6B7280] uppercase">
                 <tr>

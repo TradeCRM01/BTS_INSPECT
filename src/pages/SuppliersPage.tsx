@@ -336,7 +336,7 @@ export function SupplierForm({ supplier, onClose, onSaved }: {
             <input value={form.contact_person} onChange={e => setForm(f => ({ ...f, contact_person: e.target.value }))}
               className="form-input" placeholder="e.g. John Smith" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Phone">
               <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                 className="form-input" placeholder="(555) 123-4567" />
