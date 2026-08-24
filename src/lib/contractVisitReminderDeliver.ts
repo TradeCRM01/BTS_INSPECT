@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getAuditContractVisitReminderBundle } from './devFieldAuditDocs';
 import {
   applyContractVisitReminderScope,
   contractVisitReminderClientQuery,
@@ -32,6 +33,8 @@ export async function loadContractVisitReminderBundle(
   contractId: string,
   company: ContractVisitReminderCompany & { id: string },
 ): Promise<ContractVisitReminderBundle> {
+  const mock = getAuditContractVisitReminderBundle(contractId, company);
+  if (mock) return mock;
   const scopes = contractVisitReminderQueries({ companyId: company.id, contractId });
   const contractRes = await applyContractVisitReminderScope(supabase.from(scopes.contract.table), scopes.contract).maybeSingle();
   if (contractRes.error) throw contractRes.error;

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { getAuditContracts } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
@@ -60,6 +61,8 @@ export function ContractsPage() {
   const { data: contracts, isLoading, error } = useQuery({
     queryKey: ['service-contracts'],
     queryFn: async () => {
+      const mock = getAuditContracts();
+      if (mock) return mock;
       const { data, error } = await supabase
         .from('service_contracts')
         .select('*')

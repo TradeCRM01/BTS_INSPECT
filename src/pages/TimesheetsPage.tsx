@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { getAuditEmptyList, getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, useToast } from '../components/ui';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
@@ -25,6 +26,8 @@ export function TimesheetsPage() {
   const { data: teamMembers, isFetched: teamFetched } = useQuery({
     queryKey: ['team-members'],
     queryFn: async () => {
+      const mock = getAuditTeamMembers();
+      if (mock) return mock;
       const { data, error } = await supabase.rpc('get_company_members', { p_company_id: profile!.company_id });
       if (error) throw error;
       return (data ?? []) as { id: string; name: string; email: string; role: string }[];
@@ -49,6 +52,8 @@ export function TimesheetsPage() {
   const { data: timesheets, isLoading, error } = useQuery({
     queryKey: ['timesheets', weekStart, selectedEmployee],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as Timesheet[];
       const { data, error } = await supabase
         .from('timesheets')
         .select('*')
@@ -78,6 +83,8 @@ export function TimesheetsPage() {
   const { data: jobs } = useQuery({
     queryKey: ['jobs-for-timesheets'],
     queryFn: async () => {
+      const mock = getAuditJobs();
+      if (mock) return mock.map(j => ({ id: j.id, title: j.title, job_number: j.job_number }));
       const { data, error } = await supabase
         .from('jobs')
         .select('id, title, job_number')

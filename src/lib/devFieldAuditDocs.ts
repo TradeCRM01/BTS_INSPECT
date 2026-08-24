@@ -4,7 +4,8 @@ import type { QuoteSendBundle, QuoteSendCompany } from './sendQuote';
 import type { PurchaseOrderSendBundle, PurchaseOrderSendCompany } from './sendPurchaseOrder';
 import type { ReportSendBundle, ReportSendCompany } from './sendReport';
 import type { JhaStep, JhaTemplateSchema } from '../types/jha';
-import type { PriceBook, PriceBookItem } from '../types/fsm';
+import type { PriceBook, PriceBookItem, ServiceContract, ServiceContractWithClient } from '../types/fsm';
+import type { ContractVisitReminderBundle, ContractVisitReminderCompany } from './contractVisitReminder';
 
 export const AUDIT_INSPECTION_ID = 'audit-inspection-fill';
 export const AUDIT_JHA_DOC_ID = 'audit-jha-fill';
@@ -21,6 +22,7 @@ export const AUDIT_CREW_ID = 'audit-crew-1';
 export const AUDIT_STOCK_ID = 'audit-stock-item';
 export const AUDIT_SUPPLIER_ID = 'audit-supplier';
 export const AUDIT_TEMPLATE_ID = 'audit-template';
+export const AUDIT_CONTRACT_ID = 'audit-contract';
 
 const NOW = '2026-08-24T00:00:00.000Z';
 
@@ -519,5 +521,70 @@ export function getAuditReportSendBundle(
       content: 'AAA',
       contentType: 'application/pdf',
     },
+  };
+}
+
+function auditContractRow(): ServiceContract {
+  return {
+    id: AUDIT_CONTRACT_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    title: 'Annual switchboard service',
+    description: 'Quarterly visit at the workshop.',
+    contract_number: 'SC-42',
+    status: 'active',
+    start_date: '2026-01-01',
+    end_date: '2026-12-31',
+    billing_cycle: 'annual',
+    contract_value: 4800,
+    service_frequency: 'quarterly',
+    next_service_date: '2026-08-20',
+    last_service_date: '2026-05-20',
+    auto_generate_jobs: true,
+    notes: null,
+    service_reminder_sent_at: null,
+    service_reminder_sent_for_date: null,
+    created_at: NOW,
+    updated_at: NOW,
+  };
+}
+
+export function getAuditContracts(): ServiceContractWithClient[] | null {
+  if (!isDevFieldAuditAuth()) return null;
+  return [{ ...auditContractRow(), client_name: 'Northside Electrical' }];
+}
+
+export function getAuditContractVisitReminderBundle(
+  contractId: string,
+  company: ContractVisitReminderCompany & { id: string },
+): ContractVisitReminderBundle | null {
+  if (!isDevFieldAuditAuth() || contractId !== AUDIT_CONTRACT_ID) return null;
+  return {
+    contract: {
+      id: AUDIT_CONTRACT_ID,
+      company_id: DEV_AUDIT_COMPANY.id,
+      client_id: AUDIT_DOC_CLIENT_ID,
+      title: 'Annual switchboard service',
+      description: 'Quarterly visit at the workshop.',
+      contract_number: 'SC-42',
+      status: 'active',
+      end_date: '2026-12-31',
+      service_frequency: 'quarterly',
+      next_service_date: '2026-08-20',
+      last_service_date: '2026-05-20',
+      auto_generate_jobs: true,
+      service_reminder_sent_at: null,
+      service_reminder_sent_for_date: null,
+    },
+    client: {
+      id: AUDIT_DOC_CLIENT_ID,
+      name: 'Northside Electrical',
+      email: null,
+      phone: null,
+      contact_person: 'Site supervisor',
+      address: '12 Workshop Rd, Perth WA 6000',
+    },
+    smtp: AUDIT_SMTP,
+    company,
   };
 }

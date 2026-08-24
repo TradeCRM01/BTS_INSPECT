@@ -33,11 +33,13 @@ import {
   AUDIT_SUPPLIER_ID,
   AUDIT_TAKE5_ID,
   AUDIT_TEMPLATE_ID,
+  AUDIT_CONTRACT_ID,
 } from '../lib/devFieldAuditDocs';
 import { InvoiceSendDialog } from '../components/invoicing/InvoiceSendDialog';
 import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
 import { PurchaseOrderSendDialog } from '../components/invoicing/PurchaseOrderSendDialog';
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
+import { ContractVisitReminderDialog } from '../components/contracts/ContractVisitReminderDialog';
 import type { Question } from '../types/template';
 import type { Client, Job } from '../types/crm';
 import type { JhaCrewMember, JhaStep, JhaTemplateSchema } from '../types/jha';
@@ -229,6 +231,7 @@ export function FieldAuditPage() {
     { ...emptyLineItem(20), description: 'Labour — licensed electrician', quantity: '6', unit_cost: '95', markup_percent: '15', unit_price: '109.25' },
   ]);
   const [sendSheet, setSendSheet] = useState<null | 'invoice' | 'quote' | 'po' | 'report'>(null);
+  const [remindContract, setRemindContract] = useState(false);
   const auditSendCompany = {
     id: DEV_AUDIT_COMPANY.id,
     name: DEV_AUDIT_COMPANY.name,
@@ -348,6 +351,8 @@ export function FieldAuditPage() {
         <button type="button" className="text-[#2E75B6] underline" onClick={() => setSendSheet('po')}>Send PO</button>
         {' · '}
         <button type="button" className="text-[#2E75B6] underline" onClick={() => setSendSheet('report')}>Send report</button>
+        {' · '}
+        <button type="button" className="text-[#2E75B6] underline" onClick={() => setRemindContract(true)}>Remind contract</button>
       </p>
 
       <section className="space-y-2">
@@ -991,6 +996,14 @@ export function FieldAuditPage() {
           company={auditSendCompany}
           onClose={() => setSendSheet(null)}
           onSent={() => setSendSheet(null)}
+        />
+      )}
+      {remindContract && (
+        <ContractVisitReminderDialog
+          contractId={AUDIT_CONTRACT_ID}
+          company={auditSendCompany}
+          onClose={() => setRemindContract(false)}
+          onSent={() => setRemindContract(false)}
         />
       )}
     </div>

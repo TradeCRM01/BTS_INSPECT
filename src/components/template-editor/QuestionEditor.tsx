@@ -83,7 +83,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
           <input
             value={question.label}
             onChange={e => onChange({ label: e.target.value })}
-            className="flex-1 text-sm font-semibold text-[#0A2540] border-none outline-none bg-transparent"
+            className="flex-1 min-w-0 min-h-[44px] h-auto py-2 text-sm font-semibold text-[#0A2540] border-none outline-none bg-transparent"
             placeholder="Heading text..."
           />
           <button
@@ -119,7 +119,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
           value={question.label}
           onChange={e => { e.stopPropagation(); onChange({ label: e.target.value }); }}
           onClick={e => e.stopPropagation()}
-          className="flex-1 text-sm text-[#1A1A1A] border-none outline-none bg-transparent"
+          className="flex-1 min-w-0 min-h-[44px] h-auto py-2 text-sm text-[#1A1A1A] border-none outline-none bg-transparent"
           placeholder="Question label..."
         />
         <div className="flex items-center gap-1 shrink-0">

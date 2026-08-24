@@ -204,6 +204,7 @@ describe('form fields fit their type', () => {
     expect(page).toContain('Send quote');
     expect(page).toContain('Send PO');
     expect(page).toContain('Send report');
+    expect(page).toContain('Remind contract');
     expect(page).toContain(`/inspections/new?templateId=`);
     expect(page).toContain('Crew sign');
     expect(page).toContain('Edit invoice');
@@ -231,6 +232,14 @@ describe('form fields fit their type', () => {
     expect(src('src/lib/devFieldAuditAuth.ts')).toContain('pageQueryBlocked');
     expect(src('src/pages/InvoicesPage.tsx')).toContain('pageQueryBlocked(error)');
     expect(src('src/pages/JobsPage.tsx')).toContain('pageQueryBlocked(error)');
+    expect(src('src/pages/TimesheetsPage.tsx')).toContain('getAuditTeamMembers');
+    expect(src('src/pages/TimesheetsPage.tsx')).toContain('getAuditJobs');
+    expect(src('src/pages/ContractsPage.tsx')).toContain('getAuditContracts');
+    expect(src('src/lib/contractVisitReminderDeliver.ts')).toContain('getAuditContractVisitReminderBundle');
+    expect(src('src/components/layout/AppShell.tsx')).toContain('<GlobalSearch');
+    expect(src('src/components/layout/AppShell.tsx')).toContain('setSearchOpen(true)');
+    expect(src('src/components/template-editor/QuestionEditor.tsx')).toContain('min-h-[44px] h-auto py-2 text-sm text-[#1A1A1A]');
+    expect(src('src/pages/AiConsolePage.tsx')).toContain('max-md:absolute');
     expect(src('src/main.tsx')).toContain('isDevFieldAuditAuth()');
   });
 
