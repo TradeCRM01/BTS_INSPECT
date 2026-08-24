@@ -160,7 +160,8 @@ describe('form fields fit their type', () => {
     expect(page).toContain('job-client-email-save');
     expect(src('src/components/pricebooks/PriceBookPdfImportModal.tsx')).toContain('grid-cols-1 sm:grid-cols-2');
     expect(src('src/components/pricebooks/PriceBookPdfImportModal.tsx')).not.toContain('<table');
-    expect(src('src/components/expenses/ExpenseModelsModals.tsx')).toContain('Wage override');
+    expect(src('src/pages/AssetsPage.tsx')).toContain('— None —');
+    expect(src('src/pages/AssetsPage.tsx')).not.toMatch(/None.{0,8}Ã/);
     expect(src('src/pages/PurchaseOrdersPage.tsx')).toContain('col-span-1 sm:col-span-2 lg:col-span-1');
     expect(src('src/index.css')).toContain('.job-client-email-save');
     expect(src('src/index.css')).toMatch(/\.job-client-email-save[\s\S]*min-height:\s*0/);

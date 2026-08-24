@@ -375,7 +375,7 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
             <Field label="Client">
               <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))}
                 className="form-input cursor-pointer">
-                <option value="">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â None ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</option>
+                <option value="">— None —</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </Field>

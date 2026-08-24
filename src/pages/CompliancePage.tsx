@@ -664,7 +664,7 @@ function ComplianceForm({
               />
             </Field>
           </div>
-          <Field label="Reminder Email ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Days Before Due">
+          <Field label="Reminder Email — Days Before Due">
             <input
               type="number"
               min={0}
