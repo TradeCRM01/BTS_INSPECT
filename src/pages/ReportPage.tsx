@@ -17,6 +17,7 @@ import { AnnotationToolbar } from '../components/pdf/AnnotationToolbar';
 import { flattenAnnotations } from '../lib/flattenAnnotations';
 import { nanoid } from '../lib/nanoid';
 import type { Annotation, AnnotationTool } from '../types/annotations';
+import { getAuditClient, getAuditEmptyList, getAuditInspection, getAuditJob } from '../lib/devFieldAuditDocs';
 
 function generateReportNumber(): string {
   const now = new Date();
@@ -81,6 +82,8 @@ export function ReportPage() {
   const { data: inspection, isLoading: inspLoading } = useQuery({
     queryKey: ['inspection', id],
     queryFn: async () => {
+      const mock = getAuditInspection(id!);
+      if (mock) return mock as never;
       const { data, error } = await supabase.from('inspections').select('*').eq('id', id!).maybeSingle();
       if (error) throw error;
       if (!data) return null;
@@ -109,6 +112,8 @@ export function ReportPage() {
   const { data: boundJob } = useQuery({
     queryKey: ['inspection-report-job', crmJobId],
     queryFn: async () => {
+      const mock = getAuditJob(crmJobId!);
+      if (mock) return { id: mock.id, title: mock.title, address: mock.address, client_id: mock.client_id, job_number: mock.job_number };
       const { data, error } = await supabase
         .from('jobs')
         .select('id, title, address, client_id, job_number')
@@ -122,6 +127,8 @@ export function ReportPage() {
   const { data: boundJobClient } = useQuery({
     queryKey: ['inspection-report-job-client', boundJob?.client_id],
     queryFn: async () => {
+      const mock = getAuditClient(boundJob!.client_id!);
+      if (mock) return { id: mock.id, name: mock.name };
       const { data, error } = await supabase
         .from('clients')
         .select('id, name')
@@ -136,6 +143,8 @@ export function ReportPage() {
   const { data: existingReport } = useQuery({
     queryKey: ['report', id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return null;
       const { data } = await supabase.from('reports').select('*').eq('inspection_id', id!).maybeSingle();
       if (data?.pdf_storage_path) {
         const { data: blob, error: dlErr } = await supabase.storage.from('reports').download(data.pdf_storage_path);

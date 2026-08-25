@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS } from '../lib/useManagedList';
 import { AppShell } from '../components/layout/AppShell';
@@ -85,7 +86,7 @@ export function AssetsPage() {
     };
   }, [assets]);
 
-  if (error) return <AppShell><PageError message="Could not load assets" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load assets" /></AppShell>;
 
   return (
     <AppShell>
@@ -118,7 +119,7 @@ export function AssetsPage() {
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <SearchBar value={search} onChange={setSearch} placeholder="Search by name, tag, serial, manufacturer..." />
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as 'all' | AssetStatus)}
-            className="h-9 px-3 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]">
+            className="min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]">
             <option value="all">All Status</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
@@ -171,10 +172,10 @@ export function AssetsPage() {
                     return (
                       <tr key={asset.id} className="hover:bg-[#F9FAFB] transition-colors">
                         <td className="px-4 py-3 font-medium text-[#1A1A1A]">{asset.name}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.asset_tag ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.serial_number ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.client_name ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.warranty_expiry ? format(parseISO(asset.warranty_expiry), 'd MMM yyyy') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}{warrantyExpired && <AlertTriangle size={11} className="text-[#D97706] ml-1 inline" />}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{asset.asset_tag ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{asset.serial_number ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{asset.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{asset.warranty_expiry ? format(parseISO(asset.warranty_expiry), 'd MMM yyyy') : '—'}{warrantyExpired && <AlertTriangle size={11} className="text-[#D97706] ml-1 inline" />}</td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ASSET_STATUS_STYLES[asset.status]}`}>{ASSET_STATUS_LABELS[asset.status]}</span>
                         </td>
@@ -348,7 +349,7 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
             <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               className="form-input" placeholder="e.g. Main Switchboard" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Asset Tag">
               <input value={form.asset_tag} onChange={e => setForm(f => ({ ...f, asset_tag: e.target.value }))}
                 className="form-input" placeholder="AST-001" />
@@ -358,7 +359,7 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
                 className="form-input" placeholder="SN12345" />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Manufacturer">
               <input value={form.manufacturer} onChange={e => setForm(f => ({ ...f, manufacturer: e.target.value }))}
                 className="form-input" placeholder="e.g. Schneider" />
@@ -368,13 +369,13 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
                 className="form-input" placeholder="e.g. NSX160" />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Category"><ManagedSelect listKey={LIST_KEYS.assetCategories} value={form.category}
               onChange={v => setForm(f => ({ ...f, category: v }))} placeholder="Select category..." /></Field>
             <Field label="Client">
               <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))}
                 className="form-input cursor-pointer">
-                <option value="">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â None ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</option>
+                <option value="">— None —</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </Field>
@@ -383,7 +384,7 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
             <input value={form.location_description} onChange={e => setForm(f => ({ ...f, location_description: e.target.value }))}
               className="form-input" placeholder="e.g. Main plant room, Level 1" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Install Date">
               <input type="date" value={form.install_date} onChange={e => setForm(f => ({ ...f, install_date: e.target.value }))}
                 className="form-input" />

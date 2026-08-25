@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode, LoadingSpinner } from '../components/ui';
 import type { MenuEntry } from '../components/ui';
@@ -170,7 +171,7 @@ export function ClientsPage() {
     );
   }, [clients, search]);
 
-  if (error) return <AppShell><PageError message="Could not load clients" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load clients" /></AppShell>;
 
   return (
     <AppShell>

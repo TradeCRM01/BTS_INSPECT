@@ -10,6 +10,7 @@ import { LoadingSpinner, OpsDocHead, PageError } from '../components/ui';
 import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { parseCrewSignOns, type JhaCrewMember } from '../types/jha';
 import { livingJobSite } from '../lib/livingJha';
+import { getAuditJhaDoc, getAuditJob } from '../lib/devFieldAuditDocs';
 
 export function JhaCrewSignPage() {
   const [params] = useSearchParams();
@@ -26,6 +27,18 @@ export function JhaCrewSignPage() {
   const { data: doc, isLoading, isError, refetch } = useQuery({
     queryKey: ['jha-document-sign', docId],
     queryFn: async () => {
+      const mock = getAuditJhaDoc(docId!);
+      if (mock) {
+        return {
+          id: mock.id,
+          meta: mock.meta,
+          status: mock.status,
+          report_number: mock.report_number,
+          template_snapshot: mock.template_snapshot,
+          company_id: mock.company_id,
+          job_id: mock.job_id,
+        };
+      }
       const { data, error: qErr } = await supabase
         .from('jha_documents')
         .select('id, meta, status, report_number, template_snapshot, company_id, job_id')
@@ -40,6 +53,8 @@ export function JhaCrewSignPage() {
   const { data: boundJob } = useQuery({
     queryKey: ['jha-sign-job', doc?.job_id],
     queryFn: async () => {
+      const mock = getAuditJob(doc!.job_id!);
+      if (mock) return { id: mock.id, title: mock.title, address: mock.address };
       const { data, error: jobErr } = await supabase
         .from('jobs')
         .select('id, title, address')

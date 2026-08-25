@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonCardGrid } from '../components/ui/Skeletons';
@@ -72,7 +73,7 @@ export function SuppliersPage() {
     );
   }, [suppliers, search]);
 
-  if (error) return <AppShell><PageError message="Could not load suppliers" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load suppliers" /></AppShell>;
 
   return (
     <AppShell>
@@ -154,9 +155,9 @@ export function SuppliersPage() {
                       <td className="px-4 py-3">
                         <Link to={`/suppliers/${supplier.id}`} className="font-medium text-[#1A1A1A] hover:text-[#2E75B6]">{supplier.name}</Link>
                       </td>
-                      <td className="px-4 py-3 text-[#4A5568]">{supplier.contact_person ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
-                      <td className="px-4 py-3 text-[#4A5568]">{supplier.phone ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
-                      <td className="px-4 py-3 text-[#4A5568]">{supplier.email ?? <span className="text-[#9CA3AF]">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>}</td>
+                      <td className="px-4 py-3 text-[#4A5568]">{supplier.contact_person ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                      <td className="px-4 py-3 text-[#4A5568]">{supplier.phone ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                      <td className="px-4 py-3 text-[#4A5568]">{supplier.email ?? <span className="text-[#9CA3AF]">—</span>}</td>
                       <td className="px-4 py-3 text-[#4A5568]">{supplier.default_currency}</td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end">
@@ -336,7 +337,7 @@ export function SupplierForm({ supplier, onClose, onSaved }: {
             <input value={form.contact_person} onChange={e => setForm(f => ({ ...f, contact_person: e.target.value }))}
               className="form-input" placeholder="e.g. John Smith" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Phone">
               <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                 className="form-input" placeholder="(555) 123-4567" />

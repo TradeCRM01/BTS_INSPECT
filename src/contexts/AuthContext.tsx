@@ -2,6 +2,13 @@ import React, { createContext, useContext, useEffect, useState, useRef } from 'r
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../types/database';
+import {
+  DEV_AUDIT_COMPANY,
+  DEV_AUDIT_PROFILE,
+  DEV_AUDIT_SESSION,
+  DEV_AUDIT_USER,
+  isDevFieldAuditAuth,
+} from '../lib/devFieldAuditAuth';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Company = Database['public']['Tables']['companies']['Row'];
@@ -19,11 +26,12 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [company, setCompany] = useState<Company | null>(null);
-  const [loading, setLoading] = useState(true);
+  const auditAuth = isDevFieldAuditAuth();
+  const [user, setUser] = useState<User | null>(auditAuth ? DEV_AUDIT_USER : null);
+  const [session, setSession] = useState<Session | null>(auditAuth ? DEV_AUDIT_SESSION : null);
+  const [profile, setProfile] = useState<Profile | null>(auditAuth ? DEV_AUDIT_PROFILE : null);
+  const [company, setCompany] = useState<Company | null>(auditAuth ? DEV_AUDIT_COMPANY : null);
+  const [loading, setLoading] = useState(!auditAuth);
   const loadingProfileRef = useRef(false);
 
   async function purgeStaleSession() {
@@ -82,10 +90,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function refreshProfile() {
+    if (isDevFieldAuditAuth()) return;
     if (user) await loadProfile(user.id);
   }
 
   useEffect(() => {
+    if (isDevFieldAuditAuth()) {
+      setUser(DEV_AUDIT_USER);
+      setSession(DEV_AUDIT_SESSION);
+      setProfile(DEV_AUDIT_PROFILE);
+      setCompany(DEV_AUDIT_COMPANY);
+      setLoading(false);
+      return;
+    }
+
     let initialised = false;
 
     // Fast path: get session immediately so the UI doesn't wait for the event
@@ -185,6 +203,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function signOut() {
+    if (isDevFieldAuditAuth()) return;
     await purgeStaleSession();
   }
 

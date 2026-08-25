@@ -31,6 +31,7 @@ import {
 } from './xeroAccounting';
 import { generateCommercialPdf } from '../reports/commercial/generateCommercialPdf';
 import type { InvoiceWithDetails } from '../types/fsm';
+import { getAuditInvoiceEditorRow, getAuditInvoiceSendBundle } from './devFieldAuditDocs';
 
 export type DeliverInvoiceResult =
   | { ok: true; to: string; markedSent: true; message: string; sms: SmsSendResult | null; xero: XeroAfterSendResult }
@@ -63,6 +64,8 @@ export async function loadInvoiceSendBundle(
   invoiceId: string,
   company: InvoiceSendCompany & { id: string },
 ): Promise<InvoiceSendBundle> {
+  const mock = getAuditInvoiceSendBundle(invoiceId, company);
+  if (mock) return mock;
   const scopes = invoiceSendQueries({ companyId: company.id, invoiceId });
   const invoiceRes = await applyInvoiceSendScope(supabase.from(scopes.invoice.table), scopes.invoice).maybeSingle();
   if (invoiceRes.error) throw invoiceRes.error;
@@ -414,6 +417,8 @@ export async function loadInvoiceEditorRow(
   invoiceId: string,
   companyId: string,
 ): Promise<InvoiceWithDetails | null> {
+  const mock = getAuditInvoiceEditorRow(invoiceId);
+  if (mock) return mock as InvoiceWithDetails;
   const scope = invoiceByIdQuery({ invoiceId, companyId });
   if (!scope) return null;
   const { data, error } = await applyInvoiceSendScope(supabase.from(scope.table), scope).maybeSingle();

@@ -245,7 +245,7 @@ export function BarcodeScannerPage() {
                     value={manualBarcode}
                     onChange={e => setManualBarcode(e.target.value)}
                     placeholder="Enter barcode or SKU..."
-                    className="w-full h-9 pl-9 pr-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                    className="w-full min-h-[44px] h-auto py-2 pl-9 pr-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
                   />
                 </div>
                 <button type="submit" className="flex items-center gap-1.5 bg-[#0A2540] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e]">
@@ -265,7 +265,7 @@ export function BarcodeScannerPage() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-[#1A1A1A]">{scanResult.item.name}</p>
-                        <p className="text-xs text-[#6B7280]">SKU: {scanResult.item.sku ?? 'â€”'} Â· Barcode: {scanResult.barcode}</p>
+                        <p className="text-xs text-[#6B7280]">SKU: {scanResult.item.sku ?? '—'} · Barcode: {scanResult.barcode}</p>
                       </div>
                     </div>
 

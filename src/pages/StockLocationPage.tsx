@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRightLeft, Package, Boxes, CheckSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, Breadcrumbs, ContextMenu } from '../components/ui';
 import { SkeletonCardGrid } from '../components/ui/Skeletons';
@@ -74,7 +75,7 @@ export function StockLocationPage() {
 
   const selectedItems = filtered.filter((i) => selected.has(i.id));
 
-  if (error) return <AppShell><PageError message="Could not load stock for this drive" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load stock for this drive" /></AppShell>;
 
   return (
     <AppShell>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 import { BrandLockup } from '../components/brand/BrandLockup';
+import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 
 function readAuthHashError(): string | null {
   const raw = window.location.hash.replace(/^#/, '') || window.location.search.replace(/^\?/, '');
@@ -34,6 +35,11 @@ export function ResetPasswordPage() {
       if (window.location.hash) {
         window.history.replaceState(null, '', window.location.pathname);
       }
+      return;
+    }
+
+    if (isDevFieldAuditAuth()) {
+      setSessionReady(true);
       return;
     }
 
@@ -134,7 +140,7 @@ export function ResetPasswordPage() {
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       required
-                      className="w-full px-3 py-2.5 pr-10 border border-[#E5E7EB] rounded-md text-[#1A1A1A] placeholder:text-[#4A5568]/50 focus:outline focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
+                      className="w-full px-3 py-2.5 pr-12 border border-[#E5E7EB] rounded-md text-[#1A1A1A] placeholder:text-[#4A5568]/50 focus:outline focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
                       placeholder="Min. 8 characters"
                     />
                     <button

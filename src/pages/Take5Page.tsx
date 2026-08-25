@@ -18,6 +18,8 @@ import {
   take5StatusClass,
   take5StatusLabel,
 } from '../lib/take5NextAction';
+import { getAuditJhaDoc, getAuditJob, getAuditTake5, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 
 type Take5Row = {
   id: string;
@@ -92,6 +94,8 @@ function Take5FillPage() {
   const { data: existing, isLoading: take5Loading } = useQuery({
     queryKey: ['jha-take5', take5Id],
     queryFn: async () => {
+      const mock = getAuditTake5(take5Id!);
+      if (mock) return mock as Take5Row;
       const { data, error } = await supabase.from('jha_take5').select('*').eq('id', take5Id!).maybeSingle();
       if (error) throw error;
       return data as Take5Row | null;
@@ -104,6 +108,16 @@ function Take5FillPage() {
   const { data: jha, isLoading: jhaLoading } = useQuery({
     queryKey: ['jha-for-take5', jhaId],
     queryFn: async () => {
+      const mock = getAuditJhaDoc(jhaId!);
+      if (mock) {
+        return {
+          id: mock.id,
+          report_number: mock.report_number,
+          meta: mock.meta,
+          status: mock.status,
+          job_id: mock.job_id,
+        } as JhaForTake5;
+      }
       const { data, error } = await supabase
         .from('jha_documents')
         .select('id, report_number, meta, status, job_id')
@@ -118,6 +132,8 @@ function Take5FillPage() {
   const { data: job } = useQuery({
     queryKey: ['job-for-take5', jha?.job_id],
     queryFn: async () => {
+      const mock = getAuditJob(jha!.job_id!);
+      if (mock) return mock as JobForTake5;
       const { data, error } = await supabase
         .from('jobs')
         .select('id, title, address, assigned_team')
@@ -132,6 +148,8 @@ function Take5FillPage() {
   const { data: teamMembers = [], isSuccess: membersReady } = useQuery({
     queryKey: ['company-members-jha', profile?.company_id],
     queryFn: async () => {
+      const mock = getAuditTeamMembers();
+      if (mock) return mock;
       const { data, error } = await supabase.rpc('get_company_members', { p_company_id: profile!.company_id });
       if (error) throw error;
       return (data ?? []) as Array<{ id: string; name: string; email: string; role: string }>;
@@ -180,7 +198,7 @@ function Take5FillPage() {
       location: applied.siteName || prev.location,
       crewSignOns: applied.meta.crewSignOns ?? prev.crewSignOns,
     }));
-    if (!rowId) return;
+    if (!rowId || isDevFieldAuditAuth()) return;
     void supabase
       .from('jha_take5')
       .select('meta')
@@ -480,7 +498,7 @@ function Take5FillPage() {
                 {[job?.title, jhaMeta.siteName, jha?.report_number].filter(Boolean).join(' · ')}
               </p>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Date" type="date" value={meta.date} onChange={v => setMeta(m => ({ ...m, date: v }))} />
               <Field label="Time" type="time" value={meta.time} onChange={v => setMeta(m => ({ ...m, time: v }))} />
             </div>

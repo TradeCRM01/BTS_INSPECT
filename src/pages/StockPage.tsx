@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS, useManagedList } from '../lib/useManagedList';
 import { AppShell } from '../components/layout/AppShell';
@@ -148,7 +149,7 @@ export function StockPage() {
     return [...assigned, unassigned];
   }, [items, locationList, showArchived]);
 
-  if (error) return <AppShell><PageError message="Could not load stock items" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load stock items" /></AppShell>;
 
   return (
     <AppShell>
@@ -202,7 +203,7 @@ export function StockPage() {
             <EmptyState
               icon={HardDrive}
               title="No drives yet"
-              message="Add storage locations under Settings â†’ Lists, or assign locations on stock items."
+              message="Add storage locations under Settings → Lists, or assign locations on stock items."
             />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -227,7 +228,7 @@ export function StockPage() {
                 <select
                   value={category}
                   onChange={e => setCategory(e.target.value)}
-                  className="h-9 pl-8 pr-7 text-sm border border-[#E5E7EB] rounded-md bg-white text-[#4A5568] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] appearance-none"
+                  className="min-h-[44px] h-auto py-2 pl-8 pr-7 text-sm border border-[#E5E7EB] rounded-md bg-white text-[#4A5568] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] appearance-none"
                 >
                   <option value="all">All categories</option>
                   {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -239,7 +240,7 @@ export function StockPage() {
                 <select
                   value={driveFilter}
                   onChange={e => setDriveFilter(e.target.value)}
-                  className="h-9 pl-8 pr-7 text-sm border border-[#E5E7EB] rounded-md bg-white text-[#4A5568] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] appearance-none max-w-[180px]"
+                  className="min-h-[44px] h-auto py-2 pl-8 pr-7 text-sm border border-[#E5E7EB] rounded-md bg-white text-[#4A5568] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] appearance-none max-w-full sm:max-w-[180px]"
                 >
                   <option value="all">All drives</option>
                   <option value="unassigned">Unassigned</option>
@@ -308,8 +309,8 @@ export function StockPage() {
                           <td className="px-4 py-3 font-medium text-[#1A1A1A]">
                             <Link to={`/stock/${item.id}`} onClick={e => e.stopPropagation()}>{item.name}</Link>
                           </td>
-                          <td className="px-4 py-3 text-[#4A5568]">{item.sku ?? <span className="text-[#9CA3AF]">â€”</span>}</td>
-                          <td className="px-4 py-3 text-[#4A5568]">{item.category ?? <span className="text-[#9CA3AF]">â€”</span>}</td>
+                          <td className="px-4 py-3 text-[#4A5568]">{item.sku ?? <span className="text-[#9CA3AF]">—</span>}</td>
+                          <td className="px-4 py-3 text-[#4A5568]">{item.category ?? <span className="text-[#9CA3AF]">—</span>}</td>
                           <td className="px-4 py-3 text-[#4A5568]" onClick={e => e.stopPropagation()}>
                             <Link
                               to={`/stock/locations/${encodeLocationKey(item.storage_location)}`}
@@ -504,7 +505,7 @@ export function StockItemForm({ item, onClose, onSaved }: {
 
         <form onSubmit={handleSubmit} className="overlay-body">
           <Input label="Item Name" required k="name" ph="e.g. 20mm PVC Conduit" form={form} setForm={setForm} autoFocus />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="SKU" k="sku" ph="PVC-20" form={form} setForm={setForm} />
             <Field label="Category">
               <ManagedSelect listKey={LIST_KEYS.stockCategories} value={form.category}
@@ -515,7 +516,7 @@ export function StockItemForm({ item, onClose, onSaved }: {
             <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               className="form-input min-h-[60px] resize-y" placeholder="Optional description..." />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Unit of Measure">
               <ManagedSelect listKey={LIST_KEYS.unitsOfMeasure} value={form.unit_of_measure}
                 onChange={v => setForm(f => ({ ...f, unit_of_measure: v }))} placeholder="each" noneLabel="each" />
@@ -525,12 +526,12 @@ export function StockItemForm({ item, onClose, onSaved }: {
                 onChange={v => setForm(f => ({ ...f, storage_location: v }))} placeholder="Select drive..." noneLabel="Unassigned" />
             </Field>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input label="Qty On Hand" k="quantity_on_hand" ph="0" type="number" form={form} setForm={setForm} />
             <Input label="Reorder Level" k="reorder_level" ph="0" type="number" form={form} setForm={setForm} />
             <Input label="Reorder Qty" k="reorder_quantity" ph="0" type="number" form={form} setForm={setForm} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Unit Cost (AUD)" k="unit_cost" ph="0.00" type="number" step="0.01" min="0" form={form} setForm={setForm} />
             <Field label="Supplier">
               <select value={form.supplier_id} onChange={e => setForm(f => ({ ...f, supplier_id: e.target.value }))} className="form-input">

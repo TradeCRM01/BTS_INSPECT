@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, Breadcrumbs, useToast } from '../components/ui';
 import { format, parseISO } from 'date-fns';
@@ -11,6 +12,7 @@ import {
   StickyNote, FileText, Package, ShoppingCart,
 } from 'lucide-react';
 import type { Supplier } from '../types/fsm';
+import { getAuditEmptyList, getAuditSupplier } from '../lib/devFieldAuditDocs';
 import { PO_STATUS_LABELS, PO_STATUS_STYLES, formatMoney } from '../types/fsm';
 
 export function SupplierDetailPage() {
@@ -24,6 +26,8 @@ export function SupplierDetailPage() {
     queryKey: ['supplier', id],
     queryFn: async () => {
       if (!id) throw new Error('Missing supplier ID');
+      const mock = getAuditSupplier(id);
+      if (mock) return mock as Supplier;
       const { data, error } = await supabase
         .from('suppliers')
         .select('*')
@@ -41,6 +45,8 @@ export function SupplierDetailPage() {
     queryKey: ['supplier-pos', id],
     queryFn: async () => {
       if (!id) return [];
+      const empty = getAuditEmptyList();
+      if (empty) return empty;
       const { data, error } = await supabase
         .from('purchase_orders')
         .select('id, po_number, status, total, created_at, expected_delivery_date')
@@ -69,7 +75,7 @@ export function SupplierDetailPage() {
   });
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
-  if (error) return <AppShell><PageError message="Could not load supplier" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load supplier" /></AppShell>;
   if (!supplier) return <AppShell><PageError message="Supplier not found" /></AppShell>;
 
   const pos = purchaseOrders ?? [];
@@ -200,7 +206,7 @@ export function SupplierDetailPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-[#4A5568]">
-                        {po.created_at ? format(parseISO(po.created_at), 'dd MMM yyyy') : 'Ã¢â‚¬â€'}
+                        {po.created_at ? format(parseISO(po.created_at), 'dd MMM yyyy') : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${PO_STATUS_STYLES[po.status as keyof typeof PO_STATUS_STYLES] ?? 'bg-gray-100 text-gray-700'}`}>
@@ -293,29 +299,29 @@ function SupplierEditForm({ supplier, onClose, onSaved }: {
         <form onSubmit={handleSave} className="p-5 space-y-3">
           <Field label="Name *">
             <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              className="w-full h-9 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
+              className="w-full min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
           </Field>
           <Field label="Contact Name">
             <input value={form.contact_person} onChange={e => setForm(f => ({ ...f, contact_person: e.target.value }))}
-              className="w-full h-9 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
+              className="w-full min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Phone">
               <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                className="w-full h-9 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
+                className="w-full min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
             </Field>
             <Field label="Email">
               <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                className="w-full h-9 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
+                className="w-full min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
             </Field>
           </div>
           <Field label="Address">
             <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-              className="w-full h-9 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
+              className="w-full min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
           </Field>
           <Field label="Default Currency">
             <input value={form.default_currency} onChange={e => setForm(f => ({ ...f, default_currency: e.target.value }))}
-              className="w-full h-9 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
+              className="w-full min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]" />
           </Field>
           <Field label="Notes">
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3}

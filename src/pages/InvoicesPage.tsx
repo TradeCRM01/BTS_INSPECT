@@ -3,6 +3,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote, StockItem, PriceBookItem } from '../types/fsm';
@@ -231,7 +232,7 @@ export function InvoicesPage() {
     }
   }
 
-  if (error) return <AppShell><PageError message="Could not load invoices" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load invoices" /></AppShell>;
 
   const filteredEmpty = !search && statusFilter === 'all';
 
@@ -1189,7 +1190,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             )}
           </Field>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Linked Job">
               <select value={form.job_id} onChange={e => setForm(f => ({ ...f, job_id: e.target.value }))} className="form-input cursor-pointer">
                 <option value="">No linked job</option>
@@ -1234,7 +1235,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="GST rate (%)">
               <input type="number" min={0} step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))}
                 className="form-input" placeholder="0" />

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, Plus, Trash2, ExternalLink, Pencil, Check, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { nanoid } from '../../lib/nanoid';
+import { getAuditEmptyList } from '../../lib/devFieldAuditDocs';
 
 export type SwmsLibraryRow = {
   id: string;
@@ -44,6 +45,8 @@ export function JhaSwmsLibraryManager({ companyId, profileId, compact }: Props) 
   const { data: library = [], isLoading } = useQuery({
     queryKey: ['jha-swms-library', companyId],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as SwmsLibraryRow[];
       const { data, error: qErr } = await supabase
         .from('jha_swms_library')
         .select('id, title, description, filename, storage_path, file_size, created_at, updated_at')

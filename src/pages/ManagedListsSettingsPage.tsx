@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, useToast } from '../components/ui';
 import { Plus, Trash2, ArrowUp, ArrowDown, X, ListChecks } from 'lucide-react';
+import { getAuditListDefinitions, getAuditListItems } from '../lib/devFieldAuditDocs';
 
 interface ListDef {
   id: string;
@@ -30,6 +32,8 @@ export function ManagedListsSettingsPage() {
   const { data: defs, isLoading, error } = useQuery<ListDef[]>({
     queryKey: ['list-definitions', profile?.company_id],
     queryFn: async () => {
+      const mock = getAuditListDefinitions();
+      if (mock) return mock;
       const { data, error } = await supabase
         .from('list_definitions')
         .select('id, key, label, allow_custom')
@@ -46,6 +50,8 @@ export function ManagedListsSettingsPage() {
     queryFn: async () => {
       const def = defs?.find(d => d.key === selectedKey);
       if (!def) return [];
+      const mock = getAuditListItems(def.id);
+      if (mock) return mock;
       const { data, error } = await supabase
         .from('list_items')
         .select('id, value, label, sort_order, archived')
@@ -111,7 +117,7 @@ export function ManagedListsSettingsPage() {
 
   const [newVal, setNewVal] = useState('');
 
-  if (error) return <AppShell><PageError message="Could not load lists" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load lists" /></AppShell>;
 
   const selectedDef = defs?.find(d => d.key === selectedKey);
 

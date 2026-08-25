@@ -154,7 +154,7 @@ export function ManagedSelect({
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search..."
-          className="w-full h-8 px-2 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+          className="w-full min-h-[44px] h-auto py-2 px-2 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
           autoFocus
           onKeyDown={e => e.stopPropagation()}
         />
@@ -225,7 +225,7 @@ export function ManagedSelect({
               if (e.key === 'Enter') { e.preventDefault(); void handleAdd(); }
             }}
             placeholder="Enter new value..."
-            className="flex-1 h-8 px-2 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+            className="flex-1 min-h-[44px] h-auto py-2 px-2 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
             autoFocus
           />
           <button

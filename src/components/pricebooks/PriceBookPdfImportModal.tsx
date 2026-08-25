@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { FileUp, Loader2, Sparkles, X, Check, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
 import { formatMoney, type PriceBookItem } from '../../types/fsm';
 
 export interface ExtractedPriceLine {
@@ -56,6 +57,36 @@ function fileToBase64(file: File): Promise<{ base64: string; mediaType: string }
   });
 }
 
+function auditReviewSeed(): {
+  fileName: string;
+  meta: { supplier_name: string; invoice_number: string; invoice_date: string };
+  rows: ReviewRow[];
+} | null {
+  if (!isDevFieldAuditAuth()) return null;
+  return {
+    fileName: 'wholesaler-receipt.pdf',
+    meta: {
+      supplier_name: 'Sparky Supplies',
+      invoice_number: 'INV-42',
+      invoice_date: '2026-08-20',
+    },
+    rows: [{
+      key: 'audit-1',
+      selected: true,
+      action: 'insert',
+      matchId: null,
+      code: 'PVC-20',
+      description: '20mm PVC conduit — 4m lengths',
+      unit: 'length',
+      category: 'conduit',
+      cost_price: '4.80',
+      unit_price: '5.76',
+      existingCost: null,
+      existingSell: null,
+    }],
+  };
+}
+
 export function PriceBookPdfImportModal({
   priceBookId,
   existingItems,
@@ -71,13 +102,14 @@ export function PriceBookPdfImportModal({
 }) {
   const { profile, session, company } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<'upload' | 'review'>('upload');
+  const auditSeed = auditReviewSeed();
+  const [step, setStep] = useState<'upload' | 'review'>(auditSeed ? 'review' : 'upload');
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
-  const [meta, setMeta] = useState<{ supplier_name?: string | null; invoice_number?: string | null; invoice_date?: string | null }>({});
-  const [rows, setRows] = useState<ReviewRow[]>([]);
-  const [fileName, setFileName] = useState('');
+  const [meta, setMeta] = useState<{ supplier_name?: string | null; invoice_number?: string | null; invoice_date?: string | null }>(auditSeed?.meta ?? {});
+  const [rows, setRows] = useState<ReviewRow[]>(auditSeed?.rows ?? []);
+  const [fileName, setFileName] = useState(auditSeed?.fileName ?? '');
 
   const selectedCount = useMemo(() => rows.filter(r => r.selected && r.action !== 'skip').length, [rows]);
 
@@ -162,6 +194,7 @@ export function PriceBookPdfImportModal({
 
   async function applyImport() {
     if (!profile?.company_id) return;
+    if (isDevFieldAuditAuth()) return;
     const toApply = rows.filter(r => r.selected && r.action !== 'skip');
     if (toApply.length === 0) {
       setErr('Select at least one line to import');
@@ -285,89 +318,86 @@ export function PriceBookPdfImportModal({
                 </button>
               </div>
 
-              <div className="overflow-x-auto border border-[#E5E7EB] rounded-lg">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-[#F9FAFB] text-left text-xs text-[#6B7280] uppercase tracking-wide">
-                      <th className="px-3 py-2 w-8"></th>
-                      <th className="px-3 py-2">Action</th>
-                      <th className="px-3 py-2">Code</th>
-                      <th className="px-3 py-2">Description</th>
-                      <th className="px-3 py-2">Unit</th>
-                      <th className="px-3 py-2 text-right">Cost</th>
-                      <th className="px-3 py-2 text-right">Sell</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F3F4F6]">
-                    {rows.map(r => (
-                      <tr key={r.key} className={r.selected ? 'bg-white' : 'bg-[#F9FAFB] opacity-60'}>
-                        <td className="px-3 py-2">
-                          <input
-                            type="checkbox"
-                            checked={r.selected}
-                            onChange={e => updateRow(r.key, { selected: e.target.checked })}
-                            className="rounded border-gray-300"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <select
-                            value={r.action}
-                            onChange={e => updateRow(r.key, { action: e.target.value as ReviewRow['action'] })}
-                            className="form-input-sm text-xs"
-                          >
-                            <option value="insert">Add new</option>
-                            {r.matchId && <option value="update">Update existing</option>}
-                            <option value="skip">Skip</option>
-                          </select>
-                          {r.action === 'update' && r.existingCost != null && (
-                            <p className="text-[10px] text-[#9CA3AF] mt-0.5">
-                              was {formatMoney(r.existingCost)}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            value={r.code}
-                            onChange={e => updateRow(r.key, { code: e.target.value })}
-                            className="form-input-sm font-mono text-xs w-24"
-                          />
-                        </td>
-                        <td className="px-3 py-2 min-w-[180px]">
-                          <input
-                            value={r.description}
-                            onChange={e => updateRow(r.key, { description: e.target.value })}
-                            className="form-input-sm w-full"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            value={r.unit}
-                            onChange={e => updateRow(r.key, { unit: e.target.value })}
-                            className="form-input-sm w-16"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={r.cost_price}
-                            onChange={e => updateRow(r.key, { cost_price: e.target.value })}
-                            className="form-input-sm w-24 text-right"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={r.unit_price}
-                            onChange={e => updateRow(r.key, { unit_price: e.target.value })}
-                            className="form-input-sm w-24 text-right"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-3">
+                {rows.map(r => (
+                  <div
+                    key={r.key}
+                    className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.5fr)_5.5rem_6.5rem_6.5rem] gap-2 items-start border border-[#E5E7EB] rounded-lg p-3 ${
+                      r.selected ? 'bg-white' : 'bg-[#F9FAFB] opacity-60'
+                    }`}
+                  >
+                    <label className="flex items-center gap-2 text-sm text-[#4A5568] lg:pt-2">
+                      <input
+                        type="checkbox"
+                        checked={r.selected}
+                        onChange={e => updateRow(r.key, { selected: e.target.checked })}
+                        className="rounded border-gray-300"
+                      />
+                      Include
+                    </label>
+                    <div>
+                      <p className="text-[10px] text-[#6B7280] mb-1">Action</p>
+                      <select
+                        value={r.action}
+                        onChange={e => updateRow(r.key, { action: e.target.value as ReviewRow['action'] })}
+                        className="form-input-sm text-xs"
+                      >
+                        <option value="insert">Add new</option>
+                        {r.matchId && <option value="update">Update existing</option>}
+                        <option value="skip">Skip</option>
+                      </select>
+                      {r.action === 'update' && r.existingCost != null && (
+                        <p className="text-[10px] text-[#9CA3AF] mt-0.5">
+                          was {formatMoney(r.existingCost)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="sm:col-span-2 lg:col-span-1 min-w-0">
+                      <p className="text-[10px] text-[#6B7280] mb-1">Description</p>
+                      <input
+                        value={r.description}
+                        onChange={e => updateRow(r.key, { description: e.target.value })}
+                        className="form-input-sm w-full min-w-0"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-[#6B7280] mb-1">Code</p>
+                      <input
+                        value={r.code}
+                        onChange={e => updateRow(r.key, { code: e.target.value })}
+                        className="form-input-sm font-mono text-xs w-full min-w-0"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-[#6B7280] mb-1">Unit</p>
+                      <input
+                        value={r.unit}
+                        onChange={e => updateRow(r.key, { unit: e.target.value })}
+                        className="form-input-sm w-full min-w-0"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-[#6B7280] mb-1">Cost</p>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={r.cost_price}
+                        onChange={e => updateRow(r.key, { cost_price: e.target.value })}
+                        className="form-input-sm w-full text-right min-w-0"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-[#6B7280] mb-1">Sell</p>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={r.unit_price}
+                        onChange={e => updateRow(r.key, { unit_price: e.target.value })}
+                        className="form-input-sm w-full text-right min-w-0"
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             </>
           )}

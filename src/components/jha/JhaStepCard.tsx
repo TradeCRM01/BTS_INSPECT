@@ -143,7 +143,7 @@ export function JhaStepCard({
             onChange={e => onChange({ description: e.target.value })}
             placeholder="Describe the work step..."
             rows={2}
-            className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none bg-white"
+            className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none bg-white"
           />
         </div>
 
@@ -158,7 +158,7 @@ export function JhaStepCard({
               onChange={e => onChange({ hazards: e.target.value })}
               placeholder="One hazard per line…"
               rows={3}
-              className="w-full text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none bg-white"
+              className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none bg-white"
             />
             <p className="text-[10px] text-[#9CA3AF] mt-1">List each hazard on its own line for the PDF table.</p>
           </div>
@@ -171,7 +171,7 @@ export function JhaStepCard({
               <select
                 value={step.consequence}
                 onChange={e => setLikelihoodConsequence({ consequence: e.target.value })}
-                className="w-full text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
+                className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
               >
                 <option value="">Select consequence…</option>
                 {CONSEQUENCE_OPTIONS.map(c => (
@@ -187,7 +187,7 @@ export function JhaStepCard({
               <select
                 value={step.likelihood}
                 onChange={e => setLikelihoodConsequence({ likelihood: e.target.value })}
-                className="w-full text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
+                className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
               >
                 <option value="">Select likelihood…</option>
                 {LIKELIHOOD_OPTIONS.map(l => (
@@ -260,7 +260,7 @@ export function JhaStepCard({
                 <select
                   value={m.hierarchy}
                   onChange={e => updateMeasure(m.id, { hierarchy: e.target.value as ControlHierarchyId })}
-                  className="w-full text-xs border border-[#E5E7EB] rounded px-2 py-1.5 bg-white"
+                  className="w-full min-h-[44px] h-auto text-xs border border-[#E5E7EB] rounded px-2 py-2 bg-white"
                 >
                   {CONTROL_HIERARCHY.map(h => (
                     <option key={h.id} value={h.id}>{h.order}. {h.label}</option>
@@ -283,7 +283,7 @@ export function JhaStepCard({
                   value={m.text}
                   onChange={e => updateMeasure(m.id, { text: e.target.value })}
                   rows={4}
-                  className="w-full text-xs border border-[#E5E7EB] rounded px-2 py-1.5 bg-white resize-y min-h-[5.5rem]"
+                  className="w-full min-h-[5.5rem] text-xs border border-[#E5E7EB] rounded px-2 py-2 bg-white resize-y"
                   placeholder={"List specific, verifiable actions (one per line)…\ne.g.\n• Barricade exclusion zone\n• Spotter required when reversing"}
                 />
               </div>
@@ -302,7 +302,7 @@ export function JhaStepCard({
                 <input
                   value={m.owner}
                   onChange={e => updateMeasure(m.id, { owner: e.target.value })}
-                  className="w-full text-xs border border-[#E5E7EB] rounded px-2 py-1.5 bg-white"
+                  className="w-full min-h-[44px] h-auto text-xs border border-[#E5E7EB] rounded px-2 py-2 bg-white"
                   placeholder="Accountable person / role"
                 />
               </div>
@@ -311,7 +311,7 @@ export function JhaStepCard({
                 <input
                   value={m.verify}
                   onChange={e => updateMeasure(m.id, { verify: e.target.value })}
-                  className="w-full text-xs border border-[#E5E7EB] rounded px-2 py-1.5 bg-white"
+                  className="w-full min-h-[44px] h-auto text-xs border border-[#E5E7EB] rounded px-2 py-2 bg-white"
                   placeholder="e.g. Visual check before start / LOTO ticket #"
                 />
               </div>
@@ -332,7 +332,7 @@ export function JhaStepCard({
               <select
                 value={step.residualConsequence || ''}
                 onChange={e => setResidualLC({ residualConsequence: e.target.value })}
-                className="w-full text-sm border border-[#E5E7EB] rounded px-2.5 py-2 bg-white"
+                className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-2.5 py-2 bg-white"
               >
                 <option value="">Select…</option>
                 {CONSEQUENCE_OPTIONS.map(c => (
@@ -345,7 +345,7 @@ export function JhaStepCard({
               <select
                 value={step.residualLikelihood || ''}
                 onChange={e => setResidualLC({ residualLikelihood: e.target.value })}
-                className="w-full text-sm border border-[#E5E7EB] rounded px-2.5 py-2 bg-white"
+                className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-2.5 py-2 bg-white"
               >
                 <option value="">Select…</option>
                 {LIKELIHOOD_OPTIONS.map(l => (
@@ -383,7 +383,7 @@ export function JhaStepCard({
                 onChange={e => onChange({ residualEscalationNote: e.target.value })}
                 rows={2}
                 placeholder="Who approved proceeding, and what additional controls / hold points apply?"
-                className="w-full text-sm border border-amber-300 rounded px-3 py-2 bg-white resize-none"
+                className="w-full min-h-[88px] h-auto text-sm border border-amber-300 rounded px-3 py-2 bg-white resize-y"
               />
             </div>
           )}
@@ -438,7 +438,7 @@ export function JhaStepCard({
                       });
                     }}
                     placeholder="Caption"
-                    className="w-full text-[10px] border-t border-[#E5E7EB] px-1.5 py-1 bg-white"
+                    className="w-full min-h-[44px] border-t border-[#E5E7EB] px-1.5 py-2 bg-white"
                   />
                 </div>
               ))}

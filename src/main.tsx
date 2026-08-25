@@ -7,6 +7,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { InstallPrompt } from './components/ui/InstallPrompt';
 import { SWUpdatePrompt } from './components/ui/SWUpdatePrompt';
 import App from './App';
+import { isDevFieldAuditAuth } from './lib/devFieldAuditAuth';
 import './index.css';
 
 // Burned invite / reset links land as #error=... and can brick PWA navigations.
@@ -145,7 +146,10 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 30,
       gcTime: 1000 * 60 * 5,
-      retry: 3,
+      retry: (failureCount) => {
+        if (isDevFieldAuditAuth()) return false;
+        return failureCount < 3;
+      },
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,

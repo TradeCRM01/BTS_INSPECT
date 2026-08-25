@@ -241,7 +241,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}
             placeholder="Search everything — jobs, clients, stock, assets, invoices, quotes, contracts…"
-            className="h-9 w-full bg-transparent text-base text-[#0A2540] placeholder:text-[#4A5568]/60 focus:outline-none"
+            className="min-h-[44px] h-auto py-2 w-full min-w-0 bg-transparent text-base text-[#0A2540] placeholder:text-[#4A5568]/60 focus:outline-none"
           />
           <button
             onClick={onClose}

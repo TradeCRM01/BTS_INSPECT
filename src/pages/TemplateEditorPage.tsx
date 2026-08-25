@@ -450,7 +450,7 @@ export function TemplateEditorPage() {
     <AppShell>
       {/* Top bar */}
       <div className="bg-white border-b border-[#E5E7EB] sticky top-0 z-30 shadow-sm">
-        <div className="max-w-[1200px] mx-auto px-3 md:px-4 py-2 md:py-0 md:h-12 flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3">
+        <div className="max-w-[1200px] mx-auto px-3 md:px-4 py-2 md:py-1 md:min-h-12 flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3">
           <button
             onClick={() => navigate('/templates')}
             className="text-[#4A5568] hover:text-[#1A1A1A] flex items-center gap-1 text-sm min-h-10 md:min-h-0"
@@ -461,13 +461,13 @@ export function TemplateEditorPage() {
           <input
             value={templateName}
             onChange={e => { setTemplateName(e.target.value); setSaveState('unsaved'); }}
-            className="font-medium text-sm text-[#1A1A1A] border border-[#E5E7EB] md:border-none outline-none bg-white md:bg-transparent min-w-0 flex-1 px-2 md:px-0 py-2 md:py-0 rounded md:rounded-none min-h-10 md:min-h-0"
+            className="font-medium text-sm text-[#1A1A1A] border border-[#E5E7EB] md:border-none outline-none bg-white md:bg-transparent min-w-0 flex-1 px-2 md:px-0 py-2 rounded md:rounded-none min-h-[44px]"
             placeholder="Template name"
           />
           <select
             value={renderer}
             onChange={e => { setRenderer(e.target.value); setSaveState('unsaved'); }}
-            className="text-xs border border-[#E5E7EB] rounded px-2 py-2 md:py-1 text-[#4A5568] bg-white min-h-10 md:min-h-0"
+            className="text-xs border border-[#E5E7EB] rounded px-2 py-2 text-[#4A5568] bg-white min-h-[44px]"
           >
             {renderers.map(r => (
               <option key={r.key} value={r.key}>{r.label}</option>
@@ -638,7 +638,7 @@ export function TemplateEditorPage() {
                               type="text"
                               value={field.label}
                               onChange={e => updateCustomField(field.id, { label: e.target.value })}
-                              className="flex-1 min-w-0 text-xs px-2 py-1 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                              className="flex-1 min-w-0 min-h-[44px] h-auto text-xs px-2 py-2 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
                               placeholder="Field label"
                             />
                             <button
@@ -653,7 +653,7 @@ export function TemplateEditorPage() {
                             <select
                               value={field.type}
                               onChange={e => updateCustomField(field.id, { type: e.target.value as any })}
-                              className="flex-1 text-[10px] px-2 py-1 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                              className="flex-1 min-h-[44px] h-auto text-[10px] px-2 py-2 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
                             >
                               <option value="text">Text</option>
                               <option value="long_text">Long Text</option>
@@ -690,7 +690,7 @@ export function TemplateEditorPage() {
                     <select
                       value={schema.meta.layoutMode ?? 'checklist'}
                       onChange={e => setLayoutMode(e.target.value as LayoutMode)}
-                      className="w-full text-xs px-2 py-1.5 border border-[#E5E7EB] rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                      className="w-full min-h-[44px] h-auto text-xs px-2 py-2 border border-[#E5E7EB] rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
                     >
                       <option value="checklist">Checklist</option>
                       <option value="test_schedule">Test schedule</option>
@@ -710,7 +710,7 @@ export function TemplateEditorPage() {
                             type="text"
                             value={role.label}
                             onChange={e => updateSignOffRole(role.id, { label: e.target.value })}
-                            className="flex-1 min-w-0 text-xs px-2 py-1 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                            className="flex-1 min-w-0 min-h-[44px] h-auto text-xs px-2 py-2 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
                             placeholder="Role label"
                           />
                           <button
@@ -751,23 +751,23 @@ export function TemplateEditorPage() {
               <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm">
                 {/* Section settings */}
                 <div className="px-4 py-3 border-b border-[#E5E7EB]">
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div className="col-span-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    <div className="col-span-1 sm:col-span-2">
                       <label className="block text-xs font-medium text-[#4A5568] mb-1">Section title</label>
                       <input
                         value={selectedSection.title}
                         onChange={e => updateSection({ title: e.target.value })}
-                        className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                        className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
                         placeholder="e.g. Visual Inspection"
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <label className="block text-xs font-medium text-[#4A5568] mb-1">Description (optional)</label>
                       <textarea
                         value={selectedSection.description ?? ''}
                         onChange={e => updateSection({ description: e.target.value })}
                         rows={2}
-                        className="w-full px-2.5 py-1.5 border border-[#E5E7EB] rounded text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent resize-none"
+                        className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent resize-none"
                         placeholder="Instructions for this section..."
                       />
                     </div>
@@ -786,7 +786,7 @@ export function TemplateEditorPage() {
                       <input
                         value={selectedSection.repeatLabel ?? ''}
                         onChange={e => updateSection({ repeatLabel: e.target.value })}
-                        className="flex-1 px-2.5 py-1 border border-[#E5E7EB] rounded text-xs focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                        className="flex-1 min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
                         placeholder='Repeat label, e.g. "Circuit"'
                       />
                     )}

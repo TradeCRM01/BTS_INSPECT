@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS } from '../lib/useManagedList';
 import { AppShell } from '../components/layout/AppShell';
@@ -12,6 +13,7 @@ import { Plus, Search, BookOpen, X, Trash2, Pencil, Star, MoreVertical, DollarSi
 import type { PriceBook, PriceBookItem } from '../types/fsm';
 import { formatMoney } from '../types/fsm';
 import { PriceBookPdfImportModal } from '../components/pricebooks/PriceBookPdfImportModal';
+import { getAuditPriceBookItems, getAuditPriceBooks } from '../lib/devFieldAuditDocs';
 
 export function PriceBooksPage() {
   const { profile, company } = useAuth();
@@ -29,6 +31,8 @@ export function PriceBooksPage() {
   const { data: priceBooks, isLoading, error } = useQuery({
     queryKey: ['price-books'],
     queryFn: async () => {
+      const mock = getAuditPriceBooks();
+      if (mock) return mock;
       const { data, error } = await supabase.from('price_books').select('*').eq('company_id', profile!.company_id).order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as PriceBook[];
@@ -48,6 +52,8 @@ export function PriceBooksPage() {
     queryKey: ['price-book-items', selectedBookId],
     queryFn: async () => {
       if (!selectedBookId) return [];
+      const mock = getAuditPriceBookItems(selectedBookId);
+      if (mock) return mock;
       const { data, error } = await supabase.from('price_book_items').select('*').eq('price_book_id', selectedBookId).order('description');
       if (error) throw error;
       return (data ?? []) as PriceBookItem[];
@@ -78,7 +84,7 @@ export function PriceBooksPage() {
     return all.filter(i => [i.description, i.code, i.category].filter(Boolean).some(v => v!.toLowerCase().includes(q)));
   }, [items, search]);
 
-  if (error) return <AppShell><PageError message="Could not load price books" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load price books" /></AppShell>;
 
   return (
     <AppShell>
@@ -130,7 +136,7 @@ export function PriceBooksPage() {
                 <div className="relative">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
                   <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search items..."
-                    className="h-8 pl-9 pr-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6] w-48" />
+                    className="min-h-[44px] h-auto py-2 pl-9 pr-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6] w-full sm:w-48" />
                 </div>
                 {selectedBookId && (
                   <>
@@ -192,16 +198,16 @@ export function PriceBooksPage() {
                         : null;
                       return (
                         <tr key={item.id} className="hover:bg-[#F9FAFB] transition-colors">
-                          <td className="px-4 py-3 text-[#6B7280] font-mono text-xs">{item.code ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
+                          <td className="px-4 py-3 text-[#6B7280] font-mono text-xs">{item.code ?? '—'}</td>
                           <td className="px-4 py-3 font-medium text-[#1A1A1A]">{item.description}</td>
-                          <td className="px-4 py-3 text-[#4A5568]">{item.category ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
+                          <td className="px-4 py-3 text-[#4A5568]">{item.category ?? '—'}</td>
                           <td className="px-4 py-3 text-[#4A5568]">{item.unit}</td>
                           <td className="px-4 py-3 text-right font-medium text-[#1A1A1A]">{formatMoney(Number(item.unit_price))}</td>
-                          <td className="px-4 py-3 text-right text-[#4A5568]">{item.cost_price ? formatMoney(Number(item.cost_price)) : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
+                          <td className="px-4 py-3 text-right text-[#4A5568]">{item.cost_price ? formatMoney(Number(item.cost_price)) : '—'}</td>
                           <td className="px-4 py-3 text-right">
                             {margin !== null ? (
                               <span className={`text-xs font-medium ${Number(margin) >= 30 ? 'text-green-600' : Number(margin) >= 15 ? 'text-amber-600' : 'text-red-600'}`}>{margin}%</span>
-                            ) : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}
+                            ) : '—'}
                           </td>
                           <td className="px-4 py-3 relative">
                             <ItemMenu item={item}
@@ -362,12 +368,12 @@ function PriceBookItemForm({ item, priceBookId, onClose, onSaved }: { item: Pric
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] shrink-0"><h2 className="text-lg font-semibold text-[#1A1A1A]">{item ? 'Edit Item' : 'Add Price Book Item'}</h2><button onClick={onClose}><X size={20} className="text-[#6B7280]" /></button></div>
         <form onSubmit={handleSave} className="overlay-body">
           <Field label="Description *"><input required value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="form-input" placeholder="e.g. Install double power point" /></Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Code"><input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="form-input" placeholder="PP-001" /></Field>
             <Field label="Category"><ManagedSelect listKey={LIST_KEYS.priceBookCategories} value={form.category}
               onChange={v => setForm(f => ({ ...f, category: v }))} placeholder="Select category..." /></Field>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Field label="Unit"><input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="form-input" placeholder="each" /></Field>
             <Field label="Unit Price"><input type="number" min={0} step="0.01" value={form.unit_price} onChange={e => setForm(f => ({ ...f, unit_price: e.target.value }))} className="form-input" placeholder="0.00" /></Field>
             <Field label="Cost Price"><input type="number" min={0} step="0.01" value={form.cost_price} onChange={e => setForm(f => ({ ...f, cost_price: e.target.value }))} className="form-input" placeholder="0.00" /></Field>

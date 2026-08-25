@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, useToast } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
@@ -209,7 +210,7 @@ export function ExpensesPage() {
     return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
   }, [filtered]);
 
-  if (error) return <AppShell><PageError message="Could not load expenses" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load expenses" /></AppShell>;
 
   return (
     <AppShell>
@@ -809,7 +810,7 @@ function ExpenseEditorModal({
           )}
 
           <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-3">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <Field label="Amount (ex GST)">
                 <input type="number" min="0" step="0.01" value={form.amount}
                   onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}

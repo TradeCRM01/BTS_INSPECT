@@ -18,6 +18,7 @@ import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY
 import { formatMoney, INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatDuration } from '../types/fsm';
 import type { InvoiceStatus, Timesheet } from '../types/fsm';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
+import { getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { createInvoiceFromJobBill } from '../lib/createInvoiceFromJobBill';
 import {
   JOB_BILL_INVOICE_CREATED,
@@ -170,6 +171,8 @@ export function JobDetailPage() {
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ['job', id],
     queryFn: async () => {
+      const mock = getAuditJob(id!);
+      if (mock) return mock as Job;
       const { data, error } = await supabase.from('jobs').select('*').eq('id', id!).maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('Job not found');
@@ -182,6 +185,8 @@ export function JobDetailPage() {
     queryKey: ['job-client', job?.client_id],
     queryFn: async () => {
       if (!job?.client_id) return null;
+      const mock = getAuditClient(job.client_id);
+      if (mock) return mock as Client;
       const { data, error } = await supabase.from('clients').select('*').eq('id', job.client_id).maybeSingle();
       if (error) throw error;
       return (data as Client) ?? null;
@@ -231,6 +236,8 @@ export function JobDetailPage() {
   const { data: childJobs } = useQuery<ChildJob[]>({
     queryKey: ['job-children', id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as ChildJob[];
       const { data, error } = await supabase
         .from('jobs').select('id, title, status, job_number').eq('parent_job_id', id!).order('created_at');
       if (error) throw error;
@@ -243,6 +250,8 @@ export function JobDetailPage() {
     queryKey: ['team-members-job-detail'],
     queryFn: async () => {
       if (!profile?.company_id) return [];
+      const mock = getAuditTeamMembers();
+      if (mock) return mock.map(m => ({ id: m.id, name: m.name }));
       const { data, error } = await supabase.rpc('get_company_members', { p_company_id: profile.company_id });
       if (error) throw error;
       return (data ?? []).map((m: { id: string; name: string }) => ({ id: m.id, name: m.name }));
@@ -253,6 +262,8 @@ export function JobDetailPage() {
   const { data: jhaTemplates } = useQuery<{ id: string; name: string }[]>({
     queryKey: ['jha-templates-picker'],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as { id: string; name: string }[];
       const { data, error } = await supabase
         .from('jha_templates').select('id, name').eq('archived', false).order('name');
       if (error) throw error;
@@ -264,6 +275,8 @@ export function JobDetailPage() {
   const { data: inspections } = useQuery<JobInspection[]>({
     queryKey: ['job-inspections', id, job?.inspection_id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as JobInspection[];
       const { data, error } = await supabase
         .from('inspections')
         .select('id, status, started_at, template_snapshot, meta, responses, crm_job_id, due_on, archived')
@@ -324,6 +337,8 @@ export function JobDetailPage() {
   const { data: jhas } = useQuery<JobJha[]>({
     queryKey: ['job-jhas', id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as JobJha[];
       const { data, error } = await supabase
         .from('jha_documents')
         .select('id, status, report_number, created_at, template_snapshot, meta, steps')
@@ -354,6 +369,8 @@ export function JobDetailPage() {
   const { data: quotes } = useQuery<JobQuote[]>({
     queryKey: ['job-quotes', id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as JobQuote[];
       const { data, error } = await supabase
         .from('quotes')
         .select('id, quote_number, status, total, created_at')
@@ -368,6 +385,8 @@ export function JobDetailPage() {
   const { data: invoices } = useQuery<JobInvoice[]>({
     queryKey: ['job-invoices', id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as JobInvoice[];
       const { data, error } = await supabase
         .from('invoices')
         .select('id, invoice_number, status, total, due_date, created_at, quote_id')
@@ -382,6 +401,8 @@ export function JobDetailPage() {
   const { data: timesheets } = useQuery<JobTimesheet[]>({
     queryKey: ['job-timesheets', id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as JobTimesheet[];
       const { data, error } = await supabase
         .from('timesheet_entries')
         .select('id, timesheet_id, job_id, start_time, end_time, work_type, billable, notes')
@@ -396,6 +417,8 @@ export function JobDetailPage() {
   const { data: myTimesheets } = useQuery<Timesheet[]>({
     queryKey: ['timesheets-job-clock', profile?.id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as Timesheet[];
       const from = format(addDays(new Date(), -14), 'yyyy-MM-dd');
       const to = format(addDays(new Date(), 14), 'yyyy-MM-dd');
       const { data, error } = await supabase
@@ -414,6 +437,8 @@ export function JobDetailPage() {
   const { data: costTotals } = useQuery<{ cost: number; charge: number; lines: number }>({
     queryKey: ['job-cost-totals', id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return { cost: 0, charge: 0, lines: 0 };
       const { data, error } = await supabase
         .from('job_costs')
         .select('total_cost, total_price')

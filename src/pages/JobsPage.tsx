@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, ViewToggle, useViewMode, OpsPhotoStamp, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
@@ -143,7 +144,7 @@ export function JobsPage() {
     navigate(`/jobs/${jobId}`);
   }
 
-  if (error) return <AppShell><PageError message="Could not load jobs" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load jobs" /></AppShell>;
 
   return (
     <AppShell>

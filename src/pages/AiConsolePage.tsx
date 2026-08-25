@@ -167,7 +167,9 @@ export function AiConsolePage() {
   const [streaming, setStreaming] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [error, setError] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= 768,
+  );
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -264,9 +266,9 @@ export function AiConsolePage() {
 
   return (
     <AppShell>
-      <div className="flex h-[calc(100vh-56px)] overflow-hidden bg-[#F9FAFB]">
+      <div className="relative flex h-[calc(100vh-56px)] overflow-hidden bg-[#F9FAFB]">
         {/* Sidebar */}
-        <aside className={`flex flex-col bg-[#0A2540] text-white transition-all duration-200 shrink-0 ${sidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
+        <aside className={`flex flex-col bg-[#0A2540] text-white transition-all duration-200 shrink-0 max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-20 ${sidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
           <div className="p-3 border-b border-white/10">
             <button onClick={startNew} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-[#2E75B6] hover:bg-[#2563a8] rounded-lg text-sm font-medium transition-colors">
               <Plus size={15} /> New conversation
@@ -355,7 +357,7 @@ export function AiConsolePage() {
                   placeholder="Ask me to query data, fix issues, update records… (Enter to send)"
                   rows={1} disabled={streaming}
                   className="w-full bg-transparent text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] resize-none outline-none leading-relaxed"
-                  style={{ minHeight: '24px', maxHeight: '160px' }} />
+                  style={{ minHeight: '44px', maxHeight: '160px' }} />
               </div>
               <button onClick={() => sendMessage()} disabled={!input.trim() || streaming}
                 className="w-10 h-10 rounded-xl bg-[#0A2540] text-white flex items-center justify-center hover:bg-[#0d2f4e] disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0">

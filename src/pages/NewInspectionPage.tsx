@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -9,6 +10,7 @@ import { PageError } from '../components/ui/PageError';
 import type { TemplateSchema } from '../types/template';
 import { ChevronLeft, Play, Zap, LayoutTemplate, Link2, Briefcase } from 'lucide-react';
 import { resolveInspectionLaunch } from '../lib/inspectionJobLink';
+import { getAuditInspection, getAuditJob, getAuditTemplates } from '../lib/devFieldAuditDocs';
 
 export function NewInspectionPage() {
   const navigate = useNavigate();
@@ -26,6 +28,8 @@ export function NewInspectionPage() {
   const { data: templates, isLoading, isError, refetch } = useQuery({
     queryKey: ['templates'],
     queryFn: async () => {
+      const mock = getAuditTemplates();
+      if (mock) return mock;
       const { data, error } = await supabase
         .from('templates')
         .select('id, name, report_renderer, schema')
@@ -40,6 +44,16 @@ export function NewInspectionPage() {
   const { data: parentInspection, isFetched: parentLookupDone } = useQuery({
     queryKey: ['inspection', jobIdParam],
     queryFn: async () => {
+      const mock = getAuditInspection(jobIdParam!);
+      if (mock) {
+        return {
+          id: mock.id,
+          meta: mock.meta,
+          template_snapshot: mock.template_snapshot,
+          client_id: mock.client_id,
+          crm_job_id: mock.crm_job_id,
+        };
+      }
       const { data, error } = await supabase
         .from('inspections')
         .select('id, meta, template_snapshot, client_id, crm_job_id')
@@ -64,6 +78,23 @@ export function NewInspectionPage() {
   const { data: crmJob } = useQuery({
     queryKey: ['crm-job-autofill', crmJobId],
     queryFn: async () => {
+      const mock = getAuditJob(crmJobId!);
+      if (mock) {
+        return {
+          job: {
+            id: mock.id,
+            title: mock.title,
+            description: mock.description,
+            address: mock.address,
+            job_number: mock.job_number,
+            client_id: mock.client_id,
+            inspection_id: mock.inspection_id,
+          },
+          client: mock.client_id
+            ? { id: mock.client_id, name: 'Northside Electrical', address: mock.address }
+            : null,
+        };
+      }
       const { data: job, error } = await supabase
         .from('jobs')
         .select('id, title, description, address, job_number, client_id, inspection_id')
@@ -181,7 +212,7 @@ export function NewInspectionPage() {
     );
   }
 
-  if (isError) return <PageError onRetry={refetch} />;
+  if (pageQueryBlocked(isError)) return <PageError onRetry={refetch} />;
 
   const backTo = parentInspectionId
     ? `/inspections/${parentInspectionId}/report`

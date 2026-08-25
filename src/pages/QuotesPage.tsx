@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, useToast, ViewToggle, useViewMode, OpsDocHead, OpsFromTo, OpsSiteRow, OpsStatus, opsSiteLabel } from '../components/ui';
 import { SkeletonRow } from '../components/ui/Skeletons';
@@ -206,7 +207,7 @@ export function QuotesPage() {
     }
   }
 
-  if (error) return <AppShell><PageError message="Could not load quotes" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load quotes" /></AppShell>;
 
   const filteredEmpty = !search && statusFilter === 'all';
 
@@ -962,7 +963,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         </div>
 
         <div className="overlay-body">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Client" required>
               <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value, job_id: '' }))} className="form-input cursor-pointer">
                 <option value="">Select a client...</option>
@@ -1129,7 +1130,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             total={grandTotal}
           />
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="GST rate (%)">
               <input type="number" min={0} step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))} className="form-input" placeholder="0" />
             </Field>

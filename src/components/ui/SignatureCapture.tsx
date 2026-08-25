@@ -145,7 +145,7 @@ export function SignatureCapture({
               value={typedName}
               onChange={e => setTypedName(e.target.value)}
               placeholder="Type your full name"
-              className="w-full text-sm border border-[#E5E7EB] rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+              className="w-full min-h-[44px] text-sm border border-[#E5E7EB] rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
             />
             <div className="flex flex-wrap gap-1.5">
               {SIGNATURE_FONTS.map(f => (

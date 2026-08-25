@@ -10,6 +10,7 @@ import { parseCountersignatures } from '../types/template';
 import { applyLivingJobToInspection } from '../lib/livingJha';
 import { useAuth } from '../contexts/AuthContext';
 import { inspectionDocumentColors } from '../reports/generic_inspection/theme';
+import { getAuditEmptyList, getAuditInspection, getAuditJob } from '../lib/devFieldAuditDocs';
 import { CheckCircle, AlertCircle, ChevronLeft, ClipboardCheck, ImageOff, Check, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -53,7 +54,7 @@ function CountersignSlot({
           value={name}
           onChange={e => onChange({ name: e.target.value })}
           placeholder={`Name of ${role.label.toLowerCase()}`}
-          className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+          className="form-input"
         />
       </div>
       <div>
@@ -119,6 +120,8 @@ export function InspectionReviewPage() {
   const { data: inspection, isLoading, isError, refetch } = useQuery({
     queryKey: ['inspection', id],
     queryFn: async () => {
+      const mock = getAuditInspection(id!);
+      if (mock) return mock as never;
       const { data, error } = await supabase
         .from('inspections')
         .select('*')
@@ -151,6 +154,8 @@ export function InspectionReviewPage() {
   const { data: boundJob } = useQuery({
     queryKey: ['inspection-review-job', crmJobId],
     queryFn: async () => {
+      const mock = getAuditJob(crmJobId!);
+      if (mock) return { id: mock.id, title: mock.title, address: mock.address, client_id: mock.client_id };
       const { data, error } = await supabase
         .from('jobs')
         .select('id, title, address, client_id')
@@ -165,6 +170,8 @@ export function InspectionReviewPage() {
   const { data: photoRecords } = useQuery({
     queryKey: ['inspection-photos', id],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty;
       const { data } = await supabase.from('photos').select('*').eq('inspection_id', id!);
       if (!data?.length) return [];
       const withUrls = await Promise.all(

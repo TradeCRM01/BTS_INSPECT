@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { getAuditClients, getAuditEmptyList } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
@@ -19,6 +21,8 @@ export function CustomerPortalPage() {
   const { data: tokens, isLoading, error } = useQuery({
     queryKey: ['portal-tokens'],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty;
       const { data, error } = await supabase
         .from('client_portal_tokens')
         .select(`
@@ -58,6 +62,8 @@ export function CustomerPortalPage() {
   const { data: clients } = useQuery({
     queryKey: ['clients-active'],
     queryFn: async () => {
+      const mock = getAuditClients();
+      if (mock) return mock.map(c => ({ id: c.id, name: c.name, email: c.email }));
       const { data, error } = await supabase
         .from('clients')
         .select('id, name, email')
@@ -88,7 +94,7 @@ export function CustomerPortalPage() {
   }, [clients, tokens]);
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
-  if (error) return <AppShell><PageError message="Could not load portal tokens" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load portal tokens" /></AppShell>;
 
   const portalBase = typeof window !== 'undefined' ? `${window.location.origin}/p` : '/p';
 

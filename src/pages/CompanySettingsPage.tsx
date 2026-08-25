@@ -337,7 +337,7 @@ export function CompanySettingsPage() {
         <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
           <h2 className="text-sm font-semibold text-[#1A1A1A] mb-1">Tax & Markup Defaults</h2>
           <p className="text-xs text-[#4A5568] mb-3">Used as defaults on new quotes, invoices, and purchase orders.</p>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-6">
             <div>
               <label className="text-xs text-[#4A5568] block mb-1">Default Tax Rate</label>
               <div className="flex items-center gap-2">
@@ -418,7 +418,7 @@ export function CompanySettingsPage() {
             <p className="text-xs text-[#4A5568] mb-4">
               Applies to inspection PDF letterhead accents (navy bars, accent highlights).
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               {(
                 [
                   { key: 'navy', label: 'Navy' },
@@ -484,7 +484,7 @@ export function CompanySettingsPage() {
                 value={newRendererLabel}
                 onChange={e => setNewRendererLabel(e.target.value)}
                 placeholder="e.g. Roof Inspection, HVAC Check"
-                className="w-full px-3 py-2 border border-[#E5E7EB] rounded text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                className="w-full min-h-[44px] px-3 py-2 border border-[#E5E7EB] rounded text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
                 autoFocus
               />
               <div className="flex gap-2">
@@ -548,7 +548,7 @@ export function CompanySettingsPage() {
               <p className="text-xs text-[#4A5568]">Loading...</p>
             ) : (
               <form onSubmit={handleSaveEmailSettings} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">From Name</label>
                     <input
@@ -572,8 +572,8 @@ export function CompanySettingsPage() {
 
                 <div className="border-t border-[#E5E7EB] pt-4">
                   <p className="text-xs font-semibold text-[#4A5568] uppercase tracking-wide mb-3">SMTP Server</p>
-                  <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div className="col-span-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                    <div className="col-span-1 sm:col-span-2">
                       <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">SMTP Host</label>
                       <input
                         value={emailSettings.smtp_host}
@@ -594,7 +594,7 @@ export function CompanySettingsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">SMTP Username</label>
                       <input
@@ -612,9 +612,9 @@ export function CompanySettingsPage() {
                           type={showPass ? 'text' : 'password'}
                           value={emailSettings.smtp_pass}
                           onChange={e => setEmailSettings(s => ({ ...s, smtp_pass: e.target.value }))}
-                          placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                          placeholder="API key"
                           autoComplete="new-password"
-                          className={inputClass + ' pr-10'}
+                          className={inputClass + ' pr-12'}
                         />
                         <button
                           type="button"
@@ -690,7 +690,7 @@ export function CompanySettingsPage() {
                 to="/settings/team"
                 className="text-xs font-medium text-[#2E75B6] hover:underline"
               >
-                Manage team â†’
+                Manage team →
               </Link>
             </div>
 
@@ -713,7 +713,7 @@ export function CompanySettingsPage() {
                   <tbody>
                     {registeredUsers?.map(user => (
                       <tr key={user.id} className="border-b border-[#F3F4F6] hover:bg-[#F9FAFB]">
-                        <td className="py-2.5 px-3 text-[#1A1A1A]">{user.name || 'â€”'}</td>
+                        <td className="py-2.5 px-3 text-[#1A1A1A]">{user.name || '—'}</td>
                         <td className="py-2.5 px-3 text-[#4A5568]">{user.email}</td>
                         <td className="py-2.5 px-3 hidden sm:table-cell">
                           <span className="inline-flex px-2 py-0.5 text-xs rounded-full border border-[#E5E7EB] text-[#4A5568] capitalize">
@@ -732,7 +732,7 @@ export function CompanySettingsPage() {
                           )}
                         </td>
                         <td className="py-2.5 px-3 text-[#9CA3AF] hidden md:table-cell text-xs">
-                          {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'â€”'}
+                          {user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}
                         </td>
                       </tr>
                     ))}
@@ -751,7 +751,7 @@ export function CompanySettingsPage() {
               <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Company Name</label>
               <input value={name} onChange={e => setName(e.target.value)} required className={inputClass} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">ABN</label>
                 <input value={abn} onChange={e => setAbn(e.target.value)}

@@ -23,6 +23,8 @@ import {
 } from '../lib/inspectionNextAction';
 import { applyLivingJobToInspection } from '../lib/livingJha';
 import { inspectionDocumentColors } from '../reports/generic_inspection/theme';
+import { getAuditClient, getAuditInspection, getAuditJobs } from '../lib/devFieldAuditDocs';
+import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 
 type SaveStatus = 'saved' | 'saving' | 'error' | 'offline';
 
@@ -65,6 +67,8 @@ export function InspectionFillPage() {
   const { data: inspection, isLoading, isError, refetch } = useQuery({
     queryKey: ['inspection', id],
     queryFn: async () => {
+      const mock = getAuditInspection(id!);
+      if (mock) return mock as never;
       const { data, error } = await supabase
         .from('inspections')
         .select('*')
@@ -98,6 +102,8 @@ export function InspectionFillPage() {
   const { data: jobs = [] } = useQuery({
     queryKey: ['jobs-for-inspection-fill'],
     queryFn: async () => {
+      const mock = getAuditJobs();
+      if (mock) return mock;
       const { data, error } = await supabase
         .from('jobs')
         .select('id, title, client_id, address, job_number, scheduled_date, company_id, start_time')
@@ -118,6 +124,8 @@ export function InspectionFillPage() {
   const { data: dueClient } = useQuery({
     queryKey: ['inspection-due-client', fillClientId],
     queryFn: async () => {
+      const mock = getAuditClient(fillClientId!);
+      if (mock) return mock;
       const { data, error } = await supabase
         .from('clients')
         .select('id, company_id, name, email, phone, contact_person')
@@ -179,6 +187,11 @@ export function InspectionFillPage() {
 
   const saveInspection = useCallback(async (payload: PendingSave) => {
     if (!id) return;
+    if (isDevFieldAuditAuth()) {
+      setSaveStatus('saved');
+      pendingSaveRef.current = null;
+      return;
+    }
     setSaveStatus('saving');
     try {
       const { error } = await supabase

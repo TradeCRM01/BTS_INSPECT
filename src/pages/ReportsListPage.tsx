@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { nanoid } from '../lib/nanoid';
+import { getAuditDriveUploads, getAuditEmptyList } from '../lib/devFieldAuditDocs';
+import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import {
   isFileSystemAccessSupported, pickBackupFolder,
   hasStoredBackupDir, clearBackupDir, syncToBackup, syncOne,
@@ -159,6 +161,8 @@ export function ReportsListPage() {
   useQuery({
     queryKey: ['backup-settings'],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return null;
       const { data } = await supabase
         .from('companies')
         .select('backup_enabled, backup_folder_name, backup_sync_mode, backup_last_synced_at')
@@ -222,6 +226,8 @@ export function ReportsListPage() {
   const { data: allFolders } = useQuery<FolderRow[]>({
     queryKey: ['drive-folders'],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as FolderRow[];
       const { data, error } = await supabase
         .from('folders')
         .select('id, parent_id, name, created_at, position_x, position_y')
@@ -236,6 +242,10 @@ export function ReportsListPage() {
   const { data: allUploads } = useQuery<UploadedPdfRow[]>({
     queryKey: ['uploaded-pdfs'],
     queryFn: async () => {
+      const mockUploads = getAuditDriveUploads();
+      if (mockUploads) return mockUploads as UploadedPdfRow[];
+      const empty = getAuditEmptyList();
+      if (empty) return empty as UploadedPdfRow[];
       const { data, error } = await supabase
         .from('uploaded_pdfs')
         .select('id, filename, storage_path, file_size, title, created_at, folder_id, position_x, position_y')
@@ -250,6 +260,8 @@ export function ReportsListPage() {
   const { data: allReports } = useQuery<ReportRow[]>({
     queryKey: ['all-reports'],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as ReportRow[];
       const { data: reports } = await supabase
         .from('reports')
         .select('id, inspection_id, report_number, pdf_storage_path, generated_at, folder_id, position_x, position_y')
@@ -277,6 +289,8 @@ export function ReportsListPage() {
   const { data: allInspections } = useQuery<InspectionRow[]>({
     queryKey: ['drive-inspections'],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as InspectionRow[];
       const { data, error } = await supabase
         .from('inspections')
         .select('id, status, meta, started_at, template_snapshot, folder_id, position_x, position_y')
@@ -650,6 +664,11 @@ export function ReportsListPage() {
 
   async function handleRename() {
     if (!renamingItem || !renameValue.trim()) return;
+    if (isDevFieldAuditAuth()) {
+      setRenamingItem(null);
+      setRenameValue('');
+      return;
+    }
     const name = renameValue.trim();
     if (renamingItem.kind === 'folder') {
       await supabase.from('folders').update({ name }).eq('id', renamingItem.id);
@@ -1087,7 +1106,7 @@ export function ReportsListPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search all files and folders..."
-            className="w-full pl-9 pr-4 py-2 border border-[#E5E7EB] rounded-lg text-sm text-[#1A1A1A] bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]/30 focus:border-[#2E75B6]"
+            className="w-full min-h-[44px] h-auto pl-9 pr-4 py-2 border border-[#E5E7EB] rounded-lg text-sm text-[#1A1A1A] bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]/30 focus:border-[#2E75B6]"
           />
         </div>
 

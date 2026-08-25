@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { Copy, FileText, Search, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { duplicateJhaDocument } from '../lib/duplicateJhaDocument';
 import {
@@ -142,8 +143,8 @@ export function JhaDocumentsPage() {
 
   const openDocs = filtered.filter(d => jhaListBucket(d.status) === 'open');
   const publishedDocs = filtered.filter(d => jhaListBucket(d.status) === 'published');
-  const noneAtAll = !isLoading && !isError && (docs ?? []).length === 0;
-  const noneMatch = !isLoading && !isError && (docs ?? []).length > 0 && filtered.length === 0;
+  const noneAtAll = !isLoading && !pageQueryBlocked(isError) && (docs ?? []).length === 0;
+  const noneMatch = !isLoading && !pageQueryBlocked(isError) && (docs ?? []).length > 0 && filtered.length === 0;
 
   return (
     <AppShell>
@@ -203,7 +204,7 @@ export function JhaDocumentsPage() {
         {isLoading && (
           <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
         )}
-        {isError && <PageError onRetry={refetch} />}
+        {pageQueryBlocked(isError) && <PageError onRetry={refetch} />}
 
         {noneAtAll && (
           <EmptyState

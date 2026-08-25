@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -62,7 +63,7 @@ const RISK_COLORS = [
 ];
 
 const FIELD_INPUT =
-  'w-full min-w-0 text-sm border border-[#E5E7EB] rounded-md px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent';
+  'w-full min-w-0 min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded-md px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -371,7 +372,7 @@ export function JhaTemplateEditorPage() {
     return <AppShell><div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div></AppShell>;
   }
 
-  if (isError) {
+  if (pageQueryBlocked(isError)) {
     return <AppShell><div className="max-w-[1200px] mx-auto px-4 py-6"><PageError onRetry={refetch} /></div></AppShell>;
   }
 
@@ -441,7 +442,7 @@ export function JhaTemplateEditorPage() {
               value={templateName}
               onChange={e => { setTemplateName(e.target.value); markUnsaved(); }}
               placeholder="e.g. Electrical isolation JHA"
-              className="w-full min-w-0 text-base sm:text-lg font-semibold text-[#1A1A1A] border border-[#E5E7EB] rounded-md px-3 py-2 outline-none placeholder:text-[#9CA3AF] placeholder:font-normal bg-white focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full min-w-0 min-h-[44px] h-auto text-base sm:text-lg font-semibold text-[#1A1A1A] border border-[#E5E7EB] rounded-md px-3 py-2 outline-none placeholder:text-[#9CA3AF] placeholder:font-normal bg-white focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
             />
           </div>
           <div>
@@ -451,7 +452,7 @@ export function JhaTemplateEditorPage() {
               value={description}
               onChange={e => { setDescription(e.target.value); markUnsaved(); }}
               placeholder="When this template should be used"
-              className="w-full min-w-0 text-sm text-[#4A5568] border border-[#E5E7EB] rounded-md px-3 py-2 outline-none placeholder:text-[#9CA3AF] bg-white focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full min-w-0 min-h-[44px] h-auto text-sm text-[#4A5568] border border-[#E5E7EB] rounded-md px-3 py-2 outline-none placeholder:text-[#9CA3AF] bg-white focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
             />
           </div>
         </div>
@@ -497,7 +498,7 @@ export function JhaTemplateEditorPage() {
                   const n = Math.min(25, Math.max(1, parseInt(e.target.value, 10) || 9));
                   updateMeta({ maxAcceptableResidualScore: n });
                 }}
-                className="w-24 min-w-0 text-sm border border-[#E5E7EB] rounded-md px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full min-w-0 sm:w-28 text-sm border border-[#E5E7EB] rounded-md px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
               />
             </div>
 
@@ -672,7 +673,7 @@ export function JhaTemplateEditorPage() {
                         <div className="w-8 h-8 rounded-md shrink-0 border border-[#E5E7EB]" style={{ backgroundColor: risk.color }} title={risk.color} />
                       </div>
                     </div>
-                    <div className="w-20 shrink-0">
+                    <div className="w-full min-w-0 sm:w-28 sm:shrink-0">
                       <label className="block text-[11px] text-[#6B7280] mb-1">Score</label>
                       <input
                         type="number"

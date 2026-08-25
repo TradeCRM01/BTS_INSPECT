@@ -9,9 +9,9 @@ import {
   ClipboardList, LayoutTemplate, Settings, LogOut,
   User, Menu, X, Zap, ChevronDown, Users, BrainCircuit, RotateCw, Sparkles, FileText,
   Calendar, Receipt, ShoppingCart, Package, Truck, FolderOpen,
-  Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, Wallet, Sun, type LucideIcon,
+  Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, Wallet, Sun, Search, type LucideIcon,
 } from 'lucide-react';
-import { GlobalSearchTrigger } from '../search/GlobalSearch';
+import { GlobalSearch } from '../search/GlobalSearch';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -124,6 +124,7 @@ export function AppShell({ children }: AppShellProps) {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [pullDistance, setPullDistance] = useState(0);
@@ -210,6 +211,17 @@ export function AppShell({ children }: AppShellProps) {
     setAvatarOpen(false);
     setMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   async function handleSignOut() {
     await signOut();
@@ -308,7 +320,17 @@ export function AppShell({ children }: AppShellProps) {
           </nav>
 
           <div className="hidden md:block w-48 lg:w-64 shrink-0">
-            <GlobalSearchTrigger />
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className="flex items-center gap-2 border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white w-full"
+            >
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="flex-1 text-left hidden sm:inline">Search…</span>
+              <kbd className="hidden rounded border border-white/15 bg-white/5 px-1.5 py-0.5 text-xs text-white/50 sm:inline-block">
+                ⌘K
+              </kbd>
+            </button>
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
@@ -413,6 +435,16 @@ export function AppShell({ children }: AppShellProps) {
 
         {menuOpen && (
           <div className="md:hidden border-t border-white/10 bg-navy max-h-[calc(100vh-6rem)] overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                setSearchOpen(true);
+              }}
+              className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70 w-full text-left"
+            >
+              <Search size={16} /> Search
+            </button>
             <p className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-white/40">Field Work</p>
             {FIELD_GROUP.items.map((item) => {
               const ItemIcon = item.icon;
@@ -534,6 +566,7 @@ export function AppShell({ children }: AppShellProps) {
           onClose={() => setShowDevConsole(false)}
         />
       )}
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { getAuditEmptyList, getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, useToast } from '../components/ui';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
@@ -21,9 +23,11 @@ export function TimesheetsPage() {
   const presetJobId = searchParams.get('job');
   const [showEntryForm, setShowEntryForm] = useState(() => !!presetJobId);
 
-  const { data: teamMembers } = useQuery({
+  const { data: teamMembers, isFetched: teamFetched } = useQuery({
     queryKey: ['team-members'],
     queryFn: async () => {
+      const mock = getAuditTeamMembers();
+      if (mock) return mock;
       const { data, error } = await supabase.rpc('get_company_members', { p_company_id: profile!.company_id });
       if (error) throw error;
       return (data ?? []) as { id: string; name: string; email: string; role: string }[];
@@ -33,11 +37,14 @@ export function TimesheetsPage() {
 
   // Auto-select current user
   useEffect(() => {
-    if (!selectedEmployee && teamMembers && teamMembers.length > 0) {
+    if (selectedEmployee) return;
+    if (teamMembers && teamMembers.length > 0) {
       const me = teamMembers.find(m => m.id === profile?.id);
       setSelectedEmployee(me?.id ?? teamMembers[0].id);
+      return;
     }
-  }, [teamMembers, selectedEmployee, profile]);
+    if (teamFetched && profile?.id) setSelectedEmployee(profile.id);
+  }, [teamMembers, teamFetched, selectedEmployee, profile]);
 
   const weekStart = format(currentWeek, 'yyyy-MM-dd');
   const weekEnd = format(addDays(currentWeek, 6), 'yyyy-MM-dd');
@@ -45,6 +52,8 @@ export function TimesheetsPage() {
   const { data: timesheets, isLoading, error } = useQuery({
     queryKey: ['timesheets', weekStart, selectedEmployee],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as Timesheet[];
       const { data, error } = await supabase
         .from('timesheets')
         .select('*')
@@ -74,6 +83,8 @@ export function TimesheetsPage() {
   const { data: jobs } = useQuery({
     queryKey: ['jobs-for-timesheets'],
     queryFn: async () => {
+      const mock = getAuditJobs();
+      if (mock) return mock.map(j => ({ id: j.id, title: j.title, job_number: j.job_number }));
       const { data, error } = await supabase
         .from('jobs')
         .select('id, title, job_number')
@@ -135,7 +146,7 @@ export function TimesheetsPage() {
   const isClockedIn = !!todayTs?.clock_in && !todayTs?.clock_out;
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
-  if (error) return <AppShell><PageError message="Could not load timesheets" /></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load timesheets" /></AppShell>;
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeek, i));
 
@@ -145,7 +156,7 @@ export function TimesheetsPage() {
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-semibold text-[#1A1A1A]">Timesheets</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">Week of {format(currentWeek, 'dd MMM')} ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â {format(addDays(currentWeek, 6), 'dd MMM yyyy')}</p>
+            <p className="text-sm text-[#4A5568] mt-0.5">Week of {format(currentWeek, 'dd MMM')} — {format(addDays(currentWeek, 6), 'dd MMM yyyy')}</p>
           </div>
           <div className="flex items-center gap-2">
             {isClockedIn ? (
@@ -171,7 +182,7 @@ export function TimesheetsPage() {
             <button onClick={() => setCurrentWeek(addDays(currentWeek, 7))} className="p-2 rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB] text-[#4A5568]"><ChevronRight size={18} /></button>
           </div>
           <select value={selectedEmployee ?? ''} onChange={e => setSelectedEmployee(e.target.value)}
-            className="h-9 px-3 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]">
+            className="min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]">
             {(teamMembers ?? []).map(m => <option key={m.id} value={m.id}>{m.name}{m.id === profile?.id ? ' (You)' : ''}</option>)}
           </select>
         </div>
@@ -180,7 +191,7 @@ export function TimesheetsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <SummaryCard label="Week Total" value={formatDuration(weekTotal)} accentColor="#0A2540" />
           <SummaryCard label="Days Worked" value={`${myTimesheets.filter(t => t.total_minutes > 0).length}`} accentColor="#2E75B6" />
-          <SummaryCard label="Status" value={todayTs ? TIMESHEET_STATUS_LABELS[todayTs.status] : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'} accentColor="#16A34A" />
+          <SummaryCard label="Status" value={todayTs ? TIMESHEET_STATUS_LABELS[todayTs.status] : '—'} accentColor="#16A34A" />
           <SummaryCard label="Clocked In" value={isClockedIn ? 'Yes' : 'No'} accentColor={isClockedIn ? '#16A34A' : '#6B7280'} />
         </div>
 
@@ -223,10 +234,10 @@ export function TimesheetsPage() {
                           <Clock size={18} className="text-[#0A2540]" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-[#1A1A1A]">{ts ? format(parseISO(ts.date), 'dd MMM') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</p>
+                          <p className="text-sm font-medium text-[#1A1A1A]">{ts ? format(parseISO(ts.date), 'dd MMM') : '—'}</p>
                           <p className="text-xs text-[#4A5568]">
                             {format(new Date(entry.start_time), 'HH:mm')}
-                            {entry.end_time ? ` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ${format(new Date(entry.end_time), 'HH:mm')}` : ' ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â running'}
+                            {entry.end_time ? ` — ${format(new Date(entry.end_time), 'HH:mm')}` : ' — running'}
                           </p>
                         </div>
                       </div>
