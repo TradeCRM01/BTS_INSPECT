@@ -308,6 +308,13 @@ function mockResult(body: OperatorAction): OperatorApiResult {
             created_at: company.created_at,
             last_sign_in_at: null,
           },
+          ...(company.id === '11111111-1111-1111-1111-111111111111'
+            ? [
+                { id: 'p2', email: 'sparky@northside.example.com', name: 'Sam Field', role: 'member', created_at: company.created_at, last_sign_in_at: null },
+                { id: 'p3', email: 'office@northside.example.com', name: 'Pat Office', role: 'member', created_at: company.created_at, last_sign_in_at: null },
+                { id: 'p4', email: 'apprentice@northside.example.com', name: 'Alex Apprentice', role: 'member', created_at: company.created_at, last_sign_in_at: null },
+              ]
+            : []),
         ],
         events: [
           {
