@@ -83,6 +83,9 @@ const OFFICE_GROUPS: NavGroup[] = [
 
 const NAV_GROUPS: NavGroup[] = [FIELD_GROUP, ...OFFICE_GROUPS];
 
+/** Phone hamburger: Dashboard first, then Field Work and the rest. Desktop bar keeps NAV_GROUPS. */
+const MOBILE_NAV_GROUPS: NavGroup[] = [OFFICE_GROUPS[0], FIELD_GROUP, ...OFFICE_GROUPS.slice(1)];
+
 function isNavItemActive(item: { to: string }, pathname: string, allItems?: { to: string }[]): boolean {
   if (item.to === '/') return pathname === '/';
   if (item.to === '/drive') {
@@ -387,7 +390,7 @@ export function AppShell({ children }: AppShellProps) {
 
         {menuOpen && (
           <div className="md:hidden border-t border-white/10 bg-navy max-h-[calc(100vh-6rem)] overflow-y-auto">
-            {NAV_GROUPS.map((group, i) => {
+            {MOBILE_NAV_GROUPS.map((group, i) => {
               const groupActive = isGroupActive(group, location.pathname);
               const isExpanded = openGroup === group.label;
               const Icon = group.icon;
