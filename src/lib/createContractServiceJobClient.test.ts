@@ -32,6 +32,8 @@ describe('contract service job client path', () => {
     expect(page).toContain('createContractServiceJob');
     expect(page).toContain('Create job');
     expect(page).toContain('Create due jobs');
+    expect(page).toContain('requireNextServiceDate');
+    expect(page).toContain('Next Service Date *');
     expect(page).toContain('auto_generate_jobs');
     expect(page).toContain('contractDueBucket');
     expect(page).not.toContain('isPast(parseISO');

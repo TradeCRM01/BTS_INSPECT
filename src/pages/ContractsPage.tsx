@@ -19,6 +19,7 @@ import {
   contractDueBucket,
   createContractServiceJob,
   dateOnly,
+  requireNextServiceDate,
 } from '../lib/createContractServiceJob';
 import { ContractVisitReminderDialog } from '../components/contracts/ContractVisitReminderDialog';
 
@@ -437,6 +438,12 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
     e.preventDefault();
     setSaving(true);
     setErr(null);
+    const next = requireNextServiceDate(form.next_service_date);
+    if (!next.ok) {
+      setErr(next.message);
+      setSaving(false);
+      return;
+    }
     try {
       const payload = {
         company_id: profile!.company_id,
@@ -449,7 +456,7 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
         billing_cycle: form.billing_cycle,
         contract_value: parseFloat(form.contract_value) || 0,
         service_frequency: form.service_frequency,
-        next_service_date: form.next_service_date || null,
+        next_service_date: next.nextServiceDate,
         auto_generate_jobs: form.auto_generate_jobs,
         description: form.description || null,
         notes: form.notes || null,
@@ -513,7 +520,7 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
               </select>
             </Field>
           </div>
-          <Field label="Next Service Date"><input type="date" value={form.next_service_date} onChange={e => setForm(f => ({ ...f, next_service_date: e.target.value }))} className="form-input" /></Field>
+          <Field label="Next Service Date *"><input required type="date" value={form.next_service_date} onChange={e => setForm(f => ({ ...f, next_service_date: e.target.value }))} className="form-input" /></Field>
           <label className="flex items-center gap-2 text-sm text-[#1A1A1A]">
             <input type="checkbox" checked={form.auto_generate_jobs} onChange={e => setForm(f => ({ ...f, auto_generate_jobs: e.target.checked }))} className="rounded" />
             Include in Create due jobs
