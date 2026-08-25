@@ -11,6 +11,7 @@ interface SignupRequest {
   email: string;
   password: string;
   name: string;
+  company_name?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -22,6 +23,7 @@ Deno.serve(async (req: Request) => {
     const payload = (await req.json()) as SignupRequest;
 
     const { email, password, name } = payload;
+    const companyName = (payload.company_name || "").trim() || `${name.trim()}'s company`;
 
     if (!email || !password || !name) {
       throw new Error("Missing required fields");
@@ -93,26 +95,51 @@ Deno.serve(async (req: Request) => {
       userId = authData.user.id;
     }
 
-    // 2. Get the BTS company (all users belong to same company)
-    const { data: companies, error: companyQueryError } = await adminClient
+    // 2. Each signup is a new tenant. Team invites join an existing company.
+    const trialEnds = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    let companyId: string;
+    const tenantInsert = await adminClient
       .from("companies")
+      .insert({
+        name: companyName,
+        email,
+        access_status: "active",
+        billing_status: "trial",
+        plan: "starter",
+        trial_ends_at: trialEnds,
+        seat_limit: 3,
+      })
       .select("id")
-      .limit(1);
+      .single();
 
-    if (companyQueryError || !companies || companies.length === 0) {
-      throw new Error("No company found");
+    if (tenantInsert.error || !tenantInsert.data) {
+      const fallback = await adminClient
+        .from("companies")
+        .insert({ name: companyName, email })
+        .select("id")
+        .single();
+      if (fallback.error || !fallback.data) {
+        throw new Error(`Failed to create company: ${tenantInsert.error?.message || fallback.error?.message}`);
+      }
+      companyId = fallback.data.id as string;
+    } else {
+      companyId = tenantInsert.data.id as string;
     }
 
-    const companyId = companies[0].id;
+    const role = "admin";
+    const templateAccess = "edit";
 
-    // First profile in the company (or when no admin exists) becomes admin
-    const { count: adminCount } = await adminClient
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("company_id", companyId)
-      .eq("role", "admin");
-    const role = (adminCount ?? 0) === 0 ? "admin" : "member";
-    const templateAccess = role === "admin" ? "edit" : "view";
+    try {
+      await adminClient.from("platform_operator_events").insert({
+        actor_id: userId,
+        actor_email: email,
+        company_id: companyId,
+        action: "signup",
+        detail: { company_name: companyName },
+      });
+    } catch {
+      // SQL 067 not applied yet
+    }
 
     // 3. Create profile (using service role to bypass RLS)
     const { error: profileError } = await adminClient

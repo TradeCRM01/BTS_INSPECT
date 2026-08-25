@@ -5,15 +5,38 @@ type Profile = Database['public']['Tables']['profiles']['Row'];
 type Company = Database['public']['Tables']['companies']['Row'];
 
 const AUDIT_KEY = 'grafter-audit-auth';
+const OPERATOR_AUDIT_KEY = 'grafter-operator-audit';
 const AUDIT_USER_ID = '00000000-0000-0000-0000-000000000002';
 const AUDIT_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
 
 /**
+ * DEV-only mock session so the operator console can be opened without live SQL.
+ * Armed by ?operatorAudit=1. Never true in production builds.
+ * Does not grant operator access to a real company-admin session.
+ */
+export function isDevOperatorAudit(): boolean {
+  if (!import.meta.env.DEV) return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('operatorAudit') === '1') {
+      sessionStorage.setItem(OPERATOR_AUDIT_KEY, '1');
+      sessionStorage.setItem(AUDIT_KEY, '1');
+      return true;
+    }
+    return sessionStorage.getItem(OPERATOR_AUDIT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * DEV-only mock session so field-audit can open real settings pages.
- * Never true in production builds. Armed by /__field-audit or ?auditAuth=1.
+ * Never true in production builds. Armed by /__field-audit or ?auditAuth=1
+ * (and by operator audit, which reuses the mock session).
  */
 export function isDevFieldAuditAuth(): boolean {
   if (!import.meta.env.DEV) return false;
+  if (isDevOperatorAudit()) return true;
   try {
     const params = new URLSearchParams(window.location.search);
     if (params.get('auditAuth') === '1' || window.location.pathname === '/__field-audit') {

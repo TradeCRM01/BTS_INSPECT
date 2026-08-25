@@ -9,7 +9,7 @@ import {
   ClipboardList, LayoutTemplate, Settings, LogOut,
   User, Menu, X, Zap, ChevronDown, Users, BrainCircuit, RotateCw, Sparkles, FileText,
   Calendar, Receipt, ShoppingCart, Package, Truck, FolderOpen,
-  Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, Wallet, Sun, Search, type LucideIcon,
+  Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, Wallet, Sun, Search, Shield, type LucideIcon,
 } from 'lucide-react';
 import { GlobalSearch } from '../search/GlobalSearch';
 
@@ -118,7 +118,7 @@ function menuItemClass(active: boolean) {
 }
 
 export function AppShell({ children }: AppShellProps) {
-  const { profile, company, signOut } = useAuth();
+  const { profile, company, signOut, isPlatformOperator } = useAuth();
   const isAdmin = profile?.role === 'admin';
   const navigate = useNavigate();
   const location = useLocation();
@@ -397,6 +397,16 @@ export function AppShell({ children }: AppShellProps) {
                         </Link>
                       </>
                     )}
+                    {isPlatformOperator && (
+                      <>
+                        <div className="border-t border-white/10 my-1" />
+                        <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/35">Platform</p>
+                        <Link to="/operator" onClick={() => setAvatarOpen(false)}
+                          className="shell-menu-item">
+                          <Shield size={15} className="text-white/45" /> Operator
+                        </Link>
+                      </>
+                    )}
                     <div className="border-t border-white/10 my-1" />
                     <button onClick={handleSignOut}
                       className="shell-menu-item text-[#FCA5A5] hover:text-white w-full text-left">
@@ -523,6 +533,11 @@ export function AppShell({ children }: AppShellProps) {
                   <Sparkles size={16} /> AI Console
                 </Link>
               </>
+            )}
+            {isPlatformOperator && (
+              <Link to="/operator" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+                <Shield size={16} /> Operator
+              </Link>
             )}
             <button onClick={handleSignOut} className="flex items-center gap-2.5 px-4 py-3 text-sm text-[#FCA5A5] w-full">
               <LogOut size={16} /> Sign out

@@ -7,6 +7,7 @@ import { BrandLockup } from '../components/brand/BrandLockup';
 export function SignupPage() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -21,6 +22,7 @@ export function SignupPage() {
     try {
       // Validate inputs
       if (!name.trim()) throw new Error('Your name is required');
+      if (!companyName.trim()) throw new Error('Company name is required');
       if (!email.trim()) throw new Error('Email is required');
       if (password.length < 8) throw new Error('Password must be at least 8 characters');
 
@@ -52,6 +54,7 @@ export function SignupPage() {
           email,
           password,
           name,
+          company_name: companyName.trim(),
         }),
       });
 
@@ -86,7 +89,7 @@ export function SignupPage() {
 
         <div className="bg-white border border-white/20 p-6">
           <h1 className="text-lg font-semibold text-[#1A1A1A] mb-1">Create account</h1>
-          <p className="text-sm text-[#4A5568] mb-6">Join BTS Inspect and start creating inspections.</p>
+          <p className="text-sm text-[#4A5568] mb-6">Your business gets its own Grafter workspace.</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -99,6 +102,19 @@ export function SignupPage() {
                 required
                 className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-[#1A1A1A] placeholder:text-[#4A5568]/50 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
                 placeholder="Jane Smith"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Company / business name</label>
+              <input
+                type="text"
+                autoComplete="organization"
+                value={companyName}
+                onChange={e => setCompanyName(e.target.value)}
+                required
+                className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-[#1A1A1A] placeholder:text-[#4A5568]/50 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
+                placeholder="Northside Electrics"
               />
             </div>
 

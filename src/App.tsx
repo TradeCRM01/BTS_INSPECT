@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { OperatorRoute } from './components/layout/OperatorRoute';
 import { PageErrorBoundary } from './components/layout/PageErrorBoundary';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { ToastProvider } from './components/ui/Toast';
@@ -62,6 +63,11 @@ const JobsPage = lazy(() => import('./pages/JobsPage').then(m => ({ default: m.J
 const JobDetailPage = lazy(() => import('./pages/JobDetailPage').then(m => ({ default: m.JobDetailPage })));
 const CompliancePage = lazy(() => import('./pages/CompliancePage').then(m => ({ default: m.CompliancePage })));
 const FieldAuditPage = lazy(() => import('./pages/FieldAuditPage').then(m => ({ default: m.FieldAuditPage })));
+const OperatorOverviewPage = lazy(() => import('./pages/operator/OperatorOverviewPage').then(m => ({ default: m.OperatorOverviewPage })));
+const OperatorCompaniesPage = lazy(() => import('./pages/operator/OperatorCompaniesPage').then(m => ({ default: m.OperatorCompaniesPage })));
+const OperatorCompanyDetailPage = lazy(() => import('./pages/operator/OperatorCompanyDetailPage').then(m => ({ default: m.OperatorCompanyDetailPage })));
+const OperatorBillingPage = lazy(() => import('./pages/operator/OperatorBillingPage').then(m => ({ default: m.OperatorBillingPage })));
+const OperatorAuditPage = lazy(() => import('./pages/operator/OperatorAuditPage').then(m => ({ default: m.OperatorAuditPage })));
 
 function PageLoader() {
   return (
@@ -157,6 +163,11 @@ export default function App() {
       <Route path="/jobs" element={<Protected><JobsPage /></Protected>} />
       <Route path="/jobs/:id" element={<Protected><JobDetailPage /></Protected>} />
       <Route path="/compliance" element={<Protected><CompliancePage /></Protected>} />
+      <Route path="/operator" element={<Protected><OperatorRoute><OperatorOverviewPage /></OperatorRoute></Protected>} />
+      <Route path="/operator/companies" element={<Protected><OperatorRoute><OperatorCompaniesPage /></OperatorRoute></Protected>} />
+      <Route path="/operator/companies/:id" element={<Protected><OperatorRoute><OperatorCompanyDetailPage /></OperatorRoute></Protected>} />
+      <Route path="/operator/billing" element={<Protected><OperatorRoute><OperatorBillingPage /></OperatorRoute></Protected>} />
+      <Route path="/operator/audit" element={<Protected><OperatorRoute><OperatorAuditPage /></OperatorRoute></Protected>} />
 
       {import.meta.env.DEV ? (
         <Route
