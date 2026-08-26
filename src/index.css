@@ -4723,3 +4723,337 @@
     }
   }
 }
+
+/* Public landing only. Does not paint signed-in AppShell. */
+.hub-marketing {
+  min-height: 100vh;
+  background: var(--ops-cream);
+  color: var(--ops-navy);
+}
+
+.hub-marketing-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.hub-marketing-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hub-marketing-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ops-navy);
+}
+
+.hub-marketing-btn,
+.hub-marketing-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.hub-marketing-btn {
+  background: var(--ops-navy);
+  color: #fff;
+}
+
+.hub-marketing-btn:hover {
+  background: #0d2f4e;
+}
+
+.hub-marketing-btn-ghost {
+  background: transparent;
+  color: var(--ops-navy);
+  border: 1px solid rgba(10, 37, 64, 0.22);
+}
+
+.hub-marketing-btn-lg {
+  min-height: 48px;
+  padding: 0 20px;
+}
+
+.hub-marketing-hero,
+.hub-marketing-band,
+.hub-marketing-split,
+.hub-marketing-close {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 20px 56px;
+}
+
+.hub-marketing-kicker {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ops-accent);
+  margin-bottom: 10px;
+}
+
+.hub-marketing-display {
+  font-family: Newsreader, Georgia, serif;
+  font-weight: 500;
+  font-size: clamp(2.25rem, 6vw, 4.35rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--ops-navy);
+}
+
+.hub-marketing-display-sm {
+  font-size: clamp(1.85rem, 4vw, 3rem);
+}
+
+.hub-marketing-subhead {
+  font-family: Newsreader, Georgia, serif;
+  font-weight: 500;
+  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin-bottom: 10px;
+}
+
+.hub-marketing-lede,
+.hub-marketing-band p,
+.hub-marketing-split p {
+  max-width: 36rem;
+  margin-top: 16px;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: #3d4d5c;
+}
+
+.hub-marketing-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.hub-marketing-frame {
+  margin-top: 40px;
+  background: #fff;
+  border: 1px solid var(--ops-rule);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.hub-marketing-chrome {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--ops-navy);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.hub-marketing-job-body,
+.hub-marketing-board {
+  padding: 14px;
+}
+
+.hub-marketing-stamp {
+  height: 132px;
+  background:
+    linear-gradient(180deg, rgba(10, 37, 64, 0.08), rgba(10, 37, 64, 0.55)),
+    repeating-linear-gradient(-18deg, #153558 0 12px, #0A2540 12px 24px);
+  color: var(--ops-cream);
+  display: flex;
+  align-items: flex-end;
+  padding: 12px 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.hub-marketing-job-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hub-marketing-job-id {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--ops-navy);
+}
+
+.hub-marketing-job-title {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--ops-muted);
+}
+
+.hub-marketing-job-meta {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--ops-muted);
+}
+
+.hub-marketing-pill {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e8f1fa;
+  color: var(--ops-accent);
+}
+
+.hub-marketing-next {
+  display: inline-flex;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--ops-rule);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ops-navy);
+}
+
+.hub-marketing-stage {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ops-rule);
+}
+
+.hub-marketing-grid {
+  display: grid;
+  gap: 28px;
+}
+
+@media (min-width: 800px) {
+  .hub-marketing-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hub-marketing-split {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 40px;
+    align-items: center;
+  }
+
+  .hub-marketing-split .hub-marketing-frame {
+    margin-top: 0;
+  }
+}
+
+.hub-marketing-board-head,
+.hub-marketing-board-row {
+  display: grid;
+  grid-template-columns: 104px 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.hub-marketing-board-head {
+  font-size: 11px;
+  color: var(--ops-muted);
+  margin-bottom: 10px;
+}
+
+.hub-marketing-board-head span:not(:first-child) {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .hub-marketing-board-head {
+    display: flex;
+    gap: 18px;
+  }
+
+  .hub-marketing-board-head span:not(:first-child) {
+    display: inline;
+  }
+}
+
+.hub-marketing-person {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.hub-marketing-lane {
+  position: relative;
+  height: 64px;
+  background: var(--ops-zebra);
+  border: 1px solid var(--ops-rule);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.hub-marketing-block {
+  position: absolute;
+  top: 8px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border-left: 3px solid var(--ops-accent);
+  background: #fff;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--ops-navy);
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.hub-marketing-block-long {
+  left: 4%;
+  width: 88%;
+}
+
+.hub-marketing-block-part {
+  top: 36px;
+  left: 22%;
+  width: 28%;
+  height: 22px;
+  font-size: 10px;
+}
+
+.hub-marketing-close {
+  text-align: left;
+  padding-bottom: 72px;
+}
+
+.hub-marketing-close .hub-marketing-cta {
+  justify-content: flex-start;
+}
+
+.hub-marketing-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 20px;
+  border-top: 1px solid rgba(10, 37, 64, 0.12);
+  font-size: 13px;
+  color: var(--ops-muted);
+}

@@ -100,6 +100,14 @@ describe('signed Grafter speed-bar mark', () => {
     expect(shell).toContain("size=\"header\"");
     expect(shell).toContain('aria-label="Grafter"');
     expect(shell).toContain('BrandLockup');
+
+    const marketing = src('src/pages/MarketingPage.tsx');
+    expect(lockup).toContain("size === 'marketing'");
+    expect(lockup).toContain('data-grafter-lockup="marketing"');
+    expect(marketing).toContain("size=\"marketing\"");
+    expect(marketing).toContain('Create a workspace');
+    expect(marketing).not.toContain('Relovi');
+    expect(marketing).not.toContain('BTS Inspect');
   });
 
   it('PWA icons are cream + blue bars on a navy squircle', () => {

@@ -254,6 +254,13 @@ describe('form fields fit their type', () => {
     expect(src('src/components/pricebooks/PriceBookPdfImportModal.tsx')).toContain('20mm PVC conduit');
     expect(page).toContain('to="/"');
     expect(src('src/main.tsx')).toContain('isDevFieldAuditAuth()');
+    expect(src('src/pages/RootPage.tsx')).toContain('MarketingPage');
+    expect(src('src/pages/MarketingPage.tsx')).toContain('hub-marketing');
+    expect(src('src/pages/MarketingPage.tsx')).toContain('#0042.01');
+    expect(src('src/index.css')).toContain('.hub-marketing');
+    expect(src('src/index.css')).toContain('Newsreader');
+    expect(src('index.html')).toContain('Newsreader');
+    expect(src('src/App.tsx')).toContain('RootPage');
   });
 
   it('does not keep the solar estimates product', () => {

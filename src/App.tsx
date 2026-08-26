@@ -12,9 +12,9 @@ import { SignupPage } from './pages/SignupPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AuthConfirmPage } from './pages/AuthConfirmPage';
+import { RootPage } from './pages/RootPage';
 
 // Protected pages — code-split so only the visited page is parsed
-const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 const TemplatesPage = lazy(() => import('./pages/TemplatesPage').then(m => ({ default: m.TemplatesPage })));
 const TemplateEditorPage = lazy(() => import('./pages/TemplateEditorPage').then(m => ({ default: m.TemplateEditorPage })));
 const InspectionsPage = lazy(() => import('./pages/InspectionsPage').then(m => ({ default: m.InspectionsPage })));
@@ -110,7 +110,7 @@ export default function App() {
       />
 
       {/* Protected routes — each page is a separate JS chunk */}
-      <Route path="/" element={<Protected><DashboardPage /></Protected>} />
+      <Route path="/" element={<RootPage />} />
       <Route path="/templates" element={<Protected><TemplatesPage /></Protected>} />
       <Route path="/templates/new" element={<Protected><TemplateEditorPage /></Protected>} />
       <Route path="/templates/:id" element={<Protected><TemplateEditorPage /></Protected>} />
