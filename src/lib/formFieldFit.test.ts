@@ -261,6 +261,15 @@ describe('form fields fit their type', () => {
     expect(src('src/index.css')).toContain('Newsreader');
     expect(src('index.html')).toContain('Newsreader');
     expect(src('src/App.tsx')).toContain('RootPage');
+    expect(src('src/pages/LoginPage.tsx')).toContain('AuthShell');
+    expect(src('src/pages/SignupPage.tsx')).toContain('AuthShell');
+    expect(src('src/pages/ForgotPasswordPage.tsx')).toContain('AuthShell');
+    expect(src('src/pages/ResetPasswordPage.tsx')).toContain('hub-auth');
+    expect(src('src/pages/AuthConfirmPage.tsx')).toContain('hub-auth');
+    expect(src('src/pages/AuthConfirmPage.tsx')).toContain('invited to Grafter');
+    expect(src('src/pages/AuthConfirmPage.tsx')).not.toContain('BTS Inspect');
+    expect(src('src/index.css')).toContain('.hub-auth');
+    expect(src('src/index.css')).toContain('.hub-auth-submit');
   });
 
   it('does not keep the solar estimates product', () => {

@@ -5057,3 +5057,92 @@
   font-size: 13px;
   color: var(--ops-muted);
 }
+
+/* Auth screens — same cream/navy as the public landing. Not AppShell. */
+.hub-auth {
+  min-height: 100vh;
+  background: var(--ops-cream);
+  color: var(--ops-navy);
+  padding: 16px 20px 40px;
+}
+
+.hub-auth-nav {
+  max-width: 1120px;
+  margin: 0 auto 32px;
+}
+
+.hub-auth-card {
+  width: 100%;
+  max-width: 26rem;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid var(--ops-rule);
+  border-radius: 14px;
+  padding: 28px 24px;
+}
+
+.hub-auth-title {
+  font-family: Newsreader, Georgia, serif;
+  font-weight: 500;
+  font-size: 2rem;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: var(--ops-navy);
+}
+
+.hub-auth-lede {
+  margin: 8px 0 24px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #3d4d5c;
+}
+
+.hub-auth-card .form-label {
+  color: var(--ops-navy);
+}
+
+.hub-auth-card .form-input {
+  border-radius: 10px;
+}
+
+.hub-auth-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 4px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: var(--ops-navy);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hub-auth-submit:hover {
+  background: #0d2f4e;
+}
+
+.hub-auth-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hub-auth-footer {
+  max-width: 26rem;
+  margin: 18px auto 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--ops-muted);
+}
+
+.hub-auth-footer a {
+  color: var(--ops-accent);
+  font-weight: 600;
+}
+
+.hub-auth .relative > button.absolute {
+  min-height: 0;
+  min-width: 0;
+}

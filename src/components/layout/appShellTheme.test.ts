@@ -98,8 +98,9 @@ describe('AppShell header/nav report_theme', () => {
     expect(settings).toContain('setReportTheme');
 
     const login = src('src/pages/LoginPage.tsx');
-    expect(login).toContain('BrandLockup');
-    expect(login).toContain("size=\"auth\"");
+    expect(login).toContain('AuthShell');
+    expect(src('src/components/auth/AuthShell.tsx')).toContain('BrandLockup');
+    expect(src('src/components/auth/AuthShell.tsx')).toContain("size=\"marketing\"");
     expect(login).not.toContain('report_theme');
     expect(login).not.toContain('resolveAppShellColors');
     expect(login).not.toContain('--shell-navy');

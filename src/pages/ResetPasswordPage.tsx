@@ -91,48 +91,50 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen auth-navy flex items-center justify-center px-4">
-      <div className="w-full max-w-sm animate-slide-up">
-        <BrandLockup size="auth" tagline="Inspection & field service management" />
-
-        <div className="bg-white border border-white/20 p-6">
-          {done ? (
+    <div className="hub-auth">
+      <header className="hub-auth-nav">
+        <Link to="/" aria-label="Grafter">
+          <BrandLockup size="marketing" />
+        </Link>
+      </header>
+      <div className="hub-auth-card animate-slide-up">
+        {done ? (
             <div className="text-center py-2">
               <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle size={24} className="text-green-600" />
               </div>
-              <h1 className="text-lg font-semibold text-[#1A1A1A] mb-2">Password updated</h1>
-              <p className="text-sm text-[#4A5568]">Your password has been changed. Redirecting you now...</p>
+              <h1 className="hub-auth-title">Password updated</h1>
+              <p className="hub-auth-lede">Your password has been changed. Redirecting you now...</p>
             </div>
           ) : linkError ? (
             <div className="text-center py-4">
               <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertCircle size={24} className="text-orange-500" />
               </div>
-              <h1 className="text-base font-semibold text-[#1A1A1A] mb-2">Link expired</h1>
-              <p className="text-sm text-[#4A5568] mb-4">{linkError}</p>
+              <h1 className="hub-auth-title">Link expired</h1>
+              <p className="hub-auth-lede">{linkError}</p>
               <button
                 onClick={() => navigate('/forgot-password')}
-                className="w-full bg-[#0A2540] text-white py-2.5 rounded-md font-medium text-sm hover:bg-[#0d2f4e] transition-colors mb-3"
+                className="hub-auth-submit mb-3"
               >
                 Request new link
               </button>
-              <Link to="/login" className="text-sm text-[#2E75B6] hover:underline">
+              <Link to="/login" className="text-sm font-semibold text-accent hover:underline">
                 Back to sign in
               </Link>
             </div>
           ) : !sessionReady ? (
             <div className="text-center py-4">
-              <p className="text-sm text-[#4A5568]">Verifying reset link...</p>
+              <p className="hub-auth-lede">Verifying reset link...</p>
             </div>
           ) : (
             <>
-              <h1 className="text-lg font-semibold text-[#1A1A1A] mb-1">Set your password</h1>
-              <p className="text-sm text-[#4A5568] mb-6">Choose a strong password to activate your account.</p>
+              <h1 className="hub-auth-title">Set your password</h1>
+              <p className="hub-auth-lede">Choose a strong password to activate your account.</p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">New password</label>
+                  <label className="form-label">New password</label>
                   <div className="relative">
                     <input
                       type={showPw ? 'text' : 'password'}
@@ -140,13 +142,14 @@ export function ResetPasswordPage() {
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       required
-                      className="w-full px-3 py-2.5 pr-12 border border-[#E5E7EB] rounded-md text-[#1A1A1A] placeholder:text-[#4A5568]/50 focus:outline focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
+                      className="form-input pr-12"
                       placeholder="Min. 8 characters"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPw(!showPw)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4A5568]"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted"
+                      aria-label={showPw ? 'Hide password' : 'Show password'}
                     >
                       {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -154,14 +157,14 @@ export function ResetPasswordPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Confirm new password</label>
+                  <label className="form-label">Confirm new password</label>
                   <input
                     type={showPw ? 'text' : 'password'}
                     autoComplete="new-password"
                     value={confirm}
                     onChange={e => setConfirm(e.target.value)}
                     required
-                    className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-[#1A1A1A] placeholder:text-[#4A5568]/50 focus:outline focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
+                    className="form-input"
                     placeholder="Re-enter password"
                   />
                 </div>
@@ -172,17 +175,12 @@ export function ResetPasswordPage() {
                   </div>
                 )}
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-[#0A2540] text-white py-2.5 rounded-md font-medium text-sm hover:bg-[#0d2f4e] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-[0.98]"
-                >
+                <button type="submit" disabled={loading} className="hub-auth-submit">
                   {loading ? 'Updating...' : 'Set password'}
                 </button>
               </form>
             </>
           )}
-        </div>
       </div>
     </div>
   );

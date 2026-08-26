@@ -95,8 +95,10 @@ describe('signed Grafter speed-bar mark', () => {
     expect(lockup).toContain('framed={false}');
     expect(lockup).not.toContain('BTS Inspect');
 
-    expect(login).toContain("size=\"auth\"");
-    expect(login).toContain('BrandLockup');
+    expect(login).toContain('AuthShell');
+    expect(login).not.toContain("size=\"auth\"");
+    expect(src('src/components/auth/AuthShell.tsx')).toContain('BrandLockup');
+    expect(src('src/components/auth/AuthShell.tsx')).toContain("size=\"marketing\"");
     expect(shell).toContain("size=\"header\"");
     expect(shell).toContain('aria-label="Grafter"');
     expect(shell).toContain('BrandLockup');

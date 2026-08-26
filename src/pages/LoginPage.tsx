@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Eye, EyeOff } from 'lucide-react';
-import { BrandLockup } from '../components/brand/BrandLockup';
-
+import { AuthShell } from '../components/auth/AuthShell';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -53,104 +52,89 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#F4F6F8' }}>
-      <div className="w-full max-w-sm animate-slide-up">
-        <div
-          className="bg-white border p-4"
-          style={{ borderColor: '#D5DCE3', borderRadius: 16 }}
-        >
-          <div className="mb-6">
-            <BrandLockup size="auth" tagline="Inspection & field service management" />
-          </div>
+    <AuthShell
+      title="Sign in"
+      lede="Welcome back. Enter your credentials to continue."
+      footer={(
+        <>
+          <p>
+            New to Grafter?{' '}
+            <Link to="/signup">Create a workspace</Link>
+          </p>
+          <p className="mt-2">
+            Invited to a team? Use the link in your invite email, or{' '}
+            <Link to="/forgot-password">reset password</Link>.
+          </p>
+          <p className="mt-2">
+            Page won’t load?{' '}
+            <a href="/login?clear=1">Clear cache &amp; retry</a>
+          </p>
+        </>
+      )}
+    >
+      {expired && (
+        <div className="mb-4 bg-orange-50 border border-orange-200 text-orange-800 px-3 py-2.5 rounded-xl text-sm">
+          That email link expired or was already used. Sign in below, or use Forgot password / ask for a new invite.
+        </div>
+      )}
+      {recovered && (
+        <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2.5 rounded-xl text-sm">
+          App cache cleared. You can sign in again.
+        </div>
+      )}
 
-          <h1 className="text-lg font-semibold mb-1" style={{ color: '#0A2540' }}>Sign in</h1>
-          <p className="text-sm mb-6" style={{ color: '#5B6B7C' }}>Welcome back. Enter your credentials to continue.</p>
-
-          {expired && (
-            <div className="mb-4 bg-orange-50 border border-orange-200 text-orange-800 px-3 py-2.5 rounded-xl text-sm">
-              That email link expired or was already used. Sign in below, or use Forgot password / ask for a new invite.
-            </div>
-          )}
-          {recovered && (
-            <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2.5 rounded-xl text-sm">
-              App cache cleared. You can sign in again.
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: '#0A2540' }}>Email address</label>
-              <input
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                className="w-full px-3 py-2.5 border text-[#0A2540] placeholder:text-[#5B6B7C]/50 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
-                style={{ borderColor: '#D5DCE3', borderRadius: 12 }}
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium" style={{ color: '#0A2540' }}>Password</label>
-                <Link to="/forgot-password" className="text-xs text-[#2E75B6] hover:underline">
-                  Forgot password?
-                </Link>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPw ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  className="w-full px-3 py-2.5 pr-12 border text-[#0A2540] placeholder:text-[#5B6B7C]/50 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent transition-shadow"
-                  style={{ borderColor: '#D5DCE3', borderRadius: 12 }}
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPw(!showPw)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5B6B7C]"
-                >
-                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-sm">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-11 bg-[#0A2540] text-white font-medium text-sm hover:bg-[#0d2f4e] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-[0.98]"
-              style={{ borderRadius: 12 }}
-            >
-              {loading ? 'Signing in...' : 'Sign in'}
-            </button>
-          </form>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="form-label">Email address</label>
+          <input
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            className="form-input"
+            placeholder="you@example.com"
+          />
         </div>
 
-        <p className="text-center text-sm mt-4" style={{ color: '#5B6B7C' }}>
-          Invited to a team? Use the link in your invite email to set a password, or{' '}
-          <Link to="/forgot-password" className="text-[#2E75B6] font-medium hover:underline">
-            reset password
-          </Link>
-          .
-        </p>
-        <p className="text-center text-sm mt-2" style={{ color: '#5B6B7C' }}>
-          Page won’t load?{' '}
-          <a href="/login?clear=1" className="text-[#2E75B6] font-medium hover:underline">
-            Clear cache &amp; retry
-          </a>
-        </p>
-      </div>
-    </div>
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="form-label mb-0">Password</label>
+            <Link to="/forgot-password" className="text-xs font-semibold text-accent hover:underline">
+              Forgot password?
+            </Link>
+          </div>
+          <div className="relative">
+            <input
+              type={showPw ? 'text' : 'password'}
+              autoComplete="current-password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              className="form-input pr-12"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw(!showPw)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted"
+              aria-label={showPw ? 'Hide password' : 'Show password'}
+            >
+              {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-sm">
+            {error}
+          </div>
+        )}
+
+        <button type="submit" disabled={loading} className="hub-auth-submit">
+          {loading ? 'Signing in...' : 'Sign in'}
+        </button>
+      </form>
+    </AuthShell>
   );
 }

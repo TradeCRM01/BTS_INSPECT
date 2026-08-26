@@ -39,7 +39,7 @@ export function AuthConfirmPage() {
     if (type === 'recovery') {
       return 'Click below to securely open the password form. This step stops email scanners from using up your link.';
     }
-    return 'You’ve been invited to BTS Inspect. Click below to accept and set your password. This protects the invite from being used up by email scanners.';
+    return 'You’ve been invited to Grafter. Click below to accept and set your password. This protects the invite from being used up by email scanners.';
   }, [type]);
 
   async function handleAccept() {
@@ -68,23 +68,25 @@ export function AuthConfirmPage() {
   }
 
   return (
-    <div className="min-h-screen auth-navy flex items-center justify-center px-4">
-      <div className="w-full max-w-sm animate-slide-up">
-        <BrandLockup size="auth" tagline="Inspection & field service management" />
-
-        <div className="bg-white border border-white/20 p-6">
-          {done ? (
+    <div className="hub-auth">
+      <header className="hub-auth-nav">
+        <Link to="/" aria-label="Grafter">
+          <BrandLockup size="marketing" />
+        </Link>
+      </header>
+      <div className="hub-auth-card animate-slide-up">
+        {done ? (
             <div className="text-center py-2">
               <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle size={24} className="text-green-600" />
               </div>
-              <h1 className="text-lg font-semibold text-[#1A1A1A] mb-2">Invitation accepted</h1>
-              <p className="text-sm text-[#4A5568]">Taking you to set your password…</p>
+              <h1 className="hub-auth-title">Invitation accepted</h1>
+              <p className="hub-auth-lede">Taking you to set your password…</p>
             </div>
           ) : (
             <div className="text-center py-2">
-              <h1 className="text-lg font-semibold text-[#1A1A1A] mb-2">{title}</h1>
-              <p className="text-sm text-[#4A5568] mb-6">{blurb}</p>
+              <h1 className="hub-auth-title">{title}</h1>
+              <p className="hub-auth-lede">{blurb}</p>
 
               {error && (
                 <div className="flex items-start gap-2 text-left bg-red-50 border border-red-200 text-red-700 px-3 py-2.5 rounded-md text-sm mb-4">
@@ -97,20 +99,19 @@ export function AuthConfirmPage() {
                 type="button"
                 onClick={handleAccept}
                 disabled={loading || !tokenHash}
-                className="w-full bg-[#0A2540] text-white py-2.5 rounded-md font-medium text-sm hover:bg-[#0d2f4e] disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-3"
+                className="hub-auth-submit mb-3"
               >
                 {loading ? 'Accepting…' : type === 'recovery' ? 'Continue' : 'Accept invitation'}
               </button>
 
-              <Link to="/forgot-password" className="block text-sm text-[#2E75B6] hover:underline mb-2">
+              <Link to="/forgot-password" className="block text-sm font-semibold text-accent hover:underline mb-2">
                 Request a new link
               </Link>
-              <Link to="/login" className="block text-sm text-[#4A5568] hover:underline">
+              <Link to="/login" className="block text-sm text-muted hover:underline">
                 Back to sign in
               </Link>
             </div>
           )}
-        </div>
       </div>
     </div>
   );
