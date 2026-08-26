@@ -234,6 +234,10 @@ describe('form fields fit their type', () => {
     expect(src('src/pages/JobsPage.tsx')).toContain('pageQueryBlocked(error)');
     expect(src('src/pages/TimesheetsPage.tsx')).toContain('getAuditTeamMembers');
     expect(src('src/pages/TimesheetsPage.tsx')).toContain('getAuditJobs');
+    expect(src('src/pages/SchedulePage.tsx')).toContain('ScheduleJobSearch');
+    expect(src('src/pages/SchedulePage.tsx')).toContain('onJobResize');
+    expect(src('src/pages/SchedulePage.tsx')).toContain('getAuditJobs');
+    expect(src('src/components/crm/BoardViews.tsx')).toContain('readDroppedJobId');
     expect(src('src/pages/ContractsPage.tsx')).toContain('getAuditContracts');
     expect(src('src/lib/contractVisitReminderDeliver.ts')).toContain('getAuditContractVisitReminderBundle');
     expect(src('src/components/layout/AppShell.tsx')).toContain('<GlobalSearch');

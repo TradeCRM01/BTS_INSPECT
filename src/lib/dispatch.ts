@@ -3,6 +3,22 @@ export const DAY_START_HOUR = 6;
 export const DAY_END_HOUR = 20;
 export const HOUR_WIDTH_PX = 96;
 export const SNAP_MINUTES = 15;
+export const DEFAULT_SLOT_MINUTES = 60;
+export const DEFAULT_SLOT_START = '08:00:00';
+export type ResizeEdge = 'start' | 'end';
+
+let draggedJobId: string | null = null;
+
+export function rememberDraggedJob(jobId: string) {
+  draggedJobId = jobId;
+}
+
+export function readDroppedJobId(dataTransfer: DataTransfer | null | undefined): string | null {
+  const fromDt = (dataTransfer?.getData('text/plain') || dataTransfer?.getData('text') || '').trim();
+  const id = fromDt || draggedJobId;
+  draggedJobId = null;
+  return id || null;
+}
 
 export type AssignmentDrop = 'unassigned' | { employeeId: string };
 
@@ -65,18 +81,43 @@ export function applyDropStartTime(
   currentStart: string | null | undefined,
   currentEnd: string | null | undefined,
   newStart: string,
-): { start_time: string; end_time: string | null } {
+): { start_time: string; end_time: string } {
   const startM = timeToMinutes(currentStart);
   const endM = timeToMinutes(currentEnd);
-  if (startM == null || endM == null) {
-    return { start_time: newStart, end_time: currentEnd ?? null };
-  }
-  const duration = Math.max(0, endM - startM);
-  const nextStart = timeToMinutes(newStart) ?? startM;
+  const nextStart = timeToMinutes(newStart) ?? startM ?? DAY_START_HOUR * 60;
+  const duration =
+    startM != null && endM != null && endM > startM
+      ? endM - startM
+      : DEFAULT_SLOT_MINUTES;
   return {
     start_time: minutesToTime(nextStart),
     end_time: minutesToTime(nextStart + duration),
   };
+}
+
+export function resizeJobTimes(
+  start: string,
+  end: string | null | undefined,
+  edge: ResizeEdge,
+  pointerMinutes: number,
+  opts?: { minMinutes?: number; dayStart?: number; dayEnd?: number; snapMinutes?: number },
+): { start_time: string; end_time: string } {
+  const snap = opts?.snapMinutes ?? SNAP_MINUTES;
+  const minDur = opts?.minMinutes ?? SNAP_MINUTES;
+  const dayStart = (opts?.dayStart ?? DAY_START_HOUR) * 60;
+  const dayEnd = (opts?.dayEnd ?? DAY_END_HOUR) * 60;
+  let startM = timeToMinutes(start) ?? dayStart;
+  let endM = timeToMinutes(end) ?? startM + DEFAULT_SLOT_MINUTES;
+  const snapped = Math.round(pointerMinutes / snap) * snap;
+  const pointer = Math.min(dayEnd, Math.max(dayStart, snapped));
+  if (edge === 'start') {
+    startM = Math.min(pointer, endM - minDur);
+    startM = Math.max(dayStart, startM);
+  } else {
+    endM = Math.max(pointer, startM + minDur);
+    endM = Math.min(dayEnd, endM);
+  }
+  return { start_time: minutesToTime(startM), end_time: minutesToTime(endM) };
 }
 
 export type JobDropInput = {
@@ -182,6 +223,10 @@ export function rescheduleJobPatch(
     const shifted = applyDropStartTime(current.start_time, current.end_time, drop.startTime);
     updates.start_time = shifted.start_time;
     updates.end_time = shifted.end_time;
+  } else if (drop.employeeId && !current.start_time) {
+    const slot = applyDropStartTime(null, null, DEFAULT_SLOT_START);
+    updates.start_time = slot.start_time;
+    updates.end_time = slot.end_time;
   }
   return updates;
 }

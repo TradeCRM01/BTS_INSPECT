@@ -96,6 +96,27 @@ export function getAuditJobs() {
     color: null,
     budget: null,
     parent_job_id: null,
+  }, {
+    id: 'audit-undated-job',
+    company_id: DEV_AUDIT_COMPANY.id,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    title: 'Meter box replacement',
+    description: 'Replace the meter enclosure.',
+    status: 'scheduled' as const,
+    priority: 'medium' as const,
+    scheduled_date: null,
+    start_time: null,
+    end_time: null,
+    address: '12 Workshop Rd, Perth WA 6000',
+    assigned_team: [],
+    inspection_id: null,
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: NOW,
+    updated_at: NOW,
+    job_number: 43,
+    color: null,
+    budget: null,
+    parent_job_id: null,
   }];
 }
 
