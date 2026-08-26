@@ -8,7 +8,9 @@ import {
   DEV_AUDIT_SESSION,
   DEV_AUDIT_USER,
   isDevFieldAuditAuth,
+  isDevOperatorAudit,
 } from '../lib/devFieldAuditAuth';
+import { loadIsPlatformOperator } from '../lib/platformOperator';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Company = Database['public']['Tables']['companies']['Row'];
@@ -19,6 +21,7 @@ interface AuthContextValue {
   profile: Profile | null;
   company: Company | null;
   loading: boolean;
+  isPlatformOperator: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -31,6 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(auditAuth ? DEV_AUDIT_SESSION : null);
   const [profile, setProfile] = useState<Profile | null>(auditAuth ? DEV_AUDIT_PROFILE : null);
   const [company, setCompany] = useState<Company | null>(auditAuth ? DEV_AUDIT_COMPANY : null);
+  const [isPlatformOperator, setIsPlatformOperator] = useState(isDevOperatorAudit());
   const [loading, setLoading] = useState(!auditAuth);
   const loadingProfileRef = useRef(false);
 
@@ -70,6 +74,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq('id', profileData.company_id)
           .maybeSingle();
         setCompany(companyData ?? null);
+        try {
+          setIsPlatformOperator(await loadIsPlatformOperator(userId));
+        } catch {
+          setIsPlatformOperator(isDevOperatorAudit());
+        }
       } else if (attempt < 3) {
         // Profile row not found yet — retry with backoff (new signup race condition)
         loadingProfileRef.current = false;
@@ -100,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(DEV_AUDIT_SESSION);
       setProfile(DEV_AUDIT_PROFILE);
       setCompany(DEV_AUDIT_COMPANY);
+      setIsPlatformOperator(isDevOperatorAudit());
       setLoading(false);
       return;
     }
@@ -138,6 +148,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             initialised = true;
             setSession(null);
             setUser(null);
+            setProfile(null);
+            setCompany(null);
+            setIsPlatformOperator(false);
             setLoading(false);
             return;
           }
@@ -189,6 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
         setCompany(null);
+        setIsPlatformOperator(false);
         setLoading(false);
       }
     });
@@ -208,7 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, company, loading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, company, loading, isPlatformOperator, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

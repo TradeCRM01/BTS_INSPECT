@@ -3,9 +3,10 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { RotateCw } from 'lucide-react';
+import { companyAccessBlocked } from '../../lib/platformOperator';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, refreshProfile } = useAuth();
+  const { user, profile, company, loading, refreshProfile, signOut, isPlatformOperator } = useAuth();
   const [slowLoad, setSlowLoad] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -73,6 +74,26 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (companyAccessBlocked(company, isPlatformOperator)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB] px-4">
+        <div className="bg-white border border-[#E5E7EB] rounded-xl p-8 max-w-sm w-full shadow-sm text-center">
+          <h2 className="text-base font-semibold text-[#1A1A1A] mb-2">This workspace is paused</h2>
+          <p className="text-sm text-[#4A5568] mb-6">
+            {company?.name ? `${company.name} ` : 'Your company '}
+            cannot use Grafter right now. Ask the person who invited you, or email billing if you think this is a mistake.
+          </p>
+          <button
+            onClick={() => { void signOut(); }}
+            className="w-full bg-[#0A2540] text-white py-2.5 rounded-lg text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     );
   }

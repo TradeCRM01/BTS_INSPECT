@@ -53,8 +53,13 @@ export interface Database {
       kpi_snapshots: AnyTable;
       compliance_items: AnyTable;
       compliance_logs: AnyTable;
+      platform_operators: AnyTable;
+      platform_operator_events: AnyTable;
+      platform_company_notes: AnyTable;
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      is_platform_operator: { Args: Record<string, never>; Returns: boolean };
+    };
   };
 }
