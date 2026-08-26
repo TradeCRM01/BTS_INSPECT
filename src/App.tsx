@@ -48,7 +48,6 @@ const SchedulePage = lazy(() => import('./pages/SchedulePage').then(m => ({ defa
 const QuotesPage = lazy(() => import('./pages/QuotesPage').then(m => ({ default: m.QuotesPage })));
 const InvoicesPage = lazy(() => import('./pages/InvoicesPage').then(m => ({ default: m.InvoicesPage })));
 const ExpensesPage = lazy(() => import('./pages/ExpensesPage').then(m => ({ default: m.ExpensesPage })));
-const SolarEstimatesPage = lazy(() => import('./pages/SolarEstimatesPage').then(m => ({ default: m.SolarEstimatesPage })));
 const AssetsPage = lazy(() => import('./pages/AssetsPage').then(m => ({ default: m.AssetsPage })));
 const ContractsPage = lazy(() => import('./pages/ContractsPage').then(m => ({ default: m.ContractsPage })));
 const PriceBooksPage = lazy(() => import('./pages/PriceBooksPage').then(m => ({ default: m.PriceBooksPage })));
@@ -150,7 +149,6 @@ export default function App() {
       <Route path="/quotes" element={<Protected><QuotesPage /></Protected>} />
       <Route path="/invoices" element={<Protected><InvoicesPage /></Protected>} />
       <Route path="/expenses" element={<Protected><ExpensesPage /></Protected>} />
-      <Route path="/solar-estimates" element={<Protected><SolarEstimatesPage /></Protected>} />
       <Route path="/assets" element={<Protected><AssetsPage /></Protected>} />
       <Route path="/contracts" element={<Protected><ContractsPage /></Protected>} />
       <Route path="/price-books" element={<Protected><PriceBooksPage /></Protected>} />

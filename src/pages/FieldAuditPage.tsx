@@ -9,8 +9,6 @@ import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS } from '../lib/useManagedList';
 import { QuestionRenderer } from '../components/inspection/QuestionRenderer';
-import { SolarWizard } from '../features/solar-calculator/components/SolarWizard';
-import { blankSolarInputs } from '../features/solar-calculator/draft';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import { JhaCrewRegister } from '../components/jha/JhaCrewRegister';
@@ -178,15 +176,6 @@ export function FieldAuditPage() {
     inclusions: ['Supply and install 20mm PVC conduit'],
     exclusions: ['Painting and making good of existing surfaces'],
   });
-  const [solar, setSolar] = useState(() => ({
-    ...blankSolarInputs(),
-    postcode: '6000',
-    suburb: 'Perth',
-    customerName: 'Warehouse roof — long site name for clipping audit',
-    siteAddress: '14 North Wharf Road, Perth WA 6000',
-    annualKwh: '185000',
-  }));
-  const [solarStep, setSolarStep] = useState(1);
   const [showJob, setShowJob] = useState(false);
   const [showTime, setShowTime] = useState(false);
   const [showMove, setShowMove] = useState(false);
@@ -313,8 +302,6 @@ export function FieldAuditPage() {
         <Link className="text-[#2E75B6] underline" to="/jha/take5">Take 5</Link>
         {' · '}
         <Link className="text-[#2E75B6] underline" to={`/jha/take5?id=${AUDIT_TAKE5_ID}`}>Fill Take 5</Link>
-        {' · '}
-        <Link className="text-[#2E75B6] underline" to="/solar-estimates">Solar</Link>
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/settings/company">Company</Link>
         {' · '}
@@ -919,24 +906,6 @@ export function FieldAuditPage() {
             onChange={e => setSearch(e.target.value)}
             placeholder="Search everything — jobs, clients, stock, assets, invoices, quotes, contracts…"
             className="min-h-[44px] h-auto py-2 w-full min-w-0 bg-transparent text-base text-[#0A2540] placeholder:text-[#4A5568]/60 focus:outline-none"
-          />
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-medium">Solar wizard</h2>
-        <div className="border border-[#E5E7EB] rounded-xl bg-white p-3">
-          <SolarWizard
-            inputs={solar}
-            step={solarStep}
-            midscaleAck={false}
-            clients={[{ id: '1', name: 'Acme Warehousing Pty Ltd' }]}
-            saving={false}
-            onChange={patch => setSolar(s => ({ ...s, ...patch }))}
-            onStep={setSolarStep}
-            onMidscaleAck={() => {}}
-            onSave={() => {}}
-            onClose={() => {}}
           />
         </div>
       </section>
