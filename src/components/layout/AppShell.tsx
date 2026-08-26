@@ -9,7 +9,7 @@ import {
   ClipboardList, LayoutTemplate, Settings, LogOut,
   User, Menu, X, Zap, ChevronDown, Users, BrainCircuit, RotateCw, Sparkles, FileText,
   Calendar, Receipt, ShoppingCart, Package, Truck, FolderOpen,
-  Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, Wallet, Sun, Search, Shield, type LucideIcon,
+  Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, Wallet, Search, Shield, type LucideIcon,
 } from 'lucide-react';
 import { GlobalSearch } from '../search/GlobalSearch';
 
@@ -64,7 +64,6 @@ const OFFICE_GROUPS: NavGroup[] = [
       { to: '/quotes', label: 'Quotes', icon: FileText },
       { to: '/invoices', label: 'Invoices', icon: Receipt },
       { to: '/expenses', label: 'Expenses', icon: Wallet },
-      { to: '/solar-estimates', label: 'Solar estimates', icon: Sun },
       { to: '/price-books', label: 'Price Books', icon: BookOpen },
       { to: '/timesheets', label: 'Timesheets', icon: Clock },
     ],

@@ -151,7 +151,6 @@ describe('form fields fit their type', () => {
     expect(page).toContain('ops-field-site text-lg');
     expect(page).toContain('QuestionRenderer');
     expect(page).toContain('SignatureCapture');
-    expect(page).toContain('SolarWizard');
     expect(page).toContain('JobFormModal');
     expect(page).toContain('TimeEntryForm');
     expect(page).toContain('DocumentVariationsEditor');
@@ -255,6 +254,13 @@ describe('form fields fit their type', () => {
     expect(src('src/components/pricebooks/PriceBookPdfImportModal.tsx')).toContain('20mm PVC conduit');
     expect(page).toContain('to="/"');
     expect(src('src/main.tsx')).toContain('isDevFieldAuditAuth()');
+  });
+
+  it('does not keep the solar estimates product', () => {
+    expect(src('src/components/layout/AppShell.tsx')).not.toContain('/solar-estimates');
+    expect(src('src/App.tsx')).not.toContain('SolarEstimatesPage');
+    expect(src('src/pages/FieldAuditPage.tsx')).not.toContain('SolarWizard');
+    expect(src('src/pages/FieldAuditPage.tsx')).not.toContain('/solar-estimates');
   });
 
   it('does not pin remaining text fields to h-8/h-9 or undo min-height on desktop', () => {
