@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attachJobClients, jobMatchesSearch, mergeScheduleJobPatch, normalizeJobSearch, withScheduleJobPatches } from './scheduleJobSearch';
+import { attachJobClients, jobMatchesSearch, mergeScheduleJobPatch, normalizeJobSearch, parseJobRefQuery, withScheduleJobPatches } from './scheduleJobSearch';
 import type { Job, JobWithClient } from '../types/crm';
 
 const job = {
@@ -25,6 +25,24 @@ describe('schedule job search', () => {
     expect(jobMatchesSearch(job, 'north')).toBe(true);
     expect(jobMatchesSearch(job, 'workshop')).toBe(true);
     expect(jobMatchesSearch(job, 'zzz')).toBe(false);
+  });
+
+  it('matches a stage by parent job number and cost code', () => {
+    const stage = {
+      ...job,
+      id: 'j-stage',
+      title: 'Switchboard labour',
+      job_number: 44,
+      parent_job_id: 'parent',
+      parent_job_number: 42,
+      cost_code: '01',
+    } as JobWithClient;
+    expect(jobMatchesSearch(stage, '42')).toBe(true);
+    expect(jobMatchesSearch(stage, '#0042.01')).toBe(true);
+    expect(jobMatchesSearch(stage, '01')).toBe(true);
+    expect(jobMatchesSearch(stage, 'labour')).toBe(true);
+    expect(parseJobRefQuery('#0042.01')).toEqual({ jobNumber: 42, costCode: '01' });
+    expect(parseJobRefQuery('42')).toEqual({ jobNumber: 42, costCode: null });
   });
 
   it('attaches client fields from a client list, not a Map', () => {

@@ -3,12 +3,8 @@ import { SearchBar } from '../ui/SearchBar';
 import { OpsStatus, opsSiteLabel } from '../ui/OpsCard';
 import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
 import type { JobWithClient } from '../../types/crm';
+import { formatJobRef } from '../../lib/jobRef';
 import { format, parseISO } from 'date-fns';
-
-function formatJobNumber(n: number | null | undefined): string {
-  if (n == null) return 'JOB';
-  return `#${String(n).padStart(4, '0')}`;
-}
 
 function whenLabel(job: JobWithClient): string | null {
   if (!job.scheduled_date) return 'Unscheduled';
@@ -122,7 +118,7 @@ export function ScheduleJobSearch({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-semibold tracking-tight text-navy truncate">
-                          {formatJobNumber(job.job_number)} · {job.title}
+                          {formatJobRef(job)} · {job.title}
                         </p>
                         <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
                       </div>

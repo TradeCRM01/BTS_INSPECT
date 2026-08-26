@@ -11,6 +11,7 @@ import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
 import { JobClientReminder } from '../components/jobs/JobClientReminder';
 import { JobCalendarOverflow } from '../components/jobs/JobCalendarOverflow';
 import { calendarSite } from '../lib/jobCalendar';
+import { formatJobRef } from '../lib/jobRef';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import type { Client, Job, JobStatus } from '../types/crm';
@@ -133,7 +134,7 @@ type JobTimesheet = {
   notes: string | null;
 };
 
-type ChildJob = { id: string; title: string; status: string; job_number: number | null };
+type ChildJob = { id: string; title: string; status: string; job_number: number | null; cost_code?: string | null };
 type TeamMember = { id: string; name: string };
 
 function padNum(n: number | null | undefined): string {
@@ -239,7 +240,7 @@ export function JobDetailPage() {
       const empty = getAuditEmptyList();
       if (empty) return empty as ChildJob[];
       const { data, error } = await supabase
-        .from('jobs').select('id, title, status, job_number').eq('parent_job_id', id!).order('created_at');
+        .from('jobs').select('id, title, status, job_number, cost_code').eq('parent_job_id', id!).order('created_at');
       if (error) throw error;
       return (data ?? []) as ChildJob[];
     },
@@ -779,7 +780,11 @@ export function JobDetailPage() {
       <div className="page-shell-narrow hub-job-cal">
         <Breadcrumbs items={[
           { label: 'Jobs', to: '/jobs' },
-          { label: job.job_number != null ? `#${padNum(job.job_number)} ${job.title}` : job.title },
+          { label: `${formatJobRef({
+            job_number: job.job_number,
+            cost_code: job.cost_code,
+            parent_job_number: parentJob?.job_number ?? null,
+          })} ${job.title}` },
         ]} />
 
         <article className="ops-card job-cal-host mb-4">
@@ -798,7 +803,11 @@ export function JobDetailPage() {
                 ))}
               </select>
             }
-            identity={`${job.job_number != null ? `#${padNum(job.job_number)}` : 'JOB'} | ${site ? site : 'No site address'}`}
+            identity={`${formatJobRef({
+              job_number: job.job_number,
+              cost_code: job.cost_code,
+              parent_job_number: parentJob?.job_number ?? null,
+            })} | ${site ? site : 'No site address'}`}
           />
           <div className="ops-card-body">
             <OpsSiteRow
@@ -1087,7 +1096,11 @@ export function JobDetailPage() {
                   key={child.id}
                   href={`/jobs/${child.id}`}
                   icon={GitBranch}
-                  title={`${child.job_number != null ? `#${padNum(child.job_number)} ` : ''}${child.title}`}
+                  title={`${formatJobRef({
+                    job_number: job.job_number,
+                    cost_code: child.cost_code,
+                    parent_job_number: job.job_number,
+                  })} ${child.title}`}
                   trailing={<OpsStatus className={JOB_STATUS_STYLES[child.status as JobStatus] ?? 'ops-status-wait'}>{JOB_STATUS_LABELS[child.status as JobStatus] ?? child.status}</OpsStatus>}
                 />
               ))}

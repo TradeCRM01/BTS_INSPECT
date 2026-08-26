@@ -13,6 +13,7 @@ import {
   JOB_PRIORITY_DOT,
 } from '../types/crm';
 import { jobListBucket, jobListNext } from '../lib/jobNextAction';
+import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
 import { withReminderNext } from '../lib/jobReminder';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { Plus, Briefcase, Search, Calendar, Clock } from 'lucide-react';
@@ -62,12 +63,12 @@ export function JobsPage() {
         }
       }
 
-      const withClients: JobWithClient[] = jobs.map(j => ({
+      const withClients: JobWithClient[] = withParentJobNumbers(jobs.map(j => ({
         ...j,
         client_name: j.client_id ? clientMap.get(j.client_id)?.name ?? null : null,
         client_phone: j.client_id ? clientMap.get(j.client_id)?.phone ?? null : null,
         client_address: j.client_id ? clientMap.get(j.client_id)?.address ?? null : null,
-      }));
+      })));
       let photoByJob = new Map<string, string>();
       let docsByJob = new Map<string, JobDocChip[]>();
       try {
@@ -98,6 +99,8 @@ export function JobsPage() {
         j.title.toLowerCase().includes(q) ||
         j.client_name?.toLowerCase().includes(q) ||
         j.address?.toLowerCase().includes(q) ||
+        formatJobRef(j).toLowerCase().includes(q) ||
+        (j.cost_code ?? '').toLowerCase().includes(q) ||
         (j.job_number != null && String(j.job_number).includes(q))
       );
     }
@@ -234,7 +237,7 @@ export function JobsPage() {
                     return (
                       <tr key={job.id} onClick={() => navigate(next.href)}
                         className="hover:bg-zebra cursor-pointer transition-colors" style={{ borderLeft: `3px solid ${rail}` }}>
-                        <td className="px-3 py-2 font-medium" style={{ color: rail }}>{job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : '—'}</td>
+                        <td className="px-3 py-2 font-medium" style={{ color: rail }}>{formatJobRef(job)}</td>
                         <td className="px-3 py-2">
                           <p className="text-sm font-semibold text-navy truncate">{opsSiteLabel(job.address, job.client_address)}</p>
                           <p className="ops-meta truncate">{job.title}</p>
@@ -302,7 +305,7 @@ function JobCard({ job }: { job: JobCardModel }) {
   const next = withReminderNext(job, jobListNext(job));
   const site = opsSiteLabel(job.address, job.client_address);
   const mapsQuery = (job.address || job.client_address)?.trim() || null;
-  const jobNo = job.job_number != null ? `#${String(job.job_number).padStart(4, '0')}` : 'JOB';
+  const jobNo = formatJobRef(job);
   const money = job.docs.find(d => d.kind === 'invoice')?.amount
     ?? job.docs.find(d => d.kind === 'quote')?.amount;
 

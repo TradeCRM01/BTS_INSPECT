@@ -35,6 +35,7 @@ export interface Job {
   color: string | null;
   budget: number | null;
   parent_job_id?: string | null;
+  cost_code?: string | null;
   client_reminder_sent_at?: string | null;
   client_reminder_sent_for_date?: string | null;
 }
@@ -52,6 +53,7 @@ export interface JobWithClient extends Job {
   client_name?: string | null;
   client_phone?: string | null;
   client_address?: string | null;
+  parent_job_number?: number | null;
 }
 
 import { colors } from '../lib/colors';

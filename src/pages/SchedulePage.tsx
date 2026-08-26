@@ -19,7 +19,7 @@ import { pickEmployeeColor } from '../lib/jobColors';
 import { DEFAULT_SLOT_START, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
-import { attachJobClients, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
+import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
 import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
 import {
   ChevronLeft, ChevronRight, Plus, Calendar as CalIcon,
@@ -168,7 +168,7 @@ export function SchedulePage() {
         }
       }
 
-      return attachJobClients(jobs, [...clientMap.values()]);
+      return attachJobClients(jobs, [...clientMap.values()]).then(hydrateJobParentNumbers);
     },
     enabled: !!profile,
   });
@@ -192,34 +192,38 @@ export function SchedulePage() {
     }
   }, [preselectClient]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const applyDropToCache = (drop: JobDropPayload) => {
+    queryClient.setQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd], prev => {
+      const list = prev ?? [];
+      const fromAudit = withScheduleJobPatches(attachJobClients(
+        (getAuditJobs() as Job[] | null) ?? [],
+        getAuditClients() ?? [],
+      )).find(j => j.id === drop.jobId);
+      const current = list.find(j => j.id === drop.jobId)
+        ?? searchHits.find(j => j.id === drop.jobId)
+        ?? (pickedJob?.id === drop.jobId ? pickedJob : undefined)
+        ?? fromAudit;
+      if (!current) return list;
+      const patch = rescheduleJobPatch({
+        assigned_team: current.assigned_team,
+        start_time: current.start_time,
+        end_time: current.end_time,
+      }, drop);
+      const next = { ...current, ...patch };
+      mergeScheduleJobPatch(drop.jobId, next);
+      return [...list.filter(j => j.id !== drop.jobId), next];
+    });
+  };
+
   const rescheduleJob = useMutation({
-    mutationFn: async ({ jobId, date, employeeId, startTime }: JobDropPayload) => {
-      if (isDevFieldAuditAuth()) {
-        queryClient.setQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd], prev => {
-          const list = prev ?? [];
-          const fromAudit = withScheduleJobPatches(attachJobClients(
-            ((getAuditJobs() as Job[] | null) ?? []).filter(j => j.id === jobId),
-            getAuditClients() ?? [],
-          ))[0];
-          const current = list.find(j => j.id === jobId)
-            ?? searchHits.find(j => j.id === jobId)
-            ?? fromAudit;
-          if (!current) return list;
-          const patch = rescheduleJobPatch({
-            assigned_team: current.assigned_team,
-            start_time: current.start_time,
-            end_time: current.end_time,
-          }, { date, employeeId, startTime });
-          const next = { ...current, ...patch };
-          mergeScheduleJobPatch(jobId, next);
-          return [...list.filter(j => j.id !== jobId), next];
-        });
-        return;
-      }
+    mutationFn: async (drop: JobDropPayload) => {
+      applyDropToCache(drop);
+      if (isDevFieldAuditAuth()) return;
+
       const { data: current, error: loadError } = await supabase
         .from('jobs')
         .select('assigned_team, start_time, end_time')
-        .eq('id', jobId)
+        .eq('id', drop.jobId)
         .maybeSingle();
       if (loadError) throw loadError;
       if (!current) throw new Error('Job not found');
@@ -229,13 +233,13 @@ export function SchedulePage() {
           assigned_team: current.assigned_team,
           start_time: current.start_time,
           end_time: current.end_time,
-        }, { date, employeeId, startTime }),
+        }, drop),
         updated_at: new Date().toISOString(),
       };
-      const { error } = await supabase.from('jobs').update(updates).eq('id', jobId);
+      const { error } = await supabase.from('jobs').update(updates).eq('id', drop.jobId);
       if (error) throw error;
       if (updates.assigned_team) {
-        await persistLivingJobOnBoundJhas(jobId);
+        await persistLivingJobOnBoundJhas(drop.jobId);
       }
     },
     onSuccess: () => {
@@ -287,7 +291,7 @@ export function SchedulePage() {
   const handleRailDragStart = (e: React.DragEvent, jobId: string) => {
     e.dataTransfer.setData('text/plain', jobId);
     e.dataTransfer.effectAllowed = 'move';
-    rememberDraggedJob(jobId);
+    rememberDraggedJob(jobId, { exclusiveAssign: true });
   };
 
   const placePickedOnPerson = (employeeId: string) => {
@@ -297,6 +301,7 @@ export function SchedulePage() {
       date: format(currentDate, 'yyyy-MM-dd'),
       employeeId,
       startTime: pickedJob.start_time ? undefined : DEFAULT_SLOT_START,
+      exclusiveAssign: true,
     });
     setPickedJob(null);
     setJobQuery('');

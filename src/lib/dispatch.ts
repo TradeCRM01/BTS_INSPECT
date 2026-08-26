@@ -8,9 +8,11 @@ export const DEFAULT_SLOT_START = '08:00:00';
 export type ResizeEdge = 'start' | 'end';
 
 let draggedJobId: string | null = null;
+let draggedExclusiveAssign = false;
 
-export function rememberDraggedJob(jobId: string) {
+export function rememberDraggedJob(jobId: string, opts?: { exclusiveAssign?: boolean }) {
   draggedJobId = jobId;
+  draggedExclusiveAssign = opts?.exclusiveAssign === true;
 }
 
 export function readDroppedJobId(dataTransfer: DataTransfer | null | undefined): string | null {
@@ -18,6 +20,12 @@ export function readDroppedJobId(dataTransfer: DataTransfer | null | undefined):
   const id = fromDt || draggedJobId;
   draggedJobId = null;
   return id || null;
+}
+
+export function consumeDragExclusiveAssign(): boolean {
+  const value = draggedExclusiveAssign;
+  draggedExclusiveAssign = false;
+  return value;
 }
 
 export type AssignmentDrop = 'unassigned' | { employeeId: string };
@@ -125,6 +133,8 @@ export type JobDropInput = {
   /** undefined = leave crew; null = unassign; string = assign/add that person */
   employeeId?: string | null;
   startTime?: string;
+  /** Search/tray drop: put the job on that person only, even if it was already scheduled. */
+  exclusiveAssign?: boolean;
 };
 
 export type JobDropPayload = JobDropInput & { jobId: string };
@@ -214,10 +224,14 @@ export function rescheduleJobPatch(
     scheduled_date: drop.date,
   };
   if (drop.employeeId !== undefined) {
-    updates.assigned_team = nextAssignedTeam(
-      asTeamIds(current.assigned_team),
-      drop.employeeId === null ? 'unassigned' : { employeeId: drop.employeeId },
-    );
+    if (drop.exclusiveAssign) {
+      updates.assigned_team = drop.employeeId === null ? [] : [drop.employeeId];
+    } else {
+      updates.assigned_team = nextAssignedTeam(
+        asTeamIds(current.assigned_team),
+        drop.employeeId === null ? 'unassigned' : { employeeId: drop.employeeId },
+      );
+    }
   }
   if (drop.startTime) {
     const shifted = applyDropStartTime(current.start_time, current.end_time, drop.startTime);

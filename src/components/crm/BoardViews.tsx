@@ -17,6 +17,7 @@ import {
   resizeJobTimes,
   rememberDraggedJob,
   readDroppedJobId,
+  consumeDragExclusiveAssign,
   type JobDropPayload,
   type ResizeEdge,
 } from '../../lib/dispatch';
@@ -26,6 +27,7 @@ import {
 import { Clock, Plus, Users } from 'lucide-react';
 import { JobCalendarOverflow } from '../jobs/JobCalendarOverflow';
 import { calendarSite } from '../../lib/jobCalendar';
+import { formatJobRef } from '../../lib/jobRef';
 
 export interface TeamMember {
   id: string;
@@ -62,11 +64,6 @@ function dateKey(d: Date): string {
 
 function jobDateKey(job: JobWithClient): string | null {
   return job.scheduled_date ? job.scheduled_date.slice(0, 10) : null;
-}
-
-function formatJobNumber(n: number | null | undefined): string {
-  if (n == null) return '';
-  return `#${String(n).padStart(4, '0')}`;
 }
 
 function formatHourLabel(h: number): string {
@@ -136,8 +133,11 @@ const JobBlock = memo(function JobBlock({
         )}
         <p className={`${compact ? 'ops-chip-site pr-10' : 'ops-card-site'} truncate`}>
           {compact && job.start_time ? `${job.start_time.slice(0, 5)} · ` : ''}
-          {formatJobNumber(job.job_number) || 'JOB'} | {site}
+          {formatJobRef(job)} | {site}
         </p>
+        {!compact && job.title && (
+          <p className="ops-meta mt-0.5 truncate">{job.title}</p>
+        )}
         {!compact && job.start_time && (
           <p className="ops-meta mt-0.5 flex items-center gap-0.5">
             <Clock size={12} /> {job.start_time.slice(0, 5)}
@@ -195,7 +195,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
               >
                 <div className="ops-card-body">
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}</p>
+                    <p className="ops-card-site truncate">{formatJobRef(job)} | {site}</p>
                     <div className="flex items-center gap-1 shrink-0">
                       <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
                       <JobCalendarOverflow
@@ -270,7 +270,7 @@ export const PhoneDayList = memo(function PhoneDayList({
             >
               <div className="ops-card-body">
                 <div className="flex items-start justify-between gap-2 mb-1">
-                  <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}</p>
+                  <p className="ops-card-site truncate">{formatJobRef(job)} | {site}</p>
                   <div className="flex items-center gap-1 shrink-0">
                     <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
                     <JobCalendarOverflow
@@ -370,6 +370,7 @@ export const DayBoardView = memo(function DayBoardView({
 
   const handleDrop = (e: React.DragEvent, empId: string, startTime?: string) => {
     e.preventDefault();
+    const exclusiveAssign = consumeDragExclusiveAssign();
     const jobId = readDroppedJobId(e.dataTransfer);
     if (jobId && onJobDrop) {
       onJobDrop({
@@ -377,6 +378,7 @@ export const DayBoardView = memo(function DayBoardView({
         date: dateStr,
         employeeId: assignmentForRow(empId),
         startTime,
+        exclusiveAssign,
       });
     }
     setDragJobId(null);
@@ -684,8 +686,9 @@ export const WeekBoardView = memo(function WeekBoardView({
 
   const handleDrop = (e: React.DragEvent, date: string) => {
     e.preventDefault();
+    const exclusiveAssign = consumeDragExclusiveAssign();
     const jobId = readDroppedJobId(e.dataTransfer);
-    if (jobId && onJobDrop) onJobDrop({ jobId, date });
+    if (jobId && onJobDrop) onJobDrop({ jobId, date, exclusiveAssign });
     setDragJobId(null);
     setDropHoverDate(null);
   };

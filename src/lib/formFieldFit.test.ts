@@ -235,9 +235,14 @@ describe('form fields fit their type', () => {
     expect(src('src/pages/TimesheetsPage.tsx')).toContain('getAuditTeamMembers');
     expect(src('src/pages/TimesheetsPage.tsx')).toContain('getAuditJobs');
     expect(src('src/pages/SchedulePage.tsx')).toContain('ScheduleJobSearch');
+    expect(src('src/pages/SchedulePage.tsx')).toContain('exclusiveAssign: true');
     expect(src('src/pages/SchedulePage.tsx')).toContain('onJobResize');
     expect(src('src/pages/SchedulePage.tsx')).toContain('getAuditJobs');
     expect(src('src/components/crm/BoardViews.tsx')).toContain('readDroppedJobId');
+    expect(src('src/components/crm/BoardViews.tsx')).toContain('consumeDragExclusiveAssign');
+    expect(src('src/components/crm/BoardViews.tsx')).toContain('formatJobRef');
+    expect(src('src/lib/devFieldAuditDocs.ts')).toContain('audit-stage-job');
+    expect(src('src/lib/devFieldAuditDocs.ts')).toContain("cost_code: '01'");
     expect(src('src/pages/ContractsPage.tsx')).toContain('getAuditContracts');
     expect(src('src/lib/contractVisitReminderDeliver.ts')).toContain('getAuditContractVisitReminderBundle');
     expect(src('src/components/layout/AppShell.tsx')).toContain('<GlobalSearch');

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyDropStartTime,
   asTeamIds,
+  consumeDragExclusiveAssign,
   dayRowHeightPx,
   nextAssignedTeam,
   placeDayRowJobs,
@@ -160,6 +161,42 @@ describe('rescheduleJobPatch', () => {
     });
   });
 
+  it('moves an already-scheduled job onto the drop target from search', () => {
+    expect(rescheduleJobPatch(crewJob, {
+      date: '2026-08-26',
+      employeeId: 'dave',
+      exclusiveAssign: true,
+    })).toEqual({
+      scheduled_date: '2026-08-26',
+      assigned_team: ['dave'],
+    });
+  });
+
+  it('keeps duration when an already-timed job is dropped on a time from search', () => {
+    expect(rescheduleJobPatch(crewJob, {
+      date: '2026-08-26',
+      employeeId: 'dave',
+      startTime: '09:00:00',
+      exclusiveAssign: true,
+    })).toEqual({
+      scheduled_date: '2026-08-26',
+      assigned_team: ['dave'],
+      start_time: '09:00:00',
+      end_time: '11:00:00',
+    });
+  });
+
+  it('clears crew when search-dropped on Unassigned', () => {
+    expect(rescheduleJobPatch(crewJob, {
+      date: '2026-08-26',
+      employeeId: null,
+      exclusiveAssign: true,
+    })).toEqual({
+      scheduled_date: '2026-08-26',
+      assigned_team: [],
+    });
+  });
+
   it('gives an undated job a date when dropped on Unassigned', () => {
     expect(rescheduleJobPatch(
       { assigned_team: [], start_time: null, end_time: null },
@@ -198,6 +235,22 @@ describe('readDroppedJobId', () => {
       getData: (type: string) => (type === 'text/plain' ? 'job-2' : ''),
     } as unknown as DataTransfer;
     expect(readDroppedJobId(dt)).toBe('job-2');
+  });
+});
+
+describe('consumeDragExclusiveAssign', () => {
+  it('moves from search and adds from the board', () => {
+    rememberDraggedJob('from-search', { exclusiveAssign: true });
+    expect(consumeDragExclusiveAssign()).toBe(true);
+    expect(consumeDragExclusiveAssign()).toBe(false);
+
+    rememberDraggedJob('from-board');
+    expect(consumeDragExclusiveAssign()).toBe(false);
+
+    rememberDraggedJob('from-search', { exclusiveAssign: true });
+    const empty = { getData: () => '' } as unknown as DataTransfer;
+    expect(readDroppedJobId(empty)).toBe('from-search');
+    expect(consumeDragExclusiveAssign()).toBe(true);
   });
 });
 
