@@ -610,11 +610,21 @@ function StockPicker({ onClose, onSelect }: {
   const [items, setItems] = useState<StockItem[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile?.company_id) return;
     supabase.from('stock_items').select('*').eq('archived', false).order('name')
-      .then(({ data }) => { setItems((data ?? []) as StockItem[]); setLoading(false); });
+      .then(({ data, error }) => {
+        if (error) {
+          setLoadError(error.message);
+          setItems([]);
+        } else {
+          setLoadError(null);
+          setItems((data ?? []) as StockItem[]);
+        }
+        setLoading(false);
+      });
   }, [profile?.company_id]);
 
   const filtered = useMemo(() => {
@@ -641,6 +651,8 @@ function StockPicker({ onClose, onSelect }: {
         <div className="flex-1 overflow-auto">
           {loading ? (
             <div className="flex justify-center py-8"><LoadingSpinner /></div>
+          ) : loadError ? (
+            <p className="text-center text-sm text-[#9CA3AF] py-8">Could not load stock</p>
           ) : filtered.length === 0 ? (
             <p className="text-center text-sm text-[#9CA3AF] py-8">No stock items found</p>
           ) : (

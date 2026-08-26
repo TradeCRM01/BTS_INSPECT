@@ -42,6 +42,7 @@ describe('page audit load and error gates', () => {
     expect(page).toContain('error: curErr');
     expect(page).toContain('if (curErr) throw curErr');
     expect(page).toContain('maybeSingle()');
+    expect(page).toContain('Could not load stock');
   });
 
   it('Take 5 load failures are not shown as a missing parent JHA', () => {
