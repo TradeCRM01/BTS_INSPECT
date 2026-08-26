@@ -72,6 +72,7 @@ describe('page audit load and error gates', () => {
     expect(src('src/pages/AssetsPage.tsx')).toContain('if (clientErr) throw clientErr');
     expect(src('src/pages/ExpensesPage.tsx')).toContain('pageQueryBlocked(pnlError)');
     expect(src('src/pages/AdvancedReportsPage.tsx')).toContain('if (anyError) throw anyError');
+    expect(src('src/pages/AdvancedReportsPage.tsx')).toContain('pageQueryBlocked(error)');
     expect(src('src/components/jha/JhaSwmsLibraryManager.tsx')).toContain('Could not load the SWMS library');
     expect(src('src/pages/ReportPage.tsx')).toContain('inspError');
   });

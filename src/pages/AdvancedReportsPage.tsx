@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
@@ -457,7 +458,7 @@ export function AdvancedReportsPage() {
     );
   }
 
-  if (error) {
+  if (pageQueryBlocked(error)) {
     return (
       <AppShell>
         <PageError message="Could not load reports data" onRetry={() => refetch()} />
