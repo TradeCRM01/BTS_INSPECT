@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attachJobClients, jobMatchesSearch, normalizeJobSearch } from './scheduleJobSearch';
+import { attachJobClients, jobMatchesSearch, mergeScheduleJobPatch, normalizeJobSearch, withScheduleJobPatches } from './scheduleJobSearch';
 import type { Job, JobWithClient } from '../types/crm';
 
 const job = {
@@ -55,5 +55,16 @@ describe('schedule job search', () => {
     );
     expect(rows[0].client_name).toBe('Northside Electrical');
     expect(rows[0].client_phone).toBe('0400 111 222');
+  });
+
+  it('keeps a dropped job patched so it does not fall back to unscheduled', () => {
+    mergeScheduleJobPatch('patch-job', {
+      scheduled_date: '2026-08-26',
+      start_time: '08:00:00',
+      end_time: '09:00:00',
+    });
+    const [row] = withScheduleJobPatches([{ id: 'patch-job', scheduled_date: null, start_time: null, end_time: null }]);
+    expect(row.scheduled_date).toBe('2026-08-26');
+    expect(row.start_time).toBe('08:00:00');
   });
 });

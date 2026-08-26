@@ -7,6 +7,19 @@ export const DEFAULT_SLOT_MINUTES = 60;
 export const DEFAULT_SLOT_START = '08:00:00';
 export type ResizeEdge = 'start' | 'end';
 
+let draggedJobId: string | null = null;
+
+export function rememberDraggedJob(jobId: string) {
+  draggedJobId = jobId;
+}
+
+export function readDroppedJobId(dataTransfer: DataTransfer | null | undefined): string | null {
+  const fromDt = (dataTransfer?.getData('text/plain') || dataTransfer?.getData('text') || '').trim();
+  const id = fromDt || draggedJobId;
+  draggedJobId = null;
+  return id || null;
+}
+
 export type AssignmentDrop = 'unassigned' | { employeeId: string };
 
 export function asTeamIds(value: unknown): string[] {

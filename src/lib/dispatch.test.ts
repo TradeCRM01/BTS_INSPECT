@@ -6,6 +6,8 @@ import {
   nextAssignedTeam,
   placeDayRowJobs,
   rescheduleJobPatch,
+  rememberDraggedJob,
+  readDroppedJobId,
   resizeJobTimes,
   startTimeFromDropOffset,
 } from './dispatch';
@@ -179,6 +181,23 @@ describe('rescheduleJobPatch', () => {
       start_time: '13:00:00',
       end_time: '15:00:00',
     });
+  });
+});
+
+describe('readDroppedJobId', () => {
+  it('falls back to the job remembered at drag start', () => {
+    rememberDraggedJob('job-1');
+    const empty = { getData: () => '' } as unknown as DataTransfer;
+    expect(readDroppedJobId(empty)).toBe('job-1');
+    expect(readDroppedJobId(empty)).toBe(null);
+  });
+
+  it('prefers dataTransfer when it has a job id', () => {
+    rememberDraggedJob('job-1');
+    const dt = {
+      getData: (type: string) => (type === 'text/plain' ? 'job-2' : ''),
+    } as unknown as DataTransfer;
+    expect(readDroppedJobId(dt)).toBe('job-2');
   });
 });
 

@@ -15,6 +15,8 @@ import {
   HOUR_WIDTH_PX,
   timeToMinutes,
   resizeJobTimes,
+  rememberDraggedJob,
+  readDroppedJobId,
   type JobDropPayload,
   type ResizeEdge,
 } from '../../lib/dispatch';
@@ -359,6 +361,7 @@ export const DayBoardView = memo(function DayBoardView({
   const handleDragStart = (e: React.DragEvent, jobId: string) => {
     e.dataTransfer.setData('text/plain', jobId);
     e.dataTransfer.effectAllowed = 'move';
+    rememberDraggedJob(jobId);
     setDragJobId(jobId);
   };
 
@@ -367,7 +370,7 @@ export const DayBoardView = memo(function DayBoardView({
 
   const handleDrop = (e: React.DragEvent, empId: string, startTime?: string) => {
     e.preventDefault();
-    const jobId = e.dataTransfer.getData('text/plain');
+    const jobId = readDroppedJobId(e.dataTransfer);
     if (jobId && onJobDrop) {
       onJobDrop({
         jobId,
@@ -669,6 +672,7 @@ export const WeekBoardView = memo(function WeekBoardView({
   const handleDragStart = (e: React.DragEvent, jobId: string) => {
     e.dataTransfer.setData('text/plain', jobId);
     e.dataTransfer.effectAllowed = 'move';
+    rememberDraggedJob(jobId);
     setDragJobId(jobId);
   };
 
@@ -680,7 +684,7 @@ export const WeekBoardView = memo(function WeekBoardView({
 
   const handleDrop = (e: React.DragEvent, date: string) => {
     e.preventDefault();
-    const jobId = e.dataTransfer.getData('text/plain');
+    const jobId = readDroppedJobId(e.dataTransfer);
     if (jobId && onJobDrop) onJobDrop({ jobId, date });
     setDragJobId(null);
     setDropHoverDate(null);

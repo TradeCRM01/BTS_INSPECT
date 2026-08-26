@@ -38,6 +38,20 @@ export function attachJobClients(
   }));
 }
 
+const scheduleJobPatches = new Map<string, Partial<JobWithClient>>();
+
+export function mergeScheduleJobPatch(jobId: string, patch: Partial<JobWithClient>) {
+  scheduleJobPatches.set(jobId, { ...(scheduleJobPatches.get(jobId) ?? {}), ...patch });
+}
+
+export function withScheduleJobPatches<T extends { id: string }>(jobs: T[]): T[] {
+  if (scheduleJobPatches.size === 0) return jobs;
+  return jobs.map(j => {
+    const patch = scheduleJobPatches.get(j.id);
+    return patch ? { ...j, ...patch } : j;
+  });
+}
+
 function orFilter(columns: string[], value: string): string {
   const v = value.replace(/'/g, "''").replace(/[(),]/g, '');
   return columns.map(c => `${c}.ilike.%${v}%`).join(',');
@@ -49,7 +63,9 @@ export async function searchScheduleJobs(raw: string): Promise<JobWithClient[]> 
 
   const mockJobs = getAuditJobs();
   if (mockJobs) {
-    return attachJobClients(mockJobs as Job[], getAuditClients() ?? [])
+    return withScheduleJobPatches(
+      attachJobClients(mockJobs as Job[], getAuditClients() ?? []),
+    )
       .filter(j => j.status !== 'cancelled' && jobMatchesSearch(j, query))
       .slice(0, SCHEDULE_SEARCH_LIMIT);
   }

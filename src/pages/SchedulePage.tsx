@@ -16,10 +16,10 @@ import {
   type TeamMember,
 } from '../components/crm/BoardViews';
 import { pickEmployeeColor } from '../lib/jobColors';
-import { DEFAULT_SLOT_START, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
+import { DEFAULT_SLOT_START, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
-import { attachJobClients, searchScheduleJobs } from '../lib/scheduleJobSearch';
+import { attachJobClients, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
 import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
 import {
   ChevronLeft, ChevronRight, Plus, Calendar as CalIcon,
@@ -132,7 +132,7 @@ export function SchedulePage() {
     queryFn: async () => {
       const mock = getAuditJobs();
       if (mock) {
-        return attachJobClients(mock as Job[], getAuditClients() ?? []);
+        return withScheduleJobPatches(attachJobClients(mock as Job[], getAuditClients() ?? []));
       }
       const [rangedRes, undatedRes] = await Promise.all([
         supabase
@@ -197,10 +197,10 @@ export function SchedulePage() {
       if (isDevFieldAuditAuth()) {
         queryClient.setQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd], prev => {
           const list = prev ?? [];
-          const fromAudit = attachJobClients(
+          const fromAudit = withScheduleJobPatches(attachJobClients(
             ((getAuditJobs() as Job[] | null) ?? []).filter(j => j.id === jobId),
             getAuditClients() ?? [],
-          )[0];
+          ))[0];
           const current = list.find(j => j.id === jobId)
             ?? searchHits.find(j => j.id === jobId)
             ?? fromAudit;
@@ -210,7 +210,9 @@ export function SchedulePage() {
             start_time: current.start_time,
             end_time: current.end_time,
           }, { date, employeeId, startTime });
-          return [...list.filter(j => j.id !== jobId), { ...current, ...patch }];
+          const next = { ...current, ...patch };
+          mergeScheduleJobPatch(jobId, next);
+          return [...list.filter(j => j.id !== jobId), next];
         });
         return;
       }
@@ -237,6 +239,7 @@ export function SchedulePage() {
       }
     },
     onSuccess: () => {
+      if (isDevFieldAuditAuth()) return;
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['job'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
@@ -252,7 +255,12 @@ export function SchedulePage() {
     mutationFn: async ({ jobId, startTime, endTime }: { jobId: string; startTime: string; endTime: string }) => {
       if (isDevFieldAuditAuth()) {
         queryClient.setQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd], prev =>
-          (prev ?? []).map(j => j.id === jobId ? { ...j, start_time: startTime, end_time: endTime } : j),
+          (prev ?? []).map(j => {
+            if (j.id !== jobId) return j;
+            const next = { ...j, start_time: startTime, end_time: endTime };
+            mergeScheduleJobPatch(jobId, next);
+            return next;
+          }),
         );
         return;
       }
@@ -264,6 +272,7 @@ export function SchedulePage() {
       if (error) throw error;
     },
     onSuccess: () => {
+      if (isDevFieldAuditAuth()) return;
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['job'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
@@ -278,6 +287,7 @@ export function SchedulePage() {
   const handleRailDragStart = (e: React.DragEvent, jobId: string) => {
     e.dataTransfer.setData('text/plain', jobId);
     e.dataTransfer.effectAllowed = 'move';
+    rememberDraggedJob(jobId);
   };
 
   const placePickedOnPerson = (employeeId: string) => {
