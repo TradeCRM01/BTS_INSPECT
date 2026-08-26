@@ -444,7 +444,25 @@ export function TemplateEditorPage() {
     s.questions.map(q => ({ ...q, sectionTitle: s.title }))
   );
 
+  if (!isNew && isLoading) {
+    return (
+      <AppShell>
+        <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+      </AppShell>
+    );
+  }
+
   if (isError) return <PageError onRetry={refetch} />;
+
+  if (!isNew && !existingTemplate) {
+    return (
+      <AppShell>
+        <div className="max-w-[800px] mx-auto px-4 py-16">
+          <PageError message="Template not found. It may have been deleted." onRetry={() => navigate('/templates')} />
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>

@@ -183,9 +183,7 @@ export function AdvancedReportsPage() {
         timesheetsRes.error ||
         stockRes.error ||
         contractsRes.error;
-      if (anyError) {
-        console.warn('[AdvancedReports] partial fetch error', anyError);
-      }
+      if (anyError) throw anyError;
 
       const invoices = (invoicesRes.data ?? []) as unknown as InvoiceRow[];
       const quotes = (quotesRes.data ?? []) as unknown as QuoteRow[];

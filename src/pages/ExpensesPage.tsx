@@ -137,7 +137,7 @@ export function ExpensesPage() {
     enabled: !!profile,
   });
 
-  const { data: pnlSource } = useQuery({
+  const { data: pnlSource, error: pnlError } = useQuery({
     queryKey: ['expenses-pnl', rangeKey, profile?.company_id],
     queryFn: async () => {
       const [inv, costs] = await Promise.all([
@@ -210,7 +210,9 @@ export function ExpensesPage() {
     return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
   }, [filtered]);
 
-  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load expenses" /></AppShell>;
+  if (pageQueryBlocked(error) || pageQueryBlocked(pnlError)) {
+    return <AppShell><PageError message="Could not load expenses" /></AppShell>;
+  }
 
   return (
     <AppShell>

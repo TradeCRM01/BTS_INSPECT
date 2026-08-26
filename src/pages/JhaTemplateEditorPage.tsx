@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
-import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -372,8 +371,17 @@ export function JhaTemplateEditorPage() {
     return <AppShell><div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div></AppShell>;
   }
 
-  if (pageQueryBlocked(isError)) {
-    return <AppShell><div className="max-w-[1200px] mx-auto px-4 py-6"><PageError onRetry={refetch} /></div></AppShell>;
+  if (isError || (!isNew && !existingTemplate)) {
+    return (
+      <AppShell>
+        <div className="max-w-[1200px] mx-auto px-4 py-6">
+          <PageError
+            message={isError ? 'Could not load this JHA template.' : 'JHA template not found. It may have been deleted.'}
+            onRetry={isError ? refetch : () => navigate('/templates')}
+          />
+        </div>
+      </AppShell>
+    );
   }
 
   const enabledFieldCount =

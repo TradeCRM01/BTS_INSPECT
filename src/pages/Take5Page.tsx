@@ -91,7 +91,7 @@ function Take5FillPage() {
   const [saveHint, setSaveHint] = useState<'saved' | 'saving' | 'error' | null>(null);
   const [hydrated, setHydrated] = useState(!take5Id);
 
-  const { data: existing, isLoading: take5Loading } = useQuery({
+  const { data: existing, isLoading: take5Loading, isError: take5Error, refetch: refetchTake5 } = useQuery({
     queryKey: ['jha-take5', take5Id],
     queryFn: async () => {
       const mock = getAuditTake5(take5Id!);
@@ -105,7 +105,7 @@ function Take5FillPage() {
 
   const jhaId = jhaIdParam || existing?.jha_document_id || null;
 
-  const { data: jha, isLoading: jhaLoading } = useQuery({
+  const { data: jha, isLoading: jhaLoading, isError: jhaError, refetch: refetchJha } = useQuery({
     queryKey: ['jha-for-take5', jhaId],
     queryFn: async () => {
       const mock = getAuditJhaDoc(jhaId!);
@@ -378,6 +378,26 @@ function Take5FillPage() {
     return <AppShell><div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div></AppShell>;
   }
 
+  if (take5Id && take5Error) {
+    return (
+      <AppShell>
+        <div className="ops-page max-w-[800px]">
+          <PageError message="Could not load this Take 5." onRetry={() => refetchTake5()} />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (take5Id && !take5Loading && existing === null && !jhaIdParam) {
+    return (
+      <AppShell>
+        <div className="ops-page max-w-[800px]">
+          <PageError message="Take 5 not found. It may have been deleted." onRetry={() => navigate('/jha/take5')} />
+        </div>
+      </AppShell>
+    );
+  }
+
   if (!jhaId) {
     return (
       <AppShell>
@@ -388,8 +408,28 @@ function Take5FillPage() {
     );
   }
 
+  if (jhaError) {
+    return (
+      <AppShell>
+        <div className="ops-page max-w-[800px]">
+          <PageError message="Could not load the parent JHA." onRetry={() => refetchJha()} />
+        </div>
+      </AppShell>
+    );
+  }
+
   if (jhaLoading) {
     return <AppShell><div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div></AppShell>;
+  }
+
+  if (!jha) {
+    return (
+      <AppShell>
+        <div className="ops-page max-w-[800px]">
+          <PageError message="Parent JHA not found. It may have been deleted." onRetry={() => navigate('/jha')} />
+        </div>
+      </AppShell>
+    );
   }
 
   const when = meta.date ? format(new Date(meta.date), 'd MMM yyyy') : null;

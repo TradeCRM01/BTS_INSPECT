@@ -98,7 +98,7 @@ export function CompanySettingsPage() {
   const [themeError, setThemeError] = useState('');
 
   // Registered users list (RPC bypasses profiles RLS recursion)
-  const { data: registeredUsers, isLoading: loadingUsers } = useQuery({
+  const { data: registeredUsers, isLoading: loadingUsers, isError: usersError, refetch: refetchUsers } = useQuery({
     queryKey: ['registered-users', company?.id],
     queryFn: async () => {
       if (!company) return [];
@@ -696,6 +696,13 @@ export function CompanySettingsPage() {
 
             {loadingUsers ? (
               <p className="text-xs text-[#4A5568]">Loading users...</p>
+            ) : usersError ? (
+              <div className="text-xs text-[#B42318]">
+                Could not load registered users.{' '}
+                <button type="button" onClick={() => refetchUsers()} className="underline font-medium">
+                  Retry
+                </button>
+              </div>
             ) : registeredUsers && registeredUsers.length === 0 ? (
               <p className="text-xs text-[#4A5568]">No users registered yet.</p>
             ) : (

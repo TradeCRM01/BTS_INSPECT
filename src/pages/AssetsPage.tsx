@@ -43,11 +43,16 @@ export function AssetsPage() {
 
       if (assetList.length === 0) return [] as AssetWithClient[];
       const clientIds = [...new Set(assetList.map(a => a.client_id).filter(Boolean))] as string[];
-      const { data: clients } = await supabase
-        .from('clients')
-        .select('id, name')
-        .in('id', clientIds);
-      const clientMap = new Map((clients ?? []).map((c: Pick<Client, 'id' | 'name'>) => [c.id, c.name]));
+      let clients: Pick<Client, 'id' | 'name'>[] = [];
+      if (clientIds.length > 0) {
+        const { data: clientRows, error: clientErr } = await supabase
+          .from('clients')
+          .select('id, name')
+          .in('id', clientIds);
+        if (clientErr) throw clientErr;
+        clients = clientRows ?? [];
+      }
+      const clientMap = new Map(clients.map((c: Pick<Client, 'id' | 'name'>) => [c.id, c.name]));
 
       return assetList.map(a => ({ ...a, client_name: a.client_id ? clientMap.get(a.client_id) ?? null : null })) as AssetWithClient[];
     },

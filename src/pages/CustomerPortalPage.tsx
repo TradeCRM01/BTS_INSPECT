@@ -26,7 +26,7 @@ export function CustomerPortalPage() {
       const { data, error } = await supabase
         .from('client_portal_tokens')
         .select(`
-          id, token, expires_at, revoked, last_accessed_at, created_at,
+          id, token, client_id, expires_at, revoked, last_accessed_at, created_at,
           clients!inner(id, name, email)
         `)
         .eq('company_id', profile!.company_id)
@@ -89,7 +89,14 @@ export function CustomerPortalPage() {
 
   const clientWithoutToken = useMemo(() => {
     const all = clients ?? [];
-    const usedIds = new Set((tokens ?? []).map((t: { client_id: string }) => t.client_id));
+    const usedIds = new Set(
+      (tokens ?? [])
+        .map(t => {
+          const nested = Array.isArray(t.clients) ? t.clients[0] : t.clients;
+          return t.client_id || nested?.id;
+        })
+        .filter(Boolean) as string[],
+    );
     return all.filter(c => !usedIds.has(c.id));
   }, [clients, tokens]);
 

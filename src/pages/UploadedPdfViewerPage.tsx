@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { PageError } from '../components/ui/PageError';
 import { PdfViewer } from '../components/pdf/PdfViewer';
 import { AnnotationToolbar } from '../components/pdf/AnnotationToolbar';
 import { flattenAnnotations } from '../lib/flattenAnnotations';
@@ -38,7 +39,7 @@ export function UploadedPdfViewerPage() {
     return () => { if (url) URL.revokeObjectURL(url); };
   }, [pdfUrl]);
 
-  const { data: pdfRecord, isLoading } = useQuery({
+  const { data: pdfRecord, isLoading, isError, refetch } = useQuery({
     queryKey: ['uploaded-pdf', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -49,10 +50,9 @@ export function UploadedPdfViewerPage() {
       if (error) throw error;
       if (!data) return null;
       const { data: blob, error: dlErr } = await supabase.storage.from('uploaded-pdfs').download(data.storage_path);
-      if (!dlErr && blob) {
-        const url = URL.createObjectURL(blob);
-        setPdfUrl(url);
-      }
+      if (dlErr || !blob) throw dlErr ?? new Error('Could not download PDF');
+      const url = URL.createObjectURL(blob);
+      setPdfUrl(url);
       return data;
     },
     enabled: !!id,
@@ -164,6 +164,16 @@ export function UploadedPdfViewerPage() {
     await supabase.from('uploaded_pdfs').delete().eq('id', pdfRecord.id);
     await supabase.storage.from('uploaded-pdfs').remove([pdfRecord.storage_path]);
     navigate('/reports');
+  }
+
+  if (isError) {
+    return (
+      <AppShell>
+        <div className="max-w-[800px] mx-auto px-4 py-16">
+          <PageError message="Could not load this PDF." onRetry={() => refetch()} />
+        </div>
+      </AppShell>
+    );
   }
 
   if (isLoading) {

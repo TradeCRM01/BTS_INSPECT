@@ -7,6 +7,7 @@ import { generatePdf } from '../reports/generatePdf';
 import type { TemplateSchema } from '../types/template';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { PageError } from '../components/ui/PageError';
 import { FileText, ChevronLeft, CreditCard as Edit2, PenLine, MoreHorizontal } from 'lucide-react';
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
 import { reportIsSent, reportPdfFilename, reportSiteName } from '../lib/sendReport';
@@ -79,7 +80,7 @@ export function ReportPage() {
     return () => { if (url) URL.revokeObjectURL(url); };
   }, [pdfUrl]);
 
-  const { data: inspection, isLoading: inspLoading } = useQuery({
+  const { data: inspection, isLoading: inspLoading, isError: inspError, refetch: refetchInspection } = useQuery({
     queryKey: ['inspection', id],
     queryFn: async () => {
       const mock = getAuditInspection(id!);
@@ -485,10 +486,30 @@ export function ReportPage() {
     }
   }
 
+  if (inspError) {
+    return (
+      <AppShell>
+        <div className="max-w-[800px] mx-auto px-4 py-16">
+          <PageError message="Could not load this inspection report." onRetry={() => refetchInspection()} />
+        </div>
+      </AppShell>
+    );
+  }
+
   if (inspLoading) {
     return (
       <AppShell>
         <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+      </AppShell>
+    );
+  }
+
+  if (!inspection) {
+    return (
+      <AppShell>
+        <div className="max-w-[800px] mx-auto px-4 py-16">
+          <PageError message="Inspection not found. It may have been deleted." onRetry={() => navigate('/inspections')} />
+        </div>
       </AppShell>
     );
   }

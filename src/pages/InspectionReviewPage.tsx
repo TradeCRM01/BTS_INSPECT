@@ -220,6 +220,8 @@ export function InspectionReviewPage() {
     onSuccess: () => navigate(`/inspections/${id}/report`),
   });
 
+  if (isError) return <PageError onRetry={refetch} />;
+
   if (isLoading || !inspection) {
     return (
       <div className="insp-doc-theme min-h-screen flex items-center justify-center" style={themeStyle}>
@@ -227,8 +229,6 @@ export function InspectionReviewPage() {
       </div>
     );
   }
-
-  if (isError) return <PageError onRetry={refetch} />;
 
   if (!schema) {
     return (

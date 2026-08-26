@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
@@ -10,7 +11,7 @@ import {
   ScanLine, Camera, Search, Package, Plus, Minus, Check, X,
   AlertCircle, History, Trash2, ArrowRight,
 } from 'lucide-react';
-import type { StockItem, StockItemWithSupplier } from '../types/fsm';
+import type { StockItemWithSupplier } from '../types/fsm';
 import { getStockLevel, STOCK_LEVEL_STYLES, STOCK_LEVEL_LABELS, formatMoney } from '../types/fsm';
 
 export function BarcodeScannerPage() {
@@ -21,10 +22,12 @@ export function BarcodeScannerPage() {
   const [adjustQty, setAdjustQty] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const cameraActiveRef = useRef(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [adjustError, setAdjustError] = useState<string | null>(null);
 
-  const { data: stockItems } = useQuery({
+  const { data: stockItems, error: stockError } = useQuery({
     queryKey: ['stock-items-all'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -75,7 +78,7 @@ export function BarcodeScannerPage() {
     mutationFn: async ({ itemId, newQty }: { itemId: string; newQty: number }) => {
       const { error } = await supabase
         .from('stock_items')
-        .update({ quantity: Math.max(0, newQty), updated_at: new Date().toISOString() })
+        .update({ quantity_on_hand: Math.max(0, newQty), updated_at: new Date().toISOString() })
         .eq('id', itemId)
         .eq('company_id', profile!.company_id);
       if (error) throw error;
@@ -90,10 +93,10 @@ export function BarcodeScannerPage() {
     if (!barcode.trim() || !stockItems) return;
     const trimmed = barcode.trim();
 
-    // Match by SKU or barcode field
+    // Match by SKU, optional barcode column, or name
     const match = stockItems.find(item =>
       item.sku?.toLowerCase() === trimmed.toLowerCase() ||
-      item.barcode?.toLowerCase() === trimmed.toLowerCase() ||
+      (item.barcode && item.barcode.toLowerCase() === trimmed.toLowerCase()) ||
       item.name.toLowerCase().includes(trimmed.toLowerCase())
     );
 
@@ -113,7 +116,8 @@ export function BarcodeScannerPage() {
 
   function handleAdjustStock() {
     if (!scanResult?.item) return;
-    const currentQty = scanResult.item.quantity ?? 0;
+    setAdjustError(null);
+    const currentQty = scanResult.item.quantity_on_hand ?? 0;
     const newQty = currentQty + adjustQty;
     updateStockMutation.mutate(
       { itemId: scanResult.item.id, newQty },
@@ -121,10 +125,11 @@ export function BarcodeScannerPage() {
         onSuccess: () => {
           setScanResult({
             ...scanResult,
-            item: { ...scanResult.item!, quantity: Math.max(0, newQty) },
+            item: { ...scanResult.item!, quantity_on_hand: Math.max(0, newQty) },
           });
           setAdjustQty(0);
         },
+        onError: (err: Error) => setAdjustError(err.message || 'Could not update quantity'),
       }
     );
   }
@@ -146,12 +151,13 @@ export function BarcodeScannerPage() {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
       }
+      cameraActiveRef.current = true;
       setCameraActive(true);
 
-      // @ts-expect-error â€” BarcodeDetector is not in standard TS types
+      // @ts-expect-error — BarcodeDetector is not in standard TS types
       const detector = new window.BarcodeDetector({ formats: ['code_39', 'code_128', 'ean_13', 'qr_code'] });
       const detect = async () => {
-        if (!videoRef.current || !cameraActive) return;
+        if (!videoRef.current || !cameraActiveRef.current) return;
         try {
           const codes = await detector.detect(videoRef.current);
           if (codes && codes.length > 0) {
@@ -161,7 +167,7 @@ export function BarcodeScannerPage() {
             return;
           }
         } catch { /* detection frame failed, try again */ }
-        if (cameraActive) requestAnimationFrame(detect);
+        if (cameraActiveRef.current) requestAnimationFrame(detect);
       };
       detect();
     } catch {
@@ -170,6 +176,7 @@ export function BarcodeScannerPage() {
   }
 
   function stopCamera() {
+    cameraActiveRef.current = false;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -184,6 +191,9 @@ export function BarcodeScannerPage() {
   const recentScans = useMemo(() => (scanLogs ?? []).slice(0, 10), [scanLogs]);
 
   if (!profile) return <AppShell><PageError message="Not authenticated" /></AppShell>;
+  if (pageQueryBlocked(stockError)) {
+    return <AppShell><PageError message="Could not load stock items for scanning" /></AppShell>;
+  }
 
   return (
     <AppShell>
@@ -272,7 +282,7 @@ export function BarcodeScannerPage() {
                     <div className="grid grid-cols-3 gap-3 mb-3">
                       <div className="text-center p-2 rounded-lg bg-gray-50">
                         <p className="text-xs text-[#6B7280]">Current Qty</p>
-                        <p className="text-lg font-bold text-[#1A1A1A]">{scanResult.item.quantity ?? 0}</p>
+                        <p className="text-lg font-bold text-[#1A1A1A]">{scanResult.item.quantity_on_hand ?? 0}</p>
                       </div>
                       <div className="text-center p-2 rounded-lg bg-gray-50">
                         <p className="text-xs text-[#6B7280]">Unit Cost</p>
@@ -300,6 +310,7 @@ export function BarcodeScannerPage() {
                         <Check size={14} /> Apply
                       </button>
                     </div>
+                    {adjustError && <p className="text-sm text-[#B42318] mt-2">{adjustError}</p>}
                   </div>
                 ) : (
                   <div className="flex items-center gap-3">

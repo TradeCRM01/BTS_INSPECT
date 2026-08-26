@@ -3,9 +3,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner } from '../components/ui';
+import { LoadingSpinner, PageError } from '../components/ui';
 import { getAuditDashboardWidgets } from '../lib/devFieldAuditDocs';
-import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
+import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
   DndContext, DragEndEvent, DragStartEvent, PointerSensor, useSensor, useSensors,
   useDraggable,
@@ -45,7 +45,7 @@ export function DashboardPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
-  const { data: widgets, isLoading } = useQuery<DashboardWidget[]>({
+  const { data: widgets, isLoading, error } = useQuery<DashboardWidget[]>({
     queryKey: ['dashboard-widgets'],
     queryFn: async () => {
       const mock = getAuditDashboardWidgets();
@@ -201,6 +201,10 @@ export function DashboardPage() {
       })();
     }
   }, [isLoading, profile, widgets?.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (pageQueryBlocked(error)) {
+    return <AppShell><PageError message="Could not load dashboard" /></AppShell>;
+  }
 
   return (
     <AppShell>

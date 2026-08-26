@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { PageError } from '../components/ui/PageError';
 import {
   Folder, FolderPlus, FileText, ClipboardList, Search, ChevronRight, Home,
   Download, PenLine, UploadCloud, Trash2, MoreVertical,
@@ -13,7 +14,7 @@ import {
 import { format } from 'date-fns';
 import { nanoid } from '../lib/nanoid';
 import { getAuditDriveUploads, getAuditEmptyList } from '../lib/devFieldAuditDocs';
-import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
+import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
   isFileSystemAccessSupported, pickBackupFolder,
   hasStoredBackupDir, clearBackupDir, syncToBackup, syncOne,
@@ -223,7 +224,7 @@ export function ReportsListPage() {
   }, [params.folderId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load folders
-  const { data: allFolders } = useQuery<FolderRow[]>({
+  const { data: allFolders, error: foldersError } = useQuery<FolderRow[]>({
     queryKey: ['drive-folders'],
     queryFn: async () => {
       const empty = getAuditEmptyList();
@@ -239,7 +240,7 @@ export function ReportsListPage() {
   });
 
   // Load uploaded PDFs
-  const { data: allUploads } = useQuery<UploadedPdfRow[]>({
+  const { data: allUploads, error: uploadsError } = useQuery<UploadedPdfRow[]>({
     queryKey: ['uploaded-pdfs'],
     queryFn: async () => {
       const mockUploads = getAuditDriveUploads();
@@ -257,16 +258,17 @@ export function ReportsListPage() {
   });
 
   // Load generated reports — company-scoped via reports.company_id
-  const { data: allReports } = useQuery<ReportRow[]>({
+  const { data: allReports, error: reportsError } = useQuery<ReportRow[]>({
     queryKey: ['all-reports'],
     queryFn: async () => {
       const empty = getAuditEmptyList();
       if (empty) return empty as ReportRow[];
-      const { data: reports } = await supabase
+      const { data: reports, error } = await supabase
         .from('reports')
         .select('id, inspection_id, report_number, pdf_storage_path, generated_at, folder_id, position_x, position_y')
         .eq('company_id', companyId)
         .order('generated_at', { ascending: false });
+      if (error) throw error;
       if (!reports || reports.length === 0) return [];
 
       // Fetch inspections for site metadata (meta is needed for subtitle)
@@ -1025,6 +1027,10 @@ export function ReportsListPage() {
     const maxY = Math.max(...displayItems.map(i => i.y + ITEM_H));
     return Math.max(maxY + 80, 500);
   }, [displayItems]);
+
+  if (pageQueryBlocked(foldersError) || pageQueryBlocked(uploadsError) || pageQueryBlocked(reportsError)) {
+    return <AppShell><PageError message="Could not load Shared Drive" /></AppShell>;
+  }
 
   return (
     <AppShell>

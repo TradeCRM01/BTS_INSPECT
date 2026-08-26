@@ -42,7 +42,7 @@ export function JhaSwmsLibraryManager({ companyId, profileId, compact }: Props) 
   const [editDescription, setEditDescription] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
-  const { data: library = [], isLoading } = useQuery({
+  const { data: library = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['jha-swms-library', companyId],
     queryFn: async () => {
       const empty = getAuditEmptyList();
@@ -215,7 +215,16 @@ export function JhaSwmsLibraryManager({ companyId, profileId, compact }: Props) 
 
         {isLoading && <p className="text-sm text-[#9CA3AF]">Loading library…</p>}
 
-        {!isLoading && library.length === 0 && (
+        {!isLoading && isError && (
+          <p className="text-sm text-red-600">
+            Could not load the SWMS library.{' '}
+            <button type="button" onClick={() => refetch()} className="underline font-medium">
+              Retry
+            </button>
+          </p>
+        )}
+
+        {!isLoading && !isError && library.length === 0 && (
           <p className="text-sm text-[#9CA3AF] text-center py-8 border border-dashed border-[#E5E7EB] rounded-lg">
             No SWMS PDFs yet — upload your first company document above.
           </p>

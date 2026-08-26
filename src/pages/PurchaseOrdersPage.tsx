@@ -716,8 +716,9 @@ function ReceiveGoodsModal({ po, onClose, onSaved }: {
         });
         if (mvErr) throw mvErr;
 
-        const { data: cur } = await supabase.from('stock_items')
-          .select('quantity_on_hand').eq('id', line.stock_item_id).single();
+        const { data: cur, error: curErr } = await supabase.from('stock_items')
+          .select('quantity_on_hand').eq('id', line.stock_item_id).maybeSingle();
+        if (curErr) throw curErr;
         const newQty = (cur?.quantity_on_hand ?? 0) + qty;
         const { error: updErr } = await supabase.from('stock_items')
           .update({ quantity_on_hand: newQty, updated_at: new Date().toISOString() })
