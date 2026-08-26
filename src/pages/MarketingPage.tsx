@@ -25,7 +25,7 @@ export function MarketingPage() {
         <section className="hub-marketing-hero">
           <p className="hub-marketing-kicker">Australian trade software</p>
           <h1 className="hub-marketing-display">
-            The job, from the ute<br className="hidden sm:inline" /> to paid.
+            Every job, from quote<br className="hidden sm:inline" /> to payment.
           </h1>
           <p className="hub-marketing-lede">
             Grafter keeps jobs, quotes, invoices, inspections and the crew schedule in one place —
