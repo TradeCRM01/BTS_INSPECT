@@ -415,21 +415,25 @@ export const DayBoardView = memo(function DayBoardView({
     };
 
     applyPreview(e.clientX);
+    e.currentTarget.setPointerCapture(pointerId);
 
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return;
       applyPreview(ev.clientX);
     };
-    const onUp = (ev: PointerEvent) => {
+    const finish = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return;
       window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
+      try { e.currentTarget.releasePointerCapture(pointerId); } catch { /* already released */ }
       const next = resizeJobTimes(originStart, originEnd, edge, minutesAt(ev.clientX));
       setResizePreview(null);
       onJobResize(job.id, next.start_time, next.end_time);
     };
     window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
   };
 
   const gridWidth = HOURS.length * HOUR_WIDTH;
@@ -493,6 +497,7 @@ export const DayBoardView = memo(function DayBoardView({
               onDrop={e => handleDrop(e, row.id)}
             >
               <div
+                data-crew-drop={row.id}
                 className="shrink-0 border-r border-rule cursor-pointer hover:bg-zebra transition-colors flex items-center gap-2 px-3"
                 style={{
                   width: LABEL_WIDTH,
@@ -500,6 +505,8 @@ export const DayBoardView = memo(function DayBoardView({
                   borderLeft: isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${color}`,
                 }}
                 onClick={() => onDayClick(dateStr, isUnassigned ? undefined : row.id)}
+                onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropHoverId(row.id); }}
+                onDrop={e => { e.stopPropagation(); handleDrop(e, row.id); }}
               >
                 <span
                   className="ops-crew-mark"

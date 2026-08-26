@@ -237,6 +237,7 @@ describe('form fields fit their type', () => {
     expect(src('src/pages/SchedulePage.tsx')).toContain('ScheduleJobSearch');
     expect(src('src/pages/SchedulePage.tsx')).toContain('onJobResize');
     expect(src('src/pages/SchedulePage.tsx')).toContain('getAuditJobs');
+    expect(src('src/pages/SchedulePage.tsx')).toContain('attachJobClients');
     expect(src('src/pages/ContractsPage.tsx')).toContain('getAuditContracts');
     expect(src('src/lib/contractVisitReminderDeliver.ts')).toContain('getAuditContractVisitReminderBundle');
     expect(src('src/components/layout/AppShell.tsx')).toContain('<GlobalSearch');

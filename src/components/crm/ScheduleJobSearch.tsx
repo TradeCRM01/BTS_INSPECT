@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SearchBar } from '../ui/SearchBar';
 import { OpsStatus, opsSiteLabel } from '../ui/OpsCard';
 import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
@@ -38,10 +38,22 @@ export function ScheduleJobSearch({
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const open = query.trim().length > 0;
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    const endDrag = () => setDragging(false);
+    window.addEventListener('dragend', endDrag);
+    window.addEventListener('drop', endDrag);
+    return () => {
+      window.removeEventListener('dragend', endDrag);
+      window.removeEventListener('drop', endDrag);
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
+      if (dragging) return;
       if (!rootRef.current?.contains(e.target as Node)) {
         onQuery('');
         onSelect(null);
@@ -59,7 +71,7 @@ export function ScheduleJobSearch({
       document.removeEventListener('mousedown', onDoc);
       window.removeEventListener('keydown', onKey);
     };
-  }, [open, onQuery, onSelect]);
+  }, [open, onQuery, onSelect, dragging]);
 
   return (
     <div ref={rootRef} className="relative min-w-0 flex-1 max-w-xl">
@@ -69,7 +81,9 @@ export function ScheduleJobSearch({
         placeholder="Search a job, then drop it on a person…"
       />
       {open && (
-        <div className="absolute z-30 mt-1 w-full bg-white border border-rule rounded-lg shadow-lg overflow-hidden">
+        <div className={`absolute z-30 mt-1 w-full bg-white border border-rule rounded-lg shadow-lg overflow-hidden ${
+          dragging ? 'pointer-events-none opacity-40' : ''
+        }`}>
           <div className="px-3 py-2 border-b border-rule">
             <p className="ops-meta">
               {loading ? 'Searching…' : `${results.length} match${results.length === 1 ? '' : 'es'} · drag onto a name or a time`}
@@ -88,7 +102,9 @@ export function ScheduleJobSearch({
                       role="button"
                       tabIndex={0}
                       draggable
+                      data-schedule-search-hit={job.id}
                       onDragStart={e => {
+                        setDragging(true);
                         onSelect(job);
                         onDragStart(e, job.id);
                       }}

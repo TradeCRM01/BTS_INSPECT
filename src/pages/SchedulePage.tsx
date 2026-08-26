@@ -19,7 +19,7 @@ import { pickEmployeeColor } from '../lib/jobColors';
 import { DEFAULT_SLOT_START, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
-import { searchScheduleJobs } from '../lib/scheduleJobSearch';
+import { attachJobClients, searchScheduleJobs } from '../lib/scheduleJobSearch';
 import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
 import {
   ChevronLeft, ChevronRight, Plus, Calendar as CalIcon,
@@ -31,15 +31,6 @@ import {
 } from 'date-fns';
 
 type ViewMode = 'day' | 'week';
-
-function attachClients(jobs: Job[], clientMap: Map<string, Client>): JobWithClient[] {
-  return jobs.map(j => ({
-    ...j,
-    client_name: j.client_id ? clientMap.get(j.client_id)?.name ?? null : null,
-    client_phone: j.client_id ? clientMap.get(j.client_id)?.phone ?? null : null,
-    client_address: j.client_id ? clientMap.get(j.client_id)?.address ?? null : null,
-  }));
-}
 
 export function SchedulePage() {
   const { profile } = useAuth();
@@ -141,7 +132,7 @@ export function SchedulePage() {
     queryFn: async () => {
       const mock = getAuditJobs();
       if (mock) {
-        return attachClients(mock as Job[], getAuditClients() ?? []);
+        return attachJobClients(mock as Job[], getAuditClients() ?? []);
       }
       const [rangedRes, undatedRes] = await Promise.all([
         supabase
@@ -177,7 +168,7 @@ export function SchedulePage() {
         }
       }
 
-      return attachClients(jobs, clientMap);
+      return attachJobClients(jobs, [...clientMap.values()]);
     },
     enabled: !!profile,
   });
@@ -206,9 +197,13 @@ export function SchedulePage() {
       if (isDevFieldAuditAuth()) {
         queryClient.setQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd], prev => {
           const list = prev ?? [];
+          const fromAudit = attachJobClients(
+            ((getAuditJobs() as Job[] | null) ?? []).filter(j => j.id === jobId),
+            getAuditClients() ?? [],
+          )[0];
           const current = list.find(j => j.id === jobId)
             ?? searchHits.find(j => j.id === jobId)
-            ?? (getAuditJobs() as Job[] | null)?.find(j => j.id === jobId) as JobWithClient | undefined;
+            ?? fromAudit;
           if (!current) return list;
           const patch = rescheduleJobPatch({
             assigned_team: current.assigned_team,

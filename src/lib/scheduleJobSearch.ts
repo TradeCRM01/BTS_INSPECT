@@ -25,7 +25,10 @@ export function jobMatchesSearch(job: JobWithClient, raw: string): boolean {
   ].some(v => (v ?? '').toLowerCase().includes(q));
 }
 
-function attachClients(jobs: Job[], clients: Pick<Client, 'id' | 'name' | 'phone' | 'address'>[]): JobWithClient[] {
+export function attachJobClients(
+  jobs: Job[],
+  clients: Pick<Client, 'id' | 'name' | 'phone' | 'address'>[],
+): JobWithClient[] {
   const map = new Map(clients.map(c => [c.id, c]));
   return jobs.map(j => ({
     ...j,
@@ -46,7 +49,7 @@ export async function searchScheduleJobs(raw: string): Promise<JobWithClient[]> 
 
   const mockJobs = getAuditJobs();
   if (mockJobs) {
-    return attachClients(mockJobs as Job[], getAuditClients() ?? [])
+    return attachJobClients(mockJobs as Job[], getAuditClients() ?? [])
       .filter(j => j.status !== 'cancelled' && jobMatchesSearch(j, query))
       .slice(0, SCHEDULE_SEARCH_LIMIT);
   }
@@ -88,7 +91,7 @@ export async function searchScheduleJobs(raw: string): Promise<JobWithClient[]> 
     for (const c of data ?? []) known.set(c.id, c);
   }
 
-  return attachClients(jobs, [...known.values()])
+  return attachJobClients(jobs, [...known.values()])
     .filter(j => jobMatchesSearch(j, query))
     .slice(0, SCHEDULE_SEARCH_LIMIT);
 }
