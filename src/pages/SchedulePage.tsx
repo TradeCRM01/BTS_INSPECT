@@ -1,22 +1,25 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { getAuditClients, getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import type { Job, JobWithClient, Client } from '../types/crm';
 import { JobFormModal } from '../components/crm/JobFormModal';
+import { ScheduleJobSearch } from '../components/crm/ScheduleJobSearch';
 import {
   DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList,
   type TeamMember,
 } from '../components/crm/BoardViews';
 import { pickEmployeeColor } from '../lib/jobColors';
-import { rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
+import { DEFAULT_SLOT_START, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
+import { searchScheduleJobs } from '../lib/scheduleJobSearch';
 import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
 import {
   ChevronLeft, ChevronRight, Plus, Calendar as CalIcon,
@@ -51,6 +54,9 @@ export function SchedulePage() {
   const [presetEmployeeId, setPresetEmployeeId] = useState<string | undefined>(undefined);
   const [filteredEmployeeIds, setFilteredEmployeeIds] = useState<Set<string>>(new Set());
   const [colorSavingId, setColorSavingId] = useState<string | null>(null);
+  const [jobQuery, setJobQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [pickedJob, setPickedJob] = useState<JobWithClient | null>(null);
 
   const preselectClient = searchParams.get('client');
   const preselectJob = searchParams.get('job');
@@ -74,6 +80,15 @@ export function SchedulePage() {
   const { data: teamMembers } = useQuery<TeamMember[]>({
     queryKey: ['team-members-schedule'],
     queryFn: async () => {
+      const mock = getAuditTeamMembers();
+      if (mock) {
+        return mock.map(m => ({
+          id: m.id,
+          name: m.name,
+          email: m.email,
+          schedule_color: null,
+        }));
+      }
       if (!profile?.company_id) return [];
       const { data, error } = await supabase.rpc('get_company_members', {
         p_company_id: profile.company_id,
@@ -124,6 +139,10 @@ export function SchedulePage() {
   const { data: jobs, isLoading, error } = useQuery<JobWithClient[]>({
     queryKey: ['jobs', rangeStart, rangeEnd],
     queryFn: async () => {
+      const mock = getAuditJobs();
+      if (mock) {
+        return attachClients(mock as Job[], getAuditClients() ?? []);
+      }
       const [rangedRes, undatedRes] = await Promise.all([
         supabase
           .from('jobs')
@@ -164,6 +183,17 @@ export function SchedulePage() {
   });
 
   useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedQuery(jobQuery.trim()), 200);
+    return () => window.clearTimeout(t);
+  }, [jobQuery]);
+
+  const { data: searchHits = [], isFetching: searchLoading } = useQuery({
+    queryKey: ['schedule-job-search', debouncedQuery],
+    queryFn: () => searchScheduleJobs(debouncedQuery),
+    enabled: !!profile && debouncedQuery.length > 0,
+  });
+
+  useEffect(() => {
     if (preselectClient) {
       setPresetClientId(preselectClient);
       setShowForm(true);
@@ -173,6 +203,22 @@ export function SchedulePage() {
 
   const rescheduleJob = useMutation({
     mutationFn: async ({ jobId, date, employeeId, startTime }: JobDropPayload) => {
+      if (isDevFieldAuditAuth()) {
+        queryClient.setQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd], prev => {
+          const list = prev ?? [];
+          const current = list.find(j => j.id === jobId)
+            ?? searchHits.find(j => j.id === jobId)
+            ?? (getAuditJobs() as Job[] | null)?.find(j => j.id === jobId) as JobWithClient | undefined;
+          if (!current) return list;
+          const patch = rescheduleJobPatch({
+            assigned_team: current.assigned_team,
+            start_time: current.start_time,
+            end_time: current.end_time,
+          }, { date, employeeId, startTime });
+          return [...list.filter(j => j.id !== jobId), { ...current, ...patch }];
+        });
+        return;
+      }
       const { data: current, error: loadError } = await supabase
         .from('jobs')
         .select('assigned_team, start_time, end_time')
@@ -203,8 +249,53 @@ export function SchedulePage() {
       queryClient.invalidateQueries({ queryKey: ['job-take5s'] });
       queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
       queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule-job-search'] });
     },
   });
+
+  const resizeJob = useMutation({
+    mutationFn: async ({ jobId, startTime, endTime }: { jobId: string; startTime: string; endTime: string }) => {
+      if (isDevFieldAuditAuth()) {
+        queryClient.setQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd], prev =>
+          (prev ?? []).map(j => j.id === jobId ? { ...j, start_time: startTime, end_time: endTime } : j),
+        );
+        return;
+      }
+      const { error } = await supabase.from('jobs').update({
+        start_time: startTime,
+        end_time: endTime,
+        updated_at: new Date().toISOString(),
+      }).eq('id', jobId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['job'] });
+      queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule-job-search'] });
+    },
+  });
+
+  const handlePickJob = useCallback((job: JobWithClient | null) => {
+    setPickedJob(job);
+  }, []);
+
+  const handleRailDragStart = (e: React.DragEvent, jobId: string) => {
+    e.dataTransfer.setData('text/plain', jobId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const placePickedOnPerson = (employeeId: string) => {
+    if (!pickedJob) return;
+    rescheduleJob.mutate({
+      jobId: pickedJob.id,
+      date: format(currentDate, 'yyyy-MM-dd'),
+      employeeId,
+      startTime: pickedJob.start_time ? undefined : DEFAULT_SLOT_START,
+    });
+    setPickedJob(null);
+    setJobQuery('');
+  };
 
   const handleDayClick = (dateStr: string, employeeId?: string) => {
     setSelectedDate(dateStr);
@@ -237,18 +328,13 @@ export function SchedulePage() {
 
   const unassignedOnBoard = onBoard.filter(j => !(j.assigned_team ?? []).length).length;
 
-  const handleRailDragStart = (e: React.DragEvent, jobId: string) => {
-    e.dataTransfer.setData('text/plain', jobId);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load schedule" /></AppShell>;
 
   return (
     <AppShell>
       <div className="ops-page hub-board-cal">
         <div className="ops-page-head">
-          <div>
+          <div className="min-w-0">
             <h1 className="ops-page-title">Schedule</h1>
             <p className="ops-meta mt-0.5">
               {onBoard.length} on the board
@@ -257,17 +343,48 @@ export function SchedulePage() {
               {viewMode === 'day' && ` · ${format(currentDate, 'EEEE, d MMMM yyyy')}`}
             </p>
           </div>
-          <button
-            onClick={() => {
-              setSelectedDate(format(currentDate, 'yyyy-MM-dd'));
-              setPresetEmployeeId(undefined);
-              setShowForm(true);
-            }}
-            className="btn-primary"
-          >
-            <Plus size={16} /> New Job
-          </button>
+          <div className="flex items-center gap-2 flex-wrap min-w-0 w-full lg:w-auto lg:flex-1 lg:justify-end">
+            <ScheduleJobSearch
+              query={jobQuery}
+              onQuery={setJobQuery}
+              results={searchHits}
+              loading={searchLoading && debouncedQuery.length > 0}
+              selectedId={pickedJob?.id ?? null}
+              onSelect={handlePickJob}
+              onDragStart={handleRailDragStart}
+            />
+            <button
+              onClick={() => {
+                setSelectedDate(format(currentDate, 'yyyy-MM-dd'));
+                setPresetEmployeeId(undefined);
+                setShowForm(true);
+              }}
+              className="btn-primary shrink-0"
+            >
+              <Plus size={16} /> New Job
+            </button>
+          </div>
         </div>
+
+        {pickedJob && (teamMembers ?? []).length > 0 && (
+          <div className="lg:hidden ops-card p-3 mb-3">
+            <p className="text-sm font-medium text-navy">
+              {pickedJob.title} — tap a person to place it today at 8:00
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {(teamMembers ?? []).map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => placePickedOnPerson(m.id)}
+                >
+                  {m.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div className="flex items-center gap-2">
@@ -391,7 +508,12 @@ export function SchedulePage() {
                     currentDate={currentDate}
                     onJobClick={job => navigate(`/jobs/${job.id}`)}
                     onDayClick={handleDayClick}
-                    onJobDrop={drop => rescheduleJob.mutate(drop)}
+                    onJobDrop={drop => {
+                      rescheduleJob.mutate(drop);
+                      setJobQuery('');
+                      setPickedJob(null);
+                    }}
+                    onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
                     filteredEmployeeIds={filteredEmployeeIds}
                   />
                 ) : (
@@ -401,7 +523,11 @@ export function SchedulePage() {
                     currentDate={currentDate}
                     onJobClick={job => navigate(`/jobs/${job.id}`)}
                     onDayClick={handleDayClick}
-                    onJobDrop={drop => rescheduleJob.mutate(drop)}
+                    onJobDrop={drop => {
+                      rescheduleJob.mutate(drop);
+                      setJobQuery('');
+                      setPickedJob(null);
+                    }}
                     filteredEmployeeIds={filteredEmployeeIds}
                   />
                 )}

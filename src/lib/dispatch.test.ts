@@ -6,6 +6,7 @@ import {
   nextAssignedTeam,
   placeDayRowJobs,
   rescheduleJobPatch,
+  resizeJobTimes,
   startTimeFromDropOffset,
 } from './dispatch';
 
@@ -68,17 +69,17 @@ describe('applyDropStartTime', () => {
     });
   });
 
-  it('sets start only when the job had no end', () => {
+  it('gives a one-hour slot when the job had no end', () => {
     expect(applyDropStartTime('08:00:00', null, '09:30:00')).toEqual({
       start_time: '09:30:00',
-      end_time: null,
+      end_time: '10:30:00',
     });
   });
 
-  it('turns an all-day job into a timed slot', () => {
+  it('turns an all-day job into a one-hour time slot', () => {
     expect(applyDropStartTime(null, null, '07:00:00')).toEqual({
       start_time: '07:00:00',
-      end_time: null,
+      end_time: '08:00:00',
     });
   });
 });
@@ -145,13 +146,15 @@ describe('rescheduleJobPatch', () => {
     });
   });
 
-  it('assigns a single tech when moving off Unassigned', () => {
+  it('gives an untimed job a morning slot when dropped on a person', () => {
     expect(rescheduleJobPatch(
       { assigned_team: [], start_time: null, end_time: null },
       { date: '2026-08-20', employeeId: 'alice' },
     )).toEqual({
       scheduled_date: '2026-08-20',
       assigned_team: ['alice'],
+      start_time: '08:00:00',
+      end_time: '09:00:00',
     });
   });
 
@@ -176,5 +179,26 @@ describe('rescheduleJobPatch', () => {
       start_time: '13:00:00',
       end_time: '15:00:00',
     });
+  });
+});
+
+describe('resizeJobTimes', () => {
+  it('drags the finish edge later and snaps to 15 minutes', () => {
+    expect(resizeJobTimes('08:00:00', '09:00:00', 'end', 8 * 60 + 40)).toEqual({
+      start_time: '08:00:00',
+      end_time: '08:45:00',
+    });
+  });
+
+  it('keeps a 15-minute minimum when dragging start toward finish', () => {
+    expect(resizeJobTimes('08:00:00', '10:00:00', 'start', 10 * 60)).toEqual({
+      start_time: '09:45:00',
+      end_time: '10:00:00',
+    });
+  });
+
+  it('does not run past the visible day', () => {
+    expect(resizeJobTimes('18:00:00', '19:00:00', 'end', 22 * 60).end_time).toBe('20:00:00');
+    expect(resizeJobTimes('07:00:00', '08:00:00', 'start', 4 * 60).start_time).toBe('06:00:00');
   });
 });

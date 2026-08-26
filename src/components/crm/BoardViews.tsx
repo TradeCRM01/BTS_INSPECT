@@ -14,7 +14,9 @@ import {
   DAY_END_HOUR,
   HOUR_WIDTH_PX,
   timeToMinutes,
+  resizeJobTimes,
   type JobDropPayload,
+  type ResizeEdge,
 } from '../../lib/dispatch';
 import {
   format, isToday, addDays, startOfWeek,
@@ -38,6 +40,7 @@ export interface BoardProps {
   onJobClick: (job: JobWithClient) => void;
   onDayClick: (dateStr: string, employeeId?: string) => void;
   onJobDrop?: (drop: JobDropPayload) => void;
+  onJobResize?: (jobId: string, startTime: string, endTime: string) => void;
   filteredEmployeeIds: Set<string>;
 }
 
@@ -301,10 +304,11 @@ export const PhoneDayList = memo(function PhoneDayList({
 // ── Day Board View ───────────────────────────────────────────────
 
 export const DayBoardView = memo(function DayBoardView({
-  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds,
+  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, onJobResize, filteredEmployeeIds,
 }: BoardProps) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverId, setDropHoverId] = useState<string | null>(null);
+  const [resizePreview, setResizePreview] = useState<{ jobId: string; start_time: string; end_time: string } | null>(null);
   const dateStr = dateKey(currentDate);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -387,6 +391,47 @@ export const DayBoardView = memo(function DayBoardView({
     handleDrop(e, empId, startTime);
   };
 
+  const beginResize = (e: React.PointerEvent, job: JobWithClient, edge: ResizeEdge, gridEl: HTMLElement) => {
+    if (!onJobResize || !job.start_time) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const gridLeft = gridEl.getBoundingClientRect().left;
+    const originStart = job.start_time;
+    const originEnd = job.end_time;
+    const pointerId = e.pointerId;
+
+    const minutesAt = (clientX: number) => {
+      const start = startTimeFromDropOffset(clientX - gridLeft, {
+        hourWidth: HOUR_WIDTH,
+        dayStart: DAY_START,
+        dayEnd: DAY_END,
+      });
+      return timeToMinutes(start) ?? DAY_START * 60;
+    };
+
+    const applyPreview = (clientX: number) => {
+      const next = resizeJobTimes(originStart, originEnd, edge, minutesAt(clientX));
+      setResizePreview({ jobId: job.id, ...next });
+    };
+
+    applyPreview(e.clientX);
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      applyPreview(ev.clientX);
+    };
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      const next = resizeJobTimes(originStart, originEnd, edge, minutesAt(ev.clientX));
+      setResizePreview(null);
+      onJobResize(job.id, next.start_time, next.end_time);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
   const gridWidth = HOURS.length * HOUR_WIDTH;
 
   return (
@@ -403,7 +448,7 @@ export const DayBoardView = memo(function DayBoardView({
         <p className="ops-meta">
           {unassignedCount > 0
             ? `${unassignedCount} unassigned · drop on a person to add them`
-            : 'Drop on a person to add them · Unassigned keeps the date'}
+            : 'Search a job, drop it on a person or a time · drag the ends to change duration'}
         </p>
       </div>
 
@@ -474,6 +519,7 @@ export const DayBoardView = memo(function DayBoardView({
               </div>
 
               <div
+                data-day-grid="1"
                 className="relative cursor-pointer"
                 style={{ width: gridWidth, height }}
                 onClick={() => onDayClick(dateStr, isUnassigned ? undefined : row.id)}
@@ -511,20 +557,50 @@ export const DayBoardView = memo(function DayBoardView({
                       </div>
                     );
                   }
-                  const startM = timeToMinutes(job.start_time);
-                  const endM = timeToMinutes(job.end_time) ?? (startM ?? DAY_START * 60) + 60;
+                  const preview = resizePreview?.jobId === job.id ? resizePreview : null;
+                  const startM = timeToMinutes(preview?.start_time ?? job.start_time);
+                  const endM = timeToMinutes(preview?.end_time ?? job.end_time) ?? (startM ?? DAY_START * 60) + 60;
                   if (startM == null) return null;
                   const left = Math.max(0, (startM / 60 - DAY_START) * HOUR_WIDTH + 2);
                   const width = Math.max(60, ((endM - startM) / 60) * HOUR_WIDTH - 4);
                   const top = ROW_PAD + layout.allDayCount * ALL_DAY_H + placed.lane * TIMED_H;
+                  const displayJob = preview
+                    ? { ...job, start_time: preview.start_time, end_time: preview.end_time }
+                    : job;
                   return (
                     <div
                       key={job.id}
                       className="absolute"
                       style={{ left, width, top, height: TIMED_H - 4 }}
                     >
+                      {onJobResize && (
+                        <>
+                          <div
+                            role="separator"
+                            aria-label="Drag to change start time"
+                            className="absolute left-0 top-0 bottom-0 w-2 z-10 cursor-ew-resize hover:bg-navy/25 rounded-l"
+                            onPointerDown={e => {
+                              const grid = (e.currentTarget as HTMLElement).closest('[data-day-grid]');
+                              if (grid instanceof HTMLElement) beginResize(e, job, 'start', grid);
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            onDragStart={e => e.preventDefault()}
+                          />
+                          <div
+                            role="separator"
+                            aria-label="Drag to change finish time"
+                            className="absolute right-0 top-0 bottom-0 w-2 z-10 cursor-ew-resize hover:bg-navy/25 rounded-r"
+                            onPointerDown={e => {
+                              const grid = (e.currentTarget as HTMLElement).closest('[data-day-grid]');
+                              if (grid instanceof HTMLElement) beginResize(e, job, 'end', grid);
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            onDragStart={e => e.preventDefault()}
+                          />
+                        </>
+                      )}
                       <JobBlock
-                        job={job}
+                        job={displayJob}
                         teamMembers={teamMembers}
                         compact={width < 120}
                         dragging={dragJobId === job.id}
