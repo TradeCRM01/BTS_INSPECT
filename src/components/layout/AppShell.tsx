@@ -81,13 +81,13 @@ const OFFICE_GROUPS: NavGroup[] = [
   },
 ];
 
-const NAV_GROUPS: NavGroup[] = [FIELD_GROUP, ...OFFICE_GROUPS];
-
-const FIELD_SHORTCUTS = [
-  { to: '/inspections', label: 'Inspections' },
-  { to: '/jha', label: 'JHA' },
-  { to: '/templates', label: 'Templates' },
-] as const;
+const NAV_GROUPS: NavGroup[] = [
+  OFFICE_GROUPS[0], // Dashboard
+  OFFICE_GROUPS[1], // CRM
+  FIELD_GROUP,
+  OFFICE_GROUPS[2], // Financials
+  OFFICE_GROUPS[3], // Inventory
+];
 
 function isNavItemActive(item: { to: string }, pathname: string, allItems?: { to: string }[]): boolean {
   if (item.to === '/') return pathname === '/';
@@ -279,7 +279,6 @@ export function AppShell({ children }: AppShellProps) {
               const groupActive = isGroupActive(group, location.pathname);
               const isOpen = openGroup === group.label;
               const Icon = group.icon;
-              const field = group.label === 'Field Work';
               return (
                 <div
                   key={group.label}
@@ -299,9 +298,9 @@ export function AppShell({ children }: AppShellProps) {
                       groupActive
                         ? 'text-white border-accent'
                         : 'text-white/65 border-transparent hover:text-white hover:border-white/25'
-                    } ${field && !groupActive ? 'text-white/85' : ''}`}
+                    }`}
                   >
-                    <Icon size={14} strokeWidth={field ? 2.25 : 2} />
+                    <Icon size={14} />
                     <span>{group.label}</span>
                     <ChevronDown size={11} className={`text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </button>
@@ -423,28 +422,8 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         </div>
 
-        {/* Field ops — always visible on mobile so JHA / inspections / templates are one glance */}
-        <nav className="md:hidden grid grid-cols-3 border-t border-white/10" aria-label="Field Work">
-          {FIELD_SHORTCUTS.map((item) => {
-            const active = isNavItemActive(item, location.pathname, FIELD_GROUP.items);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={`flex items-center justify-center min-h-[44px] text-xs font-semibold tracking-tight border-b-2 ${
-                  active
-                    ? 'text-white border-accent bg-white/5'
-                    : 'text-white/65 border-transparent'
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
         {menuOpen && (
-          <div className="md:hidden border-t border-white/10 bg-navy max-h-[calc(100vh-6rem)] overflow-y-auto">
+          <div className="md:hidden border-t border-white/10 bg-navy max-h-[calc(100vh-4rem)] overflow-y-auto">
             <button
               type="button"
               onClick={() => {
@@ -455,21 +434,7 @@ export function AppShell({ children }: AppShellProps) {
             >
               <Search size={16} /> Search
             </button>
-            <p className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-white/40">Field Work</p>
-            {FIELD_GROUP.items.map((item) => {
-              const ItemIcon = item.icon;
-              const itemActive = isNavItemActive(item, location.pathname, FIELD_GROUP.items);
-              return (
-                <Link key={item.to} to={item.to} onClick={() => setMenuOpen(false)}
-                  className={`flex items-center gap-2.5 px-4 py-3 text-sm tracking-tight ${
-                    itemActive ? 'text-white font-medium bg-white/5' : 'text-white/70'
-                  }`}>
-                  <ItemIcon size={16} className={itemActive ? 'text-white' : 'text-white/45'} /> {item.label}
-                </Link>
-              );
-            })}
-
-            {OFFICE_GROUPS.map((group) => {
+            {NAV_GROUPS.map((group) => {
               const groupActive = isGroupActive(group, location.pathname);
               const isExpanded = openGroup === group.label;
               const Icon = group.icon;
