@@ -1695,7 +1695,7 @@ Deno.serve(async (req) => {
     const purpose = String(body.purpose ?? "").trim();
     const due = String(body.due ?? "").trim();
     const appUrl = String(body.appUrl ?? body.app_url ?? "").replace(/\/$/, "")
-      || "https://bts-inspect.pages.dev";
+      || "https://grafter.com.au";
     const tomorrow = tomorrowYmd();
     const attachmentIn = body.attachment as
       | { filename?: string; content?: string }
