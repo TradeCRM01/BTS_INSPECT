@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
+import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Palette } from 'lucide-react';
@@ -696,7 +697,7 @@ export function CompanySettingsPage() {
 
             {loadingUsers ? (
               <p className="text-xs text-[#4A5568]">Loading users...</p>
-            ) : usersError ? (
+            ) : usersError && !isDevFieldAuditAuth() ? (
               <div className="text-xs text-[#B42318]">
                 Could not load registered users.{' '}
                 <button type="button" onClick={() => refetchUsers()} className="underline font-medium">
