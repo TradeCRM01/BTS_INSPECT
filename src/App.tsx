@@ -30,6 +30,7 @@ const TeamSettingsPage = lazy(() => import('./pages/TeamSettingsPage').then(m =>
 const AiConsolePage = lazy(() => import('./pages/AiConsolePage').then(m => ({ default: m.AiConsolePage })));
 const AiAssistantPage = lazy(() => import('./pages/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })));
 const AiSettingsPage = lazy(() => import('./pages/AiSettingsPage').then(m => ({ default: m.AiSettingsPage })));
+const CompanyOnboardPage = lazy(() => import('./pages/CompanyOnboardPage').then(m => ({ default: m.CompanyOnboardPage })));
 const JhaTemplateEditorPage = lazy(() => import('./pages/JhaTemplateEditorPage').then(m => ({ default: m.JhaTemplateEditorPage })));
 const JhaFillPage = lazy(() => import('./pages/JhaFillPage').then(m => ({ default: m.JhaFillPage })));
 const JhaDocumentsPage = lazy(() => import('./pages/JhaDocumentsPage').then(m => ({ default: m.JhaDocumentsPage })));
@@ -130,6 +131,7 @@ export default function App() {
       <Route path="/ai-console" element={<Protected><AiConsolePage /></Protected>} />
       <Route path="/assistant" element={<Protected><AiAssistantPage /></Protected>} />
       <Route path="/settings/ai" element={<Protected><AiSettingsPage /></Protected>} />
+      <Route path="/settings/onboard" element={<Protected><CompanyOnboardPage /></Protected>} />
       <Route path="/jha-templates" element={<Navigate to="/templates" replace />} />
       <Route path="/jha-templates/new" element={<Protected><JhaTemplateEditorPage /></Protected>} />
       <Route path="/jha-templates/:id" element={<Protected><JhaTemplateEditorPage /></Protected>} />

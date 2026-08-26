@@ -9,7 +9,7 @@ import {
   ClipboardList, LayoutTemplate, Settings, LogOut,
   User, Menu, X, Zap, ChevronDown, Users, BrainCircuit, RotateCw, Sparkles, FileText,
   Calendar, Receipt, ShoppingCart, Package, Truck, FolderOpen,
-  Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, Wallet, Sun, Search, Shield, type LucideIcon,
+  Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, Wallet, Sun, Search, Shield, FileUp, type LucideIcon,
 } from 'lucide-react';
 import { GlobalSearch } from '../search/GlobalSearch';
 
@@ -391,6 +391,10 @@ export function AppShell({ children }: AppShellProps) {
                           className="shell-menu-item">
                           <BrainCircuit size={15} className="text-white/45" /> AI Settings
                         </Link>
+                        <Link to="/settings/onboard" onClick={() => setAvatarOpen(false)}
+                          className="shell-menu-item">
+                          <FileUp size={15} className="text-white/45" /> Set up from docs
+                        </Link>
                         <Link to="/ai-console" onClick={() => setAvatarOpen(false)}
                           className="shell-menu-item">
                           <Sparkles size={15} className="text-white/45" /> AI Console
@@ -528,6 +532,9 @@ export function AppShell({ children }: AppShellProps) {
                 </Link>
                 <Link to="/settings/ai" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
                   <BrainCircuit size={16} /> AI Settings
+                </Link>
+                <Link to="/settings/onboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+                  <FileUp size={16} /> Set up from docs
                 </Link>
                 <Link to="/ai-console" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/80 font-medium">
                   <Sparkles size={16} /> AI Console

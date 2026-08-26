@@ -140,7 +140,7 @@ export function AiSettingsPage() {
                 <h2 className="text-sm font-semibold text-[#1A1A1A]">Anthropic API Key</h2>
               </div>
               <p className="text-xs text-[#4A5568] mb-4">
-                Required for both the AI Console and AI Help Assistant.
+                Required for the AI Console, Help Assistant, price book import, and Set up from docs.
                 Get your key at{' '}
                 <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer"
                   className="text-[#2E75B6] hover:underline">
