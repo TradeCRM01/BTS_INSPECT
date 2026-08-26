@@ -318,6 +318,8 @@ export function FieldAuditPage() {
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/settings/company">Company</Link>
         {' · '}
+        <Link className="text-[#2E75B6] underline" to="/settings/onboard">Set up from docs</Link>
+        {' · '}
         <Link className="text-[#2E75B6] underline" to="/settings/profile">Profile</Link>
         {' · '}
         <Link className="text-[#2E75B6] underline" to="/settings/ai">AI</Link>

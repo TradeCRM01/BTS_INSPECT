@@ -331,7 +331,17 @@ export function CompanySettingsPage() {
     <AppShell>
       <div className="page-shell-narrow">
         <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">Company Settings</h1>
-        <p className="text-sm text-[#4A5568] mb-6">Manage your company profile and branding.</p>
+        <p className="text-sm text-[#4A5568] mb-6">
+          Manage your company profile and branding.
+          {isAdmin && (
+            <>
+              {' '}
+              <Link to="/settings/onboard" className="text-[#2E75B6] hover:underline">
+                Set up from docs
+              </Link>
+            </>
+          )}
+        </p>
 
         {/* Default Tax Rate */}
         <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
