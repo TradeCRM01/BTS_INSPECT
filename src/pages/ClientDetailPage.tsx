@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsSiteRow } from '../components/ui';
+import { LoadingSpinner, PageError, Breadcrumbs, ContextMenu, useToast, OpsSiteRow } from '../components/ui';
+import type { MenuEntry } from '../components/ui';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import type { Client, JobWithClient } from '../types/crm';
 import {
   formatMoney,
 } from '../types/fsm';
 import type { QuoteStatus } from '../types/fsm';
-import { Briefcase, Plus, FileText, ShieldCheck, Receipt, ClipboardList, Mail, Phone } from 'lucide-react';
-import { getAuditClient, getAuditEmptyList } from '../lib/devFieldAuditDocs';
+import { Briefcase, Plus, FileText, ShieldCheck, Receipt, ClipboardList, Mail, Phone, CreditCard as Edit3 } from 'lucide-react';
+import { getAuditClient, getAuditEmptyList, getAuditJobs } from '../lib/devFieldAuditDocs';
 import {
   jobClientEmailRow,
   jobClientEmailSaveToast,
@@ -52,7 +53,9 @@ import {
   clientJobFloorMeta,
   clientJobFloorTitle,
   clientJobOpenHref,
+  clientJobStatusLabel,
   clientJobsEmptyTitle,
+  padClientJobNumber,
   sortClientJobsForFloor,
 } from '../lib/clientsFloor';
 
@@ -101,6 +104,20 @@ function visibleSite(...parts: Array<string | null | undefined>): string {
 
 const nextQuiet = 'hub-next shrink-0';
 
+function clientRecordMenu(
+  navigate: ReturnType<typeof useNavigate>,
+  quoteHref: string,
+  invoiceHref: string,
+  onEdit: () => void,
+): MenuEntry[] {
+  return [
+    { label: 'New quote', icon: FileText, onClick: () => navigate(quoteHref) },
+    { label: 'New invoice', icon: Receipt, onClick: () => navigate(invoiceHref) },
+    { divider: true },
+    { label: 'Edit', icon: Edit3, onClick: onEdit },
+  ];
+}
+
 /** Honest no-email miss on this card — write the address below. Not a send line. */
 export const CLIENT_SHEET_NO_EMAIL =
   'This client has no email. Add one below.';
@@ -111,6 +128,7 @@ export const CLIENT_SHEET_NO_PHONE =
 export function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [showEdit, setShowEdit] = useState(false);
@@ -141,8 +159,10 @@ export function ClientDetailPage() {
   const { data: jobs, isError: jobsError } = useQuery<JobWithClient[]>({
     queryKey: ['client-jobs', id, profile?.company_id],
     queryFn: async () => {
-      const empty = getAuditEmptyList();
-      if (empty) return empty as JobWithClient[];
+      const mock = getAuditJobs();
+      if (mock) {
+        return mock.filter(job => !id || job.client_id === id) as JobWithClient[];
+      }
       const { data, error } = await applyHubScope(supabase.from('jobs'), hubScopes!.jobs)
         .order('scheduled_date', { ascending: false, nullsFirst: false });
       if (error) throw error;
@@ -274,24 +294,21 @@ export function ClientDetailPage() {
 
         <div className="ops-page-head">
           <div className="min-w-0">
+            <p className="hub-clients-kicker">Client</p>
             <h1 className="ops-page-title">{client.name}</h1>
             {client.contact_person ? (
-              <p className="ops-meta mt-1">{client.contact_person}</p>
+              <p className="hub-clients-muted mt-2">{client.contact_person}</p>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-3 shrink-0">
-            <Link to={newQuoteHref} className="ops-link">New quote</Link>
-            <Link to={newInvoiceHref} className="ops-link">New invoice</Link>
-            <button type="button" onClick={() => setShowEdit(true)} className="ops-link">
-              Edit
-            </button>
+          <div className="hub-clients-head-act">
             <Link to={newJobHref} className="btn-primary">
               <Plus size={16} /> New job
             </Link>
+            <ContextMenu items={clientRecordMenu(navigate, newQuoteHref, newInvoiceHref, () => setShowEdit(true))} />
           </div>
         </div>
 
-        <div className="mb-6">
+        <div className="hub-clients-contact-sheet">
           <OpsSiteRow
             hub
             site={visibleSite(client.address)}
@@ -377,33 +394,57 @@ export function ClientDetailPage() {
 
         <HubMoney ready={moneyReady} overdue={money.overdue} outstanding={money.outstanding} />
 
-        <div className="hub-trays">
-          <JobRelatedSection
-            title="Jobs"
-            icon={Briefcase}
-            count={floorJobs.length}
-            emptyTitle={clientJobsEmptyTitle({ error: jobsError, count: floorJobs.length }) || 'No jobs yet'}
-            emptyAction={jobsError ? undefined : <Link to={newJobHref} className="ops-link">New job</Link>}
-          >
-            {floorJobs.map(job => {
-              const next = withReminderNext(job, jobListNext(job));
-              return (
-                <JobRelatedRow
-                  key={job.id}
-                  href={clientJobOpenHref(job.id)}
-                  icon={Briefcase}
-                  title={clientJobFloorTitle(job)}
-                  meta={clientJobFloorMeta(job)}
-                  action={
-                    next.actionable ? (
-                      <Link to={next.href} className={nextQuiet}>{next.label}</Link>
-                    ) : null
-                  }
-                />
-              );
-            })}
-          </JobRelatedSection>
+        <div className="hub-clients-jobs-sheet">
+          <div className="hub-clients-jobs-head">
+            <h2 className="hub-clients-jobs-title">Jobs</h2>
+          </div>
+          {floorJobs.length === 0 ? (
+            <div className="hub-clients-jobs-empty">
+              <p>{clientJobsEmptyTitle({ error: jobsError, count: floorJobs.length }) || 'No jobs yet'}</p>
+              {jobsError ? null : <Link to={newJobHref} className="hub-clients-next">New job</Link>}
+            </div>
+          ) : (
+            <>
+              <div className="hub-clients-jobs-thead">
+                <span>#</span>
+                <span>Site</span>
+                <span>Status</span>
+                <span />
+              </div>
+              {floorJobs.map(job => {
+                const next = withReminderNext(job, jobListNext(job));
+                const href = clientJobOpenHref(job.id);
+                const status = clientJobStatusLabel(job.status) ?? '';
+                return (
+                  <div
+                    key={job.id}
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => navigate(href)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(href); } }}
+                    className="hub-clients-job-row"
+                    title={clientJobFloorMeta(job)}
+                  >
+                    <span className="hub-clients-ref">
+                      {job.job_number != null ? `#${padClientJobNumber(job.job_number)}` : ''}
+                    </span>
+                    <span className="truncate">{clientJobFloorTitle(job)}</span>
+                    <span className={`hub-clients-pill is-${job.status || 'scheduled'}`}>{status}</span>
+                    <span className="hub-clients-row-next" onClick={e => e.stopPropagation()}>
+                      {next.actionable ? (
+                        <Link to={next.href} className={nextQuiet}>{next.label}</Link>
+                      ) : (
+                        <span className="hub-clients-muted">{next.label}</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </div>
 
+        <div className="hub-trays hub-clients-more-trays">
           <JobRelatedSection
             title="Quotes"
             icon={FileText}

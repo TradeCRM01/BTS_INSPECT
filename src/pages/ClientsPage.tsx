@@ -1,14 +1,14 @@
 import { useState, useMemo, memo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { getAuditClients, getAuditJobs } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, ViewToggle, useViewMode, LoadingSpinner } from '../components/ui';
+import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, LoadingSpinner } from '../components/ui';
 import type { MenuEntry } from '../components/ui';
 import type { Client, ClientWithStats } from '../types/crm';
-import { formatMoney } from '../types/fsm';
 import { Plus, Users, X, Trash2, CreditCard as Edit3, Archive, ArchiveRestore, Briefcase, FileText, Receipt } from 'lucide-react';
 import {
   AU_ADDRESS_PLACEHOLDER,
@@ -21,7 +21,6 @@ import {
   newInvoiceFromClientHref,
   newJobFromClientHref,
   newQuoteFromClientHref,
-  visibleClientContacts,
 } from '../lib/clientRecords';
 import {
   clientListFloorJobScope,
@@ -30,6 +29,13 @@ import {
   filterClientsForSearch,
   formatClientJobCount,
 } from '../lib/clientsFloor';
+
+function clientSuburbFromSite(site: string): string {
+  const parts = site.split(',').map(part => part.trim()).filter(Boolean);
+  if (parts.length < 2) return site;
+  const loc = parts[1].replace(/\b(NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\b.*$/i, '').trim();
+  return loc || parts[1];
+}
 
 export function ClientsPage() {
   const { profile } = useAuth();
@@ -40,11 +46,30 @@ export function ClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
-  const [viewMode, setViewMode] = useViewMode('clients');
 
   const { data: clients, isLoading, error } = useQuery<Array<ClientWithStats & { jobSearchBits: string[] }>>({
     queryKey: ['clients', showArchived, profile?.company_id],
     queryFn: async () => {
+      const mock = getAuditClients();
+      if (mock) {
+        const jobs = getAuditJobs() ?? [];
+        const jobSearchByClient = collectJobSearchBitsByClient(jobs);
+        return mock
+          .filter(c => c.archived === showArchived)
+          .map(c => {
+            const theirs = jobs.filter(j => j.client_id === c.id);
+            return {
+              ...c,
+              job_count: theirs.length,
+              active_jobs: theirs.filter(j => j.status === 'scheduled' || j.status === 'in_progress').length,
+              last_job_date: null as string | null,
+              quoted_total: 0,
+              outstanding_total: 0,
+              overdue_total: 0,
+              jobSearchBits: jobSearchByClient.get(c.id) ?? [],
+            };
+          });
+      }
       if (!profile?.company_id) return [];
       const { data, error } = await supabase
         .from('clients')
@@ -183,26 +208,35 @@ export function ClientsPage() {
       <div className="ops-page hub-clients">
         <div className="ops-page-head">
           <div>
+            <p className="hub-clients-kicker">Clients</p>
             <h1 className="ops-page-title">Clients</h1>
           </div>
           <button
             onClick={() => { setEditingClient(null); setShowForm(true); }}
             className="btn-primary"
           >
-            <Plus size={16} /> Add Client
+            <Plus size={16} /> New client
           </button>
         </div>
 
         <div className="hub-clients-chrome">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search by name, site, job, phone, or email..." className="max-w-sm flex-1" />
-          <ViewToggle mode={viewMode} onChange={setViewMode} />
-          <button
-            type="button"
-            onClick={() => setShowArchived(v => !v)}
-            className="hub-chrome-filter"
-          >
-            {showArchived ? 'Archived' : 'Active'}
-          </button>
+          <div className="hub-clients-filters">
+            <button
+              type="button"
+              onClick={() => setShowArchived(false)}
+              className={`hub-chrome-filter ${!showArchived ? 'hub-chrome-filter-on' : ''}`}
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowArchived(true)}
+              className={`hub-chrome-filter ${showArchived ? 'hub-chrome-filter-on' : ''}`}
+            >
+              Archived
+            </button>
+          </div>
+          <SearchBar value={search} onChange={setSearch} placeholder="Search by name, site, job, phone, or email..." className="max-w-sm" />
         </div>
 
         {isLoading ? (
@@ -219,7 +253,13 @@ export function ClientsPage() {
             )}
           />
         ) : (
-          <div className={viewMode === 'list' ? 'hub-stack hub-stack-tight' : 'hub-stack'}>
+          <div className="hub-clients-sheet">
+            <div className="hub-clients-thead">
+              <span>Customer</span>
+              <span>Suburb</span>
+              <span>Jobs</span>
+              <span />
+            </div>
             {filtered.map(client => (
               <ClientRow
                 key={client.id}
@@ -273,17 +313,6 @@ function clientMenuItems(client: ClientWithStats, navigate: ReturnType<typeof us
   ];
 }
 
-function clientSignal(client: ClientWithStats) {
-  const overdue = client.overdue_total ?? 0;
-  if (overdue > 0) {
-    return { kind: 'overdue' as const, amount: formatMoney(overdue) };
-  }
-  if ((client.active_jobs ?? 0) > 0) {
-    return { kind: 'live' as const };
-  }
-  return null;
-}
-
 const ClientRow = memo(function ClientRow({
   client, onEdit, onArchive, onDelete,
 }: {
@@ -293,52 +322,26 @@ const ClientRow = memo(function ClientRow({
   onDelete: () => void;
 }) {
   const navigate = useNavigate();
-  const signal = clientSignal(client);
   const site = client.address?.trim() ?? '';
+  const suburb = site ? clientSuburbFromSite(site) : '';
   const jobsLabel = formatClientJobCount(client.job_count ?? 0);
-  const lines = visibleClientContacts({ phone: client.phone, email: client.email, address: null });
+  const openHref = clientOpenHref(client.id);
 
   return (
     <div
       role="link"
       tabIndex={0}
-      onClick={() => navigate(clientOpenHref(client.id))}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(clientOpenHref(client.id)); } }}
-      className="hub-row"
+      onClick={() => navigate(openHref)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(openHref); } }}
+      className="hub-clients-row"
     >
-      <div className="min-w-0 flex-1">
-        <p className="hub-row-name">{client.name}</p>
-        {client.contact_person ? (
-          <p className="ops-meta truncate">{client.contact_person}</p>
-        ) : null}
-        {site ? <p className="ops-meta truncate">{site}</p> : null}
-        {lines.length > 0 ? (
-          <div className="mt-1 flex flex-col gap-0.5 min-w-0">
-            {lines.map(line => (
-              <a
-                key={line.kind}
-                href={line.href}
-                className="ops-link truncate"
-                onClick={e => e.stopPropagation()}
-              >
-                {line.label}
-              </a>
-            ))}
-          </div>
-        ) : null}
-      </div>
-      {jobsLabel ? <p className="hub-row-signal ops-meta">{jobsLabel}</p> : null}
-      {signal?.kind === 'overdue' ? (
-        <div className="hub-row-signal">
-          <p className="hub-signal-amount text-fail">{signal.amount}</p>
-          <p className="ops-meta">Overdue</p>
-        </div>
-      ) : signal?.kind === 'live' ? (
-        <p className="hub-row-signal ops-meta">Live</p>
-      ) : null}
-      <div className="shrink-0" onClick={e => e.stopPropagation()}>
+      <span className="hub-clients-name">{client.name}</span>
+      <span className="truncate hub-clients-muted">{suburb}</span>
+      <span className="hub-clients-jobs">{jobsLabel ?? ''}</span>
+      <span className="hub-clients-row-next" onClick={e => e.stopPropagation()}>
+        <Link to={openHref} className="hub-clients-next">Open</Link>
         <ContextMenu items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} />
-      </div>
+      </span>
     </div>
   );
 });

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -254,6 +254,82 @@ describe('clients floor wiring', () => {
       expect(list).not.toContain(name);
       expect(detail).not.toContain(name);
       expect(floor).not.toContain(name);
+    }
+  });
+});
+
+describe('clients look — cream paper rows', () => {
+  it('paints list and record as signed cream sheets, not a poster', () => {
+    const list = src('src/pages/ClientsPage.tsx');
+    const detail = src('src/pages/ClientDetailPage.tsx');
+    const css = src('src/index.css');
+    const clientCssStart = css.indexOf('/* Clients look only');
+    const clientCssEnd = css.indexOf('/* End client sheet contact write */');
+    expect(clientCssStart).toBeGreaterThan(-1);
+    expect(clientCssEnd).toBeGreaterThan(clientCssStart);
+    const clientCss = css.slice(clientCssStart, clientCssEnd);
+
+    expect(list).toContain('hub-clients');
+    expect(list).toContain('hub-clients-sheet');
+    expect(list).toContain('hub-clients-row');
+    expect(list).toContain('hub-clients-kicker');
+    expect(list).toContain('Customer');
+    expect(list).toContain('Suburb');
+    expect(list).toContain('Jobs');
+    expect(list).toContain('Open');
+    expect(list).not.toContain('ViewToggle');
+    expect(list).not.toContain('function ClientCard');
+    expect(list).not.toMatch(/Relovi|Littleloop/);
+
+    expect(detail).toContain('hub-clients-contact-sheet');
+    expect(detail).toContain('hub-clients-jobs-sheet');
+    expect(detail).toContain('hub-clients-job-row');
+    expect(detail).toContain('hub-clients-pill');
+    expect(detail).toContain('clientJobOpenHref');
+    expect(detail).toContain('clientJobFloorMeta');
+    expect(detail).toContain('className="btn-primary"');
+    expect(detail).toContain('New job');
+    expect(detail).not.toMatch(/Relovi|Littleloop/);
+
+    expect(clientCss).toContain('--client-page: #F5F0E6');
+    expect(clientCss).toContain('--client-sheet: #FFFDF8');
+    expect(clientCss).toContain('--client-ink: #0A2540');
+    expect(clientCss).toContain('--client-muted: #5B6B7C');
+    expect(clientCss).toContain('--client-line: #E2D9CC');
+    expect(clientCss).toContain('#2E75B6');
+    expect(clientCss).toContain("font-family: Rajdhani, sans-serif");
+    expect(clientCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(clientCss).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
+    expect(clientCss).toContain('letter-spacing: 0.12em');
+    expect(clientCss).not.toContain('indigo-500');
+    expect(clientCss).not.toMatch(/#111|#000\b/);
+  });
+
+  it('does not restyle jobs, quotes, invoices, login, landing, or AppShell', () => {
+    const jobs = src('src/pages/JobsPage.tsx');
+    const quotes = src('src/pages/QuotesPage.tsx');
+    const invoices = src('src/pages/InvoicesPage.tsx');
+    const login = src('src/pages/LoginPage.tsx');
+    const landing = src('src/pages/RootPage.tsx');
+    const shell = src('src/components/layout/AppShell.tsx');
+
+    expect(jobs).not.toContain('hub-clients');
+    expect(quotes).not.toContain('hub-clients');
+    expect(invoices).not.toContain('hub-clients');
+    expect(login).not.toContain('hub-clients');
+    expect(landing).not.toContain('hub-clients');
+    expect(shell).not.toContain('hub-clients');
+    expect(shell).toContain('resolveAppShellColors');
+  });
+
+  it('LOOK frames cover client list and record on desktop and phone', () => {
+    for (const rel of [
+      'docs/look/clients-list-desktop.png',
+      'docs/look/clients-list-phone.png',
+      'docs/look/client-record-desktop.png',
+      'docs/look/client-record-phone.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
     }
   });
 });
