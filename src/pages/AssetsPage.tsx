@@ -7,6 +7,7 @@ import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS } from '../lib/useManagedList';
 import { AppShell } from '../components/layout/AppShell';
+import { OverlayPortal } from '../components/ui/OverlayPortal';
 import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonCardGrid, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
@@ -343,6 +344,7 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
   }
 
   return (
+    <OverlayPortal>
     <div className="overlay-backdrop">
       <div className="overlay-panel-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] shrink-0">
@@ -420,6 +422,7 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
         </form>
       </div>
     </div>
+    </OverlayPortal>
   );
 }
 
