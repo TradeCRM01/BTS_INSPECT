@@ -22,7 +22,7 @@ import {
   type ResizeEdge,
 } from '../../lib/dispatch';
 import { format, isToday, parseISO } from 'date-fns';
-import { Clock, Plus, Users } from 'lucide-react';
+import { Clock, Users } from 'lucide-react';
 import { JobCalendarOverflow } from '../jobs/JobCalendarOverflow';
 import { calendarSite } from '../../lib/jobCalendar';
 import { formatJobRef } from '../../lib/jobRef';
@@ -237,7 +237,105 @@ export const NeedsDateRail = memo(function NeedsDateRail({
   );
 });
 
-// ── Phone day list (no hour grid) ────────────────────────────────
+// ── Hour plot (empty days keep the tracker; never swap to copy) ──
+
+function crewRowsForPlot(teamMembers?: TeamMember[]) {
+  const rows: { id: string; name: string; schedule_color?: string | null }[] = [
+    { id: UNASSIGNED_ROW_ID, name: 'Unassigned' },
+  ];
+  for (const member of teamMembers ?? []) {
+    rows.push({ id: member.id, name: member.name, schedule_color: member.schedule_color });
+  }
+  return rows;
+}
+
+/** Same hour × crew track as an empty DayBoardView. */
+function ScheduleDayHourPlot({ teamMembers }: { teamMembers?: TeamMember[] }) {
+  const rows = crewRowsForPlot(teamMembers);
+  const gridWidth = HOURS.length * HOUR_WIDTH;
+
+  return (
+    <div className="overflow-x-auto job-cal-board-scroll hub-schedule-track" data-day-grid="1" data-schedule-track="day">
+      <div className="flex border-b border-rule">
+        <div className="shrink-0 border-r border-rule bg-zebra" style={{ width: LABEL_WIDTH }}>
+          <div className="px-3 py-2 flex items-center gap-1.5">
+            <Users size={13} />
+            <span className="hub-schedule-label">Crew</span>
+          </div>
+        </div>
+        <div className="flex" style={{ minWidth: gridWidth }}>
+          {HOURS.map(h => (
+            <div
+              key={h}
+              className="text-center border-r border-rule last:border-r-0"
+              style={{ width: HOUR_WIDTH }}
+            >
+              <div className="px-1 py-2">
+                <span className="hub-schedule-label">{formatHourLabel(h)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {rows.map((row, rowIdx) => {
+        const isUnassigned = row.id === UNASSIGNED_ROW_ID;
+        const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
+        return (
+          <div
+            key={row.id}
+            className={`flex ${rowIdx < rows.length - 1 ? 'border-b border-rule' : ''} ${
+              isUnassigned ? 'bg-zebra' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-zebra'
+            }`}
+          >
+            <div
+              className="shrink-0 border-r border-rule flex items-center gap-2 px-3"
+              style={{
+                width: LABEL_WIDTH,
+                height: ROW_MIN,
+                borderLeft: isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${color}`,
+              }}
+            >
+              <span
+                className="ops-crew-mark"
+                style={{
+                  background: isUnassigned ? 'transparent' : color,
+                  outline: isUnassigned ? `1px solid ${colors.navy}` : undefined,
+                }}
+              />
+              <div className="min-w-0">
+                <p className="hub-schedule-crew-name truncate">{row.name}</p>
+              </div>
+            </div>
+            <div className="relative" style={{ width: gridWidth, height: ROW_MIN }}>
+              {HOURS.map(h => (
+                <div
+                  key={h}
+                  className="absolute top-0 bottom-0 border-r border-rule last:border-r-0"
+                  style={{ left: (h - DAY_START) * HOUR_WIDTH, width: HOUR_WIDTH }}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Hour ticks inside a week day column. */
+function ScheduleWeekHourPlot() {
+  return (
+    <div className="hub-schedule-track is-week" data-day-grid="1" data-schedule-track="week">
+      {HOURS.map(h => (
+        <div key={h} className="hub-schedule-track-hour">
+          <span className="hub-schedule-label">{formatHourLabel(h)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Phone day list ───────────────────────────────────────────────
 
 function PhoneJobCard({
   job, teamMembers, onJobClick, onDragStart,
@@ -321,7 +419,7 @@ export const PhoneDayList = memo(function PhoneDayList({
         <span className="hub-schedule-count"> ({dayJobs.length})</span>
       </h2>
       {dayJobs.length === 0 ? (
-        <p className="ops-meta px-1 py-3">No jobs on this day. Drag from the tray or add a job.</p>
+        <ScheduleDayHourPlot teamMembers={teamMembers} />
       ) : (
         dayJobs.map(job => (
           <PhoneJobCard
@@ -367,16 +465,13 @@ export const PhoneWeekList = memo(function PhoneWeekList({
               <span className="hub-schedule-count"> ({column.jobs.length})</span>
             </button>
             {column.jobs.length === 0 ? (
-              <div className="flex items-center justify-between gap-2 px-1 py-2">
-                <p className="ops-meta">No jobs this day.</p>
-                <button
-                  type="button"
-                  onClick={() => onDayClick(column.date)}
-                  className="ops-link text-xs"
-                >
-                  Add job
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => onDayClick(column.date)}
+                className="w-full text-left"
+              >
+                <ScheduleDayHourPlot teamMembers={teamMembers} />
+              </button>
             ) : (
               column.jobs.map(job => (
                 <PhoneJobCard
@@ -821,10 +916,7 @@ export const WeekBoardView = memo(function WeekBoardView({
               }`}
             >
               {dayJobs.length === 0 ? (
-                <div className="hub-schedule-empty">
-                  <Plus size={16} />
-                  <span>Add job</span>
-                </div>
+                <ScheduleWeekHourPlot />
               ) : (
                 dayJobs.map(job => (
                   <JobBlock
