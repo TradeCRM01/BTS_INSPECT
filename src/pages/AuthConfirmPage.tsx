@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { BrandLockup } from '../components/brand/BrandLockup';
+import { usePublicDocumentHead } from '../lib/publicSeo';
 
 type OtpType = 'invite' | 'recovery' | 'signup' | 'magiclink' | 'email';
 
@@ -20,6 +21,7 @@ function normalizeType(raw: string | null): OtpType {
  * This page does NOT verify on load — only when the user clicks Accept.
  */
 export function AuthConfirmPage() {
+  usePublicDocumentHead('authConfirm');
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const tokenHash = params.get('token_hash') || params.get('token') || '';

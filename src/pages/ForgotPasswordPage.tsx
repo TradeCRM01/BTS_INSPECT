@@ -38,6 +38,7 @@ export function ForgotPasswordPage() {
 
   return (
     <AuthShell
+      seoKey="forgotPassword"
       title={sent ? 'Check your email' : 'Forgot password'}
       lede={sent
         ? undefined

@@ -1,18 +1,22 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { BrandLockup } from '../brand/BrandLockup';
+import { usePublicDocumentHead, type PublicSeoKey } from '../../lib/publicSeo';
 
 export function AuthShell({
   title,
   lede,
   children,
   footer,
+  seoKey,
 }: {
   title: string;
   lede?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  seoKey?: PublicSeoKey;
 }) {
+  usePublicDocumentHead(seoKey);
   return (
     <div className="hub-auth">
       <header className="hub-auth-nav">
