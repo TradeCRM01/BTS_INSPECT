@@ -1,5 +1,8 @@
 import { format, parseISO, startOfWeek } from 'date-fns';
+import { DEV_AUDIT_COMPANY, DEV_AUDIT_PROFILE, isDevFieldAuditAuth } from './devFieldAuditAuth';
+import { AUDIT_DOC_JOB_ID } from './devFieldAuditDocs';
 import { padJobNumber } from './jobRef';
+import type { Timesheet, TimesheetEntry } from '../types/fsm';
 
 /** Default /timesheets floor: this week’s sheets so a sparkie can see and open one. */
 export type TimesheetListFilter = 'all' | 'open' | 'done';
@@ -254,4 +257,56 @@ export function timesheetListOpened<T extends { id: string }>(
 ): T | null {
   if (!openId) return null;
   return rows.find(row => row.id === openId) ?? null;
+}
+
+export function timesheetListCountLabel(count: number): string {
+  const n = Math.max(0, Math.round(Number.isFinite(count) ? count : 0));
+  return n === 1 ? '1 timesheet · tap one to open' : `${n} timesheets · tap one to open`;
+}
+
+export function timesheetListPillClass(status: string): string {
+  if (status === 'submitted') return 'is-submitted';
+  if (status === 'approved') return 'is-approved';
+  if (status === 'rejected') return 'is-rejected';
+  return 'is-open';
+}
+
+/** Field Audit only — this week’s open sheet on job #0042. Not a live row. */
+export const AUDIT_TIMESHEET_ID = 'audit-timesheet-week';
+export const AUDIT_TIMESHEET_ENTRY_ID = 'audit-timesheet-entry';
+
+export function getAuditTimesheets(now = new Date()): Timesheet[] | null {
+  if (!isDevFieldAuditAuth()) return null;
+  const date = format(now, 'yyyy-MM-dd');
+  return [{
+    id: AUDIT_TIMESHEET_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    employee_id: DEV_AUDIT_PROFILE.id,
+    date,
+    clock_in: null,
+    clock_out: null,
+    break_minutes: 30,
+    total_minutes: 480,
+    status: 'open',
+    notes: null,
+    created_at: `${date}T00:00:00.000Z`,
+    updated_at: `${date}T00:00:00.000Z`,
+  }];
+}
+
+export function getAuditTimesheetEntries(now = new Date()): TimesheetEntry[] | null {
+  if (!isDevFieldAuditAuth()) return null;
+  const date = format(now, 'yyyy-MM-dd');
+  return [{
+    id: AUDIT_TIMESHEET_ENTRY_ID,
+    timesheet_id: AUDIT_TIMESHEET_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    job_id: AUDIT_DOC_JOB_ID,
+    start_time: `${date}T07:30:00.000Z`,
+    end_time: `${date}T16:00:00.000Z`,
+    work_type: 'Site work',
+    billable: true,
+    notes: null,
+    created_at: `${date}T07:30:00.000Z`,
+  }];
 }

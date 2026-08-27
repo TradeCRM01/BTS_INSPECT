@@ -24,6 +24,10 @@ describe('Timesheets page floor wiring', () => {
     expect(list).toContain('>Open</span>');
     expect(list).toContain('getAuditTeamMembers');
     expect(list).toContain('getAuditJobs');
+    expect(list).toContain('getAuditTimesheets');
+    expect(list).toContain('hub-timesheets');
+    expect(list).toContain('hub-timesheets-row');
+    expect(list).toContain('hub-timesheets-pill');
   });
 
   it('does not add a timesheet route, payroll product, or spreadsheet export', () => {
@@ -61,5 +65,9 @@ describe('Timesheets page floor wiring', () => {
     expect(helper).not.toContain('clientsFloor');
     expect(helper).not.toContain('dashboardHome');
     expect(helper).not.toContain('reportsList');
+    expect(list).not.toContain('hub-reports');
+    expect(list).not.toContain('hub-take5');
+    expect(list).not.toContain('hub-jha');
+    expect(list).not.toContain('hub-inspections');
   });
 });

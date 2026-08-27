@@ -9,6 +9,9 @@ import {
   timesheetListEmptyKind,
   timesheetListEmptyMessage,
   timesheetListEmptyTitle,
+  getAuditTimesheetEntries,
+  getAuditTimesheets,
+  timesheetListCountLabel,
   timesheetListHoursLabel,
   timesheetListJobLine,
   timesheetListJobRef,
@@ -18,6 +21,7 @@ import {
   timesheetListOpenHref,
   timesheetListOpenId,
   timesheetListOpened,
+  timesheetListPillClass,
   timesheetListTitle,
   timesheetListVisibleItems,
   timesheetListWeekStart,
@@ -181,5 +185,20 @@ describe('timesheet list sort, open, and empty kinds', () => {
     expect(timesheetListHoursLabel(90)).toBe('1h 30m');
     expect(timesheetListHoursLabel(-12)).toBe('0h 0m');
     expect(timesheetListTitle('not-a-date')).toBe('not-a-date');
+  });
+
+  it('writes an honest list count and status pill class', () => {
+    expect(timesheetListCountLabel(0)).toBe('0 timesheets · tap one to open');
+    expect(timesheetListCountLabel(1)).toBe('1 timesheet · tap one to open');
+    expect(timesheetListCountLabel(2)).toBe('2 timesheets · tap one to open');
+    expect(timesheetListPillClass('open')).toBe('is-open');
+    expect(timesheetListPillClass('submitted')).toBe('is-submitted');
+    expect(timesheetListPillClass('approved')).toBe('is-approved');
+    expect(timesheetListPillClass('rejected')).toBe('is-rejected');
+  });
+
+  it('does not invent Field Audit sheets outside the audit session', () => {
+    expect(getAuditTimesheets()).toBeNull();
+    expect(getAuditTimesheetEntries()).toBeNull();
   });
 });
