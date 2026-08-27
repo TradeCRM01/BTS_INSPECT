@@ -43,3 +43,53 @@ describe('schedule page week/day board', () => {
     expect(board).toContain('filterJobsByCrew');
   });
 });
+
+describe('schedule board cream paper look', () => {
+  it('paints week and day as cream paper, not a poster', () => {
+    const page = src('src/pages/SchedulePage.tsx');
+    const css = src('src/index.css');
+
+    expect(page).toContain('hub-board-cal');
+    expect(page).toContain('hub-schedule-kicker');
+    expect(page).toContain('hub-schedule-chrome');
+    expect(page).toContain('hub-schedule-filters');
+    expect(page).toContain('New job');
+    expect(page).not.toContain('New Job');
+    expect(page).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
+    expect(page).not.toMatch(/Grafter|Relovi|Littleloop/);
+
+    expect(css).toContain('.hub-board-cal.ops-page');
+    expect(css).toContain('--schedule-page: #F5F0E6');
+    expect(css).toContain('--schedule-sheet: #FFFDF8');
+    expect(css).toContain('--schedule-ink: #0A2540');
+    expect(css).toContain('--schedule-muted: #5B6B7C');
+    expect(css).toContain('--schedule-line: #E2D9CC');
+    expect(css).toContain('#2E75B6');
+    expect(css).toContain("font-family: Rajdhani, sans-serif");
+    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(css).not.toMatch(/\.hub-board-cal \.ops-page-title[\s\S]{0,160}Newsreader|Syne|Space Grotesk|IBM Plex/);
+    expect(css).toContain('letter-spacing: 0.12em');
+  });
+
+  it('does not restyle jobs, quotes, invoices, login, landing, operator, or AppShell', () => {
+    const jobs = src('src/pages/JobsPage.tsx');
+    expect(jobs).not.toContain('hub-board-cal');
+    expect(jobs).not.toContain('hub-schedule-kicker');
+
+    const quotes = src('src/pages/QuotesPage.tsx');
+    expect(quotes).not.toContain('hub-board-cal');
+
+    const invoices = src('src/pages/InvoicesPage.tsx');
+    expect(invoices).not.toContain('hub-board-cal');
+
+    const login = src('src/pages/LoginPage.tsx');
+    expect(login).not.toContain('hub-board-cal');
+
+    const landing = src('src/pages/RootPage.tsx');
+    expect(landing).not.toContain('hub-board-cal');
+
+    const shell = src('src/components/layout/AppShell.tsx');
+    expect(shell).not.toContain('hub-board-cal');
+    expect(shell).toContain('resolveAppShellColors');
+  });
+});

@@ -143,7 +143,7 @@ const JobBlock = memo(function JobBlock({
             />
           </div>
         )}
-        <p className={`${compact ? 'ops-chip-site pr-10' : 'ops-card-site'} truncate`}>
+        <p className={`${compact ? 'hub-schedule-ref pr-10' : 'hub-schedule-ref'} truncate`}>
           {compact && clock ? `${clock} · ` : ''}
           {formatJobRef(job)} | {site}
         </p>
@@ -160,7 +160,7 @@ const JobBlock = memo(function JobBlock({
             <Users size={12} /> {crew}
           </p>
         )}
-        <span className={`mt-1 ${detail ? 'ops-next-control-block' : 'ops-next-control-sm'}`}>{next}</span>
+        <span className={`mt-1 ${detail ? 'hub-schedule-next' : 'hub-schedule-next is-compact'}`}>{next}</span>
       </div>
     </div>
   );
@@ -212,7 +212,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
               >
                 <div className="ops-card-body">
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="ops-card-site truncate">{formatJobRef(job)} | {site}</p>
+                    <p className="hub-schedule-ref truncate">{formatJobRef(job)} | {site}</p>
                     <div className="flex items-center gap-1 shrink-0">
                       <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
                       <JobCalendarOverflow
@@ -223,7 +223,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
                     </div>
                   </div>
                   <div className="ops-card-footer">
-                    <span className="ops-next-control-block">Set a date</span>
+                    <span className="hub-schedule-next">Set a date</span>
                   </div>
                   {job.client_name && <p className="ops-meta mt-1.5 truncate">{job.client_name}</p>}
                   {job.title && <p className="ops-meta mt-0.5 truncate">{job.title}</p>}
@@ -271,7 +271,7 @@ function PhoneJobCard({
     >
       <div className="ops-card-body">
         <div className="flex items-start justify-between gap-2 mb-1">
-          <p className="ops-card-site truncate">{formatJobRef(job)} | {site}</p>
+          <p className="hub-schedule-ref truncate">{formatJobRef(job)} | {site}</p>
           <div className="flex items-center gap-1 shrink-0">
             <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
             <JobCalendarOverflow
@@ -283,7 +283,7 @@ function PhoneJobCard({
         </div>
         <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
         <div className="ops-card-footer">
-          <span className="ops-next-control-block">{next}</span>
+          <span className="hub-schedule-next">{next}</span>
         </div>
         <div className="mt-2 space-y-0.5">
           {clock && (
@@ -316,9 +316,9 @@ export const PhoneDayList = memo(function PhoneDayList({
 
   return (
     <div className="space-y-2" data-schedule-day={dateStr}>
-      <h2 className="ops-group-title">
+      <h2 className="hub-schedule-label">
         {format(currentDate, 'EEEE d MMM')}
-        <span className="text-muted normal-case font-normal"> ({dayJobs.length})</span>
+        <span className="hub-schedule-count"> ({dayJobs.length})</span>
       </h2>
       {dayJobs.length === 0 ? (
         <p className="ops-meta px-1 py-3">No jobs on this day. Drag from the tray or add a job.</p>
@@ -360,11 +360,11 @@ export const PhoneWeekList = memo(function PhoneWeekList({
             <button
               type="button"
               onClick={() => onSelectDay(day)}
-              className="ops-group-title w-full text-left"
+              className="hub-schedule-label w-full text-left"
             >
               {format(day, 'EEEE d MMM')}
               {today && <span className="ml-2 ops-status ops-status-info">TODAY</span>}
-              <span className="text-muted normal-case font-normal"> ({column.jobs.length})</span>
+              <span className="hub-schedule-count"> ({column.jobs.length})</span>
             </button>
             {column.jobs.length === 0 ? (
               <div className="flex items-center justify-between gap-2 px-1 py-2">
@@ -537,8 +537,8 @@ export const DayBoardView = memo(function DayBoardView({
 
   return (
     <div className="ops-board">
-      <div className="px-3 py-2 border-b border-rule flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm font-semibold tracking-tight text-navy">
+      <div className="hub-schedule-board-head">
+        <p className="hub-schedule-range">
           {format(currentDate, 'EEEE, d MMMM yyyy')}
           {isToday(currentDate) && (
             <span className="ml-2 ops-status ops-status-info">
@@ -557,8 +557,8 @@ export const DayBoardView = memo(function DayBoardView({
         <div className="flex sticky top-0 z-20 bg-white border-b border-rule">
           <div className="shrink-0 border-r border-rule bg-zebra" style={{ width: LABEL_WIDTH }}>
             <div className="px-3 py-2 flex items-center gap-1.5">
-              <Users size={13} className="text-navy" />
-              <span className="text-xs font-semibold tracking-tight text-navy">Crew</span>
+              <Users size={13} />
+              <span className="hub-schedule-label">Crew</span>
             </div>
           </div>
           <div className="flex" style={{ minWidth: gridWidth }}>
@@ -566,7 +566,7 @@ export const DayBoardView = memo(function DayBoardView({
               <div key={h} className="text-center border-r border-rule last:border-r-0"
                 style={{ width: HOUR_WIDTH }}>
                 <div className="px-1 py-2">
-                  <span className="ops-meta">{formatHourLabel(h)}</span>
+                  <span className="hub-schedule-label">{formatHourLabel(h)}</span>
                 </div>
               </div>
             ))}
@@ -613,7 +613,7 @@ export const DayBoardView = memo(function DayBoardView({
                   }}
                 />
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold tracking-tight text-navy truncate">{row.name}</p>
+                  <p className="hub-schedule-crew-name truncate">{row.name}</p>
                   <p className="ops-meta">
                     {isUnassigned
                       ? (rowJobs.length === 0 ? 'Drop here — date stays' : `${rowJobs.length} · needs crew`)
@@ -777,8 +777,8 @@ export const WeekBoardView = memo(function WeekBoardView({
 
   return (
     <div className="ops-board" data-schedule-week="1">
-      <div className="px-3 py-2 border-b border-rule flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm font-semibold tracking-tight text-navy">This week</p>
+      <div className="hub-schedule-board-head">
+        <p className="hub-schedule-label">This week</p>
         <p className="ops-meta">
           Drag to another day to move the date. Crew stays put.
         </p>
@@ -791,8 +791,8 @@ export const WeekBoardView = memo(function WeekBoardView({
           const needsCrew = dayJobs.filter(j => !(j.assigned_team ?? []).length).length;
           return (
             <div key={i} className="flex-1 min-w-[120px] border-r border-rule last:border-r-0 px-2 py-2 text-center">
-              <p className="ops-meta uppercase">{format(day, 'EEE')}</p>
-              <p className={`text-sm font-bold ${today ? 'text-white bg-navy w-6 h-6 rounded-md flex items-center justify-center mx-auto' : 'text-ink'}`}>
+              <p className="hub-schedule-label">{format(day, 'EEE')}</p>
+              <p className={`hub-schedule-day ${today ? 'is-today' : ''}`}>
                 {format(day, 'd')}
               </p>
               <p className="ops-meta mt-0.5">
@@ -821,9 +821,9 @@ export const WeekBoardView = memo(function WeekBoardView({
               }`}
             >
               {dayJobs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-20 text-[#D1D5DB]">
+                <div className="hub-schedule-empty">
                   <Plus size={16} />
-                  <span className="ops-meta mt-1">Add job</span>
+                  <span>Add job</span>
                 </div>
               ) : (
                 dayJobs.map(job => (
