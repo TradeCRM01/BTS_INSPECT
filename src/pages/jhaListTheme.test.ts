@@ -15,6 +15,8 @@ describe('JHA list cream paper look', () => {
     expect(list).toContain('hub-jha-sheet');
     expect(list).toContain('hub-jha-row');
     expect(list).toContain('hub-jha-pill');
+    expect(list).toContain('hub-jha-label');
+    expect(list).not.toContain('hub-jha-kicker');
     expect(list).toContain('>Site</span>');
     expect(list).toContain('>Permit</span>');
     expect(list).toContain('>Supervisor</span>');
@@ -53,7 +55,9 @@ describe('JHA list cream paper look', () => {
 
     const fill = src('src/pages/JhaFillPage.tsx');
     expect(fill).toContain('jha-doc-theme');
-    expect(fill).not.toContain('hub-jha-sheet');
+    expect(fill).toContain('hub-jha-document');
+    expect(fill).toContain('is-record-open');
+    expect(fill).not.toContain('className="hub-jha-sheet"');
 
     const inspections = src('src/pages/InspectionsPage.tsx');
     expect(inspections).not.toContain('hub-jha');

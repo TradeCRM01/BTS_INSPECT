@@ -190,7 +190,7 @@ export function JhaDocumentsPage() {
       <div className="ops-page hub-jha" data-jha-filter={status}>
         <div className="ops-page-head">
           <div>
-            <p className="hub-jha-kicker">JHA documents</p>
+            <p className="hub-jha-label">JHA documents</p>
             <h1 className="ops-page-title">
               JHA documents
             </h1>
