@@ -1,18 +1,22 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { PageError } from '../components/ui/PageError';
 import {
-  Folder, FolderPlus, FileText, ClipboardList, Search, ChevronRight, Home,
-  Download, PenLine, UploadCloud, Trash2, MoreVertical,
+  ContextMenu,
+  EmptyState,
+  LoadingSpinner,
+  PageError,
+  SearchBar,
+} from '../components/ui';
+import type { MenuEntry } from '../components/ui';
+import {
+  Folder, FolderPlus, FileText, ClipboardList, Home,
+  Download, PenLine, UploadCloud, Trash2,
   X, Move, Link2, Copy, Check,
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { nanoid } from '../lib/nanoid';
 import { getAuditDriveUploads, getAuditEmptyList } from '../lib/devFieldAuditDocs';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
@@ -20,7 +24,31 @@ import {
   hasStoredBackupDir, clearBackupDir, syncToBackup, syncOne,
   downloadBackupFiles, type BackupFileSpec,
 } from '../lib/localBackup';
-import { HardDrive, Settings, RefreshCw, CheckCircle2, AlertCircle, Unlink } from 'lucide-react';
+import { HardDrive, RefreshCw, CheckCircle2, AlertCircle, Unlink } from 'lucide-react';
+import { nanoid } from '../lib/nanoid';
+import {
+  REPORT_LIST_CLIENT_COLUMNS,
+  REPORT_LIST_INSPECTION_COLUMNS,
+  REPORT_LIST_JOB_COLUMNS,
+  REPORT_LIST_REPORT_COLUMNS,
+  fileItemMatchesSearch,
+  filterReportsByStatus,
+  filterReportsForSearch,
+  folderOpenHref,
+  inspectionDriveOpenHref,
+  reportListMeta,
+  reportListStatus,
+  reportListStatusLabel,
+  reportListTemplateName,
+  reportListTitle,
+  reportOpenHref,
+  reportsListEmptyMessage,
+  reportsListEmptyTitle,
+  sortReportsForList,
+  uploadedPdfOpenHref,
+  type ReportListFilter,
+  type ReportListStatus,
+} from '../lib/reportsList';
 
 interface FolderRow {
   id: string;
@@ -43,19 +71,37 @@ interface UploadedPdfRow {
   position_y: number;
 }
 
+interface InspectionLite {
+  id: string;
+  meta: Record<string, string | null> | null;
+  inspector_id?: string | null;
+  client_id?: string | null;
+  crm_job_id?: string | null;
+  status?: string;
+  template_snapshot?: { name?: string } | null;
+}
+
+interface JobLite {
+  id: string;
+  address?: string | null;
+  title?: string | null;
+  job_number?: number | null;
+  client_id?: string | null;
+}
+
 interface ReportRow {
   id: string;
   inspection_id: string;
   report_number: string;
   pdf_storage_path: string;
   generated_at: string;
+  sent_at?: string | null;
   folder_id: string | null;
-  inspection: {
-    id: string;
-    meta: Record<string, string>;
-  };
   position_x: number;
   position_y: number;
+  inspection: InspectionLite | null;
+  job: JobLite | null;
+  clientName: string;
 }
 
 interface InspectionRow {
@@ -69,38 +115,28 @@ interface InspectionRow {
   position_y: number;
 }
 
-interface DriveItem {
-  kind: 'folder' | 'uploaded' | 'report' | 'inspection';
+type FileKind = 'folder' | 'uploaded' | 'inspection';
+
+interface FileRow {
+  kind: FileKind;
   id: string;
   name: string;
   subtitle: string;
-  size?: string;
   date: string;
   folder_id: string | null;
-  x: number;
-  y: number;
-  raw: FolderRow | UploadedPdfRow | ReportRow;
+  raw: FolderRow | UploadedPdfRow | InspectionRow;
 }
 
-const GRID_SIZE = 16;
-const ITEM_W = 120;
-const ITEM_H = 110;
-const MIN_SPACING = 8;
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-// initial placement for new items — stagger across canvas
-function nextStaggerPosition(existing: DriveItem[]): { x: number; y: number } {
-  if (existing.length === 0) return { x: 32, y: 32 };
-  const maxCol = Math.max(...existing.map(i => Math.round(i.x / (ITEM_W + MIN_SPACING))));
-  const maxRow = Math.max(...existing.map(i => Math.round(i.y / (ITEM_H + MIN_SPACING))));
-  // simple diagonal stagger with wrapping every 6 items
-  const idx = existing.length;
-  const col = (idx % 6) * (ITEM_W + MIN_SPACING) + 32;
-  const row = Math.floor(idx / 6) * (ITEM_H + MIN_SPACING) + 32;
-  return {
-    x: Math.min(col, maxCol * (ITEM_W + MIN_SPACING) + 32),
-    y: Math.min(row, maxRow * (ITEM_H + MIN_SPACING) + 32),
-  };
+type ListItem =
+  | { kind: 'report'; row: ReportRow; listStatus: ReportListStatus }
+  | { kind: FileKind; row: FileRow };
+
+function nextStaggerPosition(count: number): { x: number; y: number } {
+  const col = (count % 6) * 128 + 32;
+  const row = Math.floor(count / 6) * 118 + 32;
+  return { x: col, y: row };
 }
 
 export function ReportsListPage() {
@@ -108,46 +144,23 @@ export function ReportsListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const params = useParams<{ folderId?: string }>();
-  const location = useLocation();
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(params.folderId ?? null);
-  const [folderStack, setFolderStack] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'Shared Drive' }]);
+  const [folderStack, setFolderStack] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'Reports' }]);
   const [linkCopied, setLinkCopied] = useState(false);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ReportListFilter>('all');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Context menu / item actions
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  const [downloadError, setDownloadError] = useState('');
-  const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [movePickerFor, setMovePickerFor] = useState<DriveItem | null>(null);
-
-  // Create folder dialog
+  const [movePickerFor, setMovePickerFor] = useState<ListItem | null>(null);
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
-
-  // Rename dialog
-  const [renamingItem, setRenamingItem] = useState<DriveItem | null>(null);
+  const [renamingItem, setRenamingItem] = useState<FileRow | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [downloadError, setDownloadError] = useState('');
 
-  // Drag state for desktop items
-  const [dragItem, setDragItem] = useState<DriveItem | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const dragMovedRef = useRef(false);
-  const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
-
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  // File-drop (upload) state — separate from item drag
-  const [fileDragOver, setFileDragOver] = useState(false);
-
-  // Backup settings state
   const [showBackupPanel, setShowBackupPanel] = useState(false);
   const [backupSupported] = useState(isFileSystemAccessSupported());
   const [backupConnected, setBackupConnected] = useState(false);
@@ -158,7 +171,6 @@ export function ReportsListPage() {
 
   const companyId = profile?.company_id;
 
-  // Load backup settings from company record
   useQuery({
     queryKey: ['backup-settings'],
     queryFn: async () => {
@@ -178,53 +190,11 @@ export function ReportsListPage() {
     enabled: !!companyId,
   });
 
-  // Check if a backup dir handle is stored in IndexedDB on mount
   useEffect(() => {
     hasStoredBackupDir().then(setBackupConnected);
   }, []);
 
-  // When the URL changes (e.g. /drive/folder/:id), navigate to that folder.
-  // Builds the full breadcrumb path from the root down to the target folder.
-  useEffect(() => {
-    const targetId = params.folderId ?? null;
-    if (targetId === currentFolderId) return;
-
-    if (!targetId) {
-      setCurrentFolderId(null);
-      setFolderStack([{ id: null, name: 'Shared Drive' }]);
-      return;
-    }
-
-    // Build breadcrumb stack by walking parent_id chain
-    const folders = allFolders ?? [];
-    const byId = new Map(folders.map(f => [f.id, f]));
-    const chain: { id: string | null; name: string }[] = [{ id: null, name: 'Shared Drive' }];
-    const visited = new Set<string>();
-    const buildChain = (fid: string): boolean => {
-      if (visited.has(fid)) return false; // cycle guard
-      visited.add(fid);
-      const f = byId.get(fid);
-      if (!f) return false;
-      if (f.parent_id) {
-        if (!buildChain(f.parent_id)) return false;
-      }
-      chain.push({ id: f.id, name: f.name });
-      return true;
-    };
-
-    if (buildChain(targetId)) {
-      setCurrentFolderId(targetId);
-      setFolderStack(chain);
-    } else {
-      // Folder not found (or not in this company) — go to root
-      setCurrentFolderId(null);
-      setFolderStack([{ id: null, name: 'Shared Drive' }]);
-      navigate('/drive', { replace: true });
-    }
-  }, [params.folderId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Load folders
-  const { data: allFolders, error: foldersError } = useQuery<FolderRow[]>({
+  const { data: allFolders, error: foldersError, isLoading: foldersLoading } = useQuery<FolderRow[]>({
     queryKey: ['drive-folders'],
     queryFn: async () => {
       const empty = getAuditEmptyList();
@@ -239,8 +209,43 @@ export function ReportsListPage() {
     enabled: !!companyId,
   });
 
-  // Load uploaded PDFs
-  const { data: allUploads, error: uploadsError } = useQuery<UploadedPdfRow[]>({
+  useEffect(() => {
+    const targetId = params.folderId ?? null;
+    if (targetId === currentFolderId) return;
+
+    if (!targetId) {
+      setCurrentFolderId(null);
+      setFolderStack([{ id: null, name: 'Reports' }]);
+      return;
+    }
+
+    const folders = allFolders ?? [];
+    const byId = new Map(folders.map(f => [f.id, f]));
+    const chain: { id: string | null; name: string }[] = [{ id: null, name: 'Reports' }];
+    const visited = new Set<string>();
+    const buildChain = (fid: string): boolean => {
+      if (visited.has(fid)) return false;
+      visited.add(fid);
+      const f = byId.get(fid);
+      if (!f) return false;
+      if (f.parent_id) {
+        if (!buildChain(f.parent_id)) return false;
+      }
+      chain.push({ id: f.id, name: f.name });
+      return true;
+    };
+
+    if (buildChain(targetId)) {
+      setCurrentFolderId(targetId);
+      setFolderStack(chain);
+    } else if (allFolders) {
+      setCurrentFolderId(null);
+      setFolderStack([{ id: null, name: 'Reports' }]);
+      navigate('/drive', { replace: true });
+    }
+  }, [params.folderId, allFolders, currentFolderId, navigate]);
+
+  const { data: allUploads, error: uploadsError, isLoading: uploadsLoading } = useQuery<UploadedPdfRow[]>({
     queryKey: ['uploaded-pdfs'],
     queryFn: async () => {
       const mockUploads = getAuditDriveUploads();
@@ -257,37 +262,60 @@ export function ReportsListPage() {
     enabled: !!companyId,
   });
 
-  // Load generated reports — company-scoped via reports.company_id
-  const { data: allReports, error: reportsError } = useQuery<ReportRow[]>({
+  const { data: allReports, error: reportsError, isLoading: reportsLoading } = useQuery<ReportRow[]>({
     queryKey: ['all-reports'],
     queryFn: async () => {
       const empty = getAuditEmptyList();
       if (empty) return empty as ReportRow[];
       const { data: reports, error } = await supabase
         .from('reports')
-        .select('id, inspection_id, report_number, pdf_storage_path, generated_at, folder_id, position_x, position_y')
+        .select(REPORT_LIST_REPORT_COLUMNS)
         .eq('company_id', companyId)
         .order('generated_at', { ascending: false });
       if (error) throw error;
       if (!reports || reports.length === 0) return [];
 
-      // Fetch inspections for site metadata (meta is needed for subtitle)
-      const inspectionIds = Array.from(new Set(reports.map(r => r.inspection_id)));
-      const { data: inspections } = await supabase
-        .from('inspections')
-        .select('id, meta, inspector_id')
-        .in('id', inspectionIds);
-      const inspMap = new Map((inspections ?? []).map(i => [i.id, i]));
+      const inspectionIds = Array.from(new Set(reports.map(r => r.inspection_id).filter(Boolean)));
+      const { data: inspections } = inspectionIds.length
+        ? await supabase.from('inspections').select(REPORT_LIST_INSPECTION_COLUMNS).in('id', inspectionIds)
+        : { data: [] as InspectionLite[] };
+      const inspMap = new Map((inspections ?? []).map(i => [i.id, i as InspectionLite]));
 
-      return reports.map(r => ({
-        ...r,
-        inspection: inspMap.get(r.inspection_id)!,
-      })).filter(r => r.inspection);
+      const jobIds = Array.from(new Set(
+        (inspections ?? []).map(i => (i as InspectionLite).crm_job_id).filter((id): id is string => !!id),
+      ));
+      const { data: jobs } = jobIds.length
+        ? await supabase.from('jobs').select(REPORT_LIST_JOB_COLUMNS).in('id', jobIds)
+        : { data: [] as JobLite[] };
+      const jobMap = new Map((jobs ?? []).map(j => [j.id, j as JobLite]));
+
+      const clientIds = new Set<string>();
+      for (const i of inspections ?? []) {
+        if ((i as InspectionLite).client_id) clientIds.add((i as InspectionLite).client_id as string);
+      }
+      for (const j of jobs ?? []) {
+        if ((j as JobLite).client_id) clientIds.add((j as JobLite).client_id as string);
+      }
+      const { data: clients } = clientIds.size
+        ? await supabase.from('clients').select(REPORT_LIST_CLIENT_COLUMNS).in('id', Array.from(clientIds))
+        : { data: [] as Array<{ id: string; name: string }> };
+      const clientMap = new Map((clients ?? []).map(c => [c.id, c.name]));
+
+      return (reports as Array<Omit<ReportRow, 'inspection' | 'job' | 'clientName'>>).map(r => {
+        const inspection = inspMap.get(r.inspection_id) ?? null;
+        const job = inspection?.crm_job_id ? jobMap.get(inspection.crm_job_id) ?? null : null;
+        const clientId = inspection?.client_id || job?.client_id || null;
+        return {
+          ...r,
+          inspection,
+          job,
+          clientName: clientId ? (clientMap.get(clientId) ?? '') : '',
+        };
+      });
     },
     enabled: !!companyId,
   });
 
-  // Load inspections that have been sent to the drive (folder_id is not null)
   const { data: allInspections } = useQuery<InspectionRow[]>({
     queryKey: ['drive-inspections'],
     queryFn: async () => {
@@ -308,277 +336,110 @@ export function ReportsListPage() {
     enabled: !!companyId,
   });
 
-  // Items in current folder
-  const items: DriveItem[] = useMemo(() => {
+  const reportItems = useMemo(() => {
+    const scoped = (allReports ?? []).filter(r => {
+      if (search.trim()) return true;
+      if (!currentFolderId) return true;
+      return (r.folder_id ?? null) === currentFolderId;
+    });
+    const withStatus = scoped.map(r => ({
+      ...r,
+      listStatus: reportListStatus({
+        sent_at: r.sent_at,
+        pdf_storage_path: r.pdf_storage_path,
+      }),
+      siteName: reportListTitle({
+        meta: r.inspection?.meta,
+        job: r.job,
+        reportNumber: r.report_number,
+      }),
+      clientName: r.clientName,
+      templateName: reportListTemplateName(r.inspection?.template_snapshot),
+      jobTitle: r.job?.title ?? '',
+      jobNumber: r.job?.job_number ?? null,
+    }));
+    const found = filterReportsForSearch(withStatus, search);
+    const filtered = filterReportsByStatus(found, statusFilter);
+    return sortReportsForList(filtered);
+  }, [allReports, currentFolderId, search, statusFilter]);
+
+  const fileItems: FileRow[] = useMemo(() => {
     const folders = (allFolders ?? [])
-      .filter(f => f.parent_id === currentFolderId)
+      .filter(f => {
+        if (search.trim()) return fileItemMatchesSearch({ name: f.name, query: search });
+        return f.parent_id === currentFolderId;
+      })
       .map(f => ({
         kind: 'folder' as const,
-        id: f.id, name: f.name, subtitle: 'Folder',
-        date: f.created_at, folder_id: f.parent_id,
-        x: f.position_x ?? 0, y: f.position_y ?? 0,
+        id: f.id,
+        name: f.name,
+        subtitle: 'Folder',
+        date: f.created_at,
+        folder_id: f.parent_id,
         raw: f,
       }));
 
     const uploads = (allUploads ?? [])
-      .filter(u => (u.folder_id ?? null) === currentFolderId)
+      .filter(u => {
+        if (search.trim()) {
+          return fileItemMatchesSearch({ name: u.title, subtitle: u.filename, query: search });
+        }
+        return (u.folder_id ?? null) === currentFolderId;
+      })
       .map(u => ({
         kind: 'uploaded' as const,
-        id: u.id, name: u.title, subtitle: u.filename,
-        size: `${(u.file_size / 1024 / 1024).toFixed(1)} MB`,
-        date: u.created_at, folder_id: u.folder_id,
-        x: u.position_x ?? 0, y: u.position_y ?? 0,
+        id: u.id,
+        name: u.title,
+        subtitle: u.filename,
+        date: u.created_at,
+        folder_id: u.folder_id,
         raw: u,
       }));
 
-    const reports = (allReports ?? [])
-      .filter(r => (r.folder_id ?? null) === currentFolderId)
-      .map(r => {
-        const siteName = (r.inspection?.meta as Record<string, string>)?.siteName ?? '';
-        return {
-          kind: 'report' as const,
-          id: r.id, name: r.report_number, subtitle: siteName || 'Generated report',
-          date: r.generated_at, folder_id: r.folder_id,
-          x: r.position_x ?? 0, y: r.position_y ?? 0,
-          raw: r,
-        };
-      });
-
     const inspections = (allInspections ?? [])
-      .filter(i => (i.folder_id ?? null) === currentFolderId)
+      .filter(i => {
+        if (search.trim()) {
+          return fileItemMatchesSearch({
+            name: i.meta?.siteName || 'Untitled inspection',
+            subtitle: i.template_snapshot?.name ?? 'Inspection',
+            query: search,
+          });
+        }
+        return (i.folder_id ?? null) === currentFolderId;
+      })
       .map(i => ({
         kind: 'inspection' as const,
-        id: i.id, name: i.meta?.siteName || 'Untitled inspection',
+        id: i.id,
+        name: i.meta?.siteName || 'Untitled inspection',
         subtitle: i.template_snapshot?.name ?? 'Inspection',
-        date: i.started_at, folder_id: i.folder_id,
-        x: i.position_x ?? 0, y: i.position_y ?? 0,
+        date: i.started_at,
+        folder_id: i.folder_id,
         raw: i,
       }));
 
-    return [...folders, ...uploads, ...reports, ...inspections];
-  }, [allFolders, allUploads, allReports, allInspections, currentFolderId]);
+    if (statusFilter !== 'all') return [];
+    return [...folders, ...uploads, ...inspections];
+  }, [allFolders, allUploads, allInspections, currentFolderId, search, statusFilter]);
 
-  // Search results (across all folders)
-  const searchResults: DriveItem[] = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return [];
-    const matchFolders = (allFolders ?? [])
-      .filter(f => f.name.toLowerCase().includes(q))
-      .map(f => ({
-        kind: 'folder' as const, id: f.id, name: f.name, subtitle: 'Folder',
-        date: f.created_at, folder_id: f.parent_id,
-        x: f.position_x ?? 0, y: f.position_y ?? 0, raw: f,
-      }));
-    const matchUploads = (allUploads ?? [])
-      .filter(u => u.title.toLowerCase().includes(q) || u.filename.toLowerCase().includes(q))
-      .map(u => ({
-        kind: 'uploaded' as const, id: u.id, name: u.title, subtitle: u.filename,
-        size: `${(u.file_size / 1024 / 1024).toFixed(1)} MB`, date: u.created_at,
-        folder_id: u.folder_id, x: u.position_x ?? 0, y: u.position_y ?? 0, raw: u,
-      }));
-    const matchReports = (allReports ?? [])
-      .filter(r => {
-        const siteName = (r.inspection?.meta as Record<string, string>)?.siteName ?? '';
-        return r.report_number.toLowerCase().includes(q) || siteName.toLowerCase().includes(q);
-      })
-      .map(r => ({
-        kind: 'report' as const, id: r.id, name: r.report_number,
-        subtitle: (r.inspection?.meta as Record<string, string>)?.siteName ?? 'Generated report',
-        date: r.generated_at, folder_id: r.folder_id,
-        x: r.position_x ?? 0, y: r.position_y ?? 0, raw: r,
-      }));
-    const matchInspections = (allInspections ?? [])
-      .filter(i => {
-        const siteName = i.meta?.siteName ?? '';
-        const templateName = i.template_snapshot?.name ?? '';
-        return siteName.toLowerCase().includes(q) || templateName.toLowerCase().includes(q);
-      })
-      .map(i => ({
-        kind: 'inspection' as const,
-        id: i.id, name: i.meta?.siteName || 'Untitled inspection',
-        subtitle: i.template_snapshot?.name ?? 'Inspection',
-        date: i.started_at, folder_id: i.folder_id,
-        x: i.position_x ?? 0, y: i.position_y ?? 0, raw: i,
-      }));
-    return [...matchFolders, ...matchUploads, ...matchReports, ...matchInspections];
-  }, [allFolders, allUploads, allReports, allInspections, search]);
+  function handleOpenReport(report: ReportRow) {
+    navigate(reportOpenHref(report.inspection_id));
+  }
 
-  const displayItems = search.trim() ? searchResults : items;
-
-  // Close context menu on outside click
-  useEffect(() => {
-    if (!menuOpenId) return;
-    const handler = () => setMenuOpenId(null);
-    setTimeout(() => window.addEventListener('click', handler), 0);
-    return () => window.removeEventListener('click', handler);
-  }, [menuOpenId]);
-
-  // Save position to database — optimistic cache update + immediate DB write
-  const savePosition = useCallback((item: DriveItem, x: number, y: number) => {
-    // Optimistically update the React Query cache so the item doesn't snap back
+  function handleOpenFile(item: FileRow) {
     if (item.kind === 'folder') {
-      queryClient.setQueryData<FolderRow[]>(['drive-folders'], (prev) =>
-        (prev ?? []).map(f => f.id === item.id ? { ...f, position_x: x, position_y: y } : f));
-    } else if (item.kind === 'uploaded') {
-      queryClient.setQueryData<UploadedPdfRow[]>(['uploaded-pdfs'], (prev) =>
-        (prev ?? []).map(u => u.id === item.id ? { ...u, position_x: x, position_y: y } : u));
-    } else if (item.kind === 'inspection') {
-      queryClient.setQueryData<InspectionRow[]>(['drive-inspections'], (prev) =>
-        (prev ?? []).map(i => i.id === item.id ? { ...i, position_x: x, position_y: y } : i));
-    } else {
-      queryClient.setQueryData<ReportRow[]>(['all-reports'], (prev) =>
-        (prev ?? []).map(r => r.id === item.id ? { ...r, position_x: x, position_y: y } : r));
+      const f = item.raw as FolderRow;
+      setCurrentFolderId(f.id);
+      setFolderStack(prev => [...prev, { id: f.id, name: f.name }]);
+      setSearch('');
+      navigate(folderOpenHref(f.id));
+      return;
     }
-    // Persist to DB (no refetch needed — cache is already correct)
-    const table = item.kind === 'folder' ? 'folders'
-      : item.kind === 'uploaded' ? 'uploaded_pdfs'
-      : item.kind === 'inspection' ? 'inspections' : 'reports';
-    const queryKey = item.kind === 'folder' ? ['drive-folders']
-      : item.kind === 'uploaded' ? ['uploaded-pdfs']
-      : item.kind === 'inspection' ? ['drive-inspections'] : ['all-reports'];
-    supabase.from(table).update({ position_x: x, position_y: y }).eq('id', item.id)
-      .then(({ error }) => {
-        if (error) {
-          console.error('Position save failed:', error);
-          // Refetch to revert optimistic update so the item doesn't appear saved
-          queryClient.invalidateQueries({ queryKey });
-        }
-      });
-  }, [queryClient]);
-
-  // --- Item drag (desktop positioning) ---
-  function handleItemPointerDown(e: React.PointerEvent, item: DriveItem) {
-    if (e.button !== 0) return;
-    if (search.trim()) return;
-    e.stopPropagation();
-    setSelectedId(item.id);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const itemX = e.clientX - rect.left - item.x;
-    const itemY = e.clientY - rect.top - item.y;
-    setDragItem(item);
-    setDragOffset({ x: itemX, y: itemY });
-    setDragPos({ x: item.x, y: item.y });
-    dragMovedRef.current = false;
-    dragStartPosRef.current = { x: e.clientX, y: e.clientY };
-    setIsDragging(false);
-    // Capture on the item container (currentTarget), not the child that received the event
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-  }
-
-  function handleItemPointerMove(e: React.PointerEvent) {
-    if (!dragItem) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    let rawX = e.clientX - rect.left - dragOffset.x;
-    let rawY = e.clientY - rect.top - dragOffset.y;
-    // clamp to canvas
-    rawX = Math.max(0, Math.min(rawX, rect.width - ITEM_W));
-    rawY = Math.max(0, Math.min(rawY, rect.height - ITEM_H));
-    // snap to grid
-    const gx = Math.round(rawX / GRID_SIZE) * GRID_SIZE;
-    const gy = Math.round(rawY / GRID_SIZE) * GRID_SIZE;
-    if (gx !== dragPos.x || gy !== dragPos.y) {
-      dragMovedRef.current = true;
-      setIsDragging(true);
+    if (item.kind === 'uploaded') {
+      navigate(uploadedPdfOpenHref(item.id));
+      return;
     }
-    // Also mark as moved if the pointer travelled beyond a small threshold,
-    // even if the grid-snapped position didn't change — prevents a drag
-    // from being misinterpreted as a click.
-    if (dragStartPosRef.current) {
-      const dx = e.clientX - dragStartPosRef.current.x;
-      const dy = e.clientY - dragStartPosRef.current.y;
-      if (Math.hypot(dx, dy) > 5) dragMovedRef.current = true;
-    }
-    setDragPos({ x: gx, y: gy });
-
-    // Hit-test: detect if the dragged item is hovering over a folder
-    if (dragMovedRef.current) {
-      const cx = gx + ITEM_W / 2;
-      const cy = gy + ITEM_H / 2;
-      let excluded: Set<string> | null = null;
-      if (dragItem.kind === 'folder') {
-        excluded = new Set<string>([dragItem.id]);
-        let changed = true;
-        while (changed) {
-          changed = false;
-          (allFolders ?? []).forEach(f => {
-            if (f.parent_id && excluded.has(f.parent_id) && !excluded.has(f.id)) {
-              excluded.add(f.id); changed = true;
-            }
-          });
-        }
-      }
-      const target = displayItems.find(it =>
-        it.kind === 'folder' &&
-        it.id !== dragItem.id &&
-        !(excluded && excluded.has(it.id)) &&
-        cx >= it.x && cx <= it.x + ITEM_W &&
-        cy >= it.y && cy <= it.y + ITEM_H
-      );
-      setDropTargetId(target?.id ?? null);
-    }
-  }
-
-  function handleItemPointerUp() {
-    if (!dragItem) return;
-    if (dragMovedRef.current) {
-      if (dropTargetId) {
-        moveItemToFolder(dragItem, dropTargetId);
-      } else {
-        savePosition(dragItem, dragPos.x, dragPos.y);
-      }
-    }
-    setDragItem(null);
-    setIsDragging(false);
-    setDropTargetId(null);
-    // Don't reset dragMovedRef here — onClick fires after onPointerUp and
-    // needs to see whether a drag occurred to decide whether to open the item.
-    // It will be reset on the next pointerdown.
-  }
-
-  // --- Move item into a folder (used by drag-to-drop) ---
-  async function moveItemToFolder(item: DriveItem, targetFolderId: string) {
-    if (item.kind === 'folder') {
-      if (item.id === targetFolderId) return;
-      await supabase.from('folders').update({ parent_id: targetFolderId }).eq('id', item.id);
-      queryClient.invalidateQueries({ queryKey: ['drive-folders'] });
-    } else if (item.kind === 'uploaded') {
-      await supabase.from('uploaded_pdfs').update({ folder_id: targetFolderId }).eq('id', item.id);
-      queryClient.invalidateQueries({ queryKey: ['uploaded-pdfs'] });
-    } else if (item.kind === 'inspection') {
-      await supabase.from('inspections').update({ folder_id: targetFolderId }).eq('id', item.id);
-      queryClient.invalidateQueries({ queryKey: ['drive-inspections'] });
-    } else if (item.kind === 'report') {
-      await supabase.from('reports').update({ folder_id: targetFolderId }).eq('id', item.id);
-      queryClient.invalidateQueries({ queryKey: ['all-reports'] });
-    }
-  }
-
-  // Detect "click without drag" to open folders/files
-  function handleItemClick(item: DriveItem) {
-    if (dragMovedRef.current) return;
-    handleOpenItem(item);
-  }
-
-  // --- Canvas click (deselect + close menu) ---
-  function handleCanvasClick(e: React.MouseEvent) {
-    if (e.target === canvasRef.current) {
-      setSelectedId(null);
-    }
-  }
-
-  // --- Folder navigation ---
-  function openFolder(folder: DriveItem) {
-    if (folder.kind !== 'folder') return;
-    const f = folder.raw as FolderRow;
-    setCurrentFolderId(f.id);
-    setFolderStack(prev => [...prev, { id: f.id, name: f.name }]);
-    setSearch('');
-    setSelectedId(null);
-    navigate(`/drive/folder/${f.id}`);
+    const i = item.raw as InspectionRow;
+    navigate(inspectionDriveOpenHref({ id: i.id, status: i.status }));
   }
 
   function navigateToBreadcrumb(index: number) {
@@ -586,59 +447,33 @@ export function ReportsListPage() {
     setCurrentFolderId(target.id);
     setFolderStack(prev => prev.slice(0, index + 1));
     setSearch('');
-    setSelectedId(null);
-    if (target.id === null) {
-      navigate('/drive');
-    } else {
-      navigate(`/drive/folder/${target.id}`);
-    }
+    if (target.id === null) navigate('/drive');
+    else navigate(folderOpenHref(target.id));
   }
 
-  // --- Copy shareable link for current folder ---
   async function handleCopyLink(folderId: string | null) {
     const url = folderId
       ? `${window.location.origin}/drive/folder/${folderId}`
       : `${window.location.origin}/drive`;
     try {
       await navigator.clipboard.writeText(url);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
     } catch {
-      // Fallback: create a temporary input element
       const input = document.createElement('input');
       input.value = url;
       document.body.appendChild(input);
       input.select();
       document.execCommand('copy');
       document.body.removeChild(input);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
     }
-    setMenuOpenId(null);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
   }
 
-  function handleOpenItem(item: DriveItem) {
-    if (item.kind === 'folder') {
-      openFolder(item);
-    } else if (item.kind === 'uploaded') {
-      navigate(`/uploaded-pdfs/${item.id}`);
-    } else if (item.kind === 'inspection') {
-      const i = item.raw as InspectionRow;
-      navigate(i.status === 'completed' || i.status === 'issued'
-        ? `/inspections/${i.id}/report`
-        : `/inspections/${i.id}`);
-    } else if (item.kind === 'report') {
-      const r = item.raw as ReportRow;
-      navigate(`/inspections/${r.inspection_id}/report`);
-    }
-  }
-
-  // --- Create folder ---
   async function handleCreateFolder() {
     if (!companyId || !newFolderName.trim()) return;
     setCreatingFolder(true);
     try {
-      const pos = nextStaggerPosition(items);
+      const pos = nextStaggerPosition((allFolders ?? []).length);
       await supabase.from('folders').insert({
         company_id: companyId,
         parent_id: currentFolderId,
@@ -657,11 +492,9 @@ export function ReportsListPage() {
     }
   }
 
-  // --- Rename ---
-  function startRename(item: DriveItem) {
+  function startRename(item: FileRow) {
     setRenamingItem(item);
     setRenameValue(item.name);
-    setMenuOpenId(null);
   }
 
   async function handleRename() {
@@ -683,9 +516,7 @@ export function ReportsListPage() {
     setRenameValue('');
   }
 
-  // --- Delete ---
-  async function handleDelete(item: DriveItem) {
-    setMenuOpenId(null);
+  async function handleDeleteFile(item: FileRow) {
     if (item.kind === 'folder') {
       const childCount = (allFolders ?? []).filter(f => f.parent_id === item.id).length
         + (allUploads ?? []).filter(u => u.folder_id === item.id).length
@@ -704,19 +535,13 @@ export function ReportsListPage() {
       await supabase.storage.from('uploaded-pdfs').remove([u.storage_path]);
       queryClient.invalidateQueries({ queryKey: ['uploaded-pdfs'] });
     } else if (item.kind === 'inspection') {
-      if (!confirm(`Remove "${item.name}" from the drive? The inspection will not be deleted.`)) return;
+      if (!confirm(`Remove "${item.name}" from this list? The inspection will not be deleted.`)) return;
       const i = item.raw as InspectionRow;
       await supabase.from('inspections').update({ folder_id: null }).eq('id', i.id);
       queryClient.invalidateQueries({ queryKey: ['drive-inspections'] });
-    } else if (item.kind === 'report') {
-      if (!confirm(`Remove "${item.name}" from the drive? The inspection will not be deleted.`)) return;
-      const r = item.raw as ReportRow;
-      await supabase.from('reports').update({ folder_id: null }).eq('id', r.id);
-      queryClient.invalidateQueries({ queryKey: ['all-reports'] });
     }
   }
 
-  // --- Upload ---
   const uploadPdf = useCallback(async (file: File) => {
     if (!companyId) return;
     setUploadError('');
@@ -738,7 +563,7 @@ export function ReportsListPage() {
         .upload(storagePath, file, { contentType: 'application/pdf', upsert: false });
       if (upErr) throw upErr;
 
-      const pos = nextStaggerPosition(items);
+      const pos = nextStaggerPosition((allUploads ?? []).length);
       const { error: dbErr } = await supabase
         .from('uploaded_pdfs')
         .insert({
@@ -759,12 +584,10 @@ export function ReportsListPage() {
       }
       queryClient.invalidateQueries({ queryKey: ['uploaded-pdfs'] });
 
-      // Auto-sync to local backup if enabled
       if (backupConnected && backupSyncMode === 'auto') {
         const { data: urlData } = await supabase.storage.from('uploaded-pdfs').createSignedUrl(storagePath, 3600);
         if (urlData?.signedUrl) {
           if (backupFolderName === 'Downloads folder') {
-            // Download mode — save to Downloads via browser
             downloadBackupFiles([{ path: [file.name], downloadUrl: urlData.signedUrl, filename: file.name }])
               .catch(err => console.error('Auto-download failed:', err));
           } else {
@@ -772,7 +595,7 @@ export function ReportsListPage() {
               ? (allFolders ?? []).find(f => f.id === currentFolderId)?.name ?? 'Root'
               : 'Root';
             syncOne({
-              path: ['Shared Drive', folderName, file.name],
+              path: ['Reports', folderName, file.name],
               downloadUrl: urlData.signedUrl,
               filename: file.name,
             }).catch(err => console.error('Auto-sync failed:', err));
@@ -784,14 +607,13 @@ export function ReportsListPage() {
     } finally {
       setUploading(false);
     }
-  }, [companyId, profile, currentFolderId, queryClient, items, backupConnected, backupSyncMode, allFolders]);
+  }, [companyId, profile, currentFolderId, queryClient, allUploads, allFolders, backupConnected, backupSyncMode, backupFolderName]);
 
   function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     Array.from(files).forEach(f => uploadPdf(f));
   }
 
-  // --- Backup: connect folder (fallback to download-all if blocked) ---
   async function handleConnectBackup() {
     setBackupBusy(true);
     setBackupMessage(null);
@@ -807,7 +629,6 @@ export function ReportsListPage() {
       setBackupMessage({ type: 'success', text: `Connected to "${name}". Files will be backed up to this folder.` });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      // If folder picker is blocked in iframe, fall back to download-all mode
       if (err instanceof DOMException && err.name === 'SecurityError') {
         setBackupConnected(true);
         setBackupFolderName('Downloads folder');
@@ -828,7 +649,6 @@ export function ReportsListPage() {
     }
   }
 
-  // --- Backup: disconnect ---
   async function handleDisconnectBackup() {
     await clearBackupDir();
     setBackupConnected(false);
@@ -841,47 +661,45 @@ export function ReportsListPage() {
     setBackupMessage(null);
   }
 
-  // --- Backup: toggle sync mode ---
   async function handleSyncModeChange(mode: 'manual' | 'auto') {
     setBackupSyncMode(mode);
     await supabase.from('companies').update({ backup_sync_mode: mode }).eq('id', companyId);
     queryClient.invalidateQueries({ queryKey: ['backup-settings'] });
   }
 
-  // --- Backup: sync all files ---
   async function handleSyncAll() {
     setBackupBusy(true);
     setBackupMessage(null);
     try {
-      // Build folder-path lookup
-      const folderMap = new Map<string, string | null>();
-      (allFolders ?? []).forEach(f => folderMap.set(f.id, f.parent_id));
       const folderNamePath = (folderId: string | null): string[] => {
-        if (!folderId) return ['Shared Drive'];
+        if (!folderId) return ['Reports'];
         const f = (allFolders ?? []).find(x => x.id === folderId);
-        if (!f) return ['Shared Drive'];
-        const parentPath = folderNamePath(f.parent_id);
-        return [...parentPath, f.name];
+        if (!f) return ['Reports'];
+        return [...folderNamePath(f.parent_id), f.name];
       };
 
       const specs: BackupFileSpec[] = [];
 
-      // Uploaded PDFs
       for (const u of (allUploads ?? [])) {
         const { data } = await supabase.storage.from('uploaded-pdfs').createSignedUrl(u.storage_path, 3600);
         if (data?.signedUrl) {
-          const path = [...folderNamePath(u.folder_id), u.filename];
-          specs.push({ path, downloadUrl: data.signedUrl, filename: u.filename });
+          specs.push({
+            path: [...folderNamePath(u.folder_id), u.filename],
+            downloadUrl: data.signedUrl,
+            filename: u.filename,
+          });
         }
       }
 
-      // Reports
       for (const r of (allReports ?? [])) {
         const { data } = await supabase.storage.from('reports').createSignedUrl(r.pdf_storage_path, 3600);
         if (data?.signedUrl) {
           const filename = `${r.report_number}.pdf`;
-          const path = [...folderNamePath(r.folder_id), filename];
-          specs.push({ path, downloadUrl: data.signedUrl, filename });
+          specs.push({
+            path: [...folderNamePath(r.folder_id), filename],
+            downloadUrl: data.signedUrl,
+            filename,
+          });
         }
       }
 
@@ -890,7 +708,6 @@ export function ReportsListPage() {
         return;
       }
 
-      // If folder picker is blocked (download mode), use browser downloads instead
       const isDownloadMode = backupFolderName === 'Downloads folder';
       const result = isDownloadMode
         ? await downloadBackupFiles(specs)
@@ -914,55 +731,17 @@ export function ReportsListPage() {
     }
   }
 
-  // File-drop on canvas (upload)
-  function handleCanvasDragOver(e: React.DragEvent) {
-    if (e.dataTransfer.types.includes('Files')) {
-      e.preventDefault();
-      setFileDragOver(true);
-    }
-  }
-  function handleCanvasDragLeave(e: React.DragEvent) {
-    if (e.currentTarget === e.target) setFileDragOver(false);
-  }
-  function handleCanvasDrop(e: React.DragEvent) {
-    if (e.dataTransfer.files.length > 0) {
-      e.preventDefault();
-      setFileDragOver(false);
-      handleFiles(e.dataTransfer.files);
-    }
-  }
-
-  // --- Download ---
-  async function handleDownload(item: DriveItem) {
-    setMenuOpenId(null);
+  async function handleDownloadReport(report: ReportRow) {
     setDownloadError('');
     try {
-      let bucket: string;
-      let path: string;
-      let filename: string;
-
-      if (item.kind === 'uploaded') {
-        const u = item.raw as UploadedPdfRow;
-        bucket = 'uploaded-pdfs';
-        path = u.storage_path;
-        filename = u.filename;
-      } else if (item.kind === 'report') {
-        const r = item.raw as ReportRow;
-        bucket = 'reports';
-        path = r.pdf_storage_path;
-        filename = `${r.report_number}.pdf`;
-      } else {
-        return;
-      }
-
-      const { data, error } = await supabase.storage.from(bucket).download(path);
+      const { data, error } = await supabase.storage.from('reports').download(report.pdf_storage_path);
       if (error || !data) {
         setDownloadError(error?.message ?? 'File not found in storage.');
         return;
       }
       const a = document.createElement('a');
       a.href = URL.createObjectURL(data);
-      a.download = filename;
+      a.download = `${report.report_number}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -972,31 +751,52 @@ export function ReportsListPage() {
     }
   }
 
-  // --- Move to folder ---
+  async function handleDownloadUpload(item: FileRow) {
+    if (item.kind !== 'uploaded') return;
+    setDownloadError('');
+    try {
+      const u = item.raw as UploadedPdfRow;
+      const { data, error } = await supabase.storage.from('uploaded-pdfs').download(u.storage_path);
+      if (error || !data) {
+        setDownloadError(error?.message ?? 'File not found in storage.');
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(data);
+      a.download = u.filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : 'Download failed');
+    }
+  }
+
   async function handleMove(targetFolderId: string | null) {
     if (!movePickerFor) return;
-    if (movePickerFor.kind === 'folder') {
-      if (movePickerFor.id === targetFolderId) { setMovePickerFor(null); return; }
-      await supabase.from('folders').update({ parent_id: targetFolderId }).eq('id', movePickerFor.id);
+    if (movePickerFor.kind === 'report') {
+      await supabase.from('reports').update({ folder_id: targetFolderId }).eq('id', movePickerFor.row.id);
+      queryClient.invalidateQueries({ queryKey: ['all-reports'] });
+    } else if (movePickerFor.kind === 'folder') {
+      if (movePickerFor.row.id === targetFolderId) { setMovePickerFor(null); return; }
+      await supabase.from('folders').update({ parent_id: targetFolderId }).eq('id', movePickerFor.row.id);
       queryClient.invalidateQueries({ queryKey: ['drive-folders'] });
     } else if (movePickerFor.kind === 'uploaded') {
-      await supabase.from('uploaded_pdfs').update({ folder_id: targetFolderId }).eq('id', movePickerFor.id);
+      await supabase.from('uploaded_pdfs').update({ folder_id: targetFolderId }).eq('id', movePickerFor.row.id);
       queryClient.invalidateQueries({ queryKey: ['uploaded-pdfs'] });
     } else if (movePickerFor.kind === 'inspection') {
-      await supabase.from('inspections').update({ folder_id: targetFolderId }).eq('id', movePickerFor.id);
+      await supabase.from('inspections').update({ folder_id: targetFolderId }).eq('id', movePickerFor.row.id);
       queryClient.invalidateQueries({ queryKey: ['drive-inspections'] });
-    } else if (movePickerFor.kind === 'report') {
-      await supabase.from('reports').update({ folder_id: targetFolderId }).eq('id', movePickerFor.id);
-      queryClient.invalidateQueries({ queryKey: ['all-reports'] });
     }
     setMovePickerFor(null);
   }
 
   const moveTargetFolders = useMemo(() => {
     if (!movePickerFor || movePickerFor.kind !== 'folder') {
-      return [{ id: null, name: 'Root (Shared Drive)' }, ...(allFolders ?? []).map(f => ({ id: f.id, name: f.name }))];
+      return [{ id: null, name: 'Reports' }, ...(allFolders ?? []).map(f => ({ id: f.id, name: f.name }))];
     }
-    const excluded = new Set<string>([movePickerFor.id]);
+    const excluded = new Set<string>([movePickerFor.row.id]);
     let changed = true;
     while (changed) {
       changed = false;
@@ -1007,71 +807,64 @@ export function ReportsListPage() {
       });
     }
     return [
-      { id: null, name: 'Root (Shared Drive)' },
+      { id: null, name: 'Reports' },
       ...(allFolders ?? []).filter(f => !excluded.has(f.id)).map(f => ({ id: f.id, name: f.name })),
     ];
   }, [movePickerFor, allFolders]);
 
-  const childCount = (id: string) =>
-    (allFolders ?? []).filter(f => f.parent_id === id).length +
-    (allUploads ?? []).filter(u => u.folder_id === id).length +
-    (allReports ?? []).filter(r => r.folder_id === id).length +
-    (allInspections ?? []).filter(i => i.folder_id === id).length;
-
-  // Context menu item
-  const menuItem = menuOpenId ? displayItems.find(i => i.id === menuOpenId) : null;
-
-  // Compute canvas height — at least tall enough to contain all items + padding
-  const canvasMinHeight = useMemo(() => {
-    if (displayItems.length === 0) return 400;
-    const maxY = Math.max(...displayItems.map(i => i.y + ITEM_H));
-    return Math.max(maxY + 80, 500);
-  }, [displayItems]);
-
   if (pageQueryBlocked(foldersError) || pageQueryBlocked(uploadsError) || pageQueryBlocked(reportsError)) {
-    return <AppShell><PageError message="Could not load Shared Drive" /></AppShell>;
+    return <AppShell><PageError message="Could not load reports" /></AppShell>;
   }
+
+  const loading = !!companyId && (reportsLoading || foldersLoading || uploadsLoading) && !allReports && !allUploads;
+  const emptyTitle = reportsListEmptyTitle({
+    search,
+    filter: statusFilter,
+    count: reportItems.length,
+  });
+  const showReportsEmpty = !loading && reportItems.length === 0;
+  const showFiles = fileItems.length > 0;
 
   return (
     <AppShell>
-      <div className="max-w-[1400px] mx-auto px-4 py-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+      <div className="ops-page hub-reports">
+        <div className="ops-page-head">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">Shared Drive</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">Drag files and folders anywhere on the desktop</p>
+            <p className="hub-reports-kicker">Reports</p>
+            <h1 className="ops-page-title">Reports</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="hub-reports-head-act">
             <button
+              type="button"
               onClick={() => setShowBackupPanel(s => !s)}
-              className={`flex items-center gap-1.5 border px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                backupConnected
-                  ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
-                  : 'border-[#E5E7EB] text-[#4A5568] hover:bg-[#F9FAFB]'
-              }`}
+              className={`hub-reports-quiet ${backupConnected ? 'is-on' : ''}`}
               title="Local backup settings"
             >
-              <HardDrive size={16} /> {backupConnected ? 'Backup Connected' : 'Backup'}
+              <HardDrive size={16} /> {backupConnected ? 'Backup connected' : 'Backup'}
             </button>
             <button
+              type="button"
               onClick={() => handleCopyLink(currentFolderId)}
-              className="flex items-center gap-1.5 border border-[#E5E7EB] text-[#4A5568] px-3 py-2 rounded-md text-sm font-medium hover:bg-[#F9FAFB] transition-colors"
+              className="hub-reports-quiet"
               title="Copy link to this folder"
             >
-              {linkCopied ? <Check size={16} className="text-green-600" /> : <Link2 size={16} />}
-              {linkCopied ? 'Copied!' : 'Copy Link'}
+              {linkCopied ? <Check size={16} /> : <Link2 size={16} />}
+              {linkCopied ? 'Copied' : 'Copy link'}
             </button>
             <button
+              type="button"
               onClick={() => setShowNewFolder(true)}
-              className="flex items-center gap-1.5 border border-[#E5E7EB] text-[#4A5568] px-3 py-2 rounded-md text-sm font-medium hover:bg-[#F9FAFB] transition-colors"
+              className="hub-reports-quiet"
             >
-              <FolderPlus size={16} /> New Folder
+              <FolderPlus size={16} /> New folder
             </button>
             <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 bg-[#2E75B6] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#1e5394] transition-colors"
+              className="btn-primary"
+              disabled={uploading}
             >
-              <UploadCloud size={16} /> Upload PDF
+              <UploadCloud size={16} /> {uploading ? 'Uploading…' : 'Upload PDF'}
             </button>
             <input
               ref={fileInputRef}
@@ -1084,369 +877,139 @@ export function ReportsListPage() {
           </div>
         </div>
 
-        {/* Breadcrumbs */}
-        <div className="flex items-center gap-1 mb-3 text-sm">
-          {folderStack.map((crumb, i) => (
-            <div key={i} className="flex items-center gap-1">
-              {i > 0 && <ChevronRight size={14} className="text-[#D1D5DB]" />}
-              <button
-                onClick={() => navigateToBreadcrumb(i)}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md transition-colors ${
-                  i === folderStack.length - 1
-                    ? 'text-[#1A1A1A] font-medium'
-                    : 'text-[#4A5568] hover:bg-[#F3F4F6]'
-                }`}
-              >
-                {i === 0 && <Home size={14} />}
-                {crumb.name}
-              </button>
-            </div>
-          ))}
-        </div>
+        {folderStack.length > 1 && (
+          <nav aria-label="Breadcrumb" className="hub-reports-crumbs">
+            {folderStack.map((crumb, i) => (
+              <div key={`${crumb.id ?? 'root'}-${i}`} className="hub-reports-crumb">
+                {i > 0 && <span className="hub-reports-crumb-sep" aria-hidden="true">/</span>}
+                <button
+                  type="button"
+                  onClick={() => navigateToBreadcrumb(i)}
+                  className={i === folderStack.length - 1 ? 'is-here' : ''}
+                >
+                  {i === 0 && <Home size={14} />}
+                  {crumb.name}
+                </button>
+              </div>
+            ))}
+          </nav>
+        )}
 
-        {/* Search */}
-        <div className="relative mb-3">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9AA0A6]" />
-          <input
-            type="text"
+        <div className="hub-reports-chrome">
+          <div className="hub-reports-filters">
+            {([
+              ['all', 'All'],
+              ['ready', 'Ready'],
+              ['sent', 'Sent'],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setStatusFilter(key)}
+                className={`hub-chrome-filter ${statusFilter === key ? 'hub-chrome-filter-on' : ''}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <SearchBar
             value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search all files and folders..."
-            className="w-full min-h-[44px] h-auto pl-9 pr-4 py-2 border border-[#E5E7EB] rounded-lg text-sm text-[#1A1A1A] bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]/30 focus:border-[#2E75B6]"
+            onChange={setSearch}
+            placeholder="Search by site, report number, job, or client..."
+            className="max-w-sm"
           />
         </div>
 
         {uploadError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-3 flex items-center justify-between">
+          <div className="hub-reports-banner is-bad">
             <span>{uploadError}</span>
-            <button onClick={() => setUploadError('')} className="text-red-400 hover:text-red-600"><X size={16} /></button>
+            <button type="button" onClick={() => setUploadError('')} aria-label="Dismiss"><X size={16} /></button>
           </div>
         )}
-
         {downloadError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-3 flex items-center justify-between">
+          <div className="hub-reports-banner is-bad">
             <span>Download failed: {downloadError}</span>
-            <button onClick={() => setDownloadError('')} className="text-red-400 hover:text-red-600"><X size={16} /></button>
+            <button type="button" onClick={() => setDownloadError('')} aria-label="Dismiss"><X size={16} /></button>
           </div>
         )}
 
-        {/* Desktop canvas */}
-        <div
-          ref={canvasRef}
-          onClick={handleCanvasClick}
-          onDragOver={handleCanvasDragOver}
-          onDragLeave={handleCanvasDragLeave}
-          onDrop={handleCanvasDrop}
-          className={`relative border rounded-xl overflow-hidden transition-colors ${
-            fileDragOver
-              ? 'border-[#2E75B6] bg-[#EFF6FF] border-2 border-dashed'
-              : 'border-[#E5E7EB] bg-[#F8F9FB]'
-          }`}
-          style={{
-            minHeight: `${canvasMinHeight}px`,
-            backgroundImage: `radial-gradient(circle, ${fileDragOver ? '#BFDBFE' : '#D1D5DB'} 1px, transparent 1px)`,
-            backgroundSize: `${GRID_SIZE * 2}px ${GRID_SIZE * 2}px`,
-          }}
-        >
-          {/* File drag overlay */}
-          {fileDragOver && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
-              <div className="bg-white/90 rounded-xl px-6 py-4 shadow-lg flex items-center gap-3">
-                <UploadCloud size={24} className="text-[#2E75B6]" />
-                <span className="text-sm font-medium text-[#1A1A1A]">Drop PDFs to upload here</span>
-              </div>
-            </div>
-          )}
-
-          {displayItems.length === 0 && !fileDragOver && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              {search.trim() ? (
-                <>
-                  <Search size={40} className="text-[#D1D5DB] mb-3" />
-                  <p className="text-[#1A1A1A] font-medium">No results found</p>
-                  <p className="text-sm text-[#4A5568] mt-1">Try a different search term.</p>
-                </>
-              ) : (
-                <>
-                  <Folder size={40} className="text-[#D1D5DB] mb-3" />
-                  <p className="text-[#1A1A1A] font-medium">This folder is empty</p>
-                  <p className="text-sm text-[#4A5568] mt-1">Upload PDFs or create a new folder to get started</p>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Desktop items */}
-          {displayItems.map(item => {
-            const isDraggingThis = dragItem?.id === item.id;
-            const x = isDraggingThis ? dragPos.x : item.x;
-            const y = isDraggingThis ? dragPos.y : item.y;
-            const isSelected = selectedId === item.id;
-            const isDropTarget = dropTargetId === item.id;
-
-            return (
-              <div
-                key={`${item.kind}-${item.id}`}
-                className={`absolute select-none group ${
-                  isDraggingThis ? 'z-40 cursor-grabbing' : 'z-10 cursor-grab'
-                }`}
-                style={{
-                  left: `${x}px`,
-                  top: `${y}px`,
-                  width: `${ITEM_W}px`,
-                  height: `${ITEM_H}px`,
-                  transition: isDraggingThis ? 'none' : 'box-shadow 0.15s, border-color 0.15s',
-                }}
-                onPointerDown={e => handleItemPointerDown(e, item)}
-                onPointerMove={handleItemPointerMove}
-                onPointerUp={handleItemPointerUp}
-                onClick={() => handleItemClick(item)}
-                onContextMenu={e => {
-                  e.preventDefault();
-                  setMenuOpenId(item.id);
-                  setMenuPos({ x: e.clientX, y: e.clientY });
-                  setSelectedId(item.id);
-                }}
-              >
-                <div
-                  className={`w-full h-full rounded-xl border-2 bg-white p-2 flex flex-col items-center justify-center text-center transition-all ${
-                    isDraggingThis
-                      ? 'border-[#2E75B6] shadow-xl scale-105'
-                      : isDropTarget
-                        ? 'border-[#22C55E] bg-green-50 shadow-lg scale-105 ring-4 ring-green-300/50'
-                        : isSelected
-                          ? 'border-[#93C5FD] shadow-md'
-                          : 'border-transparent hover:border-[#CBD5E1] hover:shadow-sm'
-                  }`}
-                >
-                  {/* Icon */}
-                  {item.kind === 'folder' ? (
-                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center mb-1.5 transition-colors ${
-                      isDropTarget ? 'bg-green-100' : 'bg-[#EFF6FF]'
-                    }`}>
-                      <Folder size={26} className={isDropTarget ? 'text-green-600' : 'text-[#2E75B6]'} fill={isDropTarget ? '#BBF7D0' : '#DBEAFE'} />
-                    </div>
-                  ) : item.kind === 'inspection' ? (
-                    <div className="w-12 h-12 rounded-lg bg-[#F0FDF4] flex items-center justify-center mb-1.5">
-                      <ClipboardList size={26} className="text-green-600" />
-                    </div>
-                  ) : (
-                    <div className="w-12 h-12 rounded-lg bg-[#F3F4F6] flex items-center justify-center mb-1.5">
-                      <FileText size={26} className="text-[#4A5568]" />
-                    </div>
-                  )}
-
-                  {/* Name */}
-                  <p className="text-xs font-medium text-[#1A1A1A] leading-tight line-clamp-2 break-words w-full px-1">
-                    {item.name}
-                  </p>
-                  {/* Subtitle */}
-                  <p className="text-[10px] text-[#9AA0A6] mt-0.5 line-clamp-1 w-full px-1">
-                    {item.kind === 'folder'
-                      ? `${childCount(item.id)} item(s)`
-                      : format(new Date(item.date), 'd MMM yyyy')}
-                  </p>
-                </div>
-
-                {/* More button (appears on hover) */}
-                <button
-                  onClick={e => {
-                    e.stopPropagation();
-                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    setMenuOpenId(menuOpenId === item.id ? null : item.id);
-                    setMenuPos({ x: rect.right, y: rect.bottom });
-                  }}
-                  className="absolute top-1 right-1 p-1 rounded-md text-[#9AA0A6] hover:bg-[#F3F4F6] hover:text-[#1A1A1A] opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <MoreVertical size={14} />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Backup settings panel */}
         {showBackupPanel && (
-          <div className="mb-4 bg-white border border-[#E5E7EB] rounded-xl p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <HardDrive size={18} className="text-[#2E75B6]" />
-                <h3 className="text-sm font-semibold text-[#1A1A1A]">Local Hard Backup</h3>
-              </div>
-              <button onClick={() => setShowBackupPanel(false)} className="text-[#9AA0A6] hover:text-[#1A1A1A]">
-                <X size={16} />
-              </button>
-            </div>
-
-            {!backupSupported ? (
-              <div>
-                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 mb-3">
-                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                  <span>Direct folder selection isn't available in this embedded view. You can still back up your files — they'll download to your Downloads folder instead.</span>
-                </div>
-                <button
-                  onClick={handleConnectBackup}
-                  disabled={backupBusy}
-                  className="flex items-center gap-2 bg-[#2E75B6] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#1e5394] disabled:opacity-50"
-                >
-                  {backupBusy ? <LoadingSpinner size="sm" /> : <Download size={16} />} Enable Download Backup
-                </button>
-              </div>
-            ) : !backupConnected ? (
-              <div>
-                <p className="text-sm text-[#4A5568] mb-3">
-                  Connect a folder on your PC (external hard drive, desktop, anywhere) and your files will be automatically copied there as a hard backup.
-                </p>
-                <button
-                  onClick={handleConnectBackup}
-                  disabled={backupBusy}
-                  className="flex items-center gap-2 bg-[#2E75B6] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#1e5394] disabled:opacity-50"
-                >
-                  {backupBusy ? <LoadingSpinner size="sm" /> : <HardDrive size={16} />} Connect Folder
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle2 size={18} className="text-green-600" />
-                  <span className="text-sm text-[#1A1A1A]">
-                    Connected to <strong>"{backupFolderName}"</strong>
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 mb-3">
-                  <div className="flex items-center gap-1 bg-[#F3F4F6] rounded-lg p-1">
-                    <button
-                      onClick={() => handleSyncModeChange('auto')}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                        backupSyncMode === 'auto' ? 'bg-white text-[#2E75B6] shadow-sm' : 'text-[#6B7280]'
-                      }`}
-                    >Auto-sync</button>
-                    <button
-                      onClick={() => handleSyncModeChange('manual')}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                        backupSyncMode === 'manual' ? 'bg-white text-[#2E75B6] shadow-sm' : 'text-[#6B7280]'
-                      }`}
-                    >Manual only</button>
-                  </div>
-
-                  <button
-                    onClick={handleSyncAll}
-                    disabled={backupBusy}
-                    className="flex items-center gap-1.5 bg-[#2E75B6] text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-[#1e5394] disabled:opacity-50"
-                  >
-                    {backupBusy ? <LoadingSpinner size="sm" /> : <RefreshCw size={14} />} {backupFolderName === 'Downloads folder' ? 'Download All' : 'Sync All Now'}
-                  </button>
-
-                  <button
-                    onClick={handleDisconnectBackup}
-                    className="flex items-center gap-1.5 text-red-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-50"
-                  >
-                    <Unlink size={14} /> Disconnect
-                  </button>
-                </div>
-
-                <p className="text-xs text-[#9AA0A6]">
-                  {backupFolderName === 'Downloads folder'
-                    ? backupSyncMode === 'auto'
-                      ? 'Auto-download is ON — new uploads are downloaded to your Downloads folder automatically. Click "Download All" to download everything.'
-                      : 'Manual mode — click "Download All" to download all files to your Downloads folder.'
-                    : backupSyncMode === 'auto'
-                      ? 'Auto-sync is ON — new uploads are copied to your hard drive automatically. Click "Sync All Now" to sync everything.'
-                      : 'Manual mode — click "Sync All Now" to copy all files to your hard drive.'}
-                </p>
-              </div>
-            )}
-
-            {backupMessage && (
-              <div className={`mt-3 flex items-start gap-2 rounded-lg p-3 text-sm ${
-                backupMessage.type === 'success'
-                  ? 'bg-green-50 border border-green-200 text-green-800'
-                  : 'bg-red-50 border border-red-200 text-red-700'
-              }`}>
-                {backupMessage.type === 'success'
-                  ? <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
-                  : <AlertCircle size={16} className="shrink-0 mt-0.5" />}
-                <span>{backupMessage.text}</span>
-              </div>
-            )}
-          </div>
+          <BackupPanel
+            backupSupported={backupSupported}
+            backupConnected={backupConnected}
+            backupFolderName={backupFolderName}
+            backupSyncMode={backupSyncMode}
+            backupBusy={backupBusy}
+            backupMessage={backupMessage}
+            onClose={() => setShowBackupPanel(false)}
+            onConnect={handleConnectBackup}
+            onDisconnect={handleDisconnectBackup}
+            onSyncMode={handleSyncModeChange}
+            onSyncAll={handleSyncAll}
+          />
         )}
 
-        {/* Stats footer */}
-        {!search.trim() && displayItems.length > 0 && (
-          <div className="mt-4 flex items-center gap-4 text-xs text-[#9AA0A6]">
-            <span>{(allFolders ?? []).filter(f => f.parent_id === currentFolderId).length} folders</span>
-            <span>{(allUploads ?? []).filter(u => (u.folder_id ?? null) === currentFolderId).length} uploaded PDFs</span>
-            <span>{(allReports ?? []).filter(r => (r.folder_id ?? null) === currentFolderId).length} reports</span>
-            <span>{(allInspections ?? []).filter(i => (i.folder_id ?? null) === currentFolderId).length} inspections</span>
-          </div>
+        {loading ? (
+          <div className="flex justify-center py-20"><LoadingSpinner /></div>
+        ) : (
+          <>
+            <div className="hub-reports-sheet">
+              <div className="hub-reports-thead">
+                <span>Site</span>
+                <span>Report</span>
+                <span>Status</span>
+                <span />
+              </div>
+              {showReportsEmpty ? (
+                <EmptyState
+                  icon={FileText}
+                  title={emptyTitle || 'No reports yet'}
+                  message={reportsListEmptyMessage({
+                    search,
+                    filter: statusFilter,
+                    count: reportItems.length,
+                  })}
+                />
+              ) : reportItems.map(report => (
+                <ReportListRow
+                  key={`report-${report.id}`}
+                  report={report}
+                  onOpen={() => handleOpenReport(report)}
+                  onDownload={() => handleDownloadReport(report)}
+                  onMove={() => setMovePickerFor({ kind: 'report', row: report, listStatus: report.listStatus })}
+                />
+              ))}
+            </div>
+
+            {showFiles && (
+              <div className="hub-reports-files">
+                <h2 className="hub-reports-files-title">Files on this list</h2>
+                <div className="hub-reports-sheet">
+                  {fileItems.map(item => (
+                    <FileListRow
+                      key={`${item.kind}-${item.id}`}
+                      item={item}
+                      onOpen={() => handleOpenFile(item)}
+                      onDownload={() => handleDownloadUpload(item)}
+                      onMove={() => setMovePickerFor({ kind: item.kind, row: item })}
+                      onRename={() => startRename(item)}
+                      onDelete={() => handleDeleteFile(item)}
+                      onCopyLink={item.kind === 'folder' ? () => handleCopyLink(item.id) : undefined}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* Context menu (floating) */}
-      {menuItem && menuOpenId && (
-        <div
-          className="fixed z-50 bg-white border border-[#E5E7EB] rounded-lg shadow-xl py-1 min-w-[170px]"
-          style={{
-            left: `${Math.min(menuPos.x, window.innerWidth - 180)}px`,
-            top: `${Math.min(menuPos.y, window.innerHeight - 240)}px`,
-          }}
-          onClick={e => e.stopPropagation()}
-        >
-          <button
-            onClick={() => { handleOpenItem(menuItem); setMenuOpenId(null); }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]"
-          >
-            {menuItem.kind === 'folder' ? <Folder size={15} /> : menuItem.kind === 'inspection' ? <ClipboardList size={15} /> : <PenLine size={15} />} Open
-          </button>
-          {menuItem.kind !== 'inspection' && menuItem.kind !== 'folder' && (
-            <button
-              onClick={() => handleDownload(menuItem)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]"
-            >
-              <Download size={15} /> Download
-            </button>
-          )}
-          <button
-            onClick={() => { setMovePickerFor(menuItem); setMenuOpenId(null); }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]"
-          >
-            <Move size={15} /> Move to...
-          </button>
-          {menuItem.kind !== 'inspection' && (
-            <button
-              onClick={() => startRename(menuItem)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]"
-            >
-              <PenLine size={15} /> Rename
-            </button>
-          )}
-          {menuItem.kind === 'folder' && (
-            <button
-              onClick={() => handleCopyLink(menuItem.id)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB]"
-            >
-              <Link2 size={15} /> Copy Link
-            </button>
-          )}
-          <div className="border-t border-[#F3F4F6] my-1" />
-          <button
-            onClick={() => handleDelete(menuItem)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-          >
-            <Trash2 size={15} /> Delete
-          </button>
-        </div>
-      )}
-
-      {/* New folder dialog */}
       {showNewFolder && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-4 pt-[8vh] overflow-y-auto" onClick={() => { setShowNewFolder(false); setNewFolderName(''); }}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+        <div className="overlay-backdrop" onClick={() => { setShowNewFolder(false); setNewFolderName(''); }}>
+          <div className="overlay-panel-lg hub-reports-dialog" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-4">
-              <FolderPlus size={20} className="text-[#2E75B6]" />
-              <h3 className="text-base font-semibold text-[#1A1A1A]">New Folder</h3>
+              <FolderPlus size={20} />
+              <h3>New folder</h3>
             </div>
             <input
               type="text"
@@ -1455,14 +1018,15 @@ export function ReportsListPage() {
               onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
               autoFocus
               placeholder="Folder name"
-              className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2.5 text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]/30 focus:border-[#2E75B6]"
+              className="form-input"
             />
             <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => { setShowNewFolder(false); setNewFolderName(''); }} className="px-3 py-2 text-sm text-[#4A5568] hover:bg-[#F3F4F6] rounded-md">Cancel</button>
+              <button type="button" onClick={() => { setShowNewFolder(false); setNewFolderName(''); }} className="hub-reports-quiet">Cancel</button>
               <button
+                type="button"
                 onClick={handleCreateFolder}
                 disabled={!newFolderName.trim() || creatingFolder}
-                className="px-4 py-2 text-sm font-medium bg-[#2E75B6] text-white rounded-md hover:bg-[#1e5394] disabled:opacity-50"
+                className="btn-primary"
               >
                 {creatingFolder ? 'Creating...' : 'Create'}
               </button>
@@ -1471,59 +1035,273 @@ export function ReportsListPage() {
         </div>
       )}
 
-      {/* Rename dialog */}
       {renamingItem && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-4 pt-[8vh] overflow-y-auto" onClick={() => { setRenamingItem(null); setRenameValue(''); }}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-semibold text-[#1A1A1A] mb-4">Rename</h3>
+        <div className="overlay-backdrop" onClick={() => { setRenamingItem(null); setRenameValue(''); }}>
+          <div className="overlay-panel-lg hub-reports-dialog" onClick={e => e.stopPropagation()}>
+            <h3>Rename</h3>
             <input
               type="text"
               value={renameValue}
               onChange={e => setRenameValue(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleRename()}
               autoFocus
-              className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2.5 text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6]/30 focus:border-[#2E75B6]"
+              className="form-input"
             />
             <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => { setRenamingItem(null); setRenameValue(''); }} className="px-3 py-2 text-sm text-[#4A5568] hover:bg-[#F3F4F6] rounded-md">Cancel</button>
-              <button
-                onClick={handleRename}
-                disabled={!renameValue.trim()}
-                className="px-4 py-2 text-sm font-medium bg-[#2E75B6] text-white rounded-md hover:bg-[#1e5394] disabled:opacity-50"
-              >
-                Save
-              </button>
+              <button type="button" onClick={() => { setRenamingItem(null); setRenameValue(''); }} className="hub-reports-quiet">Cancel</button>
+              <button type="button" onClick={handleRename} disabled={!renameValue.trim()} className="btn-primary">Save</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Move picker dialog */}
       {movePickerFor && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-4 pt-[8vh] overflow-y-auto" onClick={() => setMovePickerFor(null)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+        <div className="overlay-backdrop" onClick={() => setMovePickerFor(null)}>
+          <div className="overlay-panel-lg hub-reports-dialog" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-4">
-              <Move size={20} className="text-[#2E75B6]" />
-              <h3 className="text-base font-semibold text-[#1A1A1A]">Move "{movePickerFor.name}"</h3>
+              <Move size={20} />
+              <h3>Move {movePickerName(movePickerFor)}</h3>
             </div>
-            <div className="max-h-64 overflow-y-auto border border-[#E5E7EB] rounded-lg">
+            <div className="hub-reports-move-list">
               {moveTargetFolders.map(t => (
                 <button
                   key={t.id ?? 'root'}
+                  type="button"
                   onClick={() => handleMove(t.id)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-[#1A1A1A] hover:bg-[#F9FAFB] border-b border-[#F3F4F6] last:border-0 text-left"
+                  className="hub-reports-move-item"
                 >
-                  {t.id === null ? <Home size={15} className="text-[#9AA0A6]" /> : <Folder size={15} className="text-[#2E75B6]" />}
+                  {t.id === null ? <Home size={15} /> : <Folder size={15} />}
                   {t.name}
                 </button>
               ))}
             </div>
             <div className="flex justify-end mt-4">
-              <button onClick={() => setMovePickerFor(null)} className="px-3 py-2 text-sm text-[#4A5568] hover:bg-[#F3F4F6] rounded-md">Cancel</button>
+              <button type="button" onClick={() => setMovePickerFor(null)} className="hub-reports-quiet">Cancel</button>
             </div>
           </div>
         </div>
       )}
     </AppShell>
+  );
+}
+
+function movePickerName(item: ListItem): string {
+  if (item.kind === 'report') return item.row.report_number;
+  return item.row.name;
+}
+
+function reportMenuItems(args: {
+  report: ReportRow;
+  onOpen: () => void;
+  onDownload: () => void;
+  onMove: () => void;
+}): MenuEntry[] {
+  const items: MenuEntry[] = [
+    { label: 'Open', icon: FileText, onClick: args.onOpen },
+  ];
+  if (args.report.pdf_storage_path) {
+    items.push({ label: 'Download PDF', icon: Download, onClick: args.onDownload });
+  }
+  items.push({ label: 'Move to…', icon: Move, onClick: args.onMove });
+  return items;
+}
+
+const ReportListRow = memo(function ReportListRow({
+  report,
+  onOpen,
+  onDownload,
+  onMove,
+}: {
+  report: ReportRow & { listStatus: ReportListStatus };
+  onOpen: () => void;
+  onDownload: () => void;
+  onMove: () => void;
+}) {
+  const openHref = reportOpenHref(report.inspection_id);
+  const title = reportListTitle({
+    meta: report.inspection?.meta,
+    job: report.job,
+    reportNumber: report.report_number,
+  });
+  const meta = reportListMeta({
+    reportNumber: report.report_number,
+    generatedAt: report.generated_at,
+    templateName: reportListTemplateName(report.inspection?.template_snapshot),
+    clientName: report.clientName,
+    jobNumber: report.job?.job_number ?? null,
+  });
+  const status = report.listStatus;
+
+  return (
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      className="hub-reports-row"
+    >
+      <span className="hub-reports-name">{title}</span>
+      <span className="truncate hub-reports-muted">{meta}</span>
+      <span className={`hub-reports-pill is-${status}`}>{reportListStatusLabel(status)}</span>
+      <span className="hub-reports-row-next" onClick={e => e.stopPropagation()}>
+        <Link to={openHref} className="hub-reports-next">Open</Link>
+        <ContextMenu items={reportMenuItems({ report, onOpen, onDownload, onMove })} />
+      </span>
+    </div>
+  );
+});
+
+function fileMenuItems(args: {
+  item: FileRow;
+  onOpen: () => void;
+  onDownload: () => void;
+  onMove: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+  onCopyLink?: () => void;
+}): MenuEntry[] {
+  const items: MenuEntry[] = [
+    { label: 'Open', icon: args.item.kind === 'folder' ? Folder : args.item.kind === 'inspection' ? ClipboardList : FileText, onClick: args.onOpen },
+  ];
+  if (args.item.kind === 'uploaded') {
+    items.push({ label: 'Download PDF', icon: Download, onClick: args.onDownload });
+  }
+  items.push({ label: 'Move to…', icon: Move, onClick: args.onMove });
+  if (args.item.kind !== 'inspection') {
+    items.push({ label: 'Rename', icon: PenLine, onClick: args.onRename });
+  }
+  if (args.item.kind === 'folder' && args.onCopyLink) {
+    items.push({ label: 'Copy link', icon: Copy, onClick: args.onCopyLink });
+  }
+  items.push({ divider: true });
+  items.push({
+    label: args.item.kind === 'inspection' ? 'Remove from list' : 'Delete',
+    icon: Trash2,
+    onClick: args.onDelete,
+    variant: 'danger',
+  });
+  return items;
+}
+
+const FileListRow = memo(function FileListRow({
+  item, onOpen, onDownload, onMove, onRename, onDelete, onCopyLink,
+}: {
+  item: FileRow;
+  onOpen: () => void;
+  onDownload: () => void;
+  onMove: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+  onCopyLink?: () => void;
+}) {
+  const href = item.kind === 'folder'
+    ? folderOpenHref(item.id)
+    : item.kind === 'uploaded'
+      ? uploadedPdfOpenHref(item.id)
+      : inspectionDriveOpenHref({ id: item.id, status: (item.raw as InspectionRow).status });
+
+  return (
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      className="hub-reports-row"
+    >
+      <span className="hub-reports-name">{item.name}</span>
+      <span className="truncate hub-reports-muted">{item.subtitle}</span>
+      <span className={`hub-reports-pill is-${item.kind}`}>
+        {item.kind === 'folder' ? 'Folder' : item.kind === 'uploaded' ? 'Uploaded' : 'Inspection'}
+      </span>
+      <span className="hub-reports-row-next" onClick={e => e.stopPropagation()}>
+        {item.kind === 'folder' ? (
+          <button type="button" className="hub-reports-next" onClick={onOpen}>Open</button>
+        ) : (
+          <Link to={href} className="hub-reports-next">Open</Link>
+        )}
+        <ContextMenu items={fileMenuItems({ item, onOpen, onDownload, onMove, onRename, onDelete, onCopyLink })} />
+      </span>
+    </div>
+  );
+});
+
+function BackupPanel(props: {
+  backupSupported: boolean;
+  backupConnected: boolean;
+  backupFolderName: string | null;
+  backupSyncMode: 'manual' | 'auto';
+  backupBusy: boolean;
+  backupMessage: { type: 'success' | 'error'; text: string } | null;
+  onClose: () => void;
+  onConnect: () => void;
+  onDisconnect: () => void;
+  onSyncMode: (mode: 'manual' | 'auto') => void;
+  onSyncAll: () => void;
+}) {
+  return (
+    <div className="hub-reports-backup">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <HardDrive size={18} />
+          <h3>Local hard backup</h3>
+        </div>
+        <button type="button" onClick={props.onClose} aria-label="Close backup"><X size={16} /></button>
+      </div>
+
+      {!props.backupSupported ? (
+        <div>
+          <p className="hub-reports-muted mb-3">Direct folder selection is not available here. Files can still download to your Downloads folder.</p>
+          <button type="button" onClick={props.onConnect} disabled={props.backupBusy} className="btn-primary">
+            {props.backupBusy ? <LoadingSpinner size="sm" /> : <Download size={16} />} Enable download backup
+          </button>
+        </div>
+      ) : !props.backupConnected ? (
+        <div>
+          <p className="hub-reports-muted mb-3">
+            Connect a folder on this PC and existing report PDFs will copy there as a hard backup.
+          </p>
+          <button type="button" onClick={props.onConnect} disabled={props.backupBusy} className="btn-primary">
+            {props.backupBusy ? <LoadingSpinner size="sm" /> : <HardDrive size={16} />} Connect folder
+          </button>
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <CheckCircle2 size={18} />
+            <span>Connected to <strong>"{props.backupFolderName}"</strong></span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 mb-3">
+            <div className="hub-reports-filters">
+              <button
+                type="button"
+                onClick={() => props.onSyncMode('auto')}
+                className={`hub-chrome-filter ${props.backupSyncMode === 'auto' ? 'hub-chrome-filter-on' : ''}`}
+              >Auto-sync</button>
+              <button
+                type="button"
+                onClick={() => props.onSyncMode('manual')}
+                className={`hub-chrome-filter ${props.backupSyncMode === 'manual' ? 'hub-chrome-filter-on' : ''}`}
+              >Manual only</button>
+            </div>
+            <button type="button" onClick={props.onSyncAll} disabled={props.backupBusy} className="btn-primary">
+              {props.backupBusy ? <LoadingSpinner size="sm" /> : <RefreshCw size={14} />}
+              {props.backupFolderName === 'Downloads folder' ? 'Download all' : 'Sync all now'}
+            </button>
+            <button type="button" onClick={props.onDisconnect} className="hub-reports-quiet is-danger">
+              <Unlink size={14} /> Disconnect
+            </button>
+          </div>
+        </div>
+      )}
+
+      {props.backupMessage && (
+        <div className={`hub-reports-banner ${props.backupMessage.type === 'success' ? 'is-good' : 'is-bad'}`}>
+          {props.backupMessage.type === 'success'
+            ? <CheckCircle2 size={16} />
+            : <AlertCircle size={16} />}
+          <span>{props.backupMessage.text}</span>
+        </div>
+      )}
+    </div>
   );
 }
