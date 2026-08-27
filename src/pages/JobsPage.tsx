@@ -170,7 +170,7 @@ export function JobsPage() {
       <div className="ops-page hub-jobs">
         <div className="ops-page-head">
           <div>
-            <p className="hub-job-kicker">Jobs</p>
+            <p className="hub-jobs-label">Jobs</p>
             <h1 className="ops-page-title">Jobs</h1>
           </div>
           <button
