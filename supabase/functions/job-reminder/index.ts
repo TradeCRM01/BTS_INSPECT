@@ -1051,26 +1051,29 @@ function quoteHtml(opts: {
   quoteNumber: unknown;
   totalLabel: string;
   validityLabel: string;
+  portalUrl?: string | null;
 }): string {
   const client = escapeHtml(opts.clientName.trim() || "there");
   const company = escapeHtml(opts.companyName.trim() || "us");
   const number = escapeHtml(`#${padInvoiceNumber(opts.quoteNumber)}`);
   const total = escapeHtml(opts.totalLabel);
   const valid = opts.validityLabel
-    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Valid until <strong>${escapeHtml(opts.validityLabel)}</strong>.</p>`
+    ? `<p style="color:#5B6B7C;font-size:15px;line-height:1.6;margin:8px 0 0;">Valid until <strong style="color:#0A2540">${escapeHtml(opts.validityLabel)}</strong>.</p>`
     : "";
+  const portal = String(opts.portalUrl ?? "").trim();
+  const goAhead = portal
+    ? `<p style="font-family:Inter,system-ui,sans-serif;color:#0A2540;font-size:15px;line-height:1.6;margin:16px 0 0;">The quote PDF is attached. Accept this quote: <a href="${escapeHtml(portal)}" style="color:#2E75B6">${escapeHtml(portal)}</a>. Or reply to this email if you want to go ahead or change the scope.</p>`
+    : `<p style="font-family:Inter,system-ui,sans-serif;color:#0A2540;font-size:15px;line-height:1.6;margin:16px 0 0;">The quote PDF is attached. Reply to this email if you want to go ahead or change the scope.</p>`;
   return `
-      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
-        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
-          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">Quote</div>
-          <h1 style="margin:8px 0 0;font-size:20px">${number}</h1>
-        </div>
-        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
-          <p>Hi ${client},</p>
-          <p>${company} has sent you quote ${number}.</p>
-          <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${total}</strong></p>
+      <div style="font-family:Inter,system-ui,sans-serif;max-width:560px;margin:0 auto;background:#F4F6F8;padding:16px;color:#0A2540">
+        <div style="background:#FFFFFF;border:1px solid #D5DCE3;border-radius:16px;padding:24px">
+          <div style="font-size:12px;color:#5B6B7C;letter-spacing:0.08em;text-transform:uppercase">Quote</div>
+          <h1 style="margin:8px 0 16px;font-size:20px;font-weight:600;color:#0A2540">${number}</h1>
+          <p style="color:#0A2540;font-size:15px;line-height:1.6;margin:0 0 8px;">Hi ${client},</p>
+          <p style="color:#0A2540;font-size:15px;line-height:1.6;margin:0 0 8px;">${company} has sent you quote ${number}.</p>
+          <p style="color:#5B6B7C;font-size:15px;line-height:1.6;margin:0;">Total (inc GST): <strong style="color:#0A2540">${total}</strong></p>
           ${valid}
-          <p>The quote PDF is attached. Reply to this email if you want to go ahead or change the scope.</p>
+          ${goAhead}
         </div>
       </div>`;
 }
@@ -1080,10 +1083,53 @@ function quoteSmsBody(opts: {
   quoteNumber: unknown;
   totalLabel: string;
   validityLabel: string;
+  portalUrl?: string | null;
 }): string {
   const who = opts.companyName.trim() || "your contractor";
   const valid = opts.validityLabel ? ` Valid until ${opts.validityLabel}.` : "";
-  return `${who} sent quote #${padInvoiceNumber(opts.quoteNumber)}. Total (inc GST): ${opts.totalLabel}.${valid} The PDF is in your email.`;
+  const portal = String(opts.portalUrl ?? "").trim();
+  const accept = portal ? ` Accept here: ${portal}` : "";
+  return `${who} sent quote #${padInvoiceNumber(opts.quoteNumber)}. Total (inc GST): ${opts.totalLabel}.${valid} The PDF is in your email.${accept}`;
+}
+
+async function resolveQuotePortalUrl(opts: {
+  admin: ReturnType<typeof createClient>;
+  companyId: string;
+  clientId: unknown;
+  appUrl: string;
+}): Promise<string | null> {
+  const clientId = String(opts.clientId ?? "").trim();
+  const origin = opts.appUrl.replace(/\/$/, "");
+  if (!clientId || !origin) return null;
+
+  const { data: existing } = await opts.admin
+    .from("client_portal_tokens")
+    .select("token, expires_at, revoked")
+    .eq("company_id", opts.companyId)
+    .eq("client_id", clientId)
+    .eq("revoked", false)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const now = Date.now();
+  const tokenOk = existing?.token
+    && !existing.revoked
+    && (!existing.expires_at || new Date(existing.expires_at).getTime() >= now);
+  let token = tokenOk ? String(existing.token) : "";
+
+  if (!token) {
+    token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+    const { error } = await opts.admin.from("client_portal_tokens").insert({
+      company_id: opts.companyId,
+      client_id: clientId,
+      token,
+      expires_at: new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    if (error) return null;
+  }
+
+  return `${origin}/p?t=${token}`;
 }
 
 async function deliverQuoteSend(opts: {
@@ -1094,6 +1140,7 @@ async function deliverQuoteSend(opts: {
   settings: EmailSettings | null;
   client: Record<string, unknown> | null;
   attachmentIn?: { filename?: string; content?: string };
+  appUrl?: string;
 }): Promise<Record<string, unknown>> {
   const quote = opts.quote;
   const quoteId = String(quote.id ?? "");
@@ -1131,12 +1178,19 @@ async function deliverQuoteSend(opts: {
   const companyName = String(opts.company?.name ?? "").trim() || "us";
   const validityLabel = formatDueLabel(quote.validity_date);
   const subject = `Quote #${padInvoiceNumber(quote.quote_number)} from ${companyName}`;
+  const portalUrl = await resolveQuotePortalUrl({
+    admin: opts.admin,
+    companyId: opts.companyId,
+    clientId: quote.client_id,
+    appUrl: String(opts.appUrl ?? ""),
+  });
   const html = quoteHtml({
     clientName: toName,
     companyName,
     quoteNumber: quote.quote_number,
     totalLabel: formatAud(quote.total),
     validityLabel,
+    portalUrl,
   });
 
   const fromHeader = `${opts.settings.from_name} <${opts.settings.from_email}>`;
@@ -1163,6 +1217,7 @@ async function deliverQuoteSend(opts: {
       quoteNumber: quote.quote_number,
       totalLabel: formatAud(quote.total),
       validityLabel,
+      portalUrl,
     }),
   );
 
@@ -2621,6 +2676,7 @@ Deno.serve(async (req) => {
         settings: smtpRow as EmailSettings | null,
         client,
         attachmentIn,
+        appUrl,
       });
       const status = result.reason === "no_quote" ? 404 : 200;
       return json(result, status);

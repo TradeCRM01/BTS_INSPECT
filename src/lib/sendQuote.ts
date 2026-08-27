@@ -142,15 +142,65 @@ export function quotePdfFilename(quoteNumber: number | null | undefined): string
   return `quote-${padQuoteNumber(quoteNumber)}.pdf`;
 }
 
+/** Existing public token portal — `/p?t=` on ClientPortalPublicPage. */
+export const CLIENT_PORTAL_PATH = '/p';
+export const CLIENT_PORTAL_ACCEPT_ACTION = 'accept_quote';
+
+export function clientPortalPublicUrl(
+  origin: string | null | undefined,
+  token: string | null | undefined,
+): string | null {
+  const base = (origin ?? '').trim().replace(/\/$/, '');
+  const t = (token ?? '').trim();
+  if (!base || !t) return null;
+  return `${base}${CLIENT_PORTAL_PATH}?t=${t}`;
+}
+
+export function pickActiveClientPortalToken(
+  rows: Array<{ token?: string | null; revoked?: boolean | null; expires_at?: string | null }>,
+  now = new Date(),
+): string | null {
+  for (const row of rows) {
+    const token = (row.token ?? '').trim();
+    if (!token || row.revoked) continue;
+    if (row.expires_at && new Date(row.expires_at).getTime() < now.getTime()) continue;
+    return token;
+  }
+  return null;
+}
+
+export function clientPortalAcceptBody(
+  token: string | null | undefined,
+  quoteId: string | null | undefined,
+): { token: string; action: typeof CLIENT_PORTAL_ACCEPT_ACTION; quoteId: string } | null {
+  const t = (token ?? '').trim();
+  const id = (quoteId ?? '').trim();
+  if (!t || !id) return null;
+  return { token: t, action: CLIENT_PORTAL_ACCEPT_ACTION, quoteId: id };
+}
+
+/** Same outcome as office Mark accepted — sent → accepted. Already accepted is a no-op. */
+export function quoteStatusAfterClientAccept(currentStatus: string): 'accepted' | null {
+  if (currentStatus === 'sent' || currentStatus === 'accepted') return 'accepted';
+  return null;
+}
+
+export function canClientAcceptQuote(status: string): boolean {
+  return status === 'sent';
+}
+
 export function quoteSmsBody(opts: {
   companyName: string;
   quoteNumber: number | null | undefined;
   totalLabel: string;
   validityLabel: string | null;
+  portalUrl?: string | null;
 }): string {
   const who = opts.companyName.trim() || 'your contractor';
   const valid = opts.validityLabel ? ` Valid until ${opts.validityLabel}.` : '';
-  return `${who} sent quote #${padQuoteNumber(opts.quoteNumber)}. Total (inc GST): ${opts.totalLabel}.${valid} The PDF is in your email.`;
+  const portal = (opts.portalUrl ?? '').trim();
+  const accept = portal ? ` Accept here: ${portal}` : '';
+  return `${who} sent quote #${padQuoteNumber(opts.quoteNumber)}. Total (inc GST): ${opts.totalLabel}.${valid} The PDF is in your email.${accept}`;
 }
 
 export function quoteValidityLabel(validityDate: string | null | undefined): string | null {
@@ -159,32 +209,41 @@ export function quoteValidityLabel(validityDate: string | null | undefined): str
   return format(parseISO(day), 'd MMM yyyy');
 }
 
+/** Quiet ink + one portal link. Not a banner or button pile. */
+export function quoteSendAcceptLineHtml(portalUrl: string): string {
+  const portal = escapeHtml(portalUrl.trim());
+  return `<p style="font-family:Inter,system-ui,sans-serif;color:#0A2540;font-size:15px;line-height:1.6;margin:16px 0 0;">The quote PDF is attached. Accept this quote: <a href="${portal}" style="color:#2E75B6">${portal}</a>. Or reply to this email if you want to go ahead or change the scope.</p>`;
+}
+
 export function quoteSendHtml(opts: {
   clientName: string;
   companyName: string;
   quoteNumber: number | null | undefined;
   totalLabel: string;
   validityLabel: string | null;
+  portalUrl?: string | null;
 }): string {
   const client = escapeHtml(opts.clientName.trim() || 'there');
   const company = escapeHtml(opts.companyName.trim() || 'us');
   const number = escapeHtml(`#${padQuoteNumber(opts.quoteNumber)}`);
   const total = escapeHtml(opts.totalLabel);
   const valid = opts.validityLabel
-    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Valid until <strong>${escapeHtml(opts.validityLabel)}</strong>.</p>`
+    ? `<p style="color:#5B6B7C;font-size:15px;line-height:1.6;margin:8px 0 0;">Valid until <strong style="color:#0A2540">${escapeHtml(opts.validityLabel)}</strong>.</p>`
     : '';
+  const portal = (opts.portalUrl ?? '').trim();
+  const goAhead = portal
+    ? quoteSendAcceptLineHtml(portal)
+    : `<p style="color:#0A2540;font-size:15px;line-height:1.6;margin:16px 0 0;">The quote PDF is attached. Reply to this email if you want to go ahead or change the scope.</p>`;
   return `
-      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
-        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
-          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">Quote</div>
-          <h1 style="margin:8px 0 0;font-size:20px">${number}</h1>
-        </div>
-        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
-          <p>Hi ${client},</p>
-          <p>${company} has sent you quote ${number}.</p>
-          <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${total}</strong></p>
+      <div style="font-family:Inter,system-ui,sans-serif;max-width:560px;margin:0 auto;background:#F4F6F8;padding:16px;color:#0A2540">
+        <div style="background:#FFFFFF;border:1px solid #D5DCE3;border-radius:16px;padding:24px">
+          <div style="font-size:12px;color:#5B6B7C;letter-spacing:0.08em;text-transform:uppercase">Quote</div>
+          <h1 style="margin:8px 0 16px;font-size:20px;font-weight:600;color:#0A2540">${number}</h1>
+          <p style="color:#0A2540;font-size:15px;line-height:1.6;margin:0 0 8px;">Hi ${client},</p>
+          <p style="color:#0A2540;font-size:15px;line-height:1.6;margin:0 0 8px;">${company} has sent you quote ${number}.</p>
+          <p style="color:#5B6B7C;font-size:15px;line-height:1.6;margin:0;">Total (inc GST): <strong style="color:#0A2540">${total}</strong></p>
           ${valid}
-          <p>The quote PDF is attached. Reply to this email if you want to go ahead or change the scope.</p>
+          ${goAhead}
         </div>
       </div>`;
 }

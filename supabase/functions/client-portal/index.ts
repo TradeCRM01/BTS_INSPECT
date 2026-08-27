@@ -21,14 +21,20 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     let token = url.searchParams.get("token") ?? url.searchParams.get("t") ?? "";
+    let body: Record<string, unknown> = {};
 
-    if (!token && req.method === "POST") {
-      const body = await req.json().catch(() => ({}));
-      token = String(body.token ?? body.t ?? "");
+    if (req.method === "POST") {
+      const parsed = await req.json().catch(() => ({}));
+      body = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+      if (!token) token = String(body.token ?? body.t ?? "");
     }
 
     token = token.trim();
     if (!token) return json({ error: "token required" }, 400);
+
+    const action = String(body.action ?? "").trim();
+    const acceptQuoteId = String(body.quoteId ?? body.quote_id ?? "").trim();
+    const isAccept = action === "accept_quote" || action === "accept";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -42,6 +48,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (share) {
+      if (isAccept) return json({ error: "Invalid link" }, 403);
       if (share.revoked) return json({ error: "Link revoked" }, 403);
       if (share.expires_at && new Date(share.expires_at).getTime() < Date.now()) {
         return json({ error: "Link expired" }, 403);
@@ -127,6 +134,37 @@ Deno.serve(async (req) => {
       .from("client_portal_tokens")
       .update({ last_accessed_at: new Date().toISOString() })
       .eq("id", portal.id);
+
+    if (isAccept) {
+      if (!acceptQuoteId) return json({ error: "quoteId required" }, 400);
+
+      const { data: quote } = await admin
+        .from("quotes")
+        .select("id, status, client_id, company_id")
+        .eq("id", acceptQuoteId)
+        .eq("client_id", portal.client_id)
+        .eq("company_id", portal.company_id)
+        .maybeSingle();
+
+      if (!quote) return json({ error: "Quote not found" }, 404);
+      if (quote.status === "accepted") {
+        return json({ ok: true, status: "accepted", quoteId: quote.id });
+      }
+      if (quote.status !== "sent") {
+        return json({ error: "Only sent quotes can be accepted" }, 409);
+      }
+
+      const { error: acceptErr } = await admin
+        .from("quotes")
+        .update({ status: "accepted", updated_at: new Date().toISOString() })
+        .eq("id", quote.id)
+        .eq("client_id", portal.client_id)
+        .eq("company_id", portal.company_id)
+        .eq("status", "sent");
+
+      if (acceptErr) return json({ error: acceptErr.message }, 500);
+      return json({ ok: true, status: "accepted", quoteId: quote.id });
+    }
 
     const { data: client } = await admin
       .from("clients")
