@@ -15,8 +15,10 @@ describe('reports list cream paper look', () => {
     expect(list).toContain('hub-reports-sheet');
     expect(list).toContain('hub-reports-row');
     expect(list).toContain('hub-reports-pill');
+    expect(list).toContain('hub-reports-site');
+    expect(list).toContain('hub-reports-lede');
     expect(list).toContain('Site');
-    expect(list).toContain('Search by site, report number, job, or client');
+    expect(list).toContain('Search site, report, #0042');
     expect(list).not.toContain('radial-gradient');
     expect(list).not.toContain('cursor-grab');
     expect(list).not.toMatch(/Grafter|Relovi|Littleloop/);
@@ -32,6 +34,10 @@ describe('reports list cream paper look', () => {
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(css).not.toMatch(/\.hub-reports \.ops-page-title[\s\S]{0,160}Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(css).toContain('letter-spacing: 0.12em');
+    expect(css).toContain('border-radius: 999px');
+    expect(css).not.toMatch(/\.hub-reports-name[\s\S]{0,80}Rajdhani/);
+    expect(css).not.toContain('indigo-500');
+    expect(css).not.toMatch(/\.hub-reports[\s\S]{0,120}#111111|\.hub-reports[\s\S]{0,80}#000\b/);
   });
 
   it('does not restyle stay-off floors, AppShell, or the PDF compose path', () => {

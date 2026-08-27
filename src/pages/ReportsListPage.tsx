@@ -852,6 +852,7 @@ export function ReportsListPage() {
           <div>
             <p className="hub-reports-kicker">Reports</p>
             <h1 className="ops-page-title">Reports</h1>
+            <p className="hub-reports-lede">{reportsListLede(statusFilter, reportItems.length)}</p>
           </div>
           <div className="hub-reports-head-act">
             <button
@@ -916,7 +917,7 @@ export function ReportsListPage() {
         )}
 
         <div className="hub-reports-chrome">
-          <div className="hub-reports-filters">
+          <div className="hub-reports-filters" role="group" aria-label="Filter reports">
             {([
               ['all', 'All'],
               ['ready', 'Ready'],
@@ -935,8 +936,8 @@ export function ReportsListPage() {
           <SearchBar
             value={search}
             onChange={setSearch}
-            placeholder="Search by site, report number, job, or client..."
-            className="max-w-sm"
+            placeholder="Search site, report, #0042…"
+            className="hub-reports-search"
           />
         </div>
 
@@ -976,7 +977,6 @@ export function ReportsListPage() {
             <div className="hub-reports-sheet">
               <div className="hub-reports-thead">
                 <span>Site</span>
-                <span>Report</span>
                 <span>Status</span>
                 <span />
               </div>
@@ -1105,6 +1105,12 @@ export function ReportsListPage() {
   );
 }
 
+function reportsListLede(filter: ReportListFilter, count: number): string {
+  if (filter === 'ready') return `${count} ready · tap one to open`;
+  if (filter === 'sent') return `${count} sent · tap one to open`;
+  return `${count} report${count === 1 ? '' : 's'} · tap one to open`;
+}
+
 function movePickerName(item: ListItem): string {
   if (item.kind === 'report') return item.row.report_number;
   return item.row.name;
@@ -1160,8 +1166,10 @@ const ReportListRow = memo(function ReportListRow({
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className="hub-reports-row"
     >
-      <span className="hub-reports-name">{title}</span>
-      <span className="truncate hub-reports-muted">{meta}</span>
+      <span className="hub-reports-site">
+        <span className="hub-reports-name">{title}</span>
+        {meta ? <span className="hub-reports-muted">{meta}</span> : null}
+      </span>
       <span className={`hub-reports-pill is-${status}`}>{reportListStatusLabel(status)}</span>
       <span className="hub-reports-row-next" onClick={e => e.stopPropagation()}>
         <Link to={openHref} className="hub-reports-next">Open</Link>
@@ -1228,8 +1236,10 @@ const FileListRow = memo(function FileListRow({
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className="hub-reports-row"
     >
-      <span className="hub-reports-name">{item.name}</span>
-      <span className="truncate hub-reports-muted">{item.subtitle}</span>
+      <span className="hub-reports-site">
+        <span className="hub-reports-name">{item.name}</span>
+        {item.subtitle ? <span className="hub-reports-muted">{item.subtitle}</span> : null}
+      </span>
       <span className={`hub-reports-pill is-${item.kind}`}>
         {item.kind === 'folder' ? 'Folder' : item.kind === 'uploaded' ? 'Uploaded' : 'Inspection'}
       </span>
