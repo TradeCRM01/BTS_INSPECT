@@ -9228,6 +9228,1299 @@
       padding: 16px 16px 8px;
     }
   }
+  /* Reports list look only. Same cream paper lock as signed Take 5 / JHA / jobs. */
+  .hub-reports {
+    --report-page: #F5F0E6;
+    --report-sheet: #FFFDF8;
+    --report-ink: #0A2540;
+    --report-muted: #5B6B7C;
+    --report-line: #E2D9CC;
+    --report-action: #2E75B6;
+    --report-r-ctl: 12px;
+    --report-r-sheet: 16px;
+    --report-pass: #1B7F3A;
+    --report-fail: #B42318;
+    --report-warn: #B54708;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .hub-reports.ops-page {
+    max-width: none;
+    width: 100%;
+    min-height: calc(100dvh - 3.5rem);
+    margin: 0;
+    background: var(--report-page);
+    color: var(--report-ink);
+    padding: 24px 24px 40px;
+  }
+
+  .hub-reports .ops-page-title,
+  .hub-reports-files-title,
+  .hub-reports-backup h3,
+  .hub-reports-dialog h3 {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+    text-shadow: none;
+    color: var(--report-ink);
+  }
+
+  .hub-reports .ops-page-title {
+    font-size: 40px !important;
+    margin: 0;
+  }
+
+  .hub-reports .ops-page-head {
+    max-width: 1100px;
+    margin: 0 auto 24px;
+    padding-top: 8px;
+    align-items: flex-end;
+    gap: 16px;
+  }
+
+  .hub-reports-kicker {
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--report-muted);
+    margin: 0 0 8px;
+  }
+
+  .hub-reports-lede {
+    margin: 8px 0 0;
+    color: var(--report-muted);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .hub-reports-head-act {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .hub-reports .ops-page-head .btn-primary,
+  .hub-reports .btn-primary {
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 999px;
+    box-shadow: none;
+    transform: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .hub-reports .ops-page-head .btn-primary:hover,
+  .hub-reports .btn-primary:hover {
+    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+    color: #fff;
+  }
+
+  .hub-reports .ops-page-head .btn-primary:active,
+  .hub-reports .btn-primary:active {
+    transform: none;
+  }
+
+  .hub-reports-quiet {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: var(--report-muted);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  .hub-reports-quiet:hover {
+    color: var(--report-ink);
+  }
+
+  .hub-reports-quiet.is-on {
+    color: #2E75B6;
+  }
+
+  .hub-reports-quiet.is-danger {
+    color: var(--report-fail);
+  }
+
+  .hub-reports-crumbs {
+    max-width: 1100px;
+    margin: -8px auto 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+  }
+
+  .hub-reports-crumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .hub-reports-crumb button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--report-muted);
+    background: none;
+    border: 0;
+    padding: 4px 6px;
+    border-radius: 12px;
+  }
+
+  .hub-reports-crumb button.is-here {
+    color: var(--report-ink);
+    font-weight: 600;
+  }
+
+  .hub-reports-crumb-sep {
+    color: var(--report-line);
+  }
+
+  .hub-reports-chrome {
+    max-width: 1100px;
+    margin: 0 auto 24px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+  }
+
+  .hub-reports-chrome .relative svg {
+    display: block;
+    color: var(--report-muted);
+  }
+
+  .hub-reports-search {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .hub-reports-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+  }
+
+  .hub-reports-chrome .form-input {
+    background: var(--report-sheet);
+    color: var(--report-ink);
+    border: 1px solid var(--report-line);
+    border-radius: 999px;
+    min-height: 44px;
+    height: auto;
+    box-shadow: none;
+    padding-left: 40px !important;
+    font-size: 14px;
+  }
+
+  .hub-reports-chrome .form-input::placeholder {
+    color: var(--report-muted);
+  }
+
+  .hub-reports-chrome .form-input:focus {
+    border-color: #2E75B6;
+    box-shadow: none;
+    outline: none;
+  }
+
+  .hub-reports-chrome .hub-chrome-filter,
+  .hub-reports-backup .hub-chrome-filter {
+    color: var(--report-muted);
+    min-height: 44px;
+    padding: 0 12px;
+    background: none;
+    border: none;
+    border-radius: 0;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: none;
+  }
+
+  .hub-reports-chrome .hub-chrome-filter-on,
+  .hub-reports-backup .hub-chrome-filter-on {
+    color: #2E75B6;
+    box-shadow: inset 0 -2px 0 #2E75B6;
+  }
+
+  .hub-reports-sheet,
+  .hub-reports-backup {
+    max-width: 1100px;
+    margin: 0 auto;
+    background: var(--report-sheet);
+    border: 1px solid var(--report-line);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: none;
+  }
+
+  .hub-reports-backup {
+    padding: 16px 24px;
+    margin-bottom: 24px;
+  }
+
+  .hub-reports-backup h3 {
+    font-size: 16px;
+    margin: 0;
+  }
+
+  .hub-reports-files {
+    max-width: 1100px;
+    margin: 24px auto 0;
+  }
+
+  .hub-reports-files-title {
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--report-muted);
+    margin: 0 0 8px;
+  }
+
+  .hub-reports-thead,
+  .hub-reports-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) 104px minmax(132px, max-content);
+    gap: 16px;
+    align-items: center;
+    padding: 16px 24px;
+  }
+
+  .hub-reports-thead {
+    background: transparent;
+    color: var(--report-muted);
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--report-line);
+  }
+
+  .hub-reports-row {
+    background: var(--report-sheet);
+    border-top: 1px solid var(--report-line);
+    cursor: pointer;
+    color: var(--report-ink);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .hub-reports-site {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .hub-reports-name {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-weight: 700;
+    color: var(--report-ink);
+  }
+
+  .hub-reports-muted {
+    color: var(--report-muted);
+    font-weight: 500;
+    min-width: 0;
+  }
+
+  .hub-reports-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1;
+    width: fit-content;
+    white-space: nowrap;
+  }
+
+  .hub-reports-pill.is-sent {
+    color: var(--report-pass);
+    background: color-mix(in srgb, #1B7F3A 12%, #fff);
+  }
+
+  .hub-reports-pill.is-ready {
+    color: var(--report-ink);
+    background: color-mix(in srgb, #2E75B6 14%, #fff);
+  }
+
+  .hub-reports-pill.is-no_pdf,
+  .hub-reports-pill.is-folder,
+  .hub-reports-pill.is-uploaded,
+  .hub-reports-pill.is-inspection {
+    color: var(--report-ink);
+    background: var(--report-page);
+    border-color: var(--report-line);
+  }
+
+  .hub-reports-row-next {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    text-align: right;
+  }
+
+  .hub-reports-next {
+    color: #2E75B6;
+    background: none;
+    border: none;
+    border-radius: 12px;
+    padding: 0 8px;
+    min-height: 44px;
+    cursor: pointer;
+    text-align: right;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    text-decoration: none;
+  }
+
+  .hub-reports-banner {
+    max-width: 1100px;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  .hub-reports-banner.is-bad {
+    background: color-mix(in srgb, var(--report-fail) 8%, var(--report-sheet));
+    border: 1px solid color-mix(in srgb, var(--report-fail) 28%, var(--report-line));
+    color: var(--report-fail);
+  }
+
+  .hub-reports-banner.is-good {
+    background: color-mix(in srgb, var(--report-pass) 8%, var(--report-sheet));
+    border: 1px solid color-mix(in srgb, var(--report-pass) 28%, var(--report-line));
+    color: var(--report-pass);
+  }
+
+  .hub-reports-dialog {
+    background: var(--report-sheet);
+    color: var(--report-ink);
+  }
+
+  .hub-reports-dialog h3 {
+    font-size: 18px;
+    margin: 0;
+  }
+
+  .hub-reports-move-list {
+    max-height: 16rem;
+    overflow-y: auto;
+    border: 1px solid var(--report-line);
+    border-radius: 12px;
+  }
+
+  .hub-reports-move-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--report-line);
+    color: var(--report-ink);
+    background: transparent;
+  }
+
+  .hub-reports-move-item:last-child {
+    border-bottom: 0;
+  }
+
+  .hub-reports .ops-section-title {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    color: var(--report-ink);
+  }
+
+  .hub-reports .ops-meta {
+    color: var(--report-muted);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  @media (max-width: 639px) {
+    .hub-reports.ops-page {
+      padding: 16px 16px 32px;
+    }
+
+    .hub-reports .ops-page-title {
+      font-size: 32px !important;
+    }
+
+    .hub-reports .ops-page-head {
+      align-items: flex-start;
+    }
+
+    .hub-reports-chrome {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .hub-reports-search {
+      width: 100%;
+      max-width: none;
+    }
+
+    .hub-reports-thead {
+      display: none;
+    }
+
+    .hub-reports-row {
+      grid-template-columns: 1fr auto;
+      grid-template-areas:
+        "site next"
+        "pill next";
+      gap: 8px 16px;
+      padding: 16px;
+    }
+
+    .hub-reports-row > :nth-child(1) { grid-area: site; }
+    .hub-reports-row > :nth-child(2) { grid-area: pill; }
+    .hub-reports-row > :nth-child(3) { grid-area: next; }
+  }
+
+  /* Timesheets list only. Job-sheet scale on cream paper. Not TimeEntryForm. */
+  .hub-timesheets {
+    --ts-look-page: #F5F0E6;
+    --ts-look-sheet: #FFFDF8;
+    --ts-look-ink: #0A2540;
+    --ts-look-muted: #5B6B7C;
+    --ts-look-line: #E2D9CC;
+    --ts-look-action: #2E75B6;
+    --ts-look-r-ctl: 12px;
+    --ts-look-r-sheet: 16px;
+    --ts-look-fail: #B42318;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .hub-timesheets.ops-page {
+    max-width: none;
+    width: 100%;
+    min-height: calc(100dvh - 3.5rem);
+    margin: 0;
+    background: var(--ts-look-page);
+    color: var(--ts-look-ink);
+    padding: 24px 24px 48px;
+  }
+
+  .hub-timesheets .ops-page-title {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 0.96;
+    text-shadow: none;
+    color: var(--ts-look-ink);
+    font-size: 56px !important;
+    margin: 0;
+  }
+
+  .hub-timesheets .ops-page-head {
+    max-width: 1100px;
+    margin: 0 auto 32px;
+    padding-top: 16px;
+    align-items: flex-end;
+    gap: 16px;
+  }
+
+  .hub-timesheets-kicker,
+  .hub-timesheets-label {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ts-look-muted);
+    margin: 0;
+  }
+
+  .hub-timesheets-lede {
+    margin: 8px 0 0;
+    color: var(--ts-look-muted);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .hub-timesheets-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hub-timesheets-next {
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 999px;
+    box-shadow: none;
+    transform: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+
+  .hub-timesheets-next:hover {
+    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+    color: #fff;
+  }
+
+  .hub-timesheets-next:active {
+    transform: none;
+  }
+
+  .hub-timesheets-sub {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 12px;
+    background: none;
+    border: none;
+    border-radius: 12px;
+    color: var(--ts-look-muted);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  .hub-timesheets-sub:hover {
+    color: var(--ts-look-ink);
+  }
+
+  .hub-timesheets-weekbar,
+  .hub-timesheets-chrome {
+    max-width: 1100px;
+    margin: 0 auto 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+  }
+
+  .hub-timesheets-weeknav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hub-timesheets-week-btn,
+  .hub-timesheets-week-now {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--ts-look-line);
+    border-radius: 12px;
+    background: var(--ts-look-sheet);
+    color: var(--ts-look-ink);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .hub-timesheets-week-phone {
+    display: none;
+  }
+
+  .hub-timesheets-select {
+    min-height: 44px;
+    height: auto;
+    padding: 8px 12px;
+    border: 1px solid var(--ts-look-line);
+    border-radius: 12px;
+    background: var(--ts-look-sheet);
+    color: var(--ts-look-ink);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    box-shadow: none;
+  }
+
+  .hub-timesheets-select:focus,
+  .hub-timesheets-week-btn:focus,
+  .hub-timesheets-week-now:focus {
+    outline: none;
+    border-color: #2E75B6;
+  }
+
+  .hub-timesheets-chrome {
+    margin-bottom: 8px;
+  }
+
+  .hub-timesheets-chrome .relative svg {
+    display: block;
+    color: var(--ts-look-muted);
+  }
+
+  .hub-timesheets-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+  }
+
+  .hub-timesheets-search {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .hub-timesheets-chrome .form-input {
+    background: var(--ts-look-sheet);
+    color: var(--ts-look-ink);
+    border: 1px solid var(--ts-look-line);
+    border-radius: 999px;
+    min-height: 44px;
+    height: auto;
+    box-shadow: none;
+    padding-left: 40px !important;
+    font-size: 14px;
+  }
+
+  .hub-timesheets-chrome .form-input::placeholder {
+    color: var(--ts-look-muted);
+  }
+
+  .hub-timesheets-chrome .form-input:focus {
+    border-color: #2E75B6;
+    box-shadow: none;
+    outline: none;
+  }
+
+  .hub-timesheets-chrome .hub-chrome-filter {
+    color: var(--ts-look-muted);
+    min-height: 44px;
+    padding: 0 12px;
+    background: none;
+    border: none;
+    border-radius: 0;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: none;
+  }
+
+  .hub-timesheets-chrome .hub-chrome-filter-on {
+    color: #2E75B6;
+    box-shadow: inset 0 -2px 0 #2E75B6;
+  }
+
+  .hub-timesheets-days {
+    max-width: 1100px;
+    margin: 0 auto 24px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 4px;
+  }
+
+  .hub-timesheets-day {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+    padding: 8px 10px;
+    color: var(--ts-look-muted);
+    text-decoration: none;
+    background: none;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    min-height: 44px;
+    box-shadow: none;
+  }
+
+  .hub-timesheets-day-name {
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: inherit;
+  }
+
+  .hub-timesheets-day-num {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hub-timesheets-day-hrs {
+    display: none;
+  }
+
+  .hub-timesheets-day.is-today,
+  .hub-timesheets-day.is-open {
+    color: var(--ts-look-ink);
+  }
+
+  .hub-timesheets-day.is-open {
+    box-shadow: inset 0 -2px 0 #2E75B6;
+  }
+
+  .hub-timesheets-empty,
+  .hub-timesheets-tiles,
+  .hub-timesheets-entries,
+  .hub-timesheets-sheet {
+    max-width: 1100px;
+    margin: 0 auto 24px;
+  }
+
+  .hub-timesheets-open-chrome {
+    display: none;
+  }
+
+  .hub-timesheets-sheet {
+    background: var(--ts-look-sheet);
+    border: 1px solid var(--ts-look-line);
+    border-radius: 16px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+  }
+
+  .hub-timesheets-sheet-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 44px;
+    padding: 8px 24px;
+    background: var(--ts-look-ink);
+    color: #fff;
+  }
+
+  .hub-timesheets-sheet-bar .hub-timesheets-hours {
+    color: #fff;
+    font-size: 16px;
+  }
+
+  .hub-timesheets-sheet-bar .hub-timesheets-pill {
+    background: #fff;
+    color: var(--ts-look-ink);
+  }
+
+  .hub-timesheets-sheet-body {
+    padding: 32px 32px 24px;
+    background: var(--ts-look-sheet);
+    box-shadow: inset 0 1px 0 #fff;
+  }
+
+  .hub-timesheets-hero {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-size: 56px !important;
+    letter-spacing: 0.02em;
+    line-height: 0.96;
+    color: var(--ts-look-ink);
+    margin: 0;
+  }
+
+  .hub-timesheets-jobline {
+    margin: 8px 0 0;
+    color: #2E75B6;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .hub-timesheets-sheet-body .hub-timesheets-weeknav.is-phone {
+    display: none;
+  }
+
+  .hub-timesheets-sheet-body .hub-timesheets-tools {
+    margin-top: 24px;
+    gap: 16px;
+  }
+
+  .hub-timesheets-add-mark {
+    margin-right: 4px;
+  }
+
+  .hub-timesheets-sheet-body .hub-timesheets-sub {
+    color: #2E75B6;
+    min-height: 44px;
+    padding: 0;
+  }
+
+  .hub-timesheets-sheet-body .hub-timesheets-next {
+    border-radius: 12px;
+  }
+
+  .hub-timesheets.is-day-open .hub-timesheets-open-chrome {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    max-width: 1100px;
+    margin: 0 auto 16px;
+    padding-top: 8px;
+  }
+
+  .hub-timesheets.is-day-open .ops-page-head,
+  .hub-timesheets.is-day-open .hub-timesheets-weekbar,
+  .hub-timesheets.is-day-open .hub-timesheets-chrome,
+  .hub-timesheets.is-day-open .hub-timesheets-days,
+  .hub-timesheets.is-day-open .hub-timesheets-empty,
+  .hub-timesheets.is-day-open .hub-timesheets-tiles {
+    display: none;
+  }
+
+  .hub-timesheets.is-day-open .hub-timesheets-open-chrome .hub-timesheets-weeknav {
+    border: 1px solid var(--ts-look-line);
+    border-radius: 12px;
+    background: var(--ts-look-sheet);
+    gap: 0;
+    overflow: hidden;
+  }
+
+  .hub-timesheets.is-day-open .hub-timesheets-open-chrome .hub-timesheets-week-btn,
+  .hub-timesheets.is-day-open .hub-timesheets-open-chrome .hub-timesheets-week-now {
+    border: none;
+    border-radius: 0;
+    min-height: 32px;
+    background: transparent;
+    color: var(--ts-look-muted);
+  }
+
+  .hub-timesheets.is-day-open .hub-timesheets-open-chrome .hub-timesheets-week-now {
+    border-left: 1px solid var(--ts-look-line);
+    border-right: 1px solid var(--ts-look-line);
+  }
+
+  .hub-timesheets-ledger {
+    margin-top: 32px;
+  }
+
+  .hub-timesheets-ledger-head,
+  .hub-timesheets-ledger-row {
+    display: grid;
+    grid-template-columns: 72px 64px 64px minmax(0, 1fr) minmax(0, 1.2fr) 88px 80px;
+    gap: 16px;
+    align-items: center;
+    padding: 12px 0;
+  }
+
+  .hub-timesheets-ledger-head {
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ts-look-muted);
+    border-bottom: 1px solid var(--ts-look-line);
+    padding-bottom: 8px;
+  }
+
+  .hub-timesheets-ledger-row {
+    border-bottom: 1px solid var(--ts-look-line);
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .hub-timesheets-ledger-range,
+  .hub-timesheets-ledger-meta {
+    display: none;
+  }
+
+  .hub-timesheets-ledger-row .hub-timesheets-hours {
+    justify-self: end;
+    font-size: 16px;
+    white-space: nowrap;
+  }
+
+  .hub-timesheets-tiles {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .hub-timesheets-tile,
+  .hub-timesheets-entry {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 16px 0;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--ts-look-line);
+    border-radius: 0;
+    color: var(--ts-look-ink);
+    text-decoration: none;
+    box-shadow: none;
+    min-height: 44px;
+  }
+
+  .hub-timesheets-tiles .hub-timesheets-tile {
+    padding: 16px 0;
+  }
+
+  .hub-timesheets-sheet .hub-timesheets-tile {
+    padding: 0 0 24px;
+    border-bottom: 1px solid var(--ts-look-line);
+    gap: 8px;
+  }
+
+  .hub-timesheets-sheet .hub-timesheets-entries {
+    max-width: none;
+    margin: 24px 0 0;
+  }
+
+  .hub-timesheets-tile.is-open {
+    box-shadow: none;
+  }
+
+  .hub-timesheets-tile-date {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: 0.02em;
+    color: var(--ts-look-ink);
+  }
+
+  .hub-timesheets-sheet .hub-timesheets-tile-date {
+    font-size: 36px;
+    line-height: 1;
+  }
+
+  .hub-timesheets-tile-job {
+    color: var(--ts-look-muted);
+    font-weight: 500;
+    font-size: 14px;
+  }
+
+  .hub-timesheets-group {
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ts-look-muted);
+    margin: 0 0 16px;
+  }
+
+  .hub-timesheets-job,
+  .hub-timesheets-muted {
+    color: var(--ts-look-muted);
+    font-weight: 500;
+    min-width: 0;
+  }
+
+  .hub-timesheets-hours {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    color: var(--ts-look-ink);
+  }
+
+  .hub-timesheets-tile .hub-next {
+    padding: 0;
+    justify-content: flex-start;
+  }
+
+  .hub-timesheets-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1;
+    width: fit-content;
+    white-space: nowrap;
+  }
+
+  .hub-timesheets-pill.is-open {
+    color: #2E75B6;
+    background: color-mix(in srgb, #2E75B6 12%, #fff);
+  }
+
+  .hub-timesheets-sheet .hub-timesheets-entry {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 16px 0;
+  }
+
+  .hub-timesheets-sheet .hub-timesheets-entry .hub-timesheets-tile-date {
+    font-size: 16px;
+  }
+
+  .hub-timesheets-sheet .hub-timesheets-entry .hub-timesheets-hours {
+    font-size: 20px;
+    margin-left: auto;
+  }
+
+  .hub-timesheets-pill.is-submitted,
+  .hub-timesheets-pill.is-approved {
+    color: var(--ts-look-ink);
+    background: color-mix(in srgb, #0A2540 8%, #fff);
+  }
+
+  .hub-timesheets-pill.is-rejected {
+    color: var(--ts-look-fail);
+    background: color-mix(in srgb, #B42318 12%, #fff);
+  }
+
+  .hub-timesheets .hub-next {
+    color: #2E75B6;
+    background: none;
+    border: none;
+    border-radius: 12px;
+    padding: 0 8px;
+    min-height: 44px;
+    cursor: pointer;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    text-decoration: none;
+  }
+
+  .hub-timesheets .ops-section-title {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    color: var(--ts-look-ink);
+  }
+
+  .hub-timesheets .ops-meta {
+    color: var(--ts-look-muted);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .hub-timesheets-submit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 16px 0 0;
+  }
+
+  .hub-timesheets-sheet .hub-timesheets-submit {
+    justify-content: flex-start;
+  }
+
+  .hub-timesheets-sheet .hub-timesheets-submit .hub-timesheets-week-btn {
+    border: none;
+    background: none;
+    color: var(--ts-look-muted);
+    font-size: 12px;
+    min-height: 32px;
+    padding: 0;
+  }
+
+  .hub-timesheets-submit-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  @media (max-width: 639px) {
+    .hub-timesheets.ops-page {
+      padding: 16px 16px 40px;
+    }
+
+    .hub-timesheets .ops-page-title {
+      font-size: 44px !important;
+    }
+
+    .hub-timesheets .ops-page-head {
+      align-items: flex-start;
+    }
+
+    .hub-timesheets-tools {
+      width: 100%;
+    }
+
+    .hub-timesheets-weekbar,
+    .hub-timesheets-chrome {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .hub-timesheets-search {
+      width: 100%;
+      max-width: none;
+    }
+
+    .hub-timesheets-days {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+    }
+
+    .hub-timesheets-day {
+      flex: 0 0 auto;
+      padding: 8px 8px;
+      min-height: 44px;
+    }
+
+    .hub-timesheets-sheet {
+      padding: 0;
+    }
+
+    .hub-timesheets-sheet-bar {
+      padding: 8px 16px;
+    }
+
+    .hub-timesheets-sheet-bar .hub-timesheets-pill {
+      background: #2E75B6;
+      color: #fff;
+    }
+
+    .hub-timesheets-sheet-body {
+      padding: 24px 16px 16px;
+    }
+
+    .hub-timesheets-hero {
+      font-size: 40px !important;
+    }
+
+    .hub-timesheets.is-day-open .hub-timesheets-open-chrome .hub-timesheets-weeknav {
+      display: none;
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-weeknav.is-phone {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 16px;
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-weeknav.is-phone .hub-timesheets-week-now {
+      display: none;
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-weeknav.is-phone .hub-timesheets-week-btn {
+      border: none;
+      background: none;
+      color: var(--ts-look-muted);
+      padding: 0;
+      min-height: 44px;
+      gap: 4px;
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-weeknav.is-phone .hub-timesheets-week-phone {
+      display: inline;
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-tools {
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      margin-top: 24px;
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-next {
+      width: min(100%, 240px);
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-sub .hub-timesheets-add-mark {
+      display: none;
+    }
+
+    .hub-timesheets-ledger-head,
+    .hub-timesheets-ledger-date,
+    .hub-timesheets-ledger-start,
+    .hub-timesheets-ledger-finish,
+    .hub-timesheets-ledger-activity,
+    .hub-timesheets-ledger-job,
+    .hub-timesheets-ledger-type,
+    .hub-timesheets-ledger-row .hub-timesheets-hours {
+      display: none;
+    }
+
+    .hub-timesheets-ledger-row {
+      grid-template-columns: 1fr;
+      gap: 4px;
+      padding: 16px 0;
+    }
+
+    .hub-timesheets-ledger-range,
+    .hub-timesheets-ledger-meta {
+      display: block;
+    }
+
+    .hub-timesheets-ledger-range {
+      font-family: Rajdhani, sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--ts-look-ink);
+    }
+
+    .hub-timesheets-ledger-meta {
+      color: var(--ts-look-muted);
+      font-size: 13px;
+    }
+
+    .hub-timesheets-sheet .hub-timesheets-submit {
+      justify-content: center;
+    }
+  }
 
   /* Compliance due-or-open floor look only. Open record is the document sheet. */
   .hub-compliance {
