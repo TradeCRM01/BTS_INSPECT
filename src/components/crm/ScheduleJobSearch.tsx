@@ -4,6 +4,7 @@ import { OpsStatus, opsSiteLabel } from '../ui/OpsCard';
 import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
 import type { JobWithClient } from '../../types/crm';
 import { formatJobRef } from '../../lib/jobRef';
+import { scheduleJobHref } from '../../lib/scheduleBoard';
 import { format, parseISO } from 'date-fns';
 
 function whenLabel(job: JobWithClient): string | null {
@@ -22,6 +23,7 @@ export function ScheduleJobSearch({
   loading,
   selectedId,
   onSelect,
+  onOpenJob,
   onDragStart,
 }: {
   query: string;
@@ -30,6 +32,7 @@ export function ScheduleJobSearch({
   loading: boolean;
   selectedId: string | null;
   onSelect: (job: JobWithClient | null) => void;
+  onOpenJob: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -74,21 +77,21 @@ export function ScheduleJobSearch({
       <SearchBar
         value={query}
         onChange={onQuery}
-        placeholder="Search a job, then drop it on a person…"
+        placeholder="Search jobs or clients..."
       />
       {open && (
-        <div className={`absolute z-30 mt-1 w-full bg-white border border-rule rounded-lg shadow-lg overflow-hidden ${
+        <div className={`hub-schedule-search-panel absolute z-30 mt-2 w-full overflow-hidden ${
           dragging ? 'pointer-events-none opacity-40' : ''
         }`}>
-          <div className="px-3 py-2 border-b border-rule">
+          <div className="hub-schedule-search-head">
             <p className="ops-meta">
               {loading ? 'Searching…' : `${results.length} match${results.length === 1 ? '' : 'es'} · drag onto a name or a time`}
             </p>
           </div>
           {results.length === 0 && !loading ? (
-            <p className="ops-meta px-3 py-4">No jobs match what you typed.</p>
+            <p className="ops-meta px-4 py-4">No jobs match what you typed.</p>
           ) : (
-            <ul className="max-h-72 overflow-y-auto py-1">
+            <ul className="max-h-72 overflow-y-auto">
               {results.map(job => {
                 const site = opsSiteLabel(job.address, job.client_address);
                 const selected = selectedId === job.id;
@@ -111,16 +114,29 @@ export function ScheduleJobSearch({
                           onSelect(job);
                         }
                       }}
-                      className={`w-full text-left px-3 py-2 cursor-grab active:cursor-grabbing hover:bg-zebra ${
-                        selected ? 'bg-zebra' : ''
-                      }`}
+                      className={`hub-schedule-search-hit ${selected ? 'is-on' : ''}`}
                       style={{ borderLeft: `3px solid ${JOB_STATUS_RAIL[job.status]}` }}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-semibold tracking-tight text-navy truncate">
+                        <p className="hub-schedule-ref truncate">
                           {formatJobRef(job)} · {job.title}
                         </p>
-                        <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                          <a
+                            href={scheduleJobHref(job.id)}
+                            data-schedule-open-job={job.id}
+                            className="hub-schedule-next"
+                            onClick={e => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onOpenJob(job);
+                            }}
+                            onPointerDown={e => e.stopPropagation()}
+                          >
+                            Open
+                          </a>
+                        </div>
                       </div>
                       <p className="ops-meta mt-0.5 truncate">
                         {[job.client_name, site, whenLabel(job)].filter(Boolean).join(' · ')}

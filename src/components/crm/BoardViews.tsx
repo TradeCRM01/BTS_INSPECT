@@ -21,13 +21,22 @@ import {
   type JobDropPayload,
   type ResizeEdge,
 } from '../../lib/dispatch';
-import {
-  format, isToday, addDays, startOfWeek,
-} from 'date-fns';
+import { format, isToday, parseISO } from 'date-fns';
 import { Clock, Plus, Users } from 'lucide-react';
 import { JobCalendarOverflow } from '../jobs/JobCalendarOverflow';
 import { calendarSite } from '../../lib/jobCalendar';
 import { formatJobRef } from '../../lib/jobRef';
+import {
+  filterJobsByCrew,
+  groupJobsByScheduleDay,
+  jobsOnScheduleDay,
+  scheduleClockLabel,
+  scheduleCrewLabel,
+  scheduleDateKey,
+  scheduleDayKey,
+  scheduleWeekColumns,
+  scheduleWeekDays,
+} from '../../lib/scheduleBoard';
 
 export interface TeamMember {
   id: string;
@@ -59,11 +68,11 @@ const ROW_PAD = 6;
 const ROW_MIN = 72;
 
 function dateKey(d: Date): string {
-  return format(d, 'yyyy-MM-dd');
+  return scheduleDateKey(d);
 }
 
 function jobDateKey(job: JobWithClient): string | null {
-  return job.scheduled_date ? job.scheduled_date.slice(0, 10) : null;
+  return scheduleDayKey(job.scheduled_date);
 }
 
 function formatHourLabel(h: number): string {
@@ -92,6 +101,8 @@ const JobBlock = memo(function JobBlock({
   const hint = boardDispatchHint(job);
   const next = hint ?? jobCardHint(job);
   const site = opsSiteLabel(job.address, job.client_address);
+  const clock = scheduleClockLabel(job.start_time, job.end_time);
+  const crew = scheduleCrewLabel(job.assigned_team, teamMembers);
 
   return (
     <div
@@ -107,6 +118,7 @@ const JobBlock = memo(function JobBlock({
           onClick();
         }
       }}
+      data-schedule-job={job.id}
       className={`${fill ? 'absolute left-1 right-1' : 'w-full'} ops-card job-cal-host ops-card-hover cursor-pointer active:scale-[0.98] ${
         dragging ? 'opacity-40' : ''
       }`}
@@ -131,20 +143,24 @@ const JobBlock = memo(function JobBlock({
             />
           </div>
         )}
-        <p className={`${compact ? 'ops-chip-site pr-10' : 'ops-card-site'} truncate`}>
-          {compact && job.start_time ? `${job.start_time.slice(0, 5)} · ` : ''}
+        <p className={`${compact ? 'hub-schedule-ref pr-10' : 'hub-schedule-ref'} truncate`}>
+          {compact && clock ? `${clock} · ` : ''}
           {formatJobRef(job)} | {site}
         </p>
         {!compact && job.title && (
           <p className="ops-meta mt-0.5 truncate">{job.title}</p>
         )}
-        {!compact && job.start_time && (
+        {!compact && clock && (
           <p className="ops-meta mt-0.5 flex items-center gap-0.5">
-            <Clock size={12} /> {job.start_time.slice(0, 5)}
-            {job.end_time && ` – ${job.end_time.slice(0, 5)}`}
+            <Clock size={12} /> {clock}
           </p>
         )}
-        <span className={`mt-1 ${detail ? 'ops-next-control-block' : 'ops-next-control-sm'}`}>{next}</span>
+        {!compact && (
+          <p className="ops-meta mt-0.5 flex items-center gap-0.5 truncate">
+            <Users size={12} /> {crew}
+          </p>
+        )}
+        <span className={`mt-1 ${detail ? 'hub-schedule-next' : 'hub-schedule-next is-compact'}`}>{next}</span>
       </div>
     </div>
   );
@@ -190,12 +206,13 @@ export const NeedsDateRail = memo(function NeedsDateRail({
                     onJobClick(job);
                   }
                 }}
+                data-schedule-job={job.id}
                 className="ops-card job-cal-host ops-card-hover w-full text-left active:scale-[0.98] cursor-pointer"
                 style={{ borderLeftWidth: 3, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
               >
                 <div className="ops-card-body">
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="ops-card-site truncate">{formatJobRef(job)} | {site}</p>
+                    <p className="hub-schedule-ref truncate">{formatJobRef(job)} | {site}</p>
                     <div className="flex items-center gap-1 shrink-0">
                       <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
                       <JobCalendarOverflow
@@ -206,7 +223,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
                     </div>
                   </div>
                   <div className="ops-card-footer">
-                    <span className="ops-next-control-block">Set a date</span>
+                    <span className="hub-schedule-next">Set a date</span>
                   </div>
                   {job.client_name && <p className="ops-meta mt-1.5 truncate">{job.client_name}</p>}
                   {job.title && <p className="ops-meta mt-0.5 truncate">{job.title}</p>}
@@ -222,6 +239,69 @@ export const NeedsDateRail = memo(function NeedsDateRail({
 
 // ── Phone day list (no hour grid) ────────────────────────────────
 
+function PhoneJobCard({
+  job, teamMembers, onJobClick, onDragStart,
+}: {
+  job: JobWithClient;
+  teamMembers?: TeamMember[];
+  onJobClick: (job: JobWithClient) => void;
+  onDragStart: (e: React.DragEvent, jobId: string) => void;
+}) {
+  const site = opsSiteLabel(job.address, job.client_address);
+  const mapsQuery = (job.address || job.client_address)?.trim() || null;
+  const next = boardDispatchHint(job) ?? jobCardHint(job);
+  const clock = scheduleClockLabel(job.start_time, job.end_time);
+  const crew = scheduleCrewLabel(job.assigned_team, teamMembers);
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      draggable
+      data-schedule-job={job.id}
+      onDragStart={e => onDragStart(e, job.id)}
+      onClick={() => onJobClick(job)}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onJobClick(job);
+        }
+      }}
+      className="ops-card job-cal-host ops-card-hover w-full text-left cursor-pointer"
+      style={{ borderLeftWidth: 4, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
+    >
+      <div className="ops-card-body">
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <p className="hub-schedule-ref truncate">{formatJobRef(job)} | {site}</p>
+          <div className="flex items-center gap-1 shrink-0">
+            <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+            <JobCalendarOverflow
+              job={job}
+              site={calendarSite(job.address, job.client_address)}
+              members={teamMembers}
+            />
+          </div>
+        </div>
+        <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
+        <div className="ops-card-footer">
+          <span className="hub-schedule-next">{next}</span>
+        </div>
+        <div className="mt-2 space-y-0.5">
+          {clock && (
+            <p className="ops-meta flex items-center gap-1">
+              <Clock size={12} /> {clock}
+            </p>
+          )}
+          <p className="ops-meta flex items-center gap-1 truncate">
+            <Users size={12} /> {crew}
+          </p>
+          {job.client_name && <p className="ops-meta truncate">{job.client_name}</p>}
+          {job.title && <p className="ops-meta truncate">{job.title}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const PhoneDayList = memo(function PhoneDayList({
   jobs, teamMembers, currentDate, onJobClick, onDragStart,
 }: {
@@ -232,73 +312,85 @@ export const PhoneDayList = memo(function PhoneDayList({
   onDragStart: (e: React.DragEvent, jobId: string) => void;
 }) {
   const dateStr = dateKey(currentDate);
-  const dayJobs = useMemo(() => {
-    return jobs
-      .filter(job => jobDateKey(job) === dateStr)
-      .sort((a, b) => (a.start_time ?? '99').localeCompare(b.start_time ?? '99'));
-  }, [jobs, dateStr]);
+  const dayJobs = useMemo(() => jobsOnScheduleDay(jobs, dateStr), [jobs, dateStr]);
 
   return (
-    <div className="space-y-2">
-      <h2 className="ops-group-title">
+    <div className="space-y-2" data-schedule-day={dateStr}>
+      <h2 className="hub-schedule-label">
         {format(currentDate, 'EEEE d MMM')}
-        <span className="text-muted normal-case font-normal"> ({dayJobs.length})</span>
+        <span className="hub-schedule-count"> ({dayJobs.length})</span>
       </h2>
       {dayJobs.length === 0 ? (
         <p className="ops-meta px-1 py-3">No jobs on this day. Drag from the tray or add a job.</p>
       ) : (
-        dayJobs.map(job => {
-          const site = opsSiteLabel(job.address, job.client_address);
-          const mapsQuery = (job.address || job.client_address)?.trim() || null;
-          const next = boardDispatchHint(job) ?? jobCardHint(job);
-          return (
-            <div
-              key={job.id}
-              role="button"
-              tabIndex={0}
-              draggable
-              onDragStart={e => onDragStart(e, job.id)}
-              onClick={() => onJobClick(job)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onJobClick(job);
-                }
-              }}
-              className="ops-card job-cal-host ops-card-hover w-full text-left cursor-pointer"
-              style={{ borderLeftWidth: 4, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
-            >
-              <div className="ops-card-body">
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <p className="ops-card-site truncate">{formatJobRef(job)} | {site}</p>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
-                    <JobCalendarOverflow
-                      job={job}
-                      site={calendarSite(job.address, job.client_address)}
-                      members={teamMembers}
-                    />
-                  </div>
-                </div>
-                <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
-                <div className="ops-card-footer">
-                  <span className="ops-next-control-block">{next}</span>
-                </div>
-                <div className="mt-2 space-y-0.5">
-                  {job.start_time && (
-                    <p className="ops-meta flex items-center gap-1">
-                      <Clock size={12} /> {job.start_time.slice(0, 5)}
-                      {job.end_time ? ` – ${job.end_time.slice(0, 5)}` : ''}
-                    </p>
-                  )}
-                  {job.client_name && <p className="ops-meta truncate">{job.client_name}</p>}
-                  {job.title && <p className="ops-meta truncate">{job.title}</p>}
-                </div>
-              </div>
-            </div>
-          );
-        })
+        dayJobs.map(job => (
+          <PhoneJobCard
+            key={job.id}
+            job={job}
+            teamMembers={teamMembers}
+            onJobClick={onJobClick}
+            onDragStart={onDragStart}
+          />
+        ))
       )}
+    </div>
+  );
+});
+
+export const PhoneWeekList = memo(function PhoneWeekList({
+  jobs, teamMembers, currentDate, onJobClick, onDragStart, onSelectDay, onDayClick,
+}: {
+  jobs: JobWithClient[];
+  teamMembers?: TeamMember[];
+  currentDate: Date;
+  onJobClick: (job: JobWithClient) => void;
+  onDragStart: (e: React.DragEvent, jobId: string) => void;
+  onSelectDay: (date: Date) => void;
+  onDayClick: (dateStr: string) => void;
+}) {
+  const columns = useMemo(() => scheduleWeekColumns(jobs, currentDate), [jobs, currentDate]);
+
+  return (
+    <div className="space-y-4" data-schedule-week="1">
+      {columns.map(column => {
+        const day = parseISO(`${column.date}T00:00:00`);
+        const today = isToday(day);
+        return (
+          <section key={column.date} data-schedule-day={column.date} className="space-y-2">
+            <button
+              type="button"
+              onClick={() => onSelectDay(day)}
+              className="hub-schedule-label w-full text-left"
+            >
+              {format(day, 'EEEE d MMM')}
+              {today && <span className="ml-2 ops-status ops-status-info">TODAY</span>}
+              <span className="hub-schedule-count"> ({column.jobs.length})</span>
+            </button>
+            {column.jobs.length === 0 ? (
+              <div className="flex items-center justify-between gap-2 px-1 py-2">
+                <p className="ops-meta">No jobs this day.</p>
+                <button
+                  type="button"
+                  onClick={() => onDayClick(column.date)}
+                  className="ops-link text-xs"
+                >
+                  Add job
+                </button>
+              </div>
+            ) : (
+              column.jobs.map(job => (
+                <PhoneJobCard
+                  key={job.id}
+                  job={job}
+                  teamMembers={teamMembers}
+                  onJobClick={onJobClick}
+                  onDragStart={onDragStart}
+                />
+              ))
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 });
@@ -445,8 +537,8 @@ export const DayBoardView = memo(function DayBoardView({
 
   return (
     <div className="ops-board">
-      <div className="px-3 py-2 border-b border-rule flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm font-semibold tracking-tight text-navy">
+      <div className="hub-schedule-board-head">
+        <p className="hub-schedule-range">
           {format(currentDate, 'EEEE, d MMMM yyyy')}
           {isToday(currentDate) && (
             <span className="ml-2 ops-status ops-status-info">
@@ -465,8 +557,8 @@ export const DayBoardView = memo(function DayBoardView({
         <div className="flex sticky top-0 z-20 bg-white border-b border-rule">
           <div className="shrink-0 border-r border-rule bg-zebra" style={{ width: LABEL_WIDTH }}>
             <div className="px-3 py-2 flex items-center gap-1.5">
-              <Users size={13} className="text-navy" />
-              <span className="text-xs font-semibold tracking-tight text-navy">Crew</span>
+              <Users size={13} />
+              <span className="hub-schedule-label">Crew</span>
             </div>
           </div>
           <div className="flex" style={{ minWidth: gridWidth }}>
@@ -474,7 +566,7 @@ export const DayBoardView = memo(function DayBoardView({
               <div key={h} className="text-center border-r border-rule last:border-r-0"
                 style={{ width: HOUR_WIDTH }}>
                 <div className="px-1 py-2">
-                  <span className="ops-meta">{formatHourLabel(h)}</span>
+                  <span className="hub-schedule-label">{formatHourLabel(h)}</span>
                 </div>
               </div>
             ))}
@@ -521,7 +613,7 @@ export const DayBoardView = memo(function DayBoardView({
                   }}
                 />
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold tracking-tight text-navy truncate">{row.name}</p>
+                  <p className="hub-schedule-crew-name truncate">{row.name}</p>
                   <p className="ops-meta">
                     {isUnassigned
                       ? (rowJobs.length === 0 ? 'Drop here — date stays' : `${rowJobs.length} · needs crew`)
@@ -649,27 +741,17 @@ function CurrentTimeVerticalIndicator() {
 // ── Week Board View ──────────────────────────────────────────────
 
 export const WeekBoardView = memo(function WeekBoardView({
-  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop,
+  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds,
 }: BoardProps) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverDate, setDropHoverDate] = useState<string | null>(null);
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const days = scheduleWeekDays(currentDate);
   const dateStrs = days.map(d => dateKey(d));
 
   const jobsByDay = useMemo(() => {
-    const map = new Map<string, JobWithClient[]>();
-    for (const ds of dateStrs) map.set(ds, []);
-    for (const job of jobs) {
-      const key = jobDateKey(job);
-      if (!key) continue;
-      map.get(key)?.push(job);
-    }
-    for (const [, list] of map) {
-      list.sort((a, b) => (a.start_time ?? '99').localeCompare(b.start_time ?? '99'));
-    }
-    return map;
-  }, [jobs, dateStrs]);
+    const visible = filterJobsByCrew(jobs, filteredEmployeeIds);
+    return groupJobsByScheduleDay(visible, dateStrs);
+  }, [jobs, dateStrs, filteredEmployeeIds]);
 
   const handleDragStart = (e: React.DragEvent, jobId: string) => {
     e.dataTransfer.setData('text/plain', jobId);
@@ -694,9 +776,9 @@ export const WeekBoardView = memo(function WeekBoardView({
   };
 
   return (
-    <div className="ops-board">
-      <div className="px-3 py-2 border-b border-rule flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm font-semibold tracking-tight text-navy">This week</p>
+    <div className="ops-board" data-schedule-week="1">
+      <div className="hub-schedule-board-head">
+        <p className="hub-schedule-label">This week</p>
         <p className="ops-meta">
           Drag to another day to move the date. Crew stays put.
         </p>
@@ -709,8 +791,8 @@ export const WeekBoardView = memo(function WeekBoardView({
           const needsCrew = dayJobs.filter(j => !(j.assigned_team ?? []).length).length;
           return (
             <div key={i} className="flex-1 min-w-[120px] border-r border-rule last:border-r-0 px-2 py-2 text-center">
-              <p className="ops-meta uppercase">{format(day, 'EEE')}</p>
-              <p className={`text-sm font-bold ${today ? 'text-white bg-navy w-6 h-6 rounded-md flex items-center justify-center mx-auto' : 'text-ink'}`}>
+              <p className="hub-schedule-label">{format(day, 'EEE')}</p>
+              <p className={`hub-schedule-day ${today ? 'is-today' : ''}`}>
                 {format(day, 'd')}
               </p>
               <p className="ops-meta mt-0.5">
@@ -730,6 +812,7 @@ export const WeekBoardView = memo(function WeekBoardView({
           return (
             <div
               key={i}
+              data-schedule-day={ds}
               onDragOver={e => { e.preventDefault(); setDropHoverDate(ds); }}
               onDrop={e => handleDrop(e, ds)}
               onClick={() => onDayClick(ds)}
@@ -738,9 +821,9 @@ export const WeekBoardView = memo(function WeekBoardView({
               }`}
             >
               {dayJobs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-20 text-[#D1D5DB]">
+                <div className="hub-schedule-empty">
                   <Plus size={16} />
-                  <span className="ops-meta mt-1">Add job</span>
+                  <span>Add job</span>
                 </div>
               ) : (
                 dayJobs.map(job => (

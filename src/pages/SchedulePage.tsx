@@ -12,7 +12,7 @@ import type { Job, JobWithClient, Client } from '../types/crm';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { ScheduleJobSearch } from '../components/crm/ScheduleJobSearch';
 import {
-  DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList,
+  DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList, PhoneWeekList,
   type TeamMember,
 } from '../components/crm/BoardViews';
 import { pickEmployeeColor } from '../lib/jobColors';
@@ -20,17 +20,15 @@ import { DEFAULT_SLOT_START, rememberDraggedJob, rescheduleJobPatch, type JobDro
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
+import { parseScheduleView, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
 import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
 import {
-  ChevronLeft, ChevronRight, Plus, Calendar as CalIcon,
-  Columns3, Users, X,
+  ChevronLeft, ChevronRight, Plus, Users, X,
 } from 'lucide-react';
 import {
   format, startOfWeek, endOfWeek,
   addDays, addWeeks,
 } from 'date-fns';
-
-type ViewMode = 'day' | 'week';
 
 export function SchedulePage() {
   const { profile } = useAuth();
@@ -38,7 +36,7 @@ export function SchedulePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  const [viewMode, setViewMode] = useState<ScheduleViewMode>(() => parseScheduleView(searchParams.get('view')));
   const [showForm, setShowForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
@@ -53,8 +51,20 @@ export function SchedulePage() {
   const preselectJob = searchParams.get('job');
   const preselectDate = searchParams.get('date');
 
+  const openJob = useCallback((jobId: string) => {
+    navigate(scheduleJobHref(jobId));
+  }, [navigate]);
+
+  const setView = useCallback((mode: ScheduleViewMode) => {
+    setViewMode(mode);
+    const next = new URLSearchParams(searchParams);
+    if (mode === 'week') next.delete('view');
+    else next.set('view', 'day');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   useEffect(() => {
-    if (preselectJob) navigate(`/jobs/${preselectJob}`, { replace: true });
+    if (preselectJob) navigate(scheduleJobHref(preselectJob), { replace: true });
   }, [preselectJob, navigate]);
 
   useEffect(() => {
@@ -65,6 +75,7 @@ export function SchedulePage() {
     setViewMode('day');
     const next = new URLSearchParams(searchParams);
     next.delete('date');
+    next.set('view', 'day');
     setSearchParams(next, { replace: true });
   }, [preselectDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -168,7 +179,7 @@ export function SchedulePage() {
         }
       }
 
-      return attachJobClients(jobs, [...clientMap.values()]).then(hydrateJobParentNumbers);
+      return hydrateJobParentNumbers(attachJobClients(jobs, [...clientMap.values()]));
     },
     enabled: !!profile,
   });
@@ -188,7 +199,9 @@ export function SchedulePage() {
     if (preselectClient) {
       setPresetClientId(preselectClient);
       setShowForm(true);
-      setSearchParams({}, { replace: true });
+      const next = new URLSearchParams(searchParams);
+      next.delete('client');
+      setSearchParams(next, { replace: true });
     }
   }, [preselectClient]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -342,43 +355,63 @@ export function SchedulePage() {
 
   return (
     <AppShell>
-      <div className="ops-page hub-board-cal">
+      <div className="ops-page hub-board-cal" data-schedule-view={viewMode}>
         <div className="ops-page-head">
           <div className="min-w-0">
+            <p className="hub-schedule-kicker">Schedule</p>
             <h1 className="ops-page-title">Schedule</h1>
-            <p className="ops-meta mt-0.5">
+            <p className="ops-meta mt-2">
               {onBoard.length} on the board
               {unassignedOnBoard > 0 ? ` · ${unassignedOnBoard} unassigned` : ''}
               {needsDate.length > 0 ? ` · ${needsDate.length} without a date` : ''}
-              {viewMode === 'day' && ` · ${format(currentDate, 'EEEE, d MMMM yyyy')}`}
+              {viewMode === 'day'
+                ? ` · ${format(currentDate, 'EEEE, d MMMM yyyy')}`
+                : ` · week of ${format(startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'd MMM')}`}
             </p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap min-w-0 w-full lg:w-auto lg:flex-1 lg:justify-end">
-            <ScheduleJobSearch
-              query={jobQuery}
-              onQuery={setJobQuery}
-              results={searchHits}
-              loading={searchLoading && debouncedQuery.length > 0}
-              selectedId={pickedJob?.id ?? null}
-              onSelect={handlePickJob}
-              onDragStart={handleRailDragStart}
-            />
-            <button
-              onClick={() => {
-                setSelectedDate(format(currentDate, 'yyyy-MM-dd'));
-                setPresetEmployeeId(undefined);
-                setShowForm(true);
-              }}
-              className="btn-primary shrink-0"
-            >
-              <Plus size={16} /> New Job
-            </button>
+          <button
+            onClick={() => {
+              setSelectedDate(format(currentDate, 'yyyy-MM-dd'));
+              setPresetEmployeeId(undefined);
+              setShowForm(true);
+            }}
+            className="btn-primary shrink-0"
+          >
+            <Plus size={16} /> New job
+          </button>
+        </div>
+
+        <div className="hub-schedule-chrome">
+          <div className="hub-schedule-filters" data-schedule-view={viewMode}>
+            {([
+              { mode: 'week' as const, label: 'Week' },
+              { mode: 'day' as const, label: 'Day' },
+            ]).map(({ mode, label }) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setView(mode)}
+                className={`hub-chrome-filter ${viewMode === mode ? 'hub-chrome-filter-on' : ''}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
+          <ScheduleJobSearch
+            query={jobQuery}
+            onQuery={setJobQuery}
+            results={searchHits}
+            loading={searchLoading && debouncedQuery.length > 0}
+            selectedId={pickedJob?.id ?? null}
+            onSelect={handlePickJob}
+            onOpenJob={job => openJob(job.id)}
+            onDragStart={handleRailDragStart}
+          />
         </div>
 
         {pickedJob && (teamMembers ?? []).length > 0 && (
-          <div className="lg:hidden ops-card p-3 mb-3">
-            <p className="text-sm font-medium text-navy">
+          <div className="lg:hidden hub-schedule-sheet hub-schedule-place mb-4">
+            <p className="text-sm font-medium">
               {pickedJob.title} — tap a person to place it today at 8:00
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
@@ -396,56 +429,42 @@ export function SchedulePage() {
           </div>
         )}
 
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
+        <div className="hub-schedule-toolbar">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
             <button onClick={() => setCurrentDate(new Date())}
               className="btn-secondary">
               Today
             </button>
-            <div className="flex items-center">
+            <div className="hub-schedule-stepper">
               <button
+                type="button"
                 onClick={() => setCurrentDate(d =>
                   viewMode === 'day' ? addDays(d, -1) : addWeeks(d, -1)
                 )}
-                className="w-11 h-11 flex items-center justify-center rounded-l-md border border-rule hover:bg-zebra text-muted"
+                className="hub-schedule-step"
               >
                 <ChevronLeft size={16} />
               </button>
               <button
+                type="button"
                 onClick={() => setCurrentDate(d =>
                   viewMode === 'day' ? addDays(d, 1) : addWeeks(d, 1)
                 )}
-                className="w-11 h-11 flex items-center justify-center rounded-r-md border-y border-r border-rule hover:bg-zebra text-muted"
+                className="hub-schedule-step"
               >
                 <ChevronRight size={16} />
               </button>
             </div>
-            <h2 className="ops-section-title ml-1">
+            <h2 className="hub-schedule-range">
               {viewMode === 'day' && format(currentDate, 'd MMMM yyyy')}
-              {viewMode === 'week' && `${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'd MMM')} – ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'd MMM yyyy')}`}
+              {viewMode === 'week' && `${format(startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'd MMM')} – ${format(endOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'd MMM yyyy')}`}
             </h2>
-          </div>
-
-          <div className="hidden lg:flex ops-seg">
-            {([
-              { mode: 'day' as const, label: 'Day', Icon: Columns3 },
-              { mode: 'week' as const, label: 'Week', Icon: CalIcon },
-            ]).map(({ mode, label, Icon }) => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={`ops-seg-btn ${viewMode === mode ? 'ops-seg-btn-on' : 'ops-seg-btn-off'}`}
-              >
-                <Icon size={14} />
-                {label}
-              </button>
-            ))}
           </div>
         </div>
 
-        {viewMode === 'day' && teamMembers && teamMembers.length > 0 && (
-          <div className="hidden lg:flex items-center gap-2 mb-3 flex-wrap">
-            <div className="flex items-center gap-1.5 ops-meta font-medium">
+        {teamMembers && teamMembers.length > 0 && (
+          <div className="hidden lg:flex items-center gap-2 mb-4 flex-wrap hub-schedule-crew-row">
+            <div className="hub-schedule-label flex items-center gap-1.5">
               <Users size={13} /> Crew
             </div>
             {filteredEmployeeIds.size > 0 && (
@@ -454,18 +473,14 @@ export function SchedulePage() {
                 <X size={11} /> Show all
               </button>
             )}
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               {teamMembers.map(m => {
                 const active = filteredEmployeeIds.size === 0 || filteredEmployeeIds.has(m.id);
                 const color = pickEmployeeColor(m.id, m.schedule_color);
                 return (
                   <div
                     key={m.id}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border transition-all ${
-                      active
-                        ? 'border-transparent bg-white'
-                        : 'border-rule bg-zebra opacity-50 hover:opacity-80'
-                    }`}
+                    className={`hub-schedule-crew ${active ? 'is-on' : 'is-off'}`}
                   >
                     <EmployeeColorSwatch
                       name={m.name}
@@ -477,7 +492,6 @@ export function SchedulePage() {
                     <button
                       type="button"
                       onClick={() => toggleEmployeeFilter(m.id)}
-                      className="hover:underline"
                       title={active && filteredEmployeeIds.size > 0 ? 'Hide from board' : 'Filter to this person'}
                     >
                       {m.name}
@@ -493,30 +507,47 @@ export function SchedulePage() {
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : (
           <>
-            <div className="lg:hidden space-y-3">
+            <div className="lg:hidden space-y-4 hub-schedule-phone">
               <NeedsDateRail
                 jobs={needsDate}
                 teamMembers={teamMembers ?? []}
-                onJobClick={job => navigate(`/jobs/${job.id}`)}
+                onJobClick={job => openJob(job.id)}
                 onDragStart={handleRailDragStart}
               />
-              <PhoneDayList
-                jobs={onBoard}
-                teamMembers={teamMembers ?? []}
-                currentDate={currentDate}
-                onJobClick={job => navigate(`/jobs/${job.id}`)}
-                onDragStart={handleRailDragStart}
-              />
+              <div className="hub-schedule-sheet">
+                {viewMode === 'week' ? (
+                  <PhoneWeekList
+                    jobs={onBoard}
+                    teamMembers={teamMembers ?? []}
+                    currentDate={currentDate}
+                    onJobClick={job => openJob(job.id)}
+                    onDragStart={handleRailDragStart}
+                    onSelectDay={date => {
+                      setCurrentDate(date);
+                      setView('day');
+                    }}
+                    onDayClick={handleDayClick}
+                  />
+                ) : (
+                  <PhoneDayList
+                    jobs={onBoard}
+                    teamMembers={teamMembers ?? []}
+                    currentDate={currentDate}
+                    onJobClick={job => openJob(job.id)}
+                    onDragStart={handleRailDragStart}
+                  />
+                )}
+              </div>
             </div>
 
-            <div className="hidden lg:flex items-start gap-3">
+            <div className="hidden lg:flex items-start gap-3 hub-schedule-desk">
               <div className="min-w-0 flex-1">
                 {viewMode === 'day' ? (
                   <DayBoardView
                     jobs={onBoard}
                     teamMembers={teamMembers ?? []}
                     currentDate={currentDate}
-                    onJobClick={job => navigate(`/jobs/${job.id}`)}
+                    onJobClick={job => openJob(job.id)}
                     onDayClick={handleDayClick}
                     onJobDrop={drop => {
                       rescheduleJob.mutate(drop);
@@ -531,7 +562,7 @@ export function SchedulePage() {
                     jobs={onBoard}
                     teamMembers={teamMembers ?? []}
                     currentDate={currentDate}
-                    onJobClick={job => navigate(`/jobs/${job.id}`)}
+                    onJobClick={job => openJob(job.id)}
                     onDayClick={handleDayClick}
                     onJobDrop={drop => {
                       rescheduleJob.mutate(drop);
@@ -547,7 +578,7 @@ export function SchedulePage() {
                 alwaysShow
                 jobs={needsDate}
                 teamMembers={teamMembers ?? []}
-                onJobClick={job => navigate(`/jobs/${job.id}`)}
+                onJobClick={job => openJob(job.id)}
                 onDragStart={handleRailDragStart}
               />
             </div>
@@ -566,7 +597,7 @@ export function SchedulePage() {
             handleCloseForm();
             queryClient.invalidateQueries({ queryKey: ['jobs'] });
             queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
-            navigate(`/jobs/${jobId}`);
+            navigate(scheduleJobHref(jobId));
           }}
         />
       )}
