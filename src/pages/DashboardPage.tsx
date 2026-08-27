@@ -25,6 +25,7 @@ import {
   dashboardCrewLabel,
   dashboardHeadingDate,
   dashboardJobHref,
+  dashboardJobMetaLine,
   dashboardJobPlace,
   dashboardJobState,
   dashboardJobStateLabel,
@@ -266,124 +267,119 @@ export function DashboardPage() {
   }
 
   const work = todayJobs ?? [];
+  const jobCountLabel = work.length === 1 ? '1 job' : `${work.length} jobs`;
+  const jobline = [
+    company?.name,
+    !jobsLoading && work.length > 0 ? jobCountLabel : null,
+  ].filter(Boolean).join(' · ');
 
   return (
     <AppShell>
-      <div className="ops-page dashboard-home">
-        <div className="ops-page-head">
-          <div>
-            <p className="dashboard-home-kicker">Today</p>
-            <h1 className="ops-page-title">Today&apos;s work</h1>
-            <p className="dashboard-home-meta">
-              {dashboardHeadingDate()}
-              {company?.name ? ` · ${company.name}` : ''}
-              {!jobsLoading && work.length > 0
-                ? ` · ${work.length === 1 ? '1 job' : `${work.length} jobs`}`
-                : ''}
-            </p>
-          </div>
-          <div className="dashboard-home-actions">
-            <button
-              type="button"
-              onClick={() => setEditMode(e => !e)}
-              className="dashboard-home-secondary"
-            >
-              <LayoutGrid size={16} />
-              {editMode ? 'Done editing' : 'Customize'}
-            </button>
-            {editMode && (
-              <button
-                type="button"
-                onClick={() => setShowPicker(true)}
-                className="btn-primary"
-              >
-                <Plus size={16} />
-                Add widget
-              </button>
-            )}
-            {!editMode && (
-              <Link to="/schedule" className="btn-primary">
-                Week board
-              </Link>
-            )}
-          </div>
+      <div className="ops-page dashboard-home is-day-open">
+        <div className="dashboard-home-open-chrome">
+          <p className="dashboard-home-label">Today</p>
         </div>
 
-        <section data-dashboard-home="1">
-          {jobsLoading ? (
-            <div className="flex justify-center py-16"><LoadingSpinner /></div>
-          ) : work.length === 0 ? (
-            <div className="dashboard-home-sheet">
+        <article className="dashboard-home-sheet" data-dashboard-home="1">
+          <header className="dashboard-home-sheet-bar">
+            <span className="dashboard-home-hours">{dashboardHeadingDate()}</span>
+            <span className="dashboard-home-pill">
+              {!jobsLoading && work.length > 0 ? jobCountLabel : 'Today'}
+            </span>
+          </header>
+          <div className="dashboard-home-sheet-body">
+            <h1 className="ops-page-title dashboard-home-hero">Today&apos;s work</h1>
+            {jobline ? <p className="dashboard-home-jobline">{jobline}</p> : null}
+
+            <div className="dashboard-home-tools">
+              {editMode ? (
+                <button
+                  type="button"
+                  onClick={() => setShowPicker(true)}
+                  className="dashboard-home-primary"
+                >
+                  <Plus size={16} />
+                  Add widget
+                </button>
+              ) : work.length === 0 && !jobsLoading ? (
+                <Link to="/schedule" className="dashboard-home-primary">
+                  Open schedule
+                </Link>
+              ) : (
+                <Link to="/schedule" className="dashboard-home-primary">
+                  Week board
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => setEditMode(e => !e)}
+                className="dashboard-home-sub"
+              >
+                <LayoutGrid size={16} />
+                {editMode ? 'Done editing' : 'Customize'}
+              </button>
+            </div>
+
+            {jobsLoading ? (
+              <div className="flex justify-center py-16"><LoadingSpinner /></div>
+            ) : work.length === 0 ? (
               <EmptyState
                 icon={Briefcase}
                 title="Nothing on today"
                 message="No jobs are booked for today. The week is on the schedule."
-                action={<Link to="/schedule" className="btn-primary">Open schedule</Link>}
               />
-            </div>
-          ) : (
-            <div className="dashboard-home-sheet">
-              <p className="dashboard-home-group">Today {work.length}</p>
-              <div className="dashboard-home-thead">
-                <span>Time</span>
-                <span>Job</span>
-                <span>Client</span>
-                <span>Suburb</span>
-                <span>Crew</span>
-                <span>Status</span>
-                <span />
+            ) : (
+              <div className="dashboard-home-ledger">
+                {work.map(job => {
+                  const state = dashboardJobState(job);
+                  const place = dashboardJobPlace(job);
+                  const meta = [
+                    dashboardJobMetaLine(job) || place,
+                    dashboardCrewLabel(job.assigned_team, teamMembers),
+                  ].filter(Boolean).join(' · ');
+                  return (
+                    <Link
+                      key={job.id}
+                      to={dashboardJobHref(job.id)}
+                      data-dashboard-job={job.id}
+                      className="dashboard-home-row"
+                    >
+                      <span className="dashboard-home-time">
+                        {dashboardClockLabel(job.start_time, job.end_time)}
+                      </span>
+                      <span className="dashboard-home-job">
+                        <span className="dashboard-home-title">{job.title}</span>
+                        <span className="dashboard-home-ref">
+                          {[formatJobRef(job), meta].filter(Boolean).join(' · ')}
+                        </span>
+                      </span>
+                      <span className={`dashboard-home-pill is-${state}`}>
+                        {dashboardJobStateLabel(state)}
+                      </span>
+                      <span className="dashboard-home-next">Open</span>
+                    </Link>
+                  );
+                })}
               </div>
-              {work.map(job => {
-                const state = dashboardJobState(job);
-                return (
-                  <Link
-                    key={job.id}
-                    to={dashboardJobHref(job.id)}
-                    data-dashboard-job={job.id}
-                    className="dashboard-home-row"
-                  >
-                    <span className="dashboard-home-time">
-                      {dashboardClockLabel(job.start_time, job.end_time)}
-                    </span>
-                    <span className="dashboard-home-job">
-                      <span className="dashboard-home-title">{job.title}</span>
-                      <span className="dashboard-home-ref">{formatJobRef(job)}</span>
-                    </span>
-                    <span className="dashboard-home-cell">{job.client_name || ''}</span>
-                    <span className="dashboard-home-cell is-muted">{dashboardJobPlace(job)}</span>
-                    <span className="dashboard-home-cell">
-                      {dashboardCrewLabel(job.assigned_team, teamMembers)}
-                    </span>
-                    <span className={`dashboard-home-pill is-${state}`}>
-                      {dashboardJobStateLabel(state)}
-                    </span>
-                    <span className="dashboard-home-next">Open</span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </section>
+            )}
+          </div>
+        </article>
 
-        {/* Free-form Canvas (desktop) / Stacked (mobile) */}
-        {widgetsLoading ? (
-          <div className="dashboard-home-widgets flex justify-center py-12"><LoadingSpinner /></div>
-        ) : (widgets ?? []).length === 0 ? (
-          editMode ? (
-            <div className="dashboard-home-widgets dashboard-home-sheet">
+        {editMode && (
+          widgetsLoading ? (
+            <div className="dashboard-home-widgets flex justify-center py-12"><LoadingSpinner /></div>
+          ) : (widgets ?? []).length === 0 ? (
+            <div className="dashboard-home-widgets">
               <div className="flex flex-col items-center justify-center py-12">
                 <LayoutGrid size={40} className="dashboard-home-widget-empty-icon" />
                 <p className="dashboard-home-meta">No widgets yet</p>
-                <button type="button" onClick={() => setShowPicker(true)} className="btn-primary mt-3">
+                <button type="button" onClick={() => setShowPicker(true)} className="dashboard-home-sub">
                   <Plus size={16} /> Add a widget
                 </button>
               </div>
             </div>
-          ) : null
-        ) : (
-          <div className="dashboard-home-widgets">
-            {/* Mobile: stacked responsive grid */}
-            {!editMode && (
+          ) : (
+            <div className="dashboard-home-widgets">
               <div className="md:hidden grid grid-cols-1 gap-3">
                 {(widgets ?? []).map(w => (
                   <div key={w.id} className="dashboard-home-widget overflow-hidden" style={{ minHeight: Math.min(w.grid_h, 300) }}>
@@ -397,47 +393,34 @@ export function DashboardPage() {
                   </div>
                 ))}
               </div>
-            )}
 
-            {/* Desktop: free-form canvas */}
-            <div className={`${editMode ? 'block' : 'hidden md:block'}`}>
-              <DndContext
-                sensors={editMode ? sensors : []}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-              >
-                <div
-                  ref={canvasRef}
-                  className={`dashboard-home-canvas relative overflow-x-auto ${
-                    editMode ? 'is-editing' : ''
-                  }`}
-                  style={{ height: canvasHeight, minWidth: '100%' }}
+              <div className="hidden md:block">
+                <DndContext
+                  sensors={sensors}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
                 >
-                  {/* Grid dots background in edit mode */}
-                  {editMode && (
-                    <div
-                      className="absolute inset-0 rounded-xl pointer-events-none opacity-40"
-                      style={{
-                        backgroundImage: 'radial-gradient(circle, #cbd5e1 1px, transparent 1px)',
-                        backgroundSize: '20px 20px',
-                      }}
-                    />
-                  )}
-                  {(widgets ?? []).map(w => (
-                    <FreeWidget
-                      key={w.id}
-                      widget={w}
-                      editMode={editMode}
-                      onRemove={() => removeWidget(w.id)}
-                      onResizeStart={(e) => startResize(e, w)}
-                      onConfigChange={(c) => updateWidgetConfig(w.id, c)}
-                      isDragging={activeId === w.id}
-                    />
-                  ))}
-                </div>
-              </DndContext>
+                  <div
+                    ref={canvasRef}
+                    className="dashboard-home-canvas relative overflow-x-auto is-editing"
+                    style={{ height: canvasHeight, minWidth: '100%' }}
+                  >
+                    {(widgets ?? []).map(w => (
+                      <FreeWidget
+                        key={w.id}
+                        widget={w}
+                        editMode={editMode}
+                        onRemove={() => removeWidget(w.id)}
+                        onResizeStart={(e) => startResize(e, w)}
+                        onConfigChange={(c) => updateWidgetConfig(w.id, c)}
+                        isDragging={activeId === w.id}
+                      />
+                    ))}
+                  </div>
+                </DndContext>
+              </div>
             </div>
-          </div>
+          )
         )}
       </div>
 
