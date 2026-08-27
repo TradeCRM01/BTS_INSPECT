@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -132,11 +132,29 @@ describe('LOOK — portal Accept is a signed quote sheet, not a leftover CRM but
     expect(send).toContain('quoteSendAcceptLineHtml');
     expect(send).toContain('color:#0A2540');
     expect(send).toContain('style="color:#2E75B6"');
+    expect(send).toContain('background:#F4F6F8');
+    expect(send).toContain('border:1px solid #D5DCE3');
     expect(send).not.toContain('Open your client portal');
+    expect(send).not.toContain('background:#0A2540;color:#fff');
     expect(quoteCopy).toContain('color:#0A2540');
+    expect(quoteCopy).toContain('background:#F4F6F8');
     expect(quoteCopy).toContain('Accept this quote:');
     expect(quoteCopy).toContain('Accept here:');
     expect(quoteCopy).not.toContain('Open your client portal');
+    expect(quoteCopy).not.toContain('background:#0A2540;color:#fff');
+  });
+
+  it('LOOK frames cover sent, accepted, email, and SMS only', () => {
+    for (const rel of [
+      'docs/look/portal-accept-sent-desktop.png',
+      'docs/look/portal-accept-sent-ute.png',
+      'docs/look/portal-accept-done-desktop.png',
+      'docs/look/portal-accept-done-ute.png',
+      'docs/look/portal-accept-email.png',
+      'docs/look/portal-accept-sms.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+    }
   });
 });
 

@@ -226,39 +226,6 @@ export function ClientPortalPublicPage() {
         <p className="portal-muted">Quotes, invoices, jobs, and inspection reports</p>
       </div>
 
-      <Section title="Inspection reports" icon={<FileText size={16} />} empty="No issued reports yet" count={data.reports.length}>
-        {data.reports.map(r => (
-          <div key={r.inspectionId} className="portal-row">
-            <div className="portal-row-main">
-              <p className="portal-row-ref">{r.siteName ?? r.templateName ?? 'Report'}</p>
-              <p className="portal-muted">
-                {r.reportNumber ?? '—'}
-                {r.issuedAt ? ` · ${format(parseISO(r.issuedAt), 'dd MMM yyyy')}` : ''}
-                {r.docVersion > 1 ? ` · v${r.docVersion}` : ''}
-              </p>
-            </div>
-            {r.pdfUrl && (
-              <a href={r.pdfUrl} target="_blank" rel="noreferrer" className="portal-quiet-link">
-                <Download size={13} /> PDF
-              </a>
-            )}
-          </div>
-        ))}
-      </Section>
-
-      <Section title="Jobs" icon={<Wrench size={16} />} empty="No jobs" count={data.jobs.length}>
-        {data.jobs.map(j => (
-          <div key={j.id} className="portal-row">
-            <p className="portal-row-ref">{j.title}</p>
-            <p className="portal-muted">
-              {j.status}
-              {j.job_number != null ? ` · #${String(j.job_number).padStart(4, '0')}` : ''}
-              {j.scheduled_date ? ` · ${format(parseISO(j.scheduled_date), 'dd MMM yyyy')}` : ''}
-            </p>
-          </div>
-        ))}
-      </Section>
-
       <Section title="Quotes" icon={<FileText size={16} />} empty="No quotes" count={data.quotes.length}>
         {acceptError && (
           <p className="portal-quote-error">{acceptError}</p>
@@ -294,6 +261,39 @@ export function ClientPortalPublicPage() {
               <p className="portal-muted">{inv.status}</p>
             </div>
             <p className="portal-quote-total">{formatMoney(inv.total)}</p>
+          </div>
+        ))}
+      </Section>
+
+      <Section title="Jobs" icon={<Wrench size={16} />} empty="No jobs" count={data.jobs.length}>
+        {data.jobs.map(j => (
+          <div key={j.id} className="portal-row">
+            <p className="portal-row-ref">{j.title}</p>
+            <p className="portal-muted">
+              {j.status}
+              {j.job_number != null ? ` · #${String(j.job_number).padStart(4, '0')}` : ''}
+              {j.scheduled_date ? ` · ${format(parseISO(j.scheduled_date), 'dd MMM yyyy')}` : ''}
+            </p>
+          </div>
+        ))}
+      </Section>
+
+      <Section title="Inspection reports" icon={<FileText size={16} />} empty="No issued reports yet" count={data.reports.length}>
+        {data.reports.map(r => (
+          <div key={r.inspectionId} className="portal-row">
+            <div className="portal-row-main">
+              <p className="portal-row-ref">{r.siteName ?? r.templateName ?? 'Report'}</p>
+              <p className="portal-muted">
+                {r.reportNumber ?? '—'}
+                {r.issuedAt ? ` · ${format(parseISO(r.issuedAt), 'dd MMM yyyy')}` : ''}
+                {r.docVersion > 1 ? ` · v${r.docVersion}` : ''}
+              </p>
+            </div>
+            {r.pdfUrl && (
+              <a href={r.pdfUrl} target="_blank" rel="noreferrer" className="portal-quiet-link">
+                <Download size={13} /> PDF
+              </a>
+            )}
           </div>
         ))}
       </Section>
