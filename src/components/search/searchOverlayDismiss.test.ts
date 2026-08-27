@@ -1,134 +1,94 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  SEARCH_OVERLAY_HISTORY_KEY,
-  attachSearchOverlayHistoryDismiss,
-  dismissSearchOverlay,
-  isSearchOverlayHistoryState,
-  openSearchOverlayHistory,
+  SEARCH_OVERLAY_HASH,
+  isSearchOverlayHash,
+  nextSearchOverlayHashPhase,
+  searchOverlayClosedLocation,
   searchOverlayNavigationReplace,
+  searchOverlayOpenLocation,
 } from './searchOverlayDismiss';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-function mockHistory(initialState: unknown = null) {
-  const stack: unknown[] = [initialState];
-  return {
-    get state() {
-      return stack[stack.length - 1];
-    },
-    pushState(state: unknown) {
-      stack.push(state);
-    },
-    replaceState(state: unknown) {
-      stack[stack.length - 1] = state;
-    },
-    back() {
-      if (stack.length > 1) stack.pop();
-    },
-    stack,
-  };
-}
-
-function mockTarget() {
-  const listeners = new Map<string, Set<EventListener>>();
-  return {
-    addEventListener(type: string, listener: EventListener) {
-      const set = listeners.get(type) ?? new Set();
-      set.add(listener);
-      listeners.set(type, set);
-    },
-    removeEventListener(type: string, listener: EventListener) {
-      listeners.get(type)?.delete(listener);
-    },
-    dispatch(type: string) {
-      for (const listener of listeners.get(type) ?? []) {
-        listener(new Event(type));
-      }
-    },
-    listenerCount(type: string) {
-      return listeners.get(type)?.size ?? 0;
-    },
-  };
-}
+const jobs = { pathname: '/jobs', search: '?auditAuth=1' };
 
 describe('phone search overlay dismiss', () => {
-  it('treats only the overlay history marker as open', () => {
-    expect(isSearchOverlayHistoryState(null)).toBe(false);
-    expect(isSearchOverlayHistoryState({ [SEARCH_OVERLAY_HISTORY_KEY]: true })).toBe(true);
-    expect(isSearchOverlayHistoryState({ other: true })).toBe(false);
+  it('recognizes only the overlay hash', () => {
+    expect(isSearchOverlayHash('')).toBe(false);
+    expect(isSearchOverlayHash('#other')).toBe(false);
+    expect(isSearchOverlayHash(`#${SEARCH_OVERLAY_HASH}`)).toBe(true);
+    expect(isSearchOverlayHash(SEARCH_OVERLAY_HASH)).toBe(true);
   });
 
-  it('pushes one dummy history entry when the overlay opens', () => {
-    const history = mockHistory({ page: 1 });
-    openSearchOverlayHistory(history);
-    openSearchOverlayHistory(history);
-    expect(history.stack).toHaveLength(2);
-    expect(isSearchOverlayHistoryState(history.state)).toBe(true);
+  it('keeps pathname and query when opening or closing the overlay', () => {
+    expect(searchOverlayOpenLocation(jobs)).toEqual({
+      pathname: '/jobs',
+      search: '?auditAuth=1',
+      hash: SEARCH_OVERLAY_HASH,
+    });
+    expect(searchOverlayClosedLocation(jobs)).toEqual({
+      pathname: '/jobs',
+      search: '?auditAuth=1',
+      hash: '',
+    });
+    expect(searchOverlayNavigationReplace(`#${SEARCH_OVERLAY_HASH}`)).toBe(true);
+    expect(searchOverlayNavigationReplace('')).toBe(false);
   });
 
-  it('X / tap-outside / Escape closes the overlay and pops the dummy entry', () => {
-    const history = mockHistory({ page: 1 });
-    const onClose = vi.fn();
-    openSearchOverlayHistory(history);
+  it('X / open path pushes the overlay hash once, then arms', () => {
+    const opening = nextSearchOverlayHashPhase('idle', true, false);
+    expect(opening).toEqual({ phase: 'arming', action: 'push' });
 
-    dismissSearchOverlay(history, onClose);
-    expect(onClose).toHaveBeenCalledTimes(1);
-    expect(history.stack).toHaveLength(1);
-    expect(history.state).toEqual({ page: 1 });
+    const waiting = nextSearchOverlayHashPhase('arming', true, false);
+    expect(waiting).toEqual({ phase: 'arming', action: 'none' });
 
-    dismissSearchOverlay(history, onClose);
-    expect(onClose).toHaveBeenCalledTimes(2);
-    expect(history.stack).toHaveLength(1);
+    const armed = nextSearchOverlayHashPhase('arming', true, true);
+    expect(armed).toEqual({ phase: 'armed', action: 'none' });
   });
 
-  it('hardware / browser back fires popstate and closes the overlay', () => {
-    const history = mockHistory();
-    const target = mockTarget();
-    const onClose = vi.fn();
-
-    const detach = attachSearchOverlayHistoryDismiss(history, target, onClose);
-    expect(isSearchOverlayHistoryState(history.state)).toBe(true);
-
-    history.back();
-    target.dispatch('popstate');
-    expect(onClose).toHaveBeenCalledTimes(1);
-
-    detach();
-    target.dispatch('popstate');
-    expect(onClose).toHaveBeenCalledTimes(1);
-    expect(target.listenerCount('popstate')).toBe(0);
+  it('hardware / browser back closes the overlay and stays on the same path', () => {
+    const back = nextSearchOverlayHashPhase('armed', true, false);
+    expect(back).toEqual({ phase: 'idle', action: 'close' });
+    expect(searchOverlayClosedLocation(jobs).pathname).toBe('/jobs');
+    expect(searchOverlayClosedLocation(jobs).search).toBe('?auditAuth=1');
   });
 
-  it('choosing a result replaces the dummy entry so Back returns to the prior screen', () => {
-    const history = mockHistory({ page: 1 });
-    expect(searchOverlayNavigationReplace(history)).toBe(false);
-    openSearchOverlayHistory(history);
-    expect(searchOverlayNavigationReplace(history)).toBe(true);
+  it('does not close while the hash is still being applied, and idles when the overlay is shut', () => {
+    expect(nextSearchOverlayHashPhase('idle', true, false).action).toBe('push');
+    expect(nextSearchOverlayHashPhase('idle', true, false).action).not.toBe('close');
+    expect(nextSearchOverlayHashPhase('idle', false, false)).toEqual({ phase: 'idle', action: 'none' });
+    expect(nextSearchOverlayHashPhase('armed', false, true)).toEqual({ phase: 'idle', action: 'none' });
   });
 
   it('wires dismiss on the existing AppShell / GlobalSearch overlay only', () => {
     const overlay = src('src/components/search/GlobalSearch.tsx');
+    const helper = src('src/components/search/searchOverlayDismiss.ts');
     const shell = src('src/components/layout/AppShell.tsx');
     const app = src('src/App.tsx');
 
-    expect(overlay).toContain('attachSearchOverlayHistoryDismiss');
-    expect(overlay).toContain('dismissSearchOverlay');
+    expect(overlay).toContain('nextSearchOverlayHashPhase');
+    expect(overlay).toContain('searchOverlayOpenLocation');
+    expect(overlay).toContain('searchOverlayClosedLocation');
     expect(overlay).toContain('searchOverlayNavigationReplace');
     expect(overlay).toContain('className="overlay-backdrop"');
     expect(overlay).toContain('onClick={dismiss}');
     expect(overlay).toContain('aria-label="Close search"');
-    expect(overlay).toContain('onClick={dismiss}');
     expect(overlay).toContain("navigate(to, { replace })");
+    expect(overlay).not.toContain('history.pushState');
+    expect(overlay).not.toContain('popstate');
+
+    expect(helper).toContain('SEARCH_OVERLAY_HASH');
+    expect(helper).not.toContain('pushState');
 
     expect(shell).toContain('<GlobalSearch');
     expect(shell).toContain('setSearchOpen(true)');
     expect(shell).toContain('onClose={() => setSearchOpen(false)}');
 
-    expect(app).not.toContain('/search');
+    expect(app).not.toContain("path=\"/search\"");
     expect(app).not.toContain('SearchPage');
     expect(overlay).not.toContain('⌘K');
   });

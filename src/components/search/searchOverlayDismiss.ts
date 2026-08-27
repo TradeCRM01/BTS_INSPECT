@@ -1,56 +1,44 @@
-/** History marker so phone/browser back closes the existing search overlay. */
-export const SEARCH_OVERLAY_HISTORY_KEY = 'appShellSearchOverlay';
+/** Hash so phone/browser back closes the existing search overlay without leaving the page. */
+export const SEARCH_OVERLAY_HASH = 'search-overlay';
 
-export function isSearchOverlayHistoryState(state: unknown): boolean {
-  if (!state || typeof state !== 'object') return false;
-  return (state as Record<string, unknown>)[SEARCH_OVERLAY_HISTORY_KEY] === true;
+export type SearchOverlayHashPhase = 'idle' | 'arming' | 'armed';
+export type SearchOverlayHashAction = 'push' | 'close' | 'none';
+
+export function isSearchOverlayHash(hash: string): boolean {
+  return hash.replace(/^#/, '') === SEARCH_OVERLAY_HASH;
 }
 
-export function openSearchOverlayHistory(history: Pick<History, 'pushState' | 'state'>): void {
-  if (isSearchOverlayHistoryState(history.state)) return;
-  try {
-    history.pushState({ [SEARCH_OVERLAY_HISTORY_KEY]: true }, '');
-  } catch {
-    // Some webviews block pushState; X / tap-outside still dismiss.
-  }
+export function searchOverlayOpenLocation(location: { pathname: string; search: string }): {
+  pathname: string;
+  search: string;
+  hash: string;
+} {
+  return { pathname: location.pathname, search: location.search, hash: SEARCH_OVERLAY_HASH };
 }
 
-/** X, tap-outside, or Escape. Close first, then drop the dummy history entry. */
-export function dismissSearchOverlay(
-  history: Pick<History, 'back' | 'state'>,
-  onClose: () => void,
-): void {
-  const shouldPop = isSearchOverlayHistoryState(history.state);
-  onClose();
-  if (!shouldPop) return;
-  try {
-    history.back();
-  } catch {
-    // Overlay is already closed.
-  }
+export function searchOverlayClosedLocation(location: { pathname: string; search: string }): {
+  pathname: string;
+  search: string;
+  hash: string;
+} {
+  return { pathname: location.pathname, search: location.search, hash: '' };
 }
 
-/** Choosing a result: replace the dummy entry so Back returns to the prior screen. */
-export function searchOverlayNavigationReplace(history: Pick<History, 'state'>): boolean {
-  return isSearchOverlayHistoryState(history.state);
+export function searchOverlayNavigationReplace(hash: string): boolean {
+  return isSearchOverlayHash(hash);
 }
 
-export function attachSearchOverlayHistoryDismiss(
-  history: Pick<History, 'pushState' | 'back' | 'state'>,
-  target: {
-    addEventListener(type: string, listener: EventListener): void;
-    removeEventListener(type: string, listener: EventListener): void;
-  },
-  onClose: () => void,
-): () => void {
-  openSearchOverlayHistory(history);
-
-  const onPopState = () => {
-    onClose();
-  };
-
-  target.addEventListener('popstate', onPopState);
-  return () => {
-    target.removeEventListener('popstate', onPopState);
-  };
+/**
+ * Drive overlay history through React Router.
+ * idle + open → add #search-overlay; armed + back (hash gone) → close.
+ */
+export function nextSearchOverlayHashPhase(
+  phase: SearchOverlayHashPhase,
+  open: boolean,
+  hashIsOverlay: boolean,
+): { phase: SearchOverlayHashPhase; action: SearchOverlayHashAction } {
+  if (!open) return { phase: 'idle', action: 'none' };
+  if (hashIsOverlay) return { phase: 'armed', action: 'none' };
+  if (phase === 'armed') return { phase: 'idle', action: 'close' };
+  return { phase: 'arming', action: phase === 'idle' ? 'push' : 'none' };
 }
