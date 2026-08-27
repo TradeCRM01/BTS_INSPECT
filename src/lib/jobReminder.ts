@@ -161,6 +161,90 @@ export function isJobDueTomorrow(
   return day === tomorrowYmd(now);
 }
 
+export function isJobDueToday(
+  job: Pick<ReminderJob, 'scheduled_date' | 'status'>,
+  now = new Date(),
+): boolean {
+  if (!isOpenJobStatus(job.status)) return false;
+  const day = dateOnly(job.scheduled_date);
+  return day === todayYmd(now);
+}
+
+/**
+ * Same-day arriving Next: booked today in Australia/Perth, or already
+ * in_progress (not tomorrow — that stays Remind client, not upcoming).
+ */
+export function isJobArrivingWindow(
+  job: Pick<ReminderJob, 'scheduled_date' | 'status'>,
+  now = new Date(),
+): boolean {
+  if (!isOpenJobStatus(job.status)) return false;
+  if (isJobDueTomorrow(job, now)) return false;
+  if (isJobDueToday(job, now)) return true;
+  if (job.status !== 'in_progress') return false;
+  const day = dateOnly(job.scheduled_date);
+  if (!day) return false;
+  return day < todayYmd(now);
+}
+
+export const ARRIVING_PURPOSE = 'arriving';
+export const ARRIVING_NEXT_LABEL = 'Arriving shortly';
+
+export type ArrivingMissReason =
+  | 'no_client'
+  | 'no_phone'
+  | 'no_sms_credentials'
+  | 'closed'
+  | 'wrong_company'
+  | 'no_job';
+
+export function isArrivingPurpose(purpose: string | null | undefined): boolean {
+  return String(purpose ?? '').trim() === ARRIVING_PURPOSE;
+}
+
+/**
+ * Cron / auto-fire never sends arriving. A due=tomorrow hop with
+ * purpose=arriving is ignored — keep the 24h path.
+ */
+export function cronIgnoresArrivingPurpose(args: {
+  purpose?: string | null;
+  jobId?: string | null;
+  due?: string | null;
+}): boolean {
+  if (!isArrivingPurpose(args.purpose)) return false;
+  return !(args.jobId ?? '').trim();
+}
+
+/** User tap on a jobId only. Cron / missing user / no jobId never fire arriving. */
+export function shouldSendArriving(args: {
+  purpose?: string | null;
+  jobId?: string | null;
+  due?: string | null;
+  hasUser: boolean;
+}): boolean {
+  if (!isArrivingPurpose(args.purpose)) return false;
+  if (cronIgnoresArrivingPurpose(args)) return false;
+  if (!args.hasUser) return false;
+  return !!(args.jobId ?? '').trim();
+}
+
+export function arrivingMissMessage(reason: ArrivingMissReason): string {
+  switch (reason) {
+    case 'no_client':
+      return 'This job has no client. Add one below before you send.';
+    case 'no_phone':
+      return missSmsMessage('no_phone');
+    case 'no_sms_credentials':
+      return missSmsMessage('no_sms_credentials');
+    case 'closed':
+      return missMessage('closed');
+    case 'wrong_company':
+      return missMessage('wrong_company');
+    case 'no_job':
+      return missMessage('no_job');
+  }
+}
+
 /** Client To: trimmed email or empty. Never invent an address. */
 export function prefillReminderTo(client: ReminderClient | null | undefined): string {
   const email = (client?.email ?? '').trim();
@@ -493,6 +577,163 @@ export function buildReminderSms(args: {
   ].filter(line => line !== null).join(' ');
 }
 
+export function buildArrivingSms(args: {
+  job: Pick<ReminderJob, 'job_number' | 'title' | 'address'>;
+  company: ReminderCompany;
+}): string {
+  const label = jobLabel(args.job);
+  const site = (args.job.address ?? '').trim();
+  const companyName = (args.company.name ?? '').trim() || 'us';
+  return [
+    `${companyName} is arriving shortly for ${label}.`,
+    site ? `${site}.` : null,
+  ].filter(line => line !== null).join(' ');
+}
+
+export function buildArrivingEmail(args: {
+  job: Pick<ReminderJob, 'job_number' | 'title' | 'address'>;
+  client: ReminderClient;
+  company: ReminderCompany;
+  to: string;
+}): {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const label = jobLabel(args.job);
+  const site = (args.job.address ?? '').trim();
+  const companyName = (args.company.name ?? '').trim() || 'us';
+  const companyPhone = (args.company.phone ?? '').trim();
+  const greetingName = (args.client.contact_person || args.client.name || 'there').trim();
+  const subject = `${companyName} is arriving shortly — ${label}`;
+  const text = [
+    `Hi ${greetingName},`,
+    '',
+    `${companyName} is arriving shortly for ${label}.`,
+    site ? `Site: ${site}` : null,
+    '',
+    companyPhone ? `Call: ${companyPhone}` : null,
+  ].filter(line => line !== null).join('\n');
+  const html = `
+      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
+        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">BTS Inspect</div>
+          <h1 style="margin:8px 0 0;font-size:20px">Arriving shortly</h1>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+          <p>Hi ${escapeHtml(greetingName)},</p>
+          <p>${escapeHtml(companyName)} is arriving shortly for <strong>${escapeHtml(label)}</strong>.</p>
+          ${site ? `<p style="color:#4A5568;font-size:14px;line-height:1.6"><strong>Site:</strong> ${escapeHtml(site)}</p>` : ''}
+          ${companyPhone ? `<p style="font-size:13px;color:#6B7280">Or call ${escapeHtml(companyPhone)}.</p>` : ''}
+        </div>
+      </div>`;
+  return { to: args.to, subject, html, text };
+}
+
+export type ArrivingDecision =
+  | {
+      send: true;
+      to: string;
+      emailTo: string | null;
+      sendEmail: boolean;
+      smsBody: string;
+      email: ReturnType<typeof buildArrivingEmail> | null;
+      scheduleHref: string;
+    }
+  | {
+      send: false;
+      reason: ArrivingMissReason;
+      message: string;
+      to: string | null;
+      scheduleHref: string | null;
+    };
+
+/**
+ * Arriving is SMS-required. Email rides beside when To + SMTP are ready.
+ * 24h gates (not_tomorrow, already_sent, no_email, no_smtp) do not apply.
+ * Omit credentials to skip the Twilio check (tray enablement); the edge always checks.
+ */
+export function decideArrivingSend(args: {
+  job: ReminderJob | null | undefined;
+  client: ReminderClient | null | undefined;
+  settings?: ReminderEmailSettings | null;
+  company: ReminderCompany;
+  companyId: string;
+  appUrl?: string;
+  now?: Date;
+  credentials?: SmsCredentials | null;
+}): ArrivingDecision {
+  const { job, client, settings, company, companyId } = args;
+  const now = args.now ?? new Date();
+  const scheduleHref = job ? jobScheduleHref(job.id) : null;
+  if (!job) {
+    return { send: false, reason: 'no_job', message: arrivingMissMessage('no_job'), to: null, scheduleHref };
+  }
+  if (job.company_id !== companyId) {
+    return { send: false, reason: 'wrong_company', message: arrivingMissMessage('wrong_company'), to: null, scheduleHref };
+  }
+  if (!isOpenJobStatus(job.status)) {
+    return {
+      send: false,
+      reason: 'closed',
+      message: arrivingMissMessage('closed'),
+      to: prefillSmsTo(client?.phone) || null,
+      scheduleHref,
+    };
+  }
+  if (!isJobArrivingWindow(job, now)) {
+    return {
+      send: false,
+      reason: 'closed',
+      message: arrivingMissMessage('closed'),
+      to: prefillSmsTo(client?.phone) || null,
+      scheduleHref,
+    };
+  }
+  if (!job.client_id || !client) {
+    return { send: false, reason: 'no_client', message: arrivingMissMessage('no_client'), to: null, scheduleHref };
+  }
+  const smsTo = prefillSmsTo(client.phone);
+  if (!smsTo) {
+    return { send: false, reason: 'no_phone', message: arrivingMissMessage('no_phone'), to: null, scheduleHref };
+  }
+  if (args.credentials !== undefined && !smsCredentialsReady(args.credentials)) {
+    return {
+      send: false,
+      reason: 'no_sms_credentials',
+      message: arrivingMissMessage('no_sms_credentials'),
+      to: smsTo,
+      scheduleHref,
+    };
+  }
+  const emailTo = prefillReminderTo(client);
+  const sendEmail = !!emailTo && emailSettingsReady(settings);
+  return {
+    send: true,
+    to: smsTo,
+    emailTo: emailTo || null,
+    sendEmail,
+    smsBody: buildArrivingSms({ job, company }),
+    email: sendEmail
+      ? buildArrivingEmail({ job, client, company, to: emailTo })
+      : null,
+    scheduleHref: scheduleHref!,
+  };
+}
+
+/** Arriving does not lock on client_reminder_sent_at and does not write it. */
+export function shouldRecordArrivingSent(_sendOk: boolean): false {
+  return false;
+}
+
+export const ARRIVING_SHORTLY_PIPE = [
+  "supabase.functions.invoke job-reminder { jobId, purpose: arriving, appUrl }",
+  'user tap only — cron / due=tomorrow ignores purpose arriving',
+  'SMS required via same Twilio path; email optional beside when SMTP is ready',
+  'does not write client_reminder_sent_at; can send again the same day',
+] as const;
+
 export type ReminderDecision =
   | ({ send: true } & ReturnType<typeof buildReminderEmail>)
   | {
@@ -755,8 +996,8 @@ export function selectTomorrowReminderJobs(
 }
 
 /**
- * Keep date/crew Next first. When the job is booked tomorrow, Next is the
- * existing schedule tray (where the reminder lives) — not a new route.
+ * Keep date/crew Next first. Today (or in_progress) takes Arriving shortly.
+ * Tomorrow stays Remind client. Both land on the existing schedule tray.
  */
 export function withReminderNext<T extends {
   id: string;
@@ -770,6 +1011,9 @@ export function withReminderNext<T extends {
 ): { href: string; label: string; actionable: boolean } {
   if (current.label === 'Set a date' || current.label === 'Assign crew') return current;
   if (!current.actionable) return current;
+  if (isJobArrivingWindow(job, now)) {
+    return { href: jobScheduleHref(job.id), label: ARRIVING_NEXT_LABEL, actionable: true };
+  }
   if (!isJobDueTomorrow(job, now)) return current;
   return { href: jobScheduleHref(job.id), label: 'Remind client', actionable: true };
 }
@@ -797,6 +1041,7 @@ export function isCronAuthorized(args: {
 /**
  * jobId (manual tray) always needs a logged-in member.
  * due=tomorrow may be cron (no user JWT) or a member sending their company.
+ * purpose=arriving is user+jobId only — cron ignores that purpose.
  */
 export function resolveReminderCaller(args: {
   hasUser: boolean;
@@ -804,9 +1049,18 @@ export function resolveReminderCaller(args: {
   cronAuthorized: boolean;
   jobId?: string;
   due?: string;
+  purpose?: string;
 }): { ok: true; caller: ReminderCaller } | { ok: false; error: string } {
   const jobId = (args.jobId ?? '').trim();
   const due = (args.due ?? '').trim();
+  if (shouldSendArriving({
+    purpose: args.purpose,
+    jobId,
+    due,
+    hasUser: args.hasUser && !!args.userCompanyId,
+  })) {
+    return { ok: true, caller: { kind: 'user', companyId: args.userCompanyId! } };
+  }
   if (jobId) {
     if (!args.hasUser || !args.userCompanyId) return { ok: false, error: 'Unauthorized' };
     return { ok: true, caller: { kind: 'user', companyId: args.userCompanyId } };

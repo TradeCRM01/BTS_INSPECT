@@ -6,7 +6,9 @@ import { supabase } from '../../lib/supabase';
 import { useToast } from '../ui';
 import type { Client, Job } from '../../types/crm';
 import {
+  decideArrivingSend,
   decideReminderSend,
+  isJobArrivingWindow,
   jobScheduleHref,
   missSmsMessage,
   prefillReminderTo,
@@ -134,30 +136,49 @@ export function JobClientReminder({
     companyId,
     appUrl: typeof window !== 'undefined' ? window.location.origin : '',
   });
+  const arrivingMode = isJobArrivingWindow(job);
+  const arrivingDecision = decideArrivingSend({
+    job,
+    client: liveClient,
+    settings: settings ?? null,
+    company: company ?? {},
+    companyId,
+  });
   const awaitingSmtp = !settingsFetched && !!companyId;
   const noEmailFieldMiss =
-    !awaitingSmtp
+    !arrivingMode
+    && !awaitingSmtp
     && !decision.send
     && decision.reason === 'no_email'
     && emailRow.kind === 'edit';
-  const noPhoneFieldMiss =
-    !awaitingSmtp
-    && decision.send
-    && !smsTo
-    && phoneRow.kind === 'edit';
-  const noClientFieldMiss =
-    !awaitingSmtp
-    && noClientMiss
-    && attachRow.kind !== 'miss'
-    && !decision.send
-    && decision.reason === 'no_email';
-  const missText = noEmailFieldMiss
-    ? JOB_REMINDER_NO_EMAIL_FIELD
-    : noClientFieldMiss
-      ? JOB_REMINDER_NO_CLIENT_FIELD
-      : (noClientsNamedMiss && !decision.send && decision.reason === 'no_email')
-        ? JOB_CLIENT_ATTACH_NO_CLIENTS
-        : (!decision.send ? decision.message : '');
+  const noPhoneFieldMiss = arrivingMode
+    ? !smsTo && phoneRow.kind === 'edit'
+    : !awaitingSmtp
+      && decision.send
+      && !smsTo
+      && phoneRow.kind === 'edit';
+  const noClientFieldMiss = arrivingMode
+    ? noClientMiss && attachRow.kind !== 'miss'
+    : !awaitingSmtp
+      && noClientMiss
+      && attachRow.kind !== 'miss'
+      && !decision.send
+      && decision.reason === 'no_email';
+  const missText = arrivingMode
+    ? (noEmailFieldMiss
+      ? JOB_REMINDER_NO_EMAIL_FIELD
+      : noClientFieldMiss
+        ? JOB_REMINDER_NO_CLIENT_FIELD
+        : (noClientsNamedMiss && !arrivingDecision.send && arrivingDecision.reason === 'no_client')
+          ? JOB_CLIENT_ATTACH_NO_CLIENTS
+          : (!arrivingDecision.send ? arrivingDecision.message : ''))
+    : noEmailFieldMiss
+      ? JOB_REMINDER_NO_EMAIL_FIELD
+      : noClientFieldMiss
+        ? JOB_REMINDER_NO_CLIENT_FIELD
+        : (noClientsNamedMiss && !decision.send && decision.reason === 'no_email')
+          ? JOB_CLIENT_ATTACH_NO_CLIENTS
+          : (!decision.send ? decision.message : '');
 
   useEffect(() => {
     setClientAttachDraft('');
@@ -235,6 +256,24 @@ export function JobClientReminder({
 
   const send = useMutation({
     mutationFn: async () => {
+      if (arrivingMode) {
+        if (!arrivingDecision.send) {
+          throw new Error(arrivingDecision.message);
+        }
+        const { data, error } = await supabase.functions.invoke('job-reminder', {
+          body: {
+            jobId: job.id,
+            purpose: 'arriving',
+            appUrl: window.location.origin,
+          },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(String(data.error));
+        if (data?.sent === false) {
+          throw new Error(String(data.message ?? data.results?.[0]?.message ?? 'Arriving shortly was not sent.'));
+        }
+        return data as { sent: boolean; message?: string };
+      }
       if (!decision.send) {
         throw new Error(decision.message);
       }
@@ -265,7 +304,7 @@ export function JobClientReminder({
   return (
     <div className="ops-tray job-reminder">
       <div className="ops-tray-head">
-        <h2 className="ops-section-title">24h client reminder</h2>
+        <h2 className="ops-section-title">{arrivingMode ? 'Arriving shortly' : '24h client reminder'}</h2>
       </div>
       <div className="job-reminder-body">
         {rescheduleAsked && (
@@ -397,7 +436,13 @@ export function JobClientReminder({
           </label>
         </div>
 
-        {awaitingSmtp ? (
+        {arrivingMode ? (
+          arrivingDecision.send ? (
+            <p className="job-reminder-meta">Tells the client we will be arriving shortly.</p>
+          ) : noEmailFieldMiss || noClientFieldMiss || noClientsNamedMiss || noPhoneFieldMiss ? null : (
+            <p className="job-reminder-miss">{missText}</p>
+          )
+        ) : awaitingSmtp ? (
           <p className="job-reminder-meta">Checking email settings…</p>
         ) : decision.send ? (
           <p className="job-reminder-meta">Auto-sends the day before (Australia/Perth).</p>
@@ -409,7 +454,7 @@ export function JobClientReminder({
           <p className="job-reminder-miss">{missSmsMessage('no_phone')}</p>
         )}
 
-        {sentAt && (
+        {sentAt && !arrivingMode && (
           <p className="job-reminder-meta">
             Reminded <span className="tabular-nums">{new Date(sentAt).toLocaleString()}</span>
             {decision.send ? '' : ' — last successful send.'}
@@ -417,14 +462,25 @@ export function JobClientReminder({
         )}
 
         <div className="job-reminder-act">
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={awaitingSmtp || !decision.send || send.isPending}
-            onClick={() => send.mutate()}
-          >
-            {send.isPending ? 'Sending…' : 'Send tomorrow reminder'}
-          </button>
+          {arrivingMode ? (
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={!arrivingDecision.send || send.isPending}
+              onClick={() => send.mutate()}
+            >
+              {send.isPending ? 'Sending…' : 'Arriving shortly'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={awaitingSmtp || !decision.send || send.isPending}
+              onClick={() => send.mutate()}
+            >
+              {send.isPending ? 'Sending…' : 'Send tomorrow reminder'}
+            </button>
+          )}
           <details className="job-reminder-more">
             <summary aria-label="More">
               <MoreHorizontal size={16} />

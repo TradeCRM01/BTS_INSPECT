@@ -316,6 +316,60 @@ function jobReminderSmsBody(opts: {
   ].filter(Boolean).join(" ");
 }
 
+function jobLabel(jobNumber: unknown, title: unknown): string {
+  const number = jobNumber != null ? `#${padJobNumber(jobNumber)}` : "Job";
+  const name = String(title ?? "Job").trim() || "Job";
+  return `${number} ${name}`.trim();
+}
+
+function isArrivingWindow(status: string, scheduled: string | null, now = new Date()): boolean {
+  if (!isOpen(status)) return false;
+  const today = todayYmd(now);
+  const tomorrow = tomorrowYmd(now);
+  if (scheduled === tomorrow) return false;
+  if (scheduled === today) return true;
+  return status === "in_progress" && !!scheduled && scheduled < today;
+}
+
+function arrivingSmsBody(opts: {
+  jobNumber: unknown;
+  title: unknown;
+  site: string;
+  companyName: string;
+}): string {
+  const label = jobLabel(opts.jobNumber, opts.title);
+  const company = String(opts.companyName ?? "").trim() || "us";
+  return [
+    `${company} is arriving shortly for ${label}.`,
+    opts.site ? `${opts.site}.` : "",
+  ].filter(Boolean).join(" ");
+}
+
+function arrivingEmailHtml(opts: {
+  greeting: string;
+  companyName: string;
+  label: string;
+  site: string;
+  companyPhone: string;
+}): { subject: string; html: string } {
+  const company = String(opts.companyName ?? "").trim() || "us";
+  const subject = `${company} is arriving shortly — ${opts.label}`;
+  const html = `
+      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
+        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">BTS Inspect</div>
+          <h1 style="margin:8px 0 0;font-size:20px">Arriving shortly</h1>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+          <p>Hi ${escapeHtml(opts.greeting)},</p>
+          <p>${escapeHtml(company)} is arriving shortly for <strong>${escapeHtml(opts.label)}</strong>.</p>
+          ${opts.site ? `<p style="color:#4A5568;font-size:14px;line-height:1.6"><strong>Site:</strong> ${escapeHtml(opts.site)}</p>` : ""}
+          ${opts.companyPhone ? `<p style="font-size:13px;color:#6B7280">Or call ${escapeHtml(opts.companyPhone)}.</p>` : ""}
+        </div>
+      </div>`;
+  return { subject, html };
+}
+
 function inspectionDueSmsBody(opts: {
   label: string;
   when: string;
@@ -2687,6 +2741,143 @@ Deno.serve(async (req) => {
 
     if (jobId) {
       if (!userId || !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
+      // purpose=arriving is user tap only. Cron / due=tomorrow never enters this branch.
+      if (purpose === "arriving") {
+        // user tap only — cron / due=tomorrow never enters this branch
+        const { data: arrivingJob } = await admin
+          .from("jobs")
+          .select("id, company_id, client_id, title, status, scheduled_date, start_time, end_time, address, job_number, client_reminder_sent_at, client_reminder_sent_for_date")
+          .eq("id", jobId)
+          .eq("company_id", userCompanyId)
+          .maybeSingle();
+        if (!arrivingJob) return json({ error: "Job not found", sent: false, reason: "no_job", message: "Job not found." }, 404);
+
+        const arrivingStatus = String(arrivingJob.status ?? "");
+        const arrivingScheduled = dateOnly(arrivingJob.scheduled_date);
+        if (arrivingJob.company_id !== userCompanyId) {
+          return json({ sent: false, reason: "wrong_company", message: "This job is not in this company.", jobId });
+        }
+        if (!isOpen(arrivingStatus)) {
+          return json({ sent: false, reason: "closed", message: "This job is closed — reminder was not sent.", jobId });
+        }
+        if (!isArrivingWindow(arrivingStatus, arrivingScheduled)) {
+          return json({ sent: false, reason: "closed", message: "This job is closed — reminder was not sent.", jobId, scheduled_date: arrivingScheduled });
+        }
+
+        if (!arrivingJob.client_id) {
+          return json({
+            sent: false,
+            reason: "no_client",
+            message: "This job has no client. Add one below before you send.",
+            jobId,
+          });
+        }
+
+        const { data: arrivingClient } = await admin
+          .from("clients")
+          .select("id, company_id, name, email, phone, contact_person")
+          .eq("id", arrivingJob.client_id)
+          .eq("company_id", userCompanyId)
+          .maybeSingle();
+        if (!arrivingClient) {
+          return json({
+            sent: false,
+            reason: "no_client",
+            message: "This job has no client. Add one below before you send.",
+            jobId,
+          });
+        }
+
+        const arrivingSmsTo = prefillSmsTo(arrivingClient.phone);
+        if (!arrivingSmsTo) {
+          return json({
+            sent: false,
+            reason: "no_phone",
+            message: "This client has no phone — SMS was not sent.",
+            jobId,
+            sms: missSms("no_phone"),
+          });
+        }
+
+        const { data: arrivingCompany } = await admin
+          .from("companies")
+          .select("name, email, phone")
+          .eq("id", userCompanyId)
+          .maybeSingle();
+        const arrivingCompanyName = String(arrivingCompany?.name ?? "").trim() || "us";
+        const arrivingCompanyPhone = String(arrivingCompany?.phone ?? "").trim();
+        const arrivingSite = String(arrivingJob.address ?? "").trim();
+        const arrivingLabel = jobLabel(arrivingJob.job_number, arrivingJob.title);
+
+        const arrivingSms = await sendTwilioSms(
+          arrivingClient.phone,
+          arrivingSmsBody({
+            jobNumber: arrivingJob.job_number,
+            title: arrivingJob.title,
+            site: arrivingSite,
+            companyName: arrivingCompanyName,
+          }),
+        );
+        if (!arrivingSms.sent) {
+          return json({
+            sent: false,
+            reason: arrivingSms.reason ?? "send_failed",
+            message: arrivingSms.message,
+            jobId,
+            sms: arrivingSms,
+            to: arrivingSms.to,
+          });
+        }
+
+        const arrivingEmailTo = prefillTo(arrivingClient.email);
+        const { data: arrivingSmtp } = await admin
+          .from("email_settings")
+          .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+          .eq("company_id", userCompanyId)
+          .maybeSingle();
+        const arrivingSettings = arrivingSmtp as EmailSettings | null;
+        let arrivingEmailMessage = "";
+        if (arrivingEmailTo && arrivingSettings && emailSettingsReady(arrivingSettings)) {
+          const arrivingMail = arrivingEmailHtml({
+            greeting: String(arrivingClient.contact_person || arrivingClient.name || "there").trim(),
+            companyName: arrivingCompanyName,
+            label: arrivingLabel,
+            site: arrivingSite,
+            companyPhone: arrivingCompanyPhone,
+          });
+          const arrivingRes = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${arrivingSettings.smtp_pass}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: `${arrivingSettings.from_name} <${arrivingSettings.from_email}>`,
+              to: [arrivingEmailTo],
+              reply_to: arrivingSettings.from_email,
+              subject: arrivingMail.subject,
+              html: arrivingMail.html,
+            }),
+          });
+          arrivingEmailMessage = arrivingRes.ok
+            ? `Email sent to ${arrivingEmailTo}`
+            : "Email was not sent.";
+        }
+
+        // Arriving does not write client_reminder_sent_at — not a send gate; can send again the same day.
+        const arrivingMessage = [arrivingSms.message, arrivingEmailMessage].filter(Boolean).join(" ");
+        return json({
+          sent: true,
+          count: 1,
+          missed: 0,
+          jobId,
+          to: arrivingSms.to,
+          sms: arrivingSms,
+          emailTo: arrivingEmailTo || null,
+          message: arrivingMessage,
+          scheduleHref: `/jobs/${arrivingJob.id}#job-schedule`,
+        });
+      }
     } else if (due === "tomorrow") {
       if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else {
