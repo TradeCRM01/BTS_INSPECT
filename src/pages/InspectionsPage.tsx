@@ -1,34 +1,47 @@
-import { useState, useMemo, useRef, memo, useCallback, type CSSProperties } from 'react';
+import { useState, useMemo, useRef, memo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
-import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { DEV_AUDIT_PROFILE, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import {
+  AUDIT_INSPECTION_ID,
+  getAuditClient,
+  getAuditInspection,
+  getAuditJob,
+} from '../lib/devFieldAuditDocs';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { EmptyState, LoadingSpinner, OpsDocHead, OpsSiteRow, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
+import { EmptyState, LoadingSpinner, PageError, SearchBar, opsSiteLabel, useToast } from '../components/ui';
 import {
-  Plus, ClipboardList, Search, X,
+  Plus, ClipboardList, X,
   Archive, ArchiveRestore, MoreVertical, Link2, Trash2,
   Send, Folder, Home, Package, FileText,
 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { downloadBlob, exportInspectionPack } from '../lib/exportInspectionPack';
 import type { TemplateSchema } from '../types/template';
 import {
-  inspectionListBucket,
   inspectionListContext,
   inspectionOpenPath,
-  inspectionStatusClass,
   inspectionStatusLabel,
   recommendInspectionListAction,
 } from '../lib/inspectionNextAction';
 import { withInspectionDueNext } from '../lib/inspectionDueReminder';
+import {
+  decorateInspectionList,
+  filterInspectionListFloor,
+  groupInspectionListFloor,
+  inspectionListEmptyMessage,
+  inspectionListEmptyTitle,
+  inspectionListOpenHref,
+  sortInspectionListFloor,
+  type InspectionListFilter,
+  type InspectionListFloorItem,
+} from '../lib/inspectionsList';
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
 import { inspectionDisplayStatus } from '../lib/sendReport';
-import { useToast } from '../components/ui';
 import { applyLivingJobToInspection } from '../lib/livingJha';
-import { inspectionDocumentColors } from '../reports/generic_inspection/theme';
 
 interface Inspection {
   id: string;
@@ -53,6 +66,66 @@ interface Inspection {
   due_on?: string | null;
   report_id?: string | null;
   report_sent_at?: string | null;
+}
+
+const LIST_FILTERS: { key: InspectionListFilter; label: string }[] = [
+  { key: 'action', label: 'Open or due' },
+  { key: 'all', label: 'All inspections' },
+  { key: 'draft', label: 'Draft' },
+  { key: 'completed', label: 'Ready' },
+  { key: 'issued', label: 'Issued' },
+];
+
+function suburbFromSite(site: string): string {
+  if (site === 'No site address') return '';
+  const parts = site.split(',').map(part => part.trim()).filter(Boolean);
+  if (parts.length < 2) return '';
+  const loc = parts[1].replace(/\b(NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\b.*$/i, '').trim();
+  return loc || parts[1];
+}
+
+function auditInspectionList(): Inspection[] | null {
+  const doc = getAuditInspection(AUDIT_INSPECTION_ID);
+  if (!doc) return null;
+  const job = doc.crm_job_id ? getAuditJob(doc.crm_job_id) : null;
+  const client = doc.client_id ? getAuditClient(doc.client_id) : null;
+  return [{
+    id: doc.id,
+    status: doc.status,
+    meta: (doc.meta ?? {}) as Record<string, string>,
+    started_at: doc.started_at,
+    completed_at: doc.completed_at,
+    template_snapshot: doc.template_snapshot as Inspection['template_snapshot'],
+    inspector_id: doc.inspector_id,
+    inspector_name: DEV_AUDIT_PROFILE.name,
+    archived: doc.archived ?? false,
+    parent_inspection_id: null,
+    crm_job_id: doc.crm_job_id,
+    responses: (doc.responses ?? {}) as Record<string, unknown>,
+    job_title: job?.title ?? null,
+    job_address: job?.address ?? null,
+    job_number: job?.job_number ?? null,
+    job_scheduled_date: job?.scheduled_date ?? null,
+    job_company_id: job?.company_id ?? null,
+    job_client_id: job?.client_id ?? null,
+    job_client_name: client?.name ?? null,
+    due_on: doc.due_on,
+    report_id: null,
+    report_sent_at: null,
+  }];
+}
+
+function inspectionListPillClass(item: InspectionListFloorItem<Inspection>, displayStatus: string): string {
+  if (item.dueKind === 'overdue') return 'is-overdue';
+  if (item.dueKind === 'today') return 'is-today';
+  if (item.dueKind === 'upcoming') return 'is-upcoming';
+  if (displayStatus === 'issued' || displayStatus === 'sent') return 'is-issued';
+  if (displayStatus === 'completed') return 'is-ready';
+  return 'is-draft';
+}
+
+function inspectionListPillLabel(item: InspectionListFloorItem<Inspection>, displayStatus: string): string {
+  return item.dueLabel ?? inspectionStatusLabel(displayStatus);
 }
 
 const ArchiveMenu = memo(function ArchiveMenu({ inspection, onToggle, onDelete, onAddInspection, onSendToDrive, isAdmin, isDeleting }: {
@@ -201,7 +274,7 @@ const ArchiveMenu = memo(function ArchiveMenu({ inspection, onToggle, onDelete, 
         type="button"
         onPointerDown={e => e.stopPropagation()}
         onClick={openMenu}
-        className="w-11 h-11 flex items-center justify-center rounded-md hover:bg-white/10 text-white/70 hover:text-white"
+        className="hub-inspections-more"
         aria-label="Inspection actions"
       >
         <MoreVertical size={16} />
@@ -213,16 +286,13 @@ const ArchiveMenu = memo(function ArchiveMenu({ inspection, onToggle, onDelete, 
 
 export function InspectionsPage() {
   const { profile, company } = useAuth();
-  const docColors = inspectionDocumentColors(
-    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
-  );
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const isAdmin = profile?.role === 'admin';
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'completed' | 'issued'>('all');
+  const [statusFilter, setStatusFilter] = useState<InspectionListFilter>('action');
   const [showArchived, setShowArchived] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
@@ -235,6 +305,9 @@ export function InspectionsPage() {
   const { data: inspections, isLoading, isError, refetch } = useQuery({
     queryKey: ['inspections'],
     queryFn: async () => {
+      const audit = auditInspectionList();
+      if (audit) return audit;
+
       const { data, error } = await supabase
         .from('inspections')
         .select('id, status, meta, started_at, completed_at, template_snapshot, inspector_id, archived, parent_inspection_id, crm_job_id, responses, due_on')
@@ -354,33 +427,27 @@ export function InspectionsPage() {
     [inspections]
   );
 
-  const filtered = useMemo(() => {
-    if (!inspections) return [];
-    const needle = search.trim().toLowerCase();
-    return inspections.filter(insp => {
-      if (!showArchived && insp.archived) return false;
-      if (showArchived && !insp.archived) return false;
-      if (statusFilter !== 'all' && insp.status !== statusFilter) return false;
+  const visible = useMemo(
+    () => (inspections ?? []).filter(insp => showArchived ? insp.archived : !insp.archived),
+    [inspections, showArchived],
+  );
 
-      if (!needle) return true;
-      const hay = [
-        insp.meta?.siteName,
-        insp.meta?.siteAddress,
-        insp.meta?.clientName,
-        insp.meta?.jobNumber,
-        insp.template_snapshot?.name,
-        insp.inspector_name,
-        insp.job_title,
-        insp.job_address,
-      ].filter(Boolean).join(' ').toLowerCase();
-      return hay.includes(needle);
-    });
-  }, [inspections, search, statusFilter, showArchived]);
+  const floorItems = useMemo(
+    () => sortInspectionListFloor(
+      filterInspectionListFloor(
+        decorateInspectionList(visible),
+        { filter: statusFilter, search },
+      ),
+    ),
+    [visible, search, statusFilter],
+  );
 
-  const openDocs = filtered.filter(d => inspectionListBucket(d.status) === 'open');
-  const doneDocs = filtered.filter(d => inspectionListBucket(d.status) === 'done');
-  const noneAtAll = !isLoading && !pageQueryBlocked(isError) && (inspections ?? []).filter(i => showArchived ? i.archived : !i.archived).length === 0;
-  const noneMatch = !isLoading && !pageQueryBlocked(isError) && (inspections ?? []).length > 0 && filtered.length === 0 && !noneAtAll;
+  const { due: dueDocs, open: openDocs, done: doneDocs } = useMemo(
+    () => groupInspectionListFloor(floorItems),
+    [floorItems],
+  );
+  const noneAtAll = !isLoading && !pageQueryBlocked(isError) && visible.length === 0;
+  const noneMatch = !isLoading && !pageQueryBlocked(isError) && visible.length > 0 && floorItems.length === 0 && !noneAtAll;
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -432,13 +499,13 @@ export function InspectionsPage() {
 
   return (
     <AppShell>
-      <div className="ops-page">
+      <div className="ops-page hub-inspections">
         <div className="ops-page-head">
           <div>
+            <p className="hub-inspections-kicker">Inspections</p>
             <h1 className="ops-page-title">
               Inspections
             </h1>
-            <p className="ops-meta mt-1">Open a row to fill or review. Start a new one from the job.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {selectedIds.size > 0 && (
@@ -446,7 +513,7 @@ export function InspectionsPage() {
                 type="button"
                 onClick={handleExportPack}
                 disabled={exporting}
-                className="btn-secondary min-h-[44px]"
+                className="hub-inspections-sub"
               >
                 <Package size={14} />
                 {exporting ? (exportProgress || 'Exporting…') : `Export pack (${selectedIds.size})`}
@@ -456,7 +523,7 @@ export function InspectionsPage() {
               <button
                 type="button"
                 onClick={() => setShowArchived(v => !v)}
-                className={`btn-secondary min-h-[44px] ${showArchived ? 'border-fail text-fail' : ''}`}
+                className={`hub-inspections-sub ${showArchived ? 'is-on' : ''}`}
               >
                 <Archive size={14} />
                 {showArchived ? 'Viewing archived' : `Archived (${archivedCount})`}
@@ -466,7 +533,7 @@ export function InspectionsPage() {
               <button
                 type="button"
                 onClick={() => navigate('/inspections/new')}
-                className="ops-next-control min-h-[44px]"
+                className="btn-primary"
               >
                 <Plus size={16} /> Start inspection
               </button>
@@ -474,27 +541,20 @@ export function InspectionsPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search job, site, template…"
-              className="form-input-sm w-full pl-9 min-h-[44px]"
-            />
+        <div className="hub-inspections-chrome">
+          <div className="hub-inspections-filters">
+            {LIST_FILTERS.map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setStatusFilter(tab.key)}
+                className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as typeof statusFilter)}
-            className="form-input-sm min-h-[44px]"
-            aria-label="Filter by status"
-          >
-            <option value="all">All statuses</option>
-            <option value="draft">Draft</option>
-            <option value="completed">Ready</option>
-            <option value="issued">Issued</option>
-          </select>
+          <SearchBar value={search} onChange={setSearch} placeholder="Search job, site, template, #0042…" className="max-w-sm" />
         </div>
 
         {exportError && (
@@ -518,12 +578,10 @@ export function InspectionsPage() {
         {noneAtAll && (
           <EmptyState
             icon={ClipboardList}
-            title={showArchived ? 'No archived inspections' : 'No inspections yet'}
-            message={showArchived
-              ? 'Archived inspections will show up here.'
-              : 'Open a job and tap Start inspection. That is how a leading hand starts one on site — this list is for opening and finishing them.'}
+            title={inspectionListEmptyTitle({ filter: statusFilter, archived: showArchived, noneAtAll: true })}
+            message={inspectionListEmptyMessage({ filter: statusFilter, archived: showArchived, noneAtAll: true })}
             action={!showArchived ? (
-              <Link to="/jobs" className="ops-next-control min-w-[160px]">
+              <Link to="/jobs" className="hub-next">
                 Open jobs
               </Link>
             ) : undefined}
@@ -533,20 +591,39 @@ export function InspectionsPage() {
         {noneMatch && (
           <EmptyState
             icon={FileText}
-            title="No matching inspections"
-            message="Try another status or search."
+            title={inspectionListEmptyTitle({ filter: statusFilter, archived: showArchived, noneAtAll: false })}
+            message={inspectionListEmptyMessage({ filter: statusFilter, archived: showArchived, noneAtAll: false })}
           />
         )}
 
-        {!isLoading && filtered.length > 0 && (
-          <div className="space-y-4">
+        {!isLoading && floorItems.length > 0 && (
+          <div className="hub-inspections-sheet">
+            <div className="hub-inspections-thead">
+              <span>Site</span>
+              <span>Suburb</span>
+              <span>Status</span>
+              <span />
+            </div>
             <InspectionGroup
-              title="Needs action"
-              docs={openDocs}
+              title="Due"
+              items={dueDocs}
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               isAdmin={isAdmin}
-              theme={docColors}
+              onOpen={href => navigate(href)}
+              onArchive={handleArchiveToggle}
+              onDelete={handleDelete}
+              onAddInspection={id => navigate(`/inspections/new?jobId=${id}`)}
+              onSendToDrive={id => setSendToDriveFor(id)}
+              onSendReport={setSendingReportId}
+              deleting={deleteMutation.isPending}
+            />
+            <InspectionGroup
+              title="Open"
+              items={openDocs}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
+              isAdmin={isAdmin}
               onOpen={href => navigate(href)}
               onArchive={handleArchiveToggle}
               onDelete={handleDelete}
@@ -557,11 +634,10 @@ export function InspectionsPage() {
             />
             <InspectionGroup
               title="Done"
-              docs={doneDocs}
+              items={doneDocs}
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               isAdmin={isAdmin}
-              theme={docColors}
               onOpen={href => navigate(href)}
               onArchive={handleArchiveToggle}
               onDelete={handleDelete}
@@ -633,11 +709,10 @@ export function InspectionsPage() {
 
 function InspectionGroup({
   title,
-  docs,
+  items,
   selectedIds,
   onToggleSelect,
   isAdmin,
-  theme,
   onOpen,
   onArchive,
   onDelete,
@@ -647,11 +722,10 @@ function InspectionGroup({
   deleting,
 }: {
   title: string;
-  docs: Inspection[];
+  items: InspectionListFloorItem<Inspection>[];
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   isAdmin: boolean;
-  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: (href: string) => void;
   onArchive: (id: string, archived: boolean) => void;
   onDelete: (id: string) => void;
@@ -660,42 +734,38 @@ function InspectionGroup({
   onSendReport: (reportId: string) => void;
   deleting: boolean;
 }) {
-  if (docs.length === 0) return null;
+  if (items.length === 0) return null;
   return (
     <div>
-      <h2 className="ops-group-title">
+      <h2 className="hub-inspections-group" title={title}>
         {title}
-        <span className="ops-meta normal-case font-normal"> ({docs.length})</span>
+        <span className="hub-inspections-count"> {items.length}</span>
       </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-        {docs.map(d => (
-          <InspectionCard
-            key={d.id}
-            doc={d}
-            selected={selectedIds.has(d.id)}
-            onToggleSelect={() => onToggleSelect(d.id)}
-            isAdmin={isAdmin}
-            theme={theme}
-            onOpen={onOpen}
-            onArchive={onArchive}
-            onDelete={onDelete}
-            onAddInspection={() => onAddInspection(d.id)}
-            onSendToDrive={() => onSendToDrive(d.id)}
-            onSendReport={onSendReport}
-            deleting={deleting}
-          />
-        ))}
-      </div>
+      {items.map(item => (
+        <InspectionRow
+          key={item.row.id}
+          item={item}
+          selected={selectedIds.has(item.row.id)}
+          onToggleSelect={() => onToggleSelect(item.row.id)}
+          isAdmin={isAdmin}
+          onOpen={onOpen}
+          onArchive={onArchive}
+          onDelete={onDelete}
+          onAddInspection={() => onAddInspection(item.row.id)}
+          onSendToDrive={() => onSendToDrive(item.row.id)}
+          onSendReport={onSendReport}
+          deleting={deleting}
+        />
+      ))}
     </div>
   );
 }
 
-function InspectionCard({
-  doc,
+function InspectionRow({
+  item,
   selected,
   onToggleSelect,
   isAdmin,
-  theme,
   onOpen,
   onArchive,
   onDelete,
@@ -704,11 +774,10 @@ function InspectionCard({
   onSendReport,
   deleting,
 }: {
-  doc: Inspection;
+  item: InspectionListFloorItem<Inspection>;
   selected: boolean;
   onToggleSelect: () => void;
   isAdmin: boolean;
-  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: (href: string) => void;
   onArchive: (id: string, archived: boolean) => void;
   onDelete: (id: string) => void;
@@ -717,6 +786,7 @@ function InspectionCard({
   onSendReport: (reportId: string) => void;
   deleting: boolean;
 }) {
+  const doc = item.row;
   const living = applyLivingJobToInspection(
     doc.meta,
     doc.crm_job_id
@@ -747,14 +817,14 @@ function InspectionCard({
     } : null,
     { href: inspectionOpenPath(doc.id, recommended.key), label: recommended.label, actionable: true },
   );
-  const href = inspectionOpenPath(doc.id, recommended.key === 'send' ? 'pdf' : recommended.key);
+  const href = inspectionListOpenHref(doc.id);
   const displayStatus = inspectionDisplayStatus(doc.status, doc.report_sent_at);
   const site = doc.crm_job_id
     ? opsSiteLabel(living.siteName, living.siteAddress)
     : opsSiteLabel(doc.meta?.siteName, doc.meta?.siteAddress, doc.job_address, doc.job_title);
   const title = doc.template_snapshot?.name || 'Inspection';
-  const when = format(parseISO(doc.completed_at || doc.started_at), 'd MMM yyyy');
-  const jobNo = doc.meta?.jobNumber || (doc.job_number != null ? String(doc.job_number).padStart(4, '0') : null);
+  const suburb = suburbFromSite(site);
+  const noReportYet = next.label === 'No report yet';
 
   return (
     <div
@@ -762,69 +832,48 @@ function InspectionCard({
       tabIndex={0}
       onClick={() => onOpen(href)}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(href); } }}
-      className={`insp-doc-theme ops-card ops-card-hover group w-full cursor-pointer ${doc.archived ? 'opacity-70' : ''}`}
-      style={{
-        '--insp-navy': theme.navy,
-        '--insp-accent': theme.accent,
-        '--insp-navy-light': theme.navyLight,
-        '--insp-accent-light': theme.accentLight,
-      } as CSSProperties}
+      className={`hub-inspections-row ${doc.archived ? 'is-archived' : ''}`}
     >
-      <OpsDocHead
-        kind="Inspection"
-        id={jobNo ? `#${jobNo}` : 'Draft'}
-        meta={when}
-        trailing={
-          <div className="flex items-center gap-1">
-            <OpsStatus className={inspectionStatusClass(displayStatus)}>{inspectionStatusLabel(displayStatus)}</OpsStatus>
-            {isAdmin && (
-              <ArchiveMenu
-                inspection={doc}
-                onToggle={onArchive}
-                onDelete={onDelete}
-                onAddInspection={onAddInspection}
-                onSendToDrive={() => onSendToDrive()}
-                isAdmin={isAdmin}
-                isDeleting={deleting}
-              />
-            )}
-          </div>
-        }
-      />
-      <div className="ops-card-body">
-        <OpsSiteRow site={site} mapsQuery={living.siteName || living.siteAddress || doc.job_address || (!doc.crm_job_id ? (doc.meta?.siteName || doc.meta?.siteAddress) : null) || null} />
-        <p className="ops-meta mt-1 truncate">{title}</p>
-        {(doc.job_title || living.clientName || (!doc.crm_job_id && doc.meta?.clientName) || doc.inspector_name) && (
-          <p className="ops-meta mt-0.5 truncate">
-            {[doc.job_title, living.clientName || (!doc.crm_job_id ? doc.meta?.clientName : ''), doc.inspector_name].filter(Boolean).join(' · ')}
-          </p>
+      <span className="min-w-0">
+        <span className="hub-inspections-site truncate">{site}</span>
+        <span className="hub-inspections-muted truncate">{title}</span>
+      </span>
+      <span className="truncate hub-inspections-muted">{suburb}</span>
+      <span className={`hub-inspections-pill ${inspectionListPillClass(item, displayStatus)}`}>
+        {inspectionListPillLabel(item, displayStatus)}
+      </span>
+      <span className="hub-inspections-row-next" onClick={e => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={() => {
+            if (next.label === 'Send' && doc.report_id) onSendReport(doc.report_id);
+            else onOpen(next.href);
+          }}
+          className={noReportYet ? 'ops-next-control-done' : 'hub-next'}
+        >
+          {next.label}
+        </button>
+        <label className="hub-inspections-pack">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            aria-label={`Select ${site}`}
+          />
+          Include in pack
+        </label>
+        {isAdmin && (
+          <ArchiveMenu
+            inspection={doc}
+            onToggle={onArchive}
+            onDelete={onDelete}
+            onAddInspection={onAddInspection}
+            onSendToDrive={() => onSendToDrive()}
+            isAdmin={isAdmin}
+            isDeleting={deleting}
+          />
         )}
-        {doc.parent_inspection_id && (
-          <p className="ops-meta mt-0.5">Linked inspection</p>
-        )}
-        <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => {
-              if (next.label === 'Send' && doc.report_id) onSendReport(doc.report_id);
-              else onOpen(next.href);
-            }}
-            className={next.label === 'No report yet' ? 'ops-next-control-done' : 'ops-next-control-block'}
-          >
-            {next.label}
-          </button>
-          <label className="flex items-center gap-2 mt-1 min-h-[44px] text-xs text-muted px-1">
-            <input
-              type="checkbox"
-              checked={selected}
-              onChange={onToggleSelect}
-              className="rounded border-gray-300"
-              aria-label={`Select ${site}`}
-            />
-            Include in pack
-          </label>
-        </div>
-      </div>
+      </span>
     </div>
   );
 }
