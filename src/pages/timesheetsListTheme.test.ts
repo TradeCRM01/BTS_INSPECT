@@ -14,6 +14,7 @@ describe('Timesheets list cream paper look', () => {
 
     expect(list).toContain('hub-timesheets');
     expect(list).toContain('hub-timesheets-days');
+    expect(list).toContain('hub-timesheets-sheet');
     expect(list).toContain('hub-timesheets-tile');
     expect(list).toContain('hub-timesheets-pill');
     expect(list).toContain('hub-timesheets-hours');
@@ -31,12 +32,14 @@ describe('Timesheets list cream paper look', () => {
     expect(helper).toContain('return `/timesheets?${params.toString()}`');
 
     expect(css).toContain('.hub-timesheets.ops-page');
+    expect(css).toContain('.hub-timesheets-sheet');
     expect(css).toContain('--ts-look-page: #F5F0E6');
     expect(css).toContain('--ts-look-sheet: #FFFDF8');
     expect(css).toContain('--ts-look-ink: #0A2540');
     expect(css).toContain('--ts-look-muted: #5B6B7C');
     expect(css).toContain('--ts-look-line: #E2D9CC');
     expect(css).toContain('#2E75B6');
+    expect(css).toContain('font-size: 56px !important');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(css).toContain('font-variant-numeric: tabular-nums');
@@ -46,7 +49,7 @@ describe('Timesheets list cream paper look', () => {
     expect(css).not.toMatch(/\.hub-timesheets[\s\S]{0,80}#111|#000\b/);
     expect(css).toContain('.hub-timesheets-next');
     expect(css).toContain('.hub-timesheets-sub');
-    expect(css.slice(css.indexOf('/* Timesheets list only'))).not.toMatch(/#16A34A|#15803D|btn-danger/);
+    expect(css.slice(css.indexOf('/* Timesheets list only'))).not.toMatch(/#16A34A|#15803D|#1B7F3A|btn-danger/);
     expect(css).not.toMatch(/\.hub-timesheets \.btn-primary/);
     expect(css).not.toMatch(/\.hub-timesheets \.btn-danger/);
   });
@@ -97,10 +100,10 @@ describe('Timesheets list cream paper look', () => {
     expect(shell).toContain('resolveAppShellColors');
   });
 
-  it('LOOK frames cover this week’s timesheets list desktop and phone only', () => {
+  it('LOOK frames cover the open-day timesheet sheet desktop and phone only', () => {
     for (const rel of [
-      'docs/look/timesheets-list-desktop.png',
-      'docs/look/timesheets-list-phone.png',
+      'docs/look/timesheets-sheet-desktop.png',
+      'docs/look/timesheets-sheet-phone.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
       expect(rel).not.toMatch(/ute/i);

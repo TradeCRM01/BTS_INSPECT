@@ -17,6 +17,7 @@ import {
   TIMESHEET_LIST_FILTERS,
   getAuditTimesheetEntries,
   getAuditTimesheets,
+  decorateTimesheetForList,
   timesheetListAttachJobs,
   timesheetListCountLabel,
   timesheetListEmptyKind,
@@ -207,6 +208,16 @@ export function TimesheetsPage() {
   });
 
   const opened = timesheetListOpened(myTimesheets, openId);
+  const openedItem = useMemo(() => {
+    if (!opened) return null;
+    return decorateTimesheetForList(
+      timesheetListAttachJobs(opened, entries ?? [], jobs ?? []),
+      presetJobId,
+    );
+  }, [opened, entries, jobs, presetJobId]);
+  const otherVisible = opened
+    ? visible.filter(item => item.row.id !== opened.id)
+    : visible;
   const todayTs = myTimesheets.find(t => isSameDay(parseISO(t.date), new Date()));
   const isClockedIn = !!todayTs?.clock_in && !todayTs?.clock_out;
   const shownEntries = useMemo(() => {
@@ -214,6 +225,76 @@ export function TimesheetsPage() {
     if (!openId) return all;
     return all.filter(entry => entry.timesheet_id === openId);
   }, [entries, openId]);
+
+  const renderTiles = (items: typeof visible) => (
+    items.length > 0 ? (
+      <div className="hub-timesheets-tiles">
+        {items.map(item => {
+          const isOpen = item.row.id === openId;
+          return (
+            <Link
+              key={item.row.id}
+              to={item.href}
+              className={`hub-timesheets-tile ${isOpen ? 'is-open' : ''}`}
+            >
+              <span className="hub-timesheets-tile-date">{item.title}</span>
+              <span className="hub-timesheets-tile-job">{item.jobLine || '—'}</span>
+              <span className="hub-timesheets-hours">{item.hoursLabel}</span>
+              <span className={`hub-timesheets-pill ${timesheetListPillClass(item.row.status)}`}>{item.statusLabel}</span>
+              <span className="hub-next">Open</span>
+            </Link>
+          );
+        })}
+      </div>
+    ) : null
+  );
+
+  const renderEntries = () => (
+    <div className="hub-timesheets-entries">
+      <h3 className="hub-timesheets-group">
+        {opened ? `Time entries · ${format(parseISO(opened.date), 'dd MMM')}` : 'Time entries'}
+      </h3>
+      {shownEntries.length === 0 ? (
+        <EmptyState
+          icon={Clock}
+          title={openId ? 'No time entries on this timesheet' : 'No time entries for this week'}
+          message={openId ? 'Add an entry on this day, or clock in.' : 'Clock in or add an entry to start tracking time. Open a timesheet from the list above.'}
+        />
+      ) : (
+        shownEntries.map(entry => {
+          const ts = myTimesheets.find(t => t.id === entry.timesheet_id);
+          const duration = entry.end_time
+            ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
+            : 0;
+          return (
+            <div key={entry.id} className="hub-timesheets-entry">
+              <span className="hub-timesheets-tile-date">{ts ? format(parseISO(ts.date), 'dd MMM') : '—'}</span>
+              <span className="hub-timesheets-muted">
+                {format(new Date(entry.start_time), 'HH:mm')}
+                {entry.end_time ? ` — ${format(new Date(entry.end_time), 'HH:mm')}` : ' — running'}
+                {entry.work_type ? ` · ${entry.work_type}` : ''}
+                {entry.job_id ? ` · ${jobs?.find(j => j.id === entry.job_id)?.title ?? 'Job'}` : ''}
+                {entry.billable ? ' · Billable' : ' · Non-billable'}
+              </span>
+              <span className="hub-timesheets-hours">{duration > 0 ? formatDuration(duration) : '—'}</span>
+            </div>
+          );
+        })
+      )}
+      {(opened ? [opened] : myTimesheets).length > 0 && (
+        <div className="hub-timesheets-submit">
+          <p className="hub-timesheets-muted">Submit timesheets for approval when ready</p>
+          <div className="hub-timesheets-submit-acts">
+            {(opened ? [opened] : myTimesheets).filter(t => t.status === 'open' && t.total_minutes > 0).map(t => (
+              <button key={t.id} type="button" onClick={() => submitMutation.mutate(t.id)} className="hub-timesheets-week-btn">
+                Submit {format(parseISO(t.date), 'dd MMM')}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   if (isLoading) return <AppShell><div className="ops-page hub-timesheets"><div className="flex justify-center py-20"><LoadingSpinner /></div></div></AppShell>;
   if (pageQueryBlocked(error)) return <AppShell><div className="ops-page hub-timesheets"><PageError message="Could not load timesheets" /></div></AppShell>;
@@ -319,71 +400,23 @@ export function TimesheetsPage() {
           </div>
         )}
 
-        {visible.length > 0 && (
-          <div className="hub-timesheets-tiles">
-            {visible.map(item => {
-              const isOpen = item.row.id === openId;
-              return (
-                <Link
-                  key={item.row.id}
-                  to={item.href}
-                  className={`hub-timesheets-tile ${isOpen ? 'is-open' : ''}`}
-                >
-                  <span className="hub-timesheets-tile-date">{item.title}</span>
-                  <span className="hub-timesheets-tile-job">{item.jobLine || '—'}</span>
-                  <span className="hub-timesheets-hours">{item.hoursLabel}</span>
-                  <span className={`hub-timesheets-pill ${timesheetListPillClass(item.row.status)}`}>{item.statusLabel}</span>
-                  <span className="hub-next">Open</span>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="hub-timesheets-entries">
-          <h3 className="hub-timesheets-group">
-            {opened ? `Time entries · ${format(parseISO(opened.date), 'dd MMM')}` : 'Time entries'}
-          </h3>
-          {shownEntries.length === 0 ? (
-            <EmptyState
-              icon={Clock}
-              title={openId ? 'No time entries on this timesheet' : 'No time entries for this week'}
-              message={openId ? 'Add an entry on this day, or clock in.' : 'Clock in or add an entry to start tracking time. Open a timesheet from the list above.'}
-            />
-          ) : (
-            shownEntries.map(entry => {
-              const ts = myTimesheets.find(t => t.id === entry.timesheet_id);
-              const duration = entry.end_time
-                ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
-                : 0;
-              return (
-                <div key={entry.id} className="hub-timesheets-entry">
-                  <span className="hub-timesheets-tile-date">{ts ? format(parseISO(ts.date), 'dd MMM') : '—'}</span>
-                  <span className="hub-timesheets-muted">
-                    {format(new Date(entry.start_time), 'HH:mm')}
-                    {entry.end_time ? ` — ${format(new Date(entry.end_time), 'HH:mm')}` : ' — running'}
-                    {entry.work_type ? ` · ${entry.work_type}` : ''}
-                    {entry.job_id ? ` · ${jobs?.find(j => j.id === entry.job_id)?.title ?? 'Job'}` : ''}
-                    {entry.billable ? ' · Billable' : ' · Non-billable'}
-                  </span>
-                  <span className="hub-timesheets-hours">{duration > 0 ? formatDuration(duration) : '—'}</span>
-                </div>
-              );
-            })
-          )}
-          {(opened ? [opened] : myTimesheets).length > 0 && (
-            <div className="hub-timesheets-submit">
-              <p className="hub-timesheets-muted">Submit timesheets for approval when ready</p>
-              <div className="hub-timesheets-submit-acts">
-                {(opened ? [opened] : myTimesheets).filter(t => t.status === 'open' && t.total_minutes > 0).map(t => (
-                  <button key={t.id} type="button" onClick={() => submitMutation.mutate(t.id)} className="hub-timesheets-week-btn">
-                    Submit {format(parseISO(t.date), 'dd MMM')}
-                  </button>
-                ))}
-              </div>
+        {openedItem ? (
+          <article className="hub-timesheets-sheet">
+            <div className="hub-timesheets-tile is-open">
+              <span className="hub-timesheets-tile-date">{openedItem.title}</span>
+              <span className="hub-timesheets-tile-job">{openedItem.jobLine || '—'}</span>
+              <span className="hub-timesheets-hours">{openedItem.hoursLabel}</span>
+              <span className={`hub-timesheets-pill ${timesheetListPillClass(openedItem.row.status)}`}>{openedItem.statusLabel}</span>
             </div>
-          )}
-        </div>
+            {renderEntries()}
+          </article>
+        ) : (
+          <>
+            {renderTiles(visible)}
+            {renderEntries()}
+          </>
+        )}
+        {openedItem ? renderTiles(otherVisible) : null}
       </div>
 
       {showEntryForm && selectedEmployee && (
