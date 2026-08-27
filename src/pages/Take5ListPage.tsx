@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { FileText, Search, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { AUDIT_TAKE5_ID, getAuditJhaDoc, getAuditJob, getAuditTake5, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { supabase } from '../lib/supabase';
 import {
   take5ListContext,
@@ -15,6 +16,7 @@ import {
 import {
   TAKE5_LIST_DEFAULT_FILTER,
   TAKE5_LIST_FILTERS,
+  take5ListAttachParent,
   take5ListCardId,
   take5ListCardLine,
   take5ListEmptyKind,
@@ -69,6 +71,8 @@ export function Take5ListPage() {
   const { data: members = [] } = useQuery({
     queryKey: ['company-members-jha', profile?.company_id],
     queryFn: async () => {
+      const auditMembers = getAuditTeamMembers();
+      if (auditMembers) return auditMembers;
       const { data, error } = await supabase.rpc('get_company_members', { p_company_id: profile!.company_id });
       if (error) throw error;
       return (data ?? []) as Array<{ id: string; name: string; email: string; role: string }>;
@@ -79,6 +83,12 @@ export function Take5ListPage() {
   const { data: rows, isLoading, isError, refetch } = useQuery({
     queryKey: ['jha-take5-all'],
     queryFn: async () => {
+      const audit = getAuditTake5(AUDIT_TAKE5_ID);
+      if (audit && isDevFieldAuditAuth()) {
+        const jha = getAuditJhaDoc(audit.jha_document_id);
+        const job = jha?.job_id ? getAuditJob(jha.job_id) : null;
+        return [take5ListAttachParent(audit, jha, job)];
+      }
       const { data, error } = await supabase
         .from('jha_take5')
         .select('id, status, meta, go_no_go, signed_name, signature, stop_think, identify_hazards, control_actions, created_at, signed_at, jha_document_id')
@@ -98,18 +108,7 @@ export function Take5ListPage() {
       return list.map(row => {
         const jha = jhaMap.get(row.jha_document_id);
         const job = jha?.job_id ? jobMap.get(jha.job_id) : undefined;
-        const jhaMeta = (jha?.meta ?? {}) as Record<string, string>;
-        return {
-          ...row,
-          parent_report: jha?.report_number ?? null,
-          parent_site: jhaMeta.siteName || null,
-          parent_task: jhaMeta.taskName || jhaMeta.documentTitle || null,
-          job_id: jha?.job_id ?? null,
-          job_title: job?.title ?? null,
-          job_address: job?.address ?? null,
-          job_assigned_team: job?.assigned_team ?? null,
-          job_number: job?.job_number ?? null,
-        };
+        return take5ListAttachParent(row, jha, job);
       });
     },
     enabled: !!profile,

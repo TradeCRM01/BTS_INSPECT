@@ -21,6 +21,9 @@ describe('Take 5 list page floor wiring', () => {
     expect(helper).toContain('take5FillPath');
     expect(src('src/lib/take5NextAction.ts')).toContain("return `/jha/take5?${params.toString()}`");
     expect(list).toContain("from('jobs').select('id, title, address, assigned_team, job_number')");
+    expect(list).toContain('take5ListAttachParent');
+    expect(list).toContain('getAuditTake5');
+    expect(list).toContain('AUDIT_TAKE5_ID');
   });
 
   it('does not add a Take 5 route, SWMS product, or safety module', () => {

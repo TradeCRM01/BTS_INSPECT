@@ -4,6 +4,7 @@ import {
   TAKE5_LIST_FILTERS,
   compareTake5ListItems,
   take5ListActionRank,
+  take5ListAttachParent,
   take5ListCardId,
   take5ListCardLine,
   take5ListEmptyKind,
@@ -263,5 +264,38 @@ describe('take5 list groups, empty kinds, and card copy', () => {
       't5-new',
       't5-old',
     ]);
+  });
+});
+
+describe('take5ListAttachParent', () => {
+  it('lifts job #, site, and task from the existing parent JHA and job', () => {
+    const attached = take5ListAttachParent(
+      {
+        id: 't5-9',
+        jha_document_id: 'jha-1',
+        meta: { date: '2026-08-24', location: 'Switchroom' },
+      },
+      {
+        report_number: 'JHA-AUDIT',
+        job_id: 'job-1',
+        meta: { siteName: 'Northside workshop', taskName: 'Isolate switchboard' },
+      },
+      {
+        id: 'job-1',
+        title: 'Switchboard upgrade',
+        address: '12 Workshop Rd, Perth WA 6000',
+        assigned_team: ['u1'],
+        job_number: 42,
+      },
+    );
+    expect(attached.parent_report).toBe('JHA-AUDIT');
+    expect(attached.parent_site).toBe('Northside workshop');
+    expect(attached.parent_task).toBe('Isolate switchboard');
+    expect(attached.job_number).toBe(42);
+    expect(attached.job_title).toBe('Switchboard upgrade');
+    expect(attached.created_at).toBe('2026-08-24T00:00:00.000Z');
+    expect(take5ListCardId(attached)).toBe('#0042');
+    expect(take5ListOpenHref({ jha_document_id: attached.jha_document_id, id: attached.id }))
+      .toBe('/jha/take5?jhaId=jha-1&id=t5-9');
   });
 });

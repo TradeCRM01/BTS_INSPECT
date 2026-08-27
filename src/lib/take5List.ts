@@ -198,3 +198,54 @@ export function take5ListHazardLine(item: Take5ListItem): string {
     || (item.stop_think ?? '').trim()
     || (item.control_actions ?? '').trim();
 }
+
+type Take5ListParentJha = {
+  report_number?: string | null;
+  meta?: Record<string, string> | null;
+  job_id?: string | null;
+};
+
+type Take5ListParentJob = {
+  id?: string | null;
+  title?: string | null;
+  address?: string | null;
+  assigned_team?: string[] | null;
+  job_number?: number | null;
+};
+
+/** Attach the parent JHA / job already stored on the Take 5. */
+export function take5ListAttachParent<T extends {
+  jha_document_id: string;
+  created_at?: string;
+  meta?: Record<string, string> | null;
+}>(
+  row: T,
+  jha?: Take5ListParentJha | null,
+  job?: Take5ListParentJob | null,
+): T & {
+  parent_report: string | null;
+  parent_site: string | null;
+  parent_task: string | null;
+  job_id: string | null;
+  job_title: string | null;
+  job_address: string | null;
+  job_assigned_team: string[] | null;
+  job_number: number | null;
+  created_at: string;
+} {
+  const jhaMeta = (jha?.meta ?? {}) as Record<string, string>;
+  const created = (row.created_at ?? '').trim()
+    || `${(row.meta?.date ?? '').trim() || '2026-08-24'}T00:00:00.000Z`;
+  return {
+    ...row,
+    created_at: created,
+    parent_report: jha?.report_number ?? null,
+    parent_site: jhaMeta.siteName || null,
+    parent_task: jhaMeta.taskName || jhaMeta.documentTitle || null,
+    job_id: jha?.job_id ?? job?.id ?? null,
+    job_title: job?.title ?? null,
+    job_address: job?.address ?? null,
+    job_assigned_team: job?.assigned_team ?? null,
+    job_number: job?.job_number ?? null,
+  };
+}
