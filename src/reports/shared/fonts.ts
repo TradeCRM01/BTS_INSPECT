@@ -27,10 +27,17 @@ export function registerFonts() {
   });
 
   Font.register({
-    family: 'Newsreader',
+    family: 'Rajdhani',
     fonts: [
-      { src: 'https://cdn.jsdelivr.net/fontsource/fonts/newsreader@5.2.8/latin-600-normal.ttf', fontWeight: 600 },
-      { src: 'https://cdn.jsdelivr.net/fontsource/fonts/newsreader@5.2.8/latin-700-normal.ttf', fontWeight: 700 },
+      { src: 'https://cdn.jsdelivr.net/fontsource/fonts/rajdhani@5.2.5/latin-700-normal.ttf', fontWeight: 700 },
+    ],
+  });
+
+  Font.register({
+    family: 'Source Sans 3',
+    fonts: [
+      { src: 'https://cdn.jsdelivr.net/fontsource/fonts/source-sans-3@5.2.8/latin-400-normal.ttf', fontWeight: 400 },
+      { src: 'https://cdn.jsdelivr.net/fontsource/fonts/source-sans-3@5.2.8/latin-700-normal.ttf', fontWeight: 700 },
     ],
   });
 }

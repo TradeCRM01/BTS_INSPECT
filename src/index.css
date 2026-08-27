@@ -2202,6 +2202,13 @@
     --invoice-pass: #1B7F3A;
     --invoice-fail: #B42318;
     --invoice-warn: #B54708;
+  }
+
+  :is(.hub-invoices, .hub-invoice-editor) {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .hub-invoice-send {
     font-family: Inter, system-ui, sans-serif;
   }
 
@@ -2218,9 +2225,9 @@
   .hub-invoices .ops-page-title,
   .hub-invoice-editor-title,
   .hub-invoice-display-total {
-    font-family: Newsreader, Georgia, serif;
-    font-weight: 600;
-    letter-spacing: -0.03em;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
     line-height: 1.1;
     text-shadow: none;
     color: var(--invoice-ink);
@@ -2359,8 +2366,9 @@
   .hub-invoices-thead {
     background: transparent;
     color: var(--invoice-muted);
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     border-bottom: 1px solid var(--invoice-line);
@@ -2386,7 +2394,8 @@
   }
 
   .hub-invoices-ref {
-    font-weight: 600;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
   }
 
   .hub-invoices-muted,
@@ -2403,8 +2412,11 @@
     padding: 0 12px;
     border: 1px solid transparent;
     border-radius: 999px;
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     line-height: 1;
     width: fit-content;
     white-space: nowrap;
@@ -2433,7 +2445,8 @@
 
   .hub-invoices-total,
   .hub-invoice-num {
-    font-weight: 600;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
   }
@@ -2694,9 +2707,9 @@
   }
 
   .hub-invoice-kicker {
-    font-family: Inter, system-ui, sans-serif;
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--invoice-muted);
@@ -3015,8 +3028,9 @@
   .hub-invoice-lines th {
     background: #0A2540;
     color: #fff;
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     text-align: left;
@@ -3067,8 +3081,11 @@
     margin: 0 24px 24px;
     padding: 16px 20px;
     border-radius: 12px;
+    font-family: Rajdhani, sans-serif;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   .hub-invoice-display-total {
@@ -3149,6 +3166,8 @@
 
   .hub-invoice-send-field .hub-invoice-kicker {
     margin-bottom: 8px;
+    font-family: Inter, system-ui, sans-serif;
+    font-weight: 600;
   }
 
   .hub-invoice-send-value {
@@ -4363,7 +4382,7 @@
     --quote-pass: #1B7F3A;
     --quote-fail: #B42318;
     --quote-warn: #B54708;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
   .hub-quotes.ops-page {
@@ -4379,9 +4398,9 @@
   .hub-quotes .ops-page-title,
   .hub-quote-editor-title,
   .hub-quote-display-total {
-    font-family: Newsreader, Georgia, serif;
-    font-weight: 600;
-    letter-spacing: -0.03em;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
     line-height: 1.1;
     text-shadow: none;
     color: var(--quote-ink);
@@ -4401,9 +4420,9 @@
   }
 
   .hub-quote-kicker {
-    font-family: Inter, system-ui, sans-serif;
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--quote-muted);
@@ -4421,7 +4440,7 @@
     border-radius: 12px;
     box-shadow: none;
     transform: none;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
     font-size: 14px;
     font-weight: 600;
   }
@@ -4518,8 +4537,9 @@
   .hub-quotes-thead {
     background: transparent;
     color: var(--quote-muted);
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     border-bottom: 1px solid var(--quote-line);
@@ -4545,7 +4565,8 @@
   }
 
   .hub-quotes-ref {
-    font-weight: 600;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
   }
 
   .hub-quotes-muted,
@@ -4562,8 +4583,11 @@
     padding: 0 12px;
     border: 1px solid transparent;
     border-radius: 999px;
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     line-height: 1;
     width: fit-content;
     white-space: nowrap;
@@ -4593,7 +4617,8 @@
 
   .hub-quotes-total,
   .hub-quote-num {
-    font-weight: 600;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
   }
@@ -4857,8 +4882,9 @@
   .hub-quote-lines th {
     background: #0A2540;
     color: #fff;
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     text-align: left;
@@ -4909,8 +4935,11 @@
     margin: 0 24px 24px;
     padding: 16px 20px;
     border-radius: 12px;
+    font-family: Rajdhani, sans-serif;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   .hub-quote-display-total {

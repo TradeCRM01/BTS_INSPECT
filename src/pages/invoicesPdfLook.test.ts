@@ -7,15 +7,18 @@ function src(rel: string): string {
 }
 
 describe('invoice PDF cream document look', () => {
-  it('applies cream paper, navy total bar, and Newsreader totals to invoices', () => {
+  it('applies cream paper, navy total bar, and Rajdhani totals to invoices', () => {
     const commercial = src('src/reports/commercial/CommercialDocumentPdf.tsx');
     expect(commercial).toContain("kind === 'invoice'");
     expect(commercial).toContain("kind === 'quote' || kind === 'invoice'");
     expect(commercial).toContain("backgroundColor: quote ? '#F5F0E6'");
     expect(commercial).toContain("'#E2D9CC'");
-    expect(commercial).toContain("kind === 'invoice' ? 'Newsreader'");
+    expect(commercial).toContain("const titleFace = quote ? 'Rajdhani'");
+    expect(commercial).toContain("const bodyFace = quote ? 'Source Sans 3'");
+    expect(commercial).not.toContain('Newsreader');
     expect(commercial).not.toContain('Syne');
     expect(commercial).not.toContain('SpaceGrotesk');
+    expect(commercial).not.toContain('IBM Plex');
     expect(commercial).toContain("backgroundColor: colors.navy");
     expect(commercial).toContain('formatMoney(data.subtotal)');
     expect(commercial).toContain('formatMoney(data.taxAmount)');
@@ -23,9 +26,12 @@ describe('invoice PDF cream document look', () => {
     expect(commercial).not.toMatch(/grafter|relovi|littleloop/i);
 
     const fonts = src('src/reports/shared/fonts.ts');
-    expect(fonts).toContain("family: 'Newsreader'");
+    expect(fonts).toContain("family: 'Rajdhani'");
+    expect(fonts).toContain("family: 'Source Sans 3'");
+    expect(fonts).not.toContain('Newsreader');
     expect(fonts).not.toContain('Syne');
     expect(fonts).not.toContain('SpaceGrotesk');
+    expect(fonts).not.toContain('IBM Plex');
 
     const preview = src('src/components/invoicing/CommercialPdfPreviewModal.tsx');
     expect(preview).toContain("data.kind === 'invoice'");

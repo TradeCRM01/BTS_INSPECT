@@ -7,7 +7,7 @@ function src(rel: string): string {
 }
 
 describe('invoice list cream document look', () => {
-  it('paints the list as cream paper rows with Newsreader titles', () => {
+  it('paints the list as cream paper rows with Rajdhani titles', () => {
     const list = src('src/pages/InvoicesPage.tsx');
     const css = src('src/index.css');
 
@@ -30,8 +30,9 @@ describe('invoice list cream document look', () => {
     expect(css).toContain('--invoice-muted: #5B6B7C');
     expect(css).toContain('--invoice-line: #E2D9CC');
     expect(css).toContain('#2E75B6');
-    expect(css).toContain('Newsreader');
-    expect(css).not.toMatch(/\.hub-invoices \.ops-page-title[\s\S]{0,160}Syne|Space Grotesk/);
+    expect(css).toContain("font-family: Rajdhani, sans-serif");
+    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(css).not.toMatch(/\.hub-invoices \.ops-page-title[\s\S]{0,160}Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(css).toContain('letter-spacing: 0.12em');
     expect(css).not.toContain('indigo-500');
     expect(css).not.toMatch(/\.hub-invoices[\s\S]{0,80}#111|#000\b/);

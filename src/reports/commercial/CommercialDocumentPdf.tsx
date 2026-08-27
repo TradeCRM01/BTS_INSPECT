@@ -64,13 +64,15 @@ export interface CommercialPdfData {
 
 function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
   const quote = kind === 'quote' || kind === 'invoice';
+  const titleFace = quote ? 'Rajdhani' : pdfFonts.body;
+  const bodyFace = quote ? 'Source Sans 3' : pdfFonts.body;
   const ink = quote ? '#0A2540' : colors.text;
   const muted = quote ? '#5B6B7C' : colors.textMuted;
   const secondary = quote ? '#5B6B7C' : colors.textSecondary;
   const hairline = quote ? '#E2D9CC' : colors.rule;
   return StyleSheet.create({
     page: {
-      fontFamily: pdfFonts.body,
+      fontFamily: bodyFace,
       fontSize: 9,
       color: ink,
       backgroundColor: quote ? '#F5F0E6' : colors.white,
@@ -90,22 +92,23 @@ function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
     brandBlock: { flexDirection: 'row', alignItems: 'flex-start', maxWidth: '62%' },
     logo: { width: 56, height: 32, objectFit: 'contain', marginRight: 10, marginTop: 1 },
     companyName: {
+      fontFamily: titleFace,
       fontSize: 14,
       fontWeight: 700,
       color: colors.navy,
       letterSpacing: 0.4,
     },
-    companyMeta: { fontSize: 7.5, color: muted, marginTop: 2, lineHeight: 1.35 },
+    companyMeta: { fontFamily: bodyFace, fontSize: 7.5, color: muted, marginTop: 2, lineHeight: 1.35 },
     docMeta: { alignItems: 'flex-end' },
     docTitle: {
-      fontFamily: kind === 'invoice' ? 'Newsreader' : pdfFonts.body,
+      fontFamily: titleFace,
       fontSize: quote ? 20 : 16,
       fontWeight: 700,
       color: colors.navy,
       letterSpacing: quote ? 1.4 : 1,
     },
-    docNumber: { fontSize: 10, color: colors.accent, fontWeight: 700, marginTop: 4 },
-    metaRow: { fontSize: 8, color: secondary, marginTop: 3 },
+    docNumber: { fontFamily: titleFace, fontSize: 10, color: colors.accent, fontWeight: 700, marginTop: 4 },
+    metaRow: { fontFamily: bodyFace, fontSize: 8, color: secondary, marginTop: 3 },
     partyRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -114,6 +117,7 @@ function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
     },
     partyBox: { flex: 1 },
     partyLabel: {
+      fontFamily: titleFace,
       fontSize: 7,
       fontWeight: 700,
       color: muted,
@@ -121,9 +125,10 @@ function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
       marginBottom: 4,
       textTransform: 'uppercase',
     },
-    partyValue: { fontSize: 10, fontWeight: 700, color: colors.navy },
-    partySub: { fontSize: 8, color: secondary, marginTop: 2 },
+    partyValue: { fontFamily: titleFace, fontSize: 10, fontWeight: 700, color: colors.navy },
+    partySub: { fontFamily: bodyFace, fontSize: 8, color: secondary, marginTop: 2 },
     sectionTitle: {
+      fontFamily: titleFace,
       fontSize: 10,
       fontWeight: 700,
       color: colors.navy,
@@ -135,6 +140,7 @@ function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
     twoCol: { flexDirection: 'row', gap: 14, marginBottom: 18 },
     col: { flex: 1 },
     colHead: {
+      fontFamily: titleFace,
       fontSize: 8,
       fontWeight: 700,
       color: colors.white,
@@ -146,7 +152,7 @@ function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
     colHeadAmber: { backgroundColor: '#92400E' },
     bullet: { flexDirection: 'row', marginBottom: 4, paddingRight: 4 },
     bulletMark: { width: 10, fontSize: 8, color: colors.accent },
-    bulletText: { flex: 1, fontSize: 8.5, color: secondary, lineHeight: 1.35 },
+    bulletText: { flex: 1, fontFamily: bodyFace, fontSize: 8.5, color: secondary, lineHeight: 1.35 },
     emptyHint: { fontSize: 8, color: muted, fontStyle: 'italic' },
     tableHeader: {
       flexDirection: 'row',
@@ -154,7 +160,7 @@ function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
       paddingVertical: 6,
       paddingHorizontal: 6,
     },
-    th: { color: colors.white, fontSize: 7.5, fontWeight: 700 },
+    th: { fontFamily: titleFace, color: colors.white, fontSize: 7.5, fontWeight: 700 },
     row: {
       flexDirection: 'row',
       paddingVertical: 5,
@@ -163,11 +169,11 @@ function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
       borderBottomColor: hairline,
     },
     rowAlt: { backgroundColor: quote ? '#FFFDF8' : colors.zebra },
-    td: { fontSize: 8, color: ink },
+    td: { fontFamily: bodyFace, fontSize: 8, color: ink },
     totals: { marginTop: 10, alignSelf: 'flex-end', width: quote ? 220 : 200 },
     totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
-    totalLabel: { fontSize: 8.5, color: secondary },
-    totalValue: { fontSize: 8.5, color: ink },
+    totalLabel: { fontFamily: bodyFace, fontSize: 8.5, color: secondary },
+    totalValue: { fontFamily: bodyFace, fontSize: 8.5, color: ink },
     grandRow: quote
       ? {
           flexDirection: 'row',
@@ -187,13 +193,13 @@ function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
           borderTopColor: colors.navy,
         },
     grandLabel: {
-      fontFamily: kind === 'invoice' ? 'Newsreader' : pdfFonts.body,
+      fontFamily: titleFace,
       fontSize: quote ? 12 : 10,
       fontWeight: 700,
       color: quote ? colors.white : colors.navy,
     },
     grandValue: {
-      fontFamily: kind === 'invoice' ? 'Newsreader' : pdfFonts.body,
+      fontFamily: titleFace,
       fontSize: quote ? 12 : 10,
       fontWeight: 700,
       color: quote ? colors.white : colors.navy,

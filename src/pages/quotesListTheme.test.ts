@@ -30,7 +30,9 @@ describe('quote list Looplet document look', () => {
     expect(css).toContain('--quote-muted: #5B6B7C');
     expect(css).toContain('--quote-line: #E2D9CC');
     expect(css).toContain('#2E75B6');
-    expect(css).toContain('Newsreader');
+    expect(css).toContain("font-family: Rajdhani, sans-serif");
+    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(css).not.toMatch(/\.hub-quotes \.ops-page-title[\s\S]{0,160}Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(css).toContain('letter-spacing: 0.12em');
     expect(css).not.toContain('indigo-500');
     expect(css).not.toMatch(/\.hub-quotes[\s\S]{0,80}#111|#000\b/);
