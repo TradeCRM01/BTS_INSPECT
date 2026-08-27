@@ -44,15 +44,22 @@ describe('Timesheets list cream paper look', () => {
     expect(css).toContain('letter-spacing: 0.12em');
     expect(css).not.toContain('indigo-500');
     expect(css).not.toMatch(/\.hub-timesheets[\s\S]{0,80}#111|#000\b/);
+    expect(css).toContain('.hub-timesheets-next');
+    expect(css).toContain('.hub-timesheets-sub');
+    expect(css.slice(css.indexOf('/* Timesheets list only'))).not.toMatch(/#16A34A|#15803D|btn-danger/);
     expect(css).not.toMatch(/\.hub-timesheets \.btn-primary/);
     expect(css).not.toMatch(/\.hub-timesheets \.btn-danger/);
   });
 
-  it('does not restyle clock in/out, Add Entry, TimeEntryForm, jobs, reports, or AppShell', () => {
+  it('makes Clock In the one primary and recedes Add Entry; leaves TimeEntryForm, jobs, reports, and AppShell alone', () => {
     const list = src('src/pages/TimesheetsPage.tsx');
-    expect(list).toContain('className="btn-danger"');
+    expect(list).toContain('hub-timesheets-next');
+    expect(list).toContain('hub-timesheets-sub');
     expect(list).toContain('Clock In');
     expect(list).toContain('Add Entry');
+    expect(list).not.toContain('btn-danger');
+    expect(list).not.toContain('#16A34A');
+    expect(list).not.toContain('className="btn-primary"');
     expect(list).toContain('TimeEntryForm');
     expect(list).not.toContain('hub-jobs');
     expect(list).not.toContain('hub-reports');

@@ -232,15 +232,15 @@ export function TimesheetsPage() {
           </div>
           <div className="hub-timesheets-tools">
             {isClockedIn ? (
-              <button onClick={() => clockOutMutation.mutate()} className="btn-danger">
+              <button type="button" onClick={() => clockOutMutation.mutate()} className="hub-timesheets-sub">
                 <Square size={16} /> Clock Out
               </button>
             ) : (
-              <button onClick={() => clockInMutation.mutate()} className="inline-flex items-center gap-2 bg-[#16A34A] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#15803D] transition-all duration-200 active:scale-[0.98]">
+              <button type="button" onClick={() => clockInMutation.mutate()} className="hub-timesheets-next">
                 <Play size={16} /> Clock In
               </button>
             )}
-            <button onClick={() => setShowEntryForm(true)} className="btn-primary">
+            <button type="button" onClick={() => setShowEntryForm(true)} className="hub-timesheets-sub">
               <Plus size={16} /> Add Entry
             </button>
           </div>

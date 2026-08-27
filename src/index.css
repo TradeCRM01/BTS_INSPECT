@@ -8876,7 +8876,7 @@
     }
   }
 
-  /* Timesheets list only. Same cream paper lock as signed reports / Take 5 / JHA. Not clock, Add Entry, or TimeEntryForm. */
+  /* Timesheets list only. Same cream paper lock as signed reports / Take 5 / JHA. Not TimeEntryForm. */
   .hub-timesheets {
     --ts-look-page: #F5F0E6;
     --ts-look-sheet: #FFFDF8;
@@ -8942,6 +8942,56 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
+  }
+
+  .hub-timesheets-next {
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 999px;
+    box-shadow: none;
+    transform: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+
+  .hub-timesheets-next:hover {
+    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+    color: #fff;
+  }
+
+  .hub-timesheets-next:active {
+    transform: none;
+  }
+
+  .hub-timesheets-sub {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 12px;
+    background: none;
+    border: none;
+    border-radius: 12px;
+    color: var(--ts-look-muted);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  .hub-timesheets-sub:hover {
+    color: var(--ts-look-ink);
   }
 
   .hub-timesheets-weekbar,
