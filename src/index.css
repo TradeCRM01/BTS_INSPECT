@@ -4746,23 +4746,120 @@
     min-width: 0;
   }
 
-  .hub-schedule-track.is-week {
-    display: flex;
-    flex-direction: column;
-    min-height: 300px;
-    pointer-events: none;
+  .hub-week-board {
+    width: 100%;
+    overflow-x: auto;
   }
 
-  .hub-schedule-track-hour {
-    flex: 1;
-    display: flex;
-    align-items: flex-start;
-    padding: 2px 4px;
+  .hub-week-grid {
+    display: grid;
+    grid-template-columns: 120px repeat(7, minmax(112px, 1fr));
+    min-width: 920px;
     border-top: 1px solid var(--schedule-line);
   }
 
-  .hub-schedule-track.is-week .hub-schedule-track-hour:first-child {
-    border-top: none;
+  .hub-week-corner,
+  .hub-week-head,
+  .hub-week-crew,
+  .hub-week-cell {
+    border-right: 1px solid var(--schedule-line);
+    border-bottom: 1px solid var(--schedule-line);
+    background: var(--schedule-sheet);
+  }
+
+  .hub-week-corner {
+    min-height: 48px;
+  }
+
+  .hub-week-head {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 8px 6px;
+    text-align: center;
+    font-family: Rajdhani, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--schedule-ink);
+    background: var(--schedule-sheet);
+    cursor: pointer;
+    border: none;
+    border-right: 1px solid var(--schedule-line);
+    border-bottom: 1px solid var(--schedule-line);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .hub-week-head.is-today {
+    color: #fff;
+    background: var(--schedule-ink);
+  }
+
+  .hub-week-crew {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    min-height: 88px;
+  }
+
+  .hub-week-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 88px;
+    padding: 8px;
+    cursor: pointer;
+  }
+
+  .hub-week-cell.is-empty {
+    background: var(--schedule-sheet);
+  }
+
+  .hub-week-cell.is-hover {
+    background: var(--schedule-page);
+  }
+
+  .hub-week-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 10px;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: none;
+  }
+
+  .hub-week-chip.is-dragging {
+    opacity: 0.4;
+  }
+
+  .hub-week-chip-ref,
+  .hub-week-chip-desc {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hub-week-chip-ref {
+    font-family: Rajdhani, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+  }
+
+  .hub-week-chip-desc {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.25;
+    opacity: 0.92;
   }
 
   .hub-schedule-place {

@@ -527,6 +527,11 @@ export function SchedulePage() {
                       setView('day');
                     }}
                     onDayClick={handleDayClick}
+                    onJobDrop={drop => {
+                      rescheduleJob.mutate(drop);
+                      setJobQuery('');
+                      setPickedJob(null);
+                    }}
                   />
                 ) : (
                   <PhoneDayList

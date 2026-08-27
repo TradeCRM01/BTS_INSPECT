@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { pickJobColor } from './jobColors';
 import {
   SCHEDULE_WEEK_STARTS_ON,
+  WEEK_UNASSIGNED_CREW_ID,
   compareScheduleJobs,
   filterJobsByCrew,
   groupJobsByScheduleDay,
@@ -16,6 +18,10 @@ import {
   scheduleWeekColumns,
   scheduleWeekDayKeys,
   scheduleWeekDays,
+  weekBoardChip,
+  weekBoardChipColor,
+  weekBoardFamilyKey,
+  weekBoardRows,
 } from './scheduleBoard';
 
 const members = [
@@ -160,5 +166,184 @@ describe('compareScheduleJobs', () => {
       { start_time: '09:00:00', title: 'B' },
       { start_time: '09:00:00', title: 'A' },
     )).toBeGreaterThan(0);
+  });
+});
+
+describe('week-board grouping and chips', () => {
+  const dave = { id: 'emp-dave', name: 'Dave' };
+  const jack = { id: 'emp-jack', name: 'Jack' };
+  const sam = { id: 'emp-sam', name: 'Sam' };
+  const weekAnchor = new Date(2025, 2, 31); // Mon 31 Mar 2025
+
+  function chipJob(over: {
+    id: string;
+    title?: string | null;
+    description?: string | null;
+    scheduled_date?: string | null;
+    start_time?: string | null;
+    assigned_team?: string[] | null;
+    job_number?: number | null;
+    cost_code?: string | null;
+    parent_job_id?: string | null;
+    parent_job_number?: number | null;
+    color?: string | null;
+  }) {
+    return {
+      title: over.title ?? 'Job',
+      scheduled_date: over.scheduled_date ?? '2025-04-01',
+      start_time: over.start_time ?? '08:00:00',
+      assigned_team: over.assigned_team ?? ['emp-dave'],
+      job_number: over.job_number ?? 42,
+      cost_code: over.cost_code ?? null,
+      parent_job_id: over.parent_job_id ?? null,
+      parent_job_number: over.parent_job_number ?? null,
+      color: over.color ?? null,
+      description: over.description ?? null,
+      ...over,
+    };
+  }
+
+  it('builds crew rows × weekday cells; empty days stay empty slots', () => {
+    const jobs = [
+      chipJob({
+        id: 'switchboard',
+        title: 'Switchboard',
+        scheduled_date: '2025-04-01',
+        assigned_team: ['emp-dave'],
+        job_number: 42,
+        cost_code: '01',
+        parent_job_number: 42,
+        color: '#8B4513',
+      }),
+      chipJob({
+        id: 'testing',
+        title: 'Testing',
+        scheduled_date: '2025-04-02',
+        assigned_team: ['emp-dave'],
+        job_number: 42,
+        cost_code: '02',
+        parent_job_id: 'quote-42',
+        parent_job_number: 42,
+        color: '#8B4513',
+      }),
+      chipJob({
+        id: 'warehouse',
+        title: 'Warehouse lights',
+        scheduled_date: '2025-04-03',
+        assigned_team: ['emp-jack'],
+        job_number: 48,
+        color: '#0A2540',
+      }),
+    ];
+
+    const rows = weekBoardRows(jobs, [dave, jack, sam], weekAnchor);
+    expect(rows.map(row => row.crewName)).toEqual(['Dave', 'Jack', 'Sam']);
+    expect(rows[0].cells.map(cell => cell.date)).toEqual([
+      '2025-03-31',
+      '2025-04-01',
+      '2025-04-02',
+      '2025-04-03',
+      '2025-04-04',
+      '2025-04-05',
+      '2025-04-06',
+    ]);
+    expect(rows[0].cells[1].chips).toEqual([{
+      id: 'switchboard',
+      ref: '#0042.01',
+      description: 'Switchboard',
+      color: '#8B4513',
+    }]);
+    expect(rows[0].cells[2].chips).toEqual([{
+      id: 'testing',
+      ref: '#0042.02',
+      description: 'Testing',
+      color: '#8B4513',
+    }]);
+    expect(rows[1].cells[3].chips).toEqual([{
+      id: 'warehouse',
+      ref: '#0048',
+      description: 'Warehouse lights',
+      color: '#0A2540',
+    }]);
+    expect(rows[0].cells[0].chips).toEqual([]);
+    expect(rows[2].cells.every(cell => cell.chips.length === 0)).toBe(true);
+    expect(rows.every(row => row.crewId !== WEEK_UNASSIGNED_CREW_ID)).toBe(true);
+  });
+
+  it('paints sibling cost-code chips with the same job.color', () => {
+    const siblings = [
+      chipJob({
+        id: 'parent',
+        title: 'Switchboard',
+        job_number: 42,
+        color: '#8B4513',
+      }),
+      chipJob({
+        id: 'child-a',
+        title: 'Switchboard',
+        job_number: 42,
+        cost_code: '01',
+        parent_job_id: 'parent',
+        parent_job_number: 42,
+        color: '#8B4513',
+      }),
+      chipJob({
+        id: 'child-b',
+        title: 'Testing',
+        job_number: 42,
+        cost_code: '02',
+        parent_job_id: 'parent',
+        parent_job_number: 42,
+        color: '#8B4513',
+      }),
+    ];
+
+    expect(siblings.map(job => weekBoardFamilyKey(job))).toEqual(['parent', 'parent', 'parent']);
+    expect(siblings.map(job => weekBoardChipColor(job, siblings))).toEqual([
+      '#8B4513',
+      '#8B4513',
+      '#8B4513',
+    ]);
+    expect(weekBoardChip(siblings[1], siblings)).toEqual({
+      id: 'child-a',
+      ref: '#0042.01',
+      description: 'Switchboard',
+      color: '#8B4513',
+    });
+    expect(weekBoardChip(siblings[2], siblings).ref).toBe('#0042.02');
+  });
+
+  it('inherits a family colour when a child has no color of its own', () => {
+    const family = [
+      chipJob({ id: 'parent', color: '#2E75B6', job_number: 42 }),
+      chipJob({
+        id: 'child',
+        color: null,
+        job_number: 42,
+        cost_code: '01',
+        parent_job_id: 'parent',
+        parent_job_number: 42,
+        title: 'Testing',
+      }),
+    ];
+    expect(weekBoardChipColor(family[1], family)).toBe('#2E75B6');
+    expect(weekBoardChipColor(family[1], [family[1]])).toBe(pickJobColor('parent'));
+  });
+
+  it('puts dated unassigned jobs on an Unassigned row, not every crew', () => {
+    const jobs = [
+      chipJob({
+        id: 'open',
+        title: 'Needs crew',
+        scheduled_date: '2025-04-01',
+        assigned_team: [],
+        job_number: 50,
+        color: '#1B7F3A',
+      }),
+    ];
+    const rows = weekBoardRows(jobs, [dave, jack], weekAnchor);
+    expect(rows[0].crewId).toBe(WEEK_UNASSIGNED_CREW_ID);
+    expect(rows[0].cells[1].chips.map(chip => chip.id)).toEqual(['open']);
+    expect(rows[1].cells[1].chips).toEqual([]);
   });
 });

@@ -27,7 +27,7 @@ describe('schedule page week/day board', () => {
     expect(page).toContain('onOpenJob={job => openJob(job.id)}');
     expect(page).toContain('onJobClick={job => openJob(job.id)}');
     expect(board).toContain('data-schedule-job={job.id}');
-    expect(board).toContain('scheduleWeekColumns');
+    expect(board).toContain('weekBoardRows');
     expect(board).toContain('onClick={() => onJobClick(job)}');
     expect(search).toContain('href={scheduleJobHref(job.id)}');
     expect(search).toContain('data-schedule-open-job={job.id}');
@@ -36,13 +36,14 @@ describe('schedule page week/day board', () => {
   it('groups the phone week from existing scheduled_date fields', () => {
     const board = src('src/components/crm/BoardViews.tsx');
     expect(board).toContain('export const PhoneWeekList');
-    expect(board).toContain('scheduleWeekColumns(jobs, currentDate)');
+    expect(board).toContain('weekBoardRows(jobs, teamMembers, currentDate, filteredEmployeeIds)');
     expect(board).toContain('data-schedule-week="1"');
+    expect(board).toContain('data-week-board="1"');
     expect(board).toContain('onSelectDay');
     expect(board).toContain('jobsOnScheduleDay');
-    expect(board).toContain('filterJobsByCrew');
     expect(board).toContain('data-schedule-track="day"');
-    expect(board).toContain('data-schedule-track="week"');
+    expect(board).not.toContain('data-schedule-track="week"');
+    expect(board).not.toContain('ScheduleWeekHourPlot');
     expect(board).not.toContain('No jobs on this day');
     expect(board).not.toContain('No jobs this day');
     expect(board).not.toContain('hub-schedule-empty');
@@ -74,6 +75,9 @@ describe('schedule board cream paper look', () => {
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(css).not.toMatch(/\.hub-board-cal \.ops-page-title[\s\S]{0,160}Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(css).toContain('letter-spacing: 0.12em');
+    expect(css).toContain('.hub-week-board');
+    expect(css).toContain('.hub-week-chip');
+    expect(css).not.toContain('.hub-schedule-track.is-week');
   });
 
   it('does not restyle jobs, quotes, invoices, login, landing, operator, or AppShell', () => {
