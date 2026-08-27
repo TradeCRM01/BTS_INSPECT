@@ -610,7 +610,7 @@ describe('reschedule target exists on the existing job schedule', () => {
     expect(panel).not.toContain('new Date().toISOString().slice(0, 10)');
 
     expect(reminder).toContain('btn-primary');
-    expect(reminder).toContain('Send tomorrow reminder');
+    expect(reminder).toContain("Send reminder for tomorrow's work");
     expect(reminder).toContain('rescheduleAsked');
   });
 

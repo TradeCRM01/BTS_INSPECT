@@ -251,7 +251,7 @@ describe('24h reminder client phone — wiring', () => {
     expect(logic).not.toContain('saveJobClientPhone');
   });
 
-  it('does not add a second 44px — Save is muted on the miss, primary stays Send tomorrow reminder', () => {
+  it("does not add a second 44px — Save is muted on the miss, primary stays Send reminder for tomorrow's work", () => {
     const reminder = src('src/components/jobs/JobClientReminder.tsx');
     const css = src('src/index.css');
     const reminderCssStart = css.indexOf('#job-schedule .job-reminder .job-client-phone');
@@ -259,7 +259,7 @@ describe('24h reminder client phone — wiring', () => {
     const reminderCss = css.slice(reminderCssStart, css.indexOf('/* end reminder client phone */'));
 
     expect(reminder).toContain('className="btn-primary"');
-    expect(reminder).toContain('Send tomorrow reminder');
+    expect(reminder).toContain("Send reminder for tomorrow's work");
     expect(reminder).toContain('job-client-phone-save');
     expect(reminder).toContain('disabled={awaitingSmtp || !decision.send || send.isPending}');
     expect(reminder).not.toContain('Open client');
@@ -296,7 +296,7 @@ describe('24h reminder client phone — wiring', () => {
     expect(reminderCss).not.toContain('sky-500');
   });
 
-  it('does not change Send tomorrow reminder enablement — phone does not invent a send gate', () => {
+  it("does not change Send reminder for tomorrow's work enablement — phone does not invent a send gate", () => {
     const reminder = src('src/components/jobs/JobClientReminder.tsx');
     const handle = reminder.slice(
       reminder.indexOf('const savePhone'),
@@ -311,7 +311,7 @@ describe('24h reminder client phone — wiring', () => {
       reminder.indexOf('<details className="job-reminder-more">'),
     );
 
-    expect(sendBtn).toContain('Send tomorrow reminder');
+    expect(sendBtn).toContain("Send reminder for tomorrow's work");
     expect(sendBtn).toContain('disabled={awaitingSmtp || !decision.send || send.isPending}');
     expect(handle).toContain('saveJobClientPhone');
     expect(handle).not.toContain("functions.invoke('job-reminder'");

@@ -220,7 +220,7 @@ describe('24h reminder client email — wiring', () => {
     expect(logic).not.toContain('saveJobClientEmail');
   });
 
-  it('does not add a second 44px — Save is muted on the miss, primary stays Send tomorrow reminder', () => {
+  it("does not add a second 44px — Save is muted on the miss, primary stays Send reminder for tomorrow's work", () => {
     const reminder = src('src/components/jobs/JobClientReminder.tsx');
     const css = src('src/index.css');
     const reminderCssStart = css.indexOf('#job-schedule .job-reminder .job-client-email');
@@ -228,7 +228,7 @@ describe('24h reminder client email — wiring', () => {
     const reminderCss = css.slice(reminderCssStart, css.indexOf('/* end reminder client email */'));
 
     expect(reminder).toContain('className="btn-primary"');
-    expect(reminder).toContain('Send tomorrow reminder');
+    expect(reminder).toContain("Send reminder for tomorrow's work");
     expect(reminder).toContain('job-client-email-save');
     expect(reminder).toContain('disabled={awaitingSmtp || !decision.send || send.isPending}');
     expect(reminder).not.toContain('Open client');
@@ -265,7 +265,7 @@ describe('24h reminder client email — wiring', () => {
     expect(reminderCss).not.toContain('sky-500');
   });
 
-  it('disables Send tomorrow reminder on no_email until a sendable save — no auto-send', () => {
+  it("disables Send reminder for tomorrow's work on no_email until a sendable save — no auto-send", () => {
     const reminder = src('src/components/jobs/JobClientReminder.tsx');
     const handle = reminder.slice(
       reminder.indexOf('const saveEmail'),
@@ -280,7 +280,7 @@ describe('24h reminder client email — wiring', () => {
       reminder.indexOf('<details className="job-reminder-more">'),
     );
 
-    expect(sendBtn).toContain('Send tomorrow reminder');
+    expect(sendBtn).toContain("Send reminder for tomorrow's work");
     expect(sendBtn).toContain('disabled={awaitingSmtp || !decision.send || send.isPending}');
     expect(handle).toContain('saveJobClientEmail');
     expect(handle).not.toContain("functions.invoke('job-reminder'");
