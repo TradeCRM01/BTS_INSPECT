@@ -2189,19 +2189,26 @@
 
   /* end due reminder client attach */
 
-  /* Invoice surfaces only: same Looplet document grammar as signed quotes. */
+  /* Invoice surfaces only: same cream paper kit as signed quotes. Not quote selectors. */
   :is(.hub-invoices, .hub-invoice-editor, .hub-invoice-send) {
-    --invoice-page: #F4F6F8;
-    --invoice-sheet: #FFFFFF;
+    --invoice-page: #F5F0E6;
+    --invoice-sheet: #FFFDF8;
     --invoice-ink: #0A2540;
     --invoice-muted: #5B6B7C;
-    --invoice-line: #D5DCE3;
+    --invoice-line: #E2D9CC;
     --invoice-action: #2E75B6;
     --invoice-r-ctl: 12px;
     --invoice-r-sheet: 16px;
     --invoice-pass: #1B7F3A;
     --invoice-fail: #B42318;
     --invoice-warn: #B54708;
+  }
+
+  :is(.hub-invoices, .hub-invoice-editor) {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .hub-invoice-send {
     font-family: Inter, system-ui, sans-serif;
   }
 
@@ -2212,23 +2219,31 @@
     margin: 0;
     background: var(--invoice-page);
     color: var(--invoice-ink);
-    padding: 16px 16px 32px;
+    padding: 24px 24px 40px;
+  }
+
+  .hub-invoices .ops-page-title,
+  .hub-invoice-editor-title,
+  .hub-invoice-display-total {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+    text-shadow: none;
+    color: var(--invoice-ink);
   }
 
   .hub-invoices .ops-page-title {
-    font-size: 22px !important;
-    line-height: 1.25;
-    letter-spacing: -0.02em;
-    font-weight: 600;
-    color: var(--invoice-ink);
-    text-shadow: none;
+    font-size: 40px !important;
+    margin: 0;
   }
 
   .hub-invoices .ops-page-head {
     max-width: 1100px;
-    margin: 0 auto 16px;
-    padding-top: 0;
-    align-items: center;
+    margin: 0 auto 24px;
+    padding-top: 8px;
+    align-items: flex-end;
+    gap: 16px;
   }
 
   .hub-invoices .btn-primary,
@@ -2272,7 +2287,7 @@
 
   .hub-invoices-chrome {
     max-width: 1100px;
-    margin: 0 auto 16px;
+    margin: 0 auto 24px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -2342,19 +2357,21 @@
   .hub-invoices-thead,
   .hub-invoices-row {
     display: grid;
-    grid-template-columns: 72px minmax(0, 1.4fr) minmax(0, 1fr) 104px 120px minmax(188px, max-content);
+    grid-template-columns: 72px minmax(0, 1.4fr) minmax(0, 1fr) 104px 140px minmax(188px, max-content);
     gap: 16px;
     align-items: center;
-    padding: 16px;
+    padding: 16px 24px;
   }
 
   .hub-invoices-thead {
-    background: #0A2540;
-    color: #fff;
+    background: transparent;
+    color: var(--invoice-muted);
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    font-weight: 700;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
+    border-bottom: 1px solid var(--invoice-line);
   }
 
   .hub-invoices-thead > :nth-child(5),
@@ -2372,8 +2389,13 @@
     font-weight: 500;
   }
 
+  .hub-invoices-row:first-of-type {
+    border-top: none;
+  }
+
   .hub-invoices-ref {
-    font-weight: 600;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
   }
 
   .hub-invoices-muted,
@@ -2390,8 +2412,11 @@
     padding: 0 12px;
     border: 1px solid transparent;
     border-radius: 999px;
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     line-height: 1;
     width: fit-content;
     white-space: nowrap;
@@ -2420,7 +2445,8 @@
 
   .hub-invoices-total,
   .hub-invoice-num {
-    font-weight: 600;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
   }
@@ -2456,6 +2482,14 @@
   }
 
   @media (max-width: 639px) {
+    .hub-invoices.ops-page {
+      padding: 16px 16px 32px;
+    }
+
+    .hub-invoices .ops-page-title {
+      font-size: 32px !important;
+    }
+
     .hub-invoices-thead {
       display: none;
     }
@@ -2479,7 +2513,13 @@
     .hub-invoices-row > :nth-child(6) { grid-area: next; }
   }
 
-  .overlay-backdrop:has(.hub-invoice-editor),
+  .overlay-backdrop:has(.hub-invoice-editor) {
+    background: rgb(245 240 230 / 0.92);
+    padding: 16px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
   .overlay-backdrop:has(.hub-invoice-send) {
     background: rgb(244 246 248 / 0.92);
     padding: 16px;
@@ -2488,7 +2528,7 @@
   }
 
   .overlay-panel-xl.hub-invoice-editor {
-    background: #F4F6F8 !important;
+    background: #F5F0E6 !important;
     color: #0A2540;
     box-shadow: none !important;
     border: none !important;
@@ -2584,6 +2624,20 @@
     content: '';
   }
 
+  .hub-invoice-editor .hub-invoice-more-menu,
+  .hub-invoices .hub-invoice-more-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 6;
+    min-width: 200px;
+    padding: 8px;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
+    border-radius: 16px;
+    box-shadow: none;
+  }
+
   .hub-invoice-more-menu {
     position: absolute;
     top: calc(100% + 8px);
@@ -2639,8 +2693,8 @@
   }
 
   .hub-invoice-sheet {
-    background: #fff;
-    border: 1px solid #D5DCE3;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
     border-radius: 16px;
     overflow: hidden;
     box-shadow: none;
@@ -2653,30 +2707,33 @@
   }
 
   .hub-invoice-kicker {
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    font-weight: 700;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #2E75B6;
-    margin-bottom: 8px;
+    color: var(--invoice-muted);
+    margin: 0 0 8px;
   }
 
   .hub-invoice-banner .hub-invoice-kicker {
     color: rgb(255 255 255 / 0.62);
   }
 
-  .hub-invoice-editor-title,
+  .hub-invoice-editor-title {
+    font-size: 36px;
+    color: #fff;
+    margin: 0;
+  }
+
   .hub-invoice-send-title {
+    font-family: Inter, system-ui, sans-serif;
     font-size: 22px;
     line-height: 1.2;
     letter-spacing: -0.02em;
     font-weight: 600;
-    color: #fff;
-    text-shadow: none;
-  }
-
-  .hub-invoice-send-title {
     color: #0A2540;
+    text-shadow: none;
   }
 
   .hub-invoice-banner-meta {
@@ -2741,8 +2798,8 @@
     font-family: inherit;
     line-height: 1;
     color: #0A2540;
-    background: #FFFFFF;
-    border: 1px solid #D5DCE3;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
     border-radius: 8px;
     box-shadow: none;
     outline: none;
@@ -2823,8 +2880,8 @@
     font-family: inherit;
     line-height: 1;
     color: #0A2540;
-    background: #FFFFFF;
-    border: 1px solid #D5DCE3;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
     border-radius: 8px;
     box-shadow: none;
     outline: none;
@@ -2879,7 +2936,7 @@
     text-decoration: none;
   }
 
-  /* Phone stays one line on the existing Bill-to — never wrap, never a second chip. */
+  /* Phone stays one line on the existing To — never wrap, never a second chip. */
   .hub-invoice-editor .job-client-phone,
   .hub-invoice-editor a.job-client-phone-num {
     flex-shrink: 0;
@@ -2917,8 +2974,8 @@
     font-family: inherit;
     line-height: 1;
     color: #0A2540;
-    background: #FFFFFF;
-    border: 1px solid #D5DCE3;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
     border-radius: 8px;
     box-shadow: none;
     outline: none;
@@ -2955,11 +3012,11 @@
   }
 
   .hub-invoice-table {
-    margin: 0 16px;
-    border: 1px solid #D5DCE3;
+    margin: 16px 24px 0;
+    border: 1px solid #E2D9CC;
     border-radius: 12px;
     overflow: hidden;
-    background: #fff;
+    background: #FFFDF8;
   }
 
   .hub-invoice-lines {
@@ -2971,9 +3028,10 @@
   .hub-invoice-lines th {
     background: #0A2540;
     color: #fff;
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    font-weight: 700;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     text-align: left;
     padding: 12px 16px;
@@ -2992,10 +3050,10 @@
 
   .hub-invoice-lines td {
     padding: 16px;
-    border-bottom: 1px solid #D5DCE3;
+    border-bottom: 1px solid #E2D9CC;
     font-size: 14px;
     color: #0A2540;
-    background: #fff;
+    background: #FFFDF8;
   }
 
   .hub-invoice-lines tr:last-child td {
@@ -3016,19 +3074,24 @@
 
   .hub-invoice-totalbar {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     justify-content: space-between;
     background: #0A2540;
     color: #fff;
-    margin: 0 16px 16px;
-    padding: 16px;
+    margin: 0 24px 24px;
+    padding: 16px 20px;
     border-radius: 12px;
+    font-family: Rajdhani, sans-serif;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
-  .hub-invoice-totalbar .hub-invoice-num {
-    font-size: 16px;
+  .hub-invoice-display-total {
+    font-size: 32px;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
   }
 
   .hub-invoice-pay {
@@ -3055,8 +3118,8 @@
 
   .hub-invoice-editor-body .form-input,
   .hub-invoice-editor-body .form-input-sm {
-    background: #fff;
-    border: 1px solid #D5DCE3;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
     border-radius: 12px;
     box-shadow: none;
     color: #0A2540;
@@ -3103,6 +3166,8 @@
 
   .hub-invoice-send-field .hub-invoice-kicker {
     margin-bottom: 8px;
+    font-family: Inter, system-ui, sans-serif;
+    font-weight: 600;
   }
 
   .hub-invoice-send-value {
@@ -4317,7 +4382,7 @@
     --quote-pass: #1B7F3A;
     --quote-fail: #B42318;
     --quote-warn: #B54708;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
   .hub-quotes.ops-page {
@@ -4333,9 +4398,9 @@
   .hub-quotes .ops-page-title,
   .hub-quote-editor-title,
   .hub-quote-display-total {
-    font-family: Newsreader, Georgia, serif;
-    font-weight: 600;
-    letter-spacing: -0.03em;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
     line-height: 1.1;
     text-shadow: none;
     color: var(--quote-ink);
@@ -4355,9 +4420,9 @@
   }
 
   .hub-quote-kicker {
-    font-family: Inter, system-ui, sans-serif;
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--quote-muted);
@@ -4375,7 +4440,7 @@
     border-radius: 12px;
     box-shadow: none;
     transform: none;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
     font-size: 14px;
     font-weight: 600;
   }
@@ -4472,8 +4537,9 @@
   .hub-quotes-thead {
     background: transparent;
     color: var(--quote-muted);
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     border-bottom: 1px solid var(--quote-line);
@@ -4499,7 +4565,8 @@
   }
 
   .hub-quotes-ref {
-    font-weight: 600;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
   }
 
   .hub-quotes-muted,
@@ -4516,8 +4583,11 @@
     padding: 0 12px;
     border: 1px solid transparent;
     border-radius: 999px;
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     line-height: 1;
     width: fit-content;
     white-space: nowrap;
@@ -4547,7 +4617,8 @@
 
   .hub-quotes-total,
   .hub-quote-num {
-    font-weight: 600;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
   }
@@ -4811,8 +4882,9 @@
   .hub-quote-lines th {
     background: #0A2540;
     color: #fff;
+    font-family: Rajdhani, sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     text-align: left;
@@ -4863,8 +4935,11 @@
     margin: 0 24px 24px;
     padding: 16px 20px;
     border-radius: 12px;
+    font-family: Rajdhani, sans-serif;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   .hub-quote-display-total {
@@ -4912,6 +4987,21 @@
   }
 
   .hub-quote-pdf-head {
+    border-bottom: 1px solid #E2D9CC;
+  }
+
+  .overlay-backdrop.hub-invoice-pdf-preview {
+    background: rgb(245 240 230 / 0.92);
+  }
+
+  .hub-invoice-pdf-sheet {
+    background: #FFFDF8 !important;
+    border: 1px solid #E2D9CC !important;
+    border-radius: 16px !important;
+    box-shadow: none !important;
+  }
+
+  .hub-invoice-pdf-head {
     border-bottom: 1px solid #E2D9CC;
   }
 

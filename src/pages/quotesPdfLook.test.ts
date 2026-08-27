@@ -16,6 +16,9 @@ describe('quote PDF Looplet document look', () => {
     expect(commercial).toContain('formatMoney(data.subtotal)');
     expect(commercial).toContain('formatMoney(data.taxAmount)');
     expect(commercial).toContain('formatMoney(data.total)');
+    expect(commercial).toContain("const titleFace = quote ? 'Rajdhani'");
+    expect(commercial).toContain("const bodyFace = quote ? 'Source Sans 3'");
+    expect(commercial).not.toContain('Newsreader');
     expect(commercial).not.toMatch(/grafter|relovi|littleloop/i);
 
     const preview = src('src/components/invoicing/CommercialPdfPreviewModal.tsx');

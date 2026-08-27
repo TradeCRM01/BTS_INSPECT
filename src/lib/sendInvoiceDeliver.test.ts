@@ -106,11 +106,11 @@ describe('invoice send deliver path', () => {
     expect(page).toContain('markPaid: true');
     expect(page).not.toContain('Send receipt');
     expect(page).not.toContain('Connect Xero');
-    expect(invoiceCss).toContain('--invoice-page: #F4F6F8');
-    expect(invoiceCss).toContain('--invoice-sheet: #FFFFFF');
+    expect(invoiceCss).toContain('--invoice-page: #F5F0E6');
+    expect(invoiceCss).toContain('--invoice-sheet: #FFFDF8');
     expect(invoiceCss).toContain('--invoice-ink: #0A2540');
     expect(invoiceCss).toContain('--invoice-muted: #5B6B7C');
-    expect(invoiceCss).toContain('--invoice-line: #D5DCE3');
+    expect(invoiceCss).toContain('--invoice-line: #E2D9CC');
     expect(invoiceCss).toContain('--invoice-action: #2E75B6');
     expect(invoiceCss).toContain('min-height: 44px');
     expect(invoiceCss).toContain('white-space: nowrap');

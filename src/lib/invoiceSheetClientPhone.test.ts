@@ -157,7 +157,7 @@ describe('invoice-sheet client phone — wiring', () => {
     expect(page).toContain('jobClientPhoneRow');
     expect(page).toContain('jobClientPhoneSaveToast');
     expect(editor).toContain('hub-invoice-kicker');
-    expect(editor).toContain('Bill to');
+    expect(editor).toContain('hub-invoice-kicker">To');
     expect(editor).toContain('saveClientPhone.mutate()');
     expect(editor).toContain('job-client-phone');
     expect(editor).toContain('job-client-phone-save');
@@ -224,7 +224,7 @@ describe('invoice-sheet client phone — wiring', () => {
     expect(clientCss).not.toContain('ops-next-control');
     expect(clientCss).not.toContain('btn-primary');
     expect(clientCss).toContain('font-size: 12px');
-    expect(clientCss).toContain('#D5DCE3');
+    expect(clientCss).toContain('#E2D9CC');
     expect(clientCss).toContain('gap: 8px');
     expect(clientCss).toContain('white-space: nowrap');
     expect(clientCss).toContain('text-overflow: clip');

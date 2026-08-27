@@ -109,7 +109,7 @@ describe('invoice-sheet client email — wiring', () => {
     expect(page).toContain('jobClientEmailRow');
     expect(page).toContain('jobClientEmailSaveToast');
     expect(editor).toContain('hub-invoice-kicker');
-    expect(editor).toContain('Bill to');
+    expect(editor).toContain('hub-invoice-kicker">To');
     expect(editor).toContain('saveClientEmail.mutate()');
     expect(editor).toContain('job-client-email');
     expect(editor).toContain('job-client-email-save');
@@ -171,7 +171,7 @@ describe('invoice-sheet client email — wiring', () => {
     expect(clientCss).not.toContain('ops-next-control');
     expect(clientCss).not.toContain('btn-primary');
     expect(clientCss).toContain('font-size: 12px');
-    expect(clientCss).toContain('#D5DCE3');
+    expect(clientCss).toContain('#E2D9CC');
     expect(clientCss).toContain('gap: 8px');
     expect(clientCss).toContain('white-space: nowrap');
     expect(clientCss).toContain('text-overflow: clip');
