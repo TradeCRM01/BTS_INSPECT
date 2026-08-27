@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { PUBLIC_APP_ORIGIN } from '../lib/appOrigin';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
@@ -376,7 +377,7 @@ export function TeamSettingsPage() {
                     : <>Invitation created for <span className="font-medium">{invitedName}</span>, but email wasn’t sent — share the link below.</>}
                 </p>
                 <p className="text-xs text-emerald-800/80 mt-1">
-                  Or share this app URL: <span className="font-medium">https://bts-inspect.pages.dev</span>
+                  Or share this app URL: <span className="font-medium">{PUBLIC_APP_ORIGIN.replace(/^https:\/\//, '')}</span>
                 </p>
               </div>
             </div>

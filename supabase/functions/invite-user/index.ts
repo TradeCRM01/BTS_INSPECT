@@ -249,7 +249,7 @@ Deno.serve(async (req: Request) => {
     const matchedAuthUser = await findAuthUserByEmail(adminClient, email);
     const isExisting = !!matchedAuthUser;
 
-    const appUrl = (clientAppUrl || Deno.env.get("APP_URL") || "https://bts-inspect.pages.dev").replace(/\/$/, "");
+    const appUrl = (clientAppUrl || Deno.env.get("APP_URL") || "https://grafter.com.au").replace(/\/$/, "");
     const resetUrl = `${appUrl}/reset-password`;
 
     const memberName = (name ?? "").trim();
