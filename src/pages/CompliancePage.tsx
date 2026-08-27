@@ -1,19 +1,34 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import {
+  COMPLIANCE_LIST_DEFAULT_FILTER,
+  COMPLIANCE_LIST_FILTERS,
+  complianceListEmptyMessage,
+  complianceListEmptyTitle,
+  complianceListOpenHref,
+  computeNextDueDate,
+  decorateComplianceList,
+  deriveComplianceStatus,
+  filterComplianceListFloor,
+  parseComplianceListOpenId,
+  sortComplianceListFloor,
+  type ComplianceListFilter,
+} from '../lib/complianceList';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, Modal, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
-import { format, parseISO, isPast, differenceInDays } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import {
-  Plus, FileText, X, Trash2, Pencil, MoreVertical,
-  ShieldCheck, Bell, Pause, Play, CheckCircle2, Link2, History, Mail,
+  Plus, X, Trash2, Pencil,
+  ShieldCheck, Bell, Pause, Play, CheckCircle2, History, Mail,
 } from 'lucide-react';
 import type {
-  ComplianceItem, ComplianceItemWithClient, ComplianceStatus,
+  ComplianceItem, ComplianceItemWithClient,
   RecurrenceUnit, ComplianceLog,
 } from '../types/compliance';
 import {
@@ -22,64 +37,19 @@ import {
 } from '../types/compliance';
 import type { Client } from '../types/crm';
 
-const STATUS_TABS: { key: 'all' | ComplianceStatus; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'overdue', label: 'Overdue' },
-  { key: 'due_soon', label: 'Due Soon' },
-  { key: 'upcoming', label: 'Upcoming' },
-  { key: 'completed', label: 'Completed' },
-  { key: 'paused', label: 'Paused' },
-];
-
-function computeNextDueDate(
-  lastCompleted: string | null,
-  firstDue: string,
-  interval: number,
-  unit: RecurrenceUnit,
-): string {
-  if (!lastCompleted) return firstDue;
-  const base = parseISO(lastCompleted);
-  let next: Date;
-  switch (unit) {
-    case 'days':   next = new Date(base.getTime() + interval * 86400000); break;
-    case 'weeks':  next = new Date(base.getTime() + interval * 7 * 86400000); break;
-    case 'months': next = new Date(base.getFullYear(), base.getMonth() + interval, base.getDate()); break;
-    case 'years':  next = new Date(base.getFullYear() + interval, base.getMonth(), base.getDate()); break;
-    default: next = parseISO(firstDue);
-  }
-  return format(next, 'yyyy-MM-dd');
-}
-
-function deriveStatus(nextDueDate: string, lastCompleted: string | null, isPaused: boolean): ComplianceStatus {
-  if (isPaused) return 'paused';
-  if (lastCompleted) {
-    const today = new Date();
-    const due = parseISO(nextDueDate);
-    const diff = differenceInDays(due, today);
-    if (diff < 0) return 'overdue';
-    if (diff <= 30) return 'due_soon';
-    return 'upcoming';
-  }
-  const today = new Date();
-  const due = parseISO(nextDueDate);
-  if (isPast(due) && format(due, 'yyyy-MM-dd') !== format(today, 'yyyy-MM-dd')) return 'overdue';
-  const diff = differenceInDays(due, today);
-  if (diff < 0) return 'overdue';
-  if (diff <= 30) return 'due_soon';
-  return 'upcoming';
-}
-
 export function CompliancePage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | ComplianceStatus>('all');
+  const [statusFilter, setStatusFilter] = useState<ComplianceListFilter>(COMPLIANCE_LIST_DEFAULT_FILTER);
   const [editingItem, setEditingItem] = useState<ComplianceItem | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ComplianceItemWithClient | null>(null);
   const [historyItem, setHistoryItem] = useState<ComplianceItemWithClient | null>(null);
   const [viewMode, setViewMode] = useViewMode('compliance', 'list');
+  const openId = parseComplianceListOpenId(searchParams.get('id'));
 
   const { data: items, isLoading, error } = useQuery<ComplianceItemWithClient[]>({
     queryKey: ['compliance-items'],
@@ -164,7 +134,7 @@ export function CompliancePage() {
 
   const togglePauseMutation = useMutation({
     mutationFn: async (item: ComplianceItemWithClient) => {
-      const newStatus = item.status === 'paused' ? deriveStatus(item.next_due_date, item.last_completed_date, false) : 'paused';
+      const newStatus = item.status === 'paused' ? deriveComplianceStatus(item.next_due_date, item.last_completed_date, false) : 'paused';
       const { error } = await supabase
         .from('compliance_items')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -211,27 +181,59 @@ export function CompliancePage() {
     },
   });
 
-  const filtered = useMemo(() => {
-    const all = items ?? [];
-    return all.filter(c => {
-      if (statusFilter !== 'all' && c.status !== statusFilter) return false;
-      const q = search.toLowerCase();
-      if (!q) return true;
-      return [c.title, c.standard_or_regulation, c.client_name]
-        .filter(Boolean)
-        .some(v => v!.toLowerCase().includes(q));
-    });
-  }, [items, search, statusFilter]);
+  const decorated = useMemo(
+    () => decorateComplianceList(items ?? []),
+    [items],
+  );
+
+  const floorItems = useMemo(
+    () => sortComplianceListFloor(
+      filterComplianceListFloor(decorated, { filter: statusFilter, search }),
+    ),
+    [decorated, search, statusFilter],
+  );
 
   const totals = useMemo(() => {
-    const all = items ?? [];
     return {
-      total: all.length,
-      overdue: all.filter(c => c.status === 'overdue').length,
-      dueSoon: all.filter(c => c.status === 'due_soon').length,
-      upcoming: all.filter(c => c.status === 'upcoming').length,
+      total: decorated.length,
+      overdue: decorated.filter(c => c.liveStatus === 'overdue').length,
+      dueSoon: decorated.filter(c => c.liveStatus === 'due_soon').length,
+      upcoming: decorated.filter(c => c.liveStatus === 'upcoming').length,
     };
-  }, [items]);
+  }, [decorated]);
+
+  const noneAtAll = !isLoading && (items?.length ?? 0) === 0;
+  const noneMatch = !isLoading && decorated.length > 0 && floorItems.length === 0;
+
+  function openItem(item: ComplianceItemWithClient) {
+    const href = complianceListOpenHref(item.id);
+    const id = parseComplianceListOpenId(new URLSearchParams(href.split('?')[1] ?? '').get('id')) ?? item.id;
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('id', id);
+      return next;
+    }, { replace: true });
+    setEditingItem(item);
+    setShowForm(true);
+  }
+
+  function closeForm() {
+    setShowForm(false);
+    setEditingItem(null);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.delete('id');
+      return next;
+    }, { replace: true });
+  }
+
+  useEffect(() => {
+    if (!openId || !items) return;
+    const found = items.find(item => item.id === openId);
+    if (!found) return;
+    setEditingItem(found);
+    setShowForm(true);
+  }, [openId, items]);
 
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load compliance items" /></AppShell>;
 
@@ -269,10 +271,8 @@ export function CompliancePage() {
         </div>
 
         <div className="flex items-center gap-1 mb-4 border-b border-[#E5E7EB] overflow-x-auto">
-          {STATUS_TABS.map(tab => {
-            const count = tab.key === 'all'
-              ? (items?.length ?? 0)
-              : (items?.filter(c => c.status === tab.key).length ?? 0);
+          {COMPLIANCE_LIST_FILTERS.map(tab => {
+            const count = filterComplianceListFloor(decorated, { filter: tab.key, search: '' }).length;
             const active = statusFilter === tab.key;
             return (
               <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
@@ -285,19 +285,19 @@ export function CompliancePage() {
           })}
         </div>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <SkeletonRow />
+        ) : noneAtAll || noneMatch ? (
           <EmptyState
             icon={ShieldCheck}
-            title="No compliance items yet"
-            message="Track recurring compliance requirements like safety inspections, warranty renewals, and scheduled maintenance. Get reminders before they're due and email clients to book."
-            action={
+            title={complianceListEmptyTitle({ filter: statusFilter, noneAtAll })}
+            message={complianceListEmptyMessage({ filter: statusFilter, noneAtAll })}
+            action={noneAtAll ? (
               <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
                 <Plus size={16} /> Create your first item
               </button>
-            }
+            ) : undefined}
           />
-        ) : isLoading ? (
-          <SkeletonRow />
         ) : viewMode === 'list' ? (
           <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
@@ -313,16 +313,19 @@ export function CompliancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F3F4F6]">
-                {filtered.map(item => (
+                {floorItems.map(floor => (
                   <ComplianceRow
-                    key={item.id}
-                    item={item}
-                    onEdit={() => { setEditingItem(item); setShowForm(true); }}
-                    onDelete={() => setDeleteTarget(item)}
-                    onComplete={() => markCompleteMutation.mutate(item)}
-                    onTogglePause={() => togglePauseMutation.mutate(item)}
-                    onSendReminder={() => sendReminderMutation.mutate(item)}
-                    onShowHistory={() => setHistoryItem(item)}
+                    key={floor.row.id}
+                    item={floor.row}
+                    href={floor.href}
+                    liveStatus={floor.liveStatus}
+                    onOpen={() => openItem(floor.row)}
+                    onEdit={() => openItem(floor.row)}
+                    onDelete={() => setDeleteTarget(floor.row)}
+                    onComplete={() => markCompleteMutation.mutate(floor.row)}
+                    onTogglePause={() => togglePauseMutation.mutate(floor.row)}
+                    onSendReminder={() => sendReminderMutation.mutate(floor.row)}
+                    onShowHistory={() => setHistoryItem(floor.row)}
                     sendingReminder={sendReminderMutation.isPending}
                     completing={markCompleteMutation.isPending}
                   />
@@ -332,17 +335,23 @@ export function CompliancePage() {
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map(item => {
-              const overdue = item.status === 'overdue';
+            {floorItems.map(floor => {
+              const item = floor.row;
+              const overdue = floor.liveStatus === 'overdue';
               return (
-                <div key={item.id} className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => { setEditingItem(item); setShowForm(true); }}>
+                <div
+                  key={item.id}
+                  data-compliance-open={item.id}
+                  data-compliance-href={floor.href}
+                  className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => openItem(item)}
+                >
                   <div className="flex items-start justify-between mb-2">
                     <div className="min-w-0">
                       <p className="font-medium text-[#1A1A1A] truncate">{item.title}</p>
                       {item.standard_or_regulation && <p className="text-xs text-[#6B7280] truncate">{item.standard_or_regulation}</p>}
                     </div>
-                    <span className={`badge ${COMPLIANCE_STATUS_STYLES[item.status]} shrink-0 ml-2`}>{COMPLIANCE_STATUS_LABELS[item.status]}</span>
+                    <span className={`badge ${COMPLIANCE_STATUS_STYLES[floor.liveStatus]} shrink-0 ml-2`}>{COMPLIANCE_STATUS_LABELS[floor.liveStatus]}</span>
                   </div>
                   <p className="text-xs text-[#4A5568] mb-2">{item.client_name ?? 'No client'}</p>
                   <div className="flex items-center justify-between text-xs">
@@ -361,9 +370,9 @@ export function CompliancePage() {
       {showForm && (
         <ComplianceForm
           item={editingItem}
-          onClose={() => setShowForm(false)}
+          onClose={closeForm}
           onSaved={() => {
-            setShowForm(false);
+            closeForm();
             queryClient.invalidateQueries({ queryKey: ['compliance-items'] });
             showToast(editingItem ? 'Compliance item updated' : 'Compliance item created');
           }}
@@ -390,10 +399,13 @@ export function CompliancePage() {
 }
 
 function ComplianceRow({
-  item, onEdit, onDelete, onComplete, onTogglePause, onSendReminder, onShowHistory,
+  item, href, liveStatus, onOpen, onEdit, onDelete, onComplete, onTogglePause, onSendReminder, onShowHistory,
   sendingReminder, completing,
 }: {
   item: ComplianceItemWithClient;
+  href: string;
+  liveStatus: typeof item.status;
+  onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onComplete: () => void;
@@ -403,8 +415,8 @@ function ComplianceRow({
   sendingReminder: boolean;
   completing: boolean;
 }) {
-  const overdue = item.status === 'overdue';
-  const isPaused = item.status === 'paused';
+  const overdue = liveStatus === 'overdue';
+  const isPaused = liveStatus === 'paused';
   const hasEmail = !!item.client_email;
 
   const menuItems: MenuEntry[] = [
@@ -429,7 +441,14 @@ function ComplianceRow({
   ];
 
   return (
-    <tr className="hover:bg-[#F9FAFB] transition-colors">
+    <tr
+      data-compliance-open={item.id}
+      data-compliance-href={href}
+      className="hover:bg-[#F9FAFB] transition-colors cursor-pointer"
+      onClick={onOpen}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      tabIndex={0}
+    >
       <td className="px-4 py-3">
         <div>
           <p className="font-medium text-[#1A1A1A]">{item.title}</p>
@@ -440,8 +459,8 @@ function ComplianceRow({
       </td>
       <td className="px-4 py-3 text-[#4A5568]">{item.client_name ?? '—'}</td>
       <td className="px-4 py-3">
-        <span className={`badge ${COMPLIANCE_STATUS_STYLES[item.status]}`}>
-          {COMPLIANCE_STATUS_LABELS[item.status]}
+        <span className={`badge ${COMPLIANCE_STATUS_STYLES[liveStatus]}`}>
+          {COMPLIANCE_STATUS_LABELS[liveStatus]}
         </span>
       </td>
       <td className="px-4 py-3 text-[#4A5568]">
@@ -462,7 +481,7 @@ function ComplianceRow({
           ? format(parseISO(item.last_completed_date), 'dd MMM yyyy')
           : '—'}
       </td>
-      <td className="px-4 py-3 relative">
+      <td className="px-4 py-3 relative" onClick={e => e.stopPropagation()}>
         <ContextMenu items={menuItems} />
       </td>
     </tr>
@@ -521,7 +540,7 @@ function ComplianceForm({
       const unit = form.recurrence_unit as RecurrenceUnit;
       const lastCompleted = form.last_completed_date || null;
       const nextDue = computeNextDueDate(lastCompleted, form.first_due_date, interval, unit);
-      const status = deriveStatus(nextDue, lastCompleted, false);
+      const status = deriveComplianceStatus(nextDue, lastCompleted, false);
 
       const payload = {
         company_id: profile!.company_id,
