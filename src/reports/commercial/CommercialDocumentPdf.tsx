@@ -63,7 +63,7 @@ export interface CommercialPdfData {
 }
 
 function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
-  const quote = kind === 'quote';
+  const quote = kind === 'quote' || kind === 'invoice';
   const ink = quote ? '#0A2540' : colors.text;
   const muted = quote ? '#5B6B7C' : colors.textMuted;
   const secondary = quote ? '#5B6B7C' : colors.textSecondary;
@@ -98,6 +98,7 @@ function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
     companyMeta: { fontSize: 7.5, color: muted, marginTop: 2, lineHeight: 1.35 },
     docMeta: { alignItems: 'flex-end' },
     docTitle: {
+      fontFamily: kind === 'invoice' ? 'Newsreader' : pdfFonts.body,
       fontSize: quote ? 20 : 16,
       fontWeight: 700,
       color: colors.navy,
@@ -186,11 +187,13 @@ function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
           borderTopColor: colors.navy,
         },
     grandLabel: {
+      fontFamily: kind === 'invoice' ? 'Newsreader' : pdfFonts.body,
       fontSize: quote ? 12 : 10,
       fontWeight: 700,
       color: quote ? colors.white : colors.navy,
     },
     grandValue: {
+      fontFamily: kind === 'invoice' ? 'Newsreader' : pdfFonts.body,
       fontSize: quote ? 12 : 10,
       fontWeight: 700,
       color: quote ? colors.white : colors.navy,

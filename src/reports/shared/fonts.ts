@@ -25,4 +25,12 @@ export function registerFonts() {
       { src: 'https://cdn.jsdelivr.net/npm/roboto-fontface@0.10.0/fonts/roboto/Roboto-RegularItalic.woff', fontWeight: 400, fontStyle: 'italic' },
     ],
   });
+
+  Font.register({
+    family: 'Newsreader',
+    fonts: [
+      { src: 'https://cdn.jsdelivr.net/fontsource/fonts/newsreader@5.2.8/latin-600-normal.ttf', fontWeight: 600 },
+      { src: 'https://cdn.jsdelivr.net/fontsource/fonts/newsreader@5.2.8/latin-700-normal.ttf', fontWeight: 700 },
+    ],
+  });
 }

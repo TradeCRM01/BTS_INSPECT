@@ -245,7 +245,7 @@ describe('invoice-sheet attach client — wiring', () => {
     expect(editor).toContain("kind === 'miss'");
     expect(editor).toContain('INVOICE_CLIENT_ATTACH_NO_CLIENTS');
     expect(editor).toContain('hub-invoice-kicker');
-    expect(editor).toContain('Bill to');
+    expect(editor).toContain('hub-invoice-kicker">To');
     expect(editor).toContain('invoiceClientAttachRow({');
     expect(editor).toContain('invoiceClientId: form.client_id');
     expect(editor).not.toContain('ClientAttachDialog');
@@ -315,7 +315,7 @@ describe('invoice-sheet attach client — wiring', () => {
     expect(clientCss).not.toContain('ops-next-control');
     expect(clientCss).not.toContain('btn-primary');
     expect(clientCss).toContain('font-size: 12px');
-    expect(clientCss).toContain('#D5DCE3');
+    expect(clientCss).toContain('#E2D9CC');
     expect(clientCss).toContain('gap: 8px');
     expect(clientCss).toContain('#5B6B7C');
     expect(clientCss).toContain('#0A2540');

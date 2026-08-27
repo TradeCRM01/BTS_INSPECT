@@ -242,6 +242,7 @@ export function InvoicesPage() {
       <div className="ops-page hub-invoices">
         <div className="ops-page-head">
           <div>
+            <p className="hub-invoice-kicker">Invoices</p>
             <h1 className="ops-page-title">Invoices</h1>
           </div>
           <button
@@ -1019,7 +1020,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
               {company?.licence_number ? <p className="hub-invoice-muted">Lic {company.licence_number}</p> : null}
             </div>
             <div className="min-w-0">
-              <p className="hub-invoice-kicker">Bill to</p>
+              <p className="hub-invoice-kicker">To</p>
               {attachRow.kind === 'pick' ? (
                 <form
                   className="job-client-attach"
@@ -1165,7 +1166,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           {editorMoney ? (
             <div className="hub-invoice-totalbar">
               <span>Total (inc GST)</span>
-              <span className="hub-invoice-num">{editorMoney}</span>
+              <span className="hub-invoice-display-total">{editorMoney}</span>
             </div>
           ) : null}
           {companyPaymentMethodsForDocument(
