@@ -9760,14 +9760,15 @@
     gap: 16px;
   }
 
-  .hub-timesheets-kicker {
-    font-family: Rajdhani, sans-serif;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+  .hub-timesheets-kicker,
+  .hub-timesheets-label {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
     color: var(--ts-look-muted);
-    margin: 0 0 8px;
+    margin: 0;
   }
 
   .hub-timesheets-lede {
@@ -9850,7 +9851,8 @@
     gap: 8px;
   }
 
-  .hub-timesheets-week-btn {
+  .hub-timesheets-week-btn,
+  .hub-timesheets-week-now {
     min-height: 44px;
     padding: 0 12px;
     border: 1px solid var(--ts-look-line);
@@ -9867,6 +9869,10 @@
     cursor: pointer;
   }
 
+  .hub-timesheets-week-phone {
+    display: none;
+  }
+
   .hub-timesheets-select {
     min-height: 44px;
     height: auto;
@@ -9881,7 +9887,8 @@
   }
 
   .hub-timesheets-select:focus,
-  .hub-timesheets-week-btn:focus {
+  .hub-timesheets-week-btn:focus,
+  .hub-timesheets-week-now:focus {
     outline: none;
     border-color: #2E75B6;
   }
@@ -10009,12 +10016,169 @@
     margin: 0 auto 24px;
   }
 
+  .hub-timesheets-open-chrome {
+    display: none;
+  }
+
   .hub-timesheets-sheet {
     background: var(--ts-look-sheet);
     border: 1px solid var(--ts-look-line);
     border-radius: 16px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+  }
+
+  .hub-timesheets-sheet-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 44px;
+    padding: 8px 24px;
+    background: var(--ts-look-ink);
+    color: #fff;
+  }
+
+  .hub-timesheets-sheet-bar .hub-timesheets-hours {
+    color: #fff;
+    font-size: 16px;
+  }
+
+  .hub-timesheets-sheet-bar .hub-timesheets-pill {
+    background: #fff;
+    color: var(--ts-look-ink);
+  }
+
+  .hub-timesheets-sheet-body {
     padding: 32px 32px 24px;
+    background: var(--ts-look-sheet);
+    box-shadow: inset 0 1px 0 #fff;
+  }
+
+  .hub-timesheets-hero {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-size: 56px !important;
+    letter-spacing: 0.02em;
+    line-height: 0.96;
+    color: var(--ts-look-ink);
+    margin: 0;
+  }
+
+  .hub-timesheets-jobline {
+    margin: 8px 0 0;
+    color: #2E75B6;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .hub-timesheets-sheet-body .hub-timesheets-weeknav.is-phone {
+    display: none;
+  }
+
+  .hub-timesheets-sheet-body .hub-timesheets-tools {
+    margin-top: 24px;
+    gap: 16px;
+  }
+
+  .hub-timesheets-add-mark {
+    margin-right: 4px;
+  }
+
+  .hub-timesheets-sheet-body .hub-timesheets-sub {
+    color: #2E75B6;
+    min-height: 44px;
+    padding: 0;
+  }
+
+  .hub-timesheets-sheet-body .hub-timesheets-next {
+    border-radius: 12px;
+  }
+
+  .hub-timesheets.is-day-open .hub-timesheets-open-chrome {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    max-width: 1100px;
+    margin: 0 auto 16px;
+    padding-top: 8px;
+  }
+
+  .hub-timesheets.is-day-open .ops-page-head,
+  .hub-timesheets.is-day-open .hub-timesheets-weekbar,
+  .hub-timesheets.is-day-open .hub-timesheets-chrome,
+  .hub-timesheets.is-day-open .hub-timesheets-days,
+  .hub-timesheets.is-day-open .hub-timesheets-empty,
+  .hub-timesheets.is-day-open .hub-timesheets-tiles {
+    display: none;
+  }
+
+  .hub-timesheets.is-day-open .hub-timesheets-open-chrome .hub-timesheets-weeknav {
+    border: 1px solid var(--ts-look-line);
+    border-radius: 12px;
+    background: var(--ts-look-sheet);
+    gap: 0;
+    overflow: hidden;
+  }
+
+  .hub-timesheets.is-day-open .hub-timesheets-open-chrome .hub-timesheets-week-btn,
+  .hub-timesheets.is-day-open .hub-timesheets-open-chrome .hub-timesheets-week-now {
+    border: none;
+    border-radius: 0;
+    min-height: 32px;
+    background: transparent;
+    color: var(--ts-look-muted);
+  }
+
+  .hub-timesheets.is-day-open .hub-timesheets-open-chrome .hub-timesheets-week-now {
+    border-left: 1px solid var(--ts-look-line);
+    border-right: 1px solid var(--ts-look-line);
+  }
+
+  .hub-timesheets-ledger {
+    margin-top: 32px;
+  }
+
+  .hub-timesheets-ledger-head,
+  .hub-timesheets-ledger-row {
+    display: grid;
+    grid-template-columns: 72px 64px 64px minmax(0, 1fr) minmax(0, 1.2fr) 88px 80px;
+    gap: 16px;
+    align-items: center;
+    padding: 12px 0;
+  }
+
+  .hub-timesheets-ledger-head {
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ts-look-muted);
+    border-bottom: 1px solid var(--ts-look-line);
+    padding-bottom: 8px;
+  }
+
+  .hub-timesheets-ledger-row {
+    border-bottom: 1px solid var(--ts-look-line);
+    background: none;
+    border-radius: 0;
     box-shadow: none;
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .hub-timesheets-ledger-range,
+  .hub-timesheets-ledger-meta {
+    display: none;
+  }
+
+  .hub-timesheets-ledger-row .hub-timesheets-hours {
+    justify-self: end;
+    font-size: 16px;
+    white-space: nowrap;
   }
 
   .hub-timesheets-tiles {
@@ -10070,10 +10234,6 @@
   .hub-timesheets-sheet .hub-timesheets-tile-date {
     font-size: 36px;
     line-height: 1;
-  }
-
-  .hub-timesheets-sheet .hub-timesheets-hours {
-    font-size: 28px;
   }
 
   .hub-timesheets-tile-job {
@@ -10202,6 +10362,19 @@
     padding: 16px 0 0;
   }
 
+  .hub-timesheets-sheet .hub-timesheets-submit {
+    justify-content: flex-start;
+  }
+
+  .hub-timesheets-sheet .hub-timesheets-submit .hub-timesheets-week-btn {
+    border: none;
+    background: none;
+    color: var(--ts-look-muted);
+    font-size: 12px;
+    min-height: 32px;
+    padding: 0;
+  }
+
   .hub-timesheets-submit-acts {
     display: flex;
     flex-wrap: wrap;
@@ -10248,14 +10421,103 @@
     }
 
     .hub-timesheets-sheet {
+      padding: 0;
+    }
+
+    .hub-timesheets-sheet-bar {
+      padding: 8px 16px;
+    }
+
+    .hub-timesheets-sheet-bar .hub-timesheets-pill {
+      background: #2E75B6;
+      color: #fff;
+    }
+
+    .hub-timesheets-sheet-body {
       padding: 24px 16px 16px;
     }
 
-    .hub-timesheets-sheet .hub-timesheets-tile-date {
-      font-size: 28px;
+    .hub-timesheets-hero {
+      font-size: 40px !important;
     }
 
-    .hub-timesheets-sheet .hub-timesheets-hours {
-      font-size: 24px;
+    .hub-timesheets.is-day-open .hub-timesheets-open-chrome .hub-timesheets-weeknav {
+      display: none;
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-weeknav.is-phone {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 16px;
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-weeknav.is-phone .hub-timesheets-week-now {
+      display: none;
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-weeknav.is-phone .hub-timesheets-week-btn {
+      border: none;
+      background: none;
+      color: var(--ts-look-muted);
+      padding: 0;
+      min-height: 44px;
+      gap: 4px;
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-weeknav.is-phone .hub-timesheets-week-phone {
+      display: inline;
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-tools {
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      margin-top: 24px;
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-next {
+      width: min(100%, 240px);
+    }
+
+    .hub-timesheets-sheet-body .hub-timesheets-sub .hub-timesheets-add-mark {
+      display: none;
+    }
+
+    .hub-timesheets-ledger-head,
+    .hub-timesheets-ledger-date,
+    .hub-timesheets-ledger-start,
+    .hub-timesheets-ledger-finish,
+    .hub-timesheets-ledger-activity,
+    .hub-timesheets-ledger-job,
+    .hub-timesheets-ledger-type,
+    .hub-timesheets-ledger-row .hub-timesheets-hours {
+      display: none;
+    }
+
+    .hub-timesheets-ledger-row {
+      grid-template-columns: 1fr;
+      gap: 4px;
+      padding: 16px 0;
+    }
+
+    .hub-timesheets-ledger-range,
+    .hub-timesheets-ledger-meta {
+      display: block;
+    }
+
+    .hub-timesheets-ledger-range {
+      font-family: Rajdhani, sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--ts-look-ink);
+    }
+
+    .hub-timesheets-ledger-meta {
+      color: var(--ts-look-muted);
+      font-size: 13px;
+    }
+
+    .hub-timesheets-sheet .hub-timesheets-submit {
+      justify-content: center;
     }
   }
