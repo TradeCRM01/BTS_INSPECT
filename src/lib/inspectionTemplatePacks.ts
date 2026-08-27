@@ -28,10 +28,18 @@ export const INSPECTION_TEMPLATE_PACKS: InspectionTemplatePack[] = [
         isRepeating: false,
         questions: [
           q({ type: 'yes_no', label: 'Equipment / installation suitable for environment', yesNoLabels: 'pass_fail', failOnNo: true, allowComments: true, allowPhotos: true }),
-          q({ type: 'yes_no', label: 'IP / enclosure integrity acceptable', yesNoLabels: 'pass_fail', failOnNo: true, allowComments: true }),
-          q({ type: 'yes_no', label: 'Conductors correctly identified / labelled', yesNoLabels: 'pass_fail', failOnNo: true }),
+          q({ type: 'yes_no', label: 'IP / enclosure integrity acceptable', yesNoLabels: 'pass_fail', failOnNo: true, allowComments: true, allowPhotos: true }),
+          q({ type: 'yes_no', label: 'Conductors correctly identified / labelled', yesNoLabels: 'pass_fail', failOnNo: true, allowPhotos: true }),
           q({ type: 'yes_no', label: 'Earthing / bonding connections secure', yesNoLabels: 'pass_fail', failOnNo: true, allowPhotos: true }),
-          q({ type: 'yes_no', label: 'No obvious damage, overheating or deterioration', yesNoLabels: 'pass_fail', failOnNo: true, allowComments: true }),
+          q({ type: 'yes_no', label: 'No obvious damage, overheating or deterioration', yesNoLabels: 'pass_fail', failOnNo: true, allowComments: true, allowPhotos: true }),
+        ],
+      },
+      {
+        title: 'Evidence photos',
+        description: 'Photographs for the existing report photo appendix.',
+        isRepeating: false,
+        questions: [
+          q({ type: 'photo', label: 'Evidence photos' }),
         ],
       },
       {
@@ -41,10 +49,10 @@ export const INSPECTION_TEMPLATE_PACKS: InspectionTemplatePack[] = [
         repeatLabel: 'Circuit',
         questions: [
           q({ type: 'text', label: 'Circuit reference / DB & CB', required: true }),
-          q({ type: 'number', label: 'Insulation resistance (L-E)', numberConfig: { unit: 'MΩ', min: 1, decimals: 2, failOutsideRange: true }, allowNa: true, allowComments: true }),
-          q({ type: 'number', label: 'Earth continuity', numberConfig: { unit: 'Ω', max: 0.5, decimals: 3, failOutsideRange: true }, allowNa: true }),
-          q({ type: 'yes_no', label: 'Polarity correct', yesNoLabels: 'pass_fail', failOnNo: true }),
-          q({ type: 'yes_no', label: 'Correct circuit protection fitted', yesNoLabels: 'pass_fail', failOnNo: true }),
+          q({ type: 'number', label: 'Insulation resistance (L-E)', numberConfig: { unit: 'MΩ', min: 1, decimals: 2, failOutsideRange: true }, allowNa: true, allowComments: true, allowPhotos: true }),
+          q({ type: 'number', label: 'Earth continuity', numberConfig: { unit: 'Ω', max: 0.5, decimals: 3, failOutsideRange: true }, allowNa: true, allowPhotos: true }),
+          q({ type: 'yes_no', label: 'Polarity correct', yesNoLabels: 'pass_fail', failOnNo: true, allowPhotos: true }),
+          q({ type: 'yes_no', label: 'Correct circuit protection fitted', yesNoLabels: 'pass_fail', failOnNo: true, allowPhotos: true }),
         ],
       },
       {
@@ -151,6 +159,24 @@ export const INSPECTION_TEMPLATE_PACKS: InspectionTemplatePack[] = [
         questions: [
           q({ type: 'long_text', label: 'Recommendations', allowNa: true }),
           q({ type: 'signature', label: 'Technician signature', required: true }),
+        ],
+      },
+    ],
+  },
+  {
+    id: 'site_photos',
+    name: 'Site photos',
+    description: 'Photo-only inspection using the existing generic report and photo appendix.',
+    suggestedRenderer: 'generic_inspection',
+    sections: [
+      {
+        title: 'Site photos',
+        description: 'Photographs for the existing report photo appendix.',
+        isRepeating: false,
+        questions: [
+          q({ type: 'photo', label: 'Arrival / site condition' }),
+          q({ type: 'photo', label: 'Work in progress' }),
+          q({ type: 'photo', label: 'Completed work' }),
         ],
       },
     ],
