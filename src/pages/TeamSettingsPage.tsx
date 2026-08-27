@@ -1,14 +1,255 @@
-import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import {
+  filterTeamSettingsList,
+  parseTeamSettingsMemberId,
+  teamSettingsEmptyTitle,
+  teamSettingsIsPending,
+  teamSettingsLicenceLabel,
+  teamSettingsMemberHref,
+  teamSettingsOpenedMember,
+} from '../lib/teamSettingsList';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { OverlayPortal } from '../components/ui/OverlayPortal';
+import { SearchBar } from '../components/ui/SearchBar';
+import { getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import { DEV_AUDIT_PROFILE } from '../lib/devFieldAuditAuth';
 import { Users, UserPlus, Mail, Shield, Eye, CreditCard as Edit2, EyeOff, Trash2, Crown, X, Check, AlertCircle, Send, Clock, Copy, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
+
+/** Page-local open-person sheet. Same tokens as signed timesheets / compliance. */
+const TEAM_LOOK_CSS = `
+.hub-team {
+  --team-look-page: #F5F0E6;
+  --team-look-sheet: #FFFDF8;
+  --team-look-ink: #0A2540;
+  --team-look-muted: #5B6B7C;
+  --team-look-line: #E2D9CC;
+  --team-look-action: #2E75B6;
+  --team-look-r-ctl: 12px;
+  --team-look-r-sheet: 16px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+.hub-team.ops-page {
+  max-width: none;
+  width: 100%;
+  min-height: calc(100dvh - 3.5rem);
+  margin: 0;
+  background: var(--team-look-page);
+  color: var(--team-look-ink);
+  padding: 24px 24px 48px;
+}
+.hub-team-open-chrome {
+  display: none;
+}
+.hub-team.is-person-open .hub-team-open-chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1100px;
+  margin: 0 auto 16px;
+  padding-top: 8px;
+}
+.hub-team.is-person-open .hub-team-list-chrome {
+  display: none;
+}
+.hub-team-label {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--team-look-muted);
+  margin: 0;
+  text-decoration: none;
+}
+.hub-team-sheet {
+  max-width: 1100px;
+  margin: 0 auto 24px;
+  background: var(--team-look-sheet);
+  border: 1px solid var(--team-look-line);
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+}
+.hub-team-sheet-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  padding: 8px 24px;
+  background: var(--team-look-ink);
+  color: #fff;
+}
+.hub-team-sheet-bar-meta {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: #fff;
+}
+.hub-team-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: Rajdhani, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+  width: fit-content;
+  white-space: nowrap;
+  background: #fff;
+  color: var(--team-look-ink);
+}
+.hub-team-sheet-body {
+  padding: 32px 32px 24px;
+  background: var(--team-look-sheet);
+  box-shadow: inset 0 1px 0 #fff;
+}
+.hub-team-hero {
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 56px;
+  letter-spacing: 0.02em;
+  line-height: 0.96;
+  color: var(--team-look-ink);
+  margin: 0;
+}
+.hub-team-jobline {
+  margin: 8px 0 0;
+  color: #2E75B6;
+  font-size: 16px;
+  font-weight: 500;
+}
+.hub-team-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+.hub-team-next {
+  background: #2E75B6;
+  color: #fff;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: none;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.hub-team-next:hover {
+  background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+  color: #fff;
+}
+.hub-team-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 12px;
+  color: #2E75B6;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: none;
+  cursor: pointer;
+}
+.hub-team-sub:hover { color: var(--team-look-ink); }
+.hub-team-sub.is-quiet { color: var(--team-look-muted); }
+.hub-team-select {
+  min-height: 44px;
+  height: auto;
+  padding: 8px 12px;
+  border: 1px solid var(--team-look-line);
+  border-radius: 12px;
+  background: var(--team-look-sheet);
+  color: var(--team-look-ink);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  box-shadow: none;
+}
+.hub-team-select:focus {
+  outline: none;
+  border-color: #2E75B6;
+}
+.hub-team-ledger { margin-top: 32px; }
+.hub-team-ledger-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--team-look-line);
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+  min-height: 44px;
+  font-size: 14px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  color: var(--team-look-ink);
+}
+.hub-team-ledger-kicker {
+  font-family: Rajdhani, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--team-look-muted);
+}
+.hub-team-hours {
+  margin: 0;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--team-look-ink);
+  white-space: nowrap;
+}
+@media (max-width: 639px) {
+  .hub-team.ops-page { padding: 16px 16px 40px; }
+  .hub-team-sheet-bar { padding: 8px 16px; }
+  .hub-team-sheet-bar .hub-team-pill {
+    background: #2E75B6;
+    color: #fff;
+  }
+  .hub-team-sheet-body { padding: 24px 16px 16px; }
+  .hub-team-hero { font-size: 40px; }
+  .hub-team-tools {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+  .hub-team-next { width: min(100%, 240px); }
+}
+`;
 
 type TemplateAccess = 'view' | 'edit' | 'none';
 
@@ -216,12 +457,15 @@ function InviteForm({ companyId, accessToken, onClose, onSuccess }: InviteFormPr
 export function TeamSettingsPage() {
   const { profile, company, session } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState('');
   const [showInvite, setShowInvite] = useState(false);
   const [invitedName, setInvitedName] = useState('');
   const [lastInviteLink, setLastInviteLink] = useState('');
   const [lastInviteEmailSent, setLastInviteEmailSent] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
   const isAdmin = profile?.role === 'admin';
+  const openedId = parseTeamSettingsMemberId(searchParams.get('id'));
 
   if (profile && !isAdmin) {
     return <Navigate to="/" replace />;
@@ -230,6 +474,36 @@ export function TeamSettingsPage() {
   const { data: members, isLoading, isError, refetch } = useQuery<Member[]>({
     queryKey: ['team-members', company?.id],
     queryFn: async () => {
+      const mock = getAuditTeamMembers();
+      if (mock) {
+        const mapped = mock.map((m): Member => ({
+          id: m.id,
+          email: m.email,
+          name: m.name,
+          licence_number: m.id === DEV_AUDIT_PROFILE.id ? DEV_AUDIT_PROFILE.licence_number : null,
+          role: m.role,
+          template_access: (m.id === DEV_AUDIT_PROFILE.id
+            ? DEV_AUDIT_PROFILE.template_access
+            : 'view') as TemplateAccess,
+          created_at: '2026-01-01T00:00:00.000Z',
+          email_confirmed_at: '2026-01-01T00:00:00.000Z',
+          last_sign_in_at: '2026-08-20T00:00:00.000Z',
+        }));
+        if (!mapped.some(m => m.id === 'audit-member-alex')) {
+          mapped.push({
+            id: 'audit-member-alex',
+            email: 'alex@northside.example.com',
+            name: 'Alex Nguyen',
+            licence_number: 'EC 123456',
+            role: 'member',
+            template_access: 'view',
+            created_at: '2026-08-01T00:00:00.000Z',
+            email_confirmed_at: '2026-08-01T00:00:00.000Z',
+            last_sign_in_at: '2026-08-20T00:00:00.000Z',
+          });
+        }
+        return mapped;
+      }
       const { data, error } = await supabase.rpc('get_company_members', {
         p_company_id: company!.id,
       });
@@ -237,6 +511,18 @@ export function TeamSettingsPage() {
       return data as Member[];
     },
     enabled: !!company,
+  });
+
+  const visibleMembers = useMemo(
+    () => filterTeamSettingsList(members ?? [], search),
+    [members, search],
+  );
+  const openedMember = teamSettingsOpenedMember(members, openedId);
+  const emptyTitle = teamSettingsEmptyTitle({
+    error: isError,
+    total: members?.length ?? 0,
+    visible: visibleMembers.length,
+    query: search,
   });
 
   const updateAccessMutation = useMutation({
@@ -342,9 +628,156 @@ export function TeamSettingsPage() {
     }
   }
 
+  const personOpen = !!openedMember;
+  const openedPending = openedMember ? teamSettingsIsPending(openedMember) : false;
+  const openedIsMe = openedMember?.id === profile?.id;
+  const openedIsAdmin = openedMember?.role === 'admin';
+  const openedLicence = openedMember ? teamSettingsLicenceLabel(openedMember.licence_number) : null;
+  const openedBarLeft = openedMember
+    ? openedPending
+      ? `Invited ${format(new Date(openedMember.created_at), 'd MMM yyyy')}`
+      : `Joined ${format(new Date(openedMember.created_at), 'd MMM yyyy')}`
+    : '';
+  const openedPill = openedMember
+    ? openedPending
+      ? 'Pending'
+      : openedIsAdmin
+        ? 'Admin'
+        : 'Member'
+    : '';
+  const openedAccessLabel = openedMember
+    ? ACCESS_OPTIONS.find(o => o.value === openedMember.template_access)?.label ?? openedMember.template_access
+    : '';
+
   return (
     <AppShell>
-      <div className="page-shell-narrow">
+      {personOpen ? <style>{TEAM_LOOK_CSS}</style> : null}
+      <div className={personOpen ? 'ops-page hub-team is-person-open' : 'page-shell-narrow'}>
+        {openedMember && (
+          <>
+            <div className="hub-team-open-chrome">
+              <Link to="/settings/team" className="hub-team-label">Team</Link>
+            </div>
+            <article className="hub-team-sheet" id="team-member-open">
+              <header className="hub-team-sheet-bar">
+                <span className="hub-team-sheet-bar-meta">{openedBarLeft}</span>
+                <span className="hub-team-pill">{openedPill}</span>
+              </header>
+              <div className="hub-team-sheet-body">
+                <h1 className="hub-team-hero">{openedMember.name}</h1>
+                <p className="hub-team-jobline">
+                  {[company?.name, openedIsAdmin ? 'Admin' : 'Member'].filter(Boolean).join(' · ')}
+                </p>
+                <div className="hub-team-tools">
+                  {isAdmin && openedPending && !openedIsMe ? (
+                    <button
+                      type="button"
+                      onClick={() => resendMutation.mutate(openedMember)}
+                      disabled={resendingId === openedMember.id}
+                      className="hub-team-next"
+                    >
+                      <Send size={16} />
+                      {resendingId === openedMember.id ? 'Sending...' : 'Resend'}
+                    </button>
+                  ) : isAdmin ? (
+                    <button type="button" onClick={() => setShowInvite(true)} className="hub-team-next">
+                      <UserPlus size={16} />
+                      Invite member
+                    </button>
+                  ) : null}
+                  {isAdmin && !openedPending && !openedIsMe && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const msg = openedIsAdmin
+                          ? `Remove admin from ${openedMember.name}? They'll become a regular member.`
+                          : `Make ${openedMember.name} an admin? They'll have full access to everything.`;
+                        if (confirm(msg)) {
+                          updateRoleMutation.mutate({
+                            memberId: openedMember.id,
+                            role: openedIsAdmin ? 'member' : 'admin',
+                          });
+                        }
+                      }}
+                      disabled={updateRoleMutation.isPending}
+                      className="hub-team-sub"
+                    >
+                      <Crown size={16} />
+                      {openedIsAdmin ? 'Admin' : 'Make admin'}
+                    </button>
+                  )}
+                  {isAdmin && openedPending && !openedIsMe && (
+                    <button type="button" onClick={() => setShowInvite(true)} className="hub-team-sub">
+                      <span>+</span> Invite member
+                    </button>
+                  )}
+                  {isAdmin && !openedIsMe && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm(`Remove ${openedMember.name} from the team?`)) {
+                          removeMutation.mutate(openedMember.id);
+                        }
+                      }}
+                      disabled={removeMutation.isPending}
+                      className="hub-team-sub is-quiet"
+                    >
+                      <Trash2 size={16} />
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <div className="hub-team-ledger">
+                  <div className="hub-team-ledger-row">
+                    <span>{openedMember.email}</span>
+                  </div>
+                  {openedLicence && (
+                    <div className="hub-team-ledger-row">
+                      <span>Licence {openedLicence}</span>
+                    </div>
+                  )}
+                  <div className="hub-team-ledger-row">
+                    <span>{openedPending ? 'Pending' : openedIsAdmin ? 'Admin' : 'Member'}</span>
+                    <span className="hub-team-hours">
+                      {format(new Date(openedMember.created_at), 'd MMM yyyy')}
+                    </span>
+                  </div>
+                  <div className="hub-team-ledger-row">
+                    <span>Templates</span>
+                    {isAdmin && !openedIsAdmin && !openedIsMe ? (
+                      <select
+                        value={openedMember.template_access}
+                        onChange={e => updateAccessMutation.mutate({
+                          memberId: openedMember.id,
+                          templateAccess: e.target.value as TemplateAccess,
+                        })}
+                        disabled={updateAccessMutation.isPending}
+                        className="hub-team-select"
+                        aria-label="Template access"
+                      >
+                        {ACCESS_OPTIONS.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="hub-team-hours">{openedAccessLabel}</span>
+                    )}
+                  </div>
+                  {openedMember.last_sign_in_at && (
+                    <div className="hub-team-ledger-row">
+                      <span>Last sign in</span>
+                      <span className="hub-team-hours">
+                        {format(new Date(openedMember.last_sign_in_at), 'd MMM yyyy')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </article>
+          </>
+        )}
+
+        <div className={personOpen ? 'hub-team-list-chrome' : undefined}>
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
@@ -419,12 +852,20 @@ export function TeamSettingsPage() {
           </div>
         )}
 
+        <div className="mb-4">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search by name, email, or licence"
+          />
+        </div>
+
         {/* Members list */}
         <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 border-b border-[#E5E7EB] flex items-center gap-2">
             <Users size={15} className="text-[#4A5568]" />
             <span className="text-sm font-medium text-[#1A1A1A]">
-              {members?.length ?? 0} member{members?.length !== 1 ? 's' : ''}
+              {visibleMembers.length} member{visibleMembers.length !== 1 ? 's' : ''}
             </span>
           </div>
 
@@ -434,15 +875,23 @@ export function TeamSettingsPage() {
             </div>
           ) : isError ? (
             <PageError onRetry={refetch} />
+          ) : emptyTitle ? (
+            <div className="px-5 py-12 text-center text-sm text-[#4A5568]">{emptyTitle}</div>
           ) : (
             <div className="divide-y divide-[#E5E7EB]">
-              {members?.map(member => {
+              {visibleMembers.map(member => {
                 const isMe = member.id === profile?.id;
                 const isMemberAdmin = member.role === 'admin';
-                const isPending = !member.email_confirmed_at && !member.last_sign_in_at;
+                const isPending = teamSettingsIsPending(member);
+                const opened = openedMember?.id === member.id;
+                const licence = teamSettingsLicenceLabel(member.licence_number);
 
                 return (
-                  <div key={member.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-5 py-4">
+                  <div
+                    key={member.id}
+                    id={opened && !personOpen ? 'team-member-open' : undefined}
+                    className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-5 py-4${opened ? ' bg-blue-50/50' : ''}`}
+                  >
                     {/* Avatar */}
                     <div className="w-9 h-9 rounded-full bg-[#0A2540]/10 flex items-center justify-center shrink-0">
                       <span className="text-sm font-semibold text-[#0A2540]">
@@ -453,7 +902,12 @@ export function TeamSettingsPage() {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-[#1A1A1A]">{member.name}</span>
+                        <Link
+                          to={teamSettingsMemberHref(member.id)}
+                          className="text-sm font-medium text-[#1A1A1A] hover:text-[#2E75B6]"
+                        >
+                          {member.name}
+                        </Link>
                         {isMe && (
                           <span className="text-xs text-[#4A5568] bg-[#F3F4F6] px-1.5 py-0.5 rounded">You</span>
                         )}
@@ -469,6 +923,9 @@ export function TeamSettingsPage() {
                         )}
                       </div>
                       <p className="text-xs text-[#4A5568] truncate mt-0.5">{member.email}</p>
+                      {licence && (
+                        <p className="text-xs text-[#9CA3AF] mt-0.5">Licence {licence}</p>
+                      )}
                       <p className="text-xs text-[#9CA3AF] mt-0.5">
                         {isPending
                           ? `Invited ${format(new Date(member.created_at), 'd MMM yyyy')}`
@@ -478,6 +935,12 @@ export function TeamSettingsPage() {
 
                     {/* Controls */}
                     <div className="flex items-center gap-2 flex-wrap min-w-0 w-full sm:w-auto sm:shrink-0">
+                      <Link
+                        to={teamSettingsMemberHref(member.id)}
+                        className="text-xs font-medium text-[#2E75B6] px-2.5 py-1.5"
+                      >
+                        Open
+                      </Link>
                       {/* Template access â€” show for non-admin members when I'm admin and not looking at myself */}
                       {isAdmin && !isMemberAdmin && !isMe && (
                         <div className="flex items-center gap-1.5 min-w-0 flex-1 sm:flex-none">
@@ -582,6 +1045,7 @@ export function TeamSettingsPage() {
               </div>
             ))}
           </div>
+        </div>
         </div>
       </div>
 
