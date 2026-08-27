@@ -96,6 +96,7 @@ export function getAuditJobs() {
     color: null,
     budget: null,
     parent_job_id: null,
+    cost_code: null,
   }, {
     id: 'audit-undated-job',
     company_id: DEV_AUDIT_COMPANY.id,
@@ -117,6 +118,29 @@ export function getAuditJobs() {
     color: null,
     budget: null,
     parent_job_id: null,
+    cost_code: null,
+  }, {
+    id: 'audit-stage-job',
+    company_id: DEV_AUDIT_COMPANY.id,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    title: 'Switchboard labour',
+    description: 'Labour section of the switchboard upgrade.',
+    status: 'scheduled' as const,
+    priority: 'medium' as const,
+    scheduled_date: '2026-08-25',
+    start_time: '09:00',
+    end_time: '11:00',
+    address: '12 Workshop Rd, Perth WA 6000',
+    assigned_team: [DEV_AUDIT_PROFILE.id],
+    inspection_id: null,
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: NOW,
+    updated_at: NOW,
+    job_number: 44,
+    color: null,
+    budget: null,
+    parent_job_id: AUDIT_DOC_JOB_ID,
+    cost_code: '01',
   }];
 }
 

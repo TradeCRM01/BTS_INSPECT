@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { jobSiteAddressFromClient, visibleClientContacts } from '../../lib/clientRecords';
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
+import { formatJobRef, nextCostCode, normalizeCostCode } from '../../lib/jobRef';
 
 interface JobFormModalProps {
   job: Job | null;
@@ -59,6 +60,7 @@ export function JobFormModal({
     assigned_team: job?.assigned_team ?? (presetEmployeeId ? [presetEmployeeId] : []),
     budget: job?.budget ?? '',
     parent_job_id: job?.parent_job_id ?? presetParentJobId ?? '',
+    cost_code: job?.cost_code ?? '',
   });
 
   useEffect(() => {
@@ -80,6 +82,15 @@ export function JobFormModal({
       .neq('id', job?.id ?? '00000000-0000-0000-0000-000000000000').order('title').limit(50)
       .then(({ data }) => { if (data) setParentJobs(data as { id: string; title: string; job_number: number | null }[]); });
   }, [profile?.company_id, job?.id]);
+
+  useEffect(() => {
+    if (job || !form.parent_job_id || form.cost_code) return;
+    supabase.from('jobs').select('cost_code').eq('parent_job_id', form.parent_job_id)
+      .then(({ data }) => {
+        const next = nextCostCode((data ?? []).map(row => row.cost_code as string | null));
+        setForm(f => (f.cost_code ? f : { ...f, cost_code: next }));
+      });
+  }, [job, form.parent_job_id, form.cost_code]);
 
   const selectedClient = useMemo(() => clients.find(c => c.id === form.client_id), [clients, form.client_id]);
 
@@ -115,6 +126,7 @@ export function JobFormModal({
       address: form.address.trim() || null,
       budget: form.budget ? Number(form.budget) : null,
       parent_job_id: form.parent_job_id || null,
+      cost_code: normalizeCostCode(form.cost_code) || null,
     };
 
     if (!detailsOnly) {
@@ -169,9 +181,13 @@ export function JobFormModal({
             <h2 className="text-base font-semibold text-navy">
               {job ? (detailsOnly ? 'Job details' : 'Edit Job') : presetParentJobId ? 'New stage' : 'New Job'}
             </h2>
-            {job?.job_number && (
+            {job && (
               <span className="ops-meta tabular-nums">
-                #{String(job.job_number).padStart(4, '0')}
+                {formatJobRef({
+                  job_number: job.job_number,
+                  cost_code: form.cost_code || job.cost_code,
+                  parent_job_number: parentJobs.find(p => p.id === (form.parent_job_id || job.parent_job_id))?.job_number ?? null,
+                })}
               </span>
             )}
           </div>
@@ -306,16 +322,28 @@ export function JobFormModal({
             </div>
           )}
 
-          <div className="overlay-form-span-2">
+          <div>
             <label className="ops-field-label">Parent project</label>
-            <select value={form.parent_job_id} onChange={e => setForm(f => ({ ...f, parent_job_id: e.target.value }))}
+            <select value={form.parent_job_id} onChange={e => setForm(f => ({ ...f, parent_job_id: e.target.value, cost_code: e.target.value ? f.cost_code : '' }))}
               className="form-input cursor-pointer">
               <option value="">None (standalone job)</option>
               {parentJobs.map(p => (
-                <option key={p.id} value={p.id}>{p.title}{p.job_number ? ` #${String(p.job_number).padStart(4, '0')}` : ''}</option>
+                <option key={p.id} value={p.id}>{formatJobRef(p)} {p.title}</option>
               ))}
             </select>
             <p className="ops-meta mt-1">Link this job as a phase of a larger job.</p>
+          </div>
+
+          <div>
+            <label className="ops-field-label">Cost code</label>
+            <input
+              value={form.cost_code}
+              onChange={e => setForm(f => ({ ...f, cost_code: e.target.value }))}
+              className="form-input"
+              placeholder="01"
+              maxLength={12}
+            />
+            <p className="ops-meta mt-1">Shown as #0042.01 on the schedule</p>
           </div>
 
           {detailsOnly && onAddStage && (
