@@ -4908,6 +4908,10 @@
 
   .hub-week-corner {
     min-height: 44px;
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: var(--schedule-sheet);
   }
 
   .hub-week-head {
@@ -4942,6 +4946,10 @@
     align-items: center;
     padding: 12px 14px;
     min-height: 92px;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--schedule-sheet);
   }
 
   .hub-week-crew .hub-schedule-crew-name {
@@ -5081,6 +5089,7 @@
     }
 
     .hub-week-grid {
+      grid-template-columns: 72px repeat(7, minmax(96px, 1fr));
       min-width: 760px;
     }
   }
