@@ -5,7 +5,7 @@ import {
 } from 'date-fns';
 import {
   Plus, Wallet, X, Trash2, TrendingUp, TrendingDown, DollarSign, Users, Building2, Briefcase,
-  Bookmark, ChevronDown, Camera, FileUp, Loader2,
+  Bookmark, Camera, FileUp, Loader2, MoreHorizontal, Calendar,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -69,6 +69,423 @@ const CLASS_TABS: { key: ClassFilter; label: string }[] = [
 
 const padNum = (n: number | null) => String(n ?? 0).padStart(4, '0');
 
+/** Thermal-style preview for the signed Bunnings review (audit / look seed only). */
+const BUNNINGS_RECEIPT_PREVIEW = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="360" height="420" viewBox="0 0 360 420">
+  <rect width="360" height="420" fill="#FAF6EE"/>
+  <text x="180" y="36" text-anchor="middle" font-family="ui-monospace,monospace" font-size="15" font-weight="700" fill="#0A2540">BUNNINGS WAREHOUSE</text>
+  <text x="180" y="58" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#0A2540">PORT MELBOURNE VIC 3207</text>
+  <text x="180" y="76" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#0A2540">ABN 26 008 531 510</text>
+  <line x1="24" y1="92" x2="336" y2="92" stroke="#E2D9CC"/>
+  <text x="24" y="120" font-family="ui-monospace,monospace" font-size="12" fill="#0A2540">NLS 3CORE</text>
+  <text x="336" y="120" text-anchor="end" font-family="ui-monospace,monospace" font-size="12" fill="#0A2540">84.50</text>
+  <text x="24" y="144" font-family="ui-monospace,monospace" font-size="12" fill="#0A2540">20MM CONDUIT</text>
+  <text x="336" y="144" text-anchor="end" font-family="ui-monospace,monospace" font-size="12" fill="#0A2540">101.90</text>
+  <line x1="24" y1="168" x2="336" y2="168" stroke="#E2D9CC"/>
+  <text x="24" y="196" font-family="ui-monospace,monospace" font-size="13" font-weight="700" fill="#0A2540">TOTAL</text>
+  <text x="336" y="196" text-anchor="end" font-family="ui-monospace,monospace" font-size="13" font-weight="700" fill="#0A2540">186.40</text>
+  <text x="24" y="220" font-family="ui-monospace,monospace" font-size="12" fill="#0A2540">GST</text>
+  <text x="336" y="220" text-anchor="end" font-family="ui-monospace,monospace" font-size="12" fill="#0A2540">16.95</text>
+  <text x="180" y="268" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#5B6B7C">28 AUG 2026  ·  INV-1042</text>
+  <text x="180" y="300" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#5B6B7C">Thank you for shopping at Bunnings</text>
+</svg>`)}`;
+
+/** Page-local expenses sheet. Same cream paper tokens as signed timesheets / week board. */
+const EXPENSES_LOOK_CSS = `
+.hub-expenses,
+.hub-expenses-overlay,
+.hub-expenses-scan-busy {
+  --ex-look-page: #F5F0E6;
+  --ex-look-sheet: #FFFDF8;
+  --ex-look-ink: #0A2540;
+  --ex-look-muted: #5B6B7C;
+  --ex-look-line: #E2D9CC;
+  --ex-look-action: #2E75B6;
+  --ex-look-r-ctl: 12px;
+  --ex-look-r-sheet: 16px;
+  --ex-look-fail: #B42318;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+.hub-expenses.ops-page {
+  max-width: none;
+  width: 100%;
+  min-height: calc(100dvh - 3.5rem);
+  margin: 0;
+  background: var(--ex-look-page);
+  color: var(--ex-look-ink);
+  padding: 24px 24px 48px;
+}
+.hub-expenses-hero {
+  max-width: 720px;
+  margin: 0 auto 24px;
+  padding-top: 8px;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 56px;
+  letter-spacing: 0.02em;
+  line-height: 0.96;
+  color: var(--ex-look-ink);
+}
+.hub-expenses-sheet {
+  max-width: 720px;
+  margin: 0 auto 24px;
+  background: var(--ex-look-sheet);
+  border: 1px solid var(--ex-look-line);
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+}
+.hub-expenses-sheet-body {
+  padding: 24px 24px 20px;
+  background: var(--ex-look-sheet);
+  box-shadow: inset 0 1px 0 #fff;
+}
+.hub-expenses-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.hub-expenses-scan {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 16px;
+  background: var(--ex-look-sheet);
+  color: var(--ex-look-ink);
+  border: 1px solid var(--ex-look-ink);
+  border-radius: 12px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: none;
+  cursor: pointer;
+}
+.hub-expenses-scan:hover { background: color-mix(in srgb, #FFFDF8 88%, #0A2540); }
+.hub-expenses-more {
+  margin-left: auto;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 12px;
+  color: var(--ex-look-ink);
+  cursor: pointer;
+}
+.hub-expenses-more:hover { background: color-mix(in srgb, #FFFDF8 88%, #0A2540); }
+.hub-expenses-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  width: 240px;
+  background: var(--ex-look-sheet);
+  border: 1px solid var(--ex-look-line);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+  padding: 6px 0;
+  z-index: 50;
+}
+.hub-expenses-menu button {
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--ex-look-ink);
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.hub-expenses-menu button:hover { background: color-mix(in srgb, #FFFDF8 88%, #0A2540); }
+.hub-expenses-menu-kicker {
+  padding: 8px 14px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ex-look-muted);
+}
+.hub-expenses-menu-meta {
+  display: block;
+  font-size: 12px;
+  color: var(--ex-look-muted);
+  font-weight: 400;
+}
+.hub-expenses-preview {
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border: 1px solid var(--ex-look-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, #FFFDF8 70%, #F5F0E6);
+  margin-bottom: 8px;
+}
+.hub-expenses-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--ex-look-line);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--ex-look-ink);
+}
+.hub-expenses-row-label {
+  color: var(--ex-look-ink);
+  font-weight: 500;
+  flex: 0 0 auto;
+}
+.hub-expenses-row-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  color: var(--ex-look-ink);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+}
+.hub-expenses-row-value:focus { outline: none; }
+.hub-expenses-row .hub-expenses-row-select,
+.hub-expenses-row .hub-expenses-row-select button {
+  background: none;
+  border: none;
+  box-shadow: none;
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  justify-content: flex-end;
+  color: var(--ex-look-ink);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+}
+.hub-expenses-date {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--ex-look-ink);
+  min-height: 44px;
+}
+.hub-expenses-date input[type="date"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.hub-expenses-save {
+  width: 100%;
+  margin-top: 20px;
+  background: #2E75B6;
+  color: #fff;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: none;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.hub-expenses-save:hover { background: color-mix(in srgb, #2E75B6 86%, #0A2540); }
+.hub-expenses-save:disabled { opacity: 0.5; cursor: not-allowed; }
+.hub-expenses-fail {
+  margin-top: 12px;
+  color: var(--ex-look-fail);
+  font-size: 14px;
+}
+.hub-expenses-list { margin-top: 8px; }
+.hub-expenses-pnl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 8px 0 0;
+}
+.hub-expenses-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 44px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ex-look-line);
+}
+.hub-expenses-stat-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ex-look-muted);
+}
+.hub-expenses-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ex-look-ink);
+  font-variant-numeric: tabular-nums;
+}
+.hub-expenses-stat.is-down .hub-expenses-stat-value { color: var(--ex-look-fail); }
+.hub-expenses-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 8px 0 0;
+  border-bottom: 1px solid var(--ex-look-line);
+}
+.hub-expenses-filter {
+  min-height: 44px;
+  padding: 0 12px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--ex-look-muted);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.hub-expenses-filter.is-on {
+  color: #2E75B6;
+  box-shadow: inset 0 -2px 0 #2E75B6;
+}
+.hub-expenses-range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 0;
+}
+.hub-expenses-range button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--ex-look-line);
+  border-radius: 999px;
+  background: var(--ex-look-sheet);
+  color: var(--ex-look-ink);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.hub-expenses-range button.is-on {
+  border-color: var(--ex-look-ink);
+  color: var(--ex-look-ink);
+}
+.hub-expenses-search .form-input {
+  background: var(--ex-look-sheet);
+  color: var(--ex-look-ink);
+  border: 1px solid var(--ex-look-line);
+  border-radius: 999px;
+  min-height: 44px;
+  box-shadow: none;
+}
+.hub-expenses-table {
+  width: 100%;
+  font-size: 14px;
+  border-collapse: collapse;
+}
+.hub-expenses-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--ex-look-muted);
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--ex-look-line);
+}
+.hub-expenses-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--ex-look-line);
+  color: var(--ex-look-ink);
+}
+.hub-expenses-table tr { cursor: pointer; }
+.hub-expenses-table .hub-expenses-status-paid {
+  background: color-mix(in srgb, #2E75B6 10%, #FFFDF8) !important;
+  color: var(--ex-look-ink) !important;
+}
+.hub-expenses-overlay {
+  background: var(--ex-look-sheet);
+  border: 1px solid var(--ex-look-line);
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+  max-width: 720px;
+  width: calc(100% - 32px);
+  max-height: min(90dvh, 860px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.hub-expenses-overlay-head,
+.hub-expenses-overlay-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--ex-look-line);
+}
+.hub-expenses-overlay-foot { border-bottom: none; border-top: 1px solid var(--ex-look-line); }
+.hub-expenses-overlay-title {
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--ex-look-ink);
+  margin: 0;
+}
+.hub-expenses-overlay-body {
+  padding: 16px 20px 24px;
+  overflow: auto;
+  background: var(--ex-look-sheet);
+  box-shadow: inset 0 1px 0 #fff;
+}
+.hub-expenses-overlay .form-input,
+.hub-expenses-overlay .form-input-sm {
+  background: var(--ex-look-sheet);
+  border: 1px solid var(--ex-look-line);
+  color: var(--ex-look-ink);
+  border-radius: 12px;
+  box-shadow: none;
+}
+.hub-expenses-cancel {
+  min-height: 44px;
+  padding: 0 16px;
+  background: none;
+  border: 1px solid var(--ex-look-line);
+  border-radius: 12px;
+  color: var(--ex-look-muted);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+.hub-expenses-scan-busy {
+  background: var(--ex-look-sheet);
+  border: 1px solid var(--ex-look-line);
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ex-look-ink);
+}
+@media (max-width: 639px) {
+  .hub-expenses.ops-page { padding: 16px 16px 40px; }
+  .hub-expenses-hero { font-size: 40px; margin-bottom: 16px; }
+  .hub-expenses-sheet-body { padding: 20px 16px 16px; }
+  .hub-expenses-pnl { grid-template-columns: 1fr 1fr; }
+}
+`;
+
 function inRange(isoDate: string, start: Date | null, end: Date | null): boolean {
   if (!start && !end) return true;
   const d = parseISO(isoDate.slice(0, 10));
@@ -116,6 +533,7 @@ export function ExpensesPage() {
     setShowAddMenu(false);
     if (isDevFieldAuditAuth()) {
       setReceiptPrefill(auditExpenseReceiptSeed());
+      setReceiptPreviewUrl(BUNNINGS_RECEIPT_PREVIEW);
       setEditing(null);
       setShowForm(true);
       return;
@@ -133,6 +551,7 @@ export function ExpensesPage() {
     try {
       if (isDevFieldAuditAuth()) {
         setReceiptPrefill(auditExpenseReceiptSeed());
+        if (!preview) setReceiptPreviewUrl(BUNNINGS_RECEIPT_PREVIEW);
         setEditing(null);
         setShowForm(true);
         return;
@@ -158,7 +577,22 @@ export function ExpensesPage() {
     }
   };
 
+  useEffect(() => {
+    if (!isDevFieldAuditAuth()) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('scanReceipt') !== '1') return;
+      setReceiptPrefill(auditExpenseReceiptSeed());
+      setReceiptPreviewUrl(BUNNINGS_RECEIPT_PREVIEW);
+      setEditing(null);
+      setShowForm(true);
+    } catch {
+      // look seed is optional
+    }
+  }, []);
+
   const range = RANGE_PRESETS[rangeKey];
+  const reviewingScan = showForm && !editing && !!receiptPrefill;
 
   const { data: expenses = [], isLoading, error } = useQuery<ExpenseWithDetails[]>({
     queryKey: ['expenses'],
@@ -278,107 +712,115 @@ export function ExpensesPage() {
     return <AppShell><PageError message="Could not load expenses" /></AppShell>;
   }
 
+  const editorClose = () => {
+    setShowForm(false);
+    setReceiptPrefill(null);
+    if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
+    setReceiptPreviewUrl(null);
+  };
+
   return (
     <AppShell>
-      <div className="max-w-[1200px] mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-          <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">Expenses</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">
-              Business overheads, employee costs, and cost of sales — for accurate gross &amp; net profit
-            </p>
-          </div>
-          <div className="relative flex items-center gap-2">
-            <button
-              type="button"
-              onClick={openBlankEditor}
-              className="flex items-center gap-2 bg-[#0A2540] text-white px-3 py-2 rounded-l-md text-sm font-medium hover:bg-[#0d2f4e]"
-            >
-              <Plus size={16} /> Add expense
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowAddMenu(v => !v)}
-              className="bg-[#0A2540] text-white px-2 py-2 rounded-r-md border-l border-white/20 hover:bg-[#0d2f4e]"
-              aria-label="More ways to add"
-            >
-              <ChevronDown size={16} />
-            </button>
-            {showAddMenu && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
-                <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-50">
-                  <button
-                    type="button"
-                    onClick={openBlankEditor}
-                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-[#F9FAFB] flex items-start gap-2"
-                  >
-                    <Plus size={15} className="mt-0.5 text-[#4A5568]" />
-                    <span>
-                      <span className="font-medium text-[#1A1A1A] block">Single expense</span>
-                      <span className="text-xs text-[#6B7280]">One-off cost entry</span>
-                    </span>
-                  </button>
-                  <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-[#9CA3AF] font-medium">
-                    Scan receipt
+      <style>{EXPENSES_LOOK_CSS}</style>
+      <div className="ops-page hub-expenses">
+        <h1 className="hub-expenses-hero">Expenses</h1>
+        <article className="hub-expenses-sheet">
+          <div className="hub-expenses-sheet-body">
+            <div className="hub-expenses-actions relative">
+              <button
+                type="button"
+                onClick={() => startReceiptScan('camera')}
+                className="hub-expenses-scan"
+                aria-label="Scan receipt with camera"
+              >
+                <Camera size={16} /> Scan receipt
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddMenu(v => !v)}
+                className="hub-expenses-more"
+                aria-label="More ways to add"
+              >
+                <MoreHorizontal size={18} />
+              </button>
+              {showAddMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
+                  <div className="hub-expenses-menu">
+                    <button type="button" onClick={openBlankEditor}>
+                      <Plus size={15} />
+                      <span>
+                        Single expense
+                        <span className="hub-expenses-menu-meta">One-off cost entry</span>
+                      </span>
+                    </button>
+                    <div className="hub-expenses-menu-kicker">Scan receipt</div>
+                    <button
+                      type="button"
+                      onClick={() => startReceiptScan('camera')}
+                      aria-label="Scan receipt with camera"
+                    >
+                      <Camera size={15} />
+                      <span>
+                        Take photo
+                        <span className="hub-expenses-menu-meta">Camera scan of a paper receipt</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startReceiptScan('file')}
+                      aria-label="Upload receipt file"
+                    >
+                      <FileUp size={15} />
+                      <span>
+                        Choose file
+                        <span className="hub-expenses-menu-meta">Photo or PDF from this device</span>
+                      </span>
+                    </button>
+                    <button type="button" onClick={() => { setShowAddMenu(false); setShowEmployeeModel(true); }}>
+                      <Users size={15} />
+                      <span>
+                        Employee cost model
+                        <span className="hub-expenses-menu-meta">Apply wages package × staff</span>
+                      </span>
+                    </button>
+                    <button type="button" onClick={() => { setShowAddMenu(false); setShowTemplate(true); }}>
+                      <Bookmark size={15} />
+                      <span>
+                        Quick template
+                        <span className="hub-expenses-menu-meta">Rent, insurance &amp; other fixed costs</span>
+                      </span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => startReceiptScan('camera')}
-                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-[#F9FAFB] flex items-start gap-2"
-                    aria-label="Scan receipt with camera"
-                  >
-                    <Camera size={15} className="mt-0.5 text-[#2E75B6]" />
-                    <span>
-                      <span className="font-medium text-[#1A1A1A] block">Take photo</span>
-                      <span className="text-xs text-[#6B7280]">Camera scan of a paper receipt</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => startReceiptScan('file')}
-                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-[#F9FAFB] flex items-start gap-2"
-                    aria-label="Upload receipt file"
-                  >
-                    <FileUp size={15} className="mt-0.5 text-[#2E75B6]" />
-                    <span>
-                      <span className="font-medium text-[#1A1A1A] block">Choose file</span>
-                      <span className="text-xs text-[#6B7280]">Photo or PDF from this device</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setShowAddMenu(false); setShowEmployeeModel(true); }}
-                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-[#F9FAFB] flex items-start gap-2"
-                  >
-                    <Users size={15} className="mt-0.5 text-[#2E75B6]" />
-                    <span>
-                      <span className="font-medium text-[#1A1A1A] block">Employee cost model</span>
-                      <span className="text-xs text-[#6B7280]">Apply wages package × staff</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setShowAddMenu(false); setShowTemplate(true); }}
-                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-[#F9FAFB] flex items-start gap-2"
-                  >
-                    <Bookmark size={15} className="mt-0.5 text-[#F7931A]" />
-                    <span>
-                      <span className="font-medium text-[#1A1A1A] block">Quick template</span>
-                      <span className="text-xs text-[#6B7280]">Rent, insurance &amp; other fixed costs</span>
-                    </span>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+                </>
+              )}
+            </div>
 
+            {reviewingScan ? (
+              <ExpenseEditorModal
+                expense={null}
+                prefill={receiptPrefill}
+                receiptPreviewUrl={receiptPreviewUrl}
+                defaultTaxRate={company?.default_tax_rate ?? 10}
+                layout="sheet"
+                onClose={editorClose}
+                onSaved={() => {
+                  editorClose();
+                  queryClient.invalidateQueries({ queryKey: ['expenses'] });
+                  queryClient.invalidateQueries({ queryKey: ['expenses-pnl'] });
+                  showToast('Expense recorded');
+                }}
+                onDeleted={editorClose}
+              />
+            ) : null}
+
+            {!reviewingScan && (
+            <div className="hub-expenses-list">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           <button
             type="button"
             onClick={() => setShowEmployeeModel(true)}
-            className="text-left rounded-xl border border-[#E5E7EB] bg-white p-4 hover:border-[#2E75B6] hover:shadow-sm transition-all"
+            className="text-left rounded-xl border border-[#E2D9CC] p-4"
           >
             <div className="flex items-center gap-2 text-sm font-semibold text-[#0A2540]">
               <Users size={16} className="text-[#2E75B6]" /> Employee cost models
@@ -390,10 +832,10 @@ export function ExpensesPage() {
           <button
             type="button"
             onClick={() => setShowTemplate(true)}
-            className="text-left rounded-xl border border-[#E5E7EB] bg-white p-4 hover:border-[#F7931A] hover:shadow-sm transition-all"
+            className="text-left rounded-xl border border-[#E2D9CC] p-4"
           >
             <div className="flex items-center gap-2 text-sm font-semibold text-[#0A2540]">
-              <Bookmark size={16} className="text-[#F7931A]" /> Recurring expense templates
+              <Bookmark size={16} className="text-[#2E75B6]" /> Recurring expense templates
             </div>
             <p className="text-xs text-[#6B7280] mt-1">
               Save monthly overheads (rent, software, insurance) and post the whole set in one click.
@@ -401,23 +843,20 @@ export function ExpensesPage() {
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 mb-4">
+        <div className="hub-expenses-range">
           {(Object.keys(RANGE_PRESETS) as RangeKey[]).map(key => (
             <button
               key={key}
               type="button"
               onClick={() => setRangeKey(key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                rangeKey === key ? 'bg-[#0A2540] text-white' : 'bg-gray-100 text-[#4A5568] hover:bg-gray-200'
-              }`}
+              className={rangeKey === key ? 'is-on' : ''}
             >
               {RANGE_PRESETS[key].label}
             </button>
           ))}
         </div>
 
-        {/* P&L strip */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        <div className="hub-expenses-pnl">
           {isLoading ? (
             <SkeletonSummaryCards count={4} />
           ) : (
@@ -425,7 +864,7 @@ export function ExpensesPage() {
               <PnlCard label="Revenue (paid)" value={pnl.paidRevenue} hint="Invoice subtotals (ex GST)" tone="neutral" icon={DollarSign} />
               <PnlCard label="Cost of sales" value={pnl.cogs} hint={`Jobs ${formatMoney(pnl.jobCogs)} + expenses ${formatMoney(pnl.expenseCogs)}`} tone="down" icon={Briefcase} />
               <PnlCard label="Gross profit" value={pnl.gross} hint="Revenue − cost of sales" tone={pnl.gross >= 0 ? 'up' : 'down'} icon={TrendingUp} />
-              <PnlCard label="Net profit" value={pnl.net} hint={`After overheads ${formatMoney(pnl.overhead)} + staff ${formatMoney(pnl.employee)}`} tone={pnl.net >= 0 ? 'up' : 'down'} icon={pnl.net >= 0 ? TrendingUp : TrendingDown} emphasize />
+              <PnlCard label="Net profit" value={pnl.net} hint={`After overheads ${formatMoney(pnl.overhead)} + staff ${formatMoney(pnl.employee)}`} tone={pnl.net >= 0 ? 'up' : 'down'} icon={pnl.net >= 0 ? TrendingUp : TrendingDown} />
             </>
           )}
         </div>
@@ -437,7 +876,7 @@ export function ExpensesPage() {
         </div>
 
         {byCategory.length > 0 && (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 mb-6">
+          <div className="mb-6">
             <h2 className="text-sm font-semibold text-[#0A2540] mb-3">Spend by category (filtered list)</h2>
             <div className="space-y-2">
               {byCategory.map(([cat, amt]) => {
@@ -506,16 +945,16 @@ export function ExpensesPage() {
                 <button type="button" onClick={() => setShowEmployeeModel(true)} className="btn-secondary">
                   <Users size={16} /> Apply staff cost model
                 </button>
-                <button type="button" onClick={openBlankEditor} className="btn-primary">
+                <button type="button" onClick={openBlankEditor} className="hub-expenses-scan">
                   <Plus size={16} /> Add expense
                 </button>
               </div>
             )}
           />
         ) : (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
+          <div className="overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="hub-expenses-table">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
                     <th className="px-4 py-3">Date</th>
@@ -547,7 +986,7 @@ export function ExpensesPage() {
                         {e.employee_name || e.vendor_name || e.supplier_name || '—'}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${EXPENSE_STATUS_STYLES[e.status]}`}>
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${e.status === 'paid' ? 'hub-expenses-status-paid' : EXPENSE_STATUS_STYLES[e.status]}`}>
                           {EXPENSE_STATUS_LABELS[e.status]}
                         </span>
                       </td>
@@ -560,6 +999,10 @@ export function ExpensesPage() {
             </div>
           </div>
         )}
+            </div>
+            )}
+          </div>
+        </article>
       </div>
 
       <input
@@ -588,33 +1031,26 @@ export function ExpensesPage() {
 
       {scanning && (
         <div className="overlay-backdrop" aria-live="polite">
-          <div className="bg-white rounded-xl border border-[#E5E7EB] px-6 py-5 shadow-lg flex items-center gap-3">
-            <Loader2 size={20} className="animate-spin text-[#2E75B6]" />
+          <div className="hub-expenses-scan-busy">
+            <Loader2 size={20} className="animate-spin" />
             <div>
-              <p className="text-sm font-medium text-[#1A1A1A]">Scanning receipt…</p>
-              <p className="text-xs text-[#6B7280]">Reading vendor, amount, GST, date, category</p>
+              <p className="text-sm font-medium">Scanning receipt…</p>
+              <p className="text-xs" style={{ color: '#5B6B7C' }}>Reading vendor, amount, GST, date, category</p>
             </div>
           </div>
         </div>
       )}
 
-      {showForm && (
+      {showForm && !reviewingScan && (
         <ExpenseEditorModal
           expense={editing}
           prefill={editing ? undefined : receiptPrefill}
           receiptPreviewUrl={editing ? null : receiptPreviewUrl}
           defaultTaxRate={company?.default_tax_rate ?? 10}
-          onClose={() => {
-            setShowForm(false);
-            setReceiptPrefill(null);
-            if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
-            setReceiptPreviewUrl(null);
-          }}
+          layout="overlay"
+          onClose={editorClose}
           onSaved={() => {
-            setShowForm(false);
-            setReceiptPrefill(null);
-            if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
-            setReceiptPreviewUrl(null);
+            editorClose();
             queryClient.invalidateQueries({ queryKey: ['expenses'] });
             queryClient.invalidateQueries({ queryKey: ['expenses-pnl'] });
             showToast(editing ? 'Expense updated' : 'Expense recorded');
@@ -652,39 +1088,30 @@ export function ExpensesPage() {
 }
 
 function PnlCard({
-  label, value, hint, tone, icon: Icon, emphasize,
+  label, value, hint, tone, icon: Icon,
 }: {
   label: string;
   value: number;
   hint: string;
   tone: 'up' | 'down' | 'neutral';
   icon: typeof DollarSign;
-  emphasize?: boolean;
 }) {
-  const valueColor = tone === 'up' ? 'text-green-700' : tone === 'down' ? 'text-red-600' : 'text-[#0A2540]';
   return (
-    <div className={`rounded-xl border p-4 ${emphasize ? 'bg-[#0A2540] border-[#0A2540] text-white' : 'bg-white border-[#E5E7EB]'}`}>
-      <div className={`flex items-center gap-1.5 text-xs font-medium ${emphasize ? 'text-white/70' : 'text-[#4A5568]'}`}>
+    <div className={`hub-expenses-stat${tone === 'down' ? ' is-down' : ''}`}>
+      <div className="hub-expenses-stat-label">
         <Icon size={14} /> {label}
       </div>
-      <p className={`mt-1 text-xl font-bold tabular-nums ${emphasize ? 'text-white' : valueColor}`}>
-        {formatMoney(value)}
-      </p>
-      <p className={`text-[11px] mt-1 ${emphasize ? 'text-white/60' : 'text-[#9CA3AF]'}`}>{hint}</p>
+      <p className="hub-expenses-stat-value">{formatMoney(value)}</p>
+      <p className="hub-expenses-stat-label">{hint}</p>
     </div>
   );
 }
 
-function MiniStat({ icon: Icon, label, value }: { icon: typeof Wallet; label: string; value: string }) {
+function MiniStat({ icon: _Icon, label, value }: { icon: typeof Wallet; label: string; value: string }) {
   return (
-    <div className="bg-white rounded-xl border border-[#E5E7EB] px-4 py-3 flex items-center gap-3">
-      <div className="w-9 h-9 rounded-lg bg-[#EFF6FF] flex items-center justify-center text-[#2E75B6]">
-        <Icon size={16} />
-      </div>
-      <div>
-        <p className="text-xs text-[#4A5568]">{label}</p>
-        <p className="text-sm font-semibold text-[#1A1A1A]">{value}</p>
-      </div>
+    <div className="hub-expenses-stat">
+      <p className="hub-expenses-stat-label">{label}</p>
+      <p className="hub-expenses-stat-value">{value}</p>
     </div>
   );
 }
@@ -713,12 +1140,13 @@ interface FormState {
 }
 
 function ExpenseEditorModal({
-  expense, prefill, receiptPreviewUrl, defaultTaxRate, onClose, onSaved, onDeleted,
+  expense, prefill, receiptPreviewUrl, defaultTaxRate, layout = 'overlay', onClose, onSaved, onDeleted,
 }: {
   expense: ExpenseWithDetails | null;
   prefill?: ExpenseEditorPrefill | null;
   receiptPreviewUrl?: string | null;
   defaultTaxRate: number;
+  layout?: 'overlay' | 'sheet';
   onClose: () => void;
   onSaved: () => void;
   onDeleted: () => void;
@@ -837,29 +1265,118 @@ function ExpenseEditorModal({
     onDeleted();
   };
 
+  const setReceiptTotal = (raw: string) => {
+    if (raw === '') { setForm(f => ({ ...f, amount: '' })); return; }
+    const newTotal = parseFloat(raw);
+    if (!Number.isFinite(newTotal)) return;
+    const rate = parseFloat(form.tax_rate) || 0;
+    const ex = rate > 0 ? Number((newTotal / (1 + rate / 100)).toFixed(2)) : newTotal;
+    setForm(f => ({ ...f, amount: String(ex) }));
+  };
+
+  const setReceiptGst = (raw: string) => {
+    const gst = parseFloat(raw);
+    const amt = parseFloat(form.amount) || 0;
+    if (!Number.isFinite(gst) || amt <= 0) return;
+    setForm(f => ({ ...f, tax_rate: Number(((gst / amt) * 100).toFixed(2)).toString() }));
+  };
+
+  if (layout === 'sheet') {
+    return (
+      <div className="hub-expenses-review">
+        {receiptPreviewUrl ? (
+          <img src={receiptPreviewUrl} alt="Scanned receipt" className="hub-expenses-preview" />
+        ) : null}
+        <div className="hub-expenses-row">
+          <span className="hub-expenses-row-label">Vendor</span>
+          <input
+            className="hub-expenses-row-value"
+            value={form.vendor_name}
+            onChange={e => setForm(f => ({ ...f, vendor_name: e.target.value }))}
+          />
+        </div>
+        <div className="hub-expenses-row">
+          <span className="hub-expenses-row-label">Amount</span>
+          <input
+            className="hub-expenses-row-value"
+            inputMode="decimal"
+            value={form.amount === '' ? '' : total.toFixed(2)}
+            onChange={e => setReceiptTotal(e.target.value)}
+          />
+        </div>
+        <div className="hub-expenses-row">
+          <span className="hub-expenses-row-label">GST</span>
+          <input
+            className="hub-expenses-row-value"
+            inputMode="decimal"
+            value={form.amount === '' ? '' : tax_amount.toFixed(2)}
+            onChange={e => setReceiptGst(e.target.value)}
+          />
+        </div>
+        <div className="hub-expenses-row">
+          <span className="hub-expenses-row-label">Date</span>
+          <label className="hub-expenses-date">
+            <span>{form.expense_date ? format(parseISO(form.expense_date), 'd MMM yyyy') : ''}</span>
+            <Calendar size={16} />
+            <input
+              type="date"
+              value={form.expense_date}
+              onChange={e => setForm(f => ({ ...f, expense_date: e.target.value }))}
+            />
+          </label>
+        </div>
+        <div className="hub-expenses-row">
+          <span className="hub-expenses-row-label">Category</span>
+          <div className="hub-expenses-row-select">
+            <ManagedSelect
+              listKey={LIST_KEYS.expenseCategories}
+              value={form.category}
+              onChange={v => setForm(f => ({ ...f, category: v }))}
+              placeholder="Select…"
+              allowAdd
+              className="hub-expenses-row-value"
+            />
+          </div>
+        </div>
+        <div className="hub-expenses-row">
+          <span className="hub-expenses-row-label">Reference</span>
+          <input
+            className="hub-expenses-row-value"
+            value={form.reference}
+            onChange={e => setForm(f => ({ ...f, reference: e.target.value }))}
+          />
+        </div>
+        {err ? <p className="hub-expenses-fail">{err}</p> : null}
+        <button type="button" onClick={handleSave} disabled={saving} className="hub-expenses-save">
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="overlay-backdrop">
-      <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      <div className="hub-expenses-overlay" onClick={e => e.stopPropagation()}>
+        <div className="hub-expenses-overlay-head">
           <div>
-            <h2 className="text-base font-semibold text-[#1A1A1A]">
+            <h2 className="hub-expenses-overlay-title">
               {expense ? 'Edit expense' : prefill ? 'Review scanned expense' : 'Add expense'}
             </h2>
             {expense?.expense_number != null && (
-              <p className="text-xs text-[#2E75B6] font-medium mt-0.5">#{padNum(expense.expense_number)}</p>
+              <p className="text-xs font-medium mt-0.5" style={{ color: '#2E75B6' }}>#{padNum(expense.expense_number)}</p>
             )}
           </div>
-          <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400">
+          <button type="button" onClick={onClose} className="hub-expenses-more" aria-label="Close">
             <X size={18} />
           </button>
         </div>
 
-        <div className="overlay-body space-y-4">
+        <div className="hub-expenses-overlay-body space-y-4">
           {receiptPreviewUrl && (
             <img
               src={receiptPreviewUrl}
               alt="Scanned receipt"
-              className="w-full max-h-48 object-contain rounded-lg border border-[#E5E7EB] bg-[#F9FAFB]"
+              className="hub-expenses-preview"
             />
           )}
           <div>
@@ -919,9 +1436,9 @@ function ExpenseEditorModal({
           </Field>
 
           {form.cost_class === 'employee' && (
-            <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-3 space-y-3">
-              <p className="text-xs font-semibold text-purple-900 uppercase tracking-wide">Employee details</p>
-              <p className="text-[11px] text-purple-800/80">
+            <div className="space-y-3" style={{ borderTop: '1px solid #E2D9CC', paddingTop: 12 }}>
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#5B6B7C' }}>Employee details</p>
+              <p className="text-[11px]" style={{ color: '#5B6B7C' }}>
                 Link wages, super, vehicle, tools etc. to the same person — Expenses → Employees tab totals them into a $/hour rate.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1062,21 +1579,19 @@ function ExpenseEditorModal({
           {err && <p className="text-sm text-red-600">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
+        <div className="hub-expenses-overlay-foot">
           {expense ? (
             <button type="button" onClick={handleDelete} disabled={deleting}
-              className="flex items-center gap-1.5 text-sm text-red-600 hover:underline disabled:opacity-50">
+              className="flex items-center gap-1.5 text-sm disabled:opacity-50" style={{ color: '#B42318' }}>
               <Trash2 size={14} /> {deleting ? 'Deleting…' : 'Delete'}
             </button>
           ) : <span />}
           <div className="flex items-center gap-2">
-            <button type="button" onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-gray-50">
+            <button type="button" onClick={onClose} className="hub-expenses-cancel">
               Cancel
             </button>
-            <button type="button" onClick={handleSave} disabled={saving}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">
-              {saving ? 'Saving…' : expense ? 'Save changes' : 'Save expense'}
+            <button type="button" onClick={handleSave} disabled={saving} className="hub-expenses-save" style={{ width: 'auto', marginTop: 0 }}>
+              {saving ? 'Saving…' : expense ? 'Save changes' : 'Save'}
             </button>
           </div>
         </div>

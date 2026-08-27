@@ -13,8 +13,9 @@ describe('Expenses scan-receipt wiring', () => {
   const priceBook = src('supabase/functions/import-price-book-pdf/index.ts');
   const app = src('src/App.tsx');
 
-  it('puts Scan receipt (camera + file) on the existing Add-expense menu', () => {
+  it('puts Scan receipt on the expenses sheet with camera + file still available', () => {
     expect(page).toContain('Scan receipt');
+    expect(page).toContain('hub-expenses-scan');
     expect(page).toContain('Take photo');
     expect(page).toContain('Choose file');
     expect(page).toContain('capture="environment"');
