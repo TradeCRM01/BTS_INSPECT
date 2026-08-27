@@ -189,6 +189,10 @@ export function isJobArrivingWindow(
 
 export const ARRIVING_PURPOSE = 'arriving';
 export const ARRIVING_NEXT_LABEL = 'Arriving shortly';
+/** Sheet primary after arriving is sent, or when there is no sendable phone left to write. */
+export const CLOCK_IN_NEXT_LABEL = 'Clock In';
+/** Sheet primary in the arriving window when jobClientPhoneRow still needs a number. */
+export const PHONE_NEXT_LABEL = 'Add phone';
 
 export type ArrivingMissReason =
   | 'no_client'
@@ -997,6 +1001,8 @@ export function selectTomorrowReminderJobs(
 
 /**
  * Keep date/crew Next first. Today (or in_progress) takes Arriving shortly.
+ * Clock In / Add phone from the sheet recommendation stay — arriving already
+ * sent, or the number still has to be written / is not sendable.
  * Tomorrow stays Remind client. Both land on the existing schedule tray.
  */
 export function withReminderNext<T extends {
@@ -1010,6 +1016,7 @@ export function withReminderNext<T extends {
   now = new Date(),
 ): { href: string; label: string; actionable: boolean } {
   if (current.label === 'Set a date' || current.label === 'Assign crew') return current;
+  if (current.label === CLOCK_IN_NEXT_LABEL || current.label === PHONE_NEXT_LABEL) return current;
   if (!current.actionable) return current;
   if (isJobArrivingWindow(job, now)) {
     return { href: jobScheduleHref(job.id), label: ARRIVING_NEXT_LABEL, actionable: true };

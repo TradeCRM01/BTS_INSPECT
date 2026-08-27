@@ -8,7 +8,7 @@ import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, OpsSiteRow
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
-import { JobClientReminder } from '../components/jobs/JobClientReminder';
+import { JobClientReminder, type JobClientReminderHandle } from '../components/jobs/JobClientReminder';
 import { JobCalendarOverflow } from '../components/jobs/JobCalendarOverflow';
 import { calendarSite } from '../lib/jobCalendar';
 import { formatJobRef } from '../lib/jobRef';
@@ -46,7 +46,13 @@ import {
   jobClientPhoneSaveToast,
   saveJobClientPhone,
 } from '../lib/saveJobClientPhone';
-import { isJobRescheduleQuery, jobOfficeRescheduleBanner } from '../lib/jobReminder';
+import {
+  ARRIVING_NEXT_LABEL,
+  isJobArrivingWindow,
+  isJobRescheduleQuery,
+  jobOfficeRescheduleBanner,
+  withReminderNext,
+} from '../lib/jobReminder';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel, recommendJhaListAction } from '../lib/jhaNextAction';
 import { livingInspectionSummary, livingSwmsSummary, livingTake5Summary } from '../lib/livingJha';
 import { take5CardHint, take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
@@ -168,7 +174,11 @@ export function JobDetailPage() {
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
+  const [arrivingSent, setArrivingSent] = useState(false);
+  const [arrivingBusy, setArrivingBusy] = useState(false);
   const moreRef = useRef<HTMLDetailsElement>(null);
+  const reminderRef = useRef<JobClientReminderHandle>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
 
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ['job', id],
@@ -222,6 +232,7 @@ export function JobDetailPage() {
 
   useEffect(() => {
     setClientAttachDraft('');
+    setArrivingSent(false);
   }, [job?.id]);
 
   const closeMore = () => {
@@ -757,22 +768,6 @@ export function JobDetailPage() {
     sendJobDraft.mutate();
   };
 
-  const next = recommendJobAction({
-    status: job.status,
-    scheduledDate: job.scheduled_date,
-    crewCount: (job.assigned_team ?? []).length,
-    jhaCount: (jhas ?? []).length,
-    inspectionCount: (inspections ?? []).length,
-    ...jobInvoiceActionFlags(invoices ?? []),
-    hasAcceptedQuote: !!acceptedQuote,
-    hasBillLines: (costTotals?.lines ?? 0) > 0,
-    clockedOn: !!runningEntry,
-  });
-
-  const nextBusy =
-    (next.key === 'invoice' && invoiceFromJobBill.isPending) ||
-    (next.key === 'send' && sendJobDraft.isPending);
-
   const emailRow = jobClientEmailRow({ clientId: job.client_id, client: client ?? null });
   const phoneRow = jobClientPhoneRow({ clientId: job.client_id, client: client ?? null });
   const attachRow = jobClientAttachRow({
@@ -784,8 +779,51 @@ export function JobDetailPage() {
         : null,
   });
 
+  const next = recommendJobAction({
+    status: job.status,
+    scheduledDate: job.scheduled_date,
+    crewCount: (job.assigned_team ?? []).length,
+    jhaCount: (jhas ?? []).length,
+    inspectionCount: (inspections ?? []).length,
+    ...jobInvoiceActionFlags(invoices ?? []),
+    hasAcceptedQuote: !!acceptedQuote,
+    hasBillLines: (costTotals?.lines ?? 0) > 0,
+    clockedOn: !!runningEntry,
+    arrivingWindow: isJobArrivingWindow(job),
+    arrivingSent,
+    phoneRowKind: phoneRow.kind,
+    phoneStored: phoneRow.kind === 'none' ? '' : phoneRow.phone,
+  });
+  const sheetNext = withReminderNext(job, {
+    href: `/jobs/${job.id}`,
+    label: next.label,
+    actionable: next.key !== 'none',
+  });
+  const arrivingPrimary = sheetNext.label === ARRIVING_NEXT_LABEL;
+
+  const nextBusy =
+    (next.key === 'invoice' && invoiceFromJobBill.isPending) ||
+    (next.key === 'send' && sendJobDraft.isPending) ||
+    (arrivingPrimary && arrivingBusy) ||
+    (next.key === 'clock' && clockOnJob.isPending) ||
+    (next.key === 'phone' && saveClientPhone.isPending);
+
+  const writeClientPhone = () => {
+    if (clientPhoneDraft.trim()) {
+      saveClientPhone.mutate();
+      return;
+    }
+    phoneInputRef.current?.focus();
+    phoneInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   const runNext = () => {
-    if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
+    if (arrivingPrimary) {
+      reminderRef.current?.sendArriving();
+      return;
+    }
+    if (next.key === 'phone') writeClientPhone();
+    else if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
     else if (next.key === 'jha') startJha();
     else if (next.key === 'invoice') handleInvoice();
     else if (next.key === 'send') handleSend();
@@ -825,19 +863,19 @@ export function JobDetailPage() {
             {site ? <p className="hub-jobs-jobline">{site}</p> : null}
 
             <div className="hub-jobs-tools">
-              {next.key === 'inspect' ? (
-                <Link to={inspectHref} className="btn-primary ops-next-control-block">{next.label}</Link>
-              ) : next.key !== 'none' ? (
+              {next.key === 'inspect' && !arrivingPrimary ? (
+                <Link to={inspectHref} className="btn-primary ops-next-control-block">{sheetNext.label}</Link>
+              ) : next.key !== 'none' || arrivingPrimary ? (
                 <button
                   type="button"
                   className="btn-primary ops-next-control-block"
                   disabled={nextBusy}
                   onClick={runNext}
                 >
-                  {next.label}
+                  {sheetNext.label}
                 </button>
               ) : (
-                <span className="ops-next-control-done">{next.label}</span>
+                <span className="ops-next-control-done">{sheetNext.label}</span>
               )}
               <details ref={moreRef} className="hub-job-more">
                 <summary aria-label="More actions">
@@ -998,6 +1036,7 @@ export function JobDetailPage() {
                 >
                   <Phone size={13} />
                   <input
+                    ref={phoneInputRef}
                     type="tel"
                     value={clientPhoneDraft}
                     onChange={e => setClientPhoneDraft(e.target.value)}
@@ -1528,10 +1567,13 @@ export function JobDetailPage() {
             rescheduleBanner={rescheduleAsked ? jobOfficeRescheduleBanner(job).message : null}
           />
           <JobClientReminder
+            ref={reminderRef}
             job={job}
             client={client ?? null}
             company={company}
             rescheduleAsked={rescheduleAsked}
+            onArrivingSent={() => setArrivingSent(true)}
+            onArrivingBusy={setArrivingBusy}
           />
         </div>
       </div>

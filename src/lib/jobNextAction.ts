@@ -1,7 +1,24 @@
 import type { JobStatus } from '../types/crm';
 import { effectiveInvoiceStatus } from './invoiceStatus';
+import {
+  ARRIVING_NEXT_LABEL,
+  CLOCK_IN_NEXT_LABEL,
+  PHONE_NEXT_LABEL,
+} from './jobReminder';
 
-export type JobActionKey = 'schedule' | 'crew' | 'jha' | 'inspect' | 'invoice' | 'send' | 'clock' | 'none';
+export type JobActionKey =
+  | 'schedule'
+  | 'crew'
+  | 'arriving'
+  | 'phone'
+  | 'jha'
+  | 'inspect'
+  | 'invoice'
+  | 'send'
+  | 'clock'
+  | 'none';
+
+export type JobPhoneRowKind = 'none' | 'tel' | 'edit';
 
 export type JobListBucket = 'needs_date' | 'on_board' | 'upcoming' | 'closed';
 
@@ -19,6 +36,14 @@ export type JobActionContext = {
   hasAcceptedQuote: boolean;
   hasBillLines: boolean;
   clockedOn: boolean;
+  /** Same-day / in_progress arriving window. Optional — older callers stay JHA-first. */
+  arrivingWindow?: boolean;
+  /** Session: arriving tap already sent on this sheet. Optional. */
+  arrivingSent?: boolean;
+  /** jobClientPhoneRow kind. Optional — missing phone only matters in arrivingWindow. */
+  phoneRowKind?: JobPhoneRowKind;
+  /** Stored phone on that row. Empty = still to write; non-empty invalid = not sendable. */
+  phoneStored?: string | null;
 };
 
 export type JobInvoiceNextRow = {
@@ -172,6 +197,43 @@ export function partitionScheduleJobs<T extends {
   return { needsDate, onBoard };
 }
 
+/**
+ * Van Next in the arriving window: Arriving shortly when the number is
+ * sendable; write the number via jobClientPhoneRow when it is empty;
+ * Clock In after send or when there is no sendable phone left to write.
+ * Date / crew stay first. Does not invent a second Next stack.
+ */
+export function recommendArrivingSheetNext(ctx: JobActionContext): RecommendedJobAction | null {
+  if (!ctx.arrivingWindow) return null;
+  if (ctx.status !== 'scheduled' && ctx.status !== 'in_progress') return null;
+  const kind = ctx.phoneRowKind;
+  const stored = (ctx.phoneStored ?? '').trim();
+  if (!ctx.arrivingSent) {
+    if (kind === 'edit' && !stored) {
+      return {
+        key: 'phone',
+        label: PHONE_NEXT_LABEL,
+        detail: 'Write the client number so Arriving shortly can send.',
+      };
+    }
+    if (kind === 'tel') {
+      return {
+        key: 'arriving',
+        label: ARRIVING_NEXT_LABEL,
+        detail: 'Tell the client you are arriving shortly.',
+      };
+    }
+  }
+  if (!ctx.clockedOn) {
+    return {
+      key: 'clock',
+      label: CLOCK_IN_NEXT_LABEL,
+      detail: 'Clock in when you start work.',
+    };
+  }
+  return null;
+}
+
 export function recommendJobAction(ctx: JobActionContext): RecommendedJobAction {
   if (ctx.status === 'cancelled') {
     return { key: 'none', label: 'Cancelled', detail: 'This job is cancelled.' };
@@ -185,6 +247,8 @@ export function recommendJobAction(ctx: JobActionContext): RecommendedJobAction 
   if (ctx.crewCount === 0) {
     return { key: 'crew', label: 'Assign crew', detail: 'Who is going to this job?' };
   }
+  const arrivingNext = recommendArrivingSheetNext(ctx);
+  if (arrivingNext) return arrivingNext;
   if (ctx.jhaCount === 0 && ctx.status !== 'completed') {
     return { key: 'jha', label: 'Start JHA', detail: 'Do the JHA before anyone starts on site.' };
   }
