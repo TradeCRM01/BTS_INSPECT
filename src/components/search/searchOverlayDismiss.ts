@@ -1,44 +1,38 @@
 /** Hash so phone/browser back closes the existing search overlay without leaving the page. */
 export const SEARCH_OVERLAY_HASH = 'search-overlay';
 
-export type SearchOverlayHashPhase = 'idle' | 'arming' | 'armed';
-export type SearchOverlayHashAction = 'push' | 'close' | 'none';
-
 export function isSearchOverlayHash(hash: string): boolean {
   return hash.replace(/^#/, '') === SEARCH_OVERLAY_HASH;
 }
 
-export function searchOverlayOpenLocation(location: { pathname: string; search: string }): {
-  pathname: string;
-  search: string;
-  hash: string;
-} {
-  return { pathname: location.pathname, search: location.search, hash: `#${SEARCH_OVERLAY_HASH}` };
+export function searchOverlayHref(location: { pathname: string; search: string }): string {
+  return `${location.pathname}${location.search}#${SEARCH_OVERLAY_HASH}`;
 }
 
-export function searchOverlayClosedLocation(location: { pathname: string; search: string }): {
-  pathname: string;
-  search: string;
-  hash: string;
-} {
-  return { pathname: location.pathname, search: location.search, hash: '' };
+export function searchOverlayClosedHref(location: { pathname: string; search: string }): string {
+  return `${location.pathname}${location.search}`;
 }
 
 export function searchOverlayNavigationReplace(hash: string): boolean {
   return isSearchOverlayHash(hash);
 }
 
-/**
- * Drive overlay history through React Router.
- * idle + open → add #search-overlay; armed + back (hash gone) → close.
- */
-export function nextSearchOverlayHashPhase(
-  phase: SearchOverlayHashPhase,
-  open: boolean,
-  hashIsOverlay: boolean,
-): { phase: SearchOverlayHashPhase; action: SearchOverlayHashAction } {
-  if (!open) return { phase: 'idle', action: 'none' };
-  if (hashIsOverlay) return { phase: 'armed', action: 'none' };
-  if (phase === 'armed') return { phase: 'idle', action: 'close' };
-  return { phase: 'arming', action: phase === 'idle' ? 'push' : 'none' };
+/** Open: add the hash if missing. Returns whether a hashchange should be expected. */
+export function armSearchOverlayHash(location: { hash: string }): boolean {
+  if (isSearchOverlayHash(location.hash)) return false;
+  location.hash = SEARCH_OVERLAY_HASH;
+  return true;
+}
+
+/** X / tap-outside / Escape: drop the hash in place so Back is not consumed. */
+export function disarmSearchOverlayHash(
+  location: { pathname: string; search: string; hash: string },
+  history: Pick<History, 'replaceState' | 'state'>,
+): void {
+  if (!isSearchOverlayHash(location.hash)) return;
+  try {
+    history.replaceState(history.state, '', searchOverlayClosedHref(location));
+  } catch {
+    // Overlay is already closing.
+  }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   Search,
@@ -18,12 +18,10 @@ import {
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import {
+  armSearchOverlayHash,
+  disarmSearchOverlayHash,
   isSearchOverlayHash,
-  nextSearchOverlayHashPhase,
-  searchOverlayClosedLocation,
   searchOverlayNavigationReplace,
-  searchOverlayOpenLocation,
-  type SearchOverlayHashPhase,
 } from './searchOverlayDismiss';
 
 /* ----------------------------- types ----------------------------- */
@@ -149,7 +147,6 @@ interface GlobalSearchProps {
 
 export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   const navigate = useNavigate();
-  const location = useLocation();
   const { profile } = useAuth();
   const [query, setQuery] = useState('');
   const [groups, setGroups] = useState<ResultGroup[]>([]);
@@ -160,7 +157,6 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   const debounceRef = useRef<number | undefined>(undefined);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-  const hashPhaseRef = useRef<SearchOverlayHashPhase>('idle');
 
   // Reset state + focus input whenever the palette opens.
   useEffect(() => {
@@ -192,21 +188,18 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     return () => window.clearTimeout(debounceRef.current);
   }, [query, open, profile?.company_id]);
 
-  // React Router hash (not raw pushState) so phone/browser back closes the overlay
-  // and stays on this screen.
+  // Native hash so phone/browser back closes the overlay and stays here.
   useEffect(() => {
-    const next = nextSearchOverlayHashPhase(
-      hashPhaseRef.current,
-      open,
-      isSearchOverlayHash(location.hash),
-    );
-    hashPhaseRef.current = next.phase;
-    if (next.action === 'push') {
-      navigate(searchOverlayOpenLocation(location));
-    } else if (next.action === 'close') {
-      onCloseRef.current();
-    }
-  }, [open, location, navigate]);
+    if (!open) return;
+    armSearchOverlayHash(window.location);
+    const onHashChange = () => {
+      if (!isSearchOverlayHash(window.location.hash)) {
+        onCloseRef.current();
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -214,14 +207,12 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
       if (e.key === 'Escape') {
         e.preventDefault();
         onCloseRef.current();
-        if (isSearchOverlayHash(location.hash)) {
-          navigate(searchOverlayClosedLocation(location), { replace: true });
-        }
+        disarmSearchOverlayHash(window.location, window.history);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, location, navigate]);
+  }, [open]);
 
   // Keep the active row scrolled into view while navigating with arrows.
   useEffect(() => {
@@ -234,12 +225,10 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   const flat = groups.flatMap((g) => g.results);
   const dismiss = () => {
     onCloseRef.current();
-    if (isSearchOverlayHash(location.hash)) {
-      navigate(searchOverlayClosedLocation(location), { replace: true });
-    }
+    disarmSearchOverlayHash(window.location, window.history);
   };
   const go = (to: string) => {
-    const replace = searchOverlayNavigationReplace(location.hash);
+    const replace = searchOverlayNavigationReplace(window.location.hash);
     onClose();
     navigate(to, { replace });
   };
