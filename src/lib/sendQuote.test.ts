@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyQuoteSendScope,
+  canClientAcceptQuote,
   clientEmailForSend,
+  clientPortalAcceptBody,
+  clientPortalPublicUrl,
   commercialPdfDataForQuote,
   decideQuoteSend,
   isQuoteSendScoped,
   isSmtpReady,
+  pickActiveClientPortalToken,
   quoteAttachmentOrMiss,
   quotePdfFilename,
   quoteSendClientQuery,
@@ -14,6 +18,7 @@ import {
   quoteSendQueries,
   quoteSendSubject,
   quoteSmsBody,
+  quoteStatusAfterClientAccept,
   quoteStatusAfterSend,
   quoteStatusPatchAfterSend,
   shouldRecordQuoteSent,
@@ -162,7 +167,33 @@ describe('quote send copy / document name', () => {
     expect(quoteSendSubject(12, 'BTS Electrical')).toBe('Quote #0012 from BTS Electrical');
   });
 
-  it('mentions the attached PDF and does not invent a portal', () => {
+  it('includes the existing client portal link beside reply-to-go-ahead copy', () => {
+    const portalUrl = 'https://app.example/p?t=portal-token-1';
+    const html = quoteSendHtml({
+      clientName: 'Jane',
+      companyName: 'BTS Electrical',
+      quoteNumber: 12,
+      totalLabel: '$528.00',
+      validityLabel: '19 Sep 2026',
+      portalUrl,
+    });
+    expect(html).toContain('Jane');
+    expect(html).toContain('#0012');
+    expect(html).toContain('PDF is attached');
+    expect(html).toContain('$528.00');
+    expect(html).toContain(portalUrl);
+    expect(html).toContain('Accept this quote');
+    expect(html).toContain('change the scope');
+    expect(quoteSmsBody({
+      companyName: 'BTS Electrical',
+      quoteNumber: 12,
+      totalLabel: '$528.00',
+      validityLabel: '19 Sep 2026',
+      portalUrl,
+    })).toContain('Accept here: https://app.example/p?t=portal-token-1');
+  });
+
+  it('keeps reply-to-go-ahead copy when there is no portal token yet', () => {
     const html = quoteSendHtml({
       clientName: 'Jane',
       companyName: 'BTS Electrical',
@@ -170,17 +201,36 @@ describe('quote send copy / document name', () => {
       totalLabel: '$528.00',
       validityLabel: '19 Sep 2026',
     });
-    expect(html).toContain('Jane');
-    expect(html).toContain('#0012');
-    expect(html).toContain('PDF is attached');
-    expect(html).toContain('$528.00');
-    expect(html).not.toContain('portal');
+    expect(html).toContain('Reply to this email if you want to go ahead');
+    expect(html).not.toContain('/p?t=');
     expect(quoteSmsBody({
       companyName: 'BTS Electrical',
       quoteNumber: 12,
       totalLabel: '$528.00',
       validityLabel: '19 Sep 2026',
-    })).toContain('quote #0012');
+    })).not.toContain('Accept here');
+  });
+});
+
+describe('client portal accept helpers', () => {
+  it('builds the existing /p?t= link and only accepts sent quotes', () => {
+    expect(clientPortalPublicUrl('https://app.example/', 'abc123')).toBe('https://app.example/p?t=abc123');
+    expect(clientPortalPublicUrl('', 'abc123')).toBeNull();
+    expect(pickActiveClientPortalToken([
+      { token: 'revoked', revoked: true },
+      { token: 'expired', expires_at: '2020-01-01T00:00:00.000Z' },
+      { token: 'live', revoked: false, expires_at: '2030-01-01T00:00:00.000Z' },
+    ])).toBe('live');
+    expect(canClientAcceptQuote('sent')).toBe(true);
+    expect(canClientAcceptQuote('draft')).toBe(false);
+    expect(quoteStatusAfterClientAccept('sent')).toBe('accepted');
+    expect(quoteStatusAfterClientAccept('accepted')).toBe('accepted');
+    expect(quoteStatusAfterClientAccept('draft')).toBeNull();
+    expect(clientPortalAcceptBody('tok', 'q1')).toEqual({
+      token: 'tok',
+      action: 'accept_quote',
+      quoteId: 'q1',
+    });
   });
 });
 

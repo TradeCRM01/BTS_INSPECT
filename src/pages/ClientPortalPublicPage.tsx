@@ -1,11 +1,21 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
-import { Download, FileText, Receipt, Wrench, Building2, AlertCircle } from 'lucide-react';
+import { Check, Download, FileText, Receipt, Wrench, Building2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { formatMoney } from '../types/fsm';
+
+export const PORTAL_QUOTE_ACCEPT_ACTION = 'accept_quote';
+
+export function canAcceptPortalQuote(status: string): boolean {
+  return status === 'sent';
+}
+
+export function portalQuoteAcceptBody(token: string, quoteId: string) {
+  return { token, action: PORTAL_QUOTE_ACCEPT_ACTION, quoteId };
+}
 
 type PortalPayload =
   | {
@@ -88,6 +98,8 @@ function CompanyHeader({
 export function ClientPortalPublicPage() {
   const [params] = useSearchParams();
   const token = useMemo(() => (params.get('t') || params.get('token') || '').trim(), [params]);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['client-portal-public', token],
@@ -95,6 +107,23 @@ export function ClientPortalPublicPage() {
     enabled: !!token,
     retry: 1,
   });
+
+  const acceptQuote = async (quoteId: string) => {
+    setAcceptingId(quoteId);
+    setAcceptError(null);
+    try {
+      const { data: result, error: acceptErr } = await supabase.functions.invoke('client-portal', {
+        body: portalQuoteAcceptBody(token, quoteId),
+      });
+      if (acceptErr) throw new Error(acceptErr.message || 'Could not accept quote');
+      if (result?.error) throw new Error(String(result.error));
+      await refetch();
+    } catch (err) {
+      setAcceptError(err instanceof Error ? err.message : 'Could not accept quote');
+    } finally {
+      setAcceptingId(null);
+    }
+  };
 
   if (!token) {
     return (
@@ -216,13 +245,29 @@ export function ClientPortalPublicPage() {
         </Section>
 
         <Section title="Quotes" icon={<FileText size={16} />} empty="No quotes" count={data.quotes.length}>
+          {acceptError && (
+            <p className="text-xs text-red-600 px-4 pt-3">{acceptError}</p>
+          )}
           {data.quotes.map(q => (
             <div key={q.id} className="flex justify-between gap-3 px-4 py-3 border-b border-[#F3F4F6] last:border-0">
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-[#1A1A1A]">{q.quote_number}</p>
                 <p className="text-xs text-[#6B7280]">{q.status}</p>
               </div>
-              <p className="text-sm font-medium text-[#1A1A1A]">{formatMoney(q.total)}</p>
+              <div className="shrink-0 text-right">
+                <p className="text-sm font-medium text-[#1A1A1A]">{formatMoney(q.total)}</p>
+                {canAcceptPortalQuote(q.status) && (
+                  <button
+                    type="button"
+                    onClick={() => void acceptQuote(q.id)}
+                    disabled={acceptingId === q.id}
+                    className="mt-2 inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 rounded-md text-sm font-medium bg-[#0A2540] text-white hover:bg-[#0d2f4e] disabled:opacity-60"
+                  >
+                    <Check size={15} />
+                    {acceptingId === q.id ? 'Accepting...' : 'Accept'}
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </Section>

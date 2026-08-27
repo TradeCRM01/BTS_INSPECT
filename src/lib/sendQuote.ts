@@ -142,15 +142,65 @@ export function quotePdfFilename(quoteNumber: number | null | undefined): string
   return `quote-${padQuoteNumber(quoteNumber)}.pdf`;
 }
 
+/** Existing public token portal — `/p?t=` on ClientPortalPublicPage. */
+export const CLIENT_PORTAL_PATH = '/p';
+export const CLIENT_PORTAL_ACCEPT_ACTION = 'accept_quote';
+
+export function clientPortalPublicUrl(
+  origin: string | null | undefined,
+  token: string | null | undefined,
+): string | null {
+  const base = (origin ?? '').trim().replace(/\/$/, '');
+  const t = (token ?? '').trim();
+  if (!base || !t) return null;
+  return `${base}${CLIENT_PORTAL_PATH}?t=${t}`;
+}
+
+export function pickActiveClientPortalToken(
+  rows: Array<{ token?: string | null; revoked?: boolean | null; expires_at?: string | null }>,
+  now = new Date(),
+): string | null {
+  for (const row of rows) {
+    const token = (row.token ?? '').trim();
+    if (!token || row.revoked) continue;
+    if (row.expires_at && new Date(row.expires_at).getTime() < now.getTime()) continue;
+    return token;
+  }
+  return null;
+}
+
+export function clientPortalAcceptBody(
+  token: string | null | undefined,
+  quoteId: string | null | undefined,
+): { token: string; action: typeof CLIENT_PORTAL_ACCEPT_ACTION; quoteId: string } | null {
+  const t = (token ?? '').trim();
+  const id = (quoteId ?? '').trim();
+  if (!t || !id) return null;
+  return { token: t, action: CLIENT_PORTAL_ACCEPT_ACTION, quoteId: id };
+}
+
+/** Same outcome as office Mark accepted — sent → accepted. Already accepted is a no-op. */
+export function quoteStatusAfterClientAccept(currentStatus: string): 'accepted' | null {
+  if (currentStatus === 'sent' || currentStatus === 'accepted') return 'accepted';
+  return null;
+}
+
+export function canClientAcceptQuote(status: string): boolean {
+  return status === 'sent';
+}
+
 export function quoteSmsBody(opts: {
   companyName: string;
   quoteNumber: number | null | undefined;
   totalLabel: string;
   validityLabel: string | null;
+  portalUrl?: string | null;
 }): string {
   const who = opts.companyName.trim() || 'your contractor';
   const valid = opts.validityLabel ? ` Valid until ${opts.validityLabel}.` : '';
-  return `${who} sent quote #${padQuoteNumber(opts.quoteNumber)}. Total (inc GST): ${opts.totalLabel}.${valid} The PDF is in your email.`;
+  const portal = (opts.portalUrl ?? '').trim();
+  const accept = portal ? ` Accept here: ${portal}` : '';
+  return `${who} sent quote #${padQuoteNumber(opts.quoteNumber)}. Total (inc GST): ${opts.totalLabel}.${valid} The PDF is in your email.${accept}`;
 }
 
 export function quoteValidityLabel(validityDate: string | null | undefined): string | null {
@@ -165,6 +215,7 @@ export function quoteSendHtml(opts: {
   quoteNumber: number | null | undefined;
   totalLabel: string;
   validityLabel: string | null;
+  portalUrl?: string | null;
 }): string {
   const client = escapeHtml(opts.clientName.trim() || 'there');
   const company = escapeHtml(opts.companyName.trim() || 'us');
@@ -173,6 +224,12 @@ export function quoteSendHtml(opts: {
   const valid = opts.validityLabel
     ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Valid until <strong>${escapeHtml(opts.validityLabel)}</strong>.</p>`
     : '';
+  const portal = (opts.portalUrl ?? '').trim();
+  const goAhead = portal
+    ? `<p>The quote PDF is attached. Open your client portal to Accept this quote:</p>
+          <p><a href="${escapeHtml(portal)}" style="color:#2E75B6">${escapeHtml(portal)}</a></p>
+          <p>Or reply to this email if you want to change the scope.</p>`
+    : `<p>The quote PDF is attached. Reply to this email if you want to go ahead or change the scope.</p>`;
   return `
       <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
         <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
@@ -184,7 +241,7 @@ export function quoteSendHtml(opts: {
           <p>${company} has sent you quote ${number}.</p>
           <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${total}</strong></p>
           ${valid}
-          <p>The quote PDF is attached. Reply to this email if you want to go ahead or change the scope.</p>
+          ${goAhead}
         </div>
       </div>`;
 }
