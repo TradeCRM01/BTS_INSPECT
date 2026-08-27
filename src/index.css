@@ -283,7 +283,7 @@
     @apply text-xl font-semibold tracking-tight text-navy;
   }
 
-  /* Clients look only: signed job-hub + quotes cream paper. Not a global restyle. */
+  /* Clients look only: signed document sheet on list + open record. Not a global restyle. */
   :is(.hub-clients) {
     --client-page: #F5F0E6;
     --client-sheet: #FFFDF8;
@@ -293,7 +293,6 @@
     --client-action: #2E75B6;
     --client-r-ctl: 12px;
     --client-r-sheet: 16px;
-    --client-pass: #1B7F3A;
     --client-fail: #B42318;
     --client-warn: #B54708;
     font-family: 'Source Sans 3', system-ui, sans-serif;
@@ -334,14 +333,15 @@
     gap: 16px;
   }
 
-  .hub-clients-kicker {
-    font-family: Rajdhani, sans-serif;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+  .hub-clients-label {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
     color: var(--client-muted);
     margin: 0 0 8px;
+    text-decoration: none;
   }
 
   .hub-clients .btn-primary {
@@ -386,6 +386,208 @@
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
+  }
+
+  .hub-clients-open-chrome {
+    display: none;
+  }
+
+  .hub-clients.is-record-open .hub-clients-open-chrome {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    max-width: 1100px;
+    margin: 0 auto 16px;
+    padding-top: 8px;
+  }
+
+  .hub-clients.is-record-open .ops-page-head,
+  .hub-clients.is-record-open .hub-clients-chrome,
+  .hub-clients.is-record-open nav[aria-label="Breadcrumb"] {
+    display: none;
+  }
+
+  .hub-clients-document {
+    max-width: 1100px;
+    margin: 0 auto 24px;
+    background: var(--client-sheet);
+    border: 1px solid var(--client-line);
+    border-radius: 16px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+  }
+
+  .hub-clients-sheet-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 44px;
+    padding: 8px 24px;
+    background: var(--client-ink);
+    color: #fff;
+  }
+
+  .hub-clients-sheet-bar .hub-clients-hours {
+    color: #fff;
+    font-size: 16px;
+  }
+
+  .hub-clients-sheet-bar .hub-clients-pill {
+    background: #fff;
+    color: var(--client-ink);
+    border-color: transparent;
+  }
+
+  .hub-clients-sheet-body {
+    padding: 32px 32px 24px;
+    background: var(--client-sheet);
+    box-shadow: inset 0 1px 0 #fff;
+  }
+
+  .hub-clients-hero {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-size: 56px !important;
+    letter-spacing: 0.02em;
+    line-height: 0.96;
+    color: var(--client-ink);
+    margin: 0;
+  }
+
+  .hub-clients-jobline {
+    margin: 8px 0 0;
+    color: #2E75B6;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .hub-clients-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .hub-clients-sub {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 0;
+    color: #2E75B6;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: none;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .hub-clients-more {
+    flex-shrink: 0;
+    color: var(--client-muted);
+  }
+
+  .hub-clients-hours {
+    margin: 0;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    color: var(--client-ink);
+    font-size: 20px;
+  }
+
+  .hub-clients-ledger {
+    margin-top: 32px;
+  }
+
+  .hub-clients-ledger-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 16px;
+    margin: 0;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--client-line);
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 44px;
+    font-size: 14px;
+    color: var(--client-ink);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .hub-clients-ledger-row .hub-clients-hours {
+    font-size: 16px;
+    white-space: nowrap;
+  }
+
+  .hub-clients-ledger-row.hub-clients-job-row {
+    display: flex;
+    grid-template-columns: none;
+    border-top: none;
+    cursor: pointer;
+    padding: 16px 0;
+  }
+
+  .hub-clients-document .ops-hub-site {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--client-ink);
+    margin: 0;
+  }
+
+  .hub-clients-document .client-sheet-contact {
+    margin-top: 0;
+    gap: 0;
+  }
+
+  .hub-clients-document .client-sheet-contact > * {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px 16px;
+    margin: 0;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--client-line);
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .hub-clients-document .ops-tray,
+  .hub-clients-document .ops-card,
+  .hub-clients-document .hub-signal {
+    background: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 16px 0 0;
+    padding: 0;
+    max-width: none;
+  }
+
+  .hub-clients-document .ops-tray-head {
+    padding: 12px 0;
+    border: none;
+    border-bottom: 1px solid var(--client-line);
+    background: none;
+  }
+
+  .hub-clients-document .ops-tray .ops-related-main,
+  .hub-clients-document .ops-tray .ops-tray-empty {
+    padding: 12px 0;
+    background: transparent;
   }
 
   .hub-clients-chrome {
@@ -583,24 +785,18 @@
     white-space: nowrap;
   }
 
-  .hub-clients-pill.is-scheduled {
+  .hub-clients-pill.is-scheduled,
+  .hub-clients-pill.is-in_progress {
     color: #2E75B6;
     background: color-mix(in srgb, #2E75B6 12%, #fff);
   }
 
-  .hub-clients-pill.is-in_progress {
-    color: var(--client-warn);
-    background: color-mix(in srgb, #B54708 12%, #fff);
-  }
-
-  .hub-clients-pill.is-completed {
-    color: var(--client-pass);
-    background: color-mix(in srgb, #1B7F3A 12%, #fff);
-  }
-
-  .hub-clients-pill.is-cancelled {
-    color: var(--client-fail);
-    background: color-mix(in srgb, #B42318 12%, #fff);
+  .hub-clients-pill.is-completed,
+  .hub-clients-pill.is-cancelled,
+  .hub-clients-pill.is-archived {
+    color: var(--client-muted);
+    background: var(--client-page);
+    border-color: var(--client-line);
   }
 
   .hub-clients-row-next {
@@ -670,7 +866,8 @@
   }
 
   .hub-clients-more-trays {
-    opacity: 0.72;
+    opacity: 1;
+    margin-top: 8px;
   }
 
   .hub-clients .ops-tray {
@@ -722,6 +919,34 @@
       font-size: 32px !important;
     }
 
+    .hub-clients-hero {
+      font-size: 40px !important;
+    }
+
+    .hub-clients-sheet-bar {
+      padding: 8px 16px;
+    }
+
+    .hub-clients-sheet-bar .hub-clients-pill {
+      background: #2E75B6;
+      color: #fff;
+    }
+
+    .hub-clients-sheet-body {
+      padding: 24px 16px 16px;
+    }
+
+    .hub-clients-sheet-body .hub-clients-tools {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+    }
+
+    .hub-clients-sheet-body .btn-primary {
+      width: 100%;
+      justify-content: center;
+    }
+
     .hub-clients-chrome {
       flex-direction: column;
       align-items: stretch;
@@ -768,6 +993,20 @@
     .hub-clients-job-row > :nth-child(2) { grid-area: site; }
     .hub-clients-job-row > :nth-child(3) { grid-area: pill; }
     .hub-clients-job-row > :nth-child(4) { grid-area: next; }
+
+    .hub-clients-ledger-row.hub-clients-job-row {
+      display: flex;
+      grid-template-columns: none;
+      grid-template-areas: none;
+      padding: 16px 0;
+    }
+
+    .hub-clients-ledger-row.hub-clients-job-row > :nth-child(1),
+    .hub-clients-ledger-row.hub-clients-job-row > :nth-child(2),
+    .hub-clients-ledger-row.hub-clients-job-row > :nth-child(3),
+    .hub-clients-ledger-row.hub-clients-job-row > :nth-child(4) {
+      grid-area: auto;
+    }
 
     .hub-clients-contact-sheet,
     .hub-clients-jobs-head,

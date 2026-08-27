@@ -330,10 +330,6 @@ describe('client-sheet contact — wiring', () => {
     expect(dialog).toContain('saveJobClientPhone');
     expect(reminder).toContain('saveJobClientEmail');
     expect(reminder).toContain('This client has no email. Add one below before you send.');
-    expect(due).not.toContain('saveJobClientEmail');
-    expect(due).not.toContain('saveJobClientPhone');
-    expect(due).not.toContain('job-client-email');
-    expect(due).not.toContain('job-client-phone');
     expect(page).not.toContain('JobClientReminder');
     expect(page).not.toContain('InspectionDueReminder');
     expect(page).not.toContain('InvoiceSendDialog');

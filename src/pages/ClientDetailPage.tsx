@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, Breadcrumbs, ContextMenu, useToast, OpsSiteRow } from '../components/ui';
+import { LoadingSpinner, PageError, ContextMenu, useToast, OpsSiteRow } from '../components/ui';
 import type { MenuEntry } from '../components/ui';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import type { Client, JobWithClient } from '../types/crm';
@@ -12,7 +12,7 @@ import {
   formatMoney,
 } from '../types/fsm';
 import type { QuoteStatus } from '../types/fsm';
-import { Briefcase, Plus, FileText, ShieldCheck, Receipt, ClipboardList, Mail, Phone, CreditCard as Edit3 } from 'lucide-react';
+import { Plus, FileText, ShieldCheck, Receipt, ClipboardList, Mail, Phone, CreditCard as Edit3 } from 'lucide-react';
 import { getAuditClient, getAuditEmptyList, getAuditJobs } from '../lib/devFieldAuditDocs';
 import {
   jobClientEmailRow,
@@ -55,6 +55,7 @@ import {
   clientJobOpenHref,
   clientJobStatusLabel,
   clientJobsEmptyTitle,
+  formatClientJobDate,
   padClientJobNumber,
   sortClientJobsForFloor,
 } from '../lib/clientsFloor';
@@ -286,135 +287,138 @@ export function ClientDetailPage() {
   const jobById = new Map(floorJobs.map(job => [job.id, job]));
   const emailRow = jobClientEmailRow({ clientId: client.id, client });
   const phoneRow = jobClientPhoneRow({ clientId: client.id, client });
+  const site = visibleSite(client.address);
+  const when = formatClientJobDate(client.created_at);
+  const jobline = client.contact_person?.trim() || '';
 
   return (
     <AppShell>
-      <div className="ops-page hub-clients">
-        <Breadcrumbs items={[{ label: 'Clients', to: '/clients' }, { label: client.name }]} />
-
-        <div className="ops-page-head">
-          <div className="min-w-0">
-            <p className="hub-clients-kicker">Client</p>
-            <h1 className="ops-page-title">{client.name}</h1>
-            {client.contact_person ? (
-              <p className="hub-clients-muted mt-2">{client.contact_person}</p>
-            ) : null}
-          </div>
-          <div className="hub-clients-head-act">
-            <Link to={newJobHref} className="btn-primary">
-              <Plus size={16} /> New job
-            </Link>
-            <ContextMenu items={clientRecordMenu(navigate, newQuoteHref, newInvoiceHref, () => setShowEdit(true))} />
-          </div>
+      <div className="ops-page hub-clients is-record-open">
+        <div className="hub-clients-open-chrome">
+          <Link to="/clients" className="hub-clients-label">Clients</Link>
         </div>
 
-        <div className="hub-clients-contact-sheet">
-          <OpsSiteRow
-            hub
-            site={visibleSite(client.address)}
-            mapsQuery={client.address}
-          />
-          <div className="client-sheet-contact">
-            {phoneRow.kind === 'edit' && (
-              <p className="client-sheet-miss">{CLIENT_SHEET_NO_PHONE}</p>
-            )}
-            {phoneRow.kind === 'tel' && (
-              <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num">
-                <Phone size={13} /> {phoneRow.phone}
-              </a>
-            )}
-            {phoneRow.kind === 'edit' && (
-              <form
-                className="job-client-phone"
-                onSubmit={e => {
-                  e.preventDefault();
-                  saveClientPhone.mutate();
-                }}
-              >
-                <Phone size={13} />
-                <input
-                  type="tel"
-                  value={clientPhoneDraft}
-                  onChange={e => setClientPhoneDraft(e.target.value)}
-                  placeholder="Phone"
-                  className="form-input-sm"
-                  aria-label="Client phone"
-                  autoComplete="tel"
-                  inputMode="tel"
-                />
-                <button
-                  type="submit"
-                  className="job-client-phone-save"
-                  disabled={saveClientPhone.isPending}
-                >
-                  Save
-                </button>
-              </form>
-            )}
-            {emailRow.kind === 'edit' && (
-              <p className="client-sheet-miss">{CLIENT_SHEET_NO_EMAIL}</p>
-            )}
-            {emailRow.kind === 'mailto' && (
-              <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
-                <Mail size={13} /> {emailRow.email}
-              </a>
-            )}
-            {emailRow.kind === 'edit' && (
-              <form
-                className="job-client-email"
-                onSubmit={e => {
-                  e.preventDefault();
-                  saveClientEmail.mutate();
-                }}
-              >
-                <Mail size={13} />
-                <input
-                  type="email"
-                  value={clientEmailDraft}
-                  onChange={e => setClientEmailDraft(e.target.value)}
-                  placeholder="Email"
-                  className="form-input-sm"
-                  aria-label="Client email"
-                  autoComplete="email"
-                />
-                <button
-                  type="submit"
-                  className="job-client-email-save"
-                  disabled={saveClientEmail.isPending}
-                >
-                  Save
-                </button>
-              </form>
-            )}
-          </div>
-          {client.notes ? (
-            <p className="text-sm text-navy whitespace-pre-wrap mt-3">{client.notes}</p>
-          ) : null}
-        </div>
+        <article className="hub-clients-document">
+          <header className="hub-clients-sheet-bar">
+            <span className="hub-clients-hours">{when || 'Client'}</span>
+            <span className="hub-clients-pill">{client.archived ? 'Archived' : 'Active'}</span>
+          </header>
+          <div className="hub-clients-sheet-body">
+            <h1 className="hub-clients-hero">{client.name}</h1>
+            {jobline ? <p className="hub-clients-jobline">{jobline}</p> : null}
 
-        <HubMoney ready={moneyReady} overdue={money.overdue} outstanding={money.outstanding} />
-
-        <div className="hub-clients-jobs-sheet">
-          <div className="hub-clients-jobs-head">
-            <h2 className="hub-clients-jobs-title">Jobs</h2>
-          </div>
-          {floorJobs.length === 0 ? (
-            <div className="hub-clients-jobs-empty">
-              <p>{clientJobsEmptyTitle({ error: jobsError, count: floorJobs.length }) || 'No jobs yet'}</p>
-              {jobsError ? null : <Link to={newJobHref} className="hub-clients-next">New job</Link>}
-            </div>
-          ) : (
-            <>
-              <div className="hub-clients-jobs-thead">
-                <span>#</span>
-                <span>Site</span>
-                <span>Status</span>
-                <span />
+            <div className="hub-clients-tools">
+              <Link to={newJobHref} className="btn-primary">
+                <Plus size={16} /> New job
+              </Link>
+              <button type="button" className="hub-clients-sub" onClick={() => setShowEdit(true)}>
+                Edit
+              </button>
+              <div className="hub-clients-more">
+                <ContextMenu items={clientRecordMenu(navigate, newQuoteHref, newInvoiceHref, () => setShowEdit(true))} />
               </div>
-              {floorJobs.map(job => {
+            </div>
+
+            <div className="hub-clients-ledger">
+              {site ? (
+                <div className="hub-clients-ledger-row">
+                  <OpsSiteRow
+                    hub
+                    site={site}
+                    mapsQuery={client.address}
+                  />
+                </div>
+              ) : null}
+              <div className="client-sheet-contact">
+                {phoneRow.kind === 'edit' && (
+                  <p className="client-sheet-miss">{CLIENT_SHEET_NO_PHONE}</p>
+                )}
+                {phoneRow.kind === 'tel' && (
+                  <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num">
+                    <Phone size={13} /> {phoneRow.phone}
+                  </a>
+                )}
+                {phoneRow.kind === 'edit' && (
+                  <form
+                    className="job-client-phone"
+                    onSubmit={e => {
+                      e.preventDefault();
+                      saveClientPhone.mutate();
+                    }}
+                  >
+                    <Phone size={13} />
+                    <input
+                      type="tel"
+                      value={clientPhoneDraft}
+                      onChange={e => setClientPhoneDraft(e.target.value)}
+                      placeholder="Phone"
+                      className="form-input-sm"
+                      aria-label="Client phone"
+                      autoComplete="tel"
+                      inputMode="tel"
+                    />
+                    <button
+                      type="submit"
+                      className="job-client-phone-save"
+                      disabled={saveClientPhone.isPending}
+                    >
+                      Save
+                    </button>
+                  </form>
+                )}
+                {emailRow.kind === 'edit' && (
+                  <p className="client-sheet-miss">{CLIENT_SHEET_NO_EMAIL}</p>
+                )}
+                {emailRow.kind === 'mailto' && (
+                  <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
+                    <Mail size={13} /> {emailRow.email}
+                  </a>
+                )}
+                {emailRow.kind === 'edit' && (
+                  <form
+                    className="job-client-email"
+                    onSubmit={e => {
+                      e.preventDefault();
+                      saveClientEmail.mutate();
+                    }}
+                  >
+                    <Mail size={13} />
+                    <input
+                      type="email"
+                      value={clientEmailDraft}
+                      onChange={e => setClientEmailDraft(e.target.value)}
+                      placeholder="Email"
+                      className="form-input-sm"
+                      aria-label="Client email"
+                      autoComplete="email"
+                    />
+                    <button
+                      type="submit"
+                      className="job-client-email-save"
+                      disabled={saveClientEmail.isPending}
+                    >
+                      Save
+                    </button>
+                  </form>
+                )}
+              </div>
+              {client.notes ? (
+                <p className="hub-clients-ledger-row">
+                  <span className="hub-clients-muted">{client.notes}</span>
+                </p>
+              ) : null}
+              <HubMoney ready={moneyReady} overdue={money.overdue} outstanding={money.outstanding} />
+              {floorJobs.length === 0 ? (
+                <div className="hub-clients-ledger-row hub-clients-jobs-empty">
+                  <p>{clientJobsEmptyTitle({ error: jobsError, count: floorJobs.length }) || 'No jobs yet'}</p>
+                  {jobsError ? null : <Link to={newJobHref} className="hub-clients-next">New job</Link>}
+                </div>
+              ) : floorJobs.map(job => {
                 const next = withReminderNext(job, jobListNext(job));
                 const href = clientJobOpenHref(job.id);
                 const status = clientJobStatusLabel(job.status) ?? '';
+                const title = clientJobFloorTitle(job);
+                const ref = job.job_number != null ? `#${padClientJobNumber(job.job_number)}` : '';
                 return (
                   <div
                     key={job.id}
@@ -422,14 +426,15 @@ export function ClientDetailPage() {
                     tabIndex={0}
                     onClick={() => navigate(href)}
                     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(href); } }}
-                    className="hub-clients-job-row"
+                    className="hub-clients-ledger-row hub-clients-job-row"
                     title={clientJobFloorMeta(job)}
                   >
-                    <span className="hub-clients-ref">
-                      {job.job_number != null ? `#${padClientJobNumber(job.job_number)}` : ''}
+                    <span className="min-w-0">
+                      {ref ? <span className="hub-clients-ref">{ref}</span> : null}
+                      {ref && title ? ' ' : null}
+                      <span className="truncate">{title}</span>
+                      {status ? <span className="hub-clients-muted"> · {status}</span> : null}
                     </span>
-                    <span className="truncate">{clientJobFloorTitle(job)}</span>
-                    <span className={`hub-clients-pill is-${job.status || 'scheduled'}`}>{status}</span>
                     <span className="hub-clients-row-next" onClick={e => e.stopPropagation()}>
                       {next.actionable ? (
                         <Link to={next.href} className={nextQuiet}>{next.label}</Link>
@@ -440,11 +445,9 @@ export function ClientDetailPage() {
                   </div>
                 );
               })}
-            </>
-          )}
-        </div>
+            </div>
 
-        <div className="hub-trays hub-clients-more-trays">
+            <div className="hub-trays hub-clients-more-trays">
           <JobRelatedSection
             title="Quotes"
             icon={FileText}
@@ -585,7 +588,9 @@ export function ClientDetailPage() {
               );
             })}
           </JobRelatedSection>
-        </div>
+            </div>
+          </div>
+        </article>
       </div>
 
       {showEdit && (
@@ -616,18 +621,18 @@ function HubMoney({
   if (!ready) return null;
   if (overdue > 0) {
     return (
-      <div className="hub-signal">
-        <p className="hub-signal-amount text-fail">{formatMoney(overdue)}</p>
-        <p className="ops-meta">Overdue</p>
-      </div>
+      <p className="hub-clients-ledger-row">
+        <span className="hub-clients-muted">Overdue</span>
+        <span className="hub-clients-hours text-fail">{formatMoney(overdue)}</span>
+      </p>
     );
   }
   if (outstanding > 0) {
     return (
-      <div className="hub-signal">
-        <p className="hub-signal-amount">{formatMoney(outstanding)}</p>
-        <p className="ops-meta">Outstanding</p>
-      </div>
+      <p className="hub-clients-ledger-row">
+        <span className="hub-clients-muted">Outstanding</span>
+        <span className="hub-clients-hours">{formatMoney(outstanding)}</span>
+      </p>
     );
   }
   return null;
