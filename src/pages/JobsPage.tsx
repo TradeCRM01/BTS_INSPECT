@@ -200,18 +200,20 @@ export function JobsPage() {
         {isLoading ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={Briefcase}
-            title={filteredEmpty ? 'No jobs yet' : 'No matching jobs'}
-            message={filteredEmpty
-              ? 'Create a job, add the site, then put it on the board so the crew can see it.'
-              : 'Try another status or search.'}
-            action={filteredEmpty ? (
-              <button onClick={() => setShowForm(true)} className="btn-primary">
-                <Plus size={16} /> Create job
-              </button>
-            ) : undefined}
-          />
+          <div className="hub-jobs-sheet">
+            <EmptyState
+              icon={Briefcase}
+              title={filteredEmpty ? 'No jobs yet' : 'No matching jobs'}
+              message={filteredEmpty
+                ? 'Create a job, add the site, then put it on the board so the crew can see it.'
+                : 'Try another status or search.'}
+              action={filteredEmpty ? (
+                <button onClick={() => setShowForm(true)} className="btn-primary">
+                  <Plus size={16} /> Create job
+                </button>
+              ) : undefined}
+            />
+          </div>
         ) : (
           <div className="hub-jobs-sheet">
             <div className="hub-jobs-thead">
