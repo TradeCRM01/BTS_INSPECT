@@ -253,6 +253,15 @@ export function complianceListSheetItem<T>(items: T[]): T | null {
   return items[0] ?? null;
 }
 
+/** Open record on `/compliance?id=` — the document sheet, same path. */
+export function complianceListOpened<T extends { row: { id: string } }>(
+  items: T[],
+  openId: string | null,
+): T | null {
+  if (!openId) return null;
+  return items.find(item => item.row.id === openId) ?? null;
+}
+
 export function complianceListOtherItems<T extends { row: { id: string } }>(
   items: T[],
   sheetId: string | null,

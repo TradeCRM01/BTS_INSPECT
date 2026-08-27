@@ -12,6 +12,7 @@ import {
   complianceListLiveStatus,
   complianceListMetaLine,
   complianceListOpenHref,
+  complianceListOpened,
   complianceListOtherItems,
   complianceListSheetItem,
   complianceListSearchHaystack,
@@ -168,6 +169,9 @@ describe('compliance list empty copy and recurrence', () => {
     expect(sheet?.row.id).toBe('audit-compliance-rcd');
     expect(complianceListOtherItems(decorated, sheet?.row.id ?? null).map(item => item.row.id))
       .toEqual(['audit-compliance-warranty']);
+    expect(complianceListOpened(decorated, 'audit-compliance-rcd')?.row.id).toBe('audit-compliance-rcd');
+    expect(complianceListOpened(decorated, null)).toBeNull();
+    expect(complianceListOpenHref('audit-compliance-rcd')).toBe('/compliance?id=audit-compliance-rcd');
   });
 
   it('keeps the existing next-due math for mark complete / save', () => {

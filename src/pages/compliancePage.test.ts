@@ -68,21 +68,29 @@ describe('Compliance page due-or-open floor wiring', () => {
 });
 
 describe('compliance due-or-open cream paper look', () => {
-  it('paints the open item as one cream sheet, not a tile grid or DATE/STATUS table', () => {
+  it('paints the open record as the document sheet, not a tile grid or DATE/STATUS table', () => {
     const page = src('src/pages/CompliancePage.tsx');
     const css = src('src/index.css');
     const lookStart = css.indexOf('/* Compliance due-or-open floor look only.');
     const lookCss = css.slice(lookStart);
 
     expect(page).toContain('hub-compliance');
+    expect(page).toContain('hub-compliance');
+    expect(page).toContain('is-record-open');
     expect(page).toContain('hub-compliance-sheet');
-    expect(page).toContain('hub-compliance-sheet-title');
+    expect(page).toContain('hub-compliance-sheet-bar');
+    expect(page).toContain('hub-compliance-sheet-body');
+    expect(page).toContain('hub-compliance-hero');
+    expect(page).toContain('hub-compliance-label');
+    expect(page).toContain('hub-compliance-ledger');
     expect(page).toContain('hub-compliance-pill');
-    expect(page).toContain('hub-compliance-total');
     expect(page).toContain('hub-compliance-next');
+    expect(page).toContain('complianceListOpened');
     expect(page).toContain('complianceListSheetItem');
     expect(page).toContain('complianceListDueLabel');
     expect(page).toContain('>Open</Link>');
+    expect(page).not.toContain('hub-compliance-kicker');
+    expect(page).not.toMatch(/>COMPLIANCE</);
     expect(page).not.toContain('hub-compliance-tile');
     expect(page).not.toContain('hub-compliance-tiles');
     expect(page).not.toContain('hub-timesheets-days');
@@ -97,17 +105,24 @@ describe('compliance due-or-open cream paper look', () => {
 
     expect(lookCss).toContain('.hub-compliance.ops-page');
     expect(lookCss).toContain('.hub-compliance-sheet');
+    expect(lookCss).toContain('.hub-compliance-sheet-bar');
+    expect(lookCss).toContain('.hub-compliance-sheet-body');
+    expect(lookCss).toContain('.hub-compliance-hero');
+    expect(lookCss).toContain('.hub-compliance-label');
+    expect(lookCss).toContain('.hub-compliance.is-record-open');
     expect(lookCss).toContain('--compliance-look-page: #F5F0E6');
     expect(lookCss).toContain('--compliance-look-sheet: #FFFDF8');
     expect(lookCss).toContain('--compliance-look-ink: #0A2540');
     expect(lookCss).toContain('--compliance-look-muted: #5B6B7C');
     expect(lookCss).toContain('--compliance-look-line: #E2D9CC');
     expect(lookCss).toContain('#2E75B6');
+    expect(lookCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(lookCss).toContain('box-shadow: inset 0 1px 0 #fff');
     expect(lookCss).toContain('font-size: 56px !important');
     expect(lookCss).toContain("font-family: Rajdhani, sans-serif");
     expect(lookCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
-    expect(lookCss).toContain('letter-spacing: 0.12em');
     expect(lookCss).toContain('font-variant-numeric: tabular-nums');
+    expect(lookCss).not.toContain('.hub-compliance-kicker');
     expect(lookCss).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(lookCss).not.toMatch(/font-family:\s*ui-monospace|JetBrains Mono/);
     expect(lookCss).not.toContain('indigo-500');
@@ -178,7 +193,7 @@ describe('compliance due-or-open cream paper look', () => {
     expect(shell).toContain('resolveAppShellColors');
   });
 
-  it('LOOK frames cover the open-item cream sheet desktop and phone only', () => {
+  it('LOOK frames cover the open-record document sheet desktop and phone only', () => {
     for (const rel of [
       'docs/look/compliance-list-desktop.png',
       'docs/look/compliance-list-phone.png',
