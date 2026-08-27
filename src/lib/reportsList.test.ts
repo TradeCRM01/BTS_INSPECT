@@ -15,6 +15,7 @@ import {
   inspectionDriveOpenHref,
   normalizeReportSearch,
   padReportJobNumber,
+  parseReportsListOpenId,
   reportListMeta,
   reportListStatus,
   reportListStatusLabel,
@@ -25,6 +26,9 @@ import {
   reportSearchHaystack,
   reportsListEmptyMessage,
   reportsListEmptyTitle,
+  reportsListJobLine,
+  reportsListOpenHref,
+  reportsListOpened,
   sortReportsForList,
   uploadedPdfOpenHref,
 } from './reportsList';
@@ -75,6 +79,26 @@ describe('open an existing report or PDF — no new route', () => {
     expect(reportOpenHref('insp-1')).toBe('/inspections/insp-1/report');
     expect(reportOpenHref('insp-1').startsWith('/reports')).toBe(false);
     expect(uploadedPdfOpenHref('pdf-1').startsWith('/reports')).toBe(false);
+  });
+
+  it('keeps /drive?id= as the in-page open and leaves reportOpenHref on the existing report page', () => {
+    expect(reportsListOpenHref('rep-1')).toBe('/drive?id=rep-1');
+    expect(reportsListOpenHref('  ')).toBe('/drive');
+    expect(parseReportsListOpenId('rep-1')).toBe('rep-1');
+    expect(parseReportsListOpenId('')).toBeNull();
+    expect(reportsListOpened([{ id: 'rep-1' }, { id: 'rep-2' }], 'rep-2')?.id).toBe('rep-2');
+    expect(reportsListOpened([{ id: 'rep-1' }], 'missing')).toBeNull();
+    expect(reportsListOpened([{ id: 'rep-1' }], null)).toBeNull();
+    expect(reportOpenHref('insp-1')).toBe('/inspections/insp-1/report');
+    expect(reportsListOpenHref('rep-1')).not.toContain('/inspections/');
+    expect(reportsListJobLine({
+      jobNumber: 42,
+      jobTitle: 'Switchboard upgrade',
+    })).toBe('#0042 Switchboard upgrade');
+    expect(reportsListJobLine({
+      clientName: 'Northside Electrical',
+      templateName: 'Field audit inspection',
+    })).toBe('Northside Electrical · Field audit inspection');
   });
 });
 

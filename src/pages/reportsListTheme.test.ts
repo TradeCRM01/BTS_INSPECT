@@ -17,8 +17,11 @@ describe('reports list cream paper look', () => {
     expect(list).toContain('hub-reports-pill');
     expect(list).toContain('hub-reports-site');
     expect(list).toContain('hub-reports-lede');
+    expect(list).toContain('hub-reports-label');
     expect(list).toContain('Site');
     expect(list).toContain('Search site, report, #0042');
+    expect(list).not.toContain('hub-reports-kicker');
+    expect(list).not.toMatch(/>REPORTS</);
     expect(list).not.toContain('radial-gradient');
     expect(list).not.toContain('cursor-grab');
     expect(list).not.toMatch(/Grafter|Relovi|Littleloop/);
@@ -94,6 +97,81 @@ describe('reports list shows existing reports and opens the existing route', () 
     expect(app).toContain('<Navigate to="/drive" replace />');
     expect(app).toContain('path="/inspections/:id/report"');
     expect(app).toContain('path="/uploaded-pdfs/:id"');
+  });
+});
+
+describe('reports open sheet LOOK', () => {
+  it('paints the open report as the document sheet, not admin rows or a week-chip hero', () => {
+    const list = src('src/pages/ReportsListPage.tsx');
+    const css = src('src/index.css');
+    const lookStart = css.indexOf('/* Reports list look only.');
+    const lookEnd = css.indexOf('/* Timesheets list only.');
+    const lookCss = css.slice(lookStart, lookEnd);
+
+    expect(list).toContain('is-report-open');
+    expect(list).toContain('hub-reports-document');
+    expect(list).toContain('hub-reports-sheet-bar');
+    expect(list).toContain('hub-reports-sheet-body');
+    expect(list).toContain('hub-reports-hero');
+    expect(list).toContain('hub-reports-label');
+    expect(list).toContain('hub-reports-ledger');
+    expect(list).toContain('hub-reports-primary');
+    expect(list).toContain('parseReportsListOpenId');
+    expect(list).toContain('reportsListOpened');
+    expect(list).toContain('reportsListJobLine');
+    expect(list).toContain('searchParams.get(\'id\')');
+    expect(list).toContain('reportOpenHref');
+    expect(list).not.toContain('hub-reports-kicker');
+    expect(list).not.toMatch(/>REPORTS</);
+    expect(list).not.toContain('This week');
+    expect(list).not.toContain('hub-timesheets-days');
+    expect(list).not.toContain('<table');
+    expect(list).not.toContain('<thead');
+    expect(list).not.toContain('ViewToggle');
+    expect(list).not.toContain('#16A34A');
+    expect(list).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
+    expect(list).not.toMatch(/Grafter|Relovi|Littleloop/);
+
+    expect(lookCss).toContain('.hub-reports-document');
+    expect(lookCss).toContain('.hub-reports-sheet-bar');
+    expect(lookCss).toContain('.hub-reports-sheet-body');
+    expect(lookCss).toContain('.hub-reports-hero');
+    expect(lookCss).toContain('.hub-reports-label');
+    expect(lookCss).toContain('.hub-reports.is-report-open');
+    expect(lookCss).toContain('--report-page: #F5F0E6');
+    expect(lookCss).toContain('--report-sheet: #FFFDF8');
+    expect(lookCss).toContain('--report-ink: #0A2540');
+    expect(lookCss).toContain('--report-muted: #5B6B7C');
+    expect(lookCss).toContain('--report-line: #E2D9CC');
+    expect(lookCss).toContain('#2E75B6');
+    expect(lookCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(lookCss).toContain('box-shadow: inset 0 1px 0 #fff');
+    expect(lookCss).toContain('font-size: 56px !important');
+    expect(lookCss).toContain("font-family: Rajdhani, sans-serif");
+    expect(lookCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(lookCss).toContain('font-variant-numeric: tabular-nums');
+    expect(lookCss).not.toContain('.hub-reports-kicker');
+    expect(lookCss).not.toContain('--report-pass');
+    expect(lookCss).not.toMatch(/#16A34A|#15803D|#1B7F3A/);
+    expect(lookCss).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
+    expect(lookCss).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
+    expect(lookCss).not.toMatch(/\.hub-reports[\s\S]{0,80}#111|#000\b/);
+  });
+
+  it('does not restyle stay-off floors, AppShell, or the PDF compose path', () => {
+    const reports = src('src/pages/ReportsListPage.tsx');
+    expect(reports).not.toContain('hub-timesheets');
+    expect(reports).not.toContain('hub-compliance');
+    expect(reports).not.toContain('hub-team');
+    expect(reports).not.toContain('TimesheetsPage');
+    expect(reports).not.toContain('CompliancePage');
+    expect(reports).not.toContain('SchedulePage');
+    expect(src('src/pages/TimesheetsPage.tsx')).not.toContain('hub-reports-document');
+    expect(src('src/pages/CompliancePage.tsx')).not.toContain('hub-reports-document');
+    expect(src('src/pages/TeamSettingsPage.tsx')).not.toContain('hub-reports-document');
+    expect(src('src/pages/SchedulePage.tsx')).not.toContain('hub-reports-document');
+    expect(src('src/components/layout/AppShell.tsx')).not.toContain('hub-reports-document');
+    expect(src('src/reports/generatePdf.ts')).not.toContain('hub-reports-document');
   });
 });
 
