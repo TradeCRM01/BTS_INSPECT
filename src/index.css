@@ -7466,7 +7466,8 @@
 
   .hub-inspections-document .ops-tray,
   .hub-inspections-document .ops-card,
-  .hub-inspections-document .job-reminder {
+  .hub-inspections-document .job-reminder,
+  .hub-inspections-document #inspection-due {
     background: none;
     border: none;
     border-radius: 0;
@@ -7476,9 +7477,46 @@
   }
 
   .hub-inspections-document .ops-tray-head,
-  .hub-inspections-document .job-reminder-body {
+  .hub-inspections-document .job-reminder-body,
+  .hub-inspections-document #inspection-due .job-reminder-body {
     padding: 12px 0;
+    border: none;
     border-bottom: 1px solid var(--insp-look-line);
+    background: none;
+  }
+
+  .hub-inspections-document #inspection-due .ops-tray-head {
+    padding: 12px 0;
+    border: none;
+    border-bottom: 1px solid var(--insp-look-line);
+    background: none;
+  }
+
+  .hub-inspections-document #inspection-due .form-input,
+  .hub-inspections-document #inspection-due .form-input:focus {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding-left: 0;
+  }
+
+  .hub-inspections-document #inspection-due .btn-primary {
+    background: none;
+    color: #2E75B6;
+    min-height: 44px;
+    height: 44px;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    font-weight: 500;
+  }
+
+  .hub-inspections-document #inspection-due .btn-primary:hover,
+  .hub-inspections-document #inspection-due .btn-primary:disabled:hover {
+    background: none;
+    color: var(--insp-look-ink);
   }
 
   .hub-inspections.is-record-open .hub-inspections-open-chrome {

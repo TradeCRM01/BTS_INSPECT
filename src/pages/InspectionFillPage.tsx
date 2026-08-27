@@ -8,7 +8,7 @@ import { InspectionDueReminder } from '../components/inspection/InspectionDueRem
 import { QuestionRenderer } from '../components/inspection/QuestionRenderer';
 import { evaluateShowIf } from '../lib/conditionEval';
 import type { TemplateSchema, Section, Question } from '../types/template';
-import { Plus, Trash2, ChevronDown, Camera, X, Check, ClipboardList } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, Camera, X, ClipboardList } from 'lucide-react';
 import { nanoid } from '../lib/nanoid';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -632,9 +632,8 @@ export function InspectionFillPage() {
           >
             Inspections
           </Link>
-          {saveHint && (
+          {saveHint && saveStatus !== 'saved' && (
             <span className={`hub-inspections-save ${saveStatus === 'error' ? 'is-bad' : ''}`}>
-              {saveStatus === 'saved' && <Check size={12} />}
               {saveHint}
             </span>
           )}
@@ -794,37 +793,6 @@ export function InspectionFillPage() {
               )}
             </section>
 
-            <InspectionDueReminder
-              inspection={{
-                id: inspection.id,
-                inspector_id: inspection.inspector_id,
-                client_id: selectedJob?.client_id ?? (inspection as { client_id?: string | null }).client_id ?? null,
-                crm_job_id: jobId || null,
-                status: inspection.status,
-                archived: (inspection as { archived?: boolean | null }).archived ?? false,
-                meta,
-                responses,
-                template_snapshot: inspection.template_snapshot as { name?: string; schema?: TemplateSchema },
-                completed_at: inspection.completed_at,
-                started_at: inspection.started_at,
-                due_on: (inspection as { due_on?: string | null }).due_on ?? null,
-                due_reminder_sent_at: (inspection as { due_reminder_sent_at?: string | null }).due_reminder_sent_at ?? null,
-                due_reminder_sent_for_date: (inspection as { due_reminder_sent_for_date?: string | null }).due_reminder_sent_for_date ?? null,
-              }}
-              job={selectedJob ? {
-                id: selectedJob.id,
-                company_id: (selectedJob as { company_id?: string }).company_id ?? company?.id ?? '',
-                client_id: selectedJob.client_id,
-                title: selectedJob.title,
-                scheduled_date: (selectedJob as { scheduled_date?: string | null }).scheduled_date ?? null,
-                start_time: (selectedJob as { start_time?: string | null }).start_time ?? null,
-                address: selectedJob.address,
-                job_number: selectedJob.job_number,
-              } : null}
-              client={dueClient ?? null}
-              company={company}
-            />
-
             {visibleSections.length > 0 && (
               <div className="hub-inspections-tabs" role="tablist" aria-label="Inspection sections">
                 {visibleSections.map((sec, idx) => {
@@ -910,6 +878,37 @@ export function InspectionFillPage() {
                 )}
               </section>
             )}
+
+            <InspectionDueReminder
+              inspection={{
+                id: inspection.id,
+                inspector_id: inspection.inspector_id,
+                client_id: selectedJob?.client_id ?? (inspection as { client_id?: string | null }).client_id ?? null,
+                crm_job_id: jobId || null,
+                status: inspection.status,
+                archived: (inspection as { archived?: boolean | null }).archived ?? false,
+                meta,
+                responses,
+                template_snapshot: inspection.template_snapshot as { name?: string; schema?: TemplateSchema },
+                completed_at: inspection.completed_at,
+                started_at: inspection.started_at,
+                due_on: (inspection as { due_on?: string | null }).due_on ?? null,
+                due_reminder_sent_at: (inspection as { due_reminder_sent_at?: string | null }).due_reminder_sent_at ?? null,
+                due_reminder_sent_for_date: (inspection as { due_reminder_sent_for_date?: string | null }).due_reminder_sent_for_date ?? null,
+              }}
+              job={selectedJob ? {
+                id: selectedJob.id,
+                company_id: (selectedJob as { company_id?: string }).company_id ?? company?.id ?? '',
+                client_id: selectedJob.client_id,
+                title: selectedJob.title,
+                scheduled_date: (selectedJob as { scheduled_date?: string | null }).scheduled_date ?? null,
+                start_time: (selectedJob as { start_time?: string | null }).start_time ?? null,
+                address: selectedJob.address,
+                job_number: selectedJob.job_number,
+              } : null}
+              client={dueClient ?? null}
+              company={company}
+            />
           </div>
         </article>
       </div>
