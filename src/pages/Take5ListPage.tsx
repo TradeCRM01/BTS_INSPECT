@@ -1,15 +1,13 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { format, parseISO } from 'date-fns';
-import { FileText, Search, ShieldAlert } from 'lucide-react';
+import { FileText, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AUDIT_TAKE5_ID, getAuditJhaDoc, getAuditJob, getAuditTake5, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { supabase } from '../lib/supabase';
 import {
   take5ListContext,
-  take5StatusClass,
   take5StatusLabel,
   recommendTake5ListAction,
 } from '../lib/take5NextAction';
@@ -17,14 +15,10 @@ import {
   TAKE5_LIST_DEFAULT_FILTER,
   TAKE5_LIST_FILTERS,
   take5ListAttachParent,
-  take5ListCardId,
-  take5ListCardLine,
   take5ListEmptyKind,
   take5ListGoStop,
-  take5ListGoStopClass,
   take5ListGroups,
-  take5ListHazardLine,
-  take5ListHeadMeta,
+  take5ListJobRef,
   take5ListMatchesFilter,
   take5ListOpenHref,
   take5ListVisibleItems,
@@ -33,8 +27,7 @@ import {
 } from '../lib/take5List';
 import { applyLivingJobToTake5, livingCrewLabel, livingJobSite } from '../lib/livingJha';
 import { AppShell } from '../components/layout/AppShell';
-import { EmptyState, LoadingSpinner, OpsDocHead, OpsSiteRow, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
-import { take5DocumentColors } from '../reports/take5/theme';
+import { EmptyState, LoadingSpinner, PageError, SearchBar } from '../components/ui';
 
 type Take5ListRow = {
   id: string;
@@ -59,11 +52,26 @@ type Take5ListRow = {
   job_number?: number | null;
 };
 
+function take5LookSite(...parts: Array<string | null | undefined>): string {
+  for (const part of parts) {
+    const trimmed = part?.trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+}
+
+function take5LookMeta(row: Take5ListItem): string {
+  const jobRef = take5ListJobRef(row.job_number);
+  const task = (row.parent_task || row.job_title || row.parent_report || '').trim();
+  return [jobRef, task].filter(Boolean).join(' · ');
+}
+
+function take5LookCrew(row: Take5ListItem): string {
+  return (row.livingCrew || row.signed_name || '').trim();
+}
+
 export function Take5ListPage() {
-  const { profile, company } = useAuth();
-  const docColors = take5DocumentColors(
-    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
-  );
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Take5ListFilter>(TAKE5_LIST_DEFAULT_FILTER);
@@ -140,40 +148,41 @@ export function Take5ListPage() {
 
   return (
     <AppShell>
-      <div className="ops-page">
+      <div className="ops-page hub-take5">
         <div className="ops-page-head">
           <div>
-            <h1 className="ops-page-title">
-              Take 5
-            </h1>
-            <p className="ops-meta mt-1">
+            <p className="hub-take5-kicker">Take 5</p>
+            <h1 className="ops-page-title">Take 5</h1>
+            <p className="hub-take5-lede">
               {filter === 'open'
                 ? `${openCount} open · tap one to fill`
                 : 'Open a row to fill. Start a new one from a JHA.'}
             </p>
           </div>
+          <Link to="/jha" className="btn-primary">
+            Open JHA documents
+          </Link>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input
-              value={q}
-              onChange={e => setQ(e.target.value)}
-              placeholder="Search job, site, #0042…"
-              className="form-input-sm w-full pl-9 min-h-[44px]"
-            />
-          </div>
-          <select
-            value={filter}
-            onChange={e => setFilter(e.target.value as Take5ListFilter)}
-            className="form-input-sm min-h-[44px]"
-            aria-label="Filter Take 5s"
-          >
+        <div className="hub-take5-chrome">
+          <div className="hub-take5-filters" role="group" aria-label="Filter Take 5s">
             {TAKE5_LIST_FILTERS.map(option => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setFilter(option.value)}
+                className={`hub-chrome-filter ${filter === option.value ? 'hub-chrome-filter-on' : ''}`}
+              >
+                {option.label}
+              </button>
             ))}
-          </select>
+          </div>
+          <SearchBar
+            value={q}
+            onChange={setQ}
+            placeholder="Search job, site, #0042…"
+            className="hub-take5-search"
+          />
         </div>
 
         {isLoading && (
@@ -187,7 +196,7 @@ export function Take5ListPage() {
             title="No Take 5s yet"
             message="Open a job and tap Start Take 5 on the SWMS / Take 5 tray. That is how a leading hand starts one at the workface — this list is for opening and finishing them."
             action={
-              <Link to="/jha" className="ops-next-control min-w-[160px]">
+              <Link to="/jha" className="btn-primary">
                 Open JHA documents
               </Link>
             }
@@ -200,7 +209,7 @@ export function Take5ListPage() {
             title="No open Take 5s"
             message="Every Take 5 is completed. Switch to Done to open one, or start a new one from the job."
             action={
-              <button type="button" className="ops-next-control min-w-[160px]" onClick={() => setFilter('done')}>
+              <button type="button" className="hub-next" onClick={() => setFilter('done')}>
                 Show done
               </button>
             }
@@ -213,7 +222,7 @@ export function Take5ListPage() {
             title="No completed Take 5s"
             message="Open drafts stay under Open until they are signed and completed."
             action={
-              <button type="button" className="ops-next-control min-w-[160px]" onClick={() => setFilter('open')}>
+              <button type="button" className="hub-next" onClick={() => setFilter('open')}>
                 Show open
               </button>
             }
@@ -229,12 +238,18 @@ export function Take5ListPage() {
         )}
 
         {!isLoading && visible.length > 0 && (
-          <div className="space-y-4">
+          <div className="hub-take5-sheet">
+            <div className="hub-take5-thead">
+              <span>Site</span>
+              <span>GO/STOP</span>
+              <span>Crew</span>
+              <span>Status</span>
+              <span />
+            </div>
             {(filter === 'open' || filter === 'all') && (
               <Take5Group
-                title="Needs action"
+                title="Open"
                 rows={openRows}
-                theme={docColors}
                 onOpen={href => navigate(href)}
               />
             )}
@@ -242,7 +257,6 @@ export function Take5ListPage() {
               <Take5Group
                 title="Done"
                 rows={doneRows}
-                theme={docColors}
                 onOpen={href => navigate(href)}
               />
             )}
@@ -256,37 +270,30 @@ export function Take5ListPage() {
 function Take5Group({
   title,
   rows,
-  theme,
   onOpen,
 }: {
   title: string;
   rows: Take5ListItem[];
-  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: (href: string) => void;
 }) {
   if (rows.length === 0) return null;
   return (
-    <div>
-      <h2 className="ops-group-title">
-        {title}
-        <span className="ops-meta normal-case font-normal"> ({rows.length})</span>
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-        {rows.map(row => (
-          <Take5Card key={row.id} row={row} theme={theme} onOpen={onOpen} />
-        ))}
+    <>
+      <div className="hub-take5-group">
+        {title} {rows.length}
       </div>
-    </div>
+      {rows.map(row => (
+        <Take5Row key={row.id} row={row} onOpen={onOpen} />
+      ))}
+    </>
   );
 }
 
-function Take5Card({
+function Take5Row({
   row,
-  theme,
   onOpen,
 }: {
   row: Take5ListItem;
-  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: (href: string) => void;
 }) {
   const livingJob = row.job_id
@@ -297,7 +304,7 @@ function Take5Card({
     livingSite: row.livingSite,
   }));
   const href = take5ListOpenHref(row);
-  const site = opsSiteLabel(
+  const site = take5LookSite(
     row.livingSite,
     livingJobSite(livingJob),
     row.meta?.location,
@@ -306,9 +313,11 @@ function Take5Card({
     row.job_title,
     row.parent_task,
   );
-  const when = format(parseISO(row.signed_at || row.created_at), 'd MMM yyyy');
-  const hazard = take5ListHazardLine(row);
-  const line = take5ListCardLine(row);
+  const meta = take5LookMeta(row);
+  const crew = take5LookCrew(row);
+  const goStop = take5ListGoStop(row.go_no_go);
+  const status = take5StatusLabel(row.status);
+  const statusTone = row.status === 'completed' ? 'is-ready' : 'is-draft';
 
   return (
     <div
@@ -316,35 +325,18 @@ function Take5Card({
       tabIndex={0}
       onClick={() => onOpen(href)}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(href); } }}
-      className="take5-doc-theme ops-card ops-card-hover group w-full cursor-pointer"
-      style={{
-        '--take5-navy': theme.navy,
-        '--take5-accent': theme.accent,
-        '--take5-navy-light': theme.navyLight,
-        '--take5-accent-light': theme.accentLight,
-      } as CSSProperties}
+      className="hub-take5-row"
     >
-      <OpsDocHead
-        kind="Take 5"
-        id={take5ListCardId(row)}
-        meta={take5ListHeadMeta(row, when)}
-        trailing={(
-          <span className="flex items-center gap-1">
-            <OpsStatus className={take5ListGoStopClass(row.go_no_go)}>{take5ListGoStop(row.go_no_go)}</OpsStatus>
-            <OpsStatus className={take5StatusClass(row.status)}>{take5StatusLabel(row.status)}</OpsStatus>
-          </span>
-        )}
-      />
-      <div className="ops-card-body">
-        <OpsSiteRow site={site} mapsQuery={row.livingSite || row.job_address || row.meta?.location || row.parent_site || null} />
-        {line ? <p className="ops-meta mt-1 truncate">{line}</p> : null}
-        {hazard ? <p className="ops-meta mt-0.5 truncate">{hazard}</p> : null}
-        <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
-          <button type="button" onClick={() => onOpen(href)} className="ops-next-control-block">
-            {next.label}
-          </button>
-        </div>
-      </div>
+      <span className="hub-take5-site">
+        <span className="hub-take5-site-name">{site}</span>
+        {meta ? <span className="hub-take5-muted">{meta}</span> : null}
+      </span>
+      <span className={`hub-take5-pill is-${goStop.toLowerCase()}`}>{goStop}</span>
+      <span className="hub-take5-crew">{crew}</span>
+      <span className={`hub-take5-pill ${statusTone}`}>{status}</span>
+      <span className="hub-take5-row-next" onClick={e => e.stopPropagation()}>
+        <Link to={href} className="hub-next">{next.label}</Link>
+      </span>
     </div>
   );
 }
