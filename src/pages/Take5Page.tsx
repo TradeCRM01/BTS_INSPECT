@@ -3,11 +3,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import SignatureCanvas from 'react-signature-canvas';
-import { Check, ChevronLeft, Download, ShieldAlert } from 'lucide-react';
+import { Download, FileText, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, NextBanner, OpsDocHead, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
+import { LoadingSpinner, PageError, opsSiteLabel } from '../components/ui';
 import { generateTake5Pdf, take5PdfCompanyFrom } from '../reports/generateTake5Pdf';
 import { take5DocumentColors, take5ReportTheme } from '../reports/take5/theme';
 import { Take5ListPage } from './Take5ListPage';
@@ -15,7 +15,6 @@ import { applyLivingJobToTake5, livingCrewLabel, livingJobSite } from '../lib/li
 import {
   recommendTake5FillAction,
   take5FillContext,
-  take5StatusClass,
   take5StatusLabel,
 } from '../lib/take5NextAction';
 import { getAuditJhaDoc, getAuditJob, getAuditTake5, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
@@ -90,6 +89,8 @@ function Take5FillPage() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [saveHint, setSaveHint] = useState<'saved' | 'saving' | 'error' | null>(null);
   const [hydrated, setHydrated] = useState(!take5Id);
+  const [showMoreIdentity, setShowMoreIdentity] = useState(false);
+  const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form');
 
   const { data: existing, isLoading: take5Loading, isError: take5Error, refetch: refetchTake5 } = useQuery({
     queryKey: ['jha-take5', take5Id],
@@ -361,12 +362,14 @@ function Take5FillPage() {
     }
     if (next.key === 'pdf') {
       if (pdfUrl) {
+        setActiveTab('preview');
         document.getElementById('take5-pdf')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
       }
       void handlePublishPdf();
       return;
     }
+    setActiveTab('form');
     const target =
       next.key === 'site' ? 'take5-identity'
         : next.key === 'checks' ? 'take5-checks'
@@ -375,13 +378,19 @@ function Take5FillPage() {
   }
 
   if (take5Id && take5Loading && !hydrated) {
-    return <AppShell><div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div></AppShell>;
+    return (
+      <AppShell>
+        <div className="ops-page hub-take5 is-record-open">
+          <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+        </div>
+      </AppShell>
+    );
   }
 
   if (take5Id && take5Error) {
     return (
       <AppShell>
-        <div className="ops-page max-w-[800px]">
+        <div className="ops-page hub-take5 is-record-open">
           <PageError message="Could not load this Take 5." onRetry={() => refetchTake5()} />
         </div>
       </AppShell>
@@ -391,7 +400,7 @@ function Take5FillPage() {
   if (take5Id && !take5Loading && existing === null && !jhaIdParam) {
     return (
       <AppShell>
-        <div className="ops-page max-w-[800px]">
+        <div className="ops-page hub-take5 is-record-open">
           <PageError message="Take 5 not found. It may have been deleted." onRetry={() => navigate('/jha/take5')} />
         </div>
       </AppShell>
@@ -401,7 +410,7 @@ function Take5FillPage() {
   if (!jhaId) {
     return (
       <AppShell>
-        <div className="ops-page max-w-[800px]">
+        <div className="ops-page hub-take5 is-record-open">
           <PageError message="Take 5 requires a parent JHA. Open a JHA first, then tap New Take 5 under extras." onRetry={() => navigate('/jha')} />
         </div>
       </AppShell>
@@ -411,7 +420,7 @@ function Take5FillPage() {
   if (jhaError) {
     return (
       <AppShell>
-        <div className="ops-page max-w-[800px]">
+        <div className="ops-page hub-take5 is-record-open">
           <PageError message="Could not load the parent JHA." onRetry={() => refetchJha()} />
         </div>
       </AppShell>
@@ -419,13 +428,19 @@ function Take5FillPage() {
   }
 
   if (jhaLoading) {
-    return <AppShell><div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div></AppShell>;
+    return (
+      <AppShell>
+        <div className="ops-page hub-take5 is-record-open">
+          <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+        </div>
+      </AppShell>
+    );
   }
 
   if (!jha) {
     return (
       <AppShell>
-        <div className="ops-page max-w-[800px]">
+        <div className="ops-page hub-take5 is-record-open">
           <PageError message="Parent JHA not found. It may have been deleted." onRetry={() => navigate('/jha')} />
         </div>
       </AppShell>
@@ -433,21 +448,25 @@ function Take5FillPage() {
   }
 
   const when = meta.date ? format(new Date(meta.date), 'd MMM yyyy') : null;
-  const headMeta = [
-    siteLabel !== 'No site address' ? siteLabel : null,
-    livingCrewLabel(living.crew) || null,
-    job?.title,
-    jhaMeta.taskName,
-    when,
-  ].filter(Boolean).join(' · ');
+  const jobLine = [job?.title || jhaMeta.taskName || null, jha?.report_number || null]
+    .filter(Boolean)
+    .join(' · ');
+  const companyLine = (company?.name ?? '').trim();
+  const crewLine = livingCrewLabel(living.crew);
+  const sheetPill = statusKey === 'completed' ? 'is-ready' : 'is-draft';
   const docColors = take5DocumentColors(
     (company as { report_theme?: unknown } | null)?.report_theme ?? null,
   );
+  const saveHintLabel =
+    saveHint === 'saved' ? 'Saved'
+      : saveHint === 'saving' ? 'Saving…'
+        : saveHint === 'error' ? 'Save failed'
+          : null;
 
   return (
     <AppShell>
       <div
-        className={jobBound ? 'hub-job-swms take5-doc-theme' : 'take5-doc-theme'}
+        className="ops-page hub-take5 is-record-open take5-doc-theme"
         style={{
           '--take5-navy': docColors.navy,
           '--take5-accent': docColors.accent,
@@ -455,186 +474,233 @@ function Take5FillPage() {
           '--take5-accent-light': docColors.accentLight,
         } as CSSProperties}
       >
-      <div className="ops-page-fill">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <button
-            type="button"
-            onClick={() => navigate(job ? `/jobs/${job.id}` : '/jha/take5')}
-            className="ops-back"
+        <div className="hub-take5-open-chrome">
+          <Link
+            to={jobBound && job ? `/jobs/${job.id}` : '/jha/take5'}
+            className="hub-take5-label"
           >
-            <ChevronLeft size={16} /> {job ? 'Back to job' : 'Take 5s'}
-          </button>
-          <div className="flex items-center gap-2 text-xs">
-            {saveHint && (
-              <span className={saveHint === 'error' ? 'text-fail' : saveHint === 'saving' ? 'text-warning' : 'text-pass flex items-center gap-1'}>
-                {saveHint === 'saved' && <Check size={12} />}
-                {saveHint === 'saved' ? 'Saved' : saveHint === 'saving' ? 'Saving…' : 'Save failed'}
-              </span>
-            )}
-            <Link to={`/jha/new?docId=${jhaId}`} className="job-swms-quiet">
-              Parent JHA
-            </Link>
-          </div>
+            Take 5
+          </Link>
+          {saveHintLabel && saveHint !== 'saved' && (
+            <span className={`hub-take5-save ${saveHint === 'error' ? 'is-bad' : ''}`}>
+              {saveHintLabel}
+            </span>
+          )}
         </div>
 
-        <article className="ops-card overflow-hidden mb-3">
-          <OpsDocHead
-            kind="Take 5"
-            id={jha?.report_number || 'Draft'}
-            meta={headMeta}
-            trailing={<OpsStatus className={take5StatusClass(statusKey)}>{take5StatusLabel(statusKey)}</OpsStatus>}
-          />
-          <div className="px-3 pt-3 pb-2">
-            <p className="ops-meta">
-              Point-of-work check
-              {jhaMeta.taskName ? ` · ${jhaMeta.taskName}` : ''}
-              {' · Companion to the parent JHA, does not replace it'}
-            </p>
-            <div className="mt-2">
-              <NextBanner detail={next.detail} />
-            </div>
-          </div>
-        </article>
+        <article className="hub-take5-document">
+          <header className="hub-take5-sheet-bar">
+            <span className="hub-take5-hours">{when || take5StatusLabel(statusKey)}</span>
+            <span className={`hub-take5-pill ${sheetPill}`}>{take5StatusLabel(statusKey)}</span>
+          </header>
+          <div className="hub-take5-sheet-body">
+            <h1 className="hub-take5-hero">{siteLabel}</h1>
+            {jobLine ? <p className="hub-take5-jobline">{jobLine}</p> : null}
 
-        {error && (
-          <div className="mb-3 ops-alert">
-            {error}
-          </div>
-        )}
-
-        <section id="take5-identity" className="ops-card mb-3">
-          <div className="ops-tray-head">
-            <h2 className="ops-section-title flex items-center gap-2">
-              <ShieldAlert size={16} /> Job / site
-            </h2>
-          </div>
-          <div className="px-3 pb-3 pt-2 space-y-3">
-            <div>
-              <label className="ops-field-label">Location / face</label>
-              {jobBound ? (
-                <>
-                  <p className="job-swms-site">{livingJobSite(job) || 'No site address on this job yet'}</p>
-                  <p className="ops-meta mt-1">Site follows this job.</p>
-                </>
-              ) : (
-                <input
-                  type="text"
-                  value={meta.location}
-                  onChange={e => setMeta(m => ({ ...m, location: e.target.value }))}
-                  placeholder="Where is this check? (board, roof, plant room…)"
-                  className="ops-field-site"
-                />
-              )}
-            </div>
-            {jobBound && (
-              <p className="ops-meta">
-                {livingCrewLabel(living.crew)
-                  ? `Crew follows this job · ${livingCrewLabel(living.crew)}`
-                  : 'Crew follows this job'}
-              </p>
-            )}
-            {(job?.title || jhaMeta.siteName) && (
-              <p className="ops-meta">
-                {[job?.title, jhaMeta.siteName, jha?.report_number].filter(Boolean).join(' · ')}
-              </p>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Date" type="date" value={meta.date} onChange={v => setMeta(m => ({ ...m, date: v }))} />
-              <Field label="Time" type="time" value={meta.time} onChange={v => setMeta(m => ({ ...m, time: v }))} />
-            </div>
-          </div>
-        </section>
-
-        <section id="take5-checks" className="ops-card mb-3">
-          <div className="ops-tray-head">
-            <h2 className="ops-section-title">The five checks</h2>
-          </div>
-          <div className="px-3 pb-3 pt-2 space-y-3">
-            <Area label="1. Stop & think — what am I about to do?" value={stopThink} onChange={setStopThink} />
-            <Area label="2. Identify hazards — what could hurt me or others?" value={identify} onChange={setIdentify} />
-            <Area label="3. Assess the risk — how bad / how likely?" value={assess} onChange={setAssess} />
-            <Area label="4. Control actions — what will I do to stay safe?" value={controls} onChange={setControls} />
-            <div>
-              <label className="ops-field-label mb-2">5. Go / No-go</label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setGoNoGo('go')}
-                  data-go
-                  className={`ops-choice ${goNoGo === 'go' ? 'ops-choice-pass' : ''}`}
-                >
-                  GO — proceed
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGoNoGo('stop')}
-                  data-stop
-                  className={`ops-choice ${goNoGo === 'stop' ? 'ops-choice-fail' : ''}`}
-                >
-                  STOP — do not proceed
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="take5-sign" className="ops-card mb-3">
-          <div className="ops-tray-head">
-            <h2 className="ops-section-title">Sign</h2>
-          </div>
-          <div className="px-3 pb-3 pt-2 space-y-3">
-            <Field label="Name" value={signedName} onChange={setSignedName} />
-            {existing?.signature && !hasStroke && (
-              <div>
-                <p className="ops-field-label">Saved signature</p>
-                <img src={existing.signature} alt="Saved signature" className="job-swms-sign h-20 object-contain px-2" />
-              </div>
-            )}
-            <div>
-              <label className="ops-field-label">
-                {existing?.signature && !hasStroke ? 'Re-sign' : 'Signature'}
-              </label>
-              <div className="job-swms-sign">
-                <SignatureCanvas
-                  ref={sigRef}
-                  canvasProps={{ className: 'w-full h-36' }}
-                  backgroundColor="#fff"
-                  onEnd={() => setHasStroke(true)}
-                />
-              </div>
+            <div className="hub-take5-tools">
               <button
                 type="button"
-                className="job-swms-quiet mt-1"
-                onClick={() => { sigRef.current?.clear(); setHasStroke(false); }}
+                onClick={runNext}
+                disabled={saving}
+                className="hub-take5-primary"
               >
-                Clear signature
+                {saving
+                  ? <><LoadingSpinner size="sm" /> Saving…</>
+                  : <><FileText size={16} /> {next.label}</>}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMoreIdentity(v => !v)}
+                className="hub-take5-sub"
+              >
+                {showMoreIdentity ? 'Hide extra details' : 'More job details'}
+              </button>
+              <Link to={`/jha/new?docId=${jhaId}`} className="hub-take5-sub">
+                Parent JHA
+              </Link>
+            </div>
+
+            <div className="hub-take5-ledger">
+              {companyLine ? (
+                <p className="hub-take5-ledger-row">
+                  <span className="hub-take5-muted">{companyLine}</span>
+                </p>
+              ) : null}
+              <p className="hub-take5-ledger-row">
+                <span className="hub-take5-muted">{jhaMeta.taskName || 'Take 5'}</span>
+              </p>
+              <p className="hub-take5-ledger-row">
+                <span className="hub-take5-muted">{jha?.report_number || 'Take 5'}</span>
+                {when ? <span className="hub-take5-hours">{when}</span> : null}
+              </p>
+            </div>
+
+            {error && (
+              <div className="hub-take5-alert">
+                {error}
+              </div>
+            )}
+
+            <section
+              id="take5-identity"
+              className={`hub-take5-identity${showMoreIdentity || next.key === 'site' ? ' is-open' : ''}`}
+            >
+              <div className="hub-take5-ledger-row hub-take5-field">
+                <label className="hub-take5-muted">Location / face</label>
+                {jobBound ? (
+                  <p className="hub-take5-field-value">
+                    {livingJobSite(job) || 'No site address on this job yet'}
+                    <span className="hub-take5-muted"> Site follows this job.</span>
+                  </p>
+                ) : (
+                  <input
+                    type="text"
+                    value={meta.location}
+                    onChange={e => setMeta(m => ({ ...m, location: e.target.value }))}
+                    placeholder="Where is this check? (board, roof, plant room…)"
+                    className="hub-take5-input"
+                  />
+                )}
+              </div>
+              {jobBound && (
+                <p className="hub-take5-ledger-row">
+                  <span className="hub-take5-muted">
+                    {crewLine
+                      ? `Crew follows this job · ${crewLine}`
+                      : 'Crew follows this job'}
+                  </span>
+                </p>
+              )}
+              {(job?.title || jhaMeta.siteName) && (
+                <p className="hub-take5-ledger-row">
+                  <span className="hub-take5-muted">
+                    {[job?.title, jhaMeta.siteName, jha?.report_number].filter(Boolean).join(' · ')}
+                  </span>
+                </p>
+              )}
+              <div className="hub-take5-ledger-row hub-take5-field">
+                <label className="hub-take5-muted">Date</label>
+                <input
+                  type="date"
+                  value={meta.date}
+                  onChange={e => setMeta(m => ({ ...m, date: e.target.value }))}
+                  className="hub-take5-input"
+                />
+              </div>
+              <div className="hub-take5-ledger-row hub-take5-field">
+                <label className="hub-take5-muted">Time</label>
+                <input
+                  type="time"
+                  value={meta.time}
+                  onChange={e => setMeta(m => ({ ...m, time: e.target.value }))}
+                  className="hub-take5-input"
+                />
+              </div>
+            </section>
+
+            <div className="hub-take5-tabs" role="tablist" aria-label="Take 5 views">
+              <button
+                type="button"
+                onClick={() => setActiveTab('form')}
+                className={`hub-take5-tab ${activeTab === 'form' ? 'is-on' : ''}`}
+              >
+                Fill
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('preview')}
+                className={`hub-take5-tab ${activeTab === 'preview' ? 'is-on' : ''}`}
+              >
+                PDF
               </button>
             </div>
-          </div>
-        </section>
 
-        {pdfUrl && (
-          <div id="take5-pdf" className="ops-card flex items-center justify-between gap-3">
-            <span className="ops-section-title">Take 5 PDF ready</span>
-            <a href={pdfUrl} download={`Take5-${jha?.report_number || 'draft'}.pdf`} className="job-swms-quiet">
-              <Download size={14} /> Download
-            </a>
-          </div>
-        )}
-      </div>
+            {activeTab === 'form' && (
+              <div className="hub-take5-fill">
+                <section id="take5-checks">
+                  <div className="hub-take5-fill-head">
+                    <h2 className="hub-take5-fill-title">
+                      <ShieldAlert size={16} /> The five checks
+                    </h2>
+                  </div>
+                  <Area label="1. Stop & think — what am I about to do?" value={stopThink} onChange={setStopThink} />
+                  <Area label="2. Identify hazards — what could hurt me or others?" value={identify} onChange={setIdentify} />
+                  <Area label="3. Assess the risk — how bad / how likely?" value={assess} onChange={setAssess} />
+                  <Area label="4. Control actions — what will I do to stay safe?" value={controls} onChange={setControls} />
+                  <div className="hub-take5-ledger-row hub-take5-field">
+                    <label className="hub-take5-muted">5. Go / No-go</label>
+                    <div className="hub-take5-choices">
+                      <button
+                        type="button"
+                        onClick={() => setGoNoGo('go')}
+                        data-go
+                        className={`hub-take5-choice ${goNoGo === 'go' ? 'is-on' : ''}`}
+                      >
+                        GO — proceed
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGoNoGo('stop')}
+                        data-stop
+                        className={`hub-take5-choice is-stop ${goNoGo === 'stop' ? 'is-on' : ''}`}
+                      >
+                        STOP — do not proceed
+                      </button>
+                    </div>
+                  </div>
+                </section>
 
-      <div className="ops-sticky">
-        <div className="max-w-[1000px] mx-auto">
-          <button
-            type="button"
-            onClick={runNext}
-            disabled={saving}
-            className={jobBound ? 'btn-primary job-swms-primary' : 'ops-next-control-block'}
-          >
-            {saving ? <><LoadingSpinner size="sm" /> Saving…</> : next.label}
-          </button>
-        </div>
-      </div>
+                <section id="take5-sign">
+                  <div className="hub-take5-fill-head">
+                    <h2 className="hub-take5-fill-title">Sign</h2>
+                  </div>
+                  <Field label="Name" value={signedName} onChange={setSignedName} />
+                  {existing?.signature && !hasStroke && (
+                    <div className="hub-take5-ledger-row hub-take5-field">
+                      <p className="hub-take5-muted">Saved signature</p>
+                      <img src={existing.signature} alt="Saved signature" className="hub-take5-sign-img" />
+                    </div>
+                  )}
+                  <div className="hub-take5-ledger-row hub-take5-field">
+                    <label className="hub-take5-muted">
+                      {existing?.signature && !hasStroke ? 'Re-sign' : 'Signature'}
+                    </label>
+                    <div className="hub-take5-sign">
+                      <SignatureCanvas
+                        ref={sigRef}
+                        canvasProps={{ className: 'w-full h-36' }}
+                        backgroundColor="#fff"
+                        onEnd={() => setHasStroke(true)}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="hub-take5-sub"
+                      onClick={() => { sigRef.current?.clear(); setHasStroke(false); }}
+                    >
+                      Clear signature
+                    </button>
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {activeTab === 'preview' && (
+              <div id="take5-pdf" className="hub-take5-fill">
+                <div className="hub-take5-ledger-row">
+                  <span className="hub-take5-fill-title">Take 5 PDF ready</span>
+                  {pdfUrl ? (
+                    <a href={pdfUrl} download={`Take5-${jha?.report_number || 'draft'}.pdf`} className="hub-take5-sub">
+                      <Download size={14} /> Download
+                    </a>
+                  ) : (
+                    <span className="hub-take5-muted">Complete the Take 5 to generate the PDF.</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </article>
       </div>
     </AppShell>
   );
@@ -644,13 +710,13 @@ function Field({
   label, value, onChange, type = 'text',
 }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
   return (
-    <div>
-      <label className="ops-field-label">{label}</label>
+    <div className="hub-take5-ledger-row hub-take5-field">
+      <label className="hub-take5-muted">{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="ops-field"
+        className="hub-take5-input"
       />
     </div>
   );
@@ -658,13 +724,13 @@ function Field({
 
 function Area({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div>
-      <label className="ops-field-label">{label}</label>
+    <div className="hub-take5-ledger-row hub-take5-field">
+      <label className="hub-take5-muted">{label}</label>
       <textarea
         value={value}
         onChange={e => onChange(e.target.value)}
         rows={3}
-        className="ops-field resize-none"
+        className="hub-take5-input hub-take5-textarea"
       />
     </div>
   );
