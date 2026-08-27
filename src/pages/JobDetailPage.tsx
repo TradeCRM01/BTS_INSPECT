@@ -796,115 +796,19 @@ export function JobDetailPage() {
 
   return (
     <AppShell>
-      <div className="ops-page hub-jobs hub-job-cal">
+      <div className="ops-page hub-jobs hub-job-cal is-record-open">
         <Breadcrumbs items={[
           { label: 'Jobs', to: '/jobs' },
           { label: `${jobRef} ${job.title}` },
         ]} />
 
-        <div className="hub-job-toolbar">
-          <div className="hub-job-editor-act">
-            {next.key === 'inspect' ? (
-              <Link to={inspectHref} className="btn-primary ops-next-control-block">{next.label}</Link>
-            ) : next.key !== 'none' ? (
-              <button
-                type="button"
-                className="btn-primary ops-next-control-block"
-                disabled={nextBusy}
-                onClick={runNext}
-              >
-                {next.label}
-              </button>
-            ) : (
-              <span className="ops-next-control-done">{next.label}</span>
-            )}
-            <details ref={moreRef} className="hub-job-more">
-              <summary aria-label="More actions">
-                <MoreHorizontal size={18} />
-              </summary>
-              <div className="hub-job-more-menu" role="menu">
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => { closeMore(); scrollToId('job-schedule'); }}
-                >
-                  Schedule / crew
-                </button>
-                {(jhaTemplates ?? []).length <= 1 ? (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { closeMore(); startJha(); }}
-                  >
-                    {(jhas ?? []).length > 0 ? 'Another JHA' : 'Start JHA / SWMS'}
-                  </button>
-                ) : (
-                  (jhaTemplates ?? []).map(t => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => { closeMore(); navigate(jhaStartHref(t.id)); }}
-                    >
-                      {t.name}
-                    </button>
-                  ))
-                )}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => { closeMore(); navigate(inspectHref); }}
-                >
-                  Start inspection
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => { closeMore(); handleInvoice(); }}
-                  disabled={invoiceFromJobBill.isPending}
-                >
-                  Invoice
-                </button>
-                {runningEntry ? (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { closeMore(); clockOffJob.mutate(); }}
-                    disabled={clockOffJob.isPending}
-                  >
-                    Clock off
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { closeMore(); clockOnJob.mutate(); }}
-                    disabled={clockOnJob.isPending || job.status === 'cancelled'}
-                  >
-                    Clock on
-                  </button>
-                )}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => { closeMore(); setShowEdit(true); }}
-                >
-                  Details
-                </button>
-              </div>
-            </details>
-          </div>
+        <div className="hub-jobs-open-chrome">
+          <Link to="/jobs" className="hub-jobs-label">Jobs</Link>
         </div>
 
-        <article className="ops-card job-cal-host hub-job-sheet mb-4">
-          <div className="hub-job-banner">
-            <p className="hub-job-kicker">Job</p>
-            <h2 className="hub-job-editor-title">{jobRef}</h2>
-            <p className="hub-job-banner-meta">
-              {JOB_STATUS_LABELS[job.status]}
-              {job.scheduled_date ? ` · ${format(parseISO(job.scheduled_date), 'd MMM yyyy')}` : ''}
-              {job.title ? ` · ${job.title}` : ''}
-            </p>
+        <article className="hub-jobs-document job-cal-host">
+          <header className="hub-jobs-sheet-bar">
+            <span className="hub-jobs-hours">{jobRef}</span>
             <select
               value={job.status}
               onChange={e => updateStatus.mutate(e.target.value as JobStatus)}
@@ -915,29 +819,129 @@ export function JobDetailPage() {
                 <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
               ))}
             </select>
-          </div>
-          {coverPhotoUrl ? (
-            <OpsPhotoStamp src={coverPhotoUrl} hub />
-          ) : null}
-          <div className="ops-card-body">
-            <div className="hub-job-letterhead">
-              <div className="min-w-0">
-                <p className="hub-job-kicker">Site</p>
+          </header>
+          <div className="hub-jobs-sheet-body">
+            <h1 className="hub-jobs-hero">{job.title}</h1>
+            {site ? <p className="hub-jobs-jobline">{site}</p> : null}
+
+            <div className="hub-jobs-tools">
+              {next.key === 'inspect' ? (
+                <Link to={inspectHref} className="btn-primary ops-next-control-block">{next.label}</Link>
+              ) : next.key !== 'none' ? (
+                <button
+                  type="button"
+                  className="btn-primary ops-next-control-block"
+                  disabled={nextBusy}
+                  onClick={runNext}
+                >
+                  {next.label}
+                </button>
+              ) : (
+                <span className="ops-next-control-done">{next.label}</span>
+              )}
+              <details ref={moreRef} className="hub-job-more">
+                <summary aria-label="More actions">
+                  <MoreHorizontal size={18} />
+                </summary>
+                <div className="hub-job-more-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); scrollToId('job-schedule'); }}
+                  >
+                    Schedule / crew
+                  </button>
+                  {(jhaTemplates ?? []).length <= 1 ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { closeMore(); startJha(); }}
+                    >
+                      {(jhas ?? []).length > 0 ? 'Another JHA' : 'Start JHA / SWMS'}
+                    </button>
+                  ) : (
+                    (jhaTemplates ?? []).map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => { closeMore(); navigate(jhaStartHref(t.id)); }}
+                      >
+                        {t.name}
+                      </button>
+                    ))
+                  )}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); navigate(inspectHref); }}
+                  >
+                    Start inspection
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); handleInvoice(); }}
+                    disabled={invoiceFromJobBill.isPending}
+                  >
+                    Invoice
+                  </button>
+                  {runningEntry ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { closeMore(); clockOffJob.mutate(); }}
+                      disabled={clockOffJob.isPending}
+                    >
+                      Clock off
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { closeMore(); clockOnJob.mutate(); }}
+                      disabled={clockOnJob.isPending || job.status === 'cancelled'}
+                    >
+                      Clock on
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); setShowEdit(true); }}
+                  >
+                    Details
+                  </button>
+                </div>
+              </details>
+              <div className="job-cal-quiet">
+                <JobCalendarOverflow
+                  job={job}
+                  site={calendarSite(job.address, client?.address)}
+                  crewNames={assigned}
+                />
+              </div>
+            </div>
+
+            {coverPhotoUrl ? (
+              <OpsPhotoStamp src={coverPhotoUrl} hub />
+            ) : null}
+
+            <div className="hub-jobs-ledger">
+              <div className="hub-jobs-ledger-row">
                 <OpsSiteRow
                   hub
                   site={site ? site : 'No site address yet — add it in job details'}
                   mapsQuery={site}
                 />
                 {parentJob && (
-                  <Link to={`/jobs/${parentJob.id}`} className="mt-1 inline-flex items-center gap-1 ops-meta text-accent hover:underline">
+                  <Link to={`/jobs/${parentJob.id}`} className="inline-flex items-center gap-1 ops-meta text-accent hover:underline">
                     <GitBranch size={12} />
                     Stage of {parentJob.job_number != null ? `#${padNum(parentJob.job_number)} ` : ''}{parentJob.title}
                   </Link>
                 )}
               </div>
-              <div className="min-w-0">
-                <p className="hub-job-kicker">Client</p>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 ops-meta">
+              <div className="hub-jobs-contact">
               {attachRow.kind === 'pick' ? (
                 <form
                   className="job-client-attach"
@@ -1044,84 +1048,61 @@ export function JobDetailPage() {
                   </button>
                 </form>
               )}
-            </div>
               </div>
-            </div>
 
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 ops-meta">
-              <span className="flex items-center gap-1.5">
-                <Users size={13} />
-                {assigned.length > 0 ? assigned.join(', ') : 'Unassigned'}
-              </span>
+              <p className="hub-jobs-ledger-row">
+                <span className="flex items-center gap-1.5">
+                  <Users size={13} />
+                  {assigned.length > 0 ? assigned.join(', ') : 'Unassigned'}
+                </span>
+              </p>
             {job.scheduled_date && (
-              <span className="flex items-center gap-1.5">
-                <Calendar size={13} />
-                {format(parseISO(job.scheduled_date), 'EEE d MMM yyyy')}
-                {job.start_time && (
-                  <span>{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>
-                )}
-              </span>
+              <p className="hub-jobs-ledger-row">
+                <span className="flex items-center gap-1.5">
+                  <Calendar size={13} />
+                  {format(parseISO(job.scheduled_date), 'EEE d MMM yyyy')}
+                  {job.start_time && (
+                    <span className="hub-jobs-hours">{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>
+                  )}
+                </span>
+              </p>
             )}
             {job.priority !== 'medium' && (
-                <span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
-                  {JOB_PRIORITY_LABELS[job.priority]} priority
-                </span>
+                <p className="hub-jobs-ledger-row">
+                  <span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
+                    {JOB_PRIORITY_LABELS[job.priority]} priority
+                  </span>
+                </p>
               )}
-            </div>
 
             {((quotes ?? []).length > 0 || (invoices ?? []).length > 0) && (
-              <div className="ops-attach">
+              <>
                 {(quotes ?? []).map(q => (
-                  <Link key={q.id} to={`/quotes?id=${q.id}`} className="ops-attach-chip">
+                  <Link key={q.id} to={`/quotes?id=${q.id}`} className="hub-jobs-ledger-row">
                     <span className="truncate">QT #{padNum(q.quote_number)} · {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}</span>
-                    <span className="tabular-nums shrink-0">{formatMoney(Number(q.total))}</span>
+                    <span className="hub-jobs-hours">{formatMoney(Number(q.total))}</span>
                   </Link>
                 ))}
                 {(invoices ?? []).map(inv => {
                   const status = effectiveInvoiceStatus(inv);
                   return (
-                    <Link key={inv.id} to={`/invoices?id=${inv.id}`} className="ops-attach-chip">
+                    <Link key={inv.id} to={`/invoices?id=${inv.id}`} className="hub-jobs-ledger-row">
                       <span className="truncate">INV #{padNum(inv.invoice_number)} · {INVOICE_STATUS_LABELS[status]}</span>
-                      <span className="tabular-nums shrink-0">{formatMoney(Number(inv.total))}</span>
+                      <span className="hub-jobs-hours">{formatMoney(Number(inv.total))}</span>
                     </Link>
                   );
                 })}
-              </div>
+              </>
             )}
 
             {job.description && (
-              <p className="mt-2 ops-meta whitespace-pre-wrap line-clamp-4">{job.description}</p>
+              <p className="hub-jobs-ledger-row hub-jobs-muted whitespace-pre-wrap">{job.description}</p>
             )}
-
-            <div className="mt-2 job-cal-act">
-              <div className="job-cal-quiet">
-                <JobCalendarOverflow
-                  job={job}
-                  site={calendarSite(job.address, client?.address)}
-                  crewNames={assigned}
-                />
-              </div>
             </div>
-          </div>
-        </article>
 
-        <div id="job-schedule">
-          <JobDispatchPanel
-            job={job}
-            teamMembers={teamMembers ?? []}
-            rescheduleBanner={rescheduleAsked ? jobOfficeRescheduleBanner(job).message : null}
-          />
-          <JobClientReminder
-            job={job}
-            client={client ?? null}
-            company={company}
-            rescheduleAsked={rescheduleAsked}
-          />
-        </div>
-
+            <div className="hub-trays hub-jobs-more-trays">
         {stages.length > 0 && (
-          <div className="mb-5">
             <JobRelatedSection
               title="Project stages"
               icon={GitBranch}
@@ -1147,10 +1128,8 @@ export function JobDetailPage() {
                 />
               ))}
             </JobRelatedSection>
-          </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
           <div id="job-insp">
           <JobRelatedSection
             title="Inspections"
@@ -1454,7 +1433,6 @@ export function JobDetailPage() {
               );
             })}
           </JobRelatedSection>
-        </div>
 
         <div id="job-hours">
         <JobRelatedSection
@@ -1508,11 +1486,11 @@ export function JobDetailPage() {
         </JobRelatedSection>
         </div>
 
-        <div id="job-bill" className="mt-5 mb-6">
+        <div id="job-bill">
           <button
             type="button"
             onClick={() => setBillOpen(o => !o)}
-            className="w-full ops-card px-3 py-3 flex items-center gap-3 text-left hover:bg-zebra"
+            className="hub-jobs-bill-head"
           >
             <DollarSign size={16} className="text-navy shrink-0" />
             <div className="min-w-0 flex-1">
@@ -1539,23 +1517,23 @@ export function JobDetailPage() {
             </div>
           )}
         </div>
-
-        {next.key !== 'none' && (
-          <div className="ops-sticky -mx-4 sm:mx-0">
-            {next.key === 'inspect' ? (
-              <Link to={inspectHref} className="ops-next-control-block">{next.label}</Link>
-            ) : (
-              <button
-                type="button"
-                className="ops-next-control-block"
-                disabled={nextBusy}
-                onClick={runNext}
-              >
-                {next.label}
-              </button>
-            )}
+            </div>
           </div>
-        )}
+        </article>
+
+        <div id="job-schedule">
+          <JobDispatchPanel
+            job={job}
+            teamMembers={teamMembers ?? []}
+            rescheduleBanner={rescheduleAsked ? jobOfficeRescheduleBanner(job).message : null}
+          />
+          <JobClientReminder
+            job={job}
+            client={client ?? null}
+            company={company}
+            rescheduleAsked={rescheduleAsked}
+          />
+        </div>
       </div>
       {showEdit && (
         <JobFormModal
