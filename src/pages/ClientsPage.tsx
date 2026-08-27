@@ -242,16 +242,18 @@ export function ClientsPage() {
         {isLoading ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title={search ? 'No clients match your search' : 'No clients yet'}
-            message={search ? 'Try a different search term.' : 'Add your first client to get started.'}
-            action={!search && (
-              <button onClick={() => { setEditingClient(null); setShowForm(true); }} className="btn-primary">
-                <Plus size={16} /> Add your first client
-              </button>
-            )}
-          />
+          <div className="hub-clients-sheet">
+            <EmptyState
+              icon={Users}
+              title={search ? 'No clients match your search' : 'No clients yet'}
+              message={search ? 'Try a different search term.' : 'Add your first client to get started.'}
+              action={!search && (
+                <button onClick={() => { setEditingClient(null); setShowForm(true); }} className="btn-primary">
+                  <Plus size={16} /> Add your first client
+                </button>
+              )}
+            />
+          </div>
         ) : (
           <div className="hub-clients-sheet">
             <div className="hub-clients-thead">

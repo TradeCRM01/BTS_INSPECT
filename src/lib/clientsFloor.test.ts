@@ -378,3 +378,29 @@ describe('clients look — open record is the document sheet', () => {
     }
   });
 });
+
+describe('clients list quiet elevation', () => {
+  it('lifts the list sheet on cream with one quiet elevation, not the open record', () => {
+    const list = src('src/pages/ClientsPage.tsx');
+    const detail = src('src/pages/ClientDetailPage.tsx');
+    const css = src('src/index.css');
+    const listSheet = css.slice(css.indexOf('  .hub-clients-sheet {'), css.indexOf('  .hub-clients-contact-sheet {'));
+
+    expect(list).toContain('hub-clients-sheet');
+    expect(list).toContain('<div className="hub-clients-sheet">');
+    expect(listSheet).toContain('inset 0 1px 0 #fff');
+    expect(listSheet).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(listSheet).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
+    expect(detail).not.toContain('className="hub-clients-sheet"');
+    expect(detail).toContain('hub-clients-document');
+  });
+
+  it('LOOK frames cover the clients list elevation on desktop', () => {
+    for (const rel of [
+      'docs/look/list-card-elevation-clients-desktop.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
+    }
+  });
+});

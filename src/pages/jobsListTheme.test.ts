@@ -34,6 +34,14 @@ describe('job list cream paper look', () => {
     expect(css).toContain('letter-spacing: 0.12em');
     expect(css).not.toContain('indigo-500');
     expect(css).not.toMatch(/\.hub-jobs[\s\S]{0,80}#111|#000\b/);
+
+    const listSheet = css.slice(css.indexOf('  .hub-jobs-sheet {'), css.indexOf('  .hub-jobs-thead,'));
+    expect(listSheet).toContain('--job-look-sheet');
+    expect(listSheet).toContain('border-radius: 16px');
+    expect(listSheet).toContain('inset 0 1px 0 #fff');
+    expect(listSheet).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(listSheet).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
+    expect(list).toContain('<div className="hub-jobs-sheet">');
   });
 
   it('does not restyle quotes, invoices, ITR, login, landing, operator, or AppShell', () => {
@@ -65,8 +73,11 @@ describe('job list cream paper look', () => {
     for (const rel of [
       'docs/look/job-list-desktop.png',
       'docs/look/job-list-phone.png',
+      'docs/look/list-card-elevation-jobs-desktop.png',
+      'docs/look/list-card-elevation-jobs-phone.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
     }
   });
 });
