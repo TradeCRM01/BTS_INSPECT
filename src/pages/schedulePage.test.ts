@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -91,5 +91,16 @@ describe('schedule board cream paper look', () => {
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).not.toContain('hub-board-cal');
     expect(shell).toContain('resolveAppShellColors');
+  });
+
+  it('LOOK frames cover week and day boards on desktop and phone', () => {
+    for (const rel of [
+      'docs/look/schedule-week-desktop.png',
+      'docs/look/schedule-week-phone.png',
+      'docs/look/schedule-day-desktop.png',
+      'docs/look/schedule-day-phone.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+    }
   });
 });
