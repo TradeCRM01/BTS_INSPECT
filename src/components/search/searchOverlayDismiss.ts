@@ -13,7 +13,7 @@ export function searchOverlayOpenLocation(location: { pathname: string; search: 
   search: string;
   hash: string;
 } {
-  return { pathname: location.pathname, search: location.search, hash: SEARCH_OVERLAY_HASH };
+  return { pathname: location.pathname, search: location.search, hash: `#${SEARCH_OVERLAY_HASH}` };
 }
 
 export function searchOverlayClosedLocation(location: { pathname: string; search: string }): {

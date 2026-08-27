@@ -28,7 +28,7 @@ describe('phone search overlay dismiss', () => {
     expect(searchOverlayOpenLocation(jobs)).toEqual({
       pathname: '/jobs',
       search: '?auditAuth=1',
-      hash: SEARCH_OVERLAY_HASH,
+      hash: `#${SEARCH_OVERLAY_HASH}`,
     });
     expect(searchOverlayClosedLocation(jobs)).toEqual({
       pathname: '/jobs',
