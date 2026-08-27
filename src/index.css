@@ -9251,7 +9251,7 @@
       padding: 16px 16px 8px;
     }
   }
-  /* Reports list look only. Same cream paper lock as signed Take 5 / JHA / jobs. */
+  /* Reports list look only. Open report is the document sheet. */
   .hub-reports {
     --report-page: #F5F0E6;
     --report-sheet: #FFFDF8;
@@ -9261,7 +9261,6 @@
     --report-action: #2E75B6;
     --report-r-ctl: 12px;
     --report-r-sheet: 16px;
-    --report-pass: #1B7F3A;
     --report-fail: #B42318;
     --report-warn: #B54708;
     font-family: 'Source Sans 3', system-ui, sans-serif;
@@ -9302,14 +9301,15 @@
     gap: 16px;
   }
 
-  .hub-reports-kicker {
-    font-family: Rajdhani, sans-serif;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+  .hub-reports-label {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
     color: var(--report-muted);
-    margin: 0 0 8px;
+    margin: 0;
+    text-decoration: none;
   }
 
   .hub-reports-lede {
@@ -9586,8 +9586,9 @@
   }
 
   .hub-reports-pill.is-sent {
-    color: var(--report-pass);
-    background: color-mix(in srgb, #1B7F3A 12%, #fff);
+    color: var(--report-ink);
+    background: var(--report-page);
+    border-color: var(--report-line);
   }
 
   .hub-reports-pill.is-ready {
@@ -9650,9 +9651,9 @@
   }
 
   .hub-reports-banner.is-good {
-    background: color-mix(in srgb, var(--report-pass) 8%, var(--report-sheet));
-    border: 1px solid color-mix(in srgb, var(--report-pass) 28%, var(--report-line));
-    color: var(--report-pass);
+    background: color-mix(in srgb, #2E75B6 8%, var(--report-sheet));
+    border: 1px solid color-mix(in srgb, #2E75B6 28%, var(--report-line));
+    color: #2E75B6;
   }
 
   .hub-reports-dialog {
@@ -9699,6 +9700,176 @@
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
+  .hub-reports-open-chrome {
+    display: none;
+  }
+
+  .hub-reports-document {
+    max-width: 1100px;
+    margin: 0 auto 24px;
+    background: var(--report-sheet);
+    border: 1px solid var(--report-line);
+    border-radius: 16px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+  }
+
+  .hub-reports-sheet-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 44px;
+    padding: 8px 24px;
+    background: var(--report-ink);
+    color: #fff;
+  }
+
+  .hub-reports-sheet-bar .hub-reports-hours {
+    color: #fff;
+    font-size: 16px;
+  }
+
+  .hub-reports-sheet-bar .hub-reports-pill {
+    background: #fff;
+    color: var(--report-ink);
+    border-color: transparent;
+  }
+
+  .hub-reports-sheet-body {
+    padding: 32px 32px 24px;
+    background: var(--report-sheet);
+    box-shadow: inset 0 1px 0 #fff;
+  }
+
+  .hub-reports-hero {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-size: 56px !important;
+    letter-spacing: 0.02em;
+    line-height: 0.96;
+    color: var(--report-ink);
+    margin: 0;
+  }
+
+  .hub-reports-jobline {
+    margin: 8px 0 0;
+    color: #2E75B6;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .hub-reports-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .hub-reports-primary {
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .hub-reports-primary:hover {
+    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+    color: #fff;
+  }
+
+  .hub-reports-sub {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 12px;
+    color: #2E75B6;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  .hub-reports-sub:hover {
+    color: var(--report-ink);
+  }
+
+  .hub-reports-more {
+    flex-shrink: 0;
+    color: var(--report-muted);
+  }
+
+  .hub-reports-hours {
+    margin: 0;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    color: var(--report-ink);
+    font-size: 20px;
+  }
+
+  .hub-reports-ledger {
+    margin-top: 32px;
+  }
+
+  .hub-reports-ledger-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--report-line);
+    color: var(--report-ink);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 16px;
+  }
+
+  .hub-reports-ledger-row .hub-reports-hours {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .hub-reports.is-report-open .hub-reports-open-chrome {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    max-width: 1100px;
+    margin: 0 auto 16px;
+    padding-top: 8px;
+  }
+
+  .hub-reports.is-report-open .ops-page-head,
+  .hub-reports.is-report-open .hub-reports-chrome,
+  .hub-reports.is-report-open .hub-reports-crumbs,
+  .hub-reports.is-report-open .hub-reports-backup,
+  .hub-reports.is-report-open .hub-reports-files,
+  .hub-reports.is-report-open .hub-reports-sheet {
+    display: none;
+  }
+
   @media (max-width: 639px) {
     .hub-reports.ops-page {
       padding: 16px 16px 32px;
@@ -9738,6 +9909,39 @@
     .hub-reports-row > :nth-child(1) { grid-area: site; }
     .hub-reports-row > :nth-child(2) { grid-area: pill; }
     .hub-reports-row > :nth-child(3) { grid-area: next; }
+
+    .hub-reports-document {
+      padding: 0;
+    }
+
+    .hub-reports-sheet-bar {
+      padding: 8px 16px;
+    }
+
+    .hub-reports-sheet-bar .hub-reports-pill {
+      background: #2E75B6;
+      color: #fff;
+    }
+
+    .hub-reports-sheet-body {
+      padding: 24px 16px 16px;
+    }
+
+    .hub-reports-hero {
+      font-size: 40px !important;
+    }
+
+    .hub-reports-sheet-body .hub-reports-tools {
+      width: 100%;
+    }
+
+    .hub-reports-sheet-body .hub-reports-primary {
+      border-radius: 12px;
+    }
+
+    .hub-reports-ledger-row {
+      padding: 12px 0;
+    }
   }
 
   /* Timesheets list only. Job-sheet scale on cream paper. Not TimeEntryForm. */

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -35,7 +35,9 @@ import {
   filterReportsByStatus,
   filterReportsForSearch,
   folderOpenHref,
+  formatReportListDate,
   inspectionDriveOpenHref,
+  parseReportsListOpenId,
   reportListMeta,
   reportListStatus,
   reportListStatusLabel,
@@ -44,6 +46,8 @@ import {
   reportOpenHref,
   reportsListEmptyMessage,
   reportsListEmptyTitle,
+  reportsListJobLine,
+  reportsListOpened,
   sortReportsForList,
   uploadedPdfOpenHref,
   type ReportListFilter,
@@ -144,6 +148,8 @@ export function ReportsListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const params = useParams<{ folderId?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openId = parseReportsListOpenId(searchParams.get('id'));
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(params.folderId ?? null);
   const [folderStack, setFolderStack] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'Reports' }]);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -383,6 +389,9 @@ export function ReportsListPage() {
     return sortReportsForList(filtered);
   }, [allReports, currentFolderId, search, statusFilter]);
 
+  const openedReport = reportsListOpened(allReports, openId);
+  const reportOpen = !!openedReport;
+
   const fileItems: FileRow[] = useMemo(() => {
     const folders = (allFolders ?? [])
       .filter(f => {
@@ -442,7 +451,11 @@ export function ReportsListPage() {
   }, [allFolders, allUploads, allInspections, currentFolderId, search, statusFilter]);
 
   function handleOpenReport(report: ReportRow) {
-    navigate(reportOpenHref(report.inspection_id));
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('id', report.id);
+      return next;
+    }, { replace: true });
   }
 
   function handleOpenFile(item: FileRow) {
@@ -845,12 +858,39 @@ export function ReportsListPage() {
   const showReportsEmpty = !loading && reportItems.length === 0;
   const showFiles = fileItems.length > 0;
 
+  const openedTitle = openedReport
+    ? reportListTitle({
+        meta: openedReport.inspection?.meta,
+        job: openedReport.job,
+        reportNumber: openedReport.report_number,
+      })
+    : '';
+  const openedStatus = openedReport
+    ? reportListStatus({
+        sent_at: openedReport.sent_at,
+        pdf_storage_path: openedReport.pdf_storage_path,
+      })
+    : null;
+  const openedJobLine = openedReport
+    ? reportsListJobLine({
+        jobNumber: openedReport.job?.job_number ?? null,
+        jobTitle: openedReport.job?.title ?? '',
+        clientName: openedReport.clientName,
+        templateName: reportListTemplateName(openedReport.inspection?.template_snapshot),
+      })
+    : '';
+  const openedDate = openedReport ? formatReportListDate(openedReport.generated_at) : null;
+  const openedHref = openedReport ? reportOpenHref(openedReport.inspection_id) : '/drive';
+
   return (
     <AppShell>
-      <div className="ops-page hub-reports">
+      <div className={`ops-page hub-reports${reportOpen ? ' is-report-open' : ''}`}>
+        <div className="hub-reports-open-chrome">
+          <Link to="/drive" className="hub-reports-label">Reports</Link>
+        </div>
         <div className="ops-page-head">
           <div>
-            <p className="hub-reports-kicker">Reports</p>
+            <p className="hub-reports-label">Reports</p>
             <h1 className="ops-page-title">Reports</h1>
             <p className="hub-reports-lede">{reportsListLede(statusFilter, reportItems.length)}</p>
           </div>
@@ -972,6 +1012,61 @@ export function ReportsListPage() {
 
         {loading ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
+        ) : reportOpen && openedReport && openedStatus ? (
+          <article className="hub-reports-document">
+            <header className="hub-reports-sheet-bar">
+              <span className="hub-reports-hours">{openedDate || reportListStatusLabel(openedStatus)}</span>
+              <span className={`hub-reports-pill is-${openedStatus}`}>{reportListStatusLabel(openedStatus)}</span>
+            </header>
+            <div className="hub-reports-sheet-body">
+              <h1 className="hub-reports-hero">{openedTitle}</h1>
+              {openedJobLine ? <p className="hub-reports-jobline">{openedJobLine}</p> : null}
+              <div className="hub-reports-tools">
+                <Link to={openedHref} className="hub-reports-primary">
+                  <FileText size={16} /> Open
+                </Link>
+                {openedReport.pdf_storage_path ? (
+                  <button
+                    type="button"
+                    className="hub-reports-sub"
+                    onClick={() => handleDownloadReport(openedReport)}
+                  >
+                    Download
+                  </button>
+                ) : null}
+                <div className="hub-reports-more">
+                  <ContextMenu items={reportMenuItems({
+                    report: openedReport,
+                    onOpen: () => navigate(openedHref),
+                    onDownload: () => handleDownloadReport(openedReport),
+                    onMove: () => setMovePickerFor({
+                      kind: 'report',
+                      row: openedReport,
+                      listStatus: openedStatus,
+                    }),
+                  })} />
+                </div>
+              </div>
+              <div className="hub-reports-ledger">
+                {openedReport.clientName ? (
+                  <p className="hub-reports-ledger-row">
+                    <span className="hub-reports-muted">{openedReport.clientName}</span>
+                  </p>
+                ) : null}
+                {reportListTemplateName(openedReport.inspection?.template_snapshot) ? (
+                  <p className="hub-reports-ledger-row">
+                    <span className="hub-reports-muted">
+                      {reportListTemplateName(openedReport.inspection?.template_snapshot)}
+                    </span>
+                  </p>
+                ) : null}
+                <p className="hub-reports-ledger-row">
+                  <span className="hub-reports-muted">{openedReport.report_number || 'Inspection report'}</span>
+                  {openedDate ? <span className="hub-reports-hours">{openedDate}</span> : null}
+                </p>
+              </div>
+            </div>
+          </article>
         ) : (
           <>
             <div className="hub-reports-sheet">

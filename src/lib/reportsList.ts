@@ -17,6 +17,43 @@ export function reportOpenHref(inspectionId: string): string {
   return id ? `/inspections/${id}/report` : '/drive';
 }
 
+/** In-page open on the existing /drive list. Does not replace reportOpenHref. */
+export function reportsListOpenHref(id: string): string {
+  const trimmed = id.trim();
+  return trimmed ? `/drive?id=${encodeURIComponent(trimmed)}` : '/drive';
+}
+
+export function parseReportsListOpenId(raw: string | null | undefined): string | null {
+  const id = (raw ?? '').trim();
+  return id || null;
+}
+
+export function reportsListOpened<T extends { id: string }>(
+  rows: T[] | undefined,
+  rawId: string | null | undefined,
+): T | null {
+  const id = parseReportsListOpenId(rawId);
+  if (!id || !rows?.length) return null;
+  return rows.find(row => row.id === id) ?? null;
+}
+
+export function reportsListJobLine(args: {
+  jobNumber?: number | null;
+  jobTitle?: string | null;
+  clientName?: string | null;
+  templateName?: string | null;
+}): string {
+  const job = args.jobNumber != null ? `#${padReportJobNumber(args.jobNumber)}` : '';
+  const title = (args.jobTitle ?? '').trim();
+  if (job && title) return `${job} ${title}`;
+  if (title) return title;
+  if (job) return job;
+  return [args.clientName, args.templateName]
+    .map(part => (part ?? '').trim())
+    .filter(Boolean)
+    .join(' · ');
+}
+
 /** Existing uploaded PDF viewer. */
 export function uploadedPdfOpenHref(id: string): string {
   const pdfId = id.trim();
