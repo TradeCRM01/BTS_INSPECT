@@ -4503,6 +4503,29 @@
     font-weight: 500;
   }
 
+  .hub-schedule-track {
+    min-width: 0;
+  }
+
+  .hub-schedule-track.is-week {
+    display: flex;
+    flex-direction: column;
+    min-height: 300px;
+    pointer-events: none;
+  }
+
+  .hub-schedule-track-hour {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    padding: 2px 4px;
+    border-top: 1px solid var(--schedule-line);
+  }
+
+  .hub-schedule-track.is-week .hub-schedule-track-hour:first-child {
+    border-top: none;
+  }
+
   .hub-schedule-place {
     padding: 16px;
   }

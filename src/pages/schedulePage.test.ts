@@ -41,6 +41,11 @@ describe('schedule page week/day board', () => {
     expect(board).toContain('onSelectDay');
     expect(board).toContain('jobsOnScheduleDay');
     expect(board).toContain('filterJobsByCrew');
+    expect(board).toContain('data-schedule-track="day"');
+    expect(board).toContain('data-schedule-track="week"');
+    expect(board).not.toContain('No jobs on this day');
+    expect(board).not.toContain('No jobs this day');
+    expect(board).not.toContain('hub-schedule-empty');
   });
 });
 
@@ -99,6 +104,8 @@ describe('schedule board cream paper look', () => {
       'docs/look/schedule-week-phone.png',
       'docs/look/schedule-day-desktop.png',
       'docs/look/schedule-day-phone.png',
+      'docs/look/schedule-empty-day-desktop.png',
+      'docs/look/schedule-empty-day-phone.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
     }
