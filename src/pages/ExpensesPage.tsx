@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   endOfMonth, endOfQuarter, format, parseISO, startOfMonth, startOfQuarter, subDays,
 } from 'date-fns';
 import {
   Plus, Wallet, X, Trash2, TrendingUp, TrendingDown, DollarSign, Users, Building2, Briefcase,
-  Bookmark, ChevronDown,
+  Bookmark, ChevronDown, Camera, FileUp, Loader2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import {
+  auditExpenseReceiptSeed,
+  receiptFileToEditorPrefill,
+  type ExpenseEditorPrefill,
+} from '../lib/expenseReceiptExtract';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, useToast } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
@@ -82,7 +87,7 @@ function moneyTax(amount: number, taxRate: number) {
 }
 
 export function ExpensesPage() {
-  const { profile, company } = useAuth();
+  const { profile, company, session } = useAuth();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [rangeKey, setRangeKey] = useState<RangeKey>('this_month');
@@ -93,6 +98,65 @@ export function ExpensesPage() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showEmployeeModel, setShowEmployeeModel] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
+  const [receiptPrefill, setReceiptPrefill] = useState<ExpenseEditorPrefill | null>(null);
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const openBlankEditor = () => {
+    setEditing(null);
+    setReceiptPrefill(null);
+    setReceiptPreviewUrl(null);
+    setShowForm(true);
+    setShowAddMenu(false);
+  };
+
+  const startReceiptScan = (kind: 'camera' | 'file') => {
+    setShowAddMenu(false);
+    if (isDevFieldAuditAuth()) {
+      setReceiptPrefill(auditExpenseReceiptSeed());
+      setEditing(null);
+      setShowForm(true);
+      return;
+    }
+    if (kind === 'camera') cameraInputRef.current?.click();
+    else fileInputRef.current?.click();
+  };
+
+  const handleReceiptFile = async (file: File) => {
+    setShowAddMenu(false);
+    setScanning(true);
+    if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
+    const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+    setReceiptPreviewUrl(preview);
+    try {
+      if (isDevFieldAuditAuth()) {
+        setReceiptPrefill(auditExpenseReceiptSeed());
+        setEditing(null);
+        setShowForm(true);
+        return;
+      }
+      const token = session?.access_token;
+      if (!token) throw new Error('Not signed in');
+      const prefill = await receiptFileToEditorPrefill({
+        file,
+        accessToken: token,
+        supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+        anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        defaultTaxRate: company?.default_tax_rate ?? 10,
+      });
+      setReceiptPrefill(prefill);
+      setEditing(null);
+      setShowForm(true);
+    } catch (e) {
+      if (preview) URL.revokeObjectURL(preview);
+      setReceiptPreviewUrl(null);
+      showToast(e instanceof Error ? e.message : 'Scan failed');
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const range = RANGE_PRESETS[rangeKey];
 
@@ -227,7 +291,7 @@ export function ExpensesPage() {
           <div className="relative flex items-center gap-2">
             <button
               type="button"
-              onClick={() => { setEditing(null); setShowForm(true); setShowAddMenu(false); }}
+              onClick={openBlankEditor}
               className="flex items-center gap-2 bg-[#0A2540] text-white px-3 py-2 rounded-l-md text-sm font-medium hover:bg-[#0d2f4e]"
             >
               <Plus size={16} /> Add expense
@@ -246,13 +310,40 @@ export function ExpensesPage() {
                 <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-50">
                   <button
                     type="button"
-                    onClick={() => { setShowAddMenu(false); setEditing(null); setShowForm(true); }}
+                    onClick={openBlankEditor}
                     className="w-full text-left px-3 py-2.5 text-sm hover:bg-[#F9FAFB] flex items-start gap-2"
                   >
                     <Plus size={15} className="mt-0.5 text-[#4A5568]" />
                     <span>
                       <span className="font-medium text-[#1A1A1A] block">Single expense</span>
                       <span className="text-xs text-[#6B7280]">One-off cost entry</span>
+                    </span>
+                  </button>
+                  <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-[#9CA3AF] font-medium">
+                    Scan receipt
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => startReceiptScan('camera')}
+                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-[#F9FAFB] flex items-start gap-2"
+                    aria-label="Scan receipt with camera"
+                  >
+                    <Camera size={15} className="mt-0.5 text-[#2E75B6]" />
+                    <span>
+                      <span className="font-medium text-[#1A1A1A] block">Take photo</span>
+                      <span className="text-xs text-[#6B7280]">Camera scan of a paper receipt</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => startReceiptScan('file')}
+                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-[#F9FAFB] flex items-start gap-2"
+                    aria-label="Upload receipt file"
+                  >
+                    <FileUp size={15} className="mt-0.5 text-[#2E75B6]" />
+                    <span>
+                      <span className="font-medium text-[#1A1A1A] block">Choose file</span>
+                      <span className="text-xs text-[#6B7280]">Photo or PDF from this device</span>
                     </span>
                   </button>
                   <button
@@ -415,7 +506,7 @@ export function ExpensesPage() {
                 <button type="button" onClick={() => setShowEmployeeModel(true)} className="btn-secondary">
                   <Users size={16} /> Apply staff cost model
                 </button>
-                <button type="button" onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary">
+                <button type="button" onClick={openBlankEditor} className="btn-primary">
                   <Plus size={16} /> Add expense
                 </button>
               </div>
@@ -471,13 +562,59 @@ export function ExpensesPage() {
         )}
       </div>
 
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="sr-only"
+        onChange={e => {
+          const f = e.target.files?.[0];
+          if (f) void handleReceiptFile(f);
+          e.target.value = '';
+        }}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,application/pdf,.pdf"
+        className="sr-only"
+        onChange={e => {
+          const f = e.target.files?.[0];
+          if (f) void handleReceiptFile(f);
+          e.target.value = '';
+        }}
+      />
+
+      {scanning && (
+        <div className="overlay-backdrop" aria-live="polite">
+          <div className="bg-white rounded-xl border border-[#E5E7EB] px-6 py-5 shadow-lg flex items-center gap-3">
+            <Loader2 size={20} className="animate-spin text-[#2E75B6]" />
+            <div>
+              <p className="text-sm font-medium text-[#1A1A1A]">Scanning receipt…</p>
+              <p className="text-xs text-[#6B7280]">Reading vendor, amount, GST, date, category</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showForm && (
         <ExpenseEditorModal
           expense={editing}
+          prefill={editing ? undefined : receiptPrefill}
+          receiptPreviewUrl={editing ? null : receiptPreviewUrl}
           defaultTaxRate={company?.default_tax_rate ?? 10}
-          onClose={() => setShowForm(false)}
+          onClose={() => {
+            setShowForm(false);
+            setReceiptPrefill(null);
+            if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
+            setReceiptPreviewUrl(null);
+          }}
           onSaved={() => {
             setShowForm(false);
+            setReceiptPrefill(null);
+            if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
+            setReceiptPreviewUrl(null);
             queryClient.invalidateQueries({ queryKey: ['expenses'] });
             queryClient.invalidateQueries({ queryKey: ['expenses-pnl'] });
             showToast(editing ? 'Expense updated' : 'Expense recorded');
@@ -576,9 +713,11 @@ interface FormState {
 }
 
 function ExpenseEditorModal({
-  expense, defaultTaxRate, onClose, onSaved, onDeleted,
+  expense, prefill, receiptPreviewUrl, defaultTaxRate, onClose, onSaved, onDeleted,
 }: {
   expense: ExpenseWithDetails | null;
+  prefill?: ExpenseEditorPrefill | null;
+  receiptPreviewUrl?: string | null;
   defaultTaxRate: number;
   onClose: () => void;
   onSaved: () => void;
@@ -593,21 +732,21 @@ function ExpenseEditorModal({
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
 
   const [form, setForm] = useState<FormState>({
-    cost_class: expense?.cost_class ?? 'overhead',
-    category: expense?.category ?? '',
+    cost_class: expense?.cost_class ?? prefill?.cost_class ?? 'overhead',
+    category: expense?.category ?? prefill?.category ?? '',
     employee_cost_type: expense?.employee_cost_type ?? '',
-    description: expense?.description ?? '',
-    amount: expense ? String(expense.amount) : '',
-    tax_rate: String(expense?.tax_rate ?? defaultTaxRate),
-    expense_date: expense?.expense_date ?? format(new Date(), 'yyyy-MM-dd'),
+    description: expense?.description ?? prefill?.description ?? '',
+    amount: expense ? String(expense.amount) : (prefill?.amount ?? ''),
+    tax_rate: expense ? String(expense.tax_rate) : (prefill?.tax_rate ?? String(defaultTaxRate)),
+    expense_date: expense?.expense_date ?? prefill?.expense_date ?? format(new Date(), 'yyyy-MM-dd'),
     period_start: expense?.period_start ?? '',
     period_end: expense?.period_end ?? '',
-    vendor_name: expense?.vendor_name ?? '',
+    vendor_name: expense?.vendor_name ?? prefill?.vendor_name ?? '',
     supplier_id: expense?.supplier_id ?? '',
     employee_id: expense?.employee_id ?? '',
     job_id: expense?.job_id ?? '',
     payment_method: expense?.payment_method ?? '',
-    reference: expense?.reference ?? '',
+    reference: expense?.reference ?? prefill?.reference ?? '',
     is_reimbursable: expense?.is_reimbursable ?? false,
     reimbursed: expense?.reimbursed ?? false,
     recurrence: expense?.recurrence ?? 'one_off',
@@ -704,7 +843,7 @@ function ExpenseEditorModal({
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
             <h2 className="text-base font-semibold text-[#1A1A1A]">
-              {expense ? 'Edit expense' : 'Add expense'}
+              {expense ? 'Edit expense' : prefill ? 'Review scanned expense' : 'Add expense'}
             </h2>
             {expense?.expense_number != null && (
               <p className="text-xs text-[#2E75B6] font-medium mt-0.5">#{padNum(expense.expense_number)}</p>
@@ -716,6 +855,13 @@ function ExpenseEditorModal({
         </div>
 
         <div className="overlay-body space-y-4">
+          {receiptPreviewUrl && (
+            <img
+              src={receiptPreviewUrl}
+              alt="Scanned receipt"
+              className="w-full max-h-48 object-contain rounded-lg border border-[#E5E7EB] bg-[#F9FAFB]"
+            />
+          )}
           <div>
             <p className="text-xs font-medium text-[#4A5568] mb-1.5">What kind of cost is this?</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
