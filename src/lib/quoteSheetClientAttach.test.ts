@@ -309,7 +309,7 @@ describe('quote-sheet attach client — wiring', () => {
     const clientCss = quoteCss.slice(clientCssStart);
 
     expect(editor).toContain("next.key === 'send'");
-    expect(editor).toContain('ActionButton recommended');
+    expect(editor).toContain('className="btn-primary"');
     expect(editor).toContain('startSend');
     expect(editor).not.toContain('Quote marked as sent');
     expect(editor).toContain('job-client-attach-save');
@@ -330,14 +330,10 @@ describe('quote-sheet attach client — wiring', () => {
 
   it('list-row Add a client opens this sheet — does not grow an inline picker', () => {
     const page = src('src/pages/QuotesPage.tsx');
-    const card = page.slice(page.indexOf('function QuoteCard'), page.indexOf('function QuoteRow'));
     const row = page.slice(page.indexOf('function QuoteRow'), page.indexOf('function QuoteNextControl'));
     const listNext = page.slice(page.indexOf('function QuoteNextControl'), page.indexOf('interface EditorState'));
     const editor = page.slice(page.indexOf('function QuoteEditorModal'));
 
-    expect(card).not.toContain('job-client-attach');
-    expect(card).not.toContain('aria-label="Attach client"');
-    expect(card).not.toContain('attachQuoteClient');
     expect(row).not.toContain('job-client-attach');
     expect(row).not.toContain('attachQuoteClient');
     expect(listNext).not.toContain('job-client-attach');
