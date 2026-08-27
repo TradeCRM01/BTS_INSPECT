@@ -39,7 +39,12 @@ describe('Timesheets list cream paper look', () => {
     expect(css).toContain('.hub-timesheets.ops-page');
     expect(css).toContain('.hub-timesheets-sheet');
     expect(css).toContain('.hub-timesheets-sheet-bar');
+    expect(css).toContain('.hub-timesheets-sheet-body');
+    expect(css).toContain('box-shadow: inset 0 1px 0 #fff');
+    expect(css).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(css).toContain('.hub-timesheets.is-day-open');
+    const timesheetsCss = css.slice(css.indexOf('/* Timesheets list only'));
+    expect(timesheetsCss).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
     expect(css).toContain('--ts-look-page: #F5F0E6');
     expect(css).toContain('--ts-look-sheet: #FFFDF8');
     expect(css).toContain('--ts-look-ink: #0A2540');
