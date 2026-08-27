@@ -81,6 +81,9 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
     });
     expect(html).toContain('/p?t=abc');
     expect(html).toContain('Accept this quote');
+    expect(html).toContain('color:#0A2540');
+    expect(html).toMatch(/Accept this quote: <a href="https:\/\/grafter\.com\.au\/p\?t=abc" style="color:#2E75B6">/);
+    expect(html).not.toContain('Open your client portal');
     expect(sms).toContain('Accept here: https://grafter.com.au/p?t=abc');
 
     const send = src('src/lib/sendQuote.ts');
@@ -95,6 +98,45 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
     expect(quoteCopy).toContain('Accept this quote');
     expect(quoteCopy).toContain('Accept here:');
     expect(quoteHtmlEnd).toBeGreaterThan(quoteHtmlStart);
+  });
+});
+
+describe('LOOK — portal Accept is a signed quote sheet, not a leftover CRM button', () => {
+  it('uses Looplet document tokens and one 44px #2E75B6 Accept', () => {
+    const css = src('src/index.css');
+    const page = src('src/pages/ClientPortalPublicPage.tsx');
+    const send = src('src/lib/sendQuote.ts');
+    const edge = src('supabase/functions/job-reminder/index.ts');
+    const quoteHtmlStart = edge.indexOf('function quoteHtml');
+    const quoteCopy = edge.slice(quoteHtmlStart, edge.indexOf('async function resolveQuotePortalUrl'));
+
+    expect(css).toContain('#client-portal');
+    expect(css).toContain('--portal-page: #F4F6F8');
+    expect(css).toContain('--portal-sheet: #FFFFFF');
+    expect(css).toContain('--portal-ink: #0A2540');
+    expect(css).toContain('--portal-muted: #5B6B7C');
+    expect(css).toContain('--portal-line: #D5DCE3');
+    expect(css).toContain('--portal-action: #2E75B6');
+    expect(css).toContain('--portal-r-ctl: 12px');
+    expect(css).toContain('--portal-r-sheet: 16px');
+    expect(css).toContain('font-family: Inter, system-ui, sans-serif');
+    expect(css).toContain('min-height: 44px');
+    expect(css).toContain('.portal-quote-accept');
+    expect(css).toContain('background: #2E75B6');
+    expect(page).toContain('id="client-portal"');
+    expect(page).toContain('className="portal-quote-accept"');
+    expect(page).toContain('{acceptingId === q.id ? \'Accepting...\' : \'Accept\'}');
+    expect(page).toContain('portalQuoteStatusLabel(q.status)');
+    expect(page).not.toContain('bg-[#0A2540]');
+    expect(page).not.toContain('<Check');
+    expect(send).toContain('quoteSendAcceptLineHtml');
+    expect(send).toContain('color:#0A2540');
+    expect(send).toContain('style="color:#2E75B6"');
+    expect(send).not.toContain('Open your client portal');
+    expect(quoteCopy).toContain('color:#0A2540');
+    expect(quoteCopy).toContain('Accept this quote:');
+    expect(quoteCopy).toContain('Accept here:');
+    expect(quoteCopy).not.toContain('Open your client portal');
   });
 });
 

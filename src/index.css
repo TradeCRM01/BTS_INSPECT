@@ -5155,3 +5155,308 @@
   min-height: 0;
   min-width: 0;
 }
+
+/* Public /p portal only: signed quote sheet. Looplet document + xAI restraint. */
+#client-portal {
+  --portal-page: #F4F6F8;
+  --portal-sheet: #FFFFFF;
+  --portal-ink: #0A2540;
+  --portal-muted: #5B6B7C;
+  --portal-line: #D5DCE3;
+  --portal-action: #2E75B6;
+  --portal-r-ctl: 12px;
+  --portal-r-sheet: 16px;
+  font-family: Inter, system-ui, sans-serif;
+  background: var(--portal-page);
+  color: var(--portal-ink);
+  min-height: 100dvh;
+}
+
+#client-portal .portal-doc {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+#client-portal .portal-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#client-portal .portal-brand-logo {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+}
+
+#client-portal .portal-brand-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--portal-line);
+  background: var(--portal-sheet);
+  color: var(--portal-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#client-portal .portal-brand-name,
+#client-portal .portal-title,
+#client-portal .portal-row-ref,
+#client-portal .portal-quote-total,
+#client-portal .portal-state-title,
+#client-portal .portal-sheet-title {
+  color: var(--portal-ink);
+}
+
+#client-portal .portal-brand-name {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+#client-portal .portal-brand-muted,
+#client-portal .portal-muted,
+#client-portal .portal-empty,
+#client-portal .portal-kicker {
+  color: var(--portal-muted);
+}
+
+#client-portal .portal-brand-muted,
+#client-portal .portal-kicker {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+#client-portal .portal-letterhead {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#client-portal .portal-title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+
+#client-portal .portal-muted {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+#client-portal .portal-sheet {
+  background: var(--portal-sheet);
+  border: 1px solid var(--portal-line);
+  border-radius: var(--portal-r-sheet);
+  overflow: hidden;
+  box-shadow: none;
+}
+
+#client-portal .portal-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  border-bottom: 1px solid var(--portal-line);
+}
+
+#client-portal .portal-sheet-icon {
+  color: var(--portal-ink);
+  display: flex;
+}
+
+#client-portal .portal-sheet-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#client-portal .portal-empty {
+  margin: 0;
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 14px;
+}
+
+#client-portal .portal-row,
+#client-portal .portal-quote {
+  padding: 16px;
+  border-bottom: 1px solid var(--portal-line);
+}
+
+#client-portal .portal-row:last-child,
+#client-portal .portal-quote:last-child {
+  border-bottom: none;
+}
+
+#client-portal .portal-row-split,
+#client-portal .portal-quote-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+#client-portal .portal-row-ref {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#client-portal .portal-quote-total {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+#client-portal .portal-quote-accept {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+  height: 44px;
+  margin-top: 16px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--portal-r-ctl);
+  background: #2E75B6;
+  color: #fff;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+#client-portal .portal-quote-accept:hover {
+  background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+}
+
+#client-portal .portal-quote-accept:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+#client-portal .portal-quote-error {
+  margin: 0;
+  padding: 16px 16px 0;
+  font-size: 12px;
+  color: #B42318;
+}
+
+#client-portal .portal-quiet-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #2E75B6;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+#client-portal .portal-quiet-link:hover {
+  text-decoration: underline;
+}
+
+#client-portal .portal-state {
+  min-height: calc(100dvh - 32px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#client-portal .portal-state-card {
+  width: 100%;
+  max-width: 28rem;
+  padding: 24px;
+  text-align: center;
+}
+
+#client-portal .portal-state-icon {
+  margin: 0 auto 8px;
+  color: #B54708;
+}
+
+#client-portal .portal-state-icon.is-error {
+  color: #B42318;
+}
+
+#client-portal .portal-state-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+#client-portal .portal-state-card .portal-quiet-link {
+  margin-top: 16px;
+}
+
+#client-portal .portal-report {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+#client-portal .portal-report-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+#client-portal .portal-mono {
+  margin: 8px 0 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--portal-muted);
+}
+
+#client-portal .portal-dl {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+}
+
+#client-portal .portal-dl dt {
+  font-size: 12px;
+}
+
+#client-portal .portal-dl dd {
+  margin: 0;
+}
+
+#client-portal .portal-report-frame {
+  width: 100%;
+  height: 70vh;
+  border: 1px solid var(--portal-line);
+  border-radius: 12px;
+  background: var(--portal-sheet);
+}
+
+@media (min-width: 640px) {
+  #client-portal .portal-dl {
+    grid-template-columns: 1fr 1fr;
+  }
+}

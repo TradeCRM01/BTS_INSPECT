@@ -183,6 +183,9 @@ describe('quote send copy / document name', () => {
     expect(html).toContain('$528.00');
     expect(html).toContain(portalUrl);
     expect(html).toContain('Accept this quote');
+    expect(html).toContain('color:#0A2540');
+    expect(html).toMatch(/Accept this quote: <a href="https:\/\/app\.example\/p\?t=portal-token-1" style="color:#2E75B6">/);
+    expect(html).not.toContain('Open your client portal');
     expect(html).toContain('change the scope');
     expect(quoteSmsBody({
       companyName: 'BTS Electrical',

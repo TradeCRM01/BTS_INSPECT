@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
-import { Check, Download, FileText, Receipt, Wrench, Building2, AlertCircle } from 'lucide-react';
+import { Download, FileText, Receipt, Wrench, Building2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { formatMoney } from '../types/fsm';
+import { formatMoney, QUOTE_STATUS_LABELS } from '../types/fsm';
 
 export const PORTAL_QUOTE_ACCEPT_ACTION = 'accept_quote';
 
@@ -66,6 +66,18 @@ async function fetchPortal(token: string): Promise<PortalPayload> {
   return data as PortalPayload;
 }
 
+function portalQuoteStatusLabel(status: string): string {
+  return QUOTE_STATUS_LABELS[status as keyof typeof QUOTE_STATUS_LABELS] ?? status;
+}
+
+function PortalFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div id="client-portal">
+      <div className="portal-doc">{children}</div>
+    </div>
+  );
+}
+
 function CompanyHeader({
   company,
 }: {
@@ -79,17 +91,17 @@ function CompanyHeader({
 }) {
   if (!company) return null;
   return (
-    <div className="flex items-center gap-3 mb-6">
+    <div className="portal-brand">
       {company.logoUrl ? (
-        <img src={company.logoUrl} alt="" className="h-10 w-auto object-contain" />
+        <img src={company.logoUrl} alt="" className="portal-brand-logo" />
       ) : (
-        <div className="w-10 h-10 rounded-lg bg-[#0A2540] text-white flex items-center justify-center">
+        <div className="portal-brand-mark">
           <Building2 size={18} />
         </div>
       )}
       <div>
-        <p className="text-lg font-semibold text-[#1A1A1A]">{company.name}</p>
-        <p className="text-xs text-[#6B7280]">Client portal</p>
+        <p className="portal-brand-name">{company.name}</p>
+        <p className="portal-brand-muted">Client portal</p>
       </div>
     </div>
   );
@@ -127,164 +139,165 @@ export function ClientPortalPublicPage() {
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white border border-[#E5E7EB] rounded-xl p-6 text-center">
-          <AlertCircle className="mx-auto text-amber-500 mb-2" size={28} />
-          <p className="font-medium text-[#1A1A1A]">Missing portal link</p>
-          <p className="text-sm text-[#6B7280] mt-1">Open the full link you were sent (it includes a secure token).</p>
+      <PortalFrame>
+        <div className="portal-state">
+          <div className="portal-sheet portal-state-card">
+            <AlertCircle className="portal-state-icon" size={28} />
+            <p className="portal-state-title">Missing portal link</p>
+            <p className="portal-muted">Open the full link you were sent (it includes a secure token).</p>
+          </div>
         </div>
-      </div>
+      </PortalFrame>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
+      <PortalFrame>
+        <div className="portal-state">
+          <LoadingSpinner size="lg" />
+        </div>
+      </PortalFrame>
     );
   }
 
   if (isError || !data) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white border border-[#E5E7EB] rounded-xl p-6 text-center">
-          <AlertCircle className="mx-auto text-red-500 mb-2" size={28} />
-          <p className="font-medium text-[#1A1A1A]">Unable to open portal</p>
-          <p className="text-sm text-[#6B7280] mt-1">{error instanceof Error ? error.message : 'Invalid or expired link'}</p>
-          <button onClick={() => refetch()} className="mt-4 text-sm text-[#2E75B6] hover:underline">Try again</button>
+      <PortalFrame>
+        <div className="portal-state">
+          <div className="portal-sheet portal-state-card">
+            <AlertCircle className="portal-state-icon is-error" size={28} />
+            <p className="portal-state-title">Unable to open portal</p>
+            <p className="portal-muted">{error instanceof Error ? error.message : 'Invalid or expired link'}</p>
+            <button type="button" onClick={() => refetch()} className="portal-quiet-link">Try again</button>
+          </div>
         </div>
-      </div>
+      </PortalFrame>
     );
   }
 
   if (data.kind === 'report') {
     const r = data.report;
     return (
-      <div className="min-h-screen bg-[#F8FAFC]">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          <CompanyHeader company={data.company} />
-          <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3 flex-wrap">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-[#6B7280] font-semibold">Inspection report</p>
-                <h1 className="text-xl font-semibold text-[#1A1A1A] mt-1">{r.siteName ?? 'Report'}</h1>
-                {r.reportNumber && <p className="text-sm font-mono text-[#4A5568] mt-1">{r.reportNumber}</p>}
-                {r.docVersion > 1 && (
-                  <p className="text-xs text-amber-700 mt-1">Version {r.docVersion}{r.amendmentReason ? ` — ${r.amendmentReason}` : ''}</p>
-                )}
-              </div>
-              {r.pdfUrl && (
-                <a
-                  href={r.pdfUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 bg-[#0A2540] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e]"
-                >
-                  <Download size={15} /> Download PDF
-                </a>
+      <PortalFrame>
+        <CompanyHeader company={data.company} />
+        <div className="portal-sheet portal-report">
+          <div className="portal-report-head">
+            <div>
+              <p className="portal-kicker">Inspection report</p>
+              <h1 className="portal-title">{r.siteName ?? 'Report'}</h1>
+              {r.reportNumber && <p className="portal-mono">{r.reportNumber}</p>}
+              {r.docVersion > 1 && (
+                <p className="portal-muted">Version {r.docVersion}{r.amendmentReason ? ` — ${r.amendmentReason}` : ''}</p>
               )}
             </div>
-            <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              {r.clientName && <div><dt className="text-[#6B7280] text-xs">Client</dt><dd className="text-[#1A1A1A]">{r.clientName}</dd></div>}
-              {r.siteAddress && <div><dt className="text-[#6B7280] text-xs">Address</dt><dd className="text-[#1A1A1A]">{r.siteAddress}</dd></div>}
-              {r.templateName && <div><dt className="text-[#6B7280] text-xs">Template</dt><dd className="text-[#1A1A1A]">{r.templateName}</dd></div>}
-              {r.jobNumber && <div><dt className="text-[#6B7280] text-xs">Job #</dt><dd className="text-[#1A1A1A]">{r.jobNumber}</dd></div>}
-            </dl>
-            {r.pdfUrl ? (
-              <iframe title="Report PDF" src={r.pdfUrl} className="mt-5 w-full h-[70vh] rounded-lg border border-[#E5E7EB] bg-white" />
-            ) : (
-              <p className="mt-4 text-sm text-[#6B7280]">PDF is not available yet. Ask the contractor to generate the report.</p>
+            {r.pdfUrl && (
+              <a
+                href={r.pdfUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="portal-quiet-link"
+              >
+                <Download size={15} /> Download PDF
+              </a>
             )}
           </div>
+          <dl className="portal-dl">
+            {r.clientName && <div><dt className="portal-muted">Client</dt><dd>{r.clientName}</dd></div>}
+            {r.siteAddress && <div><dt className="portal-muted">Address</dt><dd>{r.siteAddress}</dd></div>}
+            {r.templateName && <div><dt className="portal-muted">Template</dt><dd>{r.templateName}</dd></div>}
+            {r.jobNumber && <div><dt className="portal-muted">Job #</dt><dd>{r.jobNumber}</dd></div>}
+          </dl>
+          {r.pdfUrl ? (
+            <iframe title="Report PDF" src={r.pdfUrl} className="portal-report-frame" />
+          ) : (
+            <p className="portal-muted">PDF is not available yet. Ask the contractor to generate the report.</p>
+          )}
         </div>
-      </div>
+      </PortalFrame>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <CompanyHeader company={data.company} />
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold text-[#1A1A1A]">{data.client?.name ?? 'Your account'}</h1>
-          <p className="text-sm text-[#6B7280] mt-0.5">Quotes, invoices, jobs, and inspection reports</p>
-        </div>
+    <PortalFrame>
+      <CompanyHeader company={data.company} />
+      <div className="portal-letterhead">
+        <h1 className="portal-title">{data.client?.name ?? 'Your account'}</h1>
+        <p className="portal-muted">Quotes, invoices, jobs, and inspection reports</p>
+      </div>
 
-        <Section title="Inspection reports" icon={<FileText size={16} />} empty="No issued reports yet" count={data.reports.length}>
-          {data.reports.map(r => (
-            <div key={r.inspectionId} className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[#F3F4F6] last:border-0">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-[#1A1A1A] truncate">{r.siteName ?? r.templateName ?? 'Report'}</p>
-                <p className="text-xs text-[#6B7280]">
-                  {r.reportNumber ?? '—'}
-                  {r.issuedAt ? ` · ${format(parseISO(r.issuedAt), 'dd MMM yyyy')}` : ''}
-                  {r.docVersion > 1 ? ` · v${r.docVersion}` : ''}
-                </p>
-              </div>
-              {r.pdfUrl && (
-                <a href={r.pdfUrl} target="_blank" rel="noreferrer" className="text-xs font-medium text-[#2E75B6] hover:underline shrink-0 flex items-center gap-1">
-                  <Download size={13} /> PDF
-                </a>
-              )}
-            </div>
-          ))}
-        </Section>
-
-        <Section title="Jobs" icon={<Wrench size={16} />} empty="No jobs" count={data.jobs.length}>
-          {data.jobs.map(j => (
-            <div key={j.id} className="px-4 py-3 border-b border-[#F3F4F6] last:border-0">
-              <p className="text-sm font-medium text-[#1A1A1A]">{j.title}</p>
-              <p className="text-xs text-[#6B7280]">
-                {j.status}
-                {j.job_number != null ? ` · #${String(j.job_number).padStart(4, '0')}` : ''}
-                {j.scheduled_date ? ` · ${format(parseISO(j.scheduled_date), 'dd MMM yyyy')}` : ''}
+      <Section title="Inspection reports" icon={<FileText size={16} />} empty="No issued reports yet" count={data.reports.length}>
+        {data.reports.map(r => (
+          <div key={r.inspectionId} className="portal-row">
+            <div className="portal-row-main">
+              <p className="portal-row-ref">{r.siteName ?? r.templateName ?? 'Report'}</p>
+              <p className="portal-muted">
+                {r.reportNumber ?? '—'}
+                {r.issuedAt ? ` · ${format(parseISO(r.issuedAt), 'dd MMM yyyy')}` : ''}
+                {r.docVersion > 1 ? ` · v${r.docVersion}` : ''}
               </p>
             </div>
-          ))}
-        </Section>
+            {r.pdfUrl && (
+              <a href={r.pdfUrl} target="_blank" rel="noreferrer" className="portal-quiet-link">
+                <Download size={13} /> PDF
+              </a>
+            )}
+          </div>
+        ))}
+      </Section>
 
-        <Section title="Quotes" icon={<FileText size={16} />} empty="No quotes" count={data.quotes.length}>
-          {acceptError && (
-            <p className="text-xs text-red-600 px-4 pt-3">{acceptError}</p>
-          )}
-          {data.quotes.map(q => (
-            <div key={q.id} className="flex justify-between gap-3 px-4 py-3 border-b border-[#F3F4F6] last:border-0">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-[#1A1A1A]">{q.quote_number}</p>
-                <p className="text-xs text-[#6B7280]">{q.status}</p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-sm font-medium text-[#1A1A1A]">{formatMoney(q.total)}</p>
-                {canAcceptPortalQuote(q.status) && (
-                  <button
-                    type="button"
-                    onClick={() => void acceptQuote(q.id)}
-                    disabled={acceptingId === q.id}
-                    className="mt-2 inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 rounded-md text-sm font-medium bg-[#0A2540] text-white hover:bg-[#0d2f4e] disabled:opacity-60"
-                  >
-                    <Check size={15} />
-                    {acceptingId === q.id ? 'Accepting...' : 'Accept'}
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </Section>
+      <Section title="Jobs" icon={<Wrench size={16} />} empty="No jobs" count={data.jobs.length}>
+        {data.jobs.map(j => (
+          <div key={j.id} className="portal-row">
+            <p className="portal-row-ref">{j.title}</p>
+            <p className="portal-muted">
+              {j.status}
+              {j.job_number != null ? ` · #${String(j.job_number).padStart(4, '0')}` : ''}
+              {j.scheduled_date ? ` · ${format(parseISO(j.scheduled_date), 'dd MMM yyyy')}` : ''}
+            </p>
+          </div>
+        ))}
+      </Section>
 
-        <Section title="Invoices" icon={<Receipt size={16} />} empty="No invoices" count={data.invoices.length}>
-          {data.invoices.map(inv => (
-            <div key={inv.id} className="flex justify-between gap-3 px-4 py-3 border-b border-[#F3F4F6] last:border-0">
+      <Section title="Quotes" icon={<FileText size={16} />} empty="No quotes" count={data.quotes.length}>
+        {acceptError && (
+          <p className="portal-quote-error">{acceptError}</p>
+        )}
+        {data.quotes.map(q => (
+          <div key={q.id} className="portal-quote">
+            <div className="portal-quote-meta">
               <div>
-                <p className="text-sm font-medium text-[#1A1A1A]">{inv.invoice_number}</p>
-                <p className="text-xs text-[#6B7280]">{inv.status}</p>
+                <p className="portal-row-ref">{q.quote_number}</p>
+                <p className="portal-muted">{portalQuoteStatusLabel(q.status)}</p>
               </div>
-              <p className="text-sm font-medium text-[#1A1A1A]">{formatMoney(inv.total)}</p>
+              <p className="portal-quote-total">{formatMoney(q.total)}</p>
             </div>
-          ))}
-        </Section>
-      </div>
-    </div>
+            {canAcceptPortalQuote(q.status) && (
+              <button
+                type="button"
+                onClick={() => void acceptQuote(q.id)}
+                disabled={acceptingId === q.id}
+                className="portal-quote-accept"
+              >
+                {acceptingId === q.id ? 'Accepting...' : 'Accept'}
+              </button>
+            )}
+          </div>
+        ))}
+      </Section>
+
+      <Section title="Invoices" icon={<Receipt size={16} />} empty="No invoices" count={data.invoices.length}>
+        {data.invoices.map(inv => (
+          <div key={inv.id} className="portal-row portal-row-split">
+            <div>
+              <p className="portal-row-ref">{inv.invoice_number}</p>
+              <p className="portal-muted">{inv.status}</p>
+            </div>
+            <p className="portal-quote-total">{formatMoney(inv.total)}</p>
+          </div>
+        ))}
+      </Section>
+    </PortalFrame>
   );
 }
 
@@ -302,13 +315,13 @@ function Section({
   count: number;
 }) {
   return (
-    <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm mb-4 overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-[#E5E7EB] bg-[#F9FAFB]">
-        <span className="text-[#0A2540]">{icon}</span>
-        <h2 className="text-sm font-semibold text-[#1A1A1A]">{title}</h2>
+    <div className="portal-sheet">
+      <div className="portal-sheet-head">
+        <span className="portal-sheet-icon">{icon}</span>
+        <h2 className="portal-sheet-title">{title}</h2>
       </div>
       {count === 0 ? (
-        <p className="text-sm text-[#6B7280] px-4 py-6 text-center">{empty}</p>
+        <p className="portal-empty">{empty}</p>
       ) : (
         <div>{children}</div>
       )}

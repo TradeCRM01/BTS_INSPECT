@@ -1062,10 +1062,8 @@ function quoteHtml(opts: {
     : "";
   const portal = String(opts.portalUrl ?? "").trim();
   const goAhead = portal
-    ? `<p>The quote PDF is attached. Open your client portal to Accept this quote:</p>
-          <p><a href="${escapeHtml(portal)}" style="color:#2E75B6">${escapeHtml(portal)}</a></p>
-          <p>Or reply to this email if you want to change the scope.</p>`
-    : `<p>The quote PDF is attached. Reply to this email if you want to go ahead or change the scope.</p>`;
+    ? `<p style="font-family:Inter,system-ui,sans-serif;color:#0A2540;font-size:15px;line-height:1.6;margin:16px 0 0;">The quote PDF is attached. Accept this quote: <a href="${escapeHtml(portal)}" style="color:#2E75B6">${escapeHtml(portal)}</a>. Or reply to this email if you want to go ahead or change the scope.</p>`
+    : `<p style="font-family:Inter,system-ui,sans-serif;color:#0A2540;font-size:15px;line-height:1.6;margin:16px 0 0;">The quote PDF is attached. Reply to this email if you want to go ahead or change the scope.</p>`;
   return `
       <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
         <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
