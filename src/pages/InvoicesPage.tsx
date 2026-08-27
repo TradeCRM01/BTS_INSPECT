@@ -23,6 +23,7 @@ import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
 import { commercialPdfCompanyFrom, companyDocumentLogoUrl } from '../lib/companyLogo';
+import { companyPaymentMethodsForDocument } from '../lib/companyPaymentMethods';
 import {
   jobClientEmailRow,
   jobClientEmailSaveToast,
@@ -331,6 +332,7 @@ export function InvoicesPage() {
             website: company.website ?? null,
             logo_url: company.logo_url ?? null,
             report_theme: (company as { report_theme?: Record<string, unknown> | null }).report_theme ?? null,
+            payment_methods: (company as { payment_methods?: unknown }).payment_methods ?? [],
           }}
           onClose={() => setSendingInvoiceId(null)}
           onSent={(to, message, opts) => {
@@ -741,6 +743,9 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       total: grandTotal,
       notes: form.notes.trim() || null,
       paymentTerms: form.payment_terms.trim() || null,
+      paymentMethods: companyPaymentMethodsForDocument(
+        (company as { payment_methods?: unknown } | null)?.payment_methods,
+      ),
     };
   }, [company, form, invoice, selectedClient, selectedJob, subtotal, taxAmount, grandTotal]);
 
@@ -1161,6 +1166,23 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             <div className="hub-invoice-totalbar">
               <span>Total (inc GST)</span>
               <span className="hub-invoice-num">{editorMoney}</span>
+            </div>
+          ) : null}
+          {companyPaymentMethodsForDocument(
+            (company as { payment_methods?: unknown } | null)?.payment_methods,
+          ).length > 0 ? (
+            <div className="hub-invoice-pay">
+              <p className="hub-invoice-kicker">How to pay</p>
+              {companyPaymentMethodsForDocument(
+                (company as { payment_methods?: unknown } | null)?.payment_methods,
+              ).map(method => (
+                <div key={method.label + method.lines.join()} className="hub-invoice-pay-method">
+                  <p className="hub-invoice-from-name">{method.label}</p>
+                  {method.lines.map(line => (
+                    <p key={line} className="hub-invoice-muted">{line}</p>
+                  ))}
+                </div>
+              ))}
             </div>
           ) : null}
         </div>

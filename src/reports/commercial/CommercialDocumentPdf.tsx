@@ -59,6 +59,7 @@ export interface CommercialPdfData {
   scopeOfWorks?: string | null;
   notes?: string | null;
   paymentTerms?: string | null;
+  paymentMethods?: { label: string; lines: string[] }[];
 }
 
 function commercialStyles(colors: PdfColors) {
@@ -327,6 +328,20 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
           <View style={s.notes}>
             <Text style={s.sectionTitle}>Notes</Text>
             <Text style={s.notesBody}>{data.notes}</Text>
+          </View>
+        ) : null}
+
+        {data.kind === 'invoice' && (data.paymentMethods?.length ?? 0) > 0 ? (
+          <View style={s.notes}>
+            <Text style={s.sectionTitle}>How to pay</Text>
+            {data.paymentMethods!.map((method, i) => (
+              <View key={`pay-${i}`} style={{ marginBottom: 8 }} wrap={false}>
+                <Text style={s.partyValue}>{method.label}</Text>
+                {method.lines.map((line, j) => (
+                  <Text key={`pay-${i}-${j}`} style={s.notesBody}>{line}</Text>
+                ))}
+              </View>
+            ))}
           </View>
         ) : null}
 

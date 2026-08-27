@@ -13,6 +13,15 @@ import {
   persistCompanyLogo,
   removeCompanyLogo,
 } from '../lib/companyLogo';
+import {
+  blankCompanyPaymentMethod,
+  COMPANY_PAYMENT_KIND_LABEL,
+  companyPaymentMethodsSaveError,
+  companyPaymentMethodsSavePayload,
+  parseCompanyPaymentMethods,
+  type CompanyPaymentKind,
+  type CompanyPaymentMethod,
+} from '../lib/companyPaymentMethods';
 
 interface EmailSettings {
   smtp_host: string;
@@ -68,6 +77,12 @@ export function CompanySettingsPage() {
   const [removingLogo, setRemovingLogo] = useState(false);
   const [logoUrl, setLogoUrl] = useState(company?.logo_url ?? '');
   const [logoError, setLogoError] = useState('');
+  const [paymentMethods, setPaymentMethods] = useState<CompanyPaymentMethod[]>(
+    () => parseCompanyPaymentMethods((company as { payment_methods?: unknown } | null)?.payment_methods),
+  );
+  const [savingPay, setSavingPay] = useState(false);
+  const [savedPay, setSavedPay] = useState(false);
+  const [payError, setPayError] = useState('');
 
   // Inspection renderers
   const [renderers, setRenderers] = useState<Array<{ id: string; key: string; label: string; built_in: boolean }>>([]);
@@ -122,6 +137,7 @@ export function CompanySettingsPage() {
   useEffect(() => {
     if (company) {
       setLogoUrl(company.logo_url ?? '');
+      setPaymentMethods(parseCompanyPaymentMethods((company as { payment_methods?: unknown }).payment_methods));
       loadRenderers();
       if (isAdmin) loadEmailSettings();
       const theme = (company as { report_theme?: Partial<ReportTheme> | null }).report_theme;
@@ -324,6 +340,29 @@ export function CompanySettingsPage() {
       await refreshProfile();
     }
     setRemovingLogo(false);
+  }
+
+  async function handleSavePaymentMethods(e: React.FormEvent) {
+    e.preventDefault();
+    if (!company) return;
+    setSavingPay(true);
+    setPayError('');
+    const { error } = await supabase
+      .from('companies')
+      .update({ payment_methods: companyPaymentMethodsSavePayload(paymentMethods) })
+      .eq('id', company.id);
+    if (error) {
+      setPayError(companyPaymentMethodsSaveError(error.message));
+    } else {
+      await refreshProfile();
+      setSavedPay(true);
+      setTimeout(() => setSavedPay(false), 2000);
+    }
+    setSavingPay(false);
+  }
+
+  function patchPaymentMethod(id: string, patch: Partial<CompanyPaymentMethod>) {
+    setPaymentMethods(list => list.map(row => (row.id === id ? { ...row, ...patch } : row)));
   }
 
   const inputClass = 'w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent text-sm';
@@ -795,6 +834,102 @@ export function CompanySettingsPage() {
               className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
             >
               {saved ? <><Check size={15} /> Saved</> : saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </form>
+        </div>
+
+        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6">
+          <h2 className="text-sm font-semibold text-[#1A1A1A] mb-1">How clients pay</h2>
+          <p className="text-xs text-[#4A5568] mb-4">Printed on invoices as the way to pay. Leave empty if you do not want bank details on the invoice.</p>
+          <form onSubmit={handleSavePaymentMethods} className="space-y-4">
+            {paymentMethods.map(method => (
+              <div key={method.id} className="border border-[#E5E7EB] rounded-md p-3 space-y-3">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={method.kind}
+                    onChange={e => {
+                      const kind = e.target.value as CompanyPaymentKind;
+                      patchPaymentMethod(method.id, {
+                        kind,
+                        label: COMPANY_PAYMENT_KIND_LABEL[kind],
+                      });
+                    }}
+                    className={inputClass + ' max-w-[180px]'}
+                    aria-label="Payment method type"
+                  >
+                    <option value="bank_transfer">{COMPANY_PAYMENT_KIND_LABEL.bank_transfer}</option>
+                    <option value="payid">{COMPANY_PAYMENT_KIND_LABEL.payid}</option>
+                    <option value="other">{COMPANY_PAYMENT_KIND_LABEL.other}</option>
+                  </select>
+                  <input
+                    value={method.label}
+                    onChange={e => patchPaymentMethod(method.id, { label: e.target.value })}
+                    className={inputClass}
+                    placeholder="Label on the invoice"
+                    aria-label="Payment method label"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethods(list => list.filter(row => row.id !== method.id))}
+                    className="p-2 text-[#4A5568] hover:text-red-600"
+                    aria-label="Remove payment method"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                {method.kind === 'bank_transfer' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs text-[#4A5568] mb-1">Account name</label>
+                      <input value={method.account_name} onChange={e => patchPaymentMethod(method.id, { account_name: e.target.value })} className={inputClass} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#4A5568] mb-1">BSB</label>
+                      <input value={method.bsb} onChange={e => patchPaymentMethod(method.id, { bsb: e.target.value })} className={inputClass + ' font-mono'} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#4A5568] mb-1">Account number</label>
+                      <input value={method.account_number} onChange={e => patchPaymentMethod(method.id, { account_number: e.target.value })} className={inputClass + ' font-mono'} />
+                    </div>
+                  </div>
+                ) : null}
+                {method.kind === 'payid' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-[#4A5568] mb-1">PayID</label>
+                      <input value={method.payid} onChange={e => patchPaymentMethod(method.id, { payid: e.target.value })} className={inputClass} placeholder="email, phone, or ABN" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#4A5568] mb-1">Account name</label>
+                      <input value={method.account_name} onChange={e => patchPaymentMethod(method.id, { account_name: e.target.value })} className={inputClass} />
+                    </div>
+                  </div>
+                ) : null}
+                <div>
+                  <label className="block text-xs text-[#4A5568] mb-1">Notes on the invoice</label>
+                  <input
+                    value={method.notes}
+                    onChange={e => patchPaymentMethod(method.id, { notes: e.target.value })}
+                    className={inputClass}
+                    placeholder="Use the invoice number as the reference"
+                  />
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setPaymentMethods(list => [...list, blankCompanyPaymentMethod('bank_transfer')])}
+              className="flex items-center gap-2 text-sm text-[#2E75B6]"
+            >
+              <Plus size={15} /> Add a payment method
+            </button>
+            {payError ? <p className="text-sm text-red-600">{payError}</p> : null}
+            <button
+              type="submit"
+              disabled={savingPay}
+              className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
+            >
+              {savedPay ? <><Check size={15} /> Saved</> : savingPay ? 'Saving...' : 'Save payment methods'}
             </button>
           </form>
         </div>
