@@ -1,89 +1,65 @@
 import { useState, useMemo, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
-import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, Modal, ViewToggle, useViewMode } from '../components/ui';
-import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
-import type { MenuEntry } from '../components/ui';
-import { format, parseISO, isPast, differenceInDays } from 'date-fns';
+import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
-  Plus, FileText, X, Trash2, Pencil, MoreVertical,
-  ShieldCheck, Bell, Pause, Play, CheckCircle2, Link2, History, Mail,
+  COMPLIANCE_LIST_DEFAULT_FILTER,
+  COMPLIANCE_LIST_FILTERS,
+  complianceListAuditItems,
+  complianceListDueLabel,
+  complianceListEmptyMessage,
+  complianceListEmptyTitle,
+  complianceListFloorLede,
+  complianceListMetaLine,
+  complianceListOpenHref,
+  complianceListOpened,
+  complianceListOtherItems,
+  complianceListSheetItem,
+  computeNextDueDate,
+  decorateComplianceList,
+  deriveComplianceStatus,
+  filterComplianceListFloor,
+  parseComplianceListOpenId,
+  sortComplianceListFloor,
+  type ComplianceListFilter,
+} from '../lib/complianceList';
+import { AppShell } from '../components/layout/AppShell';
+import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, Modal } from '../components/ui';
+import type { MenuEntry } from '../components/ui';
+import { format } from 'date-fns';
+import {
+  Plus, X, Trash2, Pencil,
+  ShieldCheck, Pause, Play, CheckCircle2, History, Mail,
 } from 'lucide-react';
 import type {
-  ComplianceItem, ComplianceItemWithClient, ComplianceStatus,
+  ComplianceItem, ComplianceItemWithClient,
   RecurrenceUnit, ComplianceLog,
 } from '../types/compliance';
 import {
-  COMPLIANCE_STATUS_LABELS, COMPLIANCE_STATUS_STYLES,
+  COMPLIANCE_STATUS_LABELS,
   RECURRENCE_UNIT_LABELS, COMPLIANCE_LOG_LABELS,
 } from '../types/compliance';
 import type { Client } from '../types/crm';
-
-const STATUS_TABS: { key: 'all' | ComplianceStatus; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'overdue', label: 'Overdue' },
-  { key: 'due_soon', label: 'Due Soon' },
-  { key: 'upcoming', label: 'Upcoming' },
-  { key: 'completed', label: 'Completed' },
-  { key: 'paused', label: 'Paused' },
-];
-
-function computeNextDueDate(
-  lastCompleted: string | null,
-  firstDue: string,
-  interval: number,
-  unit: RecurrenceUnit,
-): string {
-  if (!lastCompleted) return firstDue;
-  const base = parseISO(lastCompleted);
-  let next: Date;
-  switch (unit) {
-    case 'days':   next = new Date(base.getTime() + interval * 86400000); break;
-    case 'weeks':  next = new Date(base.getTime() + interval * 7 * 86400000); break;
-    case 'months': next = new Date(base.getFullYear(), base.getMonth() + interval, base.getDate()); break;
-    case 'years':  next = new Date(base.getFullYear() + interval, base.getMonth(), base.getDate()); break;
-    default: next = parseISO(firstDue);
-  }
-  return format(next, 'yyyy-MM-dd');
-}
-
-function deriveStatus(nextDueDate: string, lastCompleted: string | null, isPaused: boolean): ComplianceStatus {
-  if (isPaused) return 'paused';
-  if (lastCompleted) {
-    const today = new Date();
-    const due = parseISO(nextDueDate);
-    const diff = differenceInDays(due, today);
-    if (diff < 0) return 'overdue';
-    if (diff <= 30) return 'due_soon';
-    return 'upcoming';
-  }
-  const today = new Date();
-  const due = parseISO(nextDueDate);
-  if (isPast(due) && format(due, 'yyyy-MM-dd') !== format(today, 'yyyy-MM-dd')) return 'overdue';
-  const diff = differenceInDays(due, today);
-  if (diff < 0) return 'overdue';
-  if (diff <= 30) return 'due_soon';
-  return 'upcoming';
-}
 
 export function CompliancePage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | ComplianceStatus>('all');
+  const [statusFilter, setStatusFilter] = useState<ComplianceListFilter>(COMPLIANCE_LIST_DEFAULT_FILTER);
   const [editingItem, setEditingItem] = useState<ComplianceItem | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ComplianceItemWithClient | null>(null);
   const [historyItem, setHistoryItem] = useState<ComplianceItemWithClient | null>(null);
-  const [viewMode, setViewMode] = useViewMode('compliance', 'list');
+  const openId = parseComplianceListOpenId(searchParams.get('id'));
 
   const { data: items, isLoading, error } = useQuery<ComplianceItemWithClient[]>({
     queryKey: ['compliance-items'],
     queryFn: async () => {
+      if (isDevFieldAuditAuth()) return complianceListAuditItems(profile!.company_id);
       const { data, error } = await supabase
         .from('compliance_items')
         .select('*')
@@ -164,7 +140,7 @@ export function CompliancePage() {
 
   const togglePauseMutation = useMutation({
     mutationFn: async (item: ComplianceItemWithClient) => {
-      const newStatus = item.status === 'paused' ? deriveStatus(item.next_due_date, item.last_completed_date, false) : 'paused';
+      const newStatus = item.status === 'paused' ? deriveComplianceStatus(item.next_due_date, item.last_completed_date, false) : 'paused';
       const { error } = await supabase
         .from('compliance_items')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -211,159 +187,166 @@ export function CompliancePage() {
     },
   });
 
-  const filtered = useMemo(() => {
-    const all = items ?? [];
-    return all.filter(c => {
-      if (statusFilter !== 'all' && c.status !== statusFilter) return false;
-      const q = search.toLowerCase();
-      if (!q) return true;
-      return [c.title, c.standard_or_regulation, c.client_name]
-        .filter(Boolean)
-        .some(v => v!.toLowerCase().includes(q));
-    });
-  }, [items, search, statusFilter]);
+  const decorated = useMemo(
+    () => decorateComplianceList(items ?? []),
+    [items],
+  );
 
-  const totals = useMemo(() => {
-    const all = items ?? [];
-    return {
-      total: all.length,
-      overdue: all.filter(c => c.status === 'overdue').length,
-      dueSoon: all.filter(c => c.status === 'due_soon').length,
-      upcoming: all.filter(c => c.status === 'upcoming').length,
-    };
-  }, [items]);
+  const floorItems = useMemo(
+    () => sortComplianceListFloor(
+      filterComplianceListFloor(decorated, { filter: statusFilter, search }),
+    ),
+    [decorated, search, statusFilter],
+  );
+
+  const noneAtAll = !isLoading && (items?.length ?? 0) === 0;
+  const noneMatch = !isLoading && decorated.length > 0 && floorItems.length === 0;
+  const openedItem = complianceListOpened(decorated, openId);
+  const recordOpen = !!openedItem;
+  const sheetItem = openedItem ?? complianceListSheetItem(floorItems);
+  const otherItems = recordOpen
+    ? []
+    : complianceListOtherItems(floorItems, sheetItem?.row.id ?? null);
+
+  function openItem(item: ComplianceItemWithClient) {
+    const href = complianceListOpenHref(item.id);
+    const id = parseComplianceListOpenId(new URLSearchParams(href.split('?')[1] ?? '').get('id')) ?? item.id;
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('id', id);
+      return next;
+    }, { replace: true });
+  }
+
+  function openEditor(item: ComplianceItemWithClient | null) {
+    setEditingItem(item);
+    setShowForm(true);
+  }
+
+  function closeForm() {
+    setShowForm(false);
+    setEditingItem(null);
+  }
 
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load compliance items" /></AppShell>;
 
   return (
     <AppShell>
-      <div className="max-w-[1200px] mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className={`ops-page hub-compliance${recordOpen ? ' is-record-open' : ''}`}>
+        <div className="hub-compliance-open-chrome">
+          <Link to="/compliance" className="hub-compliance-label">Compliance</Link>
+        </div>
+        <div className="ops-page-head">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">Compliance Tracker</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">
-              {totals.total} tracked items · {totals.overdue} overdue
+            <p className="hub-compliance-label">Compliance</p>
+            <h1 className="ops-page-title">Compliance</h1>
+            <p className="hub-compliance-lede">
+              {isLoading ? 'Loading…' : complianceListFloorLede(floorItems.length)}
             </p>
           </div>
-          <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
-            <Plus size={16} /> New Compliance Item
+          <button type="button" onClick={() => openEditor(null)} className="hub-compliance-next">
+            <Plus size={16} /> New item
           </button>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          {isLoading ? (
-            <SkeletonSummaryCards count={4} />
-          ) : (
-            <>
-              <SummaryCard label="Total Items" value={totals.total} accentColor="#0A2540" />
-              <SummaryCard label="Overdue" value={totals.overdue} accentColor="#DC2626" />
-              <SummaryCard label="Due Soon" value={totals.dueSoon} accentColor="#F7931A" />
-              <SummaryCard label="Upcoming" value={totals.upcoming} accentColor="#2E75B6" />
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search compliance items..." />
-          <ViewToggle mode={viewMode} onChange={setViewMode} />
-        </div>
-
-        <div className="flex items-center gap-1 mb-4 border-b border-[#E5E7EB] overflow-x-auto">
-          {STATUS_TABS.map(tab => {
-            const count = tab.key === 'all'
-              ? (items?.length ?? 0)
-              : (items?.filter(c => c.status === tab.key).length ?? 0);
-            const active = statusFilter === tab.key;
-            return (
-              <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
-                  active ? 'border-[#0A2540] text-[#0A2540]' : 'border-transparent text-[#4A5568] hover:text-[#1A1A1A]'}`}>
-                {tab.label}
-                <span className={`text-xs px-1.5 py-0.5 rounded-full ${active ? 'bg-[#0A2540] text-white' : 'bg-gray-100 text-[#6B7280]'}`}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {filtered.length === 0 ? (
-          <EmptyState
-            icon={ShieldCheck}
-            title="No compliance items yet"
-            message="Track recurring compliance requirements like safety inspections, warranty renewals, and scheduled maintenance. Get reminders before they're due and email clients to book."
-            action={
-              <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
-                <Plus size={16} /> Create your first item
-              </button>
-            }
-          />
-        ) : isLoading ? (
-          <SkeletonRow />
-        ) : viewMode === 'list' ? (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-[#F9FAFB] text-left text-xs text-[#6B7280] uppercase tracking-wide">
-                  <th className="px-4 py-2.5 font-medium">Item</th>
-                  <th className="px-4 py-2.5 font-medium">Client</th>
-                  <th className="px-4 py-2.5 font-medium">Status</th>
-                  <th className="px-4 py-2.5 font-medium">Recurrence</th>
-                  <th className="px-4 py-2.5 font-medium">Next Due</th>
-                  <th className="px-4 py-2.5 font-medium">Last Done</th>
-                  <th className="px-4 py-2.5 w-10"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F3F4F6]">
-                {filtered.map(item => (
-                  <ComplianceRow
-                    key={item.id}
-                    item={item}
-                    onEdit={() => { setEditingItem(item); setShowForm(true); }}
-                    onDelete={() => setDeleteTarget(item)}
-                    onComplete={() => markCompleteMutation.mutate(item)}
-                    onTogglePause={() => togglePauseMutation.mutate(item)}
-                    onSendReminder={() => sendReminderMutation.mutate(item)}
-                    onShowHistory={() => setHistoryItem(item)}
-                    sendingReminder={sendReminderMutation.isPending}
-                    completing={markCompleteMutation.isPending}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map(item => {
-              const overdue = item.status === 'overdue';
+        <div className="hub-compliance-chrome">
+          <div className="hub-compliance-filters" role="group" aria-label="Filter compliance items">
+            {COMPLIANCE_LIST_FILTERS.map(tab => {
+              const active = statusFilter === tab.key;
               return (
-                <div key={item.id} className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => { setEditingItem(item); setShowForm(true); }}>
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="min-w-0">
-                      <p className="font-medium text-[#1A1A1A] truncate">{item.title}</p>
-                      {item.standard_or_regulation && <p className="text-xs text-[#6B7280] truncate">{item.standard_or_regulation}</p>}
-                    </div>
-                    <span className={`badge ${COMPLIANCE_STATUS_STYLES[item.status]} shrink-0 ml-2`}>{COMPLIANCE_STATUS_LABELS[item.status]}</span>
-                  </div>
-                  <p className="text-xs text-[#4A5568] mb-2">{item.client_name ?? 'No client'}</p>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className={overdue ? 'text-[#B42318] font-medium' : 'text-[#4A5568]'}>
-                      Due: {format(parseISO(item.next_due_date), 'd MMM yyyy')}
-                    </span>
-                    <span className="text-[#9CA3AF]">{item.recurrence_interval} {RECURRENCE_UNIT_LABELS[item.recurrence_unit].toLowerCase()}</span>
-                  </div>
-                </div>
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.key)}
+                  className={`hub-chrome-filter ${active ? 'hub-chrome-filter-on' : ''}`}
+                >
+                  {tab.label}
+                </button>
               );
             })}
           </div>
-        )}
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search name, client, or standard…"
+            className="hub-compliance-search"
+          />
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-16"><LoadingSpinner /></div>
+        ) : recordOpen && openedItem ? (
+          <ComplianceSheet
+            item={openedItem.row}
+            href={openedItem.href}
+            liveStatus={openedItem.liveStatus}
+            documentOpen
+            onOpen={() => openItem(openedItem.row)}
+            onEdit={() => openEditor(openedItem.row)}
+            onDelete={() => setDeleteTarget(openedItem.row)}
+            onComplete={() => markCompleteMutation.mutate(openedItem.row)}
+            onTogglePause={() => togglePauseMutation.mutate(openedItem.row)}
+            onSendReminder={() => sendReminderMutation.mutate(openedItem.row)}
+            onShowHistory={() => setHistoryItem(openedItem.row)}
+            sendingReminder={sendReminderMutation.isPending}
+            completing={markCompleteMutation.isPending}
+          />
+        ) : noneAtAll || noneMatch ? (
+          <EmptyState
+            icon={ShieldCheck}
+            title={complianceListEmptyTitle({ filter: statusFilter, noneAtAll })}
+            message={complianceListEmptyMessage({ filter: statusFilter, noneAtAll })}
+            action={noneAtAll ? (
+              <button type="button" onClick={() => openEditor(null)} className="hub-compliance-next">
+                <Plus size={16} /> Create your first item
+              </button>
+            ) : undefined}
+          />
+        ) : sheetItem ? (
+          <>
+            <ComplianceSheet
+              item={sheetItem.row}
+              href={sheetItem.href}
+              liveStatus={sheetItem.liveStatus}
+              documentOpen={recordOpen}
+              onOpen={() => openItem(sheetItem.row)}
+              onEdit={() => openEditor(sheetItem.row)}
+              onDelete={() => setDeleteTarget(sheetItem.row)}
+              onComplete={() => markCompleteMutation.mutate(sheetItem.row)}
+              onTogglePause={() => togglePauseMutation.mutate(sheetItem.row)}
+              onSendReminder={() => sendReminderMutation.mutate(sheetItem.row)}
+              onShowHistory={() => setHistoryItem(sheetItem.row)}
+              sendingReminder={sendReminderMutation.isPending}
+              completing={markCompleteMutation.isPending}
+            />
+            {otherItems.length > 0 ? (
+              <div className="hub-compliance-others">
+                {otherItems.map(floor => (
+                  <Link
+                    key={floor.row.id}
+                    to={floor.href}
+                    data-compliance-open={floor.row.id}
+                    data-compliance-href={floor.href}
+                    className="hub-compliance-other"
+                    onClick={e => { e.preventDefault(); openItem(floor.row); }}
+                  >
+                    <span className="hub-compliance-other-name">{floor.row.title}</span>
+                    <span className="hub-compliance-muted">{complianceListDueLabel(floor.row.next_due_date)}</span>
+                    <span className="hub-next">Open</span>
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : null}
       </div>
 
       {showForm && (
         <ComplianceForm
           item={editingItem}
-          onClose={() => setShowForm(false)}
+          onClose={closeForm}
           onSaved={() => {
-            setShowForm(false);
+            closeForm();
             queryClient.invalidateQueries({ queryKey: ['compliance-items'] });
             showToast(editingItem ? 'Compliance item updated' : 'Compliance item created');
           }}
@@ -389,11 +372,15 @@ export function CompliancePage() {
   );
 }
 
-function ComplianceRow({
-  item, onEdit, onDelete, onComplete, onTogglePause, onSendReminder, onShowHistory,
+function ComplianceSheet({
+  item, href, liveStatus, documentOpen, onOpen, onEdit, onDelete, onComplete, onTogglePause, onSendReminder, onShowHistory,
   sendingReminder, completing,
 }: {
   item: ComplianceItemWithClient;
+  href: string;
+  liveStatus: typeof item.status;
+  documentOpen: boolean;
+  onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onComplete: () => void;
@@ -403,9 +390,11 @@ function ComplianceRow({
   sendingReminder: boolean;
   completing: boolean;
 }) {
-  const overdue = item.status === 'overdue';
-  const isPaused = item.status === 'paused';
+  const isPaused = liveStatus === 'paused';
   const hasEmail = !!item.client_email;
+  const meta = complianceListMetaLine(item);
+  const due = complianceListDueLabel(item.next_due_date);
+  const every = `${item.recurrence_interval} ${RECURRENCE_UNIT_LABELS[item.recurrence_unit].toLowerCase()}`;
 
   const menuItems: MenuEntry[] = [
     { label: 'Edit', icon: Pencil, onClick: onEdit },
@@ -428,44 +417,83 @@ function ComplianceRow({
     { label: 'Delete', icon: Trash2, onClick: onDelete, variant: 'danger' },
   ];
 
-  return (
-    <tr className="hover:bg-[#F9FAFB] transition-colors">
-      <td className="px-4 py-3">
-        <div>
-          <p className="font-medium text-[#1A1A1A]">{item.title}</p>
-          {item.standard_or_regulation && (
-            <p className="text-xs text-[#6B7280]">{item.standard_or_regulation}</p>
-          )}
+  if (documentOpen) {
+    return (
+      <article
+        className="hub-compliance-sheet"
+        data-compliance-open={item.id}
+        data-compliance-href={href}
+      >
+        <header className="hub-compliance-sheet-bar">
+          <span className="hub-compliance-hours">{due}</span>
+          <span className={`hub-compliance-pill is-${liveStatus}`}>
+            {COMPLIANCE_STATUS_LABELS[liveStatus]}
+          </span>
+        </header>
+        <div className="hub-compliance-sheet-body">
+          <h1 className="hub-compliance-hero">{item.title}</h1>
+          {meta ? <p className="hub-compliance-jobline">{meta}</p> : null}
+          <div className="hub-compliance-tools">
+            <button type="button" onClick={onEdit} className="hub-compliance-next">
+              <Pencil size={16} /> Edit
+            </button>
+            <div className="hub-compliance-more">
+              <ContextMenu items={menuItems} />
+            </div>
+          </div>
+          <div className="hub-compliance-ledger">
+            {item.description ? (
+              <p className="hub-compliance-ledger-row">
+                <span className="hub-compliance-muted">{item.description}</span>
+              </p>
+            ) : null}
+            {item.client_name ? (
+              <p className="hub-compliance-ledger-row">
+                <span className="hub-compliance-muted">{item.client_name}</span>
+              </p>
+            ) : null}
+            {item.standard_or_regulation ? (
+              <p className="hub-compliance-ledger-row">
+                <span className="hub-compliance-muted">{item.standard_or_regulation}</span>
+              </p>
+            ) : null}
+            <p className="hub-compliance-ledger-row">
+              <span className="hub-compliance-muted">Every {every}</span>
+              <span className="hub-compliance-hours">{due}</span>
+            </p>
+          </div>
         </div>
-      </td>
-      <td className="px-4 py-3 text-[#4A5568]">{item.client_name ?? '—'}</td>
-      <td className="px-4 py-3">
-        <span className={`badge ${COMPLIANCE_STATUS_STYLES[item.status]}`}>
-          {COMPLIANCE_STATUS_LABELS[item.status]}
+      </article>
+    );
+  }
+
+  return (
+    <article className="hub-compliance-sheet is-list">
+      <div
+        role="link"
+        tabIndex={0}
+        data-compliance-open={item.id}
+        data-compliance-href={href}
+        className="hub-compliance-open"
+        onClick={onOpen}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      >
+        <div className="hub-compliance-open-head">
+          <h2 className="hub-compliance-sheet-title">{item.title}</h2>
+          <div className="hub-compliance-more" onClick={e => e.stopPropagation()}>
+            <ContextMenu items={menuItems} />
+          </div>
+        </div>
+        {meta ? <p className="hub-compliance-muted">{meta}</p> : null}
+        <p className="hub-compliance-total">{due}</p>
+        <span className={`hub-compliance-pill is-${liveStatus}`}>
+          {COMPLIANCE_STATUS_LABELS[liveStatus]}
         </span>
-      </td>
-      <td className="px-4 py-3 text-[#4A5568]">
-        {item.recurrence_interval} {RECURRENCE_UNIT_LABELS[item.recurrence_unit].toLowerCase()}
-      </td>
-      <td className="px-4 py-3">
-        <span className={overdue ? 'text-[#B42318] font-medium' : 'text-[#4A5568]'}>
-          {format(parseISO(item.next_due_date), 'dd MMM yyyy')}
-        </span>
-        {item.reminder_sent_at && (
-          <p className="text-[10px] text-[#6B7280] mt-0.5">
-            <Bell size={9} className="inline" /> Reminded {format(new Date(item.reminder_sent_at), 'dd MMM')}
-          </p>
-        )}
-      </td>
-      <td className="px-4 py-3 text-[#4A5568]">
-        {item.last_completed_date
-          ? format(parseISO(item.last_completed_date), 'dd MMM yyyy')
-          : '—'}
-      </td>
-      <td className="px-4 py-3 relative">
-        <ContextMenu items={menuItems} />
-      </td>
-    </tr>
+      </div>
+      <div className="hub-compliance-sheet-foot" onClick={e => e.stopPropagation()}>
+        <Link to={href} className="hub-next">Open</Link>
+      </div>
+    </article>
   );
 }
 
@@ -521,7 +549,7 @@ function ComplianceForm({
       const unit = form.recurrence_unit as RecurrenceUnit;
       const lastCompleted = form.last_completed_date || null;
       const nextDue = computeNextDueDate(lastCompleted, form.first_due_date, interval, unit);
-      const status = deriveStatus(nextDue, lastCompleted, false);
+      const status = deriveComplianceStatus(nextDue, lastCompleted, false);
 
       const payload = {
         company_id: profile!.company_id,
