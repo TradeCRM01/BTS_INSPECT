@@ -322,7 +322,7 @@ export const JobClientReminder = forwardRef<JobClientReminderHandle, {
   const sentAt = job.client_reminder_sent_at;
 
   return (
-    <div className="ops-tray job-reminder">
+    <div className={arrivingMode ? 'ops-tray job-reminder is-arriving' : 'ops-tray job-reminder'}>
       <div className="ops-tray-head">
         <h2 className="ops-section-title">{arrivingMode ? 'Arriving shortly' : '24h client reminder'}</h2>
       </div>
@@ -485,7 +485,7 @@ export const JobClientReminder = forwardRef<JobClientReminderHandle, {
           {arrivingMode ? (
             <button
               type="button"
-              className="btn-primary"
+              className="ops-link"
               disabled={!arrivingDecision.send || send.isPending}
               onClick={() => send.mutate()}
             >

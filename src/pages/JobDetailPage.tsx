@@ -834,6 +834,49 @@ export function JobDetailPage() {
 
   return (
     <AppShell>
+      <style>{`
+        .hub-jobs.is-record-open .hub-jobs-jobline {
+          margin: 8px 0 0;
+          font-family: Rajdhani, sans-serif;
+          font-weight: 700;
+          font-size: 20px;
+          letter-spacing: 0.02em;
+          line-height: 1.2;
+          color: #5B6B7C;
+        }
+        .hub-jobs.is-record-open .hub-jobs-tools-overflow {
+          display: flex;
+          align-items: center;
+          gap: 0;
+        }
+        .hub-jobs.is-record-open .hub-jobs-tools-overflow .job-cal-quiet {
+          margin-left: 0;
+        }
+        .hub-jobs.is-record-open .job-reminder.is-arriving .job-reminder-act .ops-link {
+          min-height: 44px;
+          display: inline-flex;
+          align-items: center;
+        }
+        @media (max-width: 639px) {
+          .hub-jobs.is-record-open .hub-jobs-jobline {
+            font-size: 16px;
+          }
+          .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools {
+            flex-direction: row;
+            flex-wrap: nowrap;
+            align-items: center;
+          }
+          .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .btn-primary,
+          .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .ops-next-control-block {
+            flex: 1 1 auto;
+            width: auto;
+            min-width: 0;
+          }
+          .hub-jobs.is-record-open .hub-jobs-tools-overflow {
+            margin-left: auto;
+          }
+        }
+      `}</style>
       <div className="ops-page hub-jobs hub-job-cal is-record-open">
         <Breadcrumbs items={[
           { label: 'Jobs', to: '/jobs' },
@@ -877,6 +920,7 @@ export function JobDetailPage() {
               ) : (
                 <span className="ops-next-control-done">{sheetNext.label}</span>
               )}
+              <div className="hub-jobs-tools-overflow">
               <details ref={moreRef} className="hub-job-more">
                 <summary aria-label="More actions">
                   <MoreHorizontal size={18} />
@@ -958,6 +1002,7 @@ export function JobDetailPage() {
                   site={calendarSite(job.address, client?.address)}
                   crewNames={assigned}
                 />
+              </div>
               </div>
             </div>
 
