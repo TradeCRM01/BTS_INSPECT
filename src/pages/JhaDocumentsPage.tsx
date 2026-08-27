@@ -1,46 +1,35 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { format, parseISO } from 'date-fns';
 import { Copy, FileText, Search, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { duplicateJhaDocument } from '../lib/duplicateJhaDocument';
 import {
-  jhaListBucket,
-  jhaListContext,
-  jhaStatusClass,
-  jhaStatusLabel,
-  recommendJhaListAction,
-} from '../lib/jhaNextAction';
-import { applyLivingJobToJha, livingJobSite } from '../lib/livingJha';
+  decorateJhaList,
+  filterJhaListFloor,
+  formatJhaListDate,
+  groupJhaListFloor,
+  jhaDocumentHref,
+  jhaListEmptyMessage,
+  jhaListEmptyTitle,
+  jhaListGroupTitle,
+  parseJhaListFilter,
+  sortJhaListFloor,
+  type JhaListFilter,
+  type JhaListFloorItem,
+  type JhaListRow,
+} from '../lib/jhaList';
+import { jhaStatusClass, jhaStatusLabel } from '../lib/jhaNextAction';
+import { livingJobSite } from '../lib/livingJha';
 import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, OpsDocHead, OpsSiteRow, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
 import { jhaDocumentColors } from '../reports/jha/theme';
 
-type DocRow = {
-  id: string;
-  status: string;
-  report_number: string | null;
+type DocRow = JhaListRow & {
   meta: Record<string, string>;
-  doc_version: number | null;
-  amendment_reason: string | null;
-  amended_from_id: string | null;
-  client_id: string | null;
-  job_id: string | null;
-  created_at: string;
-  completed_at: string | null;
-  template_snapshot: { name?: string } | null;
-  client_name?: string | null;
-  job_title?: string | null;
-  job_address?: string | null;
-  job_assigned_team?: string[] | null;
 };
-
-function jhaHref(id: string) {
-  return `/jha/new?docId=${id}`;
-}
 
 export function JhaDocumentsPage() {
   const { profile, company } = useAuth();
@@ -50,7 +39,7 @@ export function JhaDocumentsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState<'all' | 'draft' | 'completed' | 'published'>('all');
+  const [status, setStatus] = useState<JhaListFilter>('open');
   const [dupError, setDupError] = useState('');
 
   const duplicateMutation = useMutation({
@@ -61,7 +50,7 @@ export function JhaDocumentsPage() {
     onSuccess: (newId) => {
       setDupError('');
       queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
-      navigate(jhaHref(newId));
+      navigate(jhaDocumentHref(newId));
     },
     onError: (err) => {
       setDupError(err instanceof Error ? err.message : 'Could not duplicate JHA');
@@ -93,13 +82,12 @@ export function JhaDocumentsPage() {
   });
 
   const { data: docs, isLoading, isError, refetch } = useQuery({
-    queryKey: ['jha-documents', status],
+    queryKey: ['jha-documents'],
     queryFn: async () => {
-      let query = supabase
+      const query = supabase
         .from('jha_documents')
         .select('id, status, report_number, meta, doc_version, amendment_reason, amended_from_id, client_id, job_id, created_at, completed_at, template_snapshot')
         .order('created_at', { ascending: false });
-      if (status !== 'all') query = query.eq('status', status);
       const { data, error } = await query;
       if (error) throw error;
       const list = (data ?? []) as DocRow[];
@@ -107,7 +95,9 @@ export function JhaDocumentsPage() {
       const jobIds = [...new Set(list.map(d => d.job_id).filter(Boolean))] as string[];
       const [clientsRes, jobsRes] = await Promise.all([
         clientIds.length ? supabase.from('clients').select('id, name').in('id', clientIds) : Promise.resolve({ data: [], error: null }),
-        jobIds.length ? supabase.from('jobs').select('id, title, address, assigned_team').in('id', jobIds) : Promise.resolve({ data: [], error: null }),
+        jobIds.length
+          ? supabase.from('jobs').select('id, title, address, assigned_team, job_number, scheduled_date').in('id', jobIds)
+          : Promise.resolve({ data: [], error: null }),
       ]);
       const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c.name]));
       const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j]));
@@ -117,44 +107,34 @@ export function JhaDocumentsPage() {
         job_title: d.job_id ? jobMap.get(d.job_id)?.title ?? null : null,
         job_address: d.job_id ? jobMap.get(d.job_id)?.address ?? null : null,
         job_assigned_team: d.job_id ? jobMap.get(d.job_id)?.assigned_team ?? null : null,
+        job_number: d.job_id ? jobMap.get(d.job_id)?.job_number ?? null : null,
+        job_scheduled_date: d.job_id ? jobMap.get(d.job_id)?.scheduled_date ?? null : null,
       }));
     },
     enabled: !!profile,
   });
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return docs ?? [];
-    return (docs ?? []).filter(d => {
-      const hay = [
-        d.report_number,
-        d.template_snapshot?.name,
-        d.meta?.taskName,
-        d.meta?.siteName,
-        d.meta?.documentTitle,
-        d.client_name,
-        d.job_title,
-        d.job_address,
-        d.amendment_reason,
-      ].filter(Boolean).join(' ').toLowerCase();
-      return hay.includes(needle);
-    });
-  }, [docs, q]);
-
-  const openDocs = filtered.filter(d => jhaListBucket(d.status) === 'open');
-  const publishedDocs = filtered.filter(d => jhaListBucket(d.status) === 'published');
+  const decorated = useMemo(
+    () => decorateJhaList(docs ?? [], teamMembers),
+    [docs, teamMembers],
+  );
+  const visible = useMemo(
+    () => sortJhaListFloor(filterJhaListFloor(decorated, { filter: status, search: q })),
+    [decorated, status, q],
+  );
+  const grouped = useMemo(() => groupJhaListFloor(visible), [visible]);
   const noneAtAll = !isLoading && !pageQueryBlocked(isError) && (docs ?? []).length === 0;
-  const noneMatch = !isLoading && !pageQueryBlocked(isError) && (docs ?? []).length > 0 && filtered.length === 0;
+  const noneMatch = !isLoading && !pageQueryBlocked(isError) && (docs ?? []).length > 0 && visible.length === 0;
 
   return (
     <AppShell>
-      <div className="ops-page">
+      <div className="ops-page" data-jha-filter={status}>
         <div className="ops-page-head">
           <div>
             <h1 className="ops-page-title">
               JHA documents
             </h1>
-            <p className="ops-meta mt-1">Open a row to fill. Start a new one from the job.</p>
+            <p className="ops-meta mt-1">Open JHAs that still need site, crew, or publish. Tap a row to open it.</p>
           </div>
           <select
             className="form-input-sm text-sm min-h-[44px]"
@@ -178,20 +158,21 @@ export function JhaDocumentsPage() {
             <input
               value={q}
               onChange={e => setQ(e.target.value)}
-              placeholder="Search job, site, report #…"
+              placeholder="Search job, site, permit, report #…"
               className="form-input-sm w-full pl-9 min-h-[44px]"
             />
           </div>
           <select
             value={status}
-            onChange={e => setStatus(e.target.value as typeof status)}
+            onChange={e => setStatus(parseJhaListFilter(e.target.value))}
             className="form-input-sm min-h-[44px]"
             aria-label="Filter by status"
           >
-            <option value="all">All statuses</option>
+            <option value="open">Open</option>
             <option value="draft">Draft</option>
             <option value="completed">Ready</option>
             <option value="published">Published</option>
+            <option value="all">All JHAs</option>
           </select>
         </div>
 
@@ -209,8 +190,8 @@ export function JhaDocumentsPage() {
         {noneAtAll && (
           <EmptyState
             icon={ShieldCheck}
-            title="No JHA documents yet"
-            message="Open a job and tap Start JHA. That is how a leading hand starts one on site — this list is for opening and finishing them."
+            title={jhaListEmptyTitle({ filter: status, noneAtAll: true })}
+            message={jhaListEmptyMessage({ filter: status, noneAtAll: true })}
             action={
               <Link to="/jobs" className="ops-next-control min-w-[160px]">
                 Open jobs
@@ -222,31 +203,42 @@ export function JhaDocumentsPage() {
         {noneMatch && (
           <EmptyState
             icon={FileText}
-            title="No matching JHAs"
-            message="Try another status or search."
+            title={jhaListEmptyTitle({ filter: status, noneAtAll: false })}
+            message={jhaListEmptyMessage({ filter: status, noneAtAll: false })}
           />
         )}
 
-        {!isLoading && filtered.length > 0 && (
+        {!isLoading && visible.length > 0 && (
           <div className="space-y-4">
-            <JhaGroup
-              title="Needs action"
-              docs={openDocs}
-              members={teamMembers}
-              theme={docColors}
-              onOpen={id => navigate(jhaHref(id))}
-              onDuplicate={id => duplicateMutation.mutate(id)}
-              duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
-            />
-            <JhaGroup
-              title="Published"
-              docs={publishedDocs}
-              members={teamMembers}
-              theme={docColors}
-              onOpen={id => navigate(jhaHref(id))}
-              onDuplicate={id => duplicateMutation.mutate(id)}
-              duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
-            />
+            {status === 'all' ? (
+              <>
+                <JhaGroup
+                  title={jhaListGroupTitle('all', 'open')}
+                  items={grouped.open}
+                  theme={docColors}
+                  onOpen={href => navigate(href)}
+                  onDuplicate={id => duplicateMutation.mutate(id)}
+                  duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
+                />
+                <JhaGroup
+                  title={jhaListGroupTitle('all', 'published')}
+                  items={grouped.published}
+                  theme={docColors}
+                  onOpen={href => navigate(href)}
+                  onDuplicate={id => duplicateMutation.mutate(id)}
+                  duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
+                />
+              </>
+            ) : (
+              <JhaGroup
+                title={jhaListGroupTitle(status)}
+                items={visible}
+                theme={docColors}
+                onOpen={href => navigate(href)}
+                onDuplicate={id => duplicateMutation.mutate(id)}
+                duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
+              />
+            )}
           </div>
         )}
       </div>
@@ -256,38 +248,35 @@ export function JhaDocumentsPage() {
 
 function JhaGroup({
   title,
-  docs,
-  members,
+  items,
   theme,
   onOpen,
   onDuplicate,
   duplicatingId,
 }: {
   title: string;
-  docs: DocRow[];
-  members: Array<{ id: string; name: string; email: string; role: string }>;
+  items: JhaListFloorItem<DocRow>[];
   theme: { navy: string; accent: string; navyLight: string; accentLight: string };
-  onOpen: (id: string) => void;
+  onOpen: (href: string) => void;
   onDuplicate: (id: string) => void;
   duplicatingId?: string;
 }) {
-  if (docs.length === 0) return null;
+  if (items.length === 0) return null;
   return (
-    <div>
+    <div data-jha-group={title.toLowerCase()}>
       <h2 className="ops-group-title">
         {title}
-        <span className="ops-meta normal-case font-normal"> ({docs.length})</span>
+        <span className="ops-meta normal-case font-normal"> ({items.length})</span>
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-        {docs.map(d => (
+        {items.map(item => (
           <JhaDocCard
-            key={d.id}
-            doc={d}
-            members={members}
+            key={item.row.id}
+            item={item}
             theme={theme}
-            onOpen={() => onOpen(d.id)}
-            onDuplicate={() => onDuplicate(d.id)}
-            duplicating={duplicatingId === d.id}
+            onOpen={() => onOpen(item.href)}
+            onDuplicate={() => onDuplicate(item.row.id)}
+            duplicating={duplicatingId === item.row.id}
           />
         ))}
       </div>
@@ -296,45 +285,43 @@ function JhaGroup({
 }
 
 function JhaDocCard({
-  doc,
-  members,
+  item,
   theme,
   onOpen,
   onDuplicate,
   duplicating,
 }: {
-  doc: DocRow;
-  members: Array<{ id: string; name: string; email: string; role: string }>;
+  item: JhaListFloorItem<DocRow>;
   theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: () => void;
   onDuplicate: () => void;
   duplicating: boolean;
 }) {
+  const doc = item.row;
   const livingJob = doc.job_id
     ? { id: doc.job_id, title: doc.job_title, address: doc.job_address, assigned_team: doc.job_assigned_team }
     : null;
-  const living = applyLivingJobToJha(doc.meta, livingJob, members);
-  const next = recommendJhaListAction(jhaListContext({
-    ...doc,
-    meta: living.meta,
-    livingSite: living.siteName,
-    livingCrew: living.crew,
-  }));
   const site = opsSiteLabel(
-    living.siteName,
+    item.livingSite,
     livingJobSite(livingJob),
     doc.meta?.siteName,
     doc.job_address,
     doc.job_title,
     doc.meta?.taskName,
   );
-  const title = doc.meta?.documentTitle || doc.meta?.taskName || doc.template_snapshot?.name || 'JHA';
-  const when = format(parseISO(doc.completed_at || doc.created_at), 'd MMM yyyy');
+  const when = formatJhaListDate(doc.completed_at || doc.created_at);
+  const jobLine = [
+    item.jobNumberLabel,
+    doc.job_title,
+    doc.client_name || doc.meta?.clientName,
+  ].filter(Boolean).join(' · ');
 
   return (
     <div
       role="link"
       tabIndex={0}
+      data-jha-doc={doc.id}
+      data-jha-href={item.href}
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className="jha-doc-theme ops-card ops-card-hover group w-full cursor-pointer"
@@ -348,23 +335,38 @@ function JhaDocCard({
       <OpsDocHead
         kind="JHA"
         id={doc.report_number || 'Draft'}
-        meta={`v${doc.doc_version ?? 1} · ${when}`}
+        meta={[`v${doc.doc_version ?? 1}`, when].filter(Boolean).join(' · ')}
         trailing={<OpsStatus className={jhaStatusClass(doc.status)}>{jhaStatusLabel(doc.status)}</OpsStatus>}
       />
       <div className="ops-card-body">
-        <OpsSiteRow site={site} mapsQuery={living.siteName || doc.job_address || doc.meta?.siteName || null} />
-        <p className="ops-meta mt-1 truncate">{title}</p>
-        {(doc.job_title || doc.client_name || doc.meta?.clientName) && (
-          <p className="ops-meta mt-0.5 truncate">
-            {[doc.job_title, doc.client_name || doc.meta?.clientName].filter(Boolean).join(' · ')}
-          </p>
+        <OpsSiteRow site={site} mapsQuery={item.livingSite || doc.job_address || doc.meta?.siteName || null} />
+        <p className="ops-meta mt-1 truncate">{item.title}</p>
+        {jobLine && (
+          <p className="ops-meta mt-0.5 truncate">{jobLine}</p>
+        )}
+        {item.supervisorLabel && (
+          <p className="ops-meta mt-0.5 truncate">Supervisor {item.supervisorLabel}</p>
+        )}
+        {item.permitLabel && (
+          <p className="ops-meta mt-0.5 truncate">{item.permitLabel}</p>
+        )}
+        {item.sitePack && (
+          <p className="ops-meta mt-0.5 truncate">{item.sitePack}</p>
+        )}
+        {item.crewProgress && (
+          <p className="ops-meta mt-0.5 truncate">{item.crewProgress}</p>
         )}
         {doc.amended_from_id && doc.amendment_reason && (
           <p className="ops-meta mt-0.5 truncate">Amendment: {doc.amendment_reason}</p>
         )}
         <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
-          <button type="button" onClick={onOpen} className="ops-next-control-block">
-            {next.label}
+          <button
+            type="button"
+            data-jha-open={doc.id}
+            onClick={onOpen}
+            className="ops-next-control-block"
+          >
+            {item.next.label}
           </button>
           <button
             type="button"
