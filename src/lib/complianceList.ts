@@ -248,6 +248,23 @@ export function complianceListFloorLede(count: number): string {
   return `${count} ${noun} · tap one to open`;
 }
 
+/** Lead due-or-open item on the floor — one cream sheet, not a tile grid. */
+export function complianceListSheetItem<T>(items: T[]): T | null {
+  return items[0] ?? null;
+}
+
+export function complianceListOtherItems<T extends { row: { id: string } }>(
+  items: T[],
+  sheetId: string | null,
+): T[] {
+  if (!sheetId) return items.slice(1);
+  return items.filter(item => item.row.id !== sheetId);
+}
+
+export function complianceListMetaLine(row: Pick<ComplianceListRow, 'client_name' | 'standard_or_regulation'>): string {
+  return [row.client_name, row.standard_or_regulation].filter(Boolean).join(' · ');
+}
+
 /** DEV field-audit floor only. Live companies keep reading `compliance_items`. */
 export function complianceListAuditItems(companyId: string): ComplianceItemWithClient[] {
   return [

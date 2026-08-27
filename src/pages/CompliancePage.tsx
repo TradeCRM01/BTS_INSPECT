@@ -12,7 +12,10 @@ import {
   complianceListEmptyMessage,
   complianceListEmptyTitle,
   complianceListFloorLede,
+  complianceListMetaLine,
   complianceListOpenHref,
+  complianceListOtherItems,
+  complianceListSheetItem,
   computeNextDueDate,
   decorateComplianceList,
   deriveComplianceStatus,
@@ -197,6 +200,8 @@ export function CompliancePage() {
 
   const noneAtAll = !isLoading && (items?.length ?? 0) === 0;
   const noneMatch = !isLoading && decorated.length > 0 && floorItems.length === 0;
+  const sheetItem = complianceListSheetItem(floorItems);
+  const otherItems = complianceListOtherItems(floorItems, sheetItem?.row.id ?? null);
 
   function openItem(item: ComplianceItemWithClient) {
     const href = complianceListOpenHref(item.id);
@@ -241,7 +246,7 @@ export function CompliancePage() {
               {isLoading ? 'Loading…' : complianceListFloorLede(floorItems.length)}
             </p>
           </div>
-          <button type="button" onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
+          <button type="button" onClick={() => { setEditingItem(null); setShowForm(true); }} className="hub-compliance-next">
             <Plus size={16} /> New item
           </button>
         </div>
@@ -278,32 +283,47 @@ export function CompliancePage() {
             title={complianceListEmptyTitle({ filter: statusFilter, noneAtAll })}
             message={complianceListEmptyMessage({ filter: statusFilter, noneAtAll })}
             action={noneAtAll ? (
-              <button type="button" onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
+              <button type="button" onClick={() => { setEditingItem(null); setShowForm(true); }} className="hub-compliance-next">
                 <Plus size={16} /> Create your first item
               </button>
             ) : undefined}
           />
-        ) : (
-          <div className="hub-compliance-tiles">
-            {floorItems.map(floor => (
-              <ComplianceTile
-                key={floor.row.id}
-                item={floor.row}
-                href={floor.href}
-                liveStatus={floor.liveStatus}
-                onOpen={() => openItem(floor.row)}
-                onEdit={() => openItem(floor.row)}
-                onDelete={() => setDeleteTarget(floor.row)}
-                onComplete={() => markCompleteMutation.mutate(floor.row)}
-                onTogglePause={() => togglePauseMutation.mutate(floor.row)}
-                onSendReminder={() => sendReminderMutation.mutate(floor.row)}
-                onShowHistory={() => setHistoryItem(floor.row)}
-                sendingReminder={sendReminderMutation.isPending}
-                completing={markCompleteMutation.isPending}
-              />
-            ))}
-          </div>
-        )}
+        ) : sheetItem ? (
+          <>
+            <ComplianceSheet
+              item={sheetItem.row}
+              href={sheetItem.href}
+              liveStatus={sheetItem.liveStatus}
+              onOpen={() => openItem(sheetItem.row)}
+              onEdit={() => openItem(sheetItem.row)}
+              onDelete={() => setDeleteTarget(sheetItem.row)}
+              onComplete={() => markCompleteMutation.mutate(sheetItem.row)}
+              onTogglePause={() => togglePauseMutation.mutate(sheetItem.row)}
+              onSendReminder={() => sendReminderMutation.mutate(sheetItem.row)}
+              onShowHistory={() => setHistoryItem(sheetItem.row)}
+              sendingReminder={sendReminderMutation.isPending}
+              completing={markCompleteMutation.isPending}
+            />
+            {otherItems.length > 0 ? (
+              <div className="hub-compliance-others">
+                {otherItems.map(floor => (
+                  <Link
+                    key={floor.row.id}
+                    to={floor.href}
+                    data-compliance-open={floor.row.id}
+                    data-compliance-href={floor.href}
+                    className="hub-compliance-other"
+                    onClick={e => { e.preventDefault(); openItem(floor.row); }}
+                  >
+                    <span className="hub-compliance-other-name">{floor.row.title}</span>
+                    <span className="hub-compliance-muted">{complianceListDueLabel(floor.row.next_due_date)}</span>
+                    <span className="hub-next">Open</span>
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : null}
       </div>
 
       {showForm && (
@@ -337,7 +357,7 @@ export function CompliancePage() {
   );
 }
 
-function ComplianceTile({
+function ComplianceSheet({
   item, href, liveStatus, onOpen, onEdit, onDelete, onComplete, onTogglePause, onSendReminder, onShowHistory,
   sendingReminder, completing,
 }: {
@@ -356,7 +376,8 @@ function ComplianceTile({
 }) {
   const isPaused = liveStatus === 'paused';
   const hasEmail = !!item.client_email;
-  const meta = [item.client_name, item.standard_or_regulation].filter(Boolean).join(' · ');
+  const meta = complianceListMetaLine(item);
+  const every = `${item.recurrence_interval} ${RECURRENCE_UNIT_LABELS[item.recurrence_unit].toLowerCase()}`;
 
   const menuItems: MenuEntry[] = [
     { label: 'Edit', icon: Pencil, onClick: onEdit },
@@ -380,27 +401,41 @@ function ComplianceTile({
   ];
 
   return (
-    <article
-      role="link"
-      tabIndex={0}
-      data-compliance-open={item.id}
-      data-compliance-href={href}
-      className="hub-compliance-tile"
-      onClick={onOpen}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-    >
-      <div className="hub-compliance-tile-head">
-        <h2 className="hub-compliance-name">{item.title}</h2>
-        <div className="hub-compliance-more" onClick={e => e.stopPropagation()}>
-          <ContextMenu items={menuItems} />
+    <article className="hub-compliance-sheet">
+      <div
+        role="link"
+        tabIndex={0}
+        data-compliance-open={item.id}
+        data-compliance-href={href}
+        className="hub-compliance-open"
+        onClick={onOpen}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      >
+        <div className="hub-compliance-open-head">
+          <h2 className="hub-compliance-sheet-title">{item.title}</h2>
+          <div className="hub-compliance-more" onClick={e => e.stopPropagation()}>
+            <ContextMenu items={menuItems} />
+          </div>
         </div>
+        {meta ? <p className="hub-compliance-muted">{meta}</p> : null}
+        <p className="hub-compliance-total">{complianceListDueLabel(item.next_due_date)}</p>
+        <span className={`hub-compliance-pill is-${liveStatus}`}>
+          {COMPLIANCE_STATUS_LABELS[liveStatus]}
+        </span>
       </div>
-      {meta ? <p className="hub-compliance-muted">{meta}</p> : null}
-      <p className="hub-compliance-due">{complianceListDueLabel(item.next_due_date)}</p>
-      <span className={`hub-compliance-pill is-${liveStatus}`}>
-        {COMPLIANCE_STATUS_LABELS[liveStatus]}
-      </span>
-      <div className="hub-compliance-tile-next" onClick={e => e.stopPropagation()}>
+      <div className="hub-compliance-details">
+        <h3 className="hub-compliance-group">Details</h3>
+        {item.description ? (
+          <p className="hub-compliance-detail">
+            <span className="hub-compliance-muted">{item.description}</span>
+          </p>
+        ) : null}
+        <p className="hub-compliance-detail">
+          <span className="hub-compliance-muted">Every {every}</span>
+          <span className="hub-compliance-hours">{complianceListDueLabel(item.next_due_date)}</span>
+        </p>
+      </div>
+      <div className="hub-compliance-sheet-foot" onClick={e => e.stopPropagation()}>
         <Link to={href} className="hub-next">Open</Link>
       </div>
     </article>

@@ -10,7 +10,10 @@ import {
   complianceListFloorBucket,
   complianceListFloorLede,
   complianceListLiveStatus,
+  complianceListMetaLine,
   complianceListOpenHref,
+  complianceListOtherItems,
+  complianceListSheetItem,
   complianceListSearchHaystack,
   complianceMatchesListFilter,
   complianceMatchesSearch,
@@ -150,14 +153,21 @@ describe('compliance list empty copy and recurrence', () => {
     expect(complianceListEmptyMessage({ filter: 'all', noneAtAll: false })).toBe('Try another status or search.');
   });
 
-  it('labels a tile due date and floor lede without inventing counts', () => {
+  it('labels the open sheet and recedes other items without inventing counts', () => {
     expect(complianceListDueLabel('2026-08-27')).toBe('Due 27 Aug 2026');
     expect(complianceListFloorLede(1)).toBe('1 item · tap one to open');
     expect(complianceListFloorLede(2)).toBe('2 items · tap one to open');
+    expect(complianceListMetaLine({ client_name: 'Northside Electrical', standard_or_regulation: 'AS/NZS 3760' }))
+      .toBe('Northside Electrical · AS/NZS 3760');
     const audit = complianceListAuditItems('co-1');
     expect(audit).toHaveLength(2);
     expect(audit[0].next_due_date).toBe('2026-08-27');
     expect(complianceListOpenHref(audit[0].id)).toBe('/compliance?id=audit-compliance-rcd');
+    const decorated = decorateComplianceList(audit, now);
+    const sheet = complianceListSheetItem(decorated);
+    expect(sheet?.row.id).toBe('audit-compliance-rcd');
+    expect(complianceListOtherItems(decorated, sheet?.row.id ?? null).map(item => item.row.id))
+      .toEqual(['audit-compliance-warranty']);
   });
 
   it('keeps the existing next-due math for mark complete / save', () => {
