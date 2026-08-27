@@ -136,7 +136,7 @@ function WeekBoardChrome({
 
   return (
     <div className="hub-week-chrome">
-      <div className="hub-week-seg">
+      <div className="hub-week-seg" data-week-seg="1">
         {([
           { mode: 'day' as const, label: 'Day' },
           { mode: 'week' as const, label: 'Week' },
@@ -544,7 +544,6 @@ export function SchedulePage() {
       <div className="ops-page hub-board-cal" data-schedule-view={viewMode}>
         <div className="ops-page-head">
           <div className="min-w-0">
-            <p className="hub-schedule-kicker">Schedule</p>
             <h1 className="ops-page-title">Schedule</h1>
             <p className="ops-meta mt-2">
               {onBoard.length} on the board

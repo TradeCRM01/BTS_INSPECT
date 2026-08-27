@@ -56,7 +56,7 @@ describe('schedule board cream paper look', () => {
     const css = src('src/index.css');
 
     expect(page).toContain('hub-board-cal');
-    expect(page).toContain('hub-schedule-kicker');
+    expect(page).not.toContain('hub-schedule-kicker');
     expect(page).toContain('hub-schedule-chrome');
     expect(page).toContain('hub-schedule-filters');
     expect(page).toContain('New job');
@@ -100,6 +100,11 @@ describe('schedule board cream paper look', () => {
     expect(page).toContain('#C45C38');
     expect(page).toContain('Warehouse lights');
     expect(page).toContain('EEE d MMM');
+    expect(page).toContain('data-week-seg="1"');
+    expect(page).not.toContain('hub-schedule-kicker');
+    expect(weekCss).toContain('overflow: visible');
+    expect(weekCss).toContain('position: sticky');
+    expect(css).toContain('repeat(7, 156px)');
     expect(board).toContain('data-schedule-track="day"');
     expect(board).not.toContain('data-schedule-track="week"');
     expect(weekCss).toContain('inset 0 1px 0 #fff');
@@ -110,7 +115,7 @@ describe('schedule board cream paper look', () => {
   it('does not restyle jobs, quotes, invoices, login, landing, operator, or AppShell', () => {
     const jobs = src('src/pages/JobsPage.tsx');
     expect(jobs).not.toContain('hub-board-cal');
-    expect(jobs).not.toContain('hub-schedule-kicker');
+    expect(jobs).not.toContain('hub-week-sheet');
 
     const quotes = src('src/pages/QuotesPage.tsx');
     expect(quotes).not.toContain('hub-board-cal');
