@@ -1,12 +1,22 @@
-import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import {
+  filterTeamSettingsList,
+  parseTeamSettingsMemberId,
+  teamSettingsEmptyTitle,
+  teamSettingsIsPending,
+  teamSettingsLicenceLabel,
+  teamSettingsMemberHref,
+  teamSettingsOpenedMember,
+} from '../lib/teamSettingsList';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { OverlayPortal } from '../components/ui/OverlayPortal';
+import { SearchBar } from '../components/ui/SearchBar';
 import { Users, UserPlus, Mail, Shield, Eye, CreditCard as Edit2, EyeOff, Trash2, Crown, X, Check, AlertCircle, Send, Clock, Copy, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -216,12 +226,15 @@ function InviteForm({ companyId, accessToken, onClose, onSuccess }: InviteFormPr
 export function TeamSettingsPage() {
   const { profile, company, session } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState('');
   const [showInvite, setShowInvite] = useState(false);
   const [invitedName, setInvitedName] = useState('');
   const [lastInviteLink, setLastInviteLink] = useState('');
   const [lastInviteEmailSent, setLastInviteEmailSent] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
   const isAdmin = profile?.role === 'admin';
+  const openedId = parseTeamSettingsMemberId(searchParams.get('id'));
 
   if (profile && !isAdmin) {
     return <Navigate to="/" replace />;
@@ -237,6 +250,18 @@ export function TeamSettingsPage() {
       return data as Member[];
     },
     enabled: !!company,
+  });
+
+  const visibleMembers = useMemo(
+    () => filterTeamSettingsList(members ?? [], search),
+    [members, search],
+  );
+  const openedMember = teamSettingsOpenedMember(members, openedId);
+  const emptyTitle = teamSettingsEmptyTitle({
+    error: isError,
+    total: members?.length ?? 0,
+    visible: visibleMembers.length,
+    query: search,
   });
 
   const updateAccessMutation = useMutation({
@@ -419,12 +444,20 @@ export function TeamSettingsPage() {
           </div>
         )}
 
+        <div className="mb-4">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search by name, email, or licence"
+          />
+        </div>
+
         {/* Members list */}
         <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 border-b border-[#E5E7EB] flex items-center gap-2">
             <Users size={15} className="text-[#4A5568]" />
             <span className="text-sm font-medium text-[#1A1A1A]">
-              {members?.length ?? 0} member{members?.length !== 1 ? 's' : ''}
+              {visibleMembers.length} member{visibleMembers.length !== 1 ? 's' : ''}
             </span>
           </div>
 
@@ -434,15 +467,23 @@ export function TeamSettingsPage() {
             </div>
           ) : isError ? (
             <PageError onRetry={refetch} />
+          ) : emptyTitle ? (
+            <div className="px-5 py-12 text-center text-sm text-[#4A5568]">{emptyTitle}</div>
           ) : (
             <div className="divide-y divide-[#E5E7EB]">
-              {members?.map(member => {
+              {visibleMembers.map(member => {
                 const isMe = member.id === profile?.id;
                 const isMemberAdmin = member.role === 'admin';
-                const isPending = !member.email_confirmed_at && !member.last_sign_in_at;
+                const isPending = teamSettingsIsPending(member);
+                const opened = openedMember?.id === member.id;
+                const licence = teamSettingsLicenceLabel(member.licence_number);
 
                 return (
-                  <div key={member.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-5 py-4">
+                  <div
+                    key={member.id}
+                    id={opened ? 'team-member-open' : undefined}
+                    className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-5 py-4${opened ? ' bg-blue-50/50' : ''}`}
+                  >
                     {/* Avatar */}
                     <div className="w-9 h-9 rounded-full bg-[#0A2540]/10 flex items-center justify-center shrink-0">
                       <span className="text-sm font-semibold text-[#0A2540]">
@@ -453,7 +494,12 @@ export function TeamSettingsPage() {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-[#1A1A1A]">{member.name}</span>
+                        <Link
+                          to={teamSettingsMemberHref(member.id)}
+                          className="text-sm font-medium text-[#1A1A1A] hover:text-[#2E75B6]"
+                        >
+                          {member.name}
+                        </Link>
                         {isMe && (
                           <span className="text-xs text-[#4A5568] bg-[#F3F4F6] px-1.5 py-0.5 rounded">You</span>
                         )}
@@ -469,6 +515,9 @@ export function TeamSettingsPage() {
                         )}
                       </div>
                       <p className="text-xs text-[#4A5568] truncate mt-0.5">{member.email}</p>
+                      {licence && (
+                        <p className="text-xs text-[#9CA3AF] mt-0.5">Licence {licence}</p>
+                      )}
                       <p className="text-xs text-[#9CA3AF] mt-0.5">
                         {isPending
                           ? `Invited ${format(new Date(member.created_at), 'd MMM yyyy')}`
@@ -478,6 +527,12 @@ export function TeamSettingsPage() {
 
                     {/* Controls */}
                     <div className="flex items-center gap-2 flex-wrap min-w-0 w-full sm:w-auto sm:shrink-0">
+                      <Link
+                        to={teamSettingsMemberHref(member.id)}
+                        className="text-xs font-medium text-[#2E75B6] px-2.5 py-1.5"
+                      >
+                        Open
+                      </Link>
                       {/* Template access â€” show for non-admin members when I'm admin and not looking at myself */}
                       {isAdmin && !isMemberAdmin && !isMe && (
                         <div className="flex items-center gap-1.5 min-w-0 flex-1 sm:flex-none">
