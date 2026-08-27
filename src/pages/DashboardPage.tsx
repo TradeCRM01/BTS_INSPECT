@@ -1,21 +1,37 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError } from '../components/ui';
-import { getAuditDashboardWidgets } from '../lib/devFieldAuditDocs';
-import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { EmptyState, LoadingSpinner, PageError } from '../components/ui';
+import { getAuditClients, getAuditDashboardWidgets, getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
   DndContext, DragEndEvent, DragStartEvent, PointerSensor, useSensor, useSensors,
   useDraggable,
 } from '@dnd-kit/core';
 import {
-  Plus, X, GripVertical, Trash2, LayoutGrid, Sparkles,
+  Plus, X, GripVertical, Trash2, LayoutGrid, Sparkles, Briefcase,
 } from 'lucide-react';
 import { WIDGET_REGISTRY, WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
 import { WidgetRenderer } from '../widgets/WidgetComponents';
 import type { Json } from '../types/database';
+import type { Client, Job, JobWithClient } from '../types/crm';
+import { attachJobClients, hydrateJobParentNumbers } from '../lib/scheduleJobSearch';
+import { formatJobRef } from '../lib/jobRef';
+import {
+  dashboardClockLabel,
+  dashboardCrewLabel,
+  dashboardHeadingDate,
+  dashboardJobHref,
+  dashboardJobPlace,
+  dashboardJobState,
+  dashboardJobStateLabel,
+  dashboardTodayKey,
+  todaysDashboardJobs,
+} from '../lib/dashboardHome';
+import type { ScheduleCrewMember } from '../lib/scheduleBoard';
 
 interface DashboardWidget {
   id: string;
@@ -40,12 +56,13 @@ export function DashboardPage() {
   const [showPicker, setShowPicker] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const todayKey = dashboardTodayKey();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
-  const { data: widgets, isLoading, error } = useQuery<DashboardWidget[]>({
+  const { data: widgets, isLoading: widgetsLoading, error } = useQuery<DashboardWidget[]>({
     queryKey: ['dashboard-widgets'],
     queryFn: async () => {
       const mock = getAuditDashboardWidgets();
@@ -56,6 +73,71 @@ export function DashboardPage() {
         .order('grid_y', { ascending: true });
       if (error) throw error;
       return (data ?? []) as DashboardWidget[];
+    },
+    enabled: !!profile,
+  });
+
+  const { data: teamMembers } = useQuery<ScheduleCrewMember[]>({
+    queryKey: ['dashboard-today-crew'],
+    queryFn: async () => {
+      const mock = getAuditTeamMembers();
+      if (mock) return mock.map(m => ({ id: m.id, name: m.name }));
+      if (!profile?.company_id) return [];
+      const { data, error } = await supabase.rpc('get_company_members', {
+        p_company_id: profile.company_id,
+      });
+      if (error) throw error;
+      return (data ?? []).map((m: { id: string; name: string }) => ({
+        id: m.id,
+        name: m.name,
+      }));
+    },
+    enabled: !!profile,
+  });
+
+  const { data: todayJobs, isLoading: jobsLoading, error: jobsError } = useQuery<JobWithClient[]>({
+    queryKey: ['dashboard-today-jobs', todayKey],
+    queryFn: async () => {
+      const mock = getAuditJobs();
+      if (mock) {
+        return todaysDashboardJobs(attachJobClients(mock as Job[], getAuditClients() ?? []));
+      }
+      const [dayRes, onSiteRes] = await Promise.all([
+        supabase
+          .from('jobs')
+          .select('*')
+          .gte('scheduled_date', todayKey)
+          .lte('scheduled_date', todayKey),
+        supabase
+          .from('jobs')
+          .select('*')
+          .eq('status', 'in_progress'),
+      ]);
+      if (dayRes.error) throw dayRes.error;
+      if (onSiteRes.error) throw onSiteRes.error;
+
+      const byId = new Map<string, Job>();
+      for (const row of [...(dayRes.data ?? []), ...(onSiteRes.data ?? [])]) {
+        byId.set(row.id, row as Job);
+      }
+      const jobs = [...byId.values()];
+
+      const clientIds = [...new Set(jobs.map(j => j.client_id).filter(Boolean))] as string[];
+      const clientMap = new Map<string, Client>();
+      if (clientIds.length > 0) {
+        const { data: clientsData, error: clientError } = await supabase
+          .from('clients')
+          .select('*')
+          .in('id', clientIds);
+        if (clientError) throw clientError;
+        for (const c of clientsData ?? []) {
+          clientMap.set(c.id, c as Client);
+        }
+      }
+
+      return todaysDashboardJobs(
+        await hydrateJobParentNumbers(attachJobClients(jobs, [...clientMap.values()])),
+      );
     },
     enabled: !!profile,
   });
@@ -179,86 +261,132 @@ export function DashboardPage() {
     return Math.max(500, maxBottom + CANVAS_PAD);
   }, [widgets]);
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Default content for empty dashboard Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-  useEffect(() => {
-    if (isDevFieldAuditAuth()) return;
-    if (!isLoading && profile && (widgets?.length === 0)) {
-      (async () => {
-        const defaults = [
-          { type: 'ai_agent', x: 20, y: 20, w: 390, h: 360 },
-          { type: 'kpi_scorecard', x: 430, y: 20, w: 260, h: 200 },
-          { type: 'cash_flow', x: 710, y: 20, w: 260, h: 200 },
-          { type: 'compliance_deadlines', x: 990, y: 20, w: 300, h: 280 },
-          { type: 'team_activity', x: 430, y: 240, w: 260, h: 280 },
-          { type: 'industry_news', x: 710, y: 240, w: 260, h: 280 },
-        ];
-        for (const d of defaults) {
-          await supabase.from('dashboard_widgets').insert({
-            widget_type: d.type, grid_x: d.x, grid_y: d.y, grid_w: d.w, grid_h: d.h, config: {} as Json,
-          } as never);
-        }
-        queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
-      })();
-    }
-  }, [isLoading, profile, widgets?.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (pageQueryBlocked(error)) {
+  if (pageQueryBlocked(error) || pageQueryBlocked(jobsError)) {
     return <AppShell><PageError message="Could not load dashboard" /></AppShell>;
   }
 
+  const work = todayJobs ?? [];
+
   return (
     <AppShell>
-      <div className="max-w-[1400px] mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className="ops-page dashboard-home">
+        <div className="ops-page-head">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">
-              Good day, {profile?.name?.split(' ')[0] ?? 'there'}
-            </h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">{company?.name}</p>
+            <p className="dashboard-home-kicker">Today</p>
+            <h1 className="ops-page-title">Today&apos;s work</h1>
+            <p className="dashboard-home-meta">
+              {dashboardHeadingDate()}
+              {company?.name ? ` · ${company.name}` : ''}
+              {!jobsLoading && work.length > 0
+                ? ` · ${work.length === 1 ? '1 job' : `${work.length} jobs`}`
+                : ''}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="dashboard-home-actions">
             <button
+              type="button"
               onClick={() => setEditMode(e => !e)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 active:scale-[0.98] ${
-                editMode
-                  ? 'bg-[#2E75B6] text-white hover:bg-[#2565A0]'
-                  : 'border border-[#E5E7EB] text-[#4A5568] hover:bg-gray-50 hover:border-[#D1D5DB]'
-              }`}
+              className="dashboard-home-secondary"
             >
               <LayoutGrid size={16} />
-              {editMode ? 'Done Editing' : 'Customize'}
+              {editMode ? 'Done editing' : 'Customize'}
             </button>
             {editMode && (
               <button
+                type="button"
                 onClick={() => setShowPicker(true)}
                 className="btn-primary"
               >
                 <Plus size={16} />
-                Add Widget
+                Add widget
               </button>
+            )}
+            {!editMode && (
+              <Link to="/schedule" className="btn-primary">
+                Week board
+              </Link>
             )}
           </div>
         </div>
 
+        <section data-dashboard-home="1">
+          {jobsLoading ? (
+            <div className="flex justify-center py-16"><LoadingSpinner /></div>
+          ) : work.length === 0 ? (
+            <div className="dashboard-home-sheet">
+              <EmptyState
+                icon={Briefcase}
+                title="Nothing on today"
+                message="No jobs are booked for today. The week is on the schedule."
+                action={<Link to="/schedule" className="btn-primary">Open schedule</Link>}
+              />
+            </div>
+          ) : (
+            <div className="dashboard-home-sheet">
+              <p className="dashboard-home-group">Today {work.length}</p>
+              <div className="dashboard-home-thead">
+                <span>Time</span>
+                <span>Job</span>
+                <span>Client</span>
+                <span>Suburb</span>
+                <span>Crew</span>
+                <span>Status</span>
+                <span />
+              </div>
+              {work.map(job => {
+                const state = dashboardJobState(job);
+                return (
+                  <Link
+                    key={job.id}
+                    to={dashboardJobHref(job.id)}
+                    data-dashboard-job={job.id}
+                    className="dashboard-home-row"
+                  >
+                    <span className="dashboard-home-time">
+                      {dashboardClockLabel(job.start_time, job.end_time)}
+                    </span>
+                    <span className="dashboard-home-job">
+                      <span className="dashboard-home-title">{job.title}</span>
+                      <span className="dashboard-home-ref">{formatJobRef(job)}</span>
+                    </span>
+                    <span className="dashboard-home-cell">{job.client_name || ''}</span>
+                    <span className="dashboard-home-cell is-muted">{dashboardJobPlace(job)}</span>
+                    <span className="dashboard-home-cell">
+                      {dashboardCrewLabel(job.assigned_team, teamMembers)}
+                    </span>
+                    <span className={`dashboard-home-pill is-${state}`}>
+                      {dashboardJobStateLabel(state)}
+                    </span>
+                    <span className="dashboard-home-next">Open</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
         {/* Free-form Canvas (desktop) / Stacked (mobile) */}
-        {isLoading ? (
-          <div className="flex justify-center py-20"><LoadingSpinner /></div>
+        {widgetsLoading ? (
+          <div className="dashboard-home-widgets flex justify-center py-12"><LoadingSpinner /></div>
         ) : (widgets ?? []).length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <LayoutGrid size={40} className="text-gray-300 mb-3" />
-            <p className="text-sm text-gray-500 mb-3">Your dashboard is empty</p>
-            <button onClick={() => setShowPicker(true)} className="btn-primary">
-              <Plus size={16} /> Add your first widget
-            </button>
-          </div>
+          editMode ? (
+            <div className="dashboard-home-widgets dashboard-home-sheet">
+              <div className="flex flex-col items-center justify-center py-12">
+                <LayoutGrid size={40} className="dashboard-home-widget-empty-icon" />
+                <p className="dashboard-home-meta">No widgets yet</p>
+                <button type="button" onClick={() => setShowPicker(true)} className="btn-primary mt-3">
+                  <Plus size={16} /> Add a widget
+                </button>
+              </div>
+            </div>
+          ) : null
         ) : (
-          <>
+          <div className="dashboard-home-widgets">
             {/* Mobile: stacked responsive grid */}
             {!editMode && (
               <div className="md:hidden grid grid-cols-1 gap-3">
                 {(widgets ?? []).map(w => (
-                  <div key={w.id} className="card overflow-hidden" style={{ minHeight: Math.min(w.grid_h, 300) }}>
+                  <div key={w.id} className="dashboard-home-widget overflow-hidden" style={{ minHeight: Math.min(w.grid_h, 300) }}>
                     <div className="h-full p-3">
                       <WidgetRenderer
                         type={w.widget_type}
@@ -280,8 +408,8 @@ export function DashboardPage() {
               >
                 <div
                   ref={canvasRef}
-                  className={`relative rounded-xl border overflow-x-auto ${
-                    editMode ? 'border-blue-200 bg-blue-50/20' : 'border-transparent'
+                  className={`dashboard-home-canvas relative overflow-x-auto ${
+                    editMode ? 'is-editing' : ''
                   }`}
                   style={{ height: canvasHeight, minWidth: '100%' }}
                 >
@@ -309,7 +437,7 @@ export function DashboardPage() {
                 </div>
               </DndContext>
             </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -359,9 +487,9 @@ function FreeWidget({
       className={`absolute ${isDragging || isDragActive ? 'z-50' : 'z-10'} ${isDragActive ? 'select-none' : ''}`}
     >
       <div
-        className={`h-full w-full bg-white rounded-xl border shadow-sm overflow-hidden transition-shadow ${
-          editMode ? 'ring-2 ring-blue-200' : 'hover:shadow-md border-gray-200'
-        } ${isDragging || isDragActive ? 'shadow-2xl ring-blue-400' : ''}`}
+        className={`dashboard-home-widget h-full w-full overflow-hidden ${
+          editMode ? 'is-editing' : ''
+        } ${isDragging || isDragActive ? 'is-dragging' : ''}`}
       >
         {/* Edit-mode controls bar */}
         {editMode && (
