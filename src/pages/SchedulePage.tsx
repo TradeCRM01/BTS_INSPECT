@@ -12,7 +12,7 @@ import type { Job, JobWithClient, Client } from '../types/crm';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { ScheduleJobSearch } from '../components/crm/ScheduleJobSearch';
 import {
-  DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList,
+  DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList, PhoneWeekList,
   type TeamMember,
 } from '../components/crm/BoardViews';
 import { pickEmployeeColor } from '../lib/jobColors';
@@ -20,6 +20,7 @@ import { DEFAULT_SLOT_START, rememberDraggedJob, rescheduleJobPatch, type JobDro
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
+import { parseScheduleView, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
 import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
 import {
   ChevronLeft, ChevronRight, Plus, Calendar as CalIcon,
@@ -30,15 +31,13 @@ import {
   addDays, addWeeks,
 } from 'date-fns';
 
-type ViewMode = 'day' | 'week';
-
 export function SchedulePage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  const [viewMode, setViewMode] = useState<ScheduleViewMode>(() => parseScheduleView(searchParams.get('view')));
   const [showForm, setShowForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
@@ -53,8 +52,20 @@ export function SchedulePage() {
   const preselectJob = searchParams.get('job');
   const preselectDate = searchParams.get('date');
 
+  const openJob = useCallback((jobId: string) => {
+    navigate(scheduleJobHref(jobId));
+  }, [navigate]);
+
+  const setView = useCallback((mode: ScheduleViewMode) => {
+    setViewMode(mode);
+    const next = new URLSearchParams(searchParams);
+    if (mode === 'week') next.delete('view');
+    else next.set('view', 'day');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   useEffect(() => {
-    if (preselectJob) navigate(`/jobs/${preselectJob}`, { replace: true });
+    if (preselectJob) navigate(scheduleJobHref(preselectJob), { replace: true });
   }, [preselectJob, navigate]);
 
   useEffect(() => {
@@ -65,6 +76,7 @@ export function SchedulePage() {
     setViewMode('day');
     const next = new URLSearchParams(searchParams);
     next.delete('date');
+    next.set('view', 'day');
     setSearchParams(next, { replace: true });
   }, [preselectDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -168,7 +180,7 @@ export function SchedulePage() {
         }
       }
 
-      return attachJobClients(jobs, [...clientMap.values()]).then(hydrateJobParentNumbers);
+      return hydrateJobParentNumbers(attachJobClients(jobs, [...clientMap.values()]));
     },
     enabled: !!profile,
   });
@@ -188,7 +200,9 @@ export function SchedulePage() {
     if (preselectClient) {
       setPresetClientId(preselectClient);
       setShowForm(true);
-      setSearchParams({}, { replace: true });
+      const next = new URLSearchParams(searchParams);
+      next.delete('client');
+      setSearchParams(next, { replace: true });
     }
   }, [preselectClient]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -342,7 +356,7 @@ export function SchedulePage() {
 
   return (
     <AppShell>
-      <div className="ops-page hub-board-cal">
+      <div className="ops-page hub-board-cal" data-schedule-view={viewMode}>
         <div className="ops-page-head">
           <div className="min-w-0">
             <h1 className="ops-page-title">Schedule</h1>
@@ -350,7 +364,9 @@ export function SchedulePage() {
               {onBoard.length} on the board
               {unassignedOnBoard > 0 ? ` · ${unassignedOnBoard} unassigned` : ''}
               {needsDate.length > 0 ? ` · ${needsDate.length} without a date` : ''}
-              {viewMode === 'day' && ` · ${format(currentDate, 'EEEE, d MMMM yyyy')}`}
+              {viewMode === 'day'
+                ? ` · ${format(currentDate, 'EEEE, d MMMM yyyy')}`
+                : ` · week of ${format(startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'd MMM')}`}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap min-w-0 w-full lg:w-auto lg:flex-1 lg:justify-end">
@@ -361,6 +377,7 @@ export function SchedulePage() {
               loading={searchLoading && debouncedQuery.length > 0}
               selectedId={pickedJob?.id ?? null}
               onSelect={handlePickJob}
+              onOpenJob={job => openJob(job.id)}
               onDragStart={handleRailDragStart}
             />
             <button
@@ -422,18 +439,18 @@ export function SchedulePage() {
             </div>
             <h2 className="ops-section-title ml-1">
               {viewMode === 'day' && format(currentDate, 'd MMMM yyyy')}
-              {viewMode === 'week' && `${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'd MMM')} – ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'd MMM yyyy')}`}
+              {viewMode === 'week' && `${format(startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'd MMM')} – ${format(endOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'd MMM yyyy')}`}
             </h2>
           </div>
 
-          <div className="hidden lg:flex ops-seg">
+          <div className="flex ops-seg" data-schedule-view={viewMode}>
             {([
-              { mode: 'day' as const, label: 'Day', Icon: Columns3 },
               { mode: 'week' as const, label: 'Week', Icon: CalIcon },
+              { mode: 'day' as const, label: 'Day', Icon: Columns3 },
             ]).map(({ mode, label, Icon }) => (
               <button
                 key={mode}
-                onClick={() => setViewMode(mode)}
+                onClick={() => setView(mode)}
                 className={`ops-seg-btn ${viewMode === mode ? 'ops-seg-btn-on' : 'ops-seg-btn-off'}`}
               >
                 <Icon size={14} />
@@ -443,7 +460,7 @@ export function SchedulePage() {
           </div>
         </div>
 
-        {viewMode === 'day' && teamMembers && teamMembers.length > 0 && (
+        {teamMembers && teamMembers.length > 0 && (
           <div className="hidden lg:flex items-center gap-2 mb-3 flex-wrap">
             <div className="flex items-center gap-1.5 ops-meta font-medium">
               <Users size={13} /> Crew
@@ -497,16 +514,31 @@ export function SchedulePage() {
               <NeedsDateRail
                 jobs={needsDate}
                 teamMembers={teamMembers ?? []}
-                onJobClick={job => navigate(`/jobs/${job.id}`)}
+                onJobClick={job => openJob(job.id)}
                 onDragStart={handleRailDragStart}
               />
-              <PhoneDayList
-                jobs={onBoard}
-                teamMembers={teamMembers ?? []}
-                currentDate={currentDate}
-                onJobClick={job => navigate(`/jobs/${job.id}`)}
-                onDragStart={handleRailDragStart}
-              />
+              {viewMode === 'week' ? (
+                <PhoneWeekList
+                  jobs={onBoard}
+                  teamMembers={teamMembers ?? []}
+                  currentDate={currentDate}
+                  onJobClick={job => openJob(job.id)}
+                  onDragStart={handleRailDragStart}
+                  onSelectDay={date => {
+                    setCurrentDate(date);
+                    setView('day');
+                  }}
+                  onDayClick={handleDayClick}
+                />
+              ) : (
+                <PhoneDayList
+                  jobs={onBoard}
+                  teamMembers={teamMembers ?? []}
+                  currentDate={currentDate}
+                  onJobClick={job => openJob(job.id)}
+                  onDragStart={handleRailDragStart}
+                />
+              )}
             </div>
 
             <div className="hidden lg:flex items-start gap-3">
@@ -516,7 +548,7 @@ export function SchedulePage() {
                     jobs={onBoard}
                     teamMembers={teamMembers ?? []}
                     currentDate={currentDate}
-                    onJobClick={job => navigate(`/jobs/${job.id}`)}
+                    onJobClick={job => openJob(job.id)}
                     onDayClick={handleDayClick}
                     onJobDrop={drop => {
                       rescheduleJob.mutate(drop);
@@ -531,7 +563,7 @@ export function SchedulePage() {
                     jobs={onBoard}
                     teamMembers={teamMembers ?? []}
                     currentDate={currentDate}
-                    onJobClick={job => navigate(`/jobs/${job.id}`)}
+                    onJobClick={job => openJob(job.id)}
                     onDayClick={handleDayClick}
                     onJobDrop={drop => {
                       rescheduleJob.mutate(drop);
@@ -547,7 +579,7 @@ export function SchedulePage() {
                 alwaysShow
                 jobs={needsDate}
                 teamMembers={teamMembers ?? []}
-                onJobClick={job => navigate(`/jobs/${job.id}`)}
+                onJobClick={job => openJob(job.id)}
                 onDragStart={handleRailDragStart}
               />
             </div>
@@ -566,7 +598,7 @@ export function SchedulePage() {
             handleCloseForm();
             queryClient.invalidateQueries({ queryKey: ['jobs'] });
             queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
-            navigate(`/jobs/${jobId}`);
+            navigate(scheduleJobHref(jobId));
           }}
         />
       )}

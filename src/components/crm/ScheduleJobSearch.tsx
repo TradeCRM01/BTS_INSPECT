@@ -4,6 +4,7 @@ import { OpsStatus, opsSiteLabel } from '../ui/OpsCard';
 import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
 import type { JobWithClient } from '../../types/crm';
 import { formatJobRef } from '../../lib/jobRef';
+import { scheduleJobHref } from '../../lib/scheduleBoard';
 import { format, parseISO } from 'date-fns';
 
 function whenLabel(job: JobWithClient): string | null {
@@ -22,6 +23,7 @@ export function ScheduleJobSearch({
   loading,
   selectedId,
   onSelect,
+  onOpenJob,
   onDragStart,
 }: {
   query: string;
@@ -30,6 +32,7 @@ export function ScheduleJobSearch({
   loading: boolean;
   selectedId: string | null;
   onSelect: (job: JobWithClient | null) => void;
+  onOpenJob: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -120,7 +123,22 @@ export function ScheduleJobSearch({
                         <p className="text-sm font-semibold tracking-tight text-navy truncate">
                           {formatJobRef(job)} · {job.title}
                         </p>
-                        <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                          <a
+                            href={scheduleJobHref(job.id)}
+                            data-schedule-open-job={job.id}
+                            className="ops-link text-xs"
+                            onClick={e => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onOpenJob(job);
+                            }}
+                            onPointerDown={e => e.stopPropagation()}
+                          >
+                            Open
+                          </a>
+                        </div>
                       </div>
                       <p className="ops-meta mt-0.5 truncate">
                         {[job.client_name, site, whenLabel(job)].filter(Boolean).join(' · ')}
