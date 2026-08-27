@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import {
   callOperatorApi,
   canRemoveOperator,
+  REMOVE_LAST_DEVELOPER,
   type PlatformOperatorRow,
 } from '../../lib/platformOperator';
 
@@ -14,6 +15,8 @@ export function OperatorOperatorsPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [email, setEmail] = useState('');
+  const [appointMiss, setAppointMiss] = useState('');
+  const [removeMiss, setRemoveMiss] = useState('');
   const [removing, setRemoving] = useState<PlatformOperatorRow | null>(null);
 
   const { data, isLoading, error } = useQuery({
@@ -37,9 +40,10 @@ export function OperatorOperatorsPage() {
     onSuccess: () => {
       showToast('Developer appointed');
       setEmail('');
+      setAppointMiss('');
       invalidate();
     },
-    onError: (err: Error) => showToast(err.message, 'error'),
+    onError: (err: Error) => setAppointMiss(err.message),
   });
 
   const removeMut = useMutation({
@@ -50,9 +54,13 @@ export function OperatorOperatorsPage() {
     onSuccess: () => {
       showToast('Developer removed');
       setRemoving(null);
+      setRemoveMiss('');
       invalidate();
     },
-    onError: (err: Error) => showToast(err.message, 'error'),
+    onError: (err: Error) => {
+      setRemoving(null);
+      setRemoveMiss(err.message);
+    },
   });
 
   const onAppoint = (event: FormEvent) => {
@@ -64,32 +72,38 @@ export function OperatorOperatorsPage() {
   const lastOnly = operators.length <= 1;
 
   return (
-    <div>
+    <div id="operator-developers">
       <PageHeader
         title="Developers"
         subtitle="Appoint people who can run Grafter: companies, billing, and this console. Company admin is not this."
       />
 
-      <form className="card p-4 mt-4" onSubmit={onAppoint}>
+      <form className="dev-sheet" onSubmit={onAppoint}>
         <h2 className="ops-section-title">Appoint a developer</h2>
-        <p className="ops-meta mt-2">
+        <p className="dev-meta">
           They must already have a Grafter login. Enter that email. They get the same operator controls as you.
         </p>
-        <div className="mt-3 flex flex-col sm:flex-row gap-2">
-          <label className="sr-only" htmlFor="appoint-email">Account email</label>
-          <input
-            id="appoint-email"
-            type="email"
-            autoComplete="off"
-            placeholder="they@company.com"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            className="form-input sm:max-w-[320px]"
-            required
-          />
-          <button type="submit" className="btn-primary min-h-[44px]" disabled={addMut.isPending}>
-            {addMut.isPending ? 'Appointing…' : 'Appoint'}
-          </button>
+        <div className="dev-write">
+          <label className="dev-label" htmlFor="appoint-email">Account email</label>
+          <div className="dev-act">
+            <input
+              id="appoint-email"
+              type="email"
+              autoComplete="off"
+              placeholder="they@company.com"
+              value={email}
+              onChange={e => {
+                setEmail(e.target.value);
+                if (appointMiss) setAppointMiss('');
+              }}
+              className="dev-email"
+              required
+            />
+            <button type="submit" className="btn-primary" disabled={addMut.isPending}>
+              {addMut.isPending ? 'Appointing…' : 'Appoint'}
+            </button>
+          </div>
+          {appointMiss ? <p className="dev-miss">{appointMiss}</p> : null}
         </div>
       </form>
 
@@ -100,48 +114,38 @@ export function OperatorOperatorsPage() {
       ) : !operators.length ? (
         <EmptyState icon={UserCog} title="No developers" message="Appoint an existing Grafter account to help run the product." />
       ) : (
-        <div className="card mt-4 overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-[#4A5568] border-b border-[#E5E7EB]">
-                <th className="px-4 py-3 font-medium">Developer</th>
-                <th className="px-4 py-3 font-medium">Company</th>
-                <th className="px-4 py-3 font-medium">Appointed</th>
-                <th className="px-4 py-3 font-medium"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {operators.map(row => {
-                const you = row.user_id === user?.id;
-                const removable = canRemoveOperator(operators, row.user_id).ok;
-                return (
-                  <tr key={row.user_id} className="border-b border-[#F3F4F6] last:border-0">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-[#0A2540]">{row.name || row.email}</p>
-                      <p className="text-xs text-[#4A5568]">
-                        {row.email}{you ? ' · you' : ''}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">{row.company_name || '—'}</td>
-                    <td className="px-4 py-3 text-[#4A5568] whitespace-nowrap">
-                      {new Date(row.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        className="btn-danger min-h-[44px]"
-                        disabled={!removable || removeMut.isPending}
-                        title={lastOnly ? 'Cannot remove the last developer. Appoint someone else first.' : undefined}
-                        onClick={() => setRemoving(row)}
-                      >
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="dev-sheet">
+          <div className="dev-rows">
+            {operators.map(row => {
+              const you = row.user_id === user?.id;
+              const removable = canRemoveOperator(operators, row.user_id).ok;
+              return (
+                <div key={row.user_id} className="dev-row">
+                  <div className="dev-row-main">
+                    <p className="dev-name">{row.name || row.email}</p>
+                    <p className="dev-meta">
+                      {row.email}{you ? ' · you' : ''}
+                    </p>
+                    <p className="dev-meta">
+                      {row.company_name || '—'} · {new Date(row.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  {removable ? (
+                    <button
+                      type="button"
+                      className="dev-remove"
+                      disabled={removeMut.isPending}
+                      onClick={() => setRemoving(row)}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+          {lastOnly ? <p className="dev-miss">{REMOVE_LAST_DEVELOPER}</p> : null}
+          {removeMiss ? <p className="dev-miss">{removeMiss}</p> : null}
         </div>
       )}
 

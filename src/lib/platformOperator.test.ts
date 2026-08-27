@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -184,5 +184,61 @@ describe('appoint developers', () => {
     expect(page).not.toContain('user_metadata');
     expect(src('src/lib/platformOperator.ts')).not.toMatch(/VITE_.*OPERATOR/);
     expect(src('src/App.tsx')).toContain('/operator/operators');
+  });
+
+  it('paints the Developers page as settings-card rows, not a toast pile or posters', () => {
+    const page = src('src/pages/operator/OperatorOperatorsPage.tsx');
+    const css = src('src/index.css');
+    const scoped = css.slice(
+      css.indexOf('/* Developers page only.'),
+      css.indexOf('/* ── App chrome (navy Looplet craft: hairlines, no mega-menu shadow) ─ */'),
+    );
+
+    expect(page).toContain('id="operator-developers"');
+    expect(page).toContain('className="dev-email"');
+    expect(page).toContain('className="dev-label"');
+    expect(page).toContain('className="dev-miss"');
+    expect(page).toContain('className="dev-row"');
+    expect(page).toContain('className="dev-remove"');
+    expect(page).toContain('REMOVE_LAST_DEVELOPER');
+    expect(page).toContain("action: 'list_operators'");
+    expect(page).toContain("action: 'add_operator'");
+    expect(page).toContain("action: 'remove_operator'");
+    expect(page).not.toContain('btn-danger');
+    expect(page).not.toContain('ops-stamp');
+    expect(page).not.toContain('ops-card');
+    expect(page).not.toMatch(/onError: \(err: Error\) => showToast\(err\.message/);
+    expect(page).not.toContain('Relovi');
+
+    expect(scoped).toContain('#operator-developers');
+    expect(scoped).toContain('#F4F6F8');
+    expect(scoped).toContain('#FFFFFF');
+    expect(scoped).toContain('#0A2540');
+    expect(scoped).toContain('#5B6B7C');
+    expect(scoped).toContain('#D5DCE3');
+    expect(scoped).toContain('#2E75B6');
+    expect(scoped).toContain('font-size: 12px');
+    expect(scoped).toContain('border-radius: 16px');
+    expect(scoped).toContain('min-height: 44px');
+    expect(scoped).toContain('height: 24px !important');
+    expect(scoped).not.toContain('.shell-header');
+    expect(scoped).not.toContain('.hub-marketing');
+    expect(scoped).not.toContain('.hub-auth');
+    expect(scoped).not.toContain('.quote-doc-theme');
+    expect(scoped).not.toContain('Relovi');
+    expect(src('src/App.tsx')).not.toContain('OperatorLook');
+    expect(src('src/App.tsx')).toContain('/operator/operators');
+  });
+
+  it('LOOK frames cover the Developers page and appoint miss only', () => {
+    for (const rel of [
+      'docs/look/operators-page-desktop.png',
+      'docs/look/operators-page-phone.png',
+      'docs/look/operators-miss-desktop.png',
+      'docs/look/operators-miss-phone.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
+    }
   });
 });

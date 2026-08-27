@@ -4601,6 +4601,201 @@
     }
   }
 
+  /* Developers page only. Signed settings-card kit. Does not paint AppShell, login, landing, or quotes. */
+  #operator-developers {
+    --dev-page: #F4F6F8;
+    --dev-sheet: #FFFFFF;
+    --dev-ink: #0A2540;
+    --dev-muted: #5B6B7C;
+    --dev-line: #D5DCE3;
+    --dev-action: #2E75B6;
+    font-family: Inter, system-ui, sans-serif;
+    color: var(--dev-ink);
+  }
+
+  #operator-developers .ops-page-title {
+    font-size: 22px;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    color: var(--dev-ink);
+    margin: 0;
+  }
+
+  #operator-developers .ops-section-title {
+    font-size: 14px;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--dev-ink);
+    margin: 0;
+  }
+
+  #operator-developers .dev-sheet {
+    background: var(--dev-sheet);
+    border: 1px solid var(--dev-line);
+    border-radius: 16px;
+    padding: 16px;
+    margin-top: 16px;
+    box-shadow: none;
+  }
+
+  #operator-developers .dev-meta {
+    margin: 8px 0 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--dev-muted);
+  }
+
+  #operator-developers .dev-write {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 16px;
+    min-width: 0;
+  }
+
+  #operator-developers .dev-label {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--dev-muted);
+  }
+
+  #operator-developers .dev-act {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  #operator-developers .dev-email {
+    width: auto;
+    min-width: 16ch;
+    max-width: 100%;
+    flex: 1 1 16ch;
+    height: 24px !important;
+    min-height: 24px !important;
+    padding: 0 8px;
+    font-size: 12px !important;
+    font-weight: 500;
+    font-family: inherit;
+    line-height: 1;
+    color: var(--dev-ink);
+    background: var(--dev-sheet);
+    border: 1px solid var(--dev-line);
+    border-radius: 8px;
+    box-shadow: none;
+    outline: none;
+    --tw-ring-shadow: 0 0 #0000;
+  }
+
+  #operator-developers .dev-email:focus {
+    border-color: var(--dev-action);
+    box-shadow: none;
+    outline: none;
+  }
+
+  #operator-developers .dev-email::placeholder {
+    color: var(--dev-muted);
+  }
+
+  #operator-developers .btn-primary {
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    transform: none;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+  }
+
+  #operator-developers .btn-primary:hover {
+    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+    color: #fff;
+  }
+
+  #operator-developers .btn-primary:active {
+    transform: none;
+  }
+
+  #operator-developers .btn-primary:disabled {
+    opacity: 0.45;
+  }
+
+  #operator-developers .dev-miss {
+    margin: 8px 0 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--dev-ink);
+  }
+
+  #operator-developers .dev-rows {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #operator-developers .dev-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--dev-line);
+  }
+
+  #operator-developers .dev-row:first-child {
+    padding-top: 0;
+  }
+
+  #operator-developers .dev-row:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  #operator-developers .dev-row-main {
+    min-width: 0;
+  }
+
+  #operator-developers .dev-name {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dev-ink);
+  }
+
+  #operator-developers .dev-row .dev-meta {
+    margin-top: 4px;
+  }
+
+  #operator-developers .dev-remove {
+    appearance: none;
+    background: none;
+    border: none;
+    box-shadow: none;
+    color: var(--dev-muted);
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  #operator-developers .dev-remove:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   /* ── App chrome (navy Looplet craft: hairlines, no mega-menu shadow) ─ */
   /* Signed-in header / nav only. Saved report_theme paints navy / accent. */
   .shell-header {
