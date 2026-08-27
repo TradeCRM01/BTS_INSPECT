@@ -128,6 +128,51 @@ export interface OperatorBillingConfig {
   miss: string | null;
 }
 
+export interface PlatformOperatorRow {
+  user_id: string;
+  email: string;
+  name: string | null;
+  company_name: string | null;
+  created_at: string;
+}
+
+export const APPOINT_NEED_ACCOUNT =
+  'No Grafter account with that email. They must sign up first, then you can appoint them.';
+export const APPOINT_ALREADY_DEVELOPER = 'That account is already a developer.';
+export const APPOINT_NEED_EMAIL = 'Enter the email of an existing Grafter account.';
+export const REMOVE_LAST_DEVELOPER =
+  'Cannot remove the last developer. Appoint someone else first.';
+export const REMOVE_NOT_DEVELOPER = 'That account is not a developer.';
+
+export function normalizeOperatorEmail(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+export function canAppointOperator(
+  email: string,
+  existing: { email: string }[],
+  profile: { id: string; email: string; name: string } | null,
+): { ok: true; userId: string; email: string; name: string } | { ok: false; error: string } {
+  const normalized = normalizeOperatorEmail(email);
+  if (!normalized.includes('@')) return { ok: false, error: APPOINT_NEED_EMAIL };
+  if (existing.some(row => normalizeOperatorEmail(row.email) === normalized)) {
+    return { ok: false, error: APPOINT_ALREADY_DEVELOPER };
+  }
+  if (!profile) return { ok: false, error: APPOINT_NEED_ACCOUNT };
+  return { ok: true, userId: profile.id, email: profile.email, name: profile.name };
+}
+
+export function canRemoveOperator(
+  operators: { user_id: string }[],
+  targetUserId: string,
+): { ok: true } | { ok: false; error: string } {
+  if (!operators.some(row => row.user_id === targetUserId)) {
+    return { ok: false, error: REMOVE_NOT_DEVELOPER };
+  }
+  if (operators.length <= 1) return { ok: false, error: REMOVE_LAST_DEVELOPER };
+  return { ok: true };
+}
+
 export interface OperatorCompanyDetail {
   company: OperatorCompanyRow;
   people: OperatorPerson[];
@@ -146,7 +191,10 @@ export type OperatorAction =
   | { action: 'create_checkout'; company_id: string; plan: GrafterPlanId; interval: BillingInterval; origin: string }
   | { action: 'create_portal'; company_id: string; origin: string }
   | { action: 'list_events'; company_id?: string }
-  | { action: 'billing_config' };
+  | { action: 'billing_config' }
+  | { action: 'list_operators' }
+  | { action: 'add_operator'; email: string }
+  | { action: 'remove_operator'; user_id: string };
 
 export interface OperatorApiOk {
   ok: true;
@@ -155,6 +203,7 @@ export interface OperatorApiOk {
   detail?: OperatorCompanyDetail;
   events?: OperatorEvent[];
   billing?: OperatorBillingConfig;
+  operators?: PlatformOperatorRow[];
   url?: string;
   miss?: string | null;
 }
@@ -282,6 +331,18 @@ function mockOverview(): OperatorOverview {
   };
 }
 
+function mockOperators(): PlatformOperatorRow[] {
+  return [
+    {
+      user_id: '00000000-0000-0000-0000-000000000099',
+      email: OPERATOR_EMAIL,
+      name: 'Jack Wieland',
+      company_name: 'Field Audit Co',
+      created_at: new Date().toISOString(),
+    },
+  ];
+}
+
 function mockResult(body: OperatorAction): OperatorApiResult {
   const companies = mockCompanies();
   if (body.action === 'overview') return { ok: true, overview: mockOverview() };
@@ -348,6 +409,17 @@ function mockResult(body: OperatorAction): OperatorApiResult {
   if (body.action === 'billing_config') return { ok: true, billing: mockBilling(), miss: STRIPE_SECRET_MISS };
   if (body.action === 'create_checkout' || body.action === 'create_portal') {
     return { ok: false, error: 'Stripe is not configured in this DEV session.', miss: STRIPE_SECRET_MISS };
+  }
+  if (body.action === 'list_operators') return { ok: true, operators: mockOperators() };
+  if (body.action === 'add_operator') {
+    const decided = canAppointOperator(body.email, mockOperators(), null);
+    if (decided.ok) return { ok: false, error: APPOINT_NEED_ACCOUNT };
+    return { ok: false, error: decided.error };
+  }
+  if (body.action === 'remove_operator') {
+    const decided = canRemoveOperator(mockOperators(), body.user_id);
+    if (!decided.ok) return { ok: false, error: decided.error };
+    return { ok: true };
   }
   return { ok: true };
 }

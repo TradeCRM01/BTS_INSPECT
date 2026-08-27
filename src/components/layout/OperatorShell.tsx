@@ -1,13 +1,14 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { BrandLockup } from '../brand/BrandLockup';
 import { useAuth } from '../../contexts/AuthContext';
-import { Building2, CreditCard, LayoutDashboard, LogOut, ScrollText, ArrowLeft } from 'lucide-react';
+import { Building2, CreditCard, LayoutDashboard, LogOut, ScrollText, ArrowLeft, UserCog } from 'lucide-react';
 
 const NAV = [
   { to: '/operator', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/operator/companies', label: 'Companies', icon: Building2, end: false },
   { to: '/operator/billing', label: 'Billing', icon: CreditCard, end: false },
   { to: '/operator/audit', label: 'Audit', icon: ScrollText, end: false },
+  { to: '/operator/operators', label: 'Developers', icon: UserCog, end: false },
 ] as const;
 
 export function OperatorShell({ children }: { children: React.ReactNode }) {

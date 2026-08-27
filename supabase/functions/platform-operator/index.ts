@@ -331,6 +331,94 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, billing: billingConfig(), miss: billingConfig().miss });
     }
 
+    if (action === "list_operators") {
+      const { data: ops, error } = await db
+        .from("platform_operators")
+        .select("user_id, email, created_at")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      const rows = ops ?? [];
+      const ids = rows.map(o => o.user_id as string);
+      const { data: profiles } = ids.length
+        ? await db.from("profiles").select("id, name, company_id").in("id", ids)
+        : { data: [] as { id: string; name: string; company_id: string }[] };
+      const companyIds = [...new Set((profiles ?? []).map(p => p.company_id).filter(Boolean))];
+      const { data: companies } = companyIds.length
+        ? await db.from("companies").select("id, name").in("id", companyIds)
+        : { data: [] as { id: string; name: string }[] };
+      const names = new Map((profiles ?? []).map(p => [p.id as string, p.name as string]));
+      const companyByProfile = new Map((profiles ?? []).map(p => [p.id as string, p.company_id as string]));
+      const companyNames = new Map((companies ?? []).map(c => [c.id as string, c.name as string]));
+      return json({
+        ok: true,
+        operators: rows.map(o => ({
+          user_id: o.user_id,
+          email: o.email,
+          created_at: o.created_at,
+          name: names.get(o.user_id as string) ?? null,
+          company_name: companyNames.get(companyByProfile.get(o.user_id as string) ?? "") ?? null,
+        })),
+      });
+    }
+
+    if (action === "add_operator") {
+      const email = String(body.email || "").trim().toLowerCase();
+      if (!email.includes("@")) {
+        return json({ ok: false, error: "Enter the email of an existing Grafter account." }, 400);
+      }
+      const { data: existing, error: existingErr } = await db
+        .from("platform_operators")
+        .select("user_id, email");
+      if (existingErr) throw existingErr;
+      if ((existing ?? []).some(row => String(row.email || "").toLowerCase() === email)) {
+        return json({ ok: false, error: "That account is already a developer." }, 400);
+      }
+      const { data: profile, error: profileErr } = await db
+        .from("profiles")
+        .select("id, email, name")
+        .ilike("email", email.replace(/[%_]/g, "\\$&"))
+        .maybeSingle();
+      if (profileErr) throw profileErr;
+      if (!profile) {
+        return json({
+          ok: false,
+          error: "No Grafter account with that email. They must sign up first, then you can appoint them.",
+        }, 400);
+      }
+      const { error } = await db.from("platform_operators").insert({
+        user_id: profile.id,
+        email: profile.email,
+      });
+      if (error) throw error;
+      await logEvent(db, user.id, actorEmail, null, "add_operator", {
+        email: profile.email,
+        user_id: profile.id,
+      });
+      return json({ ok: true });
+    }
+
+    if (action === "remove_operator") {
+      const userId = String(body.user_id || "");
+      if (!userId) return json({ ok: false, error: "user_id required" }, 400);
+      const { data: existing, error: existingErr } = await db
+        .from("platform_operators")
+        .select("user_id, email");
+      if (existingErr) throw existingErr;
+      const rows = existing ?? [];
+      const target = rows.find(row => row.user_id === userId);
+      if (!target) return json({ ok: false, error: "That account is not a developer." }, 400);
+      if (rows.length <= 1) {
+        return json({ ok: false, error: "Cannot remove the last developer. Appoint someone else first." }, 400);
+      }
+      const { error } = await db.from("platform_operators").delete().eq("user_id", userId);
+      if (error) throw error;
+      await logEvent(db, user.id, actorEmail, null, "remove_operator", {
+        email: target.email,
+        user_id: userId,
+      });
+      return json({ ok: true });
+    }
+
     if (action === "create_checkout") {
       const stripe = createStripe();
       if (!stripe) return json({ ok: false, error: "Stripe is not configured", miss: STRIPE_SECRET_MISS }, 503);

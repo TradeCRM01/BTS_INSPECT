@@ -67,6 +67,7 @@ const OperatorCompaniesPage = lazy(() => import('./pages/operator/OperatorCompan
 const OperatorCompanyDetailPage = lazy(() => import('./pages/operator/OperatorCompanyDetailPage').then(m => ({ default: m.OperatorCompanyDetailPage })));
 const OperatorBillingPage = lazy(() => import('./pages/operator/OperatorBillingPage').then(m => ({ default: m.OperatorBillingPage })));
 const OperatorAuditPage = lazy(() => import('./pages/operator/OperatorAuditPage').then(m => ({ default: m.OperatorAuditPage })));
+const OperatorOperatorsPage = lazy(() => import('./pages/operator/OperatorOperatorsPage').then(m => ({ default: m.OperatorOperatorsPage })));
 
 function PageLoader() {
   return (
@@ -166,6 +167,7 @@ export default function App() {
       <Route path="/operator/companies/:id" element={<Protected><OperatorRoute><OperatorCompanyDetailPage /></OperatorRoute></Protected>} />
       <Route path="/operator/billing" element={<Protected><OperatorRoute><OperatorBillingPage /></OperatorRoute></Protected>} />
       <Route path="/operator/audit" element={<Protected><OperatorRoute><OperatorAuditPage /></OperatorRoute></Protected>} />
+      <Route path="/operator/operators" element={<Protected><OperatorRoute><OperatorOperatorsPage /></OperatorRoute></Protected>} />
 
       {import.meta.env.DEV ? (
         <Route
