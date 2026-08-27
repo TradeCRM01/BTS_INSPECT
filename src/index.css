@@ -722,6 +722,18 @@
       font-size: 32px !important;
     }
 
+    .hub-clients-chrome {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+
+    .hub-clients-chrome .relative,
+    .hub-clients-chrome .max-w-sm {
+      max-width: none;
+      width: 100%;
+    }
+
     .hub-clients-thead,
     .hub-clients-jobs-thead {
       display: none;
