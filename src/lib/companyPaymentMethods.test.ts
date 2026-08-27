@@ -69,13 +69,18 @@ describe('company payment methods', () => {
     expect(companyPaymentMethodsSaveError('permission denied')).toBe('permission denied');
   });
 
-  it('lives on companies, in company settings, and on invoices — not quotes or Xero', () => {
+  it('lives on companies, in company settings, and on invoices — not quotes, POs, Relovi, or #17', () => {
     const migration = src('supabase/migrations/20260823140000_066_company_payment_methods.sql');
     const settings = src('src/pages/CompanySettingsPage.tsx');
     const invoices = src('src/pages/InvoicesPage.tsx');
     const pdf = src('src/reports/commercial/CommercialDocumentPdf.tsx');
     const send = src('src/lib/sendInvoice.ts');
     const quotes = src('src/pages/QuotesPage.tsx');
+    const quoteSend = src('src/lib/sendQuote.ts');
+    const quoteSendDialog = src('src/components/invoicing/QuoteSendDialog.tsx');
+    const pos = src('src/pages/PurchaseOrdersPage.tsx');
+    const poSend = src('src/lib/sendPurchaseOrder.ts');
+    const poSendDialog = src('src/components/invoicing/PurchaseOrderSendDialog.tsx');
     const xero = src('src/lib/xeroAccounting.ts');
     const edge = src('supabase/functions/job-reminder/index.ts');
 
@@ -89,12 +94,24 @@ describe('company payment methods', () => {
     expect(send).toContain('payment_methods');
     expect(send).toContain('How to pay');
     expect(quotes).not.toContain('payment_methods');
+    expect(quoteSend).not.toContain('payment_methods');
+    expect(quoteSend).not.toContain('How to pay');
+    expect(quoteSendDialog).not.toContain('payment_methods');
+    expect(quoteSendDialog).not.toContain('How to pay');
+    expect(pos).not.toContain('payment_methods');
+    expect(poSend).not.toContain('payment_methods');
+    expect(poSend).not.toContain('How to pay');
+    expect(poSendDialog).not.toContain('payment_methods');
     expect(xero).not.toContain('payment_methods');
+    expect(settings).not.toContain('Relovi');
+    expect(invoices).not.toContain('Relovi');
+    expect(send).not.toContain('Relovi');
     expect(edge).toContain('payment_methods');
     expect(edge).toContain('How to pay');
     const receiptStart = edge.indexOf('function invoiceReceiptHtml');
     const receiptFn = edge.slice(receiptStart, edge.indexOf('function invoiceReceiptSmsBody'));
     expect(receiptFn).not.toContain('How to pay');
     expect(receiptFn).not.toContain('payment_methods');
+    expect(src('src/lib/convertQuoteToInvoice.ts')).not.toContain('payment_methods');
   });
 });
