@@ -258,8 +258,8 @@ describe('clients floor wiring', () => {
   });
 });
 
-describe('clients look — cream paper rows', () => {
-  it('paints list and record as signed cream sheets, not a poster', () => {
+describe('clients look — open record is the document sheet', () => {
+  it('paints the open client as the document sheet, not admin rows or a CLIENTS eyebrow', () => {
     const list = src('src/pages/ClientsPage.tsx');
     const detail = src('src/pages/ClientDetailPage.tsx');
     const css = src('src/index.css');
@@ -272,23 +272,39 @@ describe('clients look — cream paper rows', () => {
     expect(list).toContain('hub-clients');
     expect(list).toContain('hub-clients-sheet');
     expect(list).toContain('hub-clients-row');
-    expect(list).toContain('hub-clients-kicker');
+    expect(list).toContain('hub-clients-label');
     expect(list).toContain('Customer');
     expect(list).toContain('Suburb');
     expect(list).toContain('Jobs');
     expect(list).toContain('Open');
+    expect(list).not.toContain('hub-clients-kicker');
+    expect(list).not.toMatch(/>CLIENTS</);
     expect(list).not.toContain('ViewToggle');
     expect(list).not.toContain('function ClientCard');
     expect(list).not.toMatch(/Relovi|Littleloop/);
 
-    expect(detail).toContain('hub-clients-contact-sheet');
-    expect(detail).toContain('hub-clients-jobs-sheet');
+    expect(detail).toContain('is-record-open');
+    expect(detail).toContain('hub-clients-document');
+    expect(detail).toContain('hub-clients-sheet-bar');
+    expect(detail).toContain('hub-clients-sheet-body');
+    expect(detail).toContain('hub-clients-hero');
+    expect(detail).toContain('hub-clients-label');
+    expect(detail).toContain('hub-clients-ledger');
     expect(detail).toContain('hub-clients-job-row');
     expect(detail).toContain('hub-clients-pill');
     expect(detail).toContain('clientJobOpenHref');
     expect(detail).toContain('clientJobFloorMeta');
+    expect(detail).toContain('formatClientJobDate');
     expect(detail).toContain('className="btn-primary"');
     expect(detail).toContain('New job');
+    expect(detail).not.toContain('hub-clients-kicker');
+    expect(detail).not.toContain('hub-clients-contact-sheet');
+    expect(detail).not.toContain('hub-clients-jobs-sheet');
+    expect(detail).not.toContain('hub-clients-jobs-thead');
+    expect(detail).not.toMatch(/>CLIENTS</);
+    expect(detail).not.toContain('This week');
+    expect(detail).not.toContain('<table');
+    expect(detail).not.toContain('<thead');
     expect(detail).not.toMatch(/Relovi|Littleloop/);
 
     expect(clientCss).toContain('--client-page: #F5F0E6');
@@ -297,15 +313,41 @@ describe('clients look — cream paper rows', () => {
     expect(clientCss).toContain('--client-muted: #5B6B7C');
     expect(clientCss).toContain('--client-line: #E2D9CC');
     expect(clientCss).toContain('#2E75B6');
+    expect(clientCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(clientCss).toContain('box-shadow: inset 0 1px 0 #fff');
+    expect(clientCss).toContain('font-size: 56px !important');
     expect(clientCss).toContain("font-family: Rajdhani, sans-serif");
     expect(clientCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
-    expect(clientCss).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
+    expect(clientCss).toContain('font-variant-numeric: tabular-nums');
     expect(clientCss).toContain('letter-spacing: 0.12em');
+    expect(clientCss).toContain('.hub-clients.is-record-open');
+    expect(clientCss).not.toContain('--client-pass');
+    expect(clientCss).not.toMatch(/#16A34A|#15803D|#1B7F3A/);
+    expect(clientCss).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
+    expect(clientCss).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(clientCss).not.toContain('indigo-500');
     expect(clientCss).not.toMatch(/#111|#000\b/);
+    expect(clientCss).not.toContain('.hub-clients-kicker');
   });
 
-  it('does not restyle jobs, quotes, invoices, login, landing, or AppShell', () => {
+  it('does not restyle stay-off floors, AppShell, or the form overlay', () => {
+    const list = src('src/pages/ClientsPage.tsx');
+    const detail = src('src/pages/ClientDetailPage.tsx');
+    expect(list).not.toContain('hub-take5');
+    expect(list).not.toContain('hub-jha');
+    expect(list).not.toContain('hub-inspections');
+    expect(list).not.toContain('hub-reports');
+    expect(list).not.toContain('hub-timesheets');
+    expect(list).not.toContain('hub-compliance');
+    expect(list).not.toContain('SchedulePage');
+    expect(detail).not.toContain('hub-take5');
+    expect(detail).not.toContain('hub-jha');
+    expect(detail).not.toContain('hub-inspections');
+    expect(detail).not.toContain('hub-reports');
+    expect(detail).not.toContain('hub-timesheets');
+    expect(detail).not.toContain('TimesheetsPage');
+    expect(detail).not.toContain('SchedulePage');
+
     const jobs = src('src/pages/JobsPage.tsx');
     const quotes = src('src/pages/QuotesPage.tsx');
     const invoices = src('src/pages/InvoicesPage.tsx');
@@ -320,16 +362,19 @@ describe('clients look — cream paper rows', () => {
     expect(landing).not.toContain('hub-clients');
     expect(shell).not.toContain('hub-clients');
     expect(shell).toContain('resolveAppShellColors');
+
+    const formChunk = list.slice(list.indexOf('export function ClientForm'));
+    expect(formChunk).not.toContain('hub-clients-document');
+    expect(formChunk).not.toContain('hub-clients-hero');
   });
 
-  it('LOOK frames cover client list and record on desktop and phone', () => {
+  it('LOOK frames cover the open client as the document sheet on desktop and phone only', () => {
     for (const rel of [
-      'docs/look/clients-list-desktop.png',
-      'docs/look/clients-list-phone.png',
-      'docs/look/client-record-desktop.png',
-      'docs/look/client-record-phone.png',
+      'docs/look/clients-sheet-desktop.png',
+      'docs/look/clients-sheet-phone.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
     }
   });
 });
