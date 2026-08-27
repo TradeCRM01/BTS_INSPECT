@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Palette } from 'lucide-react';
+import { Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Palette, Download } from 'lucide-react';
+import { companyExportClientFromSupabase, downloadCompanyExport } from '../lib/companyExport';
 import {
   COMPANY_LOGO_ACCEPT,
   companyLogoClientFromSupabase,
@@ -22,6 +23,348 @@ import {
   type CompanyPaymentKind,
   type CompanyPaymentMethod,
 } from '../lib/companyPaymentMethods';
+
+/** Page-local company settings sheet. Same tokens as signed team / open-record. */
+const COMPANY_LOOK_CSS = `
+.hub-company {
+  --co-look-page: #F5F0E6;
+  --co-look-sheet: #FFFDF8;
+  --co-look-ink: #0A2540;
+  --co-look-muted: #5B6B7C;
+  --co-look-line: #E2D9CC;
+  --co-look-action: #2E75B6;
+  --co-look-r-ctl: 12px;
+  --co-look-r-sheet: 16px;
+  --co-look-fail: #B42318;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+.hub-company.ops-page {
+  max-width: none;
+  width: 100%;
+  min-height: calc(100dvh - 3.5rem);
+  margin: 0;
+  background: var(--co-look-page);
+  color: var(--co-look-ink);
+  padding: 24px 24px 48px;
+}
+.hub-company-label {
+  display: block;
+  max-width: 1100px;
+  margin: 0 auto 16px;
+  padding-top: 8px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--co-look-muted);
+}
+.hub-company-sheet {
+  max-width: 1100px;
+  margin: 0 auto 24px;
+  background: var(--co-look-sheet);
+  border: 1px solid var(--co-look-line);
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+}
+.hub-company-sheet-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  padding: 8px 24px;
+  background: var(--co-look-ink);
+  color: #fff;
+}
+.hub-company-sheet-bar-meta {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: #fff;
+}
+.hub-company-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: Rajdhani, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+  width: fit-content;
+  white-space: nowrap;
+  background: #fff;
+  color: var(--co-look-ink);
+}
+.hub-company-sheet-body {
+  padding: 32px 32px 24px;
+  background: var(--co-look-sheet);
+  box-shadow: inset 0 1px 0 #fff;
+}
+.hub-company-hero {
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 56px;
+  letter-spacing: 0.02em;
+  line-height: 0.96;
+  color: var(--co-look-ink);
+  margin: 0;
+}
+.hub-company-jobline {
+  margin: 8px 0 0;
+  color: #2E75B6;
+  font-size: 16px;
+  font-weight: 500;
+}
+.hub-company-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+.hub-company-next {
+  background: #2E75B6;
+  color: #fff;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: none;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.hub-company-next:hover {
+  background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+  color: #fff;
+}
+.hub-company-next:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.hub-company-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 12px;
+  color: #2E75B6;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: none;
+  cursor: pointer;
+}
+.hub-company-sub:hover { color: var(--co-look-ink); }
+.hub-company-sub.is-quiet { color: var(--co-look-muted); }
+.hub-company-sub:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.hub-company-lede {
+  margin: 8px 0 0;
+  color: var(--co-look-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+.hub-company-fail {
+  margin: 8px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--co-look-fail);
+  font-size: 14px;
+}
+.hub-company-note {
+  margin: 8px 0 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--co-look-ink);
+  font-size: 14px;
+}
+.hub-company-kicker {
+  font-family: Rajdhani, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--co-look-muted);
+  margin: 32px 0 0;
+}
+.hub-company-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--co-look-line);
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+  min-height: 44px;
+  font-size: 14px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  color: var(--co-look-ink);
+}
+.hub-company-row-label {
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  color: var(--co-look-ink);
+}
+.hub-company-row-meta {
+  color: var(--co-look-muted);
+  font-size: 13px;
+}
+.hub-company-field {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.hub-company-input,
+.hub-company select.hub-company-input {
+  width: 100%;
+  min-height: 44px;
+  height: auto;
+  padding: 8px 12px;
+  border: 1px solid var(--co-look-line);
+  border-radius: 12px;
+  background: var(--co-look-sheet);
+  color: var(--co-look-ink);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  box-shadow: none;
+}
+.hub-company-input:focus {
+  outline: none;
+  border-color: #2E75B6;
+}
+.hub-company-input-wrap {
+  position: relative;
+}
+.hub-company-input-wrap .hub-company-eye {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--co-look-muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.hub-company .company-logo-strip {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 16px 0;
+  margin: 0;
+  border-bottom: 1px solid var(--co-look-line);
+  font-family: inherit;
+  box-shadow: none;
+}
+.hub-company .company-logo-strip-title {
+  font-family: Rajdhani, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--co-look-muted);
+}
+.hub-company .company-logo-strip-ctl,
+.hub-company .company-logo-strip-clear {
+  min-height: 44px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+}
+.hub-company .company-logo-strip-ctl {
+  border: 1px solid var(--co-look-line);
+  background: var(--co-look-sheet);
+  color: #2E75B6;
+}
+.hub-company .company-logo-strip-clear {
+  color: var(--co-look-muted);
+}
+.hub-company .company-logo-strip-hint,
+.hub-company .company-logo-strip-miss {
+  color: var(--co-look-muted);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+.hub-company-swatch {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--co-look-line);
+  border-radius: 12px;
+  background: var(--co-look-sheet);
+  padding: 2px;
+  cursor: pointer;
+}
+.hub-company-add {
+  margin-top: 8px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--co-look-line);
+}
+.hub-company-add-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 8px;
+}
+.hub-company-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 14px;
+  color: var(--co-look-ink);
+  cursor: pointer;
+}
+.hub-company-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #2E75B6;
+}
+@media (max-width: 639px) {
+  .hub-company.ops-page { padding: 16px 16px 40px; }
+  .hub-company-sheet-bar { padding: 8px 16px; }
+  .hub-company-sheet-bar .hub-company-pill {
+    background: #2E75B6;
+    color: #fff;
+  }
+  .hub-company-sheet-body { padding: 24px 16px 16px; }
+  .hub-company-hero { font-size: 40px; }
+  .hub-company-tools {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+  .hub-company-next { width: min(100%, 240px); }
+}
+`;
 
 interface EmailSettings {
   smtp_host: string;
@@ -83,6 +426,8 @@ export function CompanySettingsPage() {
   const [savingPay, setSavingPay] = useState(false);
   const [savedPay, setSavedPay] = useState(false);
   const [payError, setPayError] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   // Inspection renderers
   const [renderers, setRenderers] = useState<Array<{ id: string; key: string; label: string; built_in: boolean }>>([]);
@@ -365,48 +710,90 @@ export function CompanySettingsPage() {
     setPaymentMethods(list => list.map(row => (row.id === id ? { ...row, ...patch } : row)));
   }
 
-  const inputClass = 'w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent text-sm';
+  async function handleExportCompanyRecords() {
+    if (!company) return;
+    setExporting(true);
+    setExportError('');
+    const result = await downloadCompanyExport(companyExportClientFromSupabase(supabase), {
+      companyId: company.id,
+    });
+    if (!result.ok) setExportError(result.message);
+    setExporting(false);
+  }
+
+  const inputClass = 'hub-company-input';
+  const sheetName = company?.name || 'Company';
 
   return (
     <AppShell>
-      <div className="page-shell-narrow">
-        <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">Company Settings</h1>
-        <p className="text-sm text-[#4A5568] mb-6">Manage your company profile and branding.</p>
+      <style>{COMPANY_LOOK_CSS}</style>
+      <div className="ops-page hub-company">
+        <p className="hub-company-label">Settings</p>
+        <article className="hub-company-sheet">
+          <header className="hub-company-sheet-bar">
+            <span className="hub-company-sheet-bar-meta">{sheetName}</span>
+            <span className="hub-company-pill">Settings</span>
+          </header>
+          <div className="hub-company-sheet-body">
+        <h1 className="hub-company-hero">{sheetName}</h1>
+        <p className="hub-company-jobline">Company profile and branding</p>
 
-        {/* Default Tax Rate */}
-        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
-          <h2 className="text-sm font-semibold text-[#1A1A1A] mb-1">Tax & Markup Defaults</h2>
-          <p className="text-xs text-[#4A5568] mb-3">Used as defaults on new quotes, invoices, and purchase orders.</p>
-          <div className="flex flex-wrap items-center gap-6">
-            <div>
-              <label className="text-xs text-[#4A5568] block mb-1">Default Tax Rate</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={taxRate}
-                  onChange={e => setTaxRate(e.target.value)}
-                  className={inputClass + ' max-w-[120px]'}
-                />
-                <span className="text-sm text-[#4A5568]">%</span>
-              </div>
+        {isAdmin && (
+          <>
+            <div className="hub-company-tools">
+              <button
+                type="button"
+                onClick={handleExportCompanyRecords}
+                disabled={exporting || !company}
+                className="hub-company-next"
+              >
+                <Download size={15} /> {exporting ? 'Preparing...' : 'Download spreadsheet'}
+              </button>
             </div>
-            <div>
-              <label className="text-xs text-[#4A5568] block mb-1">Default Material Markup</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={materialMarkup}
-                  onChange={e => setMaterialMarkup(e.target.value)}
-                  className={inputClass + ' max-w-[120px]'}
-                />
-                <span className="text-sm text-[#4A5568]">%</span>
-              </div>
-              <p className="text-[10px] text-[#9CA3AF] mt-1">Applied to stock cost when adding materials to quotes/invoices.</p>
+            <p className="hub-company-lede">
+              Download clients, jobs, invoices, and timesheets already in this company.
+            </p>
+            {exportError ? (
+              <p className="hub-company-fail">
+                <AlertCircle size={14} /> {exportError}
+              </p>
+            ) : null}
+          </>
+        )}
+
+        <p className="hub-company-kicker">Tax & Markup Defaults</p>
+        <p className="hub-company-lede">Used as defaults on new quotes, invoices, and purchase orders.</p>
+        <div className="hub-company-row">
+          <label className="hub-company-row-label">Default Tax Rate</label>
+          <div className="hub-company-field" style={{ maxWidth: 160 }}>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={taxRate}
+                onChange={e => setTaxRate(e.target.value)}
+                className={inputClass}
+              />
+              <span className="hub-company-row-meta">%</span>
             </div>
+          </div>
+        </div>
+        <div className="hub-company-row">
+          <label className="hub-company-row-label">Default Material Markup</label>
+          <div className="hub-company-field" style={{ maxWidth: 240 }}>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                value={materialMarkup}
+                onChange={e => setMaterialMarkup(e.target.value)}
+                className={inputClass}
+              />
+              <span className="hub-company-row-meta">%</span>
+            </div>
+            <p className="hub-company-row-meta">Applied to stock cost when adding materials to quotes/invoices.</p>
           </div>
         </div>
 
@@ -450,53 +837,51 @@ export function CompanySettingsPage() {
 
         {/* Report branding / theme — admin only */}
         {isAdmin && (
-          <form onSubmit={handleSaveReportTheme} className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Palette size={16} className="text-[#2E75B6]" />
-              <h2 className="text-sm font-semibold text-[#1A1A1A]">Report branding / theme</h2>
-            </div>
-            <p className="text-xs text-[#4A5568] mb-4">
+          <form onSubmit={handleSaveReportTheme}>
+            <p className="hub-company-kicker">
+              <Palette size={14} className="inline mr-2" />
+              Report branding / theme
+            </p>
+            <p className="hub-company-lede">
               Applies to inspection PDF letterhead accents (navy bars, accent highlights).
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              {(
-                [
-                  { key: 'navy', label: 'Navy' },
-                  { key: 'accent', label: 'Accent' },
-                  { key: 'accentLight', label: 'Accent light' },
-                  { key: 'navyLight', label: 'Navy light' },
-                ] as const
-              ).map(({ key, label }) => (
-                <div key={key}>
-                  <label className="text-xs text-[#4A5568] block mb-1">{label}</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={reportTheme[key]}
-                      onChange={e => setReportTheme(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="w-9 h-9 rounded border border-[#E5E7EB] cursor-pointer bg-white p-0.5"
-                    />
-                    <input
-                      type="text"
-                      value={reportTheme[key]}
-                      onChange={e => setReportTheme(prev => ({ ...prev, [key]: e.target.value }))}
-                      className={inputClass + ' font-mono'}
-                      pattern="^#[0-9A-Fa-f]{6}$"
-                      placeholder="#000000"
-                    />
-                  </div>
+            {(
+              [
+                { key: 'navy', label: 'Navy' },
+                { key: 'accent', label: 'Accent' },
+                { key: 'accentLight', label: 'Accent light' },
+                { key: 'navyLight', label: 'Navy light' },
+              ] as const
+            ).map(({ key, label }) => (
+              <div key={key} className="hub-company-row">
+                <label className="hub-company-row-label">{label}</label>
+                <div className="hub-company-field flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={reportTheme[key]}
+                    onChange={e => setReportTheme(prev => ({ ...prev, [key]: e.target.value }))}
+                    className="hub-company-swatch"
+                  />
+                  <input
+                    type="text"
+                    value={reportTheme[key]}
+                    onChange={e => setReportTheme(prev => ({ ...prev, [key]: e.target.value }))}
+                    className={inputClass + ' font-mono'}
+                    pattern="^#[0-9A-Fa-f]{6}$"
+                    placeholder="#000000"
+                  />
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
             {themeError && (
-              <p className="text-sm text-red-600 mb-3 flex items-center gap-1.5">
+              <p className="hub-company-fail">
                 <AlertCircle size={14} /> {themeError}
               </p>
             )}
             <button
               type="submit"
               disabled={savingTheme}
-              className="flex items-center gap-1.5 bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
+              className="hub-company-sub"
             >
               {themeSaved ? <><Check size={14} /> Saved</> : savingTheme ? 'Saving...' : 'Save theme'}
             </button>
@@ -504,93 +889,87 @@ export function CompanySettingsPage() {
         )}
 
         {/* Inspection Types */}
-        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[#1A1A1A]">Inspection Types</h2>
-            {!showAddRenderer && (
+        <p className="hub-company-kicker">Inspection Types</p>
+        {!showAddRenderer && (
+          <button
+            onClick={() => setShowAddRenderer(true)}
+            className="hub-company-sub"
+          >
+            <Plus size={14} /> Add Type
+          </button>
+        )}
+
+        {showAddRenderer && (
+          <form onSubmit={handleAddRenderer} className="hub-company-add">
+            <input
+              type="text"
+              value={newRendererLabel}
+              onChange={e => setNewRendererLabel(e.target.value)}
+              placeholder="e.g. Roof Inspection, HVAC Check"
+              className={inputClass}
+              autoFocus
+            />
+            <div className="hub-company-add-acts">
               <button
-                onClick={() => setShowAddRenderer(true)}
-                className="flex items-center gap-1.5 text-xs bg-[#0A2540] text-white px-2.5 py-1.5 rounded hover:bg-[#0d2f4e]"
+                type="submit"
+                disabled={savingRenderer}
+                className="hub-company-sub"
               >
-                <Plus size={14} /> Add Type
+                {savingRenderer ? 'Creating...' : 'Create'}
               </button>
-            )}
-          </div>
-
-          {showAddRenderer && (
-            <form onSubmit={handleAddRenderer} className="mb-4 p-3 bg-[#F9FAFB] border border-[#E5E7EB] rounded">
-              <input
-                type="text"
-                value={newRendererLabel}
-                onChange={e => setNewRendererLabel(e.target.value)}
-                placeholder="e.g. Roof Inspection, HVAC Check"
-                className="w-full min-h-[44px] px-3 py-2 border border-[#E5E7EB] rounded text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
-                autoFocus
-              />
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={savingRenderer}
-                  className="text-xs bg-[#0A2540] text-white px-3 py-1.5 rounded hover:bg-[#0d2f4e] disabled:opacity-50"
-                >
-                  {savingRenderer ? 'Creating...' : 'Create'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddRenderer(false)}
-                  className="text-xs border border-[#E5E7EB] text-[#4A5568] px-3 py-1.5 rounded hover:bg-[#F9FAFB]"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
-
-          <div className="space-y-2">
-            {loadingRenderers ? (
-              <p className="text-xs text-[#4A5568]">Loading...</p>
-            ) : renderers.length === 0 ? (
-              <p className="text-xs text-[#4A5568]">No custom inspection types yet.</p>
-            ) : (
-              renderers.map(renderer => (
-                <div key={renderer.id} className="flex items-center justify-between p-2.5 bg-[#F9FAFB] rounded border border-[#E5E7EB]">
-                  <div>
-                    <p className="text-sm text-[#1A1A1A] font-medium">{renderer.label}</p>
-                    {renderer.built_in && <p className="text-xs text-[#4A5568]">Built-in</p>}
-                  </div>
-                  {!renderer.built_in && (
-                    <button
-                      onClick={() => handleDeleteRenderer(renderer.id)}
-                      className="text-[#4A5568] hover:text-red-600 p-1"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Email / SMTP Settings â€” admin only */}
-        {isAdmin && (
-          <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Mail size={16} className="text-[#2E75B6]" />
-              <h2 className="text-sm font-semibold text-[#1A1A1A]">Email Settings</h2>
+              <button
+                type="button"
+                onClick={() => setShowAddRenderer(false)}
+                className="hub-company-sub is-quiet"
+              >
+                Cancel
+              </button>
             </div>
-            <p className="text-xs text-[#4A5568] mb-4">
+          </form>
+        )}
+
+        {loadingRenderers ? (
+          <p className="hub-company-lede">Loading...</p>
+        ) : renderers.length === 0 ? (
+          <p className="hub-company-lede">No custom inspection types yet.</p>
+        ) : (
+          renderers.map(renderer => (
+            <div key={renderer.id} className="hub-company-row">
+              <div>
+                <p className="hub-company-row-label">{renderer.label}</p>
+                {renderer.built_in && <p className="hub-company-row-meta">Built-in</p>}
+              </div>
+              {!renderer.built_in && (
+                <button
+                  onClick={() => handleDeleteRenderer(renderer.id)}
+                  className="hub-company-sub is-quiet"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+          ))
+        )}
+
+        {/* Email / SMTP Settings — admin only */}
+        {isAdmin && (
+          <>
+            <p className="hub-company-kicker">
+              <Mail size={14} className="inline mr-2" />
+              Email Settings
+            </p>
+            <p className="hub-company-lede">
               Configure a custom SMTP server so invitation emails are sent reliably from your own address.
               If left empty, the system will attempt to use the default email provider.
             </p>
 
             {loadingEmail ? (
-              <p className="text-xs text-[#4A5568]">Loading...</p>
+              <p className="hub-company-lede">Loading...</p>
             ) : (
-              <form onSubmit={handleSaveEmailSettings} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">From Name</label>
+              <form onSubmit={handleSaveEmailSettings}>
+                <div className="hub-company-row">
+                  <label className="hub-company-row-label">From Name</label>
+                  <div className="hub-company-field">
                     <input
                       value={emailSettings.from_name}
                       onChange={e => setEmailSettings(s => ({ ...s, from_name: e.target.value }))}
@@ -598,8 +977,10 @@ export function CompanySettingsPage() {
                       className={inputClass}
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">From Email</label>
+                </div>
+                <div className="hub-company-row">
+                  <label className="hub-company-row-label">From Email</label>
+                  <div className="hub-company-field">
                     <input
                       type="email"
                       value={emailSettings.from_email}
@@ -609,12 +990,11 @@ export function CompanySettingsPage() {
                     />
                   </div>
                 </div>
-
-                <div className="border-t border-[#E5E7EB] pt-4">
-                  <p className="text-xs font-semibold text-[#4A5568] uppercase tracking-wide mb-3">SMTP Server</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    <div className="col-span-1 sm:col-span-2">
-                      <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">SMTP Host</label>
+                <p className="hub-company-kicker">SMTP Server</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="col-span-1 sm:col-span-2 hub-company-row">
+                    <label className="hub-company-row-label">SMTP Host</label>
+                    <div className="hub-company-field">
                       <input
                         value={emailSettings.smtp_host}
                         onChange={e => setEmailSettings(s => ({ ...s, smtp_host: e.target.value }))}
@@ -622,8 +1002,10 @@ export function CompanySettingsPage() {
                         className={inputClass}
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Port</label>
+                  </div>
+                  <div className="hub-company-row">
+                    <label className="hub-company-row-label">Port</label>
+                    <div className="hub-company-field">
                       <input
                         type="number"
                         value={emailSettings.smtp_port}
@@ -633,59 +1015,56 @@ export function CompanySettingsPage() {
                       />
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">SMTP Username</label>
-                      <input
-                        value={emailSettings.smtp_user}
-                        onChange={e => setEmailSettings(s => ({ ...s, smtp_user: e.target.value }))}
-                        placeholder="apikey"
-                        autoComplete="off"
-                        className={inputClass}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">SMTP Password / API Key</label>
-                      <div className="relative">
-                        <input
-                          type={showPass ? 'text' : 'password'}
-                          value={emailSettings.smtp_pass}
-                          onChange={e => setEmailSettings(s => ({ ...s, smtp_pass: e.target.value }))}
-                          placeholder="API key"
-                          autoComplete="new-password"
-                          className={inputClass + ' pr-12'}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPass(v => !v)}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#4A5568] hover:text-[#1A1A1A]"
-                        >
-                          {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <label className="flex items-center gap-2 text-sm text-[#1A1A1A] cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={emailSettings.smtp_secure}
-                      onChange={e => setEmailSettings(s => ({ ...s, smtp_secure: e.target.checked }))}
-                      className="w-4 h-4 accent-[#2E75B6]"
-                    />
-                    Use TLS/SSL (port 465)
-                  </label>
                 </div>
+                <div className="hub-company-row">
+                  <label className="hub-company-row-label">SMTP Username</label>
+                  <div className="hub-company-field">
+                    <input
+                      value={emailSettings.smtp_user}
+                      onChange={e => setEmailSettings(s => ({ ...s, smtp_user: e.target.value }))}
+                      placeholder="apikey"
+                      autoComplete="off"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                <div className="hub-company-row">
+                  <label className="hub-company-row-label">SMTP Password / API Key</label>
+                  <div className="hub-company-field hub-company-input-wrap">
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      value={emailSettings.smtp_pass}
+                      onChange={e => setEmailSettings(s => ({ ...s, smtp_pass: e.target.value }))}
+                      placeholder="API key"
+                      autoComplete="new-password"
+                      className={inputClass + ' pr-12'}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass(v => !v)}
+                      className="hub-company-eye"
+                    >
+                      {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+                <label className="hub-company-check">
+                  <input
+                    type="checkbox"
+                    checked={emailSettings.smtp_secure}
+                    onChange={e => setEmailSettings(s => ({ ...s, smtp_secure: e.target.checked }))}
+                  />
+                  Use TLS/SSL (port 465)
+                </label>
 
                 {emailError && (
-                  <p className="text-sm text-red-600 flex items-center gap-1.5">
+                  <p className="hub-company-fail">
                     <AlertCircle size={14} /> {emailError}
                   </p>
                 )}
 
                 {testResult && (
-                  <div className={`flex items-start gap-2 text-sm p-3 rounded-md border ${testResult.ok ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                  <div className={testResult.ok ? 'hub-company-note' : 'hub-company-fail'}>
                     {testResult.ok
                       ? <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
                       : <AlertCircle size={15} className="shrink-0 mt-0.5" />
@@ -694,11 +1073,11 @@ export function CompanySettingsPage() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 pt-1">
+                <div className="hub-company-add-acts">
                   <button
                     type="submit"
                     disabled={savingEmail}
-                    className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
+                    className="hub-company-sub"
                   >
                     {emailSaved ? <><Check size={15} /> Saved</> : savingEmail ? 'Saving...' : 'Save Email Settings'}
                   </button>
@@ -707,7 +1086,7 @@ export function CompanySettingsPage() {
                       type="button"
                       onClick={handleTestEmail}
                       disabled={testingEmail}
-                      className="flex items-center gap-2 border border-[#E5E7EB] text-[#4A5568] px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#F9FAFB] disabled:opacity-50"
+                      className="hub-company-sub is-quiet"
                     >
                       {testingEmail ? 'Sending...' : 'Send Test Email'}
                     </button>
@@ -715,198 +1094,189 @@ export function CompanySettingsPage() {
                 </div>
               </form>
             )}
-          </div>
+          </>
         )}
 
-        {/* Registered Users â€” admin only */}
+        {/* Registered Users — admin only */}
         {isAdmin && (
-          <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
-            <div className="flex items-center justify-between gap-2 mb-4">
-              <div className="flex items-center gap-2">
-                <Users size={16} className="text-[#2E75B6]" />
-                <h2 className="text-sm font-semibold text-[#1A1A1A]">Registered Users</h2>
-              </div>
-              <Link
-                to="/settings/team"
-                className="text-xs font-medium text-[#2E75B6] hover:underline"
-              >
-                Manage team →
-              </Link>
-            </div>
+          <>
+            <p className="hub-company-kicker">
+              <Users size={14} className="inline mr-2" />
+              Registered Users
+            </p>
+            <Link
+              to="/settings/team"
+              className="hub-company-sub"
+            >
+              Manage team →
+            </Link>
 
             {loadingUsers ? (
-              <p className="text-xs text-[#4A5568]">Loading users...</p>
+              <p className="hub-company-lede">Loading users...</p>
             ) : usersError && !isDevFieldAuditAuth() ? (
-              <div className="text-xs text-[#B42318]">
+              <div className="hub-company-fail">
                 Could not load registered users.{' '}
-                <button type="button" onClick={() => refetchUsers()} className="underline font-medium">
+                <button type="button" onClick={() => refetchUsers()} className="hub-company-sub">
                   Retry
                 </button>
               </div>
             ) : registeredUsers && registeredUsers.length === 0 ? (
-              <p className="text-xs text-[#4A5568]">No users registered yet.</p>
+              <p className="hub-company-lede">No users registered yet.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[#E5E7EB]">
-                      <th className="text-left py-2 px-3 font-medium text-[#1A1A1A]">Name</th>
-                      <th className="text-left py-2 px-3 font-medium text-[#1A1A1A]">Email</th>
-                      <th className="text-left py-2 px-3 font-medium text-[#1A1A1A] hidden sm:table-cell">Role</th>
-                      <th className="text-left py-2 px-3 font-medium text-[#1A1A1A] hidden sm:table-cell">Status</th>
-                      <th className="text-left py-2 px-3 font-medium text-[#1A1A1A] hidden md:table-cell">Joined</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {registeredUsers?.map(user => (
-                      <tr key={user.id} className="border-b border-[#F3F4F6] hover:bg-[#F9FAFB]">
-                        <td className="py-2.5 px-3 text-[#1A1A1A]">{user.name || '—'}</td>
-                        <td className="py-2.5 px-3 text-[#4A5568]">{user.email}</td>
-                        <td className="py-2.5 px-3 hidden sm:table-cell">
-                          <span className="inline-flex px-2 py-0.5 text-xs rounded-full border border-[#E5E7EB] text-[#4A5568] capitalize">
-                            {user.role || 'member'}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 hidden sm:table-cell">
-                          {user.email_confirmed_at ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full border border-green-200">
-                              <Check size={12} /> Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 text-xs rounded-full border border-amber-200">
-                              Pending
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-[#9CA3AF] hidden md:table-cell text-xs">
-                          {user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              registeredUsers?.map(user => (
+                <div key={user.id} className="hub-company-row">
+                  <div>
+                    <p className="hub-company-row-label">{user.name || '—'}</p>
+                    <p className="hub-company-row-meta">{user.email}</p>
+                  </div>
+                  <div className="hub-company-row-meta">
+                    <span className="capitalize">{user.role || 'member'}</span>
+                    {' · '}
+                    {user.email_confirmed_at ? 'Active' : 'Pending'}
+                    {user.created_at ? ` · ${new Date(user.created_at).toLocaleDateString()}` : ''}
+                  </div>
+                </div>
+              ))
             )}
-          </div>
+          </>
         )}
 
         {/* Company details */}
-        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6">
-          <h2 className="text-sm font-semibold text-[#1A1A1A] mb-4">Company Details</h2>
-          <form onSubmit={handleSave} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Company Name</label>
+        <p className="hub-company-kicker">Company Details</p>
+        <form onSubmit={handleSave}>
+          <div className="hub-company-row">
+            <label className="hub-company-row-label">Company Name</label>
+            <div className="hub-company-field">
               <input value={name} onChange={e => setName(e.target.value)} required className={inputClass} />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">ABN</label>
-                <input value={abn} onChange={e => setAbn(e.target.value)}
-                  className={inputClass + ' font-mono'} placeholder="00 000 000 000" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Licence Number</label>
-                <input value={licenceNumber} onChange={e => setLicenceNumber(e.target.value)}
-                  className={inputClass + ' font-mono'} placeholder="EL-12345" />
-              </div>
+          </div>
+          <div className="hub-company-row">
+            <label className="hub-company-row-label">ABN</label>
+            <div className="hub-company-field">
+              <input value={abn} onChange={e => setAbn(e.target.value)}
+                className={inputClass + ' font-mono'} placeholder="00 000 000 000" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Phone</label>
+          </div>
+          <div className="hub-company-row">
+            <label className="hub-company-row-label">Licence Number</label>
+            <div className="hub-company-field">
+              <input value={licenceNumber} onChange={e => setLicenceNumber(e.target.value)}
+                className={inputClass + ' font-mono'} placeholder="EL-12345" />
+            </div>
+          </div>
+          <div className="hub-company-row">
+            <label className="hub-company-row-label">Phone</label>
+            <div className="hub-company-field">
               <input value={phone} onChange={e => setPhone(e.target.value)}
                 className={inputClass} placeholder="0400 000 000" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Email</label>
+          </div>
+          <div className="hub-company-row">
+            <label className="hub-company-row-label">Email</label>
+            <div className="hub-company-field">
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                 className={inputClass} placeholder="info@company.com.au" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Website</label>
+          </div>
+          <div className="hub-company-row">
+            <label className="hub-company-row-label">Website</label>
+            <div className="hub-company-field">
               <input type="text" value={website} onChange={e => setWebsite(e.target.value)}
                 className={inputClass} placeholder="www.company.com.au" />
             </div>
+          </div>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="hub-company-fail">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
-            >
-              {saved ? <><Check size={15} /> Saved</> : saving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </form>
-        </div>
+          <button
+            type="submit"
+            disabled={saving}
+            className="hub-company-sub"
+          >
+            {saved ? <><Check size={15} /> Saved</> : saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </form>
 
-        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6">
-          <h2 className="text-sm font-semibold text-[#1A1A1A] mb-1">How clients pay</h2>
-          <p className="text-xs text-[#4A5568] mb-4">Printed on invoices as the way to pay. Leave empty if you do not want bank details on the invoice.</p>
-          <form onSubmit={handleSavePaymentMethods} className="space-y-4">
-            {paymentMethods.map(method => (
-              <div key={method.id} className="border border-[#E5E7EB] rounded-md p-3 space-y-3">
-                <div className="flex items-center gap-2">
-                  <select
-                    value={method.kind}
-                    onChange={e => {
-                      const kind = e.target.value as CompanyPaymentKind;
-                      patchPaymentMethod(method.id, {
-                        kind,
-                        label: COMPANY_PAYMENT_KIND_LABEL[kind],
-                      });
-                    }}
-                    className={inputClass + ' max-w-[180px]'}
-                    aria-label="Payment method type"
-                  >
-                    <option value="bank_transfer">{COMPANY_PAYMENT_KIND_LABEL.bank_transfer}</option>
-                    <option value="payid">{COMPANY_PAYMENT_KIND_LABEL.payid}</option>
-                    <option value="other">{COMPANY_PAYMENT_KIND_LABEL.other}</option>
-                  </select>
-                  <input
-                    value={method.label}
-                    onChange={e => patchPaymentMethod(method.id, { label: e.target.value })}
-                    className={inputClass}
-                    placeholder="Label on the invoice"
-                    aria-label="Payment method label"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethods(list => list.filter(row => row.id !== method.id))}
-                    className="p-2 text-[#4A5568] hover:text-red-600"
-                    aria-label="Remove payment method"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-                {method.kind === 'bank_transfer' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs text-[#4A5568] mb-1">Account name</label>
+        <p className="hub-company-kicker">How clients pay</p>
+        <p className="hub-company-lede">Printed on invoices as the way to pay. Leave empty if you do not want bank details on the invoice.</p>
+        <form onSubmit={handleSavePaymentMethods}>
+          {paymentMethods.map(method => (
+            <div key={method.id}>
+              <div className="hub-company-row">
+                <select
+                  value={method.kind}
+                  onChange={e => {
+                    const kind = e.target.value as CompanyPaymentKind;
+                    patchPaymentMethod(method.id, {
+                      kind,
+                      label: COMPANY_PAYMENT_KIND_LABEL[kind],
+                    });
+                  }}
+                  className={inputClass}
+                  style={{ maxWidth: 180 }}
+                  aria-label="Payment method type"
+                >
+                  <option value="bank_transfer">{COMPANY_PAYMENT_KIND_LABEL.bank_transfer}</option>
+                  <option value="payid">{COMPANY_PAYMENT_KIND_LABEL.payid}</option>
+                  <option value="other">{COMPANY_PAYMENT_KIND_LABEL.other}</option>
+                </select>
+                <input
+                  value={method.label}
+                  onChange={e => patchPaymentMethod(method.id, { label: e.target.value })}
+                  className={inputClass}
+                  placeholder="Label on the invoice"
+                  aria-label="Payment method label"
+                />
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethods(list => list.filter(row => row.id !== method.id))}
+                  className="hub-company-sub is-quiet"
+                  aria-label="Remove payment method"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+              {method.kind === 'bank_transfer' ? (
+                <>
+                  <div className="hub-company-row">
+                    <label className="hub-company-row-label">Account name</label>
+                    <div className="hub-company-field">
                       <input value={method.account_name} onChange={e => patchPaymentMethod(method.id, { account_name: e.target.value })} className={inputClass} />
                     </div>
-                    <div>
-                      <label className="block text-xs text-[#4A5568] mb-1">BSB</label>
+                  </div>
+                  <div className="hub-company-row">
+                    <label className="hub-company-row-label">BSB</label>
+                    <div className="hub-company-field">
                       <input value={method.bsb} onChange={e => patchPaymentMethod(method.id, { bsb: e.target.value })} className={inputClass + ' font-mono'} />
                     </div>
-                    <div>
-                      <label className="block text-xs text-[#4A5568] mb-1">Account number</label>
+                  </div>
+                  <div className="hub-company-row">
+                    <label className="hub-company-row-label">Account number</label>
+                    <div className="hub-company-field">
                       <input value={method.account_number} onChange={e => patchPaymentMethod(method.id, { account_number: e.target.value })} className={inputClass + ' font-mono'} />
                     </div>
                   </div>
-                ) : null}
-                {method.kind === 'payid' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-[#4A5568] mb-1">PayID</label>
+                </>
+              ) : null}
+              {method.kind === 'payid' ? (
+                <>
+                  <div className="hub-company-row">
+                    <label className="hub-company-row-label">PayID</label>
+                    <div className="hub-company-field">
                       <input value={method.payid} onChange={e => patchPaymentMethod(method.id, { payid: e.target.value })} className={inputClass} placeholder="email, phone, or ABN" />
                     </div>
-                    <div>
-                      <label className="block text-xs text-[#4A5568] mb-1">Account name</label>
+                  </div>
+                  <div className="hub-company-row">
+                    <label className="hub-company-row-label">Account name</label>
+                    <div className="hub-company-field">
                       <input value={method.account_name} onChange={e => patchPaymentMethod(method.id, { account_name: e.target.value })} className={inputClass} />
                     </div>
                   </div>
-                ) : null}
-                <div>
-                  <label className="block text-xs text-[#4A5568] mb-1">Notes on the invoice</label>
+                </>
+              ) : null}
+              <div className="hub-company-row">
+                <label className="hub-company-row-label">Notes on the invoice</label>
+                <div className="hub-company-field">
                   <input
                     value={method.notes}
                     onChange={e => patchPaymentMethod(method.id, { notes: e.target.value })}
@@ -915,24 +1285,26 @@ export function CompanySettingsPage() {
                   />
                 </div>
               </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => setPaymentMethods(list => [...list, blankCompanyPaymentMethod('bank_transfer')])}
-              className="flex items-center gap-2 text-sm text-[#2E75B6]"
-            >
-              <Plus size={15} /> Add a payment method
-            </button>
-            {payError ? <p className="text-sm text-red-600">{payError}</p> : null}
-            <button
-              type="submit"
-              disabled={savingPay}
-              className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
-            >
-              {savedPay ? <><Check size={15} /> Saved</> : savingPay ? 'Saving...' : 'Save payment methods'}
-            </button>
-          </form>
-        </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setPaymentMethods(list => [...list, blankCompanyPaymentMethod('bank_transfer')])}
+            className="hub-company-sub"
+          >
+            <Plus size={15} /> Add a payment method
+          </button>
+          {payError ? <p className="hub-company-fail">{payError}</p> : null}
+          <button
+            type="submit"
+            disabled={savingPay}
+            className="hub-company-sub"
+          >
+            {savedPay ? <><Check size={15} /> Saved</> : savingPay ? 'Saving...' : 'Save payment methods'}
+          </button>
+        </form>
+          </div>
+        </article>
       </div>
     </AppShell>
   );
