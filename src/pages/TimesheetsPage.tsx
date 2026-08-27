@@ -6,12 +6,26 @@ import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { getAuditEmptyList, getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, useToast } from '../components/ui';
+import { LoadingSpinner, PageError, EmptyState, SearchBar, useToast } from '../components/ui';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import { format, parseISO, startOfWeek, addDays, isSameDay } from 'date-fns';
 import { Clock, Play, Square, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Timesheet, TimesheetEntry } from '../types/fsm';
 import { TIMESHEET_STATUS_LABELS, formatDuration } from '../types/fsm';
+import {
+  TIMESHEET_LIST_DEFAULT_FILTER,
+  TIMESHEET_LIST_FILTERS,
+  timesheetListAttachJobs,
+  timesheetListEmptyKind,
+  timesheetListEmptyMessage,
+  timesheetListEmptyTitle,
+  timesheetListOpenHref,
+  timesheetListOpenId,
+  timesheetListOpened,
+  timesheetListVisibleItems,
+  timesheetListWeekStart,
+  type TimesheetListFilter,
+} from '../lib/timesheetsList';
 
 export function TimesheetsPage() {
   const { profile } = useAuth();
@@ -20,7 +34,10 @@ export function TimesheetsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [currentWeek, setCurrentWeek] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<TimesheetListFilter>(TIMESHEET_LIST_DEFAULT_FILTER);
   const presetJobId = searchParams.get('job');
+  const openId = timesheetListOpenId(searchParams.get('id'));
   const [showEntryForm, setShowEntryForm] = useState(() => !!presetJobId);
 
   const { data: teamMembers, isFetched: teamFetched } = useQuery({
@@ -66,6 +83,31 @@ export function TimesheetsPage() {
     },
     enabled: !!profile,
   });
+
+  const needsRemoteOpen = !!openId && !(timesheets ?? []).some(t => t.id === openId);
+
+  const { data: openedRemote } = useQuery({
+    queryKey: ['timesheet-open', openId],
+    queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return null;
+      const { data, error } = await supabase
+        .from('timesheets')
+        .select('*')
+        .eq('id', openId)
+        .eq('company_id', profile!.company_id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data ?? null) as Timesheet | null;
+    },
+    enabled: !!profile && needsRemoteOpen,
+  });
+
+  useEffect(() => {
+    if (!openedRemote) return;
+    setSelectedEmployee(openedRemote.employee_id);
+    setCurrentWeek(timesheetListWeekStart(openedRemote.date));
+  }, [openedRemote]);
 
   const { data: entries } = useQuery({
     queryKey: ['timesheet-entries', selectedEmployee, weekStart],
@@ -142,8 +184,34 @@ export function TimesheetsPage() {
     return myTimesheets.reduce((s, t) => s + (t.total_minutes ?? 0), 0);
   }, [myTimesheets]);
 
+  const decorated = useMemo(() => {
+    const names = new Map((teamMembers ?? []).map(m => [m.id, m.name]));
+    return myTimesheets.map(t => ({
+      ...timesheetListAttachJobs(t, entries ?? [], jobs ?? []),
+      employee_name: names.get(t.employee_id) ?? null,
+    }));
+  }, [myTimesheets, entries, jobs, teamMembers]);
+
+  const visible = useMemo(
+    () => timesheetListVisibleItems(decorated, { filter, query: search, job: presetJobId }),
+    [decorated, filter, search, presetJobId],
+  );
+
+  const empty = timesheetListEmptyKind({
+    total: decorated.length,
+    visible: visible.length,
+    filter,
+    query: search,
+  });
+
+  const opened = timesheetListOpened(myTimesheets, openId);
   const todayTs = myTimesheets.find(t => isSameDay(parseISO(t.date), new Date()));
   const isClockedIn = !!todayTs?.clock_in && !todayTs?.clock_out;
+  const shownEntries = useMemo(() => {
+    const all = entries ?? [];
+    if (!openId) return all;
+    return all.filter(entry => entry.timesheet_id === openId);
+  }, [entries, openId]);
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load timesheets" /></AppShell>;
@@ -187,6 +255,26 @@ export function TimesheetsPage() {
           </select>
         </div>
 
+        <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex-1 min-w-[200px]">
+            <SearchBar
+              value={search}
+              onChange={setSearch}
+              placeholder="Search job, date, #0042…"
+            />
+          </div>
+          <select
+            value={filter}
+            onChange={e => setFilter(e.target.value as TimesheetListFilter)}
+            className="min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+            aria-label="Filter timesheets"
+          >
+            {TIMESHEET_LIST_FILTERS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Summary */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <SummaryCard label="Week Total" value={formatDuration(weekTotal)} accentColor="#0A2540" />
@@ -201,28 +289,75 @@ export function TimesheetsPage() {
             {weekDays.map((day, i) => {
               const ts = myTimesheets.find(t => isSameDay(parseISO(t.date), day));
               const isToday = isSameDay(day, new Date());
-              return (
-                <div key={i} className={`p-3 text-center ${isToday ? 'bg-blue-50' : 'bg-[#F9FAFB]'}`}>
+              const isOpen = !!ts && ts.id === openId;
+              const cls = `p-3 text-center ${isOpen || isToday ? 'bg-blue-50' : 'bg-[#F9FAFB]'}`;
+              const inner = (
+                <>
                   <p className="text-xs font-medium text-[#6B7280] uppercase">{format(day, 'EEE')}</p>
-                  <p className={`text-lg font-bold ${isToday ? 'text-[#2E75B6]' : 'text-[#1A1A1A]'}`}>{format(day, 'dd')}</p>
+                  <p className={`text-lg font-bold ${isToday || isOpen ? 'text-[#2E75B6]' : 'text-[#1A1A1A]'}`}>{format(day, 'dd')}</p>
                   {ts && ts.total_minutes > 0 && <p className="text-xs text-[#4A5568] mt-1">{formatDuration(ts.total_minutes)}</p>}
-                </div>
+                </>
+              );
+              return ts ? (
+                <Link key={i} to={timesheetListOpenHref(ts.id, presetJobId)} className={`${cls} block`}>
+                  {inner}
+                </Link>
+              ) : (
+                <div key={i} className={cls}>{inner}</div>
               );
             })}
           </div>
 
+          <div className="p-4 border-b border-[#E5E7EB]">
+            <h3 className="text-sm font-semibold text-[#1A1A1A] mb-3">Timesheets</h3>
+            {empty && (
+              <EmptyState
+                icon={Clock}
+                title={timesheetListEmptyTitle(empty)}
+                message={timesheetListEmptyMessage(empty)}
+              />
+            )}
+            {visible.length > 0 && (
+              <div className="space-y-2">
+                {visible.map(item => {
+                  const isOpen = item.row.id === openId;
+                  return (
+                    <Link
+                      key={item.row.id}
+                      to={item.href}
+                      className={`flex items-center justify-between p-3 rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB] transition-colors ${isOpen ? 'bg-blue-50' : ''}`}
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-[#1A1A1A]">{item.title}</p>
+                        <p className="text-xs text-[#4A5568]">
+                          {[item.jobLine, item.statusLabel].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-[#1A1A1A]">{item.hoursLabel}</span>
+                        <span className="text-sm font-medium text-[#2E75B6]">Open</span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Entries list */}
           <div className="p-4">
-            <h3 className="text-sm font-semibold text-[#1A1A1A] mb-3">Time Entries</h3>
-            {(entries ?? []).length === 0 ? (
+            <h3 className="text-sm font-semibold text-[#1A1A1A] mb-3">
+              {opened ? `Time entries · ${format(parseISO(opened.date), 'dd MMM')}` : 'Time Entries'}
+            </h3>
+            {shownEntries.length === 0 ? (
           <EmptyState
             icon={Clock}
-            title="No time entries for this week"
-            message="Clock in or add an entry to start tracking time."
+            title={openId ? 'No time entries on this timesheet' : 'No time entries for this week'}
+            message={openId ? 'Add an entry on this day, or clock in.' : 'Clock in or add an entry to start tracking time. Open a timesheet from the list above.'}
           />
             ) : (
               <div className="space-y-2">
-                {(entries ?? []).map(entry => {
+                {shownEntries.map(entry => {
                   const ts = myTimesheets.find(t => t.id === entry.timesheet_id);
                   const duration = entry.end_time
                     ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
@@ -259,11 +394,11 @@ export function TimesheetsPage() {
           </div>
 
           {/* Submit section */}
-          {myTimesheets.length > 0 && (
+          {(opened ? [opened] : myTimesheets).length > 0 && (
             <div className="px-4 py-3 border-t border-[#E5E7EB] flex items-center justify-between">
               <p className="text-sm text-[#4A5568]">Submit timesheets for approval when ready</p>
               <div className="flex items-center gap-2">
-                {myTimesheets.filter(t => t.status === 'open' && t.total_minutes > 0).map(t => (
+                {(opened ? [opened] : myTimesheets).filter(t => t.status === 'open' && t.total_minutes > 0).map(t => (
                   <button key={t.id} onClick={() => submitMutation.mutate(t.id)}
                     className="px-3 py-1.5 text-sm font-medium text-[#0A2540] border border-[#E5E7EB] rounded-md hover:bg-[#F9FAFB]">
                     Submit {format(parseISO(t.date), 'dd MMM')}
