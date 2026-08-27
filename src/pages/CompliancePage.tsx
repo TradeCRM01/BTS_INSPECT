@@ -431,7 +431,7 @@ function ComplianceSheet({
           </span>
         </header>
         <div className="hub-compliance-sheet-body">
-          <h1 className="ops-page-title hub-compliance-hero">{item.title}</h1>
+          <h1 className="hub-compliance-hero">{item.title}</h1>
           {meta ? <p className="hub-compliance-jobline">{meta}</p> : null}
           <div className="hub-compliance-tools">
             <button type="button" onClick={onEdit} className="hub-compliance-next">

@@ -9442,7 +9442,7 @@
     box-shadow: inset 0 1px 0 #fff;
   }
 
-  .hub-compliance-hero {
+  .hub-compliance .hub-compliance-hero {
     font-family: Rajdhani, sans-serif;
     font-weight: 700;
     font-size: 56px !important;
@@ -9706,7 +9706,7 @@
       padding: 24px 16px 16px;
     }
 
-    .hub-compliance-hero {
+    .hub-compliance .hub-compliance-hero {
       font-size: 40px !important;
     }
 
