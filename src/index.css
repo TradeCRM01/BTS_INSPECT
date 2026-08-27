@@ -5915,6 +5915,21 @@
       font-size: 32px !important;
     }
 
+    .hub-inspections-chrome {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .hub-inspections-chrome .hub-chrome-filter {
+      padding: 0 8px;
+      font-size: 13px;
+    }
+
+    .hub-inspections-chrome .relative {
+      width: 100%;
+      max-width: none;
+    }
+
     .hub-inspections-thead {
       display: none;
     }
