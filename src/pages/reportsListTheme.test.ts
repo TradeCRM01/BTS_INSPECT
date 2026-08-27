@@ -72,6 +72,7 @@ describe('reports list shows existing reports and opens the existing route', () 
     expect(page).toContain('.eq(\'company_id\', companyId)');
     expect(page).toContain('getAuditDriveUploads');
     expect(page).toContain('getAuditEmptyList');
+    expect(page).toContain('getAuditReportSendBundle');
     expect(page).toContain('pageQueryBlocked(foldersError)');
     expect(page).toContain('pageQueryBlocked(uploadsError)');
     expect(page).toContain('pageQueryBlocked(reportsError)');

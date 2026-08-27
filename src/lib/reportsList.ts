@@ -11,7 +11,7 @@ export const REPORT_LIST_INSPECTION_COLUMNS =
 export const REPORT_LIST_JOB_COLUMNS = 'id, address, title, job_number, client_id';
 export const REPORT_LIST_CLIENT_COLUMNS = 'id, name';
 
-/** Existing report page. Do not invent /reports/:id. */
+/** Existing inspection report page — not a new report record path. */
 export function reportOpenHref(inspectionId: string): string {
   const id = inspectionId.trim();
   return id ? `/inspections/${id}/report` : '/drive';

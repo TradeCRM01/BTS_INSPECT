@@ -67,12 +67,14 @@ describe('open an existing report or PDF — no new route', () => {
     expect(folderOpenHref('')).toBe('/drive');
   });
 
-  it('does not invent a reports/:id product or analytics path', () => {
+  it('does not invent a new report record path or analytics path', () => {
     const helper = src('src/lib/reportsList.ts');
-    expect(helper).not.toContain('/reports/');
     expect(helper).not.toContain('/reports-advanced');
     expect(helper).toContain('/inspections/');
     expect(helper).toContain('/uploaded-pdfs/');
+    expect(reportOpenHref('insp-1')).toBe('/inspections/insp-1/report');
+    expect(reportOpenHref('insp-1').startsWith('/reports')).toBe(false);
+    expect(uploadedPdfOpenHref('pdf-1').startsWith('/reports')).toBe(false);
   });
 });
 

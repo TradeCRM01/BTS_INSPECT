@@ -17,8 +17,8 @@ import {
   Download, PenLine, UploadCloud, Trash2,
   X, Move, Link2, Copy, Check,
 } from 'lucide-react';
-import { getAuditDriveUploads, getAuditEmptyList } from '../lib/devFieldAuditDocs';
-import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { AUDIT_REPORT_ID, getAuditDriveUploads, getAuditEmptyList, getAuditReportSendBundle } from '../lib/devFieldAuditDocs';
+import { DEV_AUDIT_COMPANY, isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
   isFileSystemAccessSupported, pickBackupFolder,
   hasStoredBackupDir, clearBackupDir, syncToBackup, syncOne,
@@ -265,6 +265,26 @@ export function ReportsListPage() {
   const { data: allReports, error: reportsError, isLoading: reportsLoading } = useQuery<ReportRow[]>({
     queryKey: ['all-reports'],
     queryFn: async () => {
+      if (isDevFieldAuditAuth()) {
+        const bundle = getAuditReportSendBundle(AUDIT_REPORT_ID, { name: DEV_AUDIT_COMPANY.name });
+        if (bundle?.report) {
+          return [{
+            id: bundle.report.id,
+            inspection_id: bundle.report.inspection_id,
+            report_number: bundle.report.report_number,
+            pdf_storage_path: bundle.report.pdf_storage_path ?? '',
+            generated_at: bundle.report.generated_at ?? '2026-08-27T09:00:00.000Z',
+            sent_at: bundle.report.sent_at ?? null,
+            folder_id: null,
+            position_x: 0,
+            position_y: 0,
+            inspection: bundle.inspection,
+            job: bundle.job,
+            clientName: bundle.client?.name ?? '',
+          }];
+        }
+        return [];
+      }
       const empty = getAuditEmptyList();
       if (empty) return empty as ReportRow[];
       const { data: reports, error } = await supabase
@@ -715,14 +735,14 @@ export function ReportsListPage() {
       await supabase.from('companies').update({ backup_last_synced_at: new Date().toISOString() }).eq('id', companyId);
       queryClient.invalidateQueries({ queryKey: ['backup-settings'] });
 
+      const done = 'synced' in result ? result.synced : result.downloaded;
       if (result.failed > 0) {
         setBackupMessage({
           type: 'error',
-          text: `Synced ${result.synced ?? result.downloaded} files, ${result.failed} failed. ${result.errors.slice(0, 2).join('; ')}`,
+          text: `Synced ${done} files, ${result.failed} failed. ${result.errors.slice(0, 2).join('; ')}`,
         });
       } else {
-        const count = isDownloadMode ? (result as { downloaded: number }).downloaded : (result as { synced: number }).synced;
-        setBackupMessage({ type: 'success', text: `Downloaded ${count} file(s) to your Downloads folder.` });
+        setBackupMessage({ type: 'success', text: `Downloaded ${done} file(s) to your Downloads folder.` });
       }
     } catch (err) {
       setBackupMessage({ type: 'error', text: err instanceof Error ? err.message : 'Sync failed' });
