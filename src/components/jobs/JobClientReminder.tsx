@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Mail, MoreHorizontal, Phone, User } from 'lucide-react';
@@ -46,12 +46,11 @@ export const JOB_REMINDER_NO_PHONE_FIELD =
 export const JOB_REMINDER_NO_CLIENT_FIELD =
   'This job has no client. Add one below before you send.';
 
-export function JobClientReminder({
-  job,
-  client,
-  company,
-  rescheduleAsked = false,
-}: {
+export type JobClientReminderHandle = {
+  sendArriving: () => void;
+};
+
+export const JobClientReminder = forwardRef<JobClientReminderHandle, {
   job: Job;
   client: Client | null;
   company: {
@@ -61,7 +60,16 @@ export function JobClientReminder({
     phone?: string | null;
   } | null;
   rescheduleAsked?: boolean;
-}) {
+  onArrivingSent?: () => void;
+  onArrivingBusy?: (busy: boolean) => void;
+}>(function JobClientReminder({
+  job,
+  client,
+  company,
+  rescheduleAsked = false,
+  onArrivingSent,
+  onArrivingBusy,
+}, ref) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [clientAttachDraft, setClientAttachDraft] = useState('');
@@ -294,10 +302,22 @@ export function JobClientReminder({
       queryClient.invalidateQueries({ queryKey: ['job', job.id] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
+      if (arrivingMode) onArrivingSent?.();
       showToast(data.message ?? `Reminder sent to ${to}${smsTo ? '' : ` ${missSmsMessage('no_phone')}`}`);
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   });
+
+  useImperativeHandle(ref, () => ({
+    sendArriving: () => {
+      if (!arrivingMode) return;
+      send.mutate();
+    },
+  }));
+
+  useEffect(() => {
+    onArrivingBusy?.(send.isPending);
+  }, [onArrivingBusy, send.isPending]);
 
   const sentAt = job.client_reminder_sent_at;
 
@@ -497,4 +517,4 @@ export function JobClientReminder({
       </div>
     </div>
   );
-}
+});

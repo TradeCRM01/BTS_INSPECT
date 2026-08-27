@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { boardDispatchHint, jobCardHint, jobInvoiceActionFlags, jobListBucket, jobListNext, partitionScheduleJobs, pickJobDraftToSend, recommendJobAction } from './jobNextAction';
+import { boardDispatchHint, jobCardHint, jobInvoiceActionFlags, jobListBucket, jobListNext, partitionScheduleJobs, pickJobDraftToSend, recommendArrivingSheetNext, recommendJobAction } from './jobNextAction';
+import {
+  ARRIVING_NEXT_LABEL,
+  CLOCK_IN_NEXT_LABEL,
+  PHONE_NEXT_LABEL,
+  isJobArrivingWindow,
+  withReminderNext,
+} from './jobReminder';
 
 const now = new Date(2026, 7, 20); // 20 Aug 2026 local
 
@@ -182,6 +189,78 @@ describe('recommendJobAction', () => {
       hasIssuedInvoice: true,
       clockedOn: true,
     }).label).toBe('Invoiced');
+  });
+
+  it('matches list arriving Next on today — Arriving shortly, not Start JHA / Start inspection', () => {
+    const today = {
+      ...base,
+      scheduledDate: '2026-08-20',
+      jhaCount: 0,
+      inspectionCount: 0,
+      arrivingWindow: true,
+      arrivingSent: false,
+      phoneRowKind: 'tel' as const,
+      phoneStored: '0412 345 678',
+    };
+    expect(recommendJobAction(today)).toMatchObject({
+      key: 'arriving',
+      label: ARRIVING_NEXT_LABEL,
+    });
+    expect(recommendArrivingSheetNext(today)?.key).toBe('arriving');
+    const perthNow = new Date('2026-08-20T08:00:00.000Z');
+    const wrapped = withReminderNext(
+      { id: 'job-1', status: 'scheduled', scheduled_date: '2026-08-20', assigned_team: ['a'] },
+      { href: '/jobs/job-1', label: recommendJobAction(today).label, actionable: true },
+      perthNow,
+    );
+    expect(wrapped.label).toBe(ARRIVING_NEXT_LABEL);
+    expect(isJobArrivingWindow({ status: 'scheduled', scheduled_date: '2026-08-20' }, perthNow)).toBe(true);
+  });
+
+  it('writes the number when arriving-window and the phone row is empty', () => {
+    expect(recommendJobAction({
+      ...base,
+      jhaCount: 0,
+      arrivingWindow: true,
+      phoneRowKind: 'edit',
+      phoneStored: '',
+    })).toMatchObject({ key: 'phone', label: PHONE_NEXT_LABEL });
+  });
+
+  it('falls back to Clock In after arriving is sent, or when there is no sendable phone after write', () => {
+    expect(recommendJobAction({
+      ...base,
+      jhaCount: 0,
+      arrivingWindow: true,
+      arrivingSent: true,
+      phoneRowKind: 'tel',
+      phoneStored: '0412 345 678',
+    })).toMatchObject({ key: 'clock', label: CLOCK_IN_NEXT_LABEL });
+    expect(recommendJobAction({
+      ...base,
+      jhaCount: 0,
+      arrivingWindow: true,
+      phoneRowKind: 'edit',
+      phoneStored: 'call me',
+    })).toMatchObject({ key: 'clock', label: CLOCK_IN_NEXT_LABEL });
+    expect(recommendJobAction({
+      ...base,
+      jhaCount: 0,
+      arrivingWindow: true,
+      phoneRowKind: 'none',
+      phoneStored: '',
+    })).toMatchObject({ key: 'clock', label: CLOCK_IN_NEXT_LABEL });
+    const perthNow = new Date('2026-08-20T08:00:00.000Z');
+    expect(withReminderNext(
+      { id: 'job-1', status: 'scheduled', scheduled_date: '2026-08-20', assigned_team: ['a'] },
+      { href: '/jobs/job-1', label: CLOCK_IN_NEXT_LABEL, actionable: true },
+      perthNow,
+    ).label).toBe(CLOCK_IN_NEXT_LABEL);
+    expect(withReminderNext(
+      { id: 'job-1', status: 'scheduled', scheduled_date: '2026-08-20', assigned_team: ['a'] },
+      { href: '/jobs/job-1', label: PHONE_NEXT_LABEL, actionable: true },
+      perthNow,
+    ).label).toBe(PHONE_NEXT_LABEL);
   });
 
   it('does not put Send ahead of date, crew, or paperwork', () => {

@@ -2,9 +2,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { JobStatus } from '../types/crm';
-import { jobListNext } from './jobNextAction';
+import { jobListNext, recommendJobAction } from './jobNextAction';
 import {
   ARRIVING_NEXT_LABEL,
+  CLOCK_IN_NEXT_LABEL,
+  PHONE_NEXT_LABEL,
   ARRIVING_PURPOSE,
   ARRIVING_SHORTLY_PIPE,
   AUTO_FIRE_CLICK_PATH,
@@ -93,6 +95,30 @@ function listNext(over: {
 }
 
 describe('Arriving shortly Next — today / in_progress only', () => {
+  it('sheet recommendation matches list Arriving shortly, then Clock In / Add phone', () => {
+    const van = {
+      status: 'scheduled' as JobStatus,
+      scheduledDate: today,
+      crewCount: 1,
+      jhaCount: 0,
+      inspectionCount: 0,
+      invoiceCount: 0,
+      hasAcceptedQuote: false,
+      hasBillLines: false,
+      clockedOn: false,
+      arrivingWindow: true,
+    };
+    expect(recommendJobAction({
+      ...van, arrivingSent: false, phoneRowKind: 'tel', phoneStored: '0412 345 678',
+    }).label).toBe(ARRIVING_NEXT_LABEL);
+    expect(recommendJobAction({
+      ...van, arrivingSent: false, phoneRowKind: 'edit', phoneStored: '',
+    }).label).toBe(PHONE_NEXT_LABEL);
+    expect(recommendJobAction({
+      ...van, arrivingSent: true, phoneRowKind: 'tel', phoneStored: '0412 345 678',
+    }).label).toBe(CLOCK_IN_NEXT_LABEL);
+  });
+
   it('labels Next Arriving shortly for today and in_progress, and lands on the existing tray', () => {
     const todayNext = listNext();
     expect(todayNext).toEqual({
@@ -401,6 +427,28 @@ describe('cron / auto-fire does not select arriving jobs', () => {
 });
 
 describe('tray invoke stays on the existing job-reminder pipe', () => {
+  it('sheet Next rides recommendJobAction + withReminderNext + JobClientReminder arriving tap', () => {
+    const page = src('src/pages/JobDetailPage.tsx');
+    const reminder = src('src/components/jobs/JobClientReminder.tsx');
+    const next = src('src/lib/jobNextAction.ts');
+    expect(page).toContain('recommendJobAction');
+    expect(page).toContain('withReminderNext');
+    expect(page).toContain('isJobArrivingWindow');
+    expect(page).toContain('arrivingWindow: isJobArrivingWindow(job)');
+    expect(page).toContain('jobClientPhoneRow({ clientId: job.client_id, client: client ?? null })');
+    expect(page).toContain('reminderRef.current?.sendArriving()');
+    expect(page).toContain('onArrivingSent');
+    expect(page).toContain('ARRIVING_NEXT_LABEL');
+    expect(next).toContain('recommendArrivingSheetNext');
+    expect(next).toContain("key: 'arriving'");
+    expect(next).toContain("key: 'phone'");
+    expect(next).toContain('CLOCK_IN_NEXT_LABEL');
+    expect(reminder).toContain('sendArriving');
+    expect(reminder).toContain("purpose: 'arriving'");
+    expect(reminder).toContain("functions.invoke('job-reminder'");
+    expect(page).not.toContain('Start JHA / Start inspection as the first tap');
+  });
+
   it('job sheet primary invokes purpose arriving on the existing tray', () => {
     const reminder = src('src/components/jobs/JobClientReminder.tsx');
     expect(reminder).toContain("purpose: 'arriving'");
