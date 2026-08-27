@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Palette } from 'lucide-react';
+import { Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Palette, Download } from 'lucide-react';
+import { companyExportClientFromSupabase, downloadCompanyExport } from '../lib/companyExport';
 import {
   COMPANY_LOGO_ACCEPT,
   companyLogoClientFromSupabase,
@@ -83,6 +84,8 @@ export function CompanySettingsPage() {
   const [savingPay, setSavingPay] = useState(false);
   const [savedPay, setSavedPay] = useState(false);
   const [payError, setPayError] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   // Inspection renderers
   const [renderers, setRenderers] = useState<Array<{ id: string; key: string; label: string; built_in: boolean }>>([]);
@@ -365,6 +368,17 @@ export function CompanySettingsPage() {
     setPaymentMethods(list => list.map(row => (row.id === id ? { ...row, ...patch } : row)));
   }
 
+  async function handleExportCompanyRecords() {
+    if (!company) return;
+    setExporting(true);
+    setExportError('');
+    const result = await downloadCompanyExport(companyExportClientFromSupabase(supabase), {
+      companyId: company.id,
+    });
+    if (!result.ok) setExportError(result.message);
+    setExporting(false);
+  }
+
   const inputClass = 'w-full px-3 py-2.5 border border-[#E5E7EB] rounded-md text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent text-sm';
 
   return (
@@ -372,6 +386,28 @@ export function CompanySettingsPage() {
       <div className="page-shell-narrow">
         <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">Company Settings</h1>
         <p className="text-sm text-[#4A5568] mb-6">Manage your company profile and branding.</p>
+
+        {isAdmin && (
+          <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
+            <h2 className="text-sm font-semibold text-[#1A1A1A] mb-1">Company records</h2>
+            <p className="text-xs text-[#4A5568] mb-4">
+              Download clients, jobs, invoices, and timesheets already in this company.
+            </p>
+            {exportError ? (
+              <p className="text-sm text-red-600 mb-3 flex items-center gap-1.5">
+                <AlertCircle size={14} /> {exportError}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleExportCompanyRecords}
+              disabled={exporting || !company}
+              className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
+            >
+              <Download size={15} /> {exporting ? 'Preparing...' : 'Download spreadsheet'}
+            </button>
+          </div>
+        )}
 
         {/* Default Tax Rate */}
         <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
