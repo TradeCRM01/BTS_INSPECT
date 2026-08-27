@@ -500,13 +500,6 @@ export function TimesheetsPage() {
               {renderWeekNav('phone')}
               {renderSheetTools()}
               {renderLedger()}
-              {opened.status === 'open' && opened.total_minutes > 0 && (
-                <div className="hub-timesheets-submit">
-                  <button type="button" onClick={() => submitMutation.mutate(opened.id)} className="hub-timesheets-week-btn">
-                    Submit {format(parseISO(opened.date), 'd MMM')}
-                  </button>
-                </div>
-              )}
             </div>
           </article>
         ) : (

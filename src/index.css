@@ -10142,7 +10142,7 @@
   .hub-timesheets-ledger-head,
   .hub-timesheets-ledger-row {
     display: grid;
-    grid-template-columns: 72px 64px 64px minmax(0, 1fr) minmax(0, 1.2fr) 88px 72px;
+    grid-template-columns: 72px 64px 64px minmax(0, 1fr) minmax(0, 1.2fr) 88px 80px;
     gap: 16px;
     align-items: center;
     padding: 12px 0;
@@ -10175,6 +10175,8 @@
 
   .hub-timesheets-ledger-row .hub-timesheets-hours {
     justify-self: end;
+    font-size: 16px;
+    white-space: nowrap;
   }
 
   .hub-timesheets-tiles {
@@ -10230,10 +10232,6 @@
   .hub-timesheets-sheet .hub-timesheets-tile-date {
     font-size: 36px;
     line-height: 1;
-  }
-
-  .hub-timesheets-sheet .hub-timesheets-hours {
-    font-size: 28px;
   }
 
   .hub-timesheets-tile-job {
