@@ -14,6 +14,28 @@ import {
   Pencil, Archive, ArchiveRestore, MoreVertical, StickyNote,
 } from 'lucide-react';
 
+/** List chrome only. Same week-board / #145 quiet elevation. Not a new kit. */
+const SUPPLIERS_LIST_LOOK_CSS = `
+.hub-suppliers {
+  --suppliers-look-page: #F5F0E6;
+  --suppliers-look-sheet: #FFFDF8;
+  --suppliers-look-line: #E2D9CC;
+}
+.hub-suppliers-list-page {
+  background: var(--suppliers-look-page);
+  min-height: calc(100dvh - 3.5rem);
+}
+.hub-suppliers-sheet {
+  background: var(--suppliers-look-sheet);
+  border: 1px solid var(--suppliers-look-line);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 28px rgba(10, 37, 64, 0.08);
+}
+`;
+
 export function SuppliersPage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
@@ -77,6 +99,8 @@ export function SuppliersPage() {
 
   return (
     <AppShell>
+      <style>{SUPPLIERS_LIST_LOOK_CSS}</style>
+      <div className="hub-suppliers hub-suppliers-list-page">
       <div className="max-w-[1200px] mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -113,16 +137,18 @@ export function SuppliersPage() {
         {isLoading ? (
           <SkeletonCardGrid />
         ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={Truck}
-            title={search ? 'No suppliers match your search' : 'No suppliers yet'}
-            message={search ? 'Try a different search term.' : 'Add your first supplier to get started.'}
-            action={!search && (
-              <button onClick={() => { setEditingSupplier(null); setShowForm(true); }} className="btn-primary">
-                <Plus size={16} /> Add your first supplier
-              </button>
-            )}
-          />
+          <div className="hub-suppliers-sheet">
+            <EmptyState
+              icon={Truck}
+              title={search ? 'No suppliers match your search' : 'No suppliers yet'}
+              message={search ? 'Try a different search term.' : 'Add your first supplier to get started.'}
+              action={!search && (
+                <button onClick={() => { setEditingSupplier(null); setShowForm(true); }} className="btn-primary">
+                  <Plus size={16} /> Add your first supplier
+                </button>
+              )}
+            />
+          </div>
         ) : viewMode === 'grid' ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map(supplier => (
@@ -136,7 +162,7 @@ export function SuppliersPage() {
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
+          <div className="hub-suppliers-sheet">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -176,6 +202,7 @@ export function SuppliersPage() {
             </div>
           </div>
         )}
+      </div>
       </div>
 
       {showForm && (

@@ -133,7 +133,9 @@ const EXPENSES_LOOK_CSS = `
   border-radius: 16px;
   padding: 0;
   overflow: hidden;
-  box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 28px rgba(10, 37, 64, 0.08);
 }
 .hub-expenses-sheet-body {
   padding: 24px 24px 20px;
