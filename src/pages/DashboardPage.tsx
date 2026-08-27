@@ -25,7 +25,7 @@ import {
   dashboardCrewLabel,
   dashboardHeadingDate,
   dashboardJobHref,
-  dashboardJobMetaLine,
+  dashboardJobPlace,
   dashboardJobState,
   dashboardJobStateLabel,
   dashboardTodayKey,
@@ -269,123 +269,124 @@ export function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1400px] mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className="ops-page dashboard-home">
+        <div className="ops-page-head">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#4A5568]">Today</p>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">
-              Good day, {profile?.name?.split(' ')[0] ?? 'there'}
-            </h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">
+            <p className="dashboard-home-kicker">Today</p>
+            <h1 className="ops-page-title">Today&apos;s work</h1>
+            <p className="dashboard-home-meta">
               {dashboardHeadingDate()}
               {company?.name ? ` · ${company.name}` : ''}
+              {!jobsLoading && work.length > 0
+                ? ` · ${work.length === 1 ? '1 job' : `${work.length} jobs`}`
+                : ''}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Link to="/schedule" className="text-sm font-medium text-[#2E75B6] hover:underline px-2 py-2">
-              Week board
-            </Link>
+          <div className="dashboard-home-actions">
             <button
+              type="button"
               onClick={() => setEditMode(e => !e)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 active:scale-[0.98] ${
-                editMode
-                  ? 'bg-[#2E75B6] text-white hover:bg-[#2565A0]'
-                  : 'border border-[#E5E7EB] text-[#4A5568] hover:bg-gray-50 hover:border-[#D1D5DB]'
-              }`}
+              className="dashboard-home-secondary"
             >
               <LayoutGrid size={16} />
-              {editMode ? 'Done Editing' : 'Customize'}
+              {editMode ? 'Done editing' : 'Customize'}
             </button>
             {editMode && (
               <button
+                type="button"
                 onClick={() => setShowPicker(true)}
                 className="btn-primary"
               >
                 <Plus size={16} />
-                Add Widget
+                Add widget
               </button>
+            )}
+            {!editMode && (
+              <Link to="/schedule" className="btn-primary">
+                Week board
+              </Link>
             )}
           </div>
         </div>
 
-        <section data-dashboard-home="1" className="mb-8">
-          <div className="flex items-baseline justify-between gap-3 mb-3">
-            <h2 className="text-sm font-semibold text-[#1A1A1A]">Today&apos;s work</h2>
-            {!jobsLoading && work.length > 0 && (
-              <p className="text-xs text-[#4A5568]">
-                {work.length === 1 ? '1 job' : `${work.length} jobs`}
-              </p>
-            )}
-          </div>
+        <section data-dashboard-home="1">
           {jobsLoading ? (
             <div className="flex justify-center py-16"><LoadingSpinner /></div>
           ) : work.length === 0 ? (
-            <EmptyState
-              icon={Briefcase}
-              title="Nothing on today"
-              message="No jobs are booked for today. The week is on the schedule."
-              action={<Link to="/schedule" className="btn-primary">Open schedule</Link>}
-            />
+            <div className="dashboard-home-sheet">
+              <EmptyState
+                icon={Briefcase}
+                title="Nothing on today"
+                message="No jobs are booked for today. The week is on the schedule."
+                action={<Link to="/schedule" className="btn-primary">Open schedule</Link>}
+              />
+            </div>
           ) : (
-            <ul className="space-y-2">
+            <div className="dashboard-home-sheet">
+              <p className="dashboard-home-group">Today {work.length}</p>
+              <div className="dashboard-home-thead">
+                <span>Time</span>
+                <span>Job</span>
+                <span>Client</span>
+                <span>Suburb</span>
+                <span>Crew</span>
+                <span>Status</span>
+                <span />
+              </div>
               {work.map(job => {
                 const state = dashboardJobState(job);
-                const meta = dashboardJobMetaLine(job);
                 return (
-                  <li key={job.id}>
-                    <Link
-                      to={dashboardJobHref(job.id)}
-                      data-dashboard-job={job.id}
-                      className="flex items-start gap-3 min-h-[44px] rounded-xl border border-[#E5E7EB] bg-white px-3 py-3 hover:border-[#2E75B6]/40 hover:shadow-sm"
-                    >
-                      <div className="w-[4.5rem] shrink-0">
-                        <p className="text-sm font-semibold text-[#1A1A1A] leading-tight">
-                          {dashboardClockLabel(job.start_time, job.end_time)}
-                        </p>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11px] uppercase tracking-wide text-[#4A5568]">
-                          {formatJobRef(job)}
-                        </p>
-                        <p className="text-sm font-semibold text-[#1A1A1A] truncate">{job.title}</p>
-                        {meta ? (
-                          <p className="text-xs text-[#4A5568] truncate">{meta}</p>
-                        ) : null}
-                        <p className="text-xs text-[#4A5568] truncate">
-                          {dashboardCrewLabel(job.assigned_team, teamMembers)}
-                        </p>
-                      </div>
-                      <span className="text-xs font-medium text-[#4A5568] shrink-0 pt-0.5">
-                        {dashboardJobStateLabel(state)}
-                      </span>
-                    </Link>
-                  </li>
+                  <Link
+                    key={job.id}
+                    to={dashboardJobHref(job.id)}
+                    data-dashboard-job={job.id}
+                    className="dashboard-home-row"
+                  >
+                    <span className="dashboard-home-time">
+                      {dashboardClockLabel(job.start_time, job.end_time)}
+                    </span>
+                    <span className="dashboard-home-job">
+                      <span className="dashboard-home-title">{job.title}</span>
+                      <span className="dashboard-home-ref">{formatJobRef(job)}</span>
+                    </span>
+                    <span className="dashboard-home-cell">{job.client_name || ''}</span>
+                    <span className="dashboard-home-cell is-muted">{dashboardJobPlace(job)}</span>
+                    <span className="dashboard-home-cell">
+                      {dashboardCrewLabel(job.assigned_team, teamMembers)}
+                    </span>
+                    <span className={`dashboard-home-pill is-${state}`}>
+                      {dashboardJobStateLabel(state)}
+                    </span>
+                    <span className="dashboard-home-next">Open</span>
+                  </Link>
                 );
               })}
-            </ul>
+            </div>
           )}
         </section>
 
         {/* Free-form Canvas (desktop) / Stacked (mobile) */}
         {widgetsLoading ? (
-          <div className="flex justify-center py-12"><LoadingSpinner /></div>
+          <div className="dashboard-home-widgets flex justify-center py-12"><LoadingSpinner /></div>
         ) : (widgets ?? []).length === 0 ? (
           editMode ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <LayoutGrid size={40} className="text-gray-300 mb-3" />
-              <p className="text-sm text-gray-500 mb-3">No widgets yet</p>
-              <button onClick={() => setShowPicker(true)} className="btn-primary">
-                <Plus size={16} /> Add a widget
-              </button>
+            <div className="dashboard-home-widgets dashboard-home-sheet">
+              <div className="flex flex-col items-center justify-center py-12">
+                <LayoutGrid size={40} className="dashboard-home-widget-empty-icon" />
+                <p className="dashboard-home-meta">No widgets yet</p>
+                <button type="button" onClick={() => setShowPicker(true)} className="btn-primary mt-3">
+                  <Plus size={16} /> Add a widget
+                </button>
+              </div>
             </div>
           ) : null
         ) : (
-          <>
+          <div className="dashboard-home-widgets">
             {/* Mobile: stacked responsive grid */}
             {!editMode && (
               <div className="md:hidden grid grid-cols-1 gap-3">
                 {(widgets ?? []).map(w => (
-                  <div key={w.id} className="card overflow-hidden" style={{ minHeight: Math.min(w.grid_h, 300) }}>
+                  <div key={w.id} className="dashboard-home-widget overflow-hidden" style={{ minHeight: Math.min(w.grid_h, 300) }}>
                     <div className="h-full p-3">
                       <WidgetRenderer
                         type={w.widget_type}
@@ -407,8 +408,8 @@ export function DashboardPage() {
               >
                 <div
                   ref={canvasRef}
-                  className={`relative rounded-xl border overflow-x-auto ${
-                    editMode ? 'border-blue-200 bg-blue-50/20' : 'border-transparent'
+                  className={`dashboard-home-canvas relative overflow-x-auto ${
+                    editMode ? 'is-editing' : ''
                   }`}
                   style={{ height: canvasHeight, minWidth: '100%' }}
                 >
@@ -436,7 +437,7 @@ export function DashboardPage() {
                 </div>
               </DndContext>
             </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -486,9 +487,9 @@ function FreeWidget({
       className={`absolute ${isDragging || isDragActive ? 'z-50' : 'z-10'} ${isDragActive ? 'select-none' : ''}`}
     >
       <div
-        className={`h-full w-full bg-white rounded-xl border shadow-sm overflow-hidden transition-shadow ${
-          editMode ? 'ring-2 ring-blue-200' : 'hover:shadow-md border-gray-200'
-        } ${isDragging || isDragActive ? 'shadow-2xl ring-blue-400' : ''}`}
+        className={`dashboard-home-widget h-full w-full overflow-hidden ${
+          editMode ? 'is-editing' : ''
+        } ${isDragging || isDragActive ? 'is-dragging' : ''}`}
       >
         {/* Edit-mode controls bar */}
         {editMode && (
