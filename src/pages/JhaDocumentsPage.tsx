@@ -1,15 +1,21 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, FileText, Search, ShieldCheck } from 'lucide-react';
+import { Copy, FileText, MoreVertical, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import {
+  AUDIT_JHA_DOC_ID,
+  getAuditClient,
+  getAuditJhaDoc,
+  getAuditJob,
+  getAuditTeamMembers,
+} from '../lib/devFieldAuditDocs';
 import { supabase } from '../lib/supabase';
 import { duplicateJhaDocument } from '../lib/duplicateJhaDocument';
 import {
   decorateJhaList,
   filterJhaListFloor,
-  formatJhaListDate,
   groupJhaListFloor,
   jhaDocumentHref,
   jhaListEmptyMessage,
@@ -21,15 +27,64 @@ import {
   type JhaListFloorItem,
   type JhaListRow,
 } from '../lib/jhaList';
-import { jhaStatusClass, jhaStatusLabel } from '../lib/jhaNextAction';
+import { jhaStatusLabel } from '../lib/jhaNextAction';
 import { livingJobSite } from '../lib/livingJha';
 import { AppShell } from '../components/layout/AppShell';
-import { EmptyState, LoadingSpinner, OpsDocHead, OpsSiteRow, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
+import { EmptyState, LoadingSpinner, PageError, SearchBar, opsSiteLabel } from '../components/ui';
 import { jhaDocumentColors } from '../reports/jha/theme';
 
 type DocRow = JhaListRow & {
   meta: Record<string, string>;
 };
+
+const LIST_FILTERS: { key: JhaListFilter; label: string }[] = [
+  { key: 'open', label: 'Open' },
+  { key: 'draft', label: 'Draft' },
+  { key: 'completed', label: 'Ready' },
+  { key: 'published', label: 'Published' },
+  { key: 'all', label: 'All' },
+];
+
+function suburbFromSite(site: string): string {
+  if (site === 'No site address') return '';
+  const parts = site.split(',').map(part => part.trim()).filter(Boolean);
+  if (parts.length < 2) return '';
+  const loc = parts[1].replace(/\b(NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\b.*$/i, '').trim();
+  return loc || parts[1];
+}
+
+function jhaListPillClass(status: string): string {
+  if (status === 'published') return 'is-published';
+  if (status === 'completed') return 'is-ready';
+  return 'is-draft';
+}
+
+function auditJhaList(): DocRow[] | null {
+  const doc = getAuditJhaDoc(AUDIT_JHA_DOC_ID);
+  if (!doc) return null;
+  const job = doc.job_id ? getAuditJob(doc.job_id) : null;
+  const client = doc.client_id ? getAuditClient(doc.client_id) : null;
+  return [{
+    id: doc.id,
+    status: doc.status,
+    report_number: doc.report_number,
+    meta: (doc.meta ?? {}) as Record<string, string>,
+    doc_version: doc.doc_version,
+    amendment_reason: doc.amendment_reason,
+    amended_from_id: doc.amended_from_id,
+    client_id: doc.client_id,
+    job_id: doc.job_id,
+    created_at: doc.created_at,
+    completed_at: doc.completed_at,
+    template_snapshot: doc.template_snapshot,
+    client_name: client?.name ?? null,
+    job_title: job?.title ?? null,
+    job_address: job?.address ?? null,
+    job_assigned_team: job?.assigned_team ?? null,
+    job_number: job?.job_number ?? null,
+    job_scheduled_date: job?.scheduled_date ?? null,
+  }];
+}
 
 export function JhaDocumentsPage() {
   const { profile, company } = useAuth();
@@ -60,6 +115,8 @@ export function JhaDocumentsPage() {
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['company-members-jha', profile?.company_id],
     queryFn: async () => {
+      const mock = getAuditTeamMembers();
+      if (mock) return mock;
       const { data, error } = await supabase.rpc('get_company_members', { p_company_id: profile!.company_id });
       if (error) throw error;
       return (data ?? []) as Array<{ id: string; name: string; email: string; role: string }>;
@@ -84,6 +141,8 @@ export function JhaDocumentsPage() {
   const { data: docs, isLoading, isError, refetch } = useQuery({
     queryKey: ['jha-documents'],
     queryFn: async () => {
+      const audit = auditJhaList();
+      if (audit) return audit;
       const query = supabase
         .from('jha_documents')
         .select('id, status, report_number, meta, doc_version, amendment_reason, amended_from_id, client_id, job_id, created_at, completed_at, template_snapshot')
@@ -128,16 +187,16 @@ export function JhaDocumentsPage() {
 
   return (
     <AppShell>
-      <div className="ops-page" data-jha-filter={status}>
+      <div className="ops-page hub-jha" data-jha-filter={status}>
         <div className="ops-page-head">
           <div>
+            <p className="hub-jha-kicker">JHA documents</p>
             <h1 className="ops-page-title">
               JHA documents
             </h1>
-            <p className="ops-meta mt-1">Open JHAs that still need site, crew, or publish. Tap a row to open it.</p>
           </div>
           <select
-            className="form-input-sm text-sm min-h-[44px]"
+            className="btn-primary hub-jha-start"
             defaultValue=""
             aria-label="New JHA from template"
             onChange={e => {
@@ -145,35 +204,27 @@ export function JhaDocumentsPage() {
               if (id) navigate(`/jha/new?templateId=${id}`);
             }}
           >
-            <option value="">New from template…</option>
+            <option value="">+ Start JHA</option>
             {(templates ?? []).map(t => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input
-              value={q}
-              onChange={e => setQ(e.target.value)}
-              placeholder="Search job, site, permit, report #…"
-              className="form-input-sm w-full pl-9 min-h-[44px]"
-            />
+        <div className="hub-jha-chrome">
+          <div className="hub-jha-filters">
+            {LIST_FILTERS.map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setStatus(parseJhaListFilter(tab.key))}
+                className={`hub-chrome-filter ${status === tab.key ? 'hub-chrome-filter-on' : ''}`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-          <select
-            value={status}
-            onChange={e => setStatus(parseJhaListFilter(e.target.value))}
-            className="form-input-sm min-h-[44px]"
-            aria-label="Filter by status"
-          >
-            <option value="open">Open</option>
-            <option value="draft">Draft</option>
-            <option value="completed">Ready</option>
-            <option value="published">Published</option>
-            <option value="all">All JHAs</option>
-          </select>
+          <SearchBar value={q} onChange={setQ} placeholder="Search job, site, permit, supervisor, #0042…" className="max-w-sm" />
         </div>
 
         {dupError && (
@@ -193,7 +244,7 @@ export function JhaDocumentsPage() {
             title={jhaListEmptyTitle({ filter: status, noneAtAll: true })}
             message={jhaListEmptyMessage({ filter: status, noneAtAll: true })}
             action={
-              <Link to="/jobs" className="ops-next-control min-w-[160px]">
+              <Link to="/jobs" className="hub-next">
                 Open jobs
               </Link>
             }
@@ -209,7 +260,15 @@ export function JhaDocumentsPage() {
         )}
 
         {!isLoading && visible.length > 0 && (
-          <div className="space-y-4">
+          <div className="hub-jha-sheet">
+            <div className="hub-jha-thead">
+              <span>Site</span>
+              <span>Permit</span>
+              <span>Supervisor</span>
+              <span>Crew</span>
+              <span>Status</span>
+              <span />
+            </div>
             {status === 'all' ? (
               <>
                 <JhaGroup
@@ -264,27 +323,25 @@ function JhaGroup({
   if (items.length === 0) return null;
   return (
     <div data-jha-group={title.toLowerCase()}>
-      <h2 className="ops-group-title">
+      <h2 className="hub-jha-group">
         {title}
-        <span className="ops-meta normal-case font-normal"> ({items.length})</span>
+        <span className="hub-jha-count"> {items.length}</span>
       </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-        {items.map(item => (
-          <JhaDocCard
-            key={item.row.id}
-            item={item}
-            theme={theme}
-            onOpen={() => onOpen(item.href)}
-            onDuplicate={() => onDuplicate(item.row.id)}
-            duplicating={duplicatingId === item.row.id}
-          />
-        ))}
-      </div>
+      {items.map(item => (
+        <JhaDocRow
+          key={item.row.id}
+          item={item}
+          theme={theme}
+          onOpen={() => onOpen(item.href)}
+          onDuplicate={() => onDuplicate(item.row.id)}
+          duplicating={duplicatingId === item.row.id}
+        />
+      ))}
     </div>
   );
 }
 
-function JhaDocCard({
+function JhaDocRow({
   item,
   theme,
   onOpen,
@@ -309,12 +366,9 @@ function JhaDocCard({
     doc.job_title,
     doc.meta?.taskName,
   );
-  const when = formatJhaListDate(doc.completed_at || doc.created_at);
-  const jobLine = [
-    item.jobNumberLabel,
-    doc.job_title,
-    doc.client_name || doc.meta?.clientName,
-  ].filter(Boolean).join(' · ');
+  const suburb = suburbFromSite(site);
+  const jobLine = [item.jobNumberLabel, item.title].filter(Boolean).join(' · ');
+  const permit = item.permitLabel ? item.permitLabel.replace(/^Permit\s+/i, '') : '';
 
   return (
     <div
@@ -324,7 +378,7 @@ function JhaDocCard({
       data-jha-href={item.href}
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-      className="jha-doc-theme ops-card ops-card-hover group w-full cursor-pointer"
+      className="jha-doc-theme hub-jha-row"
       style={{
         '--jha-navy': theme.navy,
         '--jha-accent': theme.accent,
@@ -332,54 +386,41 @@ function JhaDocCard({
         '--jha-accent-light': theme.accentLight,
       } as CSSProperties}
     >
-      <OpsDocHead
-        kind="JHA"
-        id={doc.report_number || 'Draft'}
-        meta={[`v${doc.doc_version ?? 1}`, when].filter(Boolean).join(' · ')}
-        trailing={<OpsStatus className={jhaStatusClass(doc.status)}>{jhaStatusLabel(doc.status)}</OpsStatus>}
-      />
-      <div className="ops-card-body">
-        <OpsSiteRow site={site} mapsQuery={item.livingSite || doc.job_address || doc.meta?.siteName || null} />
-        <p className="ops-meta mt-1 truncate">{item.title}</p>
-        {jobLine && (
-          <p className="ops-meta mt-0.5 truncate">{jobLine}</p>
-        )}
-        {item.supervisorLabel && (
-          <p className="ops-meta mt-0.5 truncate">Supervisor {item.supervisorLabel}</p>
-        )}
-        {item.permitLabel && (
-          <p className="ops-meta mt-0.5 truncate">{item.permitLabel}</p>
-        )}
-        {item.sitePack && (
-          <p className="ops-meta mt-0.5 truncate">{item.sitePack}</p>
-        )}
-        {item.crewProgress && (
-          <p className="ops-meta mt-0.5 truncate">{item.crewProgress}</p>
-        )}
-        {doc.amended_from_id && doc.amendment_reason && (
-          <p className="ops-meta mt-0.5 truncate">Amendment: {doc.amendment_reason}</p>
-        )}
-        <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
-          <button
-            type="button"
-            data-jha-open={doc.id}
-            onClick={onOpen}
-            className="ops-next-control-block"
-          >
-            {item.next.label}
-          </button>
-          <button
-            type="button"
-            onClick={onDuplicate}
-            disabled={duplicating}
-            className="btn-ghost w-full min-h-[44px] mt-1 text-xs"
-            title="Duplicate as a new draft (signatures cleared)"
-          >
-            <Copy size={14} />
-            {duplicating ? 'Copying…' : 'Duplicate'}
-          </button>
-        </div>
-      </div>
+      <span className="min-w-0">
+        <span className="hub-jha-site truncate">{site}</span>
+        <span className="hub-jha-muted truncate">{jobLine || suburb}</span>
+      </span>
+      <span className="truncate hub-jha-muted">{permit}</span>
+      <span className="truncate hub-jha-muted">{item.supervisorLabel || ''}</span>
+      <span className="truncate hub-jha-count-cell">{item.crewProgress || ''}</span>
+      <span className={`hub-jha-pill ${jhaListPillClass(doc.status)}`}>
+        {jhaStatusLabel(doc.status)}
+      </span>
+      <span className="hub-jha-row-next" onClick={e => e.stopPropagation()}>
+        <button
+          type="button"
+          data-jha-open={doc.id}
+          onClick={onOpen}
+          className="hub-next"
+        >
+          {item.next.label}
+        </button>
+        <details className="hub-jha-more">
+          <summary aria-label="JHA actions">
+            <MoreVertical size={16} />
+          </summary>
+          <div className="hub-jha-more-menu">
+            <button
+              type="button"
+              onClick={onDuplicate}
+              disabled={duplicating}
+            >
+              <Copy size={14} />
+              {duplicating ? 'Copying…' : 'Duplicate'}
+            </button>
+          </div>
+        </details>
+      </span>
     </div>
   );
 }

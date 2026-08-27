@@ -12,8 +12,9 @@ describe('JHA list open floor', () => {
     const app = src('src/App.tsx');
 
     expect(page).toContain("useState<JhaListFilter>('open')");
-    expect(page).toContain("parseJhaListFilter(e.target.value)");
-    expect(page).toContain('<option value="open">Open</option>');
+    expect(page).toContain('parseJhaListFilter(tab.key)');
+    expect(page).toContain("{ key: 'open', label: 'Open' }");
+    expect(page).toContain("{ key: 'all', label: 'All' }");
     expect(page).toContain("filterJhaListFloor(decorated, { filter: status, search: q })");
     expect(page).toContain("from('jha_documents')");
     expect(page).toContain('job_number, scheduled_date');
