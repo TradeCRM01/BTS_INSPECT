@@ -1,86 +1,53 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { defaultPdfColors } from '../reports/shared/styles';
-import { commercialDocumentColors } from '../reports/commercial/CommercialDocumentPdf';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-const savedTheme = {
-  navy: '#1B3A4B',
-  accent: '#C45C26',
-  accentLight: '#F4D4C4',
-  navyLight: '#2A5366',
-};
-
-describe('quote editor overlay report_theme colours', () => {
-  it('paints the editor banner from the saved companies.report_theme palette', () => {
-    expect(commercialDocumentColors(savedTheme)).toMatchObject(savedTheme);
-
+describe('quote editor Looplet document look', () => {
+  it('paints the editor as a cream paper sheet with one 44px primary', () => {
     const quotes = src('src/pages/QuotesPage.tsx');
     const editor = quotes.split('function QuoteEditorModal')[1] ?? '';
-    expect(editor).toContain('commercialDocumentColors');
-    expect(editor).toContain('report_theme');
-    expect(editor).toContain('quote-doc-theme');
-    expect(editor).toContain("'--quote-navy': docColors.navy");
-    expect(editor).toContain("'--quote-accent': docColors.accent");
-    expect(editor).toContain('overlay-panel-xl ops-doc-panel');
-    expect(editor).not.toContain('CompanySettingsPage');
-    expect(editor).not.toContain('setReportTheme');
-    expect(editor).not.toMatch(/Grafter|Relovi|Littleloop/);
-  });
-
-  it('keeps the existing editor banner colours when the theme is blank', () => {
-    expect(commercialDocumentColors(null).navy).toBe('#0A2540');
-    expect(commercialDocumentColors(null).accent).toBe('#2E75B6');
-    expect(commercialDocumentColors({})).toEqual(defaultPdfColors);
-  });
-
-  it('does not add a settings page, recast Send, or edit shared PDF chrome', () => {
-    const app = src('src/App.tsx');
-    expect(app).toContain('CompanySettingsPage');
-    expect(app).not.toContain('QuoteTheme');
-    expect(existsSync(resolve(process.cwd(), 'src/pages/ReportThemePage.tsx'))).toBe(false);
-
     const css = src('src/index.css');
-    expect(css).toContain('.quote-doc-theme .ops-doc-head');
-    expect(css).not.toMatch(/\.quote-doc-theme \.btn-primary/);
-    expect(css).not.toMatch(/\.quote-doc-theme \.ops-next-control/);
 
-    const shared = src('src/reports/shared/components.tsx');
-    expect(shared).not.toContain('colors?:');
+    expect(editor).toContain('hub-quote-editor');
+    expect(editor).toContain('hub-quote-sheet');
+    expect(editor).toContain('hub-quote-letterhead');
+    expect(editor).toContain('hub-quote-kicker">To');
+    expect(editor).toContain('hub-quote-totalbar');
+    expect(editor).toContain('hub-quote-more');
+    expect(editor).toContain("next.key === 'send'");
+    expect(editor).toContain('className="btn-primary"');
+    expect(editor).toContain('Mark accepted');
+    expect(editor).toContain('Preview PDF');
+    expect(editor).toContain('Edit quote');
+    expect(editor).not.toContain('ActionButton recommended');
+    expect(editor).not.toContain('ops-doc-panel');
+    expect(editor).not.toMatch(/Grafter|Relovi|Littleloop/);
+
+    expect(css).toContain('.hub-quote-sheet');
+    expect(css).toContain('.hub-quote-totalbar');
+    expect(css).toContain('border-radius: 16px');
+    expect(css).toContain('.hub-quote-display-total');
+    expect(css).not.toMatch(/\.hub-quote-editor \.btn-primary[\s\S]{0,120}#111|#000\b/);
   });
 
-  it('does not disturb quote list cards, invoice PDFs, JHA, Take 5, AppShell, or the Grafter mark', () => {
+  it('keeps Send and Accept writes on the existing persist path', () => {
     const quotes = src('src/pages/QuotesPage.tsx');
-    expect(quotes).toContain('commercialPdfCompanyFrom');
-    expect(quotes.split('function QuoteCard')[1]?.split('function QuoteRow')[0]).toContain('quote-doc-theme');
-
-    const invoices = src('src/pages/InvoicesPage.tsx');
-    expect(invoices).toContain('commercialPdfCompanyFrom');
-    expect(invoices).not.toContain('quote-doc-theme');
-
-    const jhaList = src('src/pages/JhaDocumentsPage.tsx');
-    expect(jhaList).toContain('jha-doc-theme');
-
-    const take5Fill = src('src/pages/Take5Page.tsx');
-    expect(take5Fill).toContain('take5-doc-theme');
-
-    const shell = src('src/components/layout/AppShell.tsx');
-    expect(shell).toContain('resolveAppShellColors');
-
-    const mark = src('src/components/brand/grafterMark.ts');
-    expect(mark).toContain('GRAFTER_NAVY');
+    const editor = quotes.split('function QuoteEditorModal')[1] ?? '';
+    expect(editor).toContain('startSend');
+    expect(editor).toContain("persist('draft'");
+    expect(editor).toContain("persist('accepted'");
+    expect(editor).not.toContain('sendQuoteDeliver');
+    expect(editor).not.toContain('Quote marked as sent');
   });
 
-  it('LOOK frames cover blank and saved quote editor chrome only', () => {
+  it('LOOK frames cover quote editor desktop and phone only', () => {
     for (const rel of [
-      'docs/look/quotes-editor-theme-blank-desktop.png',
-      'docs/look/quotes-editor-theme-blank-ute.png',
-      'docs/look/quotes-editor-theme-saved-desktop.png',
-      'docs/look/quotes-editor-theme-saved-ute.png',
+      'docs/look/quote-editor-desktop.png',
+      'docs/look/quote-editor-phone.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
     }

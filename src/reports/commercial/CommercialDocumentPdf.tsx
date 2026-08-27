@@ -62,12 +62,18 @@ export interface CommercialPdfData {
   paymentMethods?: { label: string; lines: string[] }[];
 }
 
-function commercialStyles(colors: PdfColors) {
+function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
+  const quote = kind === 'quote';
+  const ink = quote ? '#0A2540' : colors.text;
+  const muted = quote ? '#5B6B7C' : colors.textMuted;
+  const secondary = quote ? '#5B6B7C' : colors.textSecondary;
+  const hairline = quote ? '#E2D9CC' : colors.rule;
   return StyleSheet.create({
     page: {
       fontFamily: pdfFonts.body,
       fontSize: 9,
-      color: colors.text,
+      color: ink,
+      backgroundColor: quote ? '#F5F0E6' : colors.white,
       paddingTop: 28,
       paddingBottom: 40,
       paddingHorizontal: 36,
@@ -89,16 +95,16 @@ function commercialStyles(colors: PdfColors) {
       color: colors.navy,
       letterSpacing: 0.4,
     },
-    companyMeta: { fontSize: 7.5, color: colors.textMuted, marginTop: 2, lineHeight: 1.35 },
+    companyMeta: { fontSize: 7.5, color: muted, marginTop: 2, lineHeight: 1.35 },
     docMeta: { alignItems: 'flex-end' },
     docTitle: {
-      fontSize: 16,
+      fontSize: quote ? 20 : 16,
       fontWeight: 700,
       color: colors.navy,
-      letterSpacing: 1,
+      letterSpacing: quote ? 1.4 : 1,
     },
     docNumber: { fontSize: 10, color: colors.accent, fontWeight: 700, marginTop: 4 },
-    metaRow: { fontSize: 8, color: colors.textSecondary, marginTop: 3 },
+    metaRow: { fontSize: 8, color: secondary, marginTop: 3 },
     partyRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -109,13 +115,13 @@ function commercialStyles(colors: PdfColors) {
     partyLabel: {
       fontSize: 7,
       fontWeight: 700,
-      color: colors.textMuted,
-      letterSpacing: 0.6,
+      color: muted,
+      letterSpacing: quote ? 1.2 : 0.6,
       marginBottom: 4,
       textTransform: 'uppercase',
     },
     partyValue: { fontSize: 10, fontWeight: 700, color: colors.navy },
-    partySub: { fontSize: 8, color: colors.textSecondary, marginTop: 2 },
+    partySub: { fontSize: 8, color: secondary, marginTop: 2 },
     sectionTitle: {
       fontSize: 10,
       fontWeight: 700,
@@ -123,7 +129,7 @@ function commercialStyles(colors: PdfColors) {
       marginBottom: 8,
       paddingBottom: 4,
       borderBottomWidth: 1,
-      borderBottomColor: colors.rule,
+      borderBottomColor: hairline,
     },
     twoCol: { flexDirection: 'row', gap: 14, marginBottom: 18 },
     col: { flex: 1 },
@@ -139,8 +145,8 @@ function commercialStyles(colors: PdfColors) {
     colHeadAmber: { backgroundColor: '#92400E' },
     bullet: { flexDirection: 'row', marginBottom: 4, paddingRight: 4 },
     bulletMark: { width: 10, fontSize: 8, color: colors.accent },
-    bulletText: { flex: 1, fontSize: 8.5, color: colors.textSecondary, lineHeight: 1.35 },
-    emptyHint: { fontSize: 8, color: colors.textMuted, fontStyle: 'italic' },
+    bulletText: { flex: 1, fontSize: 8.5, color: secondary, lineHeight: 1.35 },
+    emptyHint: { fontSize: 8, color: muted, fontStyle: 'italic' },
     tableHeader: {
       flexDirection: 'row',
       backgroundColor: colors.navy,
@@ -153,26 +159,44 @@ function commercialStyles(colors: PdfColors) {
       paddingVertical: 5,
       paddingHorizontal: 6,
       borderBottomWidth: 0.5,
-      borderBottomColor: colors.rule,
+      borderBottomColor: hairline,
     },
-    rowAlt: { backgroundColor: colors.zebra },
-    td: { fontSize: 8, color: colors.text },
-    totals: { marginTop: 10, alignSelf: 'flex-end', width: 200 },
+    rowAlt: { backgroundColor: quote ? '#FFFDF8' : colors.zebra },
+    td: { fontSize: 8, color: ink },
+    totals: { marginTop: 10, alignSelf: 'flex-end', width: quote ? 220 : 200 },
     totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
-    totalLabel: { fontSize: 8.5, color: colors.textSecondary },
-    totalValue: { fontSize: 8.5, color: colors.text },
-    grandRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 4,
-      paddingTop: 6,
-      borderTopWidth: 1.5,
-      borderTopColor: colors.navy,
+    totalLabel: { fontSize: 8.5, color: secondary },
+    totalValue: { fontSize: 8.5, color: ink },
+    grandRow: quote
+      ? {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: 8,
+          paddingVertical: 8,
+          paddingHorizontal: 10,
+          backgroundColor: colors.navy,
+        }
+      : {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          marginTop: 4,
+          paddingTop: 6,
+          borderTopWidth: 1.5,
+          borderTopColor: colors.navy,
+        },
+    grandLabel: {
+      fontSize: quote ? 12 : 10,
+      fontWeight: 700,
+      color: quote ? colors.white : colors.navy,
     },
-    grandLabel: { fontSize: 10, fontWeight: 700, color: colors.navy },
-    grandValue: { fontSize: 10, fontWeight: 700, color: colors.navy },
+    grandValue: {
+      fontSize: quote ? 12 : 10,
+      fontWeight: 700,
+      color: quote ? colors.white : colors.navy,
+    },
     notes: { marginTop: 16 },
-    notesBody: { fontSize: 8.5, color: colors.textSecondary, lineHeight: 1.4 },
+    notesBody: { fontSize: 8.5, color: secondary, lineHeight: 1.4 },
     footer: {
       position: 'absolute',
       bottom: 18,
@@ -181,10 +205,10 @@ function commercialStyles(colors: PdfColors) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       borderTopWidth: 0.5,
-      borderTopColor: colors.rule,
+      borderTopColor: hairline,
       paddingTop: 6,
     },
-    footerText: { fontSize: 7, color: colors.textMuted },
+    footerText: { fontSize: 7, color: muted },
   });
 }
 
@@ -197,7 +221,7 @@ function kindLabel(kind: CommercialDocKind): string {
 export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
   const { company } = data;
   const colors = commercialDocumentColors(company.report_theme);
-  const s = commercialStyles(colors);
+  const s = commercialStyles(colors, data.kind);
   const logoUrl = companyDocumentLogoUrl(company);
   const contactBits = [company.phone, company.email, company.website].filter(Boolean).join('  ·  ');
   const abnBits = [
