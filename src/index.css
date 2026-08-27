@@ -4791,6 +4791,17 @@
     background: #FFFDF8;
   }
 
+  @media (max-width: 639px) {
+    .hub-quote-table {
+      overflow-x: auto;
+    }
+
+    .hub-quote-lines th,
+    .hub-quote-lines td {
+      padding: 12px;
+    }
+  }
+
   .hub-quote-lines {
     width: 100%;
     border-collapse: collapse;
