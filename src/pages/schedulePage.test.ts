@@ -104,6 +104,8 @@ describe('schedule board cream paper look', () => {
       'docs/look/schedule-week-phone.png',
       'docs/look/schedule-day-desktop.png',
       'docs/look/schedule-day-phone.png',
+      'docs/look/schedule-empty-day-desktop.png',
+      'docs/look/schedule-empty-day-phone.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
     }
