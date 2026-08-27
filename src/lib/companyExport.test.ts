@@ -54,7 +54,7 @@ describe('company export spreadsheet', () => {
     expect(csvCell(12.5)).toBe('12.5');
     expect(csvCell('Acme, Pty')).toBe('"Acme, Pty"');
     expect(csvCell('He said "go"')).toBe('"He said ""go"""');
-    expect(csvCell(['a', 'b'])).toBe('["a","b"]');
+    expect(csvCell(['a', 'b'])).toBe('"[""a"",""b""]"');
     const csv = rowsToCsv(['id', 'name'], [{ id: 'c1', name: 'Northside, WA' }]);
     expect(csv.startsWith('\uFEFF')).toBe(true);
     expect(csv).toContain('id,name');
@@ -71,7 +71,7 @@ describe('company export spreadsheet', () => {
     expect(loaded.ok).toBe(true);
     if (!loaded.ok) return;
     expect(loaded.rows).toHaveLength(COMPANY_EXPORT_PAGE_SIZE + 1);
-    expect(loaded.rows.at(-1)).toEqual({ id: 'c-last' });
+    expect(loaded.rows[loaded.rows.length - 1]).toEqual({ id: 'c-last' });
   });
 
   it('loads clients, jobs, invoices, and timesheets for this company', async () => {
