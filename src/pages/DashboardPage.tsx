@@ -1,21 +1,37 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError } from '../components/ui';
-import { getAuditDashboardWidgets } from '../lib/devFieldAuditDocs';
-import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { EmptyState, LoadingSpinner, PageError } from '../components/ui';
+import { getAuditClients, getAuditDashboardWidgets, getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
   DndContext, DragEndEvent, DragStartEvent, PointerSensor, useSensor, useSensors,
   useDraggable,
 } from '@dnd-kit/core';
 import {
-  Plus, X, GripVertical, Trash2, LayoutGrid, Sparkles,
+  Plus, X, GripVertical, Trash2, LayoutGrid, Sparkles, Briefcase,
 } from 'lucide-react';
 import { WIDGET_REGISTRY, WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
 import { WidgetRenderer } from '../widgets/WidgetComponents';
 import type { Json } from '../types/database';
+import type { Client, Job, JobWithClient } from '../types/crm';
+import { attachJobClients, hydrateJobParentNumbers } from '../lib/scheduleJobSearch';
+import { formatJobRef } from '../lib/jobRef';
+import {
+  dashboardClockLabel,
+  dashboardCrewLabel,
+  dashboardHeadingDate,
+  dashboardJobHref,
+  dashboardJobMetaLine,
+  dashboardJobState,
+  dashboardJobStateLabel,
+  dashboardTodayKey,
+  todaysDashboardJobs,
+} from '../lib/dashboardHome';
+import type { ScheduleCrewMember } from '../lib/scheduleBoard';
 
 interface DashboardWidget {
   id: string;
@@ -40,12 +56,13 @@ export function DashboardPage() {
   const [showPicker, setShowPicker] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const todayKey = dashboardTodayKey();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
-  const { data: widgets, isLoading, error } = useQuery<DashboardWidget[]>({
+  const { data: widgets, isLoading: widgetsLoading, error } = useQuery<DashboardWidget[]>({
     queryKey: ['dashboard-widgets'],
     queryFn: async () => {
       const mock = getAuditDashboardWidgets();
@@ -56,6 +73,71 @@ export function DashboardPage() {
         .order('grid_y', { ascending: true });
       if (error) throw error;
       return (data ?? []) as DashboardWidget[];
+    },
+    enabled: !!profile,
+  });
+
+  const { data: teamMembers } = useQuery<ScheduleCrewMember[]>({
+    queryKey: ['dashboard-today-crew'],
+    queryFn: async () => {
+      const mock = getAuditTeamMembers();
+      if (mock) return mock.map(m => ({ id: m.id, name: m.name }));
+      if (!profile?.company_id) return [];
+      const { data, error } = await supabase.rpc('get_company_members', {
+        p_company_id: profile.company_id,
+      });
+      if (error) throw error;
+      return (data ?? []).map((m: { id: string; name: string }) => ({
+        id: m.id,
+        name: m.name,
+      }));
+    },
+    enabled: !!profile,
+  });
+
+  const { data: todayJobs, isLoading: jobsLoading, error: jobsError } = useQuery<JobWithClient[]>({
+    queryKey: ['dashboard-today-jobs', todayKey],
+    queryFn: async () => {
+      const mock = getAuditJobs();
+      if (mock) {
+        return todaysDashboardJobs(attachJobClients(mock as Job[], getAuditClients() ?? []));
+      }
+      const [dayRes, onSiteRes] = await Promise.all([
+        supabase
+          .from('jobs')
+          .select('*')
+          .gte('scheduled_date', todayKey)
+          .lte('scheduled_date', todayKey),
+        supabase
+          .from('jobs')
+          .select('*')
+          .eq('status', 'in_progress'),
+      ]);
+      if (dayRes.error) throw dayRes.error;
+      if (onSiteRes.error) throw onSiteRes.error;
+
+      const byId = new Map<string, Job>();
+      for (const row of [...(dayRes.data ?? []), ...(onSiteRes.data ?? [])]) {
+        byId.set(row.id, row as Job);
+      }
+      const jobs = [...byId.values()];
+
+      const clientIds = [...new Set(jobs.map(j => j.client_id).filter(Boolean))] as string[];
+      const clientMap = new Map<string, Client>();
+      if (clientIds.length > 0) {
+        const { data: clientsData, error: clientError } = await supabase
+          .from('clients')
+          .select('*')
+          .in('id', clientIds);
+        if (clientError) throw clientError;
+        for (const c of clientsData ?? []) {
+          clientMap.set(c.id, c as Client);
+        }
+      }
+
+      return todaysDashboardJobs(
+        await hydrateJobParentNumbers(attachJobClients(jobs, [...clientMap.values()])),
+      );
     },
     enabled: !!profile,
   });
@@ -179,45 +261,30 @@ export function DashboardPage() {
     return Math.max(500, maxBottom + CANVAS_PAD);
   }, [widgets]);
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Default content for empty dashboard Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-  useEffect(() => {
-    if (isDevFieldAuditAuth()) return;
-    if (!isLoading && profile && (widgets?.length === 0)) {
-      (async () => {
-        const defaults = [
-          { type: 'ai_agent', x: 20, y: 20, w: 390, h: 360 },
-          { type: 'kpi_scorecard', x: 430, y: 20, w: 260, h: 200 },
-          { type: 'cash_flow', x: 710, y: 20, w: 260, h: 200 },
-          { type: 'compliance_deadlines', x: 990, y: 20, w: 300, h: 280 },
-          { type: 'team_activity', x: 430, y: 240, w: 260, h: 280 },
-          { type: 'industry_news', x: 710, y: 240, w: 260, h: 280 },
-        ];
-        for (const d of defaults) {
-          await supabase.from('dashboard_widgets').insert({
-            widget_type: d.type, grid_x: d.x, grid_y: d.y, grid_w: d.w, grid_h: d.h, config: {} as Json,
-          } as never);
-        }
-        queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
-      })();
-    }
-  }, [isLoading, profile, widgets?.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (pageQueryBlocked(error)) {
+  if (pageQueryBlocked(error) || pageQueryBlocked(jobsError)) {
     return <AppShell><PageError message="Could not load dashboard" /></AppShell>;
   }
+
+  const work = todayJobs ?? [];
 
   return (
     <AppShell>
       <div className="max-w-[1400px] mx-auto px-4 py-6">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#4A5568]">Today</p>
             <h1 className="text-xl font-semibold text-[#1A1A1A]">
               Good day, {profile?.name?.split(' ')[0] ?? 'there'}
             </h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">{company?.name}</p>
+            <p className="text-sm text-[#4A5568] mt-0.5">
+              {dashboardHeadingDate()}
+              {company?.name ? ` · ${company.name}` : ''}
+            </p>
           </div>
           <div className="flex items-center gap-2">
+            <Link to="/schedule" className="text-sm font-medium text-[#2E75B6] hover:underline px-2 py-2">
+              Week board
+            </Link>
             <button
               onClick={() => setEditMode(e => !e)}
               className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 active:scale-[0.98] ${
@@ -241,17 +308,77 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Free-form Canvas (desktop) / Stacked (mobile) */}
-        {isLoading ? (
-          <div className="flex justify-center py-20"><LoadingSpinner /></div>
-        ) : (widgets ?? []).length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <LayoutGrid size={40} className="text-gray-300 mb-3" />
-            <p className="text-sm text-gray-500 mb-3">Your dashboard is empty</p>
-            <button onClick={() => setShowPicker(true)} className="btn-primary">
-              <Plus size={16} /> Add your first widget
-            </button>
+        <section data-dashboard-home="1" className="mb-8">
+          <div className="flex items-baseline justify-between gap-3 mb-3">
+            <h2 className="text-sm font-semibold text-[#1A1A1A]">Today&apos;s work</h2>
+            {!jobsLoading && work.length > 0 && (
+              <p className="text-xs text-[#4A5568]">
+                {work.length === 1 ? '1 job' : `${work.length} jobs`}
+              </p>
+            )}
           </div>
+          {jobsLoading ? (
+            <div className="flex justify-center py-16"><LoadingSpinner /></div>
+          ) : work.length === 0 ? (
+            <EmptyState
+              icon={Briefcase}
+              title="Nothing on today"
+              message="No jobs are booked for today. The week is on the schedule."
+              action={<Link to="/schedule" className="btn-primary">Open schedule</Link>}
+            />
+          ) : (
+            <ul className="space-y-2">
+              {work.map(job => {
+                const state = dashboardJobState(job);
+                const meta = dashboardJobMetaLine(job);
+                return (
+                  <li key={job.id}>
+                    <Link
+                      to={dashboardJobHref(job.id)}
+                      data-dashboard-job={job.id}
+                      className="flex items-start gap-3 min-h-[44px] rounded-xl border border-[#E5E7EB] bg-white px-3 py-3 hover:border-[#2E75B6]/40 hover:shadow-sm"
+                    >
+                      <div className="w-[4.5rem] shrink-0">
+                        <p className="text-sm font-semibold text-[#1A1A1A] leading-tight">
+                          {dashboardClockLabel(job.start_time, job.end_time)}
+                        </p>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] uppercase tracking-wide text-[#4A5568]">
+                          {formatJobRef(job)}
+                        </p>
+                        <p className="text-sm font-semibold text-[#1A1A1A] truncate">{job.title}</p>
+                        {meta ? (
+                          <p className="text-xs text-[#4A5568] truncate">{meta}</p>
+                        ) : null}
+                        <p className="text-xs text-[#4A5568] truncate">
+                          {dashboardCrewLabel(job.assigned_team, teamMembers)}
+                        </p>
+                      </div>
+                      <span className="text-xs font-medium text-[#4A5568] shrink-0 pt-0.5">
+                        {dashboardJobStateLabel(state)}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {/* Free-form Canvas (desktop) / Stacked (mobile) */}
+        {widgetsLoading ? (
+          <div className="flex justify-center py-12"><LoadingSpinner /></div>
+        ) : (widgets ?? []).length === 0 ? (
+          editMode ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <LayoutGrid size={40} className="text-gray-300 mb-3" />
+              <p className="text-sm text-gray-500 mb-3">No widgets yet</p>
+              <button onClick={() => setShowPicker(true)} className="btn-primary">
+                <Plus size={16} /> Add a widget
+              </button>
+            </div>
+          ) : null
         ) : (
           <>
             {/* Mobile: stacked responsive grid */}
