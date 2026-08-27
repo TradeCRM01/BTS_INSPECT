@@ -77,7 +77,34 @@ describe('schedule board cream paper look', () => {
     expect(css).toContain('letter-spacing: 0.12em');
     expect(css).toContain('.hub-week-board');
     expect(css).toContain('.hub-week-chip');
+    expect(css).toContain('.hub-week-sheet');
+    expect(css).toContain('.hub-week-seg');
+    expect(css).toContain('.hub-week-quiet');
+    expect(css).toContain('inset 0 1px 0 #fff');
     expect(css).not.toContain('.hub-schedule-track.is-week');
+  });
+
+  it('paints the week board on one cream sheet and leaves the day hour plot', () => {
+    const page = src('src/pages/SchedulePage.tsx');
+    const board = src('src/components/crm/BoardViews.tsx');
+    const css = src('src/index.css');
+    const weekCss = css.slice(css.indexOf('.hub-week-sheet'), css.indexOf('.hub-schedule-place'));
+
+    expect(page).toContain('hub-week-sheet');
+    expect(page).toContain('WeekBoardChrome');
+    expect(page).toContain('All crews');
+    expect(page).toContain("look') === WEEK_BOARD_LOOK");
+    expect(page).toContain("name: 'Dave'");
+    expect(page).toContain("name: 'Jack'");
+    expect(page).toContain("name: 'Sam'");
+    expect(page).toContain('#C45C38');
+    expect(page).toContain('Warehouse lights');
+    expect(page).toContain('EEE d MMM');
+    expect(board).toContain('data-schedule-track="day"');
+    expect(board).not.toContain('data-schedule-track="week"');
+    expect(weekCss).toContain('inset 0 1px 0 #fff');
+    expect(weekCss).not.toMatch(/#1B7F3A|#059669|#166534|green/i);
+    expect(weekCss).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
   });
 
   it('does not restyle jobs, quotes, invoices, login, landing, operator, or AppShell', () => {
