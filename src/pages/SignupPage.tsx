@@ -79,7 +79,8 @@ export function SignupPage() {
 
   return (
     <AuthShell
-      title="Create a workspace"
+      seoKey="signup"
+      title="Create a Grafter workspace"
       lede="Your business gets its own Grafter workspace."
       footer={(
         <p>

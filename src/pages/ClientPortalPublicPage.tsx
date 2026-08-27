@@ -6,6 +6,7 @@ import { Download, FileText, Receipt, Wrench, Building2, AlertCircle } from 'luc
 import { supabase } from '../lib/supabase';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { formatMoney, QUOTE_STATUS_LABELS } from '../types/fsm';
+import { usePublicDocumentHead } from '../lib/publicSeo';
 
 export const PORTAL_QUOTE_ACCEPT_ACTION = 'accept_quote';
 
@@ -108,6 +109,7 @@ function CompanyHeader({
 }
 
 export function ClientPortalPublicPage() {
+  usePublicDocumentHead('portal');
   const [params] = useSearchParams();
   const token = useMemo(() => (params.get('t') || params.get('token') || '').trim(), [params]);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);

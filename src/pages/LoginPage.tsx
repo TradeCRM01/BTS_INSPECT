@@ -53,7 +53,8 @@ export function LoginPage() {
 
   return (
     <AuthShell
-      title="Sign in"
+      seoKey="login"
+      title="Sign in to Grafter"
       lede="Welcome back. Enter your credentials to continue."
       footer={(
         <>

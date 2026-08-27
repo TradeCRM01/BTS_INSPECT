@@ -17,8 +17,9 @@ describe('public Grafter landing', () => {
   it('uses Grafter navy/cream craft, not a Looplet clone', () => {
     const page = src('src/pages/MarketingPage.tsx');
     const css = src('src/index.css');
-    expect(page).toContain('Every job, from quote');
+    expect(page).toContain('Trade job software, from quote');
     expect(page).toContain('to payment.');
+    expect(page).toContain('Australian electrical and trade job software');
     expect(page).not.toContain('from the ute');
     expect(page).toContain('Create a workspace');
     expect(page).toContain('/signup');

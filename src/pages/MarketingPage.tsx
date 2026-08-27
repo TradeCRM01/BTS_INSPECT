@@ -1,13 +1,9 @@
-import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { BrandLockup } from '../components/brand/BrandLockup';
+import { usePublicDocumentHead } from '../lib/publicSeo';
 
 export function MarketingPage() {
-  useEffect(() => {
-    const previous = document.title;
-    document.title = 'Grafter — Jobs, quotes, and field work';
-    return () => { document.title = previous; };
-  }, []);
+  usePublicDocumentHead('landing');
 
   return (
     <div className="hub-marketing">
@@ -23,13 +19,13 @@ export function MarketingPage() {
 
       <main>
         <section className="hub-marketing-hero">
-          <p className="hub-marketing-kicker">Australian trade software</p>
+          <p className="hub-marketing-kicker">Australian electrical and trade job software</p>
           <h1 className="hub-marketing-display">
-            Every job, from quote<br className="hidden sm:inline" /> to payment.
+            Trade job software, from quote<br className="hidden sm:inline" /> to payment.
           </h1>
           <p className="hub-marketing-lede">
-            Grafter keeps jobs, quotes, invoices, inspections and the crew schedule in one place —
-            so the office and the site aren’t arguing over a spreadsheet.
+            Grafter keeps jobs, quotes, invoices, inspections and the crew schedule in one place
+            for electrical and field crews — so the office and the site aren’t arguing over a spreadsheet.
           </p>
           <div className="hub-marketing-cta">
             <Link to="/signup" className="hub-marketing-btn hub-marketing-btn-lg">Create a workspace</Link>

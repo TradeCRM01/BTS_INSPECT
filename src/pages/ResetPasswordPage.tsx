@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 import { BrandLockup } from '../components/brand/BrandLockup';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
+import { usePublicDocumentHead } from '../lib/publicSeo';
 
 function readAuthHashError(): string | null {
   const raw = window.location.hash.replace(/^#/, '') || window.location.search.replace(/^\?/, '');
@@ -19,6 +20,7 @@ function readAuthHashError(): string | null {
 }
 
 export function ResetPasswordPage() {
+  usePublicDocumentHead('resetPassword');
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
