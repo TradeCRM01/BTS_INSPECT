@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, Breadcrumbs, useToast, ActionButton, actionClass, OpsStatus, OpsSiteRow, OpsPhotoStamp } from '../components/ui';
+import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, OpsSiteRow, OpsPhotoStamp } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
@@ -57,9 +57,9 @@ import { inspectionDisplayStatus, reportSendSurface } from '../lib/sendReport';
 import type { TemplateSchema } from '../types/template';
 import { clientRecordHref } from '../lib/clientRecords';
 import {
-  Calendar, Clock, User, Phone, Mail, Edit3, ChevronDown,
+  Calendar, Clock, User, Phone, Mail, ChevronDown,
   FileText, ShieldCheck, ShieldAlert, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
-  Play, Square, MoreHorizontal,
+  MoreHorizontal,
 } from 'lucide-react';
 import {
   buildJobClockOnEntry,
@@ -168,6 +168,7 @@ export function JobDetailPage() {
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
+  const moreRef = useRef<HTMLDetailsElement>(null);
 
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ['job', id],
@@ -222,6 +223,19 @@ export function JobDetailPage() {
   useEffect(() => {
     setClientAttachDraft('');
   }, [job?.id]);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  useEffect(() => {
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    document.addEventListener('pointerdown', onPointer);
+    return () => document.removeEventListener('pointerdown', onPointer);
+  }, []);
 
   const { data: parentJob } = useQuery<{ id: string; title: string; job_number: number | null } | null>({
     queryKey: ['job-parent', job?.parent_job_id],
@@ -695,6 +709,11 @@ export function JobDetailPage() {
   const actualCost = costTotals?.cost ?? 0;
   const chargeTotal = costTotals?.charge ?? 0;
   const site = job.address || client?.address || null;
+  const jobRef = formatJobRef({
+    job_number: job.job_number,
+    cost_code: job.cost_code,
+    parent_job_number: parentJob?.job_number ?? null,
+  });
   const acceptedQuote = (quotes ?? []).find(q => q.status === 'accepted');
   const stages = childJobs ?? [];
 
@@ -777,90 +796,147 @@ export function JobDetailPage() {
 
   return (
     <AppShell>
-      <div className="page-shell-narrow hub-job-cal">
+      <div className="ops-page hub-jobs hub-job-cal">
         <Breadcrumbs items={[
           { label: 'Jobs', to: '/jobs' },
-          { label: `${formatJobRef({
-            job_number: job.job_number,
-            cost_code: job.cost_code,
-            parent_job_number: parentJob?.job_number ?? null,
-          })} ${job.title}` },
+          { label: `${jobRef} ${job.title}` },
         ]} />
 
-        <article className="ops-card job-cal-host mb-4">
-          <OpsPhotoStamp
-            src={coverPhotoUrl}
-            hub
-            status={
-              <select
-                value={job.status}
-                onChange={e => updateStatus.mutate(e.target.value as JobStatus)}
-                className={`ops-status cursor-pointer border-0 ${JOB_STATUS_STYLES[job.status]}`}
-                aria-label="Job status"
+        <div className="hub-job-toolbar">
+          <div className="hub-job-editor-act">
+            {next.key === 'inspect' ? (
+              <Link to={inspectHref} className="btn-primary ops-next-control-block">{next.label}</Link>
+            ) : next.key !== 'none' ? (
+              <button
+                type="button"
+                className="btn-primary ops-next-control-block"
+                disabled={nextBusy}
+                onClick={runNext}
               >
-                {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
-                  <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
-                ))}
-              </select>
-            }
-            identity={`${formatJobRef({
-              job_number: job.job_number,
-              cost_code: job.cost_code,
-              parent_job_number: parentJob?.job_number ?? null,
-            })} | ${site ? site : 'No site address'}`}
-          />
-          <div className="ops-card-body">
-            <OpsSiteRow
-              hub
-              site={site ? site : 'No site address yet — add it in job details'}
-              phone={client?.phone}
-              mapsQuery={site}
-            />
-            {job.title && <p className="ops-hub-title mt-1">{job.title}</p>}
-            {parentJob && (
-              <Link to={`/jobs/${parentJob.id}`} className="mt-1 inline-flex items-center gap-1 ops-meta text-accent hover:underline">
-                <GitBranch size={12} />
-                Stage of {parentJob.job_number != null ? `#${padNum(parentJob.job_number)} ` : ''}{parentJob.title}
-              </Link>
+                {next.label}
+              </button>
+            ) : (
+              <span className="ops-next-control-done">{next.label}</span>
             )}
-
-            <div className="mt-2">
-              {next.key === 'inspect' ? (
-                <Link to={inspectHref} className="ops-next-control-block">{next.label}</Link>
-              ) : next.key !== 'none' ? (
+            <details ref={moreRef} className="hub-job-more">
+              <summary aria-label="More actions">
+                <MoreHorizontal size={18} />
+              </summary>
+              <div className="hub-job-more-menu" role="menu">
                 <button
                   type="button"
-                  className="ops-next-control-block"
-                  disabled={nextBusy}
-                  onClick={runNext}
+                  role="menuitem"
+                  onClick={() => { closeMore(); scrollToId('job-schedule'); }}
                 >
-                  {next.label}
+                  Schedule / crew
                 </button>
-              ) : (
-                <span className="ops-next-control-done">{next.label}</span>
-              )}
-            </div>
-
-            {((quotes ?? []).length > 0 || (invoices ?? []).length > 0) && (
-              <div className="ops-attach">
-                {(quotes ?? []).map(q => (
-                  <Link key={q.id} to={`/quotes?id=${q.id}`} className="ops-attach-chip">
-                    <span className="truncate">QT #{padNum(q.quote_number)} · {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}</span>
-                    <span className="tabular-nums shrink-0">{formatMoney(Number(q.total))}</span>
-                  </Link>
-                ))}
-                {(invoices ?? []).map(inv => {
-                  const status = effectiveInvoiceStatus(inv);
-                  return (
-                    <Link key={inv.id} to={`/invoices?id=${inv.id}`} className="ops-attach-chip">
-                      <span className="truncate">INV #{padNum(inv.invoice_number)} · {INVOICE_STATUS_LABELS[status]}</span>
-                      <span className="tabular-nums shrink-0">{formatMoney(Number(inv.total))}</span>
-                    </Link>
-                  );
-                })}
+                {(jhaTemplates ?? []).length <= 1 ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); startJha(); }}
+                  >
+                    {(jhas ?? []).length > 0 ? 'Another JHA' : 'Start JHA / SWMS'}
+                  </button>
+                ) : (
+                  (jhaTemplates ?? []).map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { closeMore(); navigate(jhaStartHref(t.id)); }}
+                    >
+                      {t.name}
+                    </button>
+                  ))
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { closeMore(); navigate(inspectHref); }}
+                >
+                  Start inspection
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { closeMore(); handleInvoice(); }}
+                  disabled={invoiceFromJobBill.isPending}
+                >
+                  Invoice
+                </button>
+                {runningEntry ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); clockOffJob.mutate(); }}
+                    disabled={clockOffJob.isPending}
+                  >
+                    Clock off
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); clockOnJob.mutate(); }}
+                    disabled={clockOnJob.isPending || job.status === 'cancelled'}
+                  >
+                    Clock on
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { closeMore(); setShowEdit(true); }}
+                >
+                  Details
+                </button>
               </div>
-            )}
+            </details>
+          </div>
+        </div>
 
+        <article className="ops-card job-cal-host hub-job-sheet mb-4">
+          <div className="hub-job-banner">
+            <p className="hub-job-kicker">Job</p>
+            <h2 className="hub-job-editor-title">{jobRef}</h2>
+            <p className="hub-job-banner-meta">
+              {JOB_STATUS_LABELS[job.status]}
+              {job.scheduled_date ? ` · ${format(parseISO(job.scheduled_date), 'd MMM yyyy')}` : ''}
+              {job.title ? ` · ${job.title}` : ''}
+            </p>
+            <select
+              value={job.status}
+              onChange={e => updateStatus.mutate(e.target.value as JobStatus)}
+              className={`hub-jobs-pill is-${job.status} hub-job-status`}
+              aria-label="Job status"
+            >
+              {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
+                <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
+              ))}
+            </select>
+          </div>
+          {coverPhotoUrl ? (
+            <OpsPhotoStamp src={coverPhotoUrl} hub />
+          ) : null}
+          <div className="ops-card-body">
+            <div className="hub-job-letterhead">
+              <div className="min-w-0">
+                <p className="hub-job-kicker">Site</p>
+                <OpsSiteRow
+                  hub
+                  site={site ? site : 'No site address yet — add it in job details'}
+                  mapsQuery={site}
+                />
+                {parentJob && (
+                  <Link to={`/jobs/${parentJob.id}`} className="mt-1 inline-flex items-center gap-1 ops-meta text-accent hover:underline">
+                    <GitBranch size={12} />
+                    Stage of {parentJob.job_number != null ? `#${padNum(parentJob.job_number)} ` : ''}{parentJob.title}
+                  </Link>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="hub-job-kicker">Client</p>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 ops-meta">
               {attachRow.kind === 'pick' ? (
                 <form
@@ -968,6 +1044,11 @@ export function JobDetailPage() {
                   </button>
                 </form>
               )}
+            </div>
+              </div>
+            </div>
+
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 ops-meta">
               <span className="flex items-center gap-1.5">
                 <Users size={13} />
                 {assigned.length > 0 ? assigned.join(', ') : 'Unassigned'}
@@ -989,71 +1070,32 @@ export function JobDetailPage() {
               )}
             </div>
 
+            {((quotes ?? []).length > 0 || (invoices ?? []).length > 0) && (
+              <div className="ops-attach">
+                {(quotes ?? []).map(q => (
+                  <Link key={q.id} to={`/quotes?id=${q.id}`} className="ops-attach-chip">
+                    <span className="truncate">QT #{padNum(q.quote_number)} · {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}</span>
+                    <span className="tabular-nums shrink-0">{formatMoney(Number(q.total))}</span>
+                  </Link>
+                ))}
+                {(invoices ?? []).map(inv => {
+                  const status = effectiveInvoiceStatus(inv);
+                  return (
+                    <Link key={inv.id} to={`/invoices?id=${inv.id}`} className="ops-attach-chip">
+                      <span className="truncate">INV #{padNum(inv.invoice_number)} · {INVOICE_STATUS_LABELS[status]}</span>
+                      <span className="tabular-nums shrink-0">{formatMoney(Number(inv.total))}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+
             {job.description && (
               <p className="mt-2 ops-meta whitespace-pre-wrap line-clamp-4">{job.description}</p>
             )}
 
             <div className="mt-2 job-cal-act">
-              <ActionButton
-                recommended={false}
-                onClick={() => scrollToId('job-schedule')}
-              >
-                <Calendar size={14} /> Schedule / crew
-              </ActionButton>
-              {(jhas ?? []).length > 0 && (
-                <div className="relative">
-                  <ActionButton recommended={false} onClick={startJha}>
-                    <ShieldCheck size={14} /> Another JHA
-                  </ActionButton>
-                  {showJhaPicker && (jhaTemplates ?? []).length > 1 && (
-                    <div className="absolute z-20 mt-1 w-64 bg-white border border-rule rounded-lg py-1">
-                      {(jhaTemplates ?? []).map(t => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => navigate(jhaStartHref(t.id))}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-zebra"
-                        >
-                          {t.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              <Link to={inspectHref} className={actionClass(false)}>
-                <ClipboardList size={14} /> Start inspection
-              </Link>
-              <ActionButton
-                recommended={false}
-                onClick={handleInvoice}
-                disabled={invoiceFromJobBill.isPending}
-              >
-                <Receipt size={14} /> Invoice
-              </ActionButton>
-              {runningEntry ? (
-                <button
-                  type="button"
-                  onClick={() => clockOffJob.mutate()}
-                  disabled={clockOffJob.isPending}
-                  className="btn-danger"
-                >
-                  <Square size={14} /> Clock off
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => clockOnJob.mutate()}
-                  disabled={clockOnJob.isPending || job.status === 'cancelled'}
-                  className="btn-secondary"
-                >
-                  <Play size={14} /> Clock on
-                </button>
-              )}
               <div className="job-cal-quiet">
-                <button type="button" onClick={() => setShowEdit(true)} className="btn-ghost">
-                  <Edit3 size={14} /> Details
-                </button>
                 <JobCalendarOverflow
                   job={job}
                   site={calendarSite(job.address, client?.address)}
