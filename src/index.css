@@ -9110,10 +9110,7 @@
     margin: 0 auto 16px;
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    background: var(--ts-look-sheet);
-    border: 1px solid var(--ts-look-line);
-    border-radius: 16px;
-    overflow: hidden;
+    gap: 8px;
   }
 
   .hub-timesheets-day {
@@ -9124,13 +9121,13 @@
     padding: 16px 8px;
     color: var(--ts-look-ink);
     text-decoration: none;
-    border-right: 1px solid var(--ts-look-line);
+    background: var(--ts-look-sheet);
+    border: 1px solid var(--ts-look-line);
+    border-radius: 16px;
     font-size: 14px;
     font-weight: 500;
-  }
-
-  .hub-timesheets-day:last-child {
-    border-right: none;
+    min-height: 88px;
+    box-shadow: none;
   }
 
   .hub-timesheets-day-name {
@@ -9161,34 +9158,51 @@
     color: #2E75B6;
   }
 
-  .hub-timesheets-sheet {
+  .hub-timesheets-empty,
+  .hub-timesheets-tiles,
+  .hub-timesheets-entries {
     max-width: 1100px;
     margin: 0 auto 16px;
+  }
+
+  .hub-timesheets-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .hub-timesheets-tile,
+  .hub-timesheets-entry {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 16px;
     background: var(--ts-look-sheet);
     border: 1px solid var(--ts-look-line);
     border-radius: 16px;
-    overflow: hidden;
+    color: var(--ts-look-ink);
+    text-decoration: none;
     box-shadow: none;
+    min-height: 44px;
   }
 
-  .hub-timesheets-thead,
-  .hub-timesheets-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.4fr) 88px 104px minmax(88px, max-content);
-    gap: 16px;
-    align-items: center;
-    padding: 16px 24px;
+  .hub-timesheets-tile.is-open {
+    box-shadow: inset 0 0 0 2px #2E75B6;
   }
 
-  .hub-timesheets-thead {
-    background: transparent;
-    color: var(--ts-look-muted);
+  .hub-timesheets-tile-date {
     font-family: Rajdhani, sans-serif;
-    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    border-bottom: 1px solid var(--ts-look-line);
+    font-size: 20px;
+    letter-spacing: 0.02em;
+    color: var(--ts-look-ink);
+  }
+
+  .hub-timesheets-tile-job {
+    color: var(--ts-look-muted);
+    font-weight: 500;
+    font-size: 14px;
   }
 
   .hub-timesheets-group {
@@ -9198,37 +9212,7 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--ts-look-muted);
-    padding: 16px 24px 8px;
-  }
-
-  .hub-timesheets-row {
-    background: var(--ts-look-sheet);
-    border-top: 1px solid var(--ts-look-line);
-    color: var(--ts-look-ink);
-    font-size: 14px;
-    font-weight: 500;
-    text-decoration: none;
-  }
-
-  .hub-timesheets-row:first-of-type,
-  .hub-timesheets-thead + .hub-timesheets-row {
-    border-top: none;
-  }
-
-  .hub-timesheets-row.is-open {
-    box-shadow: inset 3px 0 0 #2E75B6;
-  }
-
-  .hub-timesheets-date {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  .hub-timesheets-date-name {
-    font-weight: 700;
-    color: var(--ts-look-ink);
+    margin: 0 0 16px;
   }
 
   .hub-timesheets-job,
@@ -9239,10 +9223,16 @@
   }
 
   .hub-timesheets-hours {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
-    font-weight: 600;
+    letter-spacing: 0.02em;
     color: var(--ts-look-ink);
-    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .hub-timesheets-tile .hub-next {
+    padding: 0;
+    justify-content: flex-start;
   }
 
   .hub-timesheets-pill {
@@ -9279,10 +9269,6 @@
     background: color-mix(in srgb, #B42318 12%, #fff);
   }
 
-  .hub-timesheets-row-next {
-    text-align: right;
-  }
-
   .hub-timesheets .hub-next {
     color: #2E75B6;
     background: none;
@@ -9312,24 +9298,13 @@
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
-  .hub-timesheets-entry {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.6fr) 88px;
-    gap: 16px;
-    align-items: center;
-    padding: 16px 24px;
-    border-top: 1px solid var(--ts-look-line);
-    font-size: 14px;
-  }
-
   .hub-timesheets-submit {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 16px 24px;
-    border-top: 1px solid var(--ts-look-line);
+    padding: 16px 0 0;
   }
 
   .hub-timesheets-submit-acts {
@@ -9368,41 +9343,15 @@
 
     .hub-timesheets-days {
       overflow-x: auto;
-      grid-template-columns: repeat(7, minmax(44px, 1fr));
+      grid-template-columns: repeat(7, minmax(72px, 1fr));
     }
 
     .hub-timesheets-day {
       padding: 12px 4px;
+      min-height: 80px;
     }
 
-    .hub-timesheets-thead {
-      display: none;
-    }
-
-    .hub-timesheets-row {
-      grid-template-columns: 1fr auto;
-      grid-template-areas:
-        "date next"
-        "job next"
-        "hours status";
-      gap: 8px 16px;
-      padding: 16px;
-    }
-
-    .hub-timesheets-row > :nth-child(1) { grid-area: date; }
-    .hub-timesheets-row > :nth-child(2) { grid-area: job; }
-    .hub-timesheets-row > :nth-child(3) { grid-area: hours; }
-    .hub-timesheets-row > :nth-child(4) { grid-area: status; }
-    .hub-timesheets-row > :nth-child(5) { grid-area: next; }
-
-    .hub-timesheets-entry {
+    .hub-timesheets-tiles {
       grid-template-columns: 1fr;
-      padding: 16px;
-      gap: 8px;
-    }
-
-    .hub-timesheets-group,
-    .hub-timesheets-submit {
-      padding: 16px;
     }
   }

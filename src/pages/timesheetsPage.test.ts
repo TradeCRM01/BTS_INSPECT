@@ -26,7 +26,7 @@ describe('Timesheets page floor wiring', () => {
     expect(list).toContain('getAuditJobs');
     expect(list).toContain('getAuditTimesheets');
     expect(list).toContain('hub-timesheets');
-    expect(list).toContain('hub-timesheets-row');
+    expect(list).toContain('hub-timesheets-tile');
     expect(list).toContain('hub-timesheets-pill');
   });
 

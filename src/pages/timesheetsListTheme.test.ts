@@ -13,17 +13,17 @@ describe('Timesheets list cream paper look', () => {
     const helper = src('src/lib/timesheetsList.ts');
 
     expect(list).toContain('hub-timesheets');
-    expect(list).toContain('hub-timesheets-sheet');
-    expect(list).toContain('hub-timesheets-row');
+    expect(list).toContain('hub-timesheets-days');
+    expect(list).toContain('hub-timesheets-tile');
     expect(list).toContain('hub-timesheets-pill');
     expect(list).toContain('hub-timesheets-hours');
-    expect(list).toContain('>Date</span>');
-    expect(list).toContain('>Job</span>');
-    expect(list).toContain('>Hours</span>');
-    expect(list).toContain('>Status</span>');
+    expect(list).toContain('hub-timesheets-entries');
     expect(list).toContain('TIMESHEET_LIST_FILTERS');
     expect(list).toContain('timesheetListOpenHref');
     expect(list).toContain('>Open</span>');
+    expect(list).not.toContain('>Date</span>');
+    expect(list).not.toContain('hub-timesheets-thead');
+    expect(list).not.toContain('hub-timesheets-row');
     expect(list).not.toContain('function TimesheetCard');
     expect(list).not.toContain('ViewToggle');
     expect(list).not.toMatch(/Grafter|Relovi|Littleloop/);

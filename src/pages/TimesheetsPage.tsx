@@ -309,44 +309,38 @@ export function TimesheetsPage() {
           })}
         </div>
 
-        <div className="hub-timesheets-sheet">
-          <div className="hub-timesheets-thead">
-            <span>Date</span>
-            <span>Job</span>
-            <span>Hours</span>
-            <span>Status</span>
-            <span />
-          </div>
-          {empty && (
+        {empty && (
+          <div className="hub-timesheets-empty">
             <EmptyState
               icon={Clock}
               title={timesheetListEmptyTitle(empty)}
               message={timesheetListEmptyMessage(empty)}
             />
-          )}
-          {visible.map(item => {
-            const isOpen = item.row.id === openId;
-            return (
-              <Link
-                key={item.row.id}
-                to={item.href}
-                className={`hub-timesheets-row ${isOpen ? 'is-open' : ''}`}
-              >
-                <span className="hub-timesheets-date">
-                  <span className="hub-timesheets-date-name">{item.title}</span>
-                </span>
-                <span className="hub-timesheets-job">{item.jobLine || '—'}</span>
-                <span className="hub-timesheets-hours">{item.hoursLabel}</span>
-                <span className={`hub-timesheets-pill ${timesheetListPillClass(item.row.status)}`}>{item.statusLabel}</span>
-                <span className="hub-timesheets-row-next">
-                  <span className="hub-next">Open</span>
-                </span>
-              </Link>
-            );
-          })}
-        </div>
+          </div>
+        )}
 
-        <div className="hub-timesheets-sheet hub-timesheets-entries">
+        {visible.length > 0 && (
+          <div className="hub-timesheets-tiles">
+            {visible.map(item => {
+              const isOpen = item.row.id === openId;
+              return (
+                <Link
+                  key={item.row.id}
+                  to={item.href}
+                  className={`hub-timesheets-tile ${isOpen ? 'is-open' : ''}`}
+                >
+                  <span className="hub-timesheets-tile-date">{item.title}</span>
+                  <span className="hub-timesheets-tile-job">{item.jobLine || '—'}</span>
+                  <span className="hub-timesheets-hours">{item.hoursLabel}</span>
+                  <span className={`hub-timesheets-pill ${timesheetListPillClass(item.row.status)}`}>{item.statusLabel}</span>
+                  <span className="hub-next">Open</span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="hub-timesheets-entries">
           <h3 className="hub-timesheets-group">
             {opened ? `Time entries · ${format(parseISO(opened.date), 'dd MMM')}` : 'Time entries'}
           </h3>
@@ -364,15 +358,11 @@ export function TimesheetsPage() {
                 : 0;
               return (
                 <div key={entry.id} className="hub-timesheets-entry">
-                  <span className="hub-timesheets-date">
-                    <span className="hub-timesheets-date-name">{ts ? format(parseISO(ts.date), 'dd MMM') : '—'}</span>
-                    <span className="hub-timesheets-muted">
-                      {format(new Date(entry.start_time), 'HH:mm')}
-                      {entry.end_time ? ` — ${format(new Date(entry.end_time), 'HH:mm')}` : ' — running'}
-                    </span>
-                  </span>
+                  <span className="hub-timesheets-tile-date">{ts ? format(parseISO(ts.date), 'dd MMM') : '—'}</span>
                   <span className="hub-timesheets-muted">
-                    {entry.work_type || ''}
+                    {format(new Date(entry.start_time), 'HH:mm')}
+                    {entry.end_time ? ` — ${format(new Date(entry.end_time), 'HH:mm')}` : ' — running'}
+                    {entry.work_type ? ` · ${entry.work_type}` : ''}
                     {entry.job_id ? ` · ${jobs?.find(j => j.id === entry.job_id)?.title ?? 'Job'}` : ''}
                     {entry.billable ? ' · Billable' : ' · Non-billable'}
                   </span>
