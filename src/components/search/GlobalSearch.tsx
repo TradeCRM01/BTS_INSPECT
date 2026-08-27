@@ -17,6 +17,12 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import {
+  armSearchOverlayHash,
+  disarmSearchOverlayHash,
+  isSearchOverlayHash,
+  searchOverlayNavigationReplace,
+} from './searchOverlayDismiss';
 
 /* ----------------------------- types ----------------------------- */
 
@@ -149,6 +155,8 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<number | undefined>(undefined);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   // Reset state + focus input whenever the palette opens.
   useEffect(() => {
@@ -180,18 +188,31 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     return () => window.clearTimeout(debounceRef.current);
   }, [query, open, profile?.company_id]);
 
-  // Escape closes (works even if input loses focus).
+  // Native hash so phone/browser back closes the overlay and stays here.
+  useEffect(() => {
+    if (!open) return;
+    armSearchOverlayHash(window.location);
+    const onHashChange = () => {
+      if (!isSearchOverlayHash(window.location.hash)) {
+        onCloseRef.current();
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
+        disarmSearchOverlayHash(window.location, window.history);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open]);
 
   // Keep the active row scrolled into view while navigating with arrows.
   useEffect(() => {
@@ -202,9 +223,14 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   if (!open) return null;
 
   const flat = groups.flatMap((g) => g.results);
+  const dismiss = () => {
+    onCloseRef.current();
+    disarmSearchOverlayHash(window.location, window.history);
+  };
   const go = (to: string) => {
+    const replace = searchOverlayNavigationReplace(window.location.hash);
     onClose();
-    navigate(to);
+    navigate(to, { replace });
   };
 
   const onInputKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -226,7 +252,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   return (
     <div
       className="overlay-backdrop"
-      onClick={onClose}
+      onClick={dismiss}
     >
       <div
         className="overlay-panel-xl animate-slide-up"
@@ -244,7 +270,8 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
             className="min-h-[44px] h-auto py-2 w-full min-w-0 bg-transparent text-base text-[#0A2540] placeholder:text-[#4A5568]/60 focus:outline-none"
           />
           <button
-            onClick={onClose}
+            type="button"
+            onClick={dismiss}
             className="rounded-md p-1 text-[#4A5568] hover:bg-gray-100"
             aria-label="Close search"
           >
