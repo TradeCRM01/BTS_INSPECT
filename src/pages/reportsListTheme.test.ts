@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -94,5 +94,17 @@ describe('reports list shows existing reports and opens the existing route', () 
     expect(app).toContain('<Navigate to="/drive" replace />');
     expect(app).toContain('path="/inspections/:id/report"');
     expect(app).toContain('path="/uploaded-pdfs/:id"');
+  });
+});
+
+describe('reports list LOOK frames', () => {
+  it('covers the find-and-open list on desktop and phone only', () => {
+    for (const rel of [
+      'docs/look/reports-list-desktop.png',
+      'docs/look/reports-list-phone.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
+    }
   });
 });
