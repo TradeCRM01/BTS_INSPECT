@@ -665,7 +665,9 @@ export function TeamSettingsPage() {
               </header>
               <div className="hub-team-sheet-body">
                 <h1 className="hub-team-hero">{openedMember.name}</h1>
-                <p className="hub-team-jobline">{openedMember.email}</p>
+                <p className="hub-team-jobline">
+                  {[company?.name, openedIsAdmin ? 'Admin' : 'Member'].filter(Boolean).join(' · ')}
+                </p>
                 <div className="hub-team-tools">
                   {isAdmin && openedPending && !openedIsMe ? (
                     <button
@@ -735,11 +737,7 @@ export function TeamSettingsPage() {
                     </div>
                   )}
                   <div className="hub-team-ledger-row">
-                    <span>{openedIsAdmin ? 'Admin' : 'Member'}</span>
-                    <span className="hub-team-hours">{openedPending ? 'Pending' : 'Joined'}</span>
-                  </div>
-                  <div className="hub-team-ledger-row">
-                    <span>{openedPending ? 'Invited' : 'Joined'}</span>
+                    <span>{openedPending ? 'Pending' : openedIsAdmin ? 'Admin' : 'Member'}</span>
                     <span className="hub-team-hours">
                       {format(new Date(openedMember.created_at), 'd MMM yyyy')}
                     </span>
