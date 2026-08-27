@@ -1,12 +1,19 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  APPOINT_ALREADY_DEVELOPER,
+  APPOINT_NEED_ACCOUNT,
+  APPOINT_NEED_EMAIL,
   BILLING_STATUS_LABELS,
   GRAFTER_PLANS,
   OPERATOR_EMAIL,
+  REMOVE_LAST_DEVELOPER,
+  REMOVE_NOT_DEVELOPER,
   STRIPE_SECRET_MISS,
   STRIPE_TAX_NOTE,
+  canAppointOperator,
+  canRemoveOperator,
   companyAccessBlocked,
   grafterPlan,
   priceEnvFor,
@@ -87,6 +94,8 @@ describe('operator console wiring', () => {
     expect(app).toContain('OperatorAuditPage');
     expect(src('src/components/layout/OperatorShell.tsx')).toContain('Operator');
     expect(src('src/components/layout/OperatorShell.tsx')).not.toContain('AppShell');
+    expect(src('src/components/layout/OperatorShell.tsx')).toContain('/operator/operators');
+    expect(app).toContain('OperatorOperatorsPage');
     expect(src('src/components/layout/AppShell.tsx')).toContain('to="/operator"');
     expect(src('src/components/layout/AppShell.tsx')).toContain('isPlatformOperator');
     expect(src('src/components/layout/ProtectedRoute.tsx')).toContain('companyAccessBlocked');
@@ -118,10 +127,118 @@ describe('operator console wiring', () => {
     expect(fn).not.toContain('VITE_STRIPE');
     expect(fn).toContain('STRIPE_SECRET_KEY');
     expect(fn).toContain('rk_');
+    expect(fn).toContain('list_operators');
+    expect(fn).toContain('add_operator');
+    expect(fn).toContain('remove_operator');
+    expect(fn).toContain('Cannot remove the last developer');
+    expect(fn).toContain('They must sign up first');
+    expect(fn).not.toContain('user_metadata');
     const hook = src('supabase/functions/stripe-webhook/index.ts');
     expect(hook).toContain('constructEventAsync');
     expect(hook).toContain('customer.subscription.updated');
     expect(hook).not.toContain('payment_method_types');
     expect(hook).not.toContain('automatic_tax');
+  });
+});
+
+describe('appoint developers', () => {
+  const jack = { user_id: 'jack', email: OPERATOR_EMAIL };
+  const sam = { id: 'sam', email: 'sam@example.com', name: 'Sam Field' };
+
+  it('requires an existing Grafter account and will not duplicate a developer', () => {
+    expect(canAppointOperator('', [], null)).toEqual({ ok: false, error: APPOINT_NEED_EMAIL });
+    expect(canAppointOperator('nobody@example.com', [], null)).toEqual({
+      ok: false,
+      error: APPOINT_NEED_ACCOUNT,
+    });
+    expect(canAppointOperator(OPERATOR_EMAIL, [jack], sam)).toEqual({
+      ok: false,
+      error: APPOINT_ALREADY_DEVELOPER,
+    });
+    expect(canAppointOperator('  SAM@example.com ', [jack], sam)).toEqual({
+      ok: true,
+      userId: 'sam',
+      email: 'sam@example.com',
+      name: 'Sam Field',
+    });
+  });
+
+  it('will not drop the last developer', () => {
+    expect(canRemoveOperator([jack], jack.user_id)).toEqual({
+      ok: false,
+      error: REMOVE_LAST_DEVELOPER,
+    });
+    expect(canRemoveOperator([jack, { user_id: 'sam', email: sam.email }], jack.user_id)).toEqual({
+      ok: true,
+    });
+    expect(canRemoveOperator([jack], 'missing')).toEqual({
+      ok: false,
+      error: REMOVE_NOT_DEVELOPER,
+    });
+  });
+
+  it('appoints through the operator function, not user_metadata or client env', () => {
+    const page = src('src/pages/operator/OperatorOperatorsPage.tsx');
+    expect(page).toContain("action: 'add_operator'");
+    expect(page).toContain("action: 'remove_operator'");
+    expect(page).not.toContain('user_metadata');
+    expect(src('src/lib/platformOperator.ts')).not.toMatch(/VITE_.*OPERATOR/);
+    expect(src('src/App.tsx')).toContain('/operator/operators');
+  });
+
+  it('paints the Developers page as settings-card rows, not a toast pile or posters', () => {
+    const page = src('src/pages/operator/OperatorOperatorsPage.tsx');
+    const css = src('src/index.css');
+    const scoped = css.slice(
+      css.indexOf('/* Developers page only.'),
+      css.indexOf('/* ── App chrome (navy Looplet craft: hairlines, no mega-menu shadow) ─ */'),
+    );
+
+    expect(page).toContain('id="operator-developers"');
+    expect(page).toContain('className="dev-email"');
+    expect(page).toContain('className="dev-label"');
+    expect(page).toContain('className="dev-miss"');
+    expect(page).toContain('className="dev-row"');
+    expect(page).toContain('className="dev-remove"');
+    expect(page).toContain('REMOVE_LAST_DEVELOPER');
+    expect(page).toContain("action: 'list_operators'");
+    expect(page).toContain("action: 'add_operator'");
+    expect(page).toContain("action: 'remove_operator'");
+    expect(page).not.toContain('btn-danger');
+    expect(page).not.toContain('ops-stamp');
+    expect(page).not.toContain('ops-card');
+    expect(page).not.toMatch(/onError: \(err: Error\) => showToast\(err\.message/);
+    expect(page).not.toContain('Relovi');
+
+    expect(scoped).toContain('#operator-developers');
+    expect(scoped).toContain('#F4F6F8');
+    expect(scoped).toContain('#FFFFFF');
+    expect(scoped).toContain('#0A2540');
+    expect(scoped).toContain('#5B6B7C');
+    expect(scoped).toContain('#D5DCE3');
+    expect(scoped).toContain('#2E75B6');
+    expect(scoped).toContain('font-size: 12px');
+    expect(scoped).toContain('border-radius: 16px');
+    expect(scoped).toContain('min-height: 44px');
+    expect(scoped).toContain('height: 24px !important');
+    expect(scoped).not.toContain('.shell-header');
+    expect(scoped).not.toContain('.hub-marketing');
+    expect(scoped).not.toContain('.hub-auth');
+    expect(scoped).not.toContain('.quote-doc-theme');
+    expect(scoped).not.toContain('Relovi');
+    expect(src('src/App.tsx')).not.toContain('OperatorLook');
+    expect(src('src/App.tsx')).toContain('/operator/operators');
+  });
+
+  it('LOOK frames cover the Developers page and appoint miss only', () => {
+    for (const rel of [
+      'docs/look/operators-page-desktop.png',
+      'docs/look/operators-page-phone.png',
+      'docs/look/operators-miss-desktop.png',
+      'docs/look/operators-miss-phone.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
+    }
   });
 });
