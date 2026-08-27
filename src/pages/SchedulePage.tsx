@@ -23,19 +23,195 @@ import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searc
 import { parseScheduleView, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
 import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
 import {
-  ChevronLeft, ChevronRight, Plus, Users, X,
+  ChevronDown, ChevronLeft, ChevronRight, Plus, Users, X,
 } from 'lucide-react';
 import {
   format, startOfWeek, endOfWeek,
   addDays, addWeeks,
 } from 'date-fns';
 
+/** Signed week-board frame seed — Schedule look only, not a live company. */
+const WEEK_BOARD_LOOK = 'week-board';
+const WEEK_BOARD_LOOK_ANCHOR = new Date(2025, 2, 31);
+const WEEK_LOOK_DAVE = 'look-crew-dave';
+const WEEK_LOOK_JACK = 'look-crew-jack';
+const WEEK_LOOK_SAM = 'look-crew-sam';
+const WEEK_LOOK_RUST = '#C45C38';
+const WEEK_LOOK_NAVY = '#0A2540';
+
+const WEEK_BOARD_LOOK_CREW: TeamMember[] = [
+  { id: WEEK_LOOK_DAVE, name: 'Dave', email: 'dave@look.example', schedule_color: null },
+  { id: WEEK_LOOK_JACK, name: 'Jack', email: 'jack@look.example', schedule_color: null },
+  { id: WEEK_LOOK_SAM, name: 'Sam', email: 'sam@look.example', schedule_color: null },
+];
+
+function weekBoardLookJob(
+  over: Partial<JobWithClient> & Pick<JobWithClient, 'id' | 'title' | 'scheduled_date' | 'assigned_team' | 'job_number'>,
+): JobWithClient {
+  return {
+    company_id: 'look-week-board',
+    client_id: null,
+    description: null,
+    status: 'scheduled',
+    priority: 'medium',
+    start_time: '08:00',
+    end_time: '16:00',
+    address: null,
+    inspection_id: null,
+    created_by: 'look-week-board',
+    created_at: '2025-03-31T00:00:00.000Z',
+    updated_at: '2025-03-31T00:00:00.000Z',
+    color: null,
+    budget: null,
+    parent_job_id: null,
+    cost_code: null,
+    parent_job_number: null,
+    ...over,
+  };
+}
+
+function weekBoardLookJobs(): JobWithClient[] {
+  return [
+    weekBoardLookJob({
+      id: 'look-job-0042-01',
+      title: 'Switchboard',
+      scheduled_date: '2025-04-01',
+      assigned_team: [WEEK_LOOK_DAVE],
+      job_number: 42,
+      cost_code: '01',
+      parent_job_id: 'look-job-0042',
+      parent_job_number: 42,
+      color: WEEK_LOOK_RUST,
+    }),
+    weekBoardLookJob({
+      id: 'look-job-0042-02',
+      title: 'Testing',
+      scheduled_date: '2025-04-02',
+      assigned_team: [WEEK_LOOK_DAVE],
+      job_number: 42,
+      cost_code: '02',
+      parent_job_id: 'look-job-0042',
+      parent_job_number: 42,
+      color: WEEK_LOOK_RUST,
+    }),
+    weekBoardLookJob({
+      id: 'look-job-0048',
+      title: 'Warehouse lights',
+      scheduled_date: '2025-04-03',
+      assigned_team: [WEEK_LOOK_JACK],
+      job_number: 48,
+      color: WEEK_LOOK_NAVY,
+    }),
+  ];
+}
+
+function WeekBoardChrome({
+  viewMode,
+  setView,
+  onToday,
+  onPrev,
+  onNext,
+  rangeLabel,
+  crew,
+  filteredEmployeeIds,
+  onToggleCrew,
+  onClearCrew,
+}: {
+  viewMode: ScheduleViewMode;
+  setView: (mode: ScheduleViewMode) => void;
+  onToday: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  rangeLabel: string;
+  crew: TeamMember[];
+  filteredEmployeeIds: Set<string>;
+  onToggleCrew: (id: string) => void;
+  onClearCrew: () => void;
+}) {
+  const allCrews = filteredEmployeeIds.size === 0;
+  const selectedNames = crew
+    .filter(member => filteredEmployeeIds.has(member.id))
+    .map(member => member.name)
+    .join(', ');
+
+  return (
+    <div className="hub-week-chrome">
+      <div className="hub-week-seg" data-week-seg="1">
+        {([
+          { mode: 'day' as const, label: 'Day' },
+          { mode: 'week' as const, label: 'Week' },
+        ]).map(({ mode, label }) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setView(mode)}
+            className={`hub-week-seg-btn ${viewMode === mode ? 'is-on' : ''}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="hub-week-tools">
+        <button type="button" onClick={onToday} className="hub-week-quiet">
+          Today
+        </button>
+        <button
+          type="button"
+          onClick={onPrev}
+          className="hub-week-quiet hub-week-nav"
+          aria-label="Previous week"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={onNext}
+          className="hub-week-quiet hub-week-nav"
+          aria-label="Next week"
+        >
+          <ChevronRight size={16} />
+        </button>
+        <details className="hub-week-crews">
+          <summary className="hub-week-quiet">
+            <span>{allCrews ? 'All crews' : selectedNames || 'All crews'}</span>
+            <ChevronDown size={14} />
+          </summary>
+          <div className="hub-week-crews-menu">
+            {!allCrews && (
+              <button type="button" onClick={onClearCrew} className="hub-week-crew-opt">
+                All crews
+              </button>
+            )}
+            {crew.map(member => {
+              const active = allCrews || filteredEmployeeIds.has(member.id);
+              return (
+                <button
+                  key={member.id}
+                  type="button"
+                  className={`hub-week-crew-opt ${active ? 'is-on' : ''}`}
+                  onClick={() => onToggleCrew(member.id)}
+                >
+                  {member.name}
+                </button>
+              );
+            })}
+          </div>
+        </details>
+      </div>
+      <p className="hub-week-range">{rangeLabel}</p>
+    </div>
+  );
+}
+
 export function SchedulePage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const lookWeekBoard = searchParams.get('look') === WEEK_BOARD_LOOK;
+  const [currentDate, setCurrentDate] = useState(() => (
+    lookWeekBoard ? WEEK_BOARD_LOOK_ANCHOR : new Date()
+  ));
   const [viewMode, setViewMode] = useState<ScheduleViewMode>(() => parseScheduleView(searchParams.get('view')));
   const [showForm, setShowForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -344,10 +520,20 @@ export function SchedulePage() {
 
   const clearEmployeeFilters = () => setFilteredEmployeeIds(new Set());
 
+  const lookJobs = useMemo(() => (lookWeekBoard ? weekBoardLookJobs() : null), [lookWeekBoard]);
+  const boardJobs = lookJobs ?? jobs ?? [];
+  const boardCrew = lookWeekBoard ? WEEK_BOARD_LOOK_CREW : (teamMembers ?? []);
+
+  useEffect(() => {
+    if (lookWeekBoard) setCurrentDate(WEEK_BOARD_LOOK_ANCHOR);
+  }, [lookWeekBoard]);
+
   const { needsDate, onBoard } = useMemo(
-    () => partitionScheduleJobs(jobs ?? []),
-    [jobs],
+    () => partitionScheduleJobs(boardJobs),
+    [boardJobs],
   );
+
+  const weekRangeLabel = `${format(startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'EEE d MMM')} – ${format(endOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'EEE d MMM yyyy')}`;
 
   const unassignedOnBoard = onBoard.filter(j => !(j.assigned_team ?? []).length).length;
 
@@ -358,7 +544,6 @@ export function SchedulePage() {
       <div className="ops-page hub-board-cal" data-schedule-view={viewMode}>
         <div className="ops-page-head">
           <div className="min-w-0">
-            <p className="hub-schedule-kicker">Schedule</p>
             <h1 className="ops-page-title">Schedule</h1>
             <p className="ops-meta mt-2">
               {onBoard.length} on the board
@@ -382,21 +567,23 @@ export function SchedulePage() {
         </div>
 
         <div className="hub-schedule-chrome">
-          <div className="hub-schedule-filters" data-schedule-view={viewMode}>
-            {([
-              { mode: 'week' as const, label: 'Week' },
-              { mode: 'day' as const, label: 'Day' },
-            ]).map(({ mode, label }) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setView(mode)}
-                className={`hub-chrome-filter ${viewMode === mode ? 'hub-chrome-filter-on' : ''}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          {viewMode === 'day' && (
+            <div className="hub-schedule-filters" data-schedule-view={viewMode}>
+              {([
+                { mode: 'week' as const, label: 'Week' },
+                { mode: 'day' as const, label: 'Day' },
+              ]).map(({ mode, label }) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setView(mode)}
+                  className={`hub-chrome-filter ${viewMode === mode ? 'hub-chrome-filter-on' : ''}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           <ScheduleJobSearch
             query={jobQuery}
             onQuery={setJobQuery}
@@ -409,13 +596,13 @@ export function SchedulePage() {
           />
         </div>
 
-        {pickedJob && (teamMembers ?? []).length > 0 && (
+        {pickedJob && boardCrew.length > 0 && (
           <div className="lg:hidden hub-schedule-sheet hub-schedule-place mb-4">
             <p className="text-sm font-medium">
               {pickedJob.title} — tap a person to place it today at 8:00
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
-              {(teamMembers ?? []).map(m => (
+              {boardCrew.map(m => (
                 <button
                   key={m.id}
                   type="button"
@@ -429,155 +616,202 @@ export function SchedulePage() {
           </div>
         )}
 
-        <div className="hub-schedule-toolbar">
-          <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <button onClick={() => setCurrentDate(new Date())}
-              className="btn-secondary">
-              Today
-            </button>
-            <div className="hub-schedule-stepper">
-              <button
-                type="button"
-                onClick={() => setCurrentDate(d =>
-                  viewMode === 'day' ? addDays(d, -1) : addWeeks(d, -1)
-                )}
-                className="hub-schedule-step"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentDate(d =>
-                  viewMode === 'day' ? addDays(d, 1) : addWeeks(d, 1)
-                )}
-                className="hub-schedule-step"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-            <h2 className="hub-schedule-range">
-              {viewMode === 'day' && format(currentDate, 'd MMMM yyyy')}
-              {viewMode === 'week' && `${format(startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'd MMM')} – ${format(endOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'd MMM yyyy')}`}
-            </h2>
-          </div>
-        </div>
-
-        {teamMembers && teamMembers.length > 0 && (
-          <div className="hidden lg:flex items-center gap-2 mb-4 flex-wrap hub-schedule-crew-row">
-            <div className="hub-schedule-label flex items-center gap-1.5">
-              <Users size={13} /> Crew
-            </div>
-            {filteredEmployeeIds.size > 0 && (
-              <button onClick={clearEmployeeFilters}
-                className="ops-link text-xs">
-                <X size={11} /> Show all
-              </button>
-            )}
-            <div className="flex items-center gap-2 flex-wrap">
-              {teamMembers.map(m => {
-                const active = filteredEmployeeIds.size === 0 || filteredEmployeeIds.has(m.id);
-                const color = pickEmployeeColor(m.id, m.schedule_color);
-                return (
-                  <div
-                    key={m.id}
-                    className={`hub-schedule-crew ${active ? 'is-on' : 'is-off'}`}
+        {viewMode === 'day' && (
+          <>
+            <div className="hub-schedule-toolbar">
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                <button onClick={() => setCurrentDate(new Date())}
+                  className="btn-secondary">
+                  Today
+                </button>
+                <div className="hub-schedule-stepper">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentDate(d => addDays(d, -1))}
+                    className="hub-schedule-step"
                   >
-                    <EmployeeColorSwatch
-                      name={m.name}
-                      color={color}
-                      savedColor={m.schedule_color}
-                      disabled={colorSavingId === m.id}
-                      onPick={hex => void setScheduleColor(m.id, hex)}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => toggleEmployeeFilter(m.id)}
-                      title={active && filteredEmployeeIds.size > 0 ? 'Hide from board' : 'Filter to this person'}
-                    >
-                      {m.name}
-                    </button>
-                  </div>
-                );
-              })}
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentDate(d => addDays(d, 1))}
+                    className="hub-schedule-step"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+                <h2 className="hub-schedule-range">
+                  {format(currentDate, 'd MMMM yyyy')}
+                </h2>
+              </div>
             </div>
-          </div>
+
+            {boardCrew.length > 0 && (
+              <div className="hidden lg:flex items-center gap-2 mb-4 flex-wrap hub-schedule-crew-row">
+                <div className="hub-schedule-label flex items-center gap-1.5">
+                  <Users size={13} /> Crew
+                </div>
+                {filteredEmployeeIds.size > 0 && (
+                  <button onClick={clearEmployeeFilters}
+                    className="ops-link text-xs">
+                    <X size={11} /> Show all
+                  </button>
+                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {boardCrew.map(m => {
+                    const active = filteredEmployeeIds.size === 0 || filteredEmployeeIds.has(m.id);
+                    const color = pickEmployeeColor(m.id, m.schedule_color);
+                    return (
+                      <div
+                        key={m.id}
+                        className={`hub-schedule-crew ${active ? 'is-on' : 'is-off'}`}
+                      >
+                        <EmployeeColorSwatch
+                          name={m.name}
+                          color={color}
+                          savedColor={m.schedule_color}
+                          disabled={colorSavingId === m.id}
+                          onPick={hex => void setScheduleColor(m.id, hex)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => toggleEmployeeFilter(m.id)}
+                          title={active && filteredEmployeeIds.size > 0 ? 'Hide from board' : 'Filter to this person'}
+                        >
+                          {m.name}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
-        {isLoading ? (
+        {!lookWeekBoard && isLoading ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
+        ) : viewMode === 'week' ? (
+          <>
+            <div className="lg:hidden space-y-4 hub-schedule-phone">
+              <NeedsDateRail
+                jobs={needsDate}
+                teamMembers={boardCrew}
+                onJobClick={job => openJob(job.id)}
+                onDragStart={handleRailDragStart}
+              />
+              <div className="hub-week-sheet" data-week-sheet="1">
+                <WeekBoardChrome
+                  viewMode={viewMode}
+                  setView={setView}
+                  onToday={() => setCurrentDate(new Date())}
+                  onPrev={() => setCurrentDate(d => addWeeks(d, -1))}
+                  onNext={() => setCurrentDate(d => addWeeks(d, 1))}
+                  rangeLabel={weekRangeLabel}
+                  crew={boardCrew}
+                  filteredEmployeeIds={filteredEmployeeIds}
+                  onToggleCrew={toggleEmployeeFilter}
+                  onClearCrew={clearEmployeeFilters}
+                />
+                <PhoneWeekList
+                  jobs={onBoard}
+                  teamMembers={boardCrew}
+                  currentDate={currentDate}
+                  onJobClick={job => openJob(job.id)}
+                  onDragStart={handleRailDragStart}
+                  onSelectDay={date => {
+                    setCurrentDate(date);
+                    setView('day');
+                  }}
+                  onDayClick={handleDayClick}
+                  onJobDrop={drop => {
+                    rescheduleJob.mutate(drop);
+                    setJobQuery('');
+                    setPickedJob(null);
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="hidden lg:flex items-start gap-3 hub-schedule-desk">
+              <div className="hub-week-sheet min-w-0 flex-1" data-week-sheet="1">
+                <WeekBoardChrome
+                  viewMode={viewMode}
+                  setView={setView}
+                  onToday={() => setCurrentDate(new Date())}
+                  onPrev={() => setCurrentDate(d => addWeeks(d, -1))}
+                  onNext={() => setCurrentDate(d => addWeeks(d, 1))}
+                  rangeLabel={weekRangeLabel}
+                  crew={boardCrew}
+                  filteredEmployeeIds={filteredEmployeeIds}
+                  onToggleCrew={toggleEmployeeFilter}
+                  onClearCrew={clearEmployeeFilters}
+                />
+                <WeekBoardView
+                  jobs={onBoard}
+                  teamMembers={boardCrew}
+                  currentDate={currentDate}
+                  onJobClick={job => openJob(job.id)}
+                  onDayClick={handleDayClick}
+                  onJobDrop={drop => {
+                    rescheduleJob.mutate(drop);
+                    setJobQuery('');
+                    setPickedJob(null);
+                  }}
+                  filteredEmployeeIds={filteredEmployeeIds}
+                />
+              </div>
+              <NeedsDateRail
+                className="w-72 shrink-0 sticky top-3"
+                jobs={needsDate}
+                teamMembers={boardCrew}
+                onJobClick={job => openJob(job.id)}
+                onDragStart={handleRailDragStart}
+              />
+            </div>
+          </>
         ) : (
           <>
             <div className="lg:hidden space-y-4 hub-schedule-phone">
               <NeedsDateRail
                 jobs={needsDate}
-                teamMembers={teamMembers ?? []}
+                teamMembers={boardCrew}
                 onJobClick={job => openJob(job.id)}
                 onDragStart={handleRailDragStart}
               />
               <div className="hub-schedule-sheet">
-                {viewMode === 'week' ? (
-                  <PhoneWeekList
-                    jobs={onBoard}
-                    teamMembers={teamMembers ?? []}
-                    currentDate={currentDate}
-                    onJobClick={job => openJob(job.id)}
-                    onDragStart={handleRailDragStart}
-                    onSelectDay={date => {
-                      setCurrentDate(date);
-                      setView('day');
-                    }}
-                    onDayClick={handleDayClick}
-                  />
-                ) : (
-                  <PhoneDayList
-                    jobs={onBoard}
-                    teamMembers={teamMembers ?? []}
-                    currentDate={currentDate}
-                    onJobClick={job => openJob(job.id)}
-                    onDragStart={handleRailDragStart}
-                  />
-                )}
+                <PhoneDayList
+                  jobs={onBoard}
+                  teamMembers={boardCrew}
+                  currentDate={currentDate}
+                  onJobClick={job => openJob(job.id)}
+                  onDragStart={handleRailDragStart}
+                />
               </div>
             </div>
 
             <div className="hidden lg:flex items-start gap-3 hub-schedule-desk">
               <div className="min-w-0 flex-1">
-                {viewMode === 'day' ? (
-                  <DayBoardView
-                    jobs={onBoard}
-                    teamMembers={teamMembers ?? []}
-                    currentDate={currentDate}
-                    onJobClick={job => openJob(job.id)}
-                    onDayClick={handleDayClick}
-                    onJobDrop={drop => {
-                      rescheduleJob.mutate(drop);
-                      setJobQuery('');
-                      setPickedJob(null);
-                    }}
-                    onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
-                    filteredEmployeeIds={filteredEmployeeIds}
-                  />
-                ) : (
-                  <WeekBoardView
-                    jobs={onBoard}
-                    teamMembers={teamMembers ?? []}
-                    currentDate={currentDate}
-                    onJobClick={job => openJob(job.id)}
-                    onDayClick={handleDayClick}
-                    onJobDrop={drop => {
-                      rescheduleJob.mutate(drop);
-                      setJobQuery('');
-                      setPickedJob(null);
-                    }}
-                    filteredEmployeeIds={filteredEmployeeIds}
-                  />
-                )}
+                <DayBoardView
+                  jobs={onBoard}
+                  teamMembers={boardCrew}
+                  currentDate={currentDate}
+                  onJobClick={job => openJob(job.id)}
+                  onDayClick={handleDayClick}
+                  onJobDrop={drop => {
+                    rescheduleJob.mutate(drop);
+                    setJobQuery('');
+                    setPickedJob(null);
+                  }}
+                  onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
+                  filteredEmployeeIds={filteredEmployeeIds}
+                />
               </div>
               <NeedsDateRail
                 className="w-72 shrink-0 sticky top-3"
                 alwaysShow
                 jobs={needsDate}
-                teamMembers={teamMembers ?? []}
+                teamMembers={boardCrew}
                 onJobClick={job => openJob(job.id)}
                 onDragStart={handleRailDragStart}
               />

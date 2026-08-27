@@ -27,7 +27,7 @@ describe('schedule page week/day board', () => {
     expect(page).toContain('onOpenJob={job => openJob(job.id)}');
     expect(page).toContain('onJobClick={job => openJob(job.id)}');
     expect(board).toContain('data-schedule-job={job.id}');
-    expect(board).toContain('scheduleWeekColumns');
+    expect(board).toContain('weekBoardRows');
     expect(board).toContain('onClick={() => onJobClick(job)}');
     expect(search).toContain('href={scheduleJobHref(job.id)}');
     expect(search).toContain('data-schedule-open-job={job.id}');
@@ -36,13 +36,14 @@ describe('schedule page week/day board', () => {
   it('groups the phone week from existing scheduled_date fields', () => {
     const board = src('src/components/crm/BoardViews.tsx');
     expect(board).toContain('export const PhoneWeekList');
-    expect(board).toContain('scheduleWeekColumns(jobs, currentDate)');
+    expect(board).toContain('weekBoardRows(jobs, teamMembers, currentDate, filteredEmployeeIds)');
     expect(board).toContain('data-schedule-week="1"');
+    expect(board).toContain('data-week-board="1"');
     expect(board).toContain('onSelectDay');
     expect(board).toContain('jobsOnScheduleDay');
-    expect(board).toContain('filterJobsByCrew');
     expect(board).toContain('data-schedule-track="day"');
-    expect(board).toContain('data-schedule-track="week"');
+    expect(board).not.toContain('data-schedule-track="week"');
+    expect(board).not.toContain('ScheduleWeekHourPlot');
     expect(board).not.toContain('No jobs on this day');
     expect(board).not.toContain('No jobs this day');
     expect(board).not.toContain('hub-schedule-empty');
@@ -55,7 +56,7 @@ describe('schedule board cream paper look', () => {
     const css = src('src/index.css');
 
     expect(page).toContain('hub-board-cal');
-    expect(page).toContain('hub-schedule-kicker');
+    expect(page).not.toContain('hub-schedule-kicker');
     expect(page).toContain('hub-schedule-chrome');
     expect(page).toContain('hub-schedule-filters');
     expect(page).toContain('New job');
@@ -74,12 +75,47 @@ describe('schedule board cream paper look', () => {
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(css).not.toMatch(/\.hub-board-cal \.ops-page-title[\s\S]{0,160}Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(css).toContain('letter-spacing: 0.12em');
+    expect(css).toContain('.hub-week-board');
+    expect(css).toContain('.hub-week-chip');
+    expect(css).toContain('.hub-week-sheet');
+    expect(css).toContain('.hub-week-seg');
+    expect(css).toContain('.hub-week-quiet');
+    expect(css).toContain('inset 0 1px 0 #fff');
+    expect(css).not.toContain('.hub-schedule-track.is-week');
+  });
+
+  it('paints the week board on one cream sheet and leaves the day hour plot', () => {
+    const page = src('src/pages/SchedulePage.tsx');
+    const board = src('src/components/crm/BoardViews.tsx');
+    const css = src('src/index.css');
+    const weekCss = css.slice(css.indexOf('.hub-week-sheet'), css.indexOf('.hub-schedule-place'));
+
+    expect(page).toContain('hub-week-sheet');
+    expect(page).toContain('WeekBoardChrome');
+    expect(page).toContain('All crews');
+    expect(page).toContain("look') === WEEK_BOARD_LOOK");
+    expect(page).toContain("name: 'Dave'");
+    expect(page).toContain("name: 'Jack'");
+    expect(page).toContain("name: 'Sam'");
+    expect(page).toContain('#C45C38');
+    expect(page).toContain('Warehouse lights');
+    expect(page).toContain('EEE d MMM');
+    expect(page).toContain('data-week-seg="1"');
+    expect(page).not.toContain('hub-schedule-kicker');
+    expect(weekCss).toContain('overflow: visible');
+    expect(weekCss).toContain('position: sticky');
+    expect(css).toContain('repeat(7, 156px)');
+    expect(board).toContain('data-schedule-track="day"');
+    expect(board).not.toContain('data-schedule-track="week"');
+    expect(weekCss).toContain('inset 0 1px 0 #fff');
+    expect(weekCss).not.toMatch(/#1B7F3A|#059669|#166534|green/i);
+    expect(weekCss).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
   });
 
   it('does not restyle jobs, quotes, invoices, login, landing, operator, or AppShell', () => {
     const jobs = src('src/pages/JobsPage.tsx');
     expect(jobs).not.toContain('hub-board-cal');
-    expect(jobs).not.toContain('hub-schedule-kicker');
+    expect(jobs).not.toContain('hub-week-sheet');
 
     const quotes = src('src/pages/QuotesPage.tsx');
     expect(quotes).not.toContain('hub-board-cal');
@@ -106,6 +142,8 @@ describe('schedule board cream paper look', () => {
       'docs/look/schedule-day-phone.png',
       'docs/look/schedule-empty-day-desktop.png',
       'docs/look/schedule-empty-day-phone.png',
+      'docs/look/schedule-week-board-desktop.png',
+      'docs/look/schedule-week-board-phone.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
     }

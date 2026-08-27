@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, memo, useEffect } from 'react';
 import type { JobWithClient } from '../../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
-import { pickEmployeeColor } from '../../lib/jobColors';
+import { getReadableText, pickEmployeeColor } from '../../lib/jobColors';
 import { colors } from '../../lib/colors';
 import { boardDispatchHint, jobCardHint } from '../../lib/jobNextAction';
 import { OpsSiteRow, OpsStatus, opsSiteLabel } from '../ui/OpsCard';
@@ -27,15 +27,15 @@ import { JobCalendarOverflow } from '../jobs/JobCalendarOverflow';
 import { calendarSite } from '../../lib/jobCalendar';
 import { formatJobRef } from '../../lib/jobRef';
 import {
-  filterJobsByCrew,
-  groupJobsByScheduleDay,
   jobsOnScheduleDay,
   scheduleClockLabel,
   scheduleCrewLabel,
   scheduleDateKey,
   scheduleDayKey,
-  scheduleWeekColumns,
   scheduleWeekDays,
+  weekBoardChip,
+  weekBoardRows,
+  WEEK_UNASSIGNED_CREW_ID,
 } from '../../lib/scheduleBoard';
 
 export interface TeamMember {
@@ -55,6 +55,7 @@ export interface BoardProps {
   onJobDrop?: (drop: JobDropPayload) => void;
   onJobResize?: (jobId: string, startTime: string, endTime: string) => void;
   filteredEmployeeIds: Set<string>;
+  onSelectDay?: (date: Date) => void;
 }
 
 const HOUR_WIDTH = HOUR_WIDTH_PX;
@@ -322,15 +323,42 @@ function ScheduleDayHourPlot({ teamMembers }: { teamMembers?: TeamMember[] }) {
   );
 }
 
-/** Hour ticks inside a week day column. */
-function ScheduleWeekHourPlot() {
+function WeekJobChip({
+  job,
+  familyJobs,
+  dragging,
+  onClick,
+  onDragStart,
+}: {
+  job: JobWithClient;
+  familyJobs: JobWithClient[];
+  dragging?: boolean;
+  onClick: () => void;
+  onDragStart?: (e: React.DragEvent) => void;
+}) {
+  const chip = weekBoardChip(job, familyJobs);
+  const ink = getReadableText(chip.color);
   return (
-    <div className="hub-schedule-track is-week" data-day-grid="1" data-schedule-track="week">
-      {HOURS.map(h => (
-        <div key={h} className="hub-schedule-track-hour">
-          <span className="hub-schedule-label">{formatHourLabel(h)}</span>
-        </div>
-      ))}
+    <div
+      role="button"
+      tabIndex={0}
+      draggable={!!onDragStart}
+      onDragStart={onDragStart}
+      onClick={e => { e.stopPropagation(); onClick(); }}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          onClick();
+        }
+      }}
+      data-schedule-job={job.id}
+      data-week-chip={job.id}
+      className={`hub-week-chip ${dragging ? 'is-dragging' : ''}`}
+      style={{ background: chip.color, color: ink }}
+    >
+      <span className="hub-week-chip-ref">{chip.ref}</span>
+      {chip.description ? <span className="hub-week-chip-desc">{chip.description}</span> : null}
     </div>
   );
 }
@@ -436,7 +464,7 @@ export const PhoneDayList = memo(function PhoneDayList({
 });
 
 export const PhoneWeekList = memo(function PhoneWeekList({
-  jobs, teamMembers, currentDate, onJobClick, onDragStart, onSelectDay, onDayClick,
+  jobs, teamMembers, currentDate, onJobClick, onDragStart: _onDragStart, onSelectDay, onDayClick, onJobDrop,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
@@ -444,49 +472,20 @@ export const PhoneWeekList = memo(function PhoneWeekList({
   onJobClick: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
   onSelectDay: (date: Date) => void;
-  onDayClick: (dateStr: string) => void;
+  onDayClick: (dateStr: string, employeeId?: string) => void;
+  onJobDrop?: (drop: JobDropPayload) => void;
 }) {
-  const columns = useMemo(() => scheduleWeekColumns(jobs, currentDate), [jobs, currentDate]);
-
   return (
-    <div className="space-y-4" data-schedule-week="1">
-      {columns.map(column => {
-        const day = parseISO(`${column.date}T00:00:00`);
-        const today = isToday(day);
-        return (
-          <section key={column.date} data-schedule-day={column.date} className="space-y-2">
-            <button
-              type="button"
-              onClick={() => onSelectDay(day)}
-              className="hub-schedule-label w-full text-left"
-            >
-              {format(day, 'EEEE d MMM')}
-              {today && <span className="ml-2 ops-status ops-status-info">TODAY</span>}
-              <span className="hub-schedule-count"> ({column.jobs.length})</span>
-            </button>
-            {column.jobs.length === 0 ? (
-              <button
-                type="button"
-                onClick={() => onDayClick(column.date)}
-                className="w-full text-left"
-              >
-                <ScheduleDayHourPlot teamMembers={teamMembers} />
-              </button>
-            ) : (
-              column.jobs.map(job => (
-                <PhoneJobCard
-                  key={job.id}
-                  job={job}
-                  teamMembers={teamMembers}
-                  onJobClick={onJobClick}
-                  onDragStart={onDragStart}
-                />
-              ))
-            )}
-          </section>
-        );
-      })}
-    </div>
+    <WeekBoardView
+      jobs={jobs}
+      teamMembers={teamMembers ?? []}
+      currentDate={currentDate}
+      onJobClick={onJobClick}
+      onDayClick={onDayClick}
+      onSelectDay={onSelectDay}
+      onJobDrop={onJobDrop}
+      filteredEmployeeIds={new Set()}
+    />
   );
 });
 
@@ -836,17 +835,15 @@ function CurrentTimeVerticalIndicator() {
 // ── Week Board View ──────────────────────────────────────────────
 
 export const WeekBoardView = memo(function WeekBoardView({
-  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds,
+  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds, onSelectDay,
 }: BoardProps) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
-  const [dropHoverDate, setDropHoverDate] = useState<string | null>(null);
+  const [dropHoverKey, setDropHoverKey] = useState<string | null>(null);
   const days = scheduleWeekDays(currentDate);
-  const dateStrs = days.map(d => dateKey(d));
-
-  const jobsByDay = useMemo(() => {
-    const visible = filterJobsByCrew(jobs, filteredEmployeeIds);
-    return groupJobsByScheduleDay(visible, dateStrs);
-  }, [jobs, dateStrs, filteredEmployeeIds]);
+  const rows = useMemo(
+    () => weekBoardRows(jobs, teamMembers, currentDate, filteredEmployeeIds),
+    [jobs, teamMembers, currentDate, filteredEmployeeIds],
+  );
 
   const handleDragStart = (e: React.DragEvent, jobId: string) => {
     e.dataTransfer.setData('text/plain', jobId);
@@ -856,84 +853,90 @@ export const WeekBoardView = memo(function WeekBoardView({
   };
 
   useEffect(() => {
-    const clear = () => { setDragJobId(null); setDropHoverDate(null); };
+    const clear = () => { setDragJobId(null); setDropHoverKey(null); };
     window.addEventListener('dragend', clear);
     return () => window.removeEventListener('dragend', clear);
   }, []);
 
-  const handleDrop = (e: React.DragEvent, date: string) => {
+  const handleDrop = (e: React.DragEvent, date: string, crewId: string) => {
     e.preventDefault();
     const exclusiveAssign = consumeDragExclusiveAssign();
     const jobId = readDroppedJobId(e.dataTransfer);
-    if (jobId && onJobDrop) onJobDrop({ jobId, date, exclusiveAssign });
+    if (jobId && onJobDrop) {
+      onJobDrop({
+        jobId,
+        date,
+        employeeId: crewId === WEEK_UNASSIGNED_CREW_ID ? null : crewId,
+        exclusiveAssign,
+      });
+    }
     setDragJobId(null);
-    setDropHoverDate(null);
+    setDropHoverKey(null);
+  };
+
+  const openDay = (dateStr: string) => {
+    if (onSelectDay) onSelectDay(parseISO(`${dateStr}T00:00:00`));
+    else onDayClick(dateStr);
   };
 
   return (
-    <div className="ops-board" data-schedule-week="1">
+    <div className="ops-board hub-week-board" data-schedule-week="1" data-week-board="1">
       <div className="hub-schedule-board-head">
         <p className="hub-schedule-label">This week</p>
         <p className="ops-meta">
-          Drag to another day to move the date. Crew stays put.
+          Drag a chip onto a crew and day. Empty slots stay empty.
         </p>
       </div>
-      <div className="flex border-b border-rule">
-        {days.map((day, i) => {
+      <div className="hub-week-grid">
+        <div className="hub-week-corner" />
+        {days.map(day => {
           const ds = dateKey(day);
-          const dayJobs = jobsByDay.get(ds) ?? [];
           const today = isToday(day);
-          const needsCrew = dayJobs.filter(j => !(j.assigned_team ?? []).length).length;
           return (
-            <div key={i} className="flex-1 min-w-[120px] border-r border-rule last:border-r-0 px-2 py-2 text-center">
-              <p className="hub-schedule-label">{format(day, 'EEE')}</p>
-              <p className={`hub-schedule-day ${today ? 'is-today' : ''}`}>
-                {format(day, 'd')}
-              </p>
-              <p className="ops-meta mt-0.5">
-                {dayJobs.length} job{dayJobs.length !== 1 ? 's' : ''}
-                {needsCrew > 0 ? ` · ${needsCrew} unassigned` : ''}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex">
-        {days.map((day, i) => {
-          const ds = dateKey(day);
-          const dayJobs = jobsByDay.get(ds) ?? [];
-          const hovering = dropHoverDate === ds;
-          return (
-            <div
-              key={i}
-              data-schedule-day={ds}
-              onDragOver={e => { e.preventDefault(); setDropHoverDate(ds); }}
-              onDrop={e => handleDrop(e, ds)}
-              onClick={() => onDayClick(ds)}
-              className={`flex-1 min-w-[120px] border-r border-rule last:border-r-0 p-1 space-y-1 cursor-pointer min-h-[300px] ${
-                hovering ? 'bg-zebra' : ''
-              }`}
+            <button
+              key={ds}
+              type="button"
+              data-week-day={ds}
+              onClick={() => openDay(ds)}
+              className={`hub-week-head ${today ? 'is-today' : ''}`}
             >
-              {dayJobs.length === 0 ? (
-                <ScheduleWeekHourPlot />
-              ) : (
-                dayJobs.map(job => (
-                  <JobBlock
-                    key={job.id}
-                    job={job}
-                    teamMembers={teamMembers}
-                    fill={false}
-                    detail
-                    dragging={dragJobId === job.id}
-                    onClick={() => onJobClick(job)}
-                    onDragStart={e => handleDragStart(e, job.id)}
-                  />
-                ))
-              )}
-            </div>
+              {format(day, 'EEE d MMM')}
+            </button>
           );
         })}
+        {rows.map(row => (
+          <div key={row.crewId} className="contents">
+            <div className="hub-week-crew" data-week-crew={row.crewId}>
+              <p className="hub-schedule-crew-name truncate">{row.crewName}</p>
+            </div>
+            {row.cells.map(cell => {
+              const hoverKey = `${row.crewId}:${cell.date}`;
+              const hovering = dropHoverKey === hoverKey;
+              const crewId = row.crewId === WEEK_UNASSIGNED_CREW_ID ? undefined : row.crewId;
+              return (
+                <div
+                  key={hoverKey}
+                  data-week-cell={`${row.crewId}:${cell.date}`}
+                  onDragOver={e => { e.preventDefault(); setDropHoverKey(hoverKey); }}
+                  onDrop={e => handleDrop(e, cell.date, row.crewId)}
+                  onClick={() => onDayClick(cell.date, crewId)}
+                  className={`hub-week-cell ${hovering ? 'is-hover' : ''} ${cell.chips.length === 0 ? 'is-empty' : ''}`}
+                >
+                  {cell.jobs.map(job => (
+                    <WeekJobChip
+                      key={job.id}
+                      job={job}
+                      familyJobs={jobs}
+                      dragging={dragJobId === job.id}
+                      onClick={() => onJobClick(job)}
+                      onDragStart={e => handleDragStart(e, job.id)}
+                    />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );

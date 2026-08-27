@@ -1,4 +1,7 @@
 import { addDays, format, startOfWeek } from 'date-fns';
+import { UNASSIGNED_ROW_ID } from './dispatch';
+import { formatJobRef } from './jobRef';
+import { pickJobColor } from './jobColors';
 
 /** AU trade week — Monday first, matching the existing board. */
 export const SCHEDULE_WEEK_STARTS_ON = 1 as const;
@@ -13,6 +16,37 @@ export type ScheduleDayJob = {
   end_time?: string | null;
   assigned_team?: string[] | null;
 };
+
+/** Week-board chip fields — existing job columns only, no new destination. */
+export type WeekBoardJob = ScheduleDayJob & {
+  job_number?: number | null;
+  cost_code?: string | null;
+  parent_job_id?: string | null;
+  parent_job_number?: number | null;
+  color?: string | null;
+  description?: string | null;
+};
+
+export type WeekBoardChip = {
+  id: string;
+  ref: string;
+  description: string;
+  color: string;
+};
+
+export type WeekBoardCell<T extends WeekBoardJob = WeekBoardJob> = {
+  date: string;
+  jobs: T[];
+  chips: WeekBoardChip[];
+};
+
+export type WeekBoardRow<T extends WeekBoardJob = WeekBoardJob> = {
+  crewId: string;
+  crewName: string;
+  cells: WeekBoardCell<T>[];
+};
+
+export const WEEK_UNASSIGNED_CREW_ID = UNASSIGNED_ROW_ID;
 
 export type ScheduleCrewMember = {
   id: string;
@@ -138,4 +172,102 @@ export function scheduleClockLabel(
   if (!from) return null;
   const to = end?.slice(0, 5);
   return to ? `${from} – ${to}` : from;
+}
+
+/** Parent + children of the same quote share one colour key. */
+export function weekBoardFamilyKey(job: WeekBoardJob): string {
+  return job.parent_job_id || job.id || '';
+}
+
+export function weekBoardChipDescription(job: WeekBoardJob): string {
+  return (job.title ?? '').trim() || (job.description ?? '').trim();
+}
+
+/**
+ * Chip fill: the job's own `color` first. Siblings of the same quote inherit a
+ * family colour so #0042.01 and #0042.02 read as two blocks of the same job.
+ */
+export function weekBoardChipColor(
+  job: WeekBoardJob,
+  familyJobs: WeekBoardJob[] = [],
+): string {
+  if (job.color) return job.color;
+  const key = weekBoardFamilyKey(job);
+  const painted = familyJobs.find(other => (
+    weekBoardFamilyKey(other) === key && !!other.color
+  ));
+  if (painted?.color) return painted.color;
+  return pickJobColor(key || job.id || 'job');
+}
+
+export function weekBoardChip(
+  job: WeekBoardJob,
+  familyJobs: WeekBoardJob[] = [],
+): WeekBoardChip {
+  return {
+    id: job.id ?? '',
+    ref: formatJobRef(job),
+    description: weekBoardChipDescription(job),
+    color: weekBoardChipColor(job, familyJobs),
+  };
+}
+
+export function jobOnCrewRow(
+  assigned: string[] | null | undefined,
+  crewId: string,
+): boolean {
+  const team = assigned ?? [];
+  if (crewId === WEEK_UNASSIGNED_CREW_ID) return team.length === 0;
+  return team.includes(crewId);
+}
+
+export function jobsForCrewOnDay<T extends WeekBoardJob>(
+  jobs: T[],
+  crewId: string,
+  ymd: string,
+): T[] {
+  return jobsOnScheduleDay(jobs, ymd).filter(job => jobOnCrewRow(job.assigned_team, crewId));
+}
+
+export function weekBoardCrews(
+  members: ScheduleCrewMember[],
+  filteredIds: Set<string> = new Set(),
+): ScheduleCrewMember[] {
+  if (filteredIds.size === 0) return members;
+  return members.filter(member => filteredIds.has(member.id));
+}
+
+/** One row per crew (plus Unassigned when dated jobs have no crew). */
+export function weekBoardRows<T extends WeekBoardJob>(
+  jobs: T[],
+  members: ScheduleCrewMember[],
+  anchor: Date,
+  filteredIds: Set<string> = new Set(),
+): WeekBoardRow<T>[] {
+  const days = scheduleWeekDayKeys(anchor);
+  const visible = filterJobsByCrew(jobs, filteredIds);
+  const crews = weekBoardCrews(members, filteredIds);
+  const hasUnassigned = visible.some(job => (
+    !!scheduleDayKey(job.scheduled_date) && (job.assigned_team ?? []).length === 0
+  ));
+
+  const rows: ScheduleCrewMember[] = [
+    ...(hasUnassigned || crews.length === 0
+      ? [{ id: WEEK_UNASSIGNED_CREW_ID, name: 'Unassigned' }]
+      : []),
+    ...crews,
+  ];
+
+  return rows.map(crew => ({
+    crewId: crew.id,
+    crewName: (crew.name ?? '').trim() || (crew.id === WEEK_UNASSIGNED_CREW_ID ? 'Unassigned' : 'Crew'),
+    cells: days.map(date => {
+      const cellJobs = jobsForCrewOnDay(visible, crew.id, date);
+      return {
+        date,
+        jobs: cellJobs,
+        chips: cellJobs.map(job => weekBoardChip(job, visible)),
+      };
+    }),
+  }));
 }
