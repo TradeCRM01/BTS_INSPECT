@@ -15,20 +15,19 @@ export function openSearchOverlayHistory(history: Pick<History, 'pushState' | 's
   }
 }
 
-/** X, tap-outside, or Escape. Pops the dummy entry so popstate closes the overlay. */
+/** X, tap-outside, or Escape. Close first, then drop the dummy history entry. */
 export function dismissSearchOverlay(
   history: Pick<History, 'back' | 'state'>,
   onClose: () => void,
 ): void {
-  if (isSearchOverlayHistoryState(history.state)) {
-    try {
-      history.back();
-      return;
-    } catch {
-      // fall through
-    }
-  }
+  const shouldPop = isSearchOverlayHistoryState(history.state);
   onClose();
+  if (!shouldPop) return;
+  try {
+    history.back();
+  } catch {
+    // Overlay is already closed.
+  }
 }
 
 /** Choosing a result: replace the dummy entry so Back returns to the prior screen. */

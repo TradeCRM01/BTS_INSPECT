@@ -70,18 +70,19 @@ describe('phone search overlay dismiss', () => {
     expect(isSearchOverlayHistoryState(history.state)).toBe(true);
   });
 
-  it('X / tap-outside / Escape pops the dummy entry instead of leaving the page', () => {
+  it('X / tap-outside / Escape closes the overlay and pops the dummy entry', () => {
     const history = mockHistory({ page: 1 });
     const onClose = vi.fn();
     openSearchOverlayHistory(history);
 
     dismissSearchOverlay(history, onClose);
-    expect(onClose).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
     expect(history.stack).toHaveLength(1);
     expect(history.state).toEqual({ page: 1 });
 
     dismissSearchOverlay(history, onClose);
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(2);
+    expect(history.stack).toHaveLength(1);
   });
 
   it('hardware / browser back fires popstate and closes the overlay', () => {
