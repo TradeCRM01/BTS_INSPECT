@@ -3,9 +3,12 @@ import type { ComplianceStatus } from '../types/compliance';
 import {
   COMPLIANCE_LIST_DEFAULT_FILTER,
   COMPLIANCE_LIST_FILTERS,
+  complianceListAuditItems,
+  complianceListDueLabel,
   complianceListEmptyMessage,
   complianceListEmptyTitle,
   complianceListFloorBucket,
+  complianceListFloorLede,
   complianceListLiveStatus,
   complianceListOpenHref,
   complianceListSearchHaystack,
@@ -145,6 +148,16 @@ describe('compliance list empty copy and recurrence', () => {
     expect(complianceListEmptyTitle({ filter: 'action', noneAtAll: false })).toBe('Nothing due or open');
     expect(complianceListEmptyMessage({ filter: 'action', noneAtAll: false })).toContain('due or open floor');
     expect(complianceListEmptyMessage({ filter: 'all', noneAtAll: false })).toBe('Try another status or search.');
+  });
+
+  it('labels a tile due date and floor lede without inventing counts', () => {
+    expect(complianceListDueLabel('2026-08-27')).toBe('Due 27 Aug 2026');
+    expect(complianceListFloorLede(1)).toBe('1 item · tap one to open');
+    expect(complianceListFloorLede(2)).toBe('2 items · tap one to open');
+    const audit = complianceListAuditItems('co-1');
+    expect(audit).toHaveLength(2);
+    expect(audit[0].next_due_date).toBe('2026-08-27');
+    expect(complianceListOpenHref(audit[0].id)).toBe('/compliance?id=audit-compliance-rcd');
   });
 
   it('keeps the existing next-due math for mark complete / save', () => {

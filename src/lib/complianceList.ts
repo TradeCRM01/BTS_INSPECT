@@ -1,5 +1,5 @@
 import { differenceInDays, format, parseISO } from 'date-fns';
-import type { ComplianceStatus, RecurrenceUnit } from '../types/compliance';
+import type { ComplianceItemWithClient, ComplianceStatus, RecurrenceUnit } from '../types/compliance';
 
 /** Default /compliance floor: due now plus still-open tracked items. */
 export type ComplianceListFilter = 'action' | 'all' | ComplianceStatus;
@@ -237,4 +237,65 @@ export function complianceListEmptyMessage(args: {
     return 'Completed and paused items sit under All. This list is the due or open floor.';
   }
   return 'Try another status or search.';
+}
+
+export function complianceListDueLabel(nextDueDate: string): string {
+  return `Due ${format(parseISO(nextDueDate), 'd MMM yyyy')}`;
+}
+
+export function complianceListFloorLede(count: number): string {
+  const noun = count === 1 ? 'item' : 'items';
+  return `${count} ${noun} · tap one to open`;
+}
+
+/** DEV field-audit floor only. Live companies keep reading `compliance_items`. */
+export function complianceListAuditItems(companyId: string): ComplianceItemWithClient[] {
+  return [
+    {
+      id: 'audit-compliance-rcd',
+      company_id: companyId,
+      client_id: 'audit-doc-client',
+      title: 'Annual RCD test',
+      description: 'Switchboard test at the plant.',
+      standard_or_regulation: 'AS/NZS 3760',
+      recurrence_interval: 12,
+      recurrence_unit: 'months',
+      first_due_date: '2025-08-27',
+      last_completed_date: '2025-08-27',
+      next_due_date: '2026-08-27',
+      reminder_days_before: 30,
+      reminder_sent_at: null,
+      status: 'upcoming',
+      linked_job_id: null,
+      notes: null,
+      created_at: '2026-08-24T00:00:00.000Z',
+      updated_at: '2026-08-24T00:00:00.000Z',
+      client_name: 'Northside Electrical',
+      client_email: 'accounts@northside.example',
+      client_phone: '0400 111 222',
+    },
+    {
+      id: 'audit-compliance-warranty',
+      company_id: companyId,
+      client_id: 'audit-doc-client',
+      title: 'Switchboard warranty',
+      description: 'Manufacturer warranty on the main board.',
+      standard_or_regulation: null,
+      recurrence_interval: 12,
+      recurrence_unit: 'months',
+      first_due_date: '2026-11-01',
+      last_completed_date: null,
+      next_due_date: '2026-11-01',
+      reminder_days_before: 30,
+      reminder_sent_at: null,
+      status: 'upcoming',
+      linked_job_id: null,
+      notes: null,
+      created_at: '2026-08-24T00:00:00.000Z',
+      updated_at: '2026-08-24T00:00:00.000Z',
+      client_name: 'Northside Electrical',
+      client_email: 'accounts@northside.example',
+      client_phone: '0400 111 222',
+    },
+  ];
 }

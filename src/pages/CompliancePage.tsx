@@ -1,14 +1,17 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
   COMPLIANCE_LIST_DEFAULT_FILTER,
   COMPLIANCE_LIST_FILTERS,
+  complianceListAuditItems,
+  complianceListDueLabel,
   complianceListEmptyMessage,
   complianceListEmptyTitle,
+  complianceListFloorLede,
   complianceListOpenHref,
   computeNextDueDate,
   decorateComplianceList,
@@ -19,20 +22,19 @@ import {
   type ComplianceListFilter,
 } from '../lib/complianceList';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, Modal, ViewToggle, useViewMode } from '../components/ui';
-import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
+import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, Modal } from '../components/ui';
 import type { MenuEntry } from '../components/ui';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import {
   Plus, X, Trash2, Pencil,
-  ShieldCheck, Bell, Pause, Play, CheckCircle2, History, Mail,
+  ShieldCheck, Pause, Play, CheckCircle2, History, Mail,
 } from 'lucide-react';
 import type {
   ComplianceItem, ComplianceItemWithClient,
   RecurrenceUnit, ComplianceLog,
 } from '../types/compliance';
 import {
-  COMPLIANCE_STATUS_LABELS, COMPLIANCE_STATUS_STYLES,
+  COMPLIANCE_STATUS_LABELS,
   RECURRENCE_UNIT_LABELS, COMPLIANCE_LOG_LABELS,
 } from '../types/compliance';
 import type { Client } from '../types/crm';
@@ -48,12 +50,12 @@ export function CompliancePage() {
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ComplianceItemWithClient | null>(null);
   const [historyItem, setHistoryItem] = useState<ComplianceItemWithClient | null>(null);
-  const [viewMode, setViewMode] = useViewMode('compliance', 'list');
   const openId = parseComplianceListOpenId(searchParams.get('id'));
 
   const { data: items, isLoading, error } = useQuery<ComplianceItemWithClient[]>({
     queryKey: ['compliance-items'],
     queryFn: async () => {
+      if (isDevFieldAuditAuth()) return complianceListAuditItems(profile!.company_id);
       const { data, error } = await supabase
         .from('compliance_items')
         .select('*')
@@ -193,15 +195,6 @@ export function CompliancePage() {
     [decorated, search, statusFilter],
   );
 
-  const totals = useMemo(() => {
-    return {
-      total: decorated.length,
-      overdue: decorated.filter(c => c.liveStatus === 'overdue').length,
-      dueSoon: decorated.filter(c => c.liveStatus === 'due_soon').length,
-      upcoming: decorated.filter(c => c.liveStatus === 'upcoming').length,
-    };
-  }, [decorated]);
-
   const noneAtAll = !isLoading && (items?.length ?? 0) === 0;
   const noneMatch = !isLoading && decorated.length > 0 && floorItems.length === 0;
 
@@ -239,130 +232,76 @@ export function CompliancePage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1200px] mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className="ops-page hub-compliance">
+        <div className="ops-page-head">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">Compliance Tracker</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">
-              {totals.total} tracked items · {totals.overdue} overdue
+            <p className="hub-compliance-kicker">Compliance</p>
+            <h1 className="ops-page-title">Compliance</h1>
+            <p className="hub-compliance-lede">
+              {isLoading ? 'Loading…' : complianceListFloorLede(floorItems.length)}
             </p>
           </div>
-          <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
-            <Plus size={16} /> New Compliance Item
+          <button type="button" onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
+            <Plus size={16} /> New item
           </button>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          {isLoading ? (
-            <SkeletonSummaryCards count={4} />
-          ) : (
-            <>
-              <SummaryCard label="Total Items" value={totals.total} accentColor="#0A2540" />
-              <SummaryCard label="Overdue" value={totals.overdue} accentColor="#DC2626" />
-              <SummaryCard label="Due Soon" value={totals.dueSoon} accentColor="#F7931A" />
-              <SummaryCard label="Upcoming" value={totals.upcoming} accentColor="#2E75B6" />
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search compliance items..." />
-          <ViewToggle mode={viewMode} onChange={setViewMode} />
-        </div>
-
-        <div className="flex items-center gap-1 mb-4 border-b border-[#E5E7EB] overflow-x-auto">
-          {COMPLIANCE_LIST_FILTERS.map(tab => {
-            const count = filterComplianceListFloor(decorated, { filter: tab.key, search: '' }).length;
-            const active = statusFilter === tab.key;
-            return (
-              <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
-                  active ? 'border-[#0A2540] text-[#0A2540]' : 'border-transparent text-[#4A5568] hover:text-[#1A1A1A]'}`}>
-                {tab.label}
-                <span className={`text-xs px-1.5 py-0.5 rounded-full ${active ? 'bg-[#0A2540] text-white' : 'bg-gray-100 text-[#6B7280]'}`}>{count}</span>
-              </button>
-            );
-          })}
+        <div className="hub-compliance-chrome">
+          <div className="hub-compliance-filters" role="group" aria-label="Filter compliance items">
+            {COMPLIANCE_LIST_FILTERS.map(tab => {
+              const active = statusFilter === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.key)}
+                  className={`hub-chrome-filter ${active ? 'hub-chrome-filter-on' : ''}`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search name, client, or standard…"
+            className="hub-compliance-search"
+          />
         </div>
 
         {isLoading ? (
-          <SkeletonRow />
+          <div className="flex justify-center py-16"><LoadingSpinner /></div>
         ) : noneAtAll || noneMatch ? (
           <EmptyState
             icon={ShieldCheck}
             title={complianceListEmptyTitle({ filter: statusFilter, noneAtAll })}
             message={complianceListEmptyMessage({ filter: statusFilter, noneAtAll })}
             action={noneAtAll ? (
-              <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
+              <button type="button" onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
                 <Plus size={16} /> Create your first item
               </button>
             ) : undefined}
           />
-        ) : viewMode === 'list' ? (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-[#F9FAFB] text-left text-xs text-[#6B7280] uppercase tracking-wide">
-                  <th className="px-4 py-2.5 font-medium">Item</th>
-                  <th className="px-4 py-2.5 font-medium">Client</th>
-                  <th className="px-4 py-2.5 font-medium">Status</th>
-                  <th className="px-4 py-2.5 font-medium">Recurrence</th>
-                  <th className="px-4 py-2.5 font-medium">Next Due</th>
-                  <th className="px-4 py-2.5 font-medium">Last Done</th>
-                  <th className="px-4 py-2.5 w-10"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F3F4F6]">
-                {floorItems.map(floor => (
-                  <ComplianceRow
-                    key={floor.row.id}
-                    item={floor.row}
-                    href={floor.href}
-                    liveStatus={floor.liveStatus}
-                    onOpen={() => openItem(floor.row)}
-                    onEdit={() => openItem(floor.row)}
-                    onDelete={() => setDeleteTarget(floor.row)}
-                    onComplete={() => markCompleteMutation.mutate(floor.row)}
-                    onTogglePause={() => togglePauseMutation.mutate(floor.row)}
-                    onSendReminder={() => sendReminderMutation.mutate(floor.row)}
-                    onShowHistory={() => setHistoryItem(floor.row)}
-                    sendingReminder={sendReminderMutation.isPending}
-                    completing={markCompleteMutation.isPending}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {floorItems.map(floor => {
-              const item = floor.row;
-              const overdue = floor.liveStatus === 'overdue';
-              return (
-                <div
-                  key={item.id}
-                  data-compliance-open={item.id}
-                  data-compliance-href={floor.href}
-                  className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => openItem(item)}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="min-w-0">
-                      <p className="font-medium text-[#1A1A1A] truncate">{item.title}</p>
-                      {item.standard_or_regulation && <p className="text-xs text-[#6B7280] truncate">{item.standard_or_regulation}</p>}
-                    </div>
-                    <span className={`badge ${COMPLIANCE_STATUS_STYLES[floor.liveStatus]} shrink-0 ml-2`}>{COMPLIANCE_STATUS_LABELS[floor.liveStatus]}</span>
-                  </div>
-                  <p className="text-xs text-[#4A5568] mb-2">{item.client_name ?? 'No client'}</p>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className={overdue ? 'text-[#B42318] font-medium' : 'text-[#4A5568]'}>
-                      Due: {format(parseISO(item.next_due_date), 'd MMM yyyy')}
-                    </span>
-                    <span className="text-[#9CA3AF]">{item.recurrence_interval} {RECURRENCE_UNIT_LABELS[item.recurrence_unit].toLowerCase()}</span>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="hub-compliance-tiles">
+            {floorItems.map(floor => (
+              <ComplianceTile
+                key={floor.row.id}
+                item={floor.row}
+                href={floor.href}
+                liveStatus={floor.liveStatus}
+                onOpen={() => openItem(floor.row)}
+                onEdit={() => openItem(floor.row)}
+                onDelete={() => setDeleteTarget(floor.row)}
+                onComplete={() => markCompleteMutation.mutate(floor.row)}
+                onTogglePause={() => togglePauseMutation.mutate(floor.row)}
+                onSendReminder={() => sendReminderMutation.mutate(floor.row)}
+                onShowHistory={() => setHistoryItem(floor.row)}
+                sendingReminder={sendReminderMutation.isPending}
+                completing={markCompleteMutation.isPending}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -398,7 +337,7 @@ export function CompliancePage() {
   );
 }
 
-function ComplianceRow({
+function ComplianceTile({
   item, href, liveStatus, onOpen, onEdit, onDelete, onComplete, onTogglePause, onSendReminder, onShowHistory,
   sendingReminder, completing,
 }: {
@@ -415,9 +354,9 @@ function ComplianceRow({
   sendingReminder: boolean;
   completing: boolean;
 }) {
-  const overdue = liveStatus === 'overdue';
   const isPaused = liveStatus === 'paused';
   const hasEmail = !!item.client_email;
+  const meta = [item.client_name, item.standard_or_regulation].filter(Boolean).join(' · ');
 
   const menuItems: MenuEntry[] = [
     { label: 'Edit', icon: Pencil, onClick: onEdit },
@@ -441,50 +380,30 @@ function ComplianceRow({
   ];
 
   return (
-    <tr
+    <article
+      role="link"
+      tabIndex={0}
       data-compliance-open={item.id}
       data-compliance-href={href}
-      className="hover:bg-[#F9FAFB] transition-colors cursor-pointer"
+      className="hub-compliance-tile"
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-      tabIndex={0}
     >
-      <td className="px-4 py-3">
-        <div>
-          <p className="font-medium text-[#1A1A1A]">{item.title}</p>
-          {item.standard_or_regulation && (
-            <p className="text-xs text-[#6B7280]">{item.standard_or_regulation}</p>
-          )}
+      <div className="hub-compliance-tile-head">
+        <h2 className="hub-compliance-name">{item.title}</h2>
+        <div className="hub-compliance-more" onClick={e => e.stopPropagation()}>
+          <ContextMenu items={menuItems} />
         </div>
-      </td>
-      <td className="px-4 py-3 text-[#4A5568]">{item.client_name ?? '—'}</td>
-      <td className="px-4 py-3">
-        <span className={`badge ${COMPLIANCE_STATUS_STYLES[liveStatus]}`}>
-          {COMPLIANCE_STATUS_LABELS[liveStatus]}
-        </span>
-      </td>
-      <td className="px-4 py-3 text-[#4A5568]">
-        {item.recurrence_interval} {RECURRENCE_UNIT_LABELS[item.recurrence_unit].toLowerCase()}
-      </td>
-      <td className="px-4 py-3">
-        <span className={overdue ? 'text-[#B42318] font-medium' : 'text-[#4A5568]'}>
-          {format(parseISO(item.next_due_date), 'dd MMM yyyy')}
-        </span>
-        {item.reminder_sent_at && (
-          <p className="text-[10px] text-[#6B7280] mt-0.5">
-            <Bell size={9} className="inline" /> Reminded {format(new Date(item.reminder_sent_at), 'dd MMM')}
-          </p>
-        )}
-      </td>
-      <td className="px-4 py-3 text-[#4A5568]">
-        {item.last_completed_date
-          ? format(parseISO(item.last_completed_date), 'dd MMM yyyy')
-          : '—'}
-      </td>
-      <td className="px-4 py-3 relative" onClick={e => e.stopPropagation()}>
-        <ContextMenu items={menuItems} />
-      </td>
-    </tr>
+      </div>
+      {meta ? <p className="hub-compliance-muted">{meta}</p> : null}
+      <p className="hub-compliance-due">{complianceListDueLabel(item.next_due_date)}</p>
+      <span className={`hub-compliance-pill is-${liveStatus}`}>
+        {COMPLIANCE_STATUS_LABELS[liveStatus]}
+      </span>
+      <div className="hub-compliance-tile-next" onClick={e => e.stopPropagation()}>
+        <Link to={href} className="hub-next">Open</Link>
+      </div>
+    </article>
   );
 }
 
