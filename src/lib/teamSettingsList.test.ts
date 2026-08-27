@@ -195,9 +195,37 @@ describe('team settings floor wiring', () => {
     const page = src('src/pages/TeamSettingsPage.tsx');
     expect(page).toContain('className="form-input"');
     expect(page).toContain('flex flex-col sm:flex-row sm:items-center');
-    expect(page).not.toContain('hub-team');
     expect(page).not.toContain('dashboard-home');
     expect(page).not.toContain('hub-clients');
     expect(src('src/index.css')).not.toContain('/* Team settings');
+  });
+
+  it('paints an open person as the document sheet, page-local', () => {
+    const page = src('src/pages/TeamSettingsPage.tsx');
+    expect(page).toContain('hub-team');
+    expect(page).toContain('is-person-open');
+    expect(page).toContain('hub-team-sheet');
+    expect(page).toContain('hub-team-hero');
+    expect(page).toContain('hub-team-next');
+    expect(page).toContain('hub-team-ledger-row');
+    expect(page).toContain('hub-team-list-chrome');
+    expect(page).toContain("className=\"hub-team-label\"");
+    expect(page).toContain('TEAM_LOOK_CSS');
+    expect(page).toContain('--team-look-page: #F5F0E6');
+    expect(page).toContain('--team-look-sheet: #FFFDF8');
+    expect(page).toContain('--team-look-ink: #0A2540');
+    expect(page).toContain('--team-look-muted: #5B6B7C');
+    expect(page).toContain('--team-look-line: #E2D9CC');
+    expect(page).toContain('#2E75B6');
+    expect(page).toContain("font-family: Rajdhani, sans-serif");
+    expect(page).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(page).toContain('min-height: 44px');
+    expect(page).toContain('inset 0 1px 0 #fff');
+    expect(page).not.toMatch(/TEAM_LOOK_CSS[\s\S]{0,80}#1B7F3A|emerald|Newsreader|Syne|Space Grotesk/);
+    expect(page).not.toContain('>TEAM<');
+    expect(page).not.toContain('hub-timesheets');
+    expect(page).not.toContain('hub-compliance');
+    expect(src('src/index.css')).not.toContain('--team-look-page');
+    expect(src('src/index.css')).not.toContain('.hub-team');
   });
 });
