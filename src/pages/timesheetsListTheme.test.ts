@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -88,5 +88,15 @@ describe('Timesheets list cream paper look', () => {
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).not.toContain('hub-timesheets');
     expect(shell).toContain('resolveAppShellColors');
+  });
+
+  it('LOOK frames cover this week’s timesheets list desktop and phone only', () => {
+    for (const rel of [
+      'docs/look/timesheets-list-desktop.png',
+      'docs/look/timesheets-list-phone.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
+    }
   });
 });
