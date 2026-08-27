@@ -186,3 +186,15 @@ describe('reports list LOOK frames', () => {
     }
   });
 });
+
+describe('reports open sheet LOOK frames', () => {
+  it('covers the open report as the document sheet on desktop and phone only', () => {
+    for (const rel of [
+      'docs/look/reports-sheet-desktop.png',
+      'docs/look/reports-sheet-phone.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
+    }
+  });
+});
