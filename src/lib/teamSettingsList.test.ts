@@ -221,7 +221,11 @@ describe('team settings floor wiring', () => {
     expect(page).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(page).toContain('min-height: 44px');
     expect(page).toContain('inset 0 1px 0 #fff');
-    expect(page).not.toMatch(/TEAM_LOOK_CSS[\s\S]{0,80}#1B7F3A|emerald|Newsreader|Syne|Space Grotesk/);
+    expect(page).not.toContain('Newsreader');
+    expect(page).not.toContain('Syne');
+    expect(page).not.toContain('Space Grotesk');
+    expect(page).not.toContain('--team-look-pass');
+    expect(page.slice(page.indexOf('const TEAM_LOOK_CSS'), page.indexOf('type TemplateAccess'))).not.toMatch(/emerald|#1B7F3A|#22c55e|#16a34a/);
     expect(page).not.toContain('>TEAM<');
     expect(page).not.toContain('hub-timesheets');
     expect(page).not.toContain('hub-compliance');
