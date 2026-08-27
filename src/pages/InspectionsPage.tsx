@@ -16,7 +16,6 @@ import { format, parseISO } from 'date-fns';
 import { downloadBlob, exportInspectionPack } from '../lib/exportInspectionPack';
 import type { TemplateSchema } from '../types/template';
 import {
-  inspectionListBucket,
   inspectionListContext,
   inspectionOpenPath,
   inspectionStatusClass,
@@ -24,6 +23,17 @@ import {
   recommendInspectionListAction,
 } from '../lib/inspectionNextAction';
 import { withInspectionDueNext } from '../lib/inspectionDueReminder';
+import {
+  decorateInspectionList,
+  filterInspectionListFloor,
+  groupInspectionListFloor,
+  inspectionListEmptyMessage,
+  inspectionListEmptyTitle,
+  inspectionListOpenHref,
+  sortInspectionListFloor,
+  type InspectionListFilter,
+  type InspectionListFloorItem,
+} from '../lib/inspectionsList';
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
 import { inspectionDisplayStatus } from '../lib/sendReport';
 import { useToast } from '../components/ui';
@@ -222,7 +232,7 @@ export function InspectionsPage() {
   const isAdmin = profile?.role === 'admin';
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'completed' | 'issued'>('all');
+  const [statusFilter, setStatusFilter] = useState<InspectionListFilter>('action');
   const [showArchived, setShowArchived] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
@@ -354,33 +364,27 @@ export function InspectionsPage() {
     [inspections]
   );
 
-  const filtered = useMemo(() => {
-    if (!inspections) return [];
-    const needle = search.trim().toLowerCase();
-    return inspections.filter(insp => {
-      if (!showArchived && insp.archived) return false;
-      if (showArchived && !insp.archived) return false;
-      if (statusFilter !== 'all' && insp.status !== statusFilter) return false;
+  const visible = useMemo(
+    () => (inspections ?? []).filter(insp => showArchived ? insp.archived : !insp.archived),
+    [inspections, showArchived],
+  );
 
-      if (!needle) return true;
-      const hay = [
-        insp.meta?.siteName,
-        insp.meta?.siteAddress,
-        insp.meta?.clientName,
-        insp.meta?.jobNumber,
-        insp.template_snapshot?.name,
-        insp.inspector_name,
-        insp.job_title,
-        insp.job_address,
-      ].filter(Boolean).join(' ').toLowerCase();
-      return hay.includes(needle);
-    });
-  }, [inspections, search, statusFilter, showArchived]);
+  const floorItems = useMemo(
+    () => sortInspectionListFloor(
+      filterInspectionListFloor(
+        decorateInspectionList(visible),
+        { filter: statusFilter, search },
+      ),
+    ),
+    [visible, search, statusFilter],
+  );
 
-  const openDocs = filtered.filter(d => inspectionListBucket(d.status) === 'open');
-  const doneDocs = filtered.filter(d => inspectionListBucket(d.status) === 'done');
-  const noneAtAll = !isLoading && !pageQueryBlocked(isError) && (inspections ?? []).filter(i => showArchived ? i.archived : !i.archived).length === 0;
-  const noneMatch = !isLoading && !pageQueryBlocked(isError) && (inspections ?? []).length > 0 && filtered.length === 0 && !noneAtAll;
+  const { due: dueDocs, open: openDocs, done: doneDocs } = useMemo(
+    () => groupInspectionListFloor(floorItems),
+    [floorItems],
+  );
+  const noneAtAll = !isLoading && !pageQueryBlocked(isError) && visible.length === 0;
+  const noneMatch = !isLoading && !pageQueryBlocked(isError) && visible.length > 0 && floorItems.length === 0 && !noneAtAll;
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -438,7 +442,7 @@ export function InspectionsPage() {
             <h1 className="ops-page-title">
               Inspections
             </h1>
-            <p className="ops-meta mt-1">Open a row to fill or review. Start a new one from the job.</p>
+            <p className="ops-meta mt-1">Open or due inspections. Tap one to open it.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {selectedIds.size > 0 && (
@@ -480,7 +484,7 @@ export function InspectionsPage() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search job, site, template…"
+              placeholder="Search job, site, template, #0042…"
               className="form-input-sm w-full pl-9 min-h-[44px]"
             />
           </div>
@@ -490,7 +494,8 @@ export function InspectionsPage() {
             className="form-input-sm min-h-[44px]"
             aria-label="Filter by status"
           >
-            <option value="all">All statuses</option>
+            <option value="action">Open or due</option>
+            <option value="all">All inspections</option>
             <option value="draft">Draft</option>
             <option value="completed">Ready</option>
             <option value="issued">Issued</option>
@@ -518,10 +523,8 @@ export function InspectionsPage() {
         {noneAtAll && (
           <EmptyState
             icon={ClipboardList}
-            title={showArchived ? 'No archived inspections' : 'No inspections yet'}
-            message={showArchived
-              ? 'Archived inspections will show up here.'
-              : 'Open a job and tap Start inspection. That is how a leading hand starts one on site — this list is for opening and finishing them.'}
+            title={inspectionListEmptyTitle({ filter: statusFilter, archived: showArchived, noneAtAll: true })}
+            message={inspectionListEmptyMessage({ filter: statusFilter, archived: showArchived, noneAtAll: true })}
             action={!showArchived ? (
               <Link to="/jobs" className="ops-next-control min-w-[160px]">
                 Open jobs
@@ -533,16 +536,31 @@ export function InspectionsPage() {
         {noneMatch && (
           <EmptyState
             icon={FileText}
-            title="No matching inspections"
-            message="Try another status or search."
+            title={inspectionListEmptyTitle({ filter: statusFilter, archived: showArchived, noneAtAll: false })}
+            message={inspectionListEmptyMessage({ filter: statusFilter, archived: showArchived, noneAtAll: false })}
           />
         )}
 
-        {!isLoading && filtered.length > 0 && (
+        {!isLoading && floorItems.length > 0 && (
           <div className="space-y-4">
             <InspectionGroup
-              title="Needs action"
-              docs={openDocs}
+              title="Due"
+              items={dueDocs}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
+              isAdmin={isAdmin}
+              theme={docColors}
+              onOpen={href => navigate(href)}
+              onArchive={handleArchiveToggle}
+              onDelete={handleDelete}
+              onAddInspection={id => navigate(`/inspections/new?jobId=${id}`)}
+              onSendToDrive={id => setSendToDriveFor(id)}
+              onSendReport={setSendingReportId}
+              deleting={deleteMutation.isPending}
+            />
+            <InspectionGroup
+              title="Open"
+              items={openDocs}
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               isAdmin={isAdmin}
@@ -557,7 +575,7 @@ export function InspectionsPage() {
             />
             <InspectionGroup
               title="Done"
-              docs={doneDocs}
+              items={doneDocs}
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               isAdmin={isAdmin}
@@ -633,7 +651,7 @@ export function InspectionsPage() {
 
 function InspectionGroup({
   title,
-  docs,
+  items,
   selectedIds,
   onToggleSelect,
   isAdmin,
@@ -647,7 +665,7 @@ function InspectionGroup({
   deleting,
 }: {
   title: string;
-  docs: Inspection[];
+  items: InspectionListFloorItem<Inspection>[];
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   isAdmin: boolean;
@@ -660,27 +678,27 @@ function InspectionGroup({
   onSendReport: (reportId: string) => void;
   deleting: boolean;
 }) {
-  if (docs.length === 0) return null;
+  if (items.length === 0) return null;
   return (
     <div>
       <h2 className="ops-group-title">
         {title}
-        <span className="ops-meta normal-case font-normal"> ({docs.length})</span>
+        <span className="ops-meta normal-case font-normal"> ({items.length})</span>
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-        {docs.map(d => (
+        {items.map(item => (
           <InspectionCard
-            key={d.id}
-            doc={d}
-            selected={selectedIds.has(d.id)}
-            onToggleSelect={() => onToggleSelect(d.id)}
+            key={item.row.id}
+            item={item}
+            selected={selectedIds.has(item.row.id)}
+            onToggleSelect={() => onToggleSelect(item.row.id)}
             isAdmin={isAdmin}
             theme={theme}
             onOpen={onOpen}
             onArchive={onArchive}
             onDelete={onDelete}
-            onAddInspection={() => onAddInspection(d.id)}
-            onSendToDrive={() => onSendToDrive(d.id)}
+            onAddInspection={() => onAddInspection(item.row.id)}
+            onSendToDrive={() => onSendToDrive(item.row.id)}
             onSendReport={onSendReport}
             deleting={deleting}
           />
@@ -691,7 +709,7 @@ function InspectionGroup({
 }
 
 function InspectionCard({
-  doc,
+  item,
   selected,
   onToggleSelect,
   isAdmin,
@@ -704,7 +722,7 @@ function InspectionCard({
   onSendReport,
   deleting,
 }: {
-  doc: Inspection;
+  item: InspectionListFloorItem<Inspection>;
   selected: boolean;
   onToggleSelect: () => void;
   isAdmin: boolean;
@@ -717,6 +735,7 @@ function InspectionCard({
   onSendReport: (reportId: string) => void;
   deleting: boolean;
 }) {
+  const doc = item.row;
   const living = applyLivingJobToInspection(
     doc.meta,
     doc.crm_job_id
@@ -747,13 +766,13 @@ function InspectionCard({
     } : null,
     { href: inspectionOpenPath(doc.id, recommended.key), label: recommended.label, actionable: true },
   );
-  const href = inspectionOpenPath(doc.id, recommended.key === 'send' ? 'pdf' : recommended.key);
+  const href = inspectionListOpenHref(doc.id);
   const displayStatus = inspectionDisplayStatus(doc.status, doc.report_sent_at);
   const site = doc.crm_job_id
     ? opsSiteLabel(living.siteName, living.siteAddress)
     : opsSiteLabel(doc.meta?.siteName, doc.meta?.siteAddress, doc.job_address, doc.job_title);
   const title = doc.template_snapshot?.name || 'Inspection';
-  const when = format(parseISO(doc.completed_at || doc.started_at), 'd MMM yyyy');
+  const when = item.dueLabel ?? format(parseISO(doc.completed_at || doc.started_at), 'd MMM yyyy');
   const jobNo = doc.meta?.jobNumber || (doc.job_number != null ? String(doc.job_number).padStart(4, '0') : null);
 
   return (
