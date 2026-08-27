@@ -98,6 +98,16 @@ describe('form fields fit their type', () => {
     expect(src('src/pages/AssetsPage.tsx')).toContain('grid-cols-1 sm:grid-cols-2');
   });
 
+  it('portals the asset add/edit overlay so AppShell cannot trap position:fixed', () => {
+    const page = src('src/pages/AssetsPage.tsx');
+    expect(page).toContain("import { OverlayPortal } from '../components/ui/OverlayPortal'");
+    const form = page.slice(page.indexOf('function AssetForm'));
+    expect(form).toMatch(/return \(\s*<OverlayPortal>/);
+    expect(form).toContain('className="overlay-backdrop"');
+    expect(form).toContain('</OverlayPortal>');
+    expect(form.indexOf('<OverlayPortal>')).toBeLessThan(form.indexOf('className="overlay-backdrop"'));
+  });
+
   it('gives the clients search and remaining compact editors room for 16px type', () => {
     const css = src('src/index.css');
     const chrome = css.slice(css.indexOf('.hub-clients-chrome .form-input {'), css.indexOf('.hub-clients-chrome .form-input:focus'));
