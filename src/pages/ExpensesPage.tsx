@@ -479,9 +479,12 @@ const EXPENSES_LOOK_CSS = `
   color: var(--ex-look-ink);
 }
 @media (max-width: 639px) {
-  .hub-expenses.ops-page { padding: 16px 16px 40px; }
-  .hub-expenses-hero { font-size: 40px; margin-bottom: 16px; }
-  .hub-expenses-sheet-body { padding: 20px 16px 16px; }
+  .hub-expenses.ops-page { padding: 16px 16px 24px; }
+  .hub-expenses-hero { font-size: 40px; margin-bottom: 12px; }
+  .hub-expenses-sheet-body { padding: 16px 16px 16px; }
+  .hub-expenses-preview { max-height: 160px; }
+  .hub-expenses-row { padding: 8px 0; }
+  .hub-expenses-save { margin-top: 16px; }
   .hub-expenses-pnl { grid-template-columns: 1fr 1fr; }
 }
 `;
