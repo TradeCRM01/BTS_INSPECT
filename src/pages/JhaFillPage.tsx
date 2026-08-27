@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, type CSSProperties } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
-import { NextBanner, OpsDocHead, OpsStatus, opsSiteLabel } from '../components/ui';
+import { OpsStatus, opsSiteLabel } from '../components/ui';
 import { nanoid } from '../lib/nanoid';
 import { generateJhaPdf, jhaPdfCompanyFrom } from '../reports/generateJhaPdf';
 import { jhaDocumentColors } from '../reports/jha/theme';
@@ -30,11 +30,11 @@ import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { EMPTY_SWMS, HRCW_CATEGORIES, parseSwmsMeta, type JhaSwmsData } from '../lib/swmsHrcw';
 import { getAuditClients, getAuditJhaDoc, getAuditJobs, getAuditTake5List, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
-import { jhaFillContext, jhaStatusClass, jhaStatusLabel, recommendJhaFillAction } from '../lib/jhaNextAction';
+import { jhaFillContext, jhaStatusLabel, recommendJhaFillAction } from '../lib/jhaNextAction';
 import { applyLivingJobToJha, livingJobSite, livingTake5MetaPatches } from '../lib/livingJha';
 import { take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
 import {
-  ChevronDown, ChevronLeft, Plus, Trash2, ShieldCheck, FileText,
+  ChevronDown, Plus, Trash2, ShieldCheck, FileText,
   Download, AlertCircle, HardHat, Check, X, CheckCircle, Printer,
   Phone, RefreshCw, ShieldAlert, Package, Copy, MoreHorizontal,
 } from 'lucide-react';
@@ -790,13 +790,19 @@ export function JhaFillPage() {
   }
 
   if (tmplLoading || docLoading) {
-    return <AppShell><div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div></AppShell>;
+    return (
+      <AppShell>
+        <div className="ops-page hub-jha is-record-open">
+          <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+        </div>
+      </AppShell>
+    );
   }
 
   if (isEditMode && (docError || !existingDoc)) {
     return (
       <AppShell>
-        <div className="ops-page">
+        <div className="ops-page hub-jha is-record-open">
           <PageError
             message="Could not open this JHA document. It may have been deleted or you may not have access."
             onRetry={() => refetchDoc()}
@@ -809,7 +815,7 @@ export function JhaFillPage() {
   if (!schema) {
     return (
       <AppShell>
-        <div className="ops-page">
+        <div className="ops-page hub-jha is-record-open">
           <PageError message="Template not found. Go back and select a JHA template." onRetry={() => navigate('/templates')} />
         </div>
       </AppShell>
@@ -818,10 +824,24 @@ export function JhaFillPage() {
 
   const customFields = schema.meta.customFields ?? [];
   const isPublished = existingDoc?.status === 'published' || (docIdState === existingDoc?.id && existingDoc?.status === 'published');
-  const documentTitle = (meta.documentTitle || templateName || 'Job Hazard Analysis').trim();
   const selectedJob = jobs.find(j => j.id === jobId);
-  const siteLabel = opsSiteLabel(meta.siteName, selectedJob?.address, selectedJob?.title, meta.taskName);
+  const siteLabel = opsSiteLabel(
+    livingJobSite(selectedJob),
+    selectedJob?.address,
+    meta.siteName,
+    selectedJob?.title,
+    meta.taskName,
+  );
   const statusKey = isPublished ? 'published' : (existingDoc?.status || 'draft');
+  const jobNumber = (selectedJob as { job_number?: number | null } | undefined)?.job_number != null
+    ? String((selectedJob as { job_number?: number | null }).job_number).padStart(4, '0')
+    : '';
+  const when = meta.date ? format(new Date(meta.date), 'd MMM yyyy') : null;
+  const jobLine = [jobNumber ? `#${jobNumber}` : null, selectedJob?.title || meta.taskName || templateName || null]
+    .filter(Boolean)
+    .join(' ');
+  const clientLine = meta.clientName || clients.find(c => c.id === clientId)?.name || '';
+  const sheetPill = statusKey === 'published' ? 'is-published' : statusKey === 'completed' ? 'is-ready' : 'is-draft';
   const next = recommendJhaFillAction(jhaFillContext({
     status: statusKey,
     saved: !!docIdState,
@@ -879,7 +899,7 @@ export function JhaFillPage() {
   return (
     <AppShell>
       <div
-        className={jobBound ? 'hub-job-swms jha-doc-theme' : 'jha-doc-theme'}
+        className="ops-page hub-jha is-record-open jha-doc-theme"
         style={{
           '--jha-navy': docColors.navy,
           '--jha-accent': docColors.accent,
@@ -887,29 +907,52 @@ export function JhaFillPage() {
           '--jha-accent-light': docColors.accentLight,
         } as CSSProperties}
       >
-      <div className="ops-page-fill">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <button
-            type="button"
-            onClick={() => navigate(jobId ? `/jobs/${jobId}` : '/jha')}
-            className="ops-back"
+        <div className="hub-jha-open-chrome">
+          <Link
+            to={jobBound ? `/jobs/${jobId}` : '/jha'}
+            className="hub-jha-label"
           >
-            <ChevronLeft size={16} /> {jobId ? 'Back to job' : 'JHA documents'}
-          </button>
-          <div className="flex items-center gap-2 text-xs">
-            {saveHint && (
-              <span className={saveState === 'error' ? 'text-fail' : saveState === 'unsaved' ? 'text-warning' : 'text-pass flex items-center gap-1'}>
-                {saveState === 'saved' && <Check size={12} />}
-                {saveHint}
-              </span>
-            )}
-            <span className="text-muted">Rev v{docVersion}</span>
-            {jobBound && (
-              <details className="job-swms-more">
+            JHA documents
+          </Link>
+          {saveHint && saveState !== 'saved' && (
+            <span className={`hub-jha-save ${saveState === 'error' ? 'is-bad' : ''}`}>
+              {saveHint}
+            </span>
+          )}
+        </div>
+
+        <article className="hub-jha-document">
+          <header className="hub-jha-sheet-bar">
+            <span className="hub-jha-hours">{when || jhaStatusLabel(statusKey)}</span>
+            <span className={`hub-jha-pill ${sheetPill}`}>{jhaStatusLabel(statusKey)}</span>
+          </header>
+          <div className="hub-jha-sheet-body">
+            <h1 className="hub-jha-hero">{siteLabel}</h1>
+            {jobLine ? <p className="hub-jha-jobline">{jobLine}</p> : null}
+
+            <div className="hub-jha-tools">
+              <button
+                type="button"
+                onClick={runNext}
+                disabled={nextBusy}
+                className="hub-jha-primary"
+              >
+                {publishing || (saveState === 'saving' && next.key === 'save')
+                  ? <><LoadingSpinner size="sm" /> {publishing ? 'Publishing…' : 'Saving…'}</>
+                  : <><FileText size={16} /> {next.label}</>}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMoreIdentity(v => !v)}
+                className="hub-jha-sub"
+              >
+                {showMoreIdentity ? 'Hide extra details' : 'More job details'}
+              </button>
+              <details className="hub-jha-more">
                 <summary aria-label="More">
                   <MoreHorizontal size={16} />
                 </summary>
-                <div className="job-swms-more-menu">
+                <div className="hub-jha-more-menu">
                   {docIdState && (
                     <button
                       type="button"
@@ -939,190 +982,170 @@ export function JhaFillPage() {
                   </button>
                 </div>
               </details>
-            )}
-          </div>
-        </div>
-
-        <article className="ops-card overflow-hidden mb-3">
-          <OpsDocHead
-            kind="JHA"
-            id={existingDoc?.report_number || 'Draft'}
-            meta={[siteLabel !== 'No site address' ? siteLabel : null, selectedJob?.title, meta.date ? format(new Date(meta.date), 'd MMM yyyy') : null].filter(Boolean).join(' · ')}
-            trailing={<OpsStatus className={jhaStatusClass(statusKey)}>{jhaStatusLabel(statusKey)}</OpsStatus>}
-          />
-          <div className="px-3 pt-3 pb-2">
-            <label className="ops-fromto-label mb-1 flex items-center gap-1.5">
-              <ShieldCheck size={12} />
-              Document title
-              <span className="font-normal normal-case tracking-normal text-muted">(on the published PDF)</span>
-            </label>
-            <input
-              type="text"
-              value={meta.documentTitle ?? ''}
-              onChange={e => updateMeta('documentTitle', e.target.value)}
-              placeholder={templateName || 'Job Hazard Analysis'}
-              className="ops-field-site text-lg"
-            />
-            <p className="ops-meta mt-1.5">
-              Job Hazard Analysis
-              {documentTitle && documentTitle !== templateName ? ` · Template: ${templateName}` : ''}
-              {amendedFromId && amendmentReason ? ` · Amendment: ${amendmentReason}` : ''}
-            </p>
-            <div className="mt-2">
-              <NextBanner detail={next.detail} />
             </div>
-          </div>
-        </article>
 
-        {error && (
-          <div className="mb-3 ops-alert whitespace-pre-line">
-            {error}
-          </div>
-        )}
+            <div className="hub-jha-ledger">
+              {clientLine ? (
+                <p className="hub-jha-ledger-row">
+                  <span className="hub-jha-muted">{clientLine}</span>
+                </p>
+              ) : null}
+              {templateName ? (
+                <p className="hub-jha-ledger-row">
+                  <span className="hub-jha-muted">{templateName}</span>
+                </p>
+              ) : null}
+              <p className="hub-jha-ledger-row">
+                <span className="hub-jha-muted">{jobNumber ? `#${jobNumber}` : existingDoc?.report_number || 'JHA'}</span>
+                {when ? <span className="hub-jha-hours">{when}</span> : null}
+              </p>
+            </div>
 
-        <div className="ops-tabs mb-3">
-          <button
-            type="button"
-            onClick={() => setActiveTab('form')}
-            className={`ops-tab ${activeTab === 'form' ? 'ops-tab-active' : ''}`}
-          >
-            Fill
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('preview')}
-            className={`ops-tab ${activeTab === 'preview' ? 'ops-tab-active' : ''}`}
-          >
-            PDF
-          </button>
-        </div>
-
-        {activeTab === 'form' && (
-          <div className="space-y-3">
-            <section id="jha-identity" className="ops-card">
-              <div className="ops-tray-head">
-                <h2 className="ops-section-title flex items-center gap-2">
-                  <HardHat size={16} /> Job / site
-                </h2>
+            {error && (
+              <div className="hub-jha-alert whitespace-pre-line">
+                {error}
               </div>
-              <div className="px-3 pb-3 pt-2 space-y-3">
-                <div>
-                  <label className="ops-field-label">
-                    Site / location{schema.meta.requiresSiteName && <span className="text-fail"> *</span>}
-                  </label>
-                  {jobId && selectedJob ? (
-                    <>
-                      <p className="job-swms-site">{livingJobSite(selectedJob) || 'No site address on this job yet'}</p>
-                      <p className="ops-meta mt-1">Site follows this job.</p>
-                    </>
-                  ) : (
-                    <input
-                      type="text"
-                      value={meta.siteName ?? ''}
-                      onChange={e => updateMeta('siteName', e.target.value)}
-                      placeholder="Where is the work?"
-                      className="ops-field-site"
-                    />
-                  )}
-                </div>
-                <div>
-                  <label className="ops-field-label">Job</label>
-                  <select
-                    value={jobId}
-                    onChange={e => {
-                      const nextJob = e.target.value;
-                      setJobId(nextJob);
-                      const job = jobs.find(j => j.id === nextJob);
-                      if (job?.client_id) {
-                        setClientId(job.client_id);
-                        const name = clients.find(c => c.id === job.client_id)?.name ?? '';
-                        if (name) updateMeta('clientName', name);
-                      }
-                      if (job) {
-                        const nextSite = livingJobSite(job);
-                        if (nextSite) updateMeta('siteName', nextSite);
-                      }
-                      markUnsaved();
-                    }}
-                    className="ops-field"
-                  >
-                    <option value="">No linked job</option>
-                    {clientJobs.map(j => (
-                      <option key={j.id} value={j.id}>{j.title}{j.address ? ` — ${j.address}` : ''}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {schema.meta.requiresTaskName && (
-                    <InputField label="Task / Activity" required value={meta.taskName ?? ''} onChange={v => updateMeta('taskName', v)} />
-                  )}
-                  {schema.meta.requiresDate && (
-                    <InputField label="Date" required type="date" value={meta.date ?? ''} onChange={v => updateMeta('date', v)} />
-                  )}
-                  {schema.meta.requiresSupervisor && (
-                    <InputField label="Supervisor" required value={meta.supervisor ?? ''} onChange={v => updateMeta('supervisor', v)} />
-                  )}
-                  {schema.meta.requiresClient && (
-                    <InputField label="Client" required value={meta.clientName ?? ''} onChange={v => updateMeta('clientName', v)} />
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowMoreIdentity(v => !v)}
-                  className="flex items-center gap-1 text-xs font-semibold text-accent min-h-[44px]"
-                >
-                  <ChevronDown size={14} className={showMoreIdentity ? 'rotate-180' : ''} />
-                  {showMoreIdentity ? 'Hide extra details' : 'More job details'}
-                </button>
-                {showMoreIdentity && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-rule">
-                    <div>
-                      <label className="ops-field-label">Client (CRM)</label>
-                      <select
-                        value={clientId}
-                        onChange={e => {
-                          const nextClient = e.target.value;
-                          setClientId(nextClient);
-                          setJobId('');
-                          const name = clients.find(c => c.id === nextClient)?.name ?? '';
-                          if (name) updateMeta('clientName', name);
-                          markUnsaved();
-                        }}
-                        className="ops-field"
-                      >
-                        <option value="">No linked client</option>
-                        {clients.map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {schema.meta.requiresPlantArea && (
-                      <InputField label="Plant / Area / Panel" required value={meta.plantArea ?? ''} onChange={v => updateMeta('plantArea', v)} />
-                    )}
-                    {schema.meta.requiresShift && (
-                      <InputField label="Shift" required value={meta.shift ?? ''} onChange={v => updateMeta('shift', v)} placeholder="e.g. Day / Night / 06:00–18:00" />
-                    )}
-                    {schema.meta.requiresPermitRefs && (
-                      <InputField label="Permit / PTW / Isolation refs" required value={meta.permitRefs ?? ''} onChange={v => updateMeta('permitRefs', v)} placeholder="Permit #, LOTO #, energy isolation" />
-                    )}
-                    {schema.meta.requiresMusterPoint && (
-                      <InputField label="Muster point" required value={meta.musterPoint ?? ''} onChange={v => updateMeta('musterPoint', v)} />
-                    )}
-                    <InputField label="Site Contact (optional)" value={meta.siteContact ?? ''} onChange={v => updateMeta('siteContact', v)} />
-                    {customFields.map(field => (
-                      <InputField
-                        key={field.id}
-                        label={field.label}
-                        required={field.required}
-                        type={field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'}
-                        value={meta[`custom_${field.id}`] ?? ''}
-                        onChange={v => updateMeta(`custom_${field.id}`, v)}
-                      />
-                    ))}
-                  </div>
+            )}
+
+            <section id="jha-identity" className={`hub-jha-identity${showMoreIdentity || next.key === 'site' ? ' is-open' : ''}`}>
+              <div className="hub-jha-ledger-row hub-jha-field">
+                <label className="hub-jha-muted">
+                  Document title
+                </label>
+                <input
+                  type="text"
+                  value={meta.documentTitle ?? ''}
+                  onChange={e => updateMeta('documentTitle', e.target.value)}
+                  placeholder={templateName || 'Job Hazard Analysis'}
+                  className="hub-jha-input"
+                />
+              </div>
+              <div className="hub-jha-ledger-row hub-jha-field">
+                <label className="hub-jha-muted">
+                  Site / location{schema.meta.requiresSiteName && <span className="hub-jha-req"> *</span>}
+                </label>
+                {jobId && selectedJob ? (
+                  <p className="hub-jha-field-value">
+                    {livingJobSite(selectedJob) || 'No site address on this job yet'}
+                    <span className="hub-jha-muted"> Site follows this job.</span>
+                  </p>
+                ) : (
+                  <input
+                    type="text"
+                    value={meta.siteName ?? ''}
+                    onChange={e => updateMeta('siteName', e.target.value)}
+                    placeholder="Where is the work?"
+                    className="hub-jha-input"
+                  />
                 )}
               </div>
+              <div className="hub-jha-ledger-row hub-jha-field">
+                <label className="hub-jha-muted">Job</label>
+                <select
+                  value={jobId}
+                  onChange={e => {
+                    const nextJob = e.target.value;
+                    setJobId(nextJob);
+                    const job = jobs.find(j => j.id === nextJob);
+                    if (job?.client_id) {
+                      setClientId(job.client_id);
+                      const name = clients.find(c => c.id === job.client_id)?.name ?? '';
+                      if (name) updateMeta('clientName', name);
+                    }
+                    if (job) {
+                      const nextSite = livingJobSite(job);
+                      if (nextSite) updateMeta('siteName', nextSite);
+                    }
+                    markUnsaved();
+                  }}
+                  className="hub-jha-input"
+                >
+                  <option value="">No linked job</option>
+                  {clientJobs.map(j => (
+                    <option key={j.id} value={j.id}>{j.title}{j.address ? ` — ${j.address}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              {schema.meta.requiresTaskName && (
+                <InputField label="Task / Activity" required value={meta.taskName ?? ''} onChange={v => updateMeta('taskName', v)} />
+              )}
+              {schema.meta.requiresDate && (
+                <InputField label="Date" required type="date" value={meta.date ?? ''} onChange={v => updateMeta('date', v)} />
+              )}
+              {schema.meta.requiresSupervisor && (
+                <InputField label="Supervisor" required value={meta.supervisor ?? ''} onChange={v => updateMeta('supervisor', v)} />
+              )}
+              {schema.meta.requiresClient && (
+                <InputField label="Client" required value={meta.clientName ?? ''} onChange={v => updateMeta('clientName', v)} />
+              )}
+              {showMoreIdentity && (
+                <>
+                  <div className="hub-jha-ledger-row hub-jha-field">
+                    <label className="hub-jha-muted">Client (CRM)</label>
+                    <select
+                      value={clientId}
+                      onChange={e => {
+                        const nextClient = e.target.value;
+                        setClientId(nextClient);
+                        setJobId('');
+                        const name = clients.find(c => c.id === nextClient)?.name ?? '';
+                        if (name) updateMeta('clientName', name);
+                        markUnsaved();
+                      }}
+                      className="hub-jha-input"
+                    >
+                      <option value="">No linked client</option>
+                      {clients.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {schema.meta.requiresPlantArea && (
+                    <InputField label="Plant / Area / Panel" required value={meta.plantArea ?? ''} onChange={v => updateMeta('plantArea', v)} />
+                  )}
+                  {schema.meta.requiresShift && (
+                    <InputField label="Shift" required value={meta.shift ?? ''} onChange={v => updateMeta('shift', v)} placeholder="e.g. Day / Night / 06:00–18:00" />
+                  )}
+                  {schema.meta.requiresPermitRefs && (
+                    <InputField label="Permit / PTW / Isolation refs" required value={meta.permitRefs ?? ''} onChange={v => updateMeta('permitRefs', v)} placeholder="Permit #, LOTO #, energy isolation" />
+                  )}
+                  {schema.meta.requiresMusterPoint && (
+                    <InputField label="Muster point" required value={meta.musterPoint ?? ''} onChange={v => updateMeta('musterPoint', v)} />
+                  )}
+                  <InputField label="Site Contact (optional)" value={meta.siteContact ?? ''} onChange={v => updateMeta('siteContact', v)} />
+                  {customFields.map(field => (
+                    <InputField
+                      key={field.id}
+                      label={field.label}
+                      required={field.required}
+                      type={field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'}
+                      value={meta[`custom_${field.id}`] ?? ''}
+                      onChange={v => updateMeta(`custom_${field.id}`, v)}
+                    />
+                  ))}
+                </>
+              )}
             </section>
+
+            <div className="hub-jha-tabs" role="tablist" aria-label="JHA views">
+              <button
+                type="button"
+                onClick={() => setActiveTab('form')}
+                className={`hub-jha-tab ${activeTab === 'form' ? 'is-on' : ''}`}
+              >
+                Fill
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('preview')}
+                className={`hub-jha-tab ${activeTab === 'preview' ? 'is-on' : ''}`}
+              >
+                PDF
+              </button>
+            </div>
+
+        {activeTab === 'form' && (
+          <div className="hub-jha-fill">
 
             <section className="ops-card">
               <div className="ops-tray-head">
@@ -1566,7 +1589,7 @@ export function JhaFillPage() {
         )}
 
         {activeTab === 'preview' && (
-          <div>
+          <div className="hub-jha-fill">
             {pdfUrl ? (
               <div className="ops-card overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-rule bg-zebra">
@@ -1585,7 +1608,7 @@ export function JhaFillPage() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('form')}
-                  className="mt-4 ops-next-control"
+                  className="mt-4 hub-jha-sub"
                 >
                   <FileText size={15} /> Back to fill
                 </button>
@@ -1593,20 +1616,8 @@ export function JhaFillPage() {
             )}
           </div>
         )}
-      </div>
-
-      <div className="ops-sticky">
-        <div className="max-w-[1000px] mx-auto">
-          <button
-            type="button"
-            onClick={runNext}
-            disabled={nextBusy}
-            className={jobBound ? 'btn-primary job-swms-primary' : 'ops-next-control-block'}
-          >
-            {publishing ? <><LoadingSpinner size="sm" /> Publishing…</> : next.label}
-          </button>
-        </div>
-      </div>
+          </div>
+        </article>
       </div>
     </AppShell>
   );
@@ -1734,16 +1745,16 @@ function InputField({ label, required, value, onChange, type = 'text', placehold
   placeholder?: string;
 }) {
   return (
-    <div>
-      <label className="ops-field-label">
-        {label}{required && <span className="text-fail"> *</span>}
+    <div className="hub-jha-ledger-row hub-jha-field">
+      <label className="hub-jha-muted">
+        {label}{required && <span className="hub-jha-req"> *</span>}
       </label>
       <input
         type={type}
         value={value}
         placeholder={placeholder}
         onChange={e => onChange(e.target.value)}
-        className="ops-field"
+        className="hub-jha-input"
       />
     </div>
   );
