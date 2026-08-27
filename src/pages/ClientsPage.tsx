@@ -18,12 +18,18 @@ import {
   clientInvoiceMoney,
   clientListStatsQueries,
   clientQuotedTotal,
-  clientRecordHref,
   newInvoiceFromClientHref,
   newJobFromClientHref,
   newQuoteFromClientHref,
   visibleClientContacts,
 } from '../lib/clientRecords';
+import {
+  clientListFloorJobScope,
+  clientOpenHref,
+  collectJobSearchBitsByClient,
+  filterClientsForSearch,
+  formatClientJobCount,
+} from '../lib/clientsFloor';
 
 export function ClientsPage() {
   const { profile } = useAuth();
@@ -36,7 +42,7 @@ export function ClientsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
   const [viewMode, setViewMode] = useViewMode('clients');
 
-  const { data: clients, isLoading, error } = useQuery<ClientWithStats[]>({
+  const { data: clients, isLoading, error } = useQuery<Array<ClientWithStats & { jobSearchBits: string[] }>>({
     queryKey: ['clients', showArchived, profile?.company_id],
     queryFn: async () => {
       if (!profile?.company_id) return [];
@@ -55,6 +61,7 @@ export function ClientsPage() {
         quoted_total: 0,
         outstanding_total: 0,
         overdue_total: 0,
+        jobSearchBits: [] as string[],
       };
 
       const scopes = clientListStatsQueries({
@@ -66,7 +73,7 @@ export function ClientsPage() {
       }
 
       const [jobsRes, quotesRes, invoicesRes] = await Promise.all([
-        applyHubScope(supabase.from('jobs'), scopes.jobs),
+        applyHubScope(supabase.from('jobs'), clientListFloorJobScope(scopes.jobs)),
         applyHubScope(supabase.from('quotes'), scopes.quotes),
         applyHubScope(supabase.from('invoices'), scopes.invoices),
       ]);
@@ -78,7 +85,11 @@ export function ClientsPage() {
         client_id: string | null;
         status: string;
         scheduled_date: string | null;
+        address: string | null;
+        title: string | null;
+        job_number: number | null;
       }[];
+      const jobSearchByClient = collectJobSearchBitsByClient(jobRows);
       const quoteRows = (quotesRes.data ?? []) as {
         client_id: string | null;
         status: string;
@@ -131,6 +142,7 @@ export function ClientsPage() {
           quoted_total: quoted,
           outstanding_total: outstanding,
           overdue_total: overdue,
+          jobSearchBits: jobSearchByClient.get(c.id) ?? [],
         };
       });
     },
@@ -159,17 +171,10 @@ export function ClientsPage() {
     },
   });
 
-  const filtered = useMemo(() => {
-    const list = clients ?? [];
-    if (!search.trim()) return list;
-    const q = search.toLowerCase();
-    return list.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      (c.contact_person ?? '').toLowerCase().includes(q) ||
-      (c.email ?? '').toLowerCase().includes(q) ||
-      (c.phone ?? '').toLowerCase().includes(q)
-    );
-  }, [clients, search]);
+  const filtered = useMemo(
+    () => filterClientsForSearch(clients ?? [], search),
+    [clients, search],
+  );
 
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load clients" /></AppShell>;
 
@@ -189,7 +194,7 @@ export function ClientsPage() {
         </div>
 
         <div className="hub-clients-chrome">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search by name, contact, phone, or email..." className="max-w-sm flex-1" />
+          <SearchBar value={search} onChange={setSearch} placeholder="Search by name, site, job, phone, or email..." className="max-w-sm flex-1" />
           <ViewToggle mode={viewMode} onChange={setViewMode} />
           <button
             type="button"
@@ -290,14 +295,15 @@ const ClientRow = memo(function ClientRow({
   const navigate = useNavigate();
   const signal = clientSignal(client);
   const site = client.address?.trim() ?? '';
+  const jobsLabel = formatClientJobCount(client.job_count ?? 0);
   const lines = visibleClientContacts({ phone: client.phone, email: client.email, address: null });
 
   return (
     <div
       role="link"
       tabIndex={0}
-      onClick={() => navigate(clientRecordHref(client.id))}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(clientRecordHref(client.id)); } }}
+      onClick={() => navigate(clientOpenHref(client.id))}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(clientOpenHref(client.id)); } }}
       className="hub-row"
     >
       <div className="min-w-0 flex-1">
@@ -321,6 +327,7 @@ const ClientRow = memo(function ClientRow({
           </div>
         ) : null}
       </div>
+      {jobsLabel ? <p className="hub-row-signal ops-meta">{jobsLabel}</p> : null}
       {signal?.kind === 'overdue' ? (
         <div className="hub-row-signal">
           <p className="hub-signal-amount text-fail">{signal.amount}</p>

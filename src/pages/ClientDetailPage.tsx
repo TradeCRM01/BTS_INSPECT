@@ -46,9 +46,15 @@ import {
   clientInspectionQuery,
   clientMoneySummary,
   invoiceRecordHref,
-  jobRecordHref,
   quoteRecordHref,
 } from '../lib/clientRecords';
+import {
+  clientJobFloorMeta,
+  clientJobFloorTitle,
+  clientJobOpenHref,
+  clientJobsEmptyTitle,
+  sortClientJobsForFloor,
+} from '../lib/clientsFloor';
 
 type ClientQuote = {
   id: string;
@@ -93,15 +99,6 @@ function visibleSite(...parts: Array<string | null | undefined>): string {
   return '';
 }
 
-function jobRowTitle(job: { address?: string | null; title?: string | null; job_number?: number | null }): string {
-  const site = visibleSite(job.address);
-  if (site) return site;
-  const title = job.title?.trim();
-  if (title) return title;
-  if (job.job_number != null) return `#${padNum(job.job_number)}`;
-  return '';
-}
-
 const nextQuiet = 'hub-next shrink-0';
 
 /** Honest no-email miss on this card — write the address below. Not a send line. */
@@ -141,7 +138,7 @@ export function ClientDetailPage() {
     ? clientHubRecordQueries({ companyId: profile.company_id, clientId: id })
     : null;
 
-  const { data: jobs } = useQuery<JobWithClient[]>({
+  const { data: jobs, isError: jobsError } = useQuery<JobWithClient[]>({
     queryKey: ['client-jobs', id, profile?.company_id],
     queryFn: async () => {
       const empty = getAuditEmptyList();
@@ -265,7 +262,8 @@ export function ClientDetailPage() {
   const newInvoiceHref = clientHubStartAction('invoice', client.id).href;
   const moneyReady = quotes !== undefined && invoices !== undefined;
   const money = clientMoneySummary(quotes ?? [], invoices ?? []);
-  const jobById = new Map((jobs ?? []).map(job => [job.id, job]));
+  const floorJobs = sortClientJobsForFloor(jobs ?? []);
+  const jobById = new Map(floorJobs.map(job => [job.id, job]));
   const emailRow = jobClientEmailRow({ clientId: client.id, client });
   const phoneRow = jobClientPhoneRow({ clientId: client.id, client });
 
@@ -383,25 +381,19 @@ export function ClientDetailPage() {
           <JobRelatedSection
             title="Jobs"
             icon={Briefcase}
-            count={(jobs ?? []).length}
-            emptyTitle="No jobs yet"
-            emptyAction={<Link to={newJobHref} className="ops-link">New job</Link>}
+            count={floorJobs.length}
+            emptyTitle={clientJobsEmptyTitle({ error: jobsError, count: floorJobs.length }) || 'No jobs yet'}
+            emptyAction={jobsError ? undefined : <Link to={newJobHref} className="ops-link">New job</Link>}
           >
-            {(jobs ?? []).map(job => {
+            {floorJobs.map(job => {
               const next = withReminderNext(job, jobListNext(job));
-              const title = jobRowTitle(job);
               return (
                 <JobRelatedRow
                   key={job.id}
-                  href={jobRecordHref(job.id)}
+                  href={clientJobOpenHref(job.id)}
                   icon={Briefcase}
-                  title={title}
-                  meta={[
-                    job.job_number != null && title !== `#${padNum(job.job_number)}` ? `#${padNum(job.job_number)}` : null,
-                    job.title && job.title !== title ? job.title : null,
-                    job.scheduled_date ? format(parseISO(job.scheduled_date), 'd MMM yyyy') : null,
-                    job.start_time ? job.start_time.slice(0, 5) : null,
-                  ].filter(Boolean).join(' · ')}
+                  title={clientJobFloorTitle(job)}
+                  meta={clientJobFloorMeta(job)}
                   action={
                     next.actionable ? (
                       <Link to={next.href} className={nextQuiet}>{next.label}</Link>
