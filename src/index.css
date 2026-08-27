@@ -8260,15 +8260,6 @@
     background: none;
   }
 
-  .hub-jha-document .ops-card > .px-3,
-  .hub-jha-document .ops-card > .border,
-  .hub-jha-document .jha-step-card,
-  .hub-jha-document .ops-card .border {
-    border-color: var(--jha-look-line);
-    background: none;
-    box-shadow: none;
-  }
-
   .hub-jha.is-record-open .hub-jha-open-chrome {
     display: flex;
     align-items: center;
