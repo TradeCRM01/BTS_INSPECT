@@ -4,14 +4,32 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
-import { getAuditEmptyList, getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import { getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, useToast } from '../components/ui';
+import { LoadingSpinner, PageError, EmptyState, SearchBar, useToast } from '../components/ui';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import { format, parseISO, startOfWeek, addDays, isSameDay } from 'date-fns';
 import { Clock, Play, Square, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Timesheet, TimesheetEntry } from '../types/fsm';
-import { TIMESHEET_STATUS_LABELS, formatDuration } from '../types/fsm';
+import { formatDuration } from '../types/fsm';
+import {
+  TIMESHEET_LIST_DEFAULT_FILTER,
+  TIMESHEET_LIST_FILTERS,
+  getAuditTimesheetEntries,
+  getAuditTimesheets,
+  timesheetListAttachJobs,
+  timesheetListCountLabel,
+  timesheetListEmptyKind,
+  timesheetListEmptyMessage,
+  timesheetListEmptyTitle,
+  timesheetListOpenHref,
+  timesheetListOpenId,
+  timesheetListOpened,
+  timesheetListPillClass,
+  timesheetListVisibleItems,
+  timesheetListWeekStart,
+  type TimesheetListFilter,
+} from '../lib/timesheetsList';
 
 export function TimesheetsPage() {
   const { profile } = useAuth();
@@ -20,7 +38,10 @@ export function TimesheetsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [currentWeek, setCurrentWeek] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<TimesheetListFilter>(TIMESHEET_LIST_DEFAULT_FILTER);
   const presetJobId = searchParams.get('job');
+  const openId = timesheetListOpenId(searchParams.get('id'));
   const [showEntryForm, setShowEntryForm] = useState(() => !!presetJobId);
 
   const { data: teamMembers, isFetched: teamFetched } = useQuery({
@@ -52,8 +73,8 @@ export function TimesheetsPage() {
   const { data: timesheets, isLoading, error } = useQuery({
     queryKey: ['timesheets', weekStart, selectedEmployee],
     queryFn: async () => {
-      const empty = getAuditEmptyList();
-      if (empty) return empty as Timesheet[];
+      const audit = getAuditTimesheets();
+      if (audit) return audit;
       const { data, error } = await supabase
         .from('timesheets')
         .select('*')
@@ -67,12 +88,39 @@ export function TimesheetsPage() {
     enabled: !!profile,
   });
 
+  const needsRemoteOpen = !!openId && !(timesheets ?? []).some(t => t.id === openId);
+
+  const { data: openedRemote } = useQuery({
+    queryKey: ['timesheet-open', openId],
+    queryFn: async () => {
+      const audit = getAuditTimesheets();
+      if (audit) return audit.find(t => t.id === openId) ?? null;
+      const { data, error } = await supabase
+        .from('timesheets')
+        .select('*')
+        .eq('id', openId)
+        .eq('company_id', profile!.company_id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data ?? null) as Timesheet | null;
+    },
+    enabled: !!profile && needsRemoteOpen,
+  });
+
+  useEffect(() => {
+    if (!openedRemote) return;
+    setSelectedEmployee(openedRemote.employee_id);
+    setCurrentWeek(timesheetListWeekStart(openedRemote.date));
+  }, [openedRemote]);
+
   const { data: entries } = useQuery({
     queryKey: ['timesheet-entries', selectedEmployee, weekStart],
     queryFn: async () => {
       if (!selectedEmployee) return [];
       const tsIds = (timesheets ?? []).filter(t => t.employee_id === selectedEmployee).map(t => t.id);
       if (tsIds.length === 0) return [];
+      const auditEntries = getAuditTimesheetEntries();
+      if (auditEntries) return auditEntries.filter(entry => tsIds.includes(entry.timesheet_id));
       const { data, error } = await supabase.from('timesheet_entries').select('*').in('timesheet_id', tsIds).order('start_time');
       if (error) throw error;
       return (data ?? []) as TimesheetEntry[];
@@ -138,134 +186,197 @@ export function TimesheetsPage() {
     return (timesheets ?? []).filter(t => t.employee_id === selectedEmployee);
   }, [timesheets, selectedEmployee]);
 
-  const weekTotal = useMemo(() => {
-    return myTimesheets.reduce((s, t) => s + (t.total_minutes ?? 0), 0);
-  }, [myTimesheets]);
+  const decorated = useMemo(() => {
+    const names = new Map((teamMembers ?? []).map(m => [m.id, m.name]));
+    return myTimesheets.map(t => ({
+      ...timesheetListAttachJobs(t, entries ?? [], jobs ?? []),
+      employee_name: names.get(t.employee_id) ?? null,
+    }));
+  }, [myTimesheets, entries, jobs, teamMembers]);
 
+  const visible = useMemo(
+    () => timesheetListVisibleItems(decorated, { filter, query: search, job: presetJobId }),
+    [decorated, filter, search, presetJobId],
+  );
+
+  const empty = timesheetListEmptyKind({
+    total: decorated.length,
+    visible: visible.length,
+    filter,
+    query: search,
+  });
+
+  const opened = timesheetListOpened(myTimesheets, openId);
   const todayTs = myTimesheets.find(t => isSameDay(parseISO(t.date), new Date()));
   const isClockedIn = !!todayTs?.clock_in && !todayTs?.clock_out;
+  const shownEntries = useMemo(() => {
+    const all = entries ?? [];
+    if (!openId) return all;
+    return all.filter(entry => entry.timesheet_id === openId);
+  }, [entries, openId]);
 
-  if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
-  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load timesheets" /></AppShell>;
+  if (isLoading) return <AppShell><div className="ops-page hub-timesheets"><div className="flex justify-center py-20"><LoadingSpinner /></div></div></AppShell>;
+  if (pageQueryBlocked(error)) return <AppShell><div className="ops-page hub-timesheets"><PageError message="Could not load timesheets" /></div></AppShell>;
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeek, i));
 
   return (
     <AppShell>
-      <div className="max-w-[1200px] mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className="ops-page hub-timesheets">
+        <div className="ops-page-head">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">Timesheets</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">Week of {format(currentWeek, 'dd MMM')} — {format(addDays(currentWeek, 6), 'dd MMM yyyy')}</p>
+            <p className="hub-timesheets-kicker">Timesheets</p>
+            <h1 className="ops-page-title">Timesheets</h1>
+            <p className="hub-timesheets-lede">{timesheetListCountLabel(visible.length)}</p>
+            <p className="hub-timesheets-lede">Week of {format(currentWeek, 'dd MMM')} — {format(addDays(currentWeek, 6), 'dd MMM yyyy')}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="hub-timesheets-tools">
             {isClockedIn ? (
-              <button onClick={() => clockOutMutation.mutate()} className="btn-danger">
+              <button type="button" onClick={() => clockOutMutation.mutate()} className="hub-timesheets-sub">
                 <Square size={16} /> Clock Out
               </button>
             ) : (
-              <button onClick={() => clockInMutation.mutate()} className="inline-flex items-center gap-2 bg-[#16A34A] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#15803D] transition-all duration-200 active:scale-[0.98]">
+              <button type="button" onClick={() => clockInMutation.mutate()} className="hub-timesheets-next">
                 <Play size={16} /> Clock In
               </button>
             )}
-            <button onClick={() => setShowEntryForm(true)} className="btn-primary">
+            <button type="button" onClick={() => setShowEntryForm(true)} className="hub-timesheets-sub">
               <Plus size={16} /> Add Entry
             </button>
           </div>
         </div>
 
-        {/* Week navigation + employee selector */}
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setCurrentWeek(addDays(currentWeek, -7))} className="p-2 rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB] text-[#4A5568]"><ChevronLeft size={18} /></button>
-            <button onClick={() => setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="px-3 py-1.5 text-sm font-medium text-[#0A2540] border border-[#E5E7EB] rounded-md hover:bg-[#F9FAFB]">Today</button>
-            <button onClick={() => setCurrentWeek(addDays(currentWeek, 7))} className="p-2 rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB] text-[#4A5568]"><ChevronRight size={18} /></button>
+        <div className="hub-timesheets-weekbar">
+          <div className="hub-timesheets-weeknav">
+            <button type="button" onClick={() => setCurrentWeek(addDays(currentWeek, -7))} className="hub-timesheets-week-btn" aria-label="Previous week"><ChevronLeft size={18} /></button>
+            <button type="button" onClick={() => setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="hub-timesheets-week-btn">Today</button>
+            <button type="button" onClick={() => setCurrentWeek(addDays(currentWeek, 7))} className="hub-timesheets-week-btn" aria-label="Next week"><ChevronRight size={18} /></button>
           </div>
-          <select value={selectedEmployee ?? ''} onChange={e => setSelectedEmployee(e.target.value)}
-            className="min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]">
+          <select
+            value={selectedEmployee ?? ''}
+            onChange={e => setSelectedEmployee(e.target.value)}
+            className="hub-timesheets-select"
+            aria-label="Employee"
+          >
             {(teamMembers ?? []).map(m => <option key={m.id} value={m.id}>{m.name}{m.id === profile?.id ? ' (You)' : ''}</option>)}
           </select>
         </div>
 
-        {/* Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <SummaryCard label="Week Total" value={formatDuration(weekTotal)} accentColor="#0A2540" />
-          <SummaryCard label="Days Worked" value={`${myTimesheets.filter(t => t.total_minutes > 0).length}`} accentColor="#2E75B6" />
-          <SummaryCard label="Status" value={todayTs ? TIMESHEET_STATUS_LABELS[todayTs.status] : '—'} accentColor="#16A34A" />
-          <SummaryCard label="Clocked In" value={isClockedIn ? 'Yes' : 'No'} accentColor={isClockedIn ? '#16A34A' : '#6B7280'} />
+        <div className="hub-timesheets-chrome">
+          <div className="hub-timesheets-filters" role="group" aria-label="Filter timesheets">
+            {TIMESHEET_LIST_FILTERS.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setFilter(opt.value)}
+                className={`hub-chrome-filter ${filter === opt.value ? 'hub-chrome-filter-on' : ''}`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search job, date, #0042…"
+            className="hub-timesheets-search"
+          />
         </div>
 
-        {/* Week grid */}
-        <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
-          <div className="grid grid-cols-7 border-b border-[#E5E7EB]">
-            {weekDays.map((day, i) => {
-              const ts = myTimesheets.find(t => isSameDay(parseISO(t.date), day));
-              const isToday = isSameDay(day, new Date());
+        <div className="hub-timesheets-days">
+          {weekDays.map((day, i) => {
+            const ts = myTimesheets.find(t => isSameDay(parseISO(t.date), day));
+            const isToday = isSameDay(day, new Date());
+            const isOpen = !!ts && ts.id === openId;
+            const inner = (
+              <>
+                <span className="hub-timesheets-day-name">{format(day, 'EEE')}</span>
+                <span className="hub-timesheets-day-num">{format(day, 'dd')}</span>
+                {ts && ts.total_minutes > 0 && <span className="hub-timesheets-day-hrs">{formatDuration(ts.total_minutes)}</span>}
+              </>
+            );
+            return ts ? (
+              <Link
+                key={i}
+                to={timesheetListOpenHref(ts.id, presetJobId)}
+                className={`hub-timesheets-day ${isOpen ? 'is-open' : ''} ${isToday ? 'is-today' : ''}`}
+              >
+                {inner}
+              </Link>
+            ) : (
+              <div key={i} className={`hub-timesheets-day ${isToday ? 'is-today' : ''}`}>{inner}</div>
+            );
+          })}
+        </div>
+
+        {empty && (
+          <div className="hub-timesheets-empty">
+            <EmptyState
+              icon={Clock}
+              title={timesheetListEmptyTitle(empty)}
+              message={timesheetListEmptyMessage(empty)}
+            />
+          </div>
+        )}
+
+        {visible.length > 0 && (
+          <div className="hub-timesheets-tiles">
+            {visible.map(item => {
+              const isOpen = item.row.id === openId;
               return (
-                <div key={i} className={`p-3 text-center ${isToday ? 'bg-blue-50' : 'bg-[#F9FAFB]'}`}>
-                  <p className="text-xs font-medium text-[#6B7280] uppercase">{format(day, 'EEE')}</p>
-                  <p className={`text-lg font-bold ${isToday ? 'text-[#2E75B6]' : 'text-[#1A1A1A]'}`}>{format(day, 'dd')}</p>
-                  {ts && ts.total_minutes > 0 && <p className="text-xs text-[#4A5568] mt-1">{formatDuration(ts.total_minutes)}</p>}
-                </div>
+                <Link
+                  key={item.row.id}
+                  to={item.href}
+                  className={`hub-timesheets-tile ${isOpen ? 'is-open' : ''}`}
+                >
+                  <span className="hub-timesheets-tile-date">{item.title}</span>
+                  <span className="hub-timesheets-tile-job">{item.jobLine || '—'}</span>
+                  <span className="hub-timesheets-hours">{item.hoursLabel}</span>
+                  <span className={`hub-timesheets-pill ${timesheetListPillClass(item.row.status)}`}>{item.statusLabel}</span>
+                  <span className="hub-next">Open</span>
+                </Link>
               );
             })}
           </div>
+        )}
 
-          {/* Entries list */}
-          <div className="p-4">
-            <h3 className="text-sm font-semibold text-[#1A1A1A] mb-3">Time Entries</h3>
-            {(entries ?? []).length === 0 ? (
-          <EmptyState
-            icon={Clock}
-            title="No time entries for this week"
-            message="Clock in or add an entry to start tracking time."
-          />
-            ) : (
-              <div className="space-y-2">
-                {(entries ?? []).map(entry => {
-                  const ts = myTimesheets.find(t => t.id === entry.timesheet_id);
-                  const duration = entry.end_time
-                    ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
-                    : 0;
-                  return (
-                    <div key={entry.id} className="flex items-center justify-between p-3 rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB] transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-[#0A2540]/5 flex items-center justify-center">
-                          <Clock size={18} className="text-[#0A2540]" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-[#1A1A1A]">{ts ? format(parseISO(ts.date), 'dd MMM') : '—'}</p>
-                          <p className="text-xs text-[#4A5568]">
-                            {format(new Date(entry.start_time), 'HH:mm')}
-                            {entry.end_time ? ` — ${format(new Date(entry.end_time), 'HH:mm')}` : ' — running'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {entry.work_type && <span className="text-xs text-[#6B7280]">{entry.work_type}</span>}
-                        {entry.job_id && (
-                          <Link to={`/jobs/${entry.job_id}`} className="text-xs text-[#2E75B6] hover:underline">
-                            {jobs?.find(j => j.id === entry.job_id)?.title ?? 'Job'}
-                          </Link>
-                        )}
-                        {entry.billable ? <span className="text-xs text-green-600 font-medium">Billable</span> : <span className="text-xs text-gray-500">Non-billable</span>}
-                        {duration > 0 && <span className="text-sm font-medium text-[#1A1A1A]">{formatDuration(duration)}</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Submit section */}
-          {myTimesheets.length > 0 && (
-            <div className="px-4 py-3 border-t border-[#E5E7EB] flex items-center justify-between">
-              <p className="text-sm text-[#4A5568]">Submit timesheets for approval when ready</p>
-              <div className="flex items-center gap-2">
-                {myTimesheets.filter(t => t.status === 'open' && t.total_minutes > 0).map(t => (
-                  <button key={t.id} onClick={() => submitMutation.mutate(t.id)}
-                    className="px-3 py-1.5 text-sm font-medium text-[#0A2540] border border-[#E5E7EB] rounded-md hover:bg-[#F9FAFB]">
+        <div className="hub-timesheets-entries">
+          <h3 className="hub-timesheets-group">
+            {opened ? `Time entries · ${format(parseISO(opened.date), 'dd MMM')}` : 'Time entries'}
+          </h3>
+          {shownEntries.length === 0 ? (
+            <EmptyState
+              icon={Clock}
+              title={openId ? 'No time entries on this timesheet' : 'No time entries for this week'}
+              message={openId ? 'Add an entry on this day, or clock in.' : 'Clock in or add an entry to start tracking time. Open a timesheet from the list above.'}
+            />
+          ) : (
+            shownEntries.map(entry => {
+              const ts = myTimesheets.find(t => t.id === entry.timesheet_id);
+              const duration = entry.end_time
+                ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
+                : 0;
+              return (
+                <div key={entry.id} className="hub-timesheets-entry">
+                  <span className="hub-timesheets-tile-date">{ts ? format(parseISO(ts.date), 'dd MMM') : '—'}</span>
+                  <span className="hub-timesheets-muted">
+                    {format(new Date(entry.start_time), 'HH:mm')}
+                    {entry.end_time ? ` — ${format(new Date(entry.end_time), 'HH:mm')}` : ' — running'}
+                    {entry.work_type ? ` · ${entry.work_type}` : ''}
+                    {entry.job_id ? ` · ${jobs?.find(j => j.id === entry.job_id)?.title ?? 'Job'}` : ''}
+                    {entry.billable ? ' · Billable' : ' · Non-billable'}
+                  </span>
+                  <span className="hub-timesheets-hours">{duration > 0 ? formatDuration(duration) : '—'}</span>
+                </div>
+              );
+            })
+          )}
+          {(opened ? [opened] : myTimesheets).length > 0 && (
+            <div className="hub-timesheets-submit">
+              <p className="hub-timesheets-muted">Submit timesheets for approval when ready</p>
+              <div className="hub-timesheets-submit-acts">
+                {(opened ? [opened] : myTimesheets).filter(t => t.status === 'open' && t.total_minutes > 0).map(t => (
+                  <button key={t.id} type="button" onClick={() => submitMutation.mutate(t.id)} className="hub-timesheets-week-btn">
                     Submit {format(parseISO(t.date), 'dd MMM')}
                   </button>
                 ))}
@@ -302,15 +413,5 @@ export function TimesheetsPage() {
         />
       )}
     </AppShell>
-  );
-}
-
-function SummaryCard({ label, value, accentColor }: { label: string; value: string; accentColor: string }) {
-  return (
-    <div className="card-accent p-4">
-      <p className="text-xs font-medium text-[#4A5568] uppercase tracking-wide">{label}</p>
-      <p className="text-xl font-bold text-[#1A1A1A] mt-1">{value}</p>
-      <div className="mt-2 h-1 rounded-full" style={{ backgroundColor: accentColor, opacity: 0.2 }} />
-    </div>
   );
 }
