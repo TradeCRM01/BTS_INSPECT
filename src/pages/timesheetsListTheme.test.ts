@@ -13,8 +13,14 @@ describe('Timesheets list cream paper look', () => {
     const helper = src('src/lib/timesheetsList.ts');
 
     expect(list).toContain('hub-timesheets');
+    expect(list).toContain('is-day-open');
     expect(list).toContain('hub-timesheets-days');
     expect(list).toContain('hub-timesheets-sheet');
+    expect(list).toContain('hub-timesheets-sheet-bar');
+    expect(list).toContain('hub-timesheets-hero');
+    expect(list).toContain('hub-timesheets-label');
+    expect(list).toContain('hub-timesheets-ledger');
+    expect(list).toContain('This week');
     expect(list).toContain('hub-timesheets-tile');
     expect(list).toContain('hub-timesheets-pill');
     expect(list).toContain('hub-timesheets-hours');
@@ -22,9 +28,8 @@ describe('Timesheets list cream paper look', () => {
     expect(list).toContain('TIMESHEET_LIST_FILTERS');
     expect(list).toContain('timesheetListOpenHref');
     expect(list).toContain('>Open</span>');
-    expect(list).not.toContain('>Date</span>');
-    expect(list).not.toContain('hub-timesheets-thead');
-    expect(list).not.toContain('hub-timesheets-row');
+    expect(list).not.toContain('hub-timesheets-kicker');
+    expect(list).not.toContain('TIMESHEETS');
     expect(list).not.toContain('function TimesheetCard');
     expect(list).not.toContain('ViewToggle');
     expect(list).not.toMatch(/Grafter|Relovi|Littleloop/);
@@ -33,6 +38,8 @@ describe('Timesheets list cream paper look', () => {
 
     expect(css).toContain('.hub-timesheets.ops-page');
     expect(css).toContain('.hub-timesheets-sheet');
+    expect(css).toContain('.hub-timesheets-sheet-bar');
+    expect(css).toContain('.hub-timesheets.is-day-open');
     expect(css).toContain('--ts-look-page: #F5F0E6');
     expect(css).toContain('--ts-look-sheet: #FFFDF8');
     expect(css).toContain('--ts-look-ink: #0A2540');

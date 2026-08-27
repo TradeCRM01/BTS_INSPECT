@@ -23,6 +23,7 @@ import {
   timesheetListEmptyKind,
   timesheetListEmptyMessage,
   timesheetListEmptyTitle,
+  timesheetListHoursLabel,
   timesheetListOpenHref,
   timesheetListOpenId,
   timesheetListOpened,
@@ -208,6 +209,7 @@ export function TimesheetsPage() {
   });
 
   const opened = timesheetListOpened(myTimesheets, openId);
+  const dayOpen = !!opened;
   const openedItem = useMemo(() => {
     if (!opened) return null;
     return decorateTimesheetForList(
@@ -225,6 +227,91 @@ export function TimesheetsPage() {
     if (!openId) return all;
     return all.filter(entry => entry.timesheet_id === openId);
   }, [entries, openId]);
+
+  const goPrevWeek = () => setCurrentWeek(addDays(currentWeek, -7));
+  const goThisWeek = () => setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const goNextWeek = () => setCurrentWeek(addDays(currentWeek, 7));
+
+  const renderSheetTools = () => (
+    <div className="hub-timesheets-tools">
+      {isClockedIn ? (
+        <button type="button" onClick={() => clockOutMutation.mutate()} className="hub-timesheets-sub">
+          <Square size={16} /> Clock Out
+        </button>
+      ) : (
+        <button type="button" onClick={() => clockInMutation.mutate()} className="hub-timesheets-next">
+          <Clock size={16} /> Clock In
+        </button>
+      )}
+      <button type="button" onClick={() => setShowEntryForm(true)} className="hub-timesheets-sub">
+        <span className="hub-timesheets-add-mark">+</span> Add Entry
+      </button>
+    </div>
+  );
+
+  const renderWeekNav = (mode: 'list' | 'desk' | 'phone') => (
+    <div className={`hub-timesheets-weeknav${mode === 'phone' ? ' is-phone' : ''}${mode === 'desk' ? ' is-desk' : ''}`}>
+      <button type="button" onClick={goPrevWeek} className="hub-timesheets-week-btn" aria-label="Previous week">
+        <ChevronLeft size={16} />
+        <span className="hub-timesheets-week-phone">Prev</span>
+      </button>
+      <button type="button" onClick={goThisWeek} className="hub-timesheets-week-now">
+        {mode === 'list' ? 'Today' : 'This week'}
+      </button>
+      <button type="button" onClick={goNextWeek} className="hub-timesheets-week-btn" aria-label="Next week">
+        <span className="hub-timesheets-week-phone">Next</span>
+        <ChevronRight size={16} />
+      </button>
+    </div>
+  );
+
+  const renderLedger = () => (
+    <div className="hub-timesheets-ledger">
+      <div className="hub-timesheets-ledger-head">
+        <span>Date</span>
+        <span>Start</span>
+        <span>Finish</span>
+        <span>Activity</span>
+        <span>Job</span>
+        <span>Type</span>
+        <span>Hours</span>
+      </div>
+      {shownEntries.length === 0 ? (
+        <EmptyState
+          icon={Clock}
+          title="No time entries on this timesheet"
+          message="Add an entry on this day, or clock in."
+        />
+      ) : (
+        shownEntries.map(entry => {
+          const ts = myTimesheets.find(t => t.id === entry.timesheet_id);
+          const duration = entry.end_time
+            ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
+            : 0;
+          const jobTitle = entry.job_id ? (jobs?.find(j => j.id === entry.job_id)?.title ?? 'Job') : '—';
+          return (
+            <div key={entry.id} className="hub-timesheets-ledger-row">
+              <span className="hub-timesheets-ledger-date">{ts ? format(parseISO(ts.date), 'd MMM') : '—'}</span>
+              <span className="hub-timesheets-ledger-start">{format(new Date(entry.start_time), 'HH:mm')}</span>
+              <span className="hub-timesheets-ledger-finish">{entry.end_time ? format(new Date(entry.end_time), 'HH:mm') : '—'}</span>
+              <span className="hub-timesheets-ledger-activity">{entry.work_type || '—'}</span>
+              <span className="hub-timesheets-ledger-job">{jobTitle}</span>
+              <span className="hub-timesheets-ledger-type">{entry.billable ? 'Billable' : 'Non-billable'}</span>
+              <span className="hub-timesheets-hours">{duration > 0 ? timesheetListHoursLabel(duration) : '—'}</span>
+              <span className="hub-timesheets-ledger-range">
+                {format(new Date(entry.start_time), 'h:mmaaa')}
+                {entry.end_time ? ` - ${format(new Date(entry.end_time), 'h:mmaaa')}` : ' - running'}
+              </span>
+              <span className="hub-timesheets-ledger-meta">
+                {duration > 0 ? timesheetListHoursLabel(duration) : '—'}
+                {jobTitle !== '—' ? ` • ${jobTitle}` : ''}
+              </span>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
 
   const renderTiles = (items: typeof visible) => (
     items.length > 0 ? (
@@ -303,10 +390,15 @@ export function TimesheetsPage() {
 
   return (
     <AppShell>
-      <div className="ops-page hub-timesheets">
+      <div className={`ops-page hub-timesheets${dayOpen ? ' is-day-open' : ''}`}>
+        <div className="hub-timesheets-open-chrome">
+          <p className="hub-timesheets-label">Timesheets</p>
+          {renderWeekNav('desk')}
+        </div>
+
         <div className="ops-page-head">
           <div>
-            <p className="hub-timesheets-kicker">Timesheets</p>
+            <p className="hub-timesheets-label">Timesheets</p>
             <h1 className="ops-page-title">Timesheets</h1>
             <p className="hub-timesheets-lede">{timesheetListCountLabel(visible.length)}</p>
             <p className="hub-timesheets-lede">Week of {format(currentWeek, 'dd MMM')} — {format(addDays(currentWeek, 6), 'dd MMM yyyy')}</p>
@@ -328,11 +420,7 @@ export function TimesheetsPage() {
         </div>
 
         <div className="hub-timesheets-weekbar">
-          <div className="hub-timesheets-weeknav">
-            <button type="button" onClick={() => setCurrentWeek(addDays(currentWeek, -7))} className="hub-timesheets-week-btn" aria-label="Previous week"><ChevronLeft size={18} /></button>
-            <button type="button" onClick={() => setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="hub-timesheets-week-btn">Today</button>
-            <button type="button" onClick={() => setCurrentWeek(addDays(currentWeek, 7))} className="hub-timesheets-week-btn" aria-label="Next week"><ChevronRight size={18} /></button>
-          </div>
+          {renderWeekNav('list')}
           <select
             value={selectedEmployee ?? ''}
             onChange={e => setSelectedEmployee(e.target.value)}
@@ -402,13 +490,24 @@ export function TimesheetsPage() {
 
         {openedItem ? (
           <article className="hub-timesheets-sheet">
-            <div className="hub-timesheets-tile is-open">
-              <span className="hub-timesheets-tile-date">{openedItem.title}</span>
-              <span className="hub-timesheets-tile-job">{openedItem.jobLine || '—'}</span>
+            <header className="hub-timesheets-sheet-bar">
               <span className="hub-timesheets-hours">{openedItem.hoursLabel}</span>
               <span className={`hub-timesheets-pill ${timesheetListPillClass(openedItem.row.status)}`}>{openedItem.statusLabel}</span>
+            </header>
+            <div className="hub-timesheets-sheet-body">
+              <h1 className="ops-page-title hub-timesheets-hero">{openedItem.title}</h1>
+              <p className="hub-timesheets-jobline">{openedItem.jobLine || '—'}</p>
+              {renderWeekNav('phone')}
+              {renderSheetTools()}
+              {renderLedger()}
+              {opened.status === 'open' && opened.total_minutes > 0 && (
+                <div className="hub-timesheets-submit">
+                  <button type="button" onClick={() => submitMutation.mutate(opened.id)} className="hub-timesheets-week-btn">
+                    Submit {format(parseISO(opened.date), 'd MMM')}
+                  </button>
+                </div>
+              )}
             </div>
-            {renderEntries()}
           </article>
         ) : (
           <>
