@@ -20,6 +20,8 @@ describe('Take 5 list cream paper look', () => {
     expect(list).toContain('hub-take5-sheet');
     expect(list).toContain('hub-take5-row');
     expect(list).toContain('hub-take5-pill');
+    expect(list).toContain('hub-take5-label');
+    expect(list).not.toContain('hub-take5-kicker');
     expect(list).toContain('GO/STOP');
     expect(list).toContain('TAKE5_LIST_FILTERS');
     expect(list).toContain('take5ListOpenHref');
@@ -59,7 +61,9 @@ describe('Take 5 list cream paper look', () => {
     const fill = src('src/pages/Take5Page.tsx');
     expect(fill).toContain('take5-doc-theme');
     expect(fill).toContain('take5DocumentColors');
-    expect(fill).not.toContain('hub-take5');
+    expect(fill).toContain('hub-take5-document');
+    expect(fill).toContain('is-record-open');
+    expect(fill).not.toContain('className="hub-take5-sheet"');
 
     const jhaList = src('src/pages/JhaDocumentsPage.tsx');
     expect(jhaList).toContain('jha-doc-theme');
@@ -89,10 +93,11 @@ describe('Take 5 list cream paper look', () => {
     expect(shell).toContain('resolveAppShellColors');
 
     const css = src('src/index.css');
-    expect(css).toContain('.take5-doc-theme .ops-doc-head');
+    expect(css).toContain('.take5-doc-theme {');
     expect(css).not.toMatch(/\.take5-doc-theme \.btn-primary/);
     expect(css).not.toMatch(/\.take5-doc-theme \.ops-next-control/);
     expect(css).not.toMatch(/\.take5-doc-theme \.hub-take5/);
+    expect(css).not.toContain('.take5-doc-theme .ops-doc-head');
   });
 
   it('keeps saved report_theme on Take 5 documents, not this list', () => {
