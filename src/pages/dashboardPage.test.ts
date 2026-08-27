@@ -60,42 +60,68 @@ describe('signed-in dashboard today floor', () => {
   });
 });
 
-describe('signed-in dashboard cream paper look', () => {
-  it('paints today\'s work as cream paper rows, not poster cards', () => {
+describe('signed-in dashboard document sheet look', () => {
+  it('paints today\'s work as the document sheet, not cards, admin rows, or a widget wall', () => {
     const page = src('src/pages/DashboardPage.tsx');
     const css = src('src/index.css');
     const homeStart = css.indexOf('/* Signed-in home / only.');
-    const homeEnd = css.indexOf('/* Accounting settings only.', homeStart);
+    const homeEnd = css.indexOf('/* Field Work inspections list only.', homeStart);
     const homeCss = css.slice(homeStart, homeEnd);
 
     expect(page).toContain('dashboard-home');
+    expect(page).toContain('is-day-open');
     expect(page).toContain('dashboard-home-sheet');
+    expect(page).toContain('dashboard-home-sheet-bar');
+    expect(page).toContain('dashboard-home-sheet-body');
+    expect(page).toContain('dashboard-home-hero');
+    expect(page).toContain('dashboard-home-label');
+    expect(page).toContain('dashboard-home-ledger');
     expect(page).toContain('dashboard-home-row');
     expect(page).toContain('dashboard-home-pill');
     expect(page).toContain('dashboard-home-next');
+    expect(page).toContain('dashboard-home-primary');
     expect(page).toContain('dashboardJobPlace(job)');
-    expect(page).toContain('Time');
-    expect(page).toContain('Client');
-    expect(page).toContain('Suburb');
-    expect(page).toContain('Crew');
-    expect(page).toContain('Status');
+    expect(page).toContain('dashboardJobMetaLine(job)');
+    expect(page).toContain('Week board');
+    expect(page).toContain('Open schedule');
+    expect(page).not.toContain('dashboard-home-kicker');
+    expect(page).not.toContain('dashboard-home-thead');
+    expect(page).not.toContain('<table');
+    expect(page).not.toContain('<thead');
+    expect(page).not.toMatch(/>TODAY</);
     expect(page).not.toContain('hub-jobs');
     expect(page).not.toContain('hub-quotes');
+    expect(page).not.toContain('className="btn-primary"');
     expect(page).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(page).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(homeCss).toContain('.dashboard-home.ops-page');
+    expect(homeCss).toContain('.dashboard-home-sheet');
+    expect(homeCss).toContain('.dashboard-home-sheet-bar');
+    expect(homeCss).toContain('.dashboard-home-sheet-body');
+    expect(homeCss).toContain('.dashboard-home-hero');
+    expect(homeCss).toContain('.dashboard-home-label');
+    expect(homeCss).toContain('.dashboard-home.is-day-open');
     expect(homeCss).toContain('--dashboard-home-page: #F5F0E6');
     expect(homeCss).toContain('--dashboard-home-sheet: #FFFDF8');
     expect(homeCss).toContain('--dashboard-home-ink: #0A2540');
     expect(homeCss).toContain('--dashboard-home-muted: #5B6B7C');
     expect(homeCss).toContain('--dashboard-home-line: #E2D9CC');
     expect(homeCss).toContain('#2E75B6');
+    expect(homeCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(homeCss).toContain('box-shadow: inset 0 1px 0 #fff');
+    expect(homeCss).toContain('font-size: 56px !important');
     expect(homeCss).toContain("font-family: Rajdhani, sans-serif");
     expect(homeCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(homeCss).toContain('letter-spacing: 0.12em');
+    expect(homeCss).toContain('font-variant-numeric: tabular-nums');
+    expect(homeCss).not.toContain('.dashboard-home-kicker');
+    expect(homeCss).not.toContain('--dashboard-home-pass');
+    expect(homeCss).not.toMatch(/#16A34A|#15803D|#1B7F3A/);
+    expect(homeCss).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
     expect(homeCss).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(homeCss).not.toMatch(/font-family:\s*ui-monospace|JetBrains Mono/);
+    expect(homeCss).not.toMatch(/\.dashboard-home[\s\S]{0,80}#111|#000\b/);
   });
 
   it('does not restyle Take 5, JHA, inspections, jobs, schedule, login, or AppShell', () => {
@@ -107,7 +133,9 @@ describe('signed-in dashboard cream paper look', () => {
     expect(page).not.toContain('InspectionsPage');
     expect(page).not.toContain('JobsPage');
     expect(page).not.toContain('JobDetailPage');
+    expect(page).not.toContain('TimesheetsPage');
     expect(page).not.toContain('hub-jobs-sheet');
+    expect(page).not.toContain('hub-timesheets');
     expect(page).not.toContain('take5-doc-theme');
 
     const jobs = src('src/pages/JobsPage.tsx');
@@ -126,6 +154,9 @@ describe('signed-in dashboard cream paper look', () => {
     const schedule = src('src/pages/SchedulePage.tsx');
     expect(schedule).not.toContain('dashboard-home');
 
+    const timesheets = src('src/pages/TimesheetsPage.tsx');
+    expect(timesheets).not.toContain('dashboard-home-sheet');
+
     const login = src('src/pages/LoginPage.tsx');
     expect(login).not.toContain('dashboard-home');
 
@@ -134,12 +165,13 @@ describe('signed-in dashboard cream paper look', () => {
     expect(shell).toContain('resolveAppShellColors');
   });
 
-  it('LOOK frames cover today\'s work desktop and phone only', () => {
+  it('LOOK frames cover today\'s work as the document sheet on desktop and phone only', () => {
     for (const rel of [
-      'docs/look/dashboard-today-desktop.png',
-      'docs/look/dashboard-today-phone.png',
+      'docs/look/dashboard-sheet-desktop.png',
+      'docs/look/dashboard-sheet-phone.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
     }
   });
 });
