@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
@@ -8,16 +8,15 @@ import { InspectionDueReminder } from '../components/inspection/InspectionDueRem
 import { QuestionRenderer } from '../components/inspection/QuestionRenderer';
 import { evaluateShowIf } from '../lib/conditionEval';
 import type { TemplateSchema, Section, Question } from '../types/template';
-import { ChevronLeft, Plus, Trash2, ChevronDown, Camera, X, Check, ClipboardList } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, Camera, X, Check, ClipboardList } from 'lucide-react';
 import { nanoid } from '../lib/nanoid';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
-import { NextBanner, OpsDocHead, OpsStatus, opsSiteLabel } from '../components/ui';
+import { opsSiteLabel } from '../components/ui';
 import {
   inspectionFillContext,
   inspectionSectionCompletion,
-  inspectionStatusClass,
   inspectionStatusLabel,
   recommendInspectionFillAction,
 } from '../lib/inspectionNextAction';
@@ -296,7 +295,9 @@ export function InspectionFillPage() {
   if (isLoading) {
     return (
       <AppShell>
-        <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+        <div className="ops-page hub-inspections is-record-open">
+          <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+        </div>
       </AppShell>
     );
   }
@@ -304,7 +305,7 @@ export function InspectionFillPage() {
   if (isError || !inspection) {
     return (
       <AppShell>
-        <div className="ops-page max-w-[1000px]">
+        <div className="ops-page hub-inspections is-record-open">
           <PageError
             message="Could not load inspection. It may have been deleted or you don't have access."
             onRetry={() => refetch()}
@@ -317,7 +318,7 @@ export function InspectionFillPage() {
   if (!schema) {
     return (
       <AppShell>
-        <div className="ops-page max-w-[1000px]">
+        <div className="ops-page hub-inspections is-record-open">
           <PageError
             message="This inspection has no template data. It may be corrupted."
             onRetry={() => navigate('/inspections')}
@@ -365,6 +366,15 @@ export function InspectionFillPage() {
     || (selectedJob?.job_number != null ? String(selectedJob.job_number).padStart(4, '0') : '');
   const when = inspection.started_at ? format(new Date(inspection.started_at), 'd MMM yyyy') : null;
   const jobBound = !!jobId;
+  const jobLine = [jobNumber ? `#${jobNumber}` : null, selectedJob?.title || templateName || null]
+    .filter(Boolean)
+    .join(' ');
+  const clientLine = living.clientName || dueClient?.name || meta.clientName || '';
+  const sheetPill = statusKey === 'completed'
+    ? 'is-ready'
+    : (statusKey === 'issued' || statusKey === 'sent')
+      ? 'is-issued'
+      : 'is-draft';
 
   function getSectionCompletion(sec: Section) {
     return inspectionSectionCompletion(sec, responses);
@@ -492,7 +502,7 @@ export function InspectionFillPage() {
     }
 
     return (
-      <div key={key} className="py-3 border-b border-rule last:border-b-0">
+      <div key={key} className="hub-inspections-q">
         <label className="block text-base font-medium text-navy mb-0.5">
           {q.label}
           {q.required && <span className="text-red-500 ml-1">*</span>}
@@ -607,7 +617,7 @@ export function InspectionFillPage() {
   return (
     <AppShell>
       <div
-        className={jobBound ? 'hub-job-swms insp-doc-theme' : 'insp-doc-theme'}
+        className="ops-page hub-inspections is-record-open insp-doc-theme"
         style={{
           '--insp-navy': docColors.navy,
           '--insp-accent': docColors.accent,
@@ -615,297 +625,293 @@ export function InspectionFillPage() {
           '--insp-accent-light': docColors.accentLight,
         } as CSSProperties}
       >
-      <div className="ops-page-fill">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <button
-            type="button"
-            onClick={() => navigate(jobBound ? `/jobs/${jobId}` : '/inspections')}
-            className="ops-back"
+        <div className="hub-inspections-open-chrome">
+          <Link
+            to={jobBound ? `/jobs/${jobId}` : '/inspections'}
+            className="hub-inspections-label"
           >
-            <ChevronLeft size={16} /> {jobBound ? 'Back to job' : 'Inspections'}
-          </button>
+            Inspections
+          </Link>
           {saveHint && (
-            <span className={`text-xs ${saveStatus === 'error' ? 'text-fail' : saveStatus === 'saving' ? 'text-warning' : 'text-pass flex items-center gap-1'}`}>
+            <span className={`hub-inspections-save ${saveStatus === 'error' ? 'is-bad' : ''}`}>
               {saveStatus === 'saved' && <Check size={12} />}
               {saveHint}
             </span>
           )}
         </div>
 
-        <article className="ops-card overflow-hidden mb-3">
-          <OpsDocHead
-            kind="Inspection"
-            id={jobNumber ? `#${jobNumber}` : 'Draft'}
-            meta={[siteLabel !== 'No site address' ? siteLabel : null, selectedJob?.title, templateName, when].filter(Boolean).join(' · ')}
-            trailing={<OpsStatus className={inspectionStatusClass(statusKey)}>{inspectionStatusLabel(statusKey)}</OpsStatus>}
-          />
-          <div className="px-3 pt-3 pb-2">
-            <p className="ops-meta">{templateName || 'Inspection'}</p>
-            <div className="mt-2">
-              <NextBanner detail={next.detail} />
-            </div>
-          </div>
-        </article>
+        <article className="hub-inspections-document">
+          <header className="hub-inspections-sheet-bar">
+            <span className="hub-inspections-hours">{when || inspectionStatusLabel(statusKey)}</span>
+            <span className={`hub-inspections-pill ${sheetPill}`}>{inspectionStatusLabel(statusKey)}</span>
+          </header>
+          <div className="hub-inspections-sheet-body">
+            <h1 className="hub-inspections-hero">{siteLabel}</h1>
+            {jobLine ? <p className="hub-inspections-jobline">{jobLine}</p> : null}
 
-        <section id="insp-identity" className="ops-card mb-3">
-          <div className="ops-tray-head">
-            <h2 className="ops-section-title flex items-center gap-2">
-              <ClipboardList size={16} /> Job / site
-            </h2>
-          </div>
-          <div className="px-3 pb-3 pt-2 space-y-3">
-            <div>
-              <label className="ops-field-label">
-                Site / location{!jobBound && <span className="text-fail"> *</span>}
-              </label>
-              {jobBound ? (
-                <>
-                  <p className="job-swms-site">{living.siteName || 'No site address on this job yet'}</p>
-                  <p className="ops-meta mt-1">Site follows this job.</p>
-                </>
-              ) : (
-                <input
-                  type="text"
-                  value={meta.siteName ?? ''}
-                  onChange={e => updateMeta('siteName', e.target.value)}
-                  placeholder="Where is this inspection?"
-                  className="ops-field-site"
-                />
-              )}
-            </div>
-            <div>
-              <label className="ops-field-label">Job</label>
-              <select
-                value={jobId}
-                onChange={e => {
-                  const nextJob = e.target.value;
-                  setJobId(nextJob);
-                  const job = jobs.find(j => j.id === nextJob);
-                  let nextMeta = { ...meta };
-                  if (job) {
-                    const applied = applyLivingJobToInspection(meta, {
-                      id: job.id,
-                      title: job.title,
-                      address: job.address,
-                      client_id: job.client_id,
-                      client_name: dueClient && dueClient.id === job.client_id ? (dueClient.name ?? '') : '',
-                    }, { skipClient: !!job.client_id && dueClient?.id !== job.client_id });
-                    nextMeta = applied.meta;
-                    if (job.job_number != null && !(nextMeta.jobNumber ?? '').trim()) {
-                      nextMeta.jobNumber = String(job.job_number).padStart(4, '0');
-                    }
-                    setMeta(nextMeta);
-                  }
-                  persist(responses, nextMeta, nextJob);
-                }}
-                className="ops-field"
+            <div className="hub-inspections-tools">
+              <button
+                type="button"
+                onClick={runNext}
+                disabled={nextBusy}
+                className="hub-inspections-primary"
               >
-                <option value="">No linked job</option>
-                {jobs.map(j => (
-                  <option key={j.id} value={j.id}>{j.title}{j.address ? ` — ${j.address}` : ''}</option>
-                ))}
-              </select>
+                {saveStatus === 'saving' && next.key === 'save'
+                  ? <><LoadingSpinner size="sm" /> Saving…</>
+                  : <><ClipboardList size={16} /> {next.label}</>}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMoreIdentity(v => !v)}
+                className="hub-inspections-sub"
+              >
+                {showMoreIdentity ? 'Hide extra details' : 'More job details'}
+              </button>
             </div>
-            {jobBound && (
-              <p className="ops-meta">
-                {living.clientName
-                  ? `Client follows this job · ${living.clientName}`
-                  : 'Client follows this job'}
+
+            <div className="hub-inspections-ledger">
+              {clientLine ? (
+                <p className="hub-inspections-ledger-row">
+                  <span className="hub-inspections-muted">{clientLine}</span>
+                </p>
+              ) : null}
+              {templateName ? (
+                <p className="hub-inspections-ledger-row">
+                  <span className="hub-inspections-muted">{templateName}</span>
+                </p>
+              ) : null}
+              <p className="hub-inspections-ledger-row">
+                <span className="hub-inspections-muted">{jobNumber ? `#${jobNumber}` : 'Inspection'}</span>
+                {when ? <span className="hub-inspections-hours">{when}</span> : null}
               </p>
-            )}
-            <button
-              type="button"
-              onClick={() => setShowMoreIdentity(v => !v)}
-              className={jobBound ? 'job-swms-quiet' : 'flex items-center gap-1 text-xs font-semibold text-accent min-h-[44px]'}
-            >
-              <ChevronDown size={14} className={showMoreIdentity ? 'rotate-180' : ''} />
-              {showMoreIdentity ? 'Hide extra details' : 'More job details'}
-            </button>
-            {showMoreIdentity && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-rule">
-                {!jobBound && (
-                  <>
-                    <div>
-                      <label className="ops-field-label">Site address</label>
-                      <input
-                        type="text"
-                        value={meta.siteAddress ?? ''}
-                        onChange={e => updateMeta('siteAddress', e.target.value)}
-                        className="ops-field"
-                      />
-                    </div>
-                    <div>
-                      <label className="ops-field-label">Client</label>
-                      <input
-                        type="text"
-                        value={meta.clientName ?? ''}
-                        onChange={e => updateMeta('clientName', e.target.value)}
-                        className="ops-field"
-                      />
-                    </div>
-                  </>
-                )}
-                <div>
-                  <label className="ops-field-label">Job number</label>
+            </div>
+
+            <section id="insp-identity" className={`hub-inspections-identity${showMoreIdentity || next.key === 'site' ? ' is-open' : ''}`}>
+              <div className="hub-inspections-ledger-row hub-inspections-field">
+                <label className="hub-inspections-muted">
+                  Site / location{!jobBound && <span className="hub-inspections-req"> *</span>}
+                </label>
+                {jobBound ? (
+                  <p className="hub-inspections-field-value">
+                    {living.siteName || 'No site address on this job yet'}
+                    <span className="hub-inspections-muted"> Site follows this job.</span>
+                  </p>
+                ) : (
                   <input
                     type="text"
-                    value={meta.jobNumber ?? ''}
-                    onChange={e => updateMeta('jobNumber', e.target.value)}
-                    className="ops-field"
+                    value={meta.siteName ?? ''}
+                    onChange={e => updateMeta('siteName', e.target.value)}
+                    placeholder="Where is this inspection?"
+                    className="hub-inspections-input"
                   />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="ops-field-label">Job description</label>
-                  <textarea
-                    value={meta.jobDescription ?? ''}
-                    onChange={e => updateMeta('jobDescription', e.target.value)}
-                    rows={2}
-                    className="ops-field resize-none"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <InspectionDueReminder
-          inspection={{
-            id: inspection.id,
-            inspector_id: inspection.inspector_id,
-            client_id: selectedJob?.client_id ?? (inspection as { client_id?: string | null }).client_id ?? null,
-            crm_job_id: jobId || null,
-            status: inspection.status,
-            archived: (inspection as { archived?: boolean | null }).archived ?? false,
-            meta,
-            responses,
-            template_snapshot: inspection.template_snapshot as { name?: string; schema?: TemplateSchema },
-            completed_at: inspection.completed_at,
-            started_at: inspection.started_at,
-            due_on: (inspection as { due_on?: string | null }).due_on ?? null,
-            due_reminder_sent_at: (inspection as { due_reminder_sent_at?: string | null }).due_reminder_sent_at ?? null,
-            due_reminder_sent_for_date: (inspection as { due_reminder_sent_for_date?: string | null }).due_reminder_sent_for_date ?? null,
-          }}
-          job={selectedJob ? {
-            id: selectedJob.id,
-            company_id: (selectedJob as { company_id?: string }).company_id ?? company?.id ?? '',
-            client_id: selectedJob.client_id,
-            title: selectedJob.title,
-            scheduled_date: (selectedJob as { scheduled_date?: string | null }).scheduled_date ?? null,
-            start_time: (selectedJob as { start_time?: string | null }).start_time ?? null,
-            address: selectedJob.address,
-            job_number: selectedJob.job_number,
-          } : null}
-          client={dueClient ?? null}
-          company={company}
-        />
-
-        {visibleSections.length > 0 && (
-          <div className="ops-tabs mb-3">
-            {visibleSections.map((sec, idx) => {
-              const completion = getSectionCompletion(sec);
-              const isActive = idx === currentSectionIdx;
-              return (
-                <button
-                  key={sec.id}
-                  type="button"
-                  onClick={() => setCurrentSectionIdx(idx)}
-                  className={`ops-tab min-h-[44px] ${isActive ? 'ops-tab-active' : ''}`}
-                >
-                  <span className={`inline-block w-2 h-2 rounded-sm mr-1.5 align-middle ${
-                    completion === 'full' ? 'bg-pass' :
-                    completion === 'partial' ? 'bg-warning' :
-                    'bg-muted'
-                  }`} />
-                  {sec.title}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {currentSection && (
-          <section className="ops-card">
-            <div className="ops-tray-head">
-              <div className="min-w-0">
-                <h2 className="ops-section-title">
-                  {currentSection.title}
-                </h2>
-                {currentSection.description && (
-                  <p className="ops-meta mt-0.5">{currentSection.description}</p>
                 )}
               </div>
-              <span className="ops-meta shrink-0">
-                {currentSectionIdx + 1} / {visibleSections.length}
-              </span>
-            </div>
-            <div className="px-3 pb-3 pt-1">
-              {currentSection.isRepeating ? (
-                <div className="space-y-3 pt-2">
-                  {(sectionInstances[currentSection.id] ?? []).map((instanceId) => (
-                    <div key={instanceId} className="border border-rule rounded-md overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => setExpandedInstances(prev => ({ ...prev, [instanceId]: !prev[instanceId] }))}
-                        className="w-full flex items-center justify-between px-3 min-h-[44px] hover:bg-zebra"
-                      >
-                        <span className="font-medium text-sm text-ink">
-                          {getInstanceLabel(currentSection, instanceId)}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={e => { e.stopPropagation(); removeInstance(currentSection.id, instanceId); }}
-                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); removeInstance(currentSection.id, instanceId); } }}
-                            className="text-muted hover:text-fail w-11 h-11 inline-flex items-center justify-center"
-                          >
-                            <Trash2 size={14} />
-                          </span>
-                          <ChevronDown
-                            size={16}
-                            className={`text-muted transition-transform ${expandedInstances[instanceId] ? 'rotate-180' : ''}`}
-                          />
-                        </div>
-                      </button>
-                      {expandedInstances[instanceId] && (
-                        <div className="px-3 pb-2 border-t border-rule">
-                          {currentSection.questions
-                            .filter(q => evaluateShowIf(q.showIf, responses))
-                            .map(q => renderQuestion(q, instanceId))}
-                        </div>
-                      )}
-                    </div>
+              <div className="hub-inspections-ledger-row hub-inspections-field">
+                <label className="hub-inspections-muted">Job</label>
+                <select
+                  value={jobId}
+                  onChange={e => {
+                    const nextJob = e.target.value;
+                    setJobId(nextJob);
+                    const job = jobs.find(j => j.id === nextJob);
+                    let nextMeta = { ...meta };
+                    if (job) {
+                      const applied = applyLivingJobToInspection(meta, {
+                        id: job.id,
+                        title: job.title,
+                        address: job.address,
+                        client_id: job.client_id,
+                        client_name: dueClient && dueClient.id === job.client_id ? (dueClient.name ?? '') : '',
+                      }, { skipClient: !!job.client_id && dueClient?.id !== job.client_id });
+                      nextMeta = applied.meta;
+                      if (job.job_number != null && !(nextMeta.jobNumber ?? '').trim()) {
+                        nextMeta.jobNumber = String(job.job_number).padStart(4, '0');
+                      }
+                      setMeta(nextMeta);
+                    }
+                    persist(responses, nextMeta, nextJob);
+                  }}
+                  className="hub-inspections-input"
+                >
+                  <option value="">No linked job</option>
+                  {jobs.map(j => (
+                    <option key={j.id} value={j.id}>{j.title}{j.address ? ` — ${j.address}` : ''}</option>
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => addInstance(currentSection.id)}
-                    className="flex items-center gap-2 w-full min-h-[44px] border border-dashed border-rule rounded-md text-sm text-accent font-medium hover:border-accent/60 justify-center"
-                  >
-                    <Plus size={16} /> Add {currentSection.repeatLabel ?? 'Item'}
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  {currentSection.questions.map(q => renderQuestion(q))}
-                </div>
+                </select>
+              </div>
+              {jobBound && (
+                <p className="hub-inspections-ledger-row">
+                  <span className="hub-inspections-muted">
+                    {living.clientName
+                      ? `Client follows this job · ${living.clientName}`
+                      : 'Client follows this job'}
+                  </span>
+                </p>
               )}
-            </div>
-          </section>
-        )}
-      </div>
+              {showMoreIdentity && (
+                <>
+                  {!jobBound && (
+                    <>
+                      <div className="hub-inspections-ledger-row hub-inspections-field">
+                        <label className="hub-inspections-muted">Site address</label>
+                        <input
+                          type="text"
+                          value={meta.siteAddress ?? ''}
+                          onChange={e => updateMeta('siteAddress', e.target.value)}
+                          className="hub-inspections-input"
+                        />
+                      </div>
+                      <div className="hub-inspections-ledger-row hub-inspections-field">
+                        <label className="hub-inspections-muted">Client</label>
+                        <input
+                          type="text"
+                          value={meta.clientName ?? ''}
+                          onChange={e => updateMeta('clientName', e.target.value)}
+                          className="hub-inspections-input"
+                        />
+                      </div>
+                    </>
+                  )}
+                  <div className="hub-inspections-ledger-row hub-inspections-field">
+                    <label className="hub-inspections-muted">Job number</label>
+                    <input
+                      type="text"
+                      value={meta.jobNumber ?? ''}
+                      onChange={e => updateMeta('jobNumber', e.target.value)}
+                      className="hub-inspections-input"
+                    />
+                  </div>
+                  <div className="hub-inspections-ledger-row hub-inspections-field">
+                    <label className="hub-inspections-muted">Job description</label>
+                    <textarea
+                      value={meta.jobDescription ?? ''}
+                      onChange={e => updateMeta('jobDescription', e.target.value)}
+                      rows={2}
+                      className="hub-inspections-input hub-inspections-textarea"
+                    />
+                  </div>
+                </>
+              )}
+            </section>
 
-      <div className="ops-sticky">
-        <div className="max-w-[1000px] mx-auto">
-          <button
-            type="button"
-            onClick={runNext}
-            disabled={nextBusy}
-            className={jobBound ? 'btn-primary job-swms-primary' : 'ops-next-control-block'}
-          >
-            {saveStatus === 'saving' && next.key === 'save' ? <><LoadingSpinner size="sm" /> Saving…</> : next.label}
-          </button>
-        </div>
-      </div>
+            <InspectionDueReminder
+              inspection={{
+                id: inspection.id,
+                inspector_id: inspection.inspector_id,
+                client_id: selectedJob?.client_id ?? (inspection as { client_id?: string | null }).client_id ?? null,
+                crm_job_id: jobId || null,
+                status: inspection.status,
+                archived: (inspection as { archived?: boolean | null }).archived ?? false,
+                meta,
+                responses,
+                template_snapshot: inspection.template_snapshot as { name?: string; schema?: TemplateSchema },
+                completed_at: inspection.completed_at,
+                started_at: inspection.started_at,
+                due_on: (inspection as { due_on?: string | null }).due_on ?? null,
+                due_reminder_sent_at: (inspection as { due_reminder_sent_at?: string | null }).due_reminder_sent_at ?? null,
+                due_reminder_sent_for_date: (inspection as { due_reminder_sent_for_date?: string | null }).due_reminder_sent_for_date ?? null,
+              }}
+              job={selectedJob ? {
+                id: selectedJob.id,
+                company_id: (selectedJob as { company_id?: string }).company_id ?? company?.id ?? '',
+                client_id: selectedJob.client_id,
+                title: selectedJob.title,
+                scheduled_date: (selectedJob as { scheduled_date?: string | null }).scheduled_date ?? null,
+                start_time: (selectedJob as { start_time?: string | null }).start_time ?? null,
+                address: selectedJob.address,
+                job_number: selectedJob.job_number,
+              } : null}
+              client={dueClient ?? null}
+              company={company}
+            />
+
+            {visibleSections.length > 0 && (
+              <div className="hub-inspections-tabs" role="tablist" aria-label="Inspection sections">
+                {visibleSections.map((sec, idx) => {
+                  const completion = getSectionCompletion(sec);
+                  const isActive = idx === currentSectionIdx;
+                  return (
+                    <button
+                      key={sec.id}
+                      type="button"
+                      onClick={() => setCurrentSectionIdx(idx)}
+                      className={`hub-inspections-tab ${isActive ? 'is-on' : ''}`}
+                    >
+                      <span className={`hub-inspections-dot is-${completion}`} />
+                      {sec.title}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {currentSection && (
+              <section className="hub-inspections-fill">
+                <div className="hub-inspections-fill-head">
+                  <div className="min-w-0">
+                    <h2 className="hub-inspections-fill-title">
+                      {currentSection.title}
+                    </h2>
+                    {currentSection.description && (
+                      <p className="hub-inspections-muted">{currentSection.description}</p>
+                    )}
+                  </div>
+                  <span className="hub-inspections-muted">
+                    {currentSectionIdx + 1} / {visibleSections.length}
+                  </span>
+                </div>
+                {currentSection.isRepeating ? (
+                  <div>
+                    {(sectionInstances[currentSection.id] ?? []).map((instanceId) => (
+                      <div key={instanceId} className="hub-inspections-repeat">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedInstances(prev => ({ ...prev, [instanceId]: !prev[instanceId] }))}
+                          className="hub-inspections-repeat-head"
+                        >
+                          <span>{getInstanceLabel(currentSection, instanceId)}</span>
+                          <div className="hub-inspections-repeat-acts">
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={e => { e.stopPropagation(); removeInstance(currentSection.id, instanceId); }}
+                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); removeInstance(currentSection.id, instanceId); } }}
+                              className="hub-inspections-icon"
+                            >
+                              <Trash2 size={14} />
+                            </span>
+                            <ChevronDown
+                              size={16}
+                              className={`hub-inspections-chev ${expandedInstances[instanceId] ? 'is-open' : ''}`}
+                            />
+                          </div>
+                        </button>
+                        {expandedInstances[instanceId] && (
+                          <div>
+                            {currentSection.questions
+                              .filter(q => evaluateShowIf(q.showIf, responses))
+                              .map(q => renderQuestion(q, instanceId))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => addInstance(currentSection.id)}
+                      className="hub-inspections-sub hub-inspections-add"
+                    >
+                      <Plus size={16} /> Add {currentSection.repeatLabel ?? 'Item'}
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    {currentSection.questions.map(q => renderQuestion(q))}
+                  </div>
+                )}
+              </section>
+            )}
+          </div>
+        </article>
       </div>
     </AppShell>
   );

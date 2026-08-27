@@ -15,10 +15,13 @@ describe('inspections list cream paper look', () => {
     expect(list).toContain('hub-inspections-sheet');
     expect(list).toContain('hub-inspections-row');
     expect(list).toContain('hub-inspections-pill');
+    expect(list).toContain('hub-inspections-label');
     expect(list).toContain('Open or due');
     expect(list).toContain('All inspections');
     expect(list).toContain('dueLabel');
     expect(list).toContain('inspectionListOpenHref');
+    expect(list).not.toContain('hub-inspections-kicker');
+    expect(list).not.toMatch(/>INSPECTIONS</);
     expect(list).not.toContain('function InspectionCard');
     expect(list).not.toContain('insp-doc-theme');
     expect(list).not.toContain('inspectionDocumentColors');
@@ -40,7 +43,7 @@ describe('inspections list cream paper look', () => {
     expect(css).not.toMatch(/\.hub-inspections[\s\S]{0,80}#111|#000\b/);
   });
 
-  it('does not restyle fill, PDF, JHA, Take 5, jobs, clients, quotes, invoices, or AppShell', () => {
+  it('does not restyle PDF, JHA, Take 5, jobs, clients, quotes, invoices, or AppShell', () => {
     const list = src('src/pages/InspectionsPage.tsx');
     expect(list).toContain('pageQueryBlocked');
     expect(list).not.toContain('hub-jobs');
@@ -53,7 +56,10 @@ describe('inspections list cream paper look', () => {
     const fill = src('src/pages/InspectionFillPage.tsx');
     expect(fill).toContain('insp-doc-theme');
     expect(fill).toContain('inspectionDocumentColors');
-    expect(fill).not.toContain('hub-inspections');
+    expect(fill).toContain('hub-inspections');
+    expect(fill).toContain('is-record-open');
+    expect(fill).toContain('hub-inspections-document');
+    expect(fill).toContain('/inspections');
 
     const css = src('src/index.css');
     expect(css).toContain('.insp-doc-theme .ops-doc-head');
