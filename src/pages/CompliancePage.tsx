@@ -292,16 +292,18 @@ export function CompliancePage() {
             completing={markCompleteMutation.isPending}
           />
         ) : noneAtAll || noneMatch ? (
-          <EmptyState
-            icon={ShieldCheck}
-            title={complianceListEmptyTitle({ filter: statusFilter, noneAtAll })}
-            message={complianceListEmptyMessage({ filter: statusFilter, noneAtAll })}
-            action={noneAtAll ? (
-              <button type="button" onClick={() => openEditor(null)} className="hub-compliance-next">
-                <Plus size={16} /> Create your first item
-              </button>
-            ) : undefined}
-          />
+          <div className="hub-compliance-sheet is-list">
+            <EmptyState
+              icon={ShieldCheck}
+              title={complianceListEmptyTitle({ filter: statusFilter, noneAtAll })}
+              message={complianceListEmptyMessage({ filter: statusFilter, noneAtAll })}
+              action={noneAtAll ? (
+                <button type="button" onClick={() => openEditor(null)} className="hub-compliance-next">
+                  <Plus size={16} /> Create your first item
+                </button>
+              ) : undefined}
+            />
+          </div>
         ) : sheetItem ? (
           <>
             <ComplianceSheet

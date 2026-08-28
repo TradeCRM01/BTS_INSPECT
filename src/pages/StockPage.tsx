@@ -21,6 +21,28 @@ import {
 
 type StockBrowseMode = 'items' | 'drives';
 
+/** List chrome only. Same week-board / #145 quiet elevation. Not a new kit. */
+const STOCK_LIST_LOOK_CSS = `
+.hub-stock {
+  --stock-look-page: #F5F0E6;
+  --stock-look-sheet: #FFFDF8;
+  --stock-look-line: #E2D9CC;
+}
+.hub-stock-list-page {
+  background: var(--stock-look-page);
+  min-height: calc(100dvh - 3.5rem);
+}
+.hub-stock-sheet {
+  background: var(--stock-look-sheet);
+  border: 1px solid var(--stock-look-line);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 28px rgba(10, 37, 64, 0.08);
+}
+`;
+
 export function StockPage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
@@ -153,6 +175,8 @@ export function StockPage() {
 
   return (
     <AppShell>
+      <style>{STOCK_LIST_LOOK_CSS}</style>
+      <div className="hub-stock hub-stock-list-page">
       <div className="max-w-[1200px] mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -265,16 +289,18 @@ export function StockPage() {
             {isLoading ? (
               <SkeletonCardGrid />
             ) : filtered.length === 0 ? (
-              <EmptyState
-                icon={Boxes}
-                title={search || category !== 'all' || driveFilter !== 'all' ? 'No items match your filters' : 'No stock items yet'}
-                message={search || category !== 'all' || driveFilter !== 'all' ? 'Try adjusting your search or filters.' : 'Add your first stock item to get started.'}
-                action={!search && category === 'all' && driveFilter === 'all' && (
-                  <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
-                    <Plus size={16} /> Add your first item
-                  </button>
-                )}
-              />
+              <div className="hub-stock-sheet">
+                <EmptyState
+                  icon={Boxes}
+                  title={search || category !== 'all' || driveFilter !== 'all' ? 'No items match your filters' : 'No stock items yet'}
+                  message={search || category !== 'all' || driveFilter !== 'all' ? 'Try adjusting your search or filters.' : 'Add your first stock item to get started.'}
+                  action={!search && category === 'all' && driveFilter === 'all' && (
+                    <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn-primary">
+                      <Plus size={16} /> Add your first item
+                    </button>
+                  )}
+                />
+              </div>
             ) : viewMode === 'grid' ? (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {filtered.map(item => (
@@ -288,7 +314,7 @@ export function StockPage() {
                 ))}
               </div>
             ) : (
-              <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
+              <div className="hub-stock-sheet">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -343,6 +369,7 @@ export function StockPage() {
             )}
           </>
         )}
+      </div>
       </div>
 
       {showForm && (

@@ -21,6 +21,28 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
+/** List chrome only. Same week-board / #145 quiet elevation. Not a new kit. */
+const PO_LIST_LOOK_CSS = `
+.hub-po {
+  --po-look-page: #F5F0E6;
+  --po-look-sheet: #FFFDF8;
+  --po-look-line: #E2D9CC;
+}
+.hub-po-list-page {
+  background: var(--po-look-page);
+  min-height: calc(100dvh - 3.5rem);
+}
+.hub-po-sheet {
+  background: var(--po-look-sheet);
+  border: 1px solid var(--po-look-line);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 28px rgba(10, 37, 64, 0.08);
+}
+`;
+
 type StatusFilter = 'all' | POStatus;
 const STATUS_TABS: { key: StatusFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -98,6 +120,8 @@ export function PurchaseOrdersPage() {
 
   return (
     <AppShell>
+      <style>{PO_LIST_LOOK_CSS}</style>
+      <div className="hub-po hub-po-list-page">
       <div className="max-w-[1200px] mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -151,18 +175,20 @@ export function PurchaseOrdersPage() {
         {isLoading ? (
           <SkeletonRow />
         ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={FileText}
-            title={search || statusFilter !== 'all' ? 'No purchase orders match your filters' : 'No purchase orders yet'}
-            message={search || statusFilter !== 'all' ? 'Try adjusting your filters.' : 'Create your first PO to get started.'}
-            action={!search && statusFilter === 'all' && (
-              <button onClick={() => { setEditingPO(null); setShowEditor(true); }} className="btn-primary">
-                <Plus size={16} /> Create your first PO
-              </button>
-            )}
-          />
+          <div className="hub-po-sheet">
+            <EmptyState
+              icon={FileText}
+              title={search || statusFilter !== 'all' ? 'No purchase orders match your filters' : 'No purchase orders yet'}
+              message={search || statusFilter !== 'all' ? 'Try adjusting your filters.' : 'Create your first PO to get started.'}
+              action={!search && statusFilter === 'all' && (
+                <button onClick={() => { setEditingPO(null); setShowEditor(true); }} className="btn-primary">
+                  <Plus size={16} /> Create your first PO
+                </button>
+              )}
+            />
+          </div>
         ) : viewMode === 'list' ? (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden overflow-x-auto">
+          <div className="hub-po-sheet overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB] text-left text-xs font-medium text-[#6B7280] uppercase tracking-wide">
@@ -220,6 +246,7 @@ export function PurchaseOrdersPage() {
             })}
           </div>
         )}
+      </div>
       </div>
 
       {showEditor && (

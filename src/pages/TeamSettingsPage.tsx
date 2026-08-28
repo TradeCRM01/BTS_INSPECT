@@ -69,6 +69,19 @@ const TEAM_LOOK_CSS = `
   margin: 0;
   text-decoration: none;
 }
+.hub-team-list-page {
+  background: var(--team-look-page);
+  min-height: calc(100dvh - 3.5rem);
+}
+.hub-team-list-sheet {
+  background: var(--team-look-sheet);
+  border: 1px solid var(--team-look-line);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 28px rgba(10, 37, 64, 0.08);
+}
 .hub-team-sheet {
   max-width: 1100px;
   margin: 0 auto 24px;
@@ -651,8 +664,9 @@ export function TeamSettingsPage() {
 
   return (
     <AppShell>
-      {personOpen ? <style>{TEAM_LOOK_CSS}</style> : null}
-      <div className={personOpen ? 'ops-page hub-team is-person-open' : 'page-shell-narrow'}>
+      <style>{TEAM_LOOK_CSS}</style>
+      <div className={personOpen ? 'ops-page hub-team is-person-open' : 'hub-team hub-team-list-page'}>
+      <div className={personOpen ? undefined : 'page-shell-narrow'}>
         {openedMember && (
           <>
             <div className="hub-team-open-chrome">
@@ -861,7 +875,7 @@ export function TeamSettingsPage() {
         </div>
 
         {/* Members list */}
-        <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
+        <div className="hub-team-list-sheet">
           <div className="px-5 py-3.5 border-b border-[#E5E7EB] flex items-center gap-2">
             <Users size={15} className="text-[#4A5568]" />
             <span className="text-sm font-medium text-[#1A1A1A]">
@@ -1047,6 +1061,7 @@ export function TeamSettingsPage() {
           </div>
         </div>
         </div>
+      </div>
       </div>
 
       {showInvite && company && session && (
