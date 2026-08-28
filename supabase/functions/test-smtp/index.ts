@@ -59,7 +59,7 @@ Deno.serve(async (req: Request) => {
 
     const recipient = testEmail ?? user.email;
     const fromHeader = `${settings.from_name} <${settings.from_email}>`;
-    const subject = "BTS Inspect — test email";
+    const subject = "Grafter — test email";
     const html = `
       <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;">
         <h2 style="color:#0A2540;">Test email</h2>

@@ -149,7 +149,7 @@ Deno.serve(async (req: Request) => {
           <h2 style="color:#0A2540;margin:0 0 8px;">Reset your password</h2>
           <p style="color:#4A5568;margin:0 0 24px;line-height:1.6;">
             Hi ${user.user_metadata?.name || "there"},<br><br>
-            We received a request to reset your password for your BTS Inspect account.
+            We received a request to reset your password for your Grafter account.
             Click the button below to choose a new password.
           </p>
           <a href="${actionLink}"
@@ -165,7 +165,7 @@ Deno.serve(async (req: Request) => {
       const result = await sendViaResendApi(
         settings,
         email,
-        "Reset your BTS Inspect password",
+        "Reset your Grafter password",
         html
       );
       if (result.ok) {

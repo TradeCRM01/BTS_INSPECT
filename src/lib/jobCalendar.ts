@@ -157,7 +157,7 @@ export function buildJobCalendar(
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//BTS Inspect//Job Calendar//EN',
+    'PRODID:-//Grafter//Job Calendar//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VTIMEZONE',
