@@ -973,7 +973,7 @@ export function CompanySettingsPage() {
                     <input
                       value={emailSettings.from_name}
                       onChange={e => setEmailSettings(s => ({ ...s, from_name: e.target.value }))}
-                      placeholder="BTS Inspect"
+                      placeholder="Grafter"
                       className={inputClass}
                     />
                   </div>

@@ -394,7 +394,7 @@ export function buildInspectionDueEmail(args: {
   const html = `
       <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
         <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
-          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">BTS Inspect</div>
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">Grafter</div>
           <h1 style="margin:8px 0 0;font-size:20px">Test due today</h1>
         </div>
         <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">

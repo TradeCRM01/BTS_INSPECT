@@ -26,7 +26,7 @@ async function getAiSettings(companyId: string): Promise<{ apiKey: string; model
 
 // ── System prompts ────────────────────────────────────────────────────────────
 
-const HELP_SYSTEM_PROMPT = `You are a friendly AI assistant embedded inside BTS Inspect — a field inspection and reporting app.
+const HELP_SYSTEM_PROMPT = `You are a friendly AI assistant embedded inside Grafter — a field inspection and reporting app.
 
 Your role is to help users understand how to use the app and answer questions about inspections, templates, reports, and general workflow. You cannot make changes to the system.
 
@@ -38,9 +38,9 @@ Key features you can explain:
 - Understanding job linking (grouping multiple inspections under a job)
 - Profile and company settings
 
-Be helpful, concise, and friendly. If a user asks you to make a change to the system, politely explain that only admins have access to that capability. Keep answers focused on how to use BTS Inspect.`;
+Be helpful, concise, and friendly. If a user asks you to make a change to the system, politely explain that only admins have access to that capability. Keep answers focused on how to use Grafter.`;
 
-const ADMIN_SYSTEM_PROMPT = `You are an expert AI console embedded inside BTS Inspect — a field inspection and reporting platform.
+const ADMIN_SYSTEM_PROMPT = `You are an expert AI console embedded inside Grafter — a field inspection and reporting platform.
 
 You have access to database tools. Only use them when the user is asking about specific data, diagnosing a real issue, or requesting a change — NOT for general how-to questions about the app. If someone asks "how do I do X", answer from your knowledge without touching the database.
 
@@ -341,7 +341,7 @@ async function executeTool(
         return "Error: Email sending requires Resend to be configured in Settings → Email Settings. Please set up email before I can send on your behalf.";
       }
       const fromHeader = `${settings.from_name} <${settings.from_email}>`;
-      const html = `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;"><p style="color:#4A5568;font-size:15px;line-height:1.6;white-space:pre-wrap;">${body.replace(/</g, "&lt;")}</p><p style="color:#9CA3AF;font-size:12px;margin-top:24px;">Sent via BTS Inspect AI Agent</p></div>`;
+      const html = `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;"><p style="color:#4A5568;font-size:15px;line-height:1.6;white-space:pre-wrap;">${body.replace(/</g, "&lt;")}</p><p style="color:#9CA3AF;font-size:12px;margin-top:24px;">Sent via Grafter AI Agent</p></div>`;
       const cc = Array.isArray(toolInput.cc) ? toolInput.cc as string[] : [];
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",

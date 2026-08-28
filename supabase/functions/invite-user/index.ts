@@ -77,8 +77,8 @@ function inviteEmailHtml(opts: {
     ? `Your invitation to ${company}`
     : `You're invited to join ${company}`;
   const intro = opts.resent
-    ? `${inviter} re-sent your invitation to <strong style="color:#0A2540;">${company}</strong> on BTS Inspect.`
-    : `${inviter} has invited you to join <strong style="color:#0A2540;">${company}</strong> on BTS Inspect — inspection and field service management.`;
+    ? `${inviter} re-sent your invitation to <strong style="color:#0A2540;">${company}</strong> on Grafter.`
+    : `${inviter} has invited you to join <strong style="color:#0A2540;">${company}</strong> on Grafter — inspection and field service management.`;
 
   return `
 <!DOCTYPE html>
@@ -90,7 +90,7 @@ function inviteEmailHtml(opts: {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:#0A2540;padding:28px 32px;">
-              <p style="margin:0;color:#2E75B6;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">BTS Inspect</p>
+              <p style="margin:0;color:#2E75B6;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Grafter</p>
               <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3;">${heading}</h1>
             </td>
           </tr>
@@ -113,7 +113,7 @@ function inviteEmailHtml(opts: {
           </tr>
           <tr>
             <td style="padding:16px 32px 24px;border-top:1px solid #E5E7EB;">
-              <p style="margin:0;color:#9CA3AF;font-size:11px;">Sent by BTS Inspect for ${company}.</p>
+              <p style="margin:0;color:#9CA3AF;font-size:11px;">Sent by Grafter for ${company}.</p>
             </td>
           </tr>
         </table>
@@ -313,7 +313,7 @@ Deno.serve(async (req: Request) => {
         memberUserId = linkData.user.id;
       }
 
-      const subject = `You're invited to join ${companyName} on BTS Inspect`;
+      const subject = `You're invited to join ${companyName} on Grafter`;
       const result = await sendViaResendApi(
         settings,
         email,

@@ -367,7 +367,7 @@ function InviteForm({ companyId, accessToken, onClose, onSuccess }: InviteFormPr
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] shrink-0">
           <div>
             <h2 className="text-base font-semibold text-[#1A1A1A]">Invite team member</h2>
-            <p className="text-xs text-[#4A5568] mt-0.5">They'll get an invitation email from your company to join BTS Inspect.</p>
+            <p className="text-xs text-[#4A5568] mt-0.5">They'll get an invitation email from your company to join Grafter.</p>
           </div>
           <button onClick={onClose} className="text-[#4A5568] hover:text-[#1A1A1A] transition-colors">
             <X size={18} />

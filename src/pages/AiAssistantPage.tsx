@@ -257,7 +257,7 @@ export function AiAssistantPage() {
                     <HelpCircle size={28} className="text-[#2E75B6]" />
                   </div>
                   <h2 className="text-lg font-semibold text-[#1A1A1A] mb-1">How can I help you?</h2>
-                  <p className="text-sm text-[#4A5568] max-w-md mb-8">Ask me anything about how to use BTS Inspect — templates, inspections, reports, and more.</p>
+                  <p className="text-sm text-[#4A5568] max-w-md mb-8">Ask me anything about how to use Grafter — templates, inspections, reports, and more.</p>
                   <div className="grid grid-cols-1 gap-2 w-full max-w-lg">
                     {SUGGESTIONS.map(s => (
                       <button key={s} onClick={() => sendMessage(s)}

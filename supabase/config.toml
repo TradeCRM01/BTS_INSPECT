@@ -252,7 +252,7 @@ otp_expiry = 3600
 
 # Custom invite email — team invitation (not password reset)
 [auth.email.template.invite]
-subject = "You're invited to join a team on BTS Inspect"
+subject = "You're invited to join a team on Grafter"
 content_path = "./supabase/templates/invite.html"
 
 # Uncomment to customize notification email template
