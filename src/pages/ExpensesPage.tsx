@@ -260,6 +260,58 @@ const EXPENSES_LOOK_CSS = `
   font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 14px;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.hub-expenses-classes {
+  padding: 12px 0 14px;
+  border-bottom: 1px solid var(--ex-look-line);
+}
+.hub-expenses-class-prompt {
+  margin: 0 0 10px;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  color: var(--ex-look-ink);
+}
+.hub-expenses-class-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+@media (min-width: 640px) {
+  .hub-expenses-class-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.hub-expenses-class {
+  text-align: left;
+  background: var(--ex-look-sheet);
+  border: 1px solid var(--ex-look-line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: none;
+  cursor: pointer;
+  min-height: 44px;
+}
+.hub-expenses-class:hover { background: color-mix(in srgb, #FFFDF8 88%, #0A2540); }
+.hub-expenses-class.is-on {
+  border-color: var(--ex-look-ink);
+  background: color-mix(in srgb, #FFFDF8 94%, #0A2540);
+  box-shadow: none;
+}
+.hub-expenses-class-label {
+  margin: 0;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  color: var(--ex-look-ink);
+}
+.hub-expenses-class-help {
+  margin: 4px 0 0;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ex-look-muted);
 }
 .hub-expenses-row-value:focus { outline: none; }
 .hub-expenses-row .hub-expenses-row-select,
@@ -1130,9 +1182,9 @@ function ExpenseCostClassCards({
   onSelect: (key: ExpenseCostClass) => void;
 }) {
   return (
-    <div>
-      <p className="text-xs font-medium text-[#4A5568] mb-1.5">What kind of cost is this?</p>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+    <div className="hub-expenses-classes">
+      <p className="hub-expenses-class-prompt">What kind of cost is this?</p>
+      <div className="hub-expenses-class-grid">
         {(Object.keys(EXPENSE_COST_CLASS_LABELS) as ExpenseCostClass[]).map(key => {
           const selected = value === key;
           return (
@@ -1140,12 +1192,10 @@ function ExpenseCostClassCards({
               key={key}
               type="button"
               onClick={() => onSelect(key)}
-              className={`text-left rounded-lg border px-3 py-2.5 transition-colors ${
-                selected ? 'border-[#0A2540] bg-[#EFF6FF]' : 'border-[#E5E7EB] hover:bg-[#F9FAFB]'
-              }`}
+              className={`hub-expenses-class${selected ? ' is-on' : ''}`}
             >
-              <p className="text-sm font-semibold text-[#1A1A1A]">{EXPENSE_COST_CLASS_LABELS[key]}</p>
-              <p className="text-[11px] text-[#6B7280] mt-0.5 leading-snug">{EXPENSE_COST_CLASS_HELP[key]}</p>
+              <p className="hub-expenses-class-label">{EXPENSE_COST_CLASS_LABELS[key]}</p>
+              <p className="hub-expenses-class-help">{EXPENSE_COST_CLASS_HELP[key]}</p>
             </button>
           );
         })}
@@ -1372,9 +1422,7 @@ function ExpenseEditorModal({
             />
           </label>
         </div>
-        <div className="py-2">
-          <ExpenseCostClassCards value={form.cost_class} onSelect={selectCostClass} />
-        </div>
+        <ExpenseCostClassCards value={form.cost_class} onSelect={selectCostClass} />
         <div className="hub-expenses-row">
           <span className="hub-expenses-row-label">Category</span>
           <div className="hub-expenses-row-select">
