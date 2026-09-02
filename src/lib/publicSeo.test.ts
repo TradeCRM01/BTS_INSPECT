@@ -72,13 +72,16 @@ function createFakeDocument(initialTitle = 'Grafter'): {
 describe('public SEO copy', () => {
   it('names Grafter in AU trade-job-software wording', () => {
     expect(PUBLIC_SEO.landing.title).toContain('Grafter');
-    expect(PUBLIC_SEO.landing.title).toMatch(/electrical/i);
+    expect(PUBLIC_SEO.landing.title).not.toMatch(/electrical/i);
+    expect(PUBLIC_SEO.landing.description).not.toMatch(/electrical/i);
     expect(PUBLIC_SEO.landing.title).toMatch(/trade job software/i);
-    expect(PUBLIC_SEO.landing.description).toMatch(/Simpro-class/i);
     expect(PUBLIC_SEO.landing.description).toMatch(/SWMS/);
     expect(PUBLIC_SEO.landing.robots).toBe('index,follow');
     expect(PUBLIC_SEO.login.title).toContain('Sign in to Grafter');
-    expect(PUBLIC_SEO.login.description).toMatch(/electrical or trade crew/);
+    expect(PUBLIC_SEO.login.description).not.toMatch(/electrical or trade/);
+    expect(PUBLIC_SEO.login.description).toMatch(/Australian trade crew/);
+    expect(PUBLIC_SEO.signup.description).not.toMatch(/electrical or trade/);
+    expect(PUBLIC_SEO.signup.description).toMatch(/your trade crew/);
     expect(PUBLIC_SEO.signup.robots).toBe('index,follow');
     expect(PUBLIC_SEO.forgotPassword.robots).toBe('noindex,nofollow');
     expect(PUBLIC_SEO.portal.robots).toBe('noindex,nofollow');
@@ -204,8 +207,9 @@ describe('public document head wiring', () => {
   it('keeps landing headings in AU trade-CRM wording', () => {
     const page = src('src/pages/MarketingPage.tsx');
     expect(page).toContain('<h1 className="hub-marketing-display">');
-    expect(page).toContain('Trade job software, from quote');
-    expect(page).toContain('Australian electrical and trade job software');
+    expect(page).toContain('One job. Quote to paid.');
+    expect(page).toContain('Australian trade job software');
+    expect(page).not.toContain('Australian electrical and trade job software');
     expect(page).toContain('<h2 className="hub-marketing-subhead">');
     expect(src('src/components/auth/AuthShell.tsx')).toContain('<h1 className="hub-auth-title">');
     expect(src('src/pages/LoginPage.tsx')).toContain('Sign in to Grafter');

@@ -23,23 +23,23 @@ export type PublicSeoEntry = {
 
 export const PUBLIC_SEO: Record<PublicSeoKey, PublicSeoEntry> = {
   landing: {
-    title: 'Grafter — Electrical and trade job software for Australian crews',
+    title: 'Grafter — Trade job software for Australian crews',
     description:
-      'Australian trade job software for electrical and field crews. Quote, schedule, invoice, and keep SWMS on the job — Simpro-class work without the extra product.',
+      'Australian trade job software. Custom test-report and inspection templates, plus JHA, Take 5, and SWMS — all on the job. Quote to paid.',
     path: '/',
     robots: 'index,follow',
   },
   login: {
     title: 'Sign in to Grafter — Trade job software',
     description:
-      'Sign in to Grafter to run jobs, quotes, invoices, and field paperwork for your Australian electrical or trade crew.',
+      'Sign in to Grafter to run jobs, quotes, invoices, and field paperwork for your Australian trade crew.',
     path: '/login',
     robots: 'index,follow',
   },
   signup: {
     title: 'Create a Grafter workspace — Trade job software',
     description:
-      'Open a Grafter workspace for your electrical or trade crew. Jobs, quotes, invoices, and SWMS in one Australian trade CRM.',
+      'Open a Grafter workspace for your trade crew. Jobs, quotes, invoices, and SWMS in one Australian trade CRM.',
     path: '/signup',
     robots: 'index,follow',
   },
