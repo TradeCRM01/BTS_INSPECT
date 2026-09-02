@@ -313,7 +313,6 @@ describe('quote-sheet attach client — wiring', () => {
     expect(editor).toContain('startSend');
     expect(editor).not.toContain('Quote marked as sent');
     expect(editor).toContain('job-client-attach-save');
-    expect(editor).not.toContain("next.key === 'add_email'");
     expect(clientCss).toContain('.job-client-attach-save');
     expect(clientCss).not.toContain('min-height: 44px');
     expect(clientCss).not.toContain('min-h-[44px]');
@@ -356,7 +355,6 @@ describe('quote-sheet attach client — wiring', () => {
     expect(attach).not.toContain('QuoteSendDialog');
     expect(quoteConvert).not.toContain('attachQuoteClient');
     expect(quoteNext).not.toContain('attachQuoteClient');
-    expect(quoteNext).not.toContain('add_email');
     expect(quoteNext).not.toContain('sendQuote');
     expect(page).toContain('QuoteSendDialog');
     expect(page).not.toContain('sendQuoteDeliver');

@@ -22,9 +22,15 @@ describe('auth chrome', () => {
       expect(body, rel).toMatch(/AuthShell|hub-auth/);
     }
     const css = src('src/index.css');
-    const auth = css.slice(css.indexOf('.hub-auth {'));
-    expect(auth).toContain('background: var(--ops-cream)');
-    expect(auth).toContain('font-family: Newsreader, Georgia, serif');
-    expect(auth).toContain('min-height: 48px');
+    const lookStart = css.indexOf('/* Public legal paper + auth/marketing legal-link chrome only.');
+    const lookEnd = css.indexOf('/* Public /p portal only:', lookStart);
+    const auth = css.slice(lookStart, lookEnd);
+    expect(auth).toContain('background: var(--legal-page)');
+    expect(auth).toContain('--legal-page: #F5F0E6');
+    expect(auth).toContain('--legal-sheet: #FFFDF8');
+    expect(auth).toContain("font-family: Rajdhani, sans-serif");
+    expect(auth).toContain('min-height: 44px');
+    expect(auth).toContain('background: #2E75B6');
+    expect(auth).not.toContain('Newsreader');
   });
 });

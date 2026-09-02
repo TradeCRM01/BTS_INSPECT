@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { BrandLockup } from '../components/brand/BrandLockup';
+import { PublicLegalLinks } from '../components/legal/PublicLegalLinks';
 import { usePublicDocumentHead } from '../lib/publicSeo';
 
 type OtpType = 'invite' | 'recovery' | 'signup' | 'magiclink' | 'email';
@@ -115,6 +116,7 @@ export function AuthConfirmPage() {
             </div>
           )}
       </div>
+      <PublicLegalLinks className="hub-auth-legal" />
     </div>
   );
 }

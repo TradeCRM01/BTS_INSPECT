@@ -162,6 +162,13 @@ export function SignupPage() {
         <button type="submit" disabled={loading} className="hub-auth-submit">
           {loading ? 'Creating account...' : 'Create account'}
         </button>
+        <p className="hub-auth-agree">
+          By creating a workspace you agree to our{' '}
+          <Link to="/terms">Terms of Use</Link>
+          {' '}and{' '}
+          <Link to="/privacy">Privacy Policy</Link>
+          . We don’t send a confirmation email at signup — you can sign in straight away. Password reset and team invites do use email.
+        </p>
       </form>
     </AuthShell>
   );

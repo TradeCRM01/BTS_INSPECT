@@ -12,6 +12,8 @@ export type InvoiceActionContext = {
   hasClient?: boolean;
   hasClientEmail?: boolean;
   smtpReady?: boolean | null;
+  /** False only when the shared Grafter send is also known to be absent. */
+  sharedSendReady?: boolean | null;
   clientId?: string | null;
   hasLines?: boolean;
 };
@@ -40,7 +42,7 @@ export function invoiceActionContext(
     client_email?: string | null;
     line_items?: { description?: string | null; quantity?: number | string | null }[] | null;
   },
-  extras?: { smtpReady?: boolean | null },
+  extras?: { smtpReady?: boolean | null; sharedSendReady?: boolean | null },
 ): InvoiceActionContext {
   const hasClient = !!inv.client_id;
   const emailKnown = inv.client_email !== undefined;
@@ -50,6 +52,7 @@ export function invoiceActionContext(
     hasClient,
     hasClientEmail: !hasClient ? false : (emailKnown ? !!clientEmailForSend(inv.client_email) : true),
     smtpReady: extras?.smtpReady ?? null,
+    sharedSendReady: extras?.sharedSendReady ?? null,
     clientId: inv.client_id ?? null,
     hasLines: inv.line_items === undefined ? true : invoiceHasChargeableLines(inv.line_items),
   };
@@ -65,7 +68,7 @@ function invoiceSendBlocker(
   if (inv.hasLines === false) {
     return { key: 'none', label: 'Add line items', detail: 'Add at least one line item before you send.', status };
   }
-  if (inv.smtpReady === false) {
+  if (inv.smtpReady === false && inv.sharedSendReady === false) {
     return {
       key: 'setup_email',
       label: 'Set up email',
