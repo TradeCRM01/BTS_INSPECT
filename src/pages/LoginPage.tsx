@@ -74,12 +74,12 @@ export function LoginPage() {
       )}
     >
       {expired && (
-        <div className="mb-4 bg-orange-50 border border-orange-200 text-orange-800 px-3 py-2.5 rounded-xl text-sm">
+        <div className="hub-auth-note hub-auth-note-warn">
           That email link expired or was already used. Sign in below, or use Forgot password / ask for a new invite.
         </div>
       )}
       {recovered && (
-        <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2.5 rounded-xl text-sm">
+        <div className="hub-auth-note">
           App cache cleared. You can sign in again.
         </div>
       )}
@@ -127,7 +127,7 @@ export function LoginPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-sm">
+          <div className="hub-auth-note hub-auth-note-error">
             {error}
           </div>
         )}

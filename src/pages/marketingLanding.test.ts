@@ -28,8 +28,20 @@ describe('public Grafter landing', () => {
     expect(page).not.toContain('brushless');
     expect(page).not.toContain('Fraunces');
     expect(page).not.toContain('Geist');
-    expect(css).toContain('background: var(--ops-cream)');
-    expect(css.slice(css.indexOf('.hub-marketing {')))
-      .toContain('font-family: Newsreader, Georgia, serif');
+    expect(page).not.toContain('Simpro');
+    expect(page).not.toContain('Relovi');
+    expect(page).not.toContain('hub-marketing-kicker');
+    expect(css).toContain('--public-page: #F5F0E6');
+    const marketing = css.slice(css.indexOf('.hub-marketing {'), css.indexOf('.hub-auth {'));
+    expect(marketing).toContain('--public-sheet: #FFFDF8');
+    expect(marketing).toContain('--public-ink: #0A2540');
+    expect(marketing).toContain('--public-line: #E2D9CC');
+    expect(marketing).toContain('--public-action: #2E75B6');
+    expect(marketing).toContain("font-family: Rajdhani, sans-serif");
+    expect(marketing).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(marketing).toContain('inset 0 1px 0 #fff');
+    expect(marketing).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(marketing).not.toContain('Newsreader');
+    expect(marketing).not.toContain('background: var(--ops-navy)');
   });
 });

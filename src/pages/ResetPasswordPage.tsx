@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
-import { BrandLockup } from '../components/brand/BrandLockup';
+import { Eye, EyeOff } from 'lucide-react';
+import { AuthShell } from '../components/auth/AuthShell';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { usePublicDocumentHead } from '../lib/publicSeo';
 
@@ -92,98 +92,83 @@ export function ResetPasswordPage() {
     }
   }
 
+  const title = done
+    ? 'Password updated'
+    : linkError
+      ? 'Link expired'
+      : 'Set your password';
+  const lede = done
+    ? 'Your password has been changed. Redirecting you now...'
+    : linkError
+      ? linkError
+      : !sessionReady
+        ? 'Verifying reset link...'
+        : 'Choose a strong password to activate your account.';
+
   return (
-    <div className="hub-auth">
-      <header className="hub-auth-nav">
-        <Link to="/" aria-label="Grafter">
-          <BrandLockup size="marketing" />
-        </Link>
-      </header>
-      <div className="hub-auth-card animate-slide-up">
-        {done ? (
-            <div className="text-center py-2">
-              <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle size={24} className="text-green-600" />
-              </div>
-              <h1 className="hub-auth-title">Password updated</h1>
-              <p className="hub-auth-lede">Your password has been changed. Redirecting you now...</p>
-            </div>
-          ) : linkError ? (
-            <div className="text-center py-4">
-              <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertCircle size={24} className="text-orange-500" />
-              </div>
-              <h1 className="hub-auth-title">Link expired</h1>
-              <p className="hub-auth-lede">{linkError}</p>
+    <AuthShell
+      title={title}
+      lede={lede}
+      footer={linkError ? (
+        <Link to="/login">Back to sign in</Link>
+      ) : undefined}
+    >
+      {done ? null : linkError ? (
+        <button
+          onClick={() => navigate('/forgot-password')}
+          className="hub-auth-submit"
+        >
+          Request new link
+        </button>
+      ) : !sessionReady ? null : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="form-label">New password</label>
+            <div className="relative">
+              <input
+                type={showPw ? 'text' : 'password'}
+                autoComplete="new-password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                className="form-input pr-12"
+                placeholder="Min. 8 characters"
+              />
               <button
-                onClick={() => navigate('/forgot-password')}
-                className="hub-auth-submit mb-3"
+                type="button"
+                onClick={() => setShowPw(!showPw)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted"
+                aria-label={showPw ? 'Hide password' : 'Show password'}
               >
-                Request new link
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
-              <Link to="/login" className="text-sm font-semibold text-accent hover:underline">
-                Back to sign in
-              </Link>
             </div>
-          ) : !sessionReady ? (
-            <div className="text-center py-4">
-              <p className="hub-auth-lede">Verifying reset link...</p>
+          </div>
+
+          <div>
+            <label className="form-label">Confirm new password</label>
+            <input
+              type={showPw ? 'text' : 'password'}
+              autoComplete="new-password"
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              required
+              className="form-input"
+              placeholder="Re-enter password"
+            />
+          </div>
+
+          {error && (
+            <div className="hub-auth-note hub-auth-note-error">
+              {error}
             </div>
-          ) : (
-            <>
-              <h1 className="hub-auth-title">Set your password</h1>
-              <p className="hub-auth-lede">Choose a strong password to activate your account.</p>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="form-label">New password</label>
-                  <div className="relative">
-                    <input
-                      type={showPw ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      required
-                      className="form-input pr-12"
-                      placeholder="Min. 8 characters"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPw(!showPw)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted"
-                      aria-label={showPw ? 'Hide password' : 'Show password'}
-                    >
-                      {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="form-label">Confirm new password</label>
-                  <input
-                    type={showPw ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    value={confirm}
-                    onChange={e => setConfirm(e.target.value)}
-                    required
-                    className="form-input"
-                    placeholder="Re-enter password"
-                  />
-                </div>
-
-                {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-sm">
-                    {error}
-                  </div>
-                )}
-
-                <button type="submit" disabled={loading} className="hub-auth-submit">
-                  {loading ? 'Updating...' : 'Set password'}
-                </button>
-              </form>
-            </>
           )}
-      </div>
-    </div>
+
+          <button type="submit" disabled={loading} className="hub-auth-submit">
+            {loading ? 'Updating...' : 'Set password'}
+          </button>
+        </form>
+      )}
+    </AuthShell>
   );
 }

@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { AlertCircle, CheckCircle } from 'lucide-react';
-import { BrandLockup } from '../components/brand/BrandLockup';
+import { AuthShell } from '../components/auth/AuthShell';
 import { usePublicDocumentHead } from '../lib/publicSeo';
 
 type OtpType = 'invite' | 'recovery' | 'signup' | 'magiclink' | 'email';
@@ -33,16 +32,18 @@ export function AuthConfirmPage() {
   const [done, setDone] = useState(false);
 
   const title = useMemo(() => {
+    if (done) return 'Invitation accepted';
     if (type === 'recovery') return 'Continue password setup';
     return 'Accept your invitation';
-  }, [type]);
+  }, [type, done]);
 
   const blurb = useMemo(() => {
+    if (done) return 'Taking you to set your password…';
     if (type === 'recovery') {
       return 'Click below to securely open the password form. This step stops email scanners from using up your link.';
     }
     return 'You’ve been invited to Grafter. Click below to accept and set your password. This protects the invite from being used up by email scanners.';
-  }, [type]);
+  }, [type, done]);
 
   async function handleAccept() {
     setError('');
@@ -70,51 +71,38 @@ export function AuthConfirmPage() {
   }
 
   return (
-    <div className="hub-auth">
-      <header className="hub-auth-nav">
-        <Link to="/" aria-label="Grafter">
-          <BrandLockup size="marketing" />
-        </Link>
-      </header>
-      <div className="hub-auth-card animate-slide-up">
-        {done ? (
-            <div className="text-center py-2">
-              <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle size={24} className="text-green-600" />
-              </div>
-              <h1 className="hub-auth-title">Invitation accepted</h1>
-              <p className="hub-auth-lede">Taking you to set your password…</p>
-            </div>
-          ) : (
-            <div className="text-center py-2">
-              <h1 className="hub-auth-title">{title}</h1>
-              <p className="hub-auth-lede">{blurb}</p>
-
-              {error && (
-                <div className="flex items-start gap-2 text-left bg-red-50 border border-red-200 text-red-700 px-3 py-2.5 rounded-md text-sm mb-4">
-                  <AlertCircle size={15} className="shrink-0 mt-0.5" />
-                  <span>{error}</span>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={handleAccept}
-                disabled={loading || !tokenHash}
-                className="hub-auth-submit mb-3"
-              >
-                {loading ? 'Accepting…' : type === 'recovery' ? 'Continue' : 'Accept invitation'}
-              </button>
-
-              <Link to="/forgot-password" className="block text-sm font-semibold text-accent hover:underline mb-2">
-                Request a new link
-              </Link>
-              <Link to="/login" className="block text-sm text-muted hover:underline">
-                Back to sign in
-              </Link>
+    <AuthShell
+      title={title}
+      lede={blurb}
+      footer={!done ? (
+        <>
+          <p>
+            <Link to="/forgot-password">Request a new link</Link>
+          </p>
+          <p>
+            <Link to="/login">Back to sign in</Link>
+          </p>
+        </>
+      ) : undefined}
+    >
+      {done ? null : (
+        <>
+          {error && (
+            <div className="hub-auth-note hub-auth-note-error">
+              {error}
             </div>
           )}
-      </div>
-    </div>
+
+          <button
+            type="button"
+            onClick={handleAccept}
+            disabled={loading || !tokenHash}
+            className="hub-auth-submit"
+          >
+            {loading ? 'Accepting…' : type === 'recovery' ? 'Continue' : 'Accept invitation'}
+          </button>
+        </>
+      )}
+    </AuthShell>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Mail } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { AuthShell } from '../components/auth/AuthShell';
 
 export function ForgotPasswordPage() {
@@ -52,9 +52,6 @@ export function ForgotPasswordPage() {
     >
       {sent ? (
         <div>
-          <div className="w-12 h-12 bg-[#D6E8F7] rounded-full flex items-center justify-center mb-4">
-            <Mail size={22} className="text-[#2E75B6]" />
-          </div>
           <p className="hub-auth-lede" style={{ marginTop: 0 }}>
             We sent a password reset link to <span className="font-medium text-navy">{email}</span>. Check your inbox and follow the link to reset your password.
           </p>
@@ -85,7 +82,7 @@ export function ForgotPasswordPage() {
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-sm">
+            <div className="hub-auth-note hub-auth-note-error">
               {error}
             </div>
           )}

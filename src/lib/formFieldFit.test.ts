@@ -273,14 +273,15 @@ describe('form fields fit their type', () => {
     expect(src('src/pages/MarketingPage.tsx')).toContain('hub-marketing');
     expect(src('src/pages/MarketingPage.tsx')).toContain('#0042.01');
     expect(src('src/index.css')).toContain('.hub-marketing');
-    expect(src('src/index.css')).toContain('Newsreader');
+    expect(src('src/index.css')).toMatch(/\.hub-auth-title \{[\s\S]*?Rajdhani/);
+    expect(src('src/index.css')).toMatch(/\.hub-marketing-display \{[\s\S]*?Rajdhani/);
     expect(src('index.html')).toContain('Newsreader');
     expect(src('src/App.tsx')).toContain('RootPage');
     expect(src('src/pages/LoginPage.tsx')).toContain('AuthShell');
     expect(src('src/pages/SignupPage.tsx')).toContain('AuthShell');
     expect(src('src/pages/ForgotPasswordPage.tsx')).toContain('AuthShell');
-    expect(src('src/pages/ResetPasswordPage.tsx')).toContain('hub-auth');
-    expect(src('src/pages/AuthConfirmPage.tsx')).toContain('hub-auth');
+    expect(src('src/pages/ResetPasswordPage.tsx')).toContain('AuthShell');
+    expect(src('src/pages/AuthConfirmPage.tsx')).toContain('AuthShell');
     expect(src('src/pages/AuthConfirmPage.tsx')).toContain('invited to Grafter');
     expect(src('src/pages/AuthConfirmPage.tsx')).not.toContain('BTS Inspect');
     expect(src('src/index.css')).toContain('.hub-auth');

@@ -19,7 +19,7 @@ export function MarketingPage() {
 
       <main>
         <section className="hub-marketing-hero">
-          <p className="hub-marketing-kicker">Australian electrical and trade job software</p>
+          <p className="hub-marketing-intro">Australian electrical and trade job software</p>
           <h1 className="hub-marketing-display">
             Trade job software, from quote<br className="hidden sm:inline" /> to payment.
           </h1>
@@ -44,15 +44,13 @@ export function MarketingPage() {
         <section className="hub-marketing-band">
           <div className="hub-marketing-grid">
             <article>
-              <p className="hub-marketing-kicker">Jobs</p>
               <h2 className="hub-marketing-subhead">A card that looks like the site.</h2>
               <p>
                 Photo-stamped jobs, a real job number, and the next action on the card.
-                Stages show as #0042.01 when a cost code is on them — same idea as Simpro, without the extra software.
+                Stages show as #0042.01 when a cost code is on them — the job number stays on the card.
               </p>
             </article>
             <article>
-              <p className="hub-marketing-kicker">Quotes &amp; invoices</p>
               <h2 className="hub-marketing-subhead">Send something they can pay.</h2>
               <p>
                 Quote from the job, convert it, send the invoice. Email or SMS from the same record.
@@ -60,7 +58,6 @@ export function MarketingPage() {
               </p>
             </article>
             <article>
-              <p className="hub-marketing-kicker">Field</p>
               <h2 className="hub-marketing-subhead">Inspections, SWMS, Take 5.</h2>
               <p>
                 Fill on the phone, sign the crew, file it on the job. The paperwork follows the work,
@@ -72,7 +69,6 @@ export function MarketingPage() {
 
         <section className="hub-marketing-split">
           <div>
-            <p className="hub-marketing-kicker">Schedule</p>
             <h2 className="hub-marketing-subhead">Drop a job on a name.</h2>
             <p>
               Search a job, drag it onto a person or a time. Already-scheduled work moves.
