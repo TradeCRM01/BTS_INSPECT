@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Download, X, Monitor, Smartphone } from 'lucide-react';
+
+/** Auth paper sheets — do not cover Sign in / Create account. PWA still installs after auth. */
+const AUTH_SURFACE = /^\/(login|signup|forgot-password|reset-password|auth\/confirm)(\/?|$)/;
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -7,6 +11,8 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function InstallPrompt() {
+  const { pathname } = useLocation();
+  const onAuthSurface = AUTH_SURFACE.test(pathname);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [show, setShow] = useState(false);
   const [isIos, setIsIos] = useState(false);
@@ -49,10 +55,13 @@ export function InstallPrompt() {
     setDeferredPrompt(null);
   }
 
-  if (!show || dismissed) return null;
+  if (!show || dismissed || onAuthSurface) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div
+      data-pwa-install=""
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4 animate-in fade-in slide-in-from-bottom-4 duration-300"
+    >
       <div className="bg-[#0A2540] text-white rounded-xl shadow-2xl p-4 flex gap-3 items-start border border-white/10">
         <div className="w-10 h-10 rounded-lg bg-[#2E75B6] flex items-center justify-center shrink-0">
           {isIos ? <Smartphone size={20} className="text-white" /> : <Monitor size={20} className="text-white" />}

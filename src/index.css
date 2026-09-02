@@ -10162,6 +10162,15 @@
   color: var(--auth-action);
 }
 
+.hub-auth-legal-hook {
+  display: none;
+}
+
+/* Keep Sign in / Create account tappable — do not cover the paper sheet. */
+body:has(.hub-auth) [data-pwa-install] {
+  display: none;
+}
+
 /* Public /p portal only: signed quote sheet. Looplet document + xAI restraint. */
 #client-portal {
   --portal-page: #F4F6F8;

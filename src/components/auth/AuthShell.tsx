@@ -30,6 +30,8 @@ export function AuthShell({
         {children}
       </div>
       {footer ? <div className="hub-auth-footer">{footer}</div> : null}
+      {/* LEGAL_FOOTER_HOOK: Privacy, Terms — add <Link to="/privacy"> and <Link to="/terms"> when those routes exist. Do not invent legal copy. */}
+      <p className="hub-auth-legal-hook" data-legal-footer-hook="privacy-terms" hidden />
     </div>
   );
 }
