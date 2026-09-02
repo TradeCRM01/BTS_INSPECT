@@ -57,7 +57,7 @@ export function MarketingPage() {
           <p className="hub-marketing-kicker">Reports and safety</p>
           <h2 className="hub-marketing-subhead">Custom templates — then the rest of the paperwork.</h2>
           <p>
-            Build your own test reports and inspections. Send the client a document that looks like your company. SafetyCulture sells templates as the whole product. Grafter does that as a slice, then JHA, Take 5, attach SWMS, and compliance, all filed on the same job.
+            Build your own test reports and inspections. Send the client a document that looks like your company. Custom templates are included — then JHA, Take 5, attach SWMS, and compliance, all filed on the same job.
           </p>
           <div className="hub-marketing-grid">
             <article>
@@ -90,7 +90,7 @@ export function MarketingPage() {
             <article>
               <p className="hub-marketing-kicker">Numbers</p>
               <p>
-                #0042, and #0042.01 when a cost code is on the stage — same idea as Simpro, without the extra software.
+                #0042, and #0042.01 when a cost code is on the stage.
               </p>
             </article>
           </div>
@@ -107,7 +107,7 @@ export function MarketingPage() {
           <p className="hub-marketing-kicker">Pricing</p>
           <h2 className="hub-marketing-subhead">What it costs.</h2>
           <p>
-            3 months free. Then seats only — same Grafter on every plan. AUD, GST included. Less than Simpro plus SafetyCulture.
+            3 months free. Then seats only — same Grafter on every plan. AUD, GST included.
           </p>
           <div className="hub-marketing-grid">
             <article>
@@ -147,9 +147,9 @@ export function MarketingPage() {
               </p>
             </details>
             <details>
-              <summary>We already pay for SafetyCulture.</summary>
+              <summary>Do I need a separate templates app?</summary>
               <p>
-                SafetyCulture is a templates product. Grafter includes custom inspection and test-report templates, then JHA, Take 5, attach SWMS, and compliance on the job you already run.
+                No. Custom inspection and test-report templates, JHA, Take 5, attach SWMS, and compliance live on the job.
               </p>
             </details>
             <details>

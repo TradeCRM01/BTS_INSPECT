@@ -9958,7 +9958,6 @@
 .hub-marketing-hero {
   box-sizing: border-box;
   max-width: 1120px;
-  min-height: calc(100svh - 88px);
   margin: 8px auto 40px;
   padding: 48px 40px 56px;
   display: flex;
@@ -10035,6 +10034,7 @@
 
 .hub-marketing-frame {
   margin-top: 32px;
+  min-height: 280px;
   background: var(--mkt-sheet);
   border: 1px solid var(--mkt-line);
   border-radius: 16px;
@@ -10049,13 +10049,16 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px 16px;
-  background: var(--mkt-sheet);
-  color: var(--mkt-ink);
-  border-bottom: 1px solid var(--mkt-line);
+  background: var(--mkt-ink);
+  color: #fff;
   font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
+}
+
+.hub-marketing-job {
+  min-height: 280px;
 }
 
 .hub-marketing-job-body,
@@ -10063,11 +10066,16 @@
   padding: 16px;
 }
 
+.hub-marketing-board {
+  min-height: 200px;
+}
+
 .hub-marketing-stamp {
-  height: 128px;
-  background: var(--mkt-page);
-  border-bottom: 1px solid var(--mkt-line);
-  color: var(--mkt-ink);
+  height: 168px;
+  background:
+    linear-gradient(180deg, rgba(10, 37, 64, 0.08), rgba(10, 37, 64, 0.55)),
+    repeating-linear-gradient(-18deg, #153558 0 12px, #0A2540 12px 24px);
+  color: var(--mkt-page);
   display: flex;
   align-items: flex-end;
   padding: 16px;
@@ -10113,9 +10121,8 @@
   font-weight: 600;
   padding: 4px 8px;
   border-radius: 12px;
-  border: 1px solid var(--mkt-line);
-  background: var(--mkt-sheet);
-  color: var(--mkt-muted);
+  background: color-mix(in srgb, #2E75B6 14%, #fff);
+  color: #2E75B6;
 }
 
 .hub-marketing-next {
@@ -10189,25 +10196,27 @@
 
   .hub-marketing-split {
     display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
     gap: 40px;
-    align-items: center;
+    align-items: start;
   }
 
   .hub-marketing-split .hub-marketing-frame {
     margin-top: 0;
+    min-height: 320px;
   }
 }
 
 .hub-marketing-board-head,
 .hub-marketing-board-row {
   display: grid;
-  grid-template-columns: 104px 1fr;
+  grid-template-columns: 72px 1fr;
   gap: 8px;
   align-items: center;
 }
 
 .hub-marketing-board-head {
+  grid-template-columns: 72px repeat(5, minmax(0, 1fr));
   font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 11px;
   color: var(--mkt-muted);
@@ -10215,17 +10224,18 @@
 }
 
 .hub-marketing-board-head span:not(:first-child) {
-  display: none;
+  display: block;
+  text-align: center;
 }
 
 @media (min-width: 640px) {
-  .hub-marketing-board-head {
-    display: flex;
-    gap: 16px;
+  .hub-marketing-board-head,
+  .hub-marketing-board-row {
+    grid-template-columns: 104px 1fr;
   }
 
-  .hub-marketing-board-head span:not(:first-child) {
-    display: inline;
+  .hub-marketing-board-head {
+    grid-template-columns: 104px repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -10238,8 +10248,15 @@
 
 .hub-marketing-lane {
   position: relative;
-  height: 64px;
-  background: var(--mkt-page);
+  height: 88px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--mkt-page) 0,
+      var(--mkt-page) calc(20% - 1px),
+      var(--mkt-line) calc(20% - 1px),
+      var(--mkt-line) 20%
+    );
   border: 1px solid var(--mkt-line);
   border-radius: 12px;
   overflow: hidden;
@@ -10247,12 +10264,12 @@
 
 .hub-marketing-block {
   position: absolute;
-  top: 8px;
-  height: 24px;
+  top: 10px;
+  height: 28px;
   padding: 0 8px;
   border-radius: 8px;
   border: 1px solid var(--mkt-line);
-  border-left: 2px solid var(--mkt-ink);
+  border-left: 3px solid #2E75B6;
   background: var(--mkt-sheet);
   font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 11px;
@@ -10269,10 +10286,10 @@
 }
 
 .hub-marketing-block-part {
-  top: 36px;
-  left: 22%;
-  width: 28%;
-  height: 20px;
+  top: 48px;
+  left: 40%;
+  width: 40%;
+  height: 28px;
   font-size: 10px;
 }
 
@@ -10326,7 +10343,6 @@
 
 @media (max-width: 720px) {
   .hub-marketing-hero {
-    min-height: calc(100svh - 96px);
     margin: 8px 16px 32px;
     padding: 32px 16px 40px;
   }
