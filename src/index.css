@@ -9955,29 +9955,18 @@
   padding: 0 16px;
 }
 
-.hub-marketing-hero {
-  box-sizing: border-box;
-  max-width: 1120px;
-  min-height: calc(100svh - 88px);
-  margin: 8px auto 40px;
-  padding: 48px 40px 56px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  background: var(--mkt-sheet);
-  border: 1px solid var(--mkt-line);
-  border-radius: 16px;
-  box-shadow:
-    inset 0 1px 0 #fff,
-    0 10px 28px rgba(10, 37, 64, 0.08);
-}
-
+.hub-marketing-hero,
 .hub-marketing-band,
 .hub-marketing-split,
 .hub-marketing-close {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 24px 24px 40px;
+  padding: 32px 24px 56px;
+}
+
+.hub-marketing-hero {
+  padding-top: 24px;
+  padding-bottom: 40px;
 }
 
 .hub-marketing-kicker {
@@ -10033,6 +10022,10 @@
   margin-top: 32px;
 }
 
+.hub-marketing-hero .hub-marketing-frame {
+  margin-top: 40px;
+}
+
 .hub-marketing-frame {
   margin-top: 32px;
   background: var(--mkt-sheet);
@@ -10049,9 +10042,8 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px 16px;
-  background: var(--mkt-sheet);
-  color: var(--mkt-ink);
-  border-bottom: 1px solid var(--mkt-line);
+  background: var(--mkt-ink);
+  color: #fff;
   font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
@@ -10065,9 +10057,10 @@
 
 .hub-marketing-stamp {
   height: 128px;
-  background: var(--mkt-page);
-  border-bottom: 1px solid var(--mkt-line);
-  color: var(--mkt-ink);
+  background:
+    linear-gradient(180deg, rgba(10, 37, 64, 0.12), rgba(10, 37, 64, 0.62)),
+    repeating-linear-gradient(-18deg, #153558 0 12px, #0A2540 12px 24px);
+  color: var(--mkt-page);
   display: flex;
   align-items: flex-end;
   padding: 16px;
@@ -10139,11 +10132,20 @@
 
 .hub-marketing-grid {
   display: grid;
-  gap: 16px;
+  gap: 28px;
   margin-top: 24px;
 }
 
-.hub-marketing-grid article {
+#pricing.hub-marketing-band {
+  padding-top: 24px;
+  padding-bottom: 32px;
+}
+
+#pricing .hub-marketing-grid {
+  gap: 16px;
+}
+
+#pricing .hub-marketing-grid article {
   background: var(--mkt-sheet);
   border: 1px solid var(--mkt-line);
   border-radius: 16px;
@@ -10153,17 +10155,8 @@
     0 10px 28px rgba(10, 37, 64, 0.08);
 }
 
-.hub-marketing-grid article .hub-marketing-subhead {
+#pricing .hub-marketing-grid article .hub-marketing-subhead {
   margin-bottom: 0;
-}
-
-#pricing.hub-marketing-band {
-  padding-top: 24px;
-  padding-bottom: 32px;
-}
-
-#pricing .hub-marketing-grid article {
-  padding: 16px;
 }
 
 #pricing .hub-marketing-grid article p {
@@ -10325,13 +10318,8 @@
 }
 
 @media (max-width: 720px) {
-  .hub-marketing-hero {
-    min-height: calc(100svh - 96px);
-    margin: 8px 16px 32px;
-    padding: 32px 16px 40px;
-  }
-
   .hub-marketing-nav,
+  .hub-marketing-hero,
   .hub-marketing-band,
   .hub-marketing-split,
   .hub-marketing-close,

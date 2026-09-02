@@ -20,7 +20,11 @@ describe('public Grafter landing', () => {
     expect(page).toContain('One job. Quote to paid.');
     expect(page).toContain('Everything lives on the job.');
     expect(page).toContain('Custom templates');
-    expect(page).toContain('SafetyCulture');
+    expect(page).toContain('JHA, Take 5, attach SWMS');
+    expect(page).toContain('JobFrame');
+    expect(page).toContain('ScheduleFrame');
+    expect(page.indexOf('<JobFrame />')).toBeGreaterThan(page.indexOf('hub-marketing-hero'));
+    expect(page.indexOf('<JobFrame />')).toBeLessThan(page.indexOf('hub-marketing-band'));
     expect(page).toContain('data-price-slot');
     expect(page).toContain('$59');
     expect(page).toContain('$119');
@@ -43,6 +47,8 @@ describe('public Grafter landing', () => {
     expect(page).not.toContain('Northside Electrical');
     expect(page).not.toContain('Switchboard upgrade');
     expect(page).not.toContain('from the ute');
+    expect(page).not.toMatch(/SafetyCulture/i);
+    expect(page).not.toMatch(/Simpro/i);
     expect(page).toContain('/signup');
     expect(page).toContain('/login');
     expect(page).toContain('Australian-built. grafter.com.au');
@@ -67,6 +73,8 @@ describe('public Grafter landing', () => {
     expect(look).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(look).toContain('font-variant-numeric: tabular-nums');
     expect(look).toContain('#pricing.hub-marketing-band');
+    expect(look).toContain('.hub-marketing-hero .hub-marketing-frame');
+    expect(look).not.toMatch(/\.hub-marketing-hero[^{]*\{[^}]*background: var\(--mkt-sheet\)/);
     expect(look).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex|Fraunces|Geist/);
     expect(look).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow|lacquer|gloss|glow/);
     expect(look).not.toMatch(/#16A34A|#15803D|#1B7F3A/);

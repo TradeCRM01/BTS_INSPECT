@@ -25,7 +25,8 @@ export function MarketingPage() {
             One job. Quote to paid.
           </h1>
           <p className="hub-marketing-lede">
-            Grafter keeps the job in one place: quote, schedule, inspect, timesheet, invoice. You build the test reports. Safety paperwork stays with the work.
+            Grafter keeps the job in one place: quote, schedule, inspect, timesheet, invoice.
+            You design the test reports and inspections. JHA, Take 5, attach SWMS, and compliance stay with the work.
           </p>
           <p className="hub-marketing-lede">
             3 months free. Then pick a seat pack.
@@ -34,16 +35,7 @@ export function MarketingPage() {
             <Link to="/signup" className="hub-marketing-btn hub-marketing-btn-lg">Create a workspace</Link>
             <Link to="/login" className="hub-marketing-link">Sign in</Link>
           </div>
-        </section>
 
-        <section className="hub-marketing-split">
-          <div>
-            <p className="hub-marketing-kicker">The job</p>
-            <h2 className="hub-marketing-subhead">Everything lives on the job.</h2>
-            <p>
-              Open a job and the rest is already on it. Quote it, drop it on the crew, fill the sheet, clock off to a timesheet, send the invoice. Nothing lives in a second app.
-            </p>
-          </div>
           <div className="hub-marketing-frame" aria-hidden>
             <div className="hub-marketing-chrome">
               <span>Grafter</span>
@@ -54,45 +46,38 @@ export function MarketingPage() {
         </section>
 
         <section className="hub-marketing-band">
-          <p className="hub-marketing-kicker">Reports and safety</p>
-          <h2 className="hub-marketing-subhead">Custom templates — then the rest of the paperwork.</h2>
-          <p>
-            Build your own test reports and inspections. Send the client a document that looks like your company. SafetyCulture sells templates as the whole product. Grafter does that as a slice, then JHA, Take 5, attach SWMS, and compliance, all filed on the same job.
-          </p>
           <div className="hub-marketing-grid">
             <article>
-              <h3 className="hub-marketing-subhead">Test reports and inspections you design</h3>
+              <p className="hub-marketing-kicker">Reports</p>
+              <h2 className="hub-marketing-subhead">Custom templates you design.</h2>
+              <p>
+                Build your own test reports and inspections. Send the client a document that looks like your company — your logo, your letterhead.
+              </p>
             </article>
             <article>
-              <h3 className="hub-marketing-subhead">JHA and Take 5, signed on the phone</h3>
+              <p className="hub-marketing-kicker">Safety</p>
+              <h2 className="hub-marketing-subhead">JHA, Take 5, attach SWMS.</h2>
+              <p>
+                Fill on the phone, sign the crew, file compliance on the job. The paperwork follows the work, not a folder on someone’s desktop.
+              </p>
             </article>
             <article>
-              <h3 className="hub-marketing-subhead">Attach SWMS. Keep compliance with the work.</h3>
+              <p className="hub-marketing-kicker">The job</p>
+              <h2 className="hub-marketing-subhead">Everything lives on the job.</h2>
+              <p>
+                Quote it, drop it on the crew, fill the sheet, clock off to a timesheet, send the invoice. Nothing lives in a second app.
+              </p>
             </article>
           </div>
         </section>
 
         <section className="hub-marketing-split">
           <div>
-            <h2 className="hub-marketing-subhead">Quote to paid, same record.</h2>
-            <article>
-              <p className="hub-marketing-kicker">Quotes</p>
-              <p>
-                Quote from the job, convert it, send the invoice. Email or SMS. They can accept on the phone.
-              </p>
-            </article>
-            <article>
-              <p className="hub-marketing-kicker">Schedule</p>
-              <p>
-                Search a job, drag it onto a name or a time.
-              </p>
-            </article>
-            <article>
-              <p className="hub-marketing-kicker">Numbers</p>
-              <p>
-                #0042, and #0042.01 when a cost code is on the stage — same idea as Simpro, without the extra software.
-              </p>
-            </article>
+            <p className="hub-marketing-kicker">Schedule</p>
+            <h2 className="hub-marketing-subhead">Drop a job on a name.</h2>
+            <p>
+              Search a job, drag it onto a person or a time. Stages show as #0042.01 when a cost code is on them.
+            </p>
           </div>
           <div className="hub-marketing-frame" aria-hidden>
             <div className="hub-marketing-chrome">
@@ -107,7 +92,7 @@ export function MarketingPage() {
           <p className="hub-marketing-kicker">Pricing</p>
           <h2 className="hub-marketing-subhead">What it costs.</h2>
           <p>
-            3 months free. Then seats only — same Grafter on every plan. AUD, GST included. Less than Simpro plus SafetyCulture.
+            3 months free. Then seats only — same Grafter on every plan. AUD, GST included.
           </p>
           <div className="hub-marketing-grid">
             <article>
@@ -147,9 +132,9 @@ export function MarketingPage() {
               </p>
             </details>
             <details>
-              <summary>We already pay for SafetyCulture.</summary>
+              <summary>Can I design my own test reports?</summary>
               <p>
-                SafetyCulture is a templates product. Grafter includes custom inspection and test-report templates, then JHA, Take 5, attach SWMS, and compliance on the job you already run.
+                Yes. Custom inspection and test-report templates, then JHA, Take 5, attach SWMS, and compliance on the same job.
               </p>
             </details>
             <details>
