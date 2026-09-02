@@ -68,10 +68,12 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import {
+  buildJobClockOffEntry,
   buildJobClockOnEntry,
   buildOpenTimesheetInsert,
-  entryMinutes,
+  buildTimesheetClockOnUpdate,
   localDateIso,
+  planTimesheetClockOff,
 } from '../lib/timesheetJob';
 import { format, parseISO, addDays } from 'date-fns';
 
@@ -445,8 +447,8 @@ export function JobDetailPage() {
     queryFn: async () => {
       const empty = getAuditEmptyList();
       if (empty) return empty as Timesheet[];
-      const from = format(addDays(new Date(), -14), 'yyyy-MM-dd');
-      const to = format(addDays(new Date(), 14), 'yyyy-MM-dd');
+      const from = localDateIso(addDays(new Date(), -14));
+      const to = localDateIso(addDays(new Date(), 14));
       const { data, error } = await supabase
         .from('timesheets')
         .select('*')
@@ -618,7 +620,7 @@ export function JobDetailPage() {
       const date = localDateIso(now);
       const { data: existingTs, error: tsLoadErr } = await supabase
         .from('timesheets')
-        .select('id, clock_in')
+        .select('id, clock_in, clock_out, status')
         .eq('company_id', profile.company_id)
         .eq('employee_id', profile.id)
         .eq('date', date)
@@ -652,9 +654,12 @@ export function JobDetailPage() {
           .single();
         if (createErr) throw createErr;
         timesheetId = created.id as string;
-      } else if (!existingTs?.clock_in) {
+      } else if (!existingTs?.clock_in || existingTs.clock_out || existingTs.status !== 'open') {
         const { error: clockErr } = await supabase.from('timesheets')
-          .update({ clock_in: now.toISOString(), status: 'open' })
+          .update(buildTimesheetClockOnUpdate({
+            now,
+            existingClockIn: existingTs.clock_in,
+          }))
           .eq('id', timesheetId);
         if (clockErr) throw clockErr;
       }
@@ -680,15 +685,19 @@ export function JobDetailPage() {
       if (!id) throw new Error('Missing job');
       const running = (timesheets ?? []).find(e => e.end_time == null && myTimesheetIds.has(e.timesheet_id));
       if (!running) throw new Error('No running time on this job');
-      const end = new Date();
+      const ts = (myTimesheets ?? []).find(t => t.id === running.timesheet_id);
+      const plan = planTimesheetClockOff({
+        clockIn: running.start_time || ts?.clock_in,
+        now: new Date(),
+        runningEntries: [{ id: running.id, start_time: running.start_time }],
+        priorTotalMinutes: ts?.total_minutes ?? 0,
+      });
       const { error } = await supabase.from('timesheet_entries')
-        .update({ end_time: end.toISOString() })
+        .update(buildJobClockOffEntry(plan.end))
         .eq('id', running.id);
       if (error) throw error;
-      const mins = entryMinutes(running.start_time, end.toISOString());
-      const ts = (myTimesheets ?? []).find(t => t.id === running.timesheet_id);
       const { error: tsErr } = await supabase.from('timesheets')
-        .update({ total_minutes: (ts?.total_minutes ?? 0) + mins })
+        .update(plan.timesheetUpdate)
         .eq('id', running.timesheet_id);
       if (tsErr) throw tsErr;
     },

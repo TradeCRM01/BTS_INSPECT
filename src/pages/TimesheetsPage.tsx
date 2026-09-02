@@ -15,9 +15,12 @@ import { formatDuration } from '../types/fsm';
 import {
   TIMESHEET_LIST_DEFAULT_FILTER,
   TIMESHEET_LIST_FILTERS,
+  buildTimesheetClockOnUpdate,
   getAuditTimesheetEntries,
   getAuditTimesheets,
   decorateTimesheetForList,
+  localDateIso,
+  planTimesheetClockOff,
   timesheetListAttachJobs,
   timesheetListCountLabel,
   timesheetListEmptyKind,
@@ -148,13 +151,22 @@ export function TimesheetsPage() {
 
   const clockInMutation = useMutation({
     mutationFn: async () => {
-      const today = format(new Date(), 'yyyy-MM-dd');
+      const today = localDateIso();
+      const now = new Date();
       const existing = (timesheets ?? []).find(t => t.employee_id === selectedEmployee && t.date === today);
       if (existing) {
-        const { error } = await supabase.from('timesheets').update({ clock_in: new Date().toISOString(), status: 'open' }).eq('id', existing.id);
+        const { error } = await supabase.from('timesheets').update(buildTimesheetClockOnUpdate({
+          now,
+          existingClockIn: existing.clock_in,
+        })).eq('id', existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('timesheets').insert({ company_id: profile!.company_id, employee_id: selectedEmployee, date: today, clock_in: new Date().toISOString(), status: 'open' });
+        const { error } = await supabase.from('timesheets').insert({
+          company_id: profile!.company_id,
+          employee_id: selectedEmployee,
+          date: today,
+          ...buildTimesheetClockOnUpdate({ now }),
+        });
         if (error) throw error;
       }
     },
@@ -163,16 +175,30 @@ export function TimesheetsPage() {
 
   const clockOutMutation = useMutation({
     mutationFn: async () => {
-      const today = format(new Date(), 'yyyy-MM-dd');
+      const today = localDateIso();
       const existing = (timesheets ?? []).find(t => t.employee_id === selectedEmployee && t.date === today);
       if (!existing || !existing.clock_in) return;
-      const clockOut = new Date();
-      const clockIn = new Date(existing.clock_in);
-      const totalMin = Math.round((clockOut.getTime() - clockIn.getTime()) / 60000) - existing.break_minutes;
-      const { error } = await supabase.from('timesheets').update({ clock_out: clockOut.toISOString(), total_minutes: Math.max(0, totalMin), status: 'open' }).eq('id', existing.id);
+      const running = (entries ?? []).filter(entry => entry.timesheet_id === existing.id && entry.end_time == null);
+      const plan = planTimesheetClockOff({
+        clockIn: existing.clock_in,
+        now: new Date(),
+        runningEntries: running.map(entry => ({ id: entry.id, start_time: entry.start_time })),
+        priorTotalMinutes: existing.total_minutes,
+      });
+      for (const update of plan.entryUpdates) {
+        const { error } = await supabase.from('timesheet_entries')
+          .update({ end_time: update.end_time })
+          .eq('id', update.id);
+        if (error) throw error;
+      }
+      const { error } = await supabase.from('timesheets').update(plan.timesheetUpdate).eq('id', existing.id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['timesheets'] }); showToast('Clocked out'); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['timesheets'] });
+      queryClient.invalidateQueries({ queryKey: ['timesheet-entries'] });
+      showToast('Clocked out');
+    },
   });
 
   const submitMutation = useMutation({
@@ -220,7 +246,7 @@ export function TimesheetsPage() {
   const otherVisible = opened
     ? visible.filter(item => item.row.id !== opened.id)
     : visible;
-  const todayTs = myTimesheets.find(t => isSameDay(parseISO(t.date), new Date()));
+  const todayTs = myTimesheets.find(t => t.date === localDateIso());
   const isClockedIn = !!todayTs?.clock_in && !todayTs?.clock_out;
   const shownEntries = useMemo(() => {
     const all = entries ?? [];

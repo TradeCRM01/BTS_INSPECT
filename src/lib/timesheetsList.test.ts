@@ -187,6 +187,32 @@ describe('timesheet list sort, open, and empty kinds', () => {
     expect(timesheetListTitle('not-a-date')).toBe('not-a-date');
   });
 
+  it('shows elapsed hours from clock stamps when total_minutes was left at 0', () => {
+    const leftover = decorateTimesheetForList(row({
+      id: 'ts-clock',
+      date: '2026-09-02',
+      status: 'submitted',
+      total_minutes: 0,
+      clock_in: '2026-09-02T00:00:00.000Z',
+      clock_out: '2026-09-02T01:15:00.000Z',
+    }));
+    expect(leftover.hoursLabel).toBe('1h 15m');
+    expect(leftover.statusLabel).not.toBe('Open');
+  });
+
+  it('shows 0h 0m when clock-off was immediate and still not Open after close', () => {
+    const instant = decorateTimesheetForList(row({
+      id: 'ts-now',
+      date: '2026-09-02',
+      status: 'submitted',
+      total_minutes: 0,
+      clock_in: '2026-09-02T00:00:00.000Z',
+      clock_out: '2026-09-02T00:00:00.000Z',
+    }));
+    expect(instant.hoursLabel).toBe('0h 0m');
+    expect(instant.statusLabel).toBe('Submitted');
+  });
+
   it('writes an honest list count and status pill class', () => {
     expect(timesheetListCountLabel(0)).toBe('0 timesheets · tap one to open');
     expect(timesheetListCountLabel(1)).toBe('1 timesheet · tap one to open');
