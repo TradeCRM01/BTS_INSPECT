@@ -2884,7 +2884,9 @@
     border: 1px solid var(--invoice-line);
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: none;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08);
   }
 
   .hub-invoices-thead,
@@ -2992,8 +2994,25 @@
     justify-content: flex-end;
   }
 
-  .hub-invoices-row-next .btn-primary {
+  .hub-invoices-row-next .btn-primary,
+  .hub-invoices-row-next .hub-next.is-send {
     flex-shrink: 0;
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    transform: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
   }
 
   .hub-invoices .hub-next {
@@ -3011,6 +3030,22 @@
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
+    text-decoration: none;
+  }
+
+  .hub-invoices-row-next a.hub-next,
+  .hub-invoice-editor .hub-next {
+    color: #5B6B7C;
+    background: none;
+    border: none;
+    box-shadow: none;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 8px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    justify-content: center;
     text-decoration: none;
   }
 
@@ -5973,6 +6008,25 @@
 
   .hub-quotes-row-next {
     text-align: right;
+  }
+
+  .hub-quotes-row-next .btn-primary {
+    flex-shrink: 0;
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    transform: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .hub-quotes .hub-next {
@@ -10088,11 +10142,229 @@
   color: var(--ops-muted);
 }
 
-/* Auth screens — same cream/navy as the public landing. Not AppShell. */
-.hub-auth {
+.hub-marketing-footer-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+}
+
+/* Public legal paper + auth/marketing legal-link chrome only. */
+.hub-legal-links {
+  margin: 0;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #5B6B7C;
+}
+
+.hub-legal-links a {
+  color: #5B6B7C;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.hub-legal-links a:hover {
+  color: #0A2540;
+}
+
+.hub-marketing-footer .hub-legal-links,
+.hub-legal > .hub-marketing-footer .hub-legal-links {
+  color: #5B6B7C;
+}
+
+.hub-legal {
+  --legal-page: #F5F0E6;
+  --legal-sheet: #FFFDF8;
+  --legal-ink: #0A2540;
+  --legal-muted: #5B6B7C;
+  --legal-line: #E2D9CC;
+  --legal-action: #2E75B6;
   min-height: 100vh;
-  background: var(--ops-cream);
-  color: var(--ops-navy);
+  background: var(--legal-page);
+  color: var(--legal-ink);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+
+.hub-legal-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 16px 20px 0;
+}
+
+.hub-legal-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hub-legal .hub-marketing-link {
+  color: #5B6B7C;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-weight: 500;
+}
+
+.hub-legal .hub-marketing-btn {
+  background: #2E75B6;
+  color: #fff;
+  min-height: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: none;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+
+.hub-legal .hub-marketing-btn:hover {
+  background: #2E75B6;
+}
+
+.hub-legal > .hub-marketing-footer {
+  border-top-color: #E2D9CC;
+  color: #5B6B7C;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+
+.hub-legal-article {
+  max-width: 40rem;
+  margin: 20px auto 32px;
+  padding: 32px 28px 48px;
+  background: var(--legal-sheet);
+  border: 1px solid var(--legal-line);
+  border-radius: 16px;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 28px rgba(10, 37, 64, 0.08);
+}
+
+.hub-legal-title {
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 2.25rem;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: var(--legal-ink);
+  margin: 0 0 16px;
+}
+
+.hub-legal-lede {
+  margin: 10px 0 8px;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--legal-muted);
+}
+
+.hub-legal-updated {
+  margin: 0 0 28px;
+  font-size: 13px;
+  color: var(--legal-muted);
+}
+
+.hub-legal-article section + section {
+  margin-top: 28px;
+}
+
+.hub-legal-article h2,
+.hub-legal-article h3,
+.hub-legal-article h4 {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-weight: 650;
+  letter-spacing: 0;
+  margin: 28px 0 10px;
+  color: var(--legal-ink);
+}
+
+.hub-legal-article h2 {
+  font-size: 1.2rem;
+}
+
+.hub-legal-article h3 {
+  font-size: 1.08rem;
+}
+
+.hub-legal-article h4 {
+  font-size: 1rem;
+}
+
+.hub-legal-article p,
+.hub-legal-article li {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: var(--legal-ink);
+}
+
+.hub-legal-article > p:first-of-type {
+  color: var(--legal-muted);
+  font-size: 13px;
+}
+
+.hub-legal-article ul,
+.hub-legal-article ol {
+  margin: 8px 0 0;
+  padding-left: 1.2rem;
+}
+
+.hub-legal-article li + li {
+  margin-top: 6px;
+}
+
+.hub-legal-article a {
+  color: var(--legal-ink);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.hub-legal-article hr {
+  margin: 28px 0;
+  border: 0;
+  border-top: 1px solid var(--legal-line);
+}
+
+.hub-legal-table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.hub-legal-article table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.hub-legal-article th,
+.hub-legal-article td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px;
+  border: 1px solid var(--legal-line);
+}
+
+.hub-legal-article th {
+  font-weight: 600;
+  color: var(--legal-ink);
+  background: var(--legal-page);
+}
+
+/* Auth screens — cream paper + whisper legal chrome. Not AppShell. */
+.hub-auth {
+  --legal-page: #F5F0E6;
+  --legal-sheet: #FFFDF8;
+  --legal-ink: #0A2540;
+  --legal-muted: #5B6B7C;
+  --legal-line: #E2D9CC;
+  --legal-action: #2E75B6;
+  min-height: 100vh;
+  background: var(--legal-page);
+  color: var(--legal-ink);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   padding: 16px 20px 40px;
 }
 
@@ -10105,34 +10377,40 @@
   width: 100%;
   max-width: 26rem;
   margin: 0 auto;
-  background: #fff;
-  border: 1px solid var(--ops-rule);
-  border-radius: 14px;
+  background: var(--legal-sheet);
+  border: 1px solid var(--legal-line);
+  border-radius: 16px;
   padding: 28px 24px;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 28px rgba(10, 37, 64, 0.08);
 }
 
 .hub-auth-title {
-  font-family: Newsreader, Georgia, serif;
-  font-weight: 500;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
   font-size: 2rem;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
-  color: var(--ops-navy);
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: var(--legal-ink);
 }
 
 .hub-auth-lede {
   margin: 8px 0 24px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 0.95rem;
   line-height: 1.5;
-  color: #3d4d5c;
+  color: var(--legal-muted);
 }
 
 .hub-auth-card .form-label {
-  color: var(--ops-navy);
+  color: var(--legal-ink);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
 }
 
 .hub-auth-card .form-input {
-  border-radius: 10px;
+  border-radius: 12px;
+  border-color: var(--legal-line);
 }
 
 .hub-auth-submit {
@@ -10140,18 +10418,22 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 48px;
+  min-height: 44px;
+  height: 44px;
   margin-top: 4px;
   padding: 0 16px;
-  border-radius: 10px;
-  background: var(--ops-navy);
+  border: none;
+  border-radius: 12px;
+  background: #2E75B6;
   color: #fff;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 14px;
   font-weight: 600;
+  box-shadow: none;
 }
 
 .hub-auth-submit:hover {
-  background: #0d2f4e;
+  background: #2E75B6;
 }
 
 .hub-auth-submit:disabled {
@@ -10163,13 +10445,59 @@
   max-width: 26rem;
   margin: 18px auto 0;
   text-align: center;
-  font-size: 14px;
-  color: var(--ops-muted);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--legal-muted);
 }
 
 .hub-auth-footer a {
-  color: var(--ops-accent);
-  font-weight: 600;
+  color: var(--legal-muted);
+  font-weight: 500;
+}
+
+.hub-auth-legal {
+  max-width: 26rem;
+  margin: 14px auto 0;
+  text-align: center;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--legal-muted);
+}
+
+.hub-auth-legal a {
+  color: var(--legal-muted);
+  font-weight: 500;
+}
+
+.hub-auth-agree {
+  margin: 4px 0 0;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--legal-muted);
+}
+
+.hub-auth-agree a,
+.hub-auth-agree-row a {
+  color: var(--legal-muted);
+  font-weight: 500;
+}
+
+.hub-auth-agree-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--legal-muted);
+}
+
+.hub-auth-agree-row input[type='checkbox'] {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .hub-auth .relative > button.absolute {

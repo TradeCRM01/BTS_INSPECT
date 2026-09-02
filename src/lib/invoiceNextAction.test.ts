@@ -37,13 +37,28 @@ describe('recommendInvoiceAction', () => {
     });
   });
 
-  it('is honest when email is not set up', () => {
+  it('keeps Send when company SMTP is missing — shared Grafter send may still ride', () => {
     expect(recommendInvoiceAction({ ...readyDraft, smtpReady: false }, now)).toMatchObject({
+      key: 'send',
+      label: 'Send',
+    });
+  });
+
+  it('is honest setup_email only when nothing can send', () => {
+    expect(recommendInvoiceAction({
+      ...readyDraft,
+      smtpReady: false,
+      sharedSendReady: false,
+    }, now)).toMatchObject({
       key: 'setup_email',
       label: 'Set up email',
       href: '/settings/company',
     });
-    expect(recommendInvoiceAction({ ...readyDraft, smtpReady: false }, now).detail).toMatch(/Company settings/i);
+    expect(recommendInvoiceAction({
+      ...readyDraft,
+      smtpReady: false,
+      sharedSendReady: false,
+    }, now).detail).toMatch(/Company settings/i);
   });
 
   it('is honest when the client has no email', () => {
@@ -93,9 +108,18 @@ describe('recommendInvoiceAction', () => {
 
   it('is honest on overdue when email is not ready — mark paid stays overflow', () => {
     const overdue = { ...readyDraft, status: 'sent', due_date: '2026-08-19' };
-    expect(recommendInvoiceAction({ ...overdue, smtpReady: false }, now)).toMatchObject({
+    expect(recommendInvoiceAction({
+      ...overdue,
+      smtpReady: false,
+      sharedSendReady: false,
+    }, now)).toMatchObject({
       key: 'setup_email',
       label: 'Set up email',
+      status: 'overdue',
+    });
+    expect(recommendInvoiceAction({ ...overdue, smtpReady: false }, now)).toMatchObject({
+      key: 'send',
+      label: 'Send again',
       status: 'overdue',
     });
     expect(recommendInvoiceAction({ ...overdue, hasClientEmail: false }, now)).toMatchObject({
@@ -103,7 +127,11 @@ describe('recommendInvoiceAction', () => {
       label: 'Add client email',
       status: 'overdue',
     });
-    expect(invoiceOverflowPaidAction({ ...overdue, smtpReady: false }, now)?.key).toBe('mark_paid');
+    expect(invoiceOverflowPaidAction({
+      ...overdue,
+      smtpReady: false,
+      sharedSendReady: false,
+    }, now)?.key).toBe('mark_paid');
   });
 
   it('does not treat unknown SMTP / email as a miss while they are still loading', () => {
@@ -184,7 +212,12 @@ describe('invoiceActionContext / invoiceCardHint', () => {
       { status: 'draft', client_id: 'c1', client_email: 'jane@acme.com.au', line_items: [{ description: 'Board', quantity: 1 }] },
       { smtpReady: false },
     );
-    expect(invoiceCardHint(noSmtp, now)).toBe('Set up email');
+    expect(invoiceCardHint(noSmtp, now)).toBe('Send');
+    const nothingCanSend = invoiceActionContext(
+      { status: 'draft', client_id: 'c1', client_email: 'jane@acme.com.au', line_items: [{ description: 'Board', quantity: 1 }] },
+      { smtpReady: false, sharedSendReady: false },
+    );
+    expect(invoiceCardHint(nothingCanSend, now)).toBe('Set up email');
   });
 
   it('uses the next action label, not a spreadsheet status', () => {

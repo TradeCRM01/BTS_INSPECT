@@ -408,7 +408,7 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
       type="button"
       onClick={handle}
       disabled={!!busy}
-      className="hub-next"
+      className={next.key === 'send' ? 'btn-primary' : 'hub-next'}
     >
       {busy ? 'Working…' : next.label}
     </button>
