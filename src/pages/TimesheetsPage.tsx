@@ -350,8 +350,10 @@ export function TimesheetsPage() {
               to={item.href}
               className={`hub-timesheets-tile ${isOpen ? 'is-open' : ''}`}
             >
-              <span className="hub-timesheets-tile-date">{item.title}</span>
-              <span className="hub-timesheets-tile-job">{item.jobLine || '—'}</span>
+              <span className="hub-timesheets-tile-copy">
+                <span className="hub-timesheets-tile-date">{item.title}</span>
+                <span className="hub-timesheets-tile-job">{item.jobLine || '—'}</span>
+              </span>
               <span className="hub-timesheets-hours">{item.hoursLabel}</span>
               <span className={`hub-timesheets-pill ${timesheetListPillClass(item.row.status)}`}>{item.statusLabel}</span>
               <span className="hub-next">Open</span>

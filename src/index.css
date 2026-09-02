@@ -12253,7 +12253,14 @@
   .hub-timesheets-tiles {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0;
+    background: var(--ts-look-sheet);
+    border: 1px solid var(--ts-look-line);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08);
   }
 
   .hub-timesheets-tile,
@@ -12274,7 +12281,46 @@
   }
 
   .hub-timesheets-tiles .hub-timesheets-tile {
-    padding: 16px 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "copy hours hours"
+      "copy status open";
+    align-items: center;
+    column-gap: 16px;
+    row-gap: 4px;
+    padding: 16px 24px;
+    background: transparent;
+  }
+
+  .hub-timesheets-tiles .hub-timesheets-tile:last-child {
+    border-bottom: none;
+  }
+
+  .hub-timesheets-tile-copy {
+    grid-area: copy;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .hub-timesheets-tiles .hub-timesheets-hours {
+    grid-area: hours;
+    justify-self: end;
+    font-size: 32px;
+    line-height: 1;
+  }
+
+  .hub-timesheets-tiles .hub-timesheets-pill {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  .hub-timesheets-tiles .hub-next {
+    grid-area: open;
+    justify-self: end;
   }
 
   .hub-timesheets-sheet .hub-timesheets-tile {
@@ -12384,8 +12430,11 @@
 
   .hub-timesheets-pill.is-submitted,
   .hub-timesheets-pill.is-approved {
-    color: var(--ts-look-ink);
-    background: color-mix(in srgb, #0A2540 8%, #fff);
+    color: var(--ts-look-muted);
+    background: none;
+    border-color: transparent;
+    padding: 0;
+    letter-spacing: 0.04em;
   }
 
   .hub-timesheets-pill.is-rejected {
@@ -12476,6 +12525,23 @@
     .hub-timesheets-search {
       width: 100%;
       max-width: none;
+    }
+
+    .hub-timesheets-tiles .hub-timesheets-tile {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "copy hours"
+        "copy status"
+        "open open";
+      padding: 16px;
+    }
+
+    .hub-timesheets-tiles .hub-timesheets-hours {
+      font-size: 28px;
+    }
+
+    .hub-timesheets-tiles .hub-next {
+      justify-self: start;
     }
 
     .hub-timesheets-days {
