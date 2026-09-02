@@ -139,7 +139,9 @@ describe('public landing product frames', () => {
     expect(look).toContain('repeating-linear-gradient(-18deg, #153558 0 12px, #0A2540 12px 24px)');
     expect(look).toContain('background: var(--mkt-ink)');
     expect(look).toContain('grid-template-columns: 104px repeat(5, minmax(0, 1fr))');
+    expect(look).toContain('grid-template-columns: 56px repeat(5, minmax(0, 1fr))');
     expect(look).toContain('repeating-linear-gradient(');
+    expect(look).toContain('overflow-x: auto');
     expect(look).not.toContain('display: none');
   });
 });
