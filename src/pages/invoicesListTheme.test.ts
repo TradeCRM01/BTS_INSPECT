@@ -54,17 +54,13 @@ describe('invoice list cream document look', () => {
     expect(tabs).toContain('#2E75B6');
   });
 
-  it('seeds Overdue-empty and Overdue-tabs floors without changing the live default', () => {
+  it('does not ship a look screenshot harness and keeps the signed default', () => {
     const list = src('src/pages/InvoicesPage.tsx').split('function InvoiceEditorModal')[0] ?? '';
-    expect(list).toContain('invoicesLookSeed(searchParams.get(\'look\'))');
-    expect(list).toContain('look === INVOICES_LOOK_TABS');
-    expect(list).toContain('look === INVOICES_LOOK_EMPTY');
-    expect(list).toContain("status: 'draft'");
-    expect(list).toContain("status: 'sent'");
-    expect(list).toContain("status: 'paid'");
-    expect(list).toContain("status: 'overdue'");
-    expect(list).toContain('invoicesLookFloor(false)');
     expect(list).toContain("useState<StatusFilter>(INVOICE_LIST_DEFAULT_FILTER)");
+    expect(list).toContain('invoiceListEmptyTitle');
+    expect(list).not.toContain('invoicesLookSeed');
+    expect(list).not.toContain('INVOICES_LOOK');
+    expect(list).not.toContain("searchParams.get('look')");
     expect(list).not.toContain('/overdue-invoices');
   });
 
