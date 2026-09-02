@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -50,7 +50,37 @@ describe('public Grafter landing', () => {
     expect(page).not.toContain('Fraunces');
     expect(page).not.toContain('Geist');
     expect(css).toContain('background: var(--ops-cream)');
-    expect(css.slice(css.indexOf('.hub-marketing {')))
-      .toContain('font-family: Newsreader, Georgia, serif');
+    const lookStart = css.indexOf('/* Public landing look only.');
+    const lookEnd = css.indexOf('/* Public legal paper + auth/marketing legal-link chrome only.');
+    const look = css.slice(lookStart, lookEnd);
+    expect(look).toContain("font-family: Rajdhani, sans-serif");
+    expect(look).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(look).toContain('--mkt-page: #F5F0E6');
+    expect(look).toContain('--mkt-sheet: #FFFDF8');
+    expect(look).toContain('--mkt-ink: #0A2540');
+    expect(look).toContain('--mkt-muted: #5B6B7C');
+    expect(look).toContain('--mkt-line: #E2D9CC');
+    expect(look).toContain('background: #2E75B6');
+    expect(look).toContain('height: 44px');
+    expect(look).toContain('border-radius: 16px');
+    expect(look).toContain('inset 0 1px 0 #fff');
+    expect(look).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(look).toContain('font-variant-numeric: tabular-nums');
+    expect(look).toContain('#pricing.hub-marketing-band');
+    expect(look).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex|Fraunces|Geist/);
+    expect(look).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow|lacquer|gloss|glow/);
+    expect(look).not.toMatch(/#16A34A|#15803D|#1B7F3A/);
+  });
+});
+
+describe('public landing look frames', () => {
+  it('covers desktop hero, phone hero, and desktop pricing near the bottom', () => {
+    for (const rel of [
+      'docs/look/landing-hero-desktop.png',
+      'docs/look/landing-hero-phone.png',
+      'docs/look/landing-pricing-desktop.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+    }
   });
 });
