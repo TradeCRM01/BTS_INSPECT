@@ -28,7 +28,7 @@ import {
 } from '../lib/invoiceFromJobBill';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
-import { jobInvoiceActionFlags, recommendJobAction } from '../lib/jobNextAction';
+import { jobInvoiceActionFlags, jobOpenNext } from '../lib/jobNextAction';
 import { jobDraftSendToast, sendJobDraftInvoice } from '../lib/sendJobDraftInvoice';
 import {
   JOB_CLIENT_ATTACH_NO_CLIENTS,
@@ -48,10 +48,8 @@ import {
 } from '../lib/saveJobClientPhone';
 import {
   ARRIVING_NEXT_LABEL,
-  isJobArrivingWindow,
   isJobRescheduleQuery,
   jobOfficeRescheduleBanner,
-  withReminderNext,
 } from '../lib/jobReminder';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel, recommendJhaListAction } from '../lib/jhaNextAction';
 import { livingInspectionSummary, livingSwmsSummary, livingTake5Summary } from '../lib/livingJha';
@@ -68,10 +66,12 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import {
+  buildJobClockOffEntry,
   buildJobClockOnEntry,
   buildOpenTimesheetInsert,
-  entryMinutes,
+  buildTimesheetClockOnUpdate,
   localDateIso,
+  planTimesheetClockOff,
 } from '../lib/timesheetJob';
 import { format, parseISO, addDays } from 'date-fns';
 
@@ -445,8 +445,8 @@ export function JobDetailPage() {
     queryFn: async () => {
       const empty = getAuditEmptyList();
       if (empty) return empty as Timesheet[];
-      const from = format(addDays(new Date(), -14), 'yyyy-MM-dd');
-      const to = format(addDays(new Date(), 14), 'yyyy-MM-dd');
+      const from = localDateIso(addDays(new Date(), -14));
+      const to = localDateIso(addDays(new Date(), 14));
       const { data, error } = await supabase
         .from('timesheets')
         .select('*')
@@ -618,7 +618,7 @@ export function JobDetailPage() {
       const date = localDateIso(now);
       const { data: existingTs, error: tsLoadErr } = await supabase
         .from('timesheets')
-        .select('id, clock_in')
+        .select('id, clock_in, clock_out, status')
         .eq('company_id', profile.company_id)
         .eq('employee_id', profile.id)
         .eq('date', date)
@@ -652,9 +652,12 @@ export function JobDetailPage() {
           .single();
         if (createErr) throw createErr;
         timesheetId = created.id as string;
-      } else if (!existingTs?.clock_in) {
+      } else if (existingTs && (!existingTs.clock_in || existingTs.clock_out || existingTs.status !== 'open')) {
         const { error: clockErr } = await supabase.from('timesheets')
-          .update({ clock_in: now.toISOString(), status: 'open' })
+          .update(buildTimesheetClockOnUpdate({
+            now,
+            existingClockIn: existingTs.clock_in,
+          }))
           .eq('id', timesheetId);
         if (clockErr) throw clockErr;
       }
@@ -680,15 +683,19 @@ export function JobDetailPage() {
       if (!id) throw new Error('Missing job');
       const running = (timesheets ?? []).find(e => e.end_time == null && myTimesheetIds.has(e.timesheet_id));
       if (!running) throw new Error('No running time on this job');
-      const end = new Date();
+      const ts = (myTimesheets ?? []).find(t => t.id === running.timesheet_id);
+      const plan = planTimesheetClockOff({
+        clockIn: running.start_time || ts?.clock_in,
+        now: new Date(),
+        runningEntries: [{ id: running.id, start_time: running.start_time }],
+        priorTotalMinutes: ts?.total_minutes ?? 0,
+      });
       const { error } = await supabase.from('timesheet_entries')
-        .update({ end_time: end.toISOString() })
+        .update(buildJobClockOffEntry(plan.end))
         .eq('id', running.id);
       if (error) throw error;
-      const mins = entryMinutes(running.start_time, end.toISOString());
-      const ts = (myTimesheets ?? []).find(t => t.id === running.timesheet_id);
       const { error: tsErr } = await supabase.from('timesheets')
-        .update({ total_minutes: (ts?.total_minutes ?? 0) + mins })
+        .update(plan.timesheetUpdate)
         .eq('id', running.timesheet_id);
       if (tsErr) throw tsErr;
     },
@@ -779,26 +786,18 @@ export function JobDetailPage() {
         : null,
   });
 
-  const next = recommendJobAction({
-    status: job.status,
-    scheduledDate: job.scheduled_date,
-    crewCount: (job.assigned_team ?? []).length,
+  const sheetNext = jobOpenNext(job, {
     jhaCount: (jhas ?? []).length,
     inspectionCount: (inspections ?? []).length,
     ...jobInvoiceActionFlags(invoices ?? []),
     hasAcceptedQuote: !!acceptedQuote,
     hasBillLines: (costTotals?.lines ?? 0) > 0,
     clockedOn: !!runningEntry,
-    arrivingWindow: isJobArrivingWindow(job),
     arrivingSent,
     phoneRowKind: phoneRow.kind,
     phoneStored: phoneRow.kind === 'none' ? '' : phoneRow.phone,
   });
-  const sheetNext = withReminderNext(job, {
-    href: `/jobs/${job.id}`,
-    label: next.label,
-    actionable: next.key !== 'none',
-  });
+  const next = sheetNext.action;
   const arrivingPrimary = sheetNext.label === ARRIVING_NEXT_LABEL;
 
   const nextBusy =
@@ -823,7 +822,7 @@ export function JobDetailPage() {
       return;
     }
     if (next.key === 'phone') writeClientPhone();
-    else if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
+    else if (next.key === 'schedule' || next.key === 'crew' || sheetNext.label === 'Remind client') scrollToId('job-schedule');
     else if (next.key === 'jha') startJha();
     else if (next.key === 'invoice') handleInvoice();
     else if (next.key === 'send') handleSend();

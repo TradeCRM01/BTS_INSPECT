@@ -427,22 +427,26 @@ describe('cron / auto-fire does not select arriving jobs', () => {
 });
 
 describe('tray invoke stays on the existing job-reminder pipe', () => {
-  it('sheet Next rides recommendJobAction + withReminderNext + JobClientReminder arriving tap', () => {
+  it('sheet Next rides jobOpenNext + JobClientReminder arriving tap', () => {
     const page = src('src/pages/JobDetailPage.tsx');
+    const list = src('src/pages/JobsPage.tsx');
     const reminder = src('src/components/jobs/JobClientReminder.tsx');
     const next = src('src/lib/jobNextAction.ts');
-    expect(page).toContain('recommendJobAction');
-    expect(page).toContain('withReminderNext');
-    expect(page).toContain('isJobArrivingWindow');
-    expect(page).toContain('arrivingWindow: isJobArrivingWindow(job)');
+    expect(page).toContain('jobOpenNext');
+    expect(list).toContain('jobOpenNext');
     expect(page).toContain('jobClientPhoneRow({ clientId: job.client_id, client: client ?? null })');
     expect(page).toContain('reminderRef.current?.sendArriving()');
     expect(page).toContain('onArrivingSent');
     expect(page).toContain('ARRIVING_NEXT_LABEL');
+    expect(next).toContain('jobOpenNext');
     expect(next).toContain('recommendArrivingSheetNext');
+    expect(next).toContain('recommendJobAction');
+    expect(next).toContain('withReminderNext');
+    expect(next).toContain('isJobArrivingWindow');
     expect(next).toContain("key: 'arriving'");
     expect(next).toContain("key: 'phone'");
     expect(next).toContain('CLOCK_IN_NEXT_LABEL');
+    expect(next).toContain('VAN_TIME_ZONE');
     expect(reminder).toContain('sendArriving');
     expect(reminder).toContain("purpose: 'arriving'");
     expect(reminder).toContain("functions.invoke('job-reminder'");

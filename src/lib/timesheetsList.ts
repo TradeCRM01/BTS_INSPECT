@@ -3,6 +3,22 @@ import { DEV_AUDIT_COMPANY, DEV_AUDIT_PROFILE, isDevFieldAuditAuth } from './dev
 import { AUDIT_DOC_JOB_ID } from './devFieldAuditDocs';
 import { padJobNumber } from './jobRef';
 import type { Timesheet, TimesheetEntry } from '../types/fsm';
+import {
+  TIMESHEET_CLOCK_OFF_STATUS,
+  buildTimesheetClockOnUpdate,
+  entryMinutes,
+  localDateIso,
+  planTimesheetClockOff,
+  timesheetWorkedMinutes,
+} from './timesheetJob';
+
+export {
+  TIMESHEET_CLOCK_OFF_STATUS,
+  buildTimesheetClockOnUpdate,
+  localDateIso,
+  planTimesheetClockOff,
+  timesheetWorkedMinutes,
+};
 
 /** Default /timesheets floor: this week’s sheets so a sparkie can see and open one. */
 export type TimesheetListFilter = 'all' | 'open' | 'done';
@@ -37,6 +53,7 @@ export type TimesheetListRow = {
   employee_name?: string | null;
   job_titles?: string[];
   job_numbers?: Array<number | null>;
+  entry_minutes?: number;
 };
 
 export type TimesheetListFloorItem<T extends TimesheetListRow = TimesheetListRow> = {
@@ -118,7 +135,7 @@ export function timesheetListSearchBits(row: TimesheetListRow): string[] {
   push(row.status);
   push(TIMESHEET_LIST_STATUS_LABELS[row.status]);
   push(row.employee_name);
-  push(timesheetListHoursLabel(row.total_minutes));
+  push(timesheetListHoursLabel(timesheetListWorkedMinutes(row)));
   for (const title of row.job_titles ?? []) push(title);
   for (const n of row.job_numbers ?? []) {
     const ref = timesheetListJobRef(n);
@@ -140,14 +157,26 @@ export function timesheetListMatchesQuery(row: TimesheetListRow, raw: string): b
   return timesheetListSearchHaystack(row).includes(needle);
 }
 
+export function timesheetListWorkedMinutes(
+  row: Pick<TimesheetListRow, 'total_minutes' | 'clock_in' | 'clock_out' | 'entry_minutes'>,
+): number {
+  return timesheetWorkedMinutes({
+    totalMinutes: row.total_minutes,
+    clockIn: row.clock_in,
+    clockOut: row.clock_out,
+    entryMinutes: row.entry_minutes,
+  });
+}
+
 export function timesheetListAttachJobs<T extends { id: string }>(
   row: T,
-  entries: Array<{ timesheet_id: string; job_id?: string | null }>,
+  entries: Array<{ timesheet_id: string; job_id?: string | null; start_time?: string | null; end_time?: string | null }>,
   jobs: Array<{ id: string; title?: string | null; job_number?: number | null }>,
-): T & { job_titles: string[]; job_numbers: Array<number | null> } {
+): T & { job_titles: string[]; job_numbers: Array<number | null>; entry_minutes: number } {
+  const sheetEntries = entries.filter(entry => entry.timesheet_id === row.id);
   const jobIds = [...new Set(
-    entries
-      .filter(entry => entry.timesheet_id === row.id && entry.job_id)
+    sheetEntries
+      .filter(entry => entry.job_id)
       .map(entry => entry.job_id as string),
   )];
   const matched = jobIds
@@ -157,6 +186,7 @@ export function timesheetListAttachJobs<T extends { id: string }>(
     ...row,
     job_titles: matched.map(job => (job.title ?? '').trim()).filter(Boolean),
     job_numbers: matched.map(job => job.job_number ?? null),
+    entry_minutes: sheetEntries.reduce((sum, entry) => sum + entryMinutes(entry.start_time, entry.end_time), 0),
   };
 }
 
@@ -169,7 +199,7 @@ export function decorateTimesheetForList<T extends TimesheetListRow>(
     href: timesheetListOpenHref(row.id, job),
     bucket: timesheetListBucket(row.status),
     title: timesheetListTitle(row.date),
-    hoursLabel: timesheetListHoursLabel(row.total_minutes),
+    hoursLabel: timesheetListHoursLabel(timesheetListWorkedMinutes(row)),
     statusLabel: TIMESHEET_LIST_STATUS_LABELS[row.status] ?? row.status,
     jobLine: timesheetListJobLine(row),
   };

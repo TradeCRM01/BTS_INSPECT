@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { jobClientEmailToStore } from './saveJobClientEmail';
 import {
   quoteActionContext,
   quoteCardHint,
@@ -47,6 +48,50 @@ describe('recommendQuoteAction', () => {
     }).key).toBe('send');
   });
 
+  it('says Fix email when the client has no email — flips to Send after a real address', () => {
+    const priced = {
+      status: 'draft' as const,
+      hasClient: true,
+      hasLines: true,
+      jobId: null as string | null,
+      invoiceId: null as string | null,
+    };
+    expect(recommendQuoteAction({ ...priced, hasClientEmail: false })).toMatchObject({
+      key: 'add_email',
+      label: 'Fix email',
+    });
+    expect(recommendQuoteAction({ ...priced, hasClientEmail: false }).detail).toMatch(/this quote/i);
+    expect(recommendQuoteAction({ ...priced, hasClientEmail: true })).toMatchObject({
+      key: 'send',
+      label: 'Send',
+    });
+
+    expect(recommendQuoteAction(quoteActionContext({
+      status: 'draft',
+      client_id: 'c1',
+      client_email: jobClientEmailToStore(''),
+      line_items: [{ description: 'Board', quantity: 1 }],
+    })).key).toBe('add_email');
+    expect(recommendQuoteAction(quoteActionContext({
+      status: 'draft',
+      client_id: 'c1',
+      client_email: jobClientEmailToStore('not-an-email'),
+      line_items: [{ description: 'Board', quantity: 1 }],
+    })).key).toBe('add_email');
+    expect(recommendQuoteAction(quoteActionContext({
+      status: 'draft',
+      client_id: 'c1',
+      client_email: jobClientEmailToStore('jane@acme.com.au'),
+      line_items: [{ description: 'Board', quantity: 1 }],
+    }))).toMatchObject({ key: 'send', label: 'Send' });
+    expect(recommendQuoteAction(quoteActionContext({
+      status: 'draft',
+      client_id: null,
+      client_email: 'jane@acme.com.au',
+      line_items: [{ description: 'Board', quantity: 1 }],
+    })).label).toBe('Add a client');
+  });
+
   it('accepts a sent quote before converting', () => {
     expect(recommendQuoteAction({
       status: 'sent', hasClient: true, hasLines: true, jobId: null, invoiceId: null,
@@ -80,5 +125,14 @@ describe('quoteActionContext / quoteCardHint', () => {
     });
     expect(ctx).toMatchObject({ hasClient: true, hasLines: true, jobId: 'job-1', invoiceId: null });
     expect(quoteCardHint(ctx)).toBe('Create invoice');
+
+    const noEmail = quoteActionContext({
+      status: 'draft',
+      client_id: 'c1',
+      client_email: null,
+      line_items: [{ description: 'Board', quantity: 1 }],
+    });
+    expect(noEmail).toMatchObject({ hasClient: true, hasClientEmail: false, hasLines: true });
+    expect(quoteCardHint(noEmail)).toBe('Fix email');
   });
 });

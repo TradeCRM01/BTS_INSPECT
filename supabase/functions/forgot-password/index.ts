@@ -72,11 +72,19 @@ Deno.serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Check if user exists
-    const { data: usersData } = await adminClient.auth.admin.listUsers();
-    const user = (usersData?.users ?? []).find(
-      (u) => u.email?.toLowerCase() === email.toLowerCase()
-    );
+    // Check if user exists (paged — do not load every auth user)
+    const target = String(email).toLowerCase();
+    let user: { id: string; email?: string; user_metadata?: Record<string, string> } | undefined;
+    for (let page = 1; page <= 10; page++) {
+      const { data: usersData, error: listError } = await adminClient.auth.admin.listUsers({
+        page,
+        perPage: 200,
+      });
+      if (listError) throw listError;
+      const users = usersData?.users ?? [];
+      user = users.find((u) => u.email?.toLowerCase() === target);
+      if (user || users.length < 200) break;
+    }
 
     if (!user) {
       // Return success to avoid leaking which emails exist
