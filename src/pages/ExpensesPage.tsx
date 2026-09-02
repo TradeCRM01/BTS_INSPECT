@@ -1121,6 +1121,39 @@ function MiniStat({ icon: _Icon, label, value }: { icon: typeof Wallet; label: s
   );
 }
 
+/** Existing three cost_class cards — overlay editor and scan review sheet. */
+function ExpenseCostClassCards({
+  value,
+  onSelect,
+}: {
+  value: ExpenseCostClass;
+  onSelect: (key: ExpenseCostClass) => void;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-medium text-[#4A5568] mb-1.5">What kind of cost is this?</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {(Object.keys(EXPENSE_COST_CLASS_LABELS) as ExpenseCostClass[]).map(key => {
+          const selected = value === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onSelect(key)}
+              className={`text-left rounded-lg border px-3 py-2.5 transition-colors ${
+                selected ? 'border-[#0A2540] bg-[#EFF6FF]' : 'border-[#E5E7EB] hover:bg-[#F9FAFB]'
+              }`}
+            >
+              <p className="text-sm font-semibold text-[#1A1A1A]">{EXPENSE_COST_CLASS_LABELS[key]}</p>
+              <p className="text-[11px] text-[#6B7280] mt-0.5 leading-snug">{EXPENSE_COST_CLASS_HELP[key]}</p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface FormState {
   cost_class: ExpenseCostClass;
   category: string;
@@ -1209,6 +1242,15 @@ function ExpenseEditorModal({
     if (form.category) return;
     if (costClass === 'employee') setForm(f => ({ ...f, category: 'Wages & Salaries' }));
     if (costClass === 'cogs') setForm(f => ({ ...f, category: 'Subcontractors' }));
+  };
+
+  const selectCostClass = (key: ExpenseCostClass) => {
+    setForm(f => ({
+      ...f,
+      cost_class: key,
+      employee_cost_type: key === 'employee' ? f.employee_cost_type : '',
+    }));
+    suggestCategory(key);
   };
 
   const handleSave = async () => {
@@ -1330,6 +1372,9 @@ function ExpenseEditorModal({
             />
           </label>
         </div>
+        <div className="py-2">
+          <ExpenseCostClassCards value={form.cost_class} onSelect={selectCostClass} />
+        </div>
         <div className="hub-expenses-row">
           <span className="hub-expenses-row-label">Category</span>
           <div className="hub-expenses-row-select">
@@ -1384,34 +1429,7 @@ function ExpenseEditorModal({
               className="hub-expenses-preview"
             />
           )}
-          <div>
-            <p className="text-xs font-medium text-[#4A5568] mb-1.5">What kind of cost is this?</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {(Object.keys(EXPENSE_COST_CLASS_LABELS) as ExpenseCostClass[]).map(key => {
-                const selected = form.cost_class === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => {
-                      setForm(f => ({
-                        ...f,
-                        cost_class: key,
-                        employee_cost_type: key === 'employee' ? f.employee_cost_type : '',
-                      }));
-                      suggestCategory(key);
-                    }}
-                    className={`text-left rounded-lg border px-3 py-2.5 transition-colors ${
-                      selected ? 'border-[#0A2540] bg-[#EFF6FF]' : 'border-[#E5E7EB] hover:bg-[#F9FAFB]'
-                    }`}
-                  >
-                    <p className="text-sm font-semibold text-[#1A1A1A]">{EXPENSE_COST_CLASS_LABELS[key]}</p>
-                    <p className="text-[11px] text-[#6B7280] mt-0.5 leading-snug">{EXPENSE_COST_CLASS_HELP[key]}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <ExpenseCostClassCards value={form.cost_class} onSelect={selectCostClass} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Category" required>
