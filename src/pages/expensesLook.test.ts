@@ -21,12 +21,20 @@ describe('Expenses scan-receipt cream paper look', () => {
     expect(page).toContain('hub-expenses-scan');
     expect(page).toContain('hub-expenses-save');
     expect(page).toContain('hub-expenses-preview');
+    expect(page).toContain('hub-expenses-classes');
+    expect(page).toContain('hub-expenses-class-prompt');
+    expect(page).toContain('hub-expenses-class-grid');
+    expect(page).toContain('hub-expenses-class-label');
+    expect(page).toContain('hub-expenses-class-help');
+    expect(page).toContain('.hub-expenses-class.is-on');
+    expect(page).toContain('font-variant-numeric: tabular-nums');
     expect(page).toContain('layout="sheet"');
     expect(page).toContain('Scan receipt');
     expect(page).toContain('MoreHorizontal');
     expect(page).toContain('--ex-look-page: #F5F0E6');
     expect(page).toContain('--ex-look-sheet: #FFFDF8');
     expect(page).toContain('--ex-look-ink: #0A2540');
+    expect(page).toContain('--ex-look-muted: #5B6B7C');
     expect(page).toContain('--ex-look-line: #E2D9CC');
     expect(page).toContain('#2E75B6');
     expect(page).toContain("font-family: Rajdhani, sans-serif");
@@ -36,6 +44,7 @@ describe('Expenses scan-receipt cream paper look', () => {
     expect(page).toContain('>Expenses</h1>');
     expect(page).not.toContain('hub-expenses-kicker');
     expect(page).not.toContain('>EXPENSES<');
+    expect(page).not.toContain('#EFF6FF');
     expect(page).not.toMatch(/Grafter|Relovi|Littleloop/);
     expect(page).not.toMatch(/\bute\b/i);
     expect(page).not.toContain('#16A34A');
@@ -47,6 +56,19 @@ describe('Expenses scan-receipt cream paper look', () => {
 
     const lookCss = page.slice(page.indexOf('EXPENSES_LOOK_CSS'));
     expect(lookCss).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
+    expect(lookCss).not.toMatch(/gloss|lacquer|shine|glow/i);
+    const classOn = lookCss.slice(lookCss.indexOf('.hub-expenses-class.is-on'), lookCss.indexOf('.hub-expenses-class-label'));
+    expect(classOn).toContain('#0A2540');
+    expect(classOn).toContain('#FFFDF8');
+    expect(classOn).not.toContain('#2E75B6');
+    expect(classOn).not.toContain('color-mix');
+
+    const sheetStart = page.indexOf('<div className="hub-expenses-review">');
+    const overlayStart = page.indexOf('<div className="overlay-backdrop">');
+    const sheet = page.slice(sheetStart, overlayStart);
+    expect(sheet).toContain('ExpenseCostClassCards');
+    expect(sheet.indexOf('ExpenseCostClassCards')).toBeLessThan(sheet.indexOf('Category'));
+    expect(sheet).toContain('hub-expenses-save');
 
     expect(css).not.toContain('hub-expenses');
     expect(app).not.toContain('path="/expenses/');
@@ -77,10 +99,11 @@ describe('Expenses scan-receipt cream paper look', () => {
     expect(extract).toContain('vendor_name: \'Bunnings\'');
   });
 
-  it('LOOK frames cover the review-scanned-expense sheet desktop and phone', () => {
+  it('LOOK frames cover the scan review class tiles desktop, phone, and selected', () => {
     for (const rel of [
-      'docs/look/expenses-scan-receipt-desktop.png',
-      'docs/look/expenses-scan-receipt-phone.png',
+      'docs/look/expenses-scan-class-desktop.png',
+      'docs/look/expenses-scan-class-phone.png',
+      'docs/look/expenses-scan-class-selected-desktop.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
       expect(rel).not.toMatch(/ute/i);

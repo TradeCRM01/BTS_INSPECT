@@ -53,6 +53,34 @@ describe('Expenses scan-receipt wiring', () => {
     expect(page).not.toContain('PriceBookPdfImportModal');
   });
 
+  it('shows the three cost_class cards above category on the scan review sheet', () => {
+    const fsm = src('src/types/fsm.ts');
+    const sheetStart = page.indexOf('<div className="hub-expenses-review">');
+    const overlayStart = page.indexOf('<div className="overlay-backdrop">');
+    const sheet = page.slice(sheetStart, overlayStart);
+
+    expect(fsm).toContain("export type ExpenseCostClass = 'overhead' | 'cogs' | 'employee'");
+    expect(fsm).toContain("overhead: 'Overhead'");
+    expect(fsm).toContain("cogs: 'Cost of sales'");
+    expect(fsm).toContain("employee: 'Employee cost'");
+    expect(fsm).not.toMatch(/general|tax[_ ]class/i);
+
+    expect(page).toContain('function ExpenseCostClassCards');
+    expect(page).toContain('const selectCostClass');
+    expect(page).toContain('cost_class: key');
+    expect(page).toContain('suggestCategory(key)');
+    expect(page).toContain('(Object.keys(EXPENSE_COST_CLASS_LABELS) as ExpenseCostClass[])');
+    expect(page).not.toContain('general');
+    expect(page).not.toMatch(/tax class/i);
+
+    expect(sheet).toContain('ExpenseCostClassCards');
+    expect(sheet).toContain('onSelect={selectCostClass}');
+    expect(sheet).toContain('form.cost_class');
+    expect(sheet.indexOf('ExpenseCostClassCards')).toBeLessThan(sheet.indexOf('Category'));
+    expect(sheet).not.toMatch(/general|tax class/i);
+    expect((sheet.match(/ExpenseCostClassCards/g) || []).length).toBe(1);
+  });
+
   it('stays on /expenses and does not add onboard, documents, or other floors', () => {
     expect(app).toContain('<Route path="/expenses"');
     expect(app).not.toContain('path="/settings/onboard"');
