@@ -8,47 +8,67 @@ function src(rel: string): string {
 }
 
 describe('Grafter privacy / legal floor', () => {
-  it('names Grafter on public Privacy and Terms pages and covers APPs topics', () => {
-    const privacy = src('src/pages/PrivacyPage.tsx');
-    const terms = src('src/pages/TermsPage.tsx');
-    expect(privacy).toContain('Privacy Policy');
+  it('renders Legal markdown on cream public Privacy and Terms pages', () => {
+    const privacyPage = src('src/pages/PrivacyPage.tsx');
+    const termsPage = src('src/pages/TermsPage.tsx');
+    const privacy = src('src/content/privacy.md');
+    const terms = src('src/content/terms.md');
+    const shell = src('src/components/legal/LegalShell.tsx');
+
+    expect(privacyPage).toContain("from '../content/privacy.md?raw'");
+    expect(privacyPage).toContain('renderLegalMarkdown');
+    expect(privacyPage).toContain('title="Privacy Policy"');
+    expect(privacyPage).not.toContain('BTS Inspect');
+    expect(termsPage).toContain("from '../content/terms.md?raw'");
+    expect(termsPage).toContain('renderLegalMarkdown');
+    expect(termsPage).toContain('title="Terms of Use"');
+    expect(termsPage).not.toContain('BTS Inspect');
+
+    expect(privacy).toContain('# Privacy Policy');
+    expect(privacy).toContain('Effective 2 September 2026');
+    expect(privacy).toContain('Building Technology Solutions Pty Ltd');
+    expect(privacy).toContain('ABN 94 698 924 186');
+    expect(privacy).toContain('privacy@grafter.com.au');
+    expect(privacy).toContain('0486 011 187');
     expect(privacy).toContain('Grafter');
     expect(privacy).not.toContain('BTS Inspect');
-    expect(privacy).toContain('What we store');
-    expect(privacy).toContain('Why we store it');
-    expect(privacy).toContain('Who it is shared with');
-    expect(privacy).toContain('Retention');
-    expect(privacy).toContain('Access, correction, and deletion');
-    expect(privacy).toContain('Overseas processing');
-    expect(privacy).toContain('Supabase');
-    expect(privacy).toContain('Cookies and local storage');
-    expect(privacy).toContain('Australian Privacy Principles');
-    expect(privacy).toContain('Client PII');
-    expect(privacy).toContain('Crew PII');
-    expect(privacy).toContain('Photos and receipts');
-    expect(privacy).toContain('Email and SMS');
-    expect(privacy).toContain('oaic.gov.au');
-    expect(terms).toContain('Terms of Use');
+
+    expect(terms).toContain('# Terms of Use');
+    expect(terms).toContain('Effective 2 September 2026');
+    expect(terms).toContain('Building Technology Solutions Pty Ltd');
+    expect(terms).toContain('ABN 94 698 924 186');
+    expect(terms).toContain('privacy@grafter.com.au');
     expect(terms).toContain('Grafter');
     expect(terms).not.toContain('BTS Inspect');
-    expect(terms).toContain('Western Australia');
+
+    expect(shell).toContain('hub-legal');
+    expect(shell).toContain('Australian-built. grafter.com.au');
+    expect(PUBLIC_SEO.privacy.title).toBe('Privacy Policy');
     expect(PUBLIC_SEO.privacy.path).toBe('/privacy');
+    expect(PUBLIC_SEO.privacy.robots).toBe('index,follow');
+    expect(PUBLIC_SEO.terms.title).toBe('Terms of Use');
     expect(PUBLIC_SEO.terms.path).toBe('/terms');
+    expect(PUBLIC_SEO.terms.robots).toBe('index,follow');
   });
 
-  it('links Privacy and Terms from signup, login chrome, and the landing footer', () => {
-    expect(src('src/pages/SignupPage.tsx')).toContain('to="/terms"');
-    expect(src('src/pages/SignupPage.tsx')).toContain('to="/privacy"');
-    expect(src('src/pages/SignupPage.tsx')).toContain('type="checkbox"');
-    expect(src('src/pages/SignupPage.tsx')).toContain('I agree to the');
+  it('links Privacy and Terms from auth chrome and the landing footer, with no signup checkbox', () => {
+    const signup = src('src/pages/SignupPage.tsx');
+    expect(signup).toContain('to="/terms"');
+    expect(signup).toContain('to="/privacy"');
+    expect(signup).toContain('By creating a workspace you agree to our');
+    expect(signup).toContain('We don’t send a confirmation email at signup — you can sign in straight away.');
+    expect(signup).toContain('Password reset and team invites do use email.');
+    expect(signup).not.toContain('type="checkbox"');
+    expect(signup).not.toContain('I agree to the');
     expect(src('src/components/auth/AuthShell.tsx')).toContain('PublicLegalLinks');
     expect(src('src/pages/LoginPage.tsx')).toContain('AuthShell');
-    expect(src('src/pages/LoginPage.tsx')).toContain('to="/privacy"');
-    expect(src('src/pages/LoginPage.tsx')).toContain('to="/terms"');
+    expect(src('src/pages/LoginPage.tsx')).not.toContain('to="/privacy"');
+    expect(src('src/pages/LoginPage.tsx')).not.toContain('to="/terms"');
     expect(src('src/pages/ForgotPasswordPage.tsx')).toContain('AuthShell');
     expect(src('src/pages/ResetPasswordPage.tsx')).toContain('PublicLegalLinks');
     expect(src('src/pages/AuthConfirmPage.tsx')).toContain('PublicLegalLinks');
     expect(src('src/pages/MarketingPage.tsx')).toContain('PublicLegalLinks');
+    expect(src('src/pages/MarketingPage.tsx')).toContain('Australian-built. grafter.com.au');
     expect(src('src/App.tsx')).toContain('path="/privacy"');
     expect(src('src/App.tsx')).toContain('path="/terms"');
     expect(src('src/App.tsx')).not.toContain('path="/documents"');

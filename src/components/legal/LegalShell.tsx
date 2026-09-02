@@ -7,14 +7,10 @@ import { PublicLegalLinks } from './PublicLegalLinks';
 export function LegalShell({
   seoKey,
   title,
-  lede,
-  updated,
   children,
 }: {
   seoKey: PublicSeoKey;
   title: string;
-  lede: string;
-  updated: string;
   children: ReactNode;
 }) {
   usePublicDocumentHead(seoKey);
@@ -32,13 +28,15 @@ export function LegalShell({
       <article className="hub-legal-article">
         <p className="hub-marketing-kicker">Grafter</p>
         <h1 className="hub-legal-title">{title}</h1>
-        <p className="hub-legal-lede">{lede}</p>
-        <p className="hub-legal-updated">Last updated {updated}</p>
         {children}
       </article>
       <footer className="hub-marketing-footer">
         <BrandLockup size="marketing" />
-        <PublicLegalLinks />
+        <p>
+          Australian-built. grafter.com.au
+          {' · '}
+          <PublicLegalLinks as="span" />
+        </p>
       </footer>
     </div>
   );

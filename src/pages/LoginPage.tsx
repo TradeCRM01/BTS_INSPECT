@@ -70,11 +70,6 @@ export function LoginPage() {
             Page won’t load?{' '}
             <a href="/login?clear=1">Clear cache &amp; retry</a>
           </p>
-          <p className="mt-2">
-            <Link to="/privacy">Privacy Policy</Link>
-            {' · '}
-            <Link to="/terms">Terms of Use</Link>
-          </p>
         </>
       )}
     >

@@ -105,10 +105,11 @@ export function MarketingPage() {
 
       <footer className="hub-marketing-footer">
         <BrandLockup size="marketing" />
-        <div className="hub-marketing-footer-meta">
-          <p>Australian-built. grafter.com.au</p>
-          <PublicLegalLinks />
-        </div>
+        <p>
+          Australian-built. grafter.com.au
+          {' · '}
+          <PublicLegalLinks as="span" />
+        </p>
       </footer>
     </div>
   );

@@ -68,16 +68,16 @@ export const PUBLIC_SEO: Record<PublicSeoKey, PublicSeoEntry> = {
     robots: 'noindex,nofollow',
   },
   privacy: {
-    title: 'Grafter Privacy Policy — How we handle trade workspace data',
+    title: 'Privacy Policy',
     description:
-      'What Grafter stores for Australian trade contractors, why, who it is shared with, retention, access, deletion, overseas processing, and cookies.',
+      'Privacy Policy for Grafter, Australian trade job software operated by Building Technology Solutions Pty Ltd.',
     path: '/privacy',
     robots: 'index,follow',
   },
   terms: {
-    title: 'Grafter Terms of Use — Trade job software',
+    title: 'Terms of Use',
     description:
-      'Terms for using Grafter, Australian trade job software: accounts, your client data, acceptable use, and Australian law.',
+      'Terms of Use for Grafter, Australian trade job software operated by Building Technology Solutions Pty Ltd.',
     path: '/terms',
     robots: 'index,follow',
   },

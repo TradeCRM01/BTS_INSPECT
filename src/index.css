@@ -10038,12 +10038,25 @@
   margin-top: 28px;
 }
 
-.hub-legal-article h2 {
+.hub-legal-article h2,
+.hub-legal-article h3,
+.hub-legal-article h4 {
   font-family: Newsreader, Georgia, serif;
   font-weight: 500;
-  font-size: 1.35rem;
   letter-spacing: -0.02em;
-  margin: 0 0 10px;
+  margin: 28px 0 10px;
+}
+
+.hub-legal-article h2 {
+  font-size: 1.35rem;
+}
+
+.hub-legal-article h3 {
+  font-size: 1.15rem;
+}
+
+.hub-legal-article h4 {
+  font-size: 1.05rem;
 }
 
 .hub-legal-article p,
@@ -10053,7 +10066,8 @@
   color: #3d4d5c;
 }
 
-.hub-legal-article ul {
+.hub-legal-article ul,
+.hub-legal-article ol {
   margin: 8px 0 0;
   padding-left: 1.2rem;
 }
@@ -10065,6 +10079,37 @@
 .hub-legal-article a {
   color: var(--ops-accent);
   font-weight: 600;
+}
+
+.hub-legal-article hr {
+  margin: 28px 0;
+  border: 0;
+  border-top: 1px solid rgba(10, 37, 64, 0.12);
+}
+
+.hub-legal-table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.hub-legal-article table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.hub-legal-article th,
+.hub-legal-article td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px;
+  border: 1px solid rgba(10, 37, 64, 0.12);
+}
+
+.hub-legal-article th {
+  font-weight: 600;
+  color: var(--ops-navy);
+  background: rgba(10, 37, 64, 0.04);
 }
 
 /* Auth screens — same cream/navy as the public landing. Not AppShell. */

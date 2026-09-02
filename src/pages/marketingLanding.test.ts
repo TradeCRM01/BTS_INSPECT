@@ -24,7 +24,7 @@ describe('public Grafter landing', () => {
     expect(page).toContain('Create a workspace');
     expect(page).toContain('/signup');
     expect(page).toContain('/login');
-    expect(page).toContain('grafter.com.au');
+    expect(page).toContain('Australian-built. grafter.com.au');
     expect(page).toContain('PublicLegalLinks');
     expect(page).not.toContain('brushless');
     expect(page).not.toContain('Fraunces');

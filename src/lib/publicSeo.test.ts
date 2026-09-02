@@ -82,6 +82,10 @@ describe('public SEO copy', () => {
     expect(PUBLIC_SEO.signup.robots).toBe('index,follow');
     expect(PUBLIC_SEO.forgotPassword.robots).toBe('noindex,nofollow');
     expect(PUBLIC_SEO.portal.robots).toBe('noindex,nofollow');
+    expect(PUBLIC_SEO.privacy.title).toBe('Privacy Policy');
+    expect(PUBLIC_SEO.terms.title).toBe('Terms of Use');
+    expect(PUBLIC_SEO.privacy.robots).toBe('index,follow');
+    expect(PUBLIC_SEO.terms.robots).toBe('index,follow');
   });
 
   it('builds absolute grafter.com.au URLs for the public origin', () => {
