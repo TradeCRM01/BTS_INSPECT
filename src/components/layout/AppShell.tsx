@@ -117,6 +117,13 @@ function menuItemClass(active: boolean) {
   return `shell-menu-item ${active ? 'shell-menu-item-active' : ''}`;
 }
 
+/** Whisper chrome hooks — Take 5 matches JHA documents, not a second hero. */
+function fieldWorkNavAttrs(to: string) {
+  if (to === '/jha/take5') return { 'data-take5-nav': '' } as const;
+  if (to === '/jha') return { 'data-jha-nav': '' } as const;
+  return {};
+}
+
 export function AppShell({ children }: AppShellProps) {
   const { profile, company, signOut, isPlatformOperator } = useAuth();
   const isAdmin = profile?.role === 'admin';
@@ -251,6 +258,7 @@ export function AppShell({ children }: AppShellProps) {
           to={item.to}
           onClick={() => { setOpenGroup(null); setMenuOpen(false); }}
           className={menuItemClass(itemActive)}
+          {...fieldWorkNavAttrs(item.to)}
         >
           <ItemIcon size={15} className={itemActive ? 'text-white' : 'text-white/45'} />
           {item.label}
@@ -456,7 +464,8 @@ export function AppShell({ children }: AppShellProps) {
                           <Link key={item.to} to={item.to} onClick={() => setMenuOpen(false)}
                             className={`flex items-center gap-2.5 pl-11 pr-4 py-2.5 text-sm tracking-tight ${
                               itemActive ? 'text-white font-medium' : 'text-white/55'
-                            }`}>
+                            }`}
+                            {...fieldWorkNavAttrs(item.to)}>
                             <ItemIcon size={15} /> {item.label}
                           </Link>
                         );

@@ -42,6 +42,12 @@ describe('AppShell nav follows the job', () => {
     expect(field).not.toContain('Take5Page');
     expect(field).not.toContain('Take5ListPage');
     expect(field).not.toContain('hub-take5');
+    expect(shell).toContain("to === '/jha/take5'");
+    expect(shell).toContain("to === '/jha'");
+    expect(shell).toContain("'data-take5-nav'");
+    expect(shell).toContain("'data-jha-nav'");
+    expect(shell).toContain('fieldWorkNavAttrs');
+    expect(shell).toContain('{...fieldWorkNavAttrs(item.to)}');
 
     expect(app).toContain('<Route path="/jha/take5"');
     expect(app).toContain('<Take5Page />');
