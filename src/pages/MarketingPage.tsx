@@ -113,21 +113,21 @@ export function MarketingPage() {
             <article>
               <p className="hub-marketing-kicker">Crew</p>
               <p>1–5 seats</p>
-              <p className="hub-marketing-subhead" data-price-slot="crew">$79</p>
+              <p className="hub-marketing-subhead" data-price-slot="crew">$59</p>
               <p>mo</p>
               <p>GST included</p>
             </article>
             <article>
               <p className="hub-marketing-kicker">Company</p>
               <p>6–15 seats</p>
-              <p className="hub-marketing-subhead" data-price-slot="company">$149</p>
+              <p className="hub-marketing-subhead" data-price-slot="company">$119</p>
               <p>mo</p>
               <p>GST included</p>
             </article>
             <article>
               <p className="hub-marketing-kicker">Plant</p>
               <p>16–40 seats</p>
-              <p className="hub-marketing-subhead" data-price-slot="plant">$249</p>
+              <p className="hub-marketing-subhead" data-price-slot="plant">$199</p>
               <p>mo</p>
               <p>GST included</p>
             </article>

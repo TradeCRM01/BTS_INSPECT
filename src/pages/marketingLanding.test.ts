@@ -22,9 +22,12 @@ describe('public Grafter landing', () => {
     expect(page).toContain('Custom templates');
     expect(page).toContain('SafetyCulture');
     expect(page).toContain('data-price-slot');
-    expect(page).toContain('$79');
-    expect(page).toContain('$149');
-    expect(page).toContain('$249');
+    expect(page).toContain('$59');
+    expect(page).toContain('$119');
+    expect(page).toContain('$199');
+    expect(page).not.toContain('$79');
+    expect(page).not.toContain('$149');
+    expect(page).not.toContain('$249');
     expect(page).toContain('3 months free');
     expect(page).toContain('Crew');
     expect(page).toContain('Company');
