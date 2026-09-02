@@ -654,7 +654,7 @@ export function JobDetailPage() {
           .single();
         if (createErr) throw createErr;
         timesheetId = created.id as string;
-      } else if (!existingTs?.clock_in || existingTs.clock_out || existingTs.status !== 'open') {
+      } else if (existingTs && (!existingTs.clock_in || existingTs.clock_out || existingTs.status !== 'open')) {
         const { error: clockErr } = await supabase.from('timesheets')
           .update(buildTimesheetClockOnUpdate({
             now,
