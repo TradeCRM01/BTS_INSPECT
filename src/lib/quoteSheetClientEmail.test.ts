@@ -7,7 +7,7 @@ import {
   jobClientEmailRow,
   jobClientEmailToStore,
 } from './saveJobClientEmail';
-import { recommendQuoteAction } from './quoteNextAction';
+import { quoteActionContext, recommendQuoteAction } from './quoteNextAction';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -40,7 +40,28 @@ describe('quote-sheet client email — save / Send / miss', () => {
     expect(jobClientEmailToStore('')).toBeNull();
   });
 
-  it('does not invent an add_email Next — Send stays mark-as-sent, missing email is a field on the sheet', () => {
+  it('flips Next to Send after a real email — blank / invalid stay Fix email', () => {
+    expect(recommendQuoteAction(quoteActionContext({
+      status: 'draft',
+      client_id: 'c1',
+      client_email: jobClientEmailToStore('jane@acme.com.au'),
+      line_items: [{ description: 'Board', quantity: 1 }],
+    }))).toMatchObject({ key: 'send', label: 'Send' });
+    expect(recommendQuoteAction(quoteActionContext({
+      status: 'draft',
+      client_id: 'c1',
+      client_email: jobClientEmailToStore(''),
+      line_items: [{ description: 'Board', quantity: 1 }],
+    })).key).toBe('add_email');
+    expect(recommendQuoteAction(quoteActionContext({
+      status: 'draft',
+      client_id: 'c1',
+      client_email: jobClientEmailToStore('not-an-email'),
+      line_items: [{ description: 'Board', quantity: 1 }],
+    })).label).toBe('Fix email');
+  });
+
+  it('says Fix email on Next when the client has no email — flips to Send after a real save', () => {
     const draftReady = {
       status: 'draft' as const,
       hasClient: true,
@@ -48,8 +69,14 @@ describe('quote-sheet client email — save / Send / miss', () => {
       jobId: null as string | null,
       invoiceId: null as string | null,
     };
-    expect(recommendQuoteAction(draftReady).key).toBe('send');
-    expect(recommendQuoteAction(draftReady).label).toBe('Send');
+    expect(recommendQuoteAction({ ...draftReady, hasClientEmail: false })).toMatchObject({
+      key: 'add_email',
+      label: 'Fix email',
+    });
+    expect(recommendQuoteAction({ ...draftReady, hasClientEmail: true })).toMatchObject({
+      key: 'send',
+      label: 'Send',
+    });
     expect(recommendQuoteAction({
       ...draftReady,
       hasClient: false,
@@ -101,7 +128,11 @@ describe('quote-sheet client email — wiring', () => {
     expect(editor).not.toContain('sendQuote');
     expect(editor).not.toContain('sendQuoteDeliver');
     expect(editor).not.toContain('AU_EMAIL_PLACEHOLDER');
-    expect(editor).not.toContain("next.key === 'add_email'");
+    expect(editor).toContain('quoteActionContext');
+    expect(editor).toContain('client_email: emailClient?.email');
+    expect(editor).toContain("next.key === 'add_email'");
+    expect(editor).toContain('{next.label}');
+    expect(editor).toContain('emailInputRef.current?.focus()');
     expect(editor).not.toContain('className="btn-primary job-client-email-save"');
     expect(editor).not.toContain('className="ops-next-control-block job-client-email-save"');
 
@@ -135,11 +166,13 @@ describe('quote-sheet client email — wiring', () => {
     const clientCss = quoteCss.slice(clientCssStart);
 
     expect(editor).toContain("next.key === 'send'");
+    expect(editor).toContain("next.key === 'add_email'");
     expect(editor).toContain('className="btn-primary"');
     expect(editor).toContain('startSend');
     expect(editor).not.toContain('Quote marked as sent');
     expect(editor).toContain('job-client-email-save');
-    expect(editor).not.toContain("next.key === 'add_email'");
+    expect(editor).toContain('{next.label}');
+    expect(editor).toContain('emailInputRef.current?.focus()');
     expect(clientCss).toContain('.job-client-email-save');
     expect(clientCss).toContain('.job-client-email-addr');
     expect(clientCss).not.toContain('min-height: 44px');
@@ -159,7 +192,7 @@ describe('quote-sheet client email — wiring', () => {
     expect(clientCss).toMatch(/\.job-client-email-addr[\s\S]*color: #0A2540/);
   });
 
-  it('list-row Send does not grow an inline email field — save lives on the editor', () => {
+  it('list-row add_email opens this sheet — does not grow an inline email field', () => {
     const page = src('src/pages/QuotesPage.tsx');
     const row = page.slice(page.indexOf('function QuoteRow'), page.indexOf('function QuoteNextControl'));
     const listNext = page.slice(page.indexOf('function QuoteNextControl'), page.indexOf('interface EditorState'));
@@ -171,9 +204,13 @@ describe('quote-sheet client email — wiring', () => {
     expect(listNext).not.toContain('job-client-email');
     expect(listNext).not.toContain('type="email"');
     expect(listNext).not.toContain('saveJobClientEmail');
+    expect(listNext).toContain("next.key === 'add_email'");
+    expect(listNext).toContain('onOpen()');
     expect(listNext).toContain("next.key === 'send'");
     expect(listNext).toContain('onSend(quote.id)');
     expect(listNext).not.toContain('Quote marked as sent');
+    expect(page).toContain("select('id, name, email')");
+    expect(page).toContain('client_email:');
     expect(editor).toContain('type="email"');
     expect(editor).toContain('job-client-email');
   });
@@ -190,7 +227,9 @@ describe('quote-sheet client email — wiring', () => {
     expect(save).not.toContain('QuoteSendDialog');
     expect(quoteConvert).not.toContain('saveJobClientEmail');
     expect(quoteNext).not.toContain('saveJobClientEmail');
-    expect(quoteNext).not.toContain('add_email');
+    expect(quoteNext).toContain("key: 'add_email'");
+    expect(quoteNext).toContain("label: 'Fix email'");
+    expect(quoteNext).not.toContain('/clients/');
     expect(quoteNext).not.toContain('sendQuote');
     expect(page).toContain('QuoteSendDialog');
     expect(page).not.toContain('sendQuoteDeliver');

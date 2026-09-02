@@ -185,7 +185,7 @@ describe('quote-send client email — wiring', () => {
     expect(deliver).not.toContain('saveJobClientEmail');
   });
 
-  it('does not add a second 44px — Save is muted on the miss, primary stays Send', () => {
+  it('does not add a second 44px — Save is muted on the miss, primary is Fix email then Send', () => {
     const dialog = src('src/components/invoicing/QuoteSendDialog.tsx');
     const css = src('src/index.css');
     const sendCssStart = css.indexOf('.hub-invoice-send .job-client-email');
@@ -194,6 +194,8 @@ describe('quote-send client email — wiring', () => {
 
     expect(dialog).toContain('className="btn-primary"');
     expect(dialog).toContain('Send quote');
+    expect(dialog).toContain('Fix email');
+    expect(dialog).toContain('emailInputRef.current?.focus()');
     expect(dialog).toContain('job-client-email-save');
     expect(dialog).toContain('showSend');
     expect(dialog).toContain('disabled={sending || !ready}');
@@ -233,15 +235,18 @@ describe('quote-send client email — wiring', () => {
     expect(sendCss).not.toContain('sky-500');
   });
 
-  it('disables Send quote on no_email until a sendable save — no silent handleSend return', () => {
+  it('uses Fix email as the primary on no_email — Send quote after a sendable save', () => {
     const dialog = src('src/components/invoicing/QuoteSendDialog.tsx');
     const handleSave = dialog.slice(dialog.indexOf('const handleSaveEmail'), dialog.indexOf('const handleSend'));
     const handleSendFn = dialog.slice(dialog.indexOf('const handleSend'), dialog.indexOf('const ready'));
-    const sendBtn = dialog.slice(dialog.indexOf('{showSend &&'), dialog.indexOf('{showSmtpSettings'));
+    const sendBtn = dialog.slice(dialog.indexOf('{showSend && (ready || noClientMiss)'), dialog.indexOf('{showSend && noEmailMiss'));
+    const fixBtn = dialog.slice(dialog.indexOf('{showSend && noEmailMiss'), dialog.indexOf('{showSmtpSettings'));
 
-    expect(dialog).toContain('disabled={sending || !ready}');
     expect(sendBtn).toContain('Send quote');
     expect(sendBtn).toContain('disabled={sending || !ready}');
+    expect(fixBtn).toContain('Fix email');
+    expect(fixBtn).toContain('emailInputRef.current?.focus()');
+    expect(fixBtn).not.toContain('Send quote');
     expect(handleSave).toContain('decideQuoteSend(next)');
     expect(handleSave).not.toContain('deliverQuote');
     expect(handleSave).not.toContain('onSent');

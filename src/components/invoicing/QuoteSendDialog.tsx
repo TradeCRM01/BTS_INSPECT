@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Mail, Phone, User } from 'lucide-react';
@@ -51,6 +51,7 @@ export function QuoteSendDialog({
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [savingAttach, setSavingAttach] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -358,6 +359,7 @@ export function QuoteSendDialog({
                 >
                   <Mail size={13} />
                   <input
+                    ref={emailInputRef}
                     type="email"
                     value={clientEmailDraft}
                     onChange={e => setClientEmailDraft(e.target.value)}
@@ -421,9 +423,18 @@ export function QuoteSendDialog({
           <button type="button" onClick={onClose} className="ops-link shrink-0">
             Cancel
           </button>
-          {showSend && (
+          {showSend && (ready || noClientMiss) && (
             <button type="button" onClick={() => void handleSend()} disabled={sending || !ready} className="btn-primary">
               {sending ? 'Sending…' : 'Send quote'}
+            </button>
+          )}
+          {showSend && noEmailMiss && !ready && (
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => emailInputRef.current?.focus()}
+            >
+              Fix email
             </button>
           )}
           {showSmtpSettings && blockerHref && (
