@@ -465,7 +465,7 @@ function InvoiceNextControl({
           if (next.key === 'mark_paid') void patchPaid();
         }}
         disabled={!!busy}
-        className={chasePrimary ? 'btn-primary' : 'hub-next'}
+        className={`${chasePrimary ? 'btn-primary' : 'hub-next'}${next.key === 'send' ? ' is-send' : ''}`}
         title={next.detail}
       >
         {busy && next.key !== 'mark_paid' ? 'Working…' : next.label}
@@ -916,7 +916,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         <div className="hub-invoice-toolbar">
           <div className="hub-invoice-editor-act">
             {next.key === 'setup_email' && next.href && (
-              <Link to={next.href} className="btn-primary" title={next.detail}>
+              <Link to={next.href} className="hub-next" title={next.detail}>
                 Set up email
               </Link>
             )}
