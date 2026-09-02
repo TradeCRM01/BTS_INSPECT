@@ -9,11 +9,18 @@ function src(rel: string): string {
 describe('Install Grafter overlay vs signup', () => {
   it('keeps Create account on signup and does not mount the install overlay there', () => {
     const signup = src('src/pages/SignupPage.tsx');
+    const css = src('src/index.css');
+    const auth = css.slice(css.indexOf('.hub-auth {'), css.indexOf('#client-portal'));
     expect(signup).toContain('Create account');
     expect(signup).toContain('Create a Grafter workspace');
+    expect(signup).toContain('hub-auth-submit');
     expect(signup).not.toContain('InstallPrompt');
     expect(signup).not.toContain('Install Grafter');
     expect(signup).not.toContain('beforeinstallprompt');
+    expect(auth).toContain('--auth-look-sheet: #FFFDF8');
+    expect(auth).toContain('--auth-look-action: #2E75B6');
+    expect(auth).toContain('min-height: 44px');
+    expect(auth).not.toContain('background: var(--ops-navy)');
   });
 
   it('does not paint the install sheet on public auth routes, including signup', () => {

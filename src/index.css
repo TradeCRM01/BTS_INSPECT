@@ -9966,12 +9966,19 @@
   color: var(--ops-muted);
 }
 
-/* Auth screens — same cream/navy as the public landing. Not AppShell. */
+/* Public auth — cream page, paper sheet. Navy is mark/ink, not the submit. */
 .hub-auth {
+  --auth-look-page: #F5F0E6;
+  --auth-look-sheet: #FFFDF8;
+  --auth-look-ink: #0A2540;
+  --auth-look-muted: #5B6B7C;
+  --auth-look-line: #E2D9CC;
+  --auth-look-action: #2E75B6;
   min-height: 100vh;
-  background: var(--ops-cream);
-  color: var(--ops-navy);
+  background: var(--auth-look-page);
+  color: var(--auth-look-ink);
   padding: 16px 20px 40px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
 }
 
 .hub-auth-nav {
@@ -9983,34 +9990,45 @@
   width: 100%;
   max-width: 26rem;
   margin: 0 auto;
-  background: #fff;
-  border: 1px solid var(--ops-rule);
-  border-radius: 14px;
+  background: var(--auth-look-sheet);
+  border: 1px solid var(--auth-look-line);
+  border-radius: 16px;
   padding: 28px 24px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 28px rgba(10, 37, 64, 0.08);
 }
 
 .hub-auth-title {
-  font-family: Newsreader, Georgia, serif;
-  font-weight: 500;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
   font-size: 2rem;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
-  color: var(--ops-navy);
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: var(--auth-look-ink);
 }
 
 .hub-auth-lede {
   margin: 8px 0 24px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 0.95rem;
   line-height: 1.5;
-  color: #3d4d5c;
+  color: var(--auth-look-muted);
 }
 
 .hub-auth-card .form-label {
-  color: var(--ops-navy);
+  color: var(--auth-look-ink);
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
 }
 
 .hub-auth-card .form-input {
-  border-radius: 10px;
+  border-radius: 12px;
+  background: var(--auth-look-sheet);
+  border-color: var(--auth-look-line);
+  color: var(--auth-look-ink);
+  box-shadow: none;
 }
 
 .hub-auth-submit {
@@ -10018,18 +10036,23 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 48px;
+  min-height: 44px;
+  height: 44px;
   margin-top: 4px;
   padding: 0 16px;
-  border-radius: 10px;
-  background: var(--ops-navy);
+  border: none;
+  border-radius: 12px;
+  background: var(--auth-look-action);
   color: #fff;
-  font-size: 14px;
-  font-weight: 600;
+  box-shadow: none;
+  font-family: Rajdhani, sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .hub-auth-submit:hover {
-  background: #0d2f4e;
+  background: color-mix(in srgb, #2E75B6 86%, #0A2540);
 }
 
 .hub-auth-submit:disabled {
@@ -10041,12 +10064,13 @@
   max-width: 26rem;
   margin: 18px auto 0;
   text-align: center;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 14px;
-  color: var(--ops-muted);
+  color: var(--auth-look-muted);
 }
 
 .hub-auth-footer a {
-  color: var(--ops-accent);
+  color: var(--auth-look-action);
   font-weight: 600;
 }
 
