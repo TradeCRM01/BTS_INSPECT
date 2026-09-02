@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Download, X, Monitor, Smartphone } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { isPublicAuthPath } from '../../lib/publicAuthPath';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -7,6 +10,9 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function InstallPrompt() {
+  const { user } = useAuth();
+  const { pathname } = useLocation();
+  const blockOverlay = !user || isPublicAuthPath(pathname);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [show, setShow] = useState(false);
   const [isIos, setIsIos] = useState(false);
@@ -21,19 +27,25 @@ export function InstallPrompt() {
 
     if (isIosBrowser) {
       setIsIos(true);
-      setTimeout(() => setShow(true), 3000);
       return;
     }
 
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setTimeout(() => setShow(true), 3000);
     };
 
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
+
+  useEffect(() => {
+    if (blockOverlay || dismissed) return;
+    if (localStorage.getItem('pwa-install-dismissed')) return;
+    if (!isIos && !deferredPrompt) return;
+    const timer = window.setTimeout(() => setShow(true), 3000);
+    return () => window.clearTimeout(timer);
+  }, [blockOverlay, dismissed, isIos, deferredPrompt]);
 
   function dismiss() {
     setShow(false);
@@ -49,7 +61,7 @@ export function InstallPrompt() {
     setDeferredPrompt(null);
   }
 
-  if (!show || dismissed) return null;
+  if (blockOverlay || !show || dismissed) return null;
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
