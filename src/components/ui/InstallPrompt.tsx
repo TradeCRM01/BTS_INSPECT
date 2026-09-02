@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Download, X, Monitor, Smartphone } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { isPublicAuthPath } from '../../lib/publicAuthPath';
+import { canShowInstallOverlay } from '../../lib/publicAuthPath';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -12,7 +12,7 @@ interface BeforeInstallPromptEvent extends Event {
 export function InstallPrompt() {
   const { user } = useAuth();
   const { pathname } = useLocation();
-  const blockOverlay = !user || isPublicAuthPath(pathname);
+  const blockOverlay = !canShowInstallOverlay(pathname, Boolean(user));
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [show, setShow] = useState(false);
   const [isIos, setIsIos] = useState(false);

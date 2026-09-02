@@ -18,10 +18,10 @@ describe('Install Grafter overlay vs signup', () => {
 
   it('does not paint the install sheet on public auth routes, including signup', () => {
     const prompt = src('src/components/ui/InstallPrompt.tsx');
-    expect(prompt).toContain('isPublicAuthPath');
+    expect(prompt).toContain('canShowInstallOverlay');
     expect(prompt).toContain('useAuth');
     expect(prompt).toContain('useLocation');
-    expect(prompt).toMatch(/blockOverlay|!user|isPublicAuthPath\(pathname\)/);
+    expect(prompt).toContain('blockOverlay');
     expect(prompt).toMatch(/if \(blockOverlay/);
     expect(prompt).toContain('return null');
   });
