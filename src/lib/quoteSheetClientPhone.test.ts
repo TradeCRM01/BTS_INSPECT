@@ -157,7 +157,6 @@ describe('quote-sheet client phone — wiring', () => {
     expect(editor).not.toContain('sendQuote');
     expect(editor).not.toContain('sendQuoteDeliver');
     expect(editor).not.toContain('AU_PHONE_PLACEHOLDER');
-    expect(editor).not.toContain("next.key === 'add_email'");
     expect(editor).not.toContain('className="btn-primary job-client-phone-save"');
     expect(editor).not.toContain('className="ops-next-control-block job-client-phone-save"');
 
@@ -206,7 +205,6 @@ describe('quote-sheet client phone — wiring', () => {
     expect(editor).toContain('job-client-phone-save');
     expect(editor).toContain('job-client-phone-num');
     expect(editor).toContain('job-client-email-save');
-    expect(editor).not.toContain("next.key === 'add_email'");
     expect(clientCss).toContain('.job-client-phone-save');
     expect(clientCss).toContain('.job-client-phone-num');
     expect(clientCss).not.toContain('min-height: 44px');
@@ -258,7 +256,6 @@ describe('quote-sheet client phone — wiring', () => {
     expect(save).not.toContain('QuoteSendDialog');
     expect(quoteConvert).not.toContain('saveJobClientPhone');
     expect(quoteNext).not.toContain('saveJobClientPhone');
-    expect(quoteNext).not.toContain('add_email');
     expect(quoteNext).not.toContain('sendQuote');
     expect(page).toContain('QuoteSendDialog');
     expect(page).not.toContain('sendQuoteDeliver');

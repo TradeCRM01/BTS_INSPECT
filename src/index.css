@@ -1396,7 +1396,7 @@
     gap: 8px;
     min-width: 0;
     margin-top: 8px;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
     color: #5B6B7C;
     font-size: 12px;
     font-weight: 500;
@@ -1481,7 +1481,7 @@
     gap: 8px;
     min-width: 0;
     margin-top: 8px;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
     color: #5B6B7C;
     font-size: 12px;
     font-weight: 500;
@@ -1566,7 +1566,7 @@
     gap: 8px;
     min-width: 0;
     margin-top: 8px;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
     color: #5B6B7C;
     font-size: 12px;
     font-weight: 500;
@@ -5736,8 +5736,8 @@
     border-top-color: transparent;
   }
 
-  /* Quote surfaces only. Looplet document system + navy/blue restraint. Not invoices. */
-  :is(.hub-quotes, .hub-quote-editor) {
+  /* Quote surfaces only. Cream paper kit. Not invoices. */
+  :is(.hub-quotes, .hub-quote-editor, .hub-quote-send) {
     --quote-page: #F5F0E6;
     --quote-sheet: #FFFDF8;
     --quote-ink: #0A2540;
@@ -5746,7 +5746,6 @@
     --quote-action: #2E75B6;
     --quote-r-ctl: 12px;
     --quote-r-sheet: 16px;
-    --quote-pass: #1B7F3A;
     --quote-fail: #B42318;
     --quote-warn: #B54708;
     font-family: 'Source Sans 3', system-ui, sans-serif;
@@ -5796,8 +5795,20 @@
     margin: 0 0 8px;
   }
 
+  .hub-quotes .hub-quote-kicker,
+  .hub-quote-banner .hub-quote-kicker {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--quote-muted);
+    margin: 0 0 8px;
+  }
+
   .hub-quotes .btn-primary,
-  .hub-quote-editor .btn-primary {
+  .hub-quote-editor .btn-primary,
+  .hub-quote-send .btn-primary {
     background: #2E75B6;
     color: #fff;
     min-height: 44px;
@@ -5813,13 +5824,15 @@
   }
 
   .hub-quotes .btn-primary:hover,
-  .hub-quote-editor .btn-primary:hover {
+  .hub-quote-editor .btn-primary:hover,
+  .hub-quote-send .btn-primary:hover {
     background: color-mix(in srgb, #2E75B6 86%, #0A2540);
     color: #fff;
   }
 
   .hub-quotes .btn-primary:active,
-  .hub-quote-editor .btn-primary:active {
+  .hub-quote-editor .btn-primary:active,
+  .hub-quote-send .btn-primary:active {
     transform: none;
   }
 
@@ -5974,8 +5987,9 @@
   }
 
   .hub-quotes-pill.is-accepted {
-    color: var(--quote-pass);
-    background: color-mix(in srgb, #1B7F3A 12%, #fff);
+    color: var(--quote-muted);
+    background: var(--quote-page);
+    border-color: var(--quote-line);
   }
 
   .hub-quotes-pill.is-declined,
@@ -6016,21 +6030,28 @@
   }
 
   .hub-quotes .hub-next {
-    color: #2E75B6;
-    background: none;
+    color: #fff;
+    background: #2E75B6;
     border: none;
     border-radius: 12px;
-    padding: 0 8px;
+    padding: 0 16px;
     min-height: 44px;
+    height: 44px;
     cursor: pointer;
-    text-align: right;
+    text-align: center;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
     font-size: 14px;
     font-weight: 600;
     box-shadow: none;
     display: inline-flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: center;
     text-decoration: none;
+  }
+
+  .hub-quotes .hub-next:hover {
+    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+    color: #fff;
   }
 
   @media (max-width: 639px) {
@@ -6181,36 +6202,36 @@
     border: 1px solid #E2D9CC;
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: none;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08);
   }
 
   .hub-quote-banner {
-    background: #0A2540;
-    color: #fff;
-    padding: 24px;
-  }
-
-  .hub-quote-banner .hub-quote-kicker {
-    color: rgb(255 255 255 / 0.62);
+    background: #FFFDF8;
+    color: #0A2540;
+    padding: 32px 32px 0;
   }
 
   .hub-quote-editor-title {
-    font-size: 36px;
-    color: #fff;
+    font-size: 56px;
+    color: #0A2540;
     margin: 0;
+    letter-spacing: 0.02em;
+    line-height: 0.96;
   }
 
   .hub-quote-banner-meta {
     margin-top: 8px;
     font-size: 14px;
-    color: rgb(255 255 255 / 0.62);
+    color: #5B6B7C;
   }
 
   .hub-quote-letterhead {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 24px;
-    padding: 24px;
+    padding: 24px 32px;
   }
 
   .hub-quote-letterhead-mark {
@@ -6237,27 +6258,53 @@
   }
 
   .hub-quote-scope {
-    margin: 0 24px 8px;
+    margin: 0 32px 8px;
     font-size: 16px;
     color: #0A2540;
   }
 
   .hub-quote-table {
-    margin: 16px 24px 0;
-    border: 1px solid #E2D9CC;
-    border-radius: 12px;
+    margin: 16px 32px 0;
+    border: none;
+    border-radius: 0;
     overflow: hidden;
     background: #FFFDF8;
   }
 
   @media (max-width: 639px) {
+    .hub-quote-banner {
+      padding: 24px 16px 0;
+    }
+
+    .hub-quote-letterhead,
+    .hub-quote-gst {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    .hub-quote-scope {
+      margin-left: 16px;
+      margin-right: 16px;
+    }
+
     .hub-quote-table {
+      margin-left: 16px;
+      margin-right: 16px;
       overflow-x: auto;
+    }
+
+    .hub-quote-totalbar {
+      margin: 0 16px 24px;
+    }
+
+    .hub-quote-editor-title,
+    .hub-quote-display-total {
+      font-size: 40px;
     }
 
     .hub-quote-lines th,
     .hub-quote-lines td {
-      padding: 12px;
+      padding: 12px 0;
     }
   }
 
@@ -6268,15 +6315,16 @@
   }
 
   .hub-quote-lines th {
-    background: #0A2540;
-    color: #fff;
+    background: #FFFDF8;
+    color: #5B6B7C;
     font-family: Rajdhani, sans-serif;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     text-align: left;
-    padding: 12px 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid #E2D9CC;
   }
 
   .hub-quote-lines th:nth-child(2),
@@ -6291,7 +6339,7 @@
   }
 
   .hub-quote-lines td {
-    padding: 16px;
+    padding: 16px 0;
     border-bottom: 1px solid #E2D9CC;
     font-size: 14px;
     color: #0A2540;
@@ -6307,7 +6355,7 @@
     grid-template-columns: 1fr auto;
     gap: 8px 16px;
     justify-content: end;
-    padding: 16px 24px;
+    padding: 16px 32px;
     font-size: 14px;
     color: #5B6B7C;
     max-width: 280px;
@@ -6318,11 +6366,12 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    background: #0A2540;
-    color: #fff;
-    margin: 0 24px 24px;
-    padding: 16px 20px;
-    border-radius: 12px;
+    background: #FFFDF8;
+    color: #0A2540;
+    margin: 0 32px 32px;
+    padding: 16px 0 0;
+    border-top: 1px solid #E2D9CC;
+    border-radius: 0;
     font-family: Rajdhani, sans-serif;
     font-size: 14px;
     font-weight: 700;
@@ -6331,9 +6380,11 @@
   }
 
   .hub-quote-display-total {
-    font-size: 32px;
-    color: #fff;
+    font-size: 56px;
+    color: #0A2540;
     font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    line-height: 0.96;
   }
 
   .hub-quote-edit {
@@ -6376,6 +6427,75 @@
 
   .hub-quote-pdf-head {
     border-bottom: 1px solid #E2D9CC;
+  }
+
+  .overlay-backdrop:has(.hub-quote-send) {
+    background: #F5F0E6;
+    padding: 16px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  .overlay-panel-md:has(.hub-quote-send) {
+    background: #FFFDF8 !important;
+    color: #0A2540;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08) !important;
+    border: 1px solid #E2D9CC !important;
+    border-radius: 16px !important;
+    width: min(480px, calc(100vw - 32px)) !important;
+    max-width: min(480px, calc(100vw - 32px)) !important;
+    height: auto !important;
+    max-height: 92vh !important;
+    animation: none !important;
+    overflow: hidden;
+  }
+
+  .hub-quote-send {
+    background: #FFFDF8;
+    color: #0A2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    padding: 24px;
+  }
+
+  .hub-quote-send .hub-invoice-send-title {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-size: 32px;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+    color: #0A2540;
+    text-shadow: none;
+  }
+
+  .hub-quote-send .hub-invoice-kicker,
+  .hub-quote-send .hub-invoice-send-field .hub-invoice-kicker {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+  }
+
+  .hub-quote-send .job-client-email,
+  .hub-quote-send .job-client-phone,
+  .hub-quote-send .job-client-attach {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .hub-quote-send .hub-invoice-err {
+    margin: 0;
+    font-size: 14px;
+    color: #5B6B7C;
+    font-weight: 500;
+  }
+
+  .hub-quote-send .btn-primary:disabled,
+  .hub-quote-send .btn-primary:disabled:hover {
+    background: #2E75B6;
+    color: #fff;
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
   }
 
   .overlay-backdrop.hub-invoice-pdf-preview {
