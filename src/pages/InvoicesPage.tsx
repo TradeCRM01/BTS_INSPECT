@@ -17,7 +17,16 @@ import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
-import { effectiveInvoiceStatus, persistableInvoiceStatus } from '../lib/invoiceStatus';
+import {
+  effectiveInvoiceStatus,
+  invoiceListEmptyMessage,
+  invoiceListEmptyTitle,
+  invoiceListIsNoneYet,
+  invoiceMatchesListFilter,
+  persistableInvoiceStatus,
+  INVOICE_LIST_DEFAULT_FILTER,
+  type InvoiceListStatusFilter,
+} from '../lib/invoiceStatus';
 import { invoiceActionContext, invoiceListBucket, invoiceOverflowPaidAction, recommendInvoiceAction, type InvoiceActionKey } from '../lib/invoiceNextAction';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
@@ -58,7 +67,7 @@ import { format, parseISO, addDays } from 'date-fns';
 
 const padInv = (n: number | null) => String(n ?? 0).padStart(4, '0');
 
-type StatusFilter = 'all' | InvoiceStatus;
+type StatusFilter = InvoiceListStatusFilter;
 
 function visibleSite(...parts: Array<string | null | undefined>): string {
   for (const part of parts) {
@@ -101,7 +110,7 @@ export function InvoicesPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(INVOICE_LIST_DEFAULT_FILTER);
   const [search, setSearch] = useState('');
   const [editingInvoice, setEditingInvoice] = useState<InvoiceWithDetails | null>(null);
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
@@ -168,7 +177,7 @@ export function InvoicesPage() {
   const filtered = useMemo(() => {
     const list = invoices ?? [];
     return list.filter(i => {
-      if (statusFilter !== 'all' && effectiveInvoiceStatus(i) !== statusFilter) return false;
+      if (!invoiceMatchesListFilter(i, statusFilter)) return false;
       if (search.trim()) {
         const s = search.toLowerCase();
         const num = `#${padInv(i.invoice_number)}`.toLowerCase();
@@ -235,7 +244,7 @@ export function InvoicesPage() {
 
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load invoices" /></AppShell>;
 
-  const filteredEmpty = !search && statusFilter === 'all';
+  const noneYet = invoiceListIsNoneYet({ search, invoiceCount: invoices?.length ?? 0 });
 
   return (
     <AppShell>
@@ -274,11 +283,9 @@ export function InvoicesPage() {
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={Receipt}
-            title={filteredEmpty ? 'No invoices yet' : 'No matching invoices'}
-            message={filteredEmpty
-              ? 'Invoice from an accepted quote, or open a job and invoice the bill.'
-              : 'Try another status or search.'}
-            action={filteredEmpty ? (
+            title={invoiceListEmptyTitle({ noneYet })}
+            message={invoiceListEmptyMessage({ noneYet })}
+            action={noneYet ? (
               <button onClick={() => openInvoice(null)} className="btn-primary">
                 <Plus size={16} /> New invoice
               </button>
