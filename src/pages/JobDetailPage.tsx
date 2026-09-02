@@ -58,6 +58,11 @@ import { livingInspectionSummary, livingSwmsSummary, livingTake5Summary } from '
 import { take5CardHint, take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
 import { inspectionStatusClass, inspectionStatusLabel } from '../lib/inspectionNextAction';
 import { withInspectionDueNext } from '../lib/inspectionDueReminder';
+import {
+  JOB_TESTING_DUE_EMPTY,
+  JOB_TESTING_DUE_TITLE,
+  jobTestingDueRows,
+} from '../lib/jobTestingDue';
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
 import { inspectionDisplayStatus, reportSendSurface } from '../lib/sendReport';
 import type { TemplateSchema } from '../types/template';
@@ -831,6 +836,15 @@ export function JobDetailPage() {
   };
 
   const inspectHref = `/inspections/new?jobId=${job.id}`;
+  const dueTests = jobTestingDueRows(inspections ?? [], {
+    id: job.id,
+    company_id: job.company_id,
+    client_id: job.client_id,
+    scheduled_date: job.scheduled_date,
+    job_number: job.job_number,
+    title: job.title,
+    address: job.address,
+  });
 
   return (
     <AppShell>
@@ -1186,6 +1200,28 @@ export function JobDetailPage() {
             </div>
 
             <div className="hub-trays hub-jobs-more-trays">
+          <div id="job-testing-due">
+          <JobRelatedSection
+            title={JOB_TESTING_DUE_TITLE}
+            icon={ClipboardList}
+            count={dueTests.length}
+            emptyTitle={JOB_TESTING_DUE_EMPTY}
+          >
+            {dueTests.map(row => (
+              <JobRelatedRow
+                key={row.id}
+                href={row.href}
+                icon={FileText}
+                title={row.title}
+                meta={row.dueLabel}
+                action={
+                  <Link to={row.href} className="ops-link text-xs">Open</Link>
+                }
+              />
+            ))}
+          </JobRelatedSection>
+          </div>
+
         {stages.length > 0 && (
             <JobRelatedSection
               title="Project stages"
