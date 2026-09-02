@@ -238,37 +238,19 @@ export function JhaDocumentsPage() {
         )}
         {pageQueryBlocked(isError) && <PageError onRetry={refetch} />}
 
-        {noneAtAll && (
-          <EmptyState
-            icon={ShieldCheck}
-            title={jhaListEmptyTitle({ filter: status, noneAtAll: true })}
-            message={jhaListEmptyMessage({ filter: status, noneAtAll: true })}
-            action={
-              <Link to="/jobs" className="hub-next">
-                Open jobs
-              </Link>
-            }
-          />
-        )}
-
-        {noneMatch && (
-          <EmptyState
-            icon={FileText}
-            title={jhaListEmptyTitle({ filter: status, noneAtAll: false })}
-            message={jhaListEmptyMessage({ filter: status, noneAtAll: false })}
-          />
-        )}
-
-        {!isLoading && visible.length > 0 && (
+        {!isLoading && (
           <div className="hub-jha-sheet">
-            <div className="hub-jha-thead">
-              <span>Site</span>
-              <span>Permit</span>
-              <span>Supervisor</span>
-              <span>Crew</span>
-              <span>Status</span>
-              <span />
-            </div>
+            <JhaTake5ListRow theme={docColors} onOpen={() => navigate('/jha/take5')} />
+            {visible.length > 0 && (
+              <div className="hub-jha-thead">
+                <span>Site</span>
+                <span>Permit</span>
+                <span>Supervisor</span>
+                <span>Crew</span>
+                <span>Status</span>
+                <span />
+              </div>
+            )}
             {status === 'all' ? (
               <>
                 <JhaGroup
@@ -300,8 +282,72 @@ export function JhaDocumentsPage() {
             )}
           </div>
         )}
+
+        {noneAtAll && (
+          <EmptyState
+            icon={ShieldCheck}
+            title={jhaListEmptyTitle({ filter: status, noneAtAll: true })}
+            message={jhaListEmptyMessage({ filter: status, noneAtAll: true })}
+            action={
+              <Link to="/jobs" className="hub-next">
+                Open jobs
+              </Link>
+            }
+          />
+        )}
+
+        {noneMatch && (
+          <EmptyState
+            icon={FileText}
+            title={jhaListEmptyTitle({ filter: status, noneAtAll: false })}
+            message={jhaListEmptyMessage({ filter: status, noneAtAll: false })}
+          />
+        )}
       </div>
     </AppShell>
+  );
+}
+
+function JhaTake5ListRow({
+  theme,
+  onOpen,
+}: {
+  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
+  onOpen: () => void;
+}) {
+  return (
+    <div data-jha-group="take 5">
+      <h2 className="hub-jha-group">Take 5</h2>
+      <div
+        role="link"
+        tabIndex={0}
+        data-take5-list
+        data-take5-href="/jha/take5"
+        onClick={onOpen}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+        className="jha-doc-theme hub-jha-row"
+        style={{
+          '--jha-navy': theme.navy,
+          '--jha-accent': theme.accent,
+          '--jha-navy-light': theme.navyLight,
+          '--jha-accent-light': theme.accentLight,
+        } as CSSProperties}
+      >
+        <span className="min-w-0">
+          <span className="hub-jha-site truncate">Take 5</span>
+          <span className="hub-jha-muted truncate">Point of work risk assessment</span>
+        </span>
+        <span className="truncate hub-jha-muted" />
+        <span className="truncate hub-jha-muted" />
+        <span className="truncate hub-jha-count-cell" />
+        <span />
+        <span className="hub-jha-row-next" onClick={e => e.stopPropagation()}>
+          <Link to="/jha/take5" className="hub-next">
+            Open
+          </Link>
+        </span>
+      </div>
+    </div>
   );
 }
 

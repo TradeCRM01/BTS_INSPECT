@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -25,5 +25,27 @@ describe('AppShell nav follows the job', () => {
     expect(phone).toContain('{NAV_GROUPS.map((group) => {');
     expect(phone).not.toContain('{OFFICE_GROUPS.map((group) => {');
     expect(phone).not.toContain('{FIELD_GROUP.items.map');
+  });
+
+  it('lists Take 5 in Field Work and taps the existing /jha/take5 list', () => {
+    const shell = src('src/components/layout/AppShell.tsx');
+    const app = src('src/App.tsx');
+    const field = shell.slice(shell.indexOf('const FIELD_GROUP'), shell.indexOf('const OFFICE_GROUPS'));
+
+    expect(field).toContain("{ to: '/inspections', label: 'Inspections'");
+    expect(field).toContain("{ to: '/jha', label: 'JHA documents'");
+    expect(field).toContain("{ to: '/jha/take5', label: 'Take 5'");
+    expect(field.indexOf("{ to: '/jha', label: 'JHA documents'")).toBeLessThan(
+      field.indexOf("{ to: '/jha/take5', label: 'Take 5'"),
+    );
+    expect(field).not.toContain("to: '/take5'");
+    expect(field).not.toContain('Take5Page');
+    expect(field).not.toContain('Take5ListPage');
+    expect(field).not.toContain('hub-take5');
+
+    expect(app).toContain('<Route path="/jha/take5"');
+    expect(app).toContain('<Take5Page />');
+    expect(app).not.toContain('path="/take5"');
+    expect(existsSync(resolve(process.cwd(), 'src/pages/Take5SafetyPage.tsx'))).toBe(false);
   });
 });

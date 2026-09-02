@@ -9,7 +9,7 @@ import {
   ClipboardList, LayoutTemplate, Settings, LogOut,
   User, Menu, X, Zap, ChevronDown, Users, BrainCircuit, RotateCw, Sparkles, FileText,
   Calendar, Receipt, ShoppingCart, Package, Truck, FolderOpen,
-  Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, Wallet, Search, Shield, type LucideIcon,
+  Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, ShieldAlert, Wallet, Search, Shield, type LucideIcon,
 } from 'lucide-react';
 import { GlobalSearch } from '../search/GlobalSearch';
 
@@ -29,6 +29,7 @@ const FIELD_GROUP: NavGroup = {
   items: [
     { to: '/inspections', label: 'Inspections', icon: ClipboardList },
     { to: '/jha', label: 'JHA documents', icon: ShieldCheck },
+    { to: '/jha/take5', label: 'Take 5', icon: ShieldAlert },
     { to: '/templates', label: 'Templates', icon: LayoutTemplate },
     { to: '/jha/swms-library', label: 'SWMS library', icon: FileText },
     { to: '/drive', label: 'Shared Drive', icon: FolderOpen },
