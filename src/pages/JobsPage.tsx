@@ -10,9 +10,8 @@ import { LoadingSpinner, PageError, EmptyState, SearchBar } from '../components/
 import { JobFormModal } from '../components/crm/JobFormModal';
 import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import { JOB_STATUS_LABELS } from '../types/crm';
-import { jobListNext } from '../lib/jobNextAction';
+import { jobOpenNext } from '../lib/jobNextAction';
 import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
-import { withReminderNext } from '../lib/jobReminder';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { Plus, Briefcase } from 'lucide-react';
 
@@ -246,7 +245,7 @@ export function JobsPage() {
 
 function JobRow({ job }: { job: JobRowModel }) {
   const navigate = useNavigate();
-  const next = withReminderNext(job, jobListNext(job));
+  const next = jobOpenNext(job);
   const site = visibleSite(job.address, job.client_address);
   const suburb = site ? suburbFromSite(site) : '';
   return (

@@ -9,8 +9,11 @@ export const JOB_REMINDER_CLIENT_COLUMNS =
 export const JOB_REMINDER_SMTP_COLUMNS =
   'company_id, smtp_host, smtp_pass, from_name, from_email';
 
-/** Company-local calendar. Edge runtime is UTC; Perth is UTC+8 year-round. */
+/** Company-local calendar. Edge runtime is UTC; leftover Perth is cron / ICS only. */
 export const COMPANY_TIME_ZONE = 'Australia/Perth';
+
+/** Van / job-sheet “today”. Australia/Brisbane (UTC+10), not UTC and not leftover Perth. */
+export const VAN_TIME_ZONE = 'Australia/Brisbane';
 
 export type ReminderMissReason =
   | 'no_email'
@@ -158,7 +161,7 @@ export function isJobDueTomorrow(
 ): boolean {
   if (!isOpenJobStatus(job.status)) return false;
   const day = dateOnly(job.scheduled_date);
-  return day === tomorrowYmd(now);
+  return day === tomorrowYmd(now, VAN_TIME_ZONE);
 }
 
 export function isJobDueToday(
@@ -167,11 +170,11 @@ export function isJobDueToday(
 ): boolean {
   if (!isOpenJobStatus(job.status)) return false;
   const day = dateOnly(job.scheduled_date);
-  return day === todayYmd(now);
+  return day === todayYmd(now, VAN_TIME_ZONE);
 }
 
 /**
- * Same-day arriving Next: booked today in Australia/Perth, or already
+ * Same-day arriving Next: booked today in Australia/Brisbane, or already
  * in_progress (not tomorrow — that stays Remind client, not upcoming).
  */
 export function isJobArrivingWindow(
@@ -184,7 +187,7 @@ export function isJobArrivingWindow(
   if (job.status !== 'in_progress') return false;
   const day = dateOnly(job.scheduled_date);
   if (!day) return false;
-  return day < todayYmd(now);
+  return day < todayYmd(now, VAN_TIME_ZONE);
 }
 
 export const ARRIVING_PURPOSE = 'arriving';

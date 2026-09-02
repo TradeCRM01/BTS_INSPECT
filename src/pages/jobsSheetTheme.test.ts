@@ -26,7 +26,7 @@ describe('job hub open sheet LOOK', () => {
     expect(page).toContain('className="btn-primary ops-next-control-block"');
     expect(page).toContain('hub-job-more');
     expect(page).toContain('Job status');
-    expect(page).toContain('recommendJobAction');
+    expect(page).toContain('jobOpenNext');
     expect(page).not.toContain('hub-job-kicker');
     expect(page).not.toContain('hub-job-banner');
     expect(page).not.toContain('hub-job-letterhead');
