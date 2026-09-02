@@ -10057,9 +10057,10 @@
 
 .hub-marketing-stamp {
   height: 128px;
-  background: var(--mkt-page);
-  border-bottom: 1px solid var(--mkt-line);
-  color: var(--mkt-ink);
+  background:
+    linear-gradient(180deg, rgba(10, 37, 64, 0.12), rgba(10, 37, 64, 0.62)),
+    repeating-linear-gradient(-18deg, #153558 0 12px, #0A2540 12px 24px);
+  color: var(--mkt-page);
   display: flex;
   align-items: flex-end;
   padding: 16px;
