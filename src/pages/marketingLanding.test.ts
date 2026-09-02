@@ -14,18 +14,24 @@ describe('public Grafter landing', () => {
     expect(src('src/App.tsx')).toContain('path="/" element={<RootPage />}');
   });
 
-  it('uses Grafter navy/cream craft, not a Looplet clone', () => {
+  it('locks conversion copy on the existing public home, not the old brochure', () => {
     const page = src('src/pages/MarketingPage.tsx');
     const css = src('src/index.css');
-    expect(page).toContain('Trade job software, from quote');
-    expect(page).toContain('to payment.');
-    expect(page).toContain('Australian electrical and trade job software');
-    expect(page).not.toContain('from the ute');
+    expect(page).toContain('One job. Quote to paid.');
+    expect(page).toContain('Everything lives on the job.');
+    expect(page).toContain('Custom templates');
+    expect(page).toContain('SafetyCulture');
+    expect(page).toContain('data-price-slot');
     expect(page).toContain('Create a workspace');
+    expect(page).toContain('PublicLegalLinks');
+    expect(page).toContain('Australian trade job software');
+    expect(page).not.toContain('electrical and trade');
+    expect(page).not.toContain('Northside Electrical');
+    expect(page).not.toContain('Switchboard upgrade');
+    expect(page).not.toContain('from the ute');
     expect(page).toContain('/signup');
     expect(page).toContain('/login');
     expect(page).toContain('Australian-built. grafter.com.au');
-    expect(page).toContain('PublicLegalLinks');
     expect(page).not.toContain('brushless');
     expect(page).not.toContain('Fraunces');
     expect(page).not.toContain('Geist');

@@ -20,19 +20,27 @@ export function MarketingPage() {
 
       <main>
         <section className="hub-marketing-hero">
-          <p className="hub-marketing-kicker">Australian electrical and trade job software</p>
+          <p className="hub-marketing-kicker">Australian trade job software</p>
           <h1 className="hub-marketing-display">
-            Trade job software, from quote<br className="hidden sm:inline" /> to payment.
+            One job. Quote to paid.
           </h1>
           <p className="hub-marketing-lede">
-            Grafter keeps jobs, quotes, invoices, inspections and the crew schedule in one place
-            for electrical and field crews — so the office and the site aren’t arguing over a spreadsheet.
+            Grafter keeps the job in one place: quote, schedule, inspect, timesheet, invoice. You build the test reports. Safety paperwork stays with the work.
           </p>
           <div className="hub-marketing-cta">
             <Link to="/signup" className="hub-marketing-btn hub-marketing-btn-lg">Create a workspace</Link>
-            <Link to="/login" className="hub-marketing-btn-ghost hub-marketing-btn-lg">Sign in</Link>
+            <Link to="/login" className="hub-marketing-link">Sign in</Link>
           </div>
+        </section>
 
+        <section className="hub-marketing-split">
+          <div>
+            <p className="hub-marketing-kicker">The job</p>
+            <h2 className="hub-marketing-subhead">Everything lives on the job.</h2>
+            <p>
+              Open a job and the rest is already on it. Quote it, drop it on the crew, fill the sheet, clock off to a timesheet, send the invoice. Nothing lives in a second app.
+            </p>
+          </div>
           <div className="hub-marketing-frame" aria-hidden>
             <div className="hub-marketing-chrome">
               <span>Grafter</span>
@@ -43,42 +51,45 @@ export function MarketingPage() {
         </section>
 
         <section className="hub-marketing-band">
+          <p className="hub-marketing-kicker">Reports and safety</p>
+          <h2 className="hub-marketing-subhead">Custom templates — then the rest of the paperwork.</h2>
+          <p>
+            Build your own test reports and inspections. Send the client a document that looks like your company. SafetyCulture sells templates as the whole product. Grafter does that as a slice, then JHA, Take 5, attach SWMS, and compliance, all filed on the same job.
+          </p>
           <div className="hub-marketing-grid">
             <article>
-              <p className="hub-marketing-kicker">Jobs</p>
-              <h2 className="hub-marketing-subhead">A card that looks like the site.</h2>
-              <p>
-                Photo-stamped jobs, a real job number, and the next action on the card.
-                Stages show as #0042.01 when a cost code is on them — same idea as Simpro, without the extra software.
-              </p>
+              <h3 className="hub-marketing-subhead">Test reports and inspections you design</h3>
             </article>
             <article>
-              <p className="hub-marketing-kicker">Quotes &amp; invoices</p>
-              <h2 className="hub-marketing-subhead">Send something they can pay.</h2>
-              <p>
-                Quote from the job, convert it, send the invoice. Email or SMS from the same record.
-                The customer isn’t chasing a PDF in a Facebook message.
-              </p>
+              <h3 className="hub-marketing-subhead">JHA and Take 5, signed on the phone</h3>
             </article>
             <article>
-              <p className="hub-marketing-kicker">Field</p>
-              <h2 className="hub-marketing-subhead">Inspections, SWMS, Take 5.</h2>
-              <p>
-                Fill on the phone, sign the crew, file it on the job. The paperwork follows the work,
-                not a folder on someone’s desktop.
-              </p>
+              <h3 className="hub-marketing-subhead">Attach SWMS. Keep compliance with the work.</h3>
             </article>
           </div>
         </section>
 
         <section className="hub-marketing-split">
           <div>
-            <p className="hub-marketing-kicker">Schedule</p>
-            <h2 className="hub-marketing-subhead">Drop a job on a name.</h2>
-            <p>
-              Search a job, drag it onto a person or a time. Already-scheduled work moves.
-              Duration stays put unless you drag the ends.
-            </p>
+            <h2 className="hub-marketing-subhead">Quote to paid, same record.</h2>
+            <article>
+              <p className="hub-marketing-kicker">Quotes</p>
+              <p>
+                Quote from the job, convert it, send the invoice. Email or SMS. They can accept on the phone.
+              </p>
+            </article>
+            <article>
+              <p className="hub-marketing-kicker">Schedule</p>
+              <p>
+                Search a job, drag it onto a name or a time.
+              </p>
+            </article>
+            <article>
+              <p className="hub-marketing-kicker">Numbers</p>
+              <p>
+                #0042, and #0042.01 when a cost code is on the stage — same idea as Simpro, without the extra software.
+              </p>
+            </article>
           </div>
           <div className="hub-marketing-frame" aria-hidden>
             <div className="hub-marketing-chrome">
@@ -89,16 +100,72 @@ export function MarketingPage() {
           </div>
         </section>
 
+        <section className="hub-marketing-band" id="pricing">
+          <p className="hub-marketing-kicker">Pricing</p>
+          <h2 className="hub-marketing-subhead">What it costs.</h2>
+          <p>
+            Australian dollars. GST called out on the quote and the invoice.
+          </p>
+          {/* SUPERNINTENDO_PRICE_FILL */}
+          <div className="hub-marketing-grid">
+            <article>
+              <p className="hub-marketing-kicker">Workspace</p>
+              <p className="hub-marketing-subhead" data-price-slot="plan-1">$—</p>
+              <p>GST</p>
+            </article>
+            <article>
+              <p className="hub-marketing-kicker">Per extra seat</p>
+              <p className="hub-marketing-subhead" data-price-slot="plan-2">$—</p>
+              <p>GST</p>
+            </article>
+            <article>
+              <p className="hub-marketing-kicker">Notes</p>
+              <p className="hub-marketing-subhead" data-price-slot="plan-3">$—</p>
+              <p>GST</p>
+            </article>
+          </div>
+        </section>
+
+        <section className="hub-marketing-band">
+          <h2 className="hub-marketing-subhead">Before you open a workspace.</h2>
+          <div>
+            <details>
+              <summary>Is this only for electricians?</summary>
+              <p>
+                No. Grafter is for trade crews — plumbing, mechanical, carpentry, electrical, the lot.
+              </p>
+            </details>
+            <details>
+              <summary>We already pay for SafetyCulture.</summary>
+              <p>
+                SafetyCulture is a templates product. Grafter includes custom inspection and test-report templates, then JHA, Take 5, attach SWMS, and compliance on the job you already run.
+              </p>
+            </details>
+            <details>
+              <summary>Does the client get a proper report?</summary>
+              <p>
+                Yes. Your templates, your logo, sent from the job.
+              </p>
+            </details>
+            <details>
+              <summary>How is GST handled?</summary>
+              <p>
+                AUD. GST on the quote and the invoice.
+              </p>
+            </details>
+          </div>
+        </section>
+
         <section className="hub-marketing-close">
           <h2 className="hub-marketing-display hub-marketing-display-sm">
-            Built for the crew that still has to turn up.
+            Create a workspace.
           </h2>
           <p className="hub-marketing-lede">
-            Create a workspace, or sign in if you already have one. No extra product to buy for quoting, jobs, or SWMS.
+            Instant signup. Your jobs, your templates, your letterhead.
           </p>
           <div className="hub-marketing-cta">
             <Link to="/signup" className="hub-marketing-btn hub-marketing-btn-lg">Create a workspace</Link>
-            <Link to="/login" className="hub-marketing-btn-ghost hub-marketing-btn-lg">Sign in</Link>
+            <Link to="/login" className="hub-marketing-link">Sign in</Link>
           </div>
         </section>
       </main>
@@ -126,11 +193,11 @@ function JobFrame() {
           <p className="hub-marketing-job-id">#0042 | 12 Workshop Rd, Perth</p>
           <span className="hub-marketing-pill">Scheduled</span>
         </div>
-        <p className="hub-marketing-job-title">Switchboard upgrade</p>
-        <p className="hub-marketing-job-meta">Northside Electrical · Tue 25 Aug · 07:30–16:00</p>
+        <p className="hub-marketing-job-title">Workshop fit-out</p>
+        <p className="hub-marketing-job-meta">Northside Plumbing · Tue 25 Aug · 07:30–16:00</p>
         <span className="hub-marketing-next">Open job</span>
         <div className="hub-marketing-stage">
-          <p className="hub-marketing-job-id">#0042.01 Switchboard labour</p>
+          <p className="hub-marketing-job-id">#0042.01 Fit-out labour</p>
           <p className="hub-marketing-job-meta">09:00–11:00 · Field Audit</p>
         </div>
       </div>
