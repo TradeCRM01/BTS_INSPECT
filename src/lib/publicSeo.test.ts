@@ -76,6 +76,8 @@ describe('public SEO copy', () => {
     expect(PUBLIC_SEO.landing.description).not.toMatch(/electrical/i);
     expect(PUBLIC_SEO.landing.title).toMatch(/trade job software/i);
     expect(PUBLIC_SEO.landing.description).toMatch(/SWMS/);
+    expect(PUBLIC_SEO.landing.title).not.toMatch(/SafetyCulture|Simpro/i);
+    expect(PUBLIC_SEO.landing.description).not.toMatch(/SafetyCulture|Simpro/i);
     expect(PUBLIC_SEO.landing.robots).toBe('index,follow');
     expect(PUBLIC_SEO.login.title).toContain('Sign in to Grafter');
     expect(PUBLIC_SEO.login.description).not.toMatch(/electrical or trade/);
@@ -210,6 +212,8 @@ describe('public document head wiring', () => {
     expect(page).toContain('One job. Quote to paid.');
     expect(page).toContain('Australian trade job software');
     expect(page).not.toContain('Australian electrical and trade job software');
+    expect(page).not.toMatch(/SafetyCulture|Simpro/i);
+    expect(src('index.html')).not.toMatch(/SafetyCulture|Simpro/i);
     expect(page).toContain('<h2 className="hub-marketing-subhead">');
     expect(src('src/components/auth/AuthShell.tsx')).toContain('<h1 className="hub-auth-title">');
     expect(src('src/pages/LoginPage.tsx')).toContain('Sign in to Grafter');
