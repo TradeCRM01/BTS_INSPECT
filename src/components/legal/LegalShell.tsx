@@ -26,7 +26,6 @@ export function LegalShell({
         </div>
       </header>
       <article className="hub-legal-article">
-        <p className="hub-marketing-kicker">Grafter</p>
         <h1 className="hub-legal-title">{title}</h1>
         {children}
       </article>
