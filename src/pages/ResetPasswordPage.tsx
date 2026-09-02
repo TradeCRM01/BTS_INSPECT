@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 import { BrandLockup } from '../components/brand/BrandLockup';
+import { PublicLegalLinks } from '../components/legal/PublicLegalLinks';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { usePublicDocumentHead } from '../lib/publicSeo';
 
@@ -184,6 +185,7 @@ export function ResetPasswordPage() {
             </>
           )}
       </div>
+      <PublicLegalLinks className="hub-auth-legal" />
     </div>
   );
 }

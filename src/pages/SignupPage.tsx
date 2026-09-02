@@ -159,6 +159,13 @@ export function SignupPage() {
           </div>
         )}
 
+        <p className="hub-auth-agree">
+          By creating a workspace you agree to the{' '}
+          <Link to="/terms">Terms of Use</Link>
+          {' '}and have read the{' '}
+          <Link to="/privacy">Privacy Policy</Link>.
+        </p>
+
         <button type="submit" disabled={loading} className="hub-auth-submit">
           {loading ? 'Creating account...' : 'Create account'}
         </button>

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { BrandLockup } from '../components/brand/BrandLockup';
 import { usePublicDocumentHead } from '../lib/publicSeo';
+import { PublicLegalLinks } from '../components/legal/PublicLegalLinks';
 
 export function MarketingPage() {
   usePublicDocumentHead('landing');
@@ -104,7 +105,10 @@ export function MarketingPage() {
 
       <footer className="hub-marketing-footer">
         <BrandLockup size="marketing" />
-        <p>Australian-built. grafter.com.au</p>
+        <div className="hub-marketing-footer-meta">
+          <p>Australian-built. grafter.com.au</p>
+          <PublicLegalLinks />
+        </div>
       </footer>
     </div>
   );

@@ -14,6 +14,22 @@ interface SignupRequest {
   company_name?: string;
 }
 
+async function findAuthUserByEmail(
+  adminClient: ReturnType<typeof createClient>,
+  email: string
+) {
+  const target = email.toLowerCase();
+  for (let page = 1; page <= 10; page++) {
+    const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const users = data?.users ?? [];
+    const match = users.find((u) => u.email?.toLowerCase() === target);
+    if (match) return match;
+    if (users.length < 200) break;
+  }
+  return null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -39,9 +55,8 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_ANON_KEY") || ""
     );
 
-    // 1. Check if user already exists
-    const { data: existingUsers } = await adminClient.auth.admin.listUsers();
-    const existingUser = existingUsers?.users.find(u => u.email === email);
+    // 1. Check if user already exists (paged — do not load every auth user)
+    const existingUser = await findAuthUserByEmail(adminClient, email);
 
     let userId: string;
 

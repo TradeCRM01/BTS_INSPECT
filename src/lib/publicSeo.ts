@@ -10,7 +10,9 @@ export type PublicSeoKey =
   | 'forgotPassword'
   | 'resetPassword'
   | 'authConfirm'
-  | 'portal';
+  | 'portal'
+  | 'privacy'
+  | 'terms';
 
 export type PublicSeoEntry = {
   title: string;
@@ -65,10 +67,24 @@ export const PUBLIC_SEO: Record<PublicSeoKey, PublicSeoEntry> = {
     path: '/p',
     robots: 'noindex,nofollow',
   },
+  privacy: {
+    title: 'Grafter Privacy Policy — How we handle trade workspace data',
+    description:
+      'What Grafter stores for Australian trade contractors, why, who it is shared with, retention, access, deletion, overseas processing, and cookies.',
+    path: '/privacy',
+    robots: 'index,follow',
+  },
+  terms: {
+    title: 'Grafter Terms of Use — Trade job software',
+    description:
+      'Terms for using Grafter, Australian trade job software: accounts, your client data, acceptable use, and Australian law.',
+    path: '/terms',
+    robots: 'index,follow',
+  },
 };
 
 /** Indexable public URLs only. No help route exists yet. */
-export const PUBLIC_SITEMAP_PATHS = ['/', '/login', '/signup'] as const;
+export const PUBLIC_SITEMAP_PATHS = ['/', '/login', '/signup', '/privacy', '/terms'] as const;
 
 /** Prefixes Google should not crawl. `/p` is handled as `/p$` + `/p?` so /price-books stays its own rule. */
 export const ROBOTS_DISALLOW_PREFIXES = [

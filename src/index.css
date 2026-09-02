@@ -9966,6 +9966,107 @@
   color: var(--ops-muted);
 }
 
+.hub-marketing-footer-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+}
+
+.hub-legal-links {
+  margin: 0;
+}
+
+.hub-legal-links a {
+  color: var(--ops-accent);
+  font-weight: 600;
+}
+
+.hub-legal {
+  min-height: 100vh;
+  background: var(--ops-cream);
+  color: var(--ops-navy);
+}
+
+.hub-legal-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 16px 20px 0;
+}
+
+.hub-legal-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hub-legal-article {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+.hub-legal-title {
+  font-family: Newsreader, Georgia, serif;
+  font-weight: 500;
+  font-size: 2.25rem;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: var(--ops-navy);
+}
+
+.hub-legal-lede {
+  margin: 10px 0 8px;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: #3d4d5c;
+}
+
+.hub-legal-updated {
+  margin: 0 0 28px;
+  font-size: 13px;
+  color: var(--ops-muted);
+}
+
+.hub-legal-article section + section {
+  margin-top: 28px;
+}
+
+.hub-legal-article h2 {
+  font-family: Newsreader, Georgia, serif;
+  font-weight: 500;
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+  margin: 0 0 10px;
+}
+
+.hub-legal-article p,
+.hub-legal-article li {
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: #3d4d5c;
+}
+
+.hub-legal-article ul {
+  margin: 8px 0 0;
+  padding-left: 1.2rem;
+}
+
+.hub-legal-article li + li {
+  margin-top: 6px;
+}
+
+.hub-legal-article a {
+  color: var(--ops-accent);
+  font-weight: 600;
+}
+
 /* Auth screens — same cream/navy as the public landing. Not AppShell. */
 .hub-auth {
   min-height: 100vh;
@@ -10046,6 +10147,26 @@
 }
 
 .hub-auth-footer a {
+  color: var(--ops-accent);
+  font-weight: 600;
+}
+
+.hub-auth-legal {
+  max-width: 26rem;
+  margin: 14px auto 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ops-muted);
+}
+
+.hub-auth-agree {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ops-muted);
+}
+
+.hub-auth-agree a {
   color: var(--ops-accent);
   font-weight: 600;
 }
