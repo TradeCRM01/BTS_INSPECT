@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   TIMESHEET_LIST_DEFAULT_FILTER,
@@ -228,16 +226,5 @@ describe('timesheet list sort, open, and empty kinds', () => {
   it('does not invent Field Audit sheets outside the audit session', () => {
     expect(getAuditTimesheets()).toBeNull();
     expect(getAuditTimesheetEntries()).toBeNull();
-  });
-
-  it('look seed stamps a clocked-off interval so list hours are not 0h 0m OPEN', () => {
-    const helper = readFileSync(resolve(process.cwd(), 'src/lib/timesheetsList.ts'), 'utf8');
-    expect(helper).toContain('AUDIT_TIMESHEET_OPEN_ID');
-    expect(helper).toContain('total_minutes: 450');
-    expect(helper).toContain('TIMESHEET_CLOCK_OFF_STATUS');
-    expect(helper).toContain('T07:30:00+10:00');
-    expect(helper).toContain('T15:00:00+10:00');
-    expect(helper).toContain("status: 'open'");
-    expect(helper).not.toMatch(/\bute\b/i);
   });
 });

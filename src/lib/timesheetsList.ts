@@ -1,4 +1,4 @@
-import { addDays, format, parseISO, startOfWeek } from 'date-fns';
+import { format, parseISO, startOfWeek } from 'date-fns';
 import { DEV_AUDIT_COMPANY, DEV_AUDIT_PROFILE, isDevFieldAuditAuth } from './devFieldAuditAuth';
 import { AUDIT_DOC_JOB_ID } from './devFieldAuditDocs';
 import { padJobNumber } from './jobRef';
@@ -301,78 +301,42 @@ export function timesheetListPillClass(status: string): string {
   return 'is-open';
 }
 
-/** Field Audit only — this week’s clocked-off sheet plus one OPEN running row. Not live rows. */
+/** Field Audit only — this week’s open sheet on job #0042. Not a live row. */
 export const AUDIT_TIMESHEET_ID = 'audit-timesheet-week';
 export const AUDIT_TIMESHEET_ENTRY_ID = 'audit-timesheet-entry';
-export const AUDIT_TIMESHEET_OPEN_ID = 'audit-timesheet-open';
-export const AUDIT_TIMESHEET_OPEN_ENTRY_ID = 'audit-timesheet-open-entry';
-
-function auditTimesheetLookDates(now: Date): { closedDate: string; openDate: string } {
-  const today = localDateIso(now);
-  const weekStart = timesheetListWeekStart(today, now);
-  const monday = format(weekStart, 'yyyy-MM-dd');
-  return {
-    closedDate: today,
-    openDate: monday === today ? format(addDays(weekStart, 1), 'yyyy-MM-dd') : monday,
-  };
-}
 
 export function getAuditTimesheets(now = new Date()): Timesheet[] | null {
   if (!isDevFieldAuditAuth()) return null;
-  const { closedDate, openDate } = auditTimesheetLookDates(now);
+  const date = format(now, 'yyyy-MM-dd');
   return [{
     id: AUDIT_TIMESHEET_ID,
     company_id: DEV_AUDIT_COMPANY.id,
     employee_id: DEV_AUDIT_PROFILE.id,
-    date: closedDate,
-    clock_in: `${closedDate}T07:30:00+10:00`,
-    clock_out: `${closedDate}T15:00:00+10:00`,
-    break_minutes: 30,
-    total_minutes: 450,
-    status: TIMESHEET_CLOCK_OFF_STATUS,
-    notes: null,
-    created_at: `${closedDate}T07:30:00+10:00`,
-    updated_at: `${closedDate}T15:00:00+10:00`,
-  }, {
-    id: AUDIT_TIMESHEET_OPEN_ID,
-    company_id: DEV_AUDIT_COMPANY.id,
-    employee_id: DEV_AUDIT_PROFILE.id,
-    date: openDate,
-    clock_in: `${openDate}T07:30:00+10:00`,
+    date,
+    clock_in: null,
     clock_out: null,
-    break_minutes: 0,
-    total_minutes: 0,
+    break_minutes: 30,
+    total_minutes: 480,
     status: 'open',
     notes: null,
-    created_at: `${openDate}T07:30:00+10:00`,
-    updated_at: `${openDate}T07:30:00+10:00`,
+    created_at: `${date}T00:00:00.000Z`,
+    updated_at: `${date}T00:00:00.000Z`,
   }];
 }
 
 export function getAuditTimesheetEntries(now = new Date()): TimesheetEntry[] | null {
   if (!isDevFieldAuditAuth()) return null;
-  const { closedDate, openDate } = auditTimesheetLookDates(now);
+  const date = format(now, 'yyyy-MM-dd');
   return [{
     id: AUDIT_TIMESHEET_ENTRY_ID,
     timesheet_id: AUDIT_TIMESHEET_ID,
     company_id: DEV_AUDIT_COMPANY.id,
     job_id: AUDIT_DOC_JOB_ID,
-    start_time: `${closedDate}T07:30:00+10:00`,
-    end_time: `${closedDate}T15:00:00+10:00`,
+    start_time: `${date}T07:30:00.000Z`,
+    end_time: `${date}T16:00:00.000Z`,
     work_type: 'Site work',
     billable: true,
     notes: null,
-    created_at: `${closedDate}T07:30:00+10:00`,
-  }, {
-    id: AUDIT_TIMESHEET_OPEN_ENTRY_ID,
-    timesheet_id: AUDIT_TIMESHEET_OPEN_ID,
-    company_id: DEV_AUDIT_COMPANY.id,
-    job_id: AUDIT_DOC_JOB_ID,
-    start_time: `${openDate}T07:30:00+10:00`,
-    end_time: null,
-    work_type: 'Site work',
-    billable: true,
-    notes: null,
-    created_at: `${openDate}T07:30:00+10:00`,
+    created_at: `${date}T07:30:00.000Z`,
   }];
 }
