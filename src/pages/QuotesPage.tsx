@@ -17,6 +17,7 @@ import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariat
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
 import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
+import { AUDIT_QUOTE_ID } from '../lib/devFieldAuditDocs';
 import { quoteSendCompanyFrom } from '../lib/sendQuote';
 import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
@@ -52,6 +53,55 @@ import { format, parseISO, addDays } from 'date-fns';
 type StatusFilter = 'all' | QuoteStatus;
 
 type QuoteListItem = QuoteWithDetails & { invoice_id: string | null; client_email?: string | null };
+
+const LOOK_FIX_EMAIL = 'fix-email';
+const LOOK_FIX_EMAIL_SEND = 'fix-email-send';
+const LOOK_FIX_EMAIL_QUOTE_ID = 'look-fix-email';
+const LOOK_FIX_EMAIL_CLIENT_ID = 'look-fix-email-client';
+const LOOK_FIX_EMAIL_NOW = '2026-09-02T00:00:00.000Z';
+
+const LOOK_FIX_EMAIL_CLIENT: Client = {
+  id: LOOK_FIX_EMAIL_CLIENT_ID,
+  company_id: 'look-fix-email-company',
+  name: 'Harbour Strata',
+  contact_person: null,
+  phone: '0412 345 678',
+  email: null,
+  address: '14 Bendigo St, Spearwood',
+  notes: null,
+  archived: false,
+  created_at: LOOK_FIX_EMAIL_NOW,
+};
+
+const LOOK_FIX_EMAIL_QUOTES: QuoteListItem[] = [
+  {
+    id: LOOK_FIX_EMAIL_QUOTE_ID,
+    company_id: LOOK_FIX_EMAIL_CLIENT.company_id,
+    quote_number: 4412,
+    client_id: LOOK_FIX_EMAIL_CLIENT_ID,
+    job_id: 'look-fix-email-job',
+    status: 'draft',
+    description: 'Switchboard upgrade',
+    scope_of_works: 'Supply and install switchboard',
+    line_items: [{ description: 'Supply and install switchboard', quantity: 1, unit_price: 1100 }],
+    subtotal: 1100,
+    tax_rate: 10,
+    tax_amount: 110,
+    total: 1210,
+    validity_date: '2026-09-26',
+    notes: null,
+    inclusions: [],
+    exclusions: [],
+    created_by: null,
+    created_at: LOOK_FIX_EMAIL_NOW,
+    updated_at: LOOK_FIX_EMAIL_NOW,
+    client_name: LOOK_FIX_EMAIL_CLIENT.name,
+    client_email: LOOK_FIX_EMAIL_CLIENT.email,
+    job_title: 'Switchboard upgrade',
+    job_address: LOOK_FIX_EMAIL_CLIENT.address,
+    invoice_id: null,
+  },
+];
 
 function visibleSite(...parts: Array<string | null | undefined>): string {
   for (const part of parts) {
@@ -102,6 +152,8 @@ export function QuotesPage() {
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null);
   const sendCompany = quoteSendCompanyFrom(company);
+  const lookFixEmail = searchParams.get('look') === LOOK_FIX_EMAIL;
+  const lookFixEmailSend = searchParams.get('look') === LOOK_FIX_EMAIL_SEND;
 
   const { data: quotes, isLoading, error } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes'],
@@ -146,7 +198,7 @@ export function QuotesPage() {
   });
 
   const filtered = useMemo(() => {
-    const list = quotes ?? [];
+    const list = lookFixEmail ? LOOK_FIX_EMAIL_QUOTES : (quotes ?? []);
     return list.filter(q => {
       if (statusFilter !== 'all' && q.status !== statusFilter) return false;
       if (search.trim()) {
@@ -157,14 +209,20 @@ export function QuotesPage() {
       }
       return true;
     });
-  }, [quotes, statusFilter, search]);
+  }, [lookFixEmail, quotes, statusFilter, search]);
+
+  useEffect(() => {
+    if (!lookFixEmailSend) return;
+    setSendingQuoteId(AUDIT_QUOTE_ID);
+  }, [lookFixEmailSend]);
 
   useEffect(() => {
     const quoteId = searchParams.get('id');
     const clientId = searchParams.get('client');
     if (quoteId) {
-      if (!quotes) return;
-      const q = quotes.find(item => item.id === quoteId);
+      const source = lookFixEmail ? LOOK_FIX_EMAIL_QUOTES : quotes;
+      if (!source) return;
+      const q = source.find(item => item.id === quoteId);
       if (!q) return;
       setEditingQuote(q);
       setPresetClientId(null);
@@ -182,7 +240,7 @@ export function QuotesPage() {
     const next = new URLSearchParams(searchParams);
     next.delete('client');
     setSearchParams(next, { replace: true });
-  }, [searchParams, quotes, setSearchParams]);
+  }, [lookFixEmail, searchParams, quotes, setSearchParams]);
 
   function openQuote(q: QuoteListItem | null) {
     setEditingQuote(q);
@@ -236,7 +294,7 @@ export function QuotesPage() {
           <SearchBar value={search} onChange={setSearch} placeholder="Search quotes or clients..." className="max-w-sm" />
         </div>
 
-        {isLoading ? (
+        {isLoading && !lookFixEmail ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : filtered.length === 0 ? (
           <EmptyState
@@ -272,6 +330,7 @@ export function QuotesPage() {
         <QuoteEditorModal
           key={editingQuote?.id ?? presetClientId ?? 'new'}
           quote={editingQuote}
+          lookClient={lookFixEmail && editingQuote?.id === LOOK_FIX_EMAIL_QUOTE_ID ? LOOK_FIX_EMAIL_CLIENT : null}
           presetClientId={presetClientId}
           defaultTaxRate={company?.default_tax_rate ?? DEFAULT_TAX_RATE}
           onClose={() => { setShowForm(false); setPresetClientId(null); }}
@@ -423,8 +482,9 @@ interface EditorState {
   scheduled_date: string;
 }
 
-function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSaved, onRequestSend }: {
+function QuoteEditorModal({ quote, lookClient, presetClientId, defaultTaxRate, onClose, onSaved, onRequestSend }: {
   quote: QuoteListItem | null;
+  lookClient?: Client | null;
   presetClientId?: string | null;
   defaultTaxRate: number;
   onClose: () => void;
@@ -435,8 +495,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [clientsLoaded, setClientsLoaded] = useState(false);
+  const [clients, setClients] = useState<Client[]>(lookClient ? [lookClient] : []);
+  const [clientsLoaded, setClientsLoaded] = useState(!!lookClient);
   const [writtenClientEmail, setWrittenClientEmail] = useState<{ clientId: string; email: string | null } | null>(null);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [writtenClientPhone, setWrittenClientPhone] = useState<{ clientId: string; phone: string | null } | null>(null);
@@ -482,13 +542,20 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         supabase.from('stock_items').select('*').eq('archived', false).order('name'),
         supabase.from('price_book_items').select('*').eq('is_active', true).order('description'),
       ]);
-      if (c.data) setClients(c.data as Client[]);
+      if (c.data) {
+        const loaded = c.data as Client[];
+        setClients(lookClient && !loaded.some(row => row.id === lookClient.id)
+          ? [lookClient, ...loaded]
+          : loaded);
+      } else if (lookClient) {
+        setClients([lookClient]);
+      }
       setClientsLoaded(true);
       if (j.data) setJobs(j.data as Job[]);
       if (s.data) setStockItems(s.data as StockItem[]);
       if (pb.data) setPriceBookItems(pb.data as PriceBookItem[]);
     })();
-  }, [profile?.company_id]);
+  }, [lookClient, profile?.company_id]);
 
   const clientJobs = useMemo(() => jobs.filter(j => form.client_id && j.client_id === form.client_id), [jobs, form.client_id]);
   const selectedClient = clients.find(c => c.id === form.client_id);

@@ -246,7 +246,7 @@ export function QuoteSendDialog({
 
   return (
     <Modal open onClose={onClose} size="md">
-      <div className="hub-invoice-send">
+      <div className="hub-invoice-send hub-quote-send">
         <div className="hub-invoice-send-head">
           <div className="min-w-0">
             <h2 className="hub-invoice-send-title">Send quote</h2>

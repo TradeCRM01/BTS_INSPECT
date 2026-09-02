@@ -243,6 +243,33 @@ describe('quote-sheet client email — wiring', () => {
     expect(editor).not.toContain('QuoteSendDialog');
   });
 
+  it('LOOK frames cover Fix email on the list and open sheet only', () => {
+    const page = src('src/pages/QuotesPage.tsx');
+    const css = src('src/index.css');
+    const quoteCss = css.slice(
+      css.indexOf('/* Quote surfaces only.'),
+      css.indexOf('/* Job list + open job sheet only.'),
+    );
+    expect(page).toContain("look') === LOOK_FIX_EMAIL");
+    expect(page).toContain('{next.label}');
+    expect(page).toContain("next.key === 'add_email'");
+    expect(page).not.toMatch(/\bute\b/i);
+    expect(quoteCss).toContain('inset 0 1px 0 #fff');
+    expect(quoteCss).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(quoteCss).toContain('--quote-page: #F5F0E6');
+    expect(quoteCss).toContain('--quote-sheet: #FFFDF8');
+    expect(quoteCss).toContain('#2E75B6');
+    expect(quoteCss).not.toMatch(/#16A34A|#15803D|#1B7F3A/);
+    for (const rel of [
+      'docs/look/quote-fix-email-list-desktop.png',
+      'docs/look/quote-fix-email-sheet-desktop.png',
+      'docs/look/quote-fix-email-sheet-phone.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel)), rel).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
+    }
+  });
+
   it('keeps Flameboy look shots for empty, saved, no-client, and list', () => {
     const shots = [
       'docs/look/quote-client-email-empty-desktop.png',

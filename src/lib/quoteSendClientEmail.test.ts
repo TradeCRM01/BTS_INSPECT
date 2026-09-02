@@ -235,6 +235,20 @@ describe('quote-send client email — wiring', () => {
     expect(sendCss).not.toContain('sky-500');
   });
 
+  it('LOOK paints the send miss on paper without restyling invoices', () => {
+    const dialog = src('src/components/invoicing/QuoteSendDialog.tsx');
+    const invoiceDialog = src('src/components/invoicing/InvoiceSendDialog.tsx');
+    const css = src('src/index.css');
+    expect(dialog).toContain('hub-quote-send');
+    expect(dialog).toContain('Fix email');
+    expect(dialog).not.toContain('Add client email');
+    expect(invoiceDialog).not.toContain('hub-quote-send');
+    expect(invoiceDialog).not.toContain('Fix email');
+    expect(css).toContain('.hub-quote-send');
+    expect(css).toContain('.overlay-panel-md:has(.hub-quote-send)');
+    expect(css).not.toMatch(/\.hub-quote-send[\s\S]{0,80}#111|#000\b/);
+  });
+
   it('uses Fix email as the primary on no_email — Send quote after a sendable save', () => {
     const dialog = src('src/components/invoicing/QuoteSendDialog.tsx');
     const handleSave = dialog.slice(dialog.indexOf('const handleSaveEmail'), dialog.indexOf('const handleSend'));
