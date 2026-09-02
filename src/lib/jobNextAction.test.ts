@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { boardDispatchHint, jobCardHint, jobInvoiceActionFlags, jobListBucket, jobListNext, partitionScheduleJobs, pickJobDraftToSend, recommendArrivingSheetNext, recommendJobAction } from './jobNextAction';
+import { boardDispatchHint, jobCardHint, jobInvoiceActionFlags, jobListBucket, jobListNext, jobOpenNext, partitionScheduleJobs, pickJobDraftToSend, recommendArrivingSheetNext, recommendJobAction } from './jobNextAction';
 import {
   ARRIVING_NEXT_LABEL,
   CLOCK_IN_NEXT_LABEL,
   PHONE_NEXT_LABEL,
+  VAN_TIME_ZONE,
   isJobArrivingWindow,
+  todayYmd,
   withReminderNext,
 } from './jobReminder';
 
@@ -310,5 +312,99 @@ describe('jobInvoiceActionFlags / pickJobDraftToSend', () => {
       { id: 'sent', status: 'sent', due_date: '2026-09-01' },
     ], now)).toBeNull();
     expect(pickJobDraftToSend([], now)).toBeNull();
+  });
+});
+
+describe('jobOpenNext — scheduled today in Australia/Brisbane', () => {
+  /** 08:00 Wednesday 2 Sep 2026 in Australia/Brisbane. UTC is still Tuesday 1 Sep. */
+  const brisbaneMorning = new Date('2026-09-01T22:00:00.000Z');
+  const todayJob = {
+    id: 'job-1',
+    status: 'scheduled' as const,
+    scheduled_date: '2026-09-02',
+    assigned_team: ['crew-1'],
+  };
+  const sheet = {
+    jhaCount: 0,
+    inspectionCount: 0,
+    invoiceCount: 0,
+    hasAcceptedQuote: false,
+    hasBillLines: false,
+    clockedOn: false,
+    arrivingSent: false,
+    phoneRowKind: 'tel' as const,
+    phoneStored: '0412 345 678',
+  };
+
+  it('treats 2 Sep Brisbane as today — not UTC 1 Sep and not leftover Perth', () => {
+    expect(VAN_TIME_ZONE).toBe('Australia/Brisbane');
+    expect(todayYmd(brisbaneMorning, VAN_TIME_ZONE)).toBe('2026-09-02');
+    expect(todayYmd(brisbaneMorning, 'UTC')).toBe('2026-09-01');
+    expect(jobCardHint(todayJob, brisbaneMorning)).toBe('Today');
+    expect(jobCardHint({ ...todayJob, scheduled_date: '2026-09-01' }, brisbaneMorning)).toBe('Still open');
+    expect(isJobArrivingWindow(todayJob, brisbaneMorning)).toBe(true);
+    expect(isJobArrivingWindow({ ...todayJob, scheduled_date: '2026-09-01' }, brisbaneMorning)).toBe(false);
+  });
+
+  it('early 2 Sep Brisbane is not leftover Perth 1 Sep', () => {
+    // 01:00 2 Sep Brisbane = 23:00 1 Sep Perth
+    const brisbaneEarly = new Date('2026-09-01T15:00:00.000Z');
+    expect(todayYmd(brisbaneEarly, 'Australia/Perth')).toBe('2026-09-01');
+    expect(todayYmd(brisbaneEarly, VAN_TIME_ZONE)).toBe('2026-09-02');
+    expect(jobCardHint(todayJob, brisbaneEarly)).toBe('Today');
+    expect(isJobArrivingWindow(todayJob, brisbaneEarly)).toBe(true);
+  });
+
+  it('scheduled today derives Arriving shortly without the caller passing arrivingWindow', () => {
+    expect(recommendJobAction({
+      status: 'scheduled',
+      scheduledDate: '2026-09-02',
+      crewCount: 1,
+      jhaCount: 0,
+      inspectionCount: 0,
+      invoiceCount: 0,
+      hasAcceptedQuote: false,
+      hasBillLines: false,
+      clockedOn: false,
+      phoneRowKind: 'tel',
+      phoneStored: '0412 345 678',
+    }, brisbaneMorning)).toMatchObject({
+      key: 'arriving',
+      label: ARRIVING_NEXT_LABEL,
+    });
+  });
+
+  it('sheet Next matches card — Arriving shortly, then Clock In; Start JHA is not primary', () => {
+    const card = jobOpenNext(todayJob, undefined, brisbaneMorning);
+    const arriving = jobOpenNext(todayJob, sheet, brisbaneMorning);
+    expect(card.label).toBe(ARRIVING_NEXT_LABEL);
+    expect(arriving.label).toBe(card.label);
+    expect(arriving.action.key).toBe('arriving');
+    expect(arriving.action.label).not.toBe('Start JHA');
+
+    const clocked = jobOpenNext(todayJob, { ...sheet, arrivingSent: true }, brisbaneMorning);
+    expect(clocked.label).toBe(CLOCK_IN_NEXT_LABEL);
+    expect(clocked.action.key).toBe('clock');
+    expect(clocked.action.label).not.toBe('Start JHA');
+  });
+
+  it('is honest when the job is not today', () => {
+    const yesterday = jobOpenNext(
+      { ...todayJob, scheduled_date: '2026-09-01' },
+      sheet,
+      brisbaneMorning,
+    );
+    expect(yesterday.label).toBe('Still open');
+    expect(yesterday.action.key).toBe('none');
+    expect(yesterday.action.label).not.toBe('Start JHA');
+
+    const later = jobOpenNext(
+      { ...todayJob, scheduled_date: '2026-09-04' },
+      sheet,
+      brisbaneMorning,
+    );
+    expect(later.label).toBe('Scheduled');
+    expect(later.action.label).not.toBe('Start JHA');
+    expect(later.action.label).not.toBe(ARRIVING_NEXT_LABEL);
   });
 });
