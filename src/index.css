@@ -10166,7 +10166,13 @@
   padding: 16px;
 }
 
-#pricing [data-price-slot] {
+#pricing .hub-marketing-grid article p {
+  max-width: none;
+  margin-top: 8px;
+  font-size: 0.95rem;
+}
+
+#pricing .hub-marketing-grid article p[data-price-slot] {
   font-family: Rajdhani, sans-serif;
   font-weight: 700;
   font-size: 1.75rem;
@@ -10174,12 +10180,6 @@
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   margin: 8px 0 0;
-}
-
-#pricing .hub-marketing-grid article p {
-  max-width: none;
-  margin-top: 8px;
-  font-size: 0.95rem;
 }
 
 @media (min-width: 800px) {
