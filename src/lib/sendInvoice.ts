@@ -108,6 +108,8 @@ export type InvoiceSendBundle = {
   client: InvoiceSendClient | null;
   jobAddress: string | null;
   smtp: SmtpSettingsRow | null;
+  /** Omit to let job-reminder ride shared Grafter Resend. Explicit null = nothing can send. */
+  sharedSmtp?: SmtpSettingsRow | null;
   company: InvoiceSendCompany;
   existingPdf?: InvoicePdfAttachment | null;
 };
@@ -144,7 +146,7 @@ export const RECEIPT_NOT_PAID_MESSAGE = 'Receipt is for paid invoices.';
 export const INVOICE_SEND_PIPE = [
   'supabase.functions.invoke job-reminder',
   'invoiceId (one invoice, company_id scoped — not the ledger)',
-  'email_settings where Resend is ready (companies without SMTP are not mailed)',
+  'email_settings where Resend is ready, else shared Grafter Resend smtp_pass on job-reminder',
   'To = client.email (never invented)',
   'attach existing invoice PDF (stored reports path or commercial generateCommercialPdf)',
   'POST https://api.resend.com/emails with email_settings.smtp_pass',
@@ -245,9 +247,34 @@ export function invoiceReceiptSmsBody(opts: {
   return `${who} received payment for invoice #${padInvoiceNumber(opts.invoiceNumber)}. Total (inc GST): ${opts.totalLabel}. The receipt PDF is in your email.`;
 }
 
-/** Same Resend gate as job-reminder / due inspections. */
+/** Same Resend gate as job-reminder / due inspections. This row only — not the shared pipe. */
 export function isSmtpReady(settings: SmtpSettingsRow | ReminderEmailSettings | null | undefined): boolean {
   return emailSettingsReady(settings);
+}
+
+/**
+ * Company settings SMTP wins. Missing / incomplete company SMTP is not a hard no:
+ * job-reminder may still send with the shared Grafter Resend smtp_pass.
+ * Pass sharedSmtp: null only when that shared path is known to be absent.
+ */
+export function resolveSendSmtp(
+  companySmtp: SmtpSettingsRow | ReminderEmailSettings | null | undefined,
+  sharedSmtp?: SmtpSettingsRow | ReminderEmailSettings | null,
+): SmtpSettingsRow | ReminderEmailSettings | null {
+  if (isSmtpReady(companySmtp) && companySmtp) return companySmtp;
+  if (sharedSmtp === undefined) return companySmtp ?? null;
+  if (isSmtpReady(sharedSmtp) && sharedSmtp) return sharedSmtp;
+  return null;
+}
+
+/** Ready when company SMTP is wired, or the shared Grafter send may still ride job-reminder. */
+export function quoteInvoiceSendPathReady(
+  companySmtp: SmtpSettingsRow | ReminderEmailSettings | null | undefined,
+  sharedSmtp?: SmtpSettingsRow | ReminderEmailSettings | null,
+): boolean {
+  if (isSmtpReady(companySmtp)) return true;
+  if (sharedSmtp === undefined) return true;
+  return isSmtpReady(sharedSmtp);
 }
 
 export function invoiceHasChargeableLines(
@@ -1149,7 +1176,7 @@ export function decideInvoiceReceipt(bundle: InvoiceSendBundle): InvoiceSendDeci
   if (!invoiceHasChargeableLines(invoice.line_items)) {
     return { ok: false, blocker: 'no_lines', message: missInvoiceReceiptMessage('no_lines') };
   }
-  if (!isSmtpReady(bundle.smtp)) {
+  if (!quoteInvoiceSendPathReady(bundle.smtp, bundle.sharedSmtp)) {
     return {
       ok: false,
       blocker: 'no_smtp',
@@ -1220,7 +1247,7 @@ export function decideInvoiceSend(bundle: InvoiceSendBundle): InvoiceSendDecisio
   if (!invoiceHasChargeableLines(invoice.line_items)) {
     return { ok: false, blocker: 'no_lines', message: NO_LINES_MESSAGE };
   }
-  if (!isSmtpReady(bundle.smtp)) {
+  if (!quoteInvoiceSendPathReady(bundle.smtp, bundle.sharedSmtp)) {
     return {
       ok: false,
       blocker: 'no_smtp',

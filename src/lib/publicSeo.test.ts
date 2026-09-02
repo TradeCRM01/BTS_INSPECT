@@ -82,6 +82,10 @@ describe('public SEO copy', () => {
     expect(PUBLIC_SEO.signup.robots).toBe('index,follow');
     expect(PUBLIC_SEO.forgotPassword.robots).toBe('noindex,nofollow');
     expect(PUBLIC_SEO.portal.robots).toBe('noindex,nofollow');
+    expect(PUBLIC_SEO.privacy.title).toBe('Privacy Policy');
+    expect(PUBLIC_SEO.terms.title).toBe('Terms of Use');
+    expect(PUBLIC_SEO.privacy.robots).toBe('index,follow');
+    expect(PUBLIC_SEO.terms.robots).toBe('index,follow');
   });
 
   it('builds absolute grafter.com.au URLs for the public origin', () => {
@@ -142,11 +146,13 @@ describe('applyPublicDocumentHead', () => {
 
 describe('public robots and sitemap files', () => {
   it('lists only the existing public marketing/auth URLs in the sitemap', () => {
-    expect([...PUBLIC_SITEMAP_PATHS]).toEqual(['/', '/login', '/signup']);
+    expect([...PUBLIC_SITEMAP_PATHS]).toEqual(['/', '/login', '/signup', '/privacy', '/terms']);
     const xml = sitemapXml();
     expect(xml).toContain(`${GRAFTER_PUBLIC_ORIGIN}/</loc>`);
     expect(xml).toContain(`${GRAFTER_PUBLIC_ORIGIN}/login</loc>`);
     expect(xml).toContain(`${GRAFTER_PUBLIC_ORIGIN}/signup</loc>`);
+    expect(xml).toContain(`${GRAFTER_PUBLIC_ORIGIN}/privacy</loc>`);
+    expect(xml).toContain(`${GRAFTER_PUBLIC_ORIGIN}/terms</loc>`);
     expect(xml).not.toContain('/jobs');
     expect(xml).not.toContain('/schedule');
     expect(src('public/sitemap.xml')).toBe(xml);
@@ -157,6 +163,8 @@ describe('public robots and sitemap files', () => {
     expect(txt).toContain('Allow: /');
     expect(txt).toContain('Allow: /login');
     expect(txt).toContain('Allow: /signup');
+    expect(txt).toContain('Allow: /privacy');
+    expect(txt).toContain('Allow: /terms');
     expect(txt).toContain('Disallow: /jobs');
     expect(txt).toContain('Disallow: /schedule');
     expect(txt).toContain('Disallow: /p$');
@@ -187,6 +195,8 @@ describe('public document head wiring', () => {
     expect(src('src/pages/ResetPasswordPage.tsx')).toContain("usePublicDocumentHead('resetPassword')");
     expect(src('src/pages/AuthConfirmPage.tsx')).toContain("usePublicDocumentHead('authConfirm')");
     expect(src('src/pages/ClientPortalPublicPage.tsx')).toContain("usePublicDocumentHead('portal')");
+    expect(src('src/pages/PrivacyPage.tsx')).toContain('seoKey="privacy"');
+    expect(src('src/pages/TermsPage.tsx')).toContain('seoKey="terms"');
     expect(src('src/components/auth/AuthShell.tsx')).toContain('usePublicDocumentHead(seoKey)');
     expect(src('src/App.tsx')).not.toContain('path="/help"');
   });
