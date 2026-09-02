@@ -49,15 +49,19 @@ export function StorageAnalytics() {
     try {
       setRunningCleanup(true);
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cleanup-old-photos`;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('Sign in again to clean up photos');
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           days_old: 90,
           dry_run: dryRun,
+          company_id: profile?.company_id,
         }),
       });
 
