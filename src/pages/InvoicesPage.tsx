@@ -105,6 +105,93 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'paid', label: 'Paid' },
 ];
 
+/** Signed invoices-list frames — Overdue tab + honest empty. Not a live company. */
+const INVOICES_LOOK_TABS = 'overdue-tabs';
+const INVOICES_LOOK_EMPTY = 'overdue-empty';
+
+function invoicesLookRow(
+  over: Partial<InvoiceWithDetails> & Pick<InvoiceWithDetails, 'id' | 'status' | 'invoice_number'>,
+): InvoiceWithDetails {
+  return {
+    company_id: 'look-invoices',
+    client_id: null,
+    job_id: null,
+    quote_id: null,
+    source: null,
+    line_items: [],
+    subtotal: 0,
+    tax_rate: 10,
+    tax_amount: 0,
+    total: 0,
+    payment_terms: '14 days',
+    due_date: '2026-12-01',
+    notes: null,
+    inclusions: [],
+    exclusions: [],
+    created_by: 'look-invoices',
+    created_at: '2026-08-01T00:00:00.000Z',
+    updated_at: '2026-08-01T00:00:00.000Z',
+    ...over,
+  };
+}
+
+function invoicesLookFloor(includeOverdue: boolean): InvoiceWithDetails[] {
+  const rows: InvoiceWithDetails[] = [
+    invoicesLookRow({
+      id: 'look-inv-draft',
+      status: 'draft',
+      invoice_number: 4412,
+      client_name: 'Harbour Strata',
+      job_address: '8 Beach Rd, Spearwood WA',
+      subtotal: 1100,
+      tax_amount: 110,
+      total: 1210,
+    }),
+    invoicesLookRow({
+      id: 'look-inv-sent',
+      status: 'sent',
+      invoice_number: 4411,
+      client_name: 'Acme Electrical',
+      job_address: '22 High St, Fremantle WA',
+      due_date: '2026-12-15',
+      subtotal: 800,
+      tax_amount: 80,
+      total: 880,
+    }),
+    invoicesLookRow({
+      id: 'look-inv-paid',
+      status: 'paid',
+      invoice_number: 4408,
+      client_name: 'Coastal Homes',
+      job_address: '14 Marine Pde, Cottesloe WA',
+      subtotal: 2400,
+      tax_amount: 240,
+      total: 2640,
+    }),
+  ];
+  if (!includeOverdue) return rows;
+  return [
+    invoicesLookRow({
+      id: 'look-inv-overdue',
+      status: 'overdue',
+      invoice_number: 4415,
+      client_name: 'Westside Smash',
+      job_address: '9 Port St, Fremantle WA',
+      due_date: '2026-08-01',
+      subtotal: 1700,
+      tax_amount: 170,
+      total: 1870,
+    }),
+    ...rows,
+  ];
+}
+
+function invoicesLookSeed(look: string | null): InvoiceWithDetails[] | null {
+  if (look === INVOICES_LOOK_TABS) return invoicesLookFloor(true);
+  if (look === INVOICES_LOOK_EMPTY) return invoicesLookFloor(false);
+  return null;
+}
+
 export function InvoicesPage() {
   const { profile, company } = useAuth();
   const queryClient = useQueryClient();
@@ -117,6 +204,7 @@ export function InvoicesPage() {
   const [showForm, setShowForm] = useState(false);
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
   const invoiceIdParam = searchParams.get('id');
+  const lookInvoices = invoicesLookSeed(searchParams.get('look'));
 
   const { data: smtpSettings } = useQuery<SmtpSettingsRow | null>({
     queryKey: ['email-settings', profile?.company_id],
@@ -175,7 +263,7 @@ export function InvoicesPage() {
   });
 
   const filtered = useMemo(() => {
-    const list = invoices ?? [];
+    const list = lookInvoices ?? invoices ?? [];
     return list.filter(i => {
       if (!invoiceMatchesListFilter(i, statusFilter)) return false;
       if (search.trim()) {
@@ -185,7 +273,7 @@ export function InvoicesPage() {
       }
       return true;
     });
-  }, [invoices, statusFilter, search]);
+  }, [lookInvoices, invoices, statusFilter, search]);
 
   const listInvoices = useMemo(() => {
     const rank = (inv: InvoiceWithDetails) => {
@@ -244,14 +332,17 @@ export function InvoicesPage() {
 
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load invoices" /></AppShell>;
 
-  const noneYet = invoiceListIsNoneYet({ search, invoiceCount: invoices?.length ?? 0 });
+  const noneYet = invoiceListIsNoneYet({
+    search,
+    invoiceCount: (lookInvoices ?? invoices)?.length ?? 0,
+  });
+  const listLoading = !lookInvoices && isLoading;
 
   return (
     <AppShell>
       <div className="ops-page hub-invoices">
         <div className="ops-page-head">
           <div>
-            <p className="hub-invoice-kicker">Invoices</p>
             <h1 className="ops-page-title">Invoices</h1>
           </div>
           <button
@@ -278,19 +369,21 @@ export function InvoicesPage() {
           <SearchBar value={search} onChange={setSearch} placeholder="Search invoices or clients..." className="max-w-sm" />
         </div>
 
-        {isLoading ? (
+        {listLoading ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={Receipt}
-            title={invoiceListEmptyTitle({ noneYet })}
-            message={invoiceListEmptyMessage({ noneYet })}
-            action={noneYet ? (
-              <button onClick={() => openInvoice(null)} className="btn-primary">
-                <Plus size={16} /> New invoice
-              </button>
-            ) : undefined}
-          />
+          <div className="hub-invoices-sheet">
+            <EmptyState
+              icon={Receipt}
+              title={invoiceListEmptyTitle({ noneYet })}
+              message={invoiceListEmptyMessage({ noneYet })}
+              action={noneYet ? (
+                <button onClick={() => openInvoice(null)} className="btn-primary">
+                  <Plus size={16} /> New invoice
+                </button>
+              ) : undefined}
+            />
+          </div>
         ) : (
           <div className="hub-invoices-sheet">
             <div className="hub-invoices-thead">
