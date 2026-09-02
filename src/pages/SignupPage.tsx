@@ -11,6 +11,7 @@ export function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -24,6 +25,7 @@ export function SignupPage() {
       if (!companyName.trim()) throw new Error('Company name is required');
       if (!email.trim()) throw new Error('Email is required');
       if (password.length < 8) throw new Error('Password must be at least 8 characters');
+      if (!agreed) throw new Error('Please agree to the Terms of Use and Privacy Policy');
 
       try {
         await supabase.auth.signOut();
@@ -159,14 +161,22 @@ export function SignupPage() {
           </div>
         )}
 
-        <p className="hub-auth-agree">
-          By creating a workspace you agree to the{' '}
-          <Link to="/terms">Terms of Use</Link>
-          {' '}and have read the{' '}
-          <Link to="/privacy">Privacy Policy</Link>.
-        </p>
+        <label className="hub-auth-agree-row">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={e => setAgreed(e.target.checked)}
+            required
+          />
+          <span>
+            I agree to the{' '}
+            <Link to="/terms">Terms of Use</Link>
+            {' '}and have read the{' '}
+            <Link to="/privacy">Privacy Policy</Link>.
+          </span>
+        </label>
 
-        <button type="submit" disabled={loading} className="hub-auth-submit">
+        <button type="submit" disabled={loading || !agreed} className="hub-auth-submit">
           {loading ? 'Creating account...' : 'Create account'}
         </button>
       </form>

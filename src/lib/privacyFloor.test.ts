@@ -23,6 +23,10 @@ describe('Grafter privacy / legal floor', () => {
     expect(privacy).toContain('Supabase');
     expect(privacy).toContain('Cookies and local storage');
     expect(privacy).toContain('Australian Privacy Principles');
+    expect(privacy).toContain('Client PII');
+    expect(privacy).toContain('Crew PII');
+    expect(privacy).toContain('Photos and receipts');
+    expect(privacy).toContain('Email and SMS');
     expect(privacy).toContain('oaic.gov.au');
     expect(terms).toContain('Terms of Use');
     expect(terms).toContain('Grafter');
@@ -35,15 +39,19 @@ describe('Grafter privacy / legal floor', () => {
   it('links Privacy and Terms from signup, login chrome, and the landing footer', () => {
     expect(src('src/pages/SignupPage.tsx')).toContain('to="/terms"');
     expect(src('src/pages/SignupPage.tsx')).toContain('to="/privacy"');
+    expect(src('src/pages/SignupPage.tsx')).toContain('type="checkbox"');
+    expect(src('src/pages/SignupPage.tsx')).toContain('I agree to the');
     expect(src('src/components/auth/AuthShell.tsx')).toContain('PublicLegalLinks');
     expect(src('src/pages/LoginPage.tsx')).toContain('AuthShell');
+    expect(src('src/pages/LoginPage.tsx')).toContain('to="/privacy"');
+    expect(src('src/pages/LoginPage.tsx')).toContain('to="/terms"');
     expect(src('src/pages/ForgotPasswordPage.tsx')).toContain('AuthShell');
     expect(src('src/pages/ResetPasswordPage.tsx')).toContain('PublicLegalLinks');
     expect(src('src/pages/AuthConfirmPage.tsx')).toContain('PublicLegalLinks');
     expect(src('src/pages/MarketingPage.tsx')).toContain('PublicLegalLinks');
     expect(src('src/App.tsx')).toContain('path="/privacy"');
     expect(src('src/App.tsx')).toContain('path="/terms"');
-    expect(src('src/App.tsx')).not.toContain('DocumentsPage');
+    expect(src('src/App.tsx')).not.toContain('path="/documents"');
     expect([...PUBLIC_SITEMAP_PATHS]).toEqual(['/', '/login', '/signup', '/privacy', '/terms']);
   });
 

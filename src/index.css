@@ -10166,9 +10166,27 @@
   color: var(--ops-muted);
 }
 
-.hub-auth-agree a {
+.hub-auth-agree a,
+.hub-auth-agree-row a {
   color: var(--ops-accent);
   font-weight: 600;
+}
+
+.hub-auth-agree-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ops-muted);
+}
+
+.hub-auth-agree-row input[type='checkbox'] {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .hub-auth .relative > button.absolute {

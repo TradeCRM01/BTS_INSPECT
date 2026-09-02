@@ -30,10 +30,11 @@ export function PrivacyPage() {
         <ul>
           <li>Account details: name, email, password hash (held by our auth provider), licence number, saved signature, role.</li>
           <li>Company details: business name, ABN, phone, email, website, logo, branding, billing status.</li>
-          <li>Client and job records: names, phone numbers, emails, site addresses, notes, quotes, invoices, and payment terms.</li>
-          <li>Crew records: teammate names, emails, timesheets, schedule colours, and compliance items you enter.</li>
-          <li>Field files: inspection photos, job photos, SWMS/JHA documents, signatures on forms, uploaded PDFs, and expense receipt images you scan or attach.</li>
-          <li>Operational mail: email and SMS you send from Grafter (job reminders, quotes, invoices, invites, password resets).</li>
+          <li>Client PII: names, phone numbers, emails, site addresses, and notes.</li>
+          <li>Job records: titles, addresses, schedule, quotes, invoices, and payment terms.</li>
+          <li>Crew PII: teammate names, emails, timesheets, schedule colours, and compliance items you enter.</li>
+          <li>Photos and receipts: inspection photos, job photos, expense receipt images you scan or attach, signatures on forms, SWMS/JHA documents, and uploaded PDFs.</li>
+          <li>Email and SMS you send from Grafter (job reminders, quotes, invoices, invites, password resets).</li>
         </ul>
         <p>
           We do not ask for tax file numbers. Public signup creates a workspace from the name,
