@@ -118,13 +118,14 @@ describe('decideInvoiceReceipt', () => {
       expect(noEmail.href).toBe('/clients/c1');
     }
 
-    const noSmtp = decideInvoiceReceipt(bundle({ smtp: null }));
+    const noSmtp = decideInvoiceReceipt(bundle({ smtp: null, sharedSmtp: null }));
     expect(noSmtp.ok).toBe(false);
     if (!noSmtp.ok) {
       expect(noSmtp.blocker).toBe('no_smtp');
       expect(noSmtp.message).toBe(NO_RECEIPT_SMTP_MESSAGE);
       expect(noSmtp.href).toBe('/settings/company');
     }
+    expect(decideInvoiceReceipt(bundle({ smtp: null })).ok).toBe(true);
 
     const noClient = decideInvoiceReceipt(bundle({ invoice: { ...paidInvoice, client_id: null } }));
     expect(noClient.ok).toBe(false);

@@ -39,6 +39,9 @@ describe('invoice send deliver path', () => {
     expect(edge).toContain('from("invoices")');
     expect(edge).toContain('api.resend.com/emails');
     expect(edge).toContain('email_settings');
+    expect(edge).toContain('resolveSendSmtp');
+    expect(edge).toContain('RESEND_API_KEY');
+    expect(edge).toContain('sharedGrafterSmtp');
     expect(edge).toContain('invoicePatch.status = "sent"');
     expect(edge).toContain('chased_at');
     expect(edge).toContain('is chasing overdue invoice');
