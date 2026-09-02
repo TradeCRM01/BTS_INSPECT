@@ -8650,6 +8650,15 @@
     border: 1px solid var(--jha-look-line);
     border-radius: 16px;
     overflow: hidden;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08);
+  }
+
+  /* Take 5 row on the JHA list — hairline entry, same language as other document rows. */
+  .hub-jha-sheet [data-take5-list] {
+    background: var(--jha-look-sheet);
+    border-top: 1px solid var(--jha-look-line);
     box-shadow: none;
   }
 
@@ -9750,6 +9759,19 @@
 
   .shell-menu-item-active {
     @apply bg-white/10 text-white font-medium;
+  }
+
+  /* Field Work Take 5 — same whisper chrome as JHA documents. */
+  a[data-take5-nav],
+  a[data-jha-nav] {
+    box-shadow: none;
+  }
+
+  @media (max-width: 767px) {
+    a[data-take5-nav],
+    a[data-jha-nav] {
+      min-height: 44px;
+    }
   }
 }
 
