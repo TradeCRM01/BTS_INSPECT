@@ -27,6 +27,9 @@ export function MarketingPage() {
           <p className="hub-marketing-lede">
             Grafter keeps the job in one place: quote, schedule, inspect, timesheet, invoice. You build the test reports. Safety paperwork stays with the work.
           </p>
+          <p className="hub-marketing-lede">
+            3 months free. Then pick a seat pack.
+          </p>
           <div className="hub-marketing-cta">
             <Link to="/signup" className="hub-marketing-btn hub-marketing-btn-lg">Create a workspace</Link>
             <Link to="/login" className="hub-marketing-link">Sign in</Link>
@@ -104,26 +107,34 @@ export function MarketingPage() {
           <p className="hub-marketing-kicker">Pricing</p>
           <h2 className="hub-marketing-subhead">What it costs.</h2>
           <p>
-            Australian dollars. GST called out on the quote and the invoice.
+            3 months free. Then seats only — same Grafter on every plan. AUD, GST included. Less than Simpro plus SafetyCulture.
           </p>
-          {/* SUPERNINTENDO_PRICE_FILL */}
           <div className="hub-marketing-grid">
             <article>
-              <p className="hub-marketing-kicker">Workspace</p>
-              <p className="hub-marketing-subhead" data-price-slot="plan-1">$—</p>
-              <p>GST</p>
+              <p className="hub-marketing-kicker">Crew</p>
+              <p>1–5 seats</p>
+              <p className="hub-marketing-subhead" data-price-slot="crew">$79</p>
+              <p>mo</p>
+              <p>GST included</p>
             </article>
             <article>
-              <p className="hub-marketing-kicker">Per extra seat</p>
-              <p className="hub-marketing-subhead" data-price-slot="plan-2">$—</p>
-              <p>GST</p>
+              <p className="hub-marketing-kicker">Company</p>
+              <p>6–15 seats</p>
+              <p className="hub-marketing-subhead" data-price-slot="company">$149</p>
+              <p>mo</p>
+              <p>GST included</p>
             </article>
             <article>
-              <p className="hub-marketing-kicker">Notes</p>
-              <p className="hub-marketing-subhead" data-price-slot="plan-3">$—</p>
-              <p>GST</p>
+              <p className="hub-marketing-kicker">Plant</p>
+              <p>16–40 seats</p>
+              <p className="hub-marketing-subhead" data-price-slot="plant">$249</p>
+              <p>mo</p>
+              <p>GST included</p>
             </article>
           </div>
+          <p>
+            Every plan: jobs, custom templates, JHA, Take 5, SWMS. Seats are the only difference.
+          </p>
         </section>
 
         <section className="hub-marketing-band">
@@ -150,7 +161,13 @@ export function MarketingPage() {
             <details>
               <summary>How is GST handled?</summary>
               <p>
-                AUD. GST on the quote and the invoice.
+                Prices are AUD, GST included. 3 months free, then the seat pack.
+              </p>
+            </details>
+            <details>
+              <summary>What’s the difference between the plans?</summary>
+              <p>
+                Seats. Crew, Company, and Plant are the same product.
               </p>
             </details>
           </div>
@@ -161,7 +178,7 @@ export function MarketingPage() {
             Create a workspace.
           </h2>
           <p className="hub-marketing-lede">
-            Instant signup. Your jobs, your templates, your letterhead.
+            3 months free. Instant signup. Your jobs, your templates, your letterhead.
           </p>
           <div className="hub-marketing-cta">
             <Link to="/signup" className="hub-marketing-btn hub-marketing-btn-lg">Create a workspace</Link>

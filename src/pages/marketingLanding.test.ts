@@ -22,6 +22,17 @@ describe('public Grafter landing', () => {
     expect(page).toContain('Custom templates');
     expect(page).toContain('SafetyCulture');
     expect(page).toContain('data-price-slot');
+    expect(page).toContain('$79');
+    expect(page).toContain('$149');
+    expect(page).toContain('$249');
+    expect(page).toContain('3 months free');
+    expect(page).toContain('Crew');
+    expect(page).toContain('Company');
+    expect(page).toContain('Plant');
+    expect(page).toContain('GST included');
+    expect(page).not.toContain('$\u2014');
+    expect(page).not.toContain('TBA');
+    expect(page).not.toContain('SUPERNINTENDO_PRICE_FILL');
     expect(page).toContain('Create a workspace');
     expect(page).toContain('PublicLegalLinks');
     expect(page).toContain('Australian trade job software');
