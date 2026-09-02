@@ -15,6 +15,9 @@ describe('job list cream paper look', () => {
     expect(list).toContain('hub-jobs-sheet');
     expect(list).toContain('hub-jobs-row');
     expect(list).toContain('hub-jobs-pill');
+    expect(list).toContain('btn-primary ops-next-control-block');
+    expect(list).toContain('ARRIVING_NEXT_LABEL');
+    expect(list).toContain('CLOCK_IN_NEXT_LABEL');
     expect(list).toContain('Customer');
     expect(list).toContain('Suburb');
     expect(list).not.toContain('function JobCard');

@@ -27,8 +27,7 @@ import {
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ClientForm } from './ClientsPage';
 import type { ComplianceItem } from '../types/compliance';
-import { jobListNext } from '../lib/jobNextAction';
-import { withReminderNext } from '../lib/jobReminder';
+import { jobOpenNext } from '../lib/jobNextAction';
 import { quoteActionContext, recommendQuoteAction } from '../lib/quoteNextAction';
 import { recommendInvoiceAction } from '../lib/invoiceNextAction';
 import { pickReusableInvoice } from '../lib/invoiceFromQuote';
@@ -414,7 +413,7 @@ export function ClientDetailPage() {
                   {jobsError ? null : <Link to={newJobHref} className="hub-clients-next">New job</Link>}
                 </div>
               ) : floorJobs.map(job => {
-                const next = withReminderNext(job, jobListNext(job));
+                const next = jobOpenNext(job);
                 const href = clientJobOpenHref(job.id);
                 const status = clientJobStatusLabel(job.status) ?? '';
                 const title = clientJobFloorTitle(job);

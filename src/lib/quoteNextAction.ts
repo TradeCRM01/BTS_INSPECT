@@ -1,7 +1,9 @@
 import type { QuoteStatus } from '../types/fsm';
+import { clientEmailForSend } from './sendInvoice';
 
 export type QuoteActionKey =
   | 'send'
+  | 'add_email'
   | 'accept'
   | 'convert_job'
   | 'invoice'
@@ -14,6 +16,7 @@ export type QuoteListBucket = 'draft' | 'sent' | 'accepted' | 'closed';
 export type QuoteActionContext = {
   status: QuoteStatus;
   hasClient: boolean;
+  hasClientEmail?: boolean;
   hasLines: boolean;
   jobId: string | null | undefined;
   invoiceId: string | null | undefined;
@@ -34,13 +37,17 @@ export function quoteHasChargeableLines(
 export function quoteActionContext(quote: {
   status: QuoteStatus;
   client_id?: string | null;
+  client_email?: string | null;
   line_items?: { description?: string | null; quantity?: number | string | null }[] | null;
   job_id?: string | null;
   invoice_id?: string | null;
 }): QuoteActionContext {
+  const hasClient = !!quote.client_id;
+  const emailKnown = quote.client_email !== undefined;
   return {
     status: quote.status,
-    hasClient: !!quote.client_id,
+    hasClient,
+    hasClientEmail: !hasClient ? false : (emailKnown ? !!clientEmailForSend(quote.client_email) : true),
     hasLines: quoteHasChargeableLines(quote.line_items),
     jobId: quote.job_id ?? null,
     invoiceId: quote.invoice_id ?? null,
@@ -67,6 +74,13 @@ export function recommendQuoteAction(ctx: QuoteActionContext): RecommendedQuoteA
     }
     if (!ctx.hasLines) {
       return { key: 'none', label: 'Add line items', detail: 'Add the work and materials so the quote has a price.' };
+    }
+    if (ctx.hasClientEmail === false) {
+      return {
+        key: 'add_email',
+        label: 'Fix email',
+        detail: 'This client has no email. Add one on this quote before you can send.',
+      };
     }
     return {
       key: 'send',

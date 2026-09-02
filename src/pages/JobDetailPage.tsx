@@ -28,7 +28,7 @@ import {
 } from '../lib/invoiceFromJobBill';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
-import { jobInvoiceActionFlags, recommendJobAction } from '../lib/jobNextAction';
+import { jobInvoiceActionFlags, jobOpenNext } from '../lib/jobNextAction';
 import { jobDraftSendToast, sendJobDraftInvoice } from '../lib/sendJobDraftInvoice';
 import {
   JOB_CLIENT_ATTACH_NO_CLIENTS,
@@ -48,10 +48,8 @@ import {
 } from '../lib/saveJobClientPhone';
 import {
   ARRIVING_NEXT_LABEL,
-  isJobArrivingWindow,
   isJobRescheduleQuery,
   jobOfficeRescheduleBanner,
-  withReminderNext,
 } from '../lib/jobReminder';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel, recommendJhaListAction } from '../lib/jhaNextAction';
 import { livingInspectionSummary, livingSwmsSummary, livingTake5Summary } from '../lib/livingJha';
@@ -788,26 +786,18 @@ export function JobDetailPage() {
         : null,
   });
 
-  const next = recommendJobAction({
-    status: job.status,
-    scheduledDate: job.scheduled_date,
-    crewCount: (job.assigned_team ?? []).length,
+  const sheetNext = jobOpenNext(job, {
     jhaCount: (jhas ?? []).length,
     inspectionCount: (inspections ?? []).length,
     ...jobInvoiceActionFlags(invoices ?? []),
     hasAcceptedQuote: !!acceptedQuote,
     hasBillLines: (costTotals?.lines ?? 0) > 0,
     clockedOn: !!runningEntry,
-    arrivingWindow: isJobArrivingWindow(job),
     arrivingSent,
     phoneRowKind: phoneRow.kind,
     phoneStored: phoneRow.kind === 'none' ? '' : phoneRow.phone,
   });
-  const sheetNext = withReminderNext(job, {
-    href: `/jobs/${job.id}`,
-    label: next.label,
-    actionable: next.key !== 'none',
-  });
+  const next = sheetNext.action;
   const arrivingPrimary = sheetNext.label === ARRIVING_NEXT_LABEL;
 
   const nextBusy =
@@ -832,7 +822,7 @@ export function JobDetailPage() {
       return;
     }
     if (next.key === 'phone') writeClientPhone();
-    else if (next.key === 'schedule' || next.key === 'crew') scrollToId('job-schedule');
+    else if (next.key === 'schedule' || next.key === 'crew' || sheetNext.label === 'Remind client') scrollToId('job-schedule');
     else if (next.key === 'jha') startJha();
     else if (next.key === 'invoice') handleInvoice();
     else if (next.key === 'send') handleSend();

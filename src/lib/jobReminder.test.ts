@@ -18,12 +18,15 @@ import {
   smsResultFromSend,
   clientRescheduleMailto,
   COMPANY_TIME_ZONE,
+  VAN_TIME_ZONE,
   dateOnly,
   decideReminderSend,
   emailSettingsReady,
   formatJobDate,
   isCronAuthorized,
   isExistingScheduleSurface,
+  isJobArrivingWindow,
+  isJobDueToday,
   isJobDueTomorrow,
   isReminderQueryScoped,
   isJobRescheduleQuery,
@@ -45,6 +48,7 @@ import {
   selectTomorrowReminderJobs,
   shouldRecordReminderSent,
   tomorrowReminderQuery,
+  todayYmd,
   tomorrowYmd,
   withReminderNext,
   wouldScanUnscopedJobs,
@@ -137,6 +141,19 @@ describe('tomorrow window', () => {
     expect(isJobDueTomorrow(job({ status: 'completed' }), now)).toBe(false);
     expect(isJobDueTomorrow(job({ status: 'cancelled' }), now)).toBe(false);
     expect(isJobDueTomorrow(job({ status: 'in_progress' }), now)).toBe(true);
+  });
+});
+
+describe('van today — Australia/Brisbane', () => {
+  it('a 2 Sep Brisbane morning is not UTC 1 Sep', () => {
+    const brisbaneMorning = new Date('2026-09-01T22:00:00.000Z');
+    expect(VAN_TIME_ZONE).toBe('Australia/Brisbane');
+    expect(todayYmd(brisbaneMorning, VAN_TIME_ZONE)).toBe('2026-09-02');
+    expect(todayYmd(brisbaneMorning, 'UTC')).toBe('2026-09-01');
+    expect(isJobDueToday({ status: 'scheduled', scheduled_date: '2026-09-02' }, brisbaneMorning)).toBe(true);
+    expect(isJobDueToday({ status: 'scheduled', scheduled_date: '2026-09-01' }, brisbaneMorning)).toBe(false);
+    expect(isJobArrivingWindow({ status: 'scheduled', scheduled_date: '2026-09-02' }, brisbaneMorning)).toBe(true);
+    expect(isJobArrivingWindow({ status: 'scheduled', scheduled_date: '2026-09-01' }, brisbaneMorning)).toBe(false);
   });
 });
 

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { BrandLockup } from '../brand/BrandLockup';
 import { usePublicDocumentHead, type PublicSeoKey } from '../../lib/publicSeo';
+import { PublicLegalLinks } from '../legal/PublicLegalLinks';
 
 export function AuthShell({
   title,
@@ -30,6 +31,7 @@ export function AuthShell({
         {children}
       </div>
       {footer ? <div className="hub-auth-footer">{footer}</div> : null}
+      <PublicLegalLinks className="hub-auth-legal" />
     </div>
   );
 }

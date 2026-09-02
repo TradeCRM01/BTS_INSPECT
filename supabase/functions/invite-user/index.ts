@@ -227,7 +227,7 @@ Deno.serve(async (req: Request) => {
       .eq("id", companyId)
       .single();
 
-    const companyName = companyRow?.name?.trim() || "Building Technology Solutions";
+    const companyName = companyRow?.name?.trim() || "the team";
     const inviterName = callerProfile.name?.trim() || "A teammate";
 
     const { data: existingProfile } = await adminClient
@@ -249,7 +249,7 @@ Deno.serve(async (req: Request) => {
     const matchedAuthUser = await findAuthUserByEmail(adminClient, email);
     const isExisting = !!matchedAuthUser;
 
-    const appUrl = (clientAppUrl || Deno.env.get("APP_URL") || "https://bts-inspect.pages.dev").replace(/\/$/, "");
+    const appUrl = (clientAppUrl || Deno.env.get("APP_URL") || "https://grafter.com.au").replace(/\/$/, "");
     const resetUrl = `${appUrl}/reset-password`;
 
     const memberName = (name ?? "").trim();

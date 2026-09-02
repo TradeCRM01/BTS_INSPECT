@@ -119,7 +119,7 @@ describe('job-sheet Send next — wiring', () => {
     const send = src('src/lib/sendJobDraftInvoice.ts');
     const next = src('src/lib/jobNextAction.ts');
     const handleStart = page.indexOf('const handleSend');
-    const handleEnd = page.indexOf('const next = recommendJobAction');
+    const handleEnd = page.indexOf('const sheetNext = jobOpenNext');
     expect(handleStart).toBeGreaterThan(-1);
     expect(handleEnd).toBeGreaterThan(handleStart);
     const handle = page.slice(handleStart, handleEnd);
