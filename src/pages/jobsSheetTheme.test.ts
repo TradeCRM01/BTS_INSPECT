@@ -42,7 +42,9 @@ describe('job hub open sheet LOOK', () => {
     expect(page).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(list).toContain('hub-jobs-sheet');
-    expect(list).toContain('className="btn-primary ops-next-control-block"');
+    expect(list).toContain('className={primaryNext ? \'btn-primary ops-next-control-block\' : \'hub-next\'}');
+    expect(list).toContain('ARRIVING_NEXT_LABEL');
+    expect(list).toContain('CLOCK_IN_NEXT_LABEL');
     expect(list).not.toContain('hub-jobs-document');
     expect(list).not.toContain('is-record-open');
 
@@ -121,6 +123,17 @@ describe('job hub open sheet LOOK frames', () => {
     for (const rel of [
       'docs/look/job-hub-sheet-desktop.png',
       'docs/look/job-hub-sheet-phone.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
+    }
+  });
+
+  it('covers scheduled-today Arriving shortly on the card and the open sheet', () => {
+    for (const rel of [
+      'docs/look/jobs-card-arriving-desktop.png',
+      'docs/look/job-sheet-arriving-desktop.png',
+      'docs/look/job-sheet-arriving-phone.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
       expect(rel).not.toMatch(/ute/i);

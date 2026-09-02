@@ -11,6 +11,7 @@ import { JobFormModal } from '../components/crm/JobFormModal';
 import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import { JOB_STATUS_LABELS } from '../types/crm';
 import { jobOpenNext } from '../lib/jobNextAction';
+import { ARRIVING_NEXT_LABEL, CLOCK_IN_NEXT_LABEL } from '../lib/jobReminder';
 import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { Plus, Briefcase } from 'lucide-react';
@@ -248,6 +249,7 @@ function JobRow({ job }: { job: JobRowModel }) {
   const next = jobOpenNext(job);
   const site = visibleSite(job.address, job.client_address);
   const suburb = site ? suburbFromSite(site) : '';
+  const primaryNext = next.label === ARRIVING_NEXT_LABEL || next.label === CLOCK_IN_NEXT_LABEL;
   return (
     <div
       role="button"
@@ -262,7 +264,12 @@ function JobRow({ job }: { job: JobRowModel }) {
       <span className={`hub-jobs-pill is-${job.status}`}>{JOB_STATUS_LABELS[job.status]}</span>
       <span className="hub-jobs-row-next" onClick={e => e.stopPropagation()}>
         {next.actionable ? (
-          <Link to={next.href} className="btn-primary ops-next-control-block">{next.label}</Link>
+          <Link
+            to={next.href}
+            className={primaryNext ? 'btn-primary ops-next-control-block' : 'hub-next'}
+          >
+            {next.label}
+          </Link>
         ) : (
           <span className="hub-jobs-muted">{next.label}</span>
         )}
