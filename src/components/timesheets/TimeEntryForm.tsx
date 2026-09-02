@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { OverlayPortal } from '../ui/OverlayPortal';
@@ -10,6 +9,7 @@ import {
   buildJobTimeEntry,
   buildOpenTimesheetInsert,
   entryMinutes,
+  localDateIso,
 } from '../../lib/timesheetJob';
 import type { Timesheet } from '../../types/fsm';
 
@@ -32,7 +32,7 @@ export function TimeEntryForm({
 }) {
   const { profile } = useAuth();
   const [form, setForm] = useState({
-    date: format(new Date(), 'yyyy-MM-dd'),
+    date: localDateIso(),
     start_time: '08:00',
     end_time: '17:00',
     work_type: '',

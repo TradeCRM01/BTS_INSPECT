@@ -64,6 +64,39 @@ function emailSettingsReady(settings: EmailSettings | null): boolean {
     && !!String(settings.from_email ?? "").trim();
 }
 
+/** Shared Grafter Resend — same smtp_pass pipe as company email_settings, not a second mail product. */
+function sharedGrafterSmtp(
+  company?: { name?: string | null; email?: string | null } | null,
+): EmailSettings | null {
+  const pass = (Deno.env.get("RESEND_API_KEY") ?? Deno.env.get("SMTP_PASS") ?? "").trim();
+  const fromEmail = (
+    Deno.env.get("RESEND_FROM_EMAIL") ??
+    Deno.env.get("FROM_EMAIL") ??
+    String(company?.email ?? "")
+  ).trim();
+  const fromName = (
+    Deno.env.get("RESEND_FROM_NAME") ??
+    Deno.env.get("FROM_NAME") ??
+    String(company?.name ?? "")
+  ).trim() || "Grafter";
+  if (!pass || !fromEmail.includes("@")) return null;
+  const settings: EmailSettings = {
+    smtp_host: "smtp.resend.com",
+    smtp_pass: pass,
+    from_name: fromName,
+    from_email: fromEmail,
+  };
+  return emailSettingsReady(settings) ? settings : null;
+}
+
+function resolveSendSmtp(
+  companySettings: EmailSettings | null,
+  company?: { name?: string | null; email?: string | null } | null,
+): EmailSettings | null {
+  if (emailSettingsReady(companySettings) && companySettings) return companySettings;
+  return sharedGrafterSmtp(company);
+}
+
 function alreadyRemindedForScheduledDate(job: Record<string, unknown>): boolean {
   const day = dateOnly(job.scheduled_date);
   if (!day || !job.client_reminder_sent_at) return false;
@@ -799,7 +832,7 @@ async function deliverInvoiceSend(opts: {
   admin: ReturnType<typeof createClient>;
   invoice: Record<string, unknown>;
   companyId: string;
-  company: { name?: string | null; payment_methods?: unknown } | null;
+  company: { name?: string | null; email?: string | null; payment_methods?: unknown } | null;
   settings: EmailSettings | null;
   client: Record<string, unknown> | null;
   attachmentIn?: { filename?: string; content?: string };
@@ -843,7 +876,8 @@ async function deliverInvoiceSend(opts: {
       href: `/clients/${invoice.client_id}`,
     });
   }
-  if (!emailSettingsReady(opts.settings) || !opts.settings) {
+  const settings = resolveSendSmtp(opts.settings, opts.company);
+  if (!emailSettingsReady(settings) || !settings) {
     return miss("no_smtp", receiptSend ? invoiceMissText.no_receipt_smtp : invoiceMissText.no_smtp, {
       ...extra,
       href: "/settings/company",
@@ -906,17 +940,17 @@ async function deliverInvoiceSend(opts: {
       paymentMethods: opts.company?.payment_methods,
     });
 
-  const fromHeader = `${opts.settings.from_name} <${opts.settings.from_email}>`;
+  const fromHeader = `${settings.from_name} <${settings.from_email}>`;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${opts.settings.smtp_pass}`,
+      Authorization: `Bearer ${settings.smtp_pass}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       from: fromHeader,
       to: [to],
-      reply_to: opts.settings.from_email,
+      reply_to: opts.company?.email?.trim() || settings.from_email,
       subject,
       html,
       attachments: [{ filename: pdfFilename, content: pdfContent }],
@@ -1136,7 +1170,7 @@ async function deliverQuoteSend(opts: {
   admin: ReturnType<typeof createClient>;
   quote: Record<string, unknown>;
   companyId: string;
-  company: { name?: string | null } | null;
+  company: { name?: string | null; email?: string | null } | null;
   settings: EmailSettings | null;
   client: Record<string, unknown> | null;
   attachmentIn?: { filename?: string; content?: string };
@@ -1160,7 +1194,8 @@ async function deliverQuoteSend(opts: {
       href: `/clients/${quote.client_id}`,
     });
   }
-  if (!emailSettingsReady(opts.settings) || !opts.settings) {
+  const settings = resolveSendSmtp(opts.settings, opts.company);
+  if (!emailSettingsReady(settings) || !settings) {
     return miss("no_smtp", quoteMissText.no_smtp, {
       ...extra,
       href: "/settings/company",
@@ -1193,17 +1228,17 @@ async function deliverQuoteSend(opts: {
     portalUrl,
   });
 
-  const fromHeader = `${opts.settings.from_name} <${opts.settings.from_email}>`;
+  const fromHeader = `${settings.from_name} <${settings.from_email}>`;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${opts.settings.smtp_pass}`,
+      Authorization: `Bearer ${settings.smtp_pass}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       from: fromHeader,
       to: [to],
-      reply_to: opts.settings.from_email,
+      reply_to: String(opts.company?.email ?? "").trim() || settings.from_email,
       subject,
       html,
       attachments: [{ filename: pdfFilename, content: pdfContent }],
@@ -2434,7 +2469,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const { data: company } = await admin
         .from("companies")
-        .select("name, payment_methods")
+        .select("name, email, payment_methods")
         .eq("id", userCompanyId)
         .maybeSingle();
 
@@ -2664,7 +2699,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const { data: company } = await admin
         .from("companies")
-        .select("name")
+        .select("name, email")
         .eq("id", userCompanyId)
         .maybeSingle();
 

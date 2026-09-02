@@ -12,6 +12,8 @@ import {
   clientEmailForSend,
   clientPhoneForSms,
   isSmtpReady,
+  quoteInvoiceSendPathReady,
+  resolveSendSmtp,
   type SmtpSettingsRow,
 } from './sendInvoice';
 import { missSmsMessage } from './jobReminder';
@@ -22,6 +24,8 @@ export {
   clientEmailForSend,
   clientPhoneForSms,
   isSmtpReady,
+  quoteInvoiceSendPathReady,
+  resolveSendSmtp,
 };
 
 export type QuoteSendBlocker = 'not_found' | 'no_client' | 'no_email' | 'no_smtp' | 'no_lines' | 'no_pdf';
@@ -101,6 +105,8 @@ export type QuoteSendBundle = {
   client: QuoteSendClient | null;
   jobAddress: string | null;
   smtp: SmtpSettingsRow | null;
+  /** Omit to let job-reminder ride shared Grafter Resend. Explicit null = nothing can send. */
+  sharedSmtp?: SmtpSettingsRow | null;
   company: QuoteSendCompany;
   existingPdf?: QuotePdfAttachment | null;
 };
@@ -125,7 +131,7 @@ export const NO_PDF_MESSAGE = 'The quote PDF could not be attached — quote was
 export const QUOTE_SEND_PIPE = [
   'supabase.functions.invoke job-reminder',
   'quoteId (one quote, company_id scoped — not the ledger)',
-  'email_settings where Resend is ready (companies without SMTP are not mailed)',
+  'email_settings where Resend is ready, else shared Grafter Resend smtp_pass on job-reminder',
   'To = client.email (never invented)',
   'attach generated commercial quote PDF (generateCommercialPdf)',
   'POST https://api.resend.com/emails with email_settings.smtp_pass',
@@ -377,7 +383,7 @@ export function decideQuoteSend(bundle: QuoteSendBundle): QuoteSendDecision {
   if (!quoteHasChargeableLines(quote.line_items)) {
     return { ok: false, blocker: 'no_lines', message: NO_LINES_MESSAGE };
   }
-  if (!isSmtpReady(bundle.smtp)) {
+  if (!quoteInvoiceSendPathReady(bundle.smtp, bundle.sharedSmtp)) {
     return {
       ok: false,
       blocker: 'no_smtp',

@@ -1396,7 +1396,7 @@
     gap: 8px;
     min-width: 0;
     margin-top: 8px;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
     color: #5B6B7C;
     font-size: 12px;
     font-weight: 500;
@@ -1481,7 +1481,7 @@
     gap: 8px;
     min-width: 0;
     margin-top: 8px;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
     color: #5B6B7C;
     font-size: 12px;
     font-weight: 500;
@@ -1566,7 +1566,7 @@
     gap: 8px;
     min-width: 0;
     margin-top: 8px;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
     color: #5B6B7C;
     font-size: 12px;
     font-weight: 500;
@@ -2867,8 +2867,10 @@
     background: none;
     border: none;
     border-radius: 0;
+    font-family: Rajdhani, sans-serif;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 700;
+    letter-spacing: 0.04em;
     box-shadow: none;
   }
 
@@ -2884,7 +2886,22 @@
     border: 1px solid var(--invoice-line);
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: none;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08);
+  }
+
+  .hub-invoices-sheet .ops-section-title {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--invoice-ink);
+  }
+
+  .hub-invoices-sheet .ops-meta,
+  .hub-invoices-sheet .text-muted {
+    color: var(--invoice-muted);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
   .hub-invoices-thead,
@@ -2992,8 +3009,25 @@
     justify-content: flex-end;
   }
 
-  .hub-invoices-row-next .btn-primary {
+  .hub-invoices-row-next .btn-primary,
+  .hub-invoices-row-next .hub-next.is-send {
     flex-shrink: 0;
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    transform: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
   }
 
   .hub-invoices .hub-next {
@@ -3014,6 +3048,22 @@
     text-decoration: none;
   }
 
+  .hub-invoices-row-next a.hub-next,
+  .hub-invoice-editor .hub-next {
+    color: #5B6B7C;
+    background: none;
+    border: none;
+    box-shadow: none;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 8px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    justify-content: center;
+    text-decoration: none;
+  }
+
   @media (max-width: 639px) {
     .hub-invoices.ops-page {
       padding: 16px 16px 32px;
@@ -3021,6 +3071,16 @@
 
     .hub-invoices .ops-page-title {
       font-size: 32px !important;
+    }
+
+    .hub-invoices-filters {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .hub-invoices-chrome .hub-chrome-filter {
+      flex: 0 0 auto;
     }
 
     .hub-invoices-thead {
@@ -5701,8 +5761,8 @@
     border-top-color: transparent;
   }
 
-  /* Quote surfaces only. Looplet document system + navy/blue restraint. Not invoices. */
-  :is(.hub-quotes, .hub-quote-editor) {
+  /* Quote surfaces only. Cream paper kit. Not invoices. */
+  :is(.hub-quotes, .hub-quote-editor, .hub-quote-send) {
     --quote-page: #F5F0E6;
     --quote-sheet: #FFFDF8;
     --quote-ink: #0A2540;
@@ -5711,7 +5771,6 @@
     --quote-action: #2E75B6;
     --quote-r-ctl: 12px;
     --quote-r-sheet: 16px;
-    --quote-pass: #1B7F3A;
     --quote-fail: #B42318;
     --quote-warn: #B54708;
     font-family: 'Source Sans 3', system-ui, sans-serif;
@@ -5761,8 +5820,20 @@
     margin: 0 0 8px;
   }
 
+  .hub-quotes .hub-quote-kicker,
+  .hub-quote-banner .hub-quote-kicker {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--quote-muted);
+    margin: 0 0 8px;
+  }
+
   .hub-quotes .btn-primary,
-  .hub-quote-editor .btn-primary {
+  .hub-quote-editor .btn-primary,
+  .hub-quote-send .btn-primary {
     background: #2E75B6;
     color: #fff;
     min-height: 44px;
@@ -5778,13 +5849,15 @@
   }
 
   .hub-quotes .btn-primary:hover,
-  .hub-quote-editor .btn-primary:hover {
+  .hub-quote-editor .btn-primary:hover,
+  .hub-quote-send .btn-primary:hover {
     background: color-mix(in srgb, #2E75B6 86%, #0A2540);
     color: #fff;
   }
 
   .hub-quotes .btn-primary:active,
-  .hub-quote-editor .btn-primary:active {
+  .hub-quote-editor .btn-primary:active,
+  .hub-quote-send .btn-primary:active {
     transform: none;
   }
 
@@ -5854,7 +5927,9 @@
     border: 1px solid var(--quote-line);
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: none;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08);
   }
 
   .hub-quotes-thead,
@@ -5937,8 +6012,9 @@
   }
 
   .hub-quotes-pill.is-accepted {
-    color: var(--quote-pass);
-    background: color-mix(in srgb, #1B7F3A 12%, #fff);
+    color: var(--quote-muted);
+    background: var(--quote-page);
+    border-color: var(--quote-line);
   }
 
   .hub-quotes-pill.is-declined,
@@ -5959,22 +6035,48 @@
     text-align: right;
   }
 
-  .hub-quotes .hub-next {
-    color: #2E75B6;
-    background: none;
+  .hub-quotes-row-next .btn-primary {
+    flex-shrink: 0;
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
     border: none;
     border-radius: 12px;
-    padding: 0 8px;
+    box-shadow: none;
+    transform: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .hub-quotes .hub-next {
+    color: #fff;
+    background: #2E75B6;
+    border: none;
+    border-radius: 12px;
+    padding: 0 16px;
     min-height: 44px;
+    height: 44px;
     cursor: pointer;
-    text-align: right;
+    text-align: center;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
     font-size: 14px;
     font-weight: 600;
     box-shadow: none;
     display: inline-flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: center;
     text-decoration: none;
+  }
+
+  .hub-quotes .hub-next:hover {
+    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+    color: #fff;
   }
 
   @media (max-width: 639px) {
@@ -6125,36 +6227,36 @@
     border: 1px solid #E2D9CC;
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: none;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08);
   }
 
   .hub-quote-banner {
-    background: #0A2540;
-    color: #fff;
-    padding: 24px;
-  }
-
-  .hub-quote-banner .hub-quote-kicker {
-    color: rgb(255 255 255 / 0.62);
+    background: #FFFDF8;
+    color: #0A2540;
+    padding: 32px 32px 0;
   }
 
   .hub-quote-editor-title {
-    font-size: 36px;
-    color: #fff;
+    font-size: 56px;
+    color: #0A2540;
     margin: 0;
+    letter-spacing: 0.02em;
+    line-height: 0.96;
   }
 
   .hub-quote-banner-meta {
     margin-top: 8px;
     font-size: 14px;
-    color: rgb(255 255 255 / 0.62);
+    color: #5B6B7C;
   }
 
   .hub-quote-letterhead {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 24px;
-    padding: 24px;
+    padding: 24px 32px;
   }
 
   .hub-quote-letterhead-mark {
@@ -6181,27 +6283,53 @@
   }
 
   .hub-quote-scope {
-    margin: 0 24px 8px;
+    margin: 0 32px 8px;
     font-size: 16px;
     color: #0A2540;
   }
 
   .hub-quote-table {
-    margin: 16px 24px 0;
-    border: 1px solid #E2D9CC;
-    border-radius: 12px;
+    margin: 16px 32px 0;
+    border: none;
+    border-radius: 0;
     overflow: hidden;
     background: #FFFDF8;
   }
 
   @media (max-width: 639px) {
+    .hub-quote-banner {
+      padding: 24px 16px 0;
+    }
+
+    .hub-quote-letterhead,
+    .hub-quote-gst {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    .hub-quote-scope {
+      margin-left: 16px;
+      margin-right: 16px;
+    }
+
     .hub-quote-table {
+      margin-left: 16px;
+      margin-right: 16px;
       overflow-x: auto;
+    }
+
+    .hub-quote-totalbar {
+      margin: 0 16px 24px;
+    }
+
+    .hub-quote-editor-title,
+    .hub-quote-display-total {
+      font-size: 40px;
     }
 
     .hub-quote-lines th,
     .hub-quote-lines td {
-      padding: 12px;
+      padding: 12px 0;
     }
   }
 
@@ -6212,15 +6340,16 @@
   }
 
   .hub-quote-lines th {
-    background: #0A2540;
-    color: #fff;
+    background: #FFFDF8;
+    color: #5B6B7C;
     font-family: Rajdhani, sans-serif;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     text-align: left;
-    padding: 12px 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid #E2D9CC;
   }
 
   .hub-quote-lines th:nth-child(2),
@@ -6235,7 +6364,7 @@
   }
 
   .hub-quote-lines td {
-    padding: 16px;
+    padding: 16px 0;
     border-bottom: 1px solid #E2D9CC;
     font-size: 14px;
     color: #0A2540;
@@ -6251,7 +6380,7 @@
     grid-template-columns: 1fr auto;
     gap: 8px 16px;
     justify-content: end;
-    padding: 16px 24px;
+    padding: 16px 32px;
     font-size: 14px;
     color: #5B6B7C;
     max-width: 280px;
@@ -6262,11 +6391,12 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    background: #0A2540;
-    color: #fff;
-    margin: 0 24px 24px;
-    padding: 16px 20px;
-    border-radius: 12px;
+    background: #FFFDF8;
+    color: #0A2540;
+    margin: 0 32px 32px;
+    padding: 16px 0 0;
+    border-top: 1px solid #E2D9CC;
+    border-radius: 0;
     font-family: Rajdhani, sans-serif;
     font-size: 14px;
     font-weight: 700;
@@ -6275,9 +6405,11 @@
   }
 
   .hub-quote-display-total {
-    font-size: 32px;
-    color: #fff;
+    font-size: 56px;
+    color: #0A2540;
     font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    line-height: 0.96;
   }
 
   .hub-quote-edit {
@@ -6320,6 +6452,75 @@
 
   .hub-quote-pdf-head {
     border-bottom: 1px solid #E2D9CC;
+  }
+
+  .overlay-backdrop:has(.hub-quote-send) {
+    background: #F5F0E6;
+    padding: 16px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  .overlay-panel-md:has(.hub-quote-send) {
+    background: #FFFDF8 !important;
+    color: #0A2540;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08) !important;
+    border: 1px solid #E2D9CC !important;
+    border-radius: 16px !important;
+    width: min(480px, calc(100vw - 32px)) !important;
+    max-width: min(480px, calc(100vw - 32px)) !important;
+    height: auto !important;
+    max-height: 92vh !important;
+    animation: none !important;
+    overflow: hidden;
+  }
+
+  .hub-quote-send {
+    background: #FFFDF8;
+    color: #0A2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    padding: 24px;
+  }
+
+  .hub-quote-send .hub-invoice-send-title {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-size: 32px;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+    color: #0A2540;
+    text-shadow: none;
+  }
+
+  .hub-quote-send .hub-invoice-kicker,
+  .hub-quote-send .hub-invoice-send-field .hub-invoice-kicker {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+  }
+
+  .hub-quote-send .job-client-email,
+  .hub-quote-send .job-client-phone,
+  .hub-quote-send .job-client-attach {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .hub-quote-send .hub-invoice-err {
+    margin: 0;
+    font-size: 14px;
+    color: #5B6B7C;
+    font-weight: 500;
+  }
+
+  .hub-quote-send .btn-primary:disabled,
+  .hub-quote-send .btn-primary:disabled:hover {
+    background: #2E75B6;
+    color: #fff;
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
   }
 
   .overlay-backdrop.hub-invoice-pdf-preview {
@@ -6421,6 +6622,8 @@
   .hub-jobs .ops-page-head .btn-primary,
   .hub-jobs .hub-job-toolbar .btn-primary,
   .hub-jobs .hub-job-toolbar .ops-next-control-block,
+  .hub-jobs-row-next .btn-primary,
+  .hub-jobs-row-next .ops-next-control-block,
   .hub-jobs-document .hub-jobs-tools .btn-primary,
   .hub-jobs-document .hub-jobs-tools .ops-next-control-block,
   .hub-jobs .ops-sticky .ops-next-control-block {
@@ -6442,6 +6645,8 @@
   .hub-jobs .ops-page-head .btn-primary:hover,
   .hub-jobs .hub-job-toolbar .btn-primary:hover,
   .hub-jobs .hub-job-toolbar .ops-next-control-block:hover,
+  .hub-jobs-row-next .btn-primary:hover,
+  .hub-jobs-row-next .ops-next-control-block:hover,
   .hub-jobs-document .hub-jobs-tools .btn-primary:hover,
   .hub-jobs-document .hub-jobs-tools .ops-next-control-block:hover,
   .hub-jobs .ops-sticky .ops-next-control-block:hover {
@@ -6452,6 +6657,8 @@
   .hub-jobs .ops-page-head .btn-primary:active,
   .hub-jobs .hub-job-toolbar .btn-primary:active,
   .hub-jobs .hub-job-toolbar .ops-next-control-block:active,
+  .hub-jobs-row-next .btn-primary:active,
+  .hub-jobs-row-next .ops-next-control-block:active,
   .hub-jobs-document .hub-jobs-tools .btn-primary:active,
   .hub-jobs-document .hub-jobs-tools .ops-next-control-block:active {
     transform: none;
@@ -6611,6 +6818,9 @@
   }
 
   .hub-jobs-row-next {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
     text-align: right;
   }
 
@@ -9988,12 +10198,236 @@
   color: var(--ops-muted);
 }
 
-/* Auth screens — same cream/navy as the public landing. Not AppShell. */
-.hub-auth {
+.hub-marketing-footer-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+}
+
+/* Public legal paper + auth/marketing legal-link chrome only. */
+.hub-legal-links {
+  margin: 0;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #5B6B7C;
+}
+
+.hub-legal-links a {
+  color: #5B6B7C;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.hub-legal-links a:hover {
+  color: #0A2540;
+}
+
+.hub-marketing-footer .hub-legal-links,
+.hub-legal > .hub-marketing-footer .hub-legal-links {
+  color: #5B6B7C;
+}
+
+.hub-legal {
+  --legal-page: #F5F0E6;
+  --legal-sheet: #FFFDF8;
+  --legal-ink: #0A2540;
+  --legal-muted: #5B6B7C;
+  --legal-line: #E2D9CC;
+  --legal-action: #2E75B6;
   min-height: 100vh;
-  background: var(--ops-cream);
-  color: var(--ops-navy);
+  background: var(--legal-page);
+  color: var(--legal-ink);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+
+.hub-legal-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 16px 20px 0;
+}
+
+.hub-legal-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hub-legal .hub-marketing-link {
+  color: #5B6B7C;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-weight: 500;
+}
+
+.hub-legal .hub-marketing-btn {
+  background: #2E75B6;
+  color: #fff;
+  min-height: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: none;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+
+.hub-legal .hub-marketing-btn:hover {
+  background: #2E75B6;
+}
+
+.hub-legal > .hub-marketing-footer {
+  border-top-color: #E2D9CC;
+  color: #5B6B7C;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+
+.hub-legal-article {
+  max-width: 40rem;
+  margin: 20px auto 32px;
+  padding: 32px 28px 48px;
+  background: var(--legal-sheet);
+  border: 1px solid var(--legal-line);
+  border-radius: 16px;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 28px rgba(10, 37, 64, 0.08);
+}
+
+.hub-legal-title {
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 2.25rem;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: var(--legal-ink);
+  margin: 0 0 16px;
+}
+
+.hub-legal-lede {
+  margin: 10px 0 8px;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--legal-muted);
+}
+
+.hub-legal-updated {
+  margin: 0 0 28px;
+  font-size: 13px;
+  color: var(--legal-muted);
+}
+
+.hub-legal-article section + section {
+  margin-top: 28px;
+}
+
+.hub-legal-article h2,
+.hub-legal-article h3,
+.hub-legal-article h4 {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-weight: 650;
+  letter-spacing: 0;
+  margin: 28px 0 10px;
+  color: var(--legal-ink);
+}
+
+.hub-legal-article h2 {
+  font-size: 1.2rem;
+}
+
+.hub-legal-article h3 {
+  font-size: 1.08rem;
+}
+
+.hub-legal-article h4 {
+  font-size: 1rem;
+}
+
+.hub-legal-article p,
+.hub-legal-article li {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: var(--legal-ink);
+}
+
+.hub-legal-article > p:first-of-type {
+  color: var(--legal-muted);
+  font-size: 13px;
+}
+
+.hub-legal-article ul,
+.hub-legal-article ol {
+  margin: 8px 0 0;
+  padding-left: 1.2rem;
+}
+
+.hub-legal-article li + li {
+  margin-top: 6px;
+}
+
+.hub-legal-article a {
+  color: var(--legal-ink);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.hub-legal-article hr {
+  margin: 28px 0;
+  border: 0;
+  border-top: 1px solid var(--legal-line);
+}
+
+.hub-legal-table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.hub-legal-article table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.hub-legal-article th,
+.hub-legal-article td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px;
+  border: 1px solid var(--legal-line);
+}
+
+.hub-legal-article th {
+  font-weight: 600;
+  color: var(--legal-ink);
+  background: var(--legal-page);
+}
+
+/* Auth screens — cream paper + whisper legal chrome. Not AppShell. */
+.hub-auth {
+  --auth-look-page: #F5F0E6;
+  --auth-look-sheet: #FFFDF8;
+  --auth-look-ink: #0A2540;
+  --auth-look-muted: #5B6B7C;
+  --auth-look-line: #E2D9CC;
+  --auth-look-action: #2E75B6;
+  --legal-page: #F5F0E6;
+  --legal-sheet: #FFFDF8;
+  --legal-ink: #0A2540;
+  --legal-muted: #5B6B7C;
+  --legal-line: #E2D9CC;
+  --legal-action: #2E75B6;
+  min-height: 100vh;
+  background: var(--auth-look-page);
+  color: var(--auth-look-ink);
   padding: 16px 20px 40px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
 }
 
 .hub-auth-nav {
@@ -10005,34 +10439,45 @@
   width: 100%;
   max-width: 26rem;
   margin: 0 auto;
-  background: #fff;
-  border: 1px solid var(--ops-rule);
-  border-radius: 14px;
+  background: var(--auth-look-sheet);
+  border: 1px solid var(--auth-look-line);
+  border-radius: 16px;
   padding: 28px 24px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 28px rgba(10, 37, 64, 0.08);
 }
 
 .hub-auth-title {
-  font-family: Newsreader, Georgia, serif;
-  font-weight: 500;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
   font-size: 2rem;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
-  color: var(--ops-navy);
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: var(--auth-look-ink);
 }
 
 .hub-auth-lede {
   margin: 8px 0 24px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 0.95rem;
   line-height: 1.5;
-  color: #3d4d5c;
+  color: var(--auth-look-muted);
 }
 
 .hub-auth-card .form-label {
-  color: var(--ops-navy);
+  color: var(--auth-look-ink);
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
 }
 
 .hub-auth-card .form-input {
-  border-radius: 10px;
+  border-radius: 12px;
+  background: var(--auth-look-sheet);
+  border-color: var(--auth-look-line);
+  color: var(--auth-look-ink);
+  box-shadow: none;
 }
 
 .hub-auth-submit {
@@ -10040,18 +10485,23 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 48px;
+  min-height: 44px;
+  height: 44px;
   margin-top: 4px;
   padding: 0 16px;
-  border-radius: 10px;
-  background: var(--ops-navy);
+  border: none;
+  border-radius: 12px;
+  background: var(--auth-look-action);
   color: #fff;
-  font-size: 14px;
-  font-weight: 600;
+  box-shadow: none;
+  font-family: Rajdhani, sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .hub-auth-submit:hover {
-  background: #0d2f4e;
+  background: color-mix(in srgb, #2E75B6 86%, #0A2540);
 }
 
 .hub-auth-submit:disabled {
@@ -10063,13 +10513,59 @@
   max-width: 26rem;
   margin: 18px auto 0;
   text-align: center;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 14px;
-  color: var(--ops-muted);
+  color: var(--auth-look-muted);
 }
 
 .hub-auth-footer a {
-  color: var(--ops-accent);
+  color: var(--auth-look-action);
   font-weight: 600;
+}
+
+.hub-auth-legal {
+  max-width: 26rem;
+  margin: 14px auto 0;
+  text-align: center;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--legal-muted);
+}
+
+.hub-auth-legal a {
+  color: var(--legal-muted);
+  font-weight: 500;
+}
+
+.hub-auth-agree {
+  margin: 4px 0 0;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--legal-muted);
+}
+
+.hub-auth-agree a,
+.hub-auth-agree-row a {
+  color: var(--legal-muted);
+  font-weight: 500;
+}
+
+.hub-auth-agree-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--legal-muted);
+}
+
+.hub-auth-agree-row input[type='checkbox'] {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .hub-auth .relative > button.absolute {
@@ -12275,7 +12771,14 @@
   .hub-timesheets-tiles {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0;
+    background: var(--ts-look-sheet);
+    border: 1px solid var(--ts-look-line);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08);
   }
 
   .hub-timesheets-tile,
@@ -12296,7 +12799,46 @@
   }
 
   .hub-timesheets-tiles .hub-timesheets-tile {
-    padding: 16px 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "copy hours hours"
+      "copy status open";
+    align-items: center;
+    column-gap: 16px;
+    row-gap: 4px;
+    padding: 16px 24px;
+    background: transparent;
+  }
+
+  .hub-timesheets-tiles .hub-timesheets-tile:last-child {
+    border-bottom: none;
+  }
+
+  .hub-timesheets-tile-copy {
+    grid-area: copy;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .hub-timesheets-tiles .hub-timesheets-hours {
+    grid-area: hours;
+    justify-self: end;
+    font-size: 32px;
+    line-height: 1;
+  }
+
+  .hub-timesheets-tiles .hub-timesheets-pill {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  .hub-timesheets-tiles .hub-next {
+    grid-area: open;
+    justify-self: end;
   }
 
   .hub-timesheets-sheet .hub-timesheets-tile {
@@ -12406,8 +12948,11 @@
 
   .hub-timesheets-pill.is-submitted,
   .hub-timesheets-pill.is-approved {
-    color: var(--ts-look-ink);
-    background: color-mix(in srgb, #0A2540 8%, #fff);
+    color: var(--ts-look-muted);
+    background: none;
+    border-color: transparent;
+    padding: 0;
+    letter-spacing: 0.04em;
   }
 
   .hub-timesheets-pill.is-rejected {
@@ -12498,6 +13043,23 @@
     .hub-timesheets-search {
       width: 100%;
       max-width: none;
+    }
+
+    .hub-timesheets-tiles .hub-timesheets-tile {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "copy hours"
+        "copy status"
+        "open open";
+      padding: 16px;
+    }
+
+    .hub-timesheets-tiles .hub-timesheets-hours {
+      font-size: 28px;
+    }
+
+    .hub-timesheets-tiles .hub-next {
+      justify-self: start;
     }
 
     .hub-timesheets-days {
