@@ -262,7 +262,7 @@ function JobRow({ job }: { job: JobRowModel }) {
       <span className={`hub-jobs-pill is-${job.status}`}>{JOB_STATUS_LABELS[job.status]}</span>
       <span className="hub-jobs-row-next" onClick={e => e.stopPropagation()}>
         {next.actionable ? (
-          <Link to={next.href} className="hub-next">{next.label}</Link>
+          <Link to={next.href} className="btn-primary ops-next-control-block">{next.label}</Link>
         ) : (
           <span className="hub-jobs-muted">{next.label}</span>
         )}

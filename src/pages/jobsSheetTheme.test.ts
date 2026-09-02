@@ -42,6 +42,7 @@ describe('job hub open sheet LOOK', () => {
     expect(page).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(list).toContain('hub-jobs-sheet');
+    expect(list).toContain('className="btn-primary ops-next-control-block"');
     expect(list).not.toContain('hub-jobs-document');
     expect(list).not.toContain('is-record-open');
 
@@ -57,6 +58,10 @@ describe('job hub open sheet LOOK', () => {
     expect(lookCss).toContain('--job-look-muted: #5B6B7C');
     expect(lookCss).toContain('--job-look-line: #E2D9CC');
     expect(lookCss).toContain('#2E75B6');
+    expect(lookCss).toContain('.hub-jobs-row-next .btn-primary');
+    expect(lookCss).toContain('.hub-jobs-row-next .ops-next-control-block');
+    expect(lookCss).toContain('.hub-jobs-document .hub-jobs-tools .btn-primary');
+    expect(lookCss).toContain('.hub-jobs-document .hub-jobs-tools .ops-next-control-block');
     expect(lookCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(lookCss).toContain('box-shadow: inset 0 1px 0 #fff');
     expect(lookCss).toContain('font-size: 56px !important');

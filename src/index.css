@@ -6421,6 +6421,8 @@
   .hub-jobs .ops-page-head .btn-primary,
   .hub-jobs .hub-job-toolbar .btn-primary,
   .hub-jobs .hub-job-toolbar .ops-next-control-block,
+  .hub-jobs-row-next .btn-primary,
+  .hub-jobs-row-next .ops-next-control-block,
   .hub-jobs-document .hub-jobs-tools .btn-primary,
   .hub-jobs-document .hub-jobs-tools .ops-next-control-block,
   .hub-jobs .ops-sticky .ops-next-control-block {
@@ -6442,6 +6444,8 @@
   .hub-jobs .ops-page-head .btn-primary:hover,
   .hub-jobs .hub-job-toolbar .btn-primary:hover,
   .hub-jobs .hub-job-toolbar .ops-next-control-block:hover,
+  .hub-jobs-row-next .btn-primary:hover,
+  .hub-jobs-row-next .ops-next-control-block:hover,
   .hub-jobs-document .hub-jobs-tools .btn-primary:hover,
   .hub-jobs-document .hub-jobs-tools .ops-next-control-block:hover,
   .hub-jobs .ops-sticky .ops-next-control-block:hover {
@@ -6452,6 +6456,8 @@
   .hub-jobs .ops-page-head .btn-primary:active,
   .hub-jobs .hub-job-toolbar .btn-primary:active,
   .hub-jobs .hub-job-toolbar .ops-next-control-block:active,
+  .hub-jobs-row-next .btn-primary:active,
+  .hub-jobs-row-next .ops-next-control-block:active,
   .hub-jobs-document .hub-jobs-tools .btn-primary:active,
   .hub-jobs-document .hub-jobs-tools .ops-next-control-block:active {
     transform: none;
@@ -6611,6 +6617,9 @@
   }
 
   .hub-jobs-row-next {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
     text-align: right;
   }
 
