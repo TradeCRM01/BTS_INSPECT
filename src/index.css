@@ -6376,7 +6376,7 @@
   }
 
   .overlay-backdrop:has(.hub-quote-send) {
-    background: rgb(245 240 230 / 0.92);
+    background: #F5F0E6;
     padding: 16px;
     align-items: flex-start;
     justify-content: center;

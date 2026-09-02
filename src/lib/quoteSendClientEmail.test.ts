@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -247,6 +247,7 @@ describe('quote-send client email — wiring', () => {
     expect(css).toContain('.hub-quote-send');
     expect(css).toContain('.overlay-panel-md:has(.hub-quote-send)');
     expect(css).not.toMatch(/\.hub-quote-send[\s\S]{0,80}#111|#000\b/);
+    expect(existsSync(resolve(process.cwd(), 'docs/look/quote-fix-email-send-desktop.png'))).toBe(true);
   });
 
   it('uses Fix email as the primary on no_email — Send quote after a sendable save', () => {
