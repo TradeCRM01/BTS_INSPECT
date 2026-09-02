@@ -10380,6 +10380,12 @@
 
 /* Auth screens — cream paper + whisper legal chrome. Not AppShell. */
 .hub-auth {
+  --auth-look-page: #F5F0E6;
+  --auth-look-sheet: #FFFDF8;
+  --auth-look-ink: #0A2540;
+  --auth-look-muted: #5B6B7C;
+  --auth-look-line: #E2D9CC;
+  --auth-look-action: #2E75B6;
   --legal-page: #F5F0E6;
   --legal-sheet: #FFFDF8;
   --legal-ink: #0A2540;
@@ -10387,10 +10393,10 @@
   --legal-line: #E2D9CC;
   --legal-action: #2E75B6;
   min-height: 100vh;
-  background: var(--legal-page);
-  color: var(--legal-ink);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  background: var(--auth-look-page);
+  color: var(--auth-look-ink);
   padding: 16px 20px 40px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
 }
 
 .hub-auth-nav {
@@ -10402,10 +10408,11 @@
   width: 100%;
   max-width: 26rem;
   margin: 0 auto;
-  background: var(--legal-sheet);
-  border: 1px solid var(--legal-line);
+  background: var(--auth-look-sheet);
+  border: 1px solid var(--auth-look-line);
   border-radius: 16px;
   padding: 28px 24px;
+  overflow: hidden;
   box-shadow:
     inset 0 1px 0 #fff,
     0 10px 28px rgba(10, 37, 64, 0.08);
@@ -10417,7 +10424,7 @@
   font-size: 2rem;
   line-height: 1.1;
   letter-spacing: 0.02em;
-  color: var(--legal-ink);
+  color: var(--auth-look-ink);
 }
 
 .hub-auth-lede {
@@ -10425,17 +10432,21 @@
   font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 0.95rem;
   line-height: 1.5;
-  color: var(--legal-muted);
+  color: var(--auth-look-muted);
 }
 
 .hub-auth-card .form-label {
-  color: var(--legal-ink);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  color: var(--auth-look-ink);
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
 }
 
 .hub-auth-card .form-input {
   border-radius: 12px;
-  border-color: var(--legal-line);
+  background: var(--auth-look-sheet);
+  border-color: var(--auth-look-line);
+  color: var(--auth-look-ink);
+  box-shadow: none;
 }
 
 .hub-auth-submit {
@@ -10449,16 +10460,17 @@
   padding: 0 16px;
   border: none;
   border-radius: 12px;
-  background: #2E75B6;
+  background: var(--auth-look-action);
   color: #fff;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
-  font-size: 14px;
-  font-weight: 600;
   box-shadow: none;
+  font-family: Rajdhani, sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .hub-auth-submit:hover {
-  background: #2E75B6;
+  background: color-mix(in srgb, #2E75B6 86%, #0A2540);
 }
 
 .hub-auth-submit:disabled {
@@ -10471,13 +10483,13 @@
   margin: 18px auto 0;
   text-align: center;
   font-family: 'Source Sans 3', system-ui, sans-serif;
-  font-size: 13px;
-  color: var(--legal-muted);
+  font-size: 14px;
+  color: var(--auth-look-muted);
 }
 
 .hub-auth-footer a {
-  color: var(--legal-muted);
-  font-weight: 500;
+  color: var(--auth-look-action);
+  font-weight: 600;
 }
 
 .hub-auth-legal {
