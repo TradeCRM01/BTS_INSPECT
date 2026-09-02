@@ -292,11 +292,11 @@ const EXPENSES_LOOK_CSS = `
   cursor: pointer;
   min-height: 44px;
 }
-.hub-expenses-class:hover { background: color-mix(in srgb, #FFFDF8 88%, #0A2540); }
+.hub-expenses-class:hover { background: var(--ex-look-page); }
 .hub-expenses-class.is-on {
-  border-color: var(--ex-look-ink);
-  background: color-mix(in srgb, #FFFDF8 94%, #0A2540);
-  box-shadow: none;
+  border-color: #0A2540;
+  background: #FFFDF8;
+  box-shadow: inset 0 0 0 1px #0A2540;
 }
 .hub-expenses-class-label {
   margin: 0;

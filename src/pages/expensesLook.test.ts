@@ -57,6 +57,11 @@ describe('Expenses scan-receipt cream paper look', () => {
     const lookCss = page.slice(page.indexOf('EXPENSES_LOOK_CSS'));
     expect(lookCss).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
     expect(lookCss).not.toMatch(/gloss|lacquer|shine|glow/i);
+    const classOn = lookCss.slice(lookCss.indexOf('.hub-expenses-class.is-on'), lookCss.indexOf('.hub-expenses-class-label'));
+    expect(classOn).toContain('#0A2540');
+    expect(classOn).toContain('#FFFDF8');
+    expect(classOn).not.toContain('#2E75B6');
+    expect(classOn).not.toContain('color-mix');
 
     const sheetStart = page.indexOf('<div className="hub-expenses-review">');
     const overlayStart = page.indexOf('<div className="overlay-backdrop">');
