@@ -22,7 +22,9 @@ describe('auth chrome', () => {
       expect(body, rel).toMatch(/AuthShell|hub-auth/);
     }
     const css = src('src/index.css');
-    const auth = css.slice(css.indexOf('.hub-auth {'), css.indexOf('#client-portal'));
+    const lookStart = css.indexOf('/* Public legal paper + auth/marketing legal-link chrome only.');
+    const lookEnd = css.indexOf('/* Public /p portal only:', lookStart);
+    const auth = css.slice(lookStart, lookEnd);
     expect(auth).toContain('--auth-look-page: #F5F0E6');
     expect(auth).toContain('--auth-look-sheet: #FFFDF8');
     expect(auth).toContain('--auth-look-ink: #0A2540');
@@ -32,14 +34,21 @@ describe('auth chrome', () => {
     expect(auth).toContain('background: var(--auth-look-page)');
     expect(auth).toContain('background: var(--auth-look-sheet)');
     expect(auth).toContain('background: var(--auth-look-action)');
+    expect(auth).toContain('--legal-page: #F5F0E6');
+    expect(auth).toContain('--legal-sheet: #FFFDF8');
+    expect(auth).toContain('background: var(--legal-page)');
+    expect(auth).toContain('.hub-auth-legal');
+    expect(auth).toContain('.hub-auth-agree');
     expect(auth).toContain("font-family: Rajdhani, sans-serif");
     expect(auth).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(auth).toContain('border-radius: 16px');
     expect(auth).toContain('inset 0 1px 0 #fff');
     expect(auth).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(auth).toContain('min-height: 44px');
+    expect(auth).toContain('background: #2E75B6');
     expect(auth).not.toContain('background: #fff');
     expect(auth).not.toContain('font-family: Newsreader, Georgia, serif');
+    expect(auth).not.toContain('Newsreader');
     expect(auth).not.toContain('min-height: 48px');
     expect(auth).not.toContain('background: var(--ops-navy)');
     expect(auth).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);

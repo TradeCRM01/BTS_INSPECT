@@ -27,3 +27,31 @@ export function effectiveInvoiceStatus(
 export function persistableInvoiceStatus(status: InvoiceStatus): InvoiceStatus {
   return status === 'overdue' ? 'sent' : status;
 }
+
+/** Existing /invoices tabs — default is the money that needs chasing. */
+export type InvoiceListStatusFilter = 'all' | InvoiceStatus;
+
+export const INVOICE_LIST_DEFAULT_FILTER: InvoiceListStatusFilter = 'overdue';
+
+export function invoiceMatchesListFilter(
+  inv: { status: InvoiceStatus | string; due_date?: string | null },
+  filter: InvoiceListStatusFilter,
+  now = new Date(),
+): boolean {
+  if (filter === 'all') return true;
+  return effectiveInvoiceStatus(inv, now) === filter;
+}
+
+export function invoiceListIsNoneYet(args: { search: string; invoiceCount: number }): boolean {
+  return !args.search.trim() && args.invoiceCount === 0;
+}
+
+export function invoiceListEmptyTitle(args: { noneYet: boolean }): string {
+  return args.noneYet ? 'No invoices yet' : 'No matching invoices';
+}
+
+export function invoiceListEmptyMessage(args: { noneYet: boolean }): string {
+  return args.noneYet
+    ? 'Invoice from an accepted quote, or open a job and invoice the bill.'
+    : 'Try another status or search.';
+}

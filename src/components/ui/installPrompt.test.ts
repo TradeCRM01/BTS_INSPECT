@@ -14,6 +14,11 @@ describe('Install Grafter overlay vs signup', () => {
     expect(signup).toContain('Create account');
     expect(signup).toContain('Create a Grafter workspace');
     expect(signup).toContain('hub-auth-submit');
+    expect(signup).toContain('hub-auth-agree');
+    expect(signup).toContain('By creating a workspace you agree to our');
+    expect(signup).not.toContain('type="checkbox"');
+    expect(src('src/components/auth/AuthShell.tsx')).toContain('PublicLegalLinks');
+    expect(src('src/components/auth/AuthShell.tsx')).toContain('hub-auth-legal');
     expect(signup).not.toContain('InstallPrompt');
     expect(signup).not.toContain('Install Grafter');
     expect(signup).not.toContain('beforeinstallprompt');
