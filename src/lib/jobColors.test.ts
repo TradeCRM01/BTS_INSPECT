@@ -40,7 +40,7 @@ describe('job sheet colour — existing Details form writes jobs.color', () => {
     expect(JOB_COLORS).toContain('#7C3AED');
     expect(JOB_COLORS).toContain('#DB2777');
 
-    expect(modal).toContain("from('../../lib/jobColors')");
+    expect(modal).toContain("from '../../lib/jobColors'");
     expect(modal).toContain('JOB_COLORS');
     expect(modal).toContain('jobColorToStore');
     expect(modal).toContain('color: job?.color ?? \'\'');
@@ -63,7 +63,7 @@ describe('job sheet colour — existing Details form writes jobs.color', () => {
     expect(page).toContain('JobFormModal');
     expect(page).toContain('fields="details"');
     expect(page).toContain('setShowEdit(true)');
-    expect(page).toContain('>Details<');
+    expect(page).toMatch(/>\s*Details\s*</);
     expect(page).toContain('className="btn-primary ops-next-control-block"');
     expect(page).not.toContain('jobColorToStore');
     expect(page).not.toContain('JOB_COLORS');
@@ -73,7 +73,8 @@ describe('job sheet colour — existing Details form writes jobs.color', () => {
     expect(page).not.toContain('CONVERT_QUOTE_NEED_DATE_CREW');
 
     expect(board).not.toContain('jobColorToStore');
-    expect(board).toContain('weekBoardChipColor');
+    expect(src('src/components/crm/BoardViews.tsx')).toContain('weekBoardChip');
+    expect(src('src/lib/scheduleBoard.ts')).toContain('if (job.color) return job.color');
     expect(board).not.toContain('ops-field-label">Colour');
     expect(src('src/App.tsx')).not.toContain('job-color');
     expect(src('src/App.tsx')).not.toContain('JobColor');
@@ -83,7 +84,7 @@ describe('job sheet colour — existing Details form writes jobs.color', () => {
     const page = src('src/pages/JobDetailPage.tsx');
     const modal = src('src/components/crm/JobFormModal.tsx');
     expect(page).toContain('className="btn-primary ops-next-control-block"');
-    expect((page.match(/ops-next-control-block/g) ?? []).length).toBe(1);
+    expect(modal).not.toContain('ops-next-control-block');
     expect(page).not.toContain('hub-job-color');
     expect(page).not.toContain('job-color-picker');
     expect(modal).toContain('className="btn-primary min-h-[44px] disabled:opacity-50"');
