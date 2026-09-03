@@ -55,6 +55,16 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(css).not.toMatch(/\.hub-jobs-document \.ops-tray \.ops-section-title[\s\S]{0,220}text-transform:\s*uppercase/);
     expect(css).toContain('.hub-jobs-document .ops-tray .ops-link');
     expect(css).toContain('color: var(--job-look-muted)');
+    expect(css).toContain('.hub-jobs-document #job-schedule');
+    expect(css).toContain('.hub-jobs-document #job-schedule .form-input');
+    expect(css).toContain('.hub-jobs-document .hub-jobs-more-trays > div:not(#job-schedule)');
+    expect(css).toContain('background: #FFFDF8');
+    expect(css).toContain('font-size: 12px !important');
+    const paper = page.slice(page.indexOf('hub-jobs-document'), page.indexOf('</article>'));
+    expect(paper).toContain('id="job-schedule"');
+    expect(paper).toContain('JobDispatchPanel');
+    expect(page.indexOf('</article>')).toBeGreaterThan(page.indexOf('id="job-schedule"'));
+    expect(page).toMatch(/id="job-bill"[\s\S]*?<\/div>\s*<\/div>\s*<div id="job-schedule">/);
     expect(css).not.toMatch(/\.hub-jobs-document[\s\S]{0,80}\.ops-tray \.btn-primary[\s\S]{0,160}#2E75B6/);
     expect(css).toContain('--job-look-page: #F5F0E6');
     expect(css).toContain('--job-look-sheet: #FFFDF8');

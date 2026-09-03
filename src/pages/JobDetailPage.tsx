@@ -1847,10 +1847,7 @@ export function JobDetailPage() {
           )}
         </div>
             </div>
-          </div>
-        </article>
-
-        <div id="job-schedule">
+            <div id="job-schedule">
           <JobDispatchPanel
             job={job}
             teamMembers={teamMembers ?? []}
@@ -1865,7 +1862,9 @@ export function JobDetailPage() {
             onArrivingSent={() => setArrivingSent(true)}
             onArrivingBusy={setArrivingBusy}
           />
-        </div>
+            </div>
+          </div>
+        </article>
       </div>
       {showEdit && (
         <JobFormModal

@@ -7217,7 +7217,7 @@
     display: none;
   }
 
-  .hub-jobs-document .hub-jobs-more-trays > div {
+  .hub-jobs-document .hub-jobs-more-trays > div:not(#job-schedule) {
     display: contents;
   }
 
@@ -7351,6 +7351,110 @@
     display: flex;
     flex-direction: column;
     gap: 0;
+  }
+
+  .hub-jobs-document #job-schedule {
+    --job-page: var(--job-look-page);
+    --job-sheet: var(--job-look-sheet);
+    --job-ink: var(--job-look-ink);
+    --job-muted: var(--job-look-muted);
+    --job-line: var(--job-look-line);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    box-shadow: none;
+  }
+
+  .hub-jobs-document #job-schedule .ops-tray {
+    background: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0;
+    overflow: visible;
+    padding: 12px 0 0;
+    border-bottom: 1px solid var(--job-look-line);
+  }
+
+  .hub-jobs-document #job-schedule .ops-tray-head {
+    padding: 12px 0;
+    border: none;
+    background: none;
+  }
+
+  .hub-jobs-document #job-schedule .ops-section-title {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--job-look-muted);
+  }
+
+  .hub-jobs-document #job-schedule .ops-section-title svg {
+    display: none;
+  }
+
+  .hub-jobs-document #job-schedule .ops-field-label,
+  .hub-jobs-document #job-schedule .ops-meta,
+  .hub-jobs-document #job-schedule .ops-link,
+  .hub-jobs-document #job-schedule .ops-link:hover {
+    color: var(--job-look-muted);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .hub-jobs-document #job-schedule .ops-tray > .px-3 {
+    padding: 0 0 16px;
+  }
+
+  .hub-jobs-document #job-schedule .job-reminder-body {
+    padding: 0 0 16px;
+  }
+
+  .hub-jobs-document #job-schedule .form-input,
+  .hub-jobs-document #job-schedule .form-input:focus,
+  .hub-jobs-document #job-schedule .form-input-sm,
+  .hub-jobs-document #job-schedule .form-input-sm:focus {
+    width: 100%;
+    height: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    background: #FFFDF8;
+    color: #0A2540;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    box-shadow: none;
+    outline: none;
+    --tw-ring-shadow: 0 0 #0000;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px !important;
+  }
+
+  .hub-jobs-document #job-schedule .btn-primary,
+  .hub-jobs-document #job-schedule .btn-primary:hover,
+  .hub-jobs-document #job-schedule .btn-primary:disabled:hover {
+    background: none;
+    color: var(--job-look-muted);
+    box-shadow: none;
+    border: none;
+    min-height: 44px;
+    height: auto;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .hub-jobs-document #job-schedule .flex.flex-wrap.gap-1\.5 > button.bg-navy {
+    background: none;
+    color: var(--job-look-ink);
+    border: 1px solid var(--job-look-line);
+  }
+
+  .hub-jobs-document #job-schedule .flex.flex-wrap.gap-1\.5 > button.bg-zebra {
+    background: none;
+    color: var(--job-look-muted);
+    border-color: var(--job-look-line);
   }
 
   .hub-job-more {
