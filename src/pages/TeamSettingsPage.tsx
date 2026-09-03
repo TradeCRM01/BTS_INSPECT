@@ -20,7 +20,6 @@ import {
 } from '../lib/teamAdminLock';
 import {
   MEMBER_TICKET_BUCKET,
-  MEMBER_TICKET_COLUMNS,
   assertTicketFile,
   memberTicketInsertRow,
   ticketContentType,
@@ -1032,7 +1031,7 @@ function TeamMemberTicketsLedger({
     queryFn: async () => {
       const { data, error: loadError } = await supabase
         .from('member_tickets')
-        .select(MEMBER_TICKET_COLUMNS)
+        .select('id, company_id, profile_id, name, ticket_number, expires_on, notes, storage_bucket, storage_path, file_name, reminder_sent_at, reminder_sent_for_date, reminder_kind, created_at')
         .eq('company_id', companyId)
         .eq('profile_id', profileId)
         .order('expires_on', { ascending: true, nullsFirst: false });

@@ -112,37 +112,45 @@ describe('G5 due-soon and expired are real notify decisions — Brisbane TZ', ()
   });
 
   it('does not send a future ticket, a missing email, or a missing SMTP', () => {
-    expect(decideTicketDueSend({
+    const future = decideTicketDueSend({
       ticket: ticket({ expires_on: tomorrow }),
       member,
       settings: smtp,
       companyId: 'co-1',
       now,
-    }).reason).toBe('not_due');
+    });
+    expect(future.ok).toBe(false);
+    if (!future.ok) expect(future.reason).toBe('not_due');
 
-    expect(decideTicketDueSend({
+    const noEmail = decideTicketDueSend({
       ticket: ticket(),
       member: { ...member, email: '' },
       settings: smtp,
       companyId: 'co-1',
       now,
-    }).reason).toBe('no_email');
+    });
+    expect(noEmail.ok).toBe(false);
+    if (!noEmail.ok) expect(noEmail.reason).toBe('no_email');
 
-    expect(decideTicketDueSend({
+    const noSmtp = decideTicketDueSend({
       ticket: ticket(),
       member,
       settings: { smtp_host: '', smtp_pass: '', from_email: '' },
       companyId: 'co-1',
       now,
-    }).reason).toBe('no_smtp');
+    });
+    expect(noSmtp.ok).toBe(false);
+    if (!noSmtp.ok) expect(noSmtp.reason).toBe('no_smtp');
 
-    expect(decideTicketDueSend({
+    const otherCo = decideTicketDueSend({
       ticket: ticket({ company_id: 'co-other' }),
       member,
       settings: smtp,
       companyId: 'co-1',
       now,
-    }).reason).toBe('wrong_company');
+    });
+    expect(otherCo.ok).toBe(false);
+    if (!otherCo.ok) expect(otherCo.reason).toBe('wrong_company');
   });
 
   it('skips already-sent due_soon, then still sends expired the next kind', () => {
@@ -152,13 +160,15 @@ describe('G5 due-soon and expired are real notify decisions — Brisbane TZ', ()
       reminder_kind: 'due_soon',
     });
     expect(alreadyRemindedForTicket(sentSoon, 'due_soon', today)).toBe(true);
-    expect(decideTicketDueSend({
+    const again = decideTicketDueSend({
       ticket: sentSoon,
       member,
       settings: smtp,
       companyId: 'co-1',
       now,
-    }).reason).toBe('already_sent');
+    });
+    expect(again.ok).toBe(false);
+    if (!again.ok) expect(again.reason).toBe('already_sent');
 
     const nowExpired = {
       ...sentSoon,
