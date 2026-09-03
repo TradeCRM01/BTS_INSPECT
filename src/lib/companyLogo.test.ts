@@ -16,6 +16,7 @@ import {
   companyLogoLetterheadSaveRow,
   companyLogoLetterheadSizePx,
   companyLogoOnDocuments,
+  companyLogoPreviewLetterhead,
   companyLogoStoragePath,
   companyWithLetterheadLookMark,
   decideCompanyLogoUpload,
@@ -458,5 +459,59 @@ describe('company logo crop + letterhead size', () => {
     expect(src('src/lib/sendInvoice.ts')).toContain('logo_crop: bundle.company.logo_crop');
     expect(src('src/reports/commercial/CommercialDocumentPdf.tsx')).toContain('commercialPdfLogoBox');
     expect(src('src/reports/commercial/generateCommercialPdf.ts')).toContain('companyLogoCroppedSrc');
+  });
+
+  it('live quote preview mark follows the current crop + letterhead size', () => {
+    const preview = companyLogoPreviewLetterhead({
+      logo_url: LOGO,
+      crop,
+      sizePx: 72,
+    });
+    expect(preview.logo_url).toBe(LOGO);
+    expect(preview.logo_crop).toEqual(crop);
+    expect(preview.logo_letterhead_size).toBe(72);
+    expect(letterheadMarkCssVars(preview)['--hub-letterhead-mark-height']).toBe('72px');
+    expect(letterheadMarkCssVars(preview)['--logo-crop-x']).toBe('0.12');
+    expect(letterheadMarkCssVars(preview)['--logo-crop-y']).toBe('0.4');
+    expect(letterheadMarkCssVars(preview)['--logo-crop-w']).toBe('0.7');
+    expect(letterheadMarkCssVars(preview)['--logo-crop-h']).toBe('0.2');
+
+    const full = companyLogoPreviewLetterhead({
+      logo_url: LOGO,
+      crop: null,
+      sizePx: LETTERHEAD_MARK_DEFAULT_PX,
+    });
+    expect(letterheadMarkIsFull(full)).toBe(true);
+    expect(letterheadMarkCssVars(full)['--hub-letterhead-mark-height']).toBe('96px');
+    expect(letterheadMarkCssVars(full)['--logo-crop-w']).toBe('1');
+
+    const grown = companyLogoPreviewLetterhead({
+      logo_url: LOGO,
+      crop: { x: 0.2, y: 0.1, w: 0.5, h: 0.3 },
+      sizePx: LETTERHEAD_MARK_MAX_PX,
+    });
+    expect(letterheadMarkCssVars(grown)['--hub-letterhead-mark-height']).toBe('120px');
+    expect(letterheadMarkCssVars(grown)['--logo-crop-x']).toBe('0.2');
+
+    const strip = src('src/lib/CompanyLogoStripCrop.tsx');
+    const paper = src('src/lib/CompanyLogoQuotePreview.tsx');
+    const settings = src('src/pages/CompanySettingsPage.tsx');
+    const css = src('src/index.css');
+    expect(strip).toContain('CompanyLogoQuotePreview');
+    expect(strip).toContain('crop={crop}');
+    expect(strip).toContain('sizePx={sizePx}');
+    expect(paper).toContain('companyLogoPreviewLetterhead');
+    expect(paper).toContain('CompanyLetterheadMark');
+    expect(paper).toContain('data-logo-quote-preview');
+    expect(paper).toContain('Quote #1001');
+    expect(paper).toContain('Quotation');
+    expect(paper).toContain('hub-quote-letterhead');
+    expect(settings).toContain('companyName={name}');
+    expect(settings).not.toContain('path="/settings/logos"');
+    expect(css).toContain('.company-logo-strip-quote .hub-letterhead-mark-crop');
+    expect(css).toContain('--hub-letterhead-mark-height');
+    expect(src('src/App.tsx')).not.toMatch(/path="\/settings\/logos"/);
+    expect(src('src/pages/QuotesPage.tsx')).not.toContain('CompanyLogoQuotePreview');
+    expect(src('src/pages/InvoicesPage.tsx')).not.toContain('CompanyLogoQuotePreview');
   });
 });

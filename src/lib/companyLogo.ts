@@ -236,6 +236,18 @@ export function companyLogoLetterheadSaveRow(
   };
 }
 
+/** Live settings preview — same crop + size path the quote letterhead mark uses. */
+export function companyLogoPreviewLetterhead(args: {
+  logo_url: string;
+  crop: CompanyLogoCrop | null;
+  sizePx: number;
+}): CompanyLetterheadLogo {
+  return {
+    logo_url: args.logo_url,
+    ...companyLogoLetterheadSaveRow(args.crop, args.sizePx),
+  };
+}
+
 export function letterheadMarkCssVars(
   company: CompanyLetterheadLogo | null | undefined,
   measuredAspect?: number | null,

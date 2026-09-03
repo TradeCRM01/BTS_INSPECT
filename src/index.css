@@ -1633,6 +1633,127 @@
     margin-top: 8px;
   }
 
+  .company-logo-strip-work {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+  }
+
+  @media (min-width: 720px) {
+    .company-logo-strip-work {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+    }
+  }
+
+  .company-logo-strip-quote {
+    --quote-page: #F5F0E6;
+    --quote-sheet: #FFFDF8;
+    --quote-ink: #0A2540;
+    --quote-muted: #5B6B7C;
+    --quote-line: #E2D9CC;
+    --quote-action: #2E75B6;
+    --hub-letterhead-mark-height: 96px;
+    --hub-letterhead-mark-max: 100%;
+    min-width: 0;
+  }
+
+  .company-logo-strip-quote-kicker {
+    margin: 0 0 8px;
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #5B6B7C;
+  }
+
+  .company-logo-strip-quote-paper {
+    min-width: 0;
+  }
+
+  .company-logo-strip-quote .hub-quote-letterhead {
+    padding: 16px 20px 12px;
+    gap: 16px;
+  }
+
+  .company-logo-strip-quote-heading {
+    text-align: right;
+  }
+
+  .company-logo-strip-quote-title {
+    margin: 0;
+    font-family: Rajdhani, sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+    color: #0A2540;
+  }
+
+  .company-logo-strip-quote-line {
+    margin: 0;
+    padding: 0 20px 16px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #0A2540;
+  }
+
+  /* Same mark path as quote letterhead — crop + size tokens from CompanyLetterheadMark. */
+  .company-logo-strip-quote .hub-letterhead-mark {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: var(--hub-letterhead-mark-max);
+    max-height: var(--hub-letterhead-mark-height);
+    object-fit: contain;
+    object-position: left center;
+    margin-bottom: 10px;
+  }
+
+  .company-logo-strip-quote .hub-letterhead-mark-crop {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    max-width: var(--hub-letterhead-mark-max);
+    margin-bottom: 10px;
+  }
+
+  .company-logo-strip-quote .hub-letterhead-mark-crop.is-full {
+    width: 100%;
+    height: auto;
+  }
+
+  .company-logo-strip-quote .hub-letterhead-mark-crop:not(.is-full) {
+    width: min(
+      100%,
+      calc(
+        var(--hub-letterhead-mark-height) * var(--logo-aspect, 1) * var(--logo-crop-w, 1) /
+          var(--logo-crop-h, 1)
+      )
+    );
+    aspect-ratio: calc(var(--logo-aspect, 1) * var(--logo-crop-w, 1) / var(--logo-crop-h, 1));
+    height: auto;
+    max-height: var(--hub-letterhead-mark-height);
+  }
+
+  .company-logo-strip-quote .hub-letterhead-mark-crop.is-full .hub-letterhead-mark {
+    margin-bottom: 0;
+  }
+
+  .company-logo-strip-quote .hub-letterhead-mark-crop:not(.is-full) .hub-letterhead-mark {
+    position: absolute;
+    width: calc(100% / var(--logo-crop-w, 1));
+    height: calc(100% / var(--logo-crop-h, 1));
+    left: calc(-1 * var(--logo-crop-x, 0) / var(--logo-crop-w, 1) * 100%);
+    top: calc(-1 * var(--logo-crop-y, 0) / var(--logo-crop-h, 1) * 100%);
+    max-width: none;
+    max-height: none;
+    object-fit: fill;
+    margin: 0;
+  }
+
   .ops-section-title {
     @apply text-sm font-semibold tracking-tight text-navy;
   }
