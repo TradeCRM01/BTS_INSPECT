@@ -48,10 +48,12 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
 
     expect(css).toContain('.hub-jobs-identity');
     expect(css).toContain('.hub-jobs-contact-row');
-    expect(css).toContain('grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr)');
+    expect(css).toContain('display: contents');
+    expect(css).toContain('flex-wrap: wrap');
     expect(css).toContain('overflow: hidden');
     expect(css).not.toContain('--hub-list-sheet-max');
     expect(css).toMatch(/\.hub-jobs-document \{[\s\S]{0,220}max-width: 1100px/);
+    expect(css).toContain('.hub-jobs-sheet-bar .hub-job-more > summary');
     expect(css).toContain('.hub-jobs-document .hub-jobs-tools .ops-next-control-done');
     expect(css).toContain('.hub-jobs-document .hub-jobs-status-whisper');
     expect(css).toContain('.hub-jobs-document .hub-jobs-tools .btn-primary');
