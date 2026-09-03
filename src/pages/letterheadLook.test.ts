@@ -28,7 +28,8 @@ describe('quote + invoice letterhead mark LOOK', () => {
     expect(quoteEditor.indexOf('hub-quote-masthead')).toBeLessThan(quoteEditor.indexOf('hub-quote-letterhead'));
     expect(invoiceEditor.indexOf('hub-invoice-masthead')).toBeLessThan(invoiceEditor.indexOf('hub-invoice-letterhead'));
     expect(src('src/lib/CompanyLetterheadMark.tsx')).toContain('className="hub-letterhead-mark"');
-    expect(src('src/lib/CompanyLogoStripCrop.tsx')).toContain('company-logo-strip-preview');
+    expect(src('src/lib/CompanyLogoStripCrop.tsx')).toContain('CompanyLogoQuotePreview');
+    expect(src('src/lib/CompanyLogoQuotePreview.tsx')).toContain('company-logo-strip-preview');
     expect(src('src/lib/CompanyLogoQuotePreview.tsx')).toContain('Quote #2002');
     expect(quoteEditor).toContain('companyWithLetterheadLookMark');
     expect(invoiceEditor).toContain('companyWithLetterheadLookMark');

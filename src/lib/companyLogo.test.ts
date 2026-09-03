@@ -452,7 +452,8 @@ describe('company logo crop + letterhead size', () => {
     expect(migration).not.toContain('073_dashboard_widgets_seeded');
     expect(settings).toContain('company-logo-strip');
     expect(settings).toContain('CompanyLogoStripCrop');
-    expect(src('src/lib/CompanyLogoStripCrop.tsx')).toContain('company-logo-strip-preview');
+    expect(src('src/lib/CompanyLogoStripCrop.tsx')).toContain('CompanyLogoQuotePreview');
+    expect(src('src/lib/CompanyLogoQuotePreview.tsx')).toContain('company-logo-strip-preview');
     expect(settings).toContain('persistCompanyLogoLetterhead');
     expect(settings).toContain('persistCompanyLogo');
     expect(src('src/App.tsx')).not.toMatch(/path="\/settings\/logos"/);
