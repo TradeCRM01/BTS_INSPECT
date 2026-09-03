@@ -22,6 +22,7 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(page).toContain('hub-jobs-identity');
     expect(page).toContain('hub-jobs-identity-col');
     expect(page).toContain('hub-jobs-contact');
+    expect(page).toContain('hub-jobs-contact-row');
     expect(page).toContain('OpsSiteRow');
     expect(page).toContain('hub-job-more');
     expect(page).toContain('placeMoreMenu');
@@ -46,7 +47,13 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect((page.match(/MoreHorizontal/g) ?? []).length).toBeGreaterThanOrEqual(1);
 
     expect(css).toContain('.hub-jobs-identity');
-    expect(css).toContain('grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr)');
+    expect(css).toContain('.hub-jobs-contact-row');
+    expect(css).toContain('display: contents');
+    expect(css).toContain('flex-wrap: wrap');
+    expect(css).toContain('overflow: hidden');
+    expect(css).not.toContain('--hub-list-sheet-max');
+    expect(css).toMatch(/\.hub-jobs-document \{[\s\S]{0,220}max-width: 1100px/);
+    expect(css).toContain('.hub-jobs-sheet-bar .hub-job-more > summary');
     expect(css).toContain('.hub-jobs-document .hub-jobs-tools .ops-next-control-done');
     expect(css).toContain('.hub-jobs-document .hub-jobs-status-whisper');
     expect(css).toContain('.hub-jobs-document .hub-jobs-tools .btn-primary');
@@ -124,10 +131,11 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
 });
 
 describe('job sheet laptop LOOK frames', () => {
-  it('covers 1280 document, overflow, and quote-paper reference', () => {
+  it('covers 1280 document, overflow, phone, and quote-paper reference', () => {
     for (const rel of [
       'docs/look/job-sheet-laptop-1280-document.png',
       'docs/look/job-sheet-laptop-1280-overflow.png',
+      'docs/look/job-sheet-phone-390.png',
       'docs/look/quote-paper-reference.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);

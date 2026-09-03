@@ -425,7 +425,7 @@ export function JobDetailPage() {
     more.classList.remove('is-flip', 'is-shift');
     menu.style.removeProperty('--hub-job-more-shift');
     if (!more.open) return;
-    const pad = 8;
+    const pad = 24;
     const paperRect = paper.getBoundingClientRect();
     const viewBottom = window.innerHeight - pad;
     const menuRect = menu.getBoundingClientRect();
@@ -1101,36 +1101,7 @@ export function JobDetailPage() {
         <article className="hub-jobs-document job-cal-host">
           <header className="hub-jobs-sheet-bar">
             <span className="hub-jobs-hours">{jobRef}</span>
-          </header>
-          <div className="hub-jobs-sheet-body">
-            <h1 className="hub-jobs-hero">{job.title}</h1>
-            <select
-              value={job.status}
-              onChange={e => updateStatus.mutate(e.target.value as JobStatus)}
-              className="hub-jobs-status-whisper"
-              aria-label="Job status"
-            >
-              {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
-                <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
-              ))}
-            </select>
-
-            <div className="hub-jobs-tools">
-              {next.key === 'inspect' && !arrivingPrimary ? (
-                <Link to={inspectHref} className="btn-primary ops-next-control-block">{sheetNext.label}</Link>
-              ) : next.key !== 'none' || arrivingPrimary ? (
-                <button
-                  type="button"
-                  className="btn-primary ops-next-control-block"
-                  disabled={nextBusy}
-                  onClick={runNext}
-                >
-                  {sheetNext.label}
-                </button>
-              ) : (
-                <span className="ops-next-control-done">{sheetNext.label}</span>
-              )}
-              <div className="hub-jobs-tools-overflow">
+            <div className="hub-jobs-tools-overflow">
               <details ref={moreRef} className="hub-job-more">
                 <summary aria-label="More actions">
                   <MoreHorizontal size={18} />
@@ -1220,7 +1191,36 @@ export function JobDetailPage() {
                   </button>
                 </div>
               </details>
-              </div>
+            </div>
+          </header>
+          <div className="hub-jobs-sheet-body">
+            <h1 className="hub-jobs-hero">{job.title}</h1>
+            <select
+              value={job.status}
+              onChange={e => updateStatus.mutate(e.target.value as JobStatus)}
+              className="hub-jobs-status-whisper"
+              aria-label="Job status"
+            >
+              {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
+                <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
+              ))}
+            </select>
+
+            <div className="hub-jobs-tools">
+              {next.key === 'inspect' && !arrivingPrimary ? (
+                <Link to={inspectHref} className="btn-primary ops-next-control-block">{sheetNext.label}</Link>
+              ) : next.key !== 'none' || arrivingPrimary ? (
+                <button
+                  type="button"
+                  className="btn-primary ops-next-control-block"
+                  disabled={nextBusy}
+                  onClick={runNext}
+                >
+                  {sheetNext.label}
+                </button>
+              ) : (
+                <span className="ops-next-control-done">{sheetNext.label}</span>
+              )}
             </div>
 
             {coverPhotoUrl ? (
@@ -1245,6 +1245,7 @@ export function JobDetailPage() {
                 </div>
               </div>
               <div className="hub-jobs-identity-col hub-jobs-contact">
+              <div className="hub-jobs-contact-row">
               {attachRow.kind === 'pick' ? (
                 <form
                   className="job-client-attach"
@@ -1352,6 +1353,7 @@ export function JobDetailPage() {
                   </button>
                 </form>
               )}
+              </div>
               </div>
               <div className="hub-jobs-identity-col is-ops">
               <p className="hub-jobs-ledger-row">
