@@ -65,25 +65,29 @@ describe('quote + invoice letterhead mark LOOK', () => {
     expect(commercial).not.toContain('grafterMark');
   });
 
-  it('seeds a wordmark fixture Playwright can load without a live tenant', () => {
-    const mark = src('public/look/wordmark-field-audit.svg');
+  it('seeds a padded wordmark fixture Playwright can load without a live tenant', () => {
+    const mark = src('public/look/wordmark-padded-field-audit.svg');
     expect(mark).toContain('FIELD AUDIT');
     expect(mark).toContain('CO');
-    expect(src('src/lib/companyLogo.ts')).toContain("LETTERHEAD_LOOK_MARK = '/look/wordmark-field-audit.png'");
-    expect(src('src/lib/companyLogo.ts')).toContain('letterheadLookMarkSrc');
+    expect(mark).toContain('1600');
+    expect(mark).toContain('1000');
+    expect(src('src/lib/companyLogo.ts')).toContain("LETTERHEAD_LOOK_PADDED_MARK = '/look/wordmark-padded-field-audit.png'");
+    expect(src('src/lib/companyLogo.ts')).toContain('LETTERHEAD_LOOK_CROP');
+    expect(src('src/lib/companyLogo.ts')).toContain('letterheadLookPaddedMarkSrc');
+    expect(src('src/pages/CompanySettingsPage.tsx')).toContain('companyWithLetterheadLookMark');
     expect(src('src/lib/devFieldAuditAuth.ts')).toContain('LETTERHEAD_LOOK');
+    expect(existsSync(resolve(process.cwd(), 'public/look/wordmark-padded-field-audit.png'))).toBe(true);
+    expect(existsSync(resolve(process.cwd(), 'public/look/wordmark-padded-field-audit.svg'))).toBe(true);
     expect(existsSync(resolve(process.cwd(), 'public/look/wordmark-field-audit.png'))).toBe(true);
-    expect(existsSync(resolve(process.cwd(), 'public/look/wordmark-field-audit.svg'))).toBe(true);
   });
 });
 
 describe('letterhead LOOK frames', () => {
-  it('covers laptop quote and invoice paper, plus print when PDF differs', () => {
+  it('covers the logo strip crop plus laptop quote and invoice letterhead', () => {
     for (const rel of [
+      'docs/look/logo-strip-laptop-1280.png',
       'docs/look/letterhead-quote-laptop-1280.png',
       'docs/look/letterhead-invoice-laptop-1280.png',
-      'docs/look/letterhead-quote-phone-390.png',
-      'docs/look/letterhead-invoice-phone-390.png',
       'docs/look/letterhead-quote-print.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);

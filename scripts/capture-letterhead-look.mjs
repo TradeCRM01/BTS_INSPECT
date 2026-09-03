@@ -9,39 +9,40 @@ mkdirSync(OUT, { recursive: true });
 
 const browser = await chromium.launch({ headless: true });
 
-async function openPaper(page, path, sel) {
-  await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle' });
+async function waitMark(page, sel) {
   await page.waitForSelector(sel, { timeout: 20000 });
-  await page.waitForSelector(`${sel} .hub-letterhead-mark`, { timeout: 20000 });
   await page.waitForFunction((markSel) => {
     const img = document.querySelector(markSel);
     return img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0;
-  }, `${sel} .hub-letterhead-mark`);
+  }, sel);
   await page.waitForTimeout(400);
 }
 
-async function captureViewport(viewport, frames) {
-  const context = await browser.newContext({
-    viewport,
-    deviceScaleFactor: 1,
-  });
-  const page = await context.newPage();
-  for (const frame of frames) {
-    await openPaper(page, frame.path, frame.sel);
-    await page.screenshot({ path: `${OUT}/${frame.file}`, type: 'png' });
-  }
-  await context.close();
+async function openPaper(page, path, sel) {
+  await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector(sel, { timeout: 20000 });
+  await waitMark(page, `${sel} .hub-letterhead-mark`);
 }
 
-await captureViewport({ width: 1280, height: 900 }, [
-  { path: '/quotes?look=letterhead', sel: '.hub-quote-sheet', file: 'letterhead-quote-laptop-1280.png' },
-  { path: '/invoices?look=letterhead', sel: '.hub-invoice-sheet', file: 'letterhead-invoice-laptop-1280.png' },
-]);
+const laptop = await browser.newContext({
+  viewport: { width: 1280, height: 900 },
+  deviceScaleFactor: 1,
+});
+const page = await laptop.newPage();
 
-await captureViewport({ width: 390, height: 844 }, [
-  { path: '/quotes?look=letterhead', sel: '.hub-quote-sheet', file: 'letterhead-quote-phone-390.png' },
-  { path: '/invoices?look=letterhead', sel: '.hub-invoice-sheet', file: 'letterhead-invoice-phone-390.png' },
-]);
+await page.goto(`${BASE}/settings/company?look=letterhead`, { waitUntil: 'domcontentloaded' });
+await page.waitForSelector('.company-logo-strip-stage-img', { timeout: 20000 });
+await waitMark(page, '.company-logo-strip-stage-img');
+await page.locator('.company-logo-strip').scrollIntoViewIfNeeded();
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${OUT}/logo-strip-laptop-1280.png`, type: 'png' });
+
+await openPaper(page, '/quotes?look=letterhead', '.hub-quote-sheet');
+await page.screenshot({ path: `${OUT}/letterhead-quote-laptop-1280.png`, type: 'png' });
+
+await openPaper(page, '/invoices?look=letterhead', '.hub-invoice-sheet');
+await page.screenshot({ path: `${OUT}/letterhead-invoice-laptop-1280.png`, type: 'png' });
+await laptop.close();
 
 const printContext = await browser.newContext({
   viewport: { width: 1280, height: 900 },
@@ -52,7 +53,7 @@ printPage.on('console', (msg) => {
   if (msg.type() === 'error') console.error('PAGE', msg.text());
 });
 printPage.on('pageerror', (err) => console.error('PAGEERROR', err.message));
-await printPage.goto(`${BASE}/quotes?look=letterhead&print=1`, { waitUntil: 'networkidle' });
+await printPage.goto(`${BASE}/quotes?look=letterhead&print=1`, { waitUntil: 'domcontentloaded' });
 await printPage.waitForSelector('iframe[title="Document PDF preview"]', { timeout: 45000 });
 const pdfSrc = await printPage.locator('iframe[title="Document PDF preview"]').getAttribute('src');
 const pdfBytes = await printPage.evaluate(async (src) => {

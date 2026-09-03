@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
@@ -13,6 +13,7 @@ import {
   companyLogoCropFrom,
   companyLogoLetterheadClientFromSupabase,
   companyLogoLetterheadSizePx,
+  companyWithLetterheadLookMark,
   decideCompanyLogoUpload,
   persistCompanyLogo,
   persistCompanyLogoLetterhead,
@@ -414,7 +415,9 @@ const defaultReportTheme: ReportTheme = {
 };
 
 export function CompanySettingsPage() {
-  const { company, profile, refreshProfile } = useAuth();
+  const { company: authCompany, profile, refreshProfile } = useAuth();
+  const [searchParams] = useSearchParams();
+  const company = companyWithLetterheadLookMark(authCompany, searchParams.get('look')) ?? authCompany;
   const isAdmin = profile?.role === 'admin';
 
   // Company details

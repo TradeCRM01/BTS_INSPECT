@@ -20,7 +20,10 @@ import {
   companyWithLetterheadLookMark,
   decideCompanyLogoUpload,
   LETTERHEAD_LOOK,
+  LETTERHEAD_LOOK_CROP,
   LETTERHEAD_LOOK_MARK,
+  LETTERHEAD_LOOK_PADDED_MARK,
+  LETTERHEAD_LOOK_SIZE,
   LETTERHEAD_MARK_DEFAULT_PX,
   LETTERHEAD_MARK_MAX_PX,
   LETTERHEAD_PDF_DEFAULT,
@@ -295,13 +298,16 @@ describe('company logo on documents', () => {
     expect(settings).not.toContain('BrandLockup');
   });
 
-  it('LOOK letterhead overlays the wordmark fixture on company.logo_url', () => {
-    expect(companyWithLetterheadLookMark({ name: 'Field Audit Co', logo_url: null }, LETTERHEAD_LOOK)?.logo_url)
-      .toBe(LETTERHEAD_LOOK_MARK);
+  it('LOOK letterhead overlays the padded wordmark, crop, and letterhead size', () => {
+    const seeded = companyWithLetterheadLookMark({ name: 'Field Audit Co', logo_url: null }, LETTERHEAD_LOOK);
+    expect(seeded?.logo_url).toBe(LETTERHEAD_LOOK_PADDED_MARK);
+    expect(seeded?.logo_crop).toEqual(LETTERHEAD_LOOK_CROP);
+    expect(seeded?.logo_letterhead_size).toBe(LETTERHEAD_LOOK_SIZE);
     expect(companyWithLetterheadLookMark({ name: 'Field Audit Co', logo_url: LOGO }, 'other')?.logo_url)
       .toBe(LOGO);
     expect(companyWithLetterheadLookMark(null, LETTERHEAD_LOOK)).toBeNull();
-    expect(LETTERHEAD_LOOK_MARK).toContain('wordmark-field-audit.png');
+    expect(LETTERHEAD_LOOK_PADDED_MARK).toContain('wordmark-padded-field-audit.png');
+    expect(LETTERHEAD_LOOK_PADDED_MARK).not.toMatch(/ute/i);
     expect(LETTERHEAD_LOOK_MARK).not.toMatch(/ute/i);
   });
 });
@@ -443,5 +449,6 @@ describe('company logo crop + letterhead size', () => {
     expect(src('src/lib/sendQuote.ts')).toContain('logo_crop: bundle.company.logo_crop');
     expect(src('src/lib/sendInvoice.ts')).toContain('logo_crop: bundle.company.logo_crop');
     expect(src('src/reports/commercial/CommercialDocumentPdf.tsx')).toContain('commercialPdfLogoBox');
+    expect(src('src/reports/commercial/generateCommercialPdf.ts')).toContain('companyLogoCroppedSrc');
   });
 });

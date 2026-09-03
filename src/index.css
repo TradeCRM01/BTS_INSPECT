@@ -1576,6 +1576,8 @@
     overflow: hidden;
     touch-action: none;
     user-select: none;
+    border: 1px solid #E2D9CC;
+    background: #FFFFFF;
   }
 
   .company-logo-strip-stage-img {
@@ -1587,7 +1589,7 @@
   .company-logo-strip-box {
     position: absolute;
     box-sizing: border-box;
-    border: 1px dashed #2E75B6;
+    border: 2px dashed #0A2540;
     cursor: move;
   }
 
@@ -1596,8 +1598,8 @@
     width: 12px;
     height: 12px;
     padding: 0;
-    border: 1px solid #0A2540;
-    background: #fff;
+    border: 1px solid #FFFDF8;
+    background: #2E75B6;
     cursor: nwse-resize;
   }
 
@@ -3767,7 +3769,6 @@
   }
 
   :is(.hub-quote-editor, .hub-invoice-editor) .hub-letterhead-mark-crop:not(.is-full) {
-    height: var(--hub-letterhead-mark-height);
     width: min(
       100%,
       calc(
@@ -3775,6 +3776,9 @@
           var(--logo-crop-h, 1)
       )
     );
+    aspect-ratio: calc(var(--logo-aspect, 1) * var(--logo-crop-w, 1) / var(--logo-crop-h, 1));
+    height: auto;
+    max-height: var(--hub-letterhead-mark-height);
   }
 
   :is(.hub-quote-editor, .hub-invoice-editor) .hub-letterhead-mark-crop.is-full .hub-letterhead-mark {

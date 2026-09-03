@@ -5,12 +5,53 @@ export const COMPANY_LOGOS_BUCKET = 'logos';
 export const LETTERHEAD_LOOK = 'letterhead';
 /** Repo fixture — letters are drawn in the image, not HTML beside it. */
 export const LETTERHEAD_LOOK_MARK = '/look/wordmark-field-audit.png';
+/** Wide export with empty padding around a small mark — the live BTS pain. */
+export const LETTERHEAD_LOOK_PADDED_MARK = '/look/wordmark-padded-field-audit.png';
 
 export function letterheadLookMarkSrc(): string {
   if (typeof window !== 'undefined' && window.location?.origin) {
     return `${window.location.origin}${LETTERHEAD_LOOK_MARK}`;
   }
   return LETTERHEAD_LOOK_MARK;
+}
+
+export function letterheadLookPaddedMarkSrc(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${LETTERHEAD_LOOK_PADDED_MARK}`;
+  }
+  return LETTERHEAD_LOOK_PADDED_MARK;
+}
+
+function loadHtmlImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Could not load the company logo to crop it.'));
+    img.src = src;
+  });
+}
+
+/** Cut the focus box out of the stored mark for PDF (react-pdf cannot clip). */
+export async function companyLogoCroppedSrc(
+  src: string,
+  crop: CompanyLogoCrop | null,
+): Promise<string> {
+  const url = src.trim();
+  if (!url || !crop || typeof document === 'undefined') return url;
+  const img = await loadHtmlImage(url);
+  if (!img.naturalWidth || !img.naturalHeight) return url;
+  const sx = img.naturalWidth * crop.x;
+  const sy = img.naturalHeight * crop.y;
+  const sw = Math.max(1, img.naturalWidth * crop.w);
+  const sh = Math.max(1, img.naturalHeight * crop.h);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(sw);
+  canvas.height = Math.round(sh);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return url;
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/png');
 }
 export const COMPANY_LOGO_MAX_BYTES = 5 * 1024 * 1024;
 export const COMPANY_LOGO_ACCEPT = 'image/png,image/jpeg,image/webp,image/svg+xml,image/gif';
@@ -71,13 +112,22 @@ export function isLetterheadLook(look: string | null | undefined): boolean {
   return look === LETTERHEAD_LOOK;
 }
 
-/** Seed company.logo_url with the letterhead wordmark when ?look=letterhead. */
-export function companyWithLetterheadLookMark<T extends { logo_url?: string | null }>(
+/** Seed the padded export, crop, and letterhead size when ?look=letterhead. */
+export function companyWithLetterheadLookMark<T extends {
+  logo_url?: string | null;
+  logo_crop?: unknown;
+  logo_letterhead_size?: number | null;
+}>(
   company: T | null | undefined,
   look?: string | null,
 ): T | null | undefined {
   if (!company || !isLetterheadLook(look)) return company;
-  return { ...company, logo_url: letterheadLookMarkSrc() };
+  return {
+    ...company,
+    logo_url: letterheadLookPaddedMarkSrc(),
+    logo_crop: LETTERHEAD_LOOK_CROP,
+    logo_letterhead_size: LETTERHEAD_LOOK_SIZE,
+  };
 }
 
 export function companyReportTheme(
@@ -104,6 +154,17 @@ export type CompanyLogoCrop = {
   h: number;
   aspect?: number;
 };
+
+/** Focus box that cuts the empty padding on LETTERHEAD_LOOK_PADDED_MARK (1600×1000, mark at 440,428,720×144). */
+export const LETTERHEAD_LOOK_CROP: CompanyLogoCrop = {
+  x: 0.275,
+  y: 0.428,
+  w: 0.45,
+  h: 0.144,
+  aspect: 1.6,
+};
+/** Cropped mark height on quote/invoice letterhead — PDF weight, still inside FROM. */
+export const LETTERHEAD_LOOK_SIZE = LETTERHEAD_MARK_MAX_PX;
 
 export type CompanyLetterheadLogo = {
   logo_url?: string | null;
