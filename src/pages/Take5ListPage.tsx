@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, ShieldAlert } from 'lucide-react';
+import { FileText, MoreHorizontal, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AUDIT_TAKE5_ID, getAuditJhaDoc, getAuditJob, getAuditTake5, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
@@ -16,10 +16,8 @@ import {
   TAKE5_LIST_FILTERS,
   take5ListAttachParent,
   take5ListEmptyKind,
-  take5ListGoStop,
   take5ListGroups,
   take5ListJobRef,
-  take5ListMatchesFilter,
   take5ListOpenHref,
   take5ListVisibleItems,
   type Take5ListFilter,
@@ -52,6 +50,71 @@ type Take5ListRow = {
   job_number?: number | null;
 };
 
+/** Signed Take 5-list frame seed — list look only, not a live company. */
+const TAKE5_LIST_LOOK = 'take5-list';
+
+function take5ListLookItems(): Take5ListItem[] {
+  const stamp = '2026-09-03T00:00:00.000Z';
+  const base = {
+    go_no_go: 'go',
+    signed_name: 'Dave',
+    signature: 'signed',
+    stop_think: 'Look',
+    identify_hazards: 'Live circuits',
+    control_actions: 'Isolate',
+    created_at: stamp,
+    signed_at: stamp,
+    meta: {} as Record<string, string>,
+    parent_report: null as string | null,
+    parent_task: null as string | null,
+    job_title: null as string | null,
+    job_address: null as string | null,
+    job_assigned_team: null as string[] | null,
+    job_id: null as string | null,
+    job_number: null as number | null,
+    livingCrew: 'Dave',
+  };
+  return [
+    {
+      ...base,
+      id: 'look-take5-northside',
+      status: 'completed',
+      jha_document_id: 'look-jha-northside',
+      parent_site: 'Northside Electrical',
+      livingSite: 'Northside Electrical',
+      meta: { location: 'Northside Electrical' },
+    },
+    {
+      ...base,
+      id: 'look-take5-harbour',
+      status: 'completed',
+      jha_document_id: 'look-jha-harbour',
+      parent_site: 'Harbour Lights',
+      livingSite: 'Harbour Lights',
+      meta: { location: 'Harbour Lights' },
+    },
+    {
+      ...base,
+      id: 'look-take5-midland',
+      status: 'completed',
+      jha_document_id: 'look-jha-midland',
+      parent_site: 'Midland Workshops',
+      livingSite: 'Midland Workshops',
+      meta: { location: 'Midland Workshops' },
+    },
+  ];
+}
+
+function take5ListWhisper(args: { filter: Take5ListFilter; count: number }): string {
+  const filterLabel = args.filter === 'open'
+    ? 'Open'
+    : args.filter === 'done'
+      ? 'Done'
+      : 'All';
+  const countLabel = args.count === 1 ? '1 Take 5' : `${args.count} Take 5s`;
+  return `${filterLabel} · ${countLabel}`;
+}
+
 function take5LookSite(...parts: Array<string | null | undefined>): string {
   for (const part of parts) {
     const trimmed = part?.trim();
@@ -66,15 +129,27 @@ function take5LookMeta(row: Take5ListItem): string {
   return [jobRef, task].filter(Boolean).join(' · ');
 }
 
-function take5LookCrew(row: Take5ListItem): string {
-  return (row.livingCrew || row.signed_name || '').trim();
+function take5ListRowWhen(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+function take5ListRowMuted(row: Take5ListItem): string {
+  const meta = take5LookMeta(row);
+  const when = take5ListRowWhen(row.signed_at || row.created_at);
+  return [meta || 'Take 5', when].filter(Boolean).join(' · ');
 }
 
 export function Take5ListPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const lookTake5List = searchParams.get('look') === TAKE5_LIST_LOOK;
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState<Take5ListFilter>(TAKE5_LIST_DEFAULT_FILTER);
+  const [filter, setFilter] = useState<Take5ListFilter>(lookTake5List ? 'all' : TAKE5_LIST_DEFAULT_FILTER);
 
   const { data: members = [] } = useQuery({
     queryKey: ['company-members-jha', profile?.company_id],
@@ -85,7 +160,7 @@ export function Take5ListPage() {
       if (error) throw error;
       return (data ?? []) as Array<{ id: string; name: string; email: string; role: string }>;
     },
-    enabled: !!profile?.company_id,
+    enabled: !!profile?.company_id && !lookTake5List,
   });
 
   const { data: rows, isLoading, isError, refetch } = useQuery({
@@ -119,10 +194,11 @@ export function Take5ListPage() {
         return take5ListAttachParent(row, jha, job);
       });
     },
-    enabled: !!profile,
+    enabled: !!profile && !lookTake5List,
   });
 
   const items = useMemo<Take5ListItem[]>(() => {
+    if (lookTake5List) return take5ListLookItems();
     return (rows ?? []).map(row => {
       const livingJob = row.job_id
         ? { id: row.job_id, title: row.job_title, address: row.job_address, assigned_team: row.job_assigned_team }
@@ -134,43 +210,206 @@ export function Take5ListPage() {
         livingCrew: livingCrewLabel(living.crew),
       };
     });
-  }, [rows, members]);
+  }, [rows, members, lookTake5List]);
 
   const visible = useMemo(
     () => take5ListVisibleItems(items, { filter, query: q }),
     [items, filter, q],
   );
   const { open: openRows, done: doneRows } = take5ListGroups(visible);
-  const empty = !isLoading && !pageQueryBlocked(isError)
+  const loading = !lookTake5List && isLoading;
+  const empty = !lookTake5List && !loading && !pageQueryBlocked(isError)
     ? take5ListEmptyKind({ total: items.length, visible: visible.length, filter, query: q })
     : null;
-  const openCount = items.filter(r => take5ListMatchesFilter(r.status, 'open')).length;
+  const whisper = take5ListWhisper({ filter, count: visible.length });
 
   return (
     <AppShell>
-      <div className="ops-page hub-take5">
-        <div className="ops-page-head">
-          <div>
-            <p className="hub-look-eyebrow hub-take5-label">Take 5</p>
+      <div className="ops-page hub-take5 hub-take5-list-doc" data-take5-filter={filter}>
+        <div className="hub-take5-sheet">
+          <header className="hub-take5-list-bar">
+            <span className="hub-take5-list-mark">List</span>
+          </header>
+          <div className="hub-take5-list-body">
             <h1 className="ops-page-title">Take 5</h1>
-            <p className="hub-take5-lede">
-              {filter === 'open'
-                ? `${openCount} open · tap one to fill`
-                : 'Open a row to fill. Start a new one from a JHA.'}
-            </p>
-          </div>
-          <Link to="/jha" className="btn-primary">
-            Open JHA documents
-          </Link>
-        </div>
+            <p className="hub-take5-list-whisper">{whisper}</p>
+            <div className="hub-take5-list-tools">
+              <Link to="/jha" className="btn-primary">
+                Open JHA documents
+              </Link>
+              <div className="hub-take5-list-tools-overflow">
+                <Take5ListFind
+                  filter={filter}
+                  onFilter={setFilter}
+                  search={q}
+                  onSearch={setQ}
+                />
+              </div>
+            </div>
 
+            {loading && (
+              <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+            )}
+            {pageQueryBlocked(isError) && <PageError onRetry={refetch} />}
+
+            {empty === 'none' && (
+              <EmptyState
+                icon={ShieldAlert}
+                title="No Take 5s yet"
+                message="Open a job and tap Start Take 5 on the SWMS / Take 5 tray. That is how a leading hand starts one at the workface — this list is for opening and finishing them."
+                action={
+                  <Link to="/jha" className="hub-next">
+                    Open JHA documents
+                  </Link>
+                }
+              />
+            )}
+
+            {empty === 'none-open' && (
+              <EmptyState
+                icon={FileText}
+                title="No open Take 5s"
+                message="Every Take 5 is completed. Switch to Done to open one, or start a new one from the job."
+                action={
+                  <button type="button" className="hub-next" onClick={() => setFilter('done')}>
+                    Show done
+                  </button>
+                }
+              />
+            )}
+
+            {empty === 'none-done' && (
+              <EmptyState
+                icon={FileText}
+                title="No completed Take 5s"
+                message="Open drafts stay under Open until they are signed and completed."
+                action={
+                  <button type="button" className="hub-next" onClick={() => setFilter('open')}>
+                    Show open
+                  </button>
+                }
+              />
+            )}
+
+            {empty === 'none-match' && (
+              <EmptyState
+                icon={FileText}
+                title="No matching Take 5s"
+                message="Try another job, site, or #."
+              />
+            )}
+
+            {!loading && (visible.length > 0 || lookTake5List) && (
+              <>
+                <div className="hub-take5-thead">
+                  <span>Site</span>
+                  <span>Status</span>
+                  <span />
+                </div>
+                {(filter === 'open' || filter === 'all') && (
+                  <Take5Group
+                    title="Open"
+                    rows={openRows}
+                    onOpen={href => navigate(href)}
+                  />
+                )}
+                {(filter === 'done' || filter === 'all') && (
+                  <Take5Group
+                    title="Done"
+                    rows={doneRows}
+                    onOpen={href => navigate(href)}
+                  />
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
+function placeTake5ListMore(more: HTMLDetailsElement) {
+  const menu = more.querySelector('.hub-take5-list-more-menu') as HTMLElement | null;
+  const paper = more.closest('.hub-take5-sheet') as HTMLElement | null;
+  if (!menu || !paper) return;
+  more.classList.remove('is-flip', 'is-shift');
+  menu.style.removeProperty('--hub-take5-list-more-shift');
+  if (!more.open) return;
+  const pad = 8;
+  const paperRect = paper.getBoundingClientRect();
+  const bar = paper.querySelector('.hub-take5-list-bar');
+  const inkFloor = (bar?.getBoundingClientRect().bottom ?? paperRect.top) + pad;
+  const viewBottom = window.innerHeight - pad;
+  const menuRect = menu.getBoundingClientRect();
+  const trigger = more.querySelector('summary') as HTMLElement | null;
+  const triggerRect = trigger?.getBoundingClientRect() ?? menuRect;
+  const flippedTop = triggerRect.top - pad - menuRect.height;
+  const overflowsBottom = menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom);
+  if (overflowsBottom && flippedTop >= inkFloor) {
+    more.classList.add('is-flip');
+  }
+  const after = menu.getBoundingClientRect();
+  let shift = 0;
+  if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
+  if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
+  if (shift !== 0) {
+    more.classList.add('is-shift');
+    menu.style.setProperty('--hub-take5-list-more-shift', `${Math.round(shift)}px`);
+  }
+}
+
+function Take5ListFind({
+  filter,
+  onFilter,
+  search,
+  onSearch,
+}: {
+  filter: Take5ListFilter;
+  onFilter: (value: Take5ListFilter) => void;
+  search: string;
+  onSearch: (value: string) => void;
+}) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeTake5ListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-take5-list-more hub-take5-list-find">
+      <summary aria-label="Find">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-take5-list-more-menu" role="menu">
         <div className="hub-take5-chrome">
           <div className="hub-take5-filters" role="group" aria-label="Filter Take 5s">
             {TAKE5_LIST_FILTERS.map(option => (
               <button
                 key={option.value}
                 type="button"
-                onClick={() => setFilter(option.value)}
+                role="menuitem"
+                onClick={() => onFilter(option.value)}
                 className={`hub-chrome-filter ${filter === option.value ? 'hub-chrome-filter-on' : ''}`}
               >
                 {option.label}
@@ -178,92 +417,57 @@ export function Take5ListPage() {
             ))}
           </div>
           <SearchBar
-            value={q}
-            onChange={setQ}
+            value={search}
+            onChange={onSearch}
             placeholder="Search job, site, #0042…"
             className="hub-take5-search"
           />
         </div>
-
-        {isLoading && (
-          <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
-        )}
-        {pageQueryBlocked(isError) && <PageError onRetry={refetch} />}
-
-        {empty === 'none' && (
-          <EmptyState
-            icon={ShieldAlert}
-            title="No Take 5s yet"
-            message="Open a job and tap Start Take 5 on the SWMS / Take 5 tray. That is how a leading hand starts one at the workface — this list is for opening and finishing them."
-            action={
-              <Link to="/jha" className="btn-primary">
-                Open JHA documents
-              </Link>
-            }
-          />
-        )}
-
-        {empty === 'none-open' && (
-          <EmptyState
-            icon={FileText}
-            title="No open Take 5s"
-            message="Every Take 5 is completed. Switch to Done to open one, or start a new one from the job."
-            action={
-              <button type="button" className="hub-next" onClick={() => setFilter('done')}>
-                Show done
-              </button>
-            }
-          />
-        )}
-
-        {empty === 'none-done' && (
-          <EmptyState
-            icon={FileText}
-            title="No completed Take 5s"
-            message="Open drafts stay under Open until they are signed and completed."
-            action={
-              <button type="button" className="hub-next" onClick={() => setFilter('open')}>
-                Show open
-              </button>
-            }
-          />
-        )}
-
-        {empty === 'none-match' && (
-          <EmptyState
-            icon={FileText}
-            title="No matching Take 5s"
-            message="Try another job, site, or #."
-          />
-        )}
-
-        {!isLoading && visible.length > 0 && (
-          <div className="hub-take5-sheet">
-            <div className="hub-take5-thead">
-              <span>Site</span>
-              <span>GO/STOP</span>
-              <span>Crew</span>
-              <span>Status</span>
-              <span />
-            </div>
-            {(filter === 'open' || filter === 'all') && (
-              <Take5Group
-                title="Open"
-                rows={openRows}
-                onOpen={href => navigate(href)}
-              />
-            )}
-            {(filter === 'done' || filter === 'all') && (
-              <Take5Group
-                title="Done"
-                rows={doneRows}
-                onOpen={href => navigate(href)}
-              />
-            )}
-          </div>
-        )}
       </div>
-    </AppShell>
+    </details>
+  );
+}
+
+function Take5RowMore({
+  children,
+}: {
+  children: (closeMore: () => void) => ReactNode;
+}) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeTake5ListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-take5-list-more">
+      <summary aria-label="More">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-take5-list-more-menu" role="menu">
+        {children(closeMore)}
+      </div>
+    </details>
   );
 }
 
@@ -278,14 +482,14 @@ function Take5Group({
 }) {
   if (rows.length === 0) return null;
   return (
-    <>
+    <div data-take5-group={title.toLowerCase()}>
       <div className="hub-take5-group">
         {title} {rows.length}
       </div>
       {rows.map(row => (
         <Take5Row key={row.id} row={row} onOpen={onOpen} />
       ))}
-    </>
+    </div>
   );
 }
 
@@ -313,29 +517,35 @@ function Take5Row({
     row.job_title,
     row.parent_task,
   );
-  const meta = take5LookMeta(row);
-  const crew = take5LookCrew(row);
-  const goStop = take5ListGoStop(row.go_no_go);
+  const muted = take5ListRowMuted(row);
   const status = take5StatusLabel(row.status);
-  const statusTone = row.status === 'completed' ? 'is-ready' : 'is-draft';
 
   return (
     <div
       role="link"
       tabIndex={0}
+      aria-label="Open"
       onClick={() => onOpen(href)}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(href); } }}
       className="hub-take5-row"
     >
-      <span className="hub-take5-site">
-        <span className="hub-take5-site-name">{site}</span>
-        {meta ? <span className="hub-take5-muted">{meta}</span> : null}
+      <span className="min-w-0">
+        <span className="hub-take5-site truncate">{site}</span>
+        {muted ? <span className="hub-take5-muted truncate">{muted}</span> : null}
       </span>
-      <span className={`hub-take5-pill is-${goStop.toLowerCase()}`}>{goStop}</span>
-      <span className="hub-take5-crew">{crew}</span>
-      <span className={`hub-take5-pill ${statusTone}`}>{status}</span>
+      <span className="hub-take5-status">{status}</span>
       <span className="hub-take5-row-next" onClick={e => e.stopPropagation()}>
-        <Link to={href} className="hub-next">{next.label}</Link>
+        <Take5RowMore>
+          {closeMore => (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => { onOpen(href); closeMore(); }}
+            >
+              {next.label}
+            </button>
+          )}
+        </Take5RowMore>
       </span>
     </div>
   );

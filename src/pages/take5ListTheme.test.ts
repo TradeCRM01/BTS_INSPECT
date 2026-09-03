@@ -17,12 +17,15 @@ describe('Take 5 list cream paper look', () => {
     const css = src('src/index.css');
 
     expect(list).toContain('hub-take5');
+    expect(list).toContain('hub-take5-list-doc');
+    expect(list).toContain('hub-take5-list-whisper');
     expect(list).toContain('hub-take5-sheet');
     expect(list).toContain('hub-take5-row');
-    expect(list).toContain('hub-take5-pill');
-    expect(list).toContain('hub-take5-label');
+    expect(list).not.toContain('hub-take5-pill');
+    expect(list).not.toContain('hub-take5-label');
     expect(list).not.toContain('hub-take5-kicker');
-    expect(list).toContain('GO/STOP');
+    expect(list).toContain('>Site</span>');
+    expect(list).toContain('>Status</span>');
     expect(list).toContain('TAKE5_LIST_FILTERS');
     expect(list).toContain('take5ListOpenHref');
     expect(list).toContain('recommendTake5ListAction');
