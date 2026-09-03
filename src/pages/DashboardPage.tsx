@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,7 +12,7 @@ import {
   useDraggable,
 } from '@dnd-kit/core';
 import {
-  Plus, X, GripVertical, Trash2, LayoutGrid, Sparkles, Briefcase,
+  Plus, X, GripVertical, Trash2, LayoutGrid, Sparkles, Briefcase, MoreHorizontal,
 } from 'lucide-react';
 import { WIDGET_REGISTRY, WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
 import { WidgetRenderer } from '../widgets/WidgetComponents';
@@ -50,9 +50,70 @@ const MAX_W = 800;
 const MAX_H = 700;
 const CANVAS_PAD = 40;
 
+/** Signed dashboard frame seed — home look only, not a live company. */
+const DASHBOARD_LOOK = 'dashboard';
+const DASHBOARD_LOOK_DAVE = 'look-dash-dave';
+const DASHBOARD_LOOK_JACK = 'look-dash-jack';
+
+function dashboardLookCrew(): ScheduleCrewMember[] {
+  return [
+    { id: DASHBOARD_LOOK_DAVE, name: 'Dave' },
+    { id: DASHBOARD_LOOK_JACK, name: 'Jack' },
+  ];
+}
+
+function dashboardLookJobs(): JobWithClient[] {
+  const day = dashboardTodayKey();
+  const stamp = '2026-09-03T00:00:00.000Z';
+  const base = {
+    company_id: 'look-dashboard',
+    client_id: null as string | null,
+    description: null as string | null,
+    priority: 'medium' as const,
+    inspection_id: null as string | null,
+    created_by: DASHBOARD_LOOK_DAVE,
+    created_at: stamp,
+    updated_at: stamp,
+    color: null as string | null,
+    budget: null as number | null,
+    parent_job_id: null as string | null,
+    cost_code: null as string | null,
+  };
+  return [
+    {
+      ...base,
+      id: 'look-dash-northside',
+      title: 'Site labour',
+      status: 'in_progress',
+      scheduled_date: day,
+      start_time: '07:30',
+      end_time: '16:00',
+      address: '12 Workshop Rd, Perth WA 6000',
+      assigned_team: [DASHBOARD_LOOK_DAVE],
+      job_number: 42,
+      client_name: 'Northside Electrical',
+    },
+    {
+      ...base,
+      id: 'look-dash-harbour',
+      title: 'Warehouse lights',
+      status: 'scheduled',
+      scheduled_date: day,
+      start_time: '09:00',
+      end_time: '12:00',
+      address: '8 Wharf St, Fremantle WA 6160',
+      assigned_team: [DASHBOARD_LOOK_JACK],
+      job_number: 43,
+      client_name: 'Harbour Lights',
+    },
+  ];
+}
+
 export function DashboardPage() {
   const { profile, company } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const lookDashboard = searchParams.get('look') === DASHBOARD_LOOK;
   const [editMode, setEditMode] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -79,8 +140,9 @@ export function DashboardPage() {
   });
 
   const { data: teamMembers } = useQuery<ScheduleCrewMember[]>({
-    queryKey: ['dashboard-today-crew'],
+    queryKey: ['dashboard-today-crew', lookDashboard],
     queryFn: async () => {
+      if (lookDashboard) return dashboardLookCrew();
       const mock = getAuditTeamMembers();
       if (mock) return mock.map(m => ({ id: m.id, name: m.name }));
       if (!profile?.company_id) return [];
@@ -97,8 +159,9 @@ export function DashboardPage() {
   });
 
   const { data: todayJobs, isLoading: jobsLoading, error: jobsError } = useQuery<JobWithClient[]>({
-    queryKey: ['dashboard-today-jobs', todayKey],
+    queryKey: ['dashboard-today-jobs', todayKey, lookDashboard],
     queryFn: async () => {
+      if (lookDashboard) return dashboardLookJobs();
       const mock = getAuditJobs();
       if (mock) {
         return todaysDashboardJobs(attachJobClients(mock as Job[], getAuditClients() ?? []));
@@ -268,7 +331,8 @@ export function DashboardPage() {
 
   const work = todayJobs ?? [];
   const jobCountLabel = work.length === 1 ? '1 job' : `${work.length} jobs`;
-  const jobline = [
+  const whisper = [
+    dashboardHeadingDate(),
     company?.name,
     !jobsLoading && work.length > 0 ? jobCountLabel : null,
   ].filter(Boolean).join(' · ');
@@ -276,48 +340,39 @@ export function DashboardPage() {
   return (
     <AppShell>
       <div className="ops-page dashboard-home is-day-open">
-        <div className="dashboard-home-open-chrome">
-          <p className="hub-look-eyebrow dashboard-home-label">Today</p>
-        </div>
-
         <article className="dashboard-home-sheet" data-dashboard-home="1">
           <header className="dashboard-home-sheet-bar">
-            <span className="dashboard-home-hours">{dashboardHeadingDate()}</span>
-            <span className="dashboard-home-pill">
-              {!jobsLoading && work.length > 0 ? jobCountLabel : 'Today'}
-            </span>
+            <span className="dashboard-home-mark">Today</span>
           </header>
           <div className="dashboard-home-sheet-body">
-            <h1 className="ops-page-title dashboard-home-hero">Today&apos;s work</h1>
-            {jobline ? <p className="dashboard-home-jobline">{jobline}</p> : null}
+            <h1 className="ops-page-title dashboard-home-hero">Dashboard</h1>
+            <p className="hub-look-eyebrow dashboard-home-label dashboard-home-whisper">{whisper}</p>
 
             <div className="dashboard-home-tools">
               {editMode ? (
                 <button
                   type="button"
                   onClick={() => setShowPicker(true)}
-                  className="dashboard-home-primary"
+                  className="btn-primary dashboard-home-primary"
                 >
                   <Plus size={16} />
                   Add widget
                 </button>
               ) : work.length === 0 && !jobsLoading ? (
-                <Link to="/schedule" className="dashboard-home-primary">
+                <Link to="/schedule" className="btn-primary dashboard-home-primary">
                   Open schedule
                 </Link>
               ) : (
-                <Link to="/schedule" className="dashboard-home-primary">
+                <Link to="/schedule" className="btn-primary dashboard-home-primary">
                   Week board
                 </Link>
               )}
-              <button
-                type="button"
-                onClick={() => setEditMode(e => !e)}
-                className="dashboard-home-sub"
-              >
-                <LayoutGrid size={16} />
-                {editMode ? 'Done editing' : 'Customize'}
-              </button>
+              <div className="dashboard-home-tools-overflow">
+                <DashboardHomeMore
+                  editMode={editMode}
+                  onToggleEdit={() => setEditMode(e => !e)}
+                />
+              </div>
             </div>
 
             {jobsLoading ? (
@@ -330,12 +385,19 @@ export function DashboardPage() {
               />
             ) : (
               <div className="dashboard-home-ledger">
+                <div className="dashboard-home-thead">
+                  <span>Time</span>
+                  <span>Job</span>
+                  <span>Place</span>
+                </div>
                 {work.map(job => {
                   const state = dashboardJobState(job);
                   const place = dashboardJobPlace(job);
                   const meta = [
+                    formatJobRef(job),
                     dashboardJobMetaLine(job) || place,
                     dashboardCrewLabel(job.assigned_team, teamMembers),
+                    dashboardJobStateLabel(state),
                   ].filter(Boolean).join(' · ');
                   return (
                     <Link
@@ -343,20 +405,16 @@ export function DashboardPage() {
                       to={dashboardJobHref(job.id)}
                       data-dashboard-job={job.id}
                       className="dashboard-home-row"
+                      aria-label="Open"
                     >
                       <span className="dashboard-home-time">
                         {dashboardClockLabel(job.start_time, job.end_time)}
                       </span>
                       <span className="dashboard-home-job">
                         <span className="dashboard-home-title">{job.title}</span>
-                        <span className="dashboard-home-ref">
-                          {[formatJobRef(job), meta].filter(Boolean).join(' · ')}
-                        </span>
+                        <span className="dashboard-home-ref">{meta}</span>
                       </span>
-                      <span className={`dashboard-home-pill is-${state}`}>
-                        {dashboardJobStateLabel(state)}
-                      </span>
-                      <span className="dashboard-home-next">Open</span>
+                      <span className="dashboard-home-place">{place}</span>
                     </Link>
                   );
                 })}
@@ -437,6 +495,87 @@ export function DashboardPage() {
 }
 
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Free-form Widget Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+function placeDashboardMore(more: HTMLDetailsElement) {
+  const menu = more.querySelector('.dashboard-home-more-menu') as HTMLElement | null;
+  const paper = more.closest('.dashboard-home-sheet') as HTMLElement | null;
+  if (!menu || !paper) return;
+  more.classList.remove('is-flip', 'is-shift');
+  menu.style.removeProperty('--dashboard-home-more-shift');
+  if (!more.open) return;
+  const pad = 8;
+  const paperRect = paper.getBoundingClientRect();
+  const bar = paper.querySelector('.dashboard-home-sheet-bar');
+  const inkFloor = (bar?.getBoundingClientRect().bottom ?? paperRect.top) + pad;
+  const viewBottom = window.innerHeight - pad;
+  const menuRect = menu.getBoundingClientRect();
+  const trigger = more.querySelector('summary') as HTMLElement | null;
+  const triggerRect = trigger?.getBoundingClientRect() ?? menuRect;
+  const flippedTop = triggerRect.top - pad - menuRect.height;
+  const overflowsBottom = menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom);
+  if (overflowsBottom && flippedTop >= inkFloor) {
+    more.classList.add('is-flip');
+  }
+  const after = menu.getBoundingClientRect();
+  let shift = 0;
+  if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
+  if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
+  if (shift !== 0) {
+    more.classList.add('is-shift');
+    menu.style.setProperty('--dashboard-home-more-shift', `${Math.round(shift)}px`);
+  }
+}
+
+function DashboardHomeMore({
+  editMode,
+  onToggleEdit,
+}: {
+  editMode: boolean;
+  onToggleEdit: () => void;
+}) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeDashboardMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="dashboard-home-more">
+      <summary aria-label="More">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="dashboard-home-more-menu" role="menu">
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => { onToggleEdit(); closeMore(); }}
+        >
+          {editMode ? 'Done editing' : 'Customize'}
+        </button>
+      </div>
+    </details>
+  );
+}
+
 function FreeWidget({
   widget, editMode, onRemove, onResizeStart, onConfigChange, isDragging,
 }: {

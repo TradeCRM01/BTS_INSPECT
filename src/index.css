@@ -8203,7 +8203,7 @@
     .hub-jobs-row > :nth-child(5) { grid-area: next; }
   }
 
-  /* Signed-in home / only. Same cream paper lock as signed Take 5 list. */
+  /* Signed-in home / only. Same paper kit as signed quote / clients list. */
   .dashboard-home {
     --dashboard-home-page: #F5F0E6;
     --dashboard-home-sheet: #FFFDF8;
@@ -8222,8 +8222,8 @@
     width: 100%;
     min-height: calc(100dvh - 3.5rem);
     margin: 0;
-    background: var(--dashboard-home-page);
-    color: var(--dashboard-home-ink);
+    background: #F5F0E6;
+    color: #0A2540;
     padding: 24px 24px 48px;
   }
 
@@ -8234,7 +8234,7 @@
     letter-spacing: 0.02em;
     line-height: 0.96;
     text-shadow: none;
-    color: var(--dashboard-home-ink);
+    color: #0A2540;
     font-size: 56px !important;
     margin: 0;
   }
@@ -8245,25 +8245,29 @@
   }
 
   .dashboard-home-open-chrome {
-    max-width: 1100px;
-    margin: 0 auto 16px;
-    padding-top: 8px;
+    display: none;
   }
 
-  .dashboard-home-label {
+  .dashboard-home-label,
+  .dashboard-home .dashboard-home-label.dashboard-home-whisper {
     font-family: 'Source Sans 3', system-ui, sans-serif;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: var(--dashboard-home-muted);
-    margin: 0;
+    color: #5B6B7C;
+    margin: 8px 0 0;
+  }
+
+  .dashboard-home-whisper {
+    display: block;
+    padding: 0;
   }
 
   .dashboard-home-meta,
   .dashboard-home .ops-meta,
   .dashboard-home .ops-section-title {
-    color: var(--dashboard-home-muted);
+    color: #5B6B7C;
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
@@ -8274,21 +8278,25 @@
   }
 
   .dashboard-home .ops-section-title {
-    color: var(--dashboard-home-ink);
+    color: #0A2540;
     font-family: Rajdhani, sans-serif;
     font-weight: 700;
     letter-spacing: 0.02em;
   }
 
   .dashboard-home-sheet {
+    position: relative;
     max-width: 1100px;
-    margin: 0 auto 24px;
-    background: var(--dashboard-home-sheet);
-    border: 1px solid var(--dashboard-home-line);
+    min-height: 620px;
+    margin: 0 auto;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
     border-radius: 16px;
     padding: 0;
-    overflow: hidden;
-    box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+    overflow: visible;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08);
   }
 
   .dashboard-home-sheet-bar {
@@ -8298,25 +8306,24 @@
     gap: 16px;
     min-height: 44px;
     padding: 8px 24px;
-    background: var(--dashboard-home-ink);
+    background: #0A2540;
     color: #fff;
+    border-radius: 16px 16px 0 0;
   }
 
-  .dashboard-home-sheet-bar .dashboard-home-hours {
-    color: #fff;
+  .dashboard-home-mark {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
     font-size: 16px;
-  }
-
-  .dashboard-home-sheet-bar .dashboard-home-pill {
-    background: #fff;
-    color: var(--dashboard-home-ink);
-    border-color: transparent;
+    letter-spacing: 0.02em;
+    color: #fff;
   }
 
   .dashboard-home-sheet-body {
     padding: 32px 32px 24px;
-    background: var(--dashboard-home-sheet);
+    background: #FFFDF8;
     box-shadow: inset 0 1px 0 #fff;
+    overflow: visible;
   }
 
   .dashboard-home-hero {
@@ -8325,25 +8332,24 @@
     font-size: 56px !important;
     letter-spacing: 0.02em;
     line-height: 0.96;
-    color: var(--dashboard-home-ink);
+    color: #0A2540;
     margin: 0;
-  }
-
-  .dashboard-home-jobline {
-    margin: 8px 0 0;
-    color: #2E75B6;
-    font-size: 16px;
-    font-weight: 500;
   }
 
   .dashboard-home-tools {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 16px;
     margin-top: 24px;
   }
 
+  .dashboard-home-tools-overflow {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+
+  .dashboard-home .dashboard-home-tools .btn-primary,
   .dashboard-home-primary {
     background: #2E75B6;
     color: #fff;
@@ -8365,7 +8371,8 @@
     text-decoration: none;
   }
 
-  .dashboard-home-primary:hover {
+  .dashboard-home-primary:hover,
+  .dashboard-home .dashboard-home-tools .btn-primary:hover {
     background: color-mix(in srgb, #2E75B6 86%, #0A2540);
     color: #fff;
   }
@@ -8392,32 +8399,40 @@
     text-decoration: none;
   }
 
-  .dashboard-home-hours {
-    margin: 0;
-    font-family: Rajdhani, sans-serif;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.02em;
-    color: var(--dashboard-home-ink);
-    font-size: 20px;
+  .dashboard-home-ledger {
+    margin-top: 24px;
   }
 
-  .dashboard-home-ledger {
-    margin-top: 32px;
+  .dashboard-home-thead,
+  .dashboard-home-row {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr) 140px;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .dashboard-home-thead {
+    margin-top: 24px;
+    padding: 8px 0;
+    background: none;
+    color: #5B6B7C;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    border-bottom: 1px solid #E2D9CC;
+    box-shadow: inset 0 1px 0 #fff;
   }
 
   .dashboard-home-row {
-    display: grid;
-    grid-template-columns: 120px minmax(0, 1fr) auto auto;
-    gap: 16px;
-    align-items: center;
     margin: 0;
     padding: 16px 0;
-    border-bottom: 1px solid var(--dashboard-home-line);
+    border-top: 1px solid #E2D9CC;
     background: none;
     border-radius: 0;
     box-shadow: none;
-    color: var(--dashboard-home-ink);
+    color: #0A2540;
     font-size: 14px;
     font-weight: 500;
     text-decoration: none;
@@ -8425,7 +8440,7 @@
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
-  .dashboard-home-row:first-of-type {
+  .dashboard-home-thead + .dashboard-home-row {
     border-top: none;
   }
 
@@ -8434,7 +8449,7 @@
     font-family: Rajdhani, sans-serif;
     font-weight: 700;
     letter-spacing: 0.02em;
-    color: var(--dashboard-home-ink);
+    color: #0A2540;
   }
 
   .dashboard-home-time {
@@ -8452,15 +8467,17 @@
 
   .dashboard-home-title,
   .dashboard-home-cell,
-  .dashboard-home-ref {
+  .dashboard-home-ref,
+  .dashboard-home-place {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .dashboard-home-ref,
+  .dashboard-home-place,
   .dashboard-home-cell.is-muted {
-    color: var(--dashboard-home-muted);
+    color: #5B6B7C;
     font-weight: 500;
   }
 
@@ -8468,65 +8485,98 @@
     font-size: 13px;
   }
 
-  .dashboard-home-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 24px;
-    padding: 0 12px;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    font-family: Rajdhani, sans-serif;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    line-height: 1;
-    width: fit-content;
-    white-space: nowrap;
-  }
-
-  .dashboard-home-pill.is-today {
-    color: #2E75B6;
-    background: color-mix(in srgb, #2E75B6 12%, #fff);
-  }
-
-  .dashboard-home-pill.is-on_site {
-    color: var(--dashboard-home-warn);
-    background: color-mix(in srgb, #B54708 12%, #fff);
-  }
-
-  .dashboard-home-pill.is-done,
-  .dashboard-home-pill.is-scheduled {
-    color: var(--dashboard-home-muted);
-    background: color-mix(in srgb, #5B6B7C 12%, #fff);
-  }
-
-  .dashboard-home-next {
-    color: #2E75B6;
-    text-align: right;
+  .dashboard-home-place {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
     font-size: 14px;
-    font-weight: 600;
+    letter-spacing: 0;
+    text-align: right;
+  }
+
+  .dashboard-home-more {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .dashboard-home-more > summary {
+    list-style: none;
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: #5B6B7C;
+    cursor: pointer;
+  }
+
+  .dashboard-home-more > summary::-webkit-details-marker,
+  .dashboard-home-more > summary::marker {
+    display: none;
+    content: '';
+  }
+
+  .dashboard-home-more-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    z-index: 20;
+    min-width: 200px;
+    padding: 8px;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
+    border-radius: 16px;
+    box-shadow: none;
+  }
+
+  .dashboard-home-more.is-flip .dashboard-home-more-menu {
+    top: auto;
+    bottom: calc(100% + 8px);
+  }
+
+  .dashboard-home-more.is-shift .dashboard-home-more-menu {
+    transform: translateX(var(--dashboard-home-more-shift, 0px));
+  }
+
+  .dashboard-home-more-menu button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 32px;
+    text-align: left;
+    padding: 0 12px;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: #0A2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .dashboard-home-more-menu button:hover {
+    background: #F5F0E6;
   }
 
   .dashboard-home-widgets {
     max-width: 1100px;
-    margin: 0 auto 24px;
+    margin: 24px auto 24px;
   }
 
   .dashboard-home-canvas {
-    border: 1px solid var(--dashboard-home-line);
+    border: 1px solid #E2D9CC;
     border-radius: 16px;
   }
 
   .dashboard-home-canvas.is-editing {
-    border-color: var(--dashboard-home-line);
+    border-color: #E2D9CC;
     background: color-mix(in srgb, #FFFDF8 86%, #F5F0E6);
   }
 
   .dashboard-home-widget {
-    background: var(--dashboard-home-sheet);
-    border: 1px solid var(--dashboard-home-line);
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
     border-radius: 16px;
     box-shadow: none;
   }
@@ -8541,7 +8591,7 @@
   }
 
   .dashboard-home-widget-empty-icon {
-    color: var(--dashboard-home-line);
+    color: #E2D9CC;
     margin-bottom: 8px;
   }
 
@@ -8559,40 +8609,32 @@
       padding: 8px 16px;
     }
 
-    .dashboard-home-sheet-bar .dashboard-home-pill {
-      background: #2E75B6;
-      color: #fff;
-    }
-
     .dashboard-home-sheet-body {
       padding: 24px 16px 16px;
     }
 
     .dashboard-home-tools {
-      flex-direction: column;
-      align-items: stretch;
-      width: 100%;
+      flex-wrap: wrap;
     }
 
-    .dashboard-home-primary {
-      width: 100%;
-      justify-content: center;
+    .dashboard-home-primary,
+    .dashboard-home .dashboard-home-tools .btn-primary {
+      width: auto;
     }
 
+    .dashboard-home-thead,
     .dashboard-home-row {
-      grid-template-columns: 1fr auto;
-      grid-template-areas:
-        "time next"
-        "job next"
-        "status next";
+      grid-template-columns: 88px minmax(0, 1fr);
       gap: 8px 16px;
-      padding: 16px 0;
     }
 
-    .dashboard-home-row > :nth-child(1) { grid-area: time; }
-    .dashboard-home-row > :nth-child(2) { grid-area: job; }
-    .dashboard-home-row > :nth-child(3) { grid-area: status; }
-    .dashboard-home-row > :nth-child(4) { grid-area: next; }
+    .dashboard-home-place {
+      display: none;
+    }
+
+    .dashboard-home-thead > :nth-child(3) {
+      display: none;
+    }
   }
 
   /* Field Work inspections list only. Same cream paper lock as signed jobs/clients. */
