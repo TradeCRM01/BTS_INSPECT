@@ -35,6 +35,11 @@ export interface ExpenseReceiptAiPayload {
 
 const COST_CLASSES: ExpenseCostClass[] = ['overhead', 'cogs', 'employee'];
 
+/** Named trade-hardware merchants the extract already returns as vendor_name. */
+const MATERIALS_MERCHANTS = /bunnings|mitre\s*10|\breece\b|\bmidway\b/i;
+const MATERIALS_LINE = /material|hardware|trade store/i;
+const EMPLOYEE_LINE = /wage|salary|payroll|superann/i;
+
 const CATEGORY_HINTS: Array<{
   match: RegExp;
   category: string;
@@ -48,7 +53,8 @@ const CATEGORY_HINTS: Array<{
   { match: /insur/i, category: 'Insurance', cost_class: 'overhead' },
   { match: /software|subscription/i, category: 'Software & Subscriptions', cost_class: 'overhead' },
   { match: /tool|equipment/i, category: 'Tools & Equipment', cost_class: 'overhead' },
-  { match: /material|hardware|bunnings|trade store/i, category: 'Materials (non-job)', cost_class: 'overhead' },
+  { match: MATERIALS_LINE, category: 'Materials (non-job)', cost_class: 'cogs' },
+  { match: MATERIALS_MERCHANTS, category: 'Materials (non-job)', cost_class: 'cogs' },
   { match: /utilit|electric|water|gas bill/i, category: 'Utilities', cost_class: 'overhead' },
 ];
 
@@ -103,6 +109,30 @@ function guessCategory(haystack: string): { category: string; cost_class: Expens
   return null;
 }
 
+function looksEmployee(haystack: string): boolean {
+  return EMPLOYEE_LINE.test(haystack);
+}
+
+function looksMaterials(haystack: string, vendorName: string): boolean {
+  return MATERIALS_MERCHANTS.test(vendorName) || MATERIALS_MERCHANTS.test(haystack) || MATERIALS_LINE.test(haystack);
+}
+
+/**
+ * Prefill cost_class for the existing three cards.
+ * Wages stay employee; trade materials (Bunnings and named AU hardware) are cogs
+ * even when extract-expense-receipt still returns overhead.
+ */
+export function resolveScanCostClass(
+  rawClass: string | null | undefined,
+  haystack: string,
+  vendorName = '',
+): ExpenseCostClass {
+  if (looksEmployee(haystack)) return 'employee';
+  if (looksMaterials(haystack, vendorName)) return 'cogs';
+  if (isExpenseCostClass(asText(rawClass))) return rawClass as ExpenseCostClass;
+  return guessCategory(haystack)?.cost_class ?? 'overhead';
+}
+
 export function isExpenseCostClass(value: string | null | undefined): value is ExpenseCostClass {
   return !!value && COST_CLASSES.includes(value as ExpenseCostClass);
 }
@@ -138,9 +168,7 @@ export function mapExpenseReceiptExtract(
   const haystack = [raw.category, raw.description, vendor_name, reference].filter(Boolean).join(' ');
   const guessed = guessCategory(haystack);
   const category = asText(raw.category) || guessed?.category || 'Other';
-  const cost_class = isExpenseCostClass(asText(raw.cost_class))
-    ? (raw.cost_class as ExpenseCostClass)
-    : (guessed?.cost_class ?? 'overhead');
+  const cost_class = resolveScanCostClass(raw.cost_class, haystack, vendor_name);
 
   const description = asText(raw.description)
     || (vendor_name ? `${vendor_name} receipt` : '')

@@ -52,6 +52,26 @@ function text(value: unknown): string | null {
   return s ? s : null;
 }
 
+/** Same three cost_class values the expenses scan cards use. */
+function classifyExpenseCostClass(
+  vendorName: string | null,
+  category: string | null,
+  description: string | null,
+  reference: string | null,
+  rawClass: string | null,
+): string | null {
+  const hay = [category, description, vendorName, reference].filter(Boolean).join(" ");
+  if (/wage|salary|payroll|superann/i.test(hay)) return "employee";
+  if (
+    /bunnings|mitre\s*10|\breece\b|\bmidway\b/i.test(`${vendorName ?? ""} ${hay}`)
+    || /material|hardware|trade store/i.test(hay)
+  ) {
+    return "cogs";
+  }
+  if (rawClass === "overhead" || rawClass === "cogs" || rawClass === "employee") return rawClass;
+  return rawClass;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -157,7 +177,7 @@ Rules:
 - reference is the invoice or receipt number.
 - description is a short expense line (store + what was bought).
 - category is one of: Rent / Lease, Insurance, Utilities, Vehicles & Fuel, Tools & Equipment, Software & Subscriptions, Marketing & Advertising, Office & Admin, Professional Fees, Training & Licences, Subcontractors, Materials (non-job), Wages & Salaries, Superannuation, Employee Allowances, Employee Reimbursements, Bank Fees & Interest, Other — or a short "Overheads / Materials" style label if none fit.
-- cost_class: overhead for operating costs, cogs for job/sales costs (subcontractors, job materials), employee for wages/super.
+- cost_class: overhead for operating costs (rent, insurance, software, vehicles & fuel), cogs for job/sales costs (subcontractors and trade materials / hardware — Bunnings, Mitre 10, Reece, Midway and similar), employee for wages/super. Do not class Bunnings or job materials as overhead.
 - Skip turning this into price-book product lines. One expense header only.
 - Numbers must be plain numbers, not strings with $ signs.
 - Filename hint: ${body.filename ?? "receipt.jpg"}`;
@@ -223,7 +243,13 @@ Rules:
         total: num(parsed.total),
         expense_date: text(parsed.expense_date) ?? text(parsed.invoice_date),
         category: text(parsed.category),
-        cost_class: text(parsed.cost_class),
+        cost_class: classifyExpenseCostClass(
+          text(parsed.vendor_name) ?? text(parsed.supplier_name),
+          text(parsed.category),
+          text(parsed.description),
+          text(parsed.reference) ?? text(parsed.invoice_number),
+          text(parsed.cost_class),
+        ),
         reference: text(parsed.reference) ?? text(parsed.invoice_number),
         description: text(parsed.description),
         model,

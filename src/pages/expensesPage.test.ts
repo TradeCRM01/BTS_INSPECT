@@ -53,6 +53,17 @@ describe('Expenses scan-receipt wiring', () => {
     expect(page).not.toContain('PriceBookPdfImportModal');
   });
 
+  it('classifies Bunnings / materials extract as cogs so the Cost of sales card prefills', () => {
+    expect(helper).toContain('export function resolveScanCostClass');
+    expect(helper).toContain("return 'cogs'");
+    expect(helper).toContain('MATERIALS_MERCHANTS');
+    expect(helper).toContain('bunnings');
+    expect(fn).toContain('function classifyExpenseCostClass');
+    expect(fn).toContain('return "cogs"');
+    expect(fn).toContain('Do not class Bunnings or job materials as overhead');
+    expect(fn).not.toContain('general');
+  });
+
   it('shows the three cost_class cards above category on the scan review sheet', () => {
     const fsm = src('src/types/fsm.ts');
     const sheetStart = page.indexOf('<div className="hub-expenses-review">');
