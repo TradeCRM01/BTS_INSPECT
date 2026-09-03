@@ -22,11 +22,10 @@ export function MarketingPage() {
         <section className="hub-marketing-hero">
           <p className="hub-marketing-kicker">Australian trade job software</p>
           <h1 className="hub-marketing-display">
-            One job. Quote to paid.
+            Quote it. Send it. Get paid.
           </h1>
           <p className="hub-marketing-lede">
-            Grafter keeps the job in one place: quote, schedule, inspect, timesheet, invoice.
-            You design the test reports and inspections. JHA, Take 5, attach SWMS, and compliance stay with the work.
+            Quote, schedule, invoice.
           </p>
           <p className="hub-marketing-lede">
             3 months free. Then pick a seat pack.
@@ -46,37 +45,25 @@ export function MarketingPage() {
         </section>
 
         <section className="hub-marketing-band">
-          <div className="hub-marketing-grid">
-            <article>
-              <p className="hub-marketing-kicker">Reports</p>
-              <h2 className="hub-marketing-subhead">Custom templates you design.</h2>
-              <p>
-                Build your own test reports and inspections. Send the client a document that looks like your company — your logo, your letterhead.
-              </p>
-            </article>
-            <article>
-              <p className="hub-marketing-kicker">Safety</p>
-              <h2 className="hub-marketing-subhead">JHA, Take 5, attach SWMS.</h2>
-              <p>
-                Fill on the phone, sign the crew, file compliance on the job. The paperwork follows the work, not a folder on someone’s desktop.
-              </p>
-            </article>
-            <article>
-              <p className="hub-marketing-kicker">The job</p>
-              <h2 className="hub-marketing-subhead">Everything lives on the job.</h2>
-              <p>
-                Quote it, drop it on the crew, fill the sheet, clock off to a timesheet, send the invoice. Nothing lives in a second app.
-              </p>
-            </article>
-          </div>
+          <article>
+            <h2 className="hub-marketing-subhead">Send a GST quote.</h2>
+            <p>
+              Build the quote with GST, send the PDF, they Accept on their phone. Accepting the quote is not booking the job — that is a second tap.
+            </p>
+          </article>
+          <article>
+            <h2 className="hub-marketing-subhead">Invoice the same job.</h2>
+            <p>
+              GST invoice, how to pay, send it, mark it paid, chase what is overdue. Same job as the quote.
+            </p>
+          </article>
         </section>
 
         <section className="hub-marketing-split">
           <div>
-            <p className="hub-marketing-kicker">Schedule</p>
-            <h2 className="hub-marketing-subhead">Drop a job on a name.</h2>
+            <h2 className="hub-marketing-subhead">Drop the job on a name.</h2>
             <p>
-              Search a job, drag it onto a person or a time. Stages show as #0042.01 when a cost code is on them.
+              Put it on the week board. Search a job, drag it onto a person.
             </p>
           </div>
           <div className="hub-marketing-frame" aria-hidden>
@@ -86,6 +73,21 @@ export function MarketingPage() {
             </div>
             <ScheduleFrame />
           </div>
+        </section>
+
+        <section className="hub-marketing-band">
+          <article>
+            <h2 className="hub-marketing-subhead">Arriving. Clock in. Hours on the sheet.</h2>
+            <p>
+              Arriving shortly, then Clock In. Clock off writes real timesheet hours. One sheet, not a second app.
+            </p>
+          </article>
+          <article>
+            <h2 className="hub-marketing-subhead">Paperwork stays with the work.</h2>
+            <p>
+              Custom templates, JHA, Take 5, attach SWMS — filed on the job.
+            </p>
+          </article>
         </section>
 
         <section className="hub-marketing-band" id="pricing">

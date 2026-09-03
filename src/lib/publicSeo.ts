@@ -25,7 +25,7 @@ export const PUBLIC_SEO: Record<PublicSeoKey, PublicSeoEntry> = {
   landing: {
     title: 'Grafter — Trade job software for Australian crews',
     description:
-      'Australian trade job software. Custom test-report and inspection templates, plus JHA, Take 5, and SWMS — all on the job. Quote to paid.',
+      'Quote, schedule, invoice, get paid. Australian trade job software for crews — templates, JHA, Take 5, and SWMS stay on the job.',
     path: '/',
     robots: 'index,follow',
   },
