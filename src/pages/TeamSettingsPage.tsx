@@ -160,6 +160,11 @@ const TEAM_LOOK_CSS = `
   gap: 8px 16px;
   margin-top: 8px;
 }
+.hub-team-tools .hub-team-sub {
+  min-height: 0;
+  height: auto;
+  font-size: 13px;
+}
 .hub-team-next {
   background: #2E75B6;
   color: #fff;
@@ -201,26 +206,26 @@ const TEAM_LOOK_CSS = `
 .hub-team-sub:hover { color: var(--team-look-ink); }
 .hub-team-sub.is-quiet { color: var(--team-look-muted); }
 .hub-team-select {
-  min-height: 44px;
-  height: auto;
-  padding: 8px 12px;
+  min-height: 0;
+  height: 32px;
+  padding: 0 8px;
   border: 1px solid var(--team-look-line);
   border-radius: 12px;
   background: var(--team-look-sheet);
   color: var(--team-look-ink);
   font-family: 'Source Sans 3', system-ui, sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   box-shadow: none;
 }
 .hub-team-select:focus {
   outline: none;
   border-color: #2E75B6;
 }
-.hub-team-ledger { margin-top: 32px; }
+.hub-team-ledger { margin-top: 16px; }
 .hub-team-ledger-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  flex-wrap: nowrap;
+  align-items: center;
   justify-content: space-between;
   gap: 8px 16px;
   margin: 0;
@@ -233,6 +238,12 @@ const TEAM_LOOK_CSS = `
   font-size: 14px;
   font-family: 'Source Sans 3', system-ui, sans-serif;
   color: var(--team-look-ink);
+}
+.hub-team-ledger-row > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .hub-team-ledger-kicker {
   font-family: Rajdhani, sans-serif;
@@ -268,17 +279,24 @@ const TEAM_LOOK_CSS = `
 }
 .hub-team-add-fields {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1.2fr) auto;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1.2fr);
   gap: 8px;
   align-items: center;
 }
+.hub-team-add-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
 .hub-team-hairline {
-  min-height: 44px;
+  min-height: 36px;
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--team-look-line);
-  border-radius: 12px;
-  background: var(--team-look-sheet);
+  padding: 6px 0;
+  border: none;
+  border-bottom: 1px solid var(--team-look-line);
+  border-radius: 0;
+  background: transparent;
   color: var(--team-look-ink);
   font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 12px;
@@ -286,7 +304,7 @@ const TEAM_LOOK_CSS = `
 }
 .hub-team-hairline:focus {
   outline: none;
-  border-color: #2E75B6;
+  border-bottom-color: #2E75B6;
 }
 .hub-team-hairline::placeholder {
   color: var(--team-look-muted);
@@ -294,7 +312,7 @@ const TEAM_LOOK_CSS = `
 .hub-team-file {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
+  min-height: 36px;
   max-width: 140px;
   padding: 0 4px;
   color: var(--team-look-muted);
@@ -323,19 +341,30 @@ const TEAM_LOOK_CSS = `
 }
 @media (max-width: 639px) {
   .hub-team.ops-page { padding: 16px 16px 40px; }
+  .hub-team.is-person-open .hub-team-open-chrome {
+    margin-bottom: 8px;
+    padding-top: 0;
+  }
   .hub-team-sheet-bar { padding: 8px 16px; }
   .hub-team-sheet-bar .hub-team-pill {
     background: #2E75B6;
     color: #fff;
   }
-  .hub-team-sheet-body { padding: 24px 16px 16px; }
+  .hub-team-sheet-body { padding: 16px 16px 16px; }
   .hub-team-hero { font-size: 40px; }
-  .hub-team-tools {
-    flex-direction: column;
+  .hub-team.is-person-open .hub-team-tools {
+    flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: flex-start;
     width: 100%;
   }
-  .hub-team-next { width: min(100%, 240px); }
+  .hub-team.is-person-open .hub-team-next { width: auto; }
+  .hub-team-ledger { margin-top: 12px; }
+  .hub-team-ledger-row { padding: 6px 0; gap: 4px 8px; }
+  .hub-team-ledger-acts { gap: 6px; flex-shrink: 0; }
+  .hub-team-ledger-row .hub-team-sub { font-size: 12px; }
+  .hub-team-hours { font-size: 14px; }
   .hub-team-add-fields { grid-template-columns: 1fr 1fr; }
   .hub-team-add .hub-team-next { width: auto; }
 }
@@ -1372,6 +1401,13 @@ function TeamMemberTicketsLedger({
               placeholder="Notes"
               aria-label="Notes"
             />
+          </div>
+          {error && (
+            <div className="hub-team-ledger-row">
+              <span>{error}</span>
+            </div>
+          )}
+          <div className="hub-team-add-foot">
             <label className="hub-team-file">
               <input
                 className="sr-only"
@@ -1381,15 +1417,10 @@ function TeamMemberTicketsLedger({
               />
               {file ? file.name : 'File'}
             </label>
+            <button type="submit" className="hub-team-next" disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Saving...' : 'Save ticket'}
+            </button>
           </div>
-          {error && (
-            <div className="hub-team-ledger-row">
-              <span>{error}</span>
-            </div>
-          )}
-          <button type="submit" className="hub-team-next" disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? 'Saving...' : 'Save ticket'}
-          </button>
         </form>
       )}
     </div>
