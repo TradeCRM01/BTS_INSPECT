@@ -3661,17 +3661,24 @@
     padding: 24px;
   }
 
-  /* Shared quote + invoice letterhead mark. One token so they cannot drift. */
+  /* Shared quote + invoice letterhead mark. One token so they cannot drift.
+     Stay inside the FROM column — never paint over TO. */
   :is(.hub-quote-editor, .hub-invoice-editor) {
     --hub-letterhead-mark-height: 96px;
-    --hub-letterhead-mark-max: 480px;
+    --hub-letterhead-mark-max: 100%;
+  }
+
+  :is(.hub-quote-letterhead, .hub-invoice-letterhead) > * {
+    min-width: 0;
+    overflow: hidden;
   }
 
   :is(.hub-quote-editor, .hub-invoice-editor) .hub-letterhead-mark {
     display: block;
-    height: var(--hub-letterhead-mark-height);
     width: auto;
+    height: auto;
     max-width: var(--hub-letterhead-mark-max);
+    max-height: var(--hub-letterhead-mark-height);
     object-fit: contain;
     object-position: left center;
     margin-bottom: 10px;

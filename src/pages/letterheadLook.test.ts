@@ -32,10 +32,13 @@ describe('quote + invoice letterhead mark LOOK', () => {
     expect(invoices).toContain('getAuditClients');
 
     expect(css).toContain('--hub-letterhead-mark-height: 96px');
-    expect(css).toContain('--hub-letterhead-mark-max: 480px');
+    expect(css).toContain('--hub-letterhead-mark-max: 100%');
+    expect(css).toContain(':is(.hub-quote-letterhead, .hub-invoice-letterhead) > *');
+    expect(css).toContain('overflow: hidden');
     expect(css).toContain(':is(.hub-quote-editor, .hub-invoice-editor) .hub-letterhead-mark');
-    expect(css).toContain('height: var(--hub-letterhead-mark-height)');
+    expect(css).toContain('max-height: var(--hub-letterhead-mark-height)');
     expect(css).toContain('max-width: var(--hub-letterhead-mark-max)');
+    expect(css).not.toContain('--hub-letterhead-mark-max: 480px');
     expect(css).not.toContain('height: 32px');
     expect(css).not.toContain('max-width: 140px');
     expect(src('src/index.css')).not.toContain('.hub-quote-letterhead-mark');
