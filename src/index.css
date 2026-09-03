@@ -4954,10 +4954,11 @@
   .hub-week-id-label {
     margin: 0;
     font-family: 'Source Sans 3', system-ui, sans-serif;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    letter-spacing: 0;
+    text-transform: none;
+    font-variant: normal;
     color: #5B6B7C;
   }
 
@@ -4971,7 +4972,7 @@
 
   .hub-week-search {
     margin: 0;
-    padding: 16px 0;
+    padding: 8px 0 16px;
     max-width: none;
     border-bottom: 1px solid #E2D9CC;
   }
@@ -4987,15 +4988,27 @@
     box-shadow: none;
   }
 
+  .hub-week-document .hub-week-search svg {
+    color: #5B6B7C;
+    left: 10px;
+  }
+
   .hub-week-document .hub-week-search .form-input {
     min-height: 0;
     height: auto;
-    padding: 8px 0 8px 32px;
-    border: none;
-    border-radius: 0;
-    background: transparent;
+    padding: 6px 12px 6px 32px;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    background: #FFFDF8;
+    color: #5B6B7C;
     font-size: 12px !important;
+    font-weight: 500;
     box-shadow: none;
+  }
+
+  .hub-week-document .hub-week-search .form-input::placeholder {
+    color: #5B6B7C;
+    opacity: 1;
   }
 
   .hub-week-seg {
@@ -5041,18 +5054,23 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 32px;
-    padding: 0 12px;
-    border: 1px solid #E2D9CC;
-    border-radius: 12px;
-    background: #FFFDF8;
-    color: #0A2540;
+    min-height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    color: #5B6B7C;
     font-family: 'Source Sans 3', system-ui, sans-serif;
     font-size: 12px;
     font-weight: 500;
     box-shadow: none;
     cursor: pointer;
     list-style: none;
+  }
+
+  .hub-week-quiet:hover {
+    color: #0A2540;
+    background: none;
   }
 
   .hub-week-quiet::-webkit-details-marker,
@@ -5063,8 +5081,9 @@
   }
 
   .hub-week-nav {
-    width: 32px;
+    width: auto;
     padding: 0;
+    color: #5B6B7C;
   }
 
   .hub-week-crews,
@@ -5176,6 +5195,20 @@
     padding: 16px 0;
     border-color: #E2D9CC;
     background: none;
+  }
+
+  .hub-week-document .hub-week-chip {
+    background: #FFFDF8 !important;
+    color: #0A2540 !important;
+    border: 1px solid #E2D9CC;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .hub-week-document .hub-week-chip-ref,
+  .hub-week-document .hub-week-chip-desc {
+    color: #0A2540;
+    opacity: 1;
   }
 
   .hub-week-board {

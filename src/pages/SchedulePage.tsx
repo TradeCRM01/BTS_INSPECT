@@ -36,8 +36,7 @@ const WEEK_BOARD_LOOK_ANCHOR = new Date(2025, 2, 31);
 const WEEK_LOOK_DAVE = 'look-crew-dave';
 const WEEK_LOOK_JACK = 'look-crew-jack';
 const WEEK_LOOK_SAM = 'look-crew-sam';
-const WEEK_LOOK_RUST = '#C45C38';
-const WEEK_LOOK_NAVY = '#0A2540';
+const WEEK_LOOK_INK = '#0A2540';
 
 const WEEK_BOARD_LOOK_CREW: TeamMember[] = [
   { id: WEEK_LOOK_DAVE, name: 'Dave', email: 'dave@look.example', schedule_color: null },
@@ -81,7 +80,7 @@ function weekBoardLookJobs(): JobWithClient[] {
       cost_code: '01',
       parent_job_id: 'look-job-0042',
       parent_job_number: 42,
-      color: WEEK_LOOK_RUST,
+      color: WEEK_LOOK_INK,
     }),
     weekBoardLookJob({
       id: 'look-job-0042-02',
@@ -92,7 +91,7 @@ function weekBoardLookJobs(): JobWithClient[] {
       cost_code: '02',
       parent_job_id: 'look-job-0042',
       parent_job_number: 42,
-      color: WEEK_LOOK_RUST,
+      color: WEEK_LOOK_INK,
     }),
     weekBoardLookJob({
       id: 'look-job-0048',
@@ -100,7 +99,7 @@ function weekBoardLookJobs(): JobWithClient[] {
       scheduled_date: '2025-04-03',
       assigned_team: [WEEK_LOOK_JACK],
       job_number: 48,
-      color: WEEK_LOOK_NAVY,
+      color: WEEK_LOOK_INK,
     }),
   ];
 }

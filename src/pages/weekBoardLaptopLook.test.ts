@@ -36,6 +36,9 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(page).toContain("name: 'Jack'");
     expect(page).toContain("name: 'Sam'");
     expect(page).toContain('Warehouse lights');
+    expect(page).toContain('>Week<');
+    expect(page).toContain('>Crew<');
+    expect(page).not.toMatch(/#C45C38|#C05838/);
     expect(page).not.toContain('hub-jobs-identity');
     expect(page).not.toContain('hub-quote-editor');
     expect(page).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
@@ -67,6 +70,15 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(css).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(css).toContain('inset 0 1px 0 #fff');
     expect(css).toContain('min-height: 44px');
+    expect(css).toContain('text-transform: none');
+    expect(css).toContain('letter-spacing: 0');
+    expect(css).toContain('.hub-week-document .hub-week-chip');
+    expect(css).toContain('background: #FFFDF8 !important');
+    expect(css).toContain('color: #0A2540 !important');
+    expect(css).toContain('.form-input::placeholder');
+    expect(css).not.toMatch(/letter-spacing:\s*0\.12em/);
+    expect(css).not.toMatch(/text-transform:\s*uppercase/);
+    expect(css).not.toMatch(/#C45C38|#C05838|#C45C26/);
     expect(css).not.toMatch(/#16A34A|#15803D|#1B7F3A/);
     expect(css).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
     expect(css).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
