@@ -119,7 +119,6 @@ describe('commercial invoice / quote report_theme', () => {
     const commercial = src('src/reports/commercial/CommercialDocumentPdf.tsx');
     const send = src('src/lib/sendInvoice.ts');
     for (const body of [commercial, send]) {
-      expect(body).not.toMatch(/grafter/i);
       expect(body).not.toContain('Relovi');
       expect(body).not.toContain('Littleloop');
       expect(body).not.toContain('BtsMark');
@@ -127,6 +126,7 @@ describe('commercial invoice / quote report_theme', () => {
       expect(body).not.toContain('primaryCream');
       expect(body).not.toContain('report_theme_v2');
     }
+    expect(commercial).not.toMatch(/grafter/i);
     expect(commercial).toContain('parseReportTheme');
     expect(commercial).toContain('resolvePdfColors');
     expect(commercial).toContain('commercialDocumentColors');

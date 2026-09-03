@@ -1564,6 +1564,75 @@
     color: #B42318;
   }
 
+  .company-logo-strip-crop {
+    margin-top: 12px;
+    min-width: 0;
+  }
+
+  .company-logo-strip-stage {
+    position: relative;
+    width: min(100%, 360px);
+    max-width: 100%;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    border: 1px solid #E2D9CC;
+    background: #FFFFFF;
+  }
+
+  .company-logo-strip-stage-img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .company-logo-strip-box {
+    position: absolute;
+    box-sizing: border-box;
+    border: 2px dashed #0A2540;
+    cursor: move;
+  }
+
+  .company-logo-strip-handle {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    padding: 0;
+    border: 1px solid #FFFDF8;
+    background: #2E75B6;
+    cursor: nwse-resize;
+  }
+
+  .company-logo-strip-handle.is-nw { left: -6px; top: -6px; cursor: nwse-resize; }
+  .company-logo-strip-handle.is-ne { right: -6px; top: -6px; cursor: nesw-resize; }
+  .company-logo-strip-handle.is-sw { left: -6px; bottom: -6px; cursor: nesw-resize; }
+  .company-logo-strip-handle.is-se { right: -6px; bottom: -6px; cursor: nwse-resize; }
+
+  .company-logo-strip-size {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #5B6B7C;
+  }
+
+  .company-logo-strip-size input[type='range'] {
+    flex: 1 1 120px;
+    min-width: 0;
+    max-width: 220px;
+  }
+
+  .company-logo-strip-crop-acts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
   .ops-section-title {
     @apply text-sm font-semibold tracking-tight text-navy;
   }
@@ -3683,6 +3752,49 @@
     object-fit: contain;
     object-position: left center;
     margin-bottom: 10px;
+  }
+
+  /* Cropped mark: the frame is the cut box. max-width 100% of FROM — never paint over TO. */
+  :is(.hub-quote-editor, .hub-invoice-editor) .hub-letterhead-mark-crop {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    max-width: var(--hub-letterhead-mark-max);
+    margin-bottom: 10px;
+  }
+
+  :is(.hub-quote-editor, .hub-invoice-editor) .hub-letterhead-mark-crop.is-full {
+    width: 100%;
+    height: auto;
+  }
+
+  :is(.hub-quote-editor, .hub-invoice-editor) .hub-letterhead-mark-crop:not(.is-full) {
+    width: min(
+      100%,
+      calc(
+        var(--hub-letterhead-mark-height) * var(--logo-aspect, 1) * var(--logo-crop-w, 1) /
+          var(--logo-crop-h, 1)
+      )
+    );
+    aspect-ratio: calc(var(--logo-aspect, 1) * var(--logo-crop-w, 1) / var(--logo-crop-h, 1));
+    height: auto;
+    max-height: var(--hub-letterhead-mark-height);
+  }
+
+  :is(.hub-quote-editor, .hub-invoice-editor) .hub-letterhead-mark-crop.is-full .hub-letterhead-mark {
+    margin-bottom: 0;
+  }
+
+  :is(.hub-quote-editor, .hub-invoice-editor) .hub-letterhead-mark-crop:not(.is-full) .hub-letterhead-mark {
+    position: absolute;
+    width: calc(100% / var(--logo-crop-w, 1));
+    height: calc(100% / var(--logo-crop-h, 1));
+    left: calc(-1 * var(--logo-crop-x, 0) / var(--logo-crop-w, 1) * 100%);
+    top: calc(-1 * var(--logo-crop-y, 0) / var(--logo-crop-h, 1) * 100%);
+    max-width: none;
+    max-height: none;
+    object-fit: fill;
+    margin: 0;
   }
 
   .hub-invoice-from-name,

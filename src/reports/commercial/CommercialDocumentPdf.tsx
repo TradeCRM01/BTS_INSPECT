@@ -9,7 +9,7 @@ import {
 import { formatMoney } from '../../types/fsm';
 import type { QuoteLineItem, InvoiceLineItem } from '../../types/fsm';
 import { gstLabel } from '../../lib/gst';
-import { companyDocumentLogoUrl } from '../../lib/companyLogo';
+import { commercialPdfLogoBox, companyDocumentLogoUrl } from '../../lib/companyLogo';
 
 /** Saved companies.report_theme on this document, or the existing commercial default. */
 export function commercialDocumentColors(theme?: unknown): PdfColors {
@@ -44,6 +44,8 @@ export interface CommercialPdfData {
     email?: string | null;
     website?: string | null;
     logo_url?: string | null;
+    logo_crop?: unknown;
+    logo_letterhead_size?: number | null;
     report_theme?: PdfThemeTokens | Record<string, unknown> | null;
   };
   inclusions: string[];
@@ -236,6 +238,7 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
   const colors = commercialDocumentColors(company.report_theme);
   const s = commercialStyles(colors, data.kind);
   const logoUrl = companyDocumentLogoUrl(company);
+  const logoBox = commercialPdfLogoBox(company);
   const contactBits = [company.phone, company.email, company.website].filter(Boolean).join('  ·  ');
   const abnBits = [
     company.abn ? `ABN ${company.abn}` : null,
@@ -248,8 +251,21 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
         {/* 1. Letterhead */}
         <View style={s.letterhead}>
           <View style={s.brandBlock}>
-            {logoUrl ? (
-              <Image src={logoUrl} style={s.logo} />
+            {logoUrl && logoBox.crop ? (
+              <View style={{ width: logoBox.width, height: logoBox.height, overflow: 'hidden', marginBottom: 8 }}>
+                <Image
+                  src={logoUrl}
+                  style={{
+                    width: logoBox.width / logoBox.crop.w,
+                    height: logoBox.height / logoBox.crop.h,
+                    marginLeft: -(logoBox.crop.x / logoBox.crop.w) * logoBox.width,
+                    marginTop: -(logoBox.crop.y / logoBox.crop.h) * logoBox.height,
+                    objectFit: 'fill',
+                  }}
+                />
+              </View>
+            ) : logoUrl ? (
+              <Image src={logoUrl} style={{ ...s.logo, width: logoBox.width, height: logoBox.height }} />
             ) : null}
             <View>
               <Text style={s.companyName}>{company.name.toUpperCase()}</Text>

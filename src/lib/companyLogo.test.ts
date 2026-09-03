@@ -10,18 +10,33 @@ import {
   COMPANY_LOGO_NO_COMPANY,
   COMPANY_LOGOS_BUCKET,
   commercialPdfCompanyFrom,
+  commercialPdfLogoBox,
   companyDocumentLogoUrl,
   companyLogoClientFromSupabase,
+  companyLogoLetterheadSaveRow,
+  companyLogoLetterheadSizePx,
   companyLogoOnDocuments,
   companyLogoStoragePath,
   companyWithLetterheadLookMark,
   decideCompanyLogoUpload,
   LETTERHEAD_LOOK,
+  LETTERHEAD_LOOK_CROP,
   LETTERHEAD_LOOK_MARK,
+  LETTERHEAD_LOOK_PADDED_MARK,
+  LETTERHEAD_LOOK_SIZE,
+  LETTERHEAD_MARK_DEFAULT_PX,
+  LETTERHEAD_MARK_MAX_PX,
+  LETTERHEAD_PDF_DEFAULT,
+  letterheadMarkCoversTo,
+  letterheadMarkCssVars,
+  letterheadMarkIsFull,
+  parseCompanyLogoCrop,
   persistCompanyLogo,
+  persistCompanyLogoLetterhead,
   removeCompanyLogo,
   type CompanyLogoClient,
   type CompanyLogoFileIn,
+  type CompanyLogoLetterheadClient,
 } from './companyLogo';
 
 function src(rel: string): string {
@@ -265,8 +280,10 @@ describe('company logo on documents', () => {
       expect(body).not.toContain('BtsMark');
       expect(body).not.toContain('BrandLockup');
       expect(body).not.toContain('grafterMark');
-      expect(body).not.toMatch(/grafter/i);
       expect(body).not.toContain('/icon.svg');
+    }
+    for (const body of [commercial, shared, electricalCompose, genericCompose, generatePdf, generateJhaPdf, generateTake5Pdf]) {
+      expect(body).not.toMatch(/grafter/i);
     }
     expect(commercial).toContain('companyDocumentLogoUrl');
     expect(electricalCompose).toContain('companyDocumentLogoUrl');
@@ -281,14 +298,25 @@ describe('company logo on documents', () => {
     expect(settings).not.toContain('BrandLockup');
   });
 
-  it('LOOK letterhead overlays the wordmark fixture on company.logo_url', () => {
-    expect(companyWithLetterheadLookMark({ name: 'Field Audit Co', logo_url: null }, LETTERHEAD_LOOK)?.logo_url)
-      .toBe(LETTERHEAD_LOOK_MARK);
+  it('LOOK letterhead overlays the padded wordmark, crop, and letterhead size', () => {
+    const seeded = companyWithLetterheadLookMark({ name: 'Field Audit Co', logo_url: null }, LETTERHEAD_LOOK);
+    expect(seeded?.logo_url).toBe(LETTERHEAD_LOOK_PADDED_MARK);
+    expect(seeded?.logo_crop).toEqual(LETTERHEAD_LOOK_CROP);
+    expect(seeded?.logo_letterhead_size).toBe(LETTERHEAD_LOOK_SIZE);
     expect(companyWithLetterheadLookMark({ name: 'Field Audit Co', logo_url: LOGO }, 'other')?.logo_url)
       .toBe(LOGO);
     expect(companyWithLetterheadLookMark(null, LETTERHEAD_LOOK)).toBeNull();
-    expect(LETTERHEAD_LOOK_MARK).toContain('wordmark-field-audit.png');
+    expect(LETTERHEAD_LOOK_PADDED_MARK).toContain('wordmark-padded-field-audit.png');
+    expect(LETTERHEAD_LOOK_PADDED_MARK).not.toMatch(/ute/i);
     expect(LETTERHEAD_LOOK_MARK).not.toMatch(/ute/i);
+    expect(LETTERHEAD_LOOK_CROP).toEqual({
+      x: 542 / 1600,
+      y: 440 / 1000,
+      w: 516 / 1600,
+      h: 120 / 1000,
+      aspect: 1600 / 1000,
+    });
+    expect(LETTERHEAD_LOOK_CROP.w).toBeLessThan(0.33);
   });
 });
 
@@ -331,5 +359,104 @@ describe('companyLogoClientFromSupabase', () => {
     expect(result).toMatchObject({ ok: true, logo_url: 'https://files.test/co1/logo.png' });
     expect(uploads).toEqual([{ bucket: 'logos', path: 'co1/logo.png' }]);
     expect(writes).toEqual([{ table: 'companies', row: { logo_url: 'https://files.test/co1/logo.png' }, id: 'co1' }]);
+  });
+});
+
+describe('company logo crop + letterhead size', () => {
+  const crop = { x: 0.12, y: 0.4, w: 0.7, h: 0.2, aspect: 2.5 };
+
+  it('persists crop and size on companies — not a new table', async () => {
+    const writes: Array<{ table: string; row: unknown; id: string }> = [];
+    const client: CompanyLogoLetterheadClient = {
+      async saveLetterhead(companyId, row) {
+        writes.push({ table: 'companies', row, id: companyId });
+        return { error: null };
+      },
+    };
+    const result = await persistCompanyLogoLetterhead(client, {
+      companyId: 'co1',
+      crop,
+      sizePx: 72,
+    });
+    expect(result).toEqual({
+      ok: true,
+      companyId: 'co1',
+      logo_crop: crop,
+      logo_letterhead_size: 72,
+    });
+    expect(writes).toEqual([{ table: 'companies', row: { logo_crop: crop, logo_letterhead_size: 72 }, id: 'co1' }]);
+    expect(companyLogoLetterheadSaveRow(crop, LETTERHEAD_MARK_DEFAULT_PX)).toEqual({
+      logo_crop: crop,
+      logo_letterhead_size: null,
+    });
+  });
+
+  it('letterhead uses the cropped scaled mark and keeps TO clear at the default size', () => {
+    const stamped = commercialPdfCompanyFrom({
+      name: 'Acme Electrical',
+      logo_url: LOGO,
+      logo_crop: crop,
+      logo_letterhead_size: 72,
+    });
+    expect(stamped.logo_crop).toEqual(crop);
+    expect(stamped.logo_letterhead_size).toBe(72);
+    expect(letterheadMarkIsFull(stamped)).toBe(false);
+    expect(letterheadMarkCssVars(stamped)['--hub-letterhead-mark-height']).toBe('72px');
+    expect(letterheadMarkCssVars(stamped)['--logo-crop-x']).toBe('0.12');
+    expect(letterheadMarkCssVars(stamped)['--logo-crop-w']).toBe('0.7');
+
+    const box = commercialPdfLogoBox(stamped);
+    expect(box.crop).toEqual(crop);
+    expect(box.height).toBe(Math.round(80 * (72 / 96)));
+    expect(box.width).toBeLessThanOrEqual(LETTERHEAD_PDF_DEFAULT.width);
+
+    expect(letterheadMarkCoversTo(LETTERHEAD_MARK_DEFAULT_PX)).toBe(false);
+    expect(letterheadMarkCoversTo(LETTERHEAD_MARK_MAX_PX)).toBe(false);
+    expect(companyLogoLetterheadSizePx({})).toBe(LETTERHEAD_MARK_DEFAULT_PX);
+
+    const quotes = src('src/pages/QuotesPage.tsx');
+    const invoices = src('src/pages/InvoicesPage.tsx');
+    const css = src('src/index.css');
+    expect(quotes).toContain('CompanyLetterheadMark');
+    expect(invoices).toContain('CompanyLetterheadMark');
+    expect(src('src/lib/CompanyLetterheadMark.tsx')).toContain('hub-letterhead-mark-crop');
+    expect(css).toContain('never paint over TO');
+    expect(css).toContain('max-width: var(--hub-letterhead-mark-max)');
+    expect(css).toContain(':is(.hub-quote-letterhead, .hub-invoice-letterhead) > *');
+    expect(css).toContain('overflow: hidden');
+  });
+
+  it('unset crop falls back to the full image and current letterhead size', () => {
+    expect(parseCompanyLogoCrop(null)).toBeNull();
+    expect(parseCompanyLogoCrop(undefined)).toBeNull();
+    expect(parseCompanyLogoCrop({ x: 0, y: 0, w: 1, h: 1 })).toBeNull();
+    expect(parseCompanyLogoCrop('nope')).toBeNull();
+    expect(parseCompanyLogoCrop({ x: 0.2 })).toBeNull();
+    expect(letterheadMarkIsFull({ logo_url: LOGO })).toBe(true);
+    expect(companyLogoLetterheadSizePx({ logo_letterhead_size: null })).toBe(96);
+    expect(commercialPdfLogoBox({ logo_url: LOGO })).toEqual({ ...LETTERHEAD_PDF_DEFAULT, crop: null });
+    expect(commercialPdfCompanyFrom({ name: 'Acme Electrical', logo_url: LOGO }).logo_crop).toBeNull();
+    expect(commercialPdfCompanyFrom({ name: 'Acme Electrical', logo_url: LOGO }).logo_letterhead_size).toBeNull();
+    expect(commercialPdfDataForInvoice(invoiceBundle(LOGO))?.company.logo_crop ?? null).toBeNull();
+  });
+
+  it('stays on the existing company logo setting — no Logos module, no 072/073 collision', () => {
+    const migration = src('supabase/migrations/20260903220000_074_company_logo_crop.sql');
+    const settings = src('src/pages/CompanySettingsPage.tsx');
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS logo_crop jsonb');
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS logo_letterhead_size integer');
+    expect(migration).not.toContain('CREATE TABLE');
+    expect(migration).not.toContain('072_member_tickets');
+    expect(migration).not.toContain('072_company_owner_admin_lock');
+    expect(migration).not.toContain('073_dashboard_widgets_seeded');
+    expect(settings).toContain('company-logo-strip');
+    expect(settings).toContain('CompanyLogoStripCrop');
+    expect(settings).toContain('persistCompanyLogoLetterhead');
+    expect(settings).toContain('persistCompanyLogo');
+    expect(src('src/App.tsx')).not.toMatch(/path="\/settings\/logos"/);
+    expect(src('src/lib/sendQuote.ts')).toContain('logo_crop: bundle.company.logo_crop');
+    expect(src('src/lib/sendInvoice.ts')).toContain('logo_crop: bundle.company.logo_crop');
+    expect(src('src/reports/commercial/CommercialDocumentPdf.tsx')).toContain('commercialPdfLogoBox');
+    expect(src('src/reports/commercial/generateCommercialPdf.ts')).toContain('companyLogoCroppedSrc');
   });
 });

@@ -37,6 +37,7 @@ import {
   companyWithLetterheadLookMark,
   LETTERHEAD_LOOK,
 } from '../lib/companyLogo';
+import { CompanyLetterheadMark } from '../lib/CompanyLetterheadMark';
 import { AUDIT_INVOICE_ID, getAuditClients, getAuditInvoiceEditorRow } from '../lib/devFieldAuditDocs';
 import { companyPaymentMethodsForDocument } from '../lib/companyPaymentMethods';
 import {
@@ -1046,7 +1047,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           <div className="hub-invoice-letterhead">
             <div className="min-w-0">
               {sheetLogo ? (
-                <img src={sheetLogo} alt="" className="hub-letterhead-mark" />
+                <CompanyLetterheadMark src={sheetLogo} company={company} />
               ) : null}
               <p className="hub-invoice-kicker">From</p>
               <p className="hub-invoice-from-name">{company?.name ?? 'Your company'}</p>
