@@ -53,6 +53,7 @@ export interface Database {
       kpi_snapshots: AnyTable;
       compliance_items: AnyTable;
       compliance_logs: AnyTable;
+      member_tickets: AnyTable;
       platform_operators: AnyTable;
       platform_operator_events: AnyTable;
       platform_company_notes: AnyTable;

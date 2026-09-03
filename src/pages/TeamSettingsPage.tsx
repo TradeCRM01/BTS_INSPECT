@@ -18,6 +18,17 @@ import {
   canChangeMemberRole,
   canRemoveTeamMember,
 } from '../lib/teamAdminLock';
+import {
+  MEMBER_TICKET_BUCKET,
+  MEMBER_TICKET_COLUMNS,
+  assertTicketFile,
+  memberTicketInsertRow,
+  ticketContentType,
+  ticketHasFile,
+  ticketLedgerLine,
+  ticketStoragePath,
+  type MemberTicket,
+} from '../lib/teamMemberTickets';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
@@ -862,6 +873,13 @@ export function TeamSettingsPage() {
                     </div>
                   )}
                 </div>
+                {company && !lookTeamList && (
+                  <TeamMemberTicketsLedger
+                    companyId={company.id}
+                    profileId={openedMember.id}
+                    canEdit={!!isAdmin}
+                  />
+                )}
               </div>
             </article>
           </>
@@ -988,6 +1006,226 @@ export function TeamSettingsPage() {
         />
       )}
     </AppShell>
+  );
+}
+
+function TeamMemberTicketsLedger({
+  companyId,
+  profileId,
+  canEdit,
+}: {
+  companyId: string;
+  profileId: string;
+  canEdit: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState('');
+  const [ticketNumber, setTicketNumber] = useState('');
+  const [expiresOn, setExpiresOn] = useState('');
+  const [notes, setNotes] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState('');
+  const [openingId, setOpeningId] = useState<string | null>(null);
+
+  const { data: tickets } = useQuery<MemberTicket[]>({
+    queryKey: ['member-tickets', companyId, profileId],
+    queryFn: async () => {
+      const { data, error: loadError } = await supabase
+        .from('member_tickets')
+        .select(MEMBER_TICKET_COLUMNS)
+        .eq('company_id', companyId)
+        .eq('profile_id', profileId)
+        .order('expires_on', { ascending: true, nullsFirst: false });
+      if (loadError) throw loadError;
+      return (data ?? []) as MemberTicket[];
+    },
+    enabled: !!companyId && !!profileId,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const ticketId = crypto.randomUUID();
+      let storagePath: string | null = null;
+      let fileName: string | null = null;
+      if (file) {
+        assertTicketFile(file);
+        storagePath = ticketStoragePath({
+          companyId,
+          profileId,
+          ticketId,
+          fileName: file.name,
+        });
+        fileName = file.name;
+        const { error: upErr } = await supabase.storage
+          .from('uploaded-pdfs')
+          .upload(storagePath, file, { contentType: ticketContentType(file), upsert: false });
+        if (upErr) throw upErr;
+      }
+      const row = memberTicketInsertRow({
+        id: ticketId,
+        companyId,
+        profileId,
+        name,
+        ticketNumber,
+        expiresOn,
+        notes,
+        storagePath,
+        fileName,
+      });
+      if (!row) {
+        if (storagePath) await supabase.storage.from('uploaded-pdfs').remove([storagePath]);
+        throw new Error('Add a ticket name');
+      }
+      const { error: insertErr } = await supabase.from('member_tickets').insert(row);
+      if (insertErr) {
+        if (storagePath) await supabase.storage.from('uploaded-pdfs').remove([storagePath]);
+        throw insertErr;
+      }
+    },
+    onSuccess: () => {
+      setName('');
+      setTicketNumber('');
+      setExpiresOn('');
+      setNotes('');
+      setFile(null);
+      setError('');
+      queryClient.invalidateQueries({ queryKey: ['member-tickets', companyId, profileId] });
+    },
+    onError: (err: Error) => {
+      setError(err.message || 'Could not save ticket');
+    },
+  });
+
+  async function openTicketFile(ticket: MemberTicket) {
+    const path = (ticket.storage_path ?? '').trim();
+    if (!path) return;
+    setOpeningId(ticket.id);
+    setError('');
+    try {
+      const bucket = (ticket.storage_bucket ?? '').trim() || MEMBER_TICKET_BUCKET;
+      const { data, error: signErr } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, 3600);
+      if (signErr || !data?.signedUrl) {
+        throw new Error(signErr?.message || 'Could not open the file');
+      }
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not open the file');
+    } finally {
+      setOpeningId(null);
+    }
+  }
+
+  return (
+    <div className="hub-team-ledger" id="team-member-tickets">
+      <div className="hub-team-ledger-row">
+        <span className="hub-team-ledger-kicker">Tickets</span>
+      </div>
+      {(tickets ?? []).map(ticket => (
+        <div className="hub-team-ledger-row" key={ticket.id}>
+          <span>
+            {ticketLedgerLine(ticket)}
+            {ticket.notes ? ` · ${ticket.notes}` : ''}
+          </span>
+          <span className="hub-team-hours">
+            {ticket.expires_on
+              ? format(new Date(`${ticket.expires_on}T00:00:00`), 'd MMM yyyy')
+              : ''}
+            {ticketHasFile(ticket) && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  className="hub-team-sub"
+                  onClick={() => openTicketFile(ticket)}
+                  disabled={openingId === ticket.id}
+                >
+                  {openingId === ticket.id ? 'Opening...' : 'Open file'}
+                </button>
+              </>
+            )}
+          </span>
+        </div>
+      ))}
+      {canEdit && (
+        <form
+          className="hub-team-ledger"
+          onSubmit={e => {
+            e.preventDefault();
+            setError('');
+            saveMutation.mutate();
+          }}
+        >
+          <div className="hub-team-ledger-row">
+            <label>
+              Name
+              <input
+                className="form-input"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                required
+                placeholder="White Card"
+              />
+            </label>
+          </div>
+          <div className="hub-team-ledger-row">
+            <label>
+              Number
+              <input
+                className="form-input"
+                value={ticketNumber}
+                onChange={e => setTicketNumber(e.target.value)}
+                placeholder="Number"
+              />
+            </label>
+          </div>
+          <div className="hub-team-ledger-row">
+            <label>
+              Expiry
+              <input
+                className="form-input"
+                type="date"
+                value={expiresOn}
+                onChange={e => setExpiresOn(e.target.value)}
+              />
+            </label>
+          </div>
+          <div className="hub-team-ledger-row">
+            <label>
+              Notes
+              <input
+                className="form-input"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Notes"
+              />
+            </label>
+          </div>
+          <div className="hub-team-ledger-row">
+            <label>
+              File
+              <input
+                className="form-input"
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.jpg,.jpeg,.png,.webp,.gif"
+                onChange={e => setFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+          </div>
+          {error && (
+            <div className="hub-team-ledger-row">
+              <span>{error}</span>
+            </div>
+          )}
+          <div className="hub-team-tools">
+            <button type="submit" className="hub-team-next" disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Saving...' : 'Save ticket'}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }
 
