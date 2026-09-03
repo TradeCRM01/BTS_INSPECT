@@ -7692,9 +7692,9 @@
   .hub-jobs-hero {
     font-family: Rajdhani, sans-serif;
     font-weight: 700;
-    font-size: 56px !important;
-    letter-spacing: 0.02em;
-    line-height: 0.96;
+    font-size: 36px !important;
+    letter-spacing: 0;
+    line-height: 1.1;
     color: var(--job-look-ink);
     margin: 0;
   }
@@ -7704,7 +7704,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 16px;
-    margin-top: 24px;
+    margin-top: 16px;
   }
 
   .hub-jobs-document .hub-jobs-tools {
@@ -8206,7 +8206,7 @@
     }
 
     .hub-jobs-hero {
-      font-size: 40px !important;
+      font-size: 28px !important;
     }
 
     .hub-jobs-sheet-bar {
