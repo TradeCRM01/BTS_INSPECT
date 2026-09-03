@@ -4379,6 +4379,12 @@
     padding: 24px 24px 40px;
   }
 
+  .hub-board-cal.is-week-doc > .ops-page-head,
+  .hub-board-cal.is-week-doc > .hub-schedule-chrome,
+  .hub-board-cal.is-week-doc > .hub-schedule-sheet {
+    display: none;
+  }
+
   .hub-board-cal .ops-page-title {
     font-family: Rajdhani, sans-serif;
     font-weight: 700;
@@ -4812,64 +4818,212 @@
     min-width: 0;
   }
 
-  .hub-week-sheet {
-    background: var(--schedule-sheet);
-    border: 1px solid var(--schedule-line);
+  /* Week-board document only. Same paper kit as signed quote / job sheet. */
+  .hub-board-cal.is-week-doc.ops-page {
+    background: #F5F0E6;
+  }
+
+  .hub-week-sheet,
+  .hub-week-document {
+    max-width: 1100px;
+    margin: 0 auto;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
     border-radius: 16px;
-    overflow: hidden;
+    overflow: visible;
     box-shadow:
       inset 0 1px 0 #fff,
       0 10px 28px rgba(10, 37, 64, 0.08);
   }
 
-  .hub-week-sheet .hub-week-board.ops-board {
-    background: transparent;
+  .hub-week-sheet .hub-week-board.ops-board,
+  .hub-week-document .hub-week-board.ops-board,
+  .hub-week-document .ops-tray,
+  .hub-week-document .ops-card,
+  .hub-week-document .hub-schedule-sheet {
+    background: #FFFDF8;
     border: none;
     border-radius: 0;
     box-shadow: none;
+    overflow: visible;
+  }
+
+  .hub-week-sheet .hub-week-board.ops-board {
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
   }
 
   .hub-week-board > .hub-schedule-board-head {
     display: none;
   }
 
-  .hub-week-chrome {
+  .hub-week-sheet-bar {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 10px 16px;
-    padding: 16px 20px 0;
+    gap: 16px;
+    min-height: 44px;
+    padding: 8px 24px;
+    background: #0A2540;
+    color: #fff;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .hub-week-sheet-mark {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.02em;
+    color: #fff;
+  }
+
+  .hub-week-sheet-body {
+    padding: 32px 32px 24px;
+    background: #FFFDF8;
+    box-shadow: inset 0 1px 0 #fff;
+  }
+
+  .hub-week-hero {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-size: 56px !important;
+    letter-spacing: 0.02em;
+    line-height: 0.96;
+    color: #0A2540;
+    margin: 0;
+  }
+
+  .hub-week-status-whisper {
+    display: block;
+    margin: 8px 0 0;
+    padding: 0;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: #5B6B7C;
+  }
+
+  .hub-week-page-tools {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .hub-week-document .hub-week-page-tools .btn-primary {
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .hub-week-tools-overflow {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+
+  .hub-week-chrome,
+  .hub-week-identity {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 0 24px;
+    align-items: start;
+    margin-top: 24px;
+    padding: 8px 0 16px;
+    border-bottom: 1px solid #E2D9CC;
+  }
+
+  .hub-week-identity-col {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .hub-week-id-label {
+    margin: 0;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #5B6B7C;
+  }
+
+  .hub-week-id-value {
+    margin: 0;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: #0A2540;
+  }
+
+  .hub-week-search {
+    margin: 0;
+    padding: 16px 0;
+    max-width: none;
+    border-bottom: 1px solid #E2D9CC;
+  }
+
+  .hub-week-document .hub-week-search > .relative {
+    max-width: none;
+  }
+
+  .hub-week-document .hub-schedule-search-panel {
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+
+  .hub-week-document .hub-week-search .form-input {
+    min-height: 0;
+    height: auto;
+    padding: 8px 12px 8px 40px;
+    border-radius: 12px;
+    font-size: 12px !important;
   }
 
   .hub-week-seg {
     display: inline-flex;
     align-items: stretch;
     flex: 0 0 auto;
-    border: 1px solid var(--schedule-line);
-    border-radius: 10px;
-    overflow: hidden;
-    background: var(--schedule-sheet);
+    gap: 0;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+    background: none;
   }
 
   .hub-week-seg-btn {
-    min-height: 36px;
-    padding: 0 16px;
+    min-height: 32px;
+    padding: 0 8px;
     border: none;
-    background: transparent;
-    color: var(--schedule-ink);
+    background: none;
+    color: #5B6B7C;
     font-family: 'Source Sans 3', system-ui, sans-serif;
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
     box-shadow: none;
+    border-radius: 0;
   }
 
   .hub-week-seg-btn.is-on {
-    background: var(--schedule-ink);
-    color: #fff;
+    background: none;
+    color: #0A2540;
+    box-shadow: inset 0 -2px 0 #2E75B6;
   }
 
   .hub-week-tools {
@@ -4883,74 +5037,138 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    min-height: 36px;
+    gap: 8px;
+    min-height: 32px;
     padding: 0 12px;
-    border: 1px solid var(--schedule-line);
-    border-radius: 10px;
-    background: var(--schedule-sheet);
-    color: var(--schedule-ink);
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    background: #FFFDF8;
+    color: #0A2540;
     font-family: 'Source Sans 3', system-ui, sans-serif;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     box-shadow: none;
     cursor: pointer;
     list-style: none;
   }
 
-  .hub-week-quiet::-webkit-details-marker {
+  .hub-week-quiet::-webkit-details-marker,
+  .hub-week-more > summary::-webkit-details-marker,
+  .hub-week-more > summary::marker {
     display: none;
+    content: '';
   }
 
   .hub-week-nav {
-    width: 36px;
+    width: 32px;
     padding: 0;
   }
 
-  .hub-week-crews {
+  .hub-week-crews,
+  .hub-week-more {
     position: relative;
   }
 
-  .hub-week-crews-menu {
+  .hub-week-more > summary {
+    list-style: none;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: #5B6B7C;
+  }
+
+  .hub-week-crews-menu,
+  .hub-week-more-menu {
     position: absolute;
     right: 0;
-    top: calc(100% + 4px);
+    top: calc(100% + 8px);
     z-index: 20;
-    min-width: 160px;
-    padding: 6px;
-    background: var(--schedule-sheet);
-    border: 1px solid var(--schedule-line);
-    border-radius: 10px;
-    box-shadow: 0 8px 20px rgba(10, 37, 64, 0.08);
+    min-width: 200px;
+    padding: 8px;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
+    border-radius: 16px;
+    box-shadow: none;
+  }
+
+  .hub-week-more.is-flip .hub-week-more-menu {
+    top: auto;
+    bottom: calc(100% + 8px);
+  }
+
+  .hub-week-more.is-shift .hub-week-more-menu {
+    transform: translateX(var(--hub-week-more-shift, 0px));
   }
 
   .hub-week-crew-opt {
-    display: block;
+    display: flex;
+    align-items: center;
     width: 100%;
+    min-height: 44px;
     text-align: left;
-    padding: 8px 10px;
+    padding: 0 12px;
     border: none;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--schedule-ink);
+    border-radius: 12px;
+    background: none;
+    color: #0A2540;
     font-family: 'Source Sans 3', system-ui, sans-serif;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     cursor: pointer;
   }
 
   .hub-week-crew-opt.is-on,
   .hub-week-crew-opt:hover {
-    background: var(--schedule-page);
+    background: #F5F0E6;
   }
 
   .hub-week-range {
-    flex-basis: 100%;
-    margin: 4px 0 4px;
+    margin: 0;
     font-family: 'Source Sans 3', system-ui, sans-serif;
     font-size: 14px;
     font-weight: 500;
-    color: var(--schedule-ink);
+    color: #0A2540;
+  }
+
+  .hub-week-place {
+    padding: 16px 0;
+    border-bottom: 1px solid #E2D9CC;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    color: #0A2540;
+  }
+
+  .hub-week-place-crew {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .hub-week-document .ops-status {
+    display: inline;
+    min-height: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    color: #5B6B7C;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .hub-week-document .ops-tray-head,
+  .hub-week-document .ops-card-body {
+    padding: 16px 0;
+    border-color: #E2D9CC;
+    background: none;
   }
 
   .hub-week-board {
@@ -4962,16 +5180,16 @@
     display: grid;
     grid-template-columns: 104px repeat(7, minmax(104px, 1fr));
     min-width: 880px;
-    border-top: 1px solid color-mix(in srgb, #0A2540 12%, #FFFDF8);
+    border-top: 1px solid #E2D9CC;
   }
 
   .hub-week-corner,
   .hub-week-head,
   .hub-week-crew,
   .hub-week-cell {
-    border-right: 1px solid color-mix(in srgb, #0A2540 12%, #FFFDF8);
-    border-bottom: 1px solid color-mix(in srgb, #0A2540 12%, #FFFDF8);
-    background: var(--schedule-sheet);
+    border-right: 1px solid #E2D9CC;
+    border-bottom: 1px solid #E2D9CC;
+    background: #FFFDF8;
   }
 
   .hub-week-corner {
@@ -4997,8 +5215,8 @@
     background: var(--schedule-sheet);
     cursor: pointer;
     border: none;
-    border-right: 1px solid color-mix(in srgb, #0A2540 12%, #FFFDF8);
-    border-bottom: 1px solid color-mix(in srgb, #0A2540 12%, #FFFDF8);
+    border-right: 1px solid #E2D9CC;
+    border-bottom: 1px solid #E2D9CC;
     border-radius: 0;
     box-shadow: none;
   }
@@ -5151,8 +5369,19 @@
       min-width: 100%;
     }
 
-    .hub-week-chrome {
-      padding: 14px 14px 0;
+    .hub-week-sheet-body {
+      padding: 24px 16px 16px;
+    }
+
+    .hub-week-hero {
+      font-size: 40px !important;
+    }
+
+    .hub-week-chrome,
+    .hub-week-identity {
+      grid-template-columns: 1fr;
+      gap: 16px;
+      padding: 16px 0;
     }
 
     .hub-week-seg {
@@ -5161,11 +5390,9 @@
 
     .hub-week-tools {
       flex: 1 1 auto;
-      justify-content: flex-end;
     }
 
     .hub-week-range {
-      flex-basis: 100%;
       font-size: 13px;
     }
 
