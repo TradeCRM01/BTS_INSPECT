@@ -19,7 +19,7 @@ describe('Compliance page due-or-open floor wiring', () => {
     expect(page).toContain('parseComplianceListOpenId');
     expect(page).toContain('data-compliance-open');
     expect(page).toContain('data-compliance-href');
-    expect(page).toContain('complianceListFloorLede');
+    expect(page).toContain('complianceListWhisper');
     expect(page).toContain('hub-compliance-sheet');
     expect(page).toContain('>Open</Link>');
     expect(helper).toContain("export const COMPLIANCE_LIST_DEFAULT_FILTER: ComplianceListFilter = 'action'");

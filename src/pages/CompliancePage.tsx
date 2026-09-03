@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -11,11 +11,9 @@ import {
   complianceListDueLabel,
   complianceListEmptyMessage,
   complianceListEmptyTitle,
-  complianceListFloorLede,
   complianceListMetaLine,
   complianceListOpenHref,
   complianceListOpened,
-  complianceListOtherItems,
   complianceListSheetItem,
   computeNextDueDate,
   decorateComplianceList,
@@ -24,13 +22,14 @@ import {
   parseComplianceListOpenId,
   sortComplianceListFloor,
   type ComplianceListFilter,
+  type ComplianceListFloorItem,
 } from '../lib/complianceList';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, Modal } from '../components/ui';
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
 import {
-  Plus, X, Trash2, Pencil,
+  Plus, X, Trash2, Pencil, MoreHorizontal,
   ShieldCheck, Pause, Play, CheckCircle2, History, Mail,
 } from 'lucide-react';
 import type {
@@ -43,13 +42,81 @@ import {
 } from '../types/compliance';
 import type { Client } from '../types/crm';
 
+/** Signed compliance-list frame seed — list look only, not a live company. */
+const COMPLIANCE_LIST_LOOK = 'compliance-list';
+
+function complianceListLookItems(): ComplianceItemWithClient[] {
+  const stamp = '2026-09-03T00:00:00.000Z';
+  const base = {
+    company_id: 'look-compliance-list',
+    description: null as string | null,
+    reminder_days_before: 30,
+    reminder_sent_at: null as string | null,
+    linked_job_id: null as string | null,
+    notes: null as string | null,
+    created_at: stamp,
+    updated_at: stamp,
+    client_email: null as string | null,
+    client_phone: null as string | null,
+    recurrence_interval: 12,
+    recurrence_unit: 'months' as const,
+  };
+  return [
+    {
+      ...base,
+      id: 'look-compliance-rcd',
+      client_id: 'look-client-plants',
+      title: 'Annual RCD test',
+      standard_or_regulation: 'AS/NZS 3760',
+      first_due_date: '2025-08-20',
+      last_completed_date: '2025-08-20',
+      next_due_date: '2026-08-20',
+      status: 'upcoming',
+      client_name: 'Acme Plants',
+    },
+    {
+      ...base,
+      id: 'look-compliance-extinguisher',
+      client_id: 'look-client-workshop',
+      title: 'Fire extinguisher service',
+      standard_or_regulation: 'AS 1851',
+      first_due_date: '2025-09-15',
+      last_completed_date: '2025-09-15',
+      next_due_date: '2026-09-15',
+      status: 'upcoming',
+      client_name: 'Plant workshop',
+    },
+    {
+      ...base,
+      id: 'look-compliance-warranty',
+      client_id: 'look-client-board',
+      title: 'Switchboard warranty',
+      standard_or_regulation: null,
+      first_due_date: '2026-11-01',
+      last_completed_date: null,
+      next_due_date: '2026-11-01',
+      status: 'upcoming',
+      client_name: 'Main board',
+    },
+  ];
+}
+
+function complianceListWhisper(args: { filter: ComplianceListFilter; count: number }): string {
+  const filterLabel = COMPLIANCE_LIST_FILTERS.find(tab => tab.key === args.filter)?.label ?? 'All';
+  const countLabel = args.count === 1 ? '1 item' : `${args.count} items`;
+  return `${filterLabel} · ${countLabel}`;
+}
+
 export function CompliancePage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
+  const lookComplianceList = searchParams.get('look') === COMPLIANCE_LIST_LOOK;
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ComplianceListFilter>(COMPLIANCE_LIST_DEFAULT_FILTER);
+  const [statusFilter, setStatusFilter] = useState<ComplianceListFilter>(
+    lookComplianceList ? 'all' : COMPLIANCE_LIST_DEFAULT_FILTER,
+  );
   const [editingItem, setEditingItem] = useState<ComplianceItem | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ComplianceItemWithClient | null>(null);
@@ -84,7 +151,7 @@ export function CompliancePage() {
         client_phone: clientMap.get(c.client_id)?.phone ?? null,
       })) as ComplianceItemWithClient[];
     },
-    enabled: !!profile,
+    enabled: !!profile && !lookComplianceList,
   });
 
   const deleteMutation = useMutation({
@@ -187,9 +254,10 @@ export function CompliancePage() {
     },
   });
 
+  const listRows = lookComplianceList ? complianceListLookItems() : (items ?? []);
   const decorated = useMemo(
-    () => decorateComplianceList(items ?? []),
-    [items],
+    () => decorateComplianceList(listRows),
+    [listRows],
   );
 
   const floorItems = useMemo(
@@ -199,14 +267,12 @@ export function CompliancePage() {
     [decorated, search, statusFilter],
   );
 
-  const noneAtAll = !isLoading && (items?.length ?? 0) === 0;
-  const noneMatch = !isLoading && decorated.length > 0 && floorItems.length === 0;
-  const openedItem = complianceListOpened(decorated, openId);
+  const loading = !lookComplianceList && isLoading;
+  const noneAtAll = !lookComplianceList && !loading && (listRows.length === 0);
+  const noneMatch = !lookComplianceList && !loading && decorated.length > 0 && floorItems.length === 0;
+  const openedItem = lookComplianceList ? null : complianceListOpened(decorated, openId);
   const recordOpen = !!openedItem;
-  const sheetItem = openedItem ?? complianceListSheetItem(floorItems);
-  const otherItems = recordOpen
-    ? []
-    : complianceListOtherItems(floorItems, sheetItem?.row.id ?? null);
+  const whisper = complianceListWhisper({ filter: statusFilter, count: floorItems.length });
 
   function openItem(item: ComplianceItemWithClient) {
     const href = complianceListOpenHref(item.id);
@@ -232,115 +298,96 @@ export function CompliancePage() {
 
   return (
     <AppShell>
-      <div className={`ops-page hub-compliance${recordOpen ? ' is-record-open' : ''}`}>
-        <div className="hub-compliance-open-chrome">
-          <Link to="/compliance" className="hub-compliance-label">Compliance</Link>
-        </div>
-        <div className="ops-page-head">
-          <div>
-            <p className="hub-look-eyebrow hub-compliance-label">Compliance</p>
-            <h1 className="ops-page-title">Compliance</h1>
-            <p className="hub-compliance-lede">
-              {isLoading ? 'Loading…' : complianceListFloorLede(floorItems.length)}
-            </p>
-          </div>
-          <button type="button" onClick={() => openEditor(null)} className="hub-compliance-next">
-            <Plus size={16} /> New item
-          </button>
-        </div>
-
-        <div className="hub-compliance-chrome">
-          <div className="hub-compliance-filters" role="group" aria-label="Filter compliance items">
-            {COMPLIANCE_LIST_FILTERS.map(tab => {
-              const active = statusFilter === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setStatusFilter(tab.key)}
-                  className={`hub-chrome-filter ${active ? 'hub-chrome-filter-on' : ''}`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-            placeholder="Search name, client, or standard…"
-            className="hub-compliance-search"
-          />
-        </div>
-
-        {isLoading ? (
-          <div className="flex justify-center py-16"><LoadingSpinner /></div>
-        ) : recordOpen && openedItem ? (
-          <ComplianceSheet
-            item={openedItem.row}
-            href={openedItem.href}
-            liveStatus={openedItem.liveStatus}
-            documentOpen
-            onOpen={() => openItem(openedItem.row)}
-            onEdit={() => openEditor(openedItem.row)}
-            onDelete={() => setDeleteTarget(openedItem.row)}
-            onComplete={() => markCompleteMutation.mutate(openedItem.row)}
-            onTogglePause={() => togglePauseMutation.mutate(openedItem.row)}
-            onSendReminder={() => sendReminderMutation.mutate(openedItem.row)}
-            onShowHistory={() => setHistoryItem(openedItem.row)}
-            sendingReminder={sendReminderMutation.isPending}
-            completing={markCompleteMutation.isPending}
-          />
-        ) : noneAtAll || noneMatch ? (
-          <div className="hub-compliance-sheet is-list">
-            <EmptyState
-              icon={ShieldCheck}
-              title={complianceListEmptyTitle({ filter: statusFilter, noneAtAll })}
-              message={complianceListEmptyMessage({ filter: statusFilter, noneAtAll })}
-              action={noneAtAll ? (
-                <button type="button" onClick={() => openEditor(null)} className="hub-compliance-next">
-                  <Plus size={16} /> Create your first item
-                </button>
-              ) : undefined}
-            />
-          </div>
-        ) : sheetItem ? (
+      <div className={recordOpen ? 'ops-page hub-compliance is-record-open' : 'ops-page hub-compliance hub-compliance-list-doc'}>
+        {recordOpen && openedItem ? (
           <>
+            <div className="hub-compliance-open-chrome">
+              <Link to="/compliance" className="hub-compliance-label">Compliance</Link>
+            </div>
             <ComplianceSheet
-              item={sheetItem.row}
-              href={sheetItem.href}
-              liveStatus={sheetItem.liveStatus}
-              documentOpen={recordOpen}
-              onOpen={() => openItem(sheetItem.row)}
-              onEdit={() => openEditor(sheetItem.row)}
-              onDelete={() => setDeleteTarget(sheetItem.row)}
-              onComplete={() => markCompleteMutation.mutate(sheetItem.row)}
-              onTogglePause={() => togglePauseMutation.mutate(sheetItem.row)}
-              onSendReminder={() => sendReminderMutation.mutate(sheetItem.row)}
-              onShowHistory={() => setHistoryItem(sheetItem.row)}
+              item={openedItem.row}
+              href={openedItem.href}
+              liveStatus={openedItem.liveStatus}
+              documentOpen
+              onOpen={() => openItem(openedItem.row)}
+              onEdit={() => openEditor(openedItem.row)}
+              onDelete={() => setDeleteTarget(openedItem.row)}
+              onComplete={() => markCompleteMutation.mutate(openedItem.row)}
+              onTogglePause={() => togglePauseMutation.mutate(openedItem.row)}
+              onSendReminder={() => sendReminderMutation.mutate(openedItem.row)}
+              onShowHistory={() => setHistoryItem(openedItem.row)}
               sendingReminder={sendReminderMutation.isPending}
               completing={markCompleteMutation.isPending}
             />
-            {otherItems.length > 0 ? (
-              <div className="hub-compliance-others">
-                {otherItems.map(floor => (
-                  <Link
-                    key={floor.row.id}
-                    to={floor.href}
-                    data-compliance-open={floor.row.id}
-                    data-compliance-href={floor.href}
-                    className="hub-compliance-other"
-                    onClick={e => { e.preventDefault(); openItem(floor.row); }}
-                  >
-                    <span className="hub-compliance-other-name">{floor.row.title}</span>
-                    <span className="hub-compliance-muted">{complianceListDueLabel(floor.row.next_due_date)}</span>
-                    <span className="hub-next">Open</span>
-                  </Link>
-                ))}
-              </div>
-            ) : null}
           </>
-        ) : null}
+        ) : (
+          <div className="hub-compliance-list-sheet">
+            <header className="hub-compliance-list-bar">
+              <span className="hub-compliance-list-mark">List</span>
+            </header>
+            <div className="hub-compliance-list-body">
+              <h1 className="ops-page-title">Compliance</h1>
+              <p className="hub-compliance-list-whisper">{whisper}</p>
+              <div className="hub-compliance-list-tools">
+                <button type="button" onClick={() => openEditor(null)} className="btn-primary">
+                  <Plus size={16} /> New item
+                </button>
+                <div className="hub-compliance-list-tools-overflow">
+                  <ComplianceListFind
+                    filter={statusFilter}
+                    onFilter={setStatusFilter}
+                    search={search}
+                    onSearch={setSearch}
+                  />
+                </div>
+              </div>
+
+              {loading && (
+                <div className="flex justify-center py-16"><LoadingSpinner /></div>
+              )}
+
+              {noneAtAll || noneMatch ? (
+                <div className="hub-compliance-sheet is-list">
+                  <EmptyState
+                    icon={ShieldCheck}
+                    title={complianceListEmptyTitle({ filter: statusFilter, noneAtAll })}
+                    message={complianceListEmptyMessage({ filter: statusFilter, noneAtAll })}
+                    action={noneAtAll ? (
+                      <button type="button" onClick={() => openEditor(null)} className="hub-next">
+                        <Plus size={16} /> Create your first item
+                      </button>
+                    ) : undefined}
+                  />
+                </div>
+              ) : null}
+
+              {!loading && (floorItems.length > 0 || lookComplianceList) && (
+                <>
+                  <div className="hub-compliance-thead">
+                    <span>Item</span>
+                    <span>Due</span>
+                    <span />
+                  </div>
+                  {floorItems.map(floor => (
+                    <ComplianceListRow
+                      key={floor.row.id}
+                      item={floor}
+                      onOpen={() => openItem(floor.row)}
+                      onEdit={() => openEditor(floor.row)}
+                      onDelete={() => setDeleteTarget(floor.row)}
+                      onComplete={() => markCompleteMutation.mutate(floor.row)}
+                      onTogglePause={() => togglePauseMutation.mutate(floor.row)}
+                      onSendReminder={() => sendReminderMutation.mutate(floor.row)}
+                      onShowHistory={() => setHistoryItem(floor.row)}
+                      sendingReminder={sendReminderMutation.isPending}
+                      completing={markCompleteMutation.isPending}
+                    />
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {showForm && (
@@ -371,6 +418,239 @@ export function CompliancePage() {
         />
       )}
     </AppShell>
+  );
+}
+
+function placeComplianceListMore(more: HTMLDetailsElement) {
+  const menu = more.querySelector('.hub-compliance-list-more-menu') as HTMLElement | null;
+  const paper = more.closest('.hub-compliance-list-sheet') as HTMLElement | null;
+  if (!menu || !paper) return;
+  more.classList.remove('is-flip', 'is-shift');
+  menu.style.removeProperty('--hub-compliance-list-more-shift');
+  if (!more.open) return;
+  const pad = 8;
+  const paperRect = paper.getBoundingClientRect();
+  const bar = paper.querySelector('.hub-compliance-list-bar');
+  const inkFloor = (bar?.getBoundingClientRect().bottom ?? paperRect.top) + pad;
+  const viewBottom = window.innerHeight - pad;
+  const menuRect = menu.getBoundingClientRect();
+  const trigger = more.querySelector('summary') as HTMLElement | null;
+  const triggerRect = trigger?.getBoundingClientRect() ?? menuRect;
+  const flippedTop = triggerRect.top - pad - menuRect.height;
+  const overflowsBottom = menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom);
+  if (overflowsBottom && flippedTop >= inkFloor) {
+    more.classList.add('is-flip');
+  }
+  const after = menu.getBoundingClientRect();
+  let shift = 0;
+  if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
+  if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
+  if (shift !== 0) {
+    more.classList.add('is-shift');
+    menu.style.setProperty('--hub-compliance-list-more-shift', `${Math.round(shift)}px`);
+  }
+}
+
+function ComplianceListFind({
+  filter,
+  onFilter,
+  search,
+  onSearch,
+}: {
+  filter: ComplianceListFilter;
+  onFilter: (key: ComplianceListFilter) => void;
+  search: string;
+  onSearch: (value: string) => void;
+}) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeComplianceListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-compliance-list-more hub-compliance-list-find">
+      <summary aria-label="Find">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-compliance-list-more-menu" role="menu">
+        <div className="hub-compliance-chrome">
+          <div className="hub-compliance-filters" role="group" aria-label="Filter compliance items">
+            {COMPLIANCE_LIST_FILTERS.map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                role="menuitem"
+                onClick={() => onFilter(tab.key)}
+                className={`hub-chrome-filter ${filter === tab.key ? 'hub-chrome-filter-on' : ''}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <SearchBar
+            value={search}
+            onChange={onSearch}
+            placeholder="Search name, client, or standard…"
+            className="hub-compliance-search"
+          />
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function ComplianceRowMore({
+  children,
+}: {
+  children: (closeMore: () => void) => ReactNode;
+}) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeComplianceListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-compliance-list-more">
+      <summary aria-label="More">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-compliance-list-more-menu" role="menu">
+        {children(closeMore)}
+      </div>
+    </details>
+  );
+}
+
+function ComplianceListRow({
+  item,
+  onOpen,
+  onEdit,
+  onDelete,
+  onComplete,
+  onTogglePause,
+  onSendReminder,
+  onShowHistory,
+  sendingReminder,
+  completing,
+}: {
+  item: ComplianceListFloorItem<ComplianceItemWithClient>;
+  onOpen: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onComplete: () => void;
+  onTogglePause: () => void;
+  onSendReminder: () => void;
+  onShowHistory: () => void;
+  sendingReminder: boolean;
+  completing: boolean;
+}) {
+  const { row, href, liveStatus } = item;
+  const isPaused = liveStatus === 'paused';
+  const hasEmail = !!row.client_email;
+  const meta = complianceListMetaLine(row);
+  const due = complianceListDueLabel(row.next_due_date);
+
+  return (
+    <div
+      role="link"
+      tabIndex={0}
+      aria-label="Open"
+      data-compliance-open={row.id}
+      data-compliance-href={href}
+      onClick={onOpen}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      className="hub-compliance-row"
+    >
+      <span className="min-w-0">
+        <span className="hub-compliance-name truncate">{row.title}</span>
+        {meta ? <span className="hub-compliance-muted truncate">{meta}</span> : null}
+      </span>
+      <span className="hub-compliance-status">{due}</span>
+      <span className="hub-compliance-row-next" onClick={e => e.stopPropagation()}>
+        <ComplianceRowMore>
+          {closeMore => (
+            <>
+              <Link to={href} role="menuitem" onClick={closeMore}>Open</Link>
+              <button type="button" role="menuitem" onClick={() => { onEdit(); closeMore(); }}>
+                Edit
+              </button>
+              <button type="button" role="menuitem" onClick={() => { onShowHistory(); closeMore(); }}>
+                View History
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={completing || isPaused}
+                onClick={() => { onComplete(); closeMore(); }}
+              >
+                Mark Complete
+              </button>
+              <button type="button" role="menuitem" onClick={() => { onTogglePause(); closeMore(); }}>
+                {isPaused ? 'Resume' : 'Pause'}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={!hasEmail || sendingReminder || isPaused}
+                onClick={() => { onSendReminder(); closeMore(); }}
+              >
+                {hasEmail ? 'Send Reminder Email' : 'No client email set'}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="is-danger"
+                onClick={() => { onDelete(); closeMore(); }}
+              >
+                Delete
+              </button>
+            </>
+          )}
+        </ComplianceRowMore>
+      </span>
+    </div>
   );
 }
 
@@ -469,34 +749,7 @@ function ComplianceSheet({
     );
   }
 
-  return (
-    <article className="hub-compliance-sheet is-list">
-      <div
-        role="link"
-        tabIndex={0}
-        data-compliance-open={item.id}
-        data-compliance-href={href}
-        className="hub-compliance-open"
-        onClick={onOpen}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-      >
-        <div className="hub-compliance-open-head">
-          <h2 className="hub-compliance-sheet-title">{item.title}</h2>
-          <div className="hub-compliance-more" onClick={e => e.stopPropagation()}>
-            <ContextMenu items={menuItems} />
-          </div>
-        </div>
-        {meta ? <p className="hub-compliance-muted">{meta}</p> : null}
-        <p className="hub-compliance-total">{due}</p>
-        <span className={`hub-compliance-pill is-${liveStatus}`}>
-          {COMPLIANCE_STATUS_LABELS[liveStatus]}
-        </span>
-      </div>
-      <div className="hub-compliance-sheet-foot" onClick={e => e.stopPropagation()}>
-        <Link to={href} className="hub-next">Open</Link>
-      </div>
-    </article>
-  );
+  return null;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

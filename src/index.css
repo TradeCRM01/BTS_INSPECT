@@ -16362,6 +16362,366 @@
     }
   }
 
+  /* Compliance list document only. Same paper kit as signed team / Take 5 / JHA. Not the open sheet. */
+  .hub-compliance-list-doc.ops-page {
+    max-width: none;
+    width: 100%;
+    min-height: calc(100dvh - 3.5rem);
+    margin: 0;
+    background: #F5F0E6;
+    padding: 24px 24px 48px;
+  }
+
+  .hub-compliance-list-doc .hub-compliance-list-sheet {
+    position: relative;
+    max-width: 1100px;
+    min-height: 620px;
+    margin: 0 auto;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
+    border-radius: 16px;
+    overflow: visible;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08);
+  }
+
+  .hub-compliance-list-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 44px;
+    padding: 8px 24px;
+    background: #0A2540;
+    color: #fff;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .hub-compliance-list-mark {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.02em;
+    color: #fff;
+  }
+
+  .hub-compliance-list-body {
+    padding: 32px 32px 24px;
+    background: #FFFDF8;
+    box-shadow: inset 0 1px 0 #fff;
+    overflow: visible;
+  }
+
+  .hub-compliance.hub-compliance-list-doc .ops-page-title {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    font-size: 56px !important;
+    letter-spacing: 0.02em;
+    line-height: 0.96;
+    color: #0A2540;
+    margin: 0;
+  }
+
+  .hub-compliance-list-whisper {
+    display: block;
+    margin: 8px 0 0;
+    padding: 0;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: #5B6B7C;
+  }
+
+  .hub-compliance-list-tools {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .hub-compliance-list-tools-overflow {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+
+  .hub-compliance-list-doc .hub-compliance-list-tools .btn-primary {
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .hub-compliance-list-find .hub-compliance-chrome {
+    max-width: none;
+    margin: 0 0 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .hub-compliance-list-find .hub-compliance-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .hub-compliance-list-find .hub-compliance-chrome .relative,
+  .hub-compliance-list-find .hub-compliance-chrome .max-w-sm {
+    max-width: none;
+    width: 100%;
+  }
+
+  .hub-compliance-list-find .hub-compliance-chrome .form-input {
+    min-height: 0;
+    height: auto;
+    padding: 4px 8px 4px 28px;
+    border: none;
+    border-bottom: 1px solid #E2D9CC;
+    border-radius: 0;
+    background: none;
+    color: #5B6B7C;
+    font-size: 12px !important;
+    font-weight: 500;
+    box-shadow: none;
+  }
+
+  .hub-compliance-list-find .hub-compliance-chrome .form-input::placeholder {
+    color: #5B6B7C;
+    opacity: 1;
+  }
+
+  .hub-compliance-list-find .hub-compliance-chrome .form-input:focus {
+    border-color: #E2D9CC;
+    box-shadow: none;
+    outline: none;
+  }
+
+  .hub-compliance-list-find .hub-compliance-chrome .relative svg {
+    color: #5B6B7C;
+    left: 8px;
+  }
+
+  .hub-compliance-list-find .hub-compliance-chrome .hub-chrome-filter {
+    min-height: 32px;
+    padding: 0 8px;
+    color: #5B6B7C;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .hub-compliance-list-find .hub-compliance-chrome .hub-chrome-filter-on {
+    color: #0A2540;
+    box-shadow: inset 0 -2px 0 #2E75B6;
+  }
+
+  .hub-compliance-list-doc .hub-compliance-thead,
+  .hub-compliance-list-doc .hub-compliance-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) 160px 32px;
+    align-items: center;
+    gap: 16px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .hub-compliance-list-doc .hub-compliance-thead {
+    margin-top: 16px;
+    padding: 8px 0;
+    background: none;
+    color: #5B6B7C;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    border-bottom: 1px solid #E2D9CC;
+    box-shadow: inset 0 1px 0 #fff;
+  }
+
+  .hub-compliance-list-doc .hub-compliance-row {
+    padding: 16px 0;
+    background: none;
+    border-top: 1px solid #E2D9CC;
+    box-shadow: none;
+    color: #0A2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .hub-compliance-list-doc .hub-compliance-thead + .hub-compliance-row {
+    border-top: none;
+  }
+
+  .hub-compliance-list-doc .hub-compliance-name {
+    display: block;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-weight: 600;
+    color: #0A2540;
+  }
+
+  .hub-compliance-list-doc .hub-compliance-muted {
+    display: block;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-weight: 500;
+    color: #5B6B7C;
+  }
+
+  .hub-compliance-list-doc .hub-compliance-status {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: #5B6B7C;
+  }
+
+  .hub-compliance-list-doc .hub-compliance-row-next {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .hub-compliance-list-doc .hub-compliance-sheet.is-list {
+    margin: 24px 0 0;
+    box-shadow: none;
+    border: none;
+    background: none;
+  }
+
+  .hub-compliance-list-more {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .hub-compliance-list-more > summary {
+    list-style: none;
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: #5B6B7C;
+    cursor: pointer;
+  }
+
+  .hub-compliance-list-more > summary::-webkit-details-marker,
+  .hub-compliance-list-more > summary::marker {
+    display: none;
+    content: '';
+  }
+
+  .hub-compliance-list-more-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    z-index: 20;
+    min-width: 280px;
+    padding: 8px;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
+    border-radius: 16px;
+    box-shadow: none;
+  }
+
+  .hub-compliance-list-more.is-flip .hub-compliance-list-more-menu {
+    top: auto;
+    bottom: calc(100% + 8px);
+  }
+
+  .hub-compliance-list-more.is-shift .hub-compliance-list-more-menu {
+    transform: translateX(var(--hub-compliance-list-more-shift, 0px));
+  }
+
+  .hub-compliance-list-more-menu button,
+  .hub-compliance-list-more-menu a {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 32px;
+    text-align: left;
+    padding: 0 12px;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: #0A2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .hub-compliance-list-more-menu button:hover,
+  .hub-compliance-list-more-menu a:hover {
+    background: #F5F0E6;
+  }
+
+  .hub-compliance-list-more-menu button:disabled {
+    color: #5B6B7C;
+    cursor: not-allowed;
+  }
+
+  .hub-compliance-list-more-menu button.is-danger {
+    color: #B42318;
+  }
+
+  .hub-compliance-list-doc .ops-section-title,
+  .hub-compliance-list-doc .ops-meta {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  @media (max-width: 639px) {
+    .hub-compliance.hub-compliance-list-doc .ops-page-title {
+      font-size: 40px !important;
+    }
+
+    .hub-compliance-list-bar {
+      padding: 8px 16px;
+    }
+
+    .hub-compliance-list-body {
+      padding: 24px 16px 16px;
+    }
+
+    .hub-compliance-list-doc .hub-compliance-thead {
+      display: grid;
+    }
+
+    .hub-compliance-list-doc .hub-compliance-thead,
+    .hub-compliance-list-doc .hub-compliance-row {
+      grid-template-columns: minmax(0, 1.6fr) 120px 32px;
+      grid-template-areas: none;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .hub-compliance-list-doc .hub-compliance-row > :nth-child(1),
+    .hub-compliance-list-doc .hub-compliance-row > :nth-child(2),
+    .hub-compliance-list-doc .hub-compliance-row > :nth-child(3) {
+      grid-area: auto;
+    }
+  }
+
+  /* End compliance list document */
+
   /* Compliance due-or-open floor look only. Open record is the document sheet. */
   .hub-compliance {
     --compliance-look-page: #F5F0E6;
