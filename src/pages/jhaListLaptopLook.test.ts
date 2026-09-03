@@ -50,6 +50,13 @@ describe('JHA list laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(page).toContain('Northside Electrical');
     expect(page).toContain('Harbour Lights');
     expect(page).toContain('Midland Workshops');
+    expect(page).toContain('hub-jha-list-take5');
+    expect(page).toContain('data-take5-list');
+    const take5 = page.slice(page.indexOf('function JhaTake5ListRow'), page.indexOf('function JhaGroup'));
+    expect(take5).not.toContain('hub-jha-row');
+    expect(take5).not.toContain('hub-jha-site');
+    expect(take5).not.toContain('hub-jha-status');
+    expect(take5).not.toContain('hub-jha-thead');
     expect(page).not.toContain('hub-jha-document');
     expect(page).not.toContain('is-record-open');
     expect(page).not.toContain('hub-jobs-list-doc');
@@ -70,6 +77,8 @@ describe('JHA list laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(css).toContain('.hub-jha-list-doc');
     expect(css).toContain('.hub-jha-list-bar');
     expect(css).toContain('.hub-jha-list-whisper');
+    expect(css).toContain('.hub-jha-list-take5');
+    expect(css).toContain('.hub-jha-list-take5-link');
     expect(css).toContain('.hub-jha-list-tools');
     expect(css).toContain('background: #F5F0E6');
     expect(css).toContain('background: #FFFDF8');

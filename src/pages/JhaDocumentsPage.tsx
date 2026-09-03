@@ -311,6 +311,7 @@ export function JhaDocumentsPage() {
 
             {!loading && (
               <>
+                <JhaTake5ListRow onOpen={() => navigate('/jha/take5')} />
                 {(visible.length > 0 || lookJhaList) && (
                   <div className="hub-jha-thead">
                     <span>Site</span>
@@ -318,7 +319,6 @@ export function JhaDocumentsPage() {
                     <span />
                   </div>
                 )}
-                <JhaTake5ListRow theme={docColors} onOpen={() => navigate('/jha/take5')} />
                 {status === 'all' ? (
                   <>
                     <JhaGroup
@@ -495,50 +495,23 @@ function JhaRowMore({
 }
 
 function JhaTake5ListRow({
-  theme,
   onOpen,
 }: {
-  theme: { navy: string; accent: string; navyLight: string; accentLight: string };
   onOpen: () => void;
 }) {
   return (
-    <div data-jha-group="take 5">
-      <div
-        role="link"
-        tabIndex={0}
-        aria-label="Open"
+    <p className="hub-jha-list-take5" data-jha-group="take 5">
+      <Link
+        to="/jha/take5"
         data-take5-list
         data-take5-href="/jha/take5"
-        onClick={onOpen}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-        className="jha-doc-theme hub-jha-row"
-        style={{
-          '--jha-navy': theme.navy,
-          '--jha-accent': theme.accent,
-          '--jha-navy-light': theme.navyLight,
-          '--jha-accent-light': theme.accentLight,
-        } as CSSProperties}
+        className="hub-jha-list-take5-link"
+        onClick={e => { e.preventDefault(); onOpen(); }}
       >
-        <span className="min-w-0">
-          <span className="hub-jha-site truncate">Take 5</span>
-          <span className="hub-jha-muted truncate">Point of work risk assessment</span>
-        </span>
-        <span className="hub-jha-status">Take 5</span>
-        <span className="hub-jha-row-next" onClick={e => e.stopPropagation()}>
-          <JhaRowMore>
-            {closeMore => (
-              <Link
-                to="/jha/take5"
-                role="menuitem"
-                onClick={closeMore}
-              >
-                Open Take 5
-              </Link>
-            )}
-          </JhaRowMore>
-        </span>
-      </div>
-    </div>
+        Take 5
+      </Link>
+      <span className="hub-jha-list-take5-muted">Point of work risk assessment</span>
+    </p>
   );
 }
 
