@@ -209,7 +209,7 @@ describe('public document head wiring', () => {
   it('keeps landing headings in AU trade-CRM wording', () => {
     const page = src('src/pages/MarketingPage.tsx');
     expect(page).toContain('<h1 className="hub-marketing-display">');
-    expect(page).toContain('One job. Quote to paid.');
+    expect(page).toContain('Quote it. Send it. Get paid.');
     expect(page).toContain('Australian trade job software');
     expect(page).not.toContain('Australian electrical and trade job software');
     expect(page).not.toMatch(/SafetyCulture|Simpro/i);

@@ -17,14 +17,45 @@ describe('public Grafter landing', () => {
   it('locks conversion copy on the existing public home, not the old brochure', () => {
     const page = src('src/pages/MarketingPage.tsx');
     const css = src('src/index.css');
-    expect(page).toContain('One job. Quote to paid.');
-    expect(page).toContain('Everything lives on the job.');
-    expect(page).toContain('Custom templates');
-    expect(page).toContain('JHA, Take 5, attach SWMS');
+    expect(page).toContain('Quote it. Send it. Get paid.');
+    expect(page).toContain('Quote, schedule, invoice.');
     expect(page).toContain('JobFrame');
     expect(page).toContain('ScheduleFrame');
     expect(page.indexOf('<JobFrame />')).toBeGreaterThan(page.indexOf('hub-marketing-hero'));
-    expect(page.indexOf('<JobFrame />')).toBeLessThan(page.indexOf('hub-marketing-band'));
+    expect(page.indexOf('<JobFrame />')).toBeLessThan(page.indexOf('Send a GST quote.'));
+    expect(page.indexOf('<ScheduleFrame />')).toBeGreaterThan(page.indexOf('Drop the job on a name.'));
+    expect(page.indexOf('<ScheduleFrame />')).toBeLessThan(page.indexOf('Arriving. Clock in. Hours on the sheet.'));
+
+    const hero = page.slice(page.indexOf('hub-marketing-hero'), page.indexOf('Send a GST quote.'));
+    expect(hero).toContain('Quote, schedule, invoice.');
+    expect(hero).not.toMatch(/\bJHA\b/);
+    expect(hero).not.toMatch(/Take 5/);
+    expect(hero).not.toMatch(/\bSWMS\b/);
+    expect(hero).not.toMatch(/inspection/i);
+
+    const titles = [
+      'Send a GST quote.',
+      'Invoice the same job.',
+      'Drop the job on a name.',
+      'Arriving. Clock in. Hours on the sheet.',
+      'Paperwork stays with the work.',
+    ];
+    let cursor = page.indexOf('Send a GST quote.');
+    expect(cursor).toBeGreaterThan(page.indexOf('hub-marketing-hero'));
+    for (const title of titles) {
+      const next = page.indexOf(title, cursor);
+      expect(next).toBeGreaterThanOrEqual(cursor);
+      cursor = next;
+    }
+    expect(page.indexOf('Paperwork stays with the work.')).toBeGreaterThan(
+      page.indexOf('Arriving. Clock in. Hours on the sheet.'),
+    );
+
+    expect(page).toContain('not booking the job');
+    expect(page).toContain('that is a second tap');
+    expect(page).not.toMatch(/Accept books the job/i);
+    expect(page).not.toMatch(/Accept schedules the job/i);
+
     expect(page).toContain('data-price-slot');
     expect(page).toContain('$59');
     expect(page).toContain('$119');
@@ -43,12 +74,15 @@ describe('public Grafter landing', () => {
     expect(page).toContain('Create a workspace');
     expect(page).toContain('PublicLegalLinks');
     expect(page).toContain('Australian trade job software');
+    expect(page).toContain('Is this only for electricians?');
+    expect(page).toContain(
+      'No. Grafter is for trade crews — plumbing, mechanical, carpentry, electrical, the lot.',
+    );
     expect(page).not.toContain('electrical and trade');
     expect(page).not.toContain('Northside Electrical');
     expect(page).not.toContain('Switchboard upgrade');
     expect(page).not.toContain('from the ute');
-    expect(page).not.toMatch(/SafetyCulture/i);
-    expect(page).not.toMatch(/Simpro/i);
+    expect(page).not.toMatch(/SafetyCulture|Simpro/i);
     expect(page).toContain('/signup');
     expect(page).toContain('/login');
     expect(page).toContain('Australian-built. grafter.com.au');
