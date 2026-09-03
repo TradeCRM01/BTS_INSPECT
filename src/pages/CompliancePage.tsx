@@ -326,6 +326,8 @@ export function CompliancePage() {
     enabled: recordOpen && !!openedClientId && !!profile?.company_id,
   });
 
+  const clientInspectionsReady = !openedClientId || clientInspectionPack !== undefined;
+
   const clientLedger = useMemo(() => {
     if (!openedItem) return [];
     const siblingCompliance = complianceSheetSiblingCompliance(decorated, {
@@ -380,6 +382,7 @@ export function CompliancePage() {
               documentOpen
               clientLedger={clientLedger}
               clientLedgerEmpty={complianceSheetClientLedgerEmpty(openedClientId)}
+              clientLedgerReady={clientInspectionsReady}
               onOpen={() => openItem(openedItem.row)}
               onOpenSibling={id => {
                 const sibling = decorated.find(item => item.row.id === id);
@@ -730,7 +733,7 @@ function ComplianceListRow({
 }
 
 function ComplianceSheet({
-  item, href, liveStatus, documentOpen, clientLedger, clientLedgerEmpty, onOpenSibling,
+  item, href, liveStatus, documentOpen, clientLedger, clientLedgerEmpty, clientLedgerReady, onOpenSibling,
   onEdit, onDelete, onComplete, onTogglePause, onSendReminder, onShowHistory,
   sendingReminder, completing,
 }: {
@@ -740,6 +743,7 @@ function ComplianceSheet({
   documentOpen: boolean;
   clientLedger?: ComplianceSheetLedgerRow[];
   clientLedgerEmpty?: string;
+  clientLedgerReady?: boolean;
   onOpen?: () => void;
   onOpenSibling?: (id: string) => void;
   onEdit: () => void;
@@ -825,11 +829,13 @@ function ComplianceSheet({
           </div>
           <div className="hub-compliance-others" data-compliance-client-ledger="">
             {(clientLedger ?? []).length === 0 ? (
-              <p className="hub-compliance-ledger-row" data-compliance-client-ledger="empty">
-                <span className="hub-compliance-muted">
-                  {clientLedgerEmpty ?? complianceSheetClientLedgerEmpty(complianceSheetClientId(item))}
-                </span>
-              </p>
+              clientLedgerReady === false ? null : (
+                <p className="hub-compliance-ledger-row" data-compliance-client-ledger="empty">
+                  <span className="hub-compliance-muted">
+                    {clientLedgerEmpty ?? complianceSheetClientLedgerEmpty(complianceSheetClientId(item))}
+                  </span>
+                </p>
+              )
             ) : (clientLedger ?? []).map(row => {
               if (row.kind === 'compliance') {
                 return (
