@@ -19,6 +19,7 @@ describe('Expenses scan-receipt cream paper look', () => {
     expect(page).toContain('hub-expenses-hero');
     expect(page).toContain('hub-expenses-sheet');
     expect(page).toContain('hub-expenses-scan');
+    expect(page).toContain('hub-expenses-upload');
     expect(page).toContain('hub-expenses-save');
     expect(page).toContain('hub-expenses-preview');
     expect(page).toContain('hub-expenses-classes');
@@ -40,6 +41,8 @@ describe('Expenses scan-receipt cream paper look', () => {
     expect(page).toContain('font-variant-numeric: tabular-nums');
     expect(page).toContain('layout="sheet"');
     expect(page).toContain('Scan receipt');
+    expect(page).toContain('> Upload');
+    expect(page).toContain("startReceiptScan('file')");
     expect(page).toContain('MoreHorizontal');
     expect(page).toContain('--ex-look-page: #F5F0E6');
     expect(page).toContain('--ex-look-sheet: #FFFDF8');

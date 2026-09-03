@@ -203,6 +203,25 @@ const EXPENSES_LOOK_CSS = `
   cursor: pointer;
 }
 .hub-expenses-scan:hover { background: color-mix(in srgb, #FFFDF8 88%, #0A2540); }
+.hub-expenses-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 16px;
+  background: var(--ex-look-sheet);
+  color: var(--ex-look-ink);
+  border: 1px solid var(--ex-look-line);
+  border-radius: 12px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: none;
+  cursor: pointer;
+}
+.hub-expenses-upload:hover { background: color-mix(in srgb, #FFFDF8 88%, #0A2540); }
 .hub-expenses-more {
   margin-left: auto;
   width: 44px;
@@ -842,6 +861,14 @@ export function ExpensesPage() {
                 aria-label="Scan receipt with camera"
               >
                 <Camera size={16} /> Scan receipt
+              </button>
+              <button
+                type="button"
+                onClick={() => startReceiptScan('file')}
+                className="hub-expenses-upload"
+                aria-label="Upload receipt file"
+              >
+                <FileUp size={16} /> Upload
               </button>
               <button
                 type="button"

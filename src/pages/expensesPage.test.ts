@@ -13,16 +13,30 @@ describe('Expenses scan-receipt wiring', () => {
   const priceBook = src('supabase/functions/import-price-book-pdf/index.ts');
   const app = src('src/App.tsx');
 
-  it('puts Scan receipt on the expenses sheet with camera + file still available', () => {
-    expect(page).toContain('Scan receipt');
+  it('puts Scan receipt and Upload on the expenses sheet action row', () => {
+    const actionsStart = page.indexOf('<div className="hub-expenses-actions relative">');
+    const menuStart = page.indexOf('className="hub-expenses-menu"');
+    const actions = page.slice(actionsStart, menuStart);
+    const uploadCss = page.slice(page.indexOf('.hub-expenses-upload {'), page.indexOf('.hub-expenses-more {'));
+
+    expect(actions).toContain('Scan receipt');
+    expect(actions).toContain('hub-expenses-scan');
+    expect(actions).toContain("startReceiptScan('camera')");
+    expect(actions).toContain('aria-label="Scan receipt with camera"');
+    expect(actions).toContain('Upload');
+    expect(actions).toContain('hub-expenses-upload');
+    expect(actions).toContain("startReceiptScan('file')");
+    expect(actions).toContain('aria-label="Upload receipt file"');
+    expect(uploadCss).toContain('height: 44px');
+    expect(uploadCss).toContain('min-height: 44px');
     expect(page).toContain('hub-expenses-scan');
     expect(page).toContain('Take photo');
     expect(page).toContain('Choose file');
     expect(page).toContain('capture="environment"');
     expect(page).toContain('accept="image/*"');
     expect(page).toContain('accept="image/*,application/pdf,.pdf"');
-    expect(page).toContain('aria-label="Scan receipt with camera"');
-    expect(page).toContain('aria-label="Upload receipt file"');
+    expect(page).toContain('handleReceiptFile');
+    expect(page).toContain('receiptFileToEditorPrefill');
   });
 
   it('extracts then prefills the existing expense editor and Save writes expenses', () => {

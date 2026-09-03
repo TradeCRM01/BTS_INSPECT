@@ -205,6 +205,13 @@ describe('receiptFileToEditorPrefill', () => {
     expect(prefill.cost_class).toBe('cogs');
   });
 
+  it('accepts a photo or a PDF already on the device', () => {
+    expect(() => assertReceiptFile(new File(['img'], 'bunnings.jpg', { type: 'image/jpeg' }))).not.toThrow();
+    expect(() => assertReceiptFile(new File(['img'], 'receipt.png', { type: 'image/png' }))).not.toThrow();
+    expect(() => assertReceiptFile(new File(['%PDF'], 'bunnings.pdf', { type: 'application/pdf' }))).not.toThrow();
+    expect(() => assertReceiptFile(new File(['%PDF'], 'receipt.PDF', { type: '' }))).not.toThrow();
+  });
+
   it('rejects oversized files before calling Claude', () => {
     const file = new File([new Uint8Array(5 * 1024 * 1024)], 'huge.jpg', { type: 'image/jpeg' });
     expect(() => assertReceiptFile(file)).toThrow(/4\.5 MB/);
