@@ -60,6 +60,20 @@ REVOKE ALL ON public.member_tickets FROM PUBLIC, anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.member_tickets TO authenticated;
 GRANT ALL ON public.member_tickets TO service_role;
 
+-- Same uploaded-pdfs bucket as reports uploads. 023 is PDF + octet-stream;
+-- tickets are a PDF or a photo, so keep those PDFs and add TICKET_OK_TYPES images.
+UPDATE storage.buckets
+SET allowed_mime_types = ARRAY[
+  'application/pdf',
+  'application/x-pdf',
+  'application/octet-stream',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif'
+]
+WHERE id = 'uploaded-pdfs';
+
 -- Thin due=tickets hop on the existing Perth invoke.
 -- Same cron names and times. No new cron stack or notify product.
 CREATE OR REPLACE FUNCTION public.invoke_job_client_reminders()

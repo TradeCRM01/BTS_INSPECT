@@ -13,6 +13,7 @@ import {
   memberTicketRemoveScope,
   memberTicketsQuery,
   ticketFileRemoveTarget,
+  ticketContentType,
   ticketHasFile,
   ticketLedgerLine,
   ticketStoragePath,
@@ -118,6 +119,36 @@ describe('G3 file uses existing storage family — signed URL is live', () => {
     expect(() => assertTicketFile(new File(['x'], 'card.exe', { type: 'application/x-msdownload' }))).toThrow(
       /PDF or photo/,
     );
+  });
+
+  it('lets a jpeg or png White Card photo persist on uploaded-pdfs — not PDF-only from 023', () => {
+    const jpeg = new File(['img'], 'white-card.jpg', { type: 'image/jpeg' });
+    const png = new File(['img'], 'white-card.png', { type: 'image/png' });
+    expect(() => assertTicketFile(jpeg)).not.toThrow();
+    expect(() => assertTicketFile(png)).not.toThrow();
+    expect(ticketContentType(jpeg)).toBe('image/jpeg');
+    expect(ticketContentType(png)).toBe('image/png');
+    expect(ticketContentType(jpeg)).not.toBe('application/octet-stream');
+    expect(ticketContentType(png)).not.toBe('application/pdf');
+
+    const mig = src('supabase/migrations/20260903120000_072_member_tickets.sql');
+    expect(mig).toContain("WHERE id = 'uploaded-pdfs'");
+    expect(mig).toContain("SET allowed_mime_types = ARRAY[");
+    expect(mig).toContain("'application/pdf'");
+    expect(mig).toContain("'application/x-pdf'");
+    expect(mig).toContain("'application/octet-stream'");
+    expect(mig).toContain("'image/jpeg'");
+    expect(mig).toContain("'image/png'");
+    expect(mig).toContain("'image/webp'");
+    expect(mig).toContain("'image/gif'");
+    expect(mig).not.toContain('CREATE BUCKET');
+    expect(mig).not.toContain('documents');
+
+    const page = src('src/pages/TeamSettingsPage.tsx');
+    expect(page).toContain('contentType: ticketContentType(file)');
+    expect(page).toContain('image/jpeg');
+    expect(page).toContain('image/png');
+    expect(page).toContain("from('uploaded-pdfs')");
   });
 
   it('page uploads then opens via createSignedUrl — not a dead href', () => {
