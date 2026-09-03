@@ -12,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
   auditExpenseReceiptSeed,
+  mapExpenseReceiptExtract,
   receiptFileToEditorPrefill,
   type ExpenseEditorPrefill,
 } from '../lib/expenseReceiptExtract';
@@ -88,6 +89,41 @@ const BUNNINGS_RECEIPT_PREVIEW = `data:image/svg+xml;charset=UTF-8,${encodeURICo
   <text x="180" y="268" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#5B6B7C">28 AUG 2026  ·  INV-1042</text>
   <text x="180" y="300" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#5B6B7C">Thank you for shopping at Bunnings</text>
 </svg>`)}`;
+
+/** Thermal-style preview for the signed rent / Overhead look (look seed only). */
+const OVERHEAD_RECEIPT_PREVIEW = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="360" height="420" viewBox="0 0 360 420">
+  <rect width="360" height="420" fill="#FAF6EE"/>
+  <text x="180" y="36" text-anchor="middle" font-family="ui-monospace,monospace" font-size="15" font-weight="700" fill="#0A2540">CBRE PROPERTY</text>
+  <text x="180" y="58" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#0A2540">WAREHOUSE LEASE</text>
+  <text x="180" y="76" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#0A2540">ABN 52 003 205 552</text>
+  <line x1="24" y1="92" x2="336" y2="92" stroke="#E2D9CC"/>
+  <text x="24" y="120" font-family="ui-monospace,monospace" font-size="12" fill="#0A2540">SEP RENT</text>
+  <text x="336" y="120" text-anchor="end" font-family="ui-monospace,monospace" font-size="12" fill="#0A2540">2200.00</text>
+  <text x="24" y="144" font-family="ui-monospace,monospace" font-size="12" fill="#0A2540">GST</text>
+  <text x="336" y="144" text-anchor="end" font-family="ui-monospace,monospace" font-size="12" fill="#0A2540">220.00</text>
+  <line x1="24" y1="168" x2="336" y2="168" stroke="#E2D9CC"/>
+  <text x="24" y="196" font-family="ui-monospace,monospace" font-size="13" font-weight="700" fill="#0A2540">TOTAL</text>
+  <text x="336" y="196" text-anchor="end" font-family="ui-monospace,monospace" font-size="13" font-weight="700" fill="#0A2540">2420.00</text>
+  <text x="180" y="268" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#5B6B7C">1 SEP 2026  ·  RENT-SEP-26</text>
+  <text x="180" y="300" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#5B6B7C">Warehouse rent September</text>
+</svg>`)}`;
+
+/** ?look= only on this expenses scan review sheet. */
+const SCAN_LOOK_BUNNINGS = 'scan-bunnings';
+const SCAN_LOOK_OVERHEAD = 'scan-overhead';
+
+function lookOverheadReceiptSeed(): ExpenseEditorPrefill {
+  return mapExpenseReceiptExtract({
+    vendor_name: 'CBRE Property',
+    total: 2420,
+    tax_amount: 220,
+    expense_date: '1 Sep 2026',
+    category: 'Rent / Lease',
+    cost_class: 'overhead',
+    reference: 'RENT-SEP-26',
+    description: 'Warehouse rent September',
+  });
+}
 
 /** Page-local expenses sheet. Same cream paper tokens as signed timesheets / week board. */
 const EXPENSES_LOOK_CSS = `
@@ -635,9 +671,24 @@ export function ExpensesPage() {
   };
 
   useEffect(() => {
-    if (!isDevFieldAuditAuth()) return;
     try {
       const params = new URLSearchParams(window.location.search);
+      const look = params.get('look');
+      if (look === SCAN_LOOK_BUNNINGS) {
+        setReceiptPrefill(auditExpenseReceiptSeed());
+        setReceiptPreviewUrl(BUNNINGS_RECEIPT_PREVIEW);
+        setEditing(null);
+        setShowForm(true);
+        return;
+      }
+      if (look === SCAN_LOOK_OVERHEAD) {
+        setReceiptPrefill(lookOverheadReceiptSeed());
+        setReceiptPreviewUrl(OVERHEAD_RECEIPT_PREVIEW);
+        setEditing(null);
+        setShowForm(true);
+        return;
+      }
+      if (!isDevFieldAuditAuth()) return;
       if (params.get('scanReceipt') !== '1') return;
       setReceiptPrefill(auditExpenseReceiptSeed());
       setReceiptPreviewUrl(BUNNINGS_RECEIPT_PREVIEW);
@@ -1380,7 +1431,7 @@ function ExpenseEditorModal({
 
   if (layout === 'sheet') {
     return (
-      <div className="hub-expenses-review">
+      <div className="hub-expenses-review" data-scan-look="1">
         {receiptPreviewUrl ? (
           <img src={receiptPreviewUrl} alt="Scanned receipt" className="hub-expenses-preview" />
         ) : null}
