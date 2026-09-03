@@ -8,13 +8,9 @@ const OUT = 'docs/look';
 mkdirSync(OUT, { recursive: true });
 
 const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({
-  viewport: { width: 1280, height: 900 },
-  deviceScaleFactor: 1,
-});
-const page = await context.newPage();
 
-async function waitPaper(sel) {
+async function openPaper(page, path, sel) {
+  await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle' });
   await page.waitForSelector(sel, { timeout: 20000 });
   await page.waitForSelector(`${sel} .hub-letterhead-mark`, { timeout: 20000 });
   await page.waitForFunction((markSel) => {
@@ -24,29 +20,42 @@ async function waitPaper(sel) {
   await page.waitForTimeout(400);
 }
 
-await page.goto(`${BASE}/quotes?look=letterhead`, { waitUntil: 'networkidle' });
-await waitPaper('.hub-quote-sheet');
-await page.screenshot({
-  path: `${OUT}/letterhead-quote-laptop-1280.png`,
-  type: 'png',
-});
+async function captureViewport(viewport, frames) {
+  const context = await browser.newContext({
+    viewport,
+    deviceScaleFactor: 1,
+  });
+  const page = await context.newPage();
+  for (const frame of frames) {
+    await openPaper(page, frame.path, frame.sel);
+    await page.screenshot({ path: `${OUT}/${frame.file}`, type: 'png' });
+  }
+  await context.close();
+}
 
-await page.goto(`${BASE}/invoices?look=letterhead`, { waitUntil: 'networkidle' });
-await waitPaper('.hub-invoice-sheet');
-await page.screenshot({
-  path: `${OUT}/letterhead-invoice-laptop-1280.png`,
-  type: 'png',
-});
+await captureViewport({ width: 1280, height: 900 }, [
+  { path: '/quotes?look=letterhead', sel: '.hub-quote-sheet', file: 'letterhead-quote-laptop-1280.png' },
+  { path: '/invoices?look=letterhead', sel: '.hub-invoice-sheet', file: 'letterhead-invoice-laptop-1280.png' },
+]);
 
-page.on('console', (msg) => {
+await captureViewport({ width: 390, height: 844 }, [
+  { path: '/quotes?look=letterhead', sel: '.hub-quote-sheet', file: 'letterhead-quote-phone-390.png' },
+  { path: '/invoices?look=letterhead', sel: '.hub-invoice-sheet', file: 'letterhead-invoice-phone-390.png' },
+]);
+
+const printContext = await browser.newContext({
+  viewport: { width: 1280, height: 900 },
+  deviceScaleFactor: 1,
+});
+const printPage = await printContext.newPage();
+printPage.on('console', (msg) => {
   if (msg.type() === 'error') console.error('PAGE', msg.text());
 });
-page.on('pageerror', (err) => console.error('PAGEERROR', err.message));
-
-await page.goto(`${BASE}/quotes?look=letterhead&print=1`, { waitUntil: 'networkidle' });
-await page.waitForSelector('iframe[title="Document PDF preview"]', { timeout: 45000 });
-const pdfSrc = await page.locator('iframe[title="Document PDF preview"]').getAttribute('src');
-const pdfBytes = await page.evaluate(async (src) => {
+printPage.on('pageerror', (err) => console.error('PAGEERROR', err.message));
+await printPage.goto(`${BASE}/quotes?look=letterhead&print=1`, { waitUntil: 'networkidle' });
+await printPage.waitForSelector('iframe[title="Document PDF preview"]', { timeout: 45000 });
+const pdfSrc = await printPage.locator('iframe[title="Document PDF preview"]').getAttribute('src');
+const pdfBytes = await printPage.evaluate(async (src) => {
   const buf = await (await fetch(src)).arrayBuffer();
   return Array.from(new Uint8Array(buf));
 }, pdfSrc);
@@ -65,6 +74,7 @@ if (raster.status !== 0) {
   throw new Error('PDF raster failed');
 }
 console.log(raster.stdout.trim());
+await printContext.close();
 
 await browser.close();
 console.log('wrote letterhead LOOK frames');

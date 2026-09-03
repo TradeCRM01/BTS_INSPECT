@@ -36,8 +36,11 @@ describe('quote + invoice letterhead mark LOOK', () => {
     expect(css).toContain(':is(.hub-quote-letterhead, .hub-invoice-letterhead) > *');
     expect(css).toContain('overflow: hidden');
     expect(css).toContain(':is(.hub-quote-editor, .hub-invoice-editor) .hub-letterhead-mark');
+    expect(css).toContain('width: 100%');
     expect(css).toContain('max-height: var(--hub-letterhead-mark-height)');
     expect(css).toContain('max-width: var(--hub-letterhead-mark-max)');
+    expect(src('src/index.css')).toContain('grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)');
+    expect(src('src/index.css')).toContain('.hub-quote-letterhead {\n      grid-template-columns: minmax(0, 1fr);');
     expect(css).not.toContain('--hub-letterhead-mark-max: 480px');
     expect(css).not.toContain('height: 32px');
     expect(css).not.toContain('max-width: 140px');
@@ -78,6 +81,8 @@ describe('letterhead LOOK frames', () => {
     for (const rel of [
       'docs/look/letterhead-quote-laptop-1280.png',
       'docs/look/letterhead-invoice-laptop-1280.png',
+      'docs/look/letterhead-quote-phone-390.png',
+      'docs/look/letterhead-invoice-phone-390.png',
       'docs/look/letterhead-quote-print.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);

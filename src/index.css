@@ -3656,7 +3656,7 @@
 
   .hub-invoice-letterhead {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 24px;
     padding: 24px;
   }
@@ -3670,12 +3670,13 @@
 
   :is(.hub-quote-letterhead, .hub-invoice-letterhead) > * {
     min-width: 0;
+    max-width: 100%;
     overflow: hidden;
   }
 
   :is(.hub-quote-editor, .hub-invoice-editor) .hub-letterhead-mark {
     display: block;
-    width: auto;
+    width: 100%;
     height: auto;
     max-width: var(--hub-letterhead-mark-max);
     max-height: var(--hub-letterhead-mark-height);
@@ -4382,7 +4383,7 @@
 
   @media (max-width: 639px) {
     .hub-invoice-letterhead {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .overlay-backdrop:has(.hub-invoice-editor),
@@ -6874,7 +6875,7 @@
 
   .hub-quote-letterhead {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 24px;
     padding: 24px 32px;
   }
@@ -6916,6 +6917,10 @@
     .hub-quote-gst {
       padding-left: 16px;
       padding-right: 16px;
+    }
+
+    .hub-quote-letterhead {
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .hub-quote-scope {
