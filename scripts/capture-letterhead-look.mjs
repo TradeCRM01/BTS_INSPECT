@@ -33,6 +33,7 @@ const page = await laptop.newPage();
 await page.goto(`${BASE}/settings/company?look=letterhead`, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('.company-logo-strip-stage-img', { timeout: 20000 });
 await waitMark(page, '.company-logo-strip-stage-img');
+await waitMark(page, '.company-logo-strip-preview .hub-letterhead-mark');
 await page.locator('.company-logo-strip').scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${OUT}/logo-strip-laptop-1280.png`, type: 'png' });

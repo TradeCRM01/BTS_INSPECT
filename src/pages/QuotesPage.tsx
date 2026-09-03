@@ -982,20 +982,24 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         {err && err !== CONVERT_QUOTE_NEED_DATE_CREW ? <p className="hub-quote-err">{err}</p> : null}
 
         <div className="hub-quote-sheet">
-          <div className="hub-quote-banner">
-            <p className="hub-quote-kicker">Quotation</p>
-            <h2 className="hub-quote-editor-title">{editorTitle}</h2>
-            <p className="hub-quote-banner-meta">
-              {QUOTE_STATUS_LABELS[form.status]}
-              {form.validity_date ? ` · Valid ${format(parseISO(form.validity_date), 'd MMM yyyy')}` : ''}
-            </p>
-          </div>
-
-          <div className="hub-quote-letterhead">
-            <div className="min-w-0">
+          <header className="hub-quote-masthead">
+            <div className="hub-quote-masthead-brand">
               {sheetLogo ? (
                 <CompanyLetterheadMark src={sheetLogo} company={company} />
               ) : null}
+            </div>
+            <div className="hub-quote-banner">
+              <p className="hub-quote-kicker">Quotation</p>
+              <h2 className="hub-quote-editor-title">{editorTitle}</h2>
+              <p className="hub-quote-banner-meta">
+                {QUOTE_STATUS_LABELS[form.status]}
+                {form.validity_date ? ` · Valid ${format(parseISO(form.validity_date), 'd MMM yyyy')}` : ''}
+              </p>
+            </div>
+          </header>
+
+          <div className="hub-quote-letterhead">
+            <div className="min-w-0">
               <p className="hub-quote-kicker">From</p>
               <p className="hub-quote-from-name">{company?.name ?? 'Your company'}</p>
               {company?.abn ? <p className="hub-quote-muted">ABN {company.abn}</p> : null}

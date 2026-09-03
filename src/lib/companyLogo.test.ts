@@ -422,7 +422,7 @@ describe('company logo crop + letterhead size', () => {
     expect(src('src/lib/CompanyLetterheadMark.tsx')).toContain('hub-letterhead-mark-crop');
     expect(css).toContain('never paint over TO');
     expect(css).toContain('max-width: var(--hub-letterhead-mark-max)');
-    expect(css).toContain(':is(.hub-quote-letterhead, .hub-invoice-letterhead) > *');
+    expect(css).toContain(':is(.hub-quote-letterhead, .hub-invoice-letterhead, .hub-quote-masthead, .hub-invoice-masthead) > *');
     expect(css).toContain('overflow: hidden');
   });
 
@@ -451,6 +451,7 @@ describe('company logo crop + letterhead size', () => {
     expect(migration).not.toContain('073_dashboard_widgets_seeded');
     expect(settings).toContain('company-logo-strip');
     expect(settings).toContain('CompanyLogoStripCrop');
+    expect(src('src/lib/CompanyLogoStripCrop.tsx')).toContain('company-logo-strip-preview');
     expect(settings).toContain('persistCompanyLogoLetterhead');
     expect(settings).toContain('persistCompanyLogo');
     expect(src('src/App.tsx')).not.toMatch(/path="\/settings\/logos"/);
