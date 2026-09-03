@@ -28,6 +28,7 @@ const ReportsListPage = lazy(() => import('./pages/ReportsListPage').then(m => (
 const UploadedPdfViewerPage = lazy(() => import('./pages/UploadedPdfViewerPage').then(m => ({ default: m.UploadedPdfViewerPage })));
 const ProfileSettingsPage = lazy(() => import('./pages/ProfileSettingsPage').then(m => ({ default: m.ProfileSettingsPage })));
 const CompanySettingsPage = lazy(() => import('./pages/CompanySettingsPage').then(m => ({ default: m.CompanySettingsPage })));
+const BillingSettingsPage = lazy(() => import('./pages/BillingSettingsPage').then(m => ({ default: m.BillingSettingsPage })));
 const TeamSettingsPage = lazy(() => import('./pages/TeamSettingsPage').then(m => ({ default: m.TeamSettingsPage })));
 const AiConsolePage = lazy(() => import('./pages/AiConsolePage').then(m => ({ default: m.AiConsolePage })));
 const AiAssistantPage = lazy(() => import('./pages/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })));
@@ -130,6 +131,7 @@ export default function App() {
       <Route path="/uploaded-pdfs/:id" element={<Protected><UploadedPdfViewerPage /></Protected>} />
       <Route path="/settings/profile" element={<Protected><ProfileSettingsPage /></Protected>} />
       <Route path="/settings/company" element={<Protected><CompanySettingsPage /></Protected>} />
+      <Route path="/settings/billing" element={<Protected><BillingSettingsPage /></Protected>} />
       <Route path="/settings/team" element={<Protected><TeamSettingsPage /></Protected>} />
       <Route path="/ai-console" element={<Protected><AiConsolePage /></Protected>} />
       <Route path="/assistant" element={<Protected><AiAssistantPage /></Protected>} />

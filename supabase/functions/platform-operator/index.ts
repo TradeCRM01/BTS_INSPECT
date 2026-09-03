@@ -9,19 +9,29 @@ const corsHeaders = {
 };
 
 const STRIPE_SECRET_MISS =
-  "Add a restricted Stripe key (rk_…) as STRIPE_SECRET_KEY on the platform-operator and stripe-webhook functions. Create three Stripe Products — Starter, Crew, Shop — each with a monthly Price and a yearly Price. Paste those Price IDs into STRIPE_PRICE_STARTER_MONTHLY (and the other STRIPE_PRICE_* secrets). Do not put Stripe keys in VITE_*. Until then, you can still suspend companies and set a plan by hand.";
+  "Add a restricted Stripe key (rk_…) as STRIPE_SECRET_KEY on the platform-operator, company-billing, and stripe-webhook functions. Create three Stripe Products — Crew, Company, Plant — each with a monthly Price and a yearly Price. Paste those Price IDs into STRIPE_PRICE_CREW_MONTHLY (and the other STRIPE_PRICE_* secrets). Do not put Stripe keys in VITE_*. Until then, you can still suspend companies and set a plan by hand.";
 
 const PRICE_ENVS = [
-  "STRIPE_PRICE_STARTER_MONTHLY",
-  "STRIPE_PRICE_STARTER_YEARLY",
   "STRIPE_PRICE_CREW_MONTHLY",
   "STRIPE_PRICE_CREW_YEARLY",
-  "STRIPE_PRICE_SHOP_MONTHLY",
-  "STRIPE_PRICE_SHOP_YEARLY",
+  "STRIPE_PRICE_COMPANY_MONTHLY",
+  "STRIPE_PRICE_COMPANY_YEARLY",
+  "STRIPE_PRICE_PLANT_MONTHLY",
+  "STRIPE_PRICE_PLANT_YEARLY",
 ] as const;
 
-type PlanId = "starter" | "crew" | "shop";
+type PlanId = "crew" | "company" | "plant";
 type Interval = "month" | "year";
+
+const PLAN_IDS: PlanId[] = ["crew", "company", "plant"];
+
+function isPlanId(value: string): value is PlanId {
+  return PLAN_IDS.includes(value as PlanId);
+}
+
+function seatLimitFor(plan: PlanId): number {
+  return plan === "crew" ? 5 : plan === "company" ? 15 : 40;
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -37,17 +47,17 @@ function stripeSecret(): string | null {
 
 function priceIdFor(plan: PlanId, interval: Interval): string | null {
   const env =
-    plan === "starter"
+    plan === "crew"
       ? interval === "year"
-        ? "STRIPE_PRICE_STARTER_YEARLY"
-        : "STRIPE_PRICE_STARTER_MONTHLY"
-      : plan === "crew"
+        ? "STRIPE_PRICE_CREW_YEARLY"
+        : "STRIPE_PRICE_CREW_MONTHLY"
+      : plan === "company"
         ? interval === "year"
-          ? "STRIPE_PRICE_CREW_YEARLY"
-          : "STRIPE_PRICE_CREW_MONTHLY"
+          ? "STRIPE_PRICE_COMPANY_YEARLY"
+          : "STRIPE_PRICE_COMPANY_MONTHLY"
         : interval === "year"
-          ? "STRIPE_PRICE_SHOP_YEARLY"
-          : "STRIPE_PRICE_SHOP_MONTHLY";
+          ? "STRIPE_PRICE_PLANT_YEARLY"
+          : "STRIPE_PRICE_PLANT_MONTHLY";
   const id = Deno.env.get(env)?.trim() || "";
   return id || null;
 }
@@ -266,10 +276,10 @@ Deno.serve(async (req: Request) => {
     if (action === "set_plan") {
       const companyId = String(body.company_id || "");
       const plan = String(body.plan || "") as PlanId;
-      if (!companyId || !["starter", "crew", "shop"].includes(plan)) {
-        return json({ ok: false, error: "company_id and plan (starter|crew|shop) required" }, 400);
+      if (!companyId || !isPlanId(plan)) {
+        return json({ ok: false, error: "company_id and plan (crew|company|plant) required" }, 400);
       }
-      const seatLimit = plan === "starter" ? 3 : plan === "crew" ? 10 : null;
+      const seatLimit = seatLimitFor(plan);
       const { error } = await db.from("companies").update({ plan, seat_limit: seatLimit }).eq("id", companyId);
       if (error) throw error;
       await logEvent(db, user.id, actorEmail, companyId, "set_plan", { plan });
@@ -426,7 +436,7 @@ Deno.serve(async (req: Request) => {
       const plan = String(body.plan || "") as PlanId;
       const interval = String(body.interval || "month") as Interval;
       const origin = String(body.origin || "").replace(/\/$/, "");
-      if (!companyId || !["starter", "crew", "shop"].includes(plan) || (interval !== "month" && interval !== "year")) {
+      if (!companyId || !isPlanId(plan) || (interval !== "month" && interval !== "year")) {
         return json({ ok: false, error: "company_id, plan, and interval required" }, 400);
       }
       if (!origin) return json({ ok: false, error: "origin required" }, 400);

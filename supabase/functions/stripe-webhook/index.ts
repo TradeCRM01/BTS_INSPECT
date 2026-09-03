@@ -86,7 +86,10 @@ Deno.serve(async (req: Request) => {
       billing_status: billingFromStripe(sub.status),
       trial_ends_at: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
     };
-    if (plan === "starter" || plan === "crew" || plan === "shop") patch.plan = plan;
+    if (plan === "crew" || plan === "company" || plan === "plant") {
+      patch.plan = plan;
+      patch.seat_limit = plan === "crew" ? 5 : plan === "company" ? 15 : 40;
+    }
     await db.from("companies").update(patch).eq("id", rowId);
     await db.from("platform_operator_events").insert({
       actor_id: null,

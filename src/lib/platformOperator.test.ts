@@ -10,13 +10,17 @@ import {
   OPERATOR_EMAIL,
   REMOVE_LAST_DEVELOPER,
   REMOVE_NOT_DEVELOPER,
+  SIGNUP_TRIAL_DAYS,
   STRIPE_SECRET_MISS,
   STRIPE_TAX_NOTE,
   canAppointOperator,
   canRemoveOperator,
   companyAccessBlocked,
+  companyNeedsPaidPlan,
   grafterPlan,
+  inviteWouldExceedSeatLimit,
   priceEnvFor,
+  seatLimitFor,
   trialLabel,
 } from './platformOperator';
 
@@ -62,17 +66,27 @@ describe('platform operator access', () => {
 });
 
 describe('platform billing catalog', () => {
-  it('keeps one Stripe Product per plan and separate monthly/yearly prices', () => {
-    expect(GRAFTER_PLANS.map(p => p.id)).toEqual(['starter', 'crew', 'shop']);
+  it('keeps one Stripe Product per plan and the locked public offer', () => {
+    expect(GRAFTER_PLANS.map(p => p.id)).toEqual(['crew', 'company', 'plant']);
+    expect(GRAFTER_PLANS.map(p => p.name)).toEqual(['Crew', 'Company', 'Plant']);
+    expect(GRAFTER_PLANS.map(p => p.seats)).toEqual([5, 15, 40]);
+    expect(GRAFTER_PLANS.map(p => p.monthlyAud)).toEqual([59, 119, 199]);
+    expect(SIGNUP_TRIAL_DAYS).toBe(90);
+    expect(seatLimitFor('crew')).toBe(5);
+    expect(seatLimitFor('plant')).toBe(40);
     const products = GRAFTER_PLANS.map(p => p.stripeProductHint);
     expect(new Set(products).size).toBe(3);
-    expect(priceEnvFor('starter', 'month')).toBe('STRIPE_PRICE_STARTER_MONTHLY');
-    expect(priceEnvFor('shop', 'year')).toBe('STRIPE_PRICE_SHOP_YEARLY');
-    expect(grafterPlan('crew').name).toBe('Crew');
+    expect(priceEnvFor('crew', 'month')).toBe('STRIPE_PRICE_CREW_MONTHLY');
+    expect(priceEnvFor('company', 'month')).toBe('STRIPE_PRICE_COMPANY_MONTHLY');
+    expect(priceEnvFor('plant', 'year')).toBe('STRIPE_PRICE_PLANT_YEARLY');
+    expect(grafterPlan('company').name).toBe('Company');
     expect(BILLING_STATUS_LABELS.past_due).toBe('Past due');
     expect(STRIPE_SECRET_MISS).toContain('rk_');
     expect(STRIPE_SECRET_MISS).toContain('VITE_*');
+    expect(STRIPE_SECRET_MISS).toContain('company-billing');
     expect(STRIPE_TAX_NOTE).toContain('automatic_tax');
+    expect(STRIPE_SECRET_MISS).not.toContain('Starter');
+    expect(STRIPE_SECRET_MISS).not.toContain('SHOP');
   });
 
   it('labels a trial window from today', () => {
@@ -106,6 +120,12 @@ describe('operator console wiring', () => {
     expect(signup).toContain('company_name');
     expect(signup).toContain('billing_status');
     expect(signup).toContain('trial');
+    expect(signup).toContain('90 * 24 * 60 * 60 * 1000');
+    expect(signup).toContain('plan: "crew"');
+    expect(signup).toContain('seat_limit: 5');
+    expect(signup).toContain('email_confirm: true');
+    expect(signup).not.toContain('14 * 24 * 60 * 60 * 1000');
+    expect(signup).not.toContain('plan: "starter"');
     expect(signup).not.toContain('all users belong to same company');
     expect(signup).not.toMatch(/\.limit\(1\)/);
     expect(src('src/pages/SignupPage.tsx')).toContain('company_name');
@@ -127,6 +147,11 @@ describe('operator console wiring', () => {
     expect(fn).not.toContain('VITE_STRIPE');
     expect(fn).toContain('STRIPE_SECRET_KEY');
     expect(fn).toContain('rk_');
+    expect(fn).toContain('crew|company|plant');
+    expect(fn).toContain('STRIPE_PRICE_COMPANY_MONTHLY');
+    expect(fn).toContain('STRIPE_PRICE_PLANT_MONTHLY');
+    expect(fn).not.toContain('STRIPE_PRICE_STARTER');
+    expect(fn).not.toContain('STRIPE_PRICE_SHOP');
     expect(fn).toContain('list_operators');
     expect(fn).toContain('add_operator');
     expect(fn).toContain('remove_operator');

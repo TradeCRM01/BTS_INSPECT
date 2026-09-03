@@ -48,7 +48,7 @@ export function OperatorBillingPage() {
             <h2 className="text-base font-semibold text-[#1A1A1A]">{plan.name}</h2>
             <p className="text-sm text-[#4A5568] mt-1">{plan.blurb}</p>
             <p className="text-sm text-[#1A1A1A] mt-2">
-              {plan.seats ? `${plan.seats} seats` : 'Unlimited seats'}
+              {plan.seats} seats · ${plan.monthlyAud}/mo GST included
             </p>
             <p className="ops-meta mt-2">{plan.stripeProductHint}</p>
             <ul className="mt-3 text-xs text-[#4A5568] space-y-1">
@@ -62,7 +62,7 @@ export function OperatorBillingPage() {
       <section className="card p-4 mt-4">
         <h2 className="ops-section-title">How charging works</h2>
         <ol className="mt-3 text-sm text-[#1A1A1A] space-y-2 list-decimal pl-5">
-          <li>Create three Products in Stripe (Starter, Crew, Shop). Put monthly and yearly Prices on each Product — never mix tiers on one Product.</li>
+          <li>Create three Products in Stripe (Crew, Company, Plant). Put monthly and yearly Prices on each Product — never mix tiers on one Product.</li>
           <li>Add a restricted key (`rk_`) as <code>STRIPE_SECRET_KEY</code> on <code>platform-operator</code> and <code>stripe-webhook</code>.</li>
           <li>Paste Price IDs into the <code>STRIPE_PRICE_*</code> secrets listed above.</li>
           <li>Point a Stripe webhook at <code>/functions/v1/stripe-webhook</code> with <code>STRIPE_WEBHOOK_SECRET</code>.</li>
@@ -71,7 +71,7 @@ export function OperatorBillingPage() {
         </ol>
         <p className="ops-meta mt-4">{STRIPE_TAX_NOTE}</p>
         <p className="ops-meta mt-2">
-          New signups start on a 14-day trial. You can still suspend a company that has not paid.
+          New signups start on a 90-day Crew trial. You can still suspend a company that has not paid.
         </p>
         <p className="mt-3">
           <Link to="/operator/companies" className="text-[#2E75B6] hover:underline text-sm font-medium">
