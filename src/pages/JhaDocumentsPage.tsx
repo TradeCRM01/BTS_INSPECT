@@ -1,7 +1,7 @@
-import { useMemo, useState, type CSSProperties } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, FileText, MoreVertical, ShieldCheck } from 'lucide-react';
+import { Copy, FileText, MoreHorizontal, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
@@ -16,6 +16,7 @@ import { duplicateJhaDocument } from '../lib/duplicateJhaDocument';
 import {
   decorateJhaList,
   filterJhaListFloor,
+  formatJhaListDate,
   groupJhaListFloor,
   jhaDocumentHref,
   jhaListEmptyMessage,
@@ -45,18 +46,69 @@ const LIST_FILTERS: { key: JhaListFilter; label: string }[] = [
   { key: 'all', label: 'All' },
 ];
 
-function suburbFromSite(site: string): string {
-  if (site === 'No site address') return '';
-  const parts = site.split(',').map(part => part.trim()).filter(Boolean);
-  if (parts.length < 2) return '';
-  const loc = parts[1].replace(/\b(NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\b.*$/i, '').trim();
-  return loc || parts[1];
+/** Signed JHA-list frame seed — list look only, not a live company. */
+const JHA_LIST_LOOK = 'jha-list';
+
+function jhaListLookRows(): DocRow[] {
+  const stamp = '2026-09-03T00:00:00.000Z';
+  const base = {
+    meta: {} as Record<string, string>,
+    doc_version: 1,
+    amendment_reason: null as string | null,
+    amended_from_id: null as string | null,
+    client_id: null as string | null,
+    job_id: null as string | null,
+    created_at: stamp,
+    completed_at: stamp,
+    template_snapshot: { name: 'JHA' },
+    client_name: null as string | null,
+    job_title: null as string | null,
+    job_address: null as string | null,
+    job_assigned_team: null as string[] | null,
+    job_number: null as number | null,
+    job_scheduled_date: null as string | null,
+    report_number: null as string | null,
+  };
+  return [
+    {
+      ...base,
+      id: 'look-jha-northside',
+      status: 'completed',
+      meta: { siteName: 'Northside Electrical', siteAddress: '12 Workshop Rd, Perth WA 6000' },
+    },
+    {
+      ...base,
+      id: 'look-jha-harbour',
+      status: 'published',
+      meta: { siteName: 'Harbour Lights', siteAddress: '8 Wharf St, Fremantle WA 6160' },
+    },
+    {
+      ...base,
+      id: 'look-jha-midland',
+      status: 'completed',
+      meta: { siteName: 'Midland Workshops', siteAddress: '44 Helena St, Midland WA 6056' },
+    },
+  ];
 }
 
-function jhaListPillClass(status: string): string {
-  if (status === 'published') return 'is-published';
-  if (status === 'completed') return 'is-ready';
-  return 'is-draft';
+function jhaListWhisper(args: { filter: JhaListFilter; count: number }): string {
+  const filterLabel = args.filter === 'open'
+    ? 'Open'
+    : args.filter === 'all'
+      ? 'All'
+      : args.filter === 'draft'
+        ? 'Draft'
+        : args.filter === 'completed'
+          ? 'Ready'
+          : 'Published';
+  const countLabel = args.count === 1 ? '1 JHA' : `${args.count} JHAs`;
+  return `${filterLabel} · ${countLabel}`;
+}
+
+function jhaListRowMuted(item: JhaListFloorItem<DocRow>): string {
+  const title = item.title && item.title !== 'JHA' ? item.title : 'JHA';
+  const when = formatJhaListDate(item.row.completed_at || item.row.created_at);
+  return [title, when].filter(Boolean).join(' · ');
 }
 
 function auditJhaList(): DocRow[] | null {
@@ -93,8 +145,10 @@ export function JhaDocumentsPage() {
   );
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const lookJhaList = searchParams.get('look') === JHA_LIST_LOOK;
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState<JhaListFilter>('open');
+  const [status, setStatus] = useState<JhaListFilter>(lookJhaList ? 'all' : 'open');
   const [dupError, setDupError] = useState('');
 
   const duplicateMutation = useMutation({
@@ -121,7 +175,7 @@ export function JhaDocumentsPage() {
       if (error) throw error;
       return (data ?? []) as Array<{ id: string; name: string; email: string; role: string }>;
     },
-    enabled: !!profile?.company_id,
+    enabled: !!profile?.company_id && !lookJhaList,
   });
 
   const { data: templates } = useQuery({
@@ -135,7 +189,7 @@ export function JhaDocumentsPage() {
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!profile,
+    enabled: !!profile && !lookJhaList,
   });
 
   const { data: docs, isLoading, isError, refetch } = useQuery({
@@ -170,141 +224,273 @@ export function JhaDocumentsPage() {
         job_scheduled_date: d.job_id ? jobMap.get(d.job_id)?.scheduled_date ?? null : null,
       }));
     },
-    enabled: !!profile,
+    enabled: !!profile && !lookJhaList,
   });
 
+  const listRows = lookJhaList ? jhaListLookRows() : (docs ?? []);
   const decorated = useMemo(
-    () => decorateJhaList(docs ?? [], teamMembers),
-    [docs, teamMembers],
+    () => decorateJhaList(listRows, teamMembers),
+    [listRows, teamMembers],
   );
   const visible = useMemo(
     () => sortJhaListFloor(filterJhaListFloor(decorated, { filter: status, search: q })),
     [decorated, status, q],
   );
   const grouped = useMemo(() => groupJhaListFloor(visible), [visible]);
-  const noneAtAll = !isLoading && !pageQueryBlocked(isError) && (docs ?? []).length === 0;
-  const noneMatch = !isLoading && !pageQueryBlocked(isError) && (docs ?? []).length > 0 && visible.length === 0;
+  const loading = !lookJhaList && isLoading;
+  const noneAtAll = !lookJhaList && !loading && !pageQueryBlocked(isError) && listRows.length === 0;
+  const noneMatch = !lookJhaList && !loading && !pageQueryBlocked(isError) && listRows.length > 0 && visible.length === 0;
+  const whisper = jhaListWhisper({ filter: status, count: visible.length });
 
   return (
     <AppShell>
-      <div className="ops-page hub-jha" data-jha-filter={status}>
-        <div className="ops-page-head">
-          <div>
-            <p className="hub-look-eyebrow hub-jha-label">JHA documents</p>
-            <h1 className="ops-page-title">
-              JHA documents
-            </h1>
-          </div>
-          <select
-            className="btn-primary hub-jha-start"
-            defaultValue=""
-            aria-label="New JHA from template"
-            onChange={e => {
-              const id = e.target.value;
-              if (id) navigate(`/jha/new?templateId=${id}`);
-            }}
-          >
-            <option value="">+ Start JHA</option>
-            {(templates ?? []).map(t => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
-        </div>
+      <div className="ops-page hub-jha hub-jha-list-doc" data-jha-filter={status}>
+        <div className="hub-jha-sheet">
+          <header className="hub-jha-list-bar">
+            <span className="hub-jha-list-mark">List</span>
+          </header>
+          <div className="hub-jha-list-body">
+            <h1 className="ops-page-title">JHA</h1>
+            <p className="hub-jha-list-whisper">{whisper}</p>
+            <div className="hub-jha-list-tools">
+              <select
+                className="btn-primary hub-jha-start"
+                defaultValue=""
+                aria-label="New JHA from template"
+                onChange={e => {
+                  const id = e.target.value;
+                  if (id) navigate(`/jha/new?templateId=${id}`);
+                }}
+              >
+                <option value="">+ Start JHA</option>
+                {(templates ?? []).map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+              <div className="hub-jha-list-tools-overflow">
+                <JhaListFind
+                  status={status}
+                  onStatus={setStatus}
+                  search={q}
+                  onSearch={setQ}
+                />
+              </div>
+            </div>
 
+            {dupError && (
+              <div className="mb-4 ops-alert">
+                {dupError}
+              </div>
+            )}
+
+            {loading && (
+              <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+            )}
+            {pageQueryBlocked(isError) && <PageError onRetry={refetch} />}
+
+            {noneAtAll && (
+              <EmptyState
+                icon={ShieldCheck}
+                title={jhaListEmptyTitle({ filter: status, noneAtAll: true })}
+                message={jhaListEmptyMessage({ filter: status, noneAtAll: true })}
+                action={
+                  <Link to="/jobs" className="hub-next">
+                    Open jobs
+                  </Link>
+                }
+              />
+            )}
+
+            {noneMatch && (
+              <EmptyState
+                icon={FileText}
+                title={jhaListEmptyTitle({ filter: status, noneAtAll: false })}
+                message={jhaListEmptyMessage({ filter: status, noneAtAll: false })}
+              />
+            )}
+
+            {!loading && (
+              <>
+                {(visible.length > 0 || lookJhaList) && (
+                  <div className="hub-jha-thead">
+                    <span>Site</span>
+                    <span>Status</span>
+                    <span />
+                  </div>
+                )}
+                <JhaTake5ListRow theme={docColors} onOpen={() => navigate('/jha/take5')} />
+                {status === 'all' ? (
+                  <>
+                    <JhaGroup
+                      title={jhaListGroupTitle('all', 'open')}
+                      items={grouped.open}
+                      theme={docColors}
+                      onOpen={href => navigate(href)}
+                      onDuplicate={id => duplicateMutation.mutate(id)}
+                      duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
+                    />
+                    <JhaGroup
+                      title={jhaListGroupTitle('all', 'published')}
+                      items={grouped.published}
+                      theme={docColors}
+                      onOpen={href => navigate(href)}
+                      onDuplicate={id => duplicateMutation.mutate(id)}
+                      duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
+                    />
+                  </>
+                ) : (
+                  <JhaGroup
+                    title={jhaListGroupTitle(status)}
+                    items={visible}
+                    theme={docColors}
+                    onOpen={href => navigate(href)}
+                    onDuplicate={id => duplicateMutation.mutate(id)}
+                    duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
+                  />
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
+function placeJhaListMore(more: HTMLDetailsElement) {
+  const menu = more.querySelector('.hub-jha-list-more-menu') as HTMLElement | null;
+  const paper = more.closest('.hub-jha-sheet') as HTMLElement | null;
+  if (!menu || !paper) return;
+  more.classList.remove('is-flip', 'is-shift');
+  menu.style.removeProperty('--hub-jha-list-more-shift');
+  if (!more.open) return;
+  const pad = 8;
+  const paperRect = paper.getBoundingClientRect();
+  const bar = paper.querySelector('.hub-jha-list-bar');
+  const inkFloor = (bar?.getBoundingClientRect().bottom ?? paperRect.top) + pad;
+  const viewBottom = window.innerHeight - pad;
+  const menuRect = menu.getBoundingClientRect();
+  const trigger = more.querySelector('summary') as HTMLElement | null;
+  const triggerRect = trigger?.getBoundingClientRect() ?? menuRect;
+  const flippedTop = triggerRect.top - pad - menuRect.height;
+  const overflowsBottom = menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom);
+  if (overflowsBottom && flippedTop >= inkFloor) {
+    more.classList.add('is-flip');
+  }
+  const after = menu.getBoundingClientRect();
+  let shift = 0;
+  if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
+  if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
+  if (shift !== 0) {
+    more.classList.add('is-shift');
+    menu.style.setProperty('--hub-jha-list-more-shift', `${Math.round(shift)}px`);
+  }
+}
+
+function JhaListFind({
+  status,
+  onStatus,
+  search,
+  onSearch,
+}: {
+  status: JhaListFilter;
+  onStatus: (key: JhaListFilter) => void;
+  search: string;
+  onSearch: (value: string) => void;
+}) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeJhaListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-jha-list-more hub-jha-list-find">
+      <summary aria-label="Find">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-jha-list-more-menu" role="menu">
         <div className="hub-jha-chrome">
           <div className="hub-jha-filters">
             {LIST_FILTERS.map(tab => (
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setStatus(parseJhaListFilter(tab.key))}
+                role="menuitem"
+                onClick={() => onStatus(parseJhaListFilter(tab.key))}
                 className={`hub-chrome-filter ${status === tab.key ? 'hub-chrome-filter-on' : ''}`}
               >
                 {tab.label}
               </button>
             ))}
           </div>
-          <SearchBar value={q} onChange={setQ} placeholder="Search job, site, permit, supervisor, #0042…" className="max-w-sm" />
+          <SearchBar value={search} onChange={onSearch} placeholder="Search job, site, permit, supervisor, #0042…" />
         </div>
-
-        {dupError && (
-          <div className="mb-4 ops-alert">
-            {dupError}
-          </div>
-        )}
-
-        {isLoading && (
-          <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
-        )}
-        {pageQueryBlocked(isError) && <PageError onRetry={refetch} />}
-
-        {!isLoading && (
-          <div className="hub-jha-sheet">
-            <JhaTake5ListRow theme={docColors} onOpen={() => navigate('/jha/take5')} />
-            {visible.length > 0 && (
-              <div className="hub-jha-thead">
-                <span>Site</span>
-                <span>Permit</span>
-                <span>Supervisor</span>
-                <span>Crew</span>
-                <span>Status</span>
-                <span />
-              </div>
-            )}
-            {status === 'all' ? (
-              <>
-                <JhaGroup
-                  title={jhaListGroupTitle('all', 'open')}
-                  items={grouped.open}
-                  theme={docColors}
-                  onOpen={href => navigate(href)}
-                  onDuplicate={id => duplicateMutation.mutate(id)}
-                  duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
-                />
-                <JhaGroup
-                  title={jhaListGroupTitle('all', 'published')}
-                  items={grouped.published}
-                  theme={docColors}
-                  onOpen={href => navigate(href)}
-                  onDuplicate={id => duplicateMutation.mutate(id)}
-                  duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
-                />
-              </>
-            ) : (
-              <JhaGroup
-                title={jhaListGroupTitle(status)}
-                items={visible}
-                theme={docColors}
-                onOpen={href => navigate(href)}
-                onDuplicate={id => duplicateMutation.mutate(id)}
-                duplicatingId={duplicateMutation.isPending ? duplicateMutation.variables : undefined}
-              />
-            )}
-          </div>
-        )}
-
-        {noneAtAll && (
-          <EmptyState
-            icon={ShieldCheck}
-            title={jhaListEmptyTitle({ filter: status, noneAtAll: true })}
-            message={jhaListEmptyMessage({ filter: status, noneAtAll: true })}
-            action={
-              <Link to="/jobs" className="hub-next">
-                Open jobs
-              </Link>
-            }
-          />
-        )}
-
-        {noneMatch && (
-          <EmptyState
-            icon={FileText}
-            title={jhaListEmptyTitle({ filter: status, noneAtAll: false })}
-            message={jhaListEmptyMessage({ filter: status, noneAtAll: false })}
-          />
-        )}
       </div>
-    </AppShell>
+    </details>
+  );
+}
+
+function JhaRowMore({
+  children,
+}: {
+  children: (closeMore: () => void) => ReactNode;
+}) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeJhaListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-jha-list-more">
+      <summary aria-label="More">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-jha-list-more-menu" role="menu">
+        {children(closeMore)}
+      </div>
+    </details>
   );
 }
 
@@ -317,10 +503,10 @@ function JhaTake5ListRow({
 }) {
   return (
     <div data-jha-group="take 5">
-      <h2 className="hub-jha-group">Take 5</h2>
       <div
         role="link"
         tabIndex={0}
+        aria-label="Open"
         data-take5-list
         data-take5-href="/jha/take5"
         onClick={onOpen}
@@ -337,14 +523,19 @@ function JhaTake5ListRow({
           <span className="hub-jha-site truncate">Take 5</span>
           <span className="hub-jha-muted truncate">Point of work risk assessment</span>
         </span>
-        <span className="truncate hub-jha-muted" />
-        <span className="truncate hub-jha-muted" />
-        <span className="truncate hub-jha-count-cell" />
-        <span />
+        <span className="hub-jha-status">Take 5</span>
         <span className="hub-jha-row-next" onClick={e => e.stopPropagation()}>
-          <Link to="/jha/take5" className="hub-next">
-            Open
-          </Link>
+          <JhaRowMore>
+            {closeMore => (
+              <Link
+                to="/jha/take5"
+                role="menuitem"
+                onClick={closeMore}
+              >
+                Open Take 5
+              </Link>
+            )}
+          </JhaRowMore>
         </span>
       </div>
     </div>
@@ -412,16 +603,16 @@ function JhaDocRow({
     doc.job_title,
     doc.meta?.taskName,
   );
-  const suburb = suburbFromSite(site);
-  const jobLine = [item.jobNumberLabel, item.title].filter(Boolean).join(' · ');
-  const permit = item.permitLabel ? item.permitLabel.replace(/^Permit\s+/i, '') : '';
+  const muted = jhaListRowMuted(item);
 
   return (
     <div
       role="link"
       tabIndex={0}
+      aria-label="Open"
       data-jha-doc={doc.id}
       data-jha-href={item.href}
+      data-jha-open={doc.id}
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className="jha-doc-theme hub-jha-row"
@@ -434,38 +625,33 @@ function JhaDocRow({
     >
       <span className="min-w-0">
         <span className="hub-jha-site truncate">{site}</span>
-        <span className="hub-jha-muted truncate">{jobLine || suburb}</span>
+        {muted ? <span className="hub-jha-muted truncate">{muted}</span> : null}
       </span>
-      <span className="truncate hub-jha-muted">{permit}</span>
-      <span className="truncate hub-jha-muted">{item.supervisorLabel || ''}</span>
-      <span className="truncate hub-jha-count-cell">{item.crewProgress || ''}</span>
-      <span className={`hub-jha-pill ${jhaListPillClass(doc.status)}`}>
-        {jhaStatusLabel(doc.status)}
-      </span>
+      <span className="hub-jha-status">{jhaStatusLabel(doc.status)}</span>
       <span className="hub-jha-row-next" onClick={e => e.stopPropagation()}>
-        <button
-          type="button"
-          data-jha-open={doc.id}
-          onClick={onOpen}
-          className="hub-next"
-        >
-          {item.next.label}
-        </button>
-        <details className="hub-jha-more">
-          <summary aria-label="JHA actions">
-            <MoreVertical size={16} />
-          </summary>
-          <div className="hub-jha-more-menu">
-            <button
-              type="button"
-              onClick={onDuplicate}
-              disabled={duplicating}
-            >
-              <Copy size={14} />
-              {duplicating ? 'Copying…' : 'Duplicate'}
-            </button>
-          </div>
-        </details>
+        <JhaRowMore>
+          {closeMore => (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                data-jha-open={doc.id}
+                onClick={() => { onOpen(); closeMore(); }}
+              >
+                {item.next.label}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { onDuplicate(); closeMore(); }}
+                disabled={duplicating}
+              >
+                <Copy size={14} />
+                {duplicating ? 'Copying…' : 'Duplicate'}
+              </button>
+            </>
+          )}
+        </JhaRowMore>
       </span>
     </div>
   );

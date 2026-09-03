@@ -48,11 +48,11 @@ describe('Take 5 Field Work nav + JHA list row look', () => {
     expect(list).toContain('className="jha-doc-theme hub-jha-row"');
     expect(list).toContain('hub-jha-site');
     expect(list).toContain('hub-jha-muted');
-    expect(list).toContain('className="hub-next"');
     expect(list).toContain('to="/jha/take5"');
     expect(list).toContain('btn-primary hub-jha-start');
     const take5Row = list.slice(list.indexOf('function JhaTake5ListRow'), list.indexOf('function JhaGroup'));
-    expect(take5Row).toContain('className="hub-next"');
+    expect(take5Row).toContain('aria-label="Open"');
+    expect(take5Row).not.toContain('>Open<');
     expect(take5Row).not.toContain('btn-primary');
     expect(list).not.toContain('hub-take5');
     expect(list).not.toContain('take5-doc-theme');

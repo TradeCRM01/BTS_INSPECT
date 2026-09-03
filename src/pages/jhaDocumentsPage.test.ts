@@ -11,7 +11,7 @@ describe('JHA list open floor', () => {
     const page = src('src/pages/JhaDocumentsPage.tsx');
     const app = src('src/App.tsx');
 
-    expect(page).toContain("useState<JhaListFilter>('open')");
+    expect(page).toContain("useState<JhaListFilter>(lookJhaList ? 'all' : 'open')");
     expect(page).toContain('parseJhaListFilter(tab.key)');
     expect(page).toContain("{ key: 'open', label: 'Open' }");
     expect(page).toContain("{ key: 'all', label: 'All' }");

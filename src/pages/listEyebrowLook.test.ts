@@ -57,7 +57,9 @@ describe('list-page quiet eyebrows (paper kit)', () => {
     expect(inspections).not.toContain('hub-look-eyebrow');
     expect(inspections).toContain('ops-page-title">Inspections');
     expect(inspections).toContain('hub-inspections-list-mark">List');
-    expect(jha).toContain('hub-look-eyebrow hub-jha-label');
+    expect(jha).not.toContain('hub-look-eyebrow');
+    expect(jha).toContain('ops-page-title">JHA');
+    expect(jha).toContain('hub-jha-list-mark">List');
     expect(take5).toContain('hub-look-eyebrow hub-take5-label');
     expect(timesheets).toContain('hub-look-eyebrow hub-timesheets-label');
     expect(reports).not.toContain('hub-look-eyebrow');
