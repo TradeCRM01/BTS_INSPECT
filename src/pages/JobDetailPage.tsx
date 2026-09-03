@@ -18,7 +18,7 @@ import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY
 import { formatMoney, INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatDuration } from '../types/fsm';
 import type { InvoiceStatus, Timesheet } from '../types/fsm';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
-import { getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import { AUDIT_DOC_JOB_ID, getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { createInvoiceFromJobBill } from '../lib/createInvoiceFromJobBill';
 import {
   JOB_BILL_INVOICE_CREATED,
@@ -218,7 +218,7 @@ const JOB_TESTING_DUE_LOOK_CSS = `
           --testing-due-muted: #5B6B7C;
           --testing-due-line: #E2D9CC;
           --testing-due-fail: #B42318;
-          margin: 8px 0 0;
+          margin: 0;
         }
         .hub-jobs.is-record-open #job-testing-due .ops-tray {
           margin: 0;
@@ -229,17 +229,16 @@ const JOB_TESTING_DUE_LOOK_CSS = `
           box-shadow: none;
         }
         .hub-jobs.is-record-open #job-testing-due .ops-tray-head {
-          padding: 8px 0;
+          padding: 0;
           border: none;
-          border-bottom: 1px solid var(--testing-due-line);
           background: none;
         }
         .hub-jobs.is-record-open #job-testing-due .ops-section-title {
-          font-family: Rajdhani, sans-serif;
-          font-weight: 700;
-          font-size: 11px;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-weight: 500;
+          font-size: 14px;
+          letter-spacing: 0;
+          text-transform: none;
           color: var(--testing-due-muted);
         }
         .hub-jobs.is-record-open #job-testing-due .ops-related-list {
@@ -311,7 +310,7 @@ const JOB_TESTING_DUE_LOOK_CSS = `
           text-decoration: none;
         }
         .hub-jobs.is-record-open #job-testing-due .ops-tray-empty {
-          padding: 8px 0 16px;
+          padding: 0;
           background: none;
           border: none;
           box-shadow: none;
@@ -326,7 +325,7 @@ const JOB_TESTING_DUE_LOOK_CSS = `
         .hub-jobs.is-record-open #job-testing-due .btn-primary,
         .hub-jobs.is-record-open #job-testing-due .ops-link {
           background: none;
-          color: var(--testing-due-ink);
+          color: var(--testing-due-muted);
           box-shadow: none;
         }
 `;
@@ -343,7 +342,7 @@ export function JobDetailPage() {
   const [showStage, setShowStage] = useState(false);
   const [showTimeEntry, setShowTimeEntry] = useState(false);
   const [showJhaPicker, setShowJhaPicker] = useState(false);
-  const [billOpen, setBillOpen] = useState(true);
+  const [billOpen, setBillOpen] = useState(false);
   const [sendingReportId, setSendingReportId] = useState<string | null>(null);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
@@ -359,7 +358,7 @@ export function JobDetailPage() {
     queryFn: async () => {
       const mock = getAuditJob(id!);
       if (mock) {
-        if (testingDueLookKind()) {
+        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind()) {
           return { ...mock, scheduled_date: lookVanTodayYmd() } as Job;
         }
         return mock as Job;
@@ -418,13 +417,45 @@ export function JobDetailPage() {
     if (moreRef.current) moreRef.current.open = false;
   };
 
+  const placeMoreMenu = () => {
+    const more = moreRef.current;
+    const menu = more?.querySelector('.hub-job-more-menu') as HTMLElement | null;
+    const paper = more?.closest('.hub-jobs-document') as HTMLElement | null;
+    if (!more || !menu || !paper) return;
+    more.classList.remove('is-flip', 'is-shift');
+    menu.style.removeProperty('--hub-job-more-shift');
+    if (!more.open) return;
+    const pad = 8;
+    const paperRect = paper.getBoundingClientRect();
+    const viewBottom = window.innerHeight - pad;
+    const menuRect = menu.getBoundingClientRect();
+    if (menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom)) {
+      more.classList.add('is-flip');
+    }
+    const after = menu.getBoundingClientRect();
+    let shift = 0;
+    if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
+    if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
+    if (shift !== 0) {
+      more.classList.add('is-shift');
+      menu.style.setProperty('--hub-job-more-shift', `${Math.round(shift)}px`);
+    }
+  };
+
   useEffect(() => {
+    const more = moreRef.current;
     const onPointer = (event: PointerEvent) => {
       if (!moreRef.current?.open) return;
       if (!moreRef.current.contains(event.target as Node)) closeMore();
     };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
     document.addEventListener('pointerdown', onPointer);
-    return () => document.removeEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
   }, []);
 
   const { data: parentJob } = useQuery<{ id: string; title: string; job_number: number | null } | null>({
@@ -1070,19 +1101,19 @@ export function JobDetailPage() {
         <article className="hub-jobs-document job-cal-host">
           <header className="hub-jobs-sheet-bar">
             <span className="hub-jobs-hours">{jobRef}</span>
+          </header>
+          <div className="hub-jobs-sheet-body">
+            <h1 className="hub-jobs-hero">{job.title}</h1>
             <select
               value={job.status}
               onChange={e => updateStatus.mutate(e.target.value as JobStatus)}
-              className={`hub-jobs-pill is-${job.status} hub-job-status`}
+              className="hub-jobs-status-whisper"
               aria-label="Job status"
             >
               {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
                 <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
               ))}
             </select>
-          </header>
-          <div className="hub-jobs-sheet-body">
-            <h1 className="hub-jobs-hero">{job.title}</h1>
 
             <div className="hub-jobs-tools">
               {next.key === 'inspect' && !arrivingPrimary ? (
@@ -1197,7 +1228,9 @@ export function JobDetailPage() {
             ) : null}
 
             <div className="hub-jobs-ledger">
-              <div className="hub-jobs-ledger-row">
+              <div className="hub-jobs-identity">
+              <div className="hub-jobs-identity-col is-site">
+                <div className="hub-jobs-ledger-row">
                 <OpsSiteRow
                   hub
                   site={site ? site : 'No site address yet — add it in job details'}
@@ -1209,8 +1242,9 @@ export function JobDetailPage() {
                     Stage of {parentJob.job_number != null ? `#${padNum(parentJob.job_number)} ` : ''}{parentJob.title}
                   </Link>
                 )}
+                </div>
               </div>
-              <div className="hub-jobs-contact">
+              <div className="hub-jobs-identity-col hub-jobs-contact">
               {attachRow.kind === 'pick' ? (
                 <form
                   className="job-client-attach"
@@ -1319,7 +1353,7 @@ export function JobDetailPage() {
                 </form>
               )}
               </div>
-
+              <div className="hub-jobs-identity-col is-ops">
               <p className="hub-jobs-ledger-row">
                 <span className="flex items-center gap-1.5">
                   <Users size={13} />
@@ -1345,6 +1379,8 @@ export function JobDetailPage() {
                   </span>
                 </p>
               )}
+              </div>
+              </div>
 
             {((quotes ?? []).length > 0 || (invoices ?? []).length > 0) && (
               <>
@@ -1811,10 +1847,7 @@ export function JobDetailPage() {
           )}
         </div>
             </div>
-          </div>
-        </article>
-
-        <div id="job-schedule">
+            <div id="job-schedule">
           <JobDispatchPanel
             job={job}
             teamMembers={teamMembers ?? []}
@@ -1829,7 +1862,9 @@ export function JobDetailPage() {
             onArrivingSent={() => setArrivingSent(true)}
             onArrivingBusy={setArrivingBusy}
           />
-        </div>
+            </div>
+          </div>
+        </article>
       </div>
       {showEdit && (
         <JobFormModal

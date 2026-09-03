@@ -22,6 +22,7 @@ describe('job hub open sheet LOOK', () => {
     expect(page).toContain('hub-jobs-hero');
     expect(page).toContain('hub-jobs-label');
     expect(page).toContain('hub-jobs-ledger');
+    expect(page).toContain('hub-jobs-identity');
     expect(page).toContain('hub-jobs-tools');
     expect(page).toContain('className="btn-primary ops-next-control-block"');
     expect(page).toContain('hub-job-more');
@@ -57,8 +58,14 @@ describe('job hub open sheet LOOK', () => {
     expect(lookCss).toContain('.hub-jobs-sheet-bar');
     expect(lookCss).toContain('.hub-jobs-sheet-body');
     expect(lookCss).toContain('.hub-jobs-hero');
+    expect(lookCss).toContain('.hub-jobs-identity');
     expect(lookCss).toContain('.hub-jobs-label');
     expect(lookCss).toContain('.hub-jobs.is-record-open');
+    expect(lookCss).toContain('overflow: visible');
+    expect(lookCss).toContain('.hub-job-more.is-flip');
+    expect(lookCss).toContain('.hub-job-more.is-shift');
+    expect(lookCss).toContain('.hub-jobs-document .job-swms-more');
+    expect(lookCss).toContain('display: none');
     expect(lookCss).toContain('--job-look-page: #F5F0E6');
     expect(lookCss).toContain('--job-look-sheet: #FFFDF8');
     expect(lookCss).toContain('--job-look-ink: #0A2540');
@@ -69,8 +76,8 @@ describe('job hub open sheet LOOK', () => {
     expect(lookCss).toContain('.hub-jobs-row-next .ops-next-control-block');
     expect(lookCss).toContain('.hub-jobs-document .hub-jobs-tools .btn-primary');
     expect(lookCss).toContain('.hub-jobs-document .hub-jobs-tools .ops-next-control-block');
-    expect(lookCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
-    expect(lookCss).toContain('box-shadow: inset 0 1px 0 #fff');
+    expect(lookCss).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(lookCss).toContain('inset 0 1px 0 #fff');
     expect(lookCss).toContain('font-size: 56px !important');
     expect(lookCss).toContain("font-family: Rajdhani, sans-serif");
     expect(lookCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");

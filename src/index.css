@@ -7016,8 +7016,10 @@
     border: 1px solid var(--job-look-line);
     border-radius: 16px;
     padding: 0;
-    overflow: hidden;
-    box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+    overflow: visible;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08);
   }
 
   .hub-jobs-sheet-bar {
@@ -7029,6 +7031,7 @@
     padding: 8px 24px;
     background: var(--job-look-ink);
     color: #fff;
+    border-radius: 16px 16px 0 0;
   }
 
   .hub-jobs-sheet-bar .hub-jobs-hours {
@@ -7036,14 +7039,32 @@
     font-size: 16px;
   }
 
-  .hub-jobs-sheet-bar .hub-jobs-pill,
-  .hub-jobs-sheet-bar .hub-job-status {
-    background: #fff;
-    color: var(--job-look-ink);
-    border-color: transparent;
-    margin: 0;
+  .hub-jobs-document .hub-jobs-status-whisper {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    margin: 8px 0 0;
+    padding: 0;
     appearance: none;
+    background: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    outline: none;
+    min-height: 0;
+    height: auto;
     cursor: pointer;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--job-look-muted);
+  }
+
+  .hub-jobs-document .hub-jobs-status-whisper:focus {
+    outline: none;
+    box-shadow: none;
   }
 
   .hub-jobs-sheet-body {
@@ -7068,6 +7089,30 @@
     align-items: center;
     gap: 16px;
     margin-top: 24px;
+  }
+
+  .hub-jobs-document .hub-jobs-tools {
+    flex-wrap: nowrap;
+  }
+
+  .hub-jobs-document .hub-jobs-tools-overflow {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+
+  .hub-jobs-document .hub-jobs-tools .ops-next-control-done {
+    width: auto;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    background: none;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    color: var(--job-look-muted);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
   }
 
   .hub-jobs-hours {
@@ -7135,16 +7180,85 @@
     width: 100%;
   }
 
+  .hub-jobs-identity {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .hub-jobs-identity-col {
+    min-width: 0;
+  }
+
+  @media (min-width: 640px) {
+    .hub-jobs-identity {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr);
+      gap: 0 24px;
+      align-items: start;
+      padding: 8px 0 16px;
+      border-bottom: 1px solid var(--job-look-line);
+    }
+
+    .hub-jobs-document .hub-jobs-identity .hub-jobs-ledger-row,
+    .hub-jobs-document .hub-jobs-identity .hub-jobs-contact > * {
+      padding: 4px 0;
+      min-height: 0;
+      border-bottom: none;
+    }
+  }
+
+  .hub-jobs-document :is(#job-swms, #job-insp) {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    --job-page: var(--job-look-page);
+    --job-sheet: var(--job-look-sheet);
+    --job-ink: var(--job-look-ink);
+    --job-muted: var(--job-look-muted);
+    --job-line: var(--job-look-line);
+    --job-pass: var(--job-look-muted);
+  }
+
   .hub-jobs-document .ops-tray,
   .hub-jobs-document .ops-card,
-  .hub-jobs-document .hub-jobs-bill-head {
+  .hub-jobs-document .hub-jobs-bill-head,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray {
     background: none;
     border: none;
     border-radius: 0;
     box-shadow: none;
-    margin: 16px 0 0;
+    margin: 0;
     padding: 0;
     max-width: none;
+    overflow: visible;
+  }
+
+  .hub-jobs-document .job-swms-more {
+    display: none;
+  }
+
+  .hub-jobs-document .hub-jobs-more-trays > div:not(#job-schedule) {
+    display: contents;
+  }
+
+  .hub-jobs-document .ops-tray:has(.ops-tray-empty),
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray:has(.ops-tray-empty) {
+    display: grid;
+    grid-template-columns: minmax(7rem, 9.5rem) minmax(0, 1fr) auto;
+    align-items: baseline;
+    column-gap: 16px;
+    padding: 12px 0;
+    min-height: 44px;
+    border-bottom: 1px solid var(--job-look-line);
+  }
+
+  .hub-jobs-document .ops-tray:has(.ops-tray-empty) .ops-tray-head,
+  .hub-jobs-document .ops-tray:has(.ops-tray-empty) .ops-tray-empty,
+  .hub-jobs-document .ops-tray:has(.ops-tray-empty) .ops-tray-empty-act {
+    display: contents;
+  }
+
+  .hub-jobs-document .ops-tray:has(.ops-tray-empty) .ops-tray-head > :not(.ops-section-title),
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray:has(.ops-tray-empty) .ops-tray-head > :not(.ops-section-title) {
+    display: none;
   }
 
   .hub-jobs-bill-head {
@@ -7161,25 +7275,67 @@
   }
 
   .hub-jobs-document .ops-tray-head,
-  .hub-jobs-document .hub-jobs-bill-head {
+  .hub-jobs-document .hub-jobs-bill-head,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray-head {
     padding: 12px 0;
     border: none;
     border-bottom: 1px solid var(--job-look-line);
     background: none;
   }
 
+  .hub-jobs-document .ops-tray:has(.ops-related-list) .ops-tray-head,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray:has(.ops-related-list) .ops-tray-head {
+    padding: 12px 0 4px;
+    border-bottom: none;
+  }
+
   .hub-jobs-document .ops-tray .ops-related-main,
-  .hub-jobs-document .ops-tray .ops-tray-empty {
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-related-main {
     padding: 12px 0;
     background: transparent;
   }
 
-  .hub-jobs-document .ops-tray .ops-section-title {
-    font-family: Rajdhani, sans-serif;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+  .hub-jobs-document .ops-tray .ops-related-row,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-related-row {
+    margin: 0;
+    padding: 0;
+    min-height: 44px;
+    border: none;
+    border-bottom: 1px solid var(--job-look-line);
+  }
+
+  .hub-jobs-document .ops-tray .ops-tray-empty,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray-empty {
+    padding: 0;
+    background: transparent;
+  }
+
+  .hub-jobs-document .ops-tray .ops-tray-empty > p,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray-empty > p {
+    margin: 0;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--job-look-muted);
+  }
+
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-related-row {
+    min-height: 0;
+    padding: 0;
+  }
+
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-related-main:hover {
+    background: transparent;
+  }
+
+  .hub-jobs-document .ops-tray .ops-section-title,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-section-title,
+  .hub-jobs-document .hub-jobs-bill-head .ops-section-title {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
     color: var(--job-look-muted);
   }
 
@@ -7189,23 +7345,134 @@
     display: none;
   }
 
-  .hub-jobs-document .ops-tray .btn-primary {
+  .hub-jobs-document .ops-tray .btn-primary,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray .btn-primary,
+  .hub-jobs-document .ops-tray .ops-link,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-link,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-link:hover {
     background: none;
-    color: #2E75B6;
+    color: var(--job-look-muted);
     min-height: 44px;
     height: auto;
     padding: 0;
     border: none;
     border-radius: 0;
     box-shadow: none;
-    font-weight: 600;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
   }
 
   .hub-jobs-more-trays {
     margin-top: 8px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0;
+  }
+
+  .hub-jobs-document #job-schedule {
+    --job-page: var(--job-look-page);
+    --job-sheet: var(--job-look-sheet);
+    --job-ink: var(--job-look-ink);
+    --job-muted: var(--job-look-muted);
+    --job-line: var(--job-look-line);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    box-shadow: none;
+  }
+
+  .hub-jobs-document #job-schedule .ops-tray {
+    background: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0;
+    overflow: visible;
+    padding: 12px 0 0;
+    border-bottom: 1px solid var(--job-look-line);
+  }
+
+  .hub-jobs-document #job-schedule .ops-tray-head {
+    padding: 12px 0;
+    border: none;
+    background: none;
+  }
+
+  .hub-jobs-document #job-schedule .ops-section-title {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--job-look-muted);
+  }
+
+  .hub-jobs-document #job-schedule .ops-section-title svg {
+    display: none;
+  }
+
+  .hub-jobs-document #job-schedule .ops-field-label,
+  .hub-jobs-document #job-schedule .ops-meta,
+  .hub-jobs-document #job-schedule .ops-link,
+  .hub-jobs-document #job-schedule .ops-link:hover {
+    color: var(--job-look-muted);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .hub-jobs-document #job-schedule .ops-tray > .px-3 {
+    padding: 0 0 16px;
+  }
+
+  .hub-jobs-document #job-schedule .job-reminder-body {
+    padding: 0 0 16px;
+  }
+
+  .hub-jobs-document #job-schedule .form-input,
+  .hub-jobs-document #job-schedule .form-input:focus,
+  .hub-jobs-document #job-schedule .form-input-sm,
+  .hub-jobs-document #job-schedule .form-input-sm:focus {
+    width: 100%;
+    height: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    background: #FFFDF8;
+    color: #0A2540;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    box-shadow: none;
+    outline: none;
+    --tw-ring-shadow: 0 0 #0000;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px !important;
+  }
+
+  .hub-jobs-document #job-schedule .btn-primary,
+  .hub-jobs-document #job-schedule .btn-primary:hover,
+  .hub-jobs-document #job-schedule .btn-primary:disabled:hover {
+    background: none;
+    color: var(--job-look-muted);
+    box-shadow: none;
+    border: none;
+    min-height: 44px;
+    height: auto;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .hub-jobs-document #job-schedule .flex.flex-wrap.gap-1\.5 > button.bg-navy {
+    background: none;
+    color: var(--job-look-ink);
+    border: 1px solid var(--job-look-line);
+  }
+
+  .hub-jobs-document #job-schedule .flex.flex-wrap.gap-1\.5 > button.bg-zebra {
+    background: none;
+    color: var(--job-look-muted);
+    border-color: var(--job-look-line);
   }
 
   .hub-job-more {
@@ -7238,13 +7505,23 @@
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    z-index: 6;
+    left: auto;
+    z-index: 20;
     min-width: 200px;
     padding: 8px;
     background: #FFFDF8;
     border: 1px solid #E2D9CC;
     border-radius: 16px;
     box-shadow: none;
+  }
+
+  .hub-job-more.is-flip .hub-job-more-menu {
+    top: auto;
+    bottom: calc(100% + 8px);
+  }
+
+  .hub-job-more.is-shift .hub-job-more-menu {
+    transform: translateX(var(--hub-job-more-shift, 0px));
   }
 
   .hub-job-more-menu button {
@@ -7269,6 +7546,12 @@
   }
 
   @media (max-width: 639px) {
+    .hub-jobs-document .ops-tray:has(.ops-tray-empty),
+    .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray:has(.ops-tray-empty) {
+      grid-template-columns: 1fr;
+      row-gap: 4px;
+    }
+
     .hub-jobs.ops-page {
       padding: 16px 16px 32px;
     }
