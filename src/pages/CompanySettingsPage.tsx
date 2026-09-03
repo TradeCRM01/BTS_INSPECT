@@ -328,12 +328,11 @@ const COMPANY_LOOK_CSS = `
 .hub-company .company-logo-strip-box {
   border-color: #2E75B6;
 }
-.hub-company .company-logo-strip-quote-kicker {
+.hub-company .company-logo-strip-preview-kicker,
+.hub-company .company-logo-strip-preview-meta {
   color: var(--co-look-muted);
 }
-.hub-company .company-logo-strip-quote-title,
-.hub-company .company-logo-strip-quote-line,
-.hub-company .company-logo-strip-quote .hub-quote-from-name {
+.hub-company .company-logo-strip-preview-title {
   color: var(--co-look-ink);
 }
 .hub-company-swatch {
@@ -909,7 +908,6 @@ export function CompanySettingsPage() {
               crop={logoCrop}
               sizePx={logoSizePx}
               saving={savingLetterhead}
-              companyName={name}
               onCropChange={setLogoCrop}
               onSizeChange={setLogoSizePx}
               onSave={() => void handleSaveLogoLetterhead()}

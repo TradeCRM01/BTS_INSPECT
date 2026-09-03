@@ -22,7 +22,6 @@ export function CompanyLogoStripCrop({
   crop,
   sizePx,
   saving,
-  companyName,
   onCropChange,
   onSizeChange,
   onSave,
@@ -32,7 +31,6 @@ export function CompanyLogoStripCrop({
   crop: CompanyLogoCrop | null;
   sizePx: number;
   saving: boolean;
-  companyName?: string;
   onCropChange: (crop: CompanyLogoCrop) => void;
   onSizeChange: (sizePx: number) => void;
   onSave: () => void;
@@ -96,12 +94,6 @@ export function CompanyLogoStripCrop({
   return (
     <div className="company-logo-strip-crop">
       <div className="company-logo-strip-work">
-        <CompanyLogoQuotePreview
-          src={src}
-          crop={crop}
-          sizePx={sizePx}
-          companyName={companyName}
-        />
         <div
           ref={stageRef}
           className="company-logo-strip-stage"
@@ -145,6 +137,11 @@ export function CompanyLogoStripCrop({
             ))}
           </div>
         </div>
+        <CompanyLogoQuotePreview
+          src={src}
+          crop={crop}
+          sizePx={sizePx}
+        />
       </div>
       <label className="company-logo-strip-size">
         Letterhead size

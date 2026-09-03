@@ -23,7 +23,13 @@ describe('quote + invoice letterhead mark LOOK', () => {
 
     expect(quoteEditor).toContain('CompanyLetterheadMark');
     expect(invoiceEditor).toContain('CompanyLetterheadMark');
+    expect(quoteEditor).toContain('hub-quote-masthead');
+    expect(invoiceEditor).toContain('hub-invoice-masthead');
+    expect(quoteEditor.indexOf('hub-quote-masthead')).toBeLessThan(quoteEditor.indexOf('hub-quote-letterhead'));
+    expect(invoiceEditor.indexOf('hub-invoice-masthead')).toBeLessThan(invoiceEditor.indexOf('hub-invoice-letterhead'));
     expect(src('src/lib/CompanyLetterheadMark.tsx')).toContain('className="hub-letterhead-mark"');
+    expect(src('src/lib/CompanyLogoStripCrop.tsx')).toContain('company-logo-strip-preview');
+    expect(src('src/lib/CompanyLogoQuotePreview.tsx')).toContain('Quote #2002');
     expect(quoteEditor).toContain('companyWithLetterheadLookMark');
     expect(invoiceEditor).toContain('companyWithLetterheadLookMark');
     expect(quotes).toContain("look') === LETTERHEAD_LOOK");
@@ -34,9 +40,12 @@ describe('quote + invoice letterhead mark LOOK', () => {
 
     expect(css).toContain('--hub-letterhead-mark-height: 96px');
     expect(css).toContain('--hub-letterhead-mark-max: 100%');
-    expect(css).toContain(':is(.hub-quote-letterhead, .hub-invoice-letterhead) > *');
+    expect(css).toContain(':is(.hub-quote-letterhead, .hub-invoice-letterhead, .hub-quote-masthead, .hub-invoice-masthead) > *');
+    expect(src('src/index.css')).toContain('.hub-quote-masthead');
+    expect(src('src/index.css')).toContain('.hub-invoice-masthead');
+    expect(src('src/index.css')).toContain('.company-logo-strip-preview-sheet');
     expect(css).toContain('overflow: hidden');
-    expect(css).toContain(':is(.hub-quote-editor, .hub-invoice-editor) .hub-letterhead-mark');
+    expect(css).toContain(':is(.hub-quote-editor, .hub-invoice-editor, .company-logo-strip-preview) .hub-letterhead-mark');
     expect(css).toContain('width: 100%');
     expect(css).toContain('max-height: var(--hub-letterhead-mark-height)');
     expect(css).toContain('max-width: var(--hub-letterhead-mark-max)');

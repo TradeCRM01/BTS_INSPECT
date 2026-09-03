@@ -423,7 +423,7 @@ describe('company logo crop + letterhead size', () => {
     expect(src('src/lib/CompanyLetterheadMark.tsx')).toContain('hub-letterhead-mark-crop');
     expect(css).toContain('never paint over TO');
     expect(css).toContain('max-width: var(--hub-letterhead-mark-max)');
-    expect(css).toContain(':is(.hub-quote-letterhead, .hub-invoice-letterhead) > *');
+    expect(css).toContain(':is(.hub-quote-letterhead, .hub-invoice-letterhead, .hub-quote-masthead, .hub-invoice-masthead) > *');
     expect(css).toContain('overflow: hidden');
   });
 
@@ -452,6 +452,7 @@ describe('company logo crop + letterhead size', () => {
     expect(migration).not.toContain('073_dashboard_widgets_seeded');
     expect(settings).toContain('company-logo-strip');
     expect(settings).toContain('CompanyLogoStripCrop');
+    expect(src('src/lib/CompanyLogoStripCrop.tsx')).toContain('company-logo-strip-preview');
     expect(settings).toContain('persistCompanyLogoLetterhead');
     expect(settings).toContain('persistCompanyLogo');
     expect(src('src/App.tsx')).not.toMatch(/path="\/settings\/logos"/);
@@ -502,13 +503,14 @@ describe('company logo crop + letterhead size', () => {
     expect(strip).toContain('sizePx={sizePx}');
     expect(paper).toContain('companyLogoPreviewLetterhead');
     expect(paper).toContain('CompanyLetterheadMark');
+    expect(paper).toContain('company-logo-strip-preview');
     expect(paper).toContain('data-logo-quote-preview');
-    expect(paper).toContain('Quote #1001');
+    expect(paper).toContain('Quote #2002');
     expect(paper).toContain('Quotation');
-    expect(paper).toContain('hub-quote-letterhead');
-    expect(settings).toContain('companyName={name}');
+    expect(paper).toContain('company-logo-strip-preview-masthead');
     expect(settings).not.toContain('path="/settings/logos"');
-    expect(css).toContain('.company-logo-strip-quote .hub-letterhead-mark-crop');
+    expect(css).toContain('.company-logo-strip-preview-sheet');
+    expect(css).toContain(':is(.hub-quote-editor, .hub-invoice-editor, .company-logo-strip-preview) .hub-letterhead-mark');
     expect(css).toContain('--hub-letterhead-mark-height');
     expect(src('src/App.tsx')).not.toMatch(/path="\/settings\/logos"/);
     expect(src('src/pages/QuotesPage.tsx')).not.toContain('CompanyLogoQuotePreview');
