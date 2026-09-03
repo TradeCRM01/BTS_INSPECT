@@ -277,7 +277,7 @@ export function DashboardPage() {
     <AppShell>
       <div className="ops-page dashboard-home is-day-open">
         <div className="dashboard-home-open-chrome">
-          <p className="dashboard-home-label">Today</p>
+          <p className="hub-look-eyebrow dashboard-home-label">Today</p>
         </div>
 
         <article className="dashboard-home-sheet" data-dashboard-home="1">

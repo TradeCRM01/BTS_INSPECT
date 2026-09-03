@@ -212,7 +212,7 @@ export function QuotesPage() {
       <div className="ops-page hub-quotes">
         <div className="ops-page-head">
           <div>
-            <p className="hub-quote-kicker">Quotations</p>
+            <p className="hub-look-eyebrow hub-quote-kicker">Quotations</p>
             <h1 className="ops-page-title">Quotes</h1>
           </div>
           <button onClick={() => openQuote(null)} className="btn-primary">

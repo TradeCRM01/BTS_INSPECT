@@ -208,7 +208,7 @@ export function ClientsPage() {
       <div className="ops-page hub-clients">
         <div className="ops-page-head">
           <div>
-            <p className="hub-clients-label">Clients</p>
+            <p className="hub-look-eyebrow hub-clients-label">Clients</p>
             <h1 className="ops-page-title">Clients</h1>
           </div>
           <button

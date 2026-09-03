@@ -426,7 +426,7 @@ export function TimesheetsPage() {
 
         <div className="ops-page-head">
           <div>
-            <p className="hub-timesheets-label">Timesheets</p>
+            <p className="hub-look-eyebrow hub-timesheets-label">Timesheets</p>
             <h1 className="ops-page-title">Timesheets</h1>
             <p className="hub-timesheets-lede">{timesheetListCountLabel(visible.length)}</p>
             <p className="hub-timesheets-lede">Week of {format(currentWeek, 'dd MMM')} — {format(addDays(currentWeek, 6), 'dd MMM yyyy')}</p>

@@ -13790,3 +13790,40 @@
       padding: 16px 0;
     }
   }
+
+/* List-page quiet eyebrows (paper kit). One shared token — Source Sans 3,
+   sentence case, muted #5B6B7C. Not an 11px uppercase tracking kicker.
+   Scoped to list page-heads so open-job / fill / wayfinder chrome stays put. */
+.hub-look-eyebrow,
+.hub-jobs .ops-page-head .hub-jobs-label,
+.hub-clients .ops-page-head .hub-clients-label,
+.hub-inspections .ops-page-head .hub-inspections-label,
+.hub-jha .ops-page-head .hub-jha-label,
+.hub-take5 .ops-page-head .hub-take5-label,
+.hub-reports .ops-page-head .hub-reports-label,
+.hub-timesheets .ops-page-head .hub-timesheets-label,
+.hub-compliance .ops-page-head .hub-compliance-label,
+.hub-quotes .ops-page-head .hub-quote-kicker,
+.dashboard-home .dashboard-home-label {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant: normal;
+  color: #5B6B7C;
+  margin: 0 0 8px;
+  text-decoration: none;
+}
+
+.hub-inspections-group,
+.hub-jha-group,
+.hub-take5-group,
+.hub-timesheets-group {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant: normal;
+}
