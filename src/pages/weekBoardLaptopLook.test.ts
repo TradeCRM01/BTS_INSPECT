@@ -24,6 +24,8 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(page).toContain('hub-week-identity');
     expect(page).toContain('hub-week-sheet-bar');
     expect(page).toContain('WeekBoardChrome');
+    expect(page).toContain('Previous week');
+    expect(page).toContain('Next week');
     expect(page).toContain('WeekBoardView');
     expect(page).toContain('placeMoreMenu');
     expect(page).toContain('is-flip');

@@ -110,12 +110,20 @@ function WeekBoardMore({
   viewMode,
   setView,
   onToday,
+  onPrev,
+  onNext,
+  rangeLabel,
+  search,
   filtered,
   onClearCrew,
 }: {
   viewMode: ScheduleViewMode;
   setView: (mode: ScheduleViewMode) => void;
   onToday: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  rangeLabel: string;
+  search: ReactNode;
   filtered: boolean;
   onClearCrew: () => void;
 }) {
@@ -172,6 +180,10 @@ function WeekBoardMore({
         <MoreHorizontal size={18} />
       </summary>
       <div className="hub-week-crews-menu hub-week-more-menu" role="menu">
+        <div className="hub-week-search hub-schedule-chrome">
+          {search}
+        </div>
+        <p className="hub-week-more-range">{rangeLabel}</p>
         <button
           type="button"
           role="menuitem"
@@ -183,19 +195,37 @@ function WeekBoardMore({
         <button
           type="button"
           role="menuitem"
-          className={`hub-week-crew-opt ${viewMode === 'day' ? 'is-on' : ''}`}
-          onClick={() => { setView('day'); closeMore(); }}
+          className="hub-week-crew-opt"
+          onClick={() => { onPrev(); closeMore(); }}
         >
-          Day
+          Previous week
         </button>
         <button
           type="button"
           role="menuitem"
-          className={`hub-week-crew-opt ${viewMode === 'week' ? 'is-on' : ''}`}
-          onClick={() => { setView('week'); closeMore(); }}
+          className="hub-week-crew-opt"
+          onClick={() => { onNext(); closeMore(); }}
         >
-          Week
+          Next week
         </button>
+        <div className="hub-week-seg" data-week-seg="1">
+          <button
+            type="button"
+            role="menuitem"
+            className={`hub-week-crew-opt ${viewMode === 'day' ? 'is-on' : ''}`}
+            onClick={() => { setView('day'); closeMore(); }}
+          >
+            Day
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={`hub-week-crew-opt ${viewMode === 'week' ? 'is-on' : ''}`}
+            onClick={() => { setView('week'); closeMore(); }}
+          >
+            Week
+          </button>
+        </div>
         {filtered && (
           <button
             type="button"
@@ -211,82 +241,19 @@ function WeekBoardMore({
   );
 }
 
-function WeekBoardChrome({
-  viewMode,
-  setView,
-  onToday,
-  onPrev,
-  onNext,
-  rangeLabel,
-  search,
-}: {
-  viewMode: ScheduleViewMode;
-  setView: (mode: ScheduleViewMode) => void;
-  onToday: () => void;
-  onPrev: () => void;
-  onNext: () => void;
-  rangeLabel: string;
-  search: ReactNode;
-}) {
-  return (
-    <div className="hub-week-chrome hub-week-identity">
-        <div className="hub-week-seg" data-week-seg="1">
-        {([
-          { mode: 'day' as const, label: 'Day' },
-          { mode: 'week' as const, label: 'Week' },
-        ]).map(({ mode, label }) => (
-          <button
-            key={mode}
-            type="button"
-            onClick={() => setView(mode)}
-            className={`hub-week-seg-btn ${viewMode === mode ? 'is-on' : ''}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <span className="hub-week-dot" aria-hidden="true">·</span>
-      <div className="hub-week-tools">
-        <button type="button" onClick={onToday} className="hub-week-quiet">
-          Today
-        </button>
-        <button
-          type="button"
-          onClick={onPrev}
-          className="hub-week-quiet hub-week-nav"
-          aria-label="Previous week"
-        >
-          <ChevronLeft size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={onNext}
-          className="hub-week-quiet hub-week-nav"
-          aria-label="Next week"
-        >
-          <ChevronRight size={16} />
-        </button>
-      </div>
-      <span className="hub-week-dot" aria-hidden="true">·</span>
-      <p className="hub-week-range">{rangeLabel}</p>
-      <div className="hub-week-search hub-schedule-chrome">
-        {search}
-      </div>
-    </div>
-  );
+function WeekBoardChrome() {
+  return <div className="hub-week-chrome hub-week-identity" hidden />;
 }
 
 function WeekBoardDocument({
   whisper,
   onNewJob,
   crews,
-  chrome,
   children,
 }: {
   whisper: string;
   onNewJob: () => void;
   crews: ReactNode;
-  chrome: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -305,7 +272,6 @@ function WeekBoardDocument({
             {crews}
           </div>
         </div>
-        {chrome}
         {children}
       </div>
     </article>
@@ -670,8 +636,8 @@ export function SchedulePage() {
     />
   );
 
-  const weekChrome = (
-    <WeekBoardChrome
+  const weekCrews = (
+    <WeekBoardMore
       viewMode={viewMode}
       setView={setView}
       onToday={() => setCurrentDate(new Date())}
@@ -679,14 +645,6 @@ export function SchedulePage() {
       onNext={() => setCurrentDate(d => addWeeks(d, 1))}
       rangeLabel={weekRangeLabel}
       search={weekSearch}
-    />
-  );
-
-  const weekCrews = (
-    <WeekBoardMore
-      viewMode={viewMode}
-      setView={setView}
-      onToday={() => setCurrentDate(new Date())}
       filtered={filteredEmployeeIds.size > 0}
       onClearCrew={clearEmployeeFilters}
     />
@@ -849,7 +807,6 @@ export function SchedulePage() {
                 whisper={weekWhisper}
                 onNewJob={openNewJob}
                 crews={weekCrews}
-                chrome={weekChrome}
               >
                 {pickedJob && boardCrew.length > 0 && (
                   <div className="hub-week-place hub-schedule-place">

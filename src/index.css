@@ -4934,21 +4934,11 @@
 
   .hub-week-chrome,
   .hub-week-identity {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 12px;
-    margin-top: 24px;
-    padding: 8px 0 16px;
-    border-bottom: 1px solid #E2D9CC;
+    display: contents;
   }
 
   .hub-week-dot {
-    color: #5B6B7C;
-    font-family: 'Source Sans 3', system-ui, sans-serif;
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1;
+    display: none;
   }
 
   .hub-week-identity-col {
@@ -4979,10 +4969,9 @@
   }
 
   .hub-week-search {
-    margin: 0 0 0 auto;
-    padding: 0;
-    flex: 1 1 160px;
-    max-width: 220px;
+    margin: 0;
+    padding: 0 4px 8px;
+    max-width: none;
     border: none;
   }
 
@@ -5005,7 +4994,7 @@
   .hub-week-document .hub-week-search .form-input {
     min-height: 0;
     height: auto;
-    padding: 2px 8px 2px 28px;
+    padding: 4px 8px 4px 28px;
     border: none;
     border-bottom: 1px solid #E2D9CC;
     border-radius: 0;
@@ -5119,7 +5108,7 @@
     right: 0;
     top: calc(100% + 8px);
     z-index: 20;
-    min-width: 200px;
+    min-width: 240px;
     padding: 8px;
     background: #FFFDF8;
     border: 1px solid #E2D9CC;
@@ -5151,6 +5140,21 @@
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
+  }
+
+  .hub-week-more-range {
+    margin: 0;
+    padding: 4px 12px 8px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #5B6B7C;
+  }
+
+  .hub-week-more-menu .hub-week-seg {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
   }
 
   .hub-week-crew-opt.is-on {
@@ -5216,6 +5220,10 @@
   .hub-week-document .hub-week-chip-ref,
   .hub-week-document .hub-week-chip-desc {
     opacity: 1;
+  }
+
+  .hub-week-document .hub-week-board {
+    margin-top: 24px;
   }
 
   .hub-week-board {
