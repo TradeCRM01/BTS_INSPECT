@@ -1233,7 +1233,7 @@ function ExpenseCostClassCards({
   onSelect: (key: ExpenseCostClass) => void;
 }) {
   return (
-    <div className="hub-expenses-classes">
+    <div className="hub-expenses-classes" data-scan-look="1">
       <p className="hub-expenses-class-prompt">What kind of cost is this?</p>
       <div className="hub-expenses-class-grid">
         {(Object.keys(EXPENSE_COST_CLASS_LABELS) as ExpenseCostClass[]).map(key => {
@@ -1431,7 +1431,7 @@ function ExpenseEditorModal({
 
   if (layout === 'sheet') {
     return (
-      <div className="hub-expenses-review" data-scan-look="1">
+      <div className="hub-expenses-review">
         {receiptPreviewUrl ? (
           <img src={receiptPreviewUrl} alt="Scanned receipt" className="hub-expenses-preview" />
         ) : null}
