@@ -29,7 +29,7 @@ describe('remaining list quiet elevation', () => {
     const reports = src('src/pages/ReportsListPage.tsx');
 
     expect(team).toContain('hub-team-list-sheet');
-    expect(team).toContain('hub-team-list-page');
+    expect(team).toContain('hub-team-list-doc');
     expect(stock).toContain('hub-stock-sheet');
     expect(pos).toContain('hub-po-sheet');
     expect(suppliers).toContain('hub-suppliers-sheet');
@@ -37,7 +37,7 @@ describe('remaining list quiet elevation', () => {
     expect(compliance).toContain('hub-compliance-sheet is-list');
     expect(reports).toContain('hub-reports-sheet');
 
-    const teamList = sheetChunk(team, '.hub-team-list-sheet {', '.hub-team-sheet {');
+    const teamList = sheetChunk(css, '.hub-team-list-doc .hub-team-list-sheet {', '.hub-team-list-bar {');
     const stockSheet = sheetChunk(stock, '.hub-stock-sheet {', '`;');
     const poSheet = sheetChunk(pos, '.hub-po-sheet {', '`;');
     const suppliersSheet = sheetChunk(suppliers, '.hub-suppliers-sheet {', '`;');
