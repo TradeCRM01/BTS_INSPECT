@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { AlertCircle, Check } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { callCompanyBillingApi } from '../lib/companyBilling';
@@ -14,6 +14,227 @@ import {
   type GrafterPlanId,
 } from '../lib/platformOperator';
 import { AppShell } from '../components/layout/AppShell';
+
+/** Page-local billing sheet. Same week-board tokens. Not a new module. */
+const BILLING_LOOK_CSS = `
+.hub-billing {
+  --billing-look-page: #F5F0E6;
+  --billing-look-sheet: #FFFDF8;
+  --billing-look-ink: #0A2540;
+  --billing-look-muted: #5B6B7C;
+  --billing-look-line: #E2D9CC;
+  --billing-look-action: #2E75B6;
+  --billing-look-r-ctl: 12px;
+  --billing-look-r-sheet: 16px;
+  --billing-look-fail: #B42318;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+.hub-billing.ops-page {
+  max-width: none;
+  width: 100%;
+  min-height: calc(100dvh - 3.5rem);
+  margin: 0;
+  background: var(--billing-look-page);
+  color: var(--billing-look-ink);
+  padding: 24px 24px 48px;
+}
+.hub-billing-label {
+  display: block;
+  max-width: 880px;
+  margin: 0 auto 8px;
+  padding-top: 8px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--billing-look-muted);
+}
+.hub-billing-hero {
+  max-width: 880px;
+  margin: 0 auto;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 56px;
+  letter-spacing: 0.02em;
+  line-height: 0.96;
+  color: var(--billing-look-ink);
+}
+.hub-billing-lede {
+  max-width: 880px;
+  margin: 8px auto 0;
+  color: var(--billing-look-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+.hub-billing-meta {
+  max-width: 880px;
+  margin: 8px auto 0;
+  color: var(--billing-look-ink);
+  font-size: 14px;
+  font-weight: 500;
+}
+.hub-billing-tools {
+  max-width: 880px;
+  margin: 16px auto 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+.hub-billing-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 12px;
+  color: #2E75B6;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: none;
+  cursor: pointer;
+}
+.hub-billing-sub:hover { color: var(--billing-look-ink); }
+.hub-billing-sub:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.hub-billing-note {
+  max-width: 880px;
+  margin: 16px auto 0;
+  padding: 16px;
+  border: 1px solid var(--billing-look-line);
+  border-radius: 12px;
+  background: var(--billing-look-sheet);
+  color: var(--billing-look-ink);
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: none;
+}
+.hub-billing-fail {
+  max-width: 880px;
+  margin: 16px auto 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--billing-look-fail);
+  font-size: 14px;
+}
+.hub-billing-kicker {
+  max-width: 880px;
+  margin: 24px auto 8px;
+  font-family: Rajdhani, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--billing-look-muted);
+}
+.hub-billing-plans {
+  max-width: 880px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.hub-billing-card {
+  background: var(--billing-look-sheet);
+  border: 1px solid var(--billing-look-line);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 28px rgba(10, 37, 64, 0.08);
+}
+.hub-billing-card-name {
+  margin: 0;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  color: var(--billing-look-ink);
+}
+.hub-billing-price {
+  margin: 8px 0 0;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 40px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--billing-look-ink);
+}
+.hub-billing-price span {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--billing-look-muted);
+}
+.hub-billing-card-meta {
+  margin: 8px 0 0;
+  color: var(--billing-look-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.hub-billing-card-blurb {
+  margin: 8px 0 0;
+  color: var(--billing-look-ink);
+  font-size: 14px;
+  font-weight: 500;
+}
+.hub-billing-choose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 16px;
+  background: #2E75B6;
+  color: #fff;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: none;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.hub-billing-choose:hover {
+  background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+  color: #fff;
+}
+.hub-billing-choose:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.hub-billing-foot {
+  max-width: 880px;
+  margin: 16px auto 0;
+  color: var(--billing-look-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+@media (min-width: 640px) {
+  .hub-billing-plans {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+@media (max-width: 639px) {
+  .hub-billing.ops-page { padding: 16px 16px 40px; }
+  .hub-billing-hero { font-size: 40px; }
+  .hub-billing-card { padding: 16px; }
+  .hub-billing-price { font-size: 32px; }
+  .hub-billing-choose { width: 100%; }
+}
+`;
 
 export function BillingSettingsPage() {
   const { profile, company, refreshProfile } = useAuth();
@@ -76,57 +297,27 @@ export function BillingSettingsPage() {
   const hasCustomer = Boolean((company as { stripe_customer_id?: string | null } | null)?.stripe_customer_id);
   const needsPlan = companyNeedsPaidPlan(company as { billing_status?: string | null; trial_ends_at?: string | null } | null);
   const paying = billingStatus === 'active' || billingStatus === 'past_due';
+  const hero = billingStatus === 'trial' ? trialLabel(trialEnds) : 'Billing';
 
   return (
     <AppShell>
-      <div className="page-shell-narrow space-y-6">
-        <div>
-          <p className="text-sm text-[#4A5568] mb-1">
-            <Link to="/settings/company" className="text-[#2E75B6] hover:underline">Settings</Link>
-            {' / '}
-            Billing
-          </p>
-          <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">Billing</h1>
-          <p className="text-sm text-[#4A5568]">
-            Same Grafter on every plan. Seats are the only difference. Prices include GST.
-          </p>
-        </div>
-
-        {checkout === 'success' && (
-          <div className="flex items-start gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2.5 rounded-md text-sm">
-            <Check size={16} className="mt-0.5 shrink-0" />
-            Checkout finished. Billing updates when Stripe confirms the subscription.
-          </div>
-        )}
-        {checkout === 'cancel' && (
-          <div className="flex items-start gap-2 bg-orange-50 border border-orange-200 text-orange-800 px-3 py-2.5 rounded-md text-sm">
-            <AlertCircle size={16} className="mt-0.5 shrink-0" />
-            Checkout cancelled. Nothing was charged.
-          </div>
-        )}
-
-        {needsPlan && (
-          <div
-            id="billing-plan-banner"
-            className="bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E] px-3 py-2.5 rounded-md text-sm"
-          >
-            Your trial has ended. Pick a plan to keep Grafter for the crew. The workspace stays open — this is not a lock-out.
-          </div>
-        )}
-
-        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6">
-          <h2 className="text-sm font-semibold text-[#1A1A1A] mb-1">Current plan</h2>
-          <p className="text-lg font-semibold text-[#1A1A1A] mt-2">{plan.name}</p>
-          <p className="text-sm text-[#4A5568] mt-1">
-            {peopleCount ?? '—'} of {seatLimit} seats
-            {billingStatus === 'trial' ? ` · ${trialLabel(trialEnds)}` : null}
-            {paying ? ' · Paying' : null}
-            {billingStatus === 'past_due' ? ' · Payment past due' : null}
-          </p>
-          {hasCustomer && (
+      <style>{BILLING_LOOK_CSS}</style>
+      <div className="ops-page hub-billing">
+        <p className="hub-billing-label">Billing</p>
+        <h1 className="hub-billing-hero">{hero}</h1>
+        <p className="hub-billing-lede">
+          Same Grafter on every plan. Seats are the only difference. Prices include GST.
+        </p>
+        <p className="hub-billing-meta">
+          {plan.name} · {peopleCount ?? '—'} of {seatLimit} seats
+          {paying ? ' · Paying' : null}
+          {billingStatus === 'past_due' ? ' · Payment past due' : null}
+        </p>
+        {hasCustomer && (
+          <div className="hub-billing-tools">
             <button
               type="button"
-              className="mt-4 flex items-center gap-2 bg-white text-[#0A2540] border border-[#E5E7EB] px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#F9FAFB] disabled:opacity-50"
+              className="hub-billing-sub"
               disabled={portalMut.isPending}
               onClick={() => {
                 setError('');
@@ -135,44 +326,66 @@ export function BillingSettingsPage() {
             >
               {portalMut.isPending ? 'Opening…' : 'Manage billing'}
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
-        <div>
-          <h2 className="text-sm font-semibold text-[#1A1A1A] mb-3">Pick a monthly plan</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {GRAFTER_PLANS.map(row => (
-              <div key={row.id} className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-5">
-                <p className="text-sm font-semibold text-[#1A1A1A]">{row.name}</p>
-                <p className="text-2xl font-semibold text-[#1A1A1A] mt-2">
+        {checkout === 'success' && (
+          <p className="hub-billing-note">
+            Checkout finished. Billing updates when Stripe confirms the subscription.
+          </p>
+        )}
+        {checkout === 'cancel' && (
+          <p className="hub-billing-note">
+            Checkout cancelled. Nothing was charged.
+          </p>
+        )}
+
+        {needsPlan && (
+          <p id="billing-plan-banner" className="hub-billing-note">
+            Your trial has ended. Pick a plan to keep Grafter for the crew. The workspace stays open — this is not a lock-out.
+          </p>
+        )}
+
+        <p className="hub-billing-kicker">Pick a monthly plan</p>
+        <div className="hub-billing-plans">
+          {GRAFTER_PLANS.map(row => {
+            const current = row.id === plan.id;
+            return (
+              <div key={row.id} className="hub-billing-card">
+                <p className="hub-billing-card-name">{row.name}</p>
+                <p className="hub-billing-price">
                   {formatPlanPriceAud(row)}
-                  <span className="text-sm font-normal text-[#4A5568]"> / mo</span>
+                  <span> / mo</span>
                 </p>
-                <p className="text-xs text-[#4A5568] mt-1">GST included · {row.seats} seats</p>
-                <p className="text-sm text-[#4A5568] mt-2">{row.blurb}</p>
+                <p className="hub-billing-card-meta">GST included · {row.seats} seats</p>
+                <p className="hub-billing-card-blurb">{row.blurb}</p>
                 <button
                   type="button"
-                  className="mt-4 w-full flex items-center justify-center gap-2 bg-[#0A2540] text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
+                  className="hub-billing-choose"
                   disabled={checkoutMut.isPending}
                   onClick={() => {
                     setError('');
                     checkoutMut.mutate(row.id);
                   }}
                 >
-                  {checkoutMut.isPending ? 'Starting…' : `Choose ${row.name}`}
+                  {checkoutMut.isPending
+                    ? 'Starting…'
+                    : current && paying
+                      ? 'Current plan'
+                      : `Choose ${row.name}`}
                 </button>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
 
         {error && (
-          <div className="flex items-start gap-2 text-sm text-red-600">
-            <AlertCircle size={14} className="mt-0.5 shrink-0" /> {error}
-          </div>
+          <p className="hub-billing-fail">
+            <AlertCircle size={14} className="shrink-0" /> {error}
+          </p>
         )}
 
-        <p className="text-xs text-[#4A5568]">
+        <p className="hub-billing-foot">
           Card is not required at signup. After Checkout, use Manage billing to update the card or cancel.
         </p>
       </div>
