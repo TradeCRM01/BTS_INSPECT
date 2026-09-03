@@ -1,12 +1,15 @@
 import type { InvoiceLineItem } from '../types/fsm';
 import { calcDocumentTotals } from './gst';
 import { INVOICE_SOURCE_JOB_BILL, pickReusableInvoice } from './invoiceFromQuote';
+import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
 
 export const JOB_BILL_INVOICE_NO_CLIENT = 'Assign a client before invoicing this job';
 export const JOB_BILL_INVOICE_NO_LINES = 'Add bill lines before invoicing this job';
 export const JOB_BILL_INVOICE_CREATED = 'Draft invoice created from this job bill';
 export const JOB_BILL_INVOICE_EXISTS = 'Invoice already exists for this job';
 export const JOB_BILL_INVOICE_NOTES = 'From job bill';
+/** Job-bill due is issue date + 7 days so unpaid hit the existing Overdue tab. */
+export const JOB_BILL_DUE_DAYS = 7;
 
 export const JOB_COST_INVOICE_SELECT =
   'description, quantity, unit_price, unit_cost, markup_percent, charge_type, stock_item_id, cost_model_id, created_at';
@@ -53,11 +56,20 @@ export function invoiceLinesFromJobCosts(
     .filter(li => li.description && li.quantity > 0);
 }
 
+/** Company/van issue day (Australia/Brisbane) + 7 — not leftover Perth, not null. */
+export function jobBillDueDate(now = new Date()): string {
+  const issue = todayYmd(now, VAN_TIME_ZONE);
+  const [y, m, d] = issue.split('-').map(Number);
+  const due = new Date(Date.UTC(y, m - 1, d + JOB_BILL_DUE_DAYS));
+  return `${due.getUTCFullYear()}-${String(due.getUTCMonth() + 1).padStart(2, '0')}-${String(due.getUTCDate()).padStart(2, '0')}`;
+}
+
 export function buildInvoiceFromJobBill(input: {
   clientId: string;
   jobId: string;
   taxRate: number;
   lines: InvoiceLineItem[];
+  now?: Date;
 }) {
   const rawSubtotal = input.lines.reduce((s, li) => s + li.quantity * li.unit_price, 0);
   const { subtotal, taxAmount, total } = calcDocumentTotals(rawSubtotal, input.taxRate);
@@ -73,7 +85,7 @@ export function buildInvoiceFromJobBill(input: {
     tax_amount: taxAmount,
     total,
     payment_terms: 'Net 30',
-    due_date: null,
+    due_date: jobBillDueDate(input.now),
     notes: JOB_BILL_INVOICE_NOTES,
     inclusions: [] as string[],
     exclusions: [] as string[],

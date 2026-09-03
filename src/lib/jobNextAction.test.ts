@@ -276,6 +276,70 @@ describe('recommendJobAction', () => {
     expect(recommendJobAction({ ...base, ...draft, jhaCount: 0 }).key).toBe('jha');
     expect(recommendJobAction({ ...base, ...draft, inspectionCount: 0 }).key).toBe('inspect');
   });
+
+  it('G1 — Clock off + no invoice → Invoice, not Start JHA / inspect / Take 5', () => {
+    const afterClockOff = {
+      ...base,
+      status: 'in_progress' as const,
+      jhaCount: 0,
+      inspectionCount: 0,
+      invoiceCount: 0,
+      clockedOn: false,
+      clockedOff: true,
+      arrivingWindow: true,
+      arrivingSent: true,
+    };
+    expect(recommendJobAction(afterClockOff)).toMatchObject({
+      key: 'invoice',
+      label: 'Invoice',
+    });
+    expect(recommendJobAction(afterClockOff).label).not.toBe('Start JHA');
+    expect(recommendJobAction(afterClockOff).label).not.toBe('Start inspection');
+    expect(recommendJobAction(afterClockOff).label).not.toBe('Start Take 5');
+    expect(recommendJobAction(afterClockOff).label).not.toBe(CLOCK_IN_NEXT_LABEL);
+    expect(recommendArrivingSheetNext(afterClockOff)).toBeNull();
+    expect(recommendJobAction({
+      ...afterClockOff,
+      arrivingWindow: false,
+      status: 'scheduled',
+    }).key).toBe('invoice');
+  });
+
+  it('G2 — Clock off + draft unsent on that job → Send', () => {
+    expect(recommendJobAction({
+      ...base,
+      status: 'in_progress',
+      jhaCount: 0,
+      inspectionCount: 0,
+      invoiceCount: 1,
+      hasDraftInvoice: true,
+      hasIssuedInvoice: false,
+      clockedOn: false,
+      clockedOff: true,
+      arrivingWindow: true,
+      arrivingSent: true,
+    })).toMatchObject({
+      key: 'send',
+      label: 'Send',
+    });
+  });
+
+  it('office can still invoice a job that never clocked', () => {
+    expect(recommendJobAction({
+      ...base,
+      status: 'completed',
+      clockedOn: false,
+      clockedOff: false,
+      jhaCount: 0,
+      inspectionCount: 0,
+    }).key).toBe('invoice');
+    expect(recommendJobAction({
+      ...base,
+      hasBillLines: true,
+      clockedOn: false,
+      clockedOff: false,
+    }).key).toBe('invoice');
+  });
 });
 
 describe('jobInvoiceActionFlags / pickJobDraftToSend', () => {
@@ -386,6 +450,30 @@ describe('jobOpenNext — scheduled today in Australia/Brisbane', () => {
     expect(clocked.label).toBe(CLOCK_IN_NEXT_LABEL);
     expect(clocked.action.key).toBe('clock');
     expect(clocked.action.label).not.toBe('Start JHA');
+
+    const afterClockOff = jobOpenNext(todayJob, {
+      ...sheet,
+      arrivingSent: true,
+      clockedOn: false,
+      clockedOff: true,
+    }, brisbaneMorning);
+    expect(afterClockOff.label).toBe('Invoice');
+    expect(afterClockOff.action.key).toBe('invoice');
+    expect(afterClockOff.action.label).not.toBe('Start JHA');
+    expect(afterClockOff.action.label).not.toBe('Start inspection');
+    expect(afterClockOff.action.label).not.toBe(CLOCK_IN_NEXT_LABEL);
+
+    const afterClockOffDraft = jobOpenNext(todayJob, {
+      ...sheet,
+      arrivingSent: true,
+      clockedOn: false,
+      clockedOff: true,
+      invoiceCount: 1,
+      hasDraftInvoice: true,
+      hasIssuedInvoice: false,
+    }, brisbaneMorning);
+    expect(afterClockOffDraft.label).toBe('Send');
+    expect(afterClockOffDraft.action.key).toBe('send');
   });
 
   it('is honest when the job is not today', () => {

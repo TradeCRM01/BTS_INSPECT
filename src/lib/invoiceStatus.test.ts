@@ -11,6 +11,7 @@ import {
   todayIsoDate,
   INVOICE_LIST_DEFAULT_FILTER,
 } from './invoiceStatus';
+import { jobBillDueDate } from './invoiceFromJobBill';
 
 describe('effectiveInvoiceStatus', () => {
   const now = new Date(2026, 7, 20); // 20 Aug 2026 local
@@ -76,6 +77,14 @@ describe('invoice list default filter', () => {
     expect(rows.filter((row) => invoiceMatchesListFilter(row, 'draft', now)).map((row) => row.id)).toEqual(['draft']);
     expect(rows.filter((row) => invoiceMatchesListFilter(row, 'sent', now)).map((row) => row.id)).toEqual(['awaiting']);
     expect(rows.filter((row) => invoiceMatchesListFilter(row, 'paid', now)).map((row) => row.id)).toEqual(['paid']);
+  });
+
+  it('G4 — unpaid job-bill past due_date hits the existing Overdue tab', () => {
+    const due = jobBillDueDate(new Date('2026-08-20T00:00:00+10:00'));
+    expect(due).toBe('2026-08-27');
+    expect(INVOICE_LIST_DEFAULT_FILTER).toBe('overdue');
+    expect(invoiceMatchesListFilter({ status: 'sent', due_date: due }, 'overdue', new Date(2026, 7, 28))).toBe(true);
+    expect(invoiceMatchesListFilter({ status: 'sent', due_date: null }, 'overdue', new Date(2026, 7, 28))).toBe(false);
   });
 
   it('names an empty Overdue floor without pretending there are no invoices', () => {

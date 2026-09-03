@@ -24,7 +24,10 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
     expect(create).toContain('23505');
     expect(builder).toContain('status: \'draft\'');
     expect(builder).toContain('INVOICE_SOURCE_JOB_BILL');
-    expect(builder).toContain('due_date: null');
+    expect(builder).toContain('due_date: jobBillDueDate');
+    expect(builder).toContain('VAN_TIME_ZONE');
+    expect(builder).toContain('JOB_BILL_DUE_DAYS');
+    expect(builder).not.toContain('due_date: null');
 
     expect(page).toContain('createInvoiceFromJobBill');
     expect(page).toContain('invoiceFromJobBill');
@@ -86,11 +89,29 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
     expect(page).not.toContain('Mark paid');
     expect(page).toContain('ops-next-control-block');
     expect(page).toContain('next.key === \'invoice\'');
+    expect(page).toContain('clockedOff:');
+    expect(page).toContain('e.end_time != null');
+    expect(page).not.toContain('path="/job-bill');
+    expect(create).not.toContain('smtp_pass');
+    expect(create).not.toContain('email_settings');
+    expect(src('src/App.tsx')).toContain('<Route path="/invoices"');
+    expect(src('src/App.tsx')).not.toContain('path="/job-bill');
+    expect(src('src/App.tsx')).not.toContain('path="/overdue-invoices');
   });
 
   it('names the honest misses used on the job sheet', () => {
     expect(JOB_BILL_INVOICE_NO_CLIENT).toBe('Assign a client before invoicing this job');
     expect(JOB_BILL_INVOICE_NO_LINES).toBe('Add bill lines before invoicing this job');
+  });
+
+  it('G5 — GST line stays and shared Grafter SMTP is not rewritten', () => {
+    const builder = src('src/lib/invoiceFromJobBill.ts');
+    const send = src('src/lib/sendInvoice.ts');
+    expect(builder).toContain('calcDocumentTotals');
+    expect(builder).toContain('tax_amount: taxAmount');
+    expect(builder).toContain('tax_rate: Number(input.taxRate)');
+    expect(send).toContain('shared Grafter Resend');
+    expect(send).toContain('else shared Grafter Resend smtp_pass on job-reminder');
   });
 
   it('leaves the quote convert path off this slice', () => {
