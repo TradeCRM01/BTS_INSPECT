@@ -34,7 +34,13 @@ describe('Grafter privacy / legal floor', () => {
     expect(privacy).not.toContain('BTS Inspect');
 
     expect(terms).toContain('# Terms of Use');
-    expect(terms).toContain('Effective 2 September 2026');
+    expect(terms).toContain('Effective 3 September 2026');
+    expect(terms).toContain('3-month free trial');
+    expect(terms).toContain('Crew, Company, and Plant');
+    expect(terms).toContain('include GST where GST applies');
+    expect(terms).not.toContain('14-day trial');
+    expect(terms).not.toContain('Starter');
+    expect(terms).not.toContain('Shop');
     expect(terms).toContain('Building Technology Solutions Pty Ltd');
     expect(terms).toContain('ABN 94 698 924 186');
     expect(terms).toContain('privacy@grafter.com.au');
