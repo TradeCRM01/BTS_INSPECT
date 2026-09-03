@@ -175,6 +175,14 @@ export function DashboardPage() {
           if (error) throw error;
           return (data ?? []) as DashboardWidget[];
         },
+        releaseSeed: async () => {
+          const { error } = await supabase
+            .from('profiles')
+            .update({ dashboard_widgets_seeded: false } as never)
+            .eq('id', profile.id)
+            .eq('dashboard_widgets_seeded', true);
+          if (error) throw error;
+        },
         markSeeded: async () => {
           const { error } = await supabase
             .from('profiles')

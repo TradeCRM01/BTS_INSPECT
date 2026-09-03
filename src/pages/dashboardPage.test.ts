@@ -69,6 +69,7 @@ describe('dashboard widgets stay on the paper', () => {
     expect(page).toContain('dashboard_widgets_seeded');
     expect(page).toContain(".eq('dashboard_widgets_seeded', false)");
     expect(page).toContain('claimSeed');
+    expect(page).toContain('releaseSeed');
     expect(page).toContain('persistWidget');
     expect(page).toContain('dashboard-home-canvas');
     expect(page).toContain('FreeWidget');
@@ -85,11 +86,13 @@ describe('dashboard widgets stay on the paper', () => {
     expect(helper).not.toMatch(/['"]bitcoin['"]/);
     expect(helper).not.toMatch(/electric|electrical/i);
 
-    const migration = src('supabase/migrations/20260903120000_072_dashboard_widgets_seeded.sql');
+    const migration = src('supabase/migrations/20260903120100_073_dashboard_widgets_seeded.sql');
     expect(migration).toContain('ALTER TABLE public.profiles');
     expect(migration).toContain('dashboard_widgets_seeded');
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS dashboard_widgets_seeded');
     expect(migration).not.toMatch(/create table/i);
+    expect(existsSync(resolve(process.cwd(), 'supabase/migrations/20260903120000_072_dashboard_widgets_seeded.sql'))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), 'supabase/migrations/20260903120000_072_member_tickets.sql'))).toBe(false);
   });
 
   it('puts Add widget on the paper when none are set', () => {

@@ -34,6 +34,8 @@ export type DashboardWidgetSeedIo<T> = {
   /** Compare-and-set false → true. True only for the one writer. */
   claimSeed: () => Promise<boolean>;
   insertDefaults: () => Promise<T[]>;
+  /** Same CAS owner: true → false so a failed insert does not eat first visit. */
+  releaseSeed: () => Promise<void>;
   /** Existing layouts: mark seeded so a later delete-all remount stays empty. */
   markSeeded?: () => Promise<void>;
 };
@@ -89,5 +91,14 @@ export async function resolveDashboardWidgets<T>(io: DashboardWidgetSeedIo<T>): 
 
   const won = await io.claimSeed();
   if (!won) return io.loadRows();
-  return io.insertDefaults();
+  try {
+    return await io.insertDefaults();
+  } catch (err) {
+    try {
+      await io.releaseSeed();
+    } catch {
+      // Keep the insert error — first visit is retried only if the flag reverted.
+    }
+    throw err;
+  }
 }

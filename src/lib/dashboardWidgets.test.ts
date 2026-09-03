@@ -20,6 +20,16 @@ function seedStore(init: { rows: Row[]; seeded: boolean }) {
     seeded: init.seeded,
     inserts: 0,
     marks: 0,
+    releases: 0,
+  };
+
+  const writeDefaults = () => {
+    store.inserts += 1;
+    store.rows = defaultDashboardWidgetInserts().map((row, i) => ({
+      ...row,
+      id: `seed-${i}`,
+    }));
+    return [...store.rows];
   };
 
   const io: DashboardWidgetSeedIo<Row> = {
@@ -30,13 +40,10 @@ function seedStore(init: { rows: Row[]; seeded: boolean }) {
       store.seeded = true;
       return true;
     },
-    insertDefaults: async () => {
-      store.inserts += 1;
-      store.rows = defaultDashboardWidgetInserts().map((row, i) => ({
-        ...row,
-        id: `seed-${i}`,
-      }));
-      return [...store.rows];
+    insertDefaults: async () => writeDefaults(),
+    releaseSeed: async () => {
+      store.releases += 1;
+      store.seeded = false;
     },
     markSeeded: async () => {
       store.marks += 1;
@@ -149,5 +156,31 @@ describe('dashboard widget seed once', () => {
     expect(Math.max(a.length, b.length)).toBe(3);
     expect(store.rows.filter(row => row.widget_type === 'upcoming_jobs')).toHaveLength(1);
     expect(new Set(store.rows.map(row => row.widget_type)).size).toBe(3);
+  });
+
+  it('failed insert does not eat the first visit', async () => {
+    const { store, io } = seedStore({ rows: [], seeded: false });
+    let blow = true;
+    io.insertDefaults = async () => {
+      store.inserts += 1;
+      if (blow) throw new Error('insert failed');
+      store.rows = defaultDashboardWidgetInserts().map((row, i) => ({
+        ...row,
+        id: `seed-${i}`,
+      }));
+      return [...store.rows];
+    };
+
+    await expect(resolveDashboardWidgets(io)).rejects.toThrow('insert failed');
+    expect(store.seeded).toBe(false);
+    expect(store.rows).toEqual([]);
+    expect(store.releases).toBe(1);
+
+    blow = false;
+    const rows = await resolveDashboardWidgets(io);
+    expect(rows.map(row => row.widget_type)).toEqual([...DEFAULT_DASHBOARD_WIDGET_TYPES]);
+    expect(store.seeded).toBe(true);
+    expect(store.inserts).toBe(2);
+    expect(store.rows).toHaveLength(3);
   });
 });
