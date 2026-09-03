@@ -18,6 +18,12 @@ describe('public Grafter landing', () => {
     const page = src('src/pages/MarketingPage.tsx');
     const css = src('src/index.css');
     expect(page).toContain('Quote it. Send it. Get paid.');
+    const displayRule = css.slice(
+      css.indexOf('.hub-marketing-display {'),
+      css.indexOf('.hub-marketing-display-sm'),
+    );
+    expect(displayRule).toContain('white-space: nowrap');
+    expect(displayRule).toMatch(/font-size:\s*clamp\(/);
     expect(page).toContain('Quote, schedule, invoice.');
     expect(page).toContain('JobFrame');
     expect(page).toContain('ScheduleFrame');
