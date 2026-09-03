@@ -92,6 +92,7 @@ export const DEV_AUDIT_PROFILE = {
 
 export const DEV_AUDIT_COMPANY = {
   id: AUDIT_COMPANY_ID,
+  created_by: AUDIT_USER_ID,
   name: 'Field Audit Co',
   abn: '12 345 678 901',
   licence_number: 'EC-9988',

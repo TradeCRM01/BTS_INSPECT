@@ -81,7 +81,7 @@ Deno.serve(async (req: Request) => {
     // Ensure target is in same company
     const { data: targetProfile } = await adminClient
       .from("profiles")
-      .select("company_id")
+      .select("company_id, role")
       .eq("id", memberId)
       .maybeSingle();
 
@@ -90,6 +90,34 @@ Deno.serve(async (req: Request) => {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    const { data: companyRow } = await adminClient
+      .from("companies")
+      .select("created_by")
+      .eq("id", callerProfile.company_id)
+      .maybeSingle();
+
+    if (companyRow?.created_by && companyRow.created_by === memberId) {
+      return new Response(
+        JSON.stringify({ error: "The company owner cannot be removed or have their role changed." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    if (targetProfile.role === "admin") {
+      const { count: adminCount } = await adminClient
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", callerProfile.company_id)
+        .eq("role", "admin");
+
+      if ((adminCount ?? 0) <= 1) {
+        return new Response(
+          JSON.stringify({ error: "A company must keep at least one admin." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     }
 
     // Delete profile row (FKs are SET NULL so data is preserved)

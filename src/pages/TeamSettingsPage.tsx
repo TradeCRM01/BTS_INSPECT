@@ -12,6 +12,12 @@ import {
   teamSettingsMemberHref,
   teamSettingsOpenedMember,
 } from '../lib/teamSettingsList';
+import {
+  assertCanChangeMemberRole,
+  assertCanRemoveTeamMember,
+  canChangeMemberRole,
+  canRemoveTeamMember,
+} from '../lib/teamAdminLock';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
@@ -598,8 +604,12 @@ export function TeamSettingsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['team-members'] }),
   });
 
+  const ownerId = (company as { created_by?: string | null } | null)?.created_by ?? null;
+
   const updateRoleMutation = useMutation({
     mutationFn: async ({ memberId, role }: { memberId: string; role: 'admin' | 'member' }) => {
+      const member = listRows.find(row => row.id === memberId) ?? { id: memberId, role: undefined };
+      assertCanChangeMemberRole({ member, members: listRows, ownerId, nextRole: role });
       const { error } = await supabase
         .from('profiles')
         .update({ role })
@@ -611,6 +621,8 @@ export function TeamSettingsPage() {
 
   const removeMutation = useMutation({
     mutationFn: async (memberId: string) => {
+      const member = listRows.find(row => row.id === memberId) ?? { id: memberId, role: undefined };
+      assertCanRemoveTeamMember({ member, members: listRows, ownerId });
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/remove-member`,
         {
@@ -710,6 +722,17 @@ export function TeamSettingsPage() {
   const openedAccessLabel = openedMember
     ? ACCESS_OPTIONS.find(o => o.value === openedMember.template_access)?.label ?? openedMember.template_access
     : '';
+  const openedRoleLock = openedMember
+    ? canChangeMemberRole({
+      member: openedMember,
+      members: listRows,
+      ownerId,
+      nextRole: openedIsAdmin ? 'member' : 'admin',
+    })
+    : { ok: true as const };
+  const openedRemoveLock = openedMember
+    ? canRemoveTeamMember({ member: openedMember, members: listRows, ownerId })
+    : { ok: true as const };
 
   return (
     <AppShell>
@@ -752,6 +775,7 @@ export function TeamSettingsPage() {
                     <button
                       type="button"
                       onClick={() => {
+                        if (!openedRoleLock.ok) return;
                         const msg = openedIsAdmin
                           ? `Remove admin from ${openedMember.name}? They'll become a regular member.`
                           : `Make ${openedMember.name} an admin? They'll have full access to everything.`;
@@ -762,7 +786,8 @@ export function TeamSettingsPage() {
                           });
                         }
                       }}
-                      disabled={updateRoleMutation.isPending}
+                      disabled={updateRoleMutation.isPending || !openedRoleLock.ok}
+                      title={openedRoleLock.ok ? undefined : openedRoleLock.error}
                       className="hub-team-sub"
                     >
                       <Crown size={16} />
@@ -778,11 +803,13 @@ export function TeamSettingsPage() {
                     <button
                       type="button"
                       onClick={() => {
+                        if (!openedRemoveLock.ok) return;
                         if (confirm(`Remove ${openedMember.name} from the team?`)) {
                           removeMutation.mutate(openedMember.id);
                         }
                       }}
-                      disabled={removeMutation.isPending}
+                      disabled={removeMutation.isPending || !openedRemoveLock.ok}
+                      title={openedRemoveLock.ok ? undefined : openedRemoveLock.error}
                       className="hub-team-sub is-quiet"
                     >
                       <Trash2 size={16} />
@@ -923,6 +950,8 @@ export function TeamSettingsPage() {
                     member={member}
                     isMe={member.id === profile?.id}
                     isAdmin={!!isAdmin}
+                    ownerId={ownerId}
+                    members={listRows}
                     opened={openedMember?.id === member.id && !personOpen}
                     resending={resendingId === member.id}
                     onOpen={() => navigate(teamSettingsMemberHref(member.id))}
@@ -1103,6 +1132,8 @@ function TeamListRow({
   member,
   isMe,
   isAdmin,
+  ownerId,
+  members,
   opened,
   resending,
   onOpen,
@@ -1117,6 +1148,8 @@ function TeamListRow({
   member: Member;
   isMe: boolean;
   isAdmin: boolean;
+  ownerId: string | null;
+  members: Member[];
   opened: boolean;
   resending: boolean;
   onOpen: () => void;
@@ -1132,6 +1165,13 @@ function TeamListRow({
   const isPending = teamSettingsIsPending(member);
   const muted = teamListRowMuted(member);
   const role = teamListRoleLabel(member);
+  const roleLock = canChangeMemberRole({
+    member,
+    members,
+    ownerId,
+    nextRole: isMemberAdmin ? 'member' : 'admin',
+  });
+  const removeLock = canRemoveTeamMember({ member, members, ownerId });
 
   return (
     <div
@@ -1174,8 +1214,10 @@ function TeamListRow({
                 <button
                   type="button"
                   role="menuitem"
-                  disabled={roleBusy}
+                  disabled={roleBusy || !roleLock.ok}
+                  title={roleLock.ok ? undefined : roleLock.error}
                   onClick={() => {
+                    if (!roleLock.ok) return;
                     const msg = isMemberAdmin
                       ? `Remove admin from ${member.name}? They'll become a regular member.`
                       : `Make ${member.name} an admin? They'll have full access to everything.`;
@@ -1201,8 +1243,13 @@ function TeamListRow({
                   type="button"
                   role="menuitem"
                   className="is-danger"
-                  disabled={removeBusy}
-                  onClick={() => { onRemove(); closeMore(); }}
+                  disabled={removeBusy || !removeLock.ok}
+                  title={removeLock.ok ? undefined : removeLock.error}
+                  onClick={() => {
+                    if (!removeLock.ok) return;
+                    onRemove();
+                    closeMore();
+                  }}
                 >
                   Remove
                 </button>
