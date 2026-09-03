@@ -12,6 +12,10 @@ import {
   teamSettingsMemberHref,
   teamSettingsOpenedMember,
   teamSettingsSearchHaystack,
+  teamSettingsSeatMiss,
+  inviteSeatDecision,
+  inviteSeatMissMessage,
+  readCompanySeatLimit,
   type TeamSettingsMember,
 } from './teamSettingsList';
 
@@ -124,6 +128,65 @@ describe('empty vs load miss', () => {
   });
 });
 
+describe('live companies.seat_limit on invite', () => {
+  it('reads the live seat_limit value — never invents 3', () => {
+    expect(readCompanySeatLimit(5)).toBe(5);
+    expect(readCompanySeatLimit(15)).toBe(15);
+    expect(readCompanySeatLimit(40)).toBe(40);
+    expect(readCompanySeatLimit(1)).toBe(1);
+    expect(readCompanySeatLimit(7)).toBe(7);
+    expect(readCompanySeatLimit(null)).toBeNull();
+    expect(readCompanySeatLimit(undefined)).toBeNull();
+    expect(readCompanySeatLimit('3')).toBeNull();
+  });
+
+  it('blocks a new invite when used seats are at the live seat_limit', () => {
+    const atFive = inviteSeatDecision({ seatLimit: 5, usedSeats: 5 });
+    expect(atFive).toEqual({
+      allowed: false,
+      error: inviteSeatMissMessage(5, 5),
+      seatLimit: 5,
+      usedSeats: 5,
+    });
+    expect(atFive.allowed).toBe(false);
+
+    const overSeven = inviteSeatDecision({ seatLimit: 7, usedSeats: 9 });
+    expect(overSeven.allowed).toBe(false);
+    if (overSeven.allowed) throw new Error('expected block');
+    expect(overSeven.seatLimit).toBe(7);
+    expect(overSeven.usedSeats).toBe(9);
+    expect(overSeven.error).toBe("Seat limit reached (9 of 7). Can't invite another person.");
+    expect(overSeven.error).not.toContain('Billing');
+    expect(overSeven.error).not.toMatch(/\b3\b/);
+  });
+
+  it('allows a new invite when used seats are under the live seat_limit', () => {
+    expect(inviteSeatDecision({ seatLimit: 5, usedSeats: 4 })).toEqual({ allowed: true });
+    expect(inviteSeatDecision({ seatLimit: 15, usedSeats: 0 })).toEqual({ allowed: true });
+    expect(inviteSeatDecision({ seatLimit: 40, usedSeats: 39 })).toEqual({ allowed: true });
+    expect(inviteSeatDecision({ seatLimit: 1, usedSeats: 0 })).toEqual({ allowed: true });
+    expect(inviteSeatDecision({ seatLimit: 7, usedSeats: 6 })).toEqual({ allowed: true });
+  });
+
+  it('allows a resend when already on the team even at the live cap', () => {
+    expect(inviteSeatDecision({ seatLimit: 5, usedSeats: 5, alreadyOnTeam: true })).toEqual({
+      allowed: true,
+    });
+  });
+
+  it('does not invent a cap when the live seat_limit column is null', () => {
+    expect(inviteSeatDecision({ seatLimit: null, usedSeats: 99 })).toEqual({ allowed: true });
+    expect(teamSettingsSeatMiss({ seatLimit: null, usedSeats: 99 })).toBe('');
+  });
+
+  it('names an honest miss on Team Settings from the live seat_limit', () => {
+    expect(teamSettingsSeatMiss({ seatLimit: 15, usedSeats: 15 }))
+      .toBe("Seat limit reached (15 of 15). Can't invite another person.");
+    expect(teamSettingsSeatMiss({ seatLimit: 40, usedSeats: 12 })).toBe('');
+    expect(teamSettingsSeatMiss({ seatLimit: 5, usedSeats: 4 })).toBe('');
+  });
+});
+
 describe('team settings floor wiring', () => {
   it('finds a member on /settings/team and opens them with ?id=', () => {
     const page = src('src/pages/TeamSettingsPage.tsx');
@@ -140,7 +203,24 @@ describe('team settings floor wiring', () => {
     expect(page).toContain('get_company_members');
     expect(page).toContain("queryKey: ['team-members', company?.id]");
     expect(page).toContain('Search by name, email, or licence');
+    expect(page).toContain('teamSettingsSeatMiss');
+    expect(page).toContain('company?.seat_limit');
+    expect(page).toContain('canInvite');
     expect(page).not.toContain("path: '/settings/team/");
+    expect(page).not.toContain('Settings → Billing');
+    expect(page).not.toContain('stripe');
+    expect(page).not.toContain('extract-expense-receipt');
+
+    const invite = src('supabase/functions/invite-user/index.ts');
+    expect(invite).toContain('select("id, name, seat_limit")');
+    expect(invite).toContain('companyRow?.seat_limit');
+    expect(invite).toContain('usedSeats >= liveSeatLimit');
+    expect(invite).toContain("Seat limit reached");
+    expect(invite).toContain('alreadyOnTeam');
+    expect(invite).not.toContain('seat_limit: 3');
+    expect(invite).not.toContain('Settings → Billing');
+    expect(invite).not.toContain('STRIPE');
+    expect(invite).not.toContain('PUBLIC_APP_ORIGIN');
 
     expect(app).toContain('<Route path="/settings/team"');
     expect(app).not.toContain('path="/settings/team/:id"');

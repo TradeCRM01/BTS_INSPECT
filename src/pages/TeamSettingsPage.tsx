@@ -11,6 +11,7 @@ import {
   teamSettingsLicenceLabel,
   teamSettingsMemberHref,
   teamSettingsOpenedMember,
+  teamSettingsSeatMiss,
 } from '../lib/teamSettingsList';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -537,6 +538,11 @@ export function TeamSettingsPage() {
     visible: visibleMembers.length,
     query: search,
   });
+  const seatMiss = teamSettingsSeatMiss({
+    seatLimit: company?.seat_limit,
+    usedSeats: members?.length ?? 0,
+  });
+  const canInvite = isAdmin && !seatMiss;
 
   const updateAccessMutation = useMutation({
     mutationFn: async ({ memberId, templateAccess }: { memberId: string; templateAccess: TemplateAccess }) => {
@@ -693,7 +699,7 @@ export function TeamSettingsPage() {
                       <Send size={16} />
                       {resendingId === openedMember.id ? 'Sending...' : 'Resend'}
                     </button>
-                  ) : isAdmin ? (
+                  ) : canInvite ? (
                     <button type="button" onClick={() => setShowInvite(true)} className="hub-team-next">
                       <UserPlus size={16} />
                       Invite member
@@ -720,7 +726,7 @@ export function TeamSettingsPage() {
                       {openedIsAdmin ? 'Admin' : 'Make admin'}
                     </button>
                   )}
-                  {isAdmin && openedPending && !openedIsMe && (
+                  {canInvite && openedPending && !openedIsMe && (
                     <button type="button" onClick={() => setShowInvite(true)} className="hub-team-sub">
                       <span>+</span> Invite member
                     </button>
@@ -800,7 +806,7 @@ export function TeamSettingsPage() {
               Manage who has access to {company?.name ?? 'your company'}.
             </p>
           </div>
-          {isAdmin && (
+          {canInvite && (
             <button
               onClick={() => setShowInvite(true)}
               className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
@@ -810,6 +816,13 @@ export function TeamSettingsPage() {
             </button>
           )}
         </div>
+
+        {seatMiss && (
+          <div className="mb-4 flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <AlertCircle size={15} className="shrink-0 mt-0.5" />
+            {seatMiss}
+          </div>
+        )}
 
         {/* Success toast */}
         {invitedName && (
@@ -1064,7 +1077,7 @@ export function TeamSettingsPage() {
       </div>
       </div>
 
-      {showInvite && company && session && (
+      {showInvite && canInvite && company && session && (
         <InviteForm
           companyId={company.id}
           accessToken={session.access_token}

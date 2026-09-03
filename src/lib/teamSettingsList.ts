@@ -89,3 +89,47 @@ export function teamSettingsEmptyTitle(args: {
   if (args.visible === 0 && normalizeTeamSearch(args.query)) return 'No matching team members';
   return '';
 }
+
+/** Live `companies.seat_limit`. Null/blank means no numeric cap — never invent 3. */
+export function readCompanySeatLimit(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.trunc(value);
+}
+
+export function inviteSeatMissMessage(usedSeats: number, seatLimit: number): string {
+  return `Seat limit reached (${usedSeats} of ${seatLimit}). Can't invite another person.`;
+}
+
+/**
+ * Invite-user gate. A new seat is blocked at/over the live seat_limit.
+ * Resend / already-on-team does not create a seat, so it stays allowed.
+ */
+export function inviteSeatDecision(args: {
+  seatLimit: unknown;
+  usedSeats: number;
+  alreadyOnTeam?: boolean;
+}): { allowed: true } | { allowed: false; error: string; seatLimit: number; usedSeats: number } {
+  if (args.alreadyOnTeam) return { allowed: true };
+  const seatLimit = readCompanySeatLimit(args.seatLimit);
+  if (seatLimit == null) return { allowed: true };
+  const usedSeats = Math.max(0, args.usedSeats);
+  if (usedSeats < seatLimit) return { allowed: true };
+  return {
+    allowed: false,
+    error: inviteSeatMissMessage(usedSeats, seatLimit),
+    seatLimit,
+    usedSeats,
+  };
+}
+
+/** Honest miss on the existing Team Settings surface — empty when a new invite is still allowed. */
+export function teamSettingsSeatMiss(args: {
+  seatLimit: unknown;
+  usedSeats: number;
+}): string {
+  const decision = inviteSeatDecision({
+    seatLimit: args.seatLimit,
+    usedSeats: args.usedSeats,
+  });
+  return decision.allowed ? '' : decision.error;
+}
