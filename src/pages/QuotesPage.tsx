@@ -3,7 +3,17 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import {
+  DEV_AUDIT_COMPANY,
+  DEV_AUDIT_PROFILE,
+  isDevFieldAuditAuth,
+  pageQueryBlocked,
+} from '../lib/devFieldAuditAuth';
+import {
+  AUDIT_DOC_CLIENT_ID,
+  getAuditClients,
+  getAuditTeamMembers,
+} from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
@@ -77,6 +87,39 @@ function quoteRef(quote: { quote_number?: number | null }): string {
   return quote.quote_number != null ? `#${padQuoteNumber(quote.quote_number)}` : 'Quote';
 }
 
+function fieldAuditConvertQuote(): QuoteListItem | null {
+  if (!isDevFieldAuditAuth()) return null;
+  return {
+    id: 'audit-quote-convert',
+    company_id: DEV_AUDIT_COMPANY.id,
+    quote_number: 2002,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    job_id: null,
+    status: 'accepted',
+    description: 'Quoted site works',
+    scope_of_works: 'Labour and materials on site.',
+    line_items: [{ description: 'Site labour', quantity: 8, unit_price: 95 }],
+    subtotal: 760,
+    tax_rate: 10,
+    tax_amount: 76,
+    total: 836,
+    validity_date: '2026-09-07',
+    notes: null,
+    inclusions: [],
+    exclusions: [],
+    scheduled_date: '2026-09-03',
+    assigned_team: [DEV_AUDIT_PROFILE.id],
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: '2026-08-24T00:00:00.000Z',
+    updated_at: '2026-08-24T00:00:00.000Z',
+    client_name: 'Northside Electrical',
+    client_email: 'accounts@northside.example',
+    job_title: null,
+    job_address: null,
+    invoice_id: null,
+  };
+}
+
 function quoteTitle(quote: { quote_number?: number | null } | null): string {
   return quote?.quote_number != null ? `Quote ${quoteRef(quote)}` : 'New quote';
 }
@@ -111,6 +154,8 @@ export function QuotesPage() {
   const { data: quotes, isLoading, error } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes'],
     queryFn: async () => {
+      const auditQuote = fieldAuditConvertQuote();
+      if (auditQuote) return [auditQuote];
       const { data, error } = await supabase
         .from('quotes')
         .select('id, company_id, quote_number, client_id, job_id, status, description, scope_of_works, line_items, subtotal, tax_rate, tax_amount, total, validity_date, notes, inclusions, exclusions, scheduled_date, assigned_team, created_by, created_at, updated_at')
@@ -487,6 +532,14 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
 
   useEffect(() => {
     if (!profile?.company_id) return;
+    const auditClients = getAuditClients();
+    const auditTeam = getAuditTeamMembers();
+    if (auditClients) {
+      setClients(auditClients as Client[]);
+      setClientsLoaded(true);
+      if (auditTeam) setTeamMembers(auditTeam.map(m => ({ id: m.id, name: m.name })));
+      return;
+    }
     (async () => {
       const [c, j, s, pb, team] = await Promise.all([
         supabase.from('clients').select('*').eq('archived', false).order('name'),
@@ -906,7 +959,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             </button>
           </div>
         </div>
-        {err ? <p className="hub-quote-err">{err}</p> : null}
+        {err && err !== CONVERT_QUOTE_NEED_DATE_CREW ? <p className="hub-quote-err">{err}</p> : null}
 
         <div className="hub-quote-sheet">
           <div className="hub-quote-banner">
@@ -1082,6 +1135,40 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
               <span className="hub-quote-display-total">{editorMoney}</span>
             </div>
           ) : null}
+
+          <div className="hub-quote-convert">
+            <p className="hub-quote-convert-label">Convert</p>
+            <div className="hub-quote-convert-fields">
+              <Field label="Job date">
+                <input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} className="form-input" />
+              </Field>
+              <Field label="Crew">
+                <select
+                  value={form.assigned_team[0] ?? ''}
+                  onChange={e => setForm(f => ({ ...f, assigned_team: e.target.value ? [e.target.value] : [] }))}
+                  className="form-input cursor-pointer"
+                >
+                  <option value="">No crew yet</option>
+                  {teamMembers.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            {err === CONVERT_QUOTE_NEED_DATE_CREW
+              ? <p className="hub-quote-convert-miss">{CONVERT_QUOTE_NEED_DATE_CREW}</p>
+              : <p className="hub-quote-convert-whisper">Date and crew on this tap.</p>}
+            {next.key === 'convert_job' && (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => void handleConvert()}
+                disabled={converting}
+              >
+                {converting ? 'Converting...' : 'Convert to job'}
+              </button>
+            )}
+          </div>
         </div>
 
         {showEdit ? (
@@ -1152,24 +1239,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
               <input type="date" value={form.validity_date} onChange={e => setForm(f => ({ ...f, validity_date: e.target.value }))} className="form-input" />
             </Field>
           </div>
-
-          <Field label="Job date">
-            <input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} className="form-input" />
-            <p className="hub-quote-muted mt-1">Convert needs a date and crew on this tap. Accept copies these when set; otherwise the job sits on Needs a date.</p>
-          </Field>
-
-          <Field label="Crew">
-            <select
-              value={form.assigned_team[0] ?? ''}
-              onChange={e => setForm(f => ({ ...f, assigned_team: e.target.value ? [e.target.value] : [] }))}
-              className="form-input cursor-pointer"
-            >
-              <option value="">No crew yet</option>
-              {teamMembers.map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-          </Field>
 
           <Field label="Notes">
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="form-input min-h-[60px] resize-y" placeholder="Notes for the client..." />

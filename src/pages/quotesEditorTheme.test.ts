@@ -53,9 +53,26 @@ describe('quote editor Looplet document look', () => {
     expect(editor).toContain('Field label="Crew"');
     expect(editor).toContain('className="form-input cursor-pointer"');
     expect(editor).toContain('No crew yet');
+    expect(editor).toContain('hub-quote-convert');
+    expect(editor).toContain('hub-quote-convert-miss');
+    expect(editor).toContain('Date and crew on this tap.');
+    expect(editor).not.toContain('Convert needs a date and crew on this tap. Accept copies these when set');
+    expect(editor.indexOf('hub-quote-convert')).toBeGreaterThan(editor.indexOf('hub-quote-sheet'));
+    expect(editor.indexOf('hub-quote-convert')).toBeLessThan(editor.indexOf('className="hub-quote-edit"'));
     expect(portal).toContain('className="portal-quote-accept"');
     expect(portal).not.toContain('assigned_team');
     expect(jobSheet).not.toContain('CONVERT_QUOTE_NEED_DATE_CREW');
+  });
+
+  it('LOOK frames cover quote convert date/crew desktop, phone, and empty miss', () => {
+    for (const rel of [
+      'docs/look/quote-convert-date-crew-desktop.png',
+      'docs/look/quote-convert-date-crew-phone.png',
+      'docs/look/quote-convert-empty-miss-desktop.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
+    }
   });
 
   it('LOOK frames cover quote editor desktop and phone only', () => {

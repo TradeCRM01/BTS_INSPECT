@@ -6322,6 +6322,14 @@
       margin: 0 16px 24px;
     }
 
+    .hub-quote-convert {
+      margin: 0 16px 24px;
+    }
+
+    .hub-quote-convert-fields {
+      gap: 8px;
+    }
+
     .hub-quote-editor-title,
     .hub-quote-display-total {
       font-size: 40px;
@@ -6410,6 +6418,85 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.02em;
     line-height: 0.96;
+  }
+
+  .hub-quote-convert {
+    margin: 0 32px 32px;
+    padding: 16px 0 0;
+    border-top: 1px solid #E2D9CC;
+  }
+
+  .hub-quote-convert-label {
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #0A2540;
+    margin: 0 0 8px;
+  }
+
+  .hub-quote-convert-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .hub-quote-convert-fields > * {
+    flex: 1 1 240px;
+    min-width: 240px;
+  }
+
+  .hub-quote-convert .ops-meta {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #5B6B7C;
+    margin: 0 0 8px;
+  }
+
+  .hub-quote-convert .form-input {
+    width: 100%;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 12px;
+    background: #FFFDF8;
+    color: #0A2540;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    box-shadow: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px !important;
+  }
+
+  .hub-quote-convert .form-input:focus {
+    border-color: #E2D9CC;
+    box-shadow: none;
+    outline: none;
+  }
+
+  .hub-quote-convert-whisper,
+  .hub-quote-convert-miss {
+    margin: 8px 0 0;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #5B6B7C;
+  }
+
+  .hub-quote-convert .btn-primary {
+    margin-top: 16px;
+    background: #2E75B6;
+    color: #fff;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
   }
 
   .hub-quote-edit {
