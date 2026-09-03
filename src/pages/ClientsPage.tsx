@@ -1,15 +1,15 @@
-import { useState, useMemo, memo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useMemo, memo, useEffect, useRef } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { getAuditClients, getAuditJobs } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, LoadingSpinner } from '../components/ui';
+import { PageError, EmptyState, SearchBar, ConfirmDialog, useToast, LoadingSpinner } from '../components/ui';
 import type { MenuEntry } from '../components/ui';
 import type { Client, ClientWithStats } from '../types/crm';
-import { Plus, Users, X, Trash2, CreditCard as Edit3, Archive, ArchiveRestore, Briefcase, FileText, Receipt } from 'lucide-react';
+import { Plus, Users, X, Trash2, CreditCard as Edit3, Archive, ArchiveRestore, Briefcase, FileText, Receipt, MoreHorizontal } from 'lucide-react';
 import {
   AU_ADDRESS_PLACEHOLDER,
   AU_EMAIL_PLACEHOLDER,
@@ -30,6 +30,11 @@ import {
   formatClientJobCount,
 } from '../lib/clientsFloor';
 
+/** Signed clients-list frame seed — list look only, not a live company. */
+const CLIENTS_LIST_LOOK = 'clients-list';
+
+type ClientListRow = ClientWithStats & { jobSearchBits: string[] };
+
 function clientSuburbFromSite(site: string): string {
   const parts = site.split(',').map(part => part.trim()).filter(Boolean);
   if (parts.length < 2) return site;
@@ -37,17 +42,63 @@ function clientSuburbFromSite(site: string): string {
   return loc || parts[1];
 }
 
+function clientsListLookRows(): ClientListRow[] {
+  const stamp = '2026-09-03T00:00:00.000Z';
+  const base = {
+    company_id: 'look-clients-list',
+    contact_person: null as string | null,
+    phone: null as string | null,
+    email: null as string | null,
+    notes: null as string | null,
+    archived: false,
+    created_at: stamp,
+    active_jobs: 0,
+    last_job_date: null as string | null,
+    quoted_total: 0,
+    outstanding_total: 0,
+    overdue_total: 0,
+    jobSearchBits: [] as string[],
+  };
+  return [
+    {
+      ...base,
+      id: 'look-client-northside',
+      name: 'Northside Electrical',
+      address: '12 Workshop Rd, Perth WA 6000',
+      phone: '0400 111 222',
+      job_count: 2,
+      active_jobs: 1,
+    },
+    {
+      ...base,
+      id: 'look-client-harbour',
+      name: 'Harbour Lights',
+      address: '8 Wharf St, Fremantle WA 6160',
+      job_count: 1,
+    },
+    {
+      ...base,
+      id: 'look-client-midland',
+      name: 'Midland Workshops',
+      address: '44 Helena St, Midland WA 6056',
+      job_count: 0,
+    },
+  ];
+}
+
 export function ClientsPage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const [searchParams] = useSearchParams();
+  const lookClientsList = searchParams.get('look') === CLIENTS_LIST_LOOK;
   const [search, setSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
 
-  const { data: clients, isLoading, error } = useQuery<Array<ClientWithStats & { jobSearchBits: string[] }>>({
+  const { data: clients, isLoading, error } = useQuery<ClientListRow[]>({
     queryKey: ['clients', showArchived, profile?.company_id],
     queryFn: async () => {
       const mock = getAuditClients();
@@ -171,7 +222,7 @@ export function ClientsPage() {
         };
       });
     },
-    enabled: !!profile?.company_id,
+    enabled: !!profile?.company_id && !lookClientsList,
   });
 
   const deleteMutation = useMutation({
@@ -196,83 +247,86 @@ export function ClientsPage() {
     },
   });
 
+  const listRows = lookClientsList ? clientsListLookRows() : (clients ?? []);
   const filtered = useMemo(
-    () => filterClientsForSearch(clients ?? [], search),
-    [clients, search],
+    () => filterClientsForSearch(listRows, search),
+    [listRows, search],
   );
+  const whisper = [
+    showArchived ? 'Archived' : 'Active',
+    filtered.length === 1 ? '1 client' : `${filtered.length} clients`,
+  ].join(' · ');
 
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load clients" /></AppShell>;
 
   return (
     <AppShell>
-      <div className="ops-page hub-clients">
-        <div className="ops-page-head">
-          <div>
+      <div className="ops-page hub-clients hub-clients-list-doc">
+        <div className="hub-clients-sheet">
+          <header className="hub-clients-list-bar">
+            <span className="hub-clients-list-mark">Clients</span>
+          </header>
+          <div className="hub-clients-list-body">
             <p className="hub-look-eyebrow hub-clients-label">Clients</p>
             <h1 className="ops-page-title">Clients</h1>
-          </div>
-          <button
-            onClick={() => { setEditingClient(null); setShowForm(true); }}
-            className="btn-primary"
-          >
-            <Plus size={16} /> New client
-          </button>
-        </div>
-
-        <div className="hub-clients-chrome">
-          <div className="hub-clients-filters">
-            <button
-              type="button"
-              onClick={() => setShowArchived(false)}
-              className={`hub-chrome-filter ${!showArchived ? 'hub-chrome-filter-on' : ''}`}
-            >
-              Active
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowArchived(true)}
-              className={`hub-chrome-filter ${showArchived ? 'hub-chrome-filter-on' : ''}`}
-            >
-              Archived
-            </button>
-          </div>
-          <SearchBar value={search} onChange={setSearch} placeholder="Search by name, site, job, phone, or email..." className="max-w-sm" />
-        </div>
-
-        {isLoading ? (
-          <div className="flex justify-center py-20"><LoadingSpinner /></div>
-        ) : filtered.length === 0 ? (
-          <div className="hub-clients-sheet">
-            <EmptyState
-              icon={Users}
-              title={search ? 'No clients match your search' : 'No clients yet'}
-              message={search ? 'Try a different search term.' : 'Add your first client to get started.'}
-              action={!search && (
-                <button onClick={() => { setEditingClient(null); setShowForm(true); }} className="btn-primary">
-                  <Plus size={16} /> Add your first client
-                </button>
-              )}
-            />
-          </div>
-        ) : (
-          <div className="hub-clients-sheet">
-            <div className="hub-clients-thead">
-              <span>Customer</span>
-              <span>Suburb</span>
-              <span>Jobs</span>
-              <span />
+            <p className="hub-clients-list-whisper">{whisper}</p>
+            <div className="hub-clients-list-tools">
+              <button
+                type="button"
+                onClick={() => { setEditingClient(null); setShowForm(true); }}
+                className="btn-primary"
+              >
+                <Plus size={16} /> New client
+              </button>
             </div>
-            {filtered.map(client => (
-              <ClientRow
-                key={client.id}
-                client={client}
-                onEdit={() => { setEditingClient(client); setShowForm(true); }}
-                onArchive={() => archiveMutation.mutate({ id: client.id, archived: !client.archived })}
-                onDelete={() => setDeleteTarget(client)}
+            <div className="hub-clients-chrome">
+              <div className="hub-clients-filters">
+                <button
+                  type="button"
+                  onClick={() => setShowArchived(false)}
+                  className={`hub-chrome-filter ${!showArchived ? 'hub-chrome-filter-on' : ''}`}
+                >
+                  Active
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowArchived(true)}
+                  className={`hub-chrome-filter ${showArchived ? 'hub-chrome-filter-on' : ''}`}
+                >
+                  Archived
+                </button>
+              </div>
+              <SearchBar value={search} onChange={setSearch} placeholder="Search by name, site, job, phone, or email..." className="max-w-sm" />
+            </div>
+            {isLoading ? (
+              <div className="flex justify-center py-20"><LoadingSpinner /></div>
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title={search ? 'No clients match your search' : 'No clients yet'}
+                message={search ? 'Try a different search term.' : 'Add your first client to get started.'}
               />
-            ))}
+            ) : (
+              <>
+                <div className="hub-clients-thead">
+                  <span>Customer</span>
+                  <span>Suburb</span>
+                  <span>Jobs</span>
+                  <span />
+                </div>
+                {filtered.map(client => (
+                  <ClientRow
+                    key={client.id}
+                    client={client}
+                    onEdit={() => { setEditingClient(client); setShowForm(true); }}
+                    onArchive={() => archiveMutation.mutate({ id: client.id, archived: !client.archived })}
+                    onDelete={() => setDeleteTarget(client)}
+                  />
+                ))}
+              </>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {showForm && (
@@ -315,6 +369,81 @@ function clientMenuItems(client: ClientWithStats, navigate: ReturnType<typeof us
   ];
 }
 
+function ClientRowMore({ items }: { items: MenuEntry[] }) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    const more = moreRef.current;
+    const menu = more?.querySelector('.hub-clients-list-more-menu') as HTMLElement | null;
+    const paper = more?.closest('.hub-clients-sheet') as HTMLElement | null;
+    if (!more || !menu || !paper) return;
+    more.classList.remove('is-flip', 'is-shift');
+    menu.style.removeProperty('--hub-clients-list-more-shift');
+    if (!more.open) return;
+    const pad = 8;
+    const paperRect = paper.getBoundingClientRect();
+    const viewBottom = window.innerHeight - pad;
+    const menuRect = menu.getBoundingClientRect();
+    if (menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom)) {
+      more.classList.add('is-flip');
+    }
+    const after = menu.getBoundingClientRect();
+    let shift = 0;
+    if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
+    if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
+    if (shift !== 0) {
+      more.classList.add('is-shift');
+      menu.style.setProperty('--hub-clients-list-more-shift', `${Math.round(shift)}px`);
+    }
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-clients-list-more">
+      <summary aria-label="More">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-clients-list-more-menu" role="menu">
+        {items.map((entry, i) => {
+          if ('divider' in entry) {
+            return <div key={`d-${i}`} className="hub-clients-list-more-rule" />;
+          }
+          return (
+            <button
+              key={entry.label}
+              type="button"
+              role="menuitem"
+              className={entry.variant === 'danger' ? 'is-danger' : undefined}
+              onClick={() => { entry.onClick(); closeMore(); }}
+            >
+              {entry.label}
+            </button>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
 const ClientRow = memo(function ClientRow({
   client, onEdit, onArchive, onDelete,
 }: {
@@ -342,7 +471,7 @@ const ClientRow = memo(function ClientRow({
       <span className="hub-clients-jobs">{jobsLabel ?? ''}</span>
       <span className="hub-clients-row-next" onClick={e => e.stopPropagation()}>
         <Link to={openHref} className="hub-clients-next">Open</Link>
-        <ContextMenu items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} />
+        <ClientRowMore items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} />
       </span>
     </div>
   );
