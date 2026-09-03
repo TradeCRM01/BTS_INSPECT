@@ -24,15 +24,13 @@ describe('clients list laptop LOOK — quote paper, overflow on the sheet', () =
     expect(page).toContain('hub-clients-list-body');
     expect(page).toContain('hub-clients-list-whisper');
     expect(page).toContain('hub-clients-list-tools');
-    expect(page).toContain('hub-look-eyebrow hub-clients-label');
     expect(page).toContain('hub-clients-sheet');
     expect(page).toContain('hub-clients-row');
     expect(page).toContain('Customer');
     expect(page).toContain('Suburb');
     expect(page).toContain('hub-clients-list-find');
     expect(page).toContain('hub-clients-list-mark">List');
-    expect(page).toContain('ops-page-title">Book');
-    expect(page).toContain('hub-look-eyebrow hub-clients-label">Clients');
+    expect(page).toContain('ops-page-title">Clients');
     expect(page).toContain('aria-label="Open"');
     expect(page).toContain('className="btn-primary"');
     expect(page).toContain('New client');
@@ -41,7 +39,9 @@ describe('clients list laptop LOOK — quote paper, overflow on the sheet', () =
     expect(page).not.toContain('hub-clients-next');
     expect(page).not.toContain('>Open<');
     expect(page).not.toContain('hub-clients-list-mark">Clients');
-    expect(page).not.toContain('ops-page-title">Clients');
+    expect(page).not.toContain('hub-look-eyebrow');
+    expect(page).not.toContain('ops-page-title">Book');
+    expect(page).not.toMatch(/>Book<|>Ledger<|>Register</);
     expect(page).toContain('placeMoreMenu');
     expect(page).toContain('is-flip');
     expect(page).toContain('is-shift');

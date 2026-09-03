@@ -272,11 +272,12 @@ describe('clients look — open record is the document sheet', () => {
     expect(list).toContain('hub-clients');
     expect(list).toContain('hub-clients-sheet');
     expect(list).toContain('hub-clients-row');
-    expect(list).toContain('hub-clients-label');
     expect(list).toContain('Customer');
     expect(list).toContain('Suburb');
     expect(list).toContain('Jobs');
     expect(list).toContain('Open');
+    expect(list).toContain('ops-page-title">Clients');
+    expect(list).not.toContain('hub-look-eyebrow');
     expect(list).not.toContain('hub-clients-kicker');
     expect(list).not.toMatch(/>CLIENTS</);
     expect(list).not.toContain('ViewToggle');

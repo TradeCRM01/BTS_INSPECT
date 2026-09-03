@@ -267,8 +267,7 @@ export function ClientsPage() {
             <span className="hub-clients-list-mark">List</span>
           </header>
           <div className="hub-clients-list-body">
-            <p className="hub-look-eyebrow hub-clients-label">Clients</p>
-            <h1 className="ops-page-title">Book</h1>
+            <h1 className="ops-page-title">Clients</h1>
             <p className="hub-clients-list-whisper">{whisper}</p>
             <div className="hub-clients-list-tools">
               <button
