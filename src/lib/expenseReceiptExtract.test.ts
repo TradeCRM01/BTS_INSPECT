@@ -4,6 +4,7 @@ import {
   mapExpenseReceiptExtract,
   parseExpenseReceiptDate,
   receiptFileToEditorPrefill,
+  resolveScanCostClass,
   assertReceiptFile,
 } from './expenseReceiptExtract';
 
@@ -18,6 +19,33 @@ describe('parseExpenseReceiptDate', () => {
 
   it('falls back when the date is empty', () => {
     expect(parseExpenseReceiptDate('', '2026-01-02')).toBe('2026-01-02');
+  });
+});
+
+describe('resolveScanCostClass', () => {
+  it('maps Bunnings and named trade-hardware merchants to cost of sales', () => {
+    expect(resolveScanCostClass('overhead', 'Overheads / Materials Bunnings', 'Bunnings')).toBe('cogs');
+    expect(resolveScanCostClass('overhead', 'Mitre 10 springwire', 'Mitre 10')).toBe('cogs');
+    expect(resolveScanCostClass(null, '', 'Reece')).toBe('cogs');
+    expect(resolveScanCostClass('overhead', 'Midway Metals conduit', 'Midway')).toBe('cogs');
+  });
+
+  it('maps existing materials / hardware line hints to cost of sales', () => {
+    expect(resolveScanCostClass('overhead', 'Materials (non-job)', '')).toBe('cogs');
+    expect(resolveScanCostClass(null, 'trade store hardware', '')).toBe('cogs');
+  });
+
+  it('keeps wages and labour-like receipts on Employee', () => {
+    expect(resolveScanCostClass(null, 'Weekly wages', '')).toBe('employee');
+    expect(resolveScanCostClass('employee', 'Payroll run', 'ADP')).toBe('employee');
+    expect(resolveScanCostClass('overhead', 'Superannuation', '')).toBe('employee');
+  });
+
+  it('keeps true overhead (rent, software, insurance, fuel) on Overhead', () => {
+    expect(resolveScanCostClass('overhead', 'Warehouse rent', 'Landlord Co')).toBe('overhead');
+    expect(resolveScanCostClass(null, 'Xero subscription software', 'Xero')).toBe('overhead');
+    expect(resolveScanCostClass('overhead', 'Public liability insurance', 'CGU')).toBe('overhead');
+    expect(resolveScanCostClass(null, 'Diesel fuel', 'BP')).toBe('overhead');
   });
 });
 
@@ -39,7 +67,7 @@ describe('mapExpenseReceiptExtract', () => {
       tax_rate: '10',
       expense_date: '2026-08-28',
       category: 'Overheads / Materials',
-      cost_class: 'overhead',
+      cost_class: 'cogs',
       reference: 'INV-1042',
       description: 'Bunnings Warehouse Port Melbourne',
     });
@@ -66,11 +94,21 @@ describe('mapExpenseReceiptExtract', () => {
     expect(prefill.tax_rate).toBe('10');
   });
 
-  it('guesses Materials (non-job) + overhead from a Bunnings vendor when category is blank', () => {
+  it('guesses Materials (non-job) + cost of sales from a Bunnings vendor when category is blank', () => {
     const prefill = mapExpenseReceiptExtract({ vendor_name: 'Bunnings', amount: 40 });
     expect(prefill.category).toBe('Materials (non-job)');
-    expect(prefill.cost_class).toBe('overhead');
+    expect(prefill.cost_class).toBe('cogs');
     expect(prefill.description).toBe('Bunnings receipt');
+  });
+
+  it('overrides extract overhead on Bunnings so the Cost of sales card is selected', () => {
+    const prefill = mapExpenseReceiptExtract({
+      vendor_name: 'Bunnings',
+      category: 'Overheads / Materials',
+      cost_class: 'overhead',
+      amount: 40,
+    });
+    expect(prefill.cost_class).toBe('cogs');
   });
 
   it('guesses employee cost class from wages wording', () => {
@@ -80,6 +118,20 @@ describe('mapExpenseReceiptExtract', () => {
     });
     expect(prefill.category).toBe('Wages & Salaries');
     expect(prefill.cost_class).toBe('employee');
+  });
+
+  it('leaves rent and software on Overhead when there is no materials hint', () => {
+    expect(mapExpenseReceiptExtract({
+      vendor_name: 'Office Landlord',
+      category: 'Rent / Lease',
+      cost_class: 'overhead',
+      amount: 2200,
+    }).cost_class).toBe('overhead');
+    expect(mapExpenseReceiptExtract({
+      vendor_name: 'Xero',
+      description: 'Monthly software subscription',
+      amount: 80,
+    }).cost_class).toBe('overhead');
   });
 });
 
@@ -91,6 +143,7 @@ describe('auditExpenseReceiptSeed', () => {
     expect(seed.tax_rate).toBe('10');
     expect(seed.expense_date).toBe('2026-08-28');
     expect(seed.category).toBe('Overheads / Materials');
+    expect(seed.cost_class).toBe('cogs');
     expect(seed.reference).toBe('INV-1042');
   });
 });
@@ -149,7 +202,7 @@ describe('receiptFileToEditorPrefill', () => {
     expect(prefill.expense_date).toBe('2026-08-28');
     expect(prefill.reference).toBe('INV-1042');
     expect(prefill.category).toBe('Overheads / Materials');
-    expect(prefill.cost_class).toBe('overhead');
+    expect(prefill.cost_class).toBe('cogs');
   });
 
   it('rejects oversized files before calling Claude', () => {
