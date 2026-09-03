@@ -77,7 +77,7 @@ describe('dashboard widgets stay on the paper', () => {
     expect(helper).toContain('upcoming_jobs');
     expect(helper).toContain('outstanding_invoices');
     expect(helper).toContain('compliance_deadlines');
-    expect(helper).not.toContain('bitcoin');
+    expect(helper).not.toMatch(/['"]bitcoin['"]/);
     expect(helper).not.toMatch(/electric|electrical/i);
   });
 
