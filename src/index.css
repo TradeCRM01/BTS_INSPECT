@@ -9864,20 +9864,32 @@
   }
 }
 
-/* Public landing only. Does not paint signed-in AppShell. */
+/* Public landing look only. MarketingPage on `/`. Does not paint signed-in AppShell, auth, legal, quotes, invoices, or in-app job hub. */
 .hub-marketing {
+  --mkt-page: #F5F0E6;
+  --mkt-sheet: #FFFDF8;
+  --mkt-ink: #0A2540;
+  --mkt-muted: #5B6B7C;
+  --mkt-line: #E2D9CC;
+  --mkt-action: #2E75B6;
   min-height: 100vh;
   background: var(--ops-cream);
-  color: var(--ops-navy);
+  color: var(--mkt-ink);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+
+.hub-marketing [data-grafter-lockup="marketing"] {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  color: var(--mkt-ink);
 }
 
 .hub-marketing-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
-  padding: 16px 20px;
+  padding: 16px 24px 8px;
   max-width: 1120px;
   margin: 0 auto;
 }
@@ -9885,7 +9897,7 @@
 .hub-marketing-nav-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
@@ -9894,10 +9906,15 @@
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 14px;
-  font-weight: 600;
-  color: var(--ops-navy);
+  font-weight: 500;
+  color: var(--mkt-ink);
+  text-decoration: none;
 }
 
 .hub-marketing-btn,
@@ -9905,32 +9922,37 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  height: 44px;
   min-height: 44px;
   padding: 0 16px;
-  border-radius: 10px;
+  border-radius: 12px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
+  box-shadow: none;
 }
 
 .hub-marketing-btn {
-  background: var(--ops-navy);
+  background: #2E75B6;
   color: #fff;
+  border: 0;
 }
 
 .hub-marketing-btn:hover {
-  background: #0d2f4e;
+  background: #2E75B6;
 }
 
 .hub-marketing-btn-ghost {
   background: transparent;
-  color: var(--ops-navy);
-  border: 1px solid rgba(10, 37, 64, 0.22);
+  color: var(--mkt-ink);
+  border: 1px solid var(--mkt-line);
 }
 
 .hub-marketing-btn-lg {
-  min-height: 48px;
-  padding: 0 20px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 16px;
 }
 
 .hub-marketing-hero,
@@ -9939,38 +9961,46 @@
 .hub-marketing-close {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 32px 20px 56px;
+  padding: 32px 24px 56px;
+}
+
+.hub-marketing-hero {
+  padding-top: 24px;
+  padding-bottom: 40px;
 }
 
 .hub-marketing-kicker {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ops-accent);
-  margin-bottom: 10px;
+  color: var(--mkt-muted);
+  margin-bottom: 8px;
 }
 
 .hub-marketing-display {
-  font-family: Newsreader, Georgia, serif;
-  font-weight: 500;
-  font-size: clamp(2.25rem, 6vw, 4.35rem);
-  line-height: 1.08;
-  letter-spacing: -0.03em;
-  color: var(--ops-navy);
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: clamp(3.5rem, 10vw, 6.5rem);
+  line-height: 0.96;
+  letter-spacing: 0.01em;
+  color: var(--mkt-ink);
 }
 
 .hub-marketing-display-sm {
-  font-size: clamp(1.85rem, 4vw, 3rem);
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  line-height: 1.1;
 }
 
 .hub-marketing-subhead {
-  font-family: Newsreader, Georgia, serif;
-  font-weight: 500;
-  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
   line-height: 1.2;
-  letter-spacing: -0.02em;
-  margin-bottom: 10px;
+  letter-spacing: 0.01em;
+  margin-bottom: 8px;
+  color: var(--mkt-ink);
 }
 
 .hub-marketing-lede,
@@ -9978,33 +10008,43 @@
 .hub-marketing-split p {
   max-width: 36rem;
   margin-top: 16px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 1.05rem;
   line-height: 1.55;
-  color: #3d4d5c;
+  color: var(--mkt-muted);
 }
 
 .hub-marketing-cta {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 28px;
+  align-items: center;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.hub-marketing-hero .hub-marketing-frame {
+  margin-top: 40px;
 }
 
 .hub-marketing-frame {
-  margin-top: 40px;
-  background: #fff;
-  border: 1px solid var(--ops-rule);
-  border-radius: 14px;
+  margin-top: 32px;
+  background: var(--mkt-sheet);
+  border: 1px solid var(--mkt-line);
+  border-radius: 16px;
   overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 28px rgba(10, 37, 64, 0.08);
 }
 
 .hub-marketing-chrome {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 14px;
-  background: var(--ops-navy);
+  padding: 12px 16px;
+  background: var(--mkt-ink);
   color: #fff;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -10012,20 +10052,21 @@
 
 .hub-marketing-job-body,
 .hub-marketing-board {
-  padding: 14px;
+  padding: 16px;
 }
 
 .hub-marketing-stamp {
-  height: 132px;
+  height: 128px;
   background:
-    linear-gradient(180deg, rgba(10, 37, 64, 0.08), rgba(10, 37, 64, 0.55)),
+    linear-gradient(180deg, rgba(10, 37, 64, 0.12), rgba(10, 37, 64, 0.62)),
     repeating-linear-gradient(-18deg, #153558 0 12px, #0A2540 12px 24px);
-  color: var(--ops-cream);
+  color: var(--mkt-page);
   display: flex;
   align-items: flex-end;
-  padding: 12px 14px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  padding: 16px;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .hub-marketing-job-row {
@@ -10036,54 +10077,102 @@
 }
 
 .hub-marketing-job-id {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 15px;
   font-weight: 650;
   letter-spacing: -0.02em;
-  color: var(--ops-navy);
+  color: var(--mkt-ink);
 }
 
 .hub-marketing-job-title {
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--ops-muted);
+  margin-top: 8px;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--mkt-ink);
 }
 
 .hub-marketing-job-meta {
   margin-top: 4px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 13px;
-  color: var(--ops-muted);
+  color: var(--mkt-muted);
 }
 
 .hub-marketing-pill {
   flex-shrink: 0;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: #e8f1fa;
-  color: var(--ops-accent);
+  padding: 4px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--mkt-line);
+  background: var(--mkt-sheet);
+  color: var(--mkt-muted);
 }
 
 .hub-marketing-next {
   display: inline-flex;
-  margin-top: 10px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--ops-rule);
+  margin-top: 16px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--mkt-line);
+  background: var(--mkt-sheet);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
-  color: var(--ops-navy);
+  color: var(--mkt-ink);
 }
 
 .hub-marketing-stage {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--ops-rule);
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--mkt-line);
 }
 
 .hub-marketing-grid {
   display: grid;
   gap: 28px;
+  margin-top: 24px;
+}
+
+#pricing.hub-marketing-band {
+  padding-top: 24px;
+  padding-bottom: 32px;
+}
+
+#pricing .hub-marketing-grid {
+  gap: 16px;
+}
+
+#pricing .hub-marketing-grid article {
+  background: var(--mkt-sheet);
+  border: 1px solid var(--mkt-line);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 28px rgba(10, 37, 64, 0.08);
+}
+
+#pricing .hub-marketing-grid article .hub-marketing-subhead {
+  margin-bottom: 0;
+}
+
+#pricing .hub-marketing-grid article p {
+  max-width: none;
+  margin-top: 8px;
+  font-size: 0.95rem;
+}
+
+#pricing .hub-marketing-grid article p[data-price-slot] {
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 1.75rem;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  margin: 8px 0 0;
 }
 
 @media (min-width: 800px) {
@@ -10112,9 +10201,10 @@
 }
 
 .hub-marketing-board-head {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 11px;
-  color: var(--ops-muted);
-  margin-bottom: 10px;
+  color: var(--mkt-muted);
+  margin-bottom: 8px;
 }
 
 .hub-marketing-board-head span:not(:first-child) {
@@ -10124,7 +10214,7 @@
 @media (min-width: 640px) {
   .hub-marketing-board-head {
     display: flex;
-    gap: 18px;
+    gap: 16px;
   }
 
   .hub-marketing-board-head span:not(:first-child) {
@@ -10133,30 +10223,34 @@
 }
 
 .hub-marketing-person {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 650;
+  color: var(--mkt-ink);
 }
 
 .hub-marketing-lane {
   position: relative;
   height: 64px;
-  background: var(--ops-zebra);
-  border: 1px solid var(--ops-rule);
-  border-radius: 8px;
+  background: var(--mkt-page);
+  border: 1px solid var(--mkt-line);
+  border-radius: 12px;
   overflow: hidden;
 }
 
 .hub-marketing-block {
   position: absolute;
   top: 8px;
-  height: 28px;
+  height: 24px;
   padding: 0 8px;
-  border-radius: 6px;
-  border-left: 3px solid var(--ops-accent);
-  background: #fff;
+  border-radius: 8px;
+  border: 1px solid var(--mkt-line);
+  border-left: 2px solid var(--mkt-ink);
+  background: var(--mkt-sheet);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 650;
-  color: var(--ops-navy);
+  color: var(--mkt-ink);
   display: flex;
   align-items: center;
   white-space: nowrap;
@@ -10171,13 +10265,29 @@
   top: 36px;
   left: 22%;
   width: 28%;
-  height: 22px;
+  height: 20px;
   font-size: 10px;
+}
+
+.hub-marketing-band details {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--mkt-line);
+}
+
+.hub-marketing-band details summary {
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  color: var(--mkt-ink);
+  cursor: pointer;
+}
+
+.hub-marketing-band details p {
+  margin-top: 8px;
 }
 
 .hub-marketing-close {
   text-align: left;
-  padding-bottom: 72px;
+  padding-bottom: 48px;
 }
 
 .hub-marketing-close .hub-marketing-cta {
@@ -10189,21 +10299,34 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   max-width: 1120px;
   margin: 0 auto;
-  padding: 20px;
-  border-top: 1px solid rgba(10, 37, 64, 0.12);
+  padding: 16px 24px 24px;
+  border-top: 1px solid var(--mkt-line);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 13px;
-  color: var(--ops-muted);
+  color: var(--mkt-muted);
 }
 
 .hub-marketing-footer-meta {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 6px;
+  gap: 8px;
   text-align: right;
+}
+
+@media (max-width: 720px) {
+  .hub-marketing-nav,
+  .hub-marketing-hero,
+  .hub-marketing-band,
+  .hub-marketing-split,
+  .hub-marketing-close,
+  .hub-marketing-footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
 }
 
 /* Public legal paper + auth/marketing legal-link chrome only. */
