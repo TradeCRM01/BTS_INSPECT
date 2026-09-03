@@ -7073,8 +7073,28 @@
     margin-top: 24px;
   }
 
+  .hub-jobs-document .hub-jobs-tools {
+    flex-wrap: nowrap;
+  }
+
   .hub-jobs-document .hub-jobs-tools-overflow {
     margin-left: auto;
+    flex: 0 0 auto;
+  }
+
+  .hub-jobs-document .hub-jobs-tools .ops-next-control-done {
+    width: auto;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    background: none;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    color: var(--job-look-muted);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
   }
 
   .hub-jobs-hours {
@@ -7163,13 +7183,8 @@
 
     .hub-jobs-document .hub-jobs-identity .hub-jobs-ledger-row,
     .hub-jobs-document .hub-jobs-identity .hub-jobs-contact > * {
-      padding: 8px 0;
-      min-height: 32px;
-      border-bottom: 1px solid var(--job-look-line);
-    }
-
-    .hub-jobs-document .hub-jobs-identity .hub-jobs-ledger-row:last-child,
-    .hub-jobs-document .hub-jobs-identity .hub-jobs-contact > *:last-child {
+      padding: 4px 0;
+      min-height: 0;
       border-bottom: none;
     }
   }

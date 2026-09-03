@@ -43,6 +43,7 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
 
     expect(css).toContain('.hub-jobs-identity');
     expect(css).toContain('grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr)');
+    expect(css).toContain('.hub-jobs-document .hub-jobs-tools .ops-next-control-done');
     expect(css).toContain('overflow: visible');
     expect(css).toContain('.hub-job-more.is-flip');
     expect(css).toContain('.hub-job-more.is-shift');
