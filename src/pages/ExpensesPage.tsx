@@ -192,9 +192,9 @@ const EXPENSES_LOOK_CSS = `
   min-height: 44px;
   height: 44px;
   padding: 0 16px;
-  background: var(--ex-look-sheet);
-  color: var(--ex-look-ink);
-  border: 1px solid var(--ex-look-ink);
+  background: #2E75B6;
+  color: #fff;
+  border: 1px solid #2E75B6;
   border-radius: 12px;
   font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 14px;
@@ -202,7 +202,26 @@ const EXPENSES_LOOK_CSS = `
   box-shadow: none;
   cursor: pointer;
 }
-.hub-expenses-scan:hover { background: color-mix(in srgb, #FFFDF8 88%, #0A2540); }
+.hub-expenses-scan:hover { background: color-mix(in srgb, #2E75B6 86%, #0A2540); }
+.hub-expenses-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 16px;
+  background: var(--ex-look-sheet);
+  color: var(--ex-look-ink);
+  border: 1px solid var(--ex-look-line);
+  border-radius: 12px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: none;
+  cursor: pointer;
+}
+.hub-expenses-upload:hover { background: color-mix(in srgb, #FFFDF8 88%, #0A2540); }
 .hub-expenses-more {
   margin-left: auto;
   width: 44px;
@@ -217,6 +236,33 @@ const EXPENSES_LOOK_CSS = `
   cursor: pointer;
 }
 .hub-expenses-more:hover { background: color-mix(in srgb, #FFFDF8 88%, #0A2540); }
+.hub-expenses-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 16px;
+  background: var(--ex-look-sheet);
+  color: var(--ex-look-ink);
+  border: 1px solid var(--ex-look-ink);
+  border-radius: 12px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: none;
+  cursor: pointer;
+}
+.hub-expenses-add:hover { background: color-mix(in srgb, #FFFDF8 88%, #0A2540); }
+.hub-expenses:has(.hub-expenses-review) .hub-expenses-actions .hub-expenses-scan {
+  background: var(--ex-look-sheet);
+  color: var(--ex-look-ink);
+  border: 1px solid var(--ex-look-ink);
+}
+.hub-expenses:has(.hub-expenses-review) .hub-expenses-actions .hub-expenses-scan:hover {
+  background: color-mix(in srgb, #FFFDF8 88%, #0A2540);
+}
 .hub-expenses-menu {
   position: absolute;
   right: 0;
@@ -845,6 +891,14 @@ export function ExpensesPage() {
               </button>
               <button
                 type="button"
+                onClick={() => startReceiptScan('file')}
+                className="hub-expenses-upload"
+                aria-label="Upload receipt file"
+              >
+                <FileUp size={16} /> Upload
+              </button>
+              <button
+                type="button"
                 onClick={() => setShowAddMenu(v => !v)}
                 className="hub-expenses-more"
                 aria-label="More ways to add"
@@ -1053,7 +1107,7 @@ export function ExpensesPage() {
                 <button type="button" onClick={() => setShowEmployeeModel(true)} className="btn-secondary">
                   <Users size={16} /> Apply staff cost model
                 </button>
-                <button type="button" onClick={openBlankEditor} className="hub-expenses-scan">
+                <button type="button" onClick={openBlankEditor} className="hub-expenses-add">
                   <Plus size={16} /> Add expense
                 </button>
               </div>

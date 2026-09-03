@@ -19,6 +19,7 @@ describe('Expenses scan-receipt cream paper look', () => {
     expect(page).toContain('hub-expenses-hero');
     expect(page).toContain('hub-expenses-sheet');
     expect(page).toContain('hub-expenses-scan');
+    expect(page).toContain('hub-expenses-upload');
     expect(page).toContain('hub-expenses-save');
     expect(page).toContain('hub-expenses-preview');
     expect(page).toContain('hub-expenses-classes');
@@ -40,6 +41,8 @@ describe('Expenses scan-receipt cream paper look', () => {
     expect(page).toContain('font-variant-numeric: tabular-nums');
     expect(page).toContain('layout="sheet"');
     expect(page).toContain('Scan receipt');
+    expect(page).toContain('> Upload');
+    expect(page).toContain("startReceiptScan('file')");
     expect(page).toContain('MoreHorizontal');
     expect(page).toContain('--ex-look-page: #F5F0E6');
     expect(page).toContain('--ex-look-sheet: #FFFDF8');
@@ -72,6 +75,20 @@ describe('Expenses scan-receipt cream paper look', () => {
     expect(classOn).toContain('#FFFDF8');
     expect(classOn).not.toContain('#2E75B6');
     expect(classOn).not.toContain('color-mix');
+
+    const scanCss = page.slice(page.indexOf('.hub-expenses-scan {'), page.indexOf('.hub-expenses-upload {'));
+    expect(scanCss).toContain('background: #2E75B6');
+    expect(scanCss).toContain('height: 44px');
+    expect(scanCss).toContain('min-height: 44px');
+    const uploadLook = page.slice(page.indexOf('.hub-expenses-upload {'), page.indexOf('.hub-expenses-more {'));
+    expect(uploadLook).toContain('background: var(--ex-look-sheet)');
+    expect(uploadLook).toContain('border: 1px solid var(--ex-look-line)');
+    expect(uploadLook).toContain('color: var(--ex-look-ink)');
+    expect(uploadLook).toContain('height: 44px');
+    expect(uploadLook).not.toContain('#2E75B6');
+    const saveCss = page.slice(page.indexOf('.hub-expenses-save {'), page.indexOf('.hub-expenses-save:hover'));
+    expect(saveCss).toContain('background: #2E75B6');
+    expect(saveCss).toContain('height: 44px');
 
     const sheetStart = page.indexOf('<div className="hub-expenses-review">');
     const overlayStart = page.indexOf('<div className="overlay-backdrop">');
@@ -114,6 +131,17 @@ describe('Expenses scan-receipt cream paper look', () => {
       'docs/look/expenses-scan-bunnings-cogs-desktop.png',
       'docs/look/expenses-scan-bunnings-cogs-phone.png',
       'docs/look/expenses-scan-overhead-desktop.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
+    }
+  });
+
+  it('LOOK frames cover Scan + Upload action row and the same review sheet after Upload', () => {
+    for (const rel of [
+      'docs/look/expenses-scan-upload-row-desktop.png',
+      'docs/look/expenses-scan-upload-row-phone.png',
+      'docs/look/expenses-upload-review-desktop.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
       expect(rel).not.toMatch(/ute/i);
