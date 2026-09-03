@@ -345,12 +345,17 @@ export function complianceSheetSiblingCompliance<T extends {
 ): T[] {
   const clientId = complianceSheetClientId({ client_id: args.clientId ?? null });
   if (!clientId) return [];
-  const matches = items.filter(item => (
-    item.row.id !== args.currentId
-    && complianceSheetClientId(item.row) === clientId
-    && complianceMatchesListFilter(item.row, 'action', now)
-  ));
-  return sortComplianceListFloor(matches);
+  return items
+    .filter(item => (
+      item.row.id !== args.currentId
+      && complianceSheetClientId(item.row) === clientId
+      && complianceMatchesListFilter(item.row, 'action', now)
+    ))
+    .sort((a, b) => {
+      const due = (a.row.next_due_date ?? '').localeCompare(b.row.next_due_date ?? '');
+      if (due !== 0) return due;
+      return a.row.title.localeCompare(b.row.title);
+    });
 }
 
 function complianceSheetInspectionTitle(

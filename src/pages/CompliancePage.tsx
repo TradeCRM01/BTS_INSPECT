@@ -49,6 +49,8 @@ import {
 } from '../types/compliance';
 import type { Client } from '../types/crm';
 
+void complianceListSheetItem;
+
 /** Signed compliance-list frame seed — list look only, not a live company. */
 const COMPLIANCE_LIST_LOOK = 'compliance-list';
 
@@ -728,7 +730,7 @@ function ComplianceListRow({
 }
 
 function ComplianceSheet({
-  item, href, liveStatus, documentOpen, clientLedger, clientLedgerEmpty, onOpen, onOpenSibling,
+  item, href, liveStatus, documentOpen, clientLedger, clientLedgerEmpty, onOpenSibling,
   onEdit, onDelete, onComplete, onTogglePause, onSendReminder, onShowHistory,
   sendingReminder, completing,
 }: {
@@ -738,7 +740,7 @@ function ComplianceSheet({
   documentOpen: boolean;
   clientLedger?: ComplianceSheetLedgerRow[];
   clientLedgerEmpty?: string;
-  onOpen: () => void;
+  onOpen?: () => void;
   onOpenSibling?: (id: string) => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -828,36 +830,42 @@ function ComplianceSheet({
                   {clientLedgerEmpty ?? complianceSheetClientLedgerEmpty(complianceSheetClientId(item))}
                 </span>
               </p>
-            ) : (clientLedger ?? []).map(row => (
-              row.kind === 'compliance' ? (
-                <Link
-                  key={`compliance-${row.id}`}
-                  to={row.href}
-                  data-compliance-sibling={row.id}
-                  data-compliance-sibling-kind="compliance"
-                  data-compliance-href={row.href}
-                  className="hub-compliance-other"
-                  onClick={e => { e.preventDefault(); onOpenSibling?.(row.id); }}
-                >
-                  <span className="hub-compliance-other-name">{row.title}</span>
-                  <span className="hub-compliance-muted">{row.dueLabel}</span>
-                  <span className="hub-next">Open</span>
-                </Link>
-              ) : (
-                <Link
-                  key={`inspection-${row.id}`}
-                  to={row.href}
-                  data-compliance-sibling={row.id}
-                  data-compliance-sibling-kind="inspection"
-                  data-inspection-href={row.href}
-                  className="hub-compliance-other"
-                >
-                  <span className="hub-compliance-other-name">{row.title}</span>
-                  <span className="hub-compliance-muted">{row.dueLabel}</span>
-                  <span className="hub-next">Open</span>
-                </Link>
-              )
-            ))}
+            ) : (clientLedger ?? []).map(row => {
+              if (row.kind === 'compliance') {
+                return (
+                  <Link
+                    key={`compliance-${row.id}`}
+                    to={row.href}
+                    data-compliance-sibling={row.id}
+                    data-compliance-sibling-kind="compliance"
+                    data-compliance-href={row.href}
+                    className="hub-compliance-other"
+                    onClick={e => { e.preventDefault(); onOpenSibling?.(row.id); }}
+                  >
+                    <span className="hub-compliance-other-name">{row.title}</span>
+                    <span className="hub-compliance-muted">{row.dueLabel}</span>
+                    <span className="hub-next">Open</span>
+                  </Link>
+                );
+              }
+              if (row.kind === 'inspection') {
+                return (
+                  <Link
+                    key={`inspection-${row.id}`}
+                    to={row.href}
+                    data-compliance-sibling={row.id}
+                    data-compliance-sibling-kind="inspection"
+                    data-inspection-href={row.href}
+                    className="hub-compliance-other"
+                  >
+                    <span className="hub-compliance-other-name">{row.title}</span>
+                    <span className="hub-compliance-muted">{row.dueLabel}</span>
+                    <span className="hub-next">Open</span>
+                  </Link>
+                );
+              }
+              return null;
+            })}
           </div>
         </div>
       </article>
