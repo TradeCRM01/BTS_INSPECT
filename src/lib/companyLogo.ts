@@ -4,7 +4,14 @@ export const COMPANY_LOGOS_BUCKET = 'logos';
 /** LOOK query that opens quote/invoice paper with a wordmark that contains company-name lettering. */
 export const LETTERHEAD_LOOK = 'letterhead';
 /** Repo fixture — letters are drawn in the image, not HTML beside it. */
-export const LETTERHEAD_LOOK_MARK = '/look/wordmark-field-audit.svg';
+export const LETTERHEAD_LOOK_MARK = '/look/wordmark-field-audit.png';
+
+export function letterheadLookMarkSrc(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${LETTERHEAD_LOOK_MARK}`;
+  }
+  return LETTERHEAD_LOOK_MARK;
+}
 export const COMPANY_LOGO_MAX_BYTES = 5 * 1024 * 1024;
 export const COMPANY_LOGO_ACCEPT = 'image/png,image/jpeg,image/webp,image/svg+xml,image/gif';
 
@@ -70,7 +77,7 @@ export function companyWithLetterheadLookMark<T extends { logo_url?: string | nu
   look?: string | null,
 ): T | null | undefined {
   if (!company || !isLetterheadLook(look)) return company;
-  return { ...company, logo_url: LETTERHEAD_LOOK_MARK };
+  return { ...company, logo_url: letterheadLookMarkSrc() };
 }
 
 export function companyReportTheme(

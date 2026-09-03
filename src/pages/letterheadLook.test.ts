@@ -62,8 +62,10 @@ describe('quote + invoice letterhead mark LOOK', () => {
     const mark = src('public/look/wordmark-field-audit.svg');
     expect(mark).toContain('FIELD AUDIT');
     expect(mark).toContain('CO');
-    expect(src('src/lib/companyLogo.ts')).toContain("LETTERHEAD_LOOK_MARK = '/look/wordmark-field-audit.svg'");
+    expect(src('src/lib/companyLogo.ts')).toContain("LETTERHEAD_LOOK_MARK = '/look/wordmark-field-audit.png'");
+    expect(src('src/lib/companyLogo.ts')).toContain('letterheadLookMarkSrc');
     expect(src('src/lib/devFieldAuditAuth.ts')).toContain('LETTERHEAD_LOOK');
+    expect(existsSync(resolve(process.cwd(), 'public/look/wordmark-field-audit.png'))).toBe(true);
     expect(existsSync(resolve(process.cwd(), 'public/look/wordmark-field-audit.svg'))).toBe(true);
   });
 });

@@ -287,7 +287,7 @@ describe('company logo on documents', () => {
     expect(companyWithLetterheadLookMark({ name: 'Field Audit Co', logo_url: LOGO }, 'other')?.logo_url)
       .toBe(LOGO);
     expect(companyWithLetterheadLookMark(null, LETTERHEAD_LOOK)).toBeNull();
-    expect(LETTERHEAD_LOOK_MARK).toContain('wordmark-field-audit');
+    expect(LETTERHEAD_LOOK_MARK).toContain('wordmark-field-audit.png');
     expect(LETTERHEAD_LOOK_MARK).not.toMatch(/ute/i);
   });
 });
