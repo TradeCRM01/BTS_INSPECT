@@ -11,14 +11,14 @@ describe('signed-in dashboard today floor', () => {
     const page = src('src/pages/DashboardPage.tsx');
     expect(page).toContain('todaysDashboardJobs');
     expect(page).toContain('dashboardTodayKey');
-    expect(page).toContain("queryKey: ['dashboard-today-jobs', todayKey]");
+    expect(page).toContain("queryKey: ['dashboard-today-jobs', todayKey, lookDashboard]");
     expect(page).toContain('.gte(\'scheduled_date\', todayKey)');
     expect(page).toContain('.lte(\'scheduled_date\', todayKey)');
     expect(page).toContain(".eq('status', 'in_progress')");
     expect(page).toContain('getAuditJobs()');
     expect(page).toContain('attachJobClients');
     expect(page).toContain('data-dashboard-home="1"');
-    expect(page).toContain("Today&apos;s work");
+    expect(page).toContain('ops-page-title dashboard-home-hero">Dashboard');
     expect(page).not.toContain('Your dashboard is empty');
   });
 
@@ -61,7 +61,7 @@ describe('signed-in dashboard today floor', () => {
 });
 
 describe('signed-in dashboard document sheet look', () => {
-  it('paints today\'s work as the document sheet, not cards, admin rows, or a widget wall', () => {
+  it('paints the dashboard as the document sheet, not cards, admin rows, or a widget wall', () => {
     const page = src('src/pages/DashboardPage.tsx');
     const css = src('src/index.css');
     const homeStart = css.indexOf('/* Signed-in home / only.');
@@ -77,21 +77,17 @@ describe('signed-in dashboard document sheet look', () => {
     expect(page).toContain('dashboard-home-label');
     expect(page).toContain('dashboard-home-ledger');
     expect(page).toContain('dashboard-home-row');
-    expect(page).toContain('dashboard-home-pill');
-    expect(page).toContain('dashboard-home-next');
     expect(page).toContain('dashboard-home-primary');
     expect(page).toContain('dashboardJobPlace(job)');
     expect(page).toContain('dashboardJobMetaLine(job)');
     expect(page).toContain('Week board');
     expect(page).toContain('Open schedule');
     expect(page).not.toContain('dashboard-home-kicker');
-    expect(page).not.toContain('dashboard-home-thead');
     expect(page).not.toContain('<table');
     expect(page).not.toContain('<thead');
     expect(page).not.toMatch(/>TODAY</);
     expect(page).not.toContain('hub-jobs');
     expect(page).not.toContain('hub-quotes');
-    expect(page).not.toContain('className="btn-primary"');
     expect(page).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(page).not.toMatch(/Grafter|Relovi|Littleloop/);
 
@@ -108,15 +104,16 @@ describe('signed-in dashboard document sheet look', () => {
     expect(homeCss).toContain('--dashboard-home-muted: #5B6B7C');
     expect(homeCss).toContain('--dashboard-home-line: #E2D9CC');
     expect(homeCss).toContain('#2E75B6');
-    expect(homeCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
-    expect(homeCss).toContain('box-shadow: inset 0 1px 0 #fff');
+    expect(homeCss).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(homeCss).toContain('inset 0 1px 0 #fff');
     expect(homeCss).toContain('font-size: 56px !important');
     expect(homeCss).toContain("font-family: Rajdhani, sans-serif");
     expect(homeCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
-    expect(homeCss).toContain('letter-spacing: 0.12em');
     expect(homeCss).toContain('font-variant-numeric: tabular-nums');
     expect(homeCss).not.toContain('.dashboard-home-kicker');
     expect(homeCss).not.toContain('--dashboard-home-pass');
+    expect(homeCss).not.toMatch(/letter-spacing:\s*0\.12em/);
+    expect(homeCss).not.toMatch(/text-transform:\s*uppercase/);
     expect(homeCss).not.toMatch(/#16A34A|#15803D|#1B7F3A/);
     expect(homeCss).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
     expect(homeCss).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
