@@ -12,15 +12,14 @@ describe('JHA list cream paper look', () => {
     const css = src('src/index.css');
 
     expect(list).toContain('hub-jha');
+    expect(list).toContain('hub-jha-list-doc');
+    expect(list).toContain('hub-jha-list-whisper');
     expect(list).toContain('hub-jha-sheet');
     expect(list).toContain('hub-jha-row');
-    expect(list).toContain('hub-jha-pill');
-    expect(list).toContain('hub-jha-label');
+    expect(list).not.toContain('hub-jha-pill');
+    expect(list).not.toContain('hub-jha-label');
     expect(list).not.toContain('hub-jha-kicker');
     expect(list).toContain('>Site</span>');
-    expect(list).toContain('>Permit</span>');
-    expect(list).toContain('>Supervisor</span>');
-    expect(list).toContain('>Crew</span>');
     expect(list).toContain('>Status</span>');
     expect(list).toContain('jha-doc-theme');
     expect(list).toContain('jhaDocumentColors');
