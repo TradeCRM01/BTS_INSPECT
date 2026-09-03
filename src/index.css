@@ -4990,9 +4990,12 @@
   .hub-week-document .hub-week-search .form-input {
     min-height: 0;
     height: auto;
-    padding: 8px 12px 8px 40px;
-    border-radius: 12px;
+    padding: 8px 0 8px 32px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
     font-size: 12px !important;
+    box-shadow: none;
   }
 
   .hub-week-seg {
@@ -5121,7 +5124,11 @@
     cursor: pointer;
   }
 
-  .hub-week-crew-opt.is-on,
+  .hub-week-crew-opt.is-on {
+    background: none;
+    font-weight: 600;
+  }
+
   .hub-week-crew-opt:hover {
     background: #F5F0E6;
   }
