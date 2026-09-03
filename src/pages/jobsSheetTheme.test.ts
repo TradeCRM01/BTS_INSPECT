@@ -116,6 +116,51 @@ describe('job hub open sheet LOOK', () => {
     expect(page).not.toContain('InvoiceSendDialog');
   });
 
+  it('reads existing ledger trays in job-conduct order after the header', () => {
+    const page = src('src/pages/JobDetailPage.tsx');
+    const header = page.slice(page.indexOf('hub-jobs-document'), page.indexOf('hub-trays hub-jobs-more-trays'));
+    const trays = page.slice(page.indexOf('hub-trays hub-jobs-more-trays'), page.indexOf('id="job-schedule"'));
+
+    expect(header).toContain('hub-jobs-hero');
+    expect(header).toContain('hub-jobs-status-whisper');
+    expect(header).toContain('className="btn-primary ops-next-control-block"');
+    expect(header).toContain('sheetNext.label');
+    expect(header).toContain('hub-jobs-identity');
+    expect(header).toContain('job.description');
+    expect(header.indexOf('hub-jobs-hero')).toBeLessThan(header.indexOf('hub-jobs-status-whisper'));
+    expect(header.indexOf('hub-jobs-status-whisper')).toBeLessThan(header.indexOf('hub-jobs-tools'));
+    expect(header.indexOf('hub-jobs-tools')).toBeLessThan(header.indexOf('hub-jobs-identity'));
+    expect(header.indexOf('hub-jobs-identity')).toBeLessThan(header.indexOf('job.description'));
+
+    const markers = [
+      'title="Quotes"',
+      'ops-section-title">Job bill',
+      'title="JHA / SWMS"',
+      'title="Take 5"',
+      'title="Time on this job"',
+      'title="Inspections"',
+      'JOB_TESTING_DUE_TITLE',
+      'title="Invoices"',
+    ];
+    const at = markers.map(m => trays.indexOf(m));
+    expect(at.every(i => i >= 0)).toBe(true);
+    for (let i = 1; i < at.length; i++) {
+      expect(at[i]).toBeGreaterThan(at[i - 1]);
+    }
+
+    expect(trays).not.toContain('title="Reports"');
+    expect(trays).not.toContain('<table');
+    expect(trays).toContain('No report yet');
+    expect(trays).toContain('setSendingReportId');
+    expect(page).toContain('ReportSendDialog');
+    expect(page.indexOf('hub-trays hub-jobs-more-trays')).toBeLessThan(page.indexOf('id="job-schedule"'));
+    expect(page).toContain('JobDispatchPanel');
+    expect(page).toContain('JobClientReminder');
+    expect(page.indexOf('id="job-schedule"')).toBeLessThan(page.indexOf('</article>'));
+    expect(page).not.toMatch(/electrician|electrical/i);
+    expect(page).not.toContain('path="/reports');
+  });
+
   it('does not restyle stay-off floors, AppShell, or the schedule plot', () => {
     const page = src('src/pages/JobDetailPage.tsx');
     expect(page).not.toContain('hub-timesheets');

@@ -1410,130 +1410,71 @@ export function JobDetailPage() {
             </div>
 
             <div className="hub-trays hub-jobs-more-trays">
-          <div id="job-testing-due">
           <JobRelatedSection
-            title={JOB_TESTING_DUE_TITLE}
-            icon={ClipboardList}
-            count={dueTests.length}
-            emptyTitle={JOB_TESTING_DUE_EMPTY}
+            title="Quotes"
+            icon={FileText}
+            count={(quotes ?? []).length}
+            emptyTitle="No quote on this job. That’s fine for do-and-charge — invoice from the bill."
           >
-            {dueTests.map(row => (
+            {(quotes ?? []).map(q => (
               <JobRelatedRow
-                key={row.id}
-                href={row.href}
+                key={q.id}
+                href={`/quotes?id=${q.id}`}
                 icon={FileText}
-                title={row.title}
-                meta={row.dueLabel}
-                rowClassName={row.dueKind === 'overdue' ? 'is-overdue' : undefined}
+                title={`Quote #${padNum(q.quote_number)}`}
+                meta={formatMoney(Number(q.total))}
+                trailing={
+                  <OpsStatus className={QUOTE_STATUS_STYLES[q.status as keyof typeof QUOTE_STATUS_STYLES] ?? 'ops-status-wait'}>
+                    {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}
+                  </OpsStatus>
+                }
                 action={
-                  <Link to={row.href} className="job-testing-due-open">Open</Link>
+                  q.status === 'accepted' && !(invoices ?? []).some(inv => inv.quote_id === q.id) ? (
+                    <button
+                      type="button"
+                      onClick={() => invoiceFromQuote.mutate(q.id)}
+                      disabled={invoiceFromQuote.isPending}
+                      className="ops-next-control-sm w-auto px-3 shrink-0"
+                    >
+                      Invoice
+                    </button>
+                  ) : undefined
                 }
               />
             ))}
           </JobRelatedSection>
-          </div>
 
-        {stages.length > 0 && (
-            <JobRelatedSection
-              title="Project stages"
-              icon={GitBranch}
-              count={stages.length}
-              action={!job.parent_job_id ? (
-                <button type="button" onClick={() => setShowStage(true)} className="ops-link text-xs">
-                  <Plus size={12} /> Add stage
-                </button>
-              ) : undefined}
-              emptyTitle="No stages on this job."
-            >
-              {stages.map(child => (
-                <JobRelatedRow
-                  key={child.id}
-                  href={`/jobs/${child.id}`}
-                  icon={GitBranch}
-                  title={`${formatJobRef({
-                    job_number: job.job_number,
-                    cost_code: child.cost_code,
-                    parent_job_number: job.job_number,
-                  })} ${child.title}`}
-                  trailing={<OpsStatus className={JOB_STATUS_STYLES[child.status as JobStatus] ?? 'ops-status-wait'}>{JOB_STATUS_LABELS[child.status as JobStatus] ?? child.status}</OpsStatus>}
-                />
-              ))}
-            </JobRelatedSection>
-        )}
-
-          <div id="job-insp">
-          <JobRelatedSection
-            title="Inspections"
-            icon={ClipboardList}
-            count={(inspections ?? []).length}
-            action={
-              <Link to={inspectHref} className="ops-link text-xs">
-                <Plus size={12} className="inline" /> Add inspection
-              </Link>
-            }
-            emptyTitle="No inspection on this job yet."
-            emptyAction={<Link to={inspectHref} className="ops-link">Start inspection</Link>}
+        <div id="job-bill">
+          <button
+            type="button"
+            onClick={() => setBillOpen(o => !o)}
+            className="hub-jobs-bill-head"
           >
-            {(inspections ?? []).map(insp => {
-              const next = withInspectionDueNext(
-                { ...insp, crm_job_id: insp.crm_job_id ?? job.id },
-                {
-                  id: job.id,
-                  company_id: job.company_id,
-                  client_id: job.client_id,
-                  scheduled_date: job.scheduled_date,
-                  job_number: job.job_number,
-                  title: job.title,
-                  address: job.address,
-                },
-                { href: inspectionHref(insp.status, insp.id), label: 'Open', actionable: true },
-              );
-              const report = (jobReports ?? []).find(r => r.inspection_id === insp.id) ?? null;
-              const sendSurface = reportSendSurface(report);
-              const displayStatus = inspectionDisplayStatus(insp.status, report?.sent_at);
-              const done = insp.status === 'completed' || insp.status === 'issued' || insp.status === 'sent';
-              const living = livingInspectionSummary({
-                meta: insp.meta,
-                job: {
-                  id: job.id,
-                  title: job.title,
-                  address: job.address,
-                  client_id: job.client_id,
-                  client_name: client?.name ?? '',
-                },
-                skipClient: !!job.client_id && !client,
-              });
-              return (
-              <JobRelatedRow
-                key={insp.id}
-                href={next.href}
-                icon={FileText}
-                title={insp.template_snapshot?.name ?? 'Inspection'}
-                meta={[
-                  living.site || 'Site follows this job',
-                  living.clientName || 'Client follows this job',
-                  format(new Date(insp.started_at), 'd MMM yyyy'),
-                ].filter(Boolean).join(' · ')}
-                trailing={
-                  <OpsStatus className={inspectionStatusClass(displayStatus)}>{inspectionStatusLabel(displayStatus)}</OpsStatus>
-                }
-                action={
-                  next.label === 'Remind client' ? (
-                    <Link to={next.href} className="ops-link text-xs">{next.label}</Link>
-                  ) : sendSurface.kind === 'send' ? (
-                    <button type="button" className="ops-link text-xs" onClick={() => setSendingReportId(sendSurface.reportId)}>
-                      Send
-                    </button>
-                  ) : done ? (
-                    <span className="ops-meta text-xs">No report yet</span>
-                  ) : undefined
-                }
+            <DollarSign size={16} className="text-navy shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="ops-section-title">Job bill</p>
+              <p className="ops-meta">
+                {budget != null ? `Budget ${formatMoney(budget)} · ` : ''}
+                Cost {formatMoney(actualCost)} · Charge {formatMoney(chargeTotal)}
+                {(costTotals?.lines ?? 0) === 0 ? ' · Add materials on this job' : ''}
+              </p>
+            </div>
+            <ChevronDown size={16} className={`text-muted transition-transform ${billOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {billOpen && (
+            <div className="mt-3">
+              <JobCostingPanel
+                jobId={job.id}
+                clientId={job.client_id}
+                onInvoiceCreated={() => {
+                  queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
+                  queryClient.invalidateQueries({ queryKey: ['job-cost-totals', id] });
+                  showToast('Invoice ready — see Invoices on this job');
+                }}
               />
-              );
-            })}
-          </JobRelatedSection>
-          </div>
-
+            </div>
+          )}
+        </div>
           <div id="job-swms">
           <JobRelatedSection
             title="JHA / SWMS"
@@ -1701,70 +1642,6 @@ export function JobDetailPage() {
           </JobRelatedSection>
           </div>
 
-          <JobRelatedSection
-            title="Quotes"
-            icon={FileText}
-            count={(quotes ?? []).length}
-            emptyTitle="No quote on this job. That’s fine for do-and-charge — invoice from the bill."
-          >
-            {(quotes ?? []).map(q => (
-              <JobRelatedRow
-                key={q.id}
-                href={`/quotes?id=${q.id}`}
-                icon={FileText}
-                title={`Quote #${padNum(q.quote_number)}`}
-                meta={formatMoney(Number(q.total))}
-                trailing={
-                  <OpsStatus className={QUOTE_STATUS_STYLES[q.status as keyof typeof QUOTE_STATUS_STYLES] ?? 'ops-status-wait'}>
-                    {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}
-                  </OpsStatus>
-                }
-                action={
-                  q.status === 'accepted' && !(invoices ?? []).some(inv => inv.quote_id === q.id) ? (
-                    <button
-                      type="button"
-                      onClick={() => invoiceFromQuote.mutate(q.id)}
-                      disabled={invoiceFromQuote.isPending}
-                      className="ops-next-control-sm w-auto px-3 shrink-0"
-                    >
-                      Invoice
-                    </button>
-                  ) : undefined
-                }
-              />
-            ))}
-          </JobRelatedSection>
-
-          <JobRelatedSection
-            title="Invoices"
-            icon={Receipt}
-            count={(invoices ?? []).length}
-            emptyTitle="Nothing invoiced yet. Invoice an accepted quote, or from the job bill."
-            emptyAction={
-              <button type="button" onClick={handleInvoice} disabled={invoiceFromJobBill.isPending} className="ops-link">
-                Invoice this job
-              </button>
-            }
-          >
-            {(invoices ?? []).map(inv => {
-              const status = effectiveInvoiceStatus(inv);
-              return (
-                <JobRelatedRow
-                  key={inv.id}
-                  href={`/invoices?id=${inv.id}`}
-                  icon={Receipt}
-                  title={`Invoice #${padNum(inv.invoice_number)}`}
-                  meta={formatMoney(Number(inv.total))}
-                  trailing={
-                    <OpsStatus className={INVOICE_STATUS_STYLES[status]}>
-                      {INVOICE_STATUS_LABELS[status]}
-                    </OpsStatus>
-                  }
-                />
-              );
-            })}
-          </JobRelatedSection>
-
         <div id="job-hours">
         <JobRelatedSection
           title="Time on this job"
@@ -1817,37 +1694,160 @@ export function JobDetailPage() {
         </JobRelatedSection>
         </div>
 
-        <div id="job-bill">
-          <button
-            type="button"
-            onClick={() => setBillOpen(o => !o)}
-            className="hub-jobs-bill-head"
+          <div id="job-insp">
+          <JobRelatedSection
+            title="Inspections"
+            icon={ClipboardList}
+            count={(inspections ?? []).length}
+            action={
+              <Link to={inspectHref} className="ops-link text-xs">
+                <Plus size={12} className="inline" /> Add inspection
+              </Link>
+            }
+            emptyTitle="No inspection on this job yet."
+            emptyAction={<Link to={inspectHref} className="ops-link">Start inspection</Link>}
           >
-            <DollarSign size={16} className="text-navy shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="ops-section-title">Job bill</p>
-              <p className="ops-meta">
-                {budget != null ? `Budget ${formatMoney(budget)} · ` : ''}
-                Cost {formatMoney(actualCost)} · Charge {formatMoney(chargeTotal)}
-                {(costTotals?.lines ?? 0) === 0 ? ' · Add materials on this job' : ''}
-              </p>
-            </div>
-            <ChevronDown size={16} className={`text-muted transition-transform ${billOpen ? 'rotate-180' : ''}`} />
-          </button>
-          {billOpen && (
-            <div className="mt-3">
-              <JobCostingPanel
-                jobId={job.id}
-                clientId={job.client_id}
-                onInvoiceCreated={() => {
-                  queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
-                  queryClient.invalidateQueries({ queryKey: ['job-cost-totals', id] });
-                  showToast('Invoice ready — see Invoices on this job');
-                }}
+            {(inspections ?? []).map(insp => {
+              const next = withInspectionDueNext(
+                { ...insp, crm_job_id: insp.crm_job_id ?? job.id },
+                {
+                  id: job.id,
+                  company_id: job.company_id,
+                  client_id: job.client_id,
+                  scheduled_date: job.scheduled_date,
+                  job_number: job.job_number,
+                  title: job.title,
+                  address: job.address,
+                },
+                { href: inspectionHref(insp.status, insp.id), label: 'Open', actionable: true },
+              );
+              const report = (jobReports ?? []).find(r => r.inspection_id === insp.id) ?? null;
+              const sendSurface = reportSendSurface(report);
+              const displayStatus = inspectionDisplayStatus(insp.status, report?.sent_at);
+              const done = insp.status === 'completed' || insp.status === 'issued' || insp.status === 'sent';
+              const living = livingInspectionSummary({
+                meta: insp.meta,
+                job: {
+                  id: job.id,
+                  title: job.title,
+                  address: job.address,
+                  client_id: job.client_id,
+                  client_name: client?.name ?? '',
+                },
+                skipClient: !!job.client_id && !client,
+              });
+              return (
+              <JobRelatedRow
+                key={insp.id}
+                href={next.href}
+                icon={FileText}
+                title={insp.template_snapshot?.name ?? 'Inspection'}
+                meta={[
+                  living.site || 'Site follows this job',
+                  living.clientName || 'Client follows this job',
+                  format(new Date(insp.started_at), 'd MMM yyyy'),
+                ].filter(Boolean).join(' · ')}
+                trailing={
+                  <OpsStatus className={inspectionStatusClass(displayStatus)}>{inspectionStatusLabel(displayStatus)}</OpsStatus>
+                }
+                action={
+                  next.label === 'Remind client' ? (
+                    <Link to={next.href} className="ops-link text-xs">{next.label}</Link>
+                  ) : sendSurface.kind === 'send' ? (
+                    <button type="button" className="ops-link text-xs" onClick={() => setSendingReportId(sendSurface.reportId)}>
+                      Send
+                    </button>
+                  ) : done ? (
+                    <span className="ops-meta text-xs">No report yet</span>
+                  ) : undefined
+                }
               />
-            </div>
-          )}
-        </div>
+              );
+            })}
+          </JobRelatedSection>
+          </div>
+
+          <div id="job-testing-due">
+          <JobRelatedSection
+            title={JOB_TESTING_DUE_TITLE}
+            icon={ClipboardList}
+            count={dueTests.length}
+            emptyTitle={JOB_TESTING_DUE_EMPTY}
+          >
+            {dueTests.map(row => (
+              <JobRelatedRow
+                key={row.id}
+                href={row.href}
+                icon={FileText}
+                title={row.title}
+                meta={row.dueLabel}
+                rowClassName={row.dueKind === 'overdue' ? 'is-overdue' : undefined}
+                action={
+                  <Link to={row.href} className="job-testing-due-open">Open</Link>
+                }
+              />
+            ))}
+          </JobRelatedSection>
+          </div>
+
+        {stages.length > 0 && (
+            <JobRelatedSection
+              title="Project stages"
+              icon={GitBranch}
+              count={stages.length}
+              action={!job.parent_job_id ? (
+                <button type="button" onClick={() => setShowStage(true)} className="ops-link text-xs">
+                  <Plus size={12} /> Add stage
+                </button>
+              ) : undefined}
+              emptyTitle="No stages on this job."
+            >
+              {stages.map(child => (
+                <JobRelatedRow
+                  key={child.id}
+                  href={`/jobs/${child.id}`}
+                  icon={GitBranch}
+                  title={`${formatJobRef({
+                    job_number: job.job_number,
+                    cost_code: child.cost_code,
+                    parent_job_number: job.job_number,
+                  })} ${child.title}`}
+                  trailing={<OpsStatus className={JOB_STATUS_STYLES[child.status as JobStatus] ?? 'ops-status-wait'}>{JOB_STATUS_LABELS[child.status as JobStatus] ?? child.status}</OpsStatus>}
+                />
+              ))}
+            </JobRelatedSection>
+        )}
+
+          <JobRelatedSection
+            title="Invoices"
+            icon={Receipt}
+            count={(invoices ?? []).length}
+            emptyTitle="Nothing invoiced yet. Invoice an accepted quote, or from the job bill."
+            emptyAction={
+              <button type="button" onClick={handleInvoice} disabled={invoiceFromJobBill.isPending} className="ops-link">
+                Invoice this job
+              </button>
+            }
+          >
+            {(invoices ?? []).map(inv => {
+              const status = effectiveInvoiceStatus(inv);
+              return (
+                <JobRelatedRow
+                  key={inv.id}
+                  href={`/invoices?id=${inv.id}`}
+                  icon={Receipt}
+                  title={`Invoice #${padNum(inv.invoice_number)}`}
+                  meta={formatMoney(Number(inv.total))}
+                  trailing={
+                    <OpsStatus className={INVOICE_STATUS_STYLES[status]}>
+                      {INVOICE_STATUS_LABELS[status]}
+                    </OpsStatus>
+                  }
+                />
+              );
+            })}
+          </JobRelatedSection>
+
             </div>
             <div id="job-schedule">
           <JobDispatchPanel

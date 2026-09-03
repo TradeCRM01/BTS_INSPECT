@@ -78,7 +78,7 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(paper).toContain('id="job-schedule"');
     expect(paper).toContain('JobDispatchPanel');
     expect(page.indexOf('</article>')).toBeGreaterThan(page.indexOf('id="job-schedule"'));
-    expect(page).toMatch(/id="job-bill"[\s\S]*?<\/div>\s*<\/div>\s*<div id="job-schedule">/);
+    expect(page).toMatch(/title="Invoices"[\s\S]*?<\/JobRelatedSection>\s*<\/div>\s*<div id="job-schedule">/);
     expect(css).not.toMatch(/\.hub-jobs-document[\s\S]{0,80}\.ops-tray \.btn-primary[\s\S]{0,160}#2E75B6/);
     expect(css).toContain('--job-look-page: #F5F0E6');
     expect(css).toContain('--job-look-sheet: #FFFDF8');
