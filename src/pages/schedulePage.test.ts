@@ -97,7 +97,10 @@ describe('schedule board cream paper look', () => {
     expect(page).toContain("name: 'Dave'");
     expect(page).toContain("name: 'Jack'");
     expect(page).toContain("name: 'Sam'");
-    expect(page).toContain('#C45C38');
+    expect(page).toContain('#0A2540');
+    expect(page).toContain('#F7931A');
+    expect(page).toContain('#7C3AED');
+    expect(page).not.toMatch(/#C45C38|#C05838/);
     expect(page).toContain('Warehouse lights');
     expect(page).toContain('EEE d MMM');
     expect(page).toContain('data-week-seg="1"');
@@ -109,6 +112,7 @@ describe('schedule board cream paper look', () => {
     expect(board).not.toContain('data-schedule-track="week"');
     expect(weekCss).toContain('inset 0 1px 0 #fff');
     expect(weekCss).not.toMatch(/#1B7F3A|#059669|#166534|green/i);
+    expect(weekCss).not.toMatch(/#C45C38|#C05838/);
     expect(weekCss).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
   });
 
