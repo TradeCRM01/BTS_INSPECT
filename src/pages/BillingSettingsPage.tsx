@@ -113,7 +113,7 @@ const BILLING_LOOK_CSS = `
 }
 .hub-billing-jobline {
   margin: 8px 0 0;
-  color: #2E75B6;
+  color: var(--billing-look-muted);
   font-size: 16px;
   font-weight: 500;
 }
@@ -261,10 +261,6 @@ const BILLING_LOOK_CSS = `
 @media (max-width: 639px) {
   .hub-billing.ops-page { padding: 16px 16px 40px; }
   .hub-billing-sheet-bar { padding: 8px 16px; }
-  .hub-billing-sheet-bar .hub-billing-pill {
-    background: #2E75B6;
-    color: #fff;
-  }
   .hub-billing-sheet-body { padding: 24px 16px 16px; }
   .hub-billing-hero { font-size: 40px; }
   .hub-billing-tools {

@@ -12,6 +12,8 @@ describe('Settings billing cream paper look', () => {
     const css = src('src/index.css');
     const look = page.slice(page.indexOf('BILLING_LOOK_CSS'));
     const choose = look.slice(look.indexOf('.hub-billing-choose {'), look.indexOf('.hub-billing-choose:hover'));
+    const jobline = look.slice(look.indexOf('.hub-billing-jobline {'), look.indexOf('.hub-billing-lede {'));
+    const pill = look.slice(look.indexOf('.hub-billing-pill {'), look.indexOf('.hub-billing-sheet-body {'));
 
     expect(page).toContain('BILLING_LOOK_CSS');
     expect(page).toContain('hub-billing');
@@ -50,6 +52,11 @@ describe('Settings billing cream paper look', () => {
     expect(choose).not.toContain('#0A2540');
     expect(choose).not.toContain('2.5px');
     expect(choose).not.toContain('border: 1px');
+    expect(jobline).toContain('var(--billing-look-muted)');
+    expect(jobline).not.toContain('#2E75B6');
+    expect(pill).toContain('background: #fff');
+    expect(pill).not.toContain('#2E75B6');
+    expect(look).not.toContain('.hub-billing-sheet-bar .hub-billing-pill { background: #2E75B6 }');
 
     expect(look).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
     expect(look).not.toMatch(/gloss|lacquer|shine|glow/i);
