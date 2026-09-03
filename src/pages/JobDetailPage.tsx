@@ -425,7 +425,7 @@ export function JobDetailPage() {
     more.classList.remove('is-flip', 'is-shift');
     menu.style.removeProperty('--hub-job-more-shift');
     if (!more.open) return;
-    const pad = 8;
+    const pad = 16;
     const paperRect = paper.getBoundingClientRect();
     const viewBottom = window.innerHeight - pad;
     const menuRect = menu.getBoundingClientRect();
@@ -1245,6 +1245,7 @@ export function JobDetailPage() {
                 </div>
               </div>
               <div className="hub-jobs-identity-col hub-jobs-contact">
+              <div className="hub-jobs-contact-row">
               {attachRow.kind === 'pick' ? (
                 <form
                   className="job-client-attach"
@@ -1352,6 +1353,7 @@ export function JobDetailPage() {
                   </button>
                 </form>
               )}
+              </div>
               </div>
               <div className="hub-jobs-identity-col is-ops">
               <p className="hub-jobs-ledger-row">
