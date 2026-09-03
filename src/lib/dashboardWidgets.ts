@@ -6,7 +6,7 @@ export const DASHBOARD_WIDGET_CELL_H = 90;
 
 /**
  * Trade-useful first dashboard — jobs, invoices, compliance.
- * Not bitcoin / market toys. All trades, not a single licence.
+ * Not a market ticker. All trades, not a single licence.
  */
 export const DEFAULT_DASHBOARD_WIDGET_TYPES = [
   'upcoming_jobs',
@@ -25,6 +25,19 @@ export type DashboardWidgetInsert = {
   config: Record<string, never>;
 };
 
+export type DashboardWidgetSeedDecision = 'keep' | 'seed' | 'empty';
+
+/** IO used so first-visit / delete-all / CAS can be tested without a live table. */
+export type DashboardWidgetSeedIo<T> = {
+  loadRows: () => Promise<T[]>;
+  loadSeeded: () => Promise<boolean>;
+  /** Compare-and-set false → true. True only for the one writer. */
+  claimSeed: () => Promise<boolean>;
+  insertDefaults: () => Promise<T[]>;
+  /** Existing layouts: mark seeded so a later delete-all remount stays empty. */
+  markSeeded?: () => Promise<void>;
+};
+
 const DEFAULT_LAYOUT: Array<{ grid_x: number; grid_y: number }> = [
   { grid_x: 20, grid_y: 20 },
   { grid_x: 430, grid_y: 20 },
@@ -39,11 +52,17 @@ export function dashboardWidgetPixelSize(type: string): { grid_w: number; grid_h
   };
 }
 
-/** Seed only when the user has no rows. Existing layouts are left alone. */
-export function shouldSeedDefaultDashboardWidgets(
-  rows: ReadonlyArray<unknown> | null | undefined,
-): boolean {
-  return (rows?.length ?? 0) === 0;
+/**
+ * Seed once. Empty + never seeded → write defaults.
+ * Existing rows stay. Seeded + empty (delete-all remount) stays empty.
+ */
+export function decideDashboardWidgetSeed(args: {
+  rows: ReadonlyArray<unknown> | null | undefined;
+  seeded: boolean | null | undefined;
+}): DashboardWidgetSeedDecision {
+  if ((args.rows?.length ?? 0) > 0) return 'keep';
+  if (args.seeded) return 'empty';
+  return 'seed';
 }
 
 export function defaultDashboardWidgetInserts(): DashboardWidgetInsert[] {
@@ -56,4 +75,19 @@ export function defaultDashboardWidgetInserts(): DashboardWidgetInsert[] {
       config: {},
     };
   });
+}
+
+export async function resolveDashboardWidgets<T>(io: DashboardWidgetSeedIo<T>): Promise<T[]> {
+  const rows = await io.loadRows();
+  const seeded = await io.loadSeeded();
+  const decision = decideDashboardWidgetSeed({ rows, seeded });
+  if (decision === 'keep') {
+    if (!seeded) await io.markSeeded?.();
+    return rows;
+  }
+  if (decision === 'empty') return rows;
+
+  const won = await io.claimSeed();
+  if (!won) return io.loadRows();
+  return io.insertDefaults();
 }

@@ -35,7 +35,7 @@ import {
 import {
   dashboardWidgetPixelSize,
   defaultDashboardWidgetInserts,
-  shouldSeedDefaultDashboardWidgets,
+  resolveDashboardWidgets,
 } from '../lib/dashboardWidgets';
 import type { ScheduleCrewMember } from '../lib/scheduleBoard';
 
@@ -134,27 +134,56 @@ export function DashboardPage() {
     queryFn: async () => {
       const mock = getAuditDashboardWidgets();
       if (mock) return mock;
-      const { data, error } = await supabase
-        .from('dashboard_widgets')
-        .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
-        .order('grid_y', { ascending: true });
-      if (error) throw error;
-      const rows = (data ?? []) as DashboardWidget[];
-      if (!shouldSeedDefaultDashboardWidgets(rows)) return rows;
+      if (!profile?.id) return [];
 
-      const { data: seeded, error: seedError } = await supabase
-        .from('dashboard_widgets')
-        .insert(defaultDashboardWidgetInserts() as never)
-        .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config');
-      if (!seedError && seeded?.length) return seeded as DashboardWidget[];
+      const loadRows = async (): Promise<DashboardWidget[]> => {
+        const { data, error } = await supabase
+          .from('dashboard_widgets')
+          .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
+          .order('grid_y', { ascending: true });
+        if (error) throw error;
+        return (data ?? []) as DashboardWidget[];
+      };
 
-      // Concurrent first visit — reload instead of writing a second set.
-      const { data: retry, error: retryError } = await supabase
-        .from('dashboard_widgets')
-        .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
-        .order('grid_y', { ascending: true });
-      if (retryError) throw retryError;
-      return (retry ?? []) as DashboardWidget[];
+      return resolveDashboardWidgets<DashboardWidget>({
+        loadRows,
+        loadSeeded: async () => {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('dashboard_widgets_seeded')
+            .eq('id', profile.id)
+            .maybeSingle();
+          if (error) throw error;
+          return !!data?.dashboard_widgets_seeded;
+        },
+        claimSeed: async () => {
+          const { data, error } = await supabase
+            .from('profiles')
+            .update({ dashboard_widgets_seeded: true } as never)
+            .eq('id', profile.id)
+            .eq('dashboard_widgets_seeded', false)
+            .select('id')
+            .maybeSingle();
+          if (error) throw error;
+          return !!data?.id;
+        },
+        insertDefaults: async () => {
+          const { data, error } = await supabase
+            .from('dashboard_widgets')
+            .insert(defaultDashboardWidgetInserts() as never)
+            .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config');
+          if (error) throw error;
+          return (data ?? []) as DashboardWidget[];
+        },
+        markSeeded: async () => {
+          const { error } = await supabase
+            .from('profiles')
+            .update({ dashboard_widgets_seeded: true } as never)
+            .eq('id', profile.id)
+            .eq('dashboard_widgets_seeded', false);
+          if (error) throw error;
+        },
+      });
     },
     enabled: !!profile,
   });

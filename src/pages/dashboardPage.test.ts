@@ -64,21 +64,32 @@ describe('dashboard widgets stay on the paper', () => {
   it('shows persisted widgets without Customize, and seeds an empty table once', () => {
     const page = src('src/pages/DashboardPage.tsx');
     expect(page).toContain("from('dashboard_widgets')");
-    expect(page).toContain('shouldSeedDefaultDashboardWidgets');
+    expect(page).toContain('resolveDashboardWidgets');
     expect(page).toContain('defaultDashboardWidgetInserts');
+    expect(page).toContain('dashboard_widgets_seeded');
+    expect(page).toContain(".eq('dashboard_widgets_seeded', false)");
+    expect(page).toContain('claimSeed');
     expect(page).toContain('persistWidget');
     expect(page).toContain('dashboard-home-canvas');
     expect(page).toContain('FreeWidget');
     expect(page).not.toContain('{editMode && (\n          widgetsLoading');
     expect(page).not.toMatch(/\{editMode && \(\s*widgetsLoading/);
+    expect(page).not.toContain('shouldSeedDefaultDashboardWidgets');
     expect(page).toContain("queryKey: ['dashboard-widgets']");
 
     const helper = src('src/lib/dashboardWidgets.ts');
     expect(helper).toContain('upcoming_jobs');
     expect(helper).toContain('outstanding_invoices');
     expect(helper).toContain('compliance_deadlines');
+    expect(helper).toContain('decideDashboardWidgetSeed');
     expect(helper).not.toMatch(/['"]bitcoin['"]/);
     expect(helper).not.toMatch(/electric|electrical/i);
+
+    const migration = src('supabase/migrations/20260903120000_072_dashboard_widgets_seeded.sql');
+    expect(migration).toContain('ALTER TABLE public.profiles');
+    expect(migration).toContain('dashboard_widgets_seeded');
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS dashboard_widgets_seeded');
+    expect(migration).not.toMatch(/create table/i);
   });
 
   it('puts Add widget on the paper when none are set', () => {
