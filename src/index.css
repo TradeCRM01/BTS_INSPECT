@@ -6975,13 +6975,6 @@
     margin: 0;
   }
 
-  .hub-jobs-jobline {
-    margin: 8px 0 0;
-    color: #2E75B6;
-    font-size: 16px;
-    font-weight: 500;
-  }
-
   .hub-jobs-tools {
     display: flex;
     flex-wrap: wrap;
@@ -7186,10 +7179,6 @@
   .hub-job-more-menu button:disabled {
     color: #5B6B7C;
     cursor: not-allowed;
-  }
-
-  .hub-jobs-document .job-cal-quiet {
-    margin-left: 0;
   }
 
   @media (max-width: 639px) {

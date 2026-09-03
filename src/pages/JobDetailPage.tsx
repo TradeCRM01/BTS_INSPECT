@@ -9,8 +9,7 @@ import { JobFormModal } from '../components/crm/JobFormModal';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
 import { JobClientReminder, type JobClientReminderHandle } from '../components/jobs/JobClientReminder';
-import { JobCalendarOverflow } from '../components/jobs/JobCalendarOverflow';
-import { calendarSite } from '../lib/jobCalendar';
+import { buildJobCalendar, calendarSite, downloadJobCalendar } from '../lib/jobCalendar';
 import { formatJobRef } from '../lib/jobRef';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
@@ -834,22 +833,10 @@ export function JobDetailPage() {
   return (
     <AppShell>
       <style>{`
-        .hub-jobs.is-record-open .hub-jobs-jobline {
-          margin: 8px 0 0;
-          font-family: Rajdhani, sans-serif;
-          font-weight: 700;
-          font-size: 20px;
-          letter-spacing: 0.02em;
-          line-height: 1.2;
-          color: #5B6B7C;
-        }
         .hub-jobs.is-record-open .hub-jobs-tools-overflow {
           display: flex;
           align-items: center;
           gap: 0;
-        }
-        .hub-jobs.is-record-open .hub-jobs-tools-overflow .job-cal-quiet {
-          margin-left: 0;
         }
         .hub-jobs.is-record-open .job-reminder.is-arriving .job-reminder-act .ops-link {
           min-height: 44px;
@@ -857,9 +844,6 @@ export function JobDetailPage() {
           align-items: center;
         }
         @media (max-width: 639px) {
-          .hub-jobs.is-record-open .hub-jobs-jobline {
-            font-size: 16px;
-          }
           .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools {
             flex-direction: row;
             flex-wrap: nowrap;
@@ -902,7 +886,6 @@ export function JobDetailPage() {
           </header>
           <div className="hub-jobs-sheet-body">
             <h1 className="hub-jobs-hero">{job.title}</h1>
-            {site ? <p className="hub-jobs-jobline">{site}</p> : null}
 
             <div className="hub-jobs-tools">
               {next.key === 'inspect' && !arrivingPrimary ? (
@@ -993,15 +976,22 @@ export function JobDetailPage() {
                   >
                     Details
                   </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      closeMore();
+                      const preview = buildJobCalendar(job, {
+                        site: calendarSite(job.address, client?.address),
+                        crewNames: assigned,
+                      });
+                      if (preview.ok) downloadJobCalendar(preview);
+                    }}
+                  >
+                    Add to calendar
+                  </button>
                 </div>
               </details>
-              <div className="job-cal-quiet">
-                <JobCalendarOverflow
-                  job={job}
-                  site={calendarSite(job.address, client?.address)}
-                  crewNames={assigned}
-                />
-              </div>
               </div>
             </div>
 

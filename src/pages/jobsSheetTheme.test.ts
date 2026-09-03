@@ -25,6 +25,11 @@ describe('job hub open sheet LOOK', () => {
     expect(page).toContain('hub-jobs-tools');
     expect(page).toContain('className="btn-primary ops-next-control-block"');
     expect(page).toContain('hub-job-more');
+    expect(page).toContain('OpsSiteRow');
+    expect(page).toContain('Add to calendar');
+    expect(page).toContain('buildJobCalendar');
+    expect(page).not.toContain('hub-jobs-jobline');
+    expect(page).not.toContain('JobCalendarOverflow');
     expect(page).toContain('Job status');
     expect(page).toContain('jobOpenNext');
     expect(page).not.toContain('hub-job-kicker');
@@ -70,6 +75,7 @@ describe('job hub open sheet LOOK', () => {
     expect(lookCss).toContain("font-family: Rajdhani, sans-serif");
     expect(lookCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(lookCss).toContain('font-variant-numeric: tabular-nums');
+    expect(lookCss).not.toContain('.hub-jobs-jobline');
     expect(lookCss).not.toContain('.hub-job-kicker');
     expect(lookCss).not.toContain('--job-look-pass');
     expect(lookCss).not.toMatch(/#16A34A|#15803D|#1B7F3A/);
@@ -123,6 +129,16 @@ describe('job hub open sheet LOOK frames', () => {
     for (const rel of [
       'docs/look/job-hub-sheet-desktop.png',
       'docs/look/job-hub-sheet-phone.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
+    }
+  });
+
+  it('covers one site address and one overflow on the open sheet', () => {
+    for (const rel of [
+      'docs/look/job-sheet-address-desktop.png',
+      'docs/look/job-sheet-address-phone.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
       expect(rel).not.toMatch(/ute/i);
