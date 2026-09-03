@@ -151,7 +151,7 @@ export function Take5ListPage() {
       <div className="ops-page hub-take5">
         <div className="ops-page-head">
           <div>
-            <p className="hub-take5-label">Take 5</p>
+            <p className="hub-look-eyebrow hub-take5-label">Take 5</p>
             <h1 className="ops-page-title">Take 5</h1>
             <p className="hub-take5-lede">
               {filter === 'open'

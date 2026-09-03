@@ -238,7 +238,7 @@ export function CompliancePage() {
         </div>
         <div className="ops-page-head">
           <div>
-            <p className="hub-compliance-label">Compliance</p>
+            <p className="hub-look-eyebrow hub-compliance-label">Compliance</p>
             <h1 className="ops-page-title">Compliance</h1>
             <p className="hub-compliance-lede">
               {isLoading ? 'Loading…' : complianceListFloorLede(floorItems.length)}

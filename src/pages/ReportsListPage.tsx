@@ -890,7 +890,7 @@ export function ReportsListPage() {
         </div>
         <div className="ops-page-head">
           <div>
-            <p className="hub-reports-label">Reports</p>
+            <p className="hub-look-eyebrow hub-reports-label">Reports</p>
             <h1 className="ops-page-title">Reports</h1>
             <p className="hub-reports-lede">{reportsListLede(statusFilter, reportItems.length)}</p>
           </div>

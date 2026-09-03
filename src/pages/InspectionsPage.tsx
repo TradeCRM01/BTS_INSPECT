@@ -502,7 +502,7 @@ export function InspectionsPage() {
       <div className="ops-page hub-inspections">
         <div className="ops-page-head">
           <div>
-            <p className="hub-inspections-label">Inspections</p>
+            <p className="hub-look-eyebrow hub-inspections-label">Inspections</p>
             <h1 className="ops-page-title">
               Inspections
             </h1>
