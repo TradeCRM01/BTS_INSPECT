@@ -79,7 +79,15 @@ describe('job hub open sheet LOOK', () => {
     expect(lookCss).toContain('.hub-jobs-document .hub-jobs-tools .ops-next-control-block');
     expect(lookCss).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(lookCss).toContain('inset 0 1px 0 #fff');
-    expect(lookCss).toContain('font-size: 56px !important');
+    const hero = lookCss.slice(lookCss.indexOf('  .hub-jobs-hero {'), lookCss.indexOf('  .hub-jobs-tools {'));
+    expect(hero).toContain('font-size: 22px !important');
+    expect(hero).toContain('letter-spacing: 0');
+    expect(hero).toContain('line-height: 1.2');
+    expect(hero).not.toContain('56px');
+    expect(hero).not.toContain('32px');
+    expect(lookCss).toContain('.hub-jobs-hero {\n      font-size: 20px !important');
+    expect(lookCss).toContain('.hub-jobs-document .hub-jobs-identity .hub-jobs-hours {\n    font-size: 14px;');
+    expect(lookCss).toContain('.hub-jobs-document .hub-jobs-identity .hub-jobs-hours {\n      font-size: 12px;');
     expect(lookCss).toContain("font-family: Rajdhani, sans-serif");
     expect(lookCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(lookCss).toContain('font-variant-numeric: tabular-nums');
