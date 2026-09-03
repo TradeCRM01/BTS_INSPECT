@@ -458,6 +458,11 @@ describe('jobOpenNext — scheduled today in Australia/Brisbane', () => {
       clockedOff: true,
     }, brisbaneMorning);
     expect(afterClockOff.label).toBe('Invoice');
+    expect(withReminderNext(
+      todayJob,
+      { href: '/jobs/job-1', label: 'Invoice', actionable: true },
+      brisbaneMorning,
+    ).label).toBe('Invoice');
     expect(afterClockOff.action.key).toBe('invoice');
     expect(afterClockOff.action.label).not.toBe('Start JHA');
     expect(afterClockOff.action.label).not.toBe('Start inspection');

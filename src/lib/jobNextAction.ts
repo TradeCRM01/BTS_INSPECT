@@ -40,7 +40,7 @@ export type JobActionContext = {
   hasAcceptedQuote: boolean;
   hasBillLines: boolean;
   clockedOn: boolean;
-  /** Closed timesheet on this job — Clock off has happened. Optional for older callers. */
+  /** Closed timesheet on this job — the van has clocked off. Optional for older callers. */
   clockedOff?: boolean;
   /** Same-day / in_progress arriving window. Optional — derived from Australia/Brisbane today. */
   arrivingWindow?: boolean;
@@ -98,7 +98,7 @@ function jobHasUnsentDraftOnly(ctx: JobActionContext): boolean {
   return ctx.hasDraftInvoice === true && ctx.hasIssuedInvoice !== true;
 }
 
-/** After Clock off (not still clocked on). JHA / Take 5 stay on the job — they are not the Next gate. */
+/** After the van clocked off (not still clocked on). JHA / Take 5 stay on the job — they are not the Next gate. */
 function jobHasClockedOff(ctx: JobActionContext): boolean {
   return ctx.clockedOff === true && ctx.clockedOn !== true;
 }
@@ -324,7 +324,7 @@ export type JobOpenNext = JobListNext & { action: RecommendedJobAction };
 /**
  * One Next for the jobs list card and the open job sheet.
  * Card is the source of truth. Scheduled today (Australia/Brisbane) is
- * Arriving shortly, then Clock In. After Clock off, Next is Invoice
+ * Arriving shortly, then Clock In. After the van clocked off, Next is Invoice
  * (or Send if a draft exists) — JHA / Take 5 stay on the job.
  */
 export function jobOpenNext(
