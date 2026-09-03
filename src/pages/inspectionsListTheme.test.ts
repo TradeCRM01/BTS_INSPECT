@@ -14,8 +14,8 @@ describe('inspections list cream paper look', () => {
     expect(list).toContain('hub-inspections');
     expect(list).toContain('hub-inspections-sheet');
     expect(list).toContain('hub-inspections-row');
-    expect(list).toContain('hub-inspections-pill');
-    expect(list).toContain('hub-inspections-label');
+    expect(list).toContain('hub-inspections-list-doc');
+    expect(list).toContain('hub-inspections-list-whisper');
     expect(list).toContain('Open or due');
     expect(list).toContain('All inspections');
     expect(list).toContain('dueLabel');

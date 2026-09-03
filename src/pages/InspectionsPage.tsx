@@ -1,6 +1,5 @@
-import { useState, useMemo, useRef, memo, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useMemo, useRef, useCallback, useEffect, type ReactNode } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { DEV_AUDIT_PROFILE, pageQueryBlocked } from '../lib/devFieldAuditAuth';
@@ -15,8 +14,8 @@ import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, PageError, SearchBar, opsSiteLabel, useToast } from '../components/ui';
 import {
   Plus, ClipboardList, X,
-  Archive, ArchiveRestore, MoreVertical, Link2, Trash2,
-  Send, Folder, Home, Package, FileText,
+  MoreHorizontal,
+  Send, Folder, Home, FileText,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { downloadBlob, exportInspectionPack } from '../lib/exportInspectionPack';
@@ -31,7 +30,7 @@ import { withInspectionDueNext } from '../lib/inspectionDueReminder';
 import {
   decorateInspectionList,
   filterInspectionListFloor,
-  groupInspectionListFloor,
+  formatInspectionListDate,
   inspectionListEmptyMessage,
   inspectionListEmptyTitle,
   inspectionListOpenHref,
@@ -76,12 +75,71 @@ const LIST_FILTERS: { key: InspectionListFilter; label: string }[] = [
   { key: 'issued', label: 'Issued' },
 ];
 
-function suburbFromSite(site: string): string {
-  if (site === 'No site address') return '';
-  const parts = site.split(',').map(part => part.trim()).filter(Boolean);
-  if (parts.length < 2) return '';
-  const loc = parts[1].replace(/\b(NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\b.*$/i, '').trim();
-  return loc || parts[1];
+/** Signed inspections-list frame seed — list look only, not a live company. */
+const INSPECTIONS_LIST_LOOK = 'inspections-list';
+
+function inspectionsListLookRows(): Inspection[] {
+  const stamp = '2026-09-03T00:00:00.000Z';
+  const base = {
+    inspector_id: 'look-insp-dave',
+    inspector_name: 'Dave',
+    archived: false,
+    parent_inspection_id: null as string | null,
+    crm_job_id: null as string | null,
+    responses: {} as Record<string, unknown>,
+    completed_at: stamp,
+    started_at: stamp,
+    due_on: null as string | null,
+    report_id: null as string | null,
+    report_sent_at: null as string | null,
+    template_snapshot: { name: 'Inspection' } as Inspection['template_snapshot'],
+  };
+  return [
+    {
+      ...base,
+      id: 'look-insp-northside',
+      status: 'completed',
+      meta: { siteName: 'Northside Electrical', siteAddress: '12 Workshop Rd, Perth WA 6000' },
+    },
+    {
+      ...base,
+      id: 'look-insp-harbour',
+      status: 'completed',
+      report_id: 'look-report-harbour',
+      report_sent_at: '2026-09-03T01:00:00.000Z',
+      meta: { siteName: 'Harbour Lights', siteAddress: '8 Wharf St, Fremantle WA 6160' },
+    },
+    {
+      ...base,
+      id: 'look-insp-midland',
+      status: 'completed',
+      meta: { siteName: 'Midland Workshops', siteAddress: '44 Helena St, Midland WA 6056' },
+    },
+  ];
+}
+
+function inspectionsListWhisper(args: {
+  filter: InspectionListFilter;
+  archived: boolean;
+  count: number;
+}): string {
+  const filterLabel = args.archived
+    ? 'Archived'
+    : args.filter === 'action'
+      ? 'Open or due'
+      : args.filter === 'all'
+        ? 'All'
+        : args.filter === 'draft'
+          ? 'Draft'
+          : args.filter === 'completed'
+            ? 'Ready'
+            : 'Issued';
+  const countLabel = args.count === 1 ? '1 inspection' : `${args.count} inspections`;
+  return `${filterLabel} · ${countLabel}`;
+}
+
+function inspectionListStatusText(item: InspectionListFloorItem<Inspection>, displayStatus: string): string {
+  return item.dueLabel ?? inspectionStatusLabel(displayStatus);
 }
 
 function auditInspectionList(): Inspection[] | null {
@@ -115,184 +173,17 @@ function auditInspectionList(): Inspection[] | null {
   }];
 }
 
-function inspectionListPillClass(item: InspectionListFloorItem<Inspection>, displayStatus: string): string {
-  if (item.dueKind === 'overdue') return 'is-overdue';
-  if (item.dueKind === 'today') return 'is-today';
-  if (item.dueKind === 'upcoming') return 'is-upcoming';
-  if (displayStatus === 'issued' || displayStatus === 'sent') return 'is-issued';
-  if (displayStatus === 'completed') return 'is-ready';
-  return 'is-draft';
-}
-
-function inspectionListPillLabel(item: InspectionListFloorItem<Inspection>, displayStatus: string): string {
-  return item.dueLabel ?? inspectionStatusLabel(displayStatus);
-}
-
-const ArchiveMenu = memo(function ArchiveMenu({ inspection, onToggle, onDelete, onAddInspection, onSendToDrive, isAdmin, isDeleting }: {
-  inspection: Inspection;
-  onToggle: (id: string, archived: boolean) => void;
-  onDelete?: (id: string) => void;
-  onAddInspection?: () => void;
-  onSendToDrive?: (id: string) => void;
-  isAdmin?: boolean;
-  isDeleting?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-
-  const openMenu = (e: React.MouseEvent | React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect();
-      const menuWidth = 200;
-      const left = Math.max(8, Math.min(r.right - menuWidth, window.innerWidth - menuWidth - 8));
-      setPos({ top: r.bottom + 4, left });
-    }
-    setOpen(v => !v);
-  };
-
-  const handleDelete = () => {
-    if (onDelete) {
-      onDelete(inspection.id);
-      setOpen(false);
-      setShowDeleteConfirm(false);
-    }
-  };
-
-  const dropdown = open ? createPortal(
-    <>
-      <div
-        className="fixed inset-0"
-        style={{ zIndex: 9998 }}
-        onClick={() => { setOpen(false); setShowDeleteConfirm(false); }}
-      />
-      <div
-        className="fixed bg-white border border-rule rounded-md py-1 min-w-[200px] max-h-80 overflow-y-auto"
-        style={{ top: pos.top, left: pos.left, zIndex: 9999, maxHeight: 'calc(100vh - 100px)' }}
-      >
-        {showDeleteConfirm ? (
-          <div className="px-3 py-2">
-            <p className="text-sm font-medium text-ink mb-2">Delete inspection?</p>
-            <p className="text-xs text-muted mb-3">This cannot be undone.</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={isDeleting}
-                className="flex-1 px-2 py-2 text-xs border border-rule text-ink rounded-md hover:bg-zebra disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="flex-1 px-2 py-2 text-xs bg-red-600 text-white rounded-md hover:bg-red-700 font-medium disabled:opacity-50"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            {onAddInspection && !inspection.archived && (
-              <button
-                type="button"
-                onClick={e => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onAddInspection();
-                  setOpen(false);
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-zebra text-left text-accent min-h-[44px]"
-              >
-                <Link2 size={14} /> Add inspection to job
-              </button>
-            )}
-            {onSendToDrive && !inspection.archived && (
-              <button
-                type="button"
-                onClick={e => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onSendToDrive(inspection.id);
-                  setOpen(false);
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-zebra text-left text-accent min-h-[44px]"
-              >
-                <Send size={14} /> Send to Drive folder
-              </button>
-            )}
-            {(onAddInspection || onSendToDrive) && !inspection.archived && (
-              <div className="border-t border-rule my-1" />
-            )}
-            <button
-              type="button"
-              onClick={e => {
-                e.preventDefault();
-                e.stopPropagation();
-                onToggle(inspection.id, !inspection.archived);
-                setOpen(false);
-              }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-zebra text-left min-h-[44px]
-                ${inspection.archived ? 'text-pass' : 'text-fail'}`}
-            >
-              {inspection.archived
-                ? <><ArchiveRestore size={14} /> Unarchive</>
-                : <><Archive size={14} /> Archive</>}
-            </button>
-            {isAdmin && onDelete && (
-              <>
-                <div className="border-t border-rule my-1" />
-                <button
-                  type="button"
-                  onClick={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setShowDeleteConfirm(true);
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-red-50 text-left text-red-600 min-h-[44px]"
-                >
-                  <Trash2 size={14} /> Delete
-                </button>
-              </>
-            )}
-          </>
-        )}
-      </div>
-    </>,
-    document.body,
-  ) : null;
-
-  return (
-    <div className="relative">
-      <button
-        ref={btnRef}
-        type="button"
-        onPointerDown={e => e.stopPropagation()}
-        onClick={openMenu}
-        className="hub-inspections-more"
-        aria-label="Inspection actions"
-      >
-        <MoreVertical size={16} />
-      </button>
-      {dropdown}
-    </div>
-  );
-});
-
 export function InspectionsPage() {
   const { profile, company } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const [searchParams] = useSearchParams();
+  const lookInspectionsList = searchParams.get('look') === INSPECTIONS_LIST_LOOK;
   const isAdmin = profile?.role === 'admin';
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<InspectionListFilter>('action');
+  const [statusFilter, setStatusFilter] = useState<InspectionListFilter>(lookInspectionsList ? 'all' : 'action');
   const [showArchived, setShowArchived] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
@@ -362,7 +253,7 @@ export function InspectionsPage() {
           : null,
       })) as Inspection[];
     },
-    enabled: !!profile,
+    enabled: !!profile && !lookInspectionsList,
   });
 
   const archiveMutation = useMutation({
@@ -407,7 +298,7 @@ export function InspectionsPage() {
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!profile,
+    enabled: !!profile && !lookInspectionsList,
   });
 
   const handleSendToDrive = useCallback(async (folderId: string | null) => {
@@ -422,14 +313,16 @@ export function InspectionsPage() {
     setSendToDriveFor(null);
   }, [sendToDriveFor, queryClient]);
 
+  const listRows = lookInspectionsList ? inspectionsListLookRows() : (inspections ?? []);
+
   const archivedCount = useMemo(
-    () => (inspections ?? []).filter(i => i.archived).length,
-    [inspections]
+    () => listRows.filter(i => i.archived).length,
+    [listRows]
   );
 
   const visible = useMemo(
-    () => (inspections ?? []).filter(insp => showArchived ? insp.archived : !insp.archived),
-    [inspections, showArchived],
+    () => listRows.filter(insp => showArchived ? insp.archived : !insp.archived),
+    [listRows, showArchived],
   );
 
   const floorItems = useMemo(
@@ -441,13 +334,14 @@ export function InspectionsPage() {
     ),
     [visible, search, statusFilter],
   );
-
-  const { due: dueDocs, open: openDocs, done: doneDocs } = useMemo(
-    () => groupInspectionListFloor(floorItems),
-    [floorItems],
-  );
-  const noneAtAll = !isLoading && !pageQueryBlocked(isError) && visible.length === 0;
-  const noneMatch = !isLoading && !pageQueryBlocked(isError) && visible.length > 0 && floorItems.length === 0 && !noneAtAll;
+  const noneAtAll = !lookInspectionsList && !isLoading && !pageQueryBlocked(isError) && visible.length === 0;
+  const noneMatch = !lookInspectionsList && !isLoading && !pageQueryBlocked(isError) && visible.length > 0 && floorItems.length === 0 && !noneAtAll;
+  const loading = !lookInspectionsList && isLoading;
+  const whisper = inspectionsListWhisper({
+    filter: statusFilter,
+    archived: showArchived,
+    count: floorItems.length,
+  });
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -499,155 +393,108 @@ export function InspectionsPage() {
 
   return (
     <AppShell>
-      <div className="ops-page hub-inspections">
-        <div className="ops-page-head">
-          <div>
-            <p className="hub-look-eyebrow hub-inspections-label">Inspections</p>
-            <h1 className="ops-page-title">
-              Inspections
-            </h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {selectedIds.size > 0 && (
-              <button
-                type="button"
-                onClick={handleExportPack}
-                disabled={exporting}
-                className="hub-inspections-sub"
-              >
-                <Package size={14} />
-                {exporting ? (exportProgress || 'Exporting…') : `Export pack (${selectedIds.size})`}
-              </button>
-            )}
-            {isAdmin && archivedCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowArchived(v => !v)}
-                className={`hub-inspections-sub ${showArchived ? 'is-on' : ''}`}
-              >
-                <Archive size={14} />
-                {showArchived ? 'Viewing archived' : `Archived (${archivedCount})`}
-              </button>
-            )}
-            {!showArchived && (
-              <button
-                type="button"
-                onClick={() => navigate('/inspections/new')}
-                className="btn-primary"
-              >
-                <Plus size={16} /> Start inspection
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="hub-inspections-chrome">
-          <div className="hub-inspections-filters">
-            {LIST_FILTERS.map(tab => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setStatusFilter(tab.key)}
-                className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <SearchBar value={search} onChange={setSearch} placeholder="Search job, site, template, #0042…" className="max-w-sm" />
-        </div>
-
-        {exportError && (
-          <div className="flex items-center justify-between ops-alert mb-3">
-            <span>{exportError}</span>
-            <button type="button" onClick={() => setExportError(null)} className="ml-3 shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"><X size={14} /></button>
-          </div>
-        )}
-        {deleteError && (
-          <div className="flex items-center justify-between ops-alert mb-3">
-            <span>{deleteError}</span>
-            <button type="button" onClick={() => setDeleteError(null)} className="ml-3 shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"><X size={14} /></button>
-          </div>
-        )}
-
-        {isLoading && (
-          <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
-        )}
-        {pageQueryBlocked(isError) && <PageError onRetry={refetch} />}
-
-        {noneAtAll && (
-          <EmptyState
-            icon={ClipboardList}
-            title={inspectionListEmptyTitle({ filter: statusFilter, archived: showArchived, noneAtAll: true })}
-            message={inspectionListEmptyMessage({ filter: statusFilter, archived: showArchived, noneAtAll: true })}
-            action={!showArchived ? (
-              <Link to="/jobs" className="hub-next">
-                Open jobs
-              </Link>
-            ) : undefined}
-          />
-        )}
-
-        {noneMatch && (
-          <EmptyState
-            icon={FileText}
-            title={inspectionListEmptyTitle({ filter: statusFilter, archived: showArchived, noneAtAll: false })}
-            message={inspectionListEmptyMessage({ filter: statusFilter, archived: showArchived, noneAtAll: false })}
-          />
-        )}
-
-        {!isLoading && floorItems.length > 0 && (
-          <div className="hub-inspections-sheet">
-            <div className="hub-inspections-thead">
-              <span>Site</span>
-              <span>Suburb</span>
-              <span>Status</span>
-              <span />
+      <div className="ops-page hub-inspections hub-inspections-list-doc">
+        <div className="hub-inspections-sheet">
+          <header className="hub-inspections-list-bar">
+            <span className="hub-inspections-list-mark">List</span>
+          </header>
+          <div className="hub-inspections-list-body">
+            <h1 className="ops-page-title">Inspections</h1>
+            <p className="hub-inspections-list-whisper">{whisper}</p>
+            <div className="hub-inspections-list-tools">
+              {!showArchived && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/inspections/new')}
+                  className="btn-primary"
+                >
+                  <Plus size={16} /> Start inspection
+                </button>
+              )}
+              <div className="hub-inspections-list-tools-overflow">
+                <InspectionsListFind
+                  statusFilter={statusFilter}
+                  onStatusFilter={setStatusFilter}
+                  search={search}
+                  onSearch={setSearch}
+                  showArchived={showArchived}
+                  archivedCount={archivedCount}
+                  canArchive={isAdmin && archivedCount > 0}
+                  onShowArchived={setShowArchived}
+                  selectedCount={selectedIds.size}
+                  exporting={exporting}
+                  exportProgress={exportProgress}
+                  onExportPack={() => { void handleExportPack(); }}
+                />
+              </div>
             </div>
-            <InspectionGroup
-              title="Due"
-              items={dueDocs}
-              selectedIds={selectedIds}
-              onToggleSelect={toggleSelect}
-              isAdmin={isAdmin}
-              onOpen={href => navigate(href)}
-              onArchive={handleArchiveToggle}
-              onDelete={handleDelete}
-              onAddInspection={id => navigate(`/inspections/new?jobId=${id}`)}
-              onSendToDrive={id => setSendToDriveFor(id)}
-              onSendReport={setSendingReportId}
-              deleting={deleteMutation.isPending}
-            />
-            <InspectionGroup
-              title="Open"
-              items={openDocs}
-              selectedIds={selectedIds}
-              onToggleSelect={toggleSelect}
-              isAdmin={isAdmin}
-              onOpen={href => navigate(href)}
-              onArchive={handleArchiveToggle}
-              onDelete={handleDelete}
-              onAddInspection={id => navigate(`/inspections/new?jobId=${id}`)}
-              onSendToDrive={id => setSendToDriveFor(id)}
-              onSendReport={setSendingReportId}
-              deleting={deleteMutation.isPending}
-            />
-            <InspectionGroup
-              title="Done"
-              items={doneDocs}
-              selectedIds={selectedIds}
-              onToggleSelect={toggleSelect}
-              isAdmin={isAdmin}
-              onOpen={href => navigate(href)}
-              onArchive={handleArchiveToggle}
-              onDelete={handleDelete}
-              onAddInspection={id => navigate(`/inspections/new?jobId=${id}`)}
-              onSendToDrive={id => setSendToDriveFor(id)}
-              onSendReport={setSendingReportId}
-              deleting={deleteMutation.isPending}
-            />
+
+            {exportError && (
+              <div className="flex items-center justify-between ops-alert mb-3">
+                <span>{exportError}</span>
+                <button type="button" onClick={() => setExportError(null)} className="ml-3 shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"><X size={14} /></button>
+              </div>
+            )}
+            {deleteError && (
+              <div className="flex items-center justify-between ops-alert mb-3">
+                <span>{deleteError}</span>
+                <button type="button" onClick={() => setDeleteError(null)} className="ml-3 shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"><X size={14} /></button>
+              </div>
+            )}
+
+            {loading && (
+              <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+            )}
+            {pageQueryBlocked(isError) && <PageError onRetry={refetch} />}
+
+            {noneAtAll && (
+              <EmptyState
+                icon={ClipboardList}
+                title={inspectionListEmptyTitle({ filter: statusFilter, archived: showArchived, noneAtAll: true })}
+                message={inspectionListEmptyMessage({ filter: statusFilter, archived: showArchived, noneAtAll: true })}
+                action={!showArchived ? (
+                  <Link to="/jobs" className="hub-next">
+                    Open jobs
+                  </Link>
+                ) : undefined}
+              />
+            )}
+
+            {noneMatch && (
+              <EmptyState
+                icon={FileText}
+                title={inspectionListEmptyTitle({ filter: statusFilter, archived: showArchived, noneAtAll: false })}
+                message={inspectionListEmptyMessage({ filter: statusFilter, archived: showArchived, noneAtAll: false })}
+              />
+            )}
+
+            {!loading && floorItems.length > 0 && (
+              <>
+                <div className="hub-inspections-thead">
+                  <span>Site</span>
+                  <span>Status</span>
+                  <span />
+                </div>
+                {floorItems.map(item => (
+                  <InspectionRow
+                    key={item.row.id}
+                    item={item}
+                    selected={selectedIds.has(item.row.id)}
+                    onToggleSelect={() => toggleSelect(item.row.id)}
+                    isAdmin={isAdmin}
+                    onOpen={href => navigate(href)}
+                    onArchive={handleArchiveToggle}
+                    onDelete={handleDelete}
+                    onAddInspection={() => navigate(`/inspections/new?jobId=${item.row.id}`)}
+                    onSendToDrive={() => setSendToDriveFor(item.row.id)}
+                    onSendReport={setSendingReportId}
+                    deleting={deleteMutation.isPending}
+                  />
+                ))}
+              </>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {sendToDriveFor && (
@@ -707,57 +554,175 @@ export function InspectionsPage() {
   );
 }
 
-function InspectionGroup({
-  title,
-  items,
-  selectedIds,
-  onToggleSelect,
-  isAdmin,
-  onOpen,
-  onArchive,
-  onDelete,
-  onAddInspection,
-  onSendToDrive,
-  onSendReport,
-  deleting,
+function placeInspectionsListMore(more: HTMLDetailsElement) {
+  const menu = more.querySelector('.hub-inspections-list-more-menu') as HTMLElement | null;
+  const paper = more.closest('.hub-inspections-sheet') as HTMLElement | null;
+  if (!menu || !paper) return;
+  more.classList.remove('is-flip', 'is-shift');
+  menu.style.removeProperty('--hub-inspections-list-more-shift');
+  if (!more.open) return;
+  const pad = 8;
+  const paperRect = paper.getBoundingClientRect();
+  const bar = paper.querySelector('.hub-inspections-list-bar');
+  const inkFloor = (bar?.getBoundingClientRect().bottom ?? paperRect.top) + pad;
+  const viewBottom = window.innerHeight - pad;
+  const menuRect = menu.getBoundingClientRect();
+  const trigger = more.querySelector('summary') as HTMLElement | null;
+  const triggerRect = trigger?.getBoundingClientRect() ?? menuRect;
+  const flippedTop = triggerRect.top - pad - menuRect.height;
+  const overflowsBottom = menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom);
+  if (overflowsBottom && flippedTop >= inkFloor) {
+    more.classList.add('is-flip');
+  }
+  const after = menu.getBoundingClientRect();
+  let shift = 0;
+  if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
+  if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
+  if (shift !== 0) {
+    more.classList.add('is-shift');
+    menu.style.setProperty('--hub-inspections-list-more-shift', `${Math.round(shift)}px`);
+  }
+}
+
+function InspectionsListFind({
+  statusFilter,
+  onStatusFilter,
+  search,
+  onSearch,
+  showArchived,
+  archivedCount,
+  canArchive,
+  onShowArchived,
+  selectedCount,
+  exporting,
+  exportProgress,
+  onExportPack,
 }: {
-  title: string;
-  items: InspectionListFloorItem<Inspection>[];
-  selectedIds: Set<string>;
-  onToggleSelect: (id: string) => void;
-  isAdmin: boolean;
-  onOpen: (href: string) => void;
-  onArchive: (id: string, archived: boolean) => void;
-  onDelete: (id: string) => void;
-  onAddInspection: (id: string) => void;
-  onSendToDrive: (id: string) => void;
-  onSendReport: (reportId: string) => void;
-  deleting: boolean;
+  statusFilter: InspectionListFilter;
+  onStatusFilter: (key: InspectionListFilter) => void;
+  search: string;
+  onSearch: (value: string) => void;
+  showArchived: boolean;
+  archivedCount: number;
+  canArchive: boolean;
+  onShowArchived: (archived: boolean) => void;
+  selectedCount: number;
+  exporting: boolean;
+  exportProgress: string;
+  onExportPack: () => void;
 }) {
-  if (items.length === 0) return null;
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeInspectionsListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
   return (
-    <div>
-      <h2 className="hub-inspections-group" title={title}>
-        {title}
-        <span className="hub-inspections-count"> {items.length}</span>
-      </h2>
-      {items.map(item => (
-        <InspectionRow
-          key={item.row.id}
-          item={item}
-          selected={selectedIds.has(item.row.id)}
-          onToggleSelect={() => onToggleSelect(item.row.id)}
-          isAdmin={isAdmin}
-          onOpen={onOpen}
-          onArchive={onArchive}
-          onDelete={onDelete}
-          onAddInspection={() => onAddInspection(item.row.id)}
-          onSendToDrive={() => onSendToDrive(item.row.id)}
-          onSendReport={onSendReport}
-          deleting={deleting}
-        />
-      ))}
-    </div>
+    <details ref={moreRef} className="hub-inspections-list-more hub-inspections-list-find">
+      <summary aria-label="Find">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-inspections-list-more-menu" role="menu">
+        <div className="hub-inspections-chrome">
+          <div className="hub-inspections-filters">
+            {LIST_FILTERS.map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                role="menuitem"
+                onClick={() => onStatusFilter(tab.key)}
+                className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <SearchBar value={search} onChange={onSearch} placeholder="Search job, site, template, #0042…" />
+        </div>
+        {canArchive && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { onShowArchived(!showArchived); closeMore(); }}
+          >
+            {showArchived ? 'Viewing archived' : `Archived (${archivedCount})`}
+          </button>
+        )}
+        {selectedCount > 0 && (
+          <button
+            type="button"
+            role="menuitem"
+            disabled={exporting}
+            onClick={() => { onExportPack(); closeMore(); }}
+          >
+            {exporting ? (exportProgress || 'Exporting…') : `Export pack (${selectedCount})`}
+          </button>
+        )}
+      </div>
+    </details>
+  );
+}
+
+function InspectionRowMore({
+  children,
+}: {
+  children: (closeMore: () => void) => ReactNode;
+}) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeInspectionsListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-inspections-list-more">
+      <summary aria-label="More">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-inspections-list-more-menu" role="menu">
+        {children(closeMore)}
+      </div>
+    </details>
   );
 }
 
@@ -823,56 +788,87 @@ function InspectionRow({
     ? opsSiteLabel(living.siteName, living.siteAddress)
     : opsSiteLabel(doc.meta?.siteName, doc.meta?.siteAddress, doc.job_address, doc.job_title);
   const title = doc.template_snapshot?.name || 'Inspection';
-  const suburb = suburbFromSite(site);
-  const noReportYet = next.label === 'No report yet';
+  const when = formatInspectionListDate(doc.completed_at || doc.started_at);
+  const muted = [title, when].filter(Boolean).join(' · ');
 
   return (
     <div
       role="link"
       tabIndex={0}
+      aria-label="Open"
       onClick={() => onOpen(href)}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(href); } }}
       className={`hub-inspections-row ${doc.archived ? 'is-archived' : ''}`}
     >
       <span className="min-w-0">
         <span className="hub-inspections-site truncate">{site}</span>
-        <span className="hub-inspections-muted truncate">{title}</span>
+        {muted ? <span className="hub-inspections-muted truncate">{muted}</span> : null}
       </span>
-      <span className="truncate hub-inspections-muted">{suburb}</span>
-      <span className={`hub-inspections-pill ${inspectionListPillClass(item, displayStatus)}`}>
-        {inspectionListPillLabel(item, displayStatus)}
-      </span>
+      <span className="hub-inspections-status">{inspectionListStatusText(item, displayStatus)}</span>
       <span className="hub-inspections-row-next" onClick={e => e.stopPropagation()}>
-        <button
-          type="button"
-          onClick={() => {
-            if (next.label === 'Send' && doc.report_id) onSendReport(doc.report_id);
-            else onOpen(next.href);
-          }}
-          className={noReportYet ? 'ops-next-control-done' : 'hub-next'}
-        >
-          {next.label}
-        </button>
-        <label className="hub-inspections-pack">
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={onToggleSelect}
-            aria-label={`Select ${site}`}
-          />
-          Include in pack
-        </label>
-        {isAdmin && (
-          <ArchiveMenu
-            inspection={doc}
-            onToggle={onArchive}
-            onDelete={onDelete}
-            onAddInspection={onAddInspection}
-            onSendToDrive={() => onSendToDrive()}
-            isAdmin={isAdmin}
-            isDeleting={deleting}
-          />
-        )}
+        <InspectionRowMore>
+          {closeMore => (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  if (next.label === 'Send' && doc.report_id) onSendReport(doc.report_id);
+                  else onOpen(next.href);
+                  closeMore();
+                }}
+              >
+                {next.label}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { onToggleSelect(); closeMore(); }}
+              >
+                {selected ? 'Remove from pack' : 'Include in pack'}
+              </button>
+              {!doc.archived && (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { onAddInspection(); closeMore(); }}
+                  >
+                    Add inspection to job
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { onSendToDrive(); closeMore(); }}
+                  >
+                    Send to Drive folder
+                  </button>
+                </>
+              )}
+              {isAdmin && (
+                <>
+                  <div className="hub-inspections-list-more-rule" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { onArchive(doc.id, !doc.archived); closeMore(); }}
+                  >
+                    {doc.archived ? 'Unarchive' : 'Archive'}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="is-danger"
+                    disabled={deleting}
+                    onClick={() => { onDelete(doc.id); closeMore(); }}
+                  >
+                    {deleting ? 'Deleting...' : 'Delete'}
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </InspectionRowMore>
       </span>
     </div>
   );
