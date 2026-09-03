@@ -1,8 +1,19 @@
 import { supabase } from './supabase';
 import type { QuoteLineItem } from '../types/fsm';
-import { jobFieldsFromQuote } from './quoteJobFields';
+import {
+  CONVERT_QUOTE_NEED_DATE_CREW,
+  convertQuoteHasDateAndCrew,
+  jobFieldsFromQuote,
+} from './quoteJobFields';
 
-export { jobFieldsFromQuote, padQuoteNumber, scheduledDateFromQuote } from './quoteJobFields';
+export {
+  CONVERT_QUOTE_NEED_DATE_CREW,
+  assignedTeamFromQuote,
+  convertQuoteHasDateAndCrew,
+  jobFieldsFromQuote,
+  padQuoteNumber,
+  scheduledDateFromQuote,
+} from './quoteJobFields';
 
 function costTypeFromLine(li: QuoteLineItem): 'labor' | 'materials' {
   if (li.cost_model_id) return 'labor';
@@ -23,6 +34,8 @@ export type ConvertibleQuote = {
   total: number | null;
   /** Job board date. Copied onto jobs.scheduled_date when present; never invented. */
   scheduled_date?: string | null;
+  /** Crew ids. Copied onto jobs.assigned_team when present; never invented. */
+  assigned_team?: unknown;
 };
 
 /** Creates a job from an accepted quote, or returns the existing job if already converted. */
@@ -34,6 +47,10 @@ export async function convertQuoteToJob(quote: ConvertibleQuote, profileId: stri
     .maybeSingle();
   if (latestErr) throw latestErr;
   if (latest?.job_id) return latest.job_id as string;
+
+  if (!convertQuoteHasDateAndCrew(quote)) {
+    throw new Error(CONVERT_QUOTE_NEED_DATE_CREW);
+  }
 
   let clientAddress: string | null = null;
   if (quote.client_id) {

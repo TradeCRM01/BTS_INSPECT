@@ -13,6 +13,186 @@ function json(data: unknown, status = 200) {
   });
 }
 
+function padQuoteNumber(n: number | null | undefined): string {
+  return String(n ?? 0).padStart(4, "0");
+}
+
+function scheduledDateFromQuote(value: string | null | undefined): string | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const day = raw.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
+}
+
+function assignedTeamFromQuote(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((id): id is string => typeof id === "string" && id.trim().length > 0);
+}
+
+function jobFieldsFromQuote(
+  quote: {
+    quote_number: number | null;
+    client_id: string | null;
+    description: string | null;
+    scope_of_works: string | null;
+    total: number | null;
+    scheduled_date?: string | null;
+    assigned_team?: unknown;
+  },
+  clientAddress: string | null,
+) {
+  const title = String(quote.description ?? "").trim() || `Job from Quote #${padQuoteNumber(quote.quote_number)}`;
+  const description = String(quote.scope_of_works ?? "").trim() || null;
+  const budget = quote.total != null && Number.isFinite(Number(quote.total))
+    ? Number(quote.total)
+    : null;
+  return {
+    client_id: quote.client_id,
+    title,
+    description,
+    address: String(clientAddress ?? "").trim() || null,
+    budget,
+    status: "scheduled" as const,
+    priority: "medium" as const,
+    scheduled_date: scheduledDateFromQuote(quote.scheduled_date),
+    assigned_team: assignedTeamFromQuote(quote.assigned_team),
+  };
+}
+
+function costTypeFromLine(li: { cost_model_id?: string | null; charge_type?: string | null }): "labor" | "materials" {
+  if (li.cost_model_id) return "labor";
+  const charge = (li.charge_type || "").toLowerCase();
+  if (charge.includes("labour") || charge.includes("labor")) return "labor";
+  return "materials";
+}
+
+type PortalAdmin = ReturnType<typeof createClient>;
+
+type AcceptQuoteRow = {
+  id: string;
+  status: string;
+  client_id: string | null;
+  company_id: string;
+  job_id: string | null;
+  quote_number: number | null;
+  description: string | null;
+  scope_of_works: string | null;
+  line_items: Array<{
+    description: string;
+    quantity?: number;
+    unit_cost?: number | null;
+    unit_price?: number;
+    markup_percent?: number | null;
+    charge_type?: string | null;
+    stock_item_id?: string | null;
+    cost_model_id?: string | null;
+  }> | null;
+  total: number | null;
+  scheduled_date: string | null;
+  assigned_team: unknown;
+  created_by: string | null;
+};
+
+/** One job per accepted quote. Date + crew copy when present; otherwise the job still exists. */
+async function ensureJobForAcceptedQuote(
+  admin: PortalAdmin,
+  quote: AcceptQuoteRow,
+): Promise<{ jobId: string | null; error: string | null }> {
+  if (quote.job_id) return { jobId: quote.job_id, error: null };
+
+  let clientAddress: string | null = null;
+  if (quote.client_id) {
+    const { data: client } = await admin
+      .from("clients")
+      .select("address")
+      .eq("id", quote.client_id)
+      .maybeSingle();
+    clientAddress = client?.address ?? null;
+  }
+
+  let createdBy = quote.created_by;
+  if (!createdBy) {
+    const { data: member } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("company_id", quote.company_id)
+      .limit(1)
+      .maybeSingle();
+    createdBy = member?.id ?? null;
+  }
+  if (!createdBy) return { jobId: null, error: "Cannot create job without a company profile" };
+
+  const fields = jobFieldsFromQuote(quote, clientAddress);
+  const { data: jobData, error: jobErr } = await admin
+    .from("jobs")
+    .insert({
+      company_id: quote.company_id,
+      ...fields,
+      created_by: createdBy,
+    })
+    .select("id")
+    .single();
+  if (jobErr) return { jobId: null, error: jobErr.message };
+  const jobId = jobData.id as string;
+
+  const costRows = (quote.line_items ?? []).map((li) => {
+    const qty = Number(li.quantity) || 0;
+    const unitCost = li.unit_cost != null ? Number(li.unit_cost) : 0;
+    const unitPrice = Number(li.unit_price) || 0;
+    const markup = li.markup_percent != null
+      ? Number(li.markup_percent)
+      : (unitCost > 0 ? Number((((unitPrice / unitCost) - 1) * 100).toFixed(1)) : 0);
+    return {
+      company_id: quote.company_id,
+      job_id: jobId,
+      cost_type: costTypeFromLine(li),
+      description: li.description,
+      quantity: qty,
+      unit_cost: unitCost,
+      total_cost: Number((qty * unitCost).toFixed(2)),
+      markup_percent: markup,
+      unit_price: unitPrice,
+      total_price: Number((qty * unitPrice).toFixed(2)),
+      charge_type: li.charge_type ?? null,
+      stock_item_id: li.stock_item_id ?? null,
+      purchase_order_id: null,
+      cost_model_id: li.cost_model_id ?? null,
+      created_by: createdBy,
+    };
+  });
+  if (costRows.length) {
+    const { error: cErr } = await admin.from("job_costs").insert(costRows);
+    if (cErr) {
+      await admin.from("jobs").delete().eq("id", jobId);
+      return { jobId: null, error: cErr.message };
+    }
+  }
+
+  const { data: linked, error: linkErr } = await admin
+    .from("quotes")
+    .update({ job_id: jobId, updated_at: new Date().toISOString() })
+    .eq("id", quote.id)
+    .is("job_id", null)
+    .select("id")
+    .maybeSingle();
+  if (linkErr) return { jobId: null, error: linkErr.message };
+
+  if (!linked) {
+    const { data: raced } = await admin
+      .from("quotes")
+      .select("job_id")
+      .eq("id", quote.id)
+      .maybeSingle();
+    if (raced?.job_id && raced.job_id !== jobId) {
+      await admin.from("job_costs").delete().eq("job_id", jobId);
+      await admin.from("jobs").delete().eq("id", jobId);
+      return { jobId: raced.job_id as string, error: null };
+    }
+  }
+
+  return { jobId, error: null };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -140,30 +320,37 @@ Deno.serve(async (req) => {
 
       const { data: quote } = await admin
         .from("quotes")
-        .select("id, status, client_id, company_id")
+        .select("id, status, client_id, company_id, job_id, quote_number, description, scope_of_works, line_items, total, scheduled_date, assigned_team, created_by")
         .eq("id", acceptQuoteId)
         .eq("client_id", portal.client_id)
         .eq("company_id", portal.company_id)
         .maybeSingle();
 
       if (!quote) return json({ error: "Quote not found" }, 404);
-      if (quote.status === "accepted") {
-        return json({ ok: true, status: "accepted", quoteId: quote.id });
-      }
-      if (quote.status !== "sent") {
+      if (quote.status !== "sent" && quote.status !== "accepted") {
         return json({ error: "Only sent quotes can be accepted" }, 409);
       }
 
-      const { error: acceptErr } = await admin
-        .from("quotes")
-        .update({ status: "accepted", updated_at: new Date().toISOString() })
-        .eq("id", quote.id)
-        .eq("client_id", portal.client_id)
-        .eq("company_id", portal.company_id)
-        .eq("status", "sent");
+      if (quote.status === "sent") {
+        const { error: acceptErr } = await admin
+          .from("quotes")
+          .update({ status: "accepted", updated_at: new Date().toISOString() })
+          .eq("id", quote.id)
+          .eq("client_id", portal.client_id)
+          .eq("company_id", portal.company_id)
+          .eq("status", "sent");
 
-      if (acceptErr) return json({ error: acceptErr.message }, 500);
-      return json({ ok: true, status: "accepted", quoteId: quote.id });
+        if (acceptErr) return json({ error: acceptErr.message }, 500);
+      }
+
+      const ensured = await ensureJobForAcceptedQuote(admin, quote as AcceptQuoteRow);
+      if (ensured.error) return json({ error: ensured.error }, 500);
+      return json({
+        ok: true,
+        status: "accepted",
+        quoteId: quote.id,
+        jobId: ensured.jobId,
+      });
     }
 
     const { data: client } = await admin

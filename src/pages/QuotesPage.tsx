@@ -3,12 +3,27 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import {
+  DEV_AUDIT_COMPANY,
+  DEV_AUDIT_PROFILE,
+  isDevFieldAuditAuth,
+  pageQueryBlocked,
+} from '../lib/devFieldAuditAuth';
+import {
+  AUDIT_DOC_CLIENT_ID,
+  getAuditClients,
+  getAuditTeamMembers,
+} from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
+import {
+  CONVERT_QUOTE_NEED_DATE_CREW,
+  assignedTeamFromQuote,
+  convertQuoteHasDateAndCrew,
+} from '../lib/quoteJobFields';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
 import { invoiceHref, invoiceLandingPath, pickReusableInvoice } from '../lib/invoiceFromQuote';
 import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
@@ -72,6 +87,39 @@ function quoteRef(quote: { quote_number?: number | null }): string {
   return quote.quote_number != null ? `#${padQuoteNumber(quote.quote_number)}` : 'Quote';
 }
 
+function fieldAuditConvertQuote(): QuoteListItem | null {
+  if (!isDevFieldAuditAuth()) return null;
+  return {
+    id: 'audit-quote-convert',
+    company_id: DEV_AUDIT_COMPANY.id,
+    quote_number: 2002,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    job_id: null,
+    status: 'accepted',
+    description: 'Quoted site works',
+    scope_of_works: 'Labour and materials on site.',
+    line_items: [{ description: 'Site labour', quantity: 8, unit_price: 95 }],
+    subtotal: 760,
+    tax_rate: 10,
+    tax_amount: 76,
+    total: 836,
+    validity_date: '2026-09-07',
+    notes: null,
+    inclusions: [],
+    exclusions: [],
+    scheduled_date: '2026-09-03',
+    assigned_team: [DEV_AUDIT_PROFILE.id],
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: '2026-08-24T00:00:00.000Z',
+    updated_at: '2026-08-24T00:00:00.000Z',
+    client_name: 'Northside Electrical',
+    client_email: 'accounts@northside.example',
+    job_title: null,
+    job_address: null,
+    invoice_id: null,
+  };
+}
+
 function quoteTitle(quote: { quote_number?: number | null } | null): string {
   return quote?.quote_number != null ? `Quote ${quoteRef(quote)}` : 'New quote';
 }
@@ -106,9 +154,11 @@ export function QuotesPage() {
   const { data: quotes, isLoading, error } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes'],
     queryFn: async () => {
+      const auditQuote = fieldAuditConvertQuote();
+      if (auditQuote) return [auditQuote];
       const { data, error } = await supabase
         .from('quotes')
-        .select('id, company_id, quote_number, client_id, job_id, status, description, scope_of_works, line_items, subtotal, tax_rate, tax_amount, total, validity_date, notes, inclusions, exclusions, created_by, created_at, updated_at')
+        .select('id, company_id, quote_number, client_id, job_id, status, description, scope_of_works, line_items, subtotal, tax_rate, tax_amount, total, validity_date, notes, inclusions, exclusions, scheduled_date, assigned_team, created_by, created_at, updated_at')
         .order('created_at', { ascending: false });
       if (error) throw error;
       const list = (data ?? []) as QuoteWithDetails[];
@@ -372,8 +422,16 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
       return;
     }
     if (next.key === 'convert_job') {
+      if (!convertQuoteHasDateAndCrew({ scheduled_date: quote.scheduled_date, assigned_team: quote.assigned_team })) {
+        onOpen();
+        return;
+      }
       void run('convert_job', async () => {
-        const jobId = await convertQuoteToJob(quote, profile!.id);
+        const jobId = await convertQuoteToJob({
+          ...quote,
+          scheduled_date: quote.scheduled_date ?? null,
+          assigned_team: assignedTeamFromQuote(quote.assigned_team),
+        }, profile!.id);
         queryClient.invalidateQueries({ queryKey: ['quotes'] });
         queryClient.invalidateQueries({ queryKey: ['jobs'] });
         navigate(`/jobs/${jobId}`);
@@ -421,6 +479,7 @@ interface EditorState {
   line_items: EditLineItem[]; tax_rate: string; validity_date: string; notes: string;
   inclusions: string[]; exclusions: string[];
   scheduled_date: string;
+  assigned_team: string[];
 }
 
 function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSaved, onRequestSend }: {
@@ -443,6 +502,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [priceBookItems, setPriceBookItems] = useState<PriceBookItem[]>([]);
   const [saving, setSaving] = useState(false);
@@ -470,23 +530,34 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
     notes: quote?.notes ?? '',
     inclusions: asStringList(quote?.inclusions),
     exclusions: asStringList(quote?.exclusions),
-    scheduled_date: '',
+    scheduled_date: quote?.scheduled_date?.slice(0, 10) ?? '',
+    assigned_team: assignedTeamFromQuote(quote?.assigned_team),
   });
 
   useEffect(() => {
     if (!profile?.company_id) return;
+    const auditClients = getAuditClients();
+    const auditTeam = getAuditTeamMembers();
+    if (auditClients) {
+      setClients(auditClients as Client[]);
+      setClientsLoaded(true);
+      if (auditTeam) setTeamMembers(auditTeam.map(m => ({ id: m.id, name: m.name })));
+      return;
+    }
     (async () => {
-      const [c, j, s, pb] = await Promise.all([
+      const [c, j, s, pb, team] = await Promise.all([
         supabase.from('clients').select('*').eq('archived', false).order('name'),
         supabase.from('jobs').select('id, company_id, client_id, title, address').order('created_at', { ascending: false }),
         supabase.from('stock_items').select('*').eq('archived', false).order('name'),
         supabase.from('price_book_items').select('*').eq('is_active', true).order('description'),
+        supabase.rpc('get_company_members', { p_company_id: profile.company_id }),
       ]);
       if (c.data) setClients(c.data as Client[]);
       setClientsLoaded(true);
       if (j.data) setJobs(j.data as Job[]);
       if (s.data) setStockItems(s.data as StockItem[]);
       if (pb.data) setPriceBookItems(pb.data as PriceBookItem[]);
+      if (team.data) setTeamMembers((team.data as { id: string; name: string }[]).map(m => ({ id: m.id, name: m.name })));
     })();
   }, [profile?.company_id]);
 
@@ -668,6 +739,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         line_items: cleanLines, subtotal, tax_rate: parseFloat(form.tax_rate) || 0, tax_amount: taxAmount, total: grandTotal,
         validity_date: form.validity_date || null, notes: form.notes.trim() || null,
         inclusions: form.inclusions, exclusions: form.exclusions,
+        scheduled_date: form.scheduled_date || null,
+        assigned_team: form.assigned_team,
       },
     };
   };
@@ -729,6 +802,10 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const handleConvert = async () => {
     const id = savedId ?? quote?.id;
     if (!id || form.status !== 'accepted' || !profile?.id) return;
+    if (!convertQuoteHasDateAndCrew({ scheduled_date: form.scheduled_date, assigned_team: form.assigned_team })) {
+      setErr(CONVERT_QUOTE_NEED_DATE_CREW);
+      return;
+    }
     setConverting(true); setErr('');
     try {
       const jobId = await convertQuoteToJob({
@@ -742,6 +819,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         line_items: buildPayload('accepted').payload.line_items,
         total: grandTotal,
         scheduled_date: form.scheduled_date || null,
+        assigned_team: form.assigned_team,
       }, profile.id);
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
@@ -885,7 +963,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             </button>
           </div>
         </div>
-        {err ? <p className="hub-quote-err">{err}</p> : null}
+        {err && err !== CONVERT_QUOTE_NEED_DATE_CREW ? <p className="hub-quote-err">{err}</p> : null}
 
         <div className="hub-quote-sheet">
           <div className="hub-quote-banner">
@@ -1061,6 +1139,40 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
               <span className="hub-quote-display-total">{editorMoney}</span>
             </div>
           ) : null}
+
+          <div className="hub-quote-convert">
+            <p className="hub-quote-convert-label">Convert</p>
+            <div className="hub-quote-convert-fields">
+              <Field label="Job date">
+                <input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} className="form-input" />
+              </Field>
+              <Field label="Crew">
+                <select
+                  value={form.assigned_team[0] ?? ''}
+                  onChange={e => setForm(f => ({ ...f, assigned_team: e.target.value ? [e.target.value] : [] }))}
+                  className="form-input cursor-pointer"
+                >
+                  <option value="">No crew yet</option>
+                  {teamMembers.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            {err === CONVERT_QUOTE_NEED_DATE_CREW
+              ? <p className="hub-quote-convert-miss">{CONVERT_QUOTE_NEED_DATE_CREW}</p>
+              : <p className="hub-quote-convert-whisper">Date and crew on this tap.</p>}
+            {next.key === 'convert_job' && (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => void handleConvert()}
+                disabled={converting}
+              >
+                {converting ? 'Converting...' : 'Convert to job'}
+              </button>
+            )}
+          </div>
         </div>
 
         {showEdit ? (
@@ -1131,11 +1243,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
               <input type="date" value={form.validity_date} onChange={e => setForm(f => ({ ...f, validity_date: e.target.value }))} className="form-input" />
             </Field>
           </div>
-
-          <Field label="Job date">
-            <input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} className="form-input" />
-            <p className="hub-quote-muted mt-1">Optional. Convert to job puts this on the board. Leave blank if there is no date yet.</p>
-          </Field>
 
           <Field label="Notes">
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="form-input min-h-[60px] resize-y" placeholder="Notes for the client..." />
