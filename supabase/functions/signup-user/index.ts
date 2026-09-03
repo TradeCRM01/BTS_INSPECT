@@ -111,7 +111,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // 2. Each signup is a new tenant. Team invites join an existing company.
-    const trialEnds = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    const trialEnds = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
     let companyId: string;
     const tenantInsert = await adminClient
       .from("companies")
@@ -120,9 +120,9 @@ Deno.serve(async (req: Request) => {
         email,
         access_status: "active",
         billing_status: "trial",
-        plan: "starter",
+        plan: "crew",
         trial_ends_at: trialEnds,
-        seat_limit: 3,
+        seat_limit: 5,
       })
       .select("id")
       .single();

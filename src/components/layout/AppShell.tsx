@@ -387,6 +387,10 @@ export function AppShell({ children }: AppShellProps) {
                           className="shell-menu-item">
                           <Users size={15} className="text-white/45" /> Team
                         </Link>
+                        <Link to="/settings/billing" onClick={() => setAvatarOpen(false)}
+                          className="shell-menu-item">
+                          <Wallet size={15} className="text-white/45" /> Billing
+                        </Link>
                         <Link to="/settings/accounting" onClick={() => setAvatarOpen(false)}
                           className="shell-menu-item">
                           <Building2 size={15} className="text-white/45" /> Accounting
@@ -493,6 +497,9 @@ export function AppShell({ children }: AppShellProps) {
               <>
                 <Link to="/settings/team" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
                   <Users size={16} /> Team
+                </Link>
+                <Link to="/settings/billing" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+                  <Wallet size={16} /> Billing
                 </Link>
                 <Link to="/settings/accounting" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
                   <Building2 size={16} /> Accounting

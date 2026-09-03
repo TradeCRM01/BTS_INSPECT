@@ -5,14 +5,21 @@ export const OPERATOR_EMAIL = 'jackpeterwieland@gmail.com';
 
 export type CompanyAccessStatus = 'active' | 'suspended';
 export type CompanyBillingStatus = 'none' | 'trial' | 'active' | 'past_due' | 'canceled';
-export type GrafterPlanId = 'starter' | 'crew' | 'shop';
+export type GrafterPlanId = 'crew' | 'company' | 'plant';
 export type BillingInterval = 'month' | 'year';
+
+/** Public trial from signup. No card required. */
+export const SIGNUP_TRIAL_DAYS = 90;
+
+export const GRAFTER_PLAN_IDS: readonly GrafterPlanId[] = ['crew', 'company', 'plant'];
 
 export interface GrafterPlan {
   id: GrafterPlanId;
   name: string;
   blurb: string;
-  seats: number | null;
+  seats: number;
+  /** Monthly AUD, GST included. Do not enable Stripe automatic_tax. */
+  monthlyAud: number;
   monthlyEnv: string;
   yearlyEnv: string;
   /** One Stripe Product per plan. Monthly/yearly are Prices on that Product. */
@@ -21,31 +28,34 @@ export interface GrafterPlan {
 
 export const GRAFTER_PLANS: readonly GrafterPlan[] = [
   {
-    id: 'starter',
-    name: 'Starter',
-    blurb: 'Owner-operator and a small crew.',
-    seats: 3,
-    monthlyEnv: 'STRIPE_PRICE_STARTER_MONTHLY',
-    yearlyEnv: 'STRIPE_PRICE_STARTER_YEARLY',
-    stripeProductHint: 'Product: Grafter Starter',
-  },
-  {
     id: 'crew',
     name: 'Crew',
-    blurb: 'Field crew with quoting and invoicing.',
-    seats: 10,
+    blurb: 'Owner-operator and a small crew.',
+    seats: 5,
+    monthlyAud: 59,
     monthlyEnv: 'STRIPE_PRICE_CREW_MONTHLY',
     yearlyEnv: 'STRIPE_PRICE_CREW_YEARLY',
     stripeProductHint: 'Product: Grafter Crew',
   },
   {
-    id: 'shop',
-    name: 'Shop',
-    blurb: 'Full workshop — every module, no seat cap.',
-    seats: null,
-    monthlyEnv: 'STRIPE_PRICE_SHOP_MONTHLY',
-    yearlyEnv: 'STRIPE_PRICE_SHOP_YEARLY',
-    stripeProductHint: 'Product: Grafter Shop',
+    id: 'company',
+    name: 'Company',
+    blurb: 'Growing workshop — more seats for the team.',
+    seats: 15,
+    monthlyAud: 119,
+    monthlyEnv: 'STRIPE_PRICE_COMPANY_MONTHLY',
+    yearlyEnv: 'STRIPE_PRICE_COMPANY_YEARLY',
+    stripeProductHint: 'Product: Grafter Company',
+  },
+  {
+    id: 'plant',
+    name: 'Plant',
+    blurb: 'Larger plant — up to 40 seats.',
+    seats: 40,
+    monthlyAud: 199,
+    monthlyEnv: 'STRIPE_PRICE_PLANT_MONTHLY',
+    yearlyEnv: 'STRIPE_PRICE_PLANT_YEARLY',
+    stripeProductHint: 'Product: Grafter Plant',
   },
 ];
 
@@ -217,10 +227,14 @@ export interface OperatorApiErr {
 export type OperatorApiResult = OperatorApiOk | OperatorApiErr;
 
 export const STRIPE_SECRET_MISS =
-  'Add a restricted Stripe key (rk_…) as STRIPE_SECRET_KEY on the platform-operator and stripe-webhook functions. Create three Stripe Products — Starter, Crew, Shop — each with a monthly Price and a yearly Price. Paste those Price IDs into STRIPE_PRICE_STARTER_MONTHLY (and the other STRIPE_PRICE_* secrets). Do not put Stripe keys in VITE_*. Until then, you can still suspend companies and set a plan by hand.';
+  'Add a restricted Stripe key (rk_…) as STRIPE_SECRET_KEY on the platform-operator, company-billing, and stripe-webhook functions. Create three Stripe Products — Crew, Company, Plant — each with a monthly Price and a yearly Price. Paste those Price IDs into STRIPE_PRICE_CREW_MONTHLY (and the other STRIPE_PRICE_* secrets). Do not put Stripe keys in VITE_*. Until then, you can still suspend companies and set a plan by hand.';
 
 export const STRIPE_TAX_NOTE =
   'Do not turn on Stripe Tax automatic_tax until you have an active tax registration in Stripe. Without one, Stripe collects no tax and does not error.';
+
+export function isGrafterPlanId(id: string | null | undefined): id is GrafterPlanId {
+  return GRAFTER_PLAN_IDS.includes(id as GrafterPlanId);
+}
 
 export function grafterPlan(id: string | null | undefined): GrafterPlan {
   return GRAFTER_PLANS.find(p => p.id === id) ?? GRAFTER_PLANS[0];
@@ -229,6 +243,37 @@ export function grafterPlan(id: string | null | undefined): GrafterPlan {
 export function priceEnvFor(plan: GrafterPlanId, interval: BillingInterval): string {
   const row = grafterPlan(plan);
   return interval === 'year' ? row.yearlyEnv : row.monthlyEnv;
+}
+
+export function seatLimitFor(plan: GrafterPlanId): number {
+  return grafterPlan(plan).seats;
+}
+
+export function formatPlanPriceAud(plan: GrafterPlan): string {
+  return `$${plan.monthlyAud}`;
+}
+
+/** After trial, ask them to pick a plan. Do not treat this as a suspend. */
+export function companyNeedsPaidPlan(
+  company: { billing_status?: string | null; trial_ends_at?: string | null } | null | undefined,
+  now = new Date(),
+): boolean {
+  if (!company) return false;
+  if (company.billing_status === 'active' || company.billing_status === 'past_due') return false;
+  const ends = company.trial_ends_at ? new Date(company.trial_ends_at) : null;
+  if (ends && !Number.isNaN(ends.getTime()) && ends.getTime() > now.getTime()) return false;
+  return true;
+}
+
+/** New seat only. Resend / already-on-team does not consume another seat. */
+export function inviteWouldExceedSeatLimit(opts: {
+  seatLimit: number | null | undefined;
+  peopleCount: number;
+  alreadyOnTeam: boolean;
+}): boolean {
+  if (opts.alreadyOnTeam) return false;
+  if (opts.seatLimit == null) return false;
+  return opts.peopleCount >= opts.seatLimit;
 }
 
 export function companyIsSuspended(company: { access_status?: string | null } | null | undefined): boolean {
@@ -264,11 +309,11 @@ function mockCompanies(): OperatorCompanyRow[] {
       created_at: now,
       access_status: 'active',
       billing_status: 'none',
-      plan: 'shop',
+      plan: 'plant',
       stripe_customer_id: null,
       stripe_subscription_id: null,
       trial_ends_at: null,
-      seat_limit: null,
+      seat_limit: 40,
       people_count: 1,
       notes: 'Your own tenant. Charge other companies, not this one, unless you want to.',
     },
@@ -284,7 +329,7 @@ function mockCompanies(): OperatorCompanyRow[] {
       stripe_customer_id: null,
       stripe_subscription_id: null,
       trial_ends_at: in12,
-      seat_limit: 10,
+      seat_limit: 5,
       people_count: 4,
       notes: '',
     },
@@ -296,11 +341,11 @@ function mockCompanies(): OperatorCompanyRow[] {
       created_at: now,
       access_status: 'suspended',
       billing_status: 'past_due',
-      plan: 'starter',
+      plan: 'crew',
       stripe_customer_id: 'cus_demo',
       stripe_subscription_id: 'sub_demo',
       trial_ends_at: null,
-      seat_limit: 3,
+      seat_limit: 5,
       people_count: 2,
       notes: 'Card failed. Suspended until they pay.',
     },

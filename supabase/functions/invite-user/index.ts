@@ -223,7 +223,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: companyRow } = await adminClient
       .from("companies")
-      .select("id, name")
+      .select("id, name, seat_limit")
       .eq("id", companyId)
       .single();
 
@@ -244,6 +244,24 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({ error: "This email belongs to a user in another company" }),
         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    const alreadyOnTeam = existingProfile?.company_id === callerProfile.company_id;
+    const seatLimit = typeof companyRow?.seat_limit === "number" ? companyRow.seat_limit : null;
+    if (!alreadyOnTeam && seatLimit != null) {
+      const { count } = await adminClient
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId);
+      const peopleCount = count ?? 0;
+      if (peopleCount >= seatLimit) {
+        return new Response(
+          JSON.stringify({
+            error: `This plan allows ${seatLimit} people. Remove someone or pick a larger plan in Settings → Billing.`,
+          }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     const matchedAuthUser = await findAuthUserByEmail(adminClient, email);

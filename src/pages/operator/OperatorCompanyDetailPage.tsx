@@ -288,7 +288,7 @@ export function OperatorCompanyDetailPage() {
               <p className="font-semibold text-[#1A1A1A]">{plan.name}</p>
               <p className="text-sm text-[#4A5568] mt-1">{plan.blurb}</p>
               <p className="text-xs text-[#4A5568] mt-1">
-                {plan.seats ? `${plan.seats} seats` : 'Unlimited seats'}
+                {plan.seats} seats · ${plan.monthlyAud}/mo GST included
               </p>
               <button
                 type="button"
