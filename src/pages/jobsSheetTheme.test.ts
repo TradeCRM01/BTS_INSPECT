@@ -128,8 +128,8 @@ describe('job hub open sheet LOOK', () => {
     expect(header).toContain('hub-jobs-identity');
     expect(header).toContain('job.description');
     expect(header.indexOf('hub-jobs-hero')).toBeLessThan(header.indexOf('hub-jobs-status-whisper'));
-    expect(header.indexOf('hub-jobs-status-whisper')).toBeLessThan(header.indexOf('hub-jobs-tools'));
-    expect(header.indexOf('hub-jobs-tools')).toBeLessThan(header.indexOf('hub-jobs-identity'));
+    expect(header.indexOf('hub-jobs-status-whisper')).toBeLessThan(header.indexOf('className="hub-jobs-tools">'));
+    expect(header.indexOf('className="hub-jobs-tools">')).toBeLessThan(header.indexOf('hub-jobs-identity'));
     expect(header.indexOf('hub-jobs-identity')).toBeLessThan(header.indexOf('job.description'));
 
     const markers = [
