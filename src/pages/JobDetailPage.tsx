@@ -235,11 +235,11 @@ const JOB_TESTING_DUE_LOOK_CSS = `
         }
         .hub-jobs.is-record-open #job-testing-due .ops-section-title {
           font-family: 'Source Sans 3', system-ui, sans-serif;
-          font-weight: 500;
-          font-size: 14px;
+          font-weight: 600;
+          font-size: 16px;
           letter-spacing: 0;
           text-transform: none;
-          color: var(--testing-due-muted);
+          color: var(--testing-due-ink);
         }
         .hub-jobs.is-record-open #job-testing-due .ops-related-list {
           margin: 0;

@@ -7764,6 +7764,11 @@
     text-decoration: none;
   }
 
+  .hub-jobs-document .hub-jobs-ledger > .hub-jobs-ledger-row.hub-jobs-muted {
+    color: var(--job-look-ink);
+    font-weight: 500;
+  }
+
   .hub-jobs-ledger-row .hub-jobs-hours {
     font-size: 16px;
     white-space: nowrap;
@@ -7971,11 +7976,11 @@
   .hub-jobs-document :is(#job-swms, #job-insp) .ops-section-title,
   .hub-jobs-document .hub-jobs-bill-head .ops-section-title {
     font-family: 'Source Sans 3', system-ui, sans-serif;
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 16px;
+    font-weight: 600;
     letter-spacing: 0;
     text-transform: none;
-    color: var(--job-look-muted);
+    color: var(--job-look-ink);
   }
 
   .hub-jobs-document .ops-tray .ops-section-title .ops-meta,
@@ -8043,11 +8048,11 @@
 
   .hub-jobs-document #job-schedule .ops-section-title {
     font-family: 'Source Sans 3', system-ui, sans-serif;
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 16px;
+    font-weight: 600;
     letter-spacing: 0;
     text-transform: none;
-    color: var(--job-look-muted);
+    color: var(--job-look-ink);
   }
 
   .hub-jobs-document #job-schedule .ops-section-title svg {

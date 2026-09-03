@@ -96,6 +96,7 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(css).toContain('.hub-jobs-hero {\n      font-size: 20px !important');
     expect(css).toContain('.hub-jobs-document .hub-jobs-identity .hub-jobs-hours {\n    font-size: 14px;');
     expect(css).toContain('.hub-jobs-document .hub-jobs-identity .hub-jobs-hours {\n      font-size: 12px;');
+    expect(css).toContain('.hub-jobs-document .hub-jobs-bill-head .ops-section-title {\n    font-family: \'Source Sans 3\', system-ui, sans-serif;\n    font-size: 16px;\n    font-weight: 600;');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(css).not.toMatch(/#16A34A|#15803D|#1B7F3A/);
