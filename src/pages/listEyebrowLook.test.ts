@@ -49,7 +49,9 @@ describe('list-page quiet eyebrows (paper kit)', () => {
     const dashboard = src('src/pages/DashboardPage.tsx');
 
     expect(jobs).toContain('hub-look-eyebrow hub-jobs-label');
-    expect(clients).toContain('hub-look-eyebrow hub-clients-label');
+    expect(clients).not.toContain('hub-look-eyebrow');
+    expect(clients).toContain('ops-page-title">Clients');
+    expect(clients).toContain('hub-clients-list-mark">List');
     expect(inspections).toContain('hub-look-eyebrow hub-inspections-label');
     expect(jha).toContain('hub-look-eyebrow hub-jha-label');
     expect(take5).toContain('hub-look-eyebrow hub-take5-label');
