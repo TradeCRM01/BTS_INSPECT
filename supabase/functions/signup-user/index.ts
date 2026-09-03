@@ -123,6 +123,7 @@ Deno.serve(async (req: Request) => {
         plan: "crew",
         trial_ends_at: trialEnds,
         seat_limit: 5,
+        created_by: userId,
       })
       .select("id")
       .single();
@@ -130,7 +131,7 @@ Deno.serve(async (req: Request) => {
     if (tenantInsert.error || !tenantInsert.data) {
       const fallback = await adminClient
         .from("companies")
-        .insert({ name: companyName, email })
+        .insert({ name: companyName, email, created_by: userId })
         .select("id")
         .single();
       if (fallback.error || !fallback.data) {
