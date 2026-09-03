@@ -155,13 +155,13 @@ export type CompanyLogoCrop = {
   aspect?: number;
 };
 
-/** Focus box that cuts the empty padding on LETTERHEAD_LOOK_PADDED_MARK (1600×1000, mark at 440,428,720×144). */
+/** Cut the white box so letterhead shows the tight FIELD AUDIT / CO stamp (516×120 at 542,440 on 1600×1000). */
 export const LETTERHEAD_LOOK_CROP: CompanyLogoCrop = {
-  x: 0.275,
-  y: 0.428,
-  w: 0.45,
-  h: 0.144,
-  aspect: 1.6,
+  x: 542 / 1600,
+  y: 440 / 1000,
+  w: 516 / 1600,
+  h: 120 / 1000,
+  aspect: 1600 / 1000,
 };
 /** Cropped mark height on quote/invoice letterhead — PDF weight, still inside FROM. */
 export const LETTERHEAD_LOOK_SIZE = LETTERHEAD_MARK_MAX_PX;

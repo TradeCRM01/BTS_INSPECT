@@ -309,6 +309,14 @@ describe('company logo on documents', () => {
     expect(LETTERHEAD_LOOK_PADDED_MARK).toContain('wordmark-padded-field-audit.png');
     expect(LETTERHEAD_LOOK_PADDED_MARK).not.toMatch(/ute/i);
     expect(LETTERHEAD_LOOK_MARK).not.toMatch(/ute/i);
+    expect(LETTERHEAD_LOOK_CROP).toEqual({
+      x: 542 / 1600,
+      y: 440 / 1000,
+      w: 516 / 1600,
+      h: 120 / 1000,
+      aspect: 1600 / 1000,
+    });
+    expect(LETTERHEAD_LOOK_CROP.w).toBeLessThan(0.33);
   });
 });
 

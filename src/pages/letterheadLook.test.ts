@@ -71,6 +71,10 @@ describe('quote + invoice letterhead mark LOOK', () => {
     expect(mark).toContain('CO');
     expect(mark).toContain('1600');
     expect(mark).toContain('1000');
+    expect(mark).toContain('width="516" height="120"');
+    expect(mark).not.toContain('width="720"');
+    expect(src('src/lib/companyLogo.ts')).toContain('516 / 1600');
+    expect(src('src/lib/companyLogo.ts')).not.toContain('w: 0.45');
     expect(src('src/lib/companyLogo.ts')).toContain("LETTERHEAD_LOOK_PADDED_MARK = '/look/wordmark-padded-field-audit.png'");
     expect(src('src/lib/companyLogo.ts')).toContain('LETTERHEAD_LOOK_CROP');
     expect(src('src/lib/companyLogo.ts')).toContain('letterheadLookPaddedMarkSrc');
