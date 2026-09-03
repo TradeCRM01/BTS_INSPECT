@@ -15,7 +15,7 @@ import type { MenuEntry } from '../components/ui';
 import {
   Folder, FolderPlus, FileText, ClipboardList, Home,
   Download, PenLine, UploadCloud, Trash2,
-  X, Move, Link2, Copy, Check,
+  X, Move, Copy, MoreHorizontal,
 } from 'lucide-react';
 import { AUDIT_REPORT_ID, getAuditDriveUploads, getAuditEmptyList, getAuditReportSendBundle } from '../lib/devFieldAuditDocs';
 import { DEV_AUDIT_COMPANY, isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
@@ -133,6 +133,67 @@ interface FileRow {
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
+/** Signed reports-list frame seed — list look only, not a live company. */
+const REPORTS_LIST_LOOK = 'reports-list';
+
+function reportsListLookRows(): ReportRow[] {
+  const stamp = '2026-09-03T00:00:00.000Z';
+  const base = {
+    folder_id: null as string | null,
+    position_x: 0,
+    position_y: 0,
+    job: null as JobLite | null,
+    inspection: null as InspectionLite | null,
+  };
+  return [
+    {
+      ...base,
+      id: 'look-report-northside',
+      inspection_id: 'look-insp-northside',
+      report_number: 'RPT-2002',
+      pdf_storage_path: 'look/northside.pdf',
+      generated_at: stamp,
+      sent_at: null,
+      inspection: {
+        id: 'look-insp-northside',
+        meta: { siteName: 'Northside Electrical' },
+        template_snapshot: { name: 'Inspection' },
+      },
+      clientName: 'Northside Electrical',
+    },
+    {
+      ...base,
+      id: 'look-report-harbour',
+      inspection_id: 'look-insp-harbour',
+      report_number: 'RPT-2003',
+      pdf_storage_path: 'look/harbour.pdf',
+      generated_at: stamp,
+      sent_at: '2026-09-03T01:00:00.000Z',
+      inspection: {
+        id: 'look-insp-harbour',
+        meta: { siteName: 'Harbour Lights' },
+        template_snapshot: { name: 'Inspection' },
+      },
+      clientName: 'Harbour Lights',
+    },
+    {
+      ...base,
+      id: 'look-report-midland',
+      inspection_id: 'look-insp-midland',
+      report_number: 'RPT-2004',
+      pdf_storage_path: 'look/midland.pdf',
+      generated_at: stamp,
+      sent_at: null,
+      inspection: {
+        id: 'look-insp-midland',
+        meta: { siteName: 'Midland Workshops' },
+        template_snapshot: { name: 'Inspection' },
+      },
+      clientName: 'Midland Workshops',
+    },
+  ];
+}
+
 type ListItem =
   | { kind: 'report'; row: ReportRow; listStatus: ReportListStatus }
   | { kind: FileKind; row: FileRow };
@@ -149,6 +210,7 @@ export function ReportsListPage() {
   const queryClient = useQueryClient();
   const params = useParams<{ folderId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const lookReportsList = searchParams.get('look') === REPORTS_LIST_LOOK;
   const openId = parseReportsListOpenId(searchParams.get('id'));
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(params.folderId ?? null);
   const [folderStack, setFolderStack] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'Reports' }]);
@@ -193,7 +255,7 @@ export function ReportsListPage() {
       }
       return data;
     },
-    enabled: !!companyId,
+    enabled: !!companyId && !lookReportsList,
   });
 
   useEffect(() => {
@@ -212,7 +274,7 @@ export function ReportsListPage() {
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!companyId,
+    enabled: !!companyId && !lookReportsList,
   });
 
   useEffect(() => {
@@ -265,7 +327,7 @@ export function ReportsListPage() {
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!companyId,
+    enabled: !!companyId && !lookReportsList,
   });
 
   const { data: allReports, error: reportsError, isLoading: reportsLoading } = useQuery<ReportRow[]>({
@@ -339,7 +401,7 @@ export function ReportsListPage() {
         };
       });
     },
-    enabled: !!companyId,
+    enabled: !!companyId && !lookReportsList,
   });
 
   const { data: allInspections } = useQuery<InspectionRow[]>({
@@ -359,11 +421,13 @@ export function ReportsListPage() {
         template_snapshot: (i.template_snapshot ?? null) as { name?: string } | null,
       })) as InspectionRow[];
     },
-    enabled: !!companyId,
+    enabled: !!companyId && !lookReportsList,
   });
 
+  const listReports = lookReportsList ? reportsListLookRows() : (allReports ?? []);
+
   const reportItems = useMemo(() => {
-    const scoped = (allReports ?? []).filter(r => {
+    const scoped = listReports.filter(r => {
       if (search.trim()) return true;
       if (!currentFolderId) return true;
       return (r.folder_id ?? null) === currentFolderId;
@@ -387,9 +451,9 @@ export function ReportsListPage() {
     const found = filterReportsForSearch(withStatus, search);
     const filtered = filterReportsByStatus(found, statusFilter);
     return sortReportsForList(filtered);
-  }, [allReports, currentFolderId, search, statusFilter]);
+  }, [listReports, currentFolderId, search, statusFilter]);
 
-  const openedReport = reportsListOpened(allReports, openId);
+  const openedReport = lookReportsList ? null : reportsListOpened(allReports, openId);
   const reportOpen = !!openedReport;
 
   const fileItems: FileRow[] = useMemo(() => {
@@ -849,7 +913,12 @@ export function ReportsListPage() {
     return <AppShell><PageError message="Could not load reports" /></AppShell>;
   }
 
-  const loading = !!companyId && (reportsLoading || foldersLoading || uploadsLoading) && !allReports && !allUploads;
+  const loading = !lookReportsList && !!companyId && (reportsLoading || foldersLoading || uploadsLoading) && !allReports && !allUploads;
+  const filterLabel = statusFilter === 'ready' ? 'Ready' : statusFilter === 'sent' ? 'Sent' : 'All';
+  const whisper = [
+    filterLabel,
+    reportItems.length === 1 ? '1 report' : `${reportItems.length} reports`,
+  ].join(' · ');
   const emptyTitle = reportsListEmptyTitle({
     search,
     filter: statusFilter,
@@ -884,59 +953,49 @@ export function ReportsListPage() {
 
   return (
     <AppShell>
-      <div className={`ops-page hub-reports${reportOpen ? ' is-report-open' : ''}`}>
+      <div className={`ops-page hub-reports${reportOpen ? ' is-report-open' : ' hub-reports-list-doc'}`}>
         <div className="hub-reports-open-chrome">
           <Link to="/drive" className="hub-reports-label">Reports</Link>
         </div>
-        <div className="ops-page-head">
-          <div>
-            <p className="hub-look-eyebrow hub-reports-label">Reports</p>
+        {reportOpen ? null : (
+        <div className="hub-reports-sheet">
+          <header className="hub-reports-list-bar">
+            <span className="hub-reports-list-mark">List</span>
+          </header>
+          <div className="hub-reports-list-body">
             <h1 className="ops-page-title">Reports</h1>
-            <p className="hub-reports-lede">{reportsListLede(statusFilter, reportItems.length)}</p>
-          </div>
-          <div className="hub-reports-head-act">
-            <button
-              type="button"
-              onClick={() => setShowBackupPanel(s => !s)}
-              className={`hub-reports-quiet ${backupConnected ? 'is-on' : ''}`}
-              title="Local backup settings"
-            >
-              <HardDrive size={16} /> {backupConnected ? 'Backup connected' : 'Backup'}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleCopyLink(currentFolderId)}
-              className="hub-reports-quiet"
-              title="Copy link to this folder"
-            >
-              {linkCopied ? <Check size={16} /> : <Link2 size={16} />}
-              {linkCopied ? 'Copied' : 'Copy link'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowNewFolder(true)}
-              className="hub-reports-quiet"
-            >
-              <FolderPlus size={16} /> New folder
-            </button>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="btn-primary"
-              disabled={uploading}
-            >
-              <UploadCloud size={16} /> {uploading ? 'Uploading…' : 'Upload PDF'}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/pdf,.pdf"
-              multiple
-              className="hidden"
-              onChange={e => { handleFiles(e.target.files); e.target.value = ''; }}
-            />
-          </div>
-        </div>
+            <p className="hub-reports-list-whisper">{whisper}</p>
+            <div className="hub-reports-list-tools">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="btn-primary"
+                disabled={uploading}
+              >
+                <UploadCloud size={16} /> {uploading ? 'Uploading…' : 'Upload PDF'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                multiple
+                className="hidden"
+                onChange={e => { handleFiles(e.target.files); e.target.value = ''; }}
+              />
+              <div className="hub-reports-list-tools-overflow">
+                <ReportsListFind
+                  statusFilter={statusFilter}
+                  onStatusFilter={setStatusFilter}
+                  search={search}
+                  onSearch={setSearch}
+                  backupConnected={backupConnected}
+                  linkCopied={linkCopied}
+                  onBackup={() => setShowBackupPanel(s => !s)}
+                  onCopyLink={() => { void handleCopyLink(currentFolderId); }}
+                  onNewFolder={() => setShowNewFolder(true)}
+                />
+              </div>
+            </div>
 
         {folderStack.length > 1 && (
           <nav aria-label="Breadcrumb" className="hub-reports-crumbs">
@@ -955,31 +1014,6 @@ export function ReportsListPage() {
             ))}
           </nav>
         )}
-
-        <div className="hub-reports-chrome">
-          <div className="hub-reports-filters" role="group" aria-label="Filter reports">
-            {([
-              ['all', 'All'],
-              ['ready', 'Ready'],
-              ['sent', 'Sent'],
-            ] as const).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setStatusFilter(key)}
-                className={`hub-chrome-filter ${statusFilter === key ? 'hub-chrome-filter-on' : ''}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-            placeholder="Search site, report, #0042…"
-            className="hub-reports-search"
-          />
-        </div>
 
         {uploadError && (
           <div className="hub-reports-banner is-bad">
@@ -1012,7 +1046,57 @@ export function ReportsListPage() {
 
         {loading ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
-        ) : reportOpen && openedReport && openedStatus ? (
+        ) : (
+          <>
+              <div className="hub-reports-thead">
+                <span>Site</span>
+                <span>Status</span>
+                <span />
+              </div>
+              {showReportsEmpty ? (
+                <EmptyState
+                  icon={FileText}
+                  title={emptyTitle || 'No reports yet'}
+                  message={reportsListEmptyMessage({
+                    search,
+                    filter: statusFilter,
+                    count: reportItems.length,
+                  })}
+                />
+              ) : reportItems.map(report => (
+                <ReportListRow
+                  key={`report-${report.id}`}
+                  report={report}
+                  onOpen={() => handleOpenReport(report)}
+                  onDownload={() => handleDownloadReport(report)}
+                  onMove={() => setMovePickerFor({ kind: 'report', row: report, listStatus: report.listStatus })}
+                />
+              ))}
+
+            {showFiles && (
+              <div className="hub-reports-files">
+                <h2 className="hub-reports-files-title">Files on this list</h2>
+                {fileItems.map(item => (
+                  <FileListRow
+                    key={`${item.kind}-${item.id}`}
+                    item={item}
+                    onOpen={() => handleOpenFile(item)}
+                    onDownload={() => handleDownloadUpload(item)}
+                    onMove={() => setMovePickerFor({ kind: item.kind, row: item })}
+                    onRename={() => startRename(item)}
+                    onDelete={() => handleDeleteFile(item)}
+                    onCopyLink={item.kind === 'folder' ? () => handleCopyLink(item.id) : undefined}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+          </div>
+        </div>
+        )}
+
+        {reportOpen && openedReport && openedStatus ? (
           <article className="hub-reports-document">
             <header className="hub-reports-sheet-bar">
               <span className="hub-reports-hours">{openedDate || reportListStatusLabel(openedStatus)}</span>
@@ -1067,56 +1151,7 @@ export function ReportsListPage() {
               </div>
             </div>
           </article>
-        ) : (
-          <>
-            <div className="hub-reports-sheet">
-              <div className="hub-reports-thead">
-                <span>Site</span>
-                <span>Status</span>
-                <span />
-              </div>
-              {showReportsEmpty ? (
-                <EmptyState
-                  icon={FileText}
-                  title={emptyTitle || 'No reports yet'}
-                  message={reportsListEmptyMessage({
-                    search,
-                    filter: statusFilter,
-                    count: reportItems.length,
-                  })}
-                />
-              ) : reportItems.map(report => (
-                <ReportListRow
-                  key={`report-${report.id}`}
-                  report={report}
-                  onOpen={() => handleOpenReport(report)}
-                  onDownload={() => handleDownloadReport(report)}
-                  onMove={() => setMovePickerFor({ kind: 'report', row: report, listStatus: report.listStatus })}
-                />
-              ))}
-            </div>
-
-            {showFiles && (
-              <div className="hub-reports-files">
-                <h2 className="hub-reports-files-title">Files on this list</h2>
-                <div className="hub-reports-sheet">
-                  {fileItems.map(item => (
-                    <FileListRow
-                      key={`${item.kind}-${item.id}`}
-                      item={item}
-                      onOpen={() => handleOpenFile(item)}
-                      onDownload={() => handleDownloadUpload(item)}
-                      onMove={() => setMovePickerFor({ kind: item.kind, row: item })}
-                      onRename={() => startRename(item)}
-                      onDelete={() => handleDeleteFile(item)}
-                      onCopyLink={item.kind === 'folder' ? () => handleCopyLink(item.id) : undefined}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
+        ) : null}
       </div>
 
       {showNewFolder && (
@@ -1200,12 +1235,6 @@ export function ReportsListPage() {
   );
 }
 
-function reportsListLede(filter: ReportListFilter, count: number): string {
-  if (filter === 'ready') return `${count} ready · tap one to open`;
-  if (filter === 'sent') return `${count} sent · tap one to open`;
-  return `${count} report${count === 1 ? '' : 's'} · tap one to open`;
-}
-
 function movePickerName(item: ListItem): string {
   if (item.kind === 'report') return item.row.report_number;
   return item.row.name;
@@ -1227,6 +1256,182 @@ function reportMenuItems(args: {
   return items;
 }
 
+function placeReportsListMore(more: HTMLDetailsElement) {
+  const menu = more.querySelector('.hub-reports-list-more-menu') as HTMLElement | null;
+  const paper = more.closest('.hub-reports-sheet') as HTMLElement | null;
+  if (!menu || !paper) return;
+  more.classList.remove('is-flip', 'is-shift');
+  menu.style.removeProperty('--hub-reports-list-more-shift');
+  if (!more.open) return;
+  const pad = 8;
+  const paperRect = paper.getBoundingClientRect();
+  const bar = paper.querySelector('.hub-reports-list-bar');
+  const inkFloor = (bar?.getBoundingClientRect().bottom ?? paperRect.top) + pad;
+  const viewBottom = window.innerHeight - pad;
+  const menuRect = menu.getBoundingClientRect();
+  const trigger = more.querySelector('summary') as HTMLElement | null;
+  const triggerRect = trigger?.getBoundingClientRect() ?? menuRect;
+  const flippedTop = triggerRect.top - pad - menuRect.height;
+  const overflowsBottom = menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom);
+  if (overflowsBottom && flippedTop >= inkFloor) {
+    more.classList.add('is-flip');
+  }
+  const after = menu.getBoundingClientRect();
+  let shift = 0;
+  if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
+  if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
+  if (shift !== 0) {
+    more.classList.add('is-shift');
+    menu.style.setProperty('--hub-reports-list-more-shift', `${Math.round(shift)}px`);
+  }
+}
+
+function ReportsListFind({
+  statusFilter,
+  onStatusFilter,
+  search,
+  onSearch,
+  backupConnected,
+  linkCopied,
+  onBackup,
+  onCopyLink,
+  onNewFolder,
+}: {
+  statusFilter: ReportListFilter;
+  onStatusFilter: (key: ReportListFilter) => void;
+  search: string;
+  onSearch: (value: string) => void;
+  backupConnected: boolean;
+  linkCopied: boolean;
+  onBackup: () => void;
+  onCopyLink: () => void;
+  onNewFolder: () => void;
+}) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeReportsListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-reports-list-more hub-reports-list-find">
+      <summary aria-label="Find">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-reports-list-more-menu" role="menu">
+        <div className="hub-reports-chrome">
+          <div className="hub-reports-filters">
+            {([
+              ['all', 'All'],
+              ['ready', 'Ready'],
+              ['sent', 'Sent'],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="menuitem"
+                onClick={() => onStatusFilter(key)}
+                className={`hub-chrome-filter ${statusFilter === key ? 'hub-chrome-filter-on' : ''}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <SearchBar
+            value={search}
+            onChange={onSearch}
+            placeholder="Search site, report, #0042…"
+            className="hub-reports-search"
+          />
+        </div>
+        <button type="button" role="menuitem" onClick={() => { onBackup(); closeMore(); }}>
+          {backupConnected ? 'Backup connected' : 'Backup'}
+        </button>
+        <button type="button" role="menuitem" onClick={() => { onCopyLink(); closeMore(); }}>
+          {linkCopied ? 'Copied' : 'Copy link'}
+        </button>
+        <button type="button" role="menuitem" onClick={() => { onNewFolder(); closeMore(); }}>
+          New folder
+        </button>
+      </div>
+    </details>
+  );
+}
+
+function ReportRowMore({ items }: { items: MenuEntry[] }) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeReportsListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-reports-list-more">
+      <summary aria-label="More">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-reports-list-more-menu" role="menu">
+        {items.map((entry, i) => {
+          if ('divider' in entry) {
+            return <div key={`d-${i}`} className="hub-reports-list-more-rule" />;
+          }
+          return (
+            <button
+              key={entry.label}
+              type="button"
+              role="menuitem"
+              className={entry.variant === 'danger' ? 'is-danger' : undefined}
+              onClick={() => { entry.onClick(); closeMore(); }}
+            >
+              {entry.label}
+            </button>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
 const ReportListRow = memo(function ReportListRow({
   report,
   onOpen,
@@ -1238,7 +1443,6 @@ const ReportListRow = memo(function ReportListRow({
   onDownload: () => void;
   onMove: () => void;
 }) {
-  const openHref = reportOpenHref(report.inspection_id);
   const title = reportListTitle({
     meta: report.inspection?.meta,
     job: report.job,
@@ -1257,6 +1461,7 @@ const ReportListRow = memo(function ReportListRow({
     <div
       role="link"
       tabIndex={0}
+      aria-label="Open"
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className="hub-reports-row"
@@ -1265,10 +1470,9 @@ const ReportListRow = memo(function ReportListRow({
         <span className="hub-reports-name">{title}</span>
         {meta ? <span className="hub-reports-muted">{meta}</span> : null}
       </span>
-      <span className={`hub-reports-pill is-${status}`}>{reportListStatusLabel(status)}</span>
+      <span className="hub-reports-status">{reportListStatusLabel(status)}</span>
       <span className="hub-reports-row-next" onClick={e => e.stopPropagation()}>
-        <Link to={openHref} className="hub-reports-next">Open</Link>
-        <ContextMenu items={reportMenuItems({ report, onOpen, onDownload, onMove })} />
+        <ReportRowMore items={reportMenuItems({ report, onOpen, onDownload, onMove })} />
       </span>
     </div>
   );
@@ -1317,16 +1521,13 @@ const FileListRow = memo(function FileListRow({
   onDelete: () => void;
   onCopyLink?: () => void;
 }) {
-  const href = item.kind === 'folder'
-    ? folderOpenHref(item.id)
-    : item.kind === 'uploaded'
-      ? uploadedPdfOpenHref(item.id)
-      : inspectionDriveOpenHref({ id: item.id, status: (item.raw as InspectionRow).status });
+  const kindLabel = item.kind === 'folder' ? 'Folder' : item.kind === 'uploaded' ? 'Uploaded' : 'Inspection';
 
   return (
     <div
       role="link"
       tabIndex={0}
+      aria-label="Open"
       onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className="hub-reports-row"
@@ -1335,16 +1536,9 @@ const FileListRow = memo(function FileListRow({
         <span className="hub-reports-name">{item.name}</span>
         {item.subtitle ? <span className="hub-reports-muted">{item.subtitle}</span> : null}
       </span>
-      <span className={`hub-reports-pill is-${item.kind}`}>
-        {item.kind === 'folder' ? 'Folder' : item.kind === 'uploaded' ? 'Uploaded' : 'Inspection'}
-      </span>
+      <span className="hub-reports-status">{kindLabel}</span>
       <span className="hub-reports-row-next" onClick={e => e.stopPropagation()}>
-        {item.kind === 'folder' ? (
-          <button type="button" className="hub-reports-next" onClick={onOpen}>Open</button>
-        ) : (
-          <Link to={href} className="hub-reports-next">Open</Link>
-        )}
-        <ContextMenu items={fileMenuItems({ item, onOpen, onDownload, onMove, onRename, onDelete, onCopyLink })} />
+        <ReportRowMore items={fileMenuItems({ item, onOpen, onDownload, onMove, onRename, onDelete, onCopyLink })} />
       </span>
     </div>
   );

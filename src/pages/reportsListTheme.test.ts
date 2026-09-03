@@ -12,14 +12,16 @@ describe('reports list cream paper look', () => {
     const css = src('src/index.css');
 
     expect(list).toContain('hub-reports');
+    expect(list).toContain('hub-reports-list-doc');
     expect(list).toContain('hub-reports-sheet');
     expect(list).toContain('hub-reports-row');
     expect(list).toContain('hub-reports-pill');
     expect(list).toContain('hub-reports-site');
-    expect(list).toContain('hub-reports-lede');
+    expect(list).toContain('hub-reports-list-whisper');
     expect(list).toContain('hub-reports-label');
     expect(list).toContain('Site');
     expect(list).toContain('Search site, report, #0042');
+    expect(list).not.toContain('hub-reports-lede');
     expect(list).not.toContain('hub-reports-kicker');
     expect(list).not.toMatch(/>REPORTS</);
     expect(list).not.toContain('radial-gradient');
