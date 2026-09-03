@@ -191,10 +191,9 @@ describe('team settings floor wiring', () => {
     }
   });
 
-  it('keeps the existing row fit and does not restyle the page', () => {
+  it('keeps invite fields and does not restyle sibling floors', () => {
     const page = src('src/pages/TeamSettingsPage.tsx');
     expect(page).toContain('className="form-input"');
-    expect(page).toContain('flex flex-col sm:flex-row sm:items-center');
     expect(page).not.toContain('dashboard-home');
     expect(page).not.toContain('hub-clients');
     expect(src('src/index.css')).not.toContain('/* Team settings');
@@ -230,6 +229,7 @@ describe('team settings floor wiring', () => {
     expect(page).not.toContain('hub-timesheets');
     expect(page).not.toContain('hub-compliance');
     expect(src('src/index.css')).not.toContain('--team-look-page');
-    expect(src('src/index.css')).not.toContain('.hub-team');
+    expect(src('src/index.css')).not.toContain('.hub-team-hero');
+    expect(src('src/index.css')).toContain('/* Team list document only.');
   });
 });

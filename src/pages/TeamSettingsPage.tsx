@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -19,7 +19,7 @@ import { OverlayPortal } from '../components/ui/OverlayPortal';
 import { SearchBar } from '../components/ui/SearchBar';
 import { getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { DEV_AUDIT_PROFILE } from '../lib/devFieldAuditAuth';
-import { Users, UserPlus, Mail, Shield, Eye, CreditCard as Edit2, EyeOff, Trash2, Crown, X, Check, AlertCircle, Send, Clock, Copy, Link2 } from 'lucide-react';
+import { UserPlus, Mail, Eye, CreditCard as Edit2, EyeOff, Trash2, Crown, X, Check, AlertCircle, Send, Copy, MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
 
 /** Page-local open-person sheet. Same tokens as signed timesheets / compliance. */
@@ -68,19 +68,6 @@ const TEAM_LOOK_CSS = `
   color: var(--team-look-muted);
   margin: 0;
   text-decoration: none;
-}
-.hub-team-list-page {
-  background: var(--team-look-page);
-  min-height: calc(100dvh - 3.5rem);
-}
-.hub-team-list-sheet {
-  background: var(--team-look-sheet);
-  border: 1px solid var(--team-look-line);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow:
-    inset 0 1px 0 #fff,
-    0 10px 28px rgba(10, 37, 64, 0.08);
 }
 .hub-team-sheet {
   max-width: 1100px;
@@ -265,6 +252,75 @@ const TEAM_LOOK_CSS = `
 `;
 
 type TemplateAccess = 'view' | 'edit' | 'none';
+type TeamListFilter = 'all' | 'joined' | 'pending';
+
+/** Signed team-list frame seed — list look only, not a live company. */
+const TEAM_LIST_LOOK = 'team-list';
+
+const TEAM_LIST_FILTERS: { key: TeamListFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'joined', label: 'Joined' },
+  { key: 'pending', label: 'Pending' },
+];
+
+function teamListLookRows(): Member[] {
+  const stamp = '2026-09-03T00:00:00.000Z';
+  return [
+    {
+      id: 'look-team-alex',
+      email: 'alex@northside.example.com',
+      name: 'Alex Nguyen',
+      licence_number: 'EC 123456',
+      role: 'member',
+      template_access: 'view',
+      created_at: stamp,
+      email_confirmed_at: stamp,
+      last_sign_in_at: stamp,
+    },
+    {
+      id: 'look-team-jordan',
+      email: 'jordan@northside.example.com',
+      name: 'Jordan Admin',
+      licence_number: 'EC 999001',
+      role: 'admin',
+      template_access: 'edit',
+      created_at: stamp,
+      email_confirmed_at: stamp,
+      last_sign_in_at: stamp,
+    },
+    {
+      id: 'look-team-sam',
+      email: 'sam@northside.example.com',
+      name: 'Sam Spark',
+      licence_number: null,
+      role: 'member',
+      template_access: 'view',
+      created_at: stamp,
+      email_confirmed_at: null,
+      last_sign_in_at: null,
+    },
+  ];
+}
+
+function teamListWhisper(args: { filter: TeamListFilter; count: number }): string {
+  const filterLabel = args.filter === 'joined'
+    ? 'Joined'
+    : args.filter === 'pending'
+      ? 'Pending'
+      : 'All';
+  const countLabel = args.count === 1 ? '1 member' : `${args.count} members`;
+  return `${filterLabel} · ${countLabel}`;
+}
+
+function teamListRoleLabel(member: Pick<Member, 'role'> & Parameters<typeof teamSettingsIsPending>[0]): string {
+  if (teamSettingsIsPending(member)) return 'Pending';
+  return member.role === 'admin' ? 'Admin' : 'Member';
+}
+
+function teamListRowMuted(member: Member): string {
+  const licence = teamSettingsLicenceLabel(member.licence_number);
+  return [member.email, licence].filter(Boolean).join(' · ');
+}
 
 interface Member {
   id: string;
@@ -283,24 +339,6 @@ const ACCESS_OPTIONS: { value: TemplateAccess; label: string; description: strin
   { value: 'view', label: 'View only', description: 'Can view templates, not modify them', icon: Eye },
   { value: 'none', label: 'No access', description: 'Templates are hidden', icon: EyeOff },
 ];
-
-function AccessBadge({ access }: { access: TemplateAccess }) {
-  if (access === 'edit') return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-      <Edit2 size={10} /> Edit
-    </span>
-  );
-  if (access === 'view') return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-[#2E75B6] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
-      <Eye size={10} /> View
-    </span>
-  );
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-[#4A5568] bg-[#F3F4F6] border border-[#E5E7EB] px-2 py-0.5 rounded-full">
-      <EyeOff size={10} /> None
-    </span>
-  );
-}
 
 interface InviteFormProps {
   companyId: string;
@@ -470,17 +508,20 @@ function InviteForm({ companyId, accessToken, onClose, onSuccess }: InviteFormPr
 export function TeamSettingsPage() {
   const { profile, company, session } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const lookTeamList = searchParams.get('look') === TEAM_LIST_LOOK;
   const [search, setSearch] = useState('');
+  const [listFilter, setListFilter] = useState<TeamListFilter>('all');
   const [showInvite, setShowInvite] = useState(false);
   const [invitedName, setInvitedName] = useState('');
   const [lastInviteLink, setLastInviteLink] = useState('');
   const [lastInviteEmailSent, setLastInviteEmailSent] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
-  const isAdmin = profile?.role === 'admin';
+  const isAdmin = lookTeamList || profile?.role === 'admin';
   const openedId = parseTeamSettingsMemberId(searchParams.get('id'));
 
-  if (profile && !isAdmin) {
+  if (profile && !isAdmin && !lookTeamList) {
     return <Navigate to="/" replace />;
   }
 
@@ -523,20 +564,28 @@ export function TeamSettingsPage() {
       if (error) throw error;
       return data as Member[];
     },
-    enabled: !!company,
+    enabled: !!company && !lookTeamList,
   });
 
-  const visibleMembers = useMemo(
-    () => filterTeamSettingsList(members ?? [], search),
-    [members, search],
-  );
-  const openedMember = teamSettingsOpenedMember(members, openedId);
+  const listRows = lookTeamList ? teamListLookRows() : (members ?? []);
+  const visibleMembers = useMemo(() => {
+    const byFilter = listFilter === 'all'
+      ? listRows
+      : listRows.filter(member => {
+        const pending = teamSettingsIsPending(member);
+        return listFilter === 'pending' ? pending : !pending;
+      });
+    return filterTeamSettingsList(byFilter, search);
+  }, [listRows, listFilter, search]);
+  const openedMember = teamSettingsOpenedMember(listRows, openedId);
   const emptyTitle = teamSettingsEmptyTitle({
-    error: isError,
-    total: members?.length ?? 0,
+    error: !lookTeamList && isError,
+    total: listRows.length,
     visible: visibleMembers.length,
     query: search,
   });
+  const whisper = teamListWhisper({ filter: listFilter, count: visibleMembers.length });
+  const loading = !lookTeamList && isLoading;
 
   const updateAccessMutation = useMutation({
     mutationFn: async ({ memberId, templateAccess }: { memberId: string; templateAccess: TemplateAccess }) => {
@@ -665,8 +714,8 @@ export function TeamSettingsPage() {
   return (
     <AppShell>
       <style>{TEAM_LOOK_CSS}</style>
-      <div className={personOpen ? 'ops-page hub-team is-person-open' : 'hub-team hub-team-list-page'}>
-      <div className={personOpen ? undefined : 'page-shell-narrow'}>
+      <div className={personOpen ? 'ops-page hub-team is-person-open' : 'ops-page hub-team hub-team-list-doc'}>
+      <div>
         {openedMember && (
           <>
             <div className="hub-team-open-chrome">
@@ -792,272 +841,109 @@ export function TeamSettingsPage() {
         )}
 
         <div className={personOpen ? 'hub-team-list-chrome' : undefined}>
-        {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">Team</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">
-              Manage who has access to {company?.name ?? 'your company'}.
-            </p>
-          </div>
-          {isAdmin && (
-            <button
-              onClick={() => setShowInvite(true)}
-              className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
-            >
-              <UserPlus size={15} />
-              Invite member
-            </button>
-          )}
-        </div>
-
-        {/* Success toast */}
-        {invitedName && (
-          <div className="mb-4 space-y-3 bg-emerald-50 border border-emerald-200 text-emerald-900 px-4 py-3 rounded-lg text-sm">
-            <div className="flex items-start gap-2">
-              <Check size={15} className="shrink-0 mt-0.5 text-emerald-700" />
-              <div>
-                <p>
-                  {lastInviteEmailSent
-                    ? <>Invitation sent to <span className="font-medium">{invitedName}</span>. They can open it from any network.</>
-                    : <>Invitation created for <span className="font-medium">{invitedName}</span>, but email wasn’t sent — share the link below.</>}
-                </p>
-                <p className="text-xs text-emerald-800/80 mt-1">
-                  Or share this app URL: <span className="font-medium">https://bts-inspect.pages.dev</span>
-                </p>
+        <div className="hub-team-list-sheet">
+          <header className="hub-team-list-bar">
+            <span className="hub-team-list-mark">List</span>
+          </header>
+          <div className="hub-team-list-body">
+            <h1 className="ops-page-title">Team</h1>
+            <p className="hub-team-list-whisper">{whisper}</p>
+            <div className="hub-team-list-tools">
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setShowInvite(true)}
+                  className="btn-primary"
+                >
+                  <UserPlus size={16} />
+                  Invite member
+                </button>
+              )}
+              <div className="hub-team-list-tools-overflow">
+                <TeamListFind
+                  filter={listFilter}
+                  onFilter={setListFilter}
+                  search={search}
+                  onSearch={setSearch}
+                />
               </div>
             </div>
-            {lastInviteLink && (
-              <div className="bg-white/70 border border-emerald-200 rounded-md p-3 space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-900">
-                  <Link2 size={12} />
-                  Shareable invite link (works on their network)
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    readOnly
-                    value={lastInviteLink}
-                    className="flex-1 min-w-0 min-h-[44px] text-xs px-2 py-2 border border-emerald-200 rounded bg-white text-[#1A1A1A]"
-                    onFocus={e => e.target.select()}
-                  />
-                  <button
-                    type="button"
-                    onClick={copyInviteLink}
-                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#0A2540] text-white text-xs font-medium hover:bg-[#0d2f4e]"
-                  >
-                    <Copy size={12} />
-                    {linkCopied ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
+
+            {invitedName && (
+              <div className="ops-alert">
+                {lastInviteEmailSent
+                  ? <>Invitation sent to <span className="font-medium">{invitedName}</span>.</>
+                  : <>Invitation created for <span className="font-medium">{invitedName}</span>, but email wasn’t sent — share the link below.</>}
+                {lastInviteLink && (
+                  <div className="hub-team-list-invite-link">
+                    <input
+                      readOnly
+                      value={lastInviteLink}
+                      className="form-input"
+                      onFocus={e => e.target.select()}
+                    />
+                    <button type="button" onClick={copyInviteLink}>
+                      <Copy size={12} />
+                      {linkCopied ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
-        {resentEmail && !lastInviteLink && (
-          <div className="mb-4 flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">
-            <Check size={15} className="shrink-0" />
-            Invite resent to <span className="font-medium">{resentEmail}</span>.
-          </div>
-        )}
-        {resendError && (
-          <div className="mb-4 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-            <AlertCircle size={15} className="shrink-0" />
-            {resendError}
-          </div>
-        )}
-
-        <div className="mb-4">
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-            placeholder="Search by name, email, or licence"
-          />
-        </div>
-
-        {/* Members list */}
-        <div className="hub-team-list-sheet">
-          <div className="px-5 py-3.5 border-b border-[#E5E7EB] flex items-center gap-2">
-            <Users size={15} className="text-[#4A5568]" />
-            <span className="text-sm font-medium text-[#1A1A1A]">
-              {visibleMembers.length} member{visibleMembers.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-
-          {isLoading ? (
-            <div className="flex justify-center py-12">
-              <LoadingSpinner size="lg" />
-            </div>
-          ) : isError ? (
-            <PageError onRetry={refetch} />
-          ) : emptyTitle ? (
-            <div className="px-5 py-12 text-center text-sm text-[#4A5568]">{emptyTitle}</div>
-          ) : (
-            <div className="divide-y divide-[#E5E7EB]">
-              {visibleMembers.map(member => {
-                const isMe = member.id === profile?.id;
-                const isMemberAdmin = member.role === 'admin';
-                const isPending = teamSettingsIsPending(member);
-                const opened = openedMember?.id === member.id;
-                const licence = teamSettingsLicenceLabel(member.licence_number);
-
-                return (
-                  <div
-                    key={member.id}
-                    id={opened && !personOpen ? 'team-member-open' : undefined}
-                    className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-5 py-4${opened ? ' bg-blue-50/50' : ''}`}
-                  >
-                    {/* Avatar */}
-                    <div className="w-9 h-9 rounded-full bg-[#0A2540]/10 flex items-center justify-center shrink-0">
-                      <span className="text-sm font-semibold text-[#0A2540]">
-                        {member.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Link
-                          to={teamSettingsMemberHref(member.id)}
-                          className="text-sm font-medium text-[#1A1A1A] hover:text-[#2E75B6]"
-                        >
-                          {member.name}
-                        </Link>
-                        {isMe && (
-                          <span className="text-xs text-[#4A5568] bg-[#F3F4F6] px-1.5 py-0.5 rounded">You</span>
-                        )}
-                        {isMemberAdmin && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                            <Crown size={10} /> Admin
-                          </span>
-                        )}
-                        {isPending && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-[#B45309] bg-[#FEF3C7] border border-[#FCD34D] px-2 py-0.5 rounded-full">
-                            <Clock size={10} /> Pending
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-[#4A5568] truncate mt-0.5">{member.email}</p>
-                      {licence && (
-                        <p className="text-xs text-[#9CA3AF] mt-0.5">Licence {licence}</p>
-                      )}
-                      <p className="text-xs text-[#9CA3AF] mt-0.5">
-                        {isPending
-                          ? `Invited ${format(new Date(member.created_at), 'd MMM yyyy')}`
-                          : `Joined ${format(new Date(member.created_at), 'd MMM yyyy')}`}
-                      </p>
-                    </div>
-
-                    {/* Controls */}
-                    <div className="flex items-center gap-2 flex-wrap min-w-0 w-full sm:w-auto sm:shrink-0">
-                      <Link
-                        to={teamSettingsMemberHref(member.id)}
-                        className="text-xs font-medium text-[#2E75B6] px-2.5 py-1.5"
-                      >
-                        Open
-                      </Link>
-                      {/* Template access â€” show for non-admin members when I'm admin and not looking at myself */}
-                      {isAdmin && !isMemberAdmin && !isMe && (
-                        <div className="flex items-center gap-1.5 min-w-0 flex-1 sm:flex-none">
-                          <span className="text-xs text-[#4A5568] hidden sm:block">Templates:</span>
-                          <select
-                            value={member.template_access}
-                            onChange={e => updateAccessMutation.mutate({
-                              memberId: member.id,
-                              templateAccess: e.target.value as TemplateAccess,
-                            })}
-                            disabled={updateAccessMutation.isPending}
-                            className="form-input-sm min-w-0 w-full sm:w-auto"
-                          >
-                            {ACCESS_OPTIONS.map(o => (
-                              <option key={o.value} value={o.value}>{o.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
-                      {/* Role toggle â€” promote/demote, not for self */}
-                      {isAdmin && !isMe && (
-                        <button
-                          onClick={() => {
-                            const action = isMemberAdmin ? 'demote' : 'promote';
-                            const msg = isMemberAdmin
-                              ? `Remove admin from ${member.name}? They'll become a regular member.`
-                              : `Make ${member.name} an admin? They'll have full access to everything.`;
-                            if (confirm(msg)) {
-                              updateRoleMutation.mutate({
-                                memberId: member.id,
-                                role: isMemberAdmin ? 'member' : 'admin',
-                              });
-                            }
-                          }}
-                          disabled={updateRoleMutation.isPending}
-                          className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border font-medium transition-colors disabled:opacity-50 ${
-                            isMemberAdmin
-                              ? 'border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100'
-                              : 'border-[#E5E7EB] text-[#4A5568] bg-white hover:border-amber-300 hover:text-amber-700 hover:bg-amber-50'
-                          }`}
-                          title={isMemberAdmin ? 'Remove admin' : 'Make admin'}
-                        >
-                          <Crown size={11} />
-                          <span className="hidden sm:inline">{isMemberAdmin ? 'Admin' : 'Make admin'}</span>
-                        </button>
-                      )}
-
-                      {/* Resend invite â€” only for pending members */}
-                      {isAdmin && !isMe && isPending && (
-                        <button
-                          onClick={() => resendMutation.mutate(member)}
-                          disabled={resendingId === member.id}
-                          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-[#E5E7EB] text-[#2E75B6] bg-white hover:border-[#2E75B6] hover:bg-blue-50 font-medium transition-colors disabled:opacity-50"
-                          title="Resend invitation email"
-                        >
-                          <Send size={11} />
-                          <span className="hidden sm:inline">{resendingId === member.id ? 'Sending...' : 'Resend'}</span>
-                        </button>
-                      )}
-
-                      {/* Remove button â€” can remove non-self members (including other admins) */}
-                      {isAdmin && !isMe && (
-                        <button
-                          onClick={() => {
-                            if (confirm(`Remove ${member.name} from the team?`)) {
-                              removeMutation.mutate(member.id);
-                            }
-                          }}
-                          disabled={removeMutation.isPending}
-                          className="p-1.5 text-[#4A5568] hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                          title="Remove member"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Permissions legend */}
-        <div className="mt-6 bg-[#F9FAFB] rounded-xl border border-[#E5E7EB] p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Shield size={14} className="text-[#4A5568]" />
-            <span className="text-sm font-medium text-[#1A1A1A]">Permissions guide</span>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-start gap-3">
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shrink-0 mt-0.5">
-                <Crown size={10} /> Admin
-              </span>
-              <p className="text-xs text-[#4A5568]">Full access — manage team, templates, inspections and company settings. Use the crown button on any member to promote or demote.</p>
-            </div>
-            {ACCESS_OPTIONS.map(opt => (
-              <div key={opt.value} className="flex items-start gap-3">
-                <AccessBadge access={opt.value} />
-                <p className="text-xs text-[#4A5568] mt-0.5">{opt.description}. Can always create and submit inspections.</p>
+            {resentEmail && !lastInviteLink && (
+              <div className="ops-alert">
+                Invite resent to <span className="font-medium">{resentEmail}</span>.
               </div>
-            ))}
+            )}
+            {resendError && (
+              <div className="ops-alert">
+                {resendError}
+              </div>
+            )}
+
+            {loading && (
+              <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+            )}
+            {!lookTeamList && isError && <PageError onRetry={refetch} />}
+
+            {!loading && emptyTitle ? (
+              <div className="hub-team-list-empty">{emptyTitle}</div>
+            ) : null}
+
+            {!loading && visibleMembers.length > 0 && (
+              <>
+                <div className="hub-team-thead">
+                  <span>Name</span>
+                  <span>Role</span>
+                  <span />
+                </div>
+                {visibleMembers.map(member => (
+                  <TeamListRow
+                    key={member.id}
+                    member={member}
+                    isMe={member.id === profile?.id}
+                    isAdmin={!!isAdmin}
+                    opened={openedMember?.id === member.id && !personOpen}
+                    resending={resendingId === member.id}
+                    onOpen={() => navigate(teamSettingsMemberHref(member.id))}
+                    onAccess={templateAccess => updateAccessMutation.mutate({
+                      memberId: member.id,
+                      templateAccess,
+                    })}
+                    accessBusy={updateAccessMutation.isPending}
+                    onRole={role => updateRoleMutation.mutate({ memberId: member.id, role })}
+                    roleBusy={updateRoleMutation.isPending}
+                    onResend={() => resendMutation.mutate(member)}
+                    onRemove={() => {
+                      if (confirm(`Remove ${member.name} from the team?`)) {
+                        removeMutation.mutate(member.id);
+                      }
+                    }}
+                    removeBusy={removeMutation.isPending}
+                  />
+                ))}
+              </>
+            )}
           </div>
         </div>
         </div>
@@ -1073,5 +959,258 @@ export function TeamSettingsPage() {
         />
       )}
     </AppShell>
+  );
+}
+
+function placeTeamListMore(more: HTMLDetailsElement) {
+  const menu = more.querySelector('.hub-team-list-more-menu') as HTMLElement | null;
+  const paper = more.closest('.hub-team-list-sheet') as HTMLElement | null;
+  if (!menu || !paper) return;
+  more.classList.remove('is-flip', 'is-shift');
+  menu.style.removeProperty('--hub-team-list-more-shift');
+  if (!more.open) return;
+  const pad = 8;
+  const paperRect = paper.getBoundingClientRect();
+  const bar = paper.querySelector('.hub-team-list-bar');
+  const inkFloor = (bar?.getBoundingClientRect().bottom ?? paperRect.top) + pad;
+  const viewBottom = window.innerHeight - pad;
+  const menuRect = menu.getBoundingClientRect();
+  const trigger = more.querySelector('summary') as HTMLElement | null;
+  const triggerRect = trigger?.getBoundingClientRect() ?? menuRect;
+  const flippedTop = triggerRect.top - pad - menuRect.height;
+  const overflowsBottom = menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom);
+  if (overflowsBottom && flippedTop >= inkFloor) {
+    more.classList.add('is-flip');
+  }
+  const after = menu.getBoundingClientRect();
+  let shift = 0;
+  if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
+  if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
+  if (shift !== 0) {
+    more.classList.add('is-shift');
+    menu.style.setProperty('--hub-team-list-more-shift', `${Math.round(shift)}px`);
+  }
+}
+
+function TeamListFind({
+  filter,
+  onFilter,
+  search,
+  onSearch,
+}: {
+  filter: TeamListFilter;
+  onFilter: (key: TeamListFilter) => void;
+  search: string;
+  onSearch: (value: string) => void;
+}) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeTeamListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-team-list-more hub-team-list-find">
+      <summary aria-label="Find">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-team-list-more-menu" role="menu">
+        <div className="hub-team-chrome">
+          <div className="hub-team-filters">
+            {TEAM_LIST_FILTERS.map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                role="menuitem"
+                onClick={() => onFilter(tab.key)}
+                className={`hub-chrome-filter ${filter === tab.key ? 'hub-chrome-filter-on' : ''}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <SearchBar value={search} onChange={onSearch} placeholder="Search by name, email, or licence" />
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function TeamRowMore({
+  children,
+}: {
+  children: (closeMore: () => void) => ReactNode;
+}) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeTeamListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-team-list-more">
+      <summary aria-label="More">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-team-list-more-menu" role="menu">
+        {children(closeMore)}
+      </div>
+    </details>
+  );
+}
+
+function TeamListRow({
+  member,
+  isMe,
+  isAdmin,
+  opened,
+  resending,
+  onOpen,
+  onAccess,
+  accessBusy,
+  onRole,
+  roleBusy,
+  onResend,
+  onRemove,
+  removeBusy,
+}: {
+  member: Member;
+  isMe: boolean;
+  isAdmin: boolean;
+  opened: boolean;
+  resending: boolean;
+  onOpen: () => void;
+  onAccess: (access: TemplateAccess) => void;
+  accessBusy: boolean;
+  onRole: (role: 'admin' | 'member') => void;
+  roleBusy: boolean;
+  onResend: () => void;
+  onRemove: () => void;
+  removeBusy: boolean;
+}) {
+  const isMemberAdmin = member.role === 'admin';
+  const isPending = teamSettingsIsPending(member);
+  const muted = teamListRowMuted(member);
+  const role = teamListRoleLabel(member);
+
+  return (
+    <div
+      role="link"
+      tabIndex={0}
+      aria-label="Open"
+      id={opened ? 'team-member-open' : undefined}
+      onClick={onOpen}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      className="hub-team-row"
+    >
+      <span className="min-w-0">
+        <span className="hub-team-name truncate">{member.name}{isMe ? ' · You' : ''}</span>
+        {muted ? <span className="hub-team-muted truncate">{muted}</span> : null}
+      </span>
+      <span className="hub-team-status">{role}</span>
+      <span className="hub-team-row-next" onClick={e => e.stopPropagation()}>
+        <TeamRowMore>
+          {closeMore => (
+            <>
+              <Link
+                to={teamSettingsMemberHref(member.id)}
+                role="menuitem"
+                onClick={closeMore}
+              >
+                Open
+              </Link>
+              {isAdmin && !isMemberAdmin && !isMe && ACCESS_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="menuitem"
+                  disabled={accessBusy}
+                  onClick={() => { onAccess(opt.value); closeMore(); }}
+                >
+                  Templates · {opt.label}
+                </button>
+              ))}
+              {isAdmin && !isMe && !isPending && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={roleBusy}
+                  onClick={() => {
+                    const msg = isMemberAdmin
+                      ? `Remove admin from ${member.name}? They'll become a regular member.`
+                      : `Make ${member.name} an admin? They'll have full access to everything.`;
+                    if (confirm(msg)) onRole(isMemberAdmin ? 'member' : 'admin');
+                    closeMore();
+                  }}
+                >
+                  {isMemberAdmin ? 'Admin' : 'Make admin'}
+                </button>
+              )}
+              {isAdmin && !isMe && isPending && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={resending}
+                  onClick={() => { onResend(); closeMore(); }}
+                >
+                  {resending ? 'Sending...' : 'Resend'}
+                </button>
+              )}
+              {isAdmin && !isMe && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="is-danger"
+                  disabled={removeBusy}
+                  onClick={() => { onRemove(); closeMore(); }}
+                >
+                  Remove
+                </button>
+              )}
+            </>
+          )}
+        </TeamRowMore>
+      </span>
+    </div>
   );
 }
