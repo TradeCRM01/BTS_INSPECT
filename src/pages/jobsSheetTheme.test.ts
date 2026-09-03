@@ -134,6 +134,7 @@ describe('job hub open sheet LOOK', () => {
 
     const markers = [
       'title="Quotes"',
+      'title="Project stages"',
       'ops-section-title">Job bill',
       'title="JHA / SWMS"',
       'title="Take 5"',
@@ -147,6 +148,10 @@ describe('job hub open sheet LOOK', () => {
     for (let i = 1; i < at.length; i++) {
       expect(at[i]).toBeGreaterThan(at[i - 1]);
     }
+    expect(trays).toContain('stages.length > 0');
+    expect(trays.indexOf('JOB_TESTING_DUE_TITLE')).toBeLessThan(trays.indexOf('title="Invoices"'));
+    expect(trays.indexOf('title="Project stages"')).toBeLessThan(trays.indexOf('ops-section-title">Job bill'));
+    expect(trays.indexOf('title="Project stages"')).toBeGreaterThan(trays.indexOf('title="Quotes"'));
 
     expect(trays).not.toContain('title="Reports"');
     expect(trays).not.toContain('<table');

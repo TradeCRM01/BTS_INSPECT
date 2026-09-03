@@ -1444,6 +1444,34 @@ export function JobDetailPage() {
             ))}
           </JobRelatedSection>
 
+        {stages.length > 0 && (
+            <JobRelatedSection
+              title="Project stages"
+              icon={GitBranch}
+              count={stages.length}
+              action={!job.parent_job_id ? (
+                <button type="button" onClick={() => setShowStage(true)} className="ops-link text-xs">
+                  <Plus size={12} /> Add stage
+                </button>
+              ) : undefined}
+              emptyTitle="No stages on this job."
+            >
+              {stages.map(child => (
+                <JobRelatedRow
+                  key={child.id}
+                  href={`/jobs/${child.id}`}
+                  icon={GitBranch}
+                  title={`${formatJobRef({
+                    job_number: job.job_number,
+                    cost_code: child.cost_code,
+                    parent_job_number: job.job_number,
+                  })} ${child.title}`}
+                  trailing={<OpsStatus className={JOB_STATUS_STYLES[child.status as JobStatus] ?? 'ops-status-wait'}>{JOB_STATUS_LABELS[child.status as JobStatus] ?? child.status}</OpsStatus>}
+                />
+              ))}
+            </JobRelatedSection>
+        )}
+
         <div id="job-bill">
           <button
             type="button"
@@ -1789,34 +1817,6 @@ export function JobDetailPage() {
             ))}
           </JobRelatedSection>
           </div>
-
-        {stages.length > 0 && (
-            <JobRelatedSection
-              title="Project stages"
-              icon={GitBranch}
-              count={stages.length}
-              action={!job.parent_job_id ? (
-                <button type="button" onClick={() => setShowStage(true)} className="ops-link text-xs">
-                  <Plus size={12} /> Add stage
-                </button>
-              ) : undefined}
-              emptyTitle="No stages on this job."
-            >
-              {stages.map(child => (
-                <JobRelatedRow
-                  key={child.id}
-                  href={`/jobs/${child.id}`}
-                  icon={GitBranch}
-                  title={`${formatJobRef({
-                    job_number: job.job_number,
-                    cost_code: child.cost_code,
-                    parent_job_number: job.job_number,
-                  })} ${child.title}`}
-                  trailing={<OpsStatus className={JOB_STATUS_STYLES[child.status as JobStatus] ?? 'ops-status-wait'}>{JOB_STATUS_LABELS[child.status as JobStatus] ?? child.status}</OpsStatus>}
-                />
-              ))}
-            </JobRelatedSection>
-        )}
 
           <JobRelatedSection
             title="Invoices"
