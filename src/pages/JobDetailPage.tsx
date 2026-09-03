@@ -218,7 +218,7 @@ const JOB_TESTING_DUE_LOOK_CSS = `
           --testing-due-muted: #5B6B7C;
           --testing-due-line: #E2D9CC;
           --testing-due-fail: #B42318;
-          margin: 8px 0 0;
+          margin: 0;
         }
         .hub-jobs.is-record-open #job-testing-due .ops-tray {
           margin: 0;
@@ -229,17 +229,16 @@ const JOB_TESTING_DUE_LOOK_CSS = `
           box-shadow: none;
         }
         .hub-jobs.is-record-open #job-testing-due .ops-tray-head {
-          padding: 8px 0;
+          padding: 0;
           border: none;
-          border-bottom: 1px solid var(--testing-due-line);
           background: none;
         }
         .hub-jobs.is-record-open #job-testing-due .ops-section-title {
-          font-family: Rajdhani, sans-serif;
-          font-weight: 700;
-          font-size: 11px;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-weight: 500;
+          font-size: 14px;
+          letter-spacing: 0;
+          text-transform: none;
           color: var(--testing-due-muted);
         }
         .hub-jobs.is-record-open #job-testing-due .ops-related-list {
@@ -311,7 +310,7 @@ const JOB_TESTING_DUE_LOOK_CSS = `
           text-decoration: none;
         }
         .hub-jobs.is-record-open #job-testing-due .ops-tray-empty {
-          padding: 8px 0 16px;
+          padding: 0;
           background: none;
           border: none;
           box-shadow: none;
@@ -326,7 +325,7 @@ const JOB_TESTING_DUE_LOOK_CSS = `
         .hub-jobs.is-record-open #job-testing-due .btn-primary,
         .hub-jobs.is-record-open #job-testing-due .ops-link {
           background: none;
-          color: var(--testing-due-ink);
+          color: var(--testing-due-muted);
           box-shadow: none;
         }
 `;
@@ -343,7 +342,7 @@ export function JobDetailPage() {
   const [showStage, setShowStage] = useState(false);
   const [showTimeEntry, setShowTimeEntry] = useState(false);
   const [showJhaPicker, setShowJhaPicker] = useState(false);
-  const [billOpen, setBillOpen] = useState(true);
+  const [billOpen, setBillOpen] = useState(false);
   const [sendingReportId, setSendingReportId] = useState<string | null>(null);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');

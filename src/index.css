@@ -7207,13 +7207,39 @@
     border: none;
     border-radius: 0;
     box-shadow: none;
-    margin: 16px 0 0;
+    margin: 0;
     padding: 0;
     max-width: none;
     overflow: visible;
   }
 
   .hub-jobs-document .job-swms-more {
+    display: none;
+  }
+
+  .hub-jobs-document .hub-jobs-more-trays > div {
+    display: contents;
+  }
+
+  .hub-jobs-document .ops-tray:has(.ops-tray-empty),
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray:has(.ops-tray-empty) {
+    display: grid;
+    grid-template-columns: minmax(7rem, 9.5rem) minmax(0, 1fr) auto;
+    align-items: baseline;
+    column-gap: 16px;
+    padding: 12px 0;
+    min-height: 44px;
+    border-bottom: 1px solid var(--job-look-line);
+  }
+
+  .hub-jobs-document .ops-tray:has(.ops-tray-empty) .ops-tray-head,
+  .hub-jobs-document .ops-tray:has(.ops-tray-empty) .ops-tray-empty,
+  .hub-jobs-document .ops-tray:has(.ops-tray-empty) .ops-tray-empty-act {
+    display: contents;
+  }
+
+  .hub-jobs-document .ops-tray:has(.ops-tray-empty) .ops-tray-head > :not(.ops-section-title),
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray:has(.ops-tray-empty) .ops-tray-head > :not(.ops-section-title) {
     display: none;
   }
 
@@ -7239,12 +7265,40 @@
     background: none;
   }
 
+  .hub-jobs-document .ops-tray:has(.ops-related-list) .ops-tray-head,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray:has(.ops-related-list) .ops-tray-head {
+    padding: 12px 0 4px;
+    border-bottom: none;
+  }
+
   .hub-jobs-document .ops-tray .ops-related-main,
-  .hub-jobs-document .ops-tray .ops-tray-empty,
-  .hub-jobs-document :is(#job-swms, #job-insp) .ops-related-main,
-  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray-empty {
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-related-main {
     padding: 12px 0;
     background: transparent;
+  }
+
+  .hub-jobs-document .ops-tray .ops-related-row,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-related-row {
+    margin: 0;
+    padding: 0;
+    min-height: 44px;
+    border: none;
+    border-bottom: 1px solid var(--job-look-line);
+  }
+
+  .hub-jobs-document .ops-tray .ops-tray-empty,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray-empty {
+    padding: 0;
+    background: transparent;
+  }
+
+  .hub-jobs-document .ops-tray .ops-tray-empty > p,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray-empty > p {
+    margin: 0;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--job-look-muted);
   }
 
   .hub-jobs-document :is(#job-swms, #job-insp) .ops-related-row {
@@ -7256,12 +7310,14 @@
     background: transparent;
   }
 
-  .hub-jobs-document .ops-tray .ops-section-title {
-    font-family: Rajdhani, sans-serif;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+  .hub-jobs-document .ops-tray .ops-section-title,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-section-title,
+  .hub-jobs-document .hub-jobs-bill-head .ops-section-title {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
     color: var(--job-look-muted);
   }
 
@@ -7272,23 +7328,29 @@
   }
 
   .hub-jobs-document .ops-tray .btn-primary,
-  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray .btn-primary {
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray .btn-primary,
+  .hub-jobs-document .ops-tray .ops-link,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-link,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-link:hover {
     background: none;
-    color: #2E75B6;
+    color: var(--job-look-muted);
     min-height: 44px;
     height: auto;
     padding: 0;
     border: none;
     border-radius: 0;
     box-shadow: none;
-    font-weight: 600;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
   }
 
   .hub-jobs-more-trays {
     margin-top: 8px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0;
   }
 
   .hub-job-more {
@@ -7362,6 +7424,12 @@
   }
 
   @media (max-width: 639px) {
+    .hub-jobs-document .ops-tray:has(.ops-tray-empty),
+    .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray:has(.ops-tray-empty) {
+      grid-template-columns: 1fr;
+      row-gap: 4px;
+    }
+
     .hub-jobs.ops-page {
       padding: 16px 16px 32px;
     }

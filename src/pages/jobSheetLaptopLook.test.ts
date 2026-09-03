@@ -49,6 +49,13 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(css).toContain('.hub-job-more.is-shift');
     expect(css).toContain('.hub-jobs-document .job-swms-more');
     expect(css).toContain('.hub-jobs-document :is(#job-swms, #job-insp) .ops-tray');
+    expect(css).toContain('.ops-tray:has(.ops-tray-empty)');
+    expect(css).toContain('text-transform: none');
+    expect(css).toContain("letter-spacing: 0");
+    expect(css).not.toMatch(/\.hub-jobs-document \.ops-tray \.ops-section-title[\s\S]{0,220}text-transform:\s*uppercase/);
+    expect(css).toContain('.hub-jobs-document .ops-tray .ops-link');
+    expect(css).toContain('color: var(--job-look-muted)');
+    expect(css).not.toMatch(/\.hub-jobs-document[\s\S]{0,80}\.ops-tray \.btn-primary[\s\S]{0,160}#2E75B6/);
     expect(css).toContain('--job-look-page: #F5F0E6');
     expect(css).toContain('--job-look-sheet: #FFFDF8');
     expect(css).toContain('--job-look-ink: #0A2540');
