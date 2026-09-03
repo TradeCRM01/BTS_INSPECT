@@ -41,6 +41,30 @@ export function jobSiteAddressFromClient(
   return (clientAddress ?? '').trim();
 }
 
+/**
+ * After add-client Save, keep every job field already typed and select the new client.
+ * Site copies from the client only when the job site is still empty.
+ */
+export function jobFormSelectNewClient<T extends { client_id: string; address: string }>(
+  form: T,
+  clientId: string,
+  clientAddress: string | null | undefined,
+): T {
+  return {
+    ...form,
+    client_id: clientId,
+    address: jobSiteAddressFromClient(form.address, clientAddress),
+  };
+}
+
+/** Create job on add-client only when they are not already mid-job. */
+export function clientSheetCreateJobVisible(input: {
+  isNewClient: boolean;
+  openedFromJob: boolean;
+}): boolean {
+  return input.isNewClient && !input.openedFromJob;
+}
+
 export const AU_PHONE_PLACEHOLDER = '0412 345 678';
 export const AU_EMAIL_PLACEHOLDER = 'name@business.com.au';
 export const AU_ADDRESS_PLACEHOLDER = '12 Smith St, Suburb NSW 2000';

@@ -18,6 +18,7 @@ import {
   clientInvoiceMoney,
   clientListStatsQueries,
   clientQuotedTotal,
+  clientSheetCreateJobVisible,
   newInvoiceFromClientHref,
   newJobFromClientHref,
   newQuoteFromClientHref,
@@ -543,12 +544,18 @@ const ClientRow = memo(function ClientRow({
   );
 });
 
-export function ClientForm({ client, onClose, onSaved }: {
+export function ClientForm({ client, onClose, onSaved, openedFromJob = false }: {
   client: Client | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (clientId: string) => void;
+  openedFromJob?: boolean;
 }) {
   const { profile } = useAuth();
+  const navigate = useNavigate();
+  const showCreateJob = clientSheetCreateJobVisible({
+    isNewClient: !client,
+    openedFromJob,
+  });
   const [form, setForm] = useState({
     name: client?.name ?? '',
     contact_person: client?.contact_person ?? '',
@@ -560,10 +567,9 @@ export function ClientForm({ client, onClose, onSaved }: {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name.trim()) { setErr('Name is required'); return; }
-    if (!profile?.company_id) return;
+  const persistClient = async (): Promise<string | null> => {
+    if (!form.name.trim()) { setErr('Name is required'); return null; }
+    if (!profile?.company_id) return null;
     setSaving(true);
     setErr('');
 
@@ -576,13 +582,34 @@ export function ClientForm({ client, onClose, onSaved }: {
       notes: form.notes.trim() || null,
     };
 
-    const { error } = client
-      ? await supabase.from('clients').update(payload).eq('id', client.id)
-      : await supabase.from('clients').insert({ ...payload, company_id: profile.company_id });
+    if (client) {
+      const { error } = await supabase.from('clients').update(payload).eq('id', client.id);
+      setSaving(false);
+      if (error) { setErr(error.message); return null; }
+      return client.id;
+    }
 
+    const { data, error } = await supabase
+      .from('clients')
+      .insert({ ...payload, company_id: profile.company_id })
+      .select('id')
+      .single();
     setSaving(false);
-    if (error) { setErr(error.message); return; }
-    onSaved();
+    if (error) { setErr(error.message); return null; }
+    return data.id as string;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const id = await persistClient();
+    if (id) onSaved(id);
+  };
+
+  const handleCreateJob = async () => {
+    const id = await persistClient();
+    if (!id) return;
+    onSaved(id);
+    navigate(newJobFromClientHref(id));
   };
 
   return (
@@ -633,6 +660,11 @@ export function ClientForm({ client, onClose, onSaved }: {
           <button onClick={onClose} className="btn-secondary">
             Cancel
           </button>
+          {showCreateJob && (
+            <button type="button" onClick={handleCreateJob} disabled={saving} className="btn-secondary">
+              Create job
+            </button>
+          )}
           <button onClick={handleSubmit} disabled={saving} className="btn-primary min-h-[44px] disabled:opacity-50">
             {saving ? 'Saving...' : client ? 'Save Changes' : 'Add Client'}
           </button>
