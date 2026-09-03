@@ -174,20 +174,28 @@ const BILLING_LOOK_CSS = `
   color: var(--billing-look-muted);
   margin: 32px 0 0;
 }
-.hub-billing-plans {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0;
-  margin-top: 8px;
-}
-.hub-billing-card {
+.hub-billing-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 0;
   padding: 16px 0;
   border-bottom: 1px solid var(--billing-look-line);
   background: none;
   border-radius: 0;
   box-shadow: none;
+  min-height: 44px;
+  font-size: 14px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  color: var(--billing-look-ink);
 }
-.hub-billing-card-name {
+.hub-billing-row-copy {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.hub-billing-row-label {
   margin: 0;
   font-family: Rajdhani, sans-serif;
   font-weight: 700;
@@ -195,15 +203,22 @@ const BILLING_LOOK_CSS = `
   letter-spacing: 0.02em;
   color: var(--billing-look-ink);
 }
-.hub-billing-price {
+.hub-billing-row-meta {
   margin: 8px 0 0;
+  color: var(--billing-look-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.hub-billing-price {
+  margin: 0;
   font-family: Rajdhani, sans-serif;
   font-weight: 700;
-  font-size: 32px;
+  font-size: 24px;
   letter-spacing: 0.02em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--billing-look-ink);
+  white-space: nowrap;
 }
 .hub-billing-price span {
   font-family: 'Source Sans 3', system-ui, sans-serif;
@@ -212,23 +227,10 @@ const BILLING_LOOK_CSS = `
   letter-spacing: 0;
   color: var(--billing-look-muted);
 }
-.hub-billing-card-meta {
-  margin: 8px 0 0;
-  color: var(--billing-look-muted);
-  font-size: 13px;
-  font-weight: 500;
-}
-.hub-billing-card-blurb {
-  margin: 8px 0 0;
-  color: var(--billing-look-ink);
-  font-size: 14px;
-  font-weight: 500;
-}
 .hub-billing-choose {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-top: 16px;
   background: #2E75B6;
   color: #fff;
   min-height: 44px;
@@ -256,17 +258,6 @@ const BILLING_LOOK_CSS = `
   font-size: 13px;
   font-weight: 500;
 }
-@media (min-width: 640px) {
-  .hub-billing-plans {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
-  }
-  .hub-billing-card {
-    padding: 16px 0 0;
-    border-bottom: none;
-  }
-  .hub-billing-choose { width: 100%; }
-}
 @media (max-width: 639px) {
   .hub-billing.ops-page { padding: 16px 16px 40px; }
   .hub-billing-sheet-bar { padding: 8px 16px; }
@@ -280,6 +271,10 @@ const BILLING_LOOK_CSS = `
     flex-direction: column;
     align-items: center;
     width: 100%;
+  }
+  .hub-billing-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
   .hub-billing-choose { width: min(100%, 240px); }
 }
@@ -367,7 +362,7 @@ export function BillingSettingsPage() {
               {billingStatus === 'past_due' ? ' · Payment past due' : null}
             </p>
             <p className="hub-billing-lede">
-              Same Grafter on every plan. Seats are the only difference. Prices include GST.
+              Same Grafter on every plan. Seats are the only difference. Prices are AUD inc GST.
             </p>
 
             {hasCustomer && (
@@ -404,37 +399,38 @@ export function BillingSettingsPage() {
             )}
 
             <p className="hub-billing-kicker">Pick a monthly plan</p>
-            <div className="hub-billing-plans">
-              {GRAFTER_PLANS.map(row => {
-                const current = row.id === plan.id;
-                return (
-                  <div key={row.id} className="hub-billing-card">
-                    <p className="hub-billing-card-name">{row.name}</p>
-                    <p className="hub-billing-price">
-                      {formatPlanPriceAud(row)}
-                      <span> / mo</span>
+            {GRAFTER_PLANS.map(row => {
+              const current = row.id === plan.id;
+              return (
+                <div key={row.id} className="hub-billing-row">
+                  <div className="hub-billing-row-copy">
+                    <p className="hub-billing-row-label">{row.name}</p>
+                    <p className="hub-billing-row-meta">
+                      GST included · {row.seats} seats · {row.blurb}
                     </p>
-                    <p className="hub-billing-card-meta">GST included · {row.seats} seats</p>
-                    <p className="hub-billing-card-blurb">{row.blurb}</p>
-                    <button
-                      type="button"
-                      className="hub-billing-choose"
-                      disabled={checkoutMut.isPending}
-                      onClick={() => {
-                        setError('');
-                        checkoutMut.mutate(row.id);
-                      }}
-                    >
-                      {checkoutMut.isPending
-                        ? 'Starting…'
-                        : current && paying
-                          ? 'Current plan'
-                          : `Choose ${row.name}`}
-                    </button>
                   </div>
-                );
-              })}
-            </div>
+                  <p className="hub-billing-price">
+                    {formatPlanPriceAud(row)}
+                    <span> / mo</span>
+                  </p>
+                  <button
+                    type="button"
+                    className="hub-billing-choose"
+                    disabled={checkoutMut.isPending}
+                    onClick={() => {
+                      setError('');
+                      checkoutMut.mutate(row.id);
+                    }}
+                  >
+                    {checkoutMut.isPending
+                      ? 'Starting…'
+                      : current && paying
+                        ? 'Current plan'
+                        : `Choose ${row.name}`}
+                  </button>
+                </div>
+              );
+            })}
 
             {error && (
               <p className="hub-billing-fail">

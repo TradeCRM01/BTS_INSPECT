@@ -20,13 +20,15 @@ describe('Settings billing cream paper look', () => {
     expect(page).toContain('hub-billing-sheet-bar');
     expect(page).toContain('hub-billing-hero');
     expect(page).toContain('hub-billing-jobline');
-    expect(page).toContain('hub-billing-card');
+    expect(page).toContain('hub-billing-row');
+    expect(page).toContain('hub-billing-row-label');
     expect(page).toContain('hub-billing-price');
     expect(page).toContain('hub-billing-choose');
     expect(page).toContain('hub-billing-sub');
     expect(page).toContain('formatPlanPriceAud');
     expect(page).toContain('trialLabel');
     expect(page).toContain('GST included');
+    expect(page).toContain('AUD inc GST');
     expect(page).toContain('>Settings</p>');
     expect(page).toContain('--billing-look-page: #F5F0E6');
     expect(page).toContain('--billing-look-sheet: #FFFDF8');
@@ -61,6 +63,7 @@ describe('Settings billing cream paper look', () => {
     expect(page).not.toContain('hub-timesheets');
     expect(page).not.toContain('hub-invoices');
     expect(page).not.toContain('hub-quotes');
+    expect(page).not.toMatch(/SafetyCulture|Simpro|Relovi|Littleloop/);
     expect(css).not.toContain('--billing-look-page');
     expect(css).not.toContain('.hub-billing');
   });
@@ -75,6 +78,7 @@ describe('Settings billing cream paper look', () => {
     expect(page).not.toContain('automatic_tax');
     expect(page).not.toContain('payment_method_types');
     expect(src('src/pages/MarketingPage.tsx')).not.toContain('hub-billing');
+    expect(src('src/pages/operator/OperatorBillingPage.tsx')).not.toContain('hub-billing');
     expect(src('src/pages/ExpensesPage.tsx')).not.toContain('hub-billing');
     expect(src('src/pages/LoginPage.tsx')).not.toContain('hub-billing');
     expect(src('src/components/layout/AppShell.tsx')).not.toContain('hub-billing');
