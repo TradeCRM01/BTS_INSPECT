@@ -4,6 +4,10 @@ import {
   ARRIVING_NEXT_LABEL,
   CLOCK_IN_NEXT_LABEL,
   PHONE_NEXT_LABEL,
+  VAN_TIME_ZONE,
+  isJobArrivingWindow,
+  todayYmd,
+  withReminderNext,
 } from './jobReminder';
 
 export type JobActionKey =
@@ -36,7 +40,7 @@ export type JobActionContext = {
   hasAcceptedQuote: boolean;
   hasBillLines: boolean;
   clockedOn: boolean;
-  /** Same-day / in_progress arriving window. Optional — older callers stay JHA-first. */
+  /** Same-day / in_progress arriving window. Optional — derived from Australia/Brisbane today. */
   arrivingWindow?: boolean;
   /** Session: arriving tap already sent on this sheet. Optional. */
   arrivingSent?: boolean;
@@ -102,11 +106,8 @@ function dateOnly(isoDate: string): string {
   return isoDate.slice(0, 10);
 }
 
-function todayYmd(now = new Date()): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+function vanTodayYmd(now = new Date()): string {
+  return todayYmd(now, VAN_TIME_ZONE);
 }
 
 export function jobListBucket(
@@ -116,7 +117,7 @@ export function jobListBucket(
   if (job.status === 'completed' || job.status === 'cancelled') return 'closed';
   if (!job.scheduled_date) return 'needs_date';
   const day = dateOnly(job.scheduled_date);
-  const today = todayYmd(now);
+  const today = vanTodayYmd(now);
   if (day > today) return 'upcoming';
   return 'on_board';
 }
@@ -136,7 +137,7 @@ export function jobCardHint(
   if (!job.assigned_team?.length) return 'Assign crew';
   if (job.status === 'in_progress') return 'On site';
   const day = dateOnly(job.scheduled_date);
-  const today = todayYmd(now);
+  const today = vanTodayYmd(now);
   if (day === today) return 'Today';
   if (day < today) return 'Still open';
   return 'Scheduled';
@@ -203,8 +204,15 @@ export function partitionScheduleJobs<T extends {
  * Clock In after send or when there is no sendable phone left to write.
  * Date / crew stay first. Does not invent a second Next stack.
  */
-export function recommendArrivingSheetNext(ctx: JobActionContext): RecommendedJobAction | null {
-  if (!ctx.arrivingWindow) return null;
+export function recommendArrivingSheetNext(
+  ctx: JobActionContext,
+  now = new Date(),
+): RecommendedJobAction | null {
+  const arrivingWindow = ctx.arrivingWindow ?? isJobArrivingWindow({
+    status: ctx.status,
+    scheduled_date: ctx.scheduledDate,
+  }, now);
+  if (!arrivingWindow) return null;
   if (ctx.status !== 'scheduled' && ctx.status !== 'in_progress') return null;
   const kind = ctx.phoneRowKind;
   const stored = (ctx.phoneStored ?? '').trim();
@@ -234,7 +242,7 @@ export function recommendArrivingSheetNext(ctx: JobActionContext): RecommendedJo
   return null;
 }
 
-export function recommendJobAction(ctx: JobActionContext): RecommendedJobAction {
+export function recommendJobAction(ctx: JobActionContext, now = new Date()): RecommendedJobAction {
   if (ctx.status === 'cancelled') {
     return { key: 'none', label: 'Cancelled', detail: 'This job is cancelled.' };
   }
@@ -247,7 +255,7 @@ export function recommendJobAction(ctx: JobActionContext): RecommendedJobAction 
   if (ctx.crewCount === 0) {
     return { key: 'crew', label: 'Assign crew', detail: 'Who is going to this job?' };
   }
-  const arrivingNext = recommendArrivingSheetNext(ctx);
+  const arrivingNext = recommendArrivingSheetNext(ctx, now);
   if (arrivingNext) return arrivingNext;
   if (ctx.jhaCount === 0 && ctx.status !== 'completed') {
     return { key: 'jha', label: 'Start JHA', detail: 'Do the JHA before anyone starts on site.' };
@@ -274,4 +282,72 @@ export function recommendJobAction(ctx: JobActionContext): RecommendedJobAction 
     return { key: 'none', label: 'Complete', detail: 'Work is marked complete.' };
   }
   return { key: 'none', label: 'On track', detail: 'Crew and paperwork are in place.' };
+}
+
+export type JobOpenNextJob = {
+  id: string;
+  status: JobStatus;
+  scheduled_date: string | null | undefined;
+  assigned_team?: string[] | null;
+};
+
+export type JobOpenNextSheet = Omit<JobActionContext, 'status' | 'scheduledDate' | 'crewCount'>;
+
+export type JobOpenNext = JobListNext & { action: RecommendedJobAction };
+
+/**
+ * One Next for the jobs list card and the open job sheet.
+ * Card is the source of truth. Scheduled today (Australia/Brisbane) is
+ * Arriving shortly, then Clock In — not Start JHA as the first tap.
+ */
+export function jobOpenNext(
+  job: JobOpenNextJob,
+  sheet?: JobOpenNextSheet,
+  now = new Date(),
+): JobOpenNext {
+  const list = withReminderNext(job, jobListNext(job, now), now);
+  const arrivingWindow = sheet?.arrivingWindow ?? isJobArrivingWindow(job, now);
+  const action = recommendJobAction({
+    status: job.status,
+    scheduledDate: job.scheduled_date,
+    crewCount: (job.assigned_team ?? []).length,
+    jhaCount: sheet?.jhaCount ?? 0,
+    inspectionCount: sheet?.inspectionCount ?? 0,
+    invoiceCount: sheet?.invoiceCount ?? 0,
+    hasDraftInvoice: sheet?.hasDraftInvoice,
+    hasIssuedInvoice: sheet?.hasIssuedInvoice,
+    hasAcceptedQuote: sheet?.hasAcceptedQuote ?? false,
+    hasBillLines: sheet?.hasBillLines ?? false,
+    clockedOn: sheet?.clockedOn ?? false,
+    arrivingWindow,
+    arrivingSent: sheet?.arrivingSent,
+    phoneRowKind: sheet?.phoneRowKind,
+    phoneStored: sheet?.phoneStored,
+  }, now);
+  const wrapped = withReminderNext(job, {
+    href: `/jobs/${job.id}`,
+    label: action.label,
+    actionable: action.key !== 'none',
+  }, now);
+
+  if (!sheet) return { ...list, action };
+
+  if (
+    (action.key === 'jha' || action.key === 'inspect')
+    && wrapped.label !== list.label
+  ) {
+    const remind = list.label === 'Remind client';
+    return {
+      ...list,
+      action: {
+        key: remind ? 'schedule' : 'none',
+        label: list.label,
+        detail: remind
+          ? 'Remind the client they are booked tomorrow.'
+          : 'This job is not today\'s van work.',
+      },
+    };
+  }
+
+  return { ...wrapped, action };
 }

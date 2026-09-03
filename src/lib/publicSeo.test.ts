@@ -72,16 +72,25 @@ function createFakeDocument(initialTitle = 'Grafter'): {
 describe('public SEO copy', () => {
   it('names Grafter in AU trade-job-software wording', () => {
     expect(PUBLIC_SEO.landing.title).toContain('Grafter');
-    expect(PUBLIC_SEO.landing.title).toMatch(/electrical/i);
+    expect(PUBLIC_SEO.landing.title).not.toMatch(/electrical/i);
+    expect(PUBLIC_SEO.landing.description).not.toMatch(/electrical/i);
     expect(PUBLIC_SEO.landing.title).toMatch(/trade job software/i);
-    expect(PUBLIC_SEO.landing.description).toMatch(/Simpro-class/i);
     expect(PUBLIC_SEO.landing.description).toMatch(/SWMS/);
+    expect(PUBLIC_SEO.landing.title).not.toMatch(/SafetyCulture|Simpro/i);
+    expect(PUBLIC_SEO.landing.description).not.toMatch(/SafetyCulture|Simpro/i);
     expect(PUBLIC_SEO.landing.robots).toBe('index,follow');
     expect(PUBLIC_SEO.login.title).toContain('Sign in to Grafter');
-    expect(PUBLIC_SEO.login.description).toMatch(/electrical or trade crew/);
+    expect(PUBLIC_SEO.login.description).not.toMatch(/electrical or trade/);
+    expect(PUBLIC_SEO.login.description).toMatch(/Australian trade crew/);
+    expect(PUBLIC_SEO.signup.description).not.toMatch(/electrical or trade/);
+    expect(PUBLIC_SEO.signup.description).toMatch(/your trade crew/);
     expect(PUBLIC_SEO.signup.robots).toBe('index,follow');
     expect(PUBLIC_SEO.forgotPassword.robots).toBe('noindex,nofollow');
     expect(PUBLIC_SEO.portal.robots).toBe('noindex,nofollow');
+    expect(PUBLIC_SEO.privacy.title).toBe('Privacy Policy');
+    expect(PUBLIC_SEO.terms.title).toBe('Terms of Use');
+    expect(PUBLIC_SEO.privacy.robots).toBe('index,follow');
+    expect(PUBLIC_SEO.terms.robots).toBe('index,follow');
   });
 
   it('builds absolute grafter.com.au URLs for the public origin', () => {
@@ -142,11 +151,13 @@ describe('applyPublicDocumentHead', () => {
 
 describe('public robots and sitemap files', () => {
   it('lists only the existing public marketing/auth URLs in the sitemap', () => {
-    expect([...PUBLIC_SITEMAP_PATHS]).toEqual(['/', '/login', '/signup']);
+    expect([...PUBLIC_SITEMAP_PATHS]).toEqual(['/', '/login', '/signup', '/privacy', '/terms']);
     const xml = sitemapXml();
     expect(xml).toContain(`${GRAFTER_PUBLIC_ORIGIN}/</loc>`);
     expect(xml).toContain(`${GRAFTER_PUBLIC_ORIGIN}/login</loc>`);
     expect(xml).toContain(`${GRAFTER_PUBLIC_ORIGIN}/signup</loc>`);
+    expect(xml).toContain(`${GRAFTER_PUBLIC_ORIGIN}/privacy</loc>`);
+    expect(xml).toContain(`${GRAFTER_PUBLIC_ORIGIN}/terms</loc>`);
     expect(xml).not.toContain('/jobs');
     expect(xml).not.toContain('/schedule');
     expect(src('public/sitemap.xml')).toBe(xml);
@@ -157,6 +168,8 @@ describe('public robots and sitemap files', () => {
     expect(txt).toContain('Allow: /');
     expect(txt).toContain('Allow: /login');
     expect(txt).toContain('Allow: /signup');
+    expect(txt).toContain('Allow: /privacy');
+    expect(txt).toContain('Allow: /terms');
     expect(txt).toContain('Disallow: /jobs');
     expect(txt).toContain('Disallow: /schedule');
     expect(txt).toContain('Disallow: /p$');
@@ -187,6 +200,8 @@ describe('public document head wiring', () => {
     expect(src('src/pages/ResetPasswordPage.tsx')).toContain("usePublicDocumentHead('resetPassword')");
     expect(src('src/pages/AuthConfirmPage.tsx')).toContain("usePublicDocumentHead('authConfirm')");
     expect(src('src/pages/ClientPortalPublicPage.tsx')).toContain("usePublicDocumentHead('portal')");
+    expect(src('src/pages/PrivacyPage.tsx')).toContain('seoKey="privacy"');
+    expect(src('src/pages/TermsPage.tsx')).toContain('seoKey="terms"');
     expect(src('src/components/auth/AuthShell.tsx')).toContain('usePublicDocumentHead(seoKey)');
     expect(src('src/App.tsx')).not.toContain('path="/help"');
   });
@@ -194,8 +209,11 @@ describe('public document head wiring', () => {
   it('keeps landing headings in AU trade-CRM wording', () => {
     const page = src('src/pages/MarketingPage.tsx');
     expect(page).toContain('<h1 className="hub-marketing-display">');
-    expect(page).toContain('Trade job software, from quote');
-    expect(page).toContain('Australian electrical and trade job software');
+    expect(page).toContain('One job. Quote to paid.');
+    expect(page).toContain('Australian trade job software');
+    expect(page).not.toContain('Australian electrical and trade job software');
+    expect(page).not.toMatch(/SafetyCulture|Simpro/i);
+    expect(src('index.html')).not.toMatch(/SafetyCulture|Simpro/i);
     expect(page).toContain('<h2 className="hub-marketing-subhead">');
     expect(src('src/components/auth/AuthShell.tsx')).toContain('<h1 className="hub-auth-title">');
     expect(src('src/pages/LoginPage.tsx')).toContain('Sign in to Grafter');

@@ -10,7 +10,9 @@ export type PublicSeoKey =
   | 'forgotPassword'
   | 'resetPassword'
   | 'authConfirm'
-  | 'portal';
+  | 'portal'
+  | 'privacy'
+  | 'terms';
 
 export type PublicSeoEntry = {
   title: string;
@@ -21,23 +23,23 @@ export type PublicSeoEntry = {
 
 export const PUBLIC_SEO: Record<PublicSeoKey, PublicSeoEntry> = {
   landing: {
-    title: 'Grafter — Electrical and trade job software for Australian crews',
+    title: 'Grafter — Trade job software for Australian crews',
     description:
-      'Australian trade job software for electrical and field crews. Quote, schedule, invoice, and keep SWMS on the job — Simpro-class work without the extra product.',
+      'Australian trade job software. Custom test-report and inspection templates, plus JHA, Take 5, and SWMS — all on the job. Quote to paid.',
     path: '/',
     robots: 'index,follow',
   },
   login: {
     title: 'Sign in to Grafter — Trade job software',
     description:
-      'Sign in to Grafter to run jobs, quotes, invoices, and field paperwork for your Australian electrical or trade crew.',
+      'Sign in to Grafter to run jobs, quotes, invoices, and field paperwork for your Australian trade crew.',
     path: '/login',
     robots: 'index,follow',
   },
   signup: {
     title: 'Create a Grafter workspace — Trade job software',
     description:
-      'Open a Grafter workspace for your electrical or trade crew. Jobs, quotes, invoices, and SWMS in one Australian trade CRM.',
+      'Open a Grafter workspace for your trade crew. Jobs, quotes, invoices, and SWMS in one Australian trade CRM.',
     path: '/signup',
     robots: 'index,follow',
   },
@@ -65,10 +67,24 @@ export const PUBLIC_SEO: Record<PublicSeoKey, PublicSeoEntry> = {
     path: '/p',
     robots: 'noindex,nofollow',
   },
+  privacy: {
+    title: 'Privacy Policy',
+    description:
+      'Privacy Policy for Grafter, Australian trade job software operated by Building Technology Solutions Pty Ltd.',
+    path: '/privacy',
+    robots: 'index,follow',
+  },
+  terms: {
+    title: 'Terms of Use',
+    description:
+      'Terms of Use for Grafter, Australian trade job software operated by Building Technology Solutions Pty Ltd.',
+    path: '/terms',
+    robots: 'index,follow',
+  },
 };
 
 /** Indexable public URLs only. No help route exists yet. */
-export const PUBLIC_SITEMAP_PATHS = ['/', '/login', '/signup'] as const;
+export const PUBLIC_SITEMAP_PATHS = ['/', '/login', '/signup', '/privacy', '/terms'] as const;
 
 /** Prefixes Google should not crawl. `/p` is handled as `/p$` + `/p?` so /price-books stays its own rule. */
 export const ROBOTS_DISALLOW_PREFIXES = [

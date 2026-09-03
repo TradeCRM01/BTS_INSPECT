@@ -27,10 +27,54 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") || "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+    if (!token || token === anonKey) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, serviceKey);
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("company_id, role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!profile?.company_id) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: operatorRow } = await supabase
+      .from("platform_operators")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const isOperator = !!operatorRow;
+
+    if (!isOperator && profile.role !== "admin") {
+      return new Response(JSON.stringify({ error: "Only company admins can clean up photos" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const payload = (await req.json()) as CleanupRequest;
     const daysOld = payload.days_old || 90;
@@ -43,10 +87,18 @@ Deno.serve(async (req: Request) => {
     let errors: string[] = [];
     let companiesProcessed = 0;
 
-    if (payload.company_id) {
+    const requestedCompany = (payload.company_id ?? "").trim();
+    if (requestedCompany && requestedCompany !== profile.company_id && !isOperator) {
+      return new Response(JSON.stringify({ error: "Company mismatch" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (requestedCompany) {
       const result = await cleanupCompanyPhotos(
         supabase,
-        payload.company_id,
+        requestedCompany,
         cutoffDate,
         dryRun
       );
@@ -54,7 +106,7 @@ Deno.serve(async (req: Request) => {
       totalFreedBytes += BigInt(result.freedBytes);
       if (result.error) errors.push(result.error);
       companiesProcessed = 1;
-    } else {
+    } else if (isOperator) {
       const { data: companies, error: companyError } = await supabase
         .from("companies")
         .select("id");
@@ -73,6 +125,17 @@ Deno.serve(async (req: Request) => {
         if (result.error) errors.push(`${company.id}: ${result.error}`);
         companiesProcessed++;
       }
+    } else {
+      const result = await cleanupCompanyPhotos(
+        supabase,
+        profile.company_id,
+        cutoffDate,
+        dryRun
+      );
+      totalDeleted += result.deleted;
+      totalFreedBytes += BigInt(result.freedBytes);
+      if (result.error) errors.push(result.error);
+      companiesProcessed = 1;
     }
 
     const freedMb = Number(totalFreedBytes) / 1024 / 1024;

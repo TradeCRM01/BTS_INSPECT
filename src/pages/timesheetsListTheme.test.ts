@@ -55,6 +55,14 @@ describe('Timesheets list cream paper look', () => {
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(css).toContain('font-variant-numeric: tabular-nums');
+    expect(list).toContain('hub-timesheets-tile-copy');
+    expect(css).toContain('.hub-timesheets-tiles .hub-timesheets-hours');
+    expect(css).toContain('font-size: 32px');
+    const tilesCss = css.slice(css.indexOf('  .hub-timesheets-tiles {'), css.indexOf('  .hub-timesheets-sheet .hub-timesheets-tile {'));
+    expect(tilesCss).toContain('border-radius: 16px');
+    expect(tilesCss).toContain('inset 0 1px 0 #fff');
+    expect(tilesCss).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(tilesCss).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow|lacquer|gloss|glow/);
     expect(css).not.toMatch(/\.hub-timesheets \.ops-page-title[\s\S]{0,160}Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(css).toContain('letter-spacing: 0.12em');
     expect(css).not.toContain('indigo-500');
@@ -112,10 +120,11 @@ describe('Timesheets list cream paper look', () => {
     expect(shell).toContain('resolveAppShellColors');
   });
 
-  it('LOOK frames cover the open-day timesheet sheet desktop and phone only', () => {
+  it('LOOK frames cover list hours and status after clock off, desktop and phone', () => {
     for (const rel of [
-      'docs/look/timesheets-sheet-desktop.png',
-      'docs/look/timesheets-sheet-phone.png',
+      'docs/look/timesheets-hours-desktop.png',
+      'docs/look/timesheets-hours-phone.png',
+      'docs/look/timesheets-hours-open-contrast-desktop.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
       expect(rel).not.toMatch(/ute/i);

@@ -10,7 +10,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
   },
   global: {
-    headers: { 'x-client-info': 'bts-inspect' },
+    headers: { 'x-client-info': 'grafter' },
   },
   db: {
     schema: 'public',

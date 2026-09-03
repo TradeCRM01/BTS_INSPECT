@@ -260,6 +260,58 @@ const EXPENSES_LOOK_CSS = `
   font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 14px;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.hub-expenses-classes {
+  padding: 12px 0 14px;
+  border-bottom: 1px solid var(--ex-look-line);
+}
+.hub-expenses-class-prompt {
+  margin: 0 0 10px;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  color: var(--ex-look-ink);
+}
+.hub-expenses-class-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+@media (min-width: 640px) {
+  .hub-expenses-class-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.hub-expenses-class {
+  text-align: left;
+  background: var(--ex-look-sheet);
+  border: 1px solid var(--ex-look-line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: none;
+  cursor: pointer;
+  min-height: 44px;
+}
+.hub-expenses-class:hover { background: var(--ex-look-page); }
+.hub-expenses-class.is-on {
+  border-color: #0A2540;
+  background: #FFFDF8;
+  box-shadow: inset 0 0 0 1px #0A2540;
+}
+.hub-expenses-class-label {
+  margin: 0;
+  font-family: Rajdhani, sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  color: var(--ex-look-ink);
+}
+.hub-expenses-class-help {
+  margin: 4px 0 0;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ex-look-muted);
 }
 .hub-expenses-row-value:focus { outline: none; }
 .hub-expenses-row .hub-expenses-row-select,
@@ -1121,6 +1173,37 @@ function MiniStat({ icon: _Icon, label, value }: { icon: typeof Wallet; label: s
   );
 }
 
+/** Existing three cost_class cards — overlay editor and scan review sheet. */
+function ExpenseCostClassCards({
+  value,
+  onSelect,
+}: {
+  value: ExpenseCostClass;
+  onSelect: (key: ExpenseCostClass) => void;
+}) {
+  return (
+    <div className="hub-expenses-classes">
+      <p className="hub-expenses-class-prompt">What kind of cost is this?</p>
+      <div className="hub-expenses-class-grid">
+        {(Object.keys(EXPENSE_COST_CLASS_LABELS) as ExpenseCostClass[]).map(key => {
+          const selected = value === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onSelect(key)}
+              className={`hub-expenses-class${selected ? ' is-on' : ''}`}
+            >
+              <p className="hub-expenses-class-label">{EXPENSE_COST_CLASS_LABELS[key]}</p>
+              <p className="hub-expenses-class-help">{EXPENSE_COST_CLASS_HELP[key]}</p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface FormState {
   cost_class: ExpenseCostClass;
   category: string;
@@ -1209,6 +1292,15 @@ function ExpenseEditorModal({
     if (form.category) return;
     if (costClass === 'employee') setForm(f => ({ ...f, category: 'Wages & Salaries' }));
     if (costClass === 'cogs') setForm(f => ({ ...f, category: 'Subcontractors' }));
+  };
+
+  const selectCostClass = (key: ExpenseCostClass) => {
+    setForm(f => ({
+      ...f,
+      cost_class: key,
+      employee_cost_type: key === 'employee' ? f.employee_cost_type : '',
+    }));
+    suggestCategory(key);
   };
 
   const handleSave = async () => {
@@ -1330,6 +1422,7 @@ function ExpenseEditorModal({
             />
           </label>
         </div>
+        <ExpenseCostClassCards value={form.cost_class} onSelect={selectCostClass} />
         <div className="hub-expenses-row">
           <span className="hub-expenses-row-label">Category</span>
           <div className="hub-expenses-row-select">
@@ -1384,34 +1477,7 @@ function ExpenseEditorModal({
               className="hub-expenses-preview"
             />
           )}
-          <div>
-            <p className="text-xs font-medium text-[#4A5568] mb-1.5">What kind of cost is this?</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {(Object.keys(EXPENSE_COST_CLASS_LABELS) as ExpenseCostClass[]).map(key => {
-                const selected = form.cost_class === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => {
-                      setForm(f => ({
-                        ...f,
-                        cost_class: key,
-                        employee_cost_type: key === 'employee' ? f.employee_cost_type : '',
-                      }));
-                      suggestCategory(key);
-                    }}
-                    className={`text-left rounded-lg border px-3 py-2.5 transition-colors ${
-                      selected ? 'border-[#0A2540] bg-[#EFF6FF]' : 'border-[#E5E7EB] hover:bg-[#F9FAFB]'
-                    }`}
-                  >
-                    <p className="text-sm font-semibold text-[#1A1A1A]">{EXPENSE_COST_CLASS_LABELS[key]}</p>
-                    <p className="text-[11px] text-[#6B7280] mt-0.5 leading-snug">{EXPENSE_COST_CLASS_HELP[key]}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <ExpenseCostClassCards value={form.cost_class} onSelect={selectCostClass} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Category" required>

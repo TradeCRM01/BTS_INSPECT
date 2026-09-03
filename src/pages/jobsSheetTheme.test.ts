@@ -26,7 +26,7 @@ describe('job hub open sheet LOOK', () => {
     expect(page).toContain('className="btn-primary ops-next-control-block"');
     expect(page).toContain('hub-job-more');
     expect(page).toContain('Job status');
-    expect(page).toContain('recommendJobAction');
+    expect(page).toContain('jobOpenNext');
     expect(page).not.toContain('hub-job-kicker');
     expect(page).not.toContain('hub-job-banner');
     expect(page).not.toContain('hub-job-letterhead');
@@ -42,6 +42,9 @@ describe('job hub open sheet LOOK', () => {
     expect(page).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(list).toContain('hub-jobs-sheet');
+    expect(list).toContain('className={primaryNext ? \'btn-primary ops-next-control-block\' : \'hub-next\'}');
+    expect(list).toContain('ARRIVING_NEXT_LABEL');
+    expect(list).toContain('CLOCK_IN_NEXT_LABEL');
     expect(list).not.toContain('hub-jobs-document');
     expect(list).not.toContain('is-record-open');
 
@@ -57,6 +60,10 @@ describe('job hub open sheet LOOK', () => {
     expect(lookCss).toContain('--job-look-muted: #5B6B7C');
     expect(lookCss).toContain('--job-look-line: #E2D9CC');
     expect(lookCss).toContain('#2E75B6');
+    expect(lookCss).toContain('.hub-jobs-row-next .btn-primary');
+    expect(lookCss).toContain('.hub-jobs-row-next .ops-next-control-block');
+    expect(lookCss).toContain('.hub-jobs-document .hub-jobs-tools .btn-primary');
+    expect(lookCss).toContain('.hub-jobs-document .hub-jobs-tools .ops-next-control-block');
     expect(lookCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(lookCss).toContain('box-shadow: inset 0 1px 0 #fff');
     expect(lookCss).toContain('font-size: 56px !important');
@@ -116,6 +123,17 @@ describe('job hub open sheet LOOK frames', () => {
     for (const rel of [
       'docs/look/job-hub-sheet-desktop.png',
       'docs/look/job-hub-sheet-phone.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/ute/i);
+    }
+  });
+
+  it('covers scheduled-today Arriving shortly on the card and the open sheet', () => {
+    for (const rel of [
+      'docs/look/jobs-card-arriving-desktop.png',
+      'docs/look/job-sheet-arriving-desktop.png',
+      'docs/look/job-sheet-arriving-phone.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
       expect(rel).not.toMatch(/ute/i);

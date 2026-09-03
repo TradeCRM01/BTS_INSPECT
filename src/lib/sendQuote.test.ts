@@ -9,6 +9,8 @@ import {
   decideQuoteSend,
   isQuoteSendScoped,
   isSmtpReady,
+  quoteInvoiceSendPathReady,
+  resolveSendSmtp,
   pickActiveClientPortalToken,
   quoteAttachmentOrMiss,
   quotePdfFilename,
@@ -118,13 +120,30 @@ describe('decideQuoteSend', () => {
     expect(decision.href).toBe('/clients/c1');
   });
 
-  it('does not pretend it sent when SMTP is missing', () => {
+  it('rides shared Grafter send when the company has no SMTP row', () => {
     const decision = decideQuoteSend(bundle({ smtp: null }));
+    expect(decision.ok).toBe(true);
+    if (!decision.ok) return;
+    expect(decision.to).toBe('jane@acme.com.au');
+    expect(quoteStatusAfterSend(false, 'draft')).toBe('draft');
+  });
+
+  it('is an honest setup_email miss only when nothing can send', () => {
+    const decision = decideQuoteSend(bundle({ smtp: null, sharedSmtp: null }));
     expect(decision.ok).toBe(false);
     if (decision.ok) return;
     expect(decision.blocker).toBe('no_smtp');
     expect(decision.message).toMatch(/not set up/i);
     expect(decision.href).toBe('/settings/company');
+  });
+
+  it('prefers company SMTP and falls back to shared Grafter Resend', () => {
+    expect(resolveSendSmtp(smtp, null)).toEqual(smtp);
+    expect(resolveSendSmtp(null, smtp)).toEqual(smtp);
+    expect(resolveSendSmtp(null, null)).toBeNull();
+    expect(quoteInvoiceSendPathReady(null)).toBe(true);
+    expect(quoteInvoiceSendPathReady(null, null)).toBe(false);
+    expect(quoteInvoiceSendPathReady(null, smtp)).toBe(true);
   });
 
   it('blocks send when there is no client or no priced lines', () => {

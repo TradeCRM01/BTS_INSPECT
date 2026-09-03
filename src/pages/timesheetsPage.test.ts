@@ -28,6 +28,9 @@ describe('Timesheets page floor wiring', () => {
     expect(list).toContain('hub-timesheets');
     expect(list).toContain('hub-timesheets-tile');
     expect(list).toContain('hub-timesheets-pill');
+    expect(list).toContain('planTimesheetClockOff');
+    expect(list).toContain('localDateIso');
+    expect(list).not.toContain('status: \'open\' }).eq(\'id\', existing.id)');
   });
 
   it('does not add a timesheet route, payroll product, or spreadsheet export', () => {
@@ -40,6 +43,20 @@ describe('Timesheets page floor wiring', () => {
     expect(helper).not.toContain('/payroll');
     expect(existsSync(resolve(process.cwd(), 'src/pages/PayrollPage.tsx'))).toBe(false);
     expect(existsSync(resolve(process.cwd(), 'src/pages/TimesheetExportPage.tsx'))).toBe(false);
+  });
+
+  it('reuses job-sheet clock-off write and does not rewrite job Next', () => {
+    const job = src('src/pages/JobDetailPage.tsx');
+    const next = src('src/lib/jobNextAction.ts');
+    const helper = src('src/lib/timesheetJob.ts');
+    expect(job).toContain('planTimesheetClockOff');
+    expect(job).toContain('buildJobClockOffEntry');
+    expect(job).toContain('Clock off');
+    expect(helper).toContain("TIMESHEET_COMPANY_TZ = 'Australia/Brisbane'");
+    expect(helper).toContain("TIMESHEET_CLOCK_OFF_STATUS = 'submitted'");
+    expect(next).toContain("label: 'Clock on'");
+    expect(next).not.toContain('planTimesheetClockOff');
+    expect(next).not.toContain('Clock off');
   });
 
   it('stays on TimesheetsPage plus the list helper and does not import isolated floors', () => {

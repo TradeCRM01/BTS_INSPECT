@@ -51,7 +51,7 @@ import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | QuoteStatus;
 
-type QuoteListItem = QuoteWithDetails & { invoice_id: string | null };
+type QuoteListItem = QuoteWithDetails & { invoice_id: string | null; client_email?: string | null };
 
 function visibleSite(...parts: Array<string | null | undefined>): string {
   for (const part of parts) {
@@ -116,13 +116,13 @@ export function QuotesPage() {
       const jobIds = [...new Set(list.map(q => q.job_id).filter(Boolean))] as string[];
       const quoteIds = list.map(q => q.id);
       const [clientsRes, jobsRes, invoicesRes] = await Promise.all([
-        clientIds.length ? supabase.from('clients').select('id, name').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+        clientIds.length ? supabase.from('clients').select('id, name, email').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string; email: string | null }[] }),
         jobIds.length ? supabase.from('jobs').select('id, title, address').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string; address: string | null }[] }),
         quoteIds.length
           ? supabase.from('invoices').select('id, quote_id, status').in('quote_id', quoteIds)
           : Promise.resolve({ data: [] as { id: string; quote_id: string; status: string }[] }),
       ]);
-      const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c.name]));
+      const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c]));
       const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j]));
       const invoicesByQuote = new Map<string, { id: string; status: string }[]>();
       for (const inv of invoicesRes.data ?? []) {
@@ -135,7 +135,8 @@ export function QuotesPage() {
         ...q,
         inclusions: asStringList(q.inclusions),
         exclusions: asStringList(q.exclusions),
-        client_name: q.client_id ? clientMap.get(q.client_id) ?? null : null,
+        client_name: q.client_id ? clientMap.get(q.client_id)?.name ?? null : null,
+        client_email: q.client_id ? clientMap.get(q.client_id)?.email ?? null : null,
         job_title: q.job_id ? jobMap.get(q.job_id)?.title ?? null : null,
         job_address: q.job_id ? jobMap.get(q.job_id)?.address ?? null : null,
         invoice_id: pickReusableInvoice(invoicesByQuote.get(q.id) ?? [])?.id ?? null,
@@ -321,14 +322,14 @@ function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () 
         {next.key === 'none' ? (
           <span className="hub-quotes-muted">{next.label}</span>
         ) : (
-          <QuoteNextControl quote={quote} onSend={onSend} />
+          <QuoteNextControl quote={quote} onOpen={onOpen} onSend={onSend} />
         )}
       </span>
     </div>
   );
 }
 
-function QuoteNextControl({ quote, onSend }: { quote: QuoteListItem; onSend: (quoteId: string) => void }) {
+function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () => void; onSend: (quoteId: string) => void }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { profile, company } = useAuth();
@@ -351,6 +352,10 @@ function QuoteNextControl({ quote, onSend }: { quote: QuoteListItem; onSend: (qu
   };
 
   const handle = () => {
+    if (next.key === 'add_email') {
+      onOpen();
+      return;
+    }
     if (next.key === 'send') {
       onSend(quote.id);
       return;
@@ -403,7 +408,7 @@ function QuoteNextControl({ quote, onSend }: { quote: QuoteListItem; onSend: (qu
       type="button"
       onClick={handle}
       disabled={!!busy}
-      className="hub-next"
+      className={next.key === 'send' ? 'btn-primary' : 'hub-next'}
     >
       {busy ? 'Working…' : next.label}
     </button>
@@ -449,6 +454,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const [savedId, setSavedId] = useState<string | null>(quote?.id ?? null);
   const [invoiceId, setInvoiceId] = useState<string | null>(quote?.invoice_id ?? null);
   const moreRef = useRef<HTMLDetailsElement>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<EditorState>({
     client_id: quote?.client_id ?? presetClientId ?? '',
@@ -513,13 +519,14 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   );
   const { subtotal, taxAmount, total: grandTotal } = gst;
 
-  const next = recommendQuoteAction({
+  const next = recommendQuoteAction(quoteActionContext({
     status: form.status,
-    hasClient: !!form.client_id,
-    hasLines: form.line_items.some(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0),
-    jobId: form.job_id || null,
-    invoiceId,
-  });
+    client_id: form.client_id || null,
+    client_email: emailClient?.email,
+    line_items: form.line_items,
+    job_id: form.job_id || null,
+    invoice_id: invoiceId,
+  }));
 
   useEffect(() => {
     setClientEmailDraft(emailClient?.email ?? '');
@@ -770,6 +777,16 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
       <div className="overlay-panel-xl hub-quote-editor" onClick={e => e.stopPropagation()}>
         <div className="hub-quote-toolbar">
           <div className="hub-quote-editor-act">
+            {next.key === 'add_email' && (
+              <button
+                type="button"
+                className="btn-primary"
+                title={next.detail}
+                onClick={() => emailInputRef.current?.focus()}
+              >
+                {next.label}
+              </button>
+            )}
             {next.key === 'send' && (
               <button type="button" onClick={() => void startSend()} disabled={saving} className="btn-primary">
                 {saving ? 'Saving...' : 'Send'}
@@ -973,6 +990,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
                     >
                       <Mail size={13} />
                       <input
+                        ref={emailInputRef}
                         type="email"
                         value={clientEmailDraft}
                         onChange={e => setClientEmailDraft(e.target.value)}
