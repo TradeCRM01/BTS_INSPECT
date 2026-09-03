@@ -17,6 +17,7 @@
     --ops-white: #FFFFFF;
     --ops-radius: 8px;
     --ops-radius-ctl: 6px;
+    --hub-list-sheet-max: none;
   }
 
   * {
@@ -268,6 +269,20 @@
   .ops-page {
     @apply mx-auto px-4 py-6 w-full;
     max-width: min(1400px, 100%);
+  }
+
+  /* Shared list/dashboard paper width. Fill the cream column; page padding is the gutter. */
+  .dashboard-home-sheet,
+  .hub-jobs-list-doc .hub-jobs-sheet,
+  .hub-clients-list-doc .hub-clients-sheet,
+  .hub-reports-list-doc .hub-reports-sheet,
+  .hub-inspections-list-doc .hub-inspections-sheet,
+  .hub-jha-list-doc .hub-jha-sheet,
+  .hub-take5-list-doc .hub-take5-sheet,
+  .hub-team-list-doc .hub-team-list-sheet,
+  .hub-compliance-list-doc .hub-compliance-list-sheet {
+    max-width: var(--hub-list-sheet-max);
+    width: 100%;
   }
 
   .ops-page-fill {
@@ -1146,7 +1161,6 @@
 
   .hub-clients-list-doc .hub-clients-sheet {
     position: relative;
-    max-width: 1100px;
     min-height: 620px;
     margin: 0 auto;
     background: #FFFDF8;
@@ -8210,7 +8224,6 @@
 
   .hub-jobs-list-doc .hub-jobs-sheet {
     position: relative;
-    max-width: 1100px;
     min-height: 620px;
     margin: 0 auto;
     background: #FFFDF8;
@@ -8596,7 +8609,6 @@
 
   .dashboard-home-sheet {
     position: relative;
-    max-width: 1100px;
     min-height: 620px;
     margin: 0 auto;
     background: #FFFDF8;
@@ -8954,7 +8966,6 @@
 
   .hub-inspections-list-doc .hub-inspections-sheet {
     position: relative;
-    max-width: 1100px;
     min-height: 620px;
     margin: 0 auto;
     background: #FFFDF8;
@@ -10138,7 +10149,6 @@
 
   .hub-jha-list-doc .hub-jha-sheet {
     position: relative;
-    max-width: 1100px;
     min-height: 620px;
     margin: 0 auto;
     background: #FFFDF8;
@@ -13015,7 +13025,6 @@
 
   .hub-take5-list-doc .hub-take5-sheet {
     position: relative;
-    max-width: 1100px;
     min-height: 620px;
     margin: 0 auto;
     background: #FFFDF8;
@@ -13359,7 +13368,6 @@
 
   .hub-team-list-doc .hub-team-list-sheet {
     position: relative;
-    max-width: 1100px;
     min-height: 620px;
     margin: 0 auto;
     background: #FFFDF8;
@@ -14452,7 +14460,6 @@
 
   .hub-reports-list-doc .hub-reports-sheet {
     position: relative;
-    max-width: 1100px;
     min-height: 620px;
     margin: 0 auto;
     background: #FFFDF8;
@@ -16374,7 +16381,6 @@
 
   .hub-compliance-list-doc .hub-compliance-list-sheet {
     position: relative;
-    max-width: 1100px;
     min-height: 620px;
     margin: 0 auto;
     background: #FFFDF8;
