@@ -58,6 +58,19 @@ function integrationIdentifier() {
   return `grafter_co_${suffix}`;
 }
 
+/** Leftover trial days for Checkout. Null means charge now — do not send trial_period_days. */
+function checkoutTrialPeriodDays(
+  company: { billing_status?: string | null; trial_ends_at?: string | null } | null,
+  now = new Date(),
+): number | null {
+  if (company?.billing_status !== "trial" || !company.trial_ends_at) return null;
+  const ends = new Date(company.trial_ends_at);
+  if (Number.isNaN(ends.getTime())) return null;
+  const remainingMs = ends.getTime() - now.getTime();
+  if (remainingMs <= 0) return null;
+  return Math.max(1, Math.floor(remainingMs / 86_400_000));
+}
+
 function admin() {
   return createClient(
     Deno.env.get("SUPABASE_URL") || "",
@@ -134,7 +147,7 @@ Deno.serve(async (req: Request) => {
 
       const { data: company } = await db
         .from("companies")
-        .select("id, name, email, stripe_customer_id")
+        .select("id, name, email, stripe_customer_id, billing_status, trial_ends_at")
         .eq("id", companyId)
         .maybeSingle();
       if (!company) return json({ ok: false, error: "Company not found" }, 404);
@@ -150,6 +163,13 @@ Deno.serve(async (req: Request) => {
         await db.from("companies").update({ stripe_customer_id: customerId }).eq("id", companyId);
       }
 
+      const subscriptionData: {
+        metadata: { company_id: string; plan: string };
+        trial_period_days?: number;
+      } = { metadata: { company_id: companyId, plan } };
+      const leftoverTrialDays = checkoutTrialPeriodDays(company);
+      if (leftoverTrialDays != null) subscriptionData.trial_period_days = leftoverTrialDays;
+
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
         customer: customerId,
@@ -158,7 +178,7 @@ Deno.serve(async (req: Request) => {
         cancel_url: `${origin}/settings/billing?checkout=cancel`,
         client_reference_id: companyId,
         metadata: { company_id: companyId, plan },
-        subscription_data: { metadata: { company_id: companyId, plan } },
+        subscription_data: subscriptionData,
         integration_identifier: integrationIdentifier(),
       });
       return json({ ok: true, url: session.url });

@@ -19,6 +19,19 @@ export interface CompanyBillingErr {
 
 export type CompanyBillingResult = CompanyBillingOk | CompanyBillingErr;
 
+/** Leftover trial days for Checkout. Null means charge now — do not send trial_period_days. */
+export function checkoutTrialPeriodDays(
+  company: { billing_status?: string | null; trial_ends_at?: string | null } | null | undefined,
+  now = new Date(),
+): number | null {
+  if (company?.billing_status !== 'trial' || !company.trial_ends_at) return null;
+  const ends = new Date(company.trial_ends_at);
+  if (Number.isNaN(ends.getTime())) return null;
+  const remainingMs = ends.getTime() - now.getTime();
+  if (remainingMs <= 0) return null;
+  return Math.max(1, Math.floor(remainingMs / 86_400_000));
+}
+
 export async function callCompanyBillingApi(body: CompanyBillingAction): Promise<CompanyBillingResult> {
   if (isDevFieldAuditAuth() || isDevOperatorAudit()) {
     return { ok: false, error: 'Stripe is not configured in this DEV session.' };

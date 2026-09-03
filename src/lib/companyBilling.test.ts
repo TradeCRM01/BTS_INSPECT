@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { checkoutTrialPeriodDays } from './companyBilling';
 import {
   GRAFTER_PLANS,
   SIGNUP_TRIAL_DAYS,
@@ -90,6 +91,30 @@ describe('tenant checkout and portal', () => {
     expect(fn).not.toContain('VITE_STRIPE');
     expect(fn).not.toContain('STRIPE_PRICE_STARTER');
     expect(fn).not.toContain('interval');
+  });
+
+  it('passes leftover trial_period_days only while the 90-day trial is still running', () => {
+    const now = new Date('2026-09-03T00:00:00.000Z');
+    const in90 = new Date(now.getTime() + 90 * 86_400_000).toISOString();
+    const in12h = new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString();
+    const ended = new Date(now.getTime() - 86_400_000).toISOString();
+
+    expect(checkoutTrialPeriodDays({ billing_status: 'trial', trial_ends_at: in90 }, now)).toBe(90);
+    expect(checkoutTrialPeriodDays({ billing_status: 'trial', trial_ends_at: in12h }, now)).toBe(1);
+    expect(checkoutTrialPeriodDays({ billing_status: 'trial', trial_ends_at: ended }, now)).toBeNull();
+    expect(checkoutTrialPeriodDays({ billing_status: 'active', trial_ends_at: in90 }, now)).toBeNull();
+    expect(checkoutTrialPeriodDays({ billing_status: 'trial', trial_ends_at: null }, now)).toBeNull();
+
+    const fn = src('supabase/functions/company-billing/index.ts');
+    expect(fn).toContain('trial_period_days');
+    expect(fn).toContain('billing_status, trial_ends_at');
+    expect(fn).toContain('checkoutTrialPeriodDays');
+    expect(fn).toContain('leftoverTrialDays != null');
+    expect(fn).toContain('Math.max(1, Math.floor(remainingMs / 86_400_000))');
+    expect(fn).toContain('if (remainingMs <= 0) return null');
+    expect(fn).toContain('billing_status !== "trial"');
+    expect(fn).not.toContain('automatic_tax');
+    expect(fn).not.toContain('payment_method_types');
   });
 
   it('keeps stripe-webhook as the writer for the new plan keys', () => {
