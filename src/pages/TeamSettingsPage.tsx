@@ -22,7 +22,10 @@ import {
   MEMBER_TICKET_BUCKET,
   assertTicketFile,
   memberTicketInsertRow,
+  memberTicketRemoveConfirm,
+  memberTicketRemoveScope,
   ticketContentType,
+  ticketFileRemoveTarget,
   ticketHasFile,
   ticketLedgerLine,
   ticketStoragePath,
@@ -1025,6 +1028,7 @@ function TeamMemberTicketsLedger({
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [openingId, setOpeningId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const { data: tickets } = useQuery<MemberTicket[]>({
     queryKey: ['member-tickets', companyId, profileId],
@@ -1095,6 +1099,39 @@ function TeamMemberTicketsLedger({
     },
   });
 
+  const removeMutation = useMutation({
+    mutationFn: async (ticket: MemberTicket) => {
+      const scope = memberTicketRemoveScope({
+        companyId,
+        profileId,
+        ticketId: ticket.id,
+      });
+      if (!scope) throw new Error('Could not remove ticket');
+      const file = ticketFileRemoveTarget(ticket);
+      const { error: delErr } = await supabase
+        .from('member_tickets')
+        .delete()
+        .eq('id', scope.eq.id)
+        .eq('company_id', scope.eq.company_id)
+        .eq('profile_id', scope.eq.profile_id);
+      if (delErr) throw delErr;
+      if (file) {
+        const { error: rmErr } = await supabase.storage
+          .from(file.bucket)
+          .remove([file.path]);
+        if (rmErr) throw rmErr;
+      }
+    },
+    onSuccess: () => {
+      setError('');
+      queryClient.invalidateQueries({ queryKey: ['member-tickets', companyId, profileId] });
+    },
+    onError: (err: Error) => {
+      setError(err.message || 'Could not remove ticket');
+    },
+    onSettled: () => setRemovingId(null),
+  });
+
   async function openTicketFile(ticket: MemberTicket) {
     const path = (ticket.storage_path ?? '').trim();
     if (!path) return;
@@ -1141,6 +1178,23 @@ function TeamMemberTicketsLedger({
                   disabled={openingId === ticket.id}
                 >
                   {openingId === ticket.id ? 'Opening...' : 'Open file'}
+                </button>
+              </>
+            )}
+            {canEdit && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  className="hub-team-sub is-quiet"
+                  onClick={() => {
+                    if (!confirm(memberTicketRemoveConfirm(ticket))) return;
+                    setRemovingId(ticket.id);
+                    removeMutation.mutate(ticket);
+                  }}
+                  disabled={removingId === ticket.id}
+                >
+                  {removingId === ticket.id ? 'Removing...' : 'Remove'}
                 </button>
               </>
             )}

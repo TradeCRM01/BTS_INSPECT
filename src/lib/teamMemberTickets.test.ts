@@ -9,7 +9,10 @@ import {
   assertTicketFile,
   isExistingTicketStorageFamily,
   memberTicketInsertRow,
+  memberTicketRemoveConfirm,
+  memberTicketRemoveScope,
   memberTicketsQuery,
+  ticketFileRemoveTarget,
   ticketHasFile,
   ticketLedgerLine,
   ticketStoragePath,
@@ -130,6 +133,65 @@ describe('G3 file uses existing storage family — signed URL is live', () => {
     expect(helper).not.toContain('from(\'documents\')');
     expect(ticketHasFile({ storage_path: 'co-1/tickets/m-alex/t-1.pdf' })).toBe(true);
     expect(ticketLedgerLine({ name: 'White Card', ticket_number: 'WC-1001' })).toBe('White Card · WC-1001');
+  });
+});
+
+describe('admin can remove a ticket from the same person sheet', () => {
+  it('scopes delete to this company + member + ticket', () => {
+    expect(memberTicketRemoveScope({
+      companyId: 'co-1',
+      profileId: 'm-alex',
+      ticketId: 't-1',
+    })).toEqual({
+      table: MEMBER_TICKET_TABLE,
+      eq: { id: 't-1', company_id: 'co-1', profile_id: 'm-alex' },
+    });
+    expect(memberTicketRemoveScope({
+      companyId: '',
+      profileId: 'm-alex',
+      ticketId: 't-1',
+    })).toBeNull();
+    expect(memberTicketRemoveConfirm({ name: 'White Card', ticket_number: 'WC-1001' }))
+      .toBe('Remove White Card · WC-1001 from this member?');
+  });
+
+  it('removes the uploaded-pdfs file when present, and skips when there is none', () => {
+    expect(ticketFileRemoveTarget({
+      storage_path: 'co-1/tickets/m-alex/t-1-whitecard.pdf',
+      storage_bucket: 'uploaded-pdfs',
+    })).toEqual({
+      bucket: 'uploaded-pdfs',
+      path: 'co-1/tickets/m-alex/t-1-whitecard.pdf',
+    });
+    expect(ticketFileRemoveTarget({ storage_path: null, storage_bucket: 'uploaded-pdfs' })).toBeNull();
+    expect(ticketFileRemoveTarget({
+      storage_path: 'co-1/tickets/m-alex/t-1.pdf',
+      storage_bucket: 'documents',
+    })).toBeNull();
+  });
+
+  it('page deletes the row then the file — admin only, no edit wizard', () => {
+    const page = src('src/pages/TeamSettingsPage.tsx');
+    expect(page).toContain('memberTicketRemoveScope');
+    expect(page).toContain('ticketFileRemoveTarget');
+    expect(page).toContain('memberTicketRemoveConfirm');
+    expect(page).toContain('.delete()');
+    expect(page).toContain(".eq('company_id', scope.eq.company_id)");
+    expect(page).toContain(".eq('profile_id', scope.eq.profile_id)");
+    expect(page).toContain('.remove([');
+    expect(page).toContain('from(file.bucket)');
+    expect(page).toContain("canEdit={!!isAdmin}");
+    expect(page).toContain("{removingId === ticket.id ? 'Removing...' : 'Remove'}");
+    expect(page).not.toContain('Edit ticket');
+    expect(page).not.toContain('ticket-edit');
+    expect(page).not.toContain('onboarding');
+    const removeStart = page.indexOf(".from('member_tickets')\n        .delete()");
+    const removeFn = page.slice(removeStart, page.indexOf('async function openTicketFile'));
+    expect(removeStart).toBeGreaterThan(-1);
+    expect(removeFn).toContain('.delete()');
+    expect(removeFn.indexOf('.delete()')).toBeLessThan(removeFn.indexOf('.remove(['));
+    expect(removeFn).toContain('from(file.bucket)');
+    expect(removeFn).toContain('[file.path]');
   });
 });
 

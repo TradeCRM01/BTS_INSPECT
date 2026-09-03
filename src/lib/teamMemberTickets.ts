@@ -163,3 +163,33 @@ export function ticketLedgerLine(ticket: Pick<MemberTicket, 'name' | 'ticket_num
   if (number) bits.push(number);
   return bits.join(' · ');
 }
+
+/** Company + member + ticket — delete cannot hop tenants or other people. */
+export function memberTicketRemoveScope(args: {
+  companyId: string;
+  profileId: string;
+  ticketId: string;
+}): { table: typeof MEMBER_TICKET_TABLE; eq: { id: string; company_id: string; profile_id: string } } | null {
+  const companyId = trimTicketField(args.companyId);
+  const profileId = trimTicketField(args.profileId);
+  const ticketId = trimTicketField(args.ticketId);
+  if (!companyId || !profileId || !ticketId) return null;
+  return {
+    table: MEMBER_TICKET_TABLE,
+    eq: { id: ticketId, company_id: companyId, profile_id: profileId },
+  };
+}
+
+export function ticketFileRemoveTarget(
+  ticket: Pick<MemberTicket, 'storage_path' | 'storage_bucket'> | null | undefined,
+): { bucket: string; path: string } | null {
+  const path = trimTicketField(ticket?.storage_path);
+  if (!path) return null;
+  const bucket = trimTicketField(ticket?.storage_bucket) || MEMBER_TICKET_BUCKET;
+  if (!isExistingTicketStorageFamily(bucket)) return null;
+  return { bucket, path };
+}
+
+export function memberTicketRemoveConfirm(ticket: Pick<MemberTicket, 'name' | 'ticket_number'>): string {
+  return `Remove ${ticketLedgerLine(ticket)} from this member?`;
+}
