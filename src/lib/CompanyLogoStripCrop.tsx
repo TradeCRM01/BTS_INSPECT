@@ -48,7 +48,7 @@ export function CompanyLogoStripCrop({
     return stageRef.current?.getBoundingClientRect() ?? null;
   }
 
-  function onPointerDown(kind: DragKind, event: ReactPointerEvent) {
+  function onPointerDown(kind: DragKind, event: ReactPointerEvent<HTMLElement>) {
     event.preventDefault();
     event.stopPropagation();
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);

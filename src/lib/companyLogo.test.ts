@@ -277,8 +277,10 @@ describe('company logo on documents', () => {
       expect(body).not.toContain('BtsMark');
       expect(body).not.toContain('BrandLockup');
       expect(body).not.toContain('grafterMark');
-      expect(body).not.toMatch(/grafter/i);
       expect(body).not.toContain('/icon.svg');
+    }
+    for (const body of [commercial, shared, electricalCompose, genericCompose, generatePdf, generateJhaPdf, generateTake5Pdf]) {
+      expect(body).not.toMatch(/grafter/i);
     }
     expect(commercial).toContain('companyDocumentLogoUrl');
     expect(electricalCompose).toContain('companyDocumentLogoUrl');
