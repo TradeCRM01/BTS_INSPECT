@@ -58,7 +58,7 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
 
     expect((page.match(/dashboard-home-more/g) ?? []).length).toBeGreaterThanOrEqual(1);
     expect((page.match(/MoreHorizontal/g) ?? []).length).toBeGreaterThanOrEqual(1);
-    expect((page.match(/className="btn-primary dashboard-home-primary"/g) ?? []).length).toBe(3);
+    expect((page.match(/className="btn-primary dashboard-home-primary"/g) ?? []).length).toBe(4);
 
     expect(css).toContain('.dashboard-home.ops-page');
     expect(css).toContain('.dashboard-home-sheet');

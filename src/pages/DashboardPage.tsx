@@ -12,7 +12,7 @@ import {
   useDraggable,
 } from '@dnd-kit/core';
 import {
-  Plus, X, GripVertical, Trash2, LayoutGrid, Sparkles, Briefcase, MoreHorizontal,
+  Plus, X, GripVertical, Trash2, Sparkles, Briefcase, MoreHorizontal,
 } from 'lucide-react';
 import { WIDGET_REGISTRY, WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
 import { WidgetRenderer } from '../widgets/WidgetComponents';
@@ -32,6 +32,11 @@ import {
   dashboardTodayKey,
   todaysDashboardJobs,
 } from '../lib/dashboardHome';
+import {
+  dashboardWidgetPixelSize,
+  defaultDashboardWidgetInserts,
+  shouldSeedDefaultDashboardWidgets,
+} from '../lib/dashboardWidgets';
 import type { ScheduleCrewMember } from '../lib/scheduleBoard';
 
 interface DashboardWidget {
@@ -134,7 +139,22 @@ export function DashboardPage() {
         .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
         .order('grid_y', { ascending: true });
       if (error) throw error;
-      return (data ?? []) as DashboardWidget[];
+      const rows = (data ?? []) as DashboardWidget[];
+      if (!shouldSeedDefaultDashboardWidgets(rows)) return rows;
+
+      const { data: seeded, error: seedError } = await supabase
+        .from('dashboard_widgets')
+        .insert(defaultDashboardWidgetInserts() as never)
+        .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config');
+      if (!seedError && seeded?.length) return seeded as DashboardWidget[];
+
+      // Concurrent first visit — reload instead of writing a second set.
+      const { data: retry, error: retryError } = await supabase
+        .from('dashboard_widgets')
+        .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
+        .order('grid_y', { ascending: true });
+      if (retryError) throw retryError;
+      return (retry ?? []) as DashboardWidget[];
     },
     enabled: !!profile,
   });
@@ -213,14 +233,15 @@ export function DashboardPage() {
     const w = widgets ?? [];
     // Place at a staggered offset so new widgets don't overlap exactly
     const offset = w.length * 30;
+    const size = dashboardWidgetPixelSize(widgetType);
     const { data, error } = await supabase
       .from('dashboard_widgets')
       .insert({
         widget_type: widgetType,
         grid_x: Math.min(offset, 400),
         grid_y: 20,
-        grid_w: def.defaultSize.w * 130,
-        grid_h: def.defaultSize.h * 90,
+        grid_w: size.grid_w,
+        grid_h: size.grid_h,
         config: {} as Json,
       } as never)
       .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
@@ -420,65 +441,66 @@ export function DashboardPage() {
                 })}
               </div>
             )}
+
+            {!widgetsLoading && (widgets ?? []).length === 0 && (
+              <div className="dashboard-home-tools">
+                <button
+                  type="button"
+                  onClick={() => setShowPicker(true)}
+                  className="btn-primary dashboard-home-primary"
+                >
+                  <Plus size={16} />
+                  Add widget
+                </button>
+              </div>
+            )}
           </div>
         </article>
 
-        {editMode && (
-          widgetsLoading ? (
-            <div className="dashboard-home-widgets flex justify-center py-12"><LoadingSpinner /></div>
-          ) : (widgets ?? []).length === 0 ? (
-            <div className="dashboard-home-widgets">
-              <div className="flex flex-col items-center justify-center py-12">
-                <LayoutGrid size={40} className="dashboard-home-widget-empty-icon" />
-                <p className="dashboard-home-meta">No widgets yet</p>
-                <button type="button" onClick={() => setShowPicker(true)} className="dashboard-home-sub">
-                  <Plus size={16} /> Add a widget
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="dashboard-home-widgets">
-              <div className="md:hidden grid grid-cols-1 gap-3">
-                {(widgets ?? []).map(w => (
-                  <div key={w.id} className="dashboard-home-widget overflow-hidden" style={{ minHeight: Math.min(w.grid_h, 300) }}>
-                    <div className="h-full p-3">
-                      <WidgetRenderer
-                        type={w.widget_type}
-                        config={(w.config as Record<string, unknown>) ?? {}}
-                        onConfigChange={(c) => updateWidgetConfig(w.id, c)}
-                      />
-                    </div>
+        {widgetsLoading ? (
+          <div className="dashboard-home-widgets flex justify-center py-12"><LoadingSpinner /></div>
+        ) : (widgets ?? []).length === 0 ? null : (
+          <div className="dashboard-home-widgets">
+            <div className="md:hidden grid grid-cols-1 gap-3">
+              {(widgets ?? []).map(w => (
+                <div key={w.id} className="dashboard-home-widget overflow-hidden" style={{ minHeight: Math.min(w.grid_h, 300) }}>
+                  <div className="h-full p-3">
+                    <WidgetRenderer
+                      type={w.widget_type}
+                      config={(w.config as Record<string, unknown>) ?? {}}
+                      onConfigChange={(c) => updateWidgetConfig(w.id, c)}
+                    />
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
+            </div>
 
-              <div className="hidden md:block">
-                <DndContext
-                  sensors={sensors}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
+            <div className="hidden md:block">
+              <DndContext
+                sensors={sensors}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <div
+                  ref={canvasRef}
+                  className={`dashboard-home-canvas relative overflow-x-auto${editMode ? ' is-editing' : ''}`}
+                  style={{ height: canvasHeight, minWidth: '100%' }}
                 >
-                  <div
-                    ref={canvasRef}
-                    className="dashboard-home-canvas relative overflow-x-auto is-editing"
-                    style={{ height: canvasHeight, minWidth: '100%' }}
-                  >
-                    {(widgets ?? []).map(w => (
-                      <FreeWidget
-                        key={w.id}
-                        widget={w}
-                        editMode={editMode}
-                        onRemove={() => removeWidget(w.id)}
-                        onResizeStart={(e) => startResize(e, w)}
-                        onConfigChange={(c) => updateWidgetConfig(w.id, c)}
-                        isDragging={activeId === w.id}
-                      />
-                    ))}
-                  </div>
-                </DndContext>
-              </div>
+                  {(widgets ?? []).map(w => (
+                    <FreeWidget
+                      key={w.id}
+                      widget={w}
+                      editMode={editMode}
+                      onRemove={() => removeWidget(w.id)}
+                      onResizeStart={(e) => startResize(e, w)}
+                      onConfigChange={(c) => updateWidgetConfig(w.id, c)}
+                      isDragging={activeId === w.id}
+                    />
+                  ))}
+                </div>
+              </DndContext>
             </div>
-          )
+          </div>
         )}
       </div>
 
