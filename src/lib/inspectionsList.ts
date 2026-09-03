@@ -4,6 +4,7 @@ import {
   isOpenInspectionStatus,
   resolveInspectionDueDate,
   todayYmd,
+  VAN_TIME_ZONE,
   type DueInspection,
   type DueInspectionJob,
 } from './inspectionDueReminder';
@@ -83,7 +84,7 @@ export function inspectionListDueKind(
 ): InspectionListDueKind | null {
   const day = dateOnly(dueOn);
   if (!day) return null;
-  const today = todayYmd(now);
+  const today = todayYmd(now, VAN_TIME_ZONE);
   if (day < today) return 'overdue';
   if (day === today) return 'today';
   return 'upcoming';

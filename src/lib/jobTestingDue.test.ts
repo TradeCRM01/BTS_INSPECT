@@ -4,6 +4,11 @@ import { describe, expect, it } from 'vitest';
 import { inspectionOpenPath } from './inspectionNextAction';
 import { resolveInspectionDueDate } from './inspectionDueReminder';
 import {
+  ARRIVING_NEXT_LABEL,
+  CLOCK_IN_NEXT_LABEL,
+  VAN_TIME_ZONE,
+} from './jobReminder';
+import {
   JOB_TESTING_DUE_EMPTY,
   JOB_TESTING_DUE_TITLE,
   jobTestingDueEmptyTitle,
@@ -16,9 +21,11 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-/** 16:00 Friday 21 Aug 2026 in Australia/Perth. */
+/** 18:00 Friday 21 Aug 2026 in Australia/Brisbane. Same calendar day in Perth. */
 const now = new Date('2026-08-21T08:00:00.000Z');
 const today = '2026-08-21';
+/** 01:00 Saturday 22 Aug Brisbane. Perth is still Friday 21 Aug 23:00. */
+const brisbaneRolled = new Date('2026-08-21T15:00:00.000Z');
 
 function job(over: Partial<DueInspectionJob> = {}): DueInspectionJob {
   return {
@@ -112,6 +119,21 @@ describe('testing due on the job sheet', () => {
       insp({ id: 'newer', status: 'completed', meta: { next_test_date: '2026-08-10' } }),
     ], job(), now);
     expect(rows.map(r => r.id)).toEqual(['older', 'newer', 'today']);
+  });
+
+  it('treats Brisbane today as due — leftover Perth is still yesterday', () => {
+    expect(VAN_TIME_ZONE).toBe('Australia/Brisbane');
+    const dueBrisbane = insp({
+      id: 'insp-bne',
+      status: 'completed',
+      meta: { next_test_date: '2026-08-22' },
+    });
+    expect(jobTestingDueRows([dueBrisbane], job(), now)).toEqual([]);
+    expect(jobTestingDueRows([dueBrisbane], job(), brisbaneRolled)[0]).toMatchObject({
+      id: 'insp-bne',
+      dueKind: 'today',
+      dueLabel: 'Due today',
+    });
   });
 
   it('reuses resolveInspectionDueDate — open rows fall back to the linked job date', () => {
@@ -216,5 +238,21 @@ describe('isolation — stay-off surfaces stay off this change', () => {
     expect(page).toContain("from '../lib/jobTestingDue'");
     expect(helper).toContain("from './inspectionsList'");
     expect(helper).toContain("from './inspectionDueReminder'");
+    expect(page).not.toContain('MarketingPage');
+    expect(page).not.toContain('stripe');
+    expect(helper).not.toContain('stripe');
+    expect(src('src/lib/inspectionDueReminder.ts')).toContain('VAN_TIME_ZONE');
+    expect(src('supabase/functions/job-reminder/index.ts')).toContain('VAN_TZ = "Australia/Brisbane"');
+  });
+
+  it('does not regress scheduled job-sheet Next — Arriving shortly, then Clock In', () => {
+    const page = src('src/pages/JobDetailPage.tsx');
+    const next = src('src/lib/jobNextAction.ts');
+    expect(page).toContain('jobOpenNext');
+    expect(page).toContain('ARRIVING_NEXT_LABEL');
+    expect(next).toContain(ARRIVING_NEXT_LABEL);
+    expect(next).toContain(CLOCK_IN_NEXT_LABEL);
+    expect(next).toContain('VAN_TIME_ZONE');
+    expect(next).toMatch(/Arriving shortly, then Clock In/);
   });
 });

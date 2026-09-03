@@ -1,6 +1,7 @@
 import type { TemplateSchema } from '../types/template';
 import {
   COMPANY_TIME_ZONE,
+  VAN_TIME_ZONE,
   dateOnly,
   emailSettingsReady,
   escapeHtml,
@@ -19,6 +20,7 @@ import {
 
 export {
   COMPANY_TIME_ZONE,
+  VAN_TIME_ZONE,
   dateOnly,
   emailSettingsReady,
   formatJobDate,
@@ -215,7 +217,7 @@ export function inspectionDueOnToday(
   now = new Date(),
 ): boolean {
   const due = resolveInspectionDueDate(inspection, job);
-  return due === todayYmd(now);
+  return due === todayYmd(now, VAN_TIME_ZONE);
 }
 
 export function inspectionDueOnOrBeforeToday(
@@ -225,7 +227,7 @@ export function inspectionDueOnOrBeforeToday(
 ): boolean {
   const due = resolveInspectionDueDate(inspection, job);
   if (!due) return false;
-  return due <= todayYmd(now);
+  return due <= todayYmd(now, VAN_TIME_ZONE);
 }
 
 export function resolveInspectionClientId(
@@ -309,7 +311,7 @@ export function inspectionDueEligibility(args: {
   if (!dueOn) {
     return { ok: false, reason: 'no_due_date', message: missInspectionDueMessage('no_due_date'), to: to || null, dueOn: null };
   }
-  const today = todayYmd(now);
+  const today = todayYmd(now, VAN_TIME_ZONE);
   if (mode === 'auto' && dueOn !== today) {
     return { ok: false, reason: 'not_due', message: missInspectionDueMessage('not_due'), to: to || null, dueOn };
   }
@@ -492,9 +494,9 @@ export function shouldRecordInspectionDueSent(sendOk: boolean): boolean {
   return sendOk === true;
 }
 
-/** Perth today — same calendar the SQL cron uses. */
+/** Van today — Australia/Brisbane. Due-test cron and the job sheet share this calendar. */
 export function perthTodaySqlDate(now = new Date()): string {
-  return todayYmd(now, COMPANY_TIME_ZONE);
+  return todayYmd(now, VAN_TIME_ZONE);
 }
 
 export function todayInspectionDueQuery(args: {
@@ -533,7 +535,7 @@ export function inspectionDueCompanyFilter(companyId: string, now = new Date()) 
     table: 'inspections' as const,
     company_id: id,
     due_on: perthTodaySqlDate(now),
-    timeZone: COMPANY_TIME_ZONE,
+    timeZone: VAN_TIME_ZONE,
   };
 }
 
@@ -571,7 +573,8 @@ export function wouldScanUnscopedInspections(scope: InspectionDueQueryScope | nu
 }
 
 /**
- * How auto-fire actually runs — same Perth cron as the 24h job ping.
+ * How auto-fire actually runs — same cron hop as the 24h job ping.
+ * Due-test “today” is Australia/Brisbane (VAN_TIME_ZONE), not leftover Perth.
  * No tray click. No new notify module. No new cron stack.
  * pg_cron job-client-reminder-* → invoke_job_client_reminders() → job-reminder due=today.
  * SQL-only Resend (060) is retired so cron cannot double-send or stay email-only.
@@ -581,9 +584,9 @@ export const INSPECTION_DUE_AUTO_FIRE_PATH = [
   'pg_cron job-client-reminder-perth-afternoon (0 8 * * * UTC = 16:00 Australia/Perth)',
   'SELECT public.invoke_job_client_reminders()',
   'pg_net POST /functions/v1/job-reminder due=today source=cron',
-  'perth_today = (timezone(Australia/Perth, now()))::date',
+  'van_today = (timezone(Australia/Brisbane, now()))::date',
   'email_settings where Resend is ready (companies without SMTP are not scanned)',
-  'inspections where due_on = perth_today and archived is not true, company via job / client / inspector',
+  'inspections where due_on = van_today and archived is not true, company via job / client / inspector',
   'skip already_sent for this due_on; skip no client email; skip no due date',
   'POST https://api.resend.com/emails with email_settings.smtp_pass',
   'POST https://api.twilio.com SMS beside email — miss does not flip sent-at',

@@ -7,6 +7,8 @@ const corsHeaders = {
 };
 
 const COMPANY_TZ = "Australia/Perth";
+/** Van / due-test “today”. Australia/Brisbane — not leftover Perth. */
+const VAN_TZ = "Australia/Brisbane";
 
 interface EmailSettings {
   company_id?: string;
@@ -420,6 +422,10 @@ function inspectionDueSmsBody(opts: {
 
 function todayYmd(now = new Date(), timeZone = COMPANY_TZ): string {
   return ymdInTimeZone(now, timeZone);
+}
+
+function vanTodayYmd(now = new Date()): string {
+  return todayYmd(now, VAN_TZ);
 }
 
 function alreadyRemindedForDueDate(row: Record<string, unknown>, dueDate: string | null): boolean {
@@ -1967,7 +1973,7 @@ Deno.serve(async (req) => {
         job: jobRow,
         client: clientRow,
         mode: "manual",
-        today: todayYmd(),
+        today: vanTodayYmd(),
       });
       const sms = (result.sms as SmsSendResult | undefined) ?? null;
       const emailMessage = result.sent
@@ -1985,7 +1991,7 @@ Deno.serve(async (req) => {
 
     if (due === "today") {
       if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
-      const today = todayYmd();
+      const today = vanTodayYmd();
       const autoAllCompanies = cronOk && !userCompanyId;
       const companyIds: string[] = [];
       const settingsByCompany = new Map<string, EmailSettings>();
