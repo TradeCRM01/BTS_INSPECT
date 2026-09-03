@@ -35,36 +35,26 @@ DROP POLICY IF EXISTS "Company members can view member tickets" ON public.member
 CREATE POLICY "Company members can view member tickets"
   ON public.member_tickets FOR SELECT
   TO authenticated
-  USING (company_id = public.my_company_id());
+  USING (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()));
 
 DROP POLICY IF EXISTS "Company members can insert member tickets" ON public.member_tickets;
 CREATE POLICY "Company members can insert member tickets"
   ON public.member_tickets FOR INSERT
   TO authenticated
-  WITH CHECK (
-    company_id = public.my_company_id()
-    AND profile_id IN (
-      SELECT id FROM public.profiles WHERE company_id = public.my_company_id()
-    )
-  );
+  WITH CHECK (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()));
 
 DROP POLICY IF EXISTS "Company members can update member tickets" ON public.member_tickets;
 CREATE POLICY "Company members can update member tickets"
   ON public.member_tickets FOR UPDATE
   TO authenticated
-  USING (company_id = public.my_company_id())
-  WITH CHECK (
-    company_id = public.my_company_id()
-    AND profile_id IN (
-      SELECT id FROM public.profiles WHERE company_id = public.my_company_id()
-    )
-  );
+  USING (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()))
+  WITH CHECK (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()));
 
 DROP POLICY IF EXISTS "Company members can delete member tickets" ON public.member_tickets;
 CREATE POLICY "Company members can delete member tickets"
   ON public.member_tickets FOR DELETE
   TO authenticated
-  USING (company_id = public.my_company_id());
+  USING (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()));
 
 REVOKE ALL ON public.member_tickets FROM PUBLIC, anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.member_tickets TO authenticated;

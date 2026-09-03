@@ -196,12 +196,14 @@ describe('admin can remove a ticket from the same person sheet', () => {
 });
 
 describe('G4 RLS another tenant cannot read the row or file', () => {
-  it('locks company_id = my_company_id() and storage under companyId prefix', () => {
+  it('locks company_id to the caller company only — no my_company_id, no profile_id IN scan', () => {
     const mig = src('supabase/migrations/20260903120000_072_member_tickets.sql');
     expect(mig).toContain('CREATE TABLE IF NOT EXISTS public.member_tickets');
     expect(mig).toContain('ENABLE ROW LEVEL SECURITY');
-    expect(mig).toContain('company_id = public.my_company_id()');
-    expect(mig).toContain('profile_id IN (');
+    expect(mig).toContain('USING (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()))');
+    expect(mig).toContain('WITH CHECK (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()))');
+    expect(mig).not.toContain('my_company_id');
+    expect(mig).not.toContain('profile_id IN (');
     expect(mig).toContain('GRANT SELECT, INSERT, UPDATE, DELETE ON public.member_tickets TO authenticated');
     expect(mig).not.toContain('TO anon');
     expect(ticketStoragePath({
