@@ -7016,8 +7016,10 @@
     border: 1px solid var(--job-look-line);
     border-radius: 16px;
     padding: 0;
-    overflow: hidden;
-    box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+    overflow: visible;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 10px 28px rgba(10, 37, 64, 0.08);
   }
 
   .hub-jobs-sheet-bar {
@@ -7029,6 +7031,7 @@
     padding: 8px 24px;
     background: var(--job-look-ink);
     color: #fff;
+    border-radius: 16px 16px 0 0;
   }
 
   .hub-jobs-sheet-bar .hub-jobs-hours {
@@ -7068,6 +7071,10 @@
     align-items: center;
     gap: 16px;
     margin-top: 24px;
+  }
+
+  .hub-jobs-document .hub-jobs-tools-overflow {
+    margin-left: auto;
   }
 
   .hub-jobs-hours {
@@ -7135,9 +7142,52 @@
     width: 100%;
   }
 
+  .hub-jobs-identity {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .hub-jobs-identity-col {
+    min-width: 0;
+  }
+
+  @media (min-width: 640px) {
+    .hub-jobs-identity {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr);
+      gap: 0 24px;
+      align-items: start;
+      padding: 8px 0 16px;
+      border-bottom: 1px solid var(--job-look-line);
+    }
+
+    .hub-jobs-document .hub-jobs-identity .hub-jobs-ledger-row,
+    .hub-jobs-document .hub-jobs-identity .hub-jobs-contact > * {
+      padding: 8px 0;
+      min-height: 32px;
+      border-bottom: 1px solid var(--job-look-line);
+    }
+
+    .hub-jobs-document .hub-jobs-identity .hub-jobs-ledger-row:last-child,
+    .hub-jobs-document .hub-jobs-identity .hub-jobs-contact > *:last-child {
+      border-bottom: none;
+    }
+  }
+
+  .hub-jobs-document :is(#job-swms, #job-insp) {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    --job-page: var(--job-look-page);
+    --job-sheet: var(--job-look-sheet);
+    --job-ink: var(--job-look-ink);
+    --job-muted: var(--job-look-muted);
+    --job-line: var(--job-look-line);
+    --job-pass: var(--job-look-muted);
+  }
+
   .hub-jobs-document .ops-tray,
   .hub-jobs-document .ops-card,
-  .hub-jobs-document .hub-jobs-bill-head {
+  .hub-jobs-document .hub-jobs-bill-head,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray {
     background: none;
     border: none;
     border-radius: 0;
@@ -7145,6 +7195,11 @@
     margin: 16px 0 0;
     padding: 0;
     max-width: none;
+    overflow: visible;
+  }
+
+  .hub-jobs-document .job-swms-more {
+    display: none;
   }
 
   .hub-jobs-bill-head {
@@ -7161,7 +7216,8 @@
   }
 
   .hub-jobs-document .ops-tray-head,
-  .hub-jobs-document .hub-jobs-bill-head {
+  .hub-jobs-document .hub-jobs-bill-head,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray-head {
     padding: 12px 0;
     border: none;
     border-bottom: 1px solid var(--job-look-line);
@@ -7169,8 +7225,19 @@
   }
 
   .hub-jobs-document .ops-tray .ops-related-main,
-  .hub-jobs-document .ops-tray .ops-tray-empty {
+  .hub-jobs-document .ops-tray .ops-tray-empty,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-related-main,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray-empty {
     padding: 12px 0;
+    background: transparent;
+  }
+
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-related-row {
+    min-height: 0;
+    padding: 0;
+  }
+
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-related-main:hover {
     background: transparent;
   }
 
@@ -7189,7 +7256,8 @@
     display: none;
   }
 
-  .hub-jobs-document .ops-tray .btn-primary {
+  .hub-jobs-document .ops-tray .btn-primary,
+  .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray .btn-primary {
     background: none;
     color: #2E75B6;
     min-height: 44px;
@@ -7238,13 +7306,23 @@
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    z-index: 6;
+    left: auto;
+    z-index: 20;
     min-width: 200px;
     padding: 8px;
     background: #FFFDF8;
     border: 1px solid #E2D9CC;
     border-radius: 16px;
     box-shadow: none;
+  }
+
+  .hub-job-more.is-flip .hub-job-more-menu {
+    top: auto;
+    bottom: calc(100% + 8px);
+  }
+
+  .hub-job-more.is-shift .hub-job-more-menu {
+    transform: translateX(var(--hub-job-more-shift, 0px));
   }
 
   .hub-job-more-menu button {

@@ -418,13 +418,45 @@ export function JobDetailPage() {
     if (moreRef.current) moreRef.current.open = false;
   };
 
+  const placeMoreMenu = () => {
+    const more = moreRef.current;
+    const menu = more?.querySelector('.hub-job-more-menu') as HTMLElement | null;
+    const paper = more?.closest('.hub-jobs-document') as HTMLElement | null;
+    if (!more || !menu || !paper) return;
+    more.classList.remove('is-flip', 'is-shift');
+    menu.style.removeProperty('--hub-job-more-shift');
+    if (!more.open) return;
+    const pad = 8;
+    const paperRect = paper.getBoundingClientRect();
+    const viewBottom = window.innerHeight - pad;
+    const menuRect = menu.getBoundingClientRect();
+    if (menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom)) {
+      more.classList.add('is-flip');
+    }
+    const after = menu.getBoundingClientRect();
+    let shift = 0;
+    if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
+    if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
+    if (shift !== 0) {
+      more.classList.add('is-shift');
+      menu.style.setProperty('--hub-job-more-shift', `${Math.round(shift)}px`);
+    }
+  };
+
   useEffect(() => {
+    const more = moreRef.current;
     const onPointer = (event: PointerEvent) => {
       if (!moreRef.current?.open) return;
       if (!moreRef.current.contains(event.target as Node)) closeMore();
     };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
     document.addEventListener('pointerdown', onPointer);
-    return () => document.removeEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
   }, []);
 
   const { data: parentJob } = useQuery<{ id: string; title: string; job_number: number | null } | null>({
@@ -1197,7 +1229,9 @@ export function JobDetailPage() {
             ) : null}
 
             <div className="hub-jobs-ledger">
-              <div className="hub-jobs-ledger-row">
+              <div className="hub-jobs-identity">
+              <div className="hub-jobs-identity-col is-site">
+                <div className="hub-jobs-ledger-row">
                 <OpsSiteRow
                   hub
                   site={site ? site : 'No site address yet — add it in job details'}
@@ -1209,8 +1243,9 @@ export function JobDetailPage() {
                     Stage of {parentJob.job_number != null ? `#${padNum(parentJob.job_number)} ` : ''}{parentJob.title}
                   </Link>
                 )}
+                </div>
               </div>
-              <div className="hub-jobs-contact">
+              <div className="hub-jobs-identity-col hub-jobs-contact">
               {attachRow.kind === 'pick' ? (
                 <form
                   className="job-client-attach"
@@ -1319,7 +1354,7 @@ export function JobDetailPage() {
                 </form>
               )}
               </div>
-
+              <div className="hub-jobs-identity-col is-ops">
               <p className="hub-jobs-ledger-row">
                 <span className="flex items-center gap-1.5">
                   <Users size={13} />
@@ -1345,6 +1380,8 @@ export function JobDetailPage() {
                   </span>
                 </p>
               )}
+              </div>
+              </div>
 
             {((quotes ?? []).length > 0 || (invoices ?? []).length > 0) && (
               <>
