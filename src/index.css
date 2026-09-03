@@ -7039,14 +7039,32 @@
     font-size: 16px;
   }
 
-  .hub-jobs-sheet-bar .hub-jobs-pill,
-  .hub-jobs-sheet-bar .hub-job-status {
-    background: #fff;
-    color: var(--job-look-ink);
-    border-color: transparent;
-    margin: 0;
+  .hub-jobs-document .hub-jobs-status-whisper {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    margin: 8px 0 0;
+    padding: 0;
     appearance: none;
+    background: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    outline: none;
+    min-height: 0;
+    height: auto;
     cursor: pointer;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--job-look-muted);
+  }
+
+  .hub-jobs-document .hub-jobs-status-whisper:focus {
+    outline: none;
+    box-shadow: none;
   }
 
   .hub-jobs-sheet-body {

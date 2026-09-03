@@ -30,6 +30,10 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(page).toContain('--hub-job-more-shift');
     expect(page).toContain('Add to calendar');
     expect(page).toContain('className="btn-primary ops-next-control-block"');
+    expect(page).toContain('hub-jobs-status-whisper');
+    expect(page).toContain('AUDIT_DOC_JOB_ID');
+    expect(page).toContain('lookVanTodayYmd');
+    expect(page).not.toContain('hub-jobs-pill');
     expect(page).not.toContain('hub-job-letterhead');
     expect(page).not.toContain('hub-job-kicker');
     expect(page).not.toContain('JobCalendarOverflow');
@@ -44,6 +48,9 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(css).toContain('.hub-jobs-identity');
     expect(css).toContain('grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr)');
     expect(css).toContain('.hub-jobs-document .hub-jobs-tools .ops-next-control-done');
+    expect(css).toContain('.hub-jobs-document .hub-jobs-status-whisper');
+    expect(css).toContain('.hub-jobs-document .hub-jobs-tools .btn-primary');
+    expect(css).toContain('background: #2E75B6');
     expect(css).toContain('overflow: visible');
     expect(css).toContain('.hub-job-more.is-flip');
     expect(css).toContain('.hub-job-more.is-shift');

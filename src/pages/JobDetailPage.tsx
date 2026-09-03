@@ -18,7 +18,7 @@ import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY
 import { formatMoney, INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatDuration } from '../types/fsm';
 import type { InvoiceStatus, Timesheet } from '../types/fsm';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
-import { getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import { AUDIT_DOC_JOB_ID, getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { createInvoiceFromJobBill } from '../lib/createInvoiceFromJobBill';
 import {
   JOB_BILL_INVOICE_CREATED,
@@ -358,7 +358,7 @@ export function JobDetailPage() {
     queryFn: async () => {
       const mock = getAuditJob(id!);
       if (mock) {
-        if (testingDueLookKind()) {
+        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind()) {
           return { ...mock, scheduled_date: lookVanTodayYmd() } as Job;
         }
         return mock as Job;
@@ -1101,19 +1101,19 @@ export function JobDetailPage() {
         <article className="hub-jobs-document job-cal-host">
           <header className="hub-jobs-sheet-bar">
             <span className="hub-jobs-hours">{jobRef}</span>
+          </header>
+          <div className="hub-jobs-sheet-body">
+            <h1 className="hub-jobs-hero">{job.title}</h1>
             <select
               value={job.status}
               onChange={e => updateStatus.mutate(e.target.value as JobStatus)}
-              className={`hub-jobs-pill is-${job.status} hub-job-status`}
+              className="hub-jobs-status-whisper"
               aria-label="Job status"
             >
               {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
                 <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
               ))}
             </select>
-          </header>
-          <div className="hub-jobs-sheet-body">
-            <h1 className="hub-jobs-hero">{job.title}</h1>
 
             <div className="hub-jobs-tools">
               {next.key === 'inspect' && !arrivingPrimary ? (
