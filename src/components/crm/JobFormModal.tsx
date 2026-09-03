@@ -11,6 +11,7 @@ import { OverlayPortal } from '../ui/OverlayPortal';
 import { jobSiteAddressFromClient, visibleClientContacts } from '../../lib/clientRecords';
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { formatJobRef, nextCostCode, normalizeCostCode } from '../../lib/jobRef';
+import { JOB_COLORS, jobColorToStore } from '../../lib/jobColors';
 
 interface JobFormModalProps {
   job: Job | null;
@@ -61,6 +62,7 @@ export function JobFormModal({
     budget: job?.budget ?? '',
     parent_job_id: job?.parent_job_id ?? presetParentJobId ?? '',
     cost_code: job?.cost_code ?? '',
+    color: job?.color ?? '',
   });
 
   useEffect(() => {
@@ -127,6 +129,7 @@ export function JobFormModal({
       budget: form.budget ? Number(form.budget) : null,
       parent_job_id: form.parent_job_id || null,
       cost_code: normalizeCostCode(form.cost_code) || null,
+      color: jobColorToStore(form.color),
     };
 
     if (!detailsOnly) {
@@ -344,6 +347,46 @@ export function JobFormModal({
               maxLength={12}
             />
             <p className="ops-meta mt-1">Shown as #0042.01 on the schedule</p>
+          </div>
+
+          <div className="overlay-form-span-all">
+            <label className="ops-field-label">Colour</label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {JOB_COLORS.map(hex => {
+                const selected = jobColorToStore(form.color) === hex.toUpperCase();
+                return (
+                  <button
+                    key={hex}
+                    type="button"
+                    title={hex}
+                    aria-label={`Colour ${hex}`}
+                    aria-pressed={selected}
+                    onClick={() => setForm(f => ({ ...f, color: hex }))}
+                    className={`h-7 w-7 rounded-md border-2 ${
+                      selected ? 'border-navy' : 'border-transparent'
+                    }`}
+                    style={{ background: hex }}
+                  />
+                );
+              })}
+              <input
+                type="color"
+                value={jobColorToStore(form.color) ?? JOB_COLORS[0]}
+                onChange={e => setForm(f => ({ ...f, color: e.target.value.toUpperCase() }))}
+                className="h-7 w-10 cursor-pointer rounded border border-rule bg-white"
+                aria-label="Another colour"
+              />
+              {form.color ? (
+                <button
+                  type="button"
+                  className="ops-link text-xs"
+                  onClick={() => setForm(f => ({ ...f, color: '' }))}
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+            <p className="ops-meta mt-1">Week-board chip. Same-quote stages keep this unless you change that job.</p>
           </div>
 
           {detailsOnly && onAddStage && (

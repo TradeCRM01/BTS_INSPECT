@@ -33,6 +33,20 @@ export const EMPLOYEE_COLORS = [
   '#7A4E4E', // brick
 ];
 
+/** Persistable `jobs.color` — live text column, nullable. Empty clears inherit. */
+export function jobColorToStore(raw: string | null | undefined): string | null {
+  const value = (raw ?? '').trim();
+  if (!value) return null;
+  if (/^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(value)) {
+    if (value.length === 4) {
+      const r = value[1], g = value[2], b = value[3];
+      return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+    }
+    return value.toUpperCase();
+  }
+  return null;
+}
+
 // Deterministically pick a color for a job based on its ID,
 // so the same job always gets the same color unless explicitly set.
 export function pickJobColor(seed: string, explicit?: string | null): string {
