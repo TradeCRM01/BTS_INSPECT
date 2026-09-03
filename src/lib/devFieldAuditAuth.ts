@@ -101,4 +101,11 @@ export const DEV_AUDIT_COMPANY = {
   default_tax_rate: 10,
   default_material_markup: 20,
   logo_url: null,
+  access_status: 'active',
+  billing_status: 'trial',
+  plan: 'crew',
+  trial_ends_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+  seat_limit: 5,
+  stripe_customer_id: null,
+  stripe_subscription_id: null,
 } as unknown as Company;

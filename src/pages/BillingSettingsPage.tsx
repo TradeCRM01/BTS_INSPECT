@@ -47,7 +47,7 @@ export function BillingSettingsPage() {
         plan,
         origin: window.location.origin,
       });
-      if (!res.ok) throw new Error(res.miss || res.error);
+      if (!res.ok) throw new Error(res.error);
       if (!res.url) throw new Error('No Checkout URL');
       window.location.href = res.url;
     },
@@ -60,7 +60,7 @@ export function BillingSettingsPage() {
         action: 'create_portal',
         origin: window.location.origin,
       });
-      if (!res.ok) throw new Error(res.miss || res.error);
+      if (!res.ok) throw new Error(res.error);
       if (!res.url) throw new Error('No portal URL');
       window.location.href = res.url;
     },

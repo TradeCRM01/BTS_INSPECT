@@ -1,7 +1,6 @@
 import { supabase } from './supabase';
 import { isDevFieldAuditAuth, isDevOperatorAudit } from './devFieldAuditAuth';
 import type { GrafterPlanId } from './platformOperator';
-import { STRIPE_SECRET_MISS } from './platformOperator';
 
 export type CompanyBillingAction =
   | { action: 'create_checkout'; plan: GrafterPlanId; origin: string }
@@ -22,7 +21,7 @@ export type CompanyBillingResult = CompanyBillingOk | CompanyBillingErr;
 
 export async function callCompanyBillingApi(body: CompanyBillingAction): Promise<CompanyBillingResult> {
   if (isDevFieldAuditAuth() || isDevOperatorAudit()) {
-    return { ok: false, error: 'Stripe is not configured in this DEV session.', miss: STRIPE_SECRET_MISS };
+    return { ok: false, error: 'Stripe is not configured in this DEV session.' };
   }
 
   const { data: { session } } = await supabase.auth.getSession();

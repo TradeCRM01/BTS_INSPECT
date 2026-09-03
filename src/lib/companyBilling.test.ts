@@ -63,6 +63,8 @@ describe('tenant checkout and portal', () => {
     expect(src('src/pages/BillingSettingsPage.tsx')).toContain('create_portal');
     expect(src('src/pages/BillingSettingsPage.tsx')).toContain('billing-plan-banner');
     expect(src('src/pages/BillingSettingsPage.tsx')).toContain('companyNeedsPaidPlan');
+    expect(src('src/pages/BillingSettingsPage.tsx')).toContain('throw new Error(res.error)');
+    expect(src('src/pages/BillingSettingsPage.tsx')).not.toContain('res.miss');
     expect(src('src/lib/companyBilling.ts')).toContain('company-billing');
     expect(src('src/lib/companyBilling.ts')).not.toMatch(/VITE_STRIPE/);
   });
