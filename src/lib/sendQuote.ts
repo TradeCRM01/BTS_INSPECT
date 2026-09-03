@@ -63,6 +63,8 @@ export type QuoteSendCompany = {
   email?: string | null;
   website?: string | null;
   logo_url?: string | null;
+  logo_crop?: unknown;
+  logo_letterhead_size?: number | null;
   report_theme?: Record<string, unknown> | null;
 };
 
@@ -355,6 +357,8 @@ export function quoteSendCompanyFrom(company: {
   email?: string | null;
   website?: string | null;
   logo_url?: string | null;
+  logo_crop?: unknown;
+  logo_letterhead_size?: number | null;
   report_theme?: Record<string, unknown> | null;
 } | null | undefined): (QuoteSendCompany & { id: string }) | null {
   const id = (company?.id ?? '').trim();
@@ -368,6 +372,8 @@ export function quoteSendCompanyFrom(company: {
     email: company?.email ?? null,
     website: company?.website ?? null,
     logo_url: companyDocumentLogoUrl(company),
+    logo_crop: company?.logo_crop ?? null,
+    logo_letterhead_size: company?.logo_letterhead_size ?? null,
     report_theme: companyReportTheme(company),
   };
 }
@@ -473,6 +479,8 @@ export function commercialPdfDataForQuote(bundle: QuoteSendBundle, now = new Dat
       email: bundle.company.email ?? null,
       website: bundle.company.website ?? null,
       logo_url: companyDocumentLogoUrl(bundle.company),
+      logo_crop: bundle.company.logo_crop ?? null,
+      logo_letterhead_size: bundle.company.logo_letterhead_size ?? null,
       report_theme: companyReportTheme(bundle.company),
     },
     inclusions: asStringList(quote.inclusions),

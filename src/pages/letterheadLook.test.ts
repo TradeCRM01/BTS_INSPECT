@@ -21,8 +21,9 @@ describe('quote + invoice letterhead mark LOOK', () => {
     const quoteEditor = quotes.split('function QuoteEditorModal')[1] ?? '';
     const invoiceEditor = invoices.split('function InvoiceEditorModal')[1] ?? '';
 
-    expect(quoteEditor).toContain('className="hub-letterhead-mark"');
-    expect(invoiceEditor).toContain('className="hub-letterhead-mark"');
+    expect(quoteEditor).toContain('CompanyLetterheadMark');
+    expect(invoiceEditor).toContain('CompanyLetterheadMark');
+    expect(src('src/lib/CompanyLetterheadMark.tsx')).toContain('className="hub-letterhead-mark"');
     expect(quoteEditor).toContain('companyWithLetterheadLookMark');
     expect(invoiceEditor).toContain('companyWithLetterheadLookMark');
     expect(quotes).toContain("look') === LETTERHEAD_LOOK");

@@ -71,6 +71,8 @@ export type InvoiceSendCompany = {
   email?: string | null;
   website?: string | null;
   logo_url?: string | null;
+  logo_crop?: unknown;
+  logo_letterhead_size?: number | null;
   report_theme?: Record<string, unknown> | null;
   payment_methods?: unknown;
 };
@@ -1214,6 +1216,8 @@ export function invoiceSendCompanyFrom(company: {
   email?: string | null;
   website?: string | null;
   logo_url?: string | null;
+  logo_crop?: unknown;
+  logo_letterhead_size?: number | null;
   report_theme?: Record<string, unknown> | null;
   payment_methods?: unknown;
 } | null | undefined): (InvoiceSendCompany & { id: string }) | null {
@@ -1228,6 +1232,8 @@ export function invoiceSendCompanyFrom(company: {
     email: company?.email ?? null,
     website: company?.website ?? null,
     logo_url: companyDocumentLogoUrl(company),
+    logo_crop: company?.logo_crop ?? null,
+    logo_letterhead_size: company?.logo_letterhead_size ?? null,
     report_theme: companyReportTheme(company),
     payment_methods: company?.payment_methods ?? [],
   };
@@ -1345,6 +1351,8 @@ export function commercialPdfDataForInvoice(bundle: InvoiceSendBundle, now = new
       email: bundle.company.email ?? null,
       website: bundle.company.website ?? null,
       logo_url: companyDocumentLogoUrl(bundle.company),
+      logo_crop: bundle.company.logo_crop ?? null,
+      logo_letterhead_size: bundle.company.logo_letterhead_size ?? null,
       report_theme: companyReportTheme(bundle.company),
     },
     inclusions: asStringList(invoice.inclusions),

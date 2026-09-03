@@ -43,6 +43,7 @@ import {
   companyWithLetterheadLookMark,
   LETTERHEAD_LOOK,
 } from '../lib/companyLogo';
+import { CompanyLetterheadMark } from '../lib/CompanyLetterheadMark';
 import { quoteClientDetailFromClient } from '../lib/clientRecords';
 import {
   jobClientEmailRow,
@@ -993,7 +994,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           <div className="hub-quote-letterhead">
             <div className="min-w-0">
               {sheetLogo ? (
-                <img src={sheetLogo} alt="" className="hub-letterhead-mark" />
+                <CompanyLetterheadMark src={sheetLogo} company={company} />
               ) : null}
               <p className="hub-quote-kicker">From</p>
               <p className="hub-quote-from-name">{company?.name ?? 'Your company'}</p>

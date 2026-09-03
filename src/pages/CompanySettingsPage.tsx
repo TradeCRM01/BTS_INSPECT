@@ -10,10 +10,16 @@ import { companyExportClientFromSupabase, downloadCompanyExport } from '../lib/c
 import {
   COMPANY_LOGO_ACCEPT,
   companyLogoClientFromSupabase,
+  companyLogoCropFrom,
+  companyLogoLetterheadClientFromSupabase,
+  companyLogoLetterheadSizePx,
   decideCompanyLogoUpload,
   persistCompanyLogo,
+  persistCompanyLogoLetterhead,
   removeCompanyLogo,
+  type CompanyLogoCrop,
 } from '../lib/companyLogo';
+import { CompanyLogoStripCrop } from '../lib/CompanyLogoStripCrop';
 import {
   blankCompanyPaymentMethod,
   COMPANY_PAYMENT_KIND_LABEL,
@@ -314,6 +320,13 @@ const COMPANY_LOOK_CSS = `
   color: var(--co-look-muted);
   font-family: 'Source Sans 3', system-ui, sans-serif;
 }
+.hub-company .company-logo-strip-size {
+  color: var(--co-look-muted);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+.hub-company .company-logo-strip-box {
+  border-color: #2E75B6;
+}
 .hub-company-swatch {
   width: 36px;
   height: 36px;
@@ -419,6 +432,9 @@ export function CompanySettingsPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [removingLogo, setRemovingLogo] = useState(false);
   const [logoUrl, setLogoUrl] = useState(company?.logo_url ?? '');
+  const [logoCrop, setLogoCrop] = useState<CompanyLogoCrop | null>(() => companyLogoCropFrom(company));
+  const [logoSizePx, setLogoSizePx] = useState(() => companyLogoLetterheadSizePx(company));
+  const [savingLetterhead, setSavingLetterhead] = useState(false);
   const [logoError, setLogoError] = useState('');
   const [paymentMethods, setPaymentMethods] = useState<CompanyPaymentMethod[]>(
     () => parseCompanyPaymentMethods((company as { payment_methods?: unknown } | null)?.payment_methods),
@@ -482,6 +498,8 @@ export function CompanySettingsPage() {
   useEffect(() => {
     if (company) {
       setLogoUrl(company.logo_url ?? '');
+      setLogoCrop(companyLogoCropFrom(company));
+      setLogoSizePx(companyLogoLetterheadSizePx(company));
       setPaymentMethods(parseCompanyPaymentMethods((company as { payment_methods?: unknown }).payment_methods));
       loadRenderers();
       if (isAdmin) loadEmailSettings();
@@ -668,6 +686,12 @@ export function CompanySettingsPage() {
       setLogoError(result.message);
     } else {
       setLogoUrl(`${result.logo_url}?t=${Date.now()}`);
+      setLogoCrop(null);
+      await persistCompanyLogoLetterhead(companyLogoLetterheadClientFromSupabase(supabase), {
+        companyId: company.id,
+        crop: null,
+        sizePx: logoSizePx,
+      });
       await refreshProfile();
     }
     setUploadingLogo(false);
@@ -682,9 +706,49 @@ export function CompanySettingsPage() {
       setLogoError(result.message);
     } else {
       setLogoUrl('');
+      setLogoCrop(null);
+      await persistCompanyLogoLetterhead(companyLogoLetterheadClientFromSupabase(supabase), {
+        companyId: company.id,
+        crop: null,
+        sizePx: logoSizePx,
+      });
       await refreshProfile();
     }
     setRemovingLogo(false);
+  }
+
+  async function handleSaveLogoLetterhead() {
+    if (!company) return;
+    setLogoError('');
+    setSavingLetterhead(true);
+    const result = await persistCompanyLogoLetterhead(companyLogoLetterheadClientFromSupabase(supabase), {
+      companyId: company.id,
+      crop: logoCrop,
+      sizePx: logoSizePx,
+    });
+    if (!result.ok) {
+      setLogoError(result.message);
+    } else {
+      setLogoCrop(result.logo_crop);
+      setLogoSizePx(result.logo_letterhead_size ?? logoSizePx);
+      await refreshProfile();
+    }
+    setSavingLetterhead(false);
+  }
+
+  async function handleClearLogoCrop() {
+    setLogoCrop(null);
+    if (!company) return;
+    setLogoError('');
+    setSavingLetterhead(true);
+    const result = await persistCompanyLogoLetterhead(companyLogoLetterheadClientFromSupabase(supabase), {
+      companyId: company.id,
+      crop: null,
+      sizePx: logoSizePx,
+    });
+    if (!result.ok) setLogoError(result.message);
+    else await refreshProfile();
+    setSavingLetterhead(false);
   }
 
   async function handleSavePaymentMethods(e: React.FormEvent) {
@@ -828,6 +892,18 @@ export function CompanySettingsPage() {
             ) : null}
           </div>
           <p className="company-logo-strip-hint">Your company mark on invoices, quotes, and reports.</p>
+          {logoUrl ? (
+            <CompanyLogoStripCrop
+              src={logoUrl}
+              crop={logoCrop}
+              sizePx={logoSizePx}
+              saving={savingLetterhead}
+              onCropChange={setLogoCrop}
+              onSizeChange={setLogoSizePx}
+              onSave={() => void handleSaveLogoLetterhead()}
+              onClearCrop={() => void handleClearLogoCrop()}
+            />
+          ) : null}
           {logoError ? (
             <p className="company-logo-strip-err">
               <AlertCircle size={14} /> {logoError}
