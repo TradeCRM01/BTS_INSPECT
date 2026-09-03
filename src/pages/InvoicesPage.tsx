@@ -31,7 +31,13 @@ import { invoiceActionContext, invoiceListBucket, invoiceOverflowPaidAction, rec
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
-import { commercialPdfCompanyFrom, companyDocumentLogoUrl } from '../lib/companyLogo';
+import {
+  commercialPdfCompanyFrom,
+  companyDocumentLogoUrl,
+  companyWithLetterheadLookMark,
+  LETTERHEAD_LOOK,
+} from '../lib/companyLogo';
+import { AUDIT_INVOICE_ID, getAuditClients, getAuditInvoiceEditorRow } from '../lib/devFieldAuditDocs';
 import { companyPaymentMethodsForDocument } from '../lib/companyPaymentMethods';
 import {
   jobClientEmailRow,
@@ -110,6 +116,7 @@ export function InvoicesPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
+  const lookLetterhead = searchParams.get('look') === LETTERHEAD_LOOK;
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(INVOICE_LIST_DEFAULT_FILTER);
   const [search, setSearch] = useState('');
   const [editingInvoice, setEditingInvoice] = useState<InvoiceWithDetails | null>(null);
@@ -143,8 +150,12 @@ export function InvoicesPage() {
   });
 
   const { data: invoices, isLoading, error } = useQuery<InvoiceWithDetails[]>({
-    queryKey: ['invoices'],
+    queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live'],
     queryFn: async () => {
+      if (lookLetterhead) {
+        const row = getAuditInvoiceEditorRow(AUDIT_INVOICE_ID);
+        if (row) return [row as InvoiceWithDetails];
+      }
       const { data, error } = await supabase
         .from('invoices')
         .select('id, company_id, invoice_number, client_id, job_id, quote_id, source, status, line_items, subtotal, tax_rate, tax_amount, total, payment_terms, due_date, notes, inclusions, exclusions, created_by, created_at, updated_at')
@@ -221,6 +232,13 @@ export function InvoicesPage() {
     next.delete('client');
     setSearchParams(next, { replace: true });
   }, [searchParams, openedInvoice, setSearchParams]);
+
+  useEffect(() => {
+    if (!lookLetterhead || !invoices?.length || showForm) return;
+    setEditingInvoice(invoices[0]);
+    setPresetClientId(null);
+    setShowForm(true);
+  }, [lookLetterhead, invoices, showForm]);
 
   function openInvoice(inv: InvoiceWithDetails | null) {
     setEditingInvoice(inv);
@@ -530,7 +548,9 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   onSaved: (opts?: { close?: boolean; message?: string }) => void;
   onRequestSend: (invoiceId: string) => void;
 }) {
-  const { profile, company } = useAuth();
+  const { profile, company: authCompany } = useAuth();
+  const [searchParams] = useSearchParams();
+  const company = companyWithLetterheadLookMark(authCompany, searchParams.get('look')) ?? authCompany;
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
@@ -540,7 +560,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const [priceBookItems, setPriceBookItems] = useState<PriceBookItem[]>([]);
   const [importing, setImporting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(searchParams.get('print') === '1');
   const [showEdit, setShowEdit] = useState(false);
   const moreRef = useRef<HTMLDetailsElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -578,6 +598,12 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
 
   useEffect(() => {
     if (!profile?.company_id) return;
+    const auditClients = getAuditClients();
+    if (auditClients) {
+      setClients(auditClients as Client[]);
+      setClientsLoaded(true);
+      return;
+    }
     (async () => {
       const [c, j, s, pb] = await Promise.all([
         supabase.from('clients').select('*').eq('archived', false).order('name'),
@@ -1020,7 +1046,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           <div className="hub-invoice-letterhead">
             <div className="min-w-0">
               {sheetLogo ? (
-                <img src={sheetLogo} alt="" className="hub-invoice-letterhead-mark" />
+                <img src={sheetLogo} alt="" className="hub-letterhead-mark" />
               ) : null}
               <p className="hub-invoice-kicker">From</p>
               <p className="hub-invoice-from-name">{company?.name ?? 'Your company'}</p>
