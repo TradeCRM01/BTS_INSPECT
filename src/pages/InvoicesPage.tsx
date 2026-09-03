@@ -1033,8 +1033,13 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         {xeroMiss ? <p className="hub-invoice-send-xero-miss">{xeroMiss}</p> : null}
 
         <div className="hub-invoice-sheet">
-          <div className="hub-invoice-banner">
-            <div className="hub-invoice-banner-mark">
+          <header className="hub-invoice-masthead">
+            <div className="hub-invoice-masthead-brand">
+              {sheetLogo ? (
+                <CompanyLetterheadMark src={sheetLogo} company={company} />
+              ) : null}
+            </div>
+            <div className="hub-invoice-banner">
               <p className="hub-invoice-kicker">Invoice</p>
               <h2 className="hub-invoice-editor-title">{editorTitle}</h2>
               <p className="hub-invoice-banner-meta">
@@ -1042,13 +1047,10 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                 {form.due_date ? ` · Due ${format(parseISO(form.due_date), 'd MMM yyyy')}` : ''}
               </p>
             </div>
-          </div>
+          </header>
 
           <div className="hub-invoice-letterhead">
             <div className="min-w-0">
-              {sheetLogo ? (
-                <CompanyLetterheadMark src={sheetLogo} company={company} />
-              ) : null}
               <p className="hub-invoice-kicker">From</p>
               <p className="hub-invoice-from-name">{company?.name ?? 'Your company'}</p>
               {company?.abn ? <p className="hub-invoice-muted">ABN {company.abn}</p> : null}

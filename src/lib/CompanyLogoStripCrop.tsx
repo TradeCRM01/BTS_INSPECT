@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { CompanyLogoQuotePreview } from './CompanyLogoQuotePreview';
 import {
   LETTERHEAD_MARK_MAX_PX,
   LETTERHEAD_MARK_MIN_PX,
@@ -92,48 +93,55 @@ export function CompanyLogoStripCrop({
 
   return (
     <div className="company-logo-strip-crop">
-      <div
-        ref={stageRef}
-        className="company-logo-strip-stage"
-        style={{ aspectRatio: `${aspect}` }}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-      >
-        <img
-          src={src}
-          alt=""
-          className="company-logo-strip-stage-img"
-          draggable={false}
-          onLoad={e => {
-            const el = e.currentTarget;
-            if (el.naturalWidth > 0 && el.naturalHeight > 0) {
-              const next = el.naturalWidth / el.naturalHeight;
-              setAspect(next);
-              if (crop) onCropChange(clampCrop({ ...crop, aspect: next }));
-            }
-          }}
-        />
+      <div className="company-logo-strip-work">
         <div
-          className="company-logo-strip-box"
-          style={{
-            left: `${box.x * 100}%`,
-            top: `${box.y * 100}%`,
-            width: `${box.w * 100}%`,
-            height: `${box.h * 100}%`,
-          }}
-          onPointerDown={e => onPointerDown('move', e)}
+          ref={stageRef}
+          className="company-logo-strip-stage"
+          style={{ aspectRatio: `${aspect}` }}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
         >
-          {(['nw', 'ne', 'sw', 'se'] as const).map(kind => (
-            <button
-              key={kind}
-              type="button"
-              className={`company-logo-strip-handle is-${kind}`}
-              aria-label={`Resize crop ${kind}`}
-              onPointerDown={e => onPointerDown(kind, e)}
-            />
-          ))}
+          <img
+            src={src}
+            alt=""
+            className="company-logo-strip-stage-img"
+            draggable={false}
+            onLoad={e => {
+              const el = e.currentTarget;
+              if (el.naturalWidth > 0 && el.naturalHeight > 0) {
+                const next = el.naturalWidth / el.naturalHeight;
+                setAspect(next);
+                if (crop) onCropChange(clampCrop({ ...crop, aspect: next }));
+              }
+            }}
+          />
+          <div
+            className="company-logo-strip-box"
+            style={{
+              left: `${box.x * 100}%`,
+              top: `${box.y * 100}%`,
+              width: `${box.w * 100}%`,
+              height: `${box.h * 100}%`,
+            }}
+            onPointerDown={e => onPointerDown('move', e)}
+          >
+            {(['nw', 'ne', 'sw', 'se'] as const).map(kind => (
+              <button
+                key={kind}
+                type="button"
+                className={`company-logo-strip-handle is-${kind}`}
+                aria-label={`Resize crop ${kind}`}
+                onPointerDown={e => onPointerDown(kind, e)}
+              />
+            ))}
+          </div>
         </div>
+        <CompanyLogoQuotePreview
+          src={src}
+          crop={crop}
+          sizePx={sizePx}
+        />
       </div>
       <label className="company-logo-strip-size">
         Letterhead size
@@ -155,7 +163,7 @@ export function CompanyLogoStripCrop({
         </button>
       </div>
       <p className="company-logo-strip-hint">
-        Cut the empty box around the mark. Size is how big that cut sits on quote and invoice letterhead.
+        The quote paper is the judgment surface — mark size next to the heading. Cut the empty box; size is how big that cut sits on letterhead.
       </p>
     </div>
   );

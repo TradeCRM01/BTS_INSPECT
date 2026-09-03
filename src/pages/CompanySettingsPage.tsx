@@ -328,6 +328,13 @@ const COMPANY_LOOK_CSS = `
 .hub-company .company-logo-strip-box {
   border-color: #2E75B6;
 }
+.hub-company .company-logo-strip-preview-kicker,
+.hub-company .company-logo-strip-preview-meta {
+  color: var(--co-look-muted);
+}
+.hub-company .company-logo-strip-preview-title {
+  color: var(--co-look-ink);
+}
 .hub-company-swatch {
   width: 36px;
   height: 36px;
