@@ -1,6 +1,6 @@
 # Terms of Use
 
-**Effective 2 September 2026**
+**Effective 3 September 2026**
 
 These Terms of Use are the agreement between you and us for using Grafter.
 
@@ -97,15 +97,15 @@ Your logo, your client list, and your job records remain yours.
 
 ## 7. Fees, trial, and billing
 
-New workspaces currently start on a **14-day trial** (Starter). Public signup does not take a card.
+New workspaces currently start on a **3-month free trial**. Public signup does not take a card. You can use Grafter as soon as you create a workspace.
 
-We may charge a subscription for Grafter. Paid plans (including Starter, Crew, and Shop) are managed on our side; we do not publish prices on the public website in these Terms, and we do not invent a price here.
+We may charge a subscription after the trial. Paid plans (including Crew, Company, and Plant) are managed on our side; we do not publish prices on the public website in these Terms, and we do not invent a price here.
 
 If we are going to charge you:
 
 - we will tell you the fee, what it covers, and when it starts, before we take payment
 - payment is handled by Stripe (we do not store full card numbers)
-- fees are in Australian dollars unless we say otherwise, and GST will be added where it applies
+- fees are in Australian dollars unless we say otherwise, and include GST where GST applies
 
 If a trial ends and you have not agreed to a paid plan, we may limit or suspend the workspace. We will not quietly start charging a card you have not provided.
 
