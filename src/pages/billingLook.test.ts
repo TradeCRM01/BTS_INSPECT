@@ -16,7 +16,10 @@ describe('Settings billing cream paper look', () => {
     expect(page).toContain('BILLING_LOOK_CSS');
     expect(page).toContain('hub-billing');
     expect(page).toContain('hub-billing-label');
+    expect(page).toContain('hub-billing-sheet');
+    expect(page).toContain('hub-billing-sheet-bar');
     expect(page).toContain('hub-billing-hero');
+    expect(page).toContain('hub-billing-jobline');
     expect(page).toContain('hub-billing-card');
     expect(page).toContain('hub-billing-price');
     expect(page).toContain('hub-billing-choose');
@@ -24,6 +27,7 @@ describe('Settings billing cream paper look', () => {
     expect(page).toContain('formatPlanPriceAud');
     expect(page).toContain('trialLabel');
     expect(page).toContain('GST included');
+    expect(page).toContain('>Settings</p>');
     expect(page).toContain('--billing-look-page: #F5F0E6');
     expect(page).toContain('--billing-look-sheet: #FFFDF8');
     expect(page).toContain('--billing-look-ink: #0A2540');
@@ -36,7 +40,7 @@ describe('Settings billing cream paper look', () => {
     expect(page).toContain('inset 0 1px 0 #fff');
     expect(page).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(page).toContain('border-radius: 16px');
-    expect(page).toContain('>Billing</p>');
+    expect(page).toContain('>Billing</span>');
 
     expect(choose).toContain('background: #2E75B6');
     expect(choose).toContain('min-height: 44px');
