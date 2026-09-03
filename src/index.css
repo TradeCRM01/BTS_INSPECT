@@ -13078,7 +13078,7 @@
     overflow: visible;
   }
 
-  .hub-reports-list-doc .ops-page-title {
+  .hub-reports.hub-reports-list-doc .ops-page-title {
     font-family: Rajdhani, sans-serif;
     font-weight: 700;
     font-size: 56px !important;
@@ -13354,7 +13354,7 @@
   }
 
   @media (max-width: 639px) {
-    .hub-reports-list-doc .ops-page-title {
+    .hub-reports.hub-reports-list-doc .ops-page-title {
       font-size: 40px !important;
     }
 

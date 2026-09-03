@@ -157,9 +157,9 @@ function reportsListLookRows(): ReportRow[] {
       inspection: {
         id: 'look-insp-northside',
         meta: { siteName: 'Northside Electrical' },
-        template_snapshot: { name: 'Inspection' },
+        template_snapshot: null,
       },
-      clientName: 'Northside Electrical',
+      clientName: '',
     },
     {
       ...base,
@@ -172,9 +172,9 @@ function reportsListLookRows(): ReportRow[] {
       inspection: {
         id: 'look-insp-harbour',
         meta: { siteName: 'Harbour Lights' },
-        template_snapshot: { name: 'Inspection' },
+        template_snapshot: null,
       },
-      clientName: 'Harbour Lights',
+      clientName: '',
     },
     {
       ...base,
@@ -187,9 +187,9 @@ function reportsListLookRows(): ReportRow[] {
       inspection: {
         id: 'look-insp-midland',
         meta: { siteName: 'Midland Workshops' },
-        template_snapshot: { name: 'Inspection' },
+        template_snapshot: null,
       },
-      clientName: 'Midland Workshops',
+      clientName: '',
     },
   ];
 }
