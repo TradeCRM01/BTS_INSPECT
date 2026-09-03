@@ -61,6 +61,38 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
     expect(edge).not.toContain('How to pay');
   });
 
+  it('G1 Accept inserts one job and sets quotes.status = accepted — Convert is not a second tap', () => {
+    const edge = src('supabase/functions/client-portal/index.ts');
+    const page = src('src/pages/ClientPortalPublicPage.tsx');
+    const convert = src('src/lib/convertQuoteToJob.ts');
+
+    expect(edge).toContain('ensureJobForAcceptedQuote');
+    expect(edge).toContain('from("jobs")');
+    expect(edge).toContain('.insert({');
+    expect(edge).toContain('status: "accepted"');
+    expect(edge).toContain('.is("job_id", null)');
+    expect(edge).toContain('jobId: ensured.jobId');
+    expect(edge.indexOf('status: "accepted"')).toBeLessThan(edge.indexOf('ensureJobForAcceptedQuote(admin'));
+    expect(page).toContain('portalQuoteAcceptBody(token, quoteId)');
+    expect(page).not.toContain('convertQuoteToJob');
+    expect(convert).toContain('if (latest?.job_id) return latest.job_id as string;');
+  });
+
+  it('G2 Accept copies quote date and crew onto the job when present', () => {
+    const edge = src('supabase/functions/client-portal/index.ts');
+    expect(edge).toContain('scheduled_date: scheduledDateFromQuote(quote.scheduled_date)');
+    expect(edge).toContain('assigned_team: assignedTeamFromQuote(quote.assigned_team)');
+    expect(edge).toContain('...fields');
+    expect(edge).toContain('scheduled_date, assigned_team');
+  });
+
+  it('G3 Accept still inserts the job with no date or crew', () => {
+    const edge = src('supabase/functions/client-portal/index.ts');
+    expect(edge).toContain('Date + crew copy when present; otherwise the job still exists');
+    expect(edge).not.toContain('CONVERT_QUOTE_NEED_DATE_CREW');
+    expect(edge).not.toContain('convertQuoteHasDateAndCrew');
+  });
+
   it('quote send email/SMS include the existing portal link', () => {
     const portalUrl = clientPortalPublicUrl('https://grafter.com.au', 'abc');
     expect(portalUrl).toBe('https://grafter.com.au/p?t=abc');
@@ -155,6 +187,41 @@ describe('LOOK — portal Accept is a signed quote sheet, not a leftover CRM but
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
     }
+  });
+});
+
+describe('G4 G5 — Convert surface sets date and crew on the same tap', () => {
+  it('puts date and crew on the existing Convert surface and writes them', () => {
+    const quotes = src('src/pages/QuotesPage.tsx');
+    const editor = quotes.split('function QuoteEditorModal')[1] ?? '';
+    expect(editor).toContain('Field label="Job date"');
+    expect(editor).toContain('Field label="Crew"');
+    expect(editor).toContain('form.assigned_team');
+    expect(editor).toContain('convertQuoteHasDateAndCrew');
+    expect(editor).toContain('CONVERT_QUOTE_NEED_DATE_CREW');
+    expect(editor).toContain('scheduled_date: form.scheduled_date || null');
+    expect(editor).toContain('assigned_team: form.assigned_team');
+    expect(editor.indexOf('if (!convertQuoteHasDateAndCrew')).toBeLessThan(editor.indexOf('await convertQuoteToJob'));
+    expect(quotes).not.toContain('wayfinder');
+  });
+});
+
+describe('G6 — fresh tenant, no electrical-only copy', () => {
+  it('signup and this slice stay all-trades', () => {
+    const signup = src('supabase/functions/signup-user/index.ts');
+    const fields = src('src/lib/quoteJobFields.ts');
+    const convert = src('src/lib/convertQuoteToJob.ts');
+    const edge = src('supabase/functions/client-portal/index.ts');
+    const quotes = src('src/pages/QuotesPage.tsx');
+
+    expect(signup).toContain('Each signup is a new tenant');
+    expect(signup).not.toMatch(/electrician|switchboard|electrical-only/i);
+    expect(signup).not.toContain('from("jobs")');
+    expect(signup).not.toContain('from("quotes")');
+    expect(fields).not.toMatch(/electrician|Switchboard/);
+    expect(convert).not.toMatch(/electrician|Switchboard/);
+    expect(edge).not.toMatch(/electrician|Switchboard/);
+    expect(quotes).not.toMatch(/electrician-only|Switchboard upgrade/);
   });
 });
 

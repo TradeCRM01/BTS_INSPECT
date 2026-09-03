@@ -171,6 +171,8 @@ export interface Quote {
   notes: string | null;
   inclusions: string[];
   exclusions: string[];
+  scheduled_date?: string | null;
+  assigned_team?: string[];
   created_by: string | null;
   created_at: string;
   updated_at: string;

@@ -9,6 +9,11 @@ import { PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner 
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
+import {
+  CONVERT_QUOTE_NEED_DATE_CREW,
+  assignedTeamFromQuote,
+  convertQuoteHasDateAndCrew,
+} from '../lib/quoteJobFields';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
 import { invoiceHref, invoiceLandingPath, pickReusableInvoice } from '../lib/invoiceFromQuote';
 import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
@@ -108,7 +113,7 @@ export function QuotesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('quotes')
-        .select('id, company_id, quote_number, client_id, job_id, status, description, scope_of_works, line_items, subtotal, tax_rate, tax_amount, total, validity_date, notes, inclusions, exclusions, created_by, created_at, updated_at')
+        .select('id, company_id, quote_number, client_id, job_id, status, description, scope_of_works, line_items, subtotal, tax_rate, tax_amount, total, validity_date, notes, inclusions, exclusions, scheduled_date, assigned_team, created_by, created_at, updated_at')
         .order('created_at', { ascending: false });
       if (error) throw error;
       const list = (data ?? []) as QuoteWithDetails[];
@@ -373,7 +378,11 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
     }
     if (next.key === 'convert_job') {
       void run('convert_job', async () => {
-        const jobId = await convertQuoteToJob(quote, profile!.id);
+        const jobId = await convertQuoteToJob({
+          ...quote,
+          scheduled_date: quote.scheduled_date ?? null,
+          assigned_team: assignedTeamFromQuote(quote.assigned_team),
+        }, profile!.id);
         queryClient.invalidateQueries({ queryKey: ['quotes'] });
         queryClient.invalidateQueries({ queryKey: ['jobs'] });
         navigate(`/jobs/${jobId}`);
@@ -421,6 +430,7 @@ interface EditorState {
   line_items: EditLineItem[]; tax_rate: string; validity_date: string; notes: string;
   inclusions: string[]; exclusions: string[];
   scheduled_date: string;
+  assigned_team: string[];
 }
 
 function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSaved, onRequestSend }: {
@@ -443,6 +453,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [priceBookItems, setPriceBookItems] = useState<PriceBookItem[]>([]);
   const [saving, setSaving] = useState(false);
@@ -470,23 +481,26 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
     notes: quote?.notes ?? '',
     inclusions: asStringList(quote?.inclusions),
     exclusions: asStringList(quote?.exclusions),
-    scheduled_date: '',
+    scheduled_date: quote?.scheduled_date?.slice(0, 10) ?? '',
+    assigned_team: assignedTeamFromQuote(quote?.assigned_team),
   });
 
   useEffect(() => {
     if (!profile?.company_id) return;
     (async () => {
-      const [c, j, s, pb] = await Promise.all([
+      const [c, j, s, pb, team] = await Promise.all([
         supabase.from('clients').select('*').eq('archived', false).order('name'),
         supabase.from('jobs').select('id, company_id, client_id, title, address').order('created_at', { ascending: false }),
         supabase.from('stock_items').select('*').eq('archived', false).order('name'),
         supabase.from('price_book_items').select('*').eq('is_active', true).order('description'),
+        supabase.rpc('get_company_members', { p_company_id: profile.company_id }),
       ]);
       if (c.data) setClients(c.data as Client[]);
       setClientsLoaded(true);
       if (j.data) setJobs(j.data as Job[]);
       if (s.data) setStockItems(s.data as StockItem[]);
       if (pb.data) setPriceBookItems(pb.data as PriceBookItem[]);
+      if (team.data) setTeamMembers((team.data as { id: string; name: string }[]).map(m => ({ id: m.id, name: m.name })));
     })();
   }, [profile?.company_id]);
 
@@ -668,6 +682,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         line_items: cleanLines, subtotal, tax_rate: parseFloat(form.tax_rate) || 0, tax_amount: taxAmount, total: grandTotal,
         validity_date: form.validity_date || null, notes: form.notes.trim() || null,
         inclusions: form.inclusions, exclusions: form.exclusions,
+        scheduled_date: form.scheduled_date || null,
+        assigned_team: form.assigned_team,
       },
     };
   };
@@ -729,6 +745,10 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const handleConvert = async () => {
     const id = savedId ?? quote?.id;
     if (!id || form.status !== 'accepted' || !profile?.id) return;
+    if (!convertQuoteHasDateAndCrew({ scheduled_date: form.scheduled_date, assigned_team: form.assigned_team })) {
+      setErr(CONVERT_QUOTE_NEED_DATE_CREW);
+      return;
+    }
     setConverting(true); setErr('');
     try {
       const jobId = await convertQuoteToJob({
@@ -742,6 +762,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         line_items: buildPayload('accepted').payload.line_items,
         total: grandTotal,
         scheduled_date: form.scheduled_date || null,
+        assigned_team: form.assigned_team,
       }, profile.id);
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
@@ -1134,7 +1155,20 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
 
           <Field label="Job date">
             <input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} className="form-input" />
-            <p className="hub-quote-muted mt-1">Optional. Convert to job puts this on the board. Leave blank if there is no date yet.</p>
+            <p className="hub-quote-muted mt-1">Convert needs a date and crew on this tap. Accept copies these when set; otherwise the job sits on Needs a date.</p>
+          </Field>
+
+          <Field label="Crew">
+            <select
+              value={form.assigned_team[0] ?? ''}
+              onChange={e => setForm(f => ({ ...f, assigned_team: e.target.value ? [e.target.value] : [] }))}
+              className="form-input cursor-pointer"
+            >
+              <option value="">No crew yet</option>
+              {teamMembers.map(m => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
           </Field>
 
           <Field label="Notes">
