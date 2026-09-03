@@ -15,6 +15,11 @@ import {
   complianceListOpenHref,
   complianceListOpened,
   complianceListSheetItem,
+  complianceSheetClientId,
+  complianceSheetClientLedger,
+  complianceSheetClientLedgerEmpty,
+  complianceSheetSiblingCompliance,
+  complianceSheetSiblingInspections,
   computeNextDueDate,
   decorateComplianceList,
   deriveComplianceStatus,
@@ -23,7 +28,9 @@ import {
   sortComplianceListFloor,
   type ComplianceListFilter,
   type ComplianceListFloorItem,
+  type ComplianceSheetLedgerRow,
 } from '../lib/complianceList';
+import type { DueInspection, DueInspectionJob } from '../lib/inspectionDueReminder';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, Modal } from '../components/ui';
 import type { MenuEntry } from '../components/ui';
@@ -272,7 +279,67 @@ export function CompliancePage() {
   const noneMatch = !lookComplianceList && !loading && decorated.length > 0 && floorItems.length === 0;
   const openedItem = lookComplianceList ? null : complianceListOpened(decorated, openId);
   const recordOpen = !!openedItem;
+  const openedClientId = complianceSheetClientId(openedItem?.row);
   const whisper = complianceListWhisper({ filter: statusFilter, count: floorItems.length });
+  const { data: clientInspectionPack } = useQuery<{
+    inspections: DueInspection[];
+    jobs: DueInspectionJob[];
+  }>({
+    queryKey: ['compliance-open-client-inspections', openedClientId, profile?.company_id],
+    queryFn: async () => {
+      if (!openedClientId || !profile?.company_id) {
+        return { inspections: [], jobs: [] };
+      }
+      const { data: jobs, error: jobError } = await supabase
+        .from('jobs')
+        .select('id, company_id, client_id, title, scheduled_date, address, job_number')
+        .eq('company_id', profile.company_id)
+        .eq('client_id', openedClientId);
+      if (jobError) throw jobError;
+      const jobRows = (jobs ?? []) as DueInspectionJob[];
+      const jobIds = jobRows.map(job => job.id);
+      const { data: byClient, error: clientError } = await supabase
+        .from('inspections')
+        .select('id, inspector_id, client_id, crm_job_id, status, archived, meta, responses, template_snapshot, completed_at, started_at, due_on')
+        .eq('client_id', openedClientId);
+      if (clientError) throw clientError;
+      let byJob: DueInspection[] = [];
+      if (jobIds.length > 0) {
+        const { data, error } = await supabase
+          .from('inspections')
+          .select('id, inspector_id, client_id, crm_job_id, status, archived, meta, responses, template_snapshot, completed_at, started_at, due_on')
+          .in('crm_job_id', jobIds);
+        if (error) throw error;
+        byJob = (data ?? []) as DueInspection[];
+      }
+      const seen = new Set<string>();
+      const inspections: DueInspection[] = [];
+      for (const row of [...((byClient ?? []) as DueInspection[]), ...byJob]) {
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+        inspections.push(row);
+      }
+      return { inspections, jobs: jobRows };
+    },
+    enabled: recordOpen && !!openedClientId && !!profile?.company_id,
+  });
+
+  const clientLedger = useMemo(() => {
+    if (!openedItem) return [];
+    const siblingCompliance = complianceSheetSiblingCompliance(decorated, {
+      currentId: openedItem.row.id,
+      clientId: openedClientId,
+    });
+    const siblingInspections = complianceSheetSiblingInspections(
+      clientInspectionPack?.inspections,
+      clientInspectionPack?.jobs,
+      { clientId: openedClientId },
+    );
+    return complianceSheetClientLedger({
+      compliance: siblingCompliance,
+      inspections: siblingInspections,
+    });
+  }, [openedItem, decorated, openedClientId, clientInspectionPack]);
 
   function openItem(item: ComplianceItemWithClient) {
     const href = complianceListOpenHref(item.id);
@@ -309,7 +376,13 @@ export function CompliancePage() {
               href={openedItem.href}
               liveStatus={openedItem.liveStatus}
               documentOpen
+              clientLedger={clientLedger}
+              clientLedgerEmpty={complianceSheetClientLedgerEmpty(openedClientId)}
               onOpen={() => openItem(openedItem.row)}
+              onOpenSibling={id => {
+                const sibling = decorated.find(item => item.row.id === id);
+                if (sibling) openItem(sibling.row);
+              }}
               onEdit={() => openEditor(openedItem.row)}
               onDelete={() => setDeleteTarget(openedItem.row)}
               onComplete={() => markCompleteMutation.mutate(openedItem.row)}
@@ -655,14 +728,18 @@ function ComplianceListRow({
 }
 
 function ComplianceSheet({
-  item, href, liveStatus, documentOpen, onOpen, onEdit, onDelete, onComplete, onTogglePause, onSendReminder, onShowHistory,
+  item, href, liveStatus, documentOpen, clientLedger, clientLedgerEmpty, onOpen, onOpenSibling,
+  onEdit, onDelete, onComplete, onTogglePause, onSendReminder, onShowHistory,
   sendingReminder, completing,
 }: {
   item: ComplianceItemWithClient;
   href: string;
   liveStatus: typeof item.status;
   documentOpen: boolean;
+  clientLedger?: ComplianceSheetLedgerRow[];
+  clientLedgerEmpty?: string;
   onOpen: () => void;
+  onOpenSibling?: (id: string) => void;
   onEdit: () => void;
   onDelete: () => void;
   onComplete: () => void;
@@ -743,6 +820,44 @@ function ComplianceSheet({
               <span className="hub-compliance-muted">Every {every}</span>
               <span className="hub-compliance-hours">{due}</span>
             </p>
+          </div>
+          <div className="hub-compliance-others" data-compliance-client-ledger="">
+            {(clientLedger ?? []).length === 0 ? (
+              <p className="hub-compliance-ledger-row" data-compliance-client-ledger="empty">
+                <span className="hub-compliance-muted">
+                  {clientLedgerEmpty ?? complianceSheetClientLedgerEmpty(complianceSheetClientId(item))}
+                </span>
+              </p>
+            ) : (clientLedger ?? []).map(row => (
+              row.kind === 'compliance' ? (
+                <Link
+                  key={`compliance-${row.id}`}
+                  to={row.href}
+                  data-compliance-sibling={row.id}
+                  data-compliance-sibling-kind="compliance"
+                  data-compliance-href={row.href}
+                  className="hub-compliance-other"
+                  onClick={e => { e.preventDefault(); onOpenSibling?.(row.id); }}
+                >
+                  <span className="hub-compliance-other-name">{row.title}</span>
+                  <span className="hub-compliance-muted">{row.dueLabel}</span>
+                  <span className="hub-next">Open</span>
+                </Link>
+              ) : (
+                <Link
+                  key={`inspection-${row.id}`}
+                  to={row.href}
+                  data-compliance-sibling={row.id}
+                  data-compliance-sibling-kind="inspection"
+                  data-inspection-href={row.href}
+                  className="hub-compliance-other"
+                >
+                  <span className="hub-compliance-other-name">{row.title}</span>
+                  <span className="hub-compliance-muted">{row.dueLabel}</span>
+                  <span className="hub-next">Open</span>
+                </Link>
+              )
+            ))}
           </div>
         </div>
       </article>
