@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -6,8 +6,8 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-function sheetChunk(css: string, start: string, end: string): string {
-  const from = css.indexOf(start);
+function sheetChunk(css: string, start: string, end: string, after = 0): string {
+  const from = css.indexOf(start, after);
   const to = css.indexOf(end, from + start.length);
   return from >= 0 && to > from ? css.slice(from, to) : css.slice(from);
 }
@@ -47,8 +47,9 @@ describe('list/dashboard sheet width — one shared paper, not nine 1100 islands
     expect(shared).not.toContain('1100px');
     expect(shared).not.toMatch(/\bute\b/i);
 
+    const afterShared = css.indexOf('.ops-page-fill');
     for (const [start, end] of LIST_SHEETS) {
-      const chunk = sheetChunk(css, start, end);
+      const chunk = sheetChunk(css, start, end, afterShared);
       expect(chunk).toContain('background: #FFFDF8');
       expect(chunk).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
       expect(chunk).not.toContain('1100px');
@@ -97,5 +98,25 @@ describe('list/dashboard sheet width — one shared paper, not nine 1100 islands
     expect(src('src/pages/DashboardPage.tsx')).toContain('persistWidget');
     expect(src('src/pages/QuotesPage.tsx')).not.toContain('sendQuoteDeliver');
     expect(src('src/pages/JobsPage.tsx')).not.toContain('CONVERT_QUOTE_NEED_DATE_CREW');
+  });
+});
+
+describe('list/dashboard sheet width LOOK frames', () => {
+  it('covers 1280 dashboard, jobs, clients, sibling lists, and quote-paper reference', () => {
+    for (const rel of [
+      'docs/look/sheet-width-laptop-1280-dashboard.png',
+      'docs/look/sheet-width-laptop-1280-jobs.png',
+      'docs/look/sheet-width-laptop-1280-clients.png',
+      'docs/look/sheet-width-laptop-1280-reports.png',
+      'docs/look/sheet-width-laptop-1280-inspections.png',
+      'docs/look/sheet-width-laptop-1280-jha.png',
+      'docs/look/sheet-width-laptop-1280-take5.png',
+      'docs/look/sheet-width-laptop-1280-team.png',
+      'docs/look/sheet-width-laptop-1280-compliance.png',
+      'docs/look/quote-paper-reference.png',
+    ]) {
+      expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+      expect(rel).not.toMatch(/\bute\b/i);
+    }
   });
 });
