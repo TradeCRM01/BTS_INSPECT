@@ -40,6 +40,8 @@ export type JobActionContext = {
   hasAcceptedQuote: boolean;
   hasBillLines: boolean;
   clockedOn: boolean;
+  /** Closed timesheet on this job — the van has clocked off. Optional for older callers. */
+  clockedOff?: boolean;
   /** Same-day / in_progress arriving window. Optional — derived from Australia/Brisbane today. */
   arrivingWindow?: boolean;
   /** Session: arriving tap already sent on this sheet. Optional. */
@@ -94,6 +96,29 @@ export function pickJobDraftToSend<T extends JobInvoiceNextRow & { id: string }>
 
 function jobHasUnsentDraftOnly(ctx: JobActionContext): boolean {
   return ctx.hasDraftInvoice === true && ctx.hasIssuedInvoice !== true;
+}
+
+/** After the van clocked off (not still clocked on). JHA / Take 5 stay on the job — they are not the Next gate. */
+function jobHasClockedOff(ctx: JobActionContext): boolean {
+  return ctx.clockedOff === true && ctx.clockedOn !== true;
+}
+
+function jobInvoiceNext(ctx: JobActionContext): RecommendedJobAction {
+  return {
+    key: 'invoice',
+    label: 'Invoice',
+    detail: ctx.hasAcceptedQuote
+      ? 'Accepted quote is ready to invoice.'
+      : 'Invoice from the job bill.',
+  };
+}
+
+function jobSendNext(): RecommendedJobAction {
+  return {
+    key: 'send',
+    label: 'Send',
+    detail: 'Email this invoice to the client. Status becomes sent only if it delivers.',
+  };
 }
 
 export type RecommendedJobAction = {
@@ -212,6 +237,7 @@ export function recommendArrivingSheetNext(
     status: ctx.status,
     scheduled_date: ctx.scheduledDate,
   }, now);
+  if (jobHasClockedOff(ctx)) return null;
   if (!arrivingWindow) return null;
   if (ctx.status !== 'scheduled' && ctx.status !== 'in_progress') return null;
   const kind = ctx.phoneRowKind;
@@ -257,25 +283,25 @@ export function recommendJobAction(ctx: JobActionContext, now = new Date()): Rec
   }
   const arrivingNext = recommendArrivingSheetNext(ctx, now);
   if (arrivingNext) return arrivingNext;
-  if (ctx.jhaCount === 0 && ctx.status !== 'completed') {
+  if (jobHasClockedOff(ctx) && jobHasUnsentDraftOnly(ctx)) {
+    return jobSendNext();
+  }
+  if (jobHasClockedOff(ctx) && ctx.invoiceCount === 0) {
+    return jobInvoiceNext(ctx);
+  }
+  if (ctx.jhaCount === 0 && ctx.status !== 'completed' && !jobHasClockedOff(ctx)) {
     return { key: 'jha', label: 'Start JHA', detail: 'Do the JHA before anyone starts on site.' };
   }
-  if (ctx.inspectionCount === 0 && ctx.status !== 'completed') {
+  if (ctx.inspectionCount === 0 && ctx.status !== 'completed' && !jobHasClockedOff(ctx)) {
     return { key: 'inspect', label: 'Start inspection', detail: 'Start the inspection for this job.' };
   }
   if (ctx.invoiceCount === 0 && (ctx.hasAcceptedQuote || ctx.hasBillLines || ctx.status === 'completed')) {
-    return { key: 'invoice', label: 'Invoice', detail: ctx.hasAcceptedQuote
-      ? 'Accepted quote is ready to invoice.'
-      : 'Invoice from the job bill.' };
+    return jobInvoiceNext(ctx);
   }
   if (jobHasUnsentDraftOnly(ctx)) {
-    return {
-      key: 'send',
-      label: 'Send',
-      detail: 'Email this invoice to the client. Status becomes sent only if it delivers.',
-    };
+    return jobSendNext();
   }
-  if (!ctx.clockedOn && (ctx.status === 'scheduled' || ctx.status === 'in_progress')) {
+  if (!ctx.clockedOn && !jobHasClockedOff(ctx) && (ctx.status === 'scheduled' || ctx.status === 'in_progress')) {
     return { key: 'clock', label: 'Clock on', detail: 'Clock on when you start work.' };
   }
   if (ctx.status === 'completed') {
@@ -298,7 +324,8 @@ export type JobOpenNext = JobListNext & { action: RecommendedJobAction };
 /**
  * One Next for the jobs list card and the open job sheet.
  * Card is the source of truth. Scheduled today (Australia/Brisbane) is
- * Arriving shortly, then Clock In — not Start JHA as the first tap.
+ * Arriving shortly, then Clock In. After the van clocked off, Next is Invoice
+ * (or Send if a draft exists) — JHA / Take 5 stay on the job.
  */
 export function jobOpenNext(
   job: JobOpenNextJob,
@@ -319,6 +346,7 @@ export function jobOpenNext(
     hasAcceptedQuote: sheet?.hasAcceptedQuote ?? false,
     hasBillLines: sheet?.hasBillLines ?? false,
     clockedOn: sheet?.clockedOn ?? false,
+    clockedOff: sheet?.clockedOff,
     arrivingWindow,
     arrivingSent: sheet?.arrivingSent,
     phoneRowKind: sheet?.phoneRowKind,

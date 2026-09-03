@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { INVOICE_SOURCE_JOB_BILL, isJobBillInvoice } from './invoiceFromQuote';
 import {
+  JOB_BILL_DUE_DAYS,
+  JOB_BILL_PAYMENT_TERMS,
   JOB_BILL_INVOICE_CREATED,
   JOB_BILL_INVOICE_EXISTS,
   JOB_BILL_INVOICE_NO_CLIENT,
@@ -9,8 +11,11 @@ import {
   buildInvoiceFromJobBill,
   decideJobBillInvoice,
   invoiceLinesFromJobCosts,
+  jobBillDueDate,
   reuseAfterUniqueConflict,
 } from './invoiceFromJobBill';
+import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
+import { invoiceMatchesListFilter, INVOICE_LIST_DEFAULT_FILTER } from './invoiceStatus';
 
 const labour = {
   description: 'Switchboard labour',
@@ -109,11 +114,14 @@ describe('buildInvoiceFromJobBill', () => {
     expect(inv.tax_rate).toBe(10);
     expect(inv.tax_amount).toBe(54.5);
     expect(inv.total).toBe(599.5);
-    expect(inv.due_date).toBeNull();
+    expect(inv.due_date).toBe(jobBillDueDate());
+    expect(inv.due_date).not.toBeNull();
     expect(inv.notes).toBe(JOB_BILL_INVOICE_NOTES);
     expect(inv.inclusions).toEqual([]);
     expect(inv.exclusions).toEqual([]);
-    expect(inv.payment_terms).toBe('Net 30');
+    expect(inv.payment_terms).toBe(JOB_BILL_PAYMENT_TERMS);
+    expect(inv.payment_terms).toBe('7 days');
+    expect(inv.payment_terms).not.toBe('Net 30');
     expect(isJobBillInvoice(inv)).toBe(true);
   });
 
@@ -158,6 +166,41 @@ describe('buildInvoiceFromJobBill', () => {
     expect(inv.tax_rate).toBe(0);
     expect(inv.tax_amount).toBe(0);
     expect(inv.total).toBe(545);
+  });
+
+  it('G3 — due_date is Brisbane issue date + 7 days, not null and not leftover Perth', () => {
+    expect(JOB_BILL_DUE_DAYS).toBe(7);
+    expect(VAN_TIME_ZONE).toBe('Australia/Brisbane');
+    const brisbaneMorning = new Date('2026-09-01T22:00:00.000Z');
+    expect(todayYmd(brisbaneMorning, VAN_TIME_ZONE)).toBe('2026-09-02');
+    expect(todayYmd(brisbaneMorning, 'UTC')).toBe('2026-09-01');
+    expect(jobBillDueDate(brisbaneMorning)).toBe('2026-09-09');
+    expect(buildInvoiceFromJobBill({
+      clientId: 'client-1',
+      jobId: 'job-1',
+      taxRate: 10,
+      lines,
+      now: brisbaneMorning,
+    }).due_date).toBe('2026-09-09');
+
+    const brisbaneEarly = new Date('2026-09-01T15:00:00.000Z');
+    expect(todayYmd(brisbaneEarly, 'Australia/Perth')).toBe('2026-09-01');
+    expect(todayYmd(brisbaneEarly, VAN_TIME_ZONE)).toBe('2026-09-02');
+    expect(jobBillDueDate(brisbaneEarly)).toBe('2026-09-09');
+    expect(jobBillDueDate(brisbaneEarly)).not.toBe('2026-09-08');
+  });
+
+  it('G4 — unpaid past that due_date appears on the existing Overdue tab', () => {
+    const issue = new Date('2026-08-20T00:00:00+10:00');
+    const due = jobBillDueDate(issue);
+    expect(due).toBe('2026-08-27');
+    expect(INVOICE_LIST_DEFAULT_FILTER).toBe('overdue');
+    const past = new Date(2026, 7, 28);
+    expect(invoiceMatchesListFilter({ status: 'sent', due_date: due }, 'overdue', past)).toBe(true);
+    expect(invoiceMatchesListFilter({ status: 'sent', due_date: due }, INVOICE_LIST_DEFAULT_FILTER, past)).toBe(true);
+    expect(invoiceMatchesListFilter({ status: 'sent', due_date: null }, 'overdue', past)).toBe(false);
+    expect(invoiceMatchesListFilter({ status: 'paid', due_date: due }, 'overdue', past)).toBe(false);
+    expect(invoiceMatchesListFilter({ status: 'sent', due_date: due }, 'overdue', new Date(2026, 7, 20))).toBe(false);
   });
 });
 

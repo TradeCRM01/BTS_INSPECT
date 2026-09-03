@@ -972,6 +972,7 @@ export function JobDetailPage() {
     hasAcceptedQuote: !!acceptedQuote,
     hasBillLines: (costTotals?.lines ?? 0) > 0,
     clockedOn: !!runningEntry,
+    clockedOff: (timesheets ?? []).some(e => e.end_time != null),
     arrivingSent,
     phoneRowKind: phoneRow.kind,
     phoneStored: phoneRow.kind === 'none' ? '' : phoneRow.phone,

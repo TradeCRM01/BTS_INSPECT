@@ -1004,9 +1004,9 @@ export function selectTomorrowReminderJobs(
 
 /**
  * Keep date/crew Next first. Today (or in_progress) takes Arriving shortly.
- * Clock In / Add phone from the sheet recommendation stay — arriving already
- * sent, or the number still has to be written / is not sendable.
- * Tomorrow stays Remind client. Both land on the existing schedule tray.
+ * Clock In / Add phone / Invoice / Send from the sheet recommendation stay —
+ * arriving already sent, the number still has to be written, or the van has
+ * clocked off and Next is the bill. Tomorrow stays Remind client.
  */
 export function withReminderNext<T extends {
   id: string;
@@ -1019,7 +1019,12 @@ export function withReminderNext<T extends {
   now = new Date(),
 ): { href: string; label: string; actionable: boolean } {
   if (current.label === 'Set a date' || current.label === 'Assign crew') return current;
-  if (current.label === CLOCK_IN_NEXT_LABEL || current.label === PHONE_NEXT_LABEL) return current;
+  if (
+    current.label === CLOCK_IN_NEXT_LABEL
+    || current.label === PHONE_NEXT_LABEL
+    || current.label === 'Invoice'
+    || current.label === 'Send'
+  ) return current;
   if (!current.actionable) return current;
   if (isJobArrivingWindow(job, now)) {
     return { href: jobScheduleHref(job.id), label: ARRIVING_NEXT_LABEL, actionable: true };
