@@ -1,5 +1,16 @@
 import { differenceInDays, format, parseISO } from 'date-fns';
 import type { ComplianceItemWithClient, ComplianceStatus, RecurrenceUnit } from '../types/compliance';
+import {
+  inspectionTemplateName,
+  isArchivedInspection,
+  isOpenInspectionStatus,
+  resolveInspectionClientId,
+  resolveInspectionDueDate,
+  todayYmd,
+  VAN_TIME_ZONE,
+  type DueInspection,
+  type DueInspectionJob,
+} from './inspectionDueReminder';
 
 /** Default /compliance floor: due now plus still-open tracked items. */
 export type ComplianceListFilter = 'action' | 'all' | ComplianceStatus;
@@ -26,9 +37,22 @@ export type ComplianceListRow = {
   last_completed_date?: string | null;
   first_due_date?: string;
   standard_or_regulation?: string | null;
+  client_id?: string | null;
   client_name?: string | null;
   description?: string | null;
   notes?: string | null;
+};
+
+/** Same-client ledger on the open compliance sheet — not a new hub. */
+export type ComplianceSheetLedgerKind = 'compliance' | 'inspection';
+
+export type ComplianceSheetLedgerRow = {
+  kind: ComplianceSheetLedgerKind;
+  id: string;
+  title: string;
+  dueLabel: string;
+  href: string;
+  sortDue: string;
 };
 
 export type ComplianceListFloorItem<T extends ComplianceListRow = ComplianceListRow> = {
@@ -272,6 +296,139 @@ export function complianceListOtherItems<T extends { row: { id: string } }>(
 
 export function complianceListMetaLine(row: Pick<ComplianceListRow, 'client_name' | 'standard_or_regulation'>): string {
   return [row.client_name, row.standard_or_regulation].filter(Boolean).join(' · ');
+}
+
+/** Client on this compliance row — the customer (Acme Plants), not the Grafter tenant. */
+export function complianceSheetClientId(row: { client_id?: string | null } | null | undefined): string | null {
+  const id = (row?.client_id ?? '').trim();
+  return id || null;
+}
+
+export function complianceSheetClientLedgerEmpty(clientId: string | null | undefined): string {
+  if (!complianceSheetClientId({ client_id: clientId ?? null })) {
+    return 'No client on this item.';
+  }
+  return 'Nothing else due or open for this client.';
+}
+
+/** Existing fill / open sheet — do not invent an inspection route. */
+export function complianceSheetInspectionHref(id: string): string {
+  return `/inspections/${encodeURIComponent(id)}`;
+}
+
+function ledgerDueRank(due: string): number {
+  return due ? 0 : 1;
+}
+
+function sortComplianceSheetLedger(rows: ComplianceSheetLedgerRow[]): ComplianceSheetLedgerRow[] {
+  return [...rows].sort((a, b) => {
+    const rank = ledgerDueRank(a.sortDue) - ledgerDueRank(b.sortDue);
+    if (rank !== 0) return rank;
+    const due = (a.sortDue || '9999-99-99').localeCompare(b.sortDue || '9999-99-99');
+    if (due !== 0) return due;
+    const kind = a.kind.localeCompare(b.kind);
+    if (kind !== 0) return kind;
+    return a.title.localeCompare(b.title);
+  });
+}
+
+/**
+ * Other due/open compliance items for this client. Excludes the open row.
+ * Honest empty when there is no client_id.
+ */
+export function complianceSheetSiblingCompliance<T extends {
+  row: ComplianceListRow & { id: string; client_id?: string | null };
+}>(
+  items: T[],
+  args: { currentId: string; clientId: string | null | undefined },
+  now = new Date(),
+): T[] {
+  const clientId = complianceSheetClientId({ client_id: args.clientId ?? null });
+  if (!clientId) return [];
+  return items
+    .filter(item => (
+      item.row.id !== args.currentId
+      && complianceSheetClientId(item.row) === clientId
+      && complianceMatchesListFilter(item.row, 'action', now)
+    ))
+    .sort((a, b) => {
+      const due = (a.row.next_due_date ?? '').localeCompare(b.row.next_due_date ?? '');
+      if (due !== 0) return due;
+      return a.row.title.localeCompare(b.row.title);
+    });
+}
+
+function complianceSheetInspectionTitle(
+  inspection: DueInspection,
+  job?: DueInspectionJob | null,
+): string {
+  const named = inspectionTemplateName(inspection.template_snapshot);
+  if (named && named !== 'Inspection') return named;
+  const site = (inspection.meta?.siteName ?? '').trim();
+  if (site) return site;
+  const jobTitle = (job?.title ?? '').trim();
+  if (jobTitle) return jobTitle;
+  return named || 'Inspection';
+}
+
+function complianceSheetInspectionBookedOrDue(
+  inspection: DueInspection,
+  job: DueInspectionJob | null | undefined,
+  now = new Date(),
+): { due: string | null; include: boolean } {
+  if (isArchivedInspection(inspection)) return { due: null, include: false };
+  const due = resolveInspectionDueDate(inspection, job) || ymd(inspection.due_on) || null;
+  const booked = isOpenInspectionStatus(inspection.status);
+  const dueOn = due ?? '';
+  const today = todayYmd(now, VAN_TIME_ZONE);
+  const isDue = !!dueOn && dueOn <= today;
+  return { due, include: booked || isDue };
+}
+
+/**
+ * Booked or due inspections for this same client (inspections table + job.client_id).
+ * Honest empty when there is no client_id.
+ */
+export function complianceSheetSiblingInspections(
+  inspections: DueInspection[] | null | undefined,
+  jobs: DueInspectionJob[] | null | undefined,
+  args: { clientId: string | null | undefined },
+  now = new Date(),
+): ComplianceSheetLedgerRow[] {
+  const clientId = complianceSheetClientId({ client_id: args.clientId ?? null });
+  if (!clientId) return [];
+  const jobMap = new Map((jobs ?? []).map(job => [job.id, job]));
+  const rows: ComplianceSheetLedgerRow[] = [];
+  for (const inspection of inspections ?? []) {
+    const job = inspection.crm_job_id ? jobMap.get(inspection.crm_job_id) ?? null : null;
+    if (resolveInspectionClientId(inspection, job) !== clientId) continue;
+    const { due, include } = complianceSheetInspectionBookedOrDue(inspection, job, now);
+    if (!include) continue;
+    rows.push({
+      kind: 'inspection',
+      id: inspection.id,
+      title: complianceSheetInspectionTitle(inspection, job),
+      dueLabel: due ? complianceListDueLabel(due) : 'Open',
+      href: complianceSheetInspectionHref(inspection.id),
+      sortDue: due ?? '',
+    });
+  }
+  return sortComplianceSheetLedger(rows);
+}
+
+export function complianceSheetClientLedger(args: {
+  compliance: Array<{ row: ComplianceListRow; href: string }>;
+  inspections: ComplianceSheetLedgerRow[];
+}): ComplianceSheetLedgerRow[] {
+  const complianceRows: ComplianceSheetLedgerRow[] = args.compliance.map(item => ({
+    kind: 'compliance',
+    id: item.row.id,
+    title: item.row.title,
+    dueLabel: complianceListDueLabel(item.row.next_due_date),
+    href: item.href,
+    sortDue: item.row.next_due_date ?? '',
+  }));
+  return sortComplianceSheetLedger([...complianceRows, ...args.inspections]);
 }
 
 /** DEV field-audit floor only. Live companies keep reading `compliance_items`. */
