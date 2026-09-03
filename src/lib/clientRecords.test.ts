@@ -17,11 +17,13 @@ import {
   clientMoneySummary,
   clientQuotedTotal,
   clientRecordHref,
+  clientSheetCreateJobVisible,
   invoiceRecordHref,
   isCompanyAndClientScoped,
   isNarrowProjection,
   isQuotedPipelineStatus,
   jobRecordHref,
+  jobFormSelectNewClient,
   jobSiteAddressFromClient,
   mailtoHref,
   newInvoiceFromClientHref,
@@ -65,6 +67,46 @@ describe('jobSiteAddressFromClient', () => {
   it('leaves the field empty when the client has no address', () => {
     expect(jobSiteAddressFromClient('', null)).toBe('');
     expect(jobSiteAddressFromClient('', undefined)).toBe('');
+  });
+});
+
+describe('jobFormSelectNewClient', () => {
+  const typed = {
+    title: 'Switchboard',
+    client_id: '',
+    description: 'Plant room',
+    address: '',
+    budget: '1200',
+  };
+
+  it('selects the new client and copies site only when the job site is empty', () => {
+    expect(jobFormSelectNewClient(typed, 'c-new', '12 Site Rd')).toEqual({
+      ...typed,
+      client_id: 'c-new',
+      address: '12 Site Rd',
+    });
+  });
+
+  it('keeps a site the plumber already typed and every other field', () => {
+    expect(jobFormSelectNewClient({ ...typed, address: 'Warehouse B' }, 'c-new', '12 Site Rd')).toEqual({
+      ...typed,
+      client_id: 'c-new',
+      address: 'Warehouse B',
+    });
+  });
+});
+
+describe('clientSheetCreateJobVisible', () => {
+  it('shows Create job on add-client when they are not mid-job', () => {
+    expect(clientSheetCreateJobVisible({ isNewClient: true, openedFromJob: false })).toBe(true);
+  });
+
+  it('hides Create job when add-client was opened from the job card', () => {
+    expect(clientSheetCreateJobVisible({ isNewClient: true, openedFromJob: true })).toBe(false);
+  });
+
+  it('hides Create job on edit-client', () => {
+    expect(clientSheetCreateJobVisible({ isNewClient: false, openedFromJob: false })).toBe(false);
   });
 });
 

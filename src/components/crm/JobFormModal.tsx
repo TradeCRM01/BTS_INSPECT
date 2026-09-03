@@ -8,7 +8,8 @@ import {
 import { X, Trash2, GitBranch } from 'lucide-react';
 import { format } from 'date-fns';
 import { OverlayPortal } from '../ui/OverlayPortal';
-import { jobSiteAddressFromClient, visibleClientContacts } from '../../lib/clientRecords';
+import { ClientForm } from '../../pages/ClientsPage';
+import { jobFormSelectNewClient, jobSiteAddressFromClient, visibleClientContacts } from '../../lib/clientRecords';
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { formatJobRef, nextCostCode, normalizeCostCode } from '../../lib/jobRef';
 import { JOB_COLORS, jobColorToStore } from '../../lib/jobColors';
@@ -46,6 +47,7 @@ export function JobFormModal({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [addingClient, setAddingClient] = useState(false);
   const [parentJobs, setParentJobs] = useState<{ id: string; title: string; job_number: number | null }[]>([]);
 
   const [form, setForm] = useState({
@@ -95,6 +97,20 @@ export function JobFormModal({
   }, [job, form.parent_job_id, form.cost_code]);
 
   const selectedClient = useMemo(() => clients.find(c => c.id === form.client_id), [clients, form.client_id]);
+
+  const applyNewClient = async (clientId: string) => {
+    setAddingClient(false);
+    let nextClients = clients;
+    if (profile?.company_id) {
+      const { data } = await supabase.from('clients').select('*').eq('archived', false).order('name');
+      if (data) {
+        nextClients = data as Client[];
+        setClients(nextClients);
+      }
+    }
+    const created = nextClients.find(c => c.id === clientId);
+    setForm(f => jobFormSelectNewClient(f, clientId, created?.address));
+  };
 
   useEffect(() => {
     if (job) return;
@@ -237,6 +253,10 @@ export function JobFormModal({
                 Use client address: {selectedClient.address}
               </button>
             )}
+            <button type="button" onClick={() => setAddingClient(true)}
+              className="ops-link text-xs mt-1">
+              Add new client
+            </button>
           </div>
 
           <div className="overlay-form-span-2">
@@ -432,6 +452,14 @@ export function JobFormModal({
         </div>
       </div>
     </div>
+    {addingClient && (
+      <ClientForm
+        client={null}
+        openedFromJob
+        onClose={() => setAddingClient(false)}
+        onSaved={clientId => { void applyNewClient(clientId); }}
+      />
+    )}
     </OverlayPortal>
   );
 }
