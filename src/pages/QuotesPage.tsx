@@ -37,7 +37,12 @@ import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { padQuoteNumber } from '../lib/quoteJobFields';
-import { commercialPdfCompanyFrom, companyDocumentLogoUrl } from '../lib/companyLogo';
+import {
+  commercialPdfCompanyFrom,
+  companyDocumentLogoUrl,
+  companyWithLetterheadLookMark,
+  LETTERHEAD_LOOK,
+} from '../lib/companyLogo';
 import { quoteClientDetailFromClient } from '../lib/clientRecords';
 import {
   jobClientEmailRow,
@@ -147,6 +152,7 @@ export function QuotesPage() {
   const [editingQuote, setEditingQuote] = useState<QuoteListItem | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const lookLetterhead = searchParams.get('look') === LETTERHEAD_LOOK;
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null);
   const sendCompany = quoteSendCompanyFrom(company);
@@ -233,6 +239,13 @@ export function QuotesPage() {
     next.delete('client');
     setSearchParams(next, { replace: true });
   }, [searchParams, quotes, setSearchParams]);
+
+  useEffect(() => {
+    if (!lookLetterhead || !quotes?.length || showForm) return;
+    setEditingQuote(quotes[0]);
+    setPresetClientId(null);
+    setShowForm(true);
+  }, [lookLetterhead, quotes, showForm]);
 
   function openQuote(q: QuoteListItem | null) {
     setEditingQuote(q);
@@ -490,7 +503,9 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   onSaved: (opts?: { close?: boolean; message?: string }) => void;
   onRequestSend: (quoteId: string) => void;
 }) {
-  const { profile, company } = useAuth();
+  const { profile, company: authCompany } = useAuth();
+  const [searchParams] = useSearchParams();
+  const company = companyWithLetterheadLookMark(authCompany, searchParams.get('look')) ?? authCompany;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -508,7 +523,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState(false);
   const [invoicing, setInvoicing] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(searchParams.get('print') === '1');
   const [showEdit, setShowEdit] = useState(!quote);
   const [err, setErr] = useState('');
   const [savedId, setSavedId] = useState<string | null>(quote?.id ?? null);
@@ -978,7 +993,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           <div className="hub-quote-letterhead">
             <div className="min-w-0">
               {sheetLogo ? (
-                <img src={sheetLogo} alt="" className="hub-quote-letterhead-mark" />
+                <img src={sheetLogo} alt="" className="hub-letterhead-mark" />
               ) : null}
               <p className="hub-quote-kicker">From</p>
               <p className="hub-quote-from-name">{company?.name ?? 'Your company'}</p>

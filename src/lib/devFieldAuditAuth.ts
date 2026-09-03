@@ -1,5 +1,6 @@
 import type { Session, User } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
+import { LETTERHEAD_LOOK } from './companyLogo';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Company = Database['public']['Tables']['companies']['Row'];
@@ -39,7 +40,11 @@ export function isDevFieldAuditAuth(): boolean {
   if (isDevOperatorAudit()) return true;
   try {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('auditAuth') === '1' || window.location.pathname === '/__field-audit') {
+    if (
+      params.get('auditAuth') === '1'
+      || params.get('look') === LETTERHEAD_LOOK
+      || window.location.pathname === '/__field-audit'
+    ) {
       sessionStorage.setItem(AUDIT_KEY, '1');
       return true;
     }

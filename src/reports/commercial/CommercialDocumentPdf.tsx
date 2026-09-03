@@ -89,8 +89,12 @@ function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
       paddingBottom: 14,
       marginBottom: 16,
     },
-    brandBlock: { flexDirection: 'row', alignItems: 'flex-start', maxWidth: '62%' },
-    logo: { width: 56, height: 32, objectFit: 'contain', marginRight: 10, marginTop: 1 },
+    brandBlock: quote
+      ? { flexDirection: 'column', alignItems: 'flex-start', maxWidth: '62%' }
+      : { flexDirection: 'row', alignItems: 'flex-start', maxWidth: '62%' },
+    logo: quote
+      ? { width: 300, height: 80, objectFit: 'contain', marginBottom: 8 }
+      : { width: 56, height: 32, objectFit: 'contain', marginRight: 10, marginTop: 1 },
     companyName: {
       fontFamily: titleFace,
       fontSize: 14,

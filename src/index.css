@@ -3661,13 +3661,20 @@
     padding: 24px;
   }
 
-  .hub-invoice-letterhead-mark {
+  /* Shared quote + invoice letterhead mark. One token so they cannot drift. */
+  :is(.hub-quote-editor, .hub-invoice-editor) {
+    --hub-letterhead-mark-height: 96px;
+    --hub-letterhead-mark-max: 480px;
+  }
+
+  :is(.hub-quote-editor, .hub-invoice-editor) .hub-letterhead-mark {
     display: block;
-    height: 32px;
+    height: var(--hub-letterhead-mark-height);
     width: auto;
-    max-width: 140px;
+    max-width: var(--hub-letterhead-mark-max);
     object-fit: contain;
-    margin-bottom: 8px;
+    object-position: left center;
+    margin-bottom: 10px;
   }
 
   .hub-invoice-from-name,
@@ -6863,15 +6870,6 @@
     grid-template-columns: 1fr 1fr;
     gap: 24px;
     padding: 24px 32px;
-  }
-
-  .hub-quote-letterhead-mark {
-    display: block;
-    height: 32px;
-    width: auto;
-    max-width: 140px;
-    object-fit: contain;
-    margin-bottom: 8px;
   }
 
   .hub-quote-from-name,

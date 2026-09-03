@@ -14,7 +14,10 @@ import {
   companyLogoClientFromSupabase,
   companyLogoOnDocuments,
   companyLogoStoragePath,
+  companyWithLetterheadLookMark,
   decideCompanyLogoUpload,
+  LETTERHEAD_LOOK,
+  LETTERHEAD_LOOK_MARK,
   persistCompanyLogo,
   removeCompanyLogo,
   type CompanyLogoClient,
@@ -276,6 +279,16 @@ describe('company logo on documents', () => {
     expect(settings).toContain('decideCompanyLogoUpload');
     expect(settings).not.toContain('BtsMark');
     expect(settings).not.toContain('BrandLockup');
+  });
+
+  it('LOOK letterhead overlays the wordmark fixture on company.logo_url', () => {
+    expect(companyWithLetterheadLookMark({ name: 'Field Audit Co', logo_url: null }, LETTERHEAD_LOOK)?.logo_url)
+      .toBe(LETTERHEAD_LOOK_MARK);
+    expect(companyWithLetterheadLookMark({ name: 'Field Audit Co', logo_url: LOGO }, 'other')?.logo_url)
+      .toBe(LOGO);
+    expect(companyWithLetterheadLookMark(null, LETTERHEAD_LOOK)).toBeNull();
+    expect(LETTERHEAD_LOOK_MARK).toContain('wordmark-field-audit');
+    expect(LETTERHEAD_LOOK_MARK).not.toMatch(/ute/i);
   });
 });
 

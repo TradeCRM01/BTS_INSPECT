@@ -60,7 +60,7 @@ describe('invoice list cream document look', () => {
     expect(list).toContain('invoiceListEmptyTitle');
     expect(list).not.toContain('invoicesLookSeed');
     expect(list).not.toContain('INVOICES_LOOK');
-    expect(list).not.toContain("searchParams.get('look')");
+    expect(list).toContain("look') === LETTERHEAD_LOOK");
     expect(list).not.toContain('/overdue-invoices');
   });
 
