@@ -19,7 +19,7 @@ describe('job-sheet Testing due LOOK', () => {
     const page = src('src/pages/JobDetailPage.tsx');
     const lookCss = testingDueLookCss();
     const dueStart = page.indexOf('id="job-testing-due"');
-    const dueEnd = page.indexOf('id="job-insp"');
+    const dueEnd = page.indexOf('title="Invoices"');
     const dueBlock = page.slice(dueStart, dueEnd);
 
     expect(page).toContain('JOB_TESTING_DUE_LOOK_CSS');

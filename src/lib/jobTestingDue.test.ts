@@ -193,7 +193,7 @@ describe('job sheet wiring', () => {
     const helper = src('src/lib/jobTestingDue.ts');
     const page = src('src/pages/JobDetailPage.tsx');
     const dueBlockStart = page.indexOf('id="job-testing-due"');
-    const dueBlockEnd = page.indexOf('title="Project stages"');
+    const dueBlockEnd = page.indexOf('title="Invoices"');
     const dueBlock = page.slice(dueBlockStart, dueBlockEnd);
 
     expect(helper).toContain('resolveInspectionDueDate');
