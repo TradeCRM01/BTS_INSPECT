@@ -193,7 +193,7 @@ describe('job sheet wiring', () => {
     const helper = src('src/lib/jobTestingDue.ts');
     const page = src('src/pages/JobDetailPage.tsx');
     const dueBlockStart = page.indexOf('id="job-testing-due"');
-    const dueBlockEnd = page.indexOf('id="job-insp"');
+    const dueBlockEnd = page.indexOf('title="Project stages"');
     const dueBlock = page.slice(dueBlockStart, dueBlockEnd);
 
     expect(helper).toContain('resolveInspectionDueDate');
@@ -206,6 +206,9 @@ describe('job sheet wiring', () => {
     expect(dueBlock).not.toContain('startTake5');
     expect(dueBlock).not.toContain('InspectionDueReminder');
     expect(dueBlock).toContain('Open');
+    expect(dueBlock).toContain('job-testing-due-open');
+    expect(dueBlock).not.toContain('btn-primary');
+    expect(dueBlock).not.toContain('ops-link');
   });
 });
 

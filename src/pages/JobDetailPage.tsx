@@ -162,6 +162,176 @@ function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/** DEV look frames only — empty / due rows on the audit job. Not a production path. */
+const TESTING_DUE_LOOK_EMPTY = 'testing-due-empty';
+const TESTING_DUE_LOOK_ROWS = 'testing-due-rows';
+
+function testingDueLookKind(): 'empty' | 'rows' | null {
+  if (!import.meta.env.DEV) return null;
+  try {
+    const look = new URLSearchParams(window.location.search).get('look');
+    if (look === TESTING_DUE_LOOK_EMPTY) return 'empty';
+    if (look === TESTING_DUE_LOOK_ROWS) return 'rows';
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function lookVanTodayYmd(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
+}
+
+function lookTestingDueInspections(jobId: string): JobInspection[] {
+  const today = lookVanTodayYmd();
+  return [
+    {
+      id: 'look-testing-overdue',
+      status: 'completed',
+      started_at: '2026-08-01T00:00:00.000Z',
+      template_snapshot: { name: 'RCD test' },
+      meta: { next_test_date: '2026-08-01' },
+      responses: {},
+      crm_job_id: jobId,
+      due_on: '2026-08-01',
+      archived: false,
+    },
+    {
+      id: 'look-testing-today',
+      status: 'completed',
+      started_at: '2026-08-20T00:00:00.000Z',
+      template_snapshot: { name: 'Switchboard test' },
+      meta: { next_test_date: today },
+      responses: {},
+      crm_job_id: jobId,
+      due_on: today,
+      archived: false,
+    },
+  ];
+}
+
+/** Sit Testing due on the signed job-sheet paper. Tray chrome only — not the whole sheet. */
+const JOB_TESTING_DUE_LOOK_CSS = `
+        .hub-jobs.is-record-open #job-testing-due {
+          --testing-due-page: #F5F0E6;
+          --testing-due-sheet: #FFFDF8;
+          --testing-due-ink: #0A2540;
+          --testing-due-muted: #5B6B7C;
+          --testing-due-line: #E2D9CC;
+          --testing-due-fail: #B42318;
+          margin: 8px 0 0;
+        }
+        .hub-jobs.is-record-open #job-testing-due .ops-tray {
+          margin: 0;
+          padding: 0;
+          background: none;
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+        }
+        .hub-jobs.is-record-open #job-testing-due .ops-tray-head {
+          padding: 8px 0;
+          border: none;
+          border-bottom: 1px solid var(--testing-due-line);
+          background: none;
+        }
+        .hub-jobs.is-record-open #job-testing-due .ops-section-title {
+          font-family: Rajdhani, sans-serif;
+          font-weight: 700;
+          font-size: 11px;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--testing-due-muted);
+        }
+        .hub-jobs.is-record-open #job-testing-due .ops-related-list {
+          margin: 0;
+          padding: 0;
+          background: none;
+          border: none;
+          box-shadow: none;
+        }
+        .hub-jobs.is-record-open #job-testing-due .ops-related-list > :not([hidden]) ~ :not([hidden]) {
+          border-top: none;
+        }
+        .hub-jobs.is-record-open #job-testing-due .ops-related-row {
+          margin: 0;
+          padding: 0;
+          gap: 8px;
+          min-height: 0;
+          border: none;
+          border-bottom: 1px solid var(--testing-due-line);
+          background: none;
+          box-shadow: none;
+        }
+        .hub-jobs.is-record-open #job-testing-due .ops-related-main {
+          padding: 8px 0;
+          gap: 8px;
+          background: transparent;
+        }
+        .hub-jobs.is-record-open #job-testing-due .ops-related-main:hover {
+          background: transparent;
+        }
+        .hub-jobs.is-record-open #job-testing-due .ops-related-title {
+          font-family: Rajdhani, sans-serif;
+          font-weight: 700;
+          font-size: 16px;
+          letter-spacing: 0.02em;
+          color: var(--testing-due-ink);
+        }
+        .hub-jobs.is-record-open #job-testing-due .ops-meta {
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--testing-due-muted);
+        }
+        .hub-jobs.is-record-open #job-testing-due .ops-related-row.is-overdue .ops-meta {
+          color: var(--testing-due-fail);
+        }
+        .hub-jobs.is-record-open #job-testing-due .job-testing-due-open {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 24px;
+          height: 24px;
+          padding: 0 8px;
+          margin: 8px 0;
+          border: 1px solid var(--testing-due-line);
+          border-radius: 12px;
+          background: none;
+          color: var(--testing-due-ink);
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0;
+          text-decoration: none;
+          box-shadow: none;
+        }
+        .hub-jobs.is-record-open #job-testing-due .job-testing-due-open:hover {
+          color: var(--testing-due-ink);
+          background: none;
+          text-decoration: none;
+        }
+        .hub-jobs.is-record-open #job-testing-due .ops-tray-empty {
+          padding: 8px 0 16px;
+          background: none;
+          border: none;
+          box-shadow: none;
+        }
+        .hub-jobs.is-record-open #job-testing-due .ops-tray-empty p {
+          margin: 0;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 14px;
+          font-weight: 400;
+          color: var(--testing-due-muted);
+        }
+        .hub-jobs.is-record-open #job-testing-due .btn-primary,
+        .hub-jobs.is-record-open #job-testing-due .ops-link {
+          background: none;
+          color: var(--testing-due-ink);
+          box-shadow: none;
+        }
+`;
+
 export function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -189,7 +359,12 @@ export function JobDetailPage() {
     queryKey: ['job', id],
     queryFn: async () => {
       const mock = getAuditJob(id!);
-      if (mock) return mock as Job;
+      if (mock) {
+        if (testingDueLookKind()) {
+          return { ...mock, scheduled_date: lookVanTodayYmd() } as Job;
+        }
+        return mock as Job;
+      }
       const { data, error } = await supabase.from('jobs').select('*').eq('id', id!).maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('Job not found');
@@ -835,7 +1010,13 @@ export function JobDetailPage() {
   };
 
   const inspectHref = `/inspections/new?jobId=${job.id}`;
-  const dueTests = jobTestingDueRows(inspections ?? [], {
+  const lookTray = testingDueLookKind();
+  const dueSource = lookTray === 'rows'
+    ? lookTestingDueInspections(job.id)
+    : lookTray === 'empty'
+      ? []
+      : (inspections ?? []);
+  const dueTests = jobTestingDueRows(dueSource, {
     id: job.id,
     company_id: job.company_id,
     client_id: job.client_id,
@@ -889,6 +1070,7 @@ export function JobDetailPage() {
             margin-left: auto;
           }
         }
+        ${JOB_TESTING_DUE_LOOK_CSS}
       `}</style>
       <div className="ops-page hub-jobs hub-job-cal is-record-open">
         <Breadcrumbs items={[
@@ -1213,8 +1395,9 @@ export function JobDetailPage() {
                 icon={FileText}
                 title={row.title}
                 meta={row.dueLabel}
+                rowClassName={row.dueKind === 'overdue' ? 'is-overdue' : undefined}
                 action={
-                  <Link to={row.href} className="ops-link text-xs">Open</Link>
+                  <Link to={row.href} className="job-testing-due-open">Open</Link>
                 }
               />
             ))}
