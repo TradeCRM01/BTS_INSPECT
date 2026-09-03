@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
@@ -14,7 +14,7 @@ import { jobOpenNext } from '../lib/jobNextAction';
 import { ARRIVING_NEXT_LABEL, CLOCK_IN_NEXT_LABEL } from '../lib/jobReminder';
 import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
-import { Plus, Briefcase } from 'lucide-react';
+import { Plus, Briefcase, MoreHorizontal } from 'lucide-react';
 
 type JobRowModel = JobWithClient & {
   cover_photo_url: string | null;
@@ -31,6 +31,9 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'cancelled', label: JOB_STATUS_LABELS.cancelled },
 ];
 
+/** Signed jobs-list frame seed — list look only, not a live company. */
+const JOBS_LIST_LOOK = 'jobs-list';
+
 function visibleSite(...parts: Array<string | null | undefined>): string {
   for (const part of parts) {
     const trimmed = part?.trim();
@@ -46,11 +49,79 @@ function suburbFromSite(site: string): string {
   return loc || parts[1];
 }
 
+function jobsListLookRows(): JobRowModel[] {
+  const stamp = '2026-09-03T00:00:00.000Z';
+  const base = {
+    company_id: 'look-jobs-list',
+    description: null as string | null,
+    priority: 'medium' as const,
+    inspection_id: null as string | null,
+    created_by: 'look-jobs-dave',
+    created_at: stamp,
+    updated_at: stamp,
+    color: null as string | null,
+    budget: null as number | null,
+    parent_job_id: null as string | null,
+    cost_code: null as string | null,
+    cover_photo_url: null as string | null,
+    docs: [] as JobDocChip[],
+    client_phone: null as string | null,
+  };
+  return [
+    {
+      ...base,
+      id: 'look-job-northside',
+      client_id: 'look-client-northside',
+      title: 'Site labour',
+      status: 'scheduled',
+      scheduled_date: '2026-09-03',
+      start_time: '07:30',
+      end_time: '16:00',
+      address: '12 Workshop Rd, Perth WA 6000',
+      assigned_team: ['look-jobs-dave'],
+      job_number: 42,
+      client_name: 'Northside Electrical',
+      client_address: '12 Workshop Rd, Perth WA 6000',
+    },
+    {
+      ...base,
+      id: 'look-job-harbour',
+      client_id: 'look-client-harbour',
+      title: 'Warehouse lights',
+      status: 'in_progress',
+      scheduled_date: '2026-09-03',
+      start_time: '09:00',
+      end_time: '12:00',
+      address: '8 Wharf St, Fremantle WA 6160',
+      assigned_team: ['look-jobs-jack'],
+      job_number: 43,
+      client_name: 'Harbour Lights',
+      client_address: '8 Wharf St, Fremantle WA 6160',
+    },
+    {
+      ...base,
+      id: 'look-job-midland',
+      client_id: 'look-client-midland',
+      title: 'Switchboard upgrade',
+      status: 'scheduled',
+      scheduled_date: '2026-09-07',
+      start_time: '08:00',
+      end_time: '15:00',
+      address: '44 Helena St, Midland WA 6056',
+      assigned_team: ['look-jobs-dave'],
+      job_number: 44,
+      client_name: 'Midland Workshops',
+      client_address: '44 Helena St, Midland WA 6056',
+    },
+  ];
+}
+
 export function JobsPage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const lookJobsList = searchParams.get('look') === JOBS_LIST_LOOK;
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -114,12 +185,12 @@ export function JobsPage() {
         docs: docsByJob.get(j.id) ?? [],
       }));
     },
-    enabled: !!profile,
+    enabled: !!profile && !lookJobsList,
   });
 
+  const listRows = lookJobsList ? jobsListLookRows() : (jobs ?? []);
   const filtered = useMemo(() => {
-    if (!jobs) return [];
-    let result = jobs;
+    let result = listRows;
     if (statusFilter !== 'all') {
       result = result.filter(j => j.status === statusFilter);
     }
@@ -135,7 +206,13 @@ export function JobsPage() {
       );
     }
     return result;
-  }, [jobs, statusFilter, search]);
+  }, [listRows, statusFilter, search]);
+
+  const filterLabel = STATUS_FILTERS.find(tab => tab.key === statusFilter)?.label ?? 'All';
+  const whisper = [
+    filterLabel,
+    filtered.length === 1 ? '1 job' : `${filtered.length} jobs`,
+  ].join(' · ');
 
   useEffect(() => {
     const clientId = searchParams.get('client');
@@ -167,67 +244,57 @@ export function JobsPage() {
 
   return (
     <AppShell>
-      <div className="ops-page hub-jobs">
-        <div className="ops-page-head">
-          <div>
-            <p className="hub-look-eyebrow hub-jobs-label">Jobs</p>
+      <div className="ops-page hub-jobs hub-jobs-list-doc">
+        <div className="hub-jobs-sheet">
+          <header className="hub-jobs-list-bar">
+            <span className="hub-jobs-list-mark">List</span>
+          </header>
+          <div className="hub-jobs-list-body">
             <h1 className="ops-page-title">Jobs</h1>
-          </div>
-          <button
-            onClick={() => { setPresetClientId(null); setShowForm(true); }}
-            className="btn-primary"
-          >
-            <Plus size={16} /> New job
-          </button>
-        </div>
-
-        <div className="hub-jobs-chrome">
-          <div className="hub-jobs-filters">
-            {STATUS_FILTERS.map(tab => (
+            <p className="hub-jobs-list-whisper">{whisper}</p>
+            <div className="hub-jobs-list-tools">
               <button
-                key={tab.key}
                 type="button"
-                onClick={() => setStatusFilter(tab.key)}
-                className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
+                onClick={() => { setPresetClientId(null); setShowForm(true); }}
+                className="btn-primary"
               >
-                {tab.label}
+                <Plus size={16} /> New job
               </button>
-            ))}
-          </div>
-          <SearchBar value={search} onChange={setSearch} placeholder="Search jobs or clients..." className="max-w-sm" />
-        </div>
-
-        {isLoading ? (
-          <div className="flex justify-center py-20"><LoadingSpinner /></div>
-        ) : filtered.length === 0 ? (
-          <div className="hub-jobs-sheet">
-            <EmptyState
-              icon={Briefcase}
-              title={filteredEmpty ? 'No jobs yet' : 'No matching jobs'}
-              message={filteredEmpty
-                ? 'Create a job, add the site, then put it on the board so the crew can see it.'
-                : 'Try another status or search.'}
-              action={filteredEmpty ? (
-                <button onClick={() => setShowForm(true)} className="btn-primary">
-                  <Plus size={16} /> Create job
-                </button>
-              ) : undefined}
-            />
-          </div>
-        ) : (
-          <div className="hub-jobs-sheet">
-            <div className="hub-jobs-thead">
-              <span>#</span>
-              <span>Customer</span>
-              <span>Suburb</span>
-              <span>Status</span>
-              <span />
+              <div className="hub-jobs-list-tools-overflow">
+                <JobsListFind
+                  statusFilter={statusFilter}
+                  onStatusFilter={setStatusFilter}
+                  search={search}
+                  onSearch={setSearch}
+                />
+              </div>
             </div>
-            {filtered.map(job => (
-              <JobRow key={job.id} job={job} />
-            ))}
+            {isLoading ? (
+              <div className="flex justify-center py-20"><LoadingSpinner /></div>
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                icon={Briefcase}
+                title={filteredEmpty ? 'No jobs yet' : 'No matching jobs'}
+                message={filteredEmpty
+                  ? 'Create a job, add the site, then put it on the board so the crew can see it.'
+                  : 'Try another status or search.'}
+              />
+            ) : (
+              <>
+                <div className="hub-jobs-thead">
+                  <span>#</span>
+                  <span>Customer</span>
+                  <span>Suburb</span>
+                  <span>Status</span>
+                  <span />
+                </div>
+                {filtered.map(job => (
+                  <JobRow key={job.id} job={job} />
+                ))}
+              </>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {showForm && (
@@ -244,35 +311,174 @@ export function JobsPage() {
   );
 }
 
+function placeJobsListMore(more: HTMLDetailsElement) {
+  const menu = more.querySelector('.hub-jobs-list-more-menu') as HTMLElement | null;
+  const paper = more.closest('.hub-jobs-sheet') as HTMLElement | null;
+  if (!menu || !paper) return;
+  more.classList.remove('is-flip', 'is-shift');
+  menu.style.removeProperty('--hub-jobs-list-more-shift');
+  if (!more.open) return;
+  const pad = 8;
+  const paperRect = paper.getBoundingClientRect();
+  const bar = paper.querySelector('.hub-jobs-list-bar');
+  const inkFloor = (bar?.getBoundingClientRect().bottom ?? paperRect.top) + pad;
+  const viewBottom = window.innerHeight - pad;
+  const menuRect = menu.getBoundingClientRect();
+  const trigger = more.querySelector('summary') as HTMLElement | null;
+  const triggerRect = trigger?.getBoundingClientRect() ?? menuRect;
+  const flippedTop = triggerRect.top - pad - menuRect.height;
+  const overflowsBottom = menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom);
+  if (overflowsBottom && flippedTop >= inkFloor) {
+    more.classList.add('is-flip');
+  }
+  const after = menu.getBoundingClientRect();
+  let shift = 0;
+  if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
+  if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
+  if (shift !== 0) {
+    more.classList.add('is-shift');
+    menu.style.setProperty('--hub-jobs-list-more-shift', `${Math.round(shift)}px`);
+  }
+}
+
+function JobsListFind({
+  statusFilter,
+  onStatusFilter,
+  search,
+  onSearch,
+}: {
+  statusFilter: StatusFilter;
+  onStatusFilter: (key: StatusFilter) => void;
+  search: string;
+  onSearch: (value: string) => void;
+}) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeJobsListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-jobs-list-more hub-jobs-list-find">
+      <summary aria-label="Find">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-jobs-list-more-menu" role="menu">
+        <div className="hub-jobs-chrome">
+          <div className="hub-jobs-filters">
+            {STATUS_FILTERS.map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                role="menuitem"
+                onClick={() => onStatusFilter(tab.key)}
+                className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <SearchBar value={search} onChange={onSearch} placeholder="Search jobs or clients..." />
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function JobRowMore({
+  label,
+  href,
+}: {
+  label: string;
+  href: string;
+}) {
+  const navigate = useNavigate();
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeJobsListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-jobs-list-more">
+      <summary aria-label="More">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-jobs-list-more-menu" role="menu">
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => { navigate(href); closeMore(); }}
+        >
+          {label}
+        </button>
+      </div>
+    </details>
+  );
+}
+
 function JobRow({ job }: { job: JobRowModel }) {
   const navigate = useNavigate();
   const next = jobOpenNext(job);
   const site = visibleSite(job.address, job.client_address);
   const suburb = site ? suburbFromSite(site) : '';
   const primaryNext = next.label === ARRIVING_NEXT_LABEL || next.label === CLOCK_IN_NEXT_LABEL;
+  const openHref = next.href;
   return (
     <div
-      role="button"
+      role="link"
       tabIndex={0}
-      onClick={() => navigate(next.href)}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(next.href); } }}
+      aria-label="Open"
+      onClick={() => navigate(openHref)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(openHref); } }}
       className="hub-jobs-row"
     >
       <span className="hub-jobs-ref">{formatJobRef(job)}</span>
-      <span className="truncate">{job.client_name || ''}</span>
+      <span className="truncate hub-jobs-name">{job.client_name || ''}</span>
       <span className="truncate hub-jobs-muted">{suburb}</span>
-      <span className={`hub-jobs-pill is-${job.status}`}>{JOB_STATUS_LABELS[job.status]}</span>
+      <span className="hub-jobs-status">{JOB_STATUS_LABELS[job.status]}</span>
       <span className="hub-jobs-row-next" onClick={e => e.stopPropagation()}>
-        {next.actionable ? (
-          <Link
-            to={next.href}
-            className={primaryNext ? 'btn-primary ops-next-control-block' : 'hub-next'}
-          >
-            {next.label}
-          </Link>
-        ) : (
-          <span className="hub-jobs-muted">{next.label}</span>
-        )}
+        <JobRowMore label={primaryNext ? next.label : next.label} href={next.href} />
       </span>
     </div>
   );

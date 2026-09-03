@@ -48,7 +48,9 @@ describe('list-page quiet eyebrows (paper kit)', () => {
     const quotes = src('src/pages/QuotesPage.tsx');
     const dashboard = src('src/pages/DashboardPage.tsx');
 
-    expect(jobs).toContain('hub-look-eyebrow hub-jobs-label');
+    expect(jobs).not.toContain('hub-look-eyebrow');
+    expect(jobs).toContain('ops-page-title">Jobs');
+    expect(jobs).toContain('hub-jobs-list-mark">List');
     expect(clients).not.toContain('hub-look-eyebrow');
     expect(clients).toContain('ops-page-title">Clients');
     expect(clients).toContain('hub-clients-list-mark">List');
