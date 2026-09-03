@@ -422,6 +422,10 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
       return;
     }
     if (next.key === 'convert_job') {
+      if (!convertQuoteHasDateAndCrew({ scheduled_date: quote.scheduled_date, assigned_team: quote.assigned_team })) {
+        onOpen();
+        return;
+      }
       void run('convert_job', async () => {
         const jobId = await convertQuoteToJob({
           ...quote,

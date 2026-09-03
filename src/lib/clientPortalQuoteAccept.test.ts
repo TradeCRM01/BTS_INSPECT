@@ -225,6 +225,39 @@ describe('G6 — fresh tenant, no electrical-only copy', () => {
   });
 });
 
+describe('isolation — list Next Convert empty date/crew stays on the editor', () => {
+  it('fails closed and opens the editor picker — no new list control', () => {
+    const quotes = src('src/pages/QuotesPage.tsx');
+    const listNext = quotes.slice(quotes.indexOf('function QuoteNextControl'), quotes.indexOf('interface EditorState'));
+    const row = quotes.slice(quotes.indexOf('function QuoteRow'), quotes.indexOf('function QuoteNextControl'));
+    const editor = quotes.split('function QuoteEditorModal')[1] ?? '';
+    const convertBlock = listNext.slice(
+      listNext.indexOf("next.key === 'convert_job'"),
+      listNext.indexOf("next.key === 'invoice'"),
+    );
+
+    expect(convertBlock).toContain('if (!convertQuoteHasDateAndCrew');
+    expect(convertBlock).toContain('onOpen()');
+    expect(convertBlock.indexOf('if (!convertQuoteHasDateAndCrew')).toBeLessThan(convertBlock.indexOf('await convertQuoteToJob'));
+    expect(convertBlock.indexOf('onOpen()')).toBeLessThan(convertBlock.indexOf('await convertQuoteToJob'));
+    expect(listNext).toContain("next.key === 'send' ? 'btn-primary' : 'hub-next'");
+    expect(row).not.toContain('Field label="Job date"');
+    expect(row).not.toContain('Field label="Crew"');
+    expect(row).not.toContain('type="date"');
+    expect(listNext).not.toContain('Field label="Job date"');
+    expect(listNext).not.toContain('type="date"');
+    expect(listNext).not.toContain('hub-quote-convert');
+    expect(editor).toContain('Field label="Job date"');
+    expect(editor).toContain('Field label="Crew"');
+    expect(editor).toContain('hub-quote-convert');
+
+    expect(src('src/pages/ClientPortalPublicPage.tsx')).not.toContain('hub-quote-convert');
+    expect(src('src/pages/JobDetailPage.tsx')).not.toContain('CONVERT_QUOTE_NEED_DATE_CREW');
+    expect(src('src/pages/MarketingPage.tsx')).not.toContain('convertQuoteHasDateAndCrew');
+    expect(src('src/pages/QuotesPage.tsx')).toContain('hub-quotes-row-next');
+  });
+});
+
 describe('isolation — stay-off surfaces stay off this change', () => {
   it('does not open a new send pipe, How to pay, job reminder tray, Relovi, or login chrome', () => {
     const page = src('src/pages/ClientPortalPublicPage.tsx');
