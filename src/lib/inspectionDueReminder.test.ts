@@ -45,6 +45,7 @@ import {
 import {
   AUTO_FIRE_CLICK_PATH,
   COMPANY_TIME_ZONE,
+  VAN_TIME_ZONE,
   decideSmsBeside,
   missSmsMessage,
   prefillSmsTo,
@@ -53,10 +54,12 @@ import {
   type ReminderEmailSettings,
 } from './jobReminder';
 
-/** 16:00 Friday 21 Aug 2026 in Australia/Perth (08:00 UTC). Today in Perth is 21 Aug. */
+/** 18:00 Friday 21 Aug 2026 in Australia/Brisbane (08:00 UTC). Same calendar day in Perth. */
 const now = new Date('2026-08-21T08:00:00.000Z');
 const today = '2026-08-21';
 const tomorrow = '2026-08-22';
+/** 01:00 Saturday 22 Aug Brisbane. Perth is still Friday 21 Aug 23:00. */
+const brisbaneRolled = new Date('2026-08-21T15:00:00.000Z');
 
 const smtp: ReminderEmailSettings = {
   smtp_host: 'smtp.resend.com',
@@ -128,18 +131,19 @@ function insp(over: Partial<DueInspection> = {}): DueInspection {
 }
 
 describe('who is due — existing inspection/testing dates', () => {
-  it('uses Australia/Perth today, not the runtime calendar', () => {
+  it('uses Australia/Brisbane today, not leftover Perth or the runtime calendar', () => {
+    expect(VAN_TIME_ZONE).toBe('Australia/Brisbane');
     expect(COMPANY_TIME_ZONE).toBe('Australia/Perth');
-    expect(todayYmd(now)).toBe(today);
+    expect(todayYmd(now, VAN_TIME_ZONE)).toBe(today);
     expect(perthTodaySqlDate(now)).toBe(today);
   });
 
-  it('after midnight Perth, UTC date is a day behind — still uses Perth today', () => {
-    const midnightPerth = new Date('2026-08-21T16:00:00.000Z');
-    expect(midnightPerth.toISOString().slice(0, 10)).toBe('2026-08-21');
-    expect(todayYmd(midnightPerth, 'UTC')).toBe('2026-08-21');
-    expect(todayYmd(midnightPerth)).toBe('2026-08-22');
-    expect(perthTodaySqlDate(midnightPerth)).toBe('2026-08-22');
+  it('after midnight Brisbane, leftover Perth is still yesterday — due-test uses Brisbane today', () => {
+    expect(brisbaneRolled.toISOString().slice(0, 10)).toBe('2026-08-21');
+    expect(todayYmd(brisbaneRolled, 'UTC')).toBe('2026-08-21');
+    expect(todayYmd(brisbaneRolled, COMPANY_TIME_ZONE)).toBe('2026-08-21');
+    expect(todayYmd(brisbaneRolled, VAN_TIME_ZONE)).toBe('2026-08-22');
+    expect(perthTodaySqlDate(brisbaneRolled)).toBe('2026-08-22');
   });
 
   it('reads next-test from existing meta keys', () => {
@@ -364,7 +368,7 @@ describe('auto-fire (cron, not the tray)', () => {
     expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/tray/i);
   });
 
-  it('auto-selects Perth-today inspections with email when SMTP is ready', () => {
+  it('auto-selects Brisbane-today inspections with email when SMTP is ready', () => {
     const pick = selectAutoFireInspections(
       [insp(), insp({ id: 'later', meta: { next_test_date: tomorrow } })],
       [job()],
@@ -407,14 +411,15 @@ describe('auto-fire (cron, not the tray)', () => {
     expect(pick.missed[0]?.reason).toBe('already_sent');
   });
 
-  it('keeps the auto query scoped to company + Perth today', () => {
+  it('keeps the auto query scoped to company + Brisbane today', () => {
     const filter = inspectionDueCompanyFilter('co-1', now);
     expect(filter).toEqual({
       table: 'inspections',
       company_id: 'co-1',
       due_on: today,
-      timeZone: 'Australia/Perth',
+      timeZone: 'Australia/Brisbane',
     });
+    expect(inspectionDueCompanyFilter('co-1', brisbaneRolled)?.due_on).toBe('2026-08-22');
     expect(inspectionDueCompanyFilter('')).toBeNull();
     expect(wouldScanUnscopedInspections(todayInspectionDueQuery({ companyId: 'co-1', now }))).toBe(false);
   });
@@ -642,9 +647,19 @@ describe('existing inspection surface — no new route', () => {
     expect(noPhone.send).toBe(true);
   });
 
-  it('inspectionDueOnToday follows Perth, not UTC', () => {
+  it('inspectionDueOnToday follows Brisbane, not leftover Perth or UTC', () => {
     expect(inspectionDueOnToday(insp(), job(), now)).toBe(true);
     expect(inspectionDueOnToday(insp({ meta: { next_test_date: tomorrow } }), job(), now)).toBe(false);
+    expect(inspectionDueOnToday(
+      insp({ meta: { next_test_date: tomorrow } }),
+      job({ scheduled_date: tomorrow }),
+      brisbaneRolled,
+    )).toBe(true);
+    expect(inspectionDueOnToday(
+      insp({ meta: { next_test_date: tomorrow } }),
+      job({ scheduled_date: tomorrow }),
+      now,
+    )).toBe(false);
   });
 });
 
@@ -667,6 +682,18 @@ describe('Perth inspection auto-fire rides job-reminder due=today', () => {
     expect(edge).not.toContain('send_due_inspection_reminders');
     expect(edge).toContain('due_reminder_sent_at');
     expect(edge).toContain('api.twilio.com');
+  });
+
+  it('due=today uses Australia/Brisbane, not leftover Perth', () => {
+    const dueStart = edge.indexOf('if (due === "today")');
+    const dueEnd = edge.indexOf('if (due === "contract")');
+    const dueBlock = edge.slice(dueStart, dueEnd);
+    expect(edge).toContain('VAN_TZ = "Australia/Brisbane"');
+    expect(dueBlock).toContain('vanTodayYmd');
+    expect(dueBlock).not.toContain('todayYmd()');
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).toMatch(/Australia\/Brisbane/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).toMatch(/van_today/);
+    expect(INSPECTION_DUE_AUTO_FIRE_PATH.join(' ')).not.toMatch(/perth_today/);
   });
 
   it('retires the 060 SQL-only Resend autofire', () => {

@@ -51,6 +51,7 @@ export function JobRelatedRow({
   meta,
   trailing,
   action,
+  rowClassName,
 }: {
   href?: string;
   icon: LucideIcon;
@@ -58,6 +59,7 @@ export function JobRelatedRow({
   meta?: string;
   trailing?: ReactNode;
   action?: ReactNode;
+  rowClassName?: string;
 }) {
   const inner = (
     <>
@@ -72,7 +74,7 @@ export function JobRelatedRow({
 
   const className = 'ops-related-main flex items-center gap-2.5 px-3 py-2.5 hover:bg-zebra transition-colors';
   return (
-    <div className="ops-related-row flex items-center gap-2 pr-2">
+    <div className={['ops-related-row flex items-center gap-2 pr-2', rowClassName].filter(Boolean).join(' ')}>
       {href ? (
         <Link to={href} className={`${className} min-w-0 flex-1`}>
           {inner}

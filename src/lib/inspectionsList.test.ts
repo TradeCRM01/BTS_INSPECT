@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { inspectionOpenPath } from './inspectionNextAction';
-import { resolveInspectionDueDate } from './inspectionDueReminder';
+import { resolveInspectionDueDate, VAN_TIME_ZONE } from './inspectionDueReminder';
 import {
   decorateInspectionForList,
   decorateInspectionList,
@@ -30,9 +30,11 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-/** 16:00 Friday 21 Aug 2026 in Australia/Perth. */
+/** 18:00 Friday 21 Aug 2026 in Australia/Brisbane. Same calendar day in Perth. */
 const now = new Date('2026-08-21T08:00:00.000Z');
 const today = '2026-08-21';
+/** 01:00 Saturday 22 Aug Brisbane. Perth is still Friday 21 Aug 23:00. */
+const brisbaneRolled = new Date('2026-08-21T15:00:00.000Z');
 
 function row(over: Partial<InspectionListRow> = {}): InspectionListRow {
   return {
@@ -84,6 +86,9 @@ describe('open or due inspections from existing fields', () => {
     expect(inspectionListDueKind('2026-08-01', now)).toBe('overdue');
     expect(inspectionMatchesListFilter(decorateInspectionForList(dueToday, now), 'action')).toBe(true);
     expect(inspectionMatchesListFilter(decorateInspectionForList(overdue, now), 'action')).toBe(true);
+    expect(VAN_TIME_ZONE).toBe('Australia/Brisbane');
+    expect(inspectionListDueKind('2026-08-22', now)).toBe('upcoming');
+    expect(inspectionListDueKind('2026-08-22', brisbaneRolled)).toBe('today');
   });
 
   it('keeps a completed test without a next date on Done, off the action floor', () => {
