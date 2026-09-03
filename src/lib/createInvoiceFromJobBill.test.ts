@@ -27,6 +27,9 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
     expect(builder).toContain('due_date: jobBillDueDate');
     expect(builder).toContain('VAN_TIME_ZONE');
     expect(builder).toContain('JOB_BILL_DUE_DAYS');
+    expect(builder).toContain('JOB_BILL_PAYMENT_TERMS');
+    expect(builder).toContain("payment_terms: JOB_BILL_PAYMENT_TERMS");
+    expect(builder).not.toContain("payment_terms: 'Net 30'");
     expect(builder).not.toContain('due_date: null');
 
     expect(page).toContain('createInvoiceFromJobBill');

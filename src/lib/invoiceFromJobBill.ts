@@ -10,6 +10,8 @@ export const JOB_BILL_INVOICE_EXISTS = 'Invoice already exists for this job';
 export const JOB_BILL_INVOICE_NOTES = 'From job bill';
 /** Job-bill due is issue date + 7 days so unpaid hit the existing Overdue tab. */
 export const JOB_BILL_DUE_DAYS = 7;
+/** Existing invoice-face copy — PDF/sheet prints this next to due_date. */
+export const JOB_BILL_PAYMENT_TERMS = '7 days';
 
 export const JOB_COST_INVOICE_SELECT =
   'description, quantity, unit_price, unit_cost, markup_percent, charge_type, stock_item_id, cost_model_id, created_at';
@@ -84,7 +86,7 @@ export function buildInvoiceFromJobBill(input: {
     tax_rate: Number(input.taxRate) || 0,
     tax_amount: taxAmount,
     total,
-    payment_terms: 'Net 30',
+    payment_terms: JOB_BILL_PAYMENT_TERMS,
     due_date: jobBillDueDate(input.now),
     notes: JOB_BILL_INVOICE_NOTES,
     inclusions: [] as string[],

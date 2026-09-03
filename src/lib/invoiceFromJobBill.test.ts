@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { INVOICE_SOURCE_JOB_BILL, isJobBillInvoice } from './invoiceFromQuote';
 import {
   JOB_BILL_DUE_DAYS,
+  JOB_BILL_PAYMENT_TERMS,
   JOB_BILL_INVOICE_CREATED,
   JOB_BILL_INVOICE_EXISTS,
   JOB_BILL_INVOICE_NO_CLIENT,
@@ -118,7 +119,9 @@ describe('buildInvoiceFromJobBill', () => {
     expect(inv.notes).toBe(JOB_BILL_INVOICE_NOTES);
     expect(inv.inclusions).toEqual([]);
     expect(inv.exclusions).toEqual([]);
-    expect(inv.payment_terms).toBe('Net 30');
+    expect(inv.payment_terms).toBe(JOB_BILL_PAYMENT_TERMS);
+    expect(inv.payment_terms).toBe('7 days');
+    expect(inv.payment_terms).not.toBe('Net 30');
     expect(isJobBillInvoice(inv)).toBe(true);
   });
 
