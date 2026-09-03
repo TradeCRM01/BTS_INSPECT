@@ -37,7 +37,9 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(page).toContain("name: 'Sam'");
     expect(page).toContain('Warehouse lights');
     expect(page).toContain('>Week<');
-    expect(page).toContain('>Crew<');
+    expect(page).toContain('#F7931A');
+    expect(page).toContain('#7C3AED');
+    expect(page).not.toContain('>Crew<');
     expect(page).not.toMatch(/#C45C38|#C05838/);
     expect(page).not.toContain('hub-jobs-identity');
     expect(page).not.toContain('hub-quote-editor');
@@ -73,8 +75,8 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(css).toContain('text-transform: none');
     expect(css).toContain('letter-spacing: 0');
     expect(css).toContain('.hub-week-document .hub-week-chip');
-    expect(css).toContain('background: #FFFDF8 !important');
-    expect(css).toContain('color: #0A2540 !important');
+    expect(css).not.toMatch(/\.hub-week-document \.hub-week-chip \{[^}]*background:\s*#FFFDF8 !important/);
+    expect(css).not.toContain('color: #0A2540 !important');
     expect(css).toContain('.form-input::placeholder');
     expect(css).not.toMatch(/letter-spacing:\s*0\.12em/);
     expect(css).not.toMatch(/text-transform:\s*uppercase/);

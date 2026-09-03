@@ -4934,13 +4934,21 @@
 
   .hub-week-chrome,
   .hub-week-identity {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    gap: 0 24px;
-    align-items: start;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
     margin-top: 24px;
     padding: 8px 0 16px;
     border-bottom: 1px solid #E2D9CC;
+  }
+
+  .hub-week-dot {
+    color: #5B6B7C;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
   }
 
   .hub-week-identity-col {
@@ -4971,10 +4979,11 @@
   }
 
   .hub-week-search {
-    margin: 0;
-    padding: 8px 0 16px;
-    max-width: none;
-    border-bottom: 1px solid #E2D9CC;
+    margin: 0 0 0 auto;
+    padding: 0;
+    flex: 1 1 160px;
+    max-width: 220px;
+    border: none;
   }
 
   .hub-week-document .hub-week-search > .relative {
@@ -4996,10 +5005,11 @@
   .hub-week-document .hub-week-search .form-input {
     min-height: 0;
     height: auto;
-    padding: 6px 12px 6px 32px;
-    border: 1px solid #E2D9CC;
-    border-radius: 12px;
-    background: #FFFDF8;
+    padding: 2px 8px 2px 28px;
+    border: none;
+    border-bottom: 1px solid #E2D9CC;
+    border-radius: 0;
+    background: none;
     color: #5B6B7C;
     font-size: 12px !important;
     font-weight: 500;
@@ -5198,16 +5208,13 @@
   }
 
   .hub-week-document .hub-week-chip {
-    background: #FFFDF8 !important;
-    color: #0A2540 !important;
-    border: 1px solid #E2D9CC;
-    border-radius: 0;
+    border: none;
+    border-radius: 4px;
     box-shadow: none;
   }
 
   .hub-week-document .hub-week-chip-ref,
   .hub-week-document .hub-week-chip-desc {
-    color: #0A2540;
     opacity: 1;
   }
 
@@ -5419,9 +5426,14 @@
 
     .hub-week-chrome,
     .hub-week-identity {
-      grid-template-columns: 1fr;
-      gap: 16px;
+      gap: 8px;
       padding: 16px 0;
+    }
+
+    .hub-week-search {
+      margin-left: 0;
+      max-width: none;
+      flex-basis: 100%;
     }
 
     .hub-week-seg {

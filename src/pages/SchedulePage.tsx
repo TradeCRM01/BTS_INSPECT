@@ -36,6 +36,8 @@ const WEEK_BOARD_LOOK_ANCHOR = new Date(2025, 2, 31);
 const WEEK_LOOK_DAVE = 'look-crew-dave';
 const WEEK_LOOK_JACK = 'look-crew-jack';
 const WEEK_LOOK_SAM = 'look-crew-sam';
+const WEEK_LOOK_FAMILY = '#F7931A';
+const WEEK_LOOK_OTHER = '#7C3AED';
 const WEEK_LOOK_INK = '#0A2540';
 
 const WEEK_BOARD_LOOK_CREW: TeamMember[] = [
@@ -80,7 +82,7 @@ function weekBoardLookJobs(): JobWithClient[] {
       cost_code: '01',
       parent_job_id: 'look-job-0042',
       parent_job_number: 42,
-      color: WEEK_LOOK_INK,
+      color: WEEK_LOOK_FAMILY,
     }),
     weekBoardLookJob({
       id: 'look-job-0042-02',
@@ -91,7 +93,7 @@ function weekBoardLookJobs(): JobWithClient[] {
       cost_code: '02',
       parent_job_id: 'look-job-0042',
       parent_job_number: 42,
-      color: WEEK_LOOK_INK,
+      color: WEEK_LOOK_FAMILY,
     }),
     weekBoardLookJob({
       id: 'look-job-0048',
@@ -99,32 +101,25 @@ function weekBoardLookJobs(): JobWithClient[] {
       scheduled_date: '2025-04-03',
       assigned_team: [WEEK_LOOK_JACK],
       job_number: 48,
-      color: WEEK_LOOK_INK,
+      color: WEEK_LOOK_OTHER,
     }),
   ];
 }
 
-function crewFilterLabel(crew: TeamMember[], filteredEmployeeIds: Set<string>): string {
-  if (filteredEmployeeIds.size === 0) return 'All crews';
-  return crew
-    .filter(member => filteredEmployeeIds.has(member.id))
-    .map(member => member.name)
-    .join(', ') || 'All crews';
-}
-
-function WeekBoardCrews({
-  crew,
-  filteredEmployeeIds,
-  onToggleCrew,
+function WeekBoardMore({
+  viewMode,
+  setView,
+  onToday,
+  filtered,
   onClearCrew,
 }: {
-  crew: TeamMember[];
-  filteredEmployeeIds: Set<string>;
-  onToggleCrew: (id: string) => void;
+  viewMode: ScheduleViewMode;
+  setView: (mode: ScheduleViewMode) => void;
+  onToday: () => void;
+  filtered: boolean;
   onClearCrew: () => void;
 }) {
   const moreRef = useRef<HTMLDetailsElement>(null);
-  const allCrews = filteredEmployeeIds.size === 0;
 
   const closeMore = () => {
     if (moreRef.current) moreRef.current.open = false;
@@ -173,29 +168,44 @@ function WeekBoardCrews({
 
   return (
     <details ref={moreRef} className="hub-week-crews hub-week-more">
-      <summary className="hub-week-quiet" aria-label="All crews">
+      <summary className="hub-week-quiet" aria-label="More">
         <MoreHorizontal size={18} />
       </summary>
       <div className="hub-week-crews-menu hub-week-more-menu" role="menu">
-        {!allCrews && (
-          <button type="button" role="menuitem" onClick={onClearCrew} className="hub-week-crew-opt">
+        <button
+          type="button"
+          role="menuitem"
+          className="hub-week-crew-opt"
+          onClick={() => { onToday(); closeMore(); }}
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={`hub-week-crew-opt ${viewMode === 'day' ? 'is-on' : ''}`}
+          onClick={() => { setView('day'); closeMore(); }}
+        >
+          Day
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={`hub-week-crew-opt ${viewMode === 'week' ? 'is-on' : ''}`}
+          onClick={() => { setView('week'); closeMore(); }}
+        >
+          Week
+        </button>
+        {filtered && (
+          <button
+            type="button"
+            role="menuitem"
+            className="hub-week-crew-opt"
+            onClick={() => { onClearCrew(); closeMore(); }}
+          >
             All crews
           </button>
         )}
-        {crew.map(member => {
-          const active = allCrews || filteredEmployeeIds.has(member.id);
-          return (
-            <button
-              key={member.id}
-              type="button"
-              role="menuitem"
-              className={`hub-week-crew-opt ${active ? 'is-on' : ''}`}
-              onClick={() => onToggleCrew(member.id)}
-            >
-              {member.name}
-            </button>
-          );
-        })}
       </div>
     </details>
   );
@@ -208,8 +218,7 @@ function WeekBoardChrome({
   onPrev,
   onNext,
   rangeLabel,
-  crew,
-  filteredEmployeeIds,
+  search,
 }: {
   viewMode: ScheduleViewMode;
   setView: (mode: ScheduleViewMode) => void;
@@ -217,56 +226,51 @@ function WeekBoardChrome({
   onPrev: () => void;
   onNext: () => void;
   rangeLabel: string;
-  crew: TeamMember[];
-  filteredEmployeeIds: Set<string>;
+  search: ReactNode;
 }) {
-  const crewLabel = crewFilterLabel(crew, filteredEmployeeIds);
-
   return (
     <div className="hub-week-chrome hub-week-identity">
-      <div className="hub-week-identity-col">
-        <p className="hub-week-id-label">Week</p>
         <div className="hub-week-seg" data-week-seg="1">
-          {([
-            { mode: 'day' as const, label: 'Day' },
-            { mode: 'week' as const, label: 'Week' },
-          ]).map(({ mode, label }) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => setView(mode)}
-              className={`hub-week-seg-btn ${viewMode === mode ? 'is-on' : ''}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="hub-week-tools">
-          <button type="button" onClick={onToday} className="hub-week-quiet">
-            Today
-          </button>
+        {([
+          { mode: 'day' as const, label: 'Day' },
+          { mode: 'week' as const, label: 'Week' },
+        ]).map(({ mode, label }) => (
           <button
+            key={mode}
             type="button"
-            onClick={onPrev}
-            className="hub-week-quiet hub-week-nav"
-            aria-label="Previous week"
+            onClick={() => setView(mode)}
+            className={`hub-week-seg-btn ${viewMode === mode ? 'is-on' : ''}`}
           >
-            <ChevronLeft size={16} />
+            {label}
           </button>
-          <button
-            type="button"
-            onClick={onNext}
-            className="hub-week-quiet hub-week-nav"
-            aria-label="Next week"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-        <p className="hub-week-range">{rangeLabel}</p>
+        ))}
       </div>
-      <div className="hub-week-identity-col">
-        <p className="hub-week-id-label">Crew</p>
-        <p className="hub-week-id-value">{crewLabel}</p>
+      <span className="hub-week-dot" aria-hidden="true">·</span>
+      <div className="hub-week-tools">
+        <button type="button" onClick={onToday} className="hub-week-quiet">
+          Today
+        </button>
+        <button
+          type="button"
+          onClick={onPrev}
+          className="hub-week-quiet hub-week-nav"
+          aria-label="Previous week"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={onNext}
+          className="hub-week-quiet hub-week-nav"
+          aria-label="Next week"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+      <span className="hub-week-dot" aria-hidden="true">·</span>
+      <p className="hub-week-range">{rangeLabel}</p>
+      <div className="hub-week-search hub-schedule-chrome">
+        {search}
       </div>
     </div>
   );
@@ -277,14 +281,12 @@ function WeekBoardDocument({
   onNewJob,
   crews,
   chrome,
-  search,
   children,
 }: {
   whisper: string;
   onNewJob: () => void;
   crews: ReactNode;
   chrome: ReactNode;
-  search: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -304,9 +306,6 @@ function WeekBoardDocument({
           </div>
         </div>
         {chrome}
-        <div className="hub-week-search hub-schedule-chrome">
-          {search}
-        </div>
         {children}
       </div>
     </article>
@@ -658,28 +657,6 @@ export function SchedulePage() {
     setShowForm(true);
   };
 
-  const weekChrome = (
-    <WeekBoardChrome
-      viewMode={viewMode}
-      setView={setView}
-      onToday={() => setCurrentDate(new Date())}
-      onPrev={() => setCurrentDate(d => addWeeks(d, -1))}
-      onNext={() => setCurrentDate(d => addWeeks(d, 1))}
-      rangeLabel={weekRangeLabel}
-      crew={boardCrew}
-      filteredEmployeeIds={filteredEmployeeIds}
-    />
-  );
-
-  const weekCrews = (
-    <WeekBoardCrews
-      crew={boardCrew}
-      filteredEmployeeIds={filteredEmployeeIds}
-      onToggleCrew={toggleEmployeeFilter}
-      onClearCrew={clearEmployeeFilters}
-    />
-  );
-
   const weekSearch = (
     <ScheduleJobSearch
       query={jobQuery}
@@ -690,6 +667,28 @@ export function SchedulePage() {
       onSelect={handlePickJob}
       onOpenJob={job => openJob(job.id)}
       onDragStart={handleRailDragStart}
+    />
+  );
+
+  const weekChrome = (
+    <WeekBoardChrome
+      viewMode={viewMode}
+      setView={setView}
+      onToday={() => setCurrentDate(new Date())}
+      onPrev={() => setCurrentDate(d => addWeeks(d, -1))}
+      onNext={() => setCurrentDate(d => addWeeks(d, 1))}
+      rangeLabel={weekRangeLabel}
+      search={weekSearch}
+    />
+  );
+
+  const weekCrews = (
+    <WeekBoardMore
+      viewMode={viewMode}
+      setView={setView}
+      onToday={() => setCurrentDate(new Date())}
+      filtered={filteredEmployeeIds.size > 0}
+      onClearCrew={clearEmployeeFilters}
     />
   );
 
@@ -851,7 +850,6 @@ export function SchedulePage() {
                 onNewJob={openNewJob}
                 crews={weekCrews}
                 chrome={weekChrome}
-                search={weekSearch}
               >
                 {pickedJob && boardCrew.length > 0 && (
                   <div className="hub-week-place hub-schedule-place">

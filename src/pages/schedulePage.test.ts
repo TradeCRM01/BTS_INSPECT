@@ -98,6 +98,8 @@ describe('schedule board cream paper look', () => {
     expect(page).toContain("name: 'Jack'");
     expect(page).toContain("name: 'Sam'");
     expect(page).toContain('#0A2540');
+    expect(page).toContain('#F7931A');
+    expect(page).toContain('#7C3AED');
     expect(page).not.toMatch(/#C45C38|#C05838/);
     expect(page).toContain('Warehouse lights');
     expect(page).toContain('EEE d MMM');
