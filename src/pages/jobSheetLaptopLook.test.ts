@@ -88,11 +88,12 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(css).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(css).toContain('inset 0 1px 0 #fff');
     const hero = css.slice(css.indexOf('  .hub-jobs-hero {'), css.indexOf('  .hub-jobs-tools {'));
-    expect(hero).toContain('font-size: 32px !important');
+    expect(hero).toContain('font-size: 22px !important');
     expect(hero).toContain('letter-spacing: 0');
-    expect(hero).toContain('line-height: 1.1');
+    expect(hero).toContain('line-height: 1.2');
     expect(hero).not.toContain('56px');
-    expect(css).toContain('.hub-jobs-hero {\n      font-size: 24px !important');
+    expect(hero).not.toContain('32px');
+    expect(css).toContain('.hub-jobs-hero {\n      font-size: 20px !important');
     expect(css).toContain('.hub-jobs-document .hub-jobs-identity .hub-jobs-hours {\n    font-size: 14px;');
     expect(css).toContain('.hub-jobs-document .hub-jobs-identity .hub-jobs-hours {\n      font-size: 12px;');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
