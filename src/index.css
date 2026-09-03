@@ -7671,7 +7671,7 @@
     height: auto;
     cursor: pointer;
     font-family: 'Source Sans 3', system-ui, sans-serif;
-    font-size: 14px;
+    font-size: 14px !important;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
@@ -7692,7 +7692,7 @@
   .hub-jobs-hero {
     font-family: Rajdhani, sans-serif;
     font-weight: 700;
-    font-size: 36px !important;
+    font-size: 32px !important;
     letter-spacing: 0;
     line-height: 1.1;
     color: var(--job-look-ink);
@@ -7825,12 +7825,12 @@
   .hub-jobs-document .hub-jobs-identity a,
   .hub-jobs-document .hub-jobs-identity .ops-meta {
     font-family: 'Source Sans 3', system-ui, sans-serif;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 500;
   }
 
   .hub-jobs-document .hub-jobs-identity .hub-jobs-hours {
-    font-size: 12px;
+    font-size: 14px;
   }
 
   .hub-jobs-document .hub-job-more-menu {
@@ -8206,7 +8206,15 @@
     }
 
     .hub-jobs-hero {
-      font-size: 28px !important;
+      font-size: 24px !important;
+    }
+
+    .hub-jobs-document .hub-jobs-identity,
+    .hub-jobs-document .hub-jobs-identity .ops-hub-site,
+    .hub-jobs-document .hub-jobs-identity a,
+    .hub-jobs-document .hub-jobs-identity .ops-meta,
+    .hub-jobs-document .hub-jobs-identity .hub-jobs-hours {
+      font-size: 12px;
     }
 
     .hub-jobs-sheet-bar {
