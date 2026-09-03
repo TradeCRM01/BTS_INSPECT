@@ -1,5 +1,5 @@
 import { useState, useMemo, memo, useEffect, useRef } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -264,11 +264,11 @@ export function ClientsPage() {
       <div className="ops-page hub-clients hub-clients-list-doc">
         <div className="hub-clients-sheet">
           <header className="hub-clients-list-bar">
-            <span className="hub-clients-list-mark">Clients</span>
+            <span className="hub-clients-list-mark">List</span>
           </header>
           <div className="hub-clients-list-body">
             <p className="hub-look-eyebrow hub-clients-label">Clients</p>
-            <h1 className="ops-page-title">Clients</h1>
+            <h1 className="ops-page-title">Book</h1>
             <p className="hub-clients-list-whisper">{whisper}</p>
             <div className="hub-clients-list-tools">
               <button
@@ -278,25 +278,14 @@ export function ClientsPage() {
               >
                 <Plus size={16} /> New client
               </button>
-            </div>
-            <div className="hub-clients-chrome">
-              <div className="hub-clients-filters">
-                <button
-                  type="button"
-                  onClick={() => setShowArchived(false)}
-                  className={`hub-chrome-filter ${!showArchived ? 'hub-chrome-filter-on' : ''}`}
-                >
-                  Active
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowArchived(true)}
-                  className={`hub-chrome-filter ${showArchived ? 'hub-chrome-filter-on' : ''}`}
-                >
-                  Archived
-                </button>
+              <div className="hub-clients-list-tools-overflow">
+                <ClientsListFind
+                  showArchived={showArchived}
+                  onShowArchived={setShowArchived}
+                  search={search}
+                  onSearch={setSearch}
+                />
               </div>
-              <SearchBar value={search} onChange={setSearch} placeholder="Search by name, site, job, phone, or email..." className="max-w-sm" />
             </div>
             {isLoading ? (
               <div className="flex justify-center py-20"><LoadingSpinner /></div>
@@ -356,6 +345,105 @@ export function ClientsPage() {
   );
 }
 
+function placeClientsListMore(more: HTMLDetailsElement) {
+  const menu = more.querySelector('.hub-clients-list-more-menu') as HTMLElement | null;
+  const paper = more.closest('.hub-clients-sheet') as HTMLElement | null;
+  if (!menu || !paper) return;
+  more.classList.remove('is-flip', 'is-shift');
+  menu.style.removeProperty('--hub-clients-list-more-shift');
+  if (!more.open) return;
+  const pad = 8;
+  const paperRect = paper.getBoundingClientRect();
+  const bar = paper.querySelector('.hub-clients-list-bar');
+  const inkFloor = (bar?.getBoundingClientRect().bottom ?? paperRect.top) + pad;
+  const viewBottom = window.innerHeight - pad;
+  const menuRect = menu.getBoundingClientRect();
+  const trigger = more.querySelector('summary') as HTMLElement | null;
+  const triggerRect = trigger?.getBoundingClientRect() ?? menuRect;
+  const flippedTop = triggerRect.top - pad - menuRect.height;
+  const overflowsBottom = menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom);
+  if (overflowsBottom && flippedTop >= inkFloor) {
+    more.classList.add('is-flip');
+  }
+  const after = menu.getBoundingClientRect();
+  let shift = 0;
+  if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
+  if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
+  if (shift !== 0) {
+    more.classList.add('is-shift');
+    menu.style.setProperty('--hub-clients-list-more-shift', `${Math.round(shift)}px`);
+  }
+}
+
+function ClientsListFind({
+  showArchived,
+  onShowArchived,
+  search,
+  onSearch,
+}: {
+  showArchived: boolean;
+  onShowArchived: (archived: boolean) => void;
+  search: string;
+  onSearch: (value: string) => void;
+}) {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMore = () => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
+
+  const placeMoreMenu = () => {
+    if (moreRef.current) placeClientsListMore(moreRef.current);
+  };
+
+  useEffect(() => {
+    const more = moreRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.open) return;
+      if (!moreRef.current.contains(event.target as Node)) closeMore();
+    };
+    more?.addEventListener('toggle', placeMoreMenu);
+    window.addEventListener('resize', placeMoreMenu);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      more?.removeEventListener('toggle', placeMoreMenu);
+      window.removeEventListener('resize', placeMoreMenu);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, []);
+
+  return (
+    <details ref={moreRef} className="hub-clients-list-more hub-clients-list-find">
+      <summary aria-label="Find">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="hub-clients-list-more-menu" role="menu">
+        <div className="hub-clients-chrome">
+          <div className="hub-clients-filters">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => onShowArchived(false)}
+              className={`hub-chrome-filter ${!showArchived ? 'hub-chrome-filter-on' : ''}`}
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => onShowArchived(true)}
+              className={`hub-chrome-filter ${showArchived ? 'hub-chrome-filter-on' : ''}`}
+            >
+              Archived
+            </button>
+          </div>
+          <SearchBar value={search} onChange={onSearch} placeholder="Search by name, site, job, phone, or email..." />
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function clientMenuItems(client: ClientWithStats, navigate: ReturnType<typeof useNavigate>, onEdit: () => void, onArchive: () => void, onDelete: () => void): MenuEntry[] {
   return [
     { label: 'New quote', icon: FileText, onClick: () => navigate(newQuoteFromClientHref(client.id)) },
@@ -377,28 +465,7 @@ function ClientRowMore({ items }: { items: MenuEntry[] }) {
   };
 
   const placeMoreMenu = () => {
-    const more = moreRef.current;
-    const menu = more?.querySelector('.hub-clients-list-more-menu') as HTMLElement | null;
-    const paper = more?.closest('.hub-clients-sheet') as HTMLElement | null;
-    if (!more || !menu || !paper) return;
-    more.classList.remove('is-flip', 'is-shift');
-    menu.style.removeProperty('--hub-clients-list-more-shift');
-    if (!more.open) return;
-    const pad = 8;
-    const paperRect = paper.getBoundingClientRect();
-    const viewBottom = window.innerHeight - pad;
-    const menuRect = menu.getBoundingClientRect();
-    if (menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom)) {
-      more.classList.add('is-flip');
-    }
-    const after = menu.getBoundingClientRect();
-    let shift = 0;
-    if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
-    if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
-    if (shift !== 0) {
-      more.classList.add('is-shift');
-      menu.style.setProperty('--hub-clients-list-more-shift', `${Math.round(shift)}px`);
-    }
+    if (moreRef.current) placeClientsListMore(moreRef.current);
   };
 
   useEffect(() => {
@@ -462,6 +529,7 @@ const ClientRow = memo(function ClientRow({
     <div
       role="link"
       tabIndex={0}
+      aria-label="Open"
       onClick={() => navigate(openHref)}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(openHref); } }}
       className="hub-clients-row"
@@ -470,7 +538,6 @@ const ClientRow = memo(function ClientRow({
       <span className="truncate hub-clients-muted">{suburb}</span>
       <span className="hub-clients-jobs">{jobsLabel ?? ''}</span>
       <span className="hub-clients-row-next" onClick={e => e.stopPropagation()}>
-        <Link to={openHref} className="hub-clients-next">Open</Link>
         <ClientRowMore items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} />
       </span>
     </div>

@@ -29,9 +29,19 @@ describe('clients list laptop LOOK — quote paper, overflow on the sheet', () =
     expect(page).toContain('hub-clients-row');
     expect(page).toContain('Customer');
     expect(page).toContain('Suburb');
-    expect(page).toContain('Open');
+    expect(page).toContain('hub-clients-list-find');
+    expect(page).toContain('hub-clients-list-mark">List');
+    expect(page).toContain('ops-page-title">Book');
+    expect(page).toContain('hub-look-eyebrow hub-clients-label">Clients');
+    expect(page).toContain('aria-label="Open"');
     expect(page).toContain('className="btn-primary"');
     expect(page).toContain('New client');
+    expect(page).toContain('placeClientsListMore');
+    expect(page).toContain('inkFloor');
+    expect(page).not.toContain('hub-clients-next');
+    expect(page).not.toContain('>Open<');
+    expect(page).not.toContain('hub-clients-list-mark">Clients');
+    expect(page).not.toContain('ops-page-title">Clients');
     expect(page).toContain('placeMoreMenu');
     expect(page).toContain('is-flip');
     expect(page).toContain('is-shift');
@@ -73,6 +83,7 @@ describe('clients list laptop LOOK — quote paper, overflow on the sheet', () =
     expect(css).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(css).toContain('inset 0 1px 0 #fff');
     expect(css).toContain('min-height: 44px');
+    expect(css).toContain('min-height: 620px');
     expect(css).toContain('text-transform: none');
     expect(css).toContain('letter-spacing: 0');
     expect(css).toContain('.form-input::placeholder');

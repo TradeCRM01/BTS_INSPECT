@@ -1145,7 +1145,9 @@
   }
 
   .hub-clients-list-doc .hub-clients-sheet {
+    position: relative;
     max-width: 1100px;
+    min-height: 620px;
     margin: 0 auto;
     background: #FFFDF8;
     border: 1px solid #E2D9CC;
@@ -1213,6 +1215,11 @@
     margin-top: 24px;
   }
 
+  .hub-clients-list-tools-overflow {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+
   .hub-clients-list-doc .hub-clients-list-tools .btn-primary {
     background: #2E75B6;
     color: #fff;
@@ -1227,14 +1234,22 @@
     font-weight: 600;
   }
 
-  .hub-clients-list-doc .hub-clients-chrome {
+  .hub-clients-list-find .hub-clients-chrome {
     max-width: none;
-    margin: 24px 0 0;
-    align-items: flex-end;
-    gap: 8px 16px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
   }
 
-  .hub-clients-list-doc .hub-clients-chrome .form-input {
+  .hub-clients-list-find .hub-clients-chrome .relative,
+  .hub-clients-list-find .hub-clients-chrome .max-w-sm {
+    max-width: none;
+    width: 100%;
+  }
+
+  .hub-clients-list-find .hub-clients-chrome .form-input {
     min-height: 0;
     height: auto;
     padding: 4px 8px 4px 28px;
@@ -1248,23 +1263,23 @@
     box-shadow: none;
   }
 
-  .hub-clients-list-doc .hub-clients-chrome .form-input::placeholder {
+  .hub-clients-list-find .hub-clients-chrome .form-input::placeholder {
     color: #5B6B7C;
     opacity: 1;
   }
 
-  .hub-clients-list-doc .hub-clients-chrome .form-input:focus {
+  .hub-clients-list-find .hub-clients-chrome .form-input:focus {
     border-color: #E2D9CC;
     box-shadow: none;
     outline: none;
   }
 
-  .hub-clients-list-doc .hub-clients-chrome .relative svg {
+  .hub-clients-list-find .hub-clients-chrome .relative svg {
     color: #5B6B7C;
     left: 8px;
   }
 
-  .hub-clients-list-doc .hub-clients-chrome .hub-chrome-filter {
+  .hub-clients-list-find .hub-clients-chrome .hub-chrome-filter {
     min-height: 32px;
     padding: 0 8px;
     color: #5B6B7C;
@@ -1275,13 +1290,18 @@
     text-transform: none;
   }
 
-  .hub-clients-list-doc .hub-clients-chrome .hub-chrome-filter-on {
+  .hub-clients-list-find .hub-clients-chrome .hub-chrome-filter-on {
     color: #0A2540;
     box-shadow: inset 0 -2px 0 #2E75B6;
   }
 
+  .hub-clients-list-doc .hub-clients-thead,
+  .hub-clients-list-doc .hub-clients-row {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 88px 32px;
+  }
+
   .hub-clients-list-doc .hub-clients-thead {
-    margin-top: 16px;
+    margin-top: 24px;
     padding: 8px 0;
     background: none;
     color: #5B6B7C;
@@ -1316,10 +1336,7 @@
   }
 
   .hub-clients-list-doc .hub-clients-next {
-    font-size: 12px;
-    font-weight: 500;
-    min-height: 32px;
-    padding: 0;
+    display: none;
   }
 
   .hub-clients-list-more {
@@ -1372,7 +1389,7 @@
     display: flex;
     align-items: center;
     width: 100%;
-    min-height: 44px;
+    min-height: 32px;
     text-align: left;
     padding: 0 12px;
     border: none;
