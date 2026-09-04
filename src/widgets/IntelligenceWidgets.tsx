@@ -225,8 +225,14 @@ export function IndustryNewsWidget() {
 // Compliance Deadlines Widget — upcoming and overdue compliance items
 // ────────────────────────────────────────────────────────────────────────────
 
-export function ComplianceDeadlinesWidget() {
-  const { data, isLoading } = useQuery({
+export function ComplianceDeadlinesWidget({ config }: WidgetProps) {
+  const lookCompliance = config?.lookCompliance && typeof config.lookCompliance === 'object'
+    ? config.lookCompliance as {
+        upcoming: Array<Record<string, unknown>>;
+        overdue: Array<Record<string, unknown>>;
+      }
+    : null;
+  const { data: fetched, isLoading } = useQuery({
     queryKey: ['widget-compliance-deadlines'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -247,7 +253,10 @@ export function ComplianceDeadlinesWidget() {
       });
       return { upcoming, overdue, all: items };
     },
+    enabled: !lookCompliance,
   });
+  const data = lookCompliance ? { ...lookCompliance, all: [...lookCompliance.overdue, ...lookCompliance.upcoming] } : fetched;
+  const loading = lookCompliance ? false : isLoading;
 
   return (
     <div className="h-full flex flex-col">
@@ -258,7 +267,7 @@ export function ComplianceDeadlinesWidget() {
         </div>
         <Link to="/compliance" className="text-[10px] text-[#2E75B6] hover:underline">View all</Link>
       </div>
-      {isLoading ? (
+      {loading ? (
         <div className="flex-1 flex items-center justify-center text-xs text-gray-400">Loading…</div>
       ) : (data?.overdue.length ?? 0) === 0 && (data?.upcoming.length ?? 0) === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-xs text-green-600">

@@ -73,6 +73,9 @@ describe('dashboard widgets stay on the paper', () => {
     expect(page).toContain('persistWidget');
     expect(page).toContain('dashboard-home-canvas');
     expect(page).toContain('FreeWidget');
+    expect(page).toContain('dashboardLookWidgets');
+    expect(page).toContain('data-dashboard-widgets="1"');
+    expect(page.indexOf('dashboard-home-widgets')).toBeLessThan(page.lastIndexOf('</article>'));
     expect(page).not.toContain('{editMode && (\n          widgetsLoading');
     expect(page).not.toMatch(/\{editMode && \(\s*widgetsLoading/);
     expect(page).not.toContain('shouldSeedDefaultDashboardWidgets');

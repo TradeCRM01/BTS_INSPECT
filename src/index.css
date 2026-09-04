@@ -9197,25 +9197,127 @@
   }
 
   .dashboard-home-widgets {
-    max-width: 1100px;
-    margin: 24px auto 24px;
+    margin: 16px 0 0;
+    padding: 16px 0 0;
+    border-top: 1px solid #E2D9CC;
+    max-width: none;
   }
 
   .dashboard-home-canvas {
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
+    border: none;
+    border-radius: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: none;
   }
 
   .dashboard-home-canvas.is-editing {
-    border-color: #E2D9CC;
-    background: color-mix(in srgb, #FFFDF8 86%, #F5F0E6);
+    border: none;
+    background: none;
+  }
+
+  .dashboard-home-widget-stack {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
   }
 
   .dashboard-home-widget {
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
+    background: none;
+    border: none;
+    border-radius: 0;
     box-shadow: none;
+    color: #0A2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .dashboard-home-widget-stack .dashboard-home-widget {
+    padding: 12px 0;
+    border-bottom: 1px solid #E2D9CC;
+  }
+
+  .dashboard-home-widget-stack .dashboard-home-widget:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .dashboard-home-widget-ink {
+    height: 100%;
+    padding: 0 16px 0 0;
+    color: #0A2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .dashboard-home-widget-ink.is-editing {
+    padding-top: 28px;
+  }
+
+  .dashboard-home-widget-stack .dashboard-home-widget-ink {
+    padding: 0;
+  }
+
+  .dashboard-home-widget .text-\[\#1A1A1A\],
+  .dashboard-home-widget .text-\[\#4A5568\] {
+    color: #0A2540 !important;
+  }
+
+  .dashboard-home-widget .text-xs.font-semibold {
+    font-family: Rajdhani, sans-serif !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em;
+    color: #0A2540 !important;
+    font-size: 16px !important;
+  }
+
+  .dashboard-home-widget .text-xl.font-bold,
+  .dashboard-home-widget .text-lg.font-bold,
+  .dashboard-home-widget .text-sm.font-bold {
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    color: #0A2540;
+  }
+
+  .dashboard-home-widget .text-blue-500,
+  .dashboard-home-widget .text-blue-600,
+  .dashboard-home-widget .text-\[\#2E75B6\] {
+    color: #2E75B6 !important;
+  }
+
+  .dashboard-home-widget a.text-\[10px\],
+  .dashboard-home-widget a.text-blue-500,
+  .dashboard-home-widget a.text-\[\#2E75B6\] {
+    color: #5B6B7C !important;
+    text-decoration: none;
+  }
+
+  .dashboard-home-widget .text-amber-600,
+  .dashboard-home-widget .text-amber-500,
+  .dashboard-home-widget .text-red-500 {
+    color: #0A2540 !important;
+  }
+
+  .dashboard-home-widget .bg-orange-400,
+  .dashboard-home-widget .bg-red-500,
+  .dashboard-home-widget .bg-gray-300 {
+    background-color: #E2D9CC !important;
+  }
+
+  .dashboard-home-canvas > .absolute + .absolute .dashboard-home-widget {
+    border-left: 1px solid #E2D9CC;
+  }
+
+  .dashboard-home-canvas > .absolute + .absolute .dashboard-home-widget-ink {
+    padding-left: 16px;
+  }
+
+  .dashboard-home-widget .hover\:bg-gray-50:hover,
+  .dashboard-home-widget .hover\:bg-red-50:hover,
+  .dashboard-home-widget .hover\:bg-amber-50:hover {
+    background: #F5F0E6 !important;
+  }
+
+  .dashboard-home-widget .border-gray-100 {
+    border-color: #E2D9CC !important;
   }
 
   .dashboard-home-widget.is-editing {
@@ -9271,6 +9373,40 @@
 
     .dashboard-home-thead > :nth-child(3) {
       display: none;
+    }
+
+    .dashboard-home-ledger {
+      margin-top: 16px;
+    }
+
+    .dashboard-home-row {
+      padding: 10px 0;
+    }
+
+    .dashboard-home-widgets {
+      margin-top: 12px;
+      padding-top: 8px;
+    }
+
+    .dashboard-home-widget-stack .dashboard-home-widget {
+      padding: 8px 0;
+    }
+
+    .dashboard-home-widget .text-xs.font-semibold {
+      font-size: 14px !important;
+    }
+
+    .dashboard-home-widget .text-xl.font-bold {
+      font-size: 18px;
+    }
+
+    .dashboard-home-widget .mb-2 {
+      margin-bottom: 4px;
+    }
+
+    .dashboard-home-widget .py-1\.5 {
+      padding-top: 4px;
+      padding-bottom: 4px;
     }
   }
 
