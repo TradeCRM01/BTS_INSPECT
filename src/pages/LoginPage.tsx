@@ -1,19 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Eye, EyeOff } from 'lucide-react';
 import { AuthShell } from '../components/auth/AuthShell';
+import { useAuth } from '../contexts/AuthContext';
+import { preparePasswordAuth } from '../lib/authSessionGuard';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [params] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [awaitingHome, setAwaitingHome] = useState(false);
   const expired = params.get('expired') === '1';
   const recovered = params.get('recovered') === '1';
+
+  useEffect(() => {
+    if (awaitingHome && user) {
+      navigate('/', { replace: true });
+    }
+  }, [awaitingHome, user, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,28 +36,15 @@ export function LoginPage() {
       return;
     }
 
-    // Clear any stale session + cached storage so the anon key (not an expired token) is used
-    try {
-      // Remove from localStorage first so the client doesn't try to refresh a dead token
-      const keys = Object.keys(localStorage).filter(k =>
-        k.startsWith('sb-') && k.endsWith('-auth-token')
-      );
-      keys.forEach(k => localStorage.removeItem(k));
-    } catch {
-      // localStorage may be unavailable
-    }
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      // Ignore — session may already be invalid
-    }
+    // Only local-sign-out a dead session. Never wipe a live token before sign-in.
+    await preparePasswordAuth(supabase.auth);
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setError(error.message);
       setLoading(false);
     } else {
-      navigate('/', { replace: true });
+      setAwaitingHome(true);
     }
   }
 

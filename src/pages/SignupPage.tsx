@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Eye, EyeOff } from 'lucide-react';
 import { AuthShell } from '../components/auth/AuthShell';
+import { useAuth } from '../contexts/AuthContext';
+import { preparePasswordAuth } from '../lib/authSessionGuard';
 
 export function SignupPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
@@ -13,6 +16,13 @@ export function SignupPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [awaitingHome, setAwaitingHome] = useState(false);
+
+  useEffect(() => {
+    if (awaitingHome && user) {
+      navigate('/', { replace: true });
+    }
+  }, [awaitingHome, user, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,19 +35,7 @@ export function SignupPage() {
       if (!email.trim()) throw new Error('Email is required');
       if (password.length < 8) throw new Error('Password must be at least 8 characters');
 
-      try {
-        await supabase.auth.signOut();
-      } catch {
-        // Ignore — session may already be invalid
-      }
-      try {
-        const keys = Object.keys(localStorage).filter(k =>
-          k.startsWith('sb-') && k.endsWith('-auth-token')
-        );
-        keys.forEach(k => localStorage.removeItem(k));
-      } catch {
-        // localStorage may be unavailable
-      }
+      await preparePasswordAuth(supabase.auth);
 
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/signup-user`;
       const response = await fetch(apiUrl, {
@@ -69,7 +67,7 @@ export function SignupPage() {
         throw new Error(`Account created, but sign-in failed: ${signInError.message}`);
       }
 
-      navigate('/', { replace: true });
+      setAwaitingHome(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Sign up failed';
       setError(message);
