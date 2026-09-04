@@ -1388,7 +1388,8 @@ function TeamMemberTicketsLedger({
             />
             <input
               className="hub-team-hairline"
-              type="date"
+              type="text"
+              placeholder="dd/mm/yyyy"
               value={expiresOn}
               onChange={e => setExpiresOn(e.target.value)}
               aria-label="Expiry"

@@ -48,6 +48,16 @@ export function trimTicketField(raw: string | null | undefined): string {
   return (raw ?? '').trim();
 }
 
+/** Empty, ISO yyyy-mm-dd, or AU dd/mm/yyyy → DATE-ready yyyy-mm-dd. */
+export function ticketExpiresOn(raw: string | null | undefined): string | null {
+  const value = trimTicketField(raw);
+  if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const au = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value);
+  if (!au) return null;
+  return `${au[3]}-${au[2].padStart(2, '0')}-${au[1].padStart(2, '0')}`;
+}
+
 export function ticketName(raw: string | null | undefined): string {
   return trimTicketField(raw);
 }
@@ -144,7 +154,7 @@ export function memberTicketInsertRow(args: {
     profile_id: profileId,
     name,
     ticket_number: trimTicketField(args.ticketNumber) || null,
-    expires_on: trimTicketField(args.expiresOn) || null,
+    expires_on: ticketExpiresOn(args.expiresOn),
     notes: trimTicketField(args.notes) || null,
     storage_bucket: path ? bucket : MEMBER_TICKET_BUCKET,
     storage_path: path,

@@ -14,6 +14,7 @@ import {
   memberTicketsQuery,
   ticketFileRemoveTarget,
   ticketContentType,
+  ticketExpiresOn,
   ticketHasFile,
   ticketLedgerLine,
   ticketStoragePath,
@@ -72,6 +73,16 @@ describe('G2 persist a ticket on the opened member', () => {
       id: 't-1',
       companyId: 'co-1',
       profileId: 'm-alex',
+      name: 'White Card',
+      expiresOn: '03/09/2026',
+    })?.expires_on).toBe('2026-09-03');
+    expect(ticketExpiresOn('15/03/2027')).toBe('2027-03-15');
+    expect(ticketExpiresOn('2026-09-03')).toBe('2026-09-03');
+    expect(ticketExpiresOn('')).toBeNull();
+    expect(memberTicketInsertRow({
+      id: 't-1',
+      companyId: 'co-1',
+      profileId: 'm-alex',
       name: '   ',
     })).toBeNull();
   });
@@ -94,6 +105,9 @@ describe('G2 persist a ticket on the opened member', () => {
     expect(page).toContain('expires_on');
     expect(page).toContain('notes');
     expect(page).toContain('White Card');
+    expect(page).toContain('placeholder="dd/mm/yyyy"');
+    expect(page).not.toContain('placeholder="mm/dd/yyyy"');
+    expect(page).not.toContain('type="date"');
   });
 });
 

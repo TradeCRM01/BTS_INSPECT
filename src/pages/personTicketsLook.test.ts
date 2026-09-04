@@ -83,6 +83,9 @@ describe('person tickets LOOK — same paper, hairline ledger, one Save ticket',
     );
     expect(ticketsFn).toContain('hub-team-add');
     expect(ticketsFn).toContain('hub-team-hairline');
+    expect(ticketsFn).toContain('placeholder="dd/mm/yyyy"');
+    expect(ticketsFn).not.toContain('placeholder="mm/dd/yyyy"');
+    expect(ticketsFn).not.toContain('type="date"');
     expect(ticketsFn).toContain('className="hub-team-next"');
     expect((ticketsFn.match(/className="hub-team-next"/g) ?? []).length).toBe(1);
     expect(ticketsFn).not.toContain('className="form-input"');
