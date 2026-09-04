@@ -10,6 +10,7 @@ import {
   isDevFieldAuditAuth,
   isDevOperatorAudit,
 } from '../lib/devFieldAuditAuth';
+import { shouldPurgeFailedProbe } from '../lib/authSessionGuard';
 import { loadIsPlatformOperator } from '../lib/platformOperator';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isPlatformOperator, setIsPlatformOperator] = useState(isDevOperatorAudit());
   const [loading, setLoading] = useState(!auditAuth);
   const loadingProfileRef = useRef(false);
+  const signedInAccessTokenRef = useRef<string | null>(null);
 
   async function purgeStaleSession() {
     try {
@@ -143,8 +145,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .eq('id', s.user.id)
             .maybeSingle();
           if (testError) {
-            // Session is stale or invalid — purge it so login starts fresh
-            await purgeStaleSession();
+            const adopted = await adoptNewerSessionOrPurge(s.access_token);
+            if (adopted) return;
             initialised = true;
             setSession(null);
             setUser(null);
@@ -157,8 +159,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           initialised = true;
           loadProfile(s.user.id).finally(() => setLoading(false));
         } catch {
-          // Session is stale — purge it
-          await purgeStaleSession();
+          const adopted = await adoptNewerSessionOrPurge(s.access_token);
+          if (adopted) return;
           initialised = true;
           setSession(null);
           setUser(null);
@@ -169,7 +171,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     }).catch(async () => {
-      // getSession itself failed — purge any stale session
+      let current: Session | null = null;
+      try {
+        const { data } = await supabase.auth.getSession();
+        current = data.session;
+      } catch {
+        current = null;
+      }
+      if (current?.access_token || signedInAccessTokenRef.current) {
+        if (current?.user && !initialised) {
+          initialised = true;
+          setSession(current);
+          setUser(current.user);
+          loadProfile(current.user.id).finally(() => setLoading(false));
+        } else {
+          setLoading(false);
+        }
+        return;
+      }
       await purgeStaleSession();
       initialised = true;
       setSession(null);
@@ -177,7 +196,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
+    async function adoptNewerSessionOrPurge(probeAccessToken: string | null): Promise<boolean> {
+      let current: Session | null = null;
+      try {
+        const { data } = await supabase.auth.getSession();
+        current = data.session;
+      } catch {
+        current = null;
+      }
+      if (!shouldPurgeFailedProbe(
+        probeAccessToken,
+        current?.access_token,
+        signedInAccessTokenRef.current,
+      )) {
+        if (current?.user && !initialised) {
+          initialised = true;
+          setSession(current);
+          setUser(current.user);
+          loadProfile(current.user.id).finally(() => setLoading(false));
+        } else {
+          setLoading(false);
+        }
+        return true;
+      }
+      await purgeStaleSession();
+      return false;
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === 'SIGNED_IN' && s?.access_token) {
+        signedInAccessTokenRef.current = s.access_token;
+      }
+      if (event === 'SIGNED_OUT') {
+        signedInAccessTokenRef.current = null;
+      }
       if (event === 'INITIAL_SESSION' && initialised) return; // getSession() already handled it
       initialised = true;
       setSession(s);
