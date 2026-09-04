@@ -93,7 +93,7 @@ describe('person tickets LOOK — same paper, hairline ledger, one Save ticket',
 
     expect(page).toContain('.hub-team-sheet {\n  max-width: 1100px;');
     expect(page).not.toContain('--hub-list-sheet-max');
-    expect(css).not.toContain('--hub-list-sheet-max');
+    expect(css).toContain('--hub-list-sheet-max: none;');
     expect(css).toContain('.hub-week-document {\n    max-width: 1100px;');
     expect(css).toContain('.hub-jobs-document {\n    max-width: 1100px;');
     expect(css).toContain('.hub-team-list-doc .hub-team-list-sheet {');
