@@ -67,6 +67,11 @@ describe('person tickets LOOK — same paper, hairline ledger, one Save ticket',
     expect(look).toContain('.hub-team-hairline');
     expect(look).toContain('font-size: 12px');
     expect(look).toContain('border-radius: 12px');
+    expect(look).toContain('height: 44px');
+    expect(look).toContain('.hub-team-hero {\n  font-family: Rajdhani, sans-serif;\n  font-weight: 700;\n  font-size: 40px;');
+    expect(look).not.toContain('font-size: 56px');
+    expect(look).toContain('.hub-team-add-foot { justify-content: space-between; }');
+    expect(src('src/lib/devFieldAuditAuth.ts')).toContain("params.get('look') === 'person-tickets'");
     expect(look).not.toContain('--hub-list-sheet-max');
     expect(look).not.toMatch(/emerald|#1B7F3A|#22c55e|#16a34a|#16A34A|#15803D/);
     expect(look).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);

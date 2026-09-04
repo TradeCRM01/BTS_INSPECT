@@ -103,8 +103,9 @@ const TEAM_LOOK_CSS = `
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  height: 44px;
   min-height: 44px;
-  padding: 8px 24px;
+  padding: 0 24px;
   background: var(--team-look-ink);
   color: #fff;
 }
@@ -134,16 +135,16 @@ const TEAM_LOOK_CSS = `
   color: var(--team-look-ink);
 }
 .hub-team-sheet-body {
-  padding: 32px 32px 24px;
+  padding: 24px 32px 24px;
   background: var(--team-look-sheet);
   box-shadow: inset 0 1px 0 #fff;
 }
 .hub-team-hero {
   font-family: Rajdhani, sans-serif;
   font-weight: 700;
-  font-size: 56px;
+  font-size: 40px;
   letter-spacing: 0.02em;
-  line-height: 0.96;
+  line-height: 1.05;
   color: var(--team-look-ink);
   margin: 0;
 }
@@ -287,6 +288,7 @@ const TEAM_LOOK_CSS = `
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px 16px;
 }
 .hub-team-hairline {
@@ -345,13 +347,10 @@ const TEAM_LOOK_CSS = `
     margin-bottom: 8px;
     padding-top: 0;
   }
-  .hub-team-sheet-bar { padding: 8px 16px; }
-  .hub-team-sheet-bar .hub-team-pill {
-    background: #2E75B6;
-    color: #fff;
-  }
+  .hub-team-sheet-bar { padding: 0 16px; }
   .hub-team-sheet-body { padding: 16px 16px 16px; }
-  .hub-team-hero { font-size: 40px; }
+  .hub-team-hero { font-size: 32px; }
+  .hub-team-add-foot { justify-content: space-between; }
   .hub-team.is-person-open .hub-team-tools {
     flex-direction: row;
     flex-wrap: wrap;
