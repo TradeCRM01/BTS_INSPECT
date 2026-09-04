@@ -156,6 +156,7 @@ describe('team settings floor wiring', () => {
       'ContractsPage',
       'CompliancePage',
       'complianceList',
+      'QuotesPage',
       'TimesheetsPage',
       'timesheetsList',
       'NewInspectionPage',

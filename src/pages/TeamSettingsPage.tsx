@@ -18,6 +18,19 @@ import {
   canChangeMemberRole,
   canRemoveTeamMember,
 } from '../lib/teamAdminLock';
+import {
+  MEMBER_TICKET_BUCKET,
+  assertTicketFile,
+  memberTicketInsertRow,
+  memberTicketRemoveConfirm,
+  memberTicketRemoveScope,
+  ticketContentType,
+  ticketFileRemoveTarget,
+  ticketHasFile,
+  ticketLedgerLine,
+  ticketStoragePath,
+  type MemberTicket,
+} from '../lib/teamMemberTickets';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
@@ -90,8 +103,9 @@ const TEAM_LOOK_CSS = `
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  height: 44px;
   min-height: 44px;
-  padding: 8px 24px;
+  padding: 0 24px;
   background: var(--team-look-ink);
   color: #fff;
 }
@@ -121,16 +135,16 @@ const TEAM_LOOK_CSS = `
   color: var(--team-look-ink);
 }
 .hub-team-sheet-body {
-  padding: 32px 32px 24px;
+  padding: 24px 32px 24px;
   background: var(--team-look-sheet);
   box-shadow: inset 0 1px 0 #fff;
 }
 .hub-team-hero {
   font-family: Rajdhani, sans-serif;
   font-weight: 700;
-  font-size: 56px;
+  font-size: 40px;
   letter-spacing: 0.02em;
-  line-height: 0.96;
+  line-height: 1.05;
   color: var(--team-look-ink);
   margin: 0;
 }
@@ -144,8 +158,13 @@ const TEAM_LOOK_CSS = `
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
-  margin-top: 24px;
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+.hub-team-tools .hub-team-sub {
+  min-height: 0;
+  height: auto;
+  font-size: 13px;
 }
 .hub-team-next {
   background: #2E75B6;
@@ -188,38 +207,44 @@ const TEAM_LOOK_CSS = `
 .hub-team-sub:hover { color: var(--team-look-ink); }
 .hub-team-sub.is-quiet { color: var(--team-look-muted); }
 .hub-team-select {
-  min-height: 44px;
-  height: auto;
-  padding: 8px 12px;
+  min-height: 0;
+  height: 32px;
+  padding: 0 8px;
   border: 1px solid var(--team-look-line);
   border-radius: 12px;
   background: var(--team-look-sheet);
   color: var(--team-look-ink);
   font-family: 'Source Sans 3', system-ui, sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   box-shadow: none;
 }
 .hub-team-select:focus {
   outline: none;
   border-color: #2E75B6;
 }
-.hub-team-ledger { margin-top: 32px; }
+.hub-team-ledger { margin-top: 16px; }
 .hub-team-ledger-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  flex-wrap: nowrap;
+  align-items: center;
   justify-content: space-between;
   gap: 8px 16px;
   margin: 0;
-  padding: 16px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--team-look-line);
   background: none;
   border-radius: 0;
   box-shadow: none;
-  min-height: 44px;
+  min-height: 0;
   font-size: 14px;
   font-family: 'Source Sans 3', system-ui, sans-serif;
   color: var(--team-look-ink);
+}
+.hub-team-ledger-row > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .hub-team-ledger-kicker {
   font-family: Rajdhani, sans-serif;
@@ -228,6 +253,83 @@ const TEAM_LOOK_CSS = `
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--team-look-muted);
+}
+.hub-team-ledger-acts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+}
+.hub-team-ledger-row .hub-team-sub {
+  min-height: 0;
+  height: auto;
+  font-size: 13px;
+}
+.hub-team-tickets {
+  display: contents;
+}
+.hub-team-add {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.hub-team-add-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1.2fr);
+  gap: 8px;
+  align-items: center;
+}
+.hub-team-add-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px 16px;
+}
+.hub-team-hairline {
+  min-height: 36px;
+  width: 100%;
+  padding: 6px 0;
+  border: none;
+  border-bottom: 1px solid var(--team-look-line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--team-look-ink);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 12px;
+  box-shadow: none;
+}
+.hub-team-hairline:focus {
+  outline: none;
+  border-bottom-color: #2E75B6;
+}
+.hub-team-hairline::placeholder {
+  color: var(--team-look-muted);
+}
+.hub-team-file {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  max-width: 140px;
+  padding: 0 4px;
+  color: var(--team-look-muted);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hub-team-file:hover { color: var(--team-look-ink); }
+.hub-team-add .hub-team-next {
+  width: auto;
+  justify-self: start;
 }
 .hub-team-hours {
   margin: 0;
@@ -241,19 +343,29 @@ const TEAM_LOOK_CSS = `
 }
 @media (max-width: 639px) {
   .hub-team.ops-page { padding: 16px 16px 40px; }
-  .hub-team-sheet-bar { padding: 8px 16px; }
-  .hub-team-sheet-bar .hub-team-pill {
-    background: #2E75B6;
-    color: #fff;
+  .hub-team.is-person-open .hub-team-open-chrome {
+    margin-bottom: 8px;
+    padding-top: 0;
   }
-  .hub-team-sheet-body { padding: 24px 16px 16px; }
-  .hub-team-hero { font-size: 40px; }
-  .hub-team-tools {
-    flex-direction: column;
+  .hub-team-sheet-bar { padding: 0 16px; }
+  .hub-team-sheet-body { padding: 16px 16px 16px; }
+  .hub-team-hero { font-size: 32px; }
+  .hub-team-add-foot { justify-content: space-between; }
+  .hub-team.is-person-open .hub-team-tools {
+    flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: flex-start;
     width: 100%;
   }
-  .hub-team-next { width: min(100%, 240px); }
+  .hub-team.is-person-open .hub-team-next { width: auto; }
+  .hub-team-ledger { margin-top: 12px; }
+  .hub-team-ledger-row { padding: 6px 0; gap: 4px 8px; }
+  .hub-team-ledger-acts { gap: 6px; flex-shrink: 0; }
+  .hub-team-ledger-row .hub-team-sub { font-size: 12px; }
+  .hub-team-hours { font-size: 14px; }
+  .hub-team-add-fields { grid-template-columns: 1fr 1fr; }
+  .hub-team-add .hub-team-next { width: auto; }
 }
 `;
 
@@ -262,6 +374,10 @@ type TeamListFilter = 'all' | 'joined' | 'pending';
 
 /** Signed team-list frame seed — list look only, not a live company. */
 const TEAM_LIST_LOOK = 'team-list';
+/** Person sheet + tickets ledger seed — no live member_tickets. */
+const PERSON_TICKETS_LOOK = 'person-tickets';
+/** Playwright: /settings/team?id=look-team-alex&look=person-tickets */
+const PERSON_TICKETS_LOOK_MEMBER = 'look-team-alex';
 
 const TEAM_LIST_FILTERS: { key: TeamListFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -273,7 +389,7 @@ function teamListLookRows(): Member[] {
   const stamp = '2026-09-03T00:00:00.000Z';
   return [
     {
-      id: 'look-team-alex',
+      id: PERSON_TICKETS_LOOK_MEMBER,
       email: 'alex@northside.example.com',
       name: 'Alex Nguyen',
       licence_number: 'EC 123456',
@@ -326,6 +442,51 @@ function teamListRoleLabel(member: Pick<Member, 'role'> & Parameters<typeof team
 function teamListRowMuted(member: Member): string {
   const licence = teamSettingsLicenceLabel(member.licence_number);
   return [member.email, licence].filter(Boolean).join(' · ');
+}
+
+function personTicketsLookRows(): MemberTicket[] {
+  const stamp = '2026-01-15T00:00:00.000Z';
+  return [
+    {
+      id: 'look-ticket-white',
+      company_id: 'look-team-co',
+      profile_id: PERSON_TICKETS_LOOK_MEMBER,
+      name: 'White Card',
+      ticket_number: 'WC-1001',
+      expires_on: '2027-03-15',
+      notes: null,
+      storage_bucket: MEMBER_TICKET_BUCKET,
+      storage_path: 'look/tickets/white-card.pdf',
+      file_name: 'white-card.pdf',
+      created_at: stamp,
+    },
+    {
+      id: 'look-ticket-heights',
+      company_id: 'look-team-co',
+      profile_id: PERSON_TICKETS_LOOK_MEMBER,
+      name: 'Working at Heights',
+      ticket_number: 'WAH-4402',
+      expires_on: '2026-11-02',
+      notes: null,
+      storage_bucket: MEMBER_TICKET_BUCKET,
+      storage_path: null,
+      file_name: null,
+      created_at: stamp,
+    },
+    {
+      id: 'look-ticket-first-aid',
+      company_id: 'look-team-co',
+      profile_id: PERSON_TICKETS_LOOK_MEMBER,
+      name: 'Provide First Aid',
+      ticket_number: 'HLTAID011',
+      expires_on: '2026-09-20',
+      notes: 'Site induction',
+      storage_bucket: MEMBER_TICKET_BUCKET,
+      storage_path: 'look/tickets/first-aid.pdf',
+      file_name: 'first-aid.pdf',
+      created_at: stamp,
+    },
+  ];
 }
 
 interface Member {
@@ -517,6 +678,8 @@ export function TeamSettingsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const lookTeamList = searchParams.get('look') === TEAM_LIST_LOOK;
+  const lookPersonTickets = searchParams.get('look') === PERSON_TICKETS_LOOK;
+  const lookTeamSeed = lookTeamList || lookPersonTickets;
   const [search, setSearch] = useState('');
   const [listFilter, setListFilter] = useState<TeamListFilter>('all');
   const [showInvite, setShowInvite] = useState(false);
@@ -524,10 +687,10 @@ export function TeamSettingsPage() {
   const [lastInviteLink, setLastInviteLink] = useState('');
   const [lastInviteEmailSent, setLastInviteEmailSent] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
-  const isAdmin = lookTeamList || profile?.role === 'admin';
+  const isAdmin = lookTeamSeed || profile?.role === 'admin';
   const openedId = parseTeamSettingsMemberId(searchParams.get('id'));
 
-  if (profile && !isAdmin && !lookTeamList) {
+  if (profile && !isAdmin && !lookTeamSeed) {
     return <Navigate to="/" replace />;
   }
 
@@ -570,10 +733,10 @@ export function TeamSettingsPage() {
       if (error) throw error;
       return data as Member[];
     },
-    enabled: !!company && !lookTeamList,
+    enabled: !!company && !lookTeamSeed,
   });
 
-  const listRows = lookTeamList ? teamListLookRows() : (members ?? []);
+  const listRows = lookTeamSeed ? teamListLookRows() : (members ?? []);
   const visibleMembers = useMemo(() => {
     const byFilter = listFilter === 'all'
       ? listRows
@@ -585,13 +748,13 @@ export function TeamSettingsPage() {
   }, [listRows, listFilter, search]);
   const openedMember = teamSettingsOpenedMember(listRows, openedId);
   const emptyTitle = teamSettingsEmptyTitle({
-    error: !lookTeamList && isError,
+    error: !lookTeamSeed && isError,
     total: listRows.length,
     visible: visibleMembers.length,
     query: search,
   });
   const whisper = teamListWhisper({ filter: listFilter, count: visibleMembers.length });
-  const loading = !lookTeamList && isLoading;
+  const loading = !lookTeamSeed && isLoading;
 
   const updateAccessMutation = useMutation({
     mutationFn: async ({ memberId, templateAccess }: { memberId: string; templateAccess: TemplateAccess }) => {
@@ -766,7 +929,7 @@ export function TeamSettingsPage() {
                       {resendingId === openedMember.id ? 'Sending...' : 'Resend'}
                     </button>
                   ) : isAdmin ? (
-                    <button type="button" onClick={() => setShowInvite(true)} className="hub-team-next">
+                    <button type="button" onClick={() => setShowInvite(true)} className="hub-team-sub">
                       <UserPlus size={16} />
                       Invite member
                     </button>
@@ -861,6 +1024,18 @@ export function TeamSettingsPage() {
                       </span>
                     </div>
                   )}
+                  {lookPersonTickets ? (
+                    <TeamMemberTicketsLedger
+                      lookTickets={personTicketsLookRows()}
+                      canEdit
+                    />
+                  ) : company && !lookTeamList ? (
+                    <TeamMemberTicketsLedger
+                      companyId={company.id}
+                      profileId={openedMember.id}
+                      canEdit={!!isAdmin}
+                    />
+                  ) : null}
                 </div>
               </div>
             </article>
@@ -931,7 +1106,7 @@ export function TeamSettingsPage() {
             {loading && (
               <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
             )}
-            {!lookTeamList && isError && <PageError onRetry={refetch} />}
+            {!lookTeamSeed && isError && <PageError onRetry={refetch} />}
 
             {!loading && emptyTitle ? (
               <div className="hub-team-list-empty">{emptyTitle}</div>
@@ -988,6 +1163,267 @@ export function TeamSettingsPage() {
         />
       )}
     </AppShell>
+  );
+}
+
+function TeamMemberTicketsLedger({
+  companyId,
+  profileId,
+  canEdit,
+  lookTickets,
+}: {
+  companyId?: string;
+  profileId?: string;
+  canEdit: boolean;
+  lookTickets?: MemberTicket[];
+}) {
+  const queryClient = useQueryClient();
+  const lookMode = !!lookTickets;
+  const [name, setName] = useState('');
+  const [ticketNumber, setTicketNumber] = useState('');
+  const [expiresOn, setExpiresOn] = useState('');
+  const [notes, setNotes] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState('');
+  const [openingId, setOpeningId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const { data: liveTickets } = useQuery<MemberTicket[]>({
+    queryKey: ['member-tickets', companyId, profileId],
+    queryFn: async () => {
+      const { data, error: loadError } = await supabase
+        .from('member_tickets')
+        .select('id, company_id, profile_id, name, ticket_number, expires_on, notes, storage_bucket, storage_path, file_name, reminder_sent_at, reminder_sent_for_date, reminder_kind, created_at')
+        .eq('company_id', companyId!)
+        .eq('profile_id', profileId!)
+        .order('expires_on', { ascending: true, nullsFirst: false });
+      if (loadError) throw loadError;
+      return (data ?? []) as MemberTicket[];
+    },
+    enabled: !lookMode && !!companyId && !!profileId,
+  });
+  const tickets = lookTickets ?? liveTickets ?? [];
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (lookMode || !companyId || !profileId) return;
+      const ticketId = crypto.randomUUID();
+      let storagePath: string | null = null;
+      let fileName: string | null = null;
+      if (file) {
+        assertTicketFile(file);
+        storagePath = ticketStoragePath({
+          companyId,
+          profileId,
+          ticketId,
+          fileName: file.name,
+        });
+        fileName = file.name;
+        const { error: upErr } = await supabase.storage
+          .from('uploaded-pdfs')
+          .upload(storagePath, file, { contentType: ticketContentType(file), upsert: false });
+        if (upErr) throw upErr;
+      }
+      const row = memberTicketInsertRow({
+        id: ticketId,
+        companyId,
+        profileId,
+        name,
+        ticketNumber,
+        expiresOn,
+        notes,
+        storagePath,
+        fileName,
+      });
+      if (!row) {
+        if (storagePath) await supabase.storage.from('uploaded-pdfs').remove([storagePath]);
+        throw new Error('Add a ticket name');
+      }
+      const { error: insertErr } = await supabase.from('member_tickets').insert(row);
+      if (insertErr) {
+        if (storagePath) await supabase.storage.from('uploaded-pdfs').remove([storagePath]);
+        throw insertErr;
+      }
+    },
+    onSuccess: () => {
+      setName('');
+      setTicketNumber('');
+      setExpiresOn('');
+      setNotes('');
+      setFile(null);
+      setError('');
+      queryClient.invalidateQueries({ queryKey: ['member-tickets', companyId, profileId] });
+    },
+    onError: (err: Error) => {
+      setError(err.message || 'Could not save ticket');
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: async (ticket: MemberTicket) => {
+      if (lookMode || !companyId || !profileId) return;
+      const scope = memberTicketRemoveScope({
+        companyId,
+        profileId,
+        ticketId: ticket.id,
+      });
+      if (!scope) throw new Error('Could not remove ticket');
+      const file = ticketFileRemoveTarget(ticket);
+      const { error: delErr } = await supabase
+        .from('member_tickets')
+        .delete()
+        .eq('id', scope.eq.id)
+        .eq('company_id', scope.eq.company_id)
+        .eq('profile_id', scope.eq.profile_id);
+      if (delErr) throw delErr;
+      if (file) {
+        const { error: rmErr } = await supabase.storage
+          .from(file.bucket)
+          .remove([file.path]);
+        if (rmErr) throw rmErr;
+      }
+    },
+    onSuccess: () => {
+      setError('');
+      queryClient.invalidateQueries({ queryKey: ['member-tickets', companyId, profileId] });
+    },
+    onError: (err: Error) => {
+      setError(err.message || 'Could not remove ticket');
+    },
+    onSettled: () => setRemovingId(null),
+  });
+
+  async function openTicketFile(ticket: MemberTicket) {
+    if (lookMode) return;
+    const path = (ticket.storage_path ?? '').trim();
+    if (!path) return;
+    setOpeningId(ticket.id);
+    setError('');
+    try {
+      const bucket = (ticket.storage_bucket ?? '').trim() || MEMBER_TICKET_BUCKET;
+      const { data, error: signErr } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, 3600);
+      if (signErr || !data?.signedUrl) {
+        throw new Error(signErr?.message || 'Could not open the file');
+      }
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not open the file');
+    } finally {
+      setOpeningId(null);
+    }
+  }
+
+  return (
+    <div className="hub-team-tickets" id="team-member-tickets">
+      <div className="hub-team-ledger-row">
+        <span className="hub-team-ledger-kicker">Tickets</span>
+      </div>
+      {tickets.map(ticket => (
+        <div className="hub-team-ledger-row" key={ticket.id}>
+          <span>
+            {ticketLedgerLine(ticket)}
+            {ticket.notes ? ` · ${ticket.notes}` : ''}
+          </span>
+          <span className="hub-team-ledger-acts">
+            {ticket.expires_on ? (
+              <span className="hub-team-hours">
+                {format(new Date(`${ticket.expires_on}T00:00:00`), 'd MMM yyyy')}
+              </span>
+            ) : null}
+            {ticketHasFile(ticket) && (
+              <button
+                type="button"
+                className="hub-team-sub"
+                onClick={() => openTicketFile(ticket)}
+                disabled={openingId === ticket.id}
+              >
+                {openingId === ticket.id ? 'Opening...' : 'Open file'}
+              </button>
+            )}
+            {canEdit && (
+              <button
+                type="button"
+                className="hub-team-sub is-quiet"
+                onClick={() => {
+                  if (lookMode) return;
+                  if (!confirm(memberTicketRemoveConfirm(ticket))) return;
+                  setRemovingId(ticket.id);
+                  removeMutation.mutate(ticket);
+                }}
+                disabled={removingId === ticket.id}
+              >
+                {removingId === ticket.id ? 'Removing...' : 'Remove'}
+              </button>
+            )}
+          </span>
+        </div>
+      ))}
+      {canEdit && (
+        <form
+          className="hub-team-add"
+          onSubmit={e => {
+            e.preventDefault();
+            setError('');
+            if (lookMode) return;
+            saveMutation.mutate();
+          }}
+        >
+          <div className="hub-team-add-fields">
+            <input
+              className="hub-team-hairline"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              required
+              placeholder="Name"
+              aria-label="Name"
+            />
+            <input
+              className="hub-team-hairline"
+              value={ticketNumber}
+              onChange={e => setTicketNumber(e.target.value)}
+              placeholder="Number"
+              aria-label="Number"
+            />
+            <input
+              className="hub-team-hairline"
+              type="text"
+              placeholder="dd/mm/yyyy"
+              value={expiresOn}
+              onChange={e => setExpiresOn(e.target.value)}
+              aria-label="Expiry"
+            />
+            <input
+              className="hub-team-hairline"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Notes"
+              aria-label="Notes"
+            />
+          </div>
+          {error && (
+            <div className="hub-team-ledger-row">
+              <span>{error}</span>
+            </div>
+          )}
+          <div className="hub-team-add-foot">
+            <label className="hub-team-file">
+              <input
+                className="sr-only"
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.jpg,.jpeg,.png,.webp,.gif"
+                onChange={e => setFile(e.target.files?.[0] ?? null)}
+              />
+              {file ? file.name : 'File'}
+            </label>
+            <button type="submit" className="hub-team-next" disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Saving...' : 'Save ticket'}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }
 

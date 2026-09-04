@@ -508,6 +508,201 @@ function inspectionDueHtml(opts: {
       </div>`;
 }
 
+function decideTicketDueKind(expiresOn: string | null, today: string): "due_soon" | "expired" | null {
+  const day = dateOnly(expiresOn);
+  if (!day) return null;
+  if (day < today) return "expired";
+  if (day === today) return "due_soon";
+  return null;
+}
+
+function alreadyRemindedForTicket(
+  row: Record<string, unknown>,
+  kind: "due_soon" | "expired",
+  expiresOn: string | null,
+): boolean {
+  if (!row.reminder_sent_at) return false;
+  const day = dateOnly(expiresOn ?? row.expires_on);
+  const sentFor = dateOnly(row.reminder_sent_for_date);
+  const sentKind = String(row.reminder_kind ?? "").trim();
+  if (kind === "expired") return sentKind === "expired";
+  if (!day) return sentKind === "due_soon";
+  if (sentKind === "due_soon" && sentFor) return sentFor === day;
+  return sentKind === "due_soon";
+}
+
+function ticketDueLabel(ticket: Record<string, unknown>): string {
+  const name = String(ticket.name ?? "").trim() || "Ticket";
+  const number = String(ticket.ticket_number ?? "").trim();
+  return number ? `${name} (${number})` : name;
+}
+
+function ticketDuePhrase(kind: "due_soon" | "expired"): string {
+  return kind === "expired" ? "has expired" : "expires today";
+}
+
+function ticketDueHtml(opts: {
+  greeting: string;
+  companyName: string;
+  memberName: string;
+  label: string;
+  when: string;
+  kind: "due_soon" | "expired";
+  companyPhone: string;
+}): string {
+  const phrase = ticketDuePhrase(opts.kind);
+  const heading = opts.kind === "expired" ? "Ticket expired" : "Ticket due soon";
+  return `
+      <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
+        <div style="background:#0A2540;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+          <div style="font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase">${escapeHtml(opts.companyName)}</div>
+          <h1 style="margin:8px 0 0;font-size:20px">${escapeHtml(heading)}</h1>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+          <p>Hi ${escapeHtml(opts.greeting)},</p>
+          <p>${escapeHtml(opts.memberName)} — <strong>${escapeHtml(opts.label)}</strong> ${escapeHtml(phrase)}.</p>
+          <div style="margin:20px 0;padding:16px;background:#F9FAFB;border-radius:8px">
+            <p style="margin:0;color:#4A5568;font-size:14px;line-height:1.6">
+              <strong>Ticket:</strong> ${escapeHtml(opts.label)}<br/>
+              <strong>Expiry:</strong> ${escapeHtml(opts.when)}
+            </p>
+          </div>
+          <p>Renew or replace this ticket and keep a copy on the team person sheet.</p>
+          ${opts.companyPhone ? `<p style="font-size:13px;color:#6B7280">Or call ${escapeHtml(opts.companyPhone)}.</p>` : ""}
+        </div>
+      </div>`;
+}
+
+function ticketDueSmsBody(opts: {
+  label: string;
+  memberName: string;
+  kind: "due_soon" | "expired";
+  when: string;
+  companyPhone: string;
+}): string {
+  const who = opts.memberName.trim() || "A team member";
+  return [
+    `Reminder: ${who} — ${opts.label} ${ticketDuePhrase(opts.kind)} (${opts.when}).`,
+    opts.companyPhone ? `Call ${opts.companyPhone}.` : "",
+  ].filter(Boolean).join(" ");
+}
+
+const ticketMissText: Record<string, string> = {
+  no_email: "This team member has no email — reminder was not sent.",
+  no_expiry: "This ticket has no expiry — reminder was not sent.",
+  not_due: "Reminder is for tickets due today or already expired.",
+  no_smtp: "Email is not set up — reminder was not sent.",
+  wrong_company: "This ticket is not in this company.",
+  no_ticket: "Ticket not found.",
+  already_sent: "Already reminded for this ticket date.",
+};
+
+async function deliverTicketDue(opts: {
+  admin: ReturnType<typeof createClient>;
+  ticket: Record<string, unknown>;
+  companyId: string;
+  company: { name?: string | null; phone?: string | null; email?: string | null } | null;
+  settings: EmailSettings | null;
+  member: { id?: string; name?: string | null; email?: string | null } | null;
+  today: string;
+}): Promise<Record<string, unknown>> {
+  const expiresOn = dateOnly(opts.ticket.expires_on);
+  const kind = decideTicketDueKind(expiresOn, opts.today);
+  const to = prefillTo(opts.member?.email);
+  const extra = { ticketId: opts.ticket.id, to: to || null, expiresOn, kind };
+
+  if (String(opts.ticket.company_id ?? "") !== opts.companyId) {
+    return miss("wrong_company", ticketMissText.wrong_company, extra);
+  }
+  if (!expiresOn) {
+    return miss("no_expiry", ticketMissText.no_expiry, extra);
+  }
+  if (!kind) {
+    return miss("not_due", ticketMissText.not_due, { ...extra, expiresOn });
+  }
+  if (alreadyRemindedForTicket(opts.ticket, kind, expiresOn)) {
+    return miss("already_sent", ticketMissText.already_sent, { ...extra, expiresOn, kind });
+  }
+  if (!to) {
+    return miss("no_email", ticketMissText.no_email, { ...extra, to: null, expiresOn, kind });
+  }
+  if (!emailSettingsReady(opts.settings) || !opts.settings) {
+    return miss("no_smtp", ticketMissText.no_smtp, { ...extra, to, expiresOn, kind });
+  }
+
+  const label = ticketDueLabel(opts.ticket);
+  const when = formatJobDate(expiresOn);
+  const memberName = String(opts.member?.name ?? "").trim() || "Team member";
+  const companyName = String(opts.company?.name ?? "").trim() || "your company";
+  const companyPhone = String(opts.company?.phone ?? "").trim();
+  const subject = `Reminder: ${label} ${ticketDuePhrase(kind)} (${when})`;
+  const html = ticketDueHtml({
+    greeting: memberName,
+    companyName,
+    memberName,
+    label,
+    when,
+    kind,
+    companyPhone,
+  });
+
+  const fromHeader = `${opts.settings.from_name} <${opts.settings.from_email}>`;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${opts.settings.smtp_pass}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: fromHeader,
+      to: [to],
+      reply_to: opts.settings.from_email,
+      subject,
+      html,
+    }),
+  });
+
+  const sms = await sendTwilioSms(
+    null,
+    ticketDueSmsBody({ label, memberName, kind, when, companyPhone }),
+  );
+
+  if (!res.ok) {
+    const bodyText = await res.text();
+    let message = `Resend API error (${res.status})`;
+    try {
+      const parsed = JSON.parse(bodyText);
+      message = parsed.message ?? parsed.error ?? message;
+    } catch {
+      if (bodyText) message = bodyText.slice(0, 200);
+    }
+    return miss("send_failed", withSmsMessage(message, sms), { ...extra, to, expiresOn, kind, sms });
+  }
+
+  const sentAt = new Date().toISOString();
+  await opts.admin
+    .from("member_tickets")
+    .update({
+      reminder_sent_at: sentAt,
+      reminder_sent_for_date: expiresOn,
+      reminder_kind: kind,
+    })
+    .eq("id", opts.ticket.id);
+
+  return {
+    sent: true,
+    ticketId: opts.ticket.id,
+    to,
+    expiresOn,
+    kind,
+    sms,
+    reminder_sent_at: sentAt,
+    reminder_sent_for_date: expiresOn,
+    reminder_kind: kind,
+    message: "Reminder sent",
+  };
+}
+
 async function deliverInspectionDue(opts: {
   admin: ReturnType<typeof createClient>;
   inspection: Record<string, unknown>;
@@ -1989,6 +2184,113 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (due === "tickets") {
+      if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
+      const today = vanTodayYmd();
+      const autoAllCompanies = cronOk && !userCompanyId;
+      const companyIds: string[] = [];
+      const settingsByCompany = new Map<string, EmailSettings>();
+      if (!autoAllCompanies) {
+        companyIds.push(userCompanyId!);
+        const { data: smtpRow } = await admin
+          .from("email_settings")
+          .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+          .eq("company_id", userCompanyId!)
+          .maybeSingle();
+        if (smtpRow) settingsByCompany.set(userCompanyId!, smtpRow as EmailSettings);
+      } else {
+        const { data: smtpRows } = await admin
+          .from("email_settings")
+          .select("company_id, smtp_host, smtp_pass, from_name, from_email");
+        for (const row of smtpRows ?? []) {
+          if (row.company_id && emailSettingsReady(row as EmailSettings)) {
+            companyIds.push(row.company_id);
+            settingsByCompany.set(row.company_id, row as EmailSettings);
+          }
+        }
+      }
+
+      if (companyIds.length === 0) {
+        return json({
+          sent: false,
+          count: 0,
+          missed: 0,
+          results: [],
+          sms: null,
+          message: ticketMissText.no_smtp,
+        });
+      }
+
+      const { data: dueRows, error: dueErr } = await admin
+        .from("member_tickets")
+        .select("id, company_id, profile_id, name, ticket_number, expires_on, notes, reminder_sent_at, reminder_sent_for_date, reminder_kind")
+        .in("company_id", companyIds)
+        .lte("expires_on", today);
+      if (dueErr) return json({ error: dueErr.message, sent: false }, 400);
+      const tickets = dueRows ?? [];
+
+      const memberIds = [...new Set(tickets.map((row) => String(row.profile_id ?? "")).filter(Boolean))];
+      const members = new Map<string, Record<string, unknown>>();
+      if (memberIds.length > 0) {
+        const { data: profileRows } = await admin
+          .from("profiles")
+          .select("id, company_id, name, email")
+          .in("id", memberIds);
+        for (const row of profileRows ?? []) members.set(row.id, row);
+      }
+
+      const companyCache = new Map<string, { name?: string | null; phone?: string | null; email?: string | null }>();
+      const results: Array<Record<string, unknown>> = [];
+
+      for (const ticket of tickets) {
+        const companyId = String(ticket.company_id ?? "").trim();
+        if (!companyId || !companyIds.includes(companyId)) continue;
+        if (!companyCache.has(companyId)) {
+          const { data: company } = await admin
+            .from("companies")
+            .select("name, email, phone")
+            .eq("id", companyId)
+            .maybeSingle();
+          companyCache.set(companyId, company ?? {});
+        }
+        if (!settingsByCompany.has(companyId)) {
+          const { data: smtpRow } = await admin
+            .from("email_settings")
+            .select("company_id, smtp_host, smtp_pass, from_name, from_email")
+            .eq("company_id", companyId)
+            .maybeSingle();
+          if (smtpRow) settingsByCompany.set(companyId, smtpRow as EmailSettings);
+        }
+        const memberId = String(ticket.profile_id ?? "").trim();
+        results.push(await deliverTicketDue({
+          admin,
+          ticket,
+          companyId,
+          company: companyCache.get(companyId) ?? null,
+          settings: settingsByCompany.get(companyId) ?? null,
+          member: memberId ? members.get(memberId) ?? null : null,
+          today,
+        }));
+      }
+
+      const sent = results.filter((r) => r.sent);
+      const missed = results.filter((r) => !r.sent);
+      const firstSms = (sent[0]?.sms ?? missed[0]?.sms) as SmsSendResult | undefined;
+      const emailMessage = sent.length === 1
+        ? "Reminder sent"
+        : sent.length > 1
+        ? `Reminders sent: ${sent.length}`
+        : String(missed[0]?.message ?? "Reminder was not sent.");
+      return json({
+        sent: sent.length > 0,
+        count: sent.length,
+        missed: missed.length,
+        results,
+        sms: firstSms ?? null,
+        message: firstSms && sent.length <= 1 ? withSmsMessage(emailMessage, firstSms) : emailMessage,
+      });
+    }
+
     if (due === "today") {
       if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
       const today = vanTodayYmd();
@@ -2978,7 +3280,7 @@ Deno.serve(async (req) => {
     } else if (due === "tomorrow") {
       if (!cronOk && !userCompanyId) return json({ error: "Unauthorized", sent: false }, 401);
     } else {
-      return json({ error: "jobId, inspectionId, invoiceId, reportId, quoteId, purchaseOrderId, contractId, due=tomorrow, due=today, or due=overdue is required", sent: false }, 400);
+      return json({ error: "jobId, inspectionId, invoiceId, reportId, quoteId, purchaseOrderId, contractId, due=tomorrow, due=today, due=tickets, or due=overdue is required", sent: false }, 400);
     }
 
     const autoAllCompanies = due === "tomorrow" && cronOk && !jobId;
