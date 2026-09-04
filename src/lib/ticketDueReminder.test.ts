@@ -212,7 +212,7 @@ describe('G5 due-soon and expired are real notify decisions — Brisbane TZ', ()
 });
 
 describe('G5 rides job-reminder due=tickets — not a new reminder product', () => {
-  const hop = src('supabase/migrations/20260903120000_072_member_tickets.sql');
+  const hop = src('supabase/migrations/20260904080000_075_member_tickets.sql');
   const edge = src('supabase/functions/job-reminder/index.ts');
 
   it('same Perth invoke posts due=tickets — no new cron stack', () => {

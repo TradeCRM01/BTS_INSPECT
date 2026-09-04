@@ -131,7 +131,7 @@ describe('G3 file uses existing storage family — signed URL is live', () => {
     expect(ticketContentType(jpeg)).not.toBe('application/octet-stream');
     expect(ticketContentType(png)).not.toBe('application/pdf');
 
-    const mig = src('supabase/migrations/20260903120000_072_member_tickets.sql');
+    const mig = src('supabase/migrations/20260904080000_075_member_tickets.sql');
     expect(mig).toContain("WHERE id = 'uploaded-pdfs'");
     expect(mig).toContain("SET allowed_mime_types = ARRAY[");
     expect(mig).toContain("'application/pdf'");
@@ -228,7 +228,7 @@ describe('admin can remove a ticket from the same person sheet', () => {
 
 describe('G4 RLS another tenant cannot read the row or file', () => {
   it('locks company_id to the caller company only — no my_company_id, no profile_id IN scan', () => {
-    const mig = src('supabase/migrations/20260903120000_072_member_tickets.sql');
+    const mig = src('supabase/migrations/20260904080000_075_member_tickets.sql');
     expect(mig).toContain('CREATE TABLE IF NOT EXISTS public.member_tickets');
     expect(mig).toContain('ENABLE ROW LEVEL SECURITY');
     expect(mig).toContain('USING (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()))');
