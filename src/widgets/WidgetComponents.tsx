@@ -866,7 +866,16 @@ export function QuickActionsWidget() {
 }
 
 // ─── Upcoming Jobs Widget ────────────────────────────────────────
-export function UpcomingJobsWidget() {
+export function UpcomingJobsWidget({ config }: WidgetProps) {
+  const lookJobs = Array.isArray(config?.lookJobs) ? config.lookJobs as Array<{
+    id: string;
+    title: string;
+    scheduled_date: string;
+    start_time?: string;
+    client_id?: string;
+    client_name?: string;
+    priority?: string;
+  }> : null;
   const { data: jobs, isLoading } = useQuery({
     queryKey: ['widget-upcoming-jobs'],
     queryFn: async () => {
@@ -881,9 +890,10 @@ export function UpcomingJobsWidget() {
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !lookJobs,
   });
 
-  const clientIds = [...new Set((jobs ?? []).map((j: any) => j.client_id).filter(Boolean))];
+  const clientIds = [...new Set((lookJobs ?? jobs ?? []).map((j: any) => j.client_id).filter(Boolean))];
   const { data: clients } = useQuery({
     queryKey: ['widget-job-clients', clientIds.join(',')],
     queryFn: async () => {
@@ -891,10 +901,14 @@ export function UpcomingJobsWidget() {
       const { data } = await supabase.from('clients').select('id, name').in('id', clientIds);
       return data ?? [];
     },
-    enabled: clientIds.length > 0,
+    enabled: !lookJobs && clientIds.length > 0,
   });
 
-  const clientMap = new Map((clients ?? []).map((c: any) => [c.id, c.name]));
+  const clientMap = lookJobs
+    ? new Map(lookJobs.map(j => [j.client_id, j.client_name]))
+    : new Map((clients ?? []).map((c: any) => [c.id, c.name]));
+  const rows = lookJobs ?? jobs ?? [];
+  const loading = lookJobs ? false : isLoading;
 
   return (
     <div className="h-full flex flex-col">
@@ -905,13 +919,13 @@ export function UpcomingJobsWidget() {
         </div>
         <Link to="/schedule" className="text-[10px] text-blue-500 hover:underline">View all</Link>
       </div>
-      {isLoading ? (
+      {loading ? (
         <div className="flex-1 flex items-center justify-center text-xs text-gray-400">Loading…</div>
-      ) : (jobs ?? []).length === 0 ? (
+      ) : rows.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-xs text-gray-400">No upcoming jobs</div>
       ) : (
         <div className="flex-1 overflow-auto space-y-1 -mx-1 px-1">
-          {(jobs ?? []).map((job: any) => (
+          {rows.map((job: any) => (
             <Link key={job.id} to="/schedule"
               className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
               <div className="text-center shrink-0 w-9">
@@ -1105,8 +1119,16 @@ export function LowStockWidget() {
 }
 
 // ─── Outstanding Invoices Widget ─────────────────────────────────
-export function OutstandingInvoicesWidget() {
-  const { data, isLoading } = useQuery({
+export function OutstandingInvoicesWidget({ config }: WidgetProps) {
+  const lookInvoices = config?.lookInvoices && typeof config.lookInvoices === 'object'
+    ? config.lookInvoices as {
+        count: number;
+        outstanding: number;
+        overdue: number;
+        recent: Array<{ id: string; invoice_number: number; status: string; total: number; due_date?: string }>;
+      }
+    : null;
+  const { data: fetched, isLoading } = useQuery({
     queryKey: ['widget-outstanding-invoices'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -1120,7 +1142,10 @@ export function OutstandingInvoicesWidget() {
       const overdue = invs.filter(i => i.status === 'overdue').reduce((s, i) => s + Number(i.total ?? 0), 0);
       return { count: invs.length, outstanding, overdue, recent: invs.slice(0, 5) };
     },
+    enabled: !lookInvoices,
   });
+  const data = lookInvoices ?? fetched;
+  const loading = lookInvoices ? false : isLoading;
 
   return (
     <div className="h-full flex flex-col">
@@ -1131,7 +1156,7 @@ export function OutstandingInvoicesWidget() {
         </div>
         <Link to="/invoices" className="text-[10px] text-blue-500 hover:underline">View all</Link>
       </div>
-      {isLoading ? (
+      {loading ? (
         <div className="flex-1 flex items-center justify-center text-xs text-gray-400">Loading…</div>
       ) : (
         <div className="flex-1 flex flex-col justify-center gap-1.5">

@@ -45,6 +45,7 @@ export function isDevFieldAuditAuth(): boolean {
       || params.get('look') === LETTERHEAD_LOOK
       || params.get('look') === 'person-tickets'
       || params.get('look') === 'team-list'
+      || params.get('look') === 'dashboard'
       || window.location.pathname === '/__field-audit'
     ) {
       sessionStorage.setItem(AUDIT_KEY, '1');

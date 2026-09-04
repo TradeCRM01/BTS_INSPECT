@@ -48,6 +48,11 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(page).toContain('Northside Electrical');
     expect(page).toContain('Harbour Lights');
     expect(page).toContain('Site labour');
+    expect(page).toContain('dashboardLookWidgets');
+    expect(page).toContain('data-dashboard-widgets="1"');
+    expect(page).toContain('dashboard-home-widget-ink');
+    expect(page).toContain('dashboard-home-widget-stack');
+    expect(page.indexOf('data-dashboard-widgets="1"')).toBeLessThan(page.lastIndexOf('</article>'));
     expect(page).not.toContain('hub-clients-list-doc');
     expect(page).not.toContain('hub-week-document');
     expect(page).not.toContain('hub-jobs-identity');
@@ -58,13 +63,17 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
 
     expect((page.match(/dashboard-home-more/g) ?? []).length).toBeGreaterThanOrEqual(1);
     expect((page.match(/MoreHorizontal/g) ?? []).length).toBeGreaterThanOrEqual(1);
-    expect((page.match(/className="btn-primary dashboard-home-primary"/g) ?? []).length).toBe(3);
+    expect((page.match(/className="btn-primary dashboard-home-primary"/g) ?? []).length).toBe(4);
 
     expect(css).toContain('.dashboard-home.ops-page');
     expect(css).toContain('.dashboard-home-sheet');
     expect(css).toContain('.dashboard-home-sheet-bar');
     expect(css).toContain('.dashboard-home-whisper');
     expect(css).toContain('.dashboard-home-tools');
+    expect(css).toContain('.dashboard-home-widgets');
+    expect(css).toContain('.dashboard-home-widget-ink');
+    expect(css).toContain('overflow-x: auto');
+    expect(css).not.toContain('max-width: 1100px');
     expect(css).toContain('background: #F5F0E6');
     expect(css).toContain('background: #FFFDF8');
     expect(css).toContain('color: #0A2540');
@@ -131,6 +140,8 @@ describe('dashboard laptop LOOK frames', () => {
     for (const rel of [
       'docs/look/dashboard-laptop-1280-document.png',
       'docs/look/dashboard-laptop-1280-overflow.png',
+      'docs/look/dashboard-widgets-laptop-1280.png',
+      'docs/look/dashboard-widgets-phone-390.png',
       'docs/look/quote-paper-reference.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);

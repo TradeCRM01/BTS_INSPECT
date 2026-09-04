@@ -12,7 +12,7 @@ import {
   useDraggable,
 } from '@dnd-kit/core';
 import {
-  Plus, X, GripVertical, Trash2, LayoutGrid, Sparkles, Briefcase, MoreHorizontal,
+  Plus, X, GripVertical, Trash2, Sparkles, Briefcase, MoreHorizontal,
 } from 'lucide-react';
 import { WIDGET_REGISTRY, WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
 import { WidgetRenderer } from '../widgets/WidgetComponents';
@@ -32,6 +32,11 @@ import {
   dashboardTodayKey,
   todaysDashboardJobs,
 } from '../lib/dashboardHome';
+import {
+  dashboardWidgetPixelSize,
+  defaultDashboardWidgetInserts,
+  resolveDashboardWidgets,
+} from '../lib/dashboardWidgets';
 import type { ScheduleCrewMember } from '../lib/scheduleBoard';
 
 interface DashboardWidget {
@@ -48,7 +53,7 @@ const MIN_W = 180;
 const MIN_H = 120;
 const MAX_W = 800;
 const MAX_H = 700;
-const CANVAS_PAD = 40;
+const CANVAS_PAD = 16;
 
 /** Signed dashboard frame seed — home look only, not a live company. */
 const DASHBOARD_LOOK = 'dashboard';
@@ -62,8 +67,94 @@ function dashboardLookCrew(): ScheduleCrewMember[] {
   ];
 }
 
+/** Same calendar day as the signed dashboard LOOK frames. */
+const DASHBOARD_LOOK_DAY = '2026-09-03';
+
+function dashboardLookNow(): Date {
+  return new Date(2026, 8, 3);
+}
+
+function dashboardLookWidgets(): DashboardWidget[] {
+  return [
+    {
+      id: 'look-widget-upcoming-jobs',
+      widget_type: 'upcoming_jobs',
+      grid_x: 0,
+      grid_y: 0,
+      grid_w: 360,
+      grid_h: 200,
+      config: {
+        lookJobs: [
+          {
+            id: 'look-w-job-northside',
+            title: 'Site labour',
+            scheduled_date: DASHBOARD_LOOK_DAY,
+            start_time: '07:30',
+            client_id: 'look-w-client-northside',
+            client_name: 'Northside Electrical',
+            priority: 'medium',
+          },
+          {
+            id: 'look-w-job-harbour',
+            title: 'Warehouse lights',
+            scheduled_date: DASHBOARD_LOOK_DAY,
+            start_time: '09:00',
+            client_id: 'look-w-client-harbour',
+            client_name: 'Harbour Lights',
+            priority: 'medium',
+          },
+        ],
+      },
+    },
+    {
+      id: 'look-widget-outstanding-invoices',
+      widget_type: 'outstanding_invoices',
+      grid_x: 376,
+      grid_y: 0,
+      grid_w: 280,
+      grid_h: 200,
+      config: {
+        lookInvoices: {
+          count: 1,
+          outstanding: 836,
+          overdue: 0,
+          recent: [
+            {
+              id: 'look-w-inv-2002',
+              invoice_number: 2002,
+              status: 'sent',
+              total: 836,
+              due_date: '2026-09-07',
+            },
+          ],
+        },
+      },
+    },
+    {
+      id: 'look-widget-compliance',
+      widget_type: 'compliance_deadlines',
+      grid_x: 672,
+      grid_y: 0,
+      grid_w: 320,
+      grid_h: 200,
+      config: {
+        lookCompliance: {
+          upcoming: [
+            {
+              id: 'look-w-comp-licence',
+              title: 'Licence EC-9988',
+              next_due_date: '2026-09-18',
+            },
+          ],
+          overdue: [],
+        },
+      },
+    },
+  ];
+}
+
 function dashboardLookJobs(): JobWithClient[] {
-  const day = dashboardTodayKey();
+  const day = DASHBOARD_LOOK_DAY;
   const stamp = '2026-09-03T00:00:00.000Z';
   const base = {
     company_id: 'look-dashboard',
@@ -127,14 +218,67 @@ export function DashboardPage() {
   const { data: widgets, isLoading: widgetsLoading, error } = useQuery<DashboardWidget[]>({
     queryKey: ['dashboard-widgets'],
     queryFn: async () => {
+      if (lookDashboard) return dashboardLookWidgets();
       const mock = getAuditDashboardWidgets();
       if (mock) return mock;
-      const { data, error } = await supabase
-        .from('dashboard_widgets')
-        .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
-        .order('grid_y', { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as DashboardWidget[];
+      if (!profile?.id) return [];
+
+      const loadRows = async (): Promise<DashboardWidget[]> => {
+        const { data, error } = await supabase
+          .from('dashboard_widgets')
+          .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
+          .order('grid_y', { ascending: true });
+        if (error) throw error;
+        return (data ?? []) as DashboardWidget[];
+      };
+
+      return resolveDashboardWidgets<DashboardWidget>({
+        loadRows,
+        loadSeeded: async () => {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('dashboard_widgets_seeded')
+            .eq('id', profile.id)
+            .maybeSingle();
+          if (error) throw error;
+          return !!data?.dashboard_widgets_seeded;
+        },
+        claimSeed: async () => {
+          const { data, error } = await supabase
+            .from('profiles')
+            .update({ dashboard_widgets_seeded: true } as never)
+            .eq('id', profile.id)
+            .eq('dashboard_widgets_seeded', false)
+            .select('id')
+            .maybeSingle();
+          if (error) throw error;
+          return !!data?.id;
+        },
+        insertDefaults: async () => {
+          const { data, error } = await supabase
+            .from('dashboard_widgets')
+            .insert(defaultDashboardWidgetInserts() as never)
+            .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config');
+          if (error) throw error;
+          return (data ?? []) as DashboardWidget[];
+        },
+        releaseSeed: async () => {
+          const { error } = await supabase
+            .from('profiles')
+            .update({ dashboard_widgets_seeded: false } as never)
+            .eq('id', profile.id)
+            .eq('dashboard_widgets_seeded', true);
+          if (error) throw error;
+        },
+        markSeeded: async () => {
+          const { error } = await supabase
+            .from('profiles')
+            .update({ dashboard_widgets_seeded: true } as never)
+            .eq('id', profile.id)
+            .eq('dashboard_widgets_seeded', false);
+          if (error) throw error;
+        },
+      });
     },
     enabled: !!profile,
   });
@@ -213,14 +357,15 @@ export function DashboardPage() {
     const w = widgets ?? [];
     // Place at a staggered offset so new widgets don't overlap exactly
     const offset = w.length * 30;
+    const size = dashboardWidgetPixelSize(widgetType);
     const { data, error } = await supabase
       .from('dashboard_widgets')
       .insert({
         widget_type: widgetType,
         grid_x: Math.min(offset, 400),
         grid_y: 20,
-        grid_w: def.defaultSize.w * 130,
-        grid_h: def.defaultSize.h * 90,
+        grid_w: size.grid_w,
+        grid_h: size.grid_h,
         config: {} as Json,
       } as never)
       .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
@@ -320,10 +465,11 @@ export function DashboardPage() {
   // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Canvas height: grows to fit all widgets Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const canvasHeight = useMemo(() => {
     const ws = widgets ?? [];
-    if (!ws.length) return 500;
+    const floor = editMode ? 320 : 0;
+    if (!ws.length) return floor;
     const maxBottom = Math.max(...ws.map(w => w.grid_y + w.grid_h));
-    return Math.max(500, maxBottom + CANVAS_PAD);
-  }, [widgets]);
+    return Math.max(floor, maxBottom + CANVAS_PAD);
+  }, [widgets, editMode]);
 
   if (pageQueryBlocked(error) || pageQueryBlocked(jobsError)) {
     return <AppShell><PageError message="Could not load dashboard" /></AppShell>;
@@ -332,7 +478,7 @@ export function DashboardPage() {
   const work = todayJobs ?? [];
   const jobCountLabel = work.length === 1 ? '1 job' : `${work.length} jobs`;
   const whisper = [
-    dashboardHeadingDate(),
+    dashboardHeadingDate(lookDashboard ? dashboardLookNow() : undefined),
     company?.name,
     !jobsLoading && work.length > 0 ? jobCountLabel : null,
   ].filter(Boolean).join(' · ');
@@ -391,7 +537,7 @@ export function DashboardPage() {
                   <span>Place</span>
                 </div>
                 {work.map(job => {
-                  const state = dashboardJobState(job);
+                  const state = dashboardJobState(job, lookDashboard ? dashboardLookNow() : undefined);
                   const place = dashboardJobPlace(job);
                   const meta = [
                     formatJobRef(job),
@@ -420,66 +566,67 @@ export function DashboardPage() {
                 })}
               </div>
             )}
-          </div>
-        </article>
 
-        {editMode && (
-          widgetsLoading ? (
-            <div className="dashboard-home-widgets flex justify-center py-12"><LoadingSpinner /></div>
-          ) : (widgets ?? []).length === 0 ? (
-            <div className="dashboard-home-widgets">
-              <div className="flex flex-col items-center justify-center py-12">
-                <LayoutGrid size={40} className="dashboard-home-widget-empty-icon" />
-                <p className="dashboard-home-meta">No widgets yet</p>
-                <button type="button" onClick={() => setShowPicker(true)} className="dashboard-home-sub">
-                  <Plus size={16} /> Add a widget
+            {!widgetsLoading && (widgets ?? []).length === 0 && (
+              <div className="dashboard-home-tools">
+                <button
+                  type="button"
+                  onClick={() => setShowPicker(true)}
+                  className="btn-primary dashboard-home-primary"
+                >
+                  <Plus size={16} />
+                  Add widget
                 </button>
               </div>
-            </div>
-          ) : (
-            <div className="dashboard-home-widgets">
-              <div className="md:hidden grid grid-cols-1 gap-3">
-                {(widgets ?? []).map(w => (
-                  <div key={w.id} className="dashboard-home-widget overflow-hidden" style={{ minHeight: Math.min(w.grid_h, 300) }}>
-                    <div className="h-full p-3">
-                      <WidgetRenderer
-                        type={w.widget_type}
-                        config={(w.config as Record<string, unknown>) ?? {}}
-                        onConfigChange={(c) => updateWidgetConfig(w.id, c)}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+            )}
 
-              <div className="hidden md:block">
-                <DndContext
-                  sensors={sensors}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                >
-                  <div
-                    ref={canvasRef}
-                    className="dashboard-home-canvas relative overflow-x-auto is-editing"
-                    style={{ height: canvasHeight, minWidth: '100%' }}
+            {widgetsLoading ? (
+              <div className="dashboard-home-widgets flex justify-center py-12"><LoadingSpinner /></div>
+            ) : (widgets ?? []).length === 0 ? null : (
+              <div className="dashboard-home-widgets" data-dashboard-widgets="1">
+                <div className="md:hidden dashboard-home-widget-stack">
+                  {(widgets ?? []).map(w => (
+                    <div key={w.id} className="dashboard-home-widget">
+                      <div className="dashboard-home-widget-ink">
+                        <WidgetRenderer
+                          type={w.widget_type}
+                          config={(w.config as Record<string, unknown>) ?? {}}
+                          onConfigChange={(c) => updateWidgetConfig(w.id, c)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="hidden md:block">
+                  <DndContext
+                    sensors={sensors}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
                   >
-                    {(widgets ?? []).map(w => (
-                      <FreeWidget
-                        key={w.id}
-                        widget={w}
-                        editMode={editMode}
-                        onRemove={() => removeWidget(w.id)}
-                        onResizeStart={(e) => startResize(e, w)}
-                        onConfigChange={(c) => updateWidgetConfig(w.id, c)}
-                        isDragging={activeId === w.id}
-                      />
-                    ))}
-                  </div>
-                </DndContext>
+                    <div
+                      ref={canvasRef}
+                      className={`dashboard-home-canvas relative overflow-x-auto${editMode ? ' is-editing' : ''}`}
+                      style={{ height: canvasHeight, minWidth: '100%' }}
+                    >
+                      {(widgets ?? []).map(w => (
+                        <FreeWidget
+                          key={w.id}
+                          widget={w}
+                          editMode={editMode}
+                          onRemove={() => removeWidget(w.id)}
+                          onResizeStart={(e) => startResize(e, w)}
+                          onConfigChange={(c) => updateWidgetConfig(w.id, c)}
+                          isDragging={activeId === w.id}
+                        />
+                      ))}
+                    </div>
+                  </DndContext>
+                </div>
               </div>
-            </div>
-          )
-        )}
+            )}
+          </div>
+        </article>
       </div>
 
       {/* Widget Picker Modal */}
@@ -639,8 +786,7 @@ function FreeWidget({
           </div>
         )}
 
-        {/* Widget content */}
-        <div className={`h-full p-3 ${editMode ? 'pt-8' : ''}`}>
+        <div className={`dashboard-home-widget-ink h-full ${editMode ? 'is-editing' : ''}`}>
           <WidgetRenderer
             type={widget.widget_type}
             config={(widget.config as Record<string, unknown>) ?? {}}

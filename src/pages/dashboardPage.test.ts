@@ -60,6 +60,65 @@ describe('signed-in dashboard today floor', () => {
   });
 });
 
+describe('dashboard widgets stay on the paper', () => {
+  it('shows persisted widgets without Customize, and seeds an empty table once', () => {
+    const page = src('src/pages/DashboardPage.tsx');
+    expect(page).toContain("from('dashboard_widgets')");
+    expect(page).toContain('resolveDashboardWidgets');
+    expect(page).toContain('defaultDashboardWidgetInserts');
+    expect(page).toContain('dashboard_widgets_seeded');
+    expect(page).toContain(".eq('dashboard_widgets_seeded', false)");
+    expect(page).toContain('claimSeed');
+    expect(page).toContain('releaseSeed');
+    expect(page).toContain('persistWidget');
+    expect(page).toContain('dashboard-home-canvas');
+    expect(page).toContain('FreeWidget');
+    expect(page).toContain('dashboardLookWidgets');
+    expect(page).toContain('data-dashboard-widgets="1"');
+    expect(page.indexOf('dashboard-home-widgets')).toBeLessThan(page.lastIndexOf('</article>'));
+    expect(page).not.toContain('{editMode && (\n          widgetsLoading');
+    expect(page).not.toMatch(/\{editMode && \(\s*widgetsLoading/);
+    expect(page).not.toContain('shouldSeedDefaultDashboardWidgets');
+    expect(page).toContain("queryKey: ['dashboard-widgets']");
+
+    const helper = src('src/lib/dashboardWidgets.ts');
+    expect(helper).toContain('upcoming_jobs');
+    expect(helper).toContain('outstanding_invoices');
+    expect(helper).toContain('compliance_deadlines');
+    expect(helper).toContain('decideDashboardWidgetSeed');
+    expect(helper).not.toMatch(/['"]bitcoin['"]/);
+    expect(helper).not.toMatch(/electric|electrical/i);
+
+    const migration = src('supabase/migrations/20260903140000_073_dashboard_widgets_seeded.sql');
+    expect(migration).toContain('ALTER TABLE public.profiles');
+    expect(migration).toContain('dashboard_widgets_seeded');
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS dashboard_widgets_seeded');
+    expect(migration).not.toMatch(/create table/i);
+    expect(existsSync(resolve(process.cwd(), 'supabase/migrations/20260903120100_073_dashboard_widgets_seeded.sql'))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), 'supabase/migrations/20260903120000_072_dashboard_widgets_seeded.sql'))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), 'supabase/migrations/20260903120000_072_member_tickets.sql'))).toBe(false);
+  });
+
+  it('puts Add widget on the paper when none are set', () => {
+    const page = src('src/pages/DashboardPage.tsx');
+    expect(page).toContain('!widgetsLoading && (widgets ?? []).length === 0');
+    expect(page).toContain('Add widget');
+    expect(page).toMatch(/\(widgets \?\? \[\]\)\.length === 0 && \([\s\S]*?btn-primary dashboard-home-primary/);
+    expect(page).not.toContain('Add a widget');
+    expect(page).not.toContain('path="/widgets"');
+    expect(page).not.toContain('WidgetsPage');
+    expect(page).not.toContain('create table dashboard_widgets');
+  });
+
+  it('keeps Customize for drag and remove only', () => {
+    const page = src('src/pages/DashboardPage.tsx');
+    expect(page).toContain("editMode ? 'Done editing' : 'Customize'");
+    expect(page).toContain('disabled: !editMode');
+    expect(page).toContain('{editMode && (');
+    expect(page).toContain('onRemove={() => removeWidget(w.id)}');
+  });
+});
+
 describe('signed-in dashboard document sheet look', () => {
   it('paints the dashboard as the document sheet, not cards, admin rows, or a widget wall', () => {
     const page = src('src/pages/DashboardPage.tsx');
