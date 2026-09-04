@@ -48,6 +48,7 @@ async function measure(page) {
 const laptop = await browser.newContext({
   viewport: { width: 1280, height: 900 },
   deviceScaleFactor: 1,
+  locale: 'en-AU',
 });
 const laptopPage = await laptop.newPage();
 await openHarness(laptopPage);
@@ -67,6 +68,7 @@ const phone = await browser.newContext({
   deviceScaleFactor: 1,
   isMobile: true,
   hasTouch: true,
+  locale: 'en-AU',
 });
 const phonePage = await phone.newPage();
 await openHarness(phonePage);
