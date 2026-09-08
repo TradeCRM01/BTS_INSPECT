@@ -24,11 +24,11 @@ async function openHarness(page) {
   await page.waitForTimeout(400);
 }
 
-async function frameTray(page, { block }) {
-  await page.evaluate((align) => {
-    const tray = document.getElementById('job-visit-notes');
-    tray?.scrollIntoView({ block: align, inline: 'nearest' });
-  }, block);
+async function framePaper(page) {
+  await page.evaluate(() => {
+    const paper = document.querySelector('.hub-jobs-document');
+    paper?.scrollIntoView({ block: 'start', inline: 'nearest' });
+  });
   await page.waitForTimeout(200);
 }
 
@@ -45,6 +45,17 @@ async function measure(page) {
       cream: cream ? getComputedStyle(cream).backgroundColor : null,
       paper: paper ? getComputedStyle(paper).backgroundColor : null,
       paperWidth: paper ? Math.round(paper.getBoundingClientRect().width) : null,
+      paperTop: paper ? Math.round(paper.getBoundingClientRect().top) : null,
+      barTop: document.querySelector('.hub-jobs-sheet-bar')
+        ? Math.round(document.querySelector('.hub-jobs-sheet-bar').getBoundingClientRect().top)
+        : null,
+      heroInView: (() => {
+        const hero = document.querySelector('.hub-jobs-hero');
+        if (!hero) return false;
+        const r = hero.getBoundingClientRect();
+        return r.top < window.innerHeight && r.bottom > 0;
+      })(),
+      trayBottom: tray ? Math.round(tray.getBoundingClientRect().bottom) : null,
       trayInsidePaper: !!(paper && tray && paper.contains(tray)),
       trayTop: tray ? Math.round(tray.getBoundingClientRect().top) : null,
       trayCard: tray ? {
@@ -73,7 +84,7 @@ const laptop = await browser.newContext({
 });
 const laptopPage = await laptop.newPage();
 await openHarness(laptopPage);
-await frameTray(laptopPage, { block: 'center' });
+await framePaper(laptopPage);
 console.log('laptop', await measure(laptopPage));
 await laptopPage.screenshot({ path: `${OUT}/visit-notes-laptop-1280.png`, type: 'png' });
 await laptop.close();
@@ -87,14 +98,21 @@ const phone = await browser.newContext({
 });
 const phonePage = await phone.newPage();
 await openHarness(phonePage);
-await frameTray(phonePage, { block: 'start' });
-await phonePage.evaluate(() => {
+const phoneScroll = await phonePage.evaluate(() => {
+  const time = document.querySelector('#job-hours .ops-section-title');
   const tray = document.getElementById('job-visit-notes');
-  if (!tray) return;
-  const y = window.scrollY + tray.getBoundingClientRect().top - 72;
-  window.scrollTo(0, Math.max(0, y));
+  const target = time || tray;
+  if (!target) return { ok: false };
+  target.scrollIntoView({ block: 'start', inline: 'nearest' });
+  const after = tray?.getBoundingClientRect();
+  return {
+    ok: true,
+    timeTop: time ? Math.round(time.getBoundingClientRect().top) : null,
+    trayTop: after ? Math.round(after.top) : null,
+    scrollY: Math.round(window.scrollY),
+  };
 });
-await phonePage.waitForTimeout(200);
+console.log('phoneScroll', phoneScroll);
 console.log('phone', await measure(phonePage));
 await phonePage.screenshot({ path: `${OUT}/visit-notes-phone-390.png`, type: 'png' });
 await phone.close();

@@ -25,6 +25,7 @@ describe('job-sheet Visit notes LOOK', () => {
     expect(page).toContain("const VISIT_NOTES_LOOK = 'visit-notes'");
     expect(page).toContain('id="job-visit-notes"');
     expect(page).toContain('lookVisitNotes');
+    expect(page).toContain('is-visit-notes-look');
     expect(page).toContain('Fitted the new unit.');
     expect(page).toContain('Pulled the old unit.');
     expect(page).toContain('Site walk. Isolated the feed.');
@@ -61,6 +62,7 @@ describe('job-sheet Visit notes LOOK', () => {
     expect(lookCss).toContain("font-family: Rajdhani, sans-serif");
     expect(lookCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(lookCss).toContain('.job-visit-hairline');
+    expect(lookCss).toContain('.hub-jobs.is-visit-notes-look');
     expect(lookCss).toContain('border-bottom: 1px solid var(--visit-line)');
     expect(lookCss).toContain('.job-visit-post');
     expect(lookCss).toContain('background: none');

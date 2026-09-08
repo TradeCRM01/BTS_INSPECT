@@ -443,10 +443,9 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           align-items: end;
           gap: 8px 16px;
           margin: 0;
-          padding: 0 0 8px;
+          padding: 0 0 4px;
           background: none;
           border: none;
-          border-bottom: 1px solid var(--visit-line);
           box-shadow: none;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline {
@@ -555,6 +554,9 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           background: none;
           color: var(--visit-muted);
           box-shadow: none;
+        }
+        .hub-jobs.is-visit-notes-look .hub-jobs-more-trays > :not(#job-hours):not(#job-visit-notes):not(#job-insp) {
+          display: none;
         }
         @media (max-width: 639px) {
           .hub-jobs.is-record-open #job-visit-notes .job-visit-compose {
@@ -1378,7 +1380,7 @@ export function JobDetailPage() {
         ${JOB_TESTING_DUE_LOOK_CSS}
         ${JOB_VISIT_NOTES_LOOK_CSS}
       `}</style>
-      <div className="ops-page hub-jobs hub-job-cal is-record-open">
+      <div className={`ops-page hub-jobs hub-job-cal is-record-open${visitNotesLookOn() ? ' is-visit-notes-look' : ''}`}>
         <Breadcrumbs items={[
           { label: 'Jobs', to: '/jobs' },
           { label: `${jobRef} ${job.title}` },
