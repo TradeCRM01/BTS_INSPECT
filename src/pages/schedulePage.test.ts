@@ -33,6 +33,25 @@ describe('schedule page week/day board', () => {
     expect(search).toContain('data-schedule-open-job={job.id}');
   });
 
+  it('wires phone day crew drop zones the same way as the desktop day board', () => {
+    const page = src('src/pages/SchedulePage.tsx');
+    const board = src('src/components/crm/BoardViews.tsx');
+    const phoneDay = board.slice(
+      board.indexOf('export const PhoneDayList'),
+      board.indexOf('export const PhoneWeekList'),
+    );
+    const phoneDayMount = page.slice(
+      page.indexOf('<PhoneDayList'),
+      page.indexOf('</PhoneDayList>'),
+    );
+    expect(phoneDay).toContain('onJobDrop?: (drop: JobDropPayload) => void');
+    expect(phoneDay).toContain('data-crew-drop={row.id}');
+    expect(phoneDay).toContain('onDrop={e => handleDrop(e, row.id)}');
+    expect(phoneDayMount).toContain('onJobDrop={drop => {');
+    expect(page).toContain('placePickedHint');
+    expect(page).not.toContain('today at 8:00');
+  });
+
   it('groups the phone week from existing scheduled_date fields', () => {
     const board = src('src/components/crm/BoardViews.tsx');
     expect(board).toContain('export const PhoneWeekList');

@@ -16,7 +16,7 @@ import {
   type TeamMember,
 } from '../components/crm/BoardViews';
 import { pickEmployeeColor } from '../lib/jobColors';
-import { DEFAULT_SLOT_START, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
+import { DEFAULT_SLOT_START, placePickedHint, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
@@ -708,7 +708,7 @@ export function SchedulePage() {
         {pickedJob && boardCrew.length > 0 && (
           <div className="lg:hidden hub-schedule-sheet hub-schedule-place mb-4">
             <p className="text-sm font-medium">
-              {pickedJob.title} — tap a person to place it today at 8:00
+              {placePickedHint(pickedJob.title, currentDate, pickedJob.start_time)}
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
               {boardCrew.map(m => (
@@ -811,7 +811,7 @@ export function SchedulePage() {
                 {pickedJob && boardCrew.length > 0 && (
                   <div className="hub-week-place hub-schedule-place">
                     <p>
-                      {pickedJob.title} — tap a person to place it today at 8:00
+                      {placePickedHint(pickedJob.title, currentDate, pickedJob.start_time)}
                     </p>
                     <div className="hub-week-place-crew">
                       {boardCrew.map(m => (

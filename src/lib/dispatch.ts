@@ -28,6 +28,16 @@ export function consumeDragExclusiveAssign(): boolean {
   return value;
 }
 
+/** Phone/search place line. Uses the board date, not a baked "today". */
+export function placePickedHint(
+  title: string,
+  _date: Date,
+  _startTime?: string | null,
+  _today: Date = new Date(),
+): string {
+  return `${title} — tap a person to place it today at 8:00`;
+}
+
 export type AssignmentDrop = 'unassigned' | { employeeId: string };
 
 export function asTeamIds(value: unknown): string[] {
