@@ -12,6 +12,8 @@ import {
   DAY_START_HOUR,
   DAY_END_HOUR,
   HOUR_WIDTH_PX,
+  dayBoardHourWidthPx,
+  dayBoardHoursFit,
   timeToMinutes,
   resizeJobTimes,
   rememberDraggedJob,
@@ -27,9 +29,10 @@ import { calendarSite } from '../../lib/jobCalendar';
 import { formatJobRef } from '../../lib/jobRef';
 import {
   jobsOnScheduleDay,
-  scheduleClockLabel,
+  scheduleChipClock,
   scheduleDateKey,
   scheduleDayKey,
+  schedulePlotTimes,
   scheduleWeekDays,
   weekBoardChip,
   weekBoardRows,
@@ -56,7 +59,6 @@ export interface BoardProps {
   onSelectDay?: (date: Date) => void;
 }
 
-const HOUR_WIDTH = HOUR_WIDTH_PX;
 const DAY_START = DAY_START_HOUR;
 const DAY_END = DAY_END_HOUR;
 const HOURS = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => DAY_START + i);
@@ -97,7 +99,7 @@ const JobBlock = memo(function JobBlock({
 }: JobBlockProps) {
   const chip = weekBoardChip(job);
   const ink = getReadableText(chip.color);
-  const clock = scheduleClockLabel(job.start_time, job.end_time);
+  const clock = scheduleChipClock(job.start_time, job.end_time);
 
   return (
     <div
@@ -114,12 +116,13 @@ const JobBlock = memo(function JobBlock({
         }
       }}
       data-schedule-job={job.id}
+      data-chip-clock={clock}
       className={`hub-week-chip cursor-pointer w-full h-full ${
         dragging ? 'is-dragging' : ''
       }`}
       style={{ background: chip.color, color: ink }}
     >
-      <span className="hub-week-chip-ref">{clock ? `${clock} · ${chip.ref}` : chip.ref}</span>
+      <span className="hub-week-chip-ref">{`${clock} · ${chip.ref}`}</span>
       {chip.description ? <span className="hub-week-chip-desc">{chip.description}</span> : null}
     </div>
   );
@@ -295,6 +298,7 @@ export const DayBoardView = memo(function DayBoardView({
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverId, setDropHoverId] = useState<string | null>(null);
   const [resizePreview, setResizePreview] = useState<{ jobId: string; start_time: string; end_time: string } | null>(null);
+  const [hourWidth, setHourWidth] = useState(HOUR_WIDTH_PX);
   const dateStr = dateKey(currentDate);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -335,7 +339,17 @@ export const DayBoardView = memo(function DayBoardView({
   const unassignedCount = jobsByRow.get(UNASSIGNED_ROW_ID)?.length ?? 0;
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollLeft = (8 - DAY_START) * HOUR_WIDTH;
+    const el = scrollRef.current;
+    if (!el) return;
+    const apply = () => {
+      const next = dayBoardHourWidthPx(el.clientWidth);
+      setHourWidth(next);
+      el.scrollLeft = dayBoardHoursFit(el.clientWidth) ? 0 : (8 - DAY_START) * next;
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, [currentDate]);
 
   useEffect(() => {
@@ -375,7 +389,7 @@ export const DayBoardView = memo(function DayBoardView({
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const startTime = startTimeFromDropOffset(e.clientX - rect.left, {
-      hourWidth: HOUR_WIDTH,
+      hourWidth,
       dayStart: DAY_START,
       dayEnd: DAY_END,
     });
@@ -393,7 +407,7 @@ export const DayBoardView = memo(function DayBoardView({
 
     const minutesAt = (clientX: number) => {
       const start = startTimeFromDropOffset(clientX - gridLeft, {
-        hourWidth: HOUR_WIDTH,
+        hourWidth,
         dayStart: DAY_START,
         dayEnd: DAY_END,
       });
@@ -427,12 +441,15 @@ export const DayBoardView = memo(function DayBoardView({
     window.addEventListener('pointercancel', finish);
   };
 
-  const gridWidth = HOURS.length * HOUR_WIDTH;
+  const gridWidth = HOURS.length * hourWidth;
   const paintedRows = rows.map((row, rowIdx) => {
     const isUnassigned = row.id === UNASSIGNED_ROW_ID;
     const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
     const rowJobs = jobsByRow.get(row.id) ?? [];
-    const layout = placeDayRowJobs(rowJobs);
+    const layout = placeDayRowJobs(rowJobs.map(job => {
+      const plot = schedulePlotTimes(job);
+      return { id: job.id, start_time: plot.start_time, end_time: plot.end_time };
+    }));
     const placementById = new Map(layout.placements.map(p => [p.id, p]));
     const height = dayRowHeightPx(layout.allDayCount, layout.timedLaneCount, {
       min: ROW_MIN, allDayH: ALL_DAY_H, timedH: TIMED_H, pad: ROW_PAD,
@@ -510,11 +527,11 @@ export const DayBoardView = memo(function DayBoardView({
           ))}
         </div>
 
-        <div ref={scrollRef} className="hub-day-hours job-cal-board-scroll">
+        <div ref={scrollRef} className="hub-day-hours job-cal-board-scroll" data-day-hours="1">
           <div className="flex border-b border-rule" style={{ minWidth: gridWidth }}>
             {HOURS.map(h => (
               <div key={h} className="text-center border-r border-rule last:border-r-0"
-                style={{ width: HOUR_WIDTH }}>
+                style={{ width: hourWidth }}>
                 <div className="px-1 py-2">
                   <span className="hub-schedule-label">{formatHourLabel(h)}</span>
                 </div>
@@ -543,39 +560,22 @@ export const DayBoardView = memo(function DayBoardView({
                   <div
                     key={h}
                     className="absolute top-0 bottom-0 border-r border-rule last:border-r-0"
-                    style={{ left: (h - DAY_START) * HOUR_WIDTH, width: HOUR_WIDTH }}
+                    style={{ left: (h - DAY_START) * hourWidth, width: hourWidth }}
                   />
                 ))}
 
-                {isToday(currentDate) && <CurrentTimeVerticalIndicator />}
+                {isToday(currentDate) && <CurrentTimeVerticalIndicator hourWidth={hourWidth} />}
 
                 {painted.rowJobs.map(job => {
                   const placed = painted.placementById.get(job.id);
                   if (!placed) return null;
-                  if (placed.allDay) {
-                    return (
-                      <div
-                        key={job.id}
-                        className="absolute left-1 right-1"
-                        style={{ top: ROW_PAD + placed.lane * ALL_DAY_H, height: ALL_DAY_H - 2 }}
-                      >
-                        <JobBlock
-                          job={job}
-                          teamMembers={teamMembers}
-                          compact
-                          dragging={dragJobId === job.id}
-                          onClick={() => onJobClick(job)}
-                          onDragStart={e => handleDragStart(e, job.id)}
-                        />
-                      </div>
-                    );
-                  }
+                  const plot = schedulePlotTimes(job);
                   const preview = resizePreview?.jobId === job.id ? resizePreview : null;
-                  const startM = timeToMinutes(preview?.start_time ?? job.start_time);
-                  const endM = timeToMinutes(preview?.end_time ?? job.end_time) ?? (startM ?? DAY_START * 60) + 60;
+                  const startM = timeToMinutes(preview?.start_time ?? plot.start_time);
+                  const endM = timeToMinutes(preview?.end_time ?? plot.end_time) ?? (startM ?? DAY_START * 60) + 60;
                   if (startM == null) return null;
-                  const left = Math.max(0, (startM / 60 - DAY_START) * HOUR_WIDTH + 2);
-                  const width = Math.max(60, ((endM - startM) / 60) * HOUR_WIDTH - 4);
+                  const left = Math.max(0, (startM / 60 - DAY_START) * hourWidth + 2);
+                  const width = Math.max(60, ((endM - startM) / 60) * hourWidth - 4);
                   const top = ROW_PAD + painted.layout.allDayCount * ALL_DAY_H + placed.lane * TIMED_H;
                   const displayJob = preview
                     ? { ...job, start_time: preview.start_time, end_time: preview.end_time }
@@ -586,7 +586,7 @@ export const DayBoardView = memo(function DayBoardView({
                       className="absolute"
                       style={{ left, width, top, height: TIMED_H - 4 }}
                     >
-                      {onJobResize && (
+                      {onJobResize && plot.stored && (
                         <>
                           <div
                             role="separator"
@@ -632,11 +632,11 @@ export const DayBoardView = memo(function DayBoardView({
   );
 });
 
-function CurrentTimeVerticalIndicator() {
+function CurrentTimeVerticalIndicator({ hourWidth }: { hourWidth: number }) {
   const now = new Date();
   const h = now.getHours() + now.getMinutes() / 60;
   if (h < DAY_START || h > DAY_END) return null;
-  const left = (h - DAY_START) * HOUR_WIDTH;
+  const left = (h - DAY_START) * hourWidth;
   return (
     <div className="absolute top-0 bottom-0 z-20 pointer-events-none" style={{ left }}>
       <div className="flex flex-col items-center h-full">

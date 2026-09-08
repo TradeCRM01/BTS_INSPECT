@@ -105,8 +105,8 @@ function weekBoardLookJobs(): JobWithClient[] {
       scheduled_date: '2025-04-01',
       assigned_team: [WEEK_LOOK_JACK],
       job_number: 51,
-      start_time: '09:00',
-      end_time: '12:00',
+      start_time: null,
+      end_time: null,
       color: WEEK_LOOK_WATER,
     }),
     weekBoardLookJob({
@@ -298,6 +298,7 @@ function WeekBoardChrome() {
 function WeekBoardDocument({
   mark,
   whisper,
+  rangeLabel,
   onNewJob,
   crews,
   track,
@@ -305,6 +306,7 @@ function WeekBoardDocument({
 }: {
   mark: string;
   whisper: string;
+  rangeLabel: string;
   onNewJob: () => void;
   crews: ReactNode;
   track: ReactNode;
@@ -317,6 +319,7 @@ function WeekBoardDocument({
         {mark === 'Day'
           ? <span className="hub-week-sheet-mark">Day</span>
           : <span className="hub-week-sheet-mark">Week</span>}
+        <p className="hub-week-range">{rangeLabel}</p>
       </header>
       <div className="hub-week-sheet-body">
         <div className="hub-week-identity-row">
@@ -824,6 +827,7 @@ export function SchedulePage() {
               <WeekBoardDocument
                 mark={viewMode === 'day' ? 'Day' : 'Week'}
                 whisper={boardWhisper}
+                rangeLabel={boardRangeLabel}
                 onNewJob={openNewJob}
                 crews={weekCrews}
                 track={boardTrack}

@@ -1,7 +1,9 @@
 /** Day-board time grid (matches BoardViews). */
 export const DAY_START_HOUR = 6;
 export const DAY_END_HOUR = 20;
+export const DAY_HOUR_COUNT = DAY_END_HOUR - DAY_START_HOUR + 1;
 export const HOUR_WIDTH_PX = 96;
+export const DAY_HOUR_MIN_PX = 56;
 export const SNAP_MINUTES = 15;
 export const DEFAULT_SLOT_MINUTES = 60;
 export const DEFAULT_SLOT_START = '08:00:00';
@@ -52,6 +54,18 @@ export function nextAssignedTeam(
   if (crew.length === 0) return [drop.employeeId];
   if (crew.includes(drop.employeeId)) return crew;
   return [...crew, drop.employeeId];
+}
+
+/** Fit the 6 AM–8 PM grid when the hours pane is wide enough. Phone stays 96px and scrolls. */
+export function dayBoardHourWidthPx(clientWidth: number): number {
+  if (clientWidth <= 0) return HOUR_WIDTH_PX;
+  const fit = Math.floor(clientWidth / DAY_HOUR_COUNT);
+  if (fit >= DAY_HOUR_MIN_PX) return Math.min(HOUR_WIDTH_PX, fit);
+  return HOUR_WIDTH_PX;
+}
+
+export function dayBoardHoursFit(clientWidth: number): boolean {
+  return clientWidth > 0 && Math.floor(clientWidth / DAY_HOUR_COUNT) >= DAY_HOUR_MIN_PX;
 }
 
 export function timeToMinutes(t: string | null | undefined): number | null {

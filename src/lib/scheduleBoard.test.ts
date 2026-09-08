@@ -9,7 +9,9 @@ import {
   jobMatchesCrewFilter,
   jobsOnScheduleDay,
   parseScheduleView,
+  scheduleChipClock,
   scheduleClockLabel,
+  schedulePlotTimes,
   scheduleCrewLabel,
   scheduleCrewNames,
   scheduleDateKey,
@@ -158,6 +160,28 @@ describe('scheduleClockLabel', () => {
     expect(scheduleClockLabel('08:30:00', '16:00:00')).toBe('08:30 – 16:00');
     expect(scheduleClockLabel('08:30:00', null)).toBe('08:30');
     expect(scheduleClockLabel(null, '16:00:00')).toBeNull();
+  });
+});
+
+describe('scheduleChipClock', () => {
+  it('keeps stored times and gives untimed chips a work-day weight', () => {
+    expect(scheduleChipClock('09:00:00', '12:00:00')).toBe('09:00 – 12:00');
+    expect(scheduleChipClock(null, null)).toBe('08:00 – 16:00');
+  });
+});
+
+describe('schedulePlotTimes', () => {
+  it('plots untimed jobs as 08:00–16:00 without marking them stored', () => {
+    expect(schedulePlotTimes({ start_time: null, end_time: null })).toEqual({
+      start_time: '08:00',
+      end_time: '16:00',
+      stored: false,
+    });
+    expect(schedulePlotTimes({ start_time: '10:00', end_time: '15:00' })).toEqual({
+      start_time: '10:00',
+      end_time: '15:00',
+      stored: true,
+    });
   });
 });
 

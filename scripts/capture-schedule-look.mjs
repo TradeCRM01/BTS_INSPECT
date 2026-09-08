@@ -67,6 +67,27 @@ async function measure(page) {
       ? [...board.querySelectorAll('.hub-week-cell.is-empty')].length
       : 0;
     const rail = document.querySelector('.hub-week-document .ops-tray');
+    const hours = board?.querySelector('[data-day-hours="1"]');
+    const hoursBox = hours?.getBoundingClientRect();
+    const hourCol = hours?.querySelector('.hub-schedule-label')?.parentElement?.parentElement;
+    const chipReads = board
+      ? [...board.querySelectorAll('.hub-week-chip')].map((el) => {
+        const box = el.getBoundingClientRect();
+        const desc = el.querySelector('.hub-week-chip-desc');
+        const descStyle = desc ? getComputedStyle(desc) : null;
+        const text = (el.innerText || '').replace(/\s+/g, ' ').trim();
+        return {
+          text,
+          w: Math.round(box.width),
+          h: Math.round(box.height),
+          descWrap: descStyle ? descStyle.whiteSpace : null,
+          ellipsis: !!(desc && descStyle?.textOverflow === 'ellipsis' && desc.scrollWidth > desc.clientWidth + 1),
+          hasSiteCopy: /no site address/i.test(text),
+          staleDate: /31 Mar|31 March|created/i.test(text),
+          clock: el.getAttribute('data-chip-clock'),
+        };
+      })
+      : [];
     const locks = board
       ? [...board.querySelectorAll('.hub-day-crew-lock')].map((el) => {
         const box = el.getBoundingClientRect();
@@ -96,6 +117,21 @@ async function measure(page) {
       crewClip: locks,
       crewNamesReadable: locks.length === 0
         || locks.every((lock) => lock.clipBy <= 0 && /Crew|Dave|Jack|Sam/.test(lock.text)),
+      hours: hours
+        ? {
+          clientWidth: Math.round(hours.clientWidth),
+          scrollWidth: Math.round(hours.scrollWidth),
+          scrollLeft: Math.round(hours.scrollLeft),
+          hourW: hourCol ? Math.round(hourCol.getBoundingClientRect().width) : null,
+          overflow: hours.scrollWidth > hours.clientWidth + 1,
+        }
+        : null,
+      chips: chipReads,
+      titlesWrap: chipReads.every((chip) => !chip.ellipsis),
+      noSiteHero: chipReads.every((chip) => !chip.hasSiteCopy),
+      noStaleChipDate: chipReads.every((chip) => !chip.staleDate),
+      untimedWeight: !chipReads.some((chip) => /Hot water/.test(chip.text))
+        || chipReads.some((chip) => /Hot water/.test(chip.text) && chip.h >= 40 && chip.w >= 180),
       chipCount: chips.length,
       trackInPaper: !!(paper && track && paper.contains(track)),
       boardInPaper: !!(paper && board && paper.contains(board)),
@@ -126,10 +162,46 @@ async function shoot(width, height, isPhone, path, file) {
   return stats;
 }
 
-await shoot(1280, 900, false, WEEK, 'schedule-week-laptop-1280.png');
-await shoot(1280, 900, false, DAY, 'schedule-day-laptop-1280.png');
-await shoot(390, 844, true, WEEK, 'schedule-week-phone-390.png');
-await shoot(390, 844, true, DAY, 'schedule-day-phone-390.png');
+const weekLaptop = await shoot(1280, 900, false, WEEK, 'schedule-week-laptop-1280.png');
+const dayLaptop = await shoot(1280, 900, false, DAY, 'schedule-day-laptop-1280.png');
+const weekPhone = await shoot(390, 844, true, WEEK, 'schedule-week-phone-390.png');
+
+const phoneDayCtx = await browser.newContext({
+  viewport: { width: 390, height: 844 },
+  deviceScaleFactor: 1,
+  isMobile: true,
+  hasTouch: true,
+  locale: 'en-AU',
+});
+const phoneDay = await phoneDayCtx.newPage();
+await openHarness(phoneDay, DAY);
+await framePaper(phoneDay);
+const dayPhoneBefore = await measure(phoneDay);
+await phoneDay.evaluate(() => {
+  const hours = [...document.querySelectorAll('[data-day-hours="1"]')]
+    .find((el) => el.getBoundingClientRect().width > 0);
+  if (hours) hours.scrollLeft += 400;
+});
+await phoneDay.waitForTimeout(200);
+const dayPhoneAfterScroll = await measure(phoneDay);
+await phoneDay.screenshot({ path: `${OUT}/schedule-day-phone-390.png`, type: 'png' });
+await phoneDayCtx.close();
+
+const look = {
+  titlesWrap: weekLaptop.titlesWrap && dayLaptop.titlesWrap && weekPhone.titlesWrap,
+  noSiteHero: weekLaptop.noSiteHero && dayLaptop.noSiteHero && weekPhone.noSiteHero,
+  noStaleChipDate: weekLaptop.noStaleChipDate && dayLaptop.noStaleChipDate && weekPhone.noStaleChipDate,
+  dayFits1280: dayLaptop.hours && !dayLaptop.hours.overflow,
+  untimedWeight: dayLaptop.untimedWeight,
+  phoneCrewReadable: dayPhoneBefore.crewNamesReadable && dayPhoneAfterScroll.crewNamesReadable,
+};
+console.log('phone-day-before', dayPhoneBefore);
+console.log('phone-day-after-scroll', dayPhoneAfterScroll);
+console.log('look-set', look);
+if (Object.values(look).some((ok) => !ok)) {
+  console.error('LOOK set failed', look);
+  process.exitCode = 1;
+}
 
 await browser.close();
 console.log('wrote schedule LOOK frames');

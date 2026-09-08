@@ -5408,24 +5408,30 @@
 
   .hub-week-sheet-bar {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     justify-content: space-between;
     gap: 16px;
-    min-height: 18px;
-    padding: 2px 20px;
+    min-height: 32px;
+    padding: 10px 20px 0;
     background: #FFFDF8;
     color: #0A2540;
-    border-bottom: 1px solid #E2D9CC;
+    border-bottom: none;
     border-radius: 16px 16px 0 0;
     box-shadow: inset 0 1px 0 #fff;
   }
 
   .hub-week-sheet-mark {
-    font-family: Rajdhani, sans-serif;
-    font-weight: 700;
-    font-size: 13px;
-    letter-spacing: 0.02em;
-    color: #0A2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0;
+    color: #5B6B7C;
+  }
+
+  .hub-week-sheet-bar .hub-week-range {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .hub-week-sheet-body {
@@ -6066,7 +6072,11 @@
     }
 
     .hub-week-sheet-bar {
-      padding: 2px 16px;
+      padding: 10px 16px 0;
+    }
+
+    .hub-week-sheet-bar .hub-week-range {
+      display: none;
     }
 
     .hub-week-sheet-body {
