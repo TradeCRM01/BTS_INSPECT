@@ -15,7 +15,7 @@ import {
   DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList, PhoneWeekList,
   type TeamMember,
 } from '../components/crm/BoardViews';
-import { DEFAULT_SLOT_START, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
+import { DEFAULT_SLOT_START, placePickedHint, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
@@ -402,12 +402,15 @@ export function SchedulePage() {
     queryFn: async () => {
       const mock = getAuditTeamMembers();
       if (mock) {
-        return mock.map(m => ({
-          id: m.id,
-          name: m.name,
-          email: m.email,
-          schedule_color: null,
-        }));
+        return [
+          ...mock.map(m => ({
+            id: m.id,
+            name: m.name,
+            email: m.email,
+            schedule_color: null,
+          })),
+          { id: 'audit-crew-sam', name: 'Sam', email: 'sam@field-audit.example.com', schedule_color: null },
+        ];
       }
       if (!profile?.company_id) return [];
       const { data, error } = await supabase.rpc('get_company_members', {
@@ -602,7 +605,7 @@ export function SchedulePage() {
   const handleRailDragStart = (e: React.DragEvent, jobId: string) => {
     e.dataTransfer.setData('text/plain', jobId);
     e.dataTransfer.effectAllowed = 'move';
-    rememberDraggedJob(jobId, { exclusiveAssign: true });
+    rememberDraggedJob(jobId);
   };
 
   const placePickedOnPerson = (employeeId: string) => {
@@ -612,7 +615,6 @@ export function SchedulePage() {
       date: format(currentDate, 'yyyy-MM-dd'),
       employeeId,
       startTime: pickedJob.start_time ? undefined : DEFAULT_SLOT_START,
-      exclusiveAssign: true,
     });
     setPickedJob(null);
     setJobQuery('');
@@ -802,7 +804,7 @@ export function SchedulePage() {
         {pickedJob && boardCrew.length > 0 && (
           <div className="lg:hidden hub-schedule-sheet hub-schedule-place mb-4">
             <p className="text-sm font-medium">
-              {pickedJob.title} — tap a person to place it today at 8:00
+              {placePickedHint(pickedJob.title, currentDate, pickedJob.start_time)}
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
               {boardCrew.map(m => (
@@ -835,7 +837,7 @@ export function SchedulePage() {
                 {pickedJob && boardCrew.length > 0 && (
                   <div className="hub-week-place hub-schedule-place">
                     <p>
-                      {pickedJob.title} — tap a person to place it today at 8:00
+                      {placePickedHint(pickedJob.title, currentDate, pickedJob.start_time)}
                     </p>
                     <div className="hub-week-place-crew">
                       {boardCrew.map(m => (

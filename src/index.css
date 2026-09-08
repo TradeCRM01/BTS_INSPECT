@@ -6016,6 +6016,17 @@
     padding: 16px;
   }
 
+  .hub-phone-crew-drop {
+    padding: 12px;
+    border: 1px dashed var(--schedule-line);
+    background: var(--schedule-sheet);
+  }
+
+  .hub-phone-crew-drop.is-hover {
+    border-color: #2E75B6;
+    background: var(--schedule-page);
+  }
+
   .hub-board-cal .hub-schedule-sheet {
     padding: 16px;
   }

@@ -18,7 +18,6 @@ import {
   resizeJobTimes,
   rememberDraggedJob,
   readDroppedJobId,
-  consumeDragExclusiveAssign,
   type JobDropPayload,
   type ResizeEdge,
 } from '../../lib/dispatch';
@@ -31,7 +30,6 @@ import {
   jobsOnScheduleDay,
   scheduleChipClock,
   scheduleDateKey,
-  scheduleDayKey,
   schedulePlotTimes,
   scheduleWeekDays,
   weekBoardChip,
@@ -69,10 +67,6 @@ const ROW_MIN = 72;
 
 function dateKey(d: Date): string {
   return scheduleDateKey(d);
-}
-
-function jobDateKey(job: JobWithClient): string | null {
-  return scheduleDayKey(job.scheduled_date);
 }
 
 function formatHourLabel(h: number): string {
@@ -303,19 +297,16 @@ export const DayBoardView = memo(function DayBoardView({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const rows = useMemo(() => {
-    const r: { id: string; name: string; schedule_color?: string | null }[] = [];
-    const dateStr = dateKey(currentDate);
-    const hasUnassigned = jobs.some(job => (
-      jobDateKey(job) === dateStr && (job.assigned_team ?? []).length === 0
-    ));
-    if (hasUnassigned) r.push({ id: UNASSIGNED_ROW_ID, name: 'Unassigned' });
+    const r: { id: string; name: string; schedule_color?: string | null }[] = [
+      { id: UNASSIGNED_ROW_ID, name: 'Unassigned' },
+    ];
     for (const m of teamMembers) {
       if (filteredEmployeeIds.size === 0 || filteredEmployeeIds.has(m.id)) {
         r.push({ id: m.id, name: m.name, schedule_color: m.schedule_color });
       }
     }
     return r;
-  }, [jobs, teamMembers, filteredEmployeeIds, currentDate]);
+  }, [teamMembers, filteredEmployeeIds]);
 
   const jobsByRow = useMemo(() => {
     const map = new Map<string, JobWithClient[]>();
@@ -370,7 +361,6 @@ export const DayBoardView = memo(function DayBoardView({
 
   const handleDrop = (e: React.DragEvent, empId: string, startTime?: string) => {
     e.preventDefault();
-    const exclusiveAssign = consumeDragExclusiveAssign();
     const jobId = readDroppedJobId(e.dataTransfer);
     if (jobId && onJobDrop) {
       onJobDrop({
@@ -378,7 +368,6 @@ export const DayBoardView = memo(function DayBoardView({
         date: dateStr,
         employeeId: assignmentForRow(empId),
         startTime,
-        exclusiveAssign,
       });
     }
     setDragJobId(null);
@@ -480,7 +469,7 @@ export const DayBoardView = memo(function DayBoardView({
         </p>
         <p className="ops-meta">
           {unassignedCount > 0
-            ? `${unassignedCount} unassigned · drop on a person to add them`
+            ? `${unassignedCount} unassigned · drop on a person to assign them`
             : 'Search a job, drop it on a person or a time · drag the ends to change duration'}
         </p>
       </div>
@@ -493,10 +482,12 @@ export const DayBoardView = memo(function DayBoardView({
               <span className="hub-schedule-label">Crew</span>
             </div>
           </div>
-          {paintedRows.map(painted => (
+          {paintedRows.map(painted => {
+            const row = painted.row;
+            return (
             <div
-              key={painted.row.id}
-              data-crew-drop={painted.row.id}
+              key={row.id}
+              data-crew-drop={row.id}
               className={`hub-day-crew-lock border-r border-rule cursor-pointer hover:bg-zebra transition-colors flex items-center gap-2 px-3 ${
                 painted.rowIdx < paintedRows.length - 1 ? 'border-b' : ''
               } ${painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'}`}
@@ -504,9 +495,9 @@ export const DayBoardView = memo(function DayBoardView({
                 height: painted.height,
                 borderLeft: painted.isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${painted.color}`,
               }}
-              onClick={() => onDayClick(dateStr, painted.isUnassigned ? undefined : painted.row.id)}
-              onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropHoverId(painted.row.id); }}
-              onDrop={e => { e.stopPropagation(); handleDrop(e, painted.row.id); }}
+              onClick={() => onDayClick(dateStr, painted.isUnassigned ? undefined : row.id)}
+              onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropHoverId(row.id); }}
+              onDrop={e => { e.stopPropagation(); handleDrop(e, row.id); }}
             >
               <span
                 className="ops-crew-mark"
@@ -516,7 +507,7 @@ export const DayBoardView = memo(function DayBoardView({
                 }}
               />
               <div className="min-w-0">
-                <p className="hub-schedule-crew-name truncate">{painted.row.name}</p>
+                <p className="hub-schedule-crew-name truncate">{row.name}</p>
                 <p className="ops-meta">
                   {painted.isUnassigned
                     ? (painted.rowJobs.length === 0 ? 'Drop here — date stays' : `${painted.rowJobs.length} · needs crew`)
@@ -524,7 +515,8 @@ export const DayBoardView = memo(function DayBoardView({
                 </p>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         <div ref={scrollRef} className="hub-day-hours job-cal-board-scroll" data-day-hours="1">
@@ -675,14 +667,12 @@ export const WeekBoardView = memo(function WeekBoardView({
 
   const handleDrop = (e: React.DragEvent, date: string, crewId: string) => {
     e.preventDefault();
-    const exclusiveAssign = consumeDragExclusiveAssign();
     const jobId = readDroppedJobId(e.dataTransfer);
     if (jobId && onJobDrop) {
       onJobDrop({
         jobId,
         date,
         employeeId: crewId === WEEK_UNASSIGNED_CREW_ID ? null : crewId,
-        exclusiveAssign,
       });
     }
     setDragJobId(null);

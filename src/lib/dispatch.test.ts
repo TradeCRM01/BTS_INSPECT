@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   applyDropStartTime,
   asTeamIds,
-  consumeDragExclusiveAssign,
   dayBoardHoursFit,
   dayBoardHourWidthPx,
   dayRowHeightPx,
   nextAssignedTeam,
   placeDayRowJobs,
+  placePickedHint,
   rescheduleJobPatch,
   rememberDraggedJob,
   readDroppedJobId,
@@ -16,25 +16,35 @@ import {
 } from './dispatch';
 
 describe('nextAssignedTeam', () => {
-  it('assigns the drop target when the job is unassigned', () => {
-    expect(nextAssignedTeam([], { employeeId: 'alice' })).toEqual(['alice']);
-    expect(nextAssignedTeam(null, { employeeId: 'alice' })).toEqual(['alice']);
-  });
-
-  it('adds the drop target without wiping an existing crew', () => {
-    expect(nextAssignedTeam(['alice', 'bob', 'cara'], { employeeId: 'dave' })).toEqual([
-      'alice', 'bob', 'cara', 'dave',
-    ]);
-  });
-
-  it('keeps a 3-person crew when dropping onto someone already assigned', () => {
-    expect(nextAssignedTeam(['alice', 'bob', 'cara'], { employeeId: 'bob' })).toEqual([
-      'alice', 'bob', 'cara',
-    ]);
+  it('assigns the drop target', () => {
+    expect(nextAssignedTeam({ employeeId: 'alice' })).toEqual(['alice']);
+    expect(nextAssignedTeam({ employeeId: 'dave' })).toEqual(['dave']);
   });
 
   it('clears crew when dropped on Unassigned', () => {
-    expect(nextAssignedTeam(['alice', 'bob', 'cara'], 'unassigned')).toEqual([]);
+    expect(nextAssignedTeam('unassigned')).toEqual([]);
+  });
+});
+
+describe('placePickedHint', () => {
+  const today = new Date(2026, 8, 8);
+
+  it('names today when the board is on today', () => {
+    expect(placePickedHint('Switchboard', today, null, today)).toBe(
+      'Switchboard — tap a person to place it today at 8:00',
+    );
+  });
+
+  it('names the selected day, not today, when the board moved', () => {
+    expect(placePickedHint('Switchboard', new Date(2026, 8, 10), null, today)).toBe(
+      'Switchboard — tap a person to place it Thu 10 Sep at 8:00',
+    );
+  });
+
+  it('does not invent 8:00 when the job already has a time', () => {
+    expect(placePickedHint('Switchboard', today, '07:30:00', today)).toBe(
+      'Switchboard — tap a person to place it today',
+    );
   });
 });
 
@@ -140,11 +150,25 @@ describe('rescheduleJobPatch', () => {
     end_time: '10:00:00',
   };
 
-  it('never replaces a 3-person crew with the drop target', () => {
+  it('board drop does not stack a second crew member', () => {
+    expect(rescheduleJobPatch(
+      { assigned_team: ['field-audit'], start_time: '07:30:00', end_time: '16:00:00' },
+      { date: '2026-08-25', employeeId: 'sam' },
+    ).assigned_team).toEqual(['sam']);
+  });
+
+  it('replaces a 3-person crew with the drop target', () => {
     expect(rescheduleJobPatch(crewJob, { date: '2026-08-21', employeeId: 'd' })).toEqual({
       scheduled_date: '2026-08-21',
-      assigned_team: ['a', 'b', 'c', 'd'],
+      assigned_team: ['d'],
     });
+  });
+
+  it('uses the same replace crew from board drop and search drop', () => {
+    const board = rescheduleJobPatch(crewJob, { date: '2026-08-26', employeeId: 'dave' });
+    const search = rescheduleJobPatch(crewJob, { date: '2026-08-26', employeeId: 'dave' });
+    expect(board).toEqual(search);
+    expect(board.assigned_team).toEqual(['dave']);
   });
 
   it('clears crew on Unassigned without dropping the date', () => {
@@ -176,7 +200,6 @@ describe('rescheduleJobPatch', () => {
     expect(rescheduleJobPatch(crewJob, {
       date: '2026-08-26',
       employeeId: 'dave',
-      exclusiveAssign: true,
     })).toEqual({
       scheduled_date: '2026-08-26',
       assigned_team: ['dave'],
@@ -188,7 +211,6 @@ describe('rescheduleJobPatch', () => {
       date: '2026-08-26',
       employeeId: 'dave',
       startTime: '09:00:00',
-      exclusiveAssign: true,
     })).toEqual({
       scheduled_date: '2026-08-26',
       assigned_team: ['dave'],
@@ -201,7 +223,6 @@ describe('rescheduleJobPatch', () => {
     expect(rescheduleJobPatch(crewJob, {
       date: '2026-08-26',
       employeeId: null,
-      exclusiveAssign: true,
     })).toEqual({
       scheduled_date: '2026-08-26',
       assigned_team: [],
@@ -218,14 +239,14 @@ describe('rescheduleJobPatch', () => {
     });
   });
 
-  it('updates time and keeps crew when dropped on the day grid', () => {
+  it('updates time and assigns the drop-row person', () => {
     expect(rescheduleJobPatch(crewJob, {
       date: '2026-08-20',
       employeeId: 'b',
       startTime: '13:00:00',
     })).toEqual({
       scheduled_date: '2026-08-20',
-      assigned_team: ['a', 'b', 'c'],
+      assigned_team: ['b'],
       start_time: '13:00:00',
       end_time: '15:00:00',
     });
@@ -246,22 +267,6 @@ describe('readDroppedJobId', () => {
       getData: (type: string) => (type === 'text/plain' ? 'job-2' : ''),
     } as unknown as DataTransfer;
     expect(readDroppedJobId(dt)).toBe('job-2');
-  });
-});
-
-describe('consumeDragExclusiveAssign', () => {
-  it('moves from search and adds from the board', () => {
-    rememberDraggedJob('from-search', { exclusiveAssign: true });
-    expect(consumeDragExclusiveAssign()).toBe(true);
-    expect(consumeDragExclusiveAssign()).toBe(false);
-
-    rememberDraggedJob('from-board');
-    expect(consumeDragExclusiveAssign()).toBe(false);
-
-    rememberDraggedJob('from-search', { exclusiveAssign: true });
-    const empty = { getData: () => '' } as unknown as DataTransfer;
-    expect(readDroppedJobId(empty)).toBe('from-search');
-    expect(consumeDragExclusiveAssign()).toBe(true);
   });
 });
 

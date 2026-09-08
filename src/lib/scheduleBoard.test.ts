@@ -262,7 +262,7 @@ describe('week-board grouping and chips', () => {
     ];
 
     const rows = weekBoardRows(jobs, [dave, jack, sam], weekAnchor);
-    expect(rows.map(row => row.crewName)).toEqual(['Dave', 'Jack', 'Sam']);
+    expect(rows.map(row => row.crewName)).toEqual(['Unassigned', 'Dave', 'Jack', 'Sam']);
     expect(rows[0].cells.map(cell => cell.date)).toEqual([
       '2025-03-31',
       '2025-04-01',
@@ -272,27 +272,27 @@ describe('week-board grouping and chips', () => {
       '2025-04-05',
       '2025-04-06',
     ]);
-    expect(rows[0].cells[1].chips).toEqual([{
+    expect(rows[1].cells[1].chips).toEqual([{
       id: 'switchboard',
       ref: '#0042.01',
       description: 'Switchboard',
       color: '#8B4513',
     }]);
-    expect(rows[0].cells[2].chips).toEqual([{
+    expect(rows[1].cells[2].chips).toEqual([{
       id: 'testing',
       ref: '#0042.02',
       description: 'Testing',
       color: '#8B4513',
     }]);
-    expect(rows[1].cells[3].chips).toEqual([{
+    expect(rows[2].cells[3].chips).toEqual([{
       id: 'warehouse',
       ref: '#0048',
       description: 'Warehouse lights',
       color: '#0A2540',
     }]);
-    expect(rows[0].cells[0].chips).toEqual([]);
-    expect(rows[2].cells.every(cell => cell.chips.length === 0)).toBe(true);
-    expect(rows.every(row => row.crewId !== WEEK_UNASSIGNED_CREW_ID)).toBe(true);
+    expect(rows[1].cells[0].chips).toEqual([]);
+    expect(rows[3].cells.every(cell => cell.chips.length === 0)).toBe(true);
+    expect(rows[0].crewId).toBe(WEEK_UNASSIGNED_CREW_ID);
   });
 
   it('paints sibling cost-code chips with the same job.color', () => {

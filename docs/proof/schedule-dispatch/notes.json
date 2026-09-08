@@ -1,0 +1,55 @@
+{
+  "dayBefore": [
+    "00000000-0000-0000-0000-000000000002"
+  ],
+  "dayAfterSam": [
+    "audit-crew-sam"
+  ],
+  "dayAfterUnassigned": [
+    "__unassigned__"
+  ],
+  "weekBefore": [
+    "00000000-0000-0000-0000-000000000002:2026-08-25",
+    "00000000-0000-0000-0000-000000000002:2026-08-25"
+  ],
+  "weekAfterSam": [
+    "audit-crew-sam:2026-08-25",
+    "audit-crew-sam:2026-08-25"
+  ],
+  "weekAfterUnassigned": [
+    "__unassigned__:2026-08-25",
+    "__unassigned__:2026-08-25"
+  ],
+  "phoneZones": [
+    {
+      "id": "__unassigned__",
+      "name": "Unassigned"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "name": "Field Audit"
+    },
+    {
+      "id": "audit-crew-sam",
+      "name": "Sam"
+    },
+    {
+      "id": "__unassigned__",
+      "name": "Unassigned"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "name": "Field Audit"
+    },
+    {
+      "id": "audit-crew-sam",
+      "name": "Sam"
+    }
+  ],
+  "phoneBefore": [
+    "00000000-0000-0000-0000-000000000002"
+  ],
+  "phoneAfterSam": [
+    "audit-crew-sam"
+  ]
+}
