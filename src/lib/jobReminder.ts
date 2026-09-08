@@ -339,6 +339,38 @@ export function emailSettingsReady(settings: ReminderEmailSettings | null | unde
     && !!(settings.from_email ?? '').trim();
 }
 
+export function firstNonEmptyEnv(...values: Array<string | null | undefined>): string {
+  for (const value of values) {
+    const trimmed = String(value ?? '').trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+}
+
+export function sharedGrafterSmtpFromEnv(
+  env: {
+    RESEND_API_KEY?: string | null;
+    SMTP_PASS?: string | null;
+    RESEND_FROM_EMAIL?: string | null;
+    FROM_EMAIL?: string | null;
+    RESEND_FROM_NAME?: string | null;
+    FROM_NAME?: string | null;
+  },
+  company?: { name?: string | null; email?: string | null } | null,
+): ReminderEmailSettings | null {
+  const pass = firstNonEmptyEnv(env.RESEND_API_KEY, env.SMTP_PASS);
+  const fromEmail = firstNonEmptyEnv(env.RESEND_FROM_EMAIL, env.FROM_EMAIL, company?.email);
+  const fromName = firstNonEmptyEnv(env.RESEND_FROM_NAME, env.FROM_NAME, company?.name) || 'Grafter';
+  if (!pass || !fromEmail.includes('@')) return null;
+  const settings: ReminderEmailSettings = {
+    smtp_host: 'smtp.resend.com',
+    smtp_pass: pass,
+    from_name: fromName,
+    from_email: fromEmail,
+  };
+  return emailSettingsReady(settings) ? settings : null;
+}
+
 export function missMessage(reason: ReminderMissReason): string {
   switch (reason) {
     case 'no_email':
