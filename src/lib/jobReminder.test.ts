@@ -22,6 +22,7 @@ import {
   dateOnly,
   decideReminderSend,
   emailSettingsReady,
+  sharedGrafterSmtpFromEnv,
   formatJobDate,
   isCronAuthorized,
   isExistingScheduleSurface,
@@ -241,6 +242,26 @@ describe('honest misses — no send', () => {
     expect(emailSettingsReady({ smtp_host: 'smtp.mailgun.org', smtp_pass: 'x', from_email: 'a@b.c' })).toBe(false);
     expect(emailSettingsReady({ smtp_host: 'smtp.resend.com', smtp_pass: '', from_email: 'a@b.c' })).toBe(false);
     expect(emailSettingsReady(smtp)).toBe(true);
+
+    // Live BTS quote #0002: company SMTP row absent. Blank platform FROM_EMAIL
+    // must not hide company.email or SMTP_PASS, or Send dies as no_smtp.
+    expect(sharedGrafterSmtpFromEnv(
+      { RESEND_API_KEY: 're_test', RESEND_FROM_EMAIL: '', FROM_EMAIL: '' },
+      { name: 'Building Technology Solutions', email: 'admin@bts.local' },
+    )).toEqual({
+      smtp_host: 'smtp.resend.com',
+      smtp_pass: 're_test',
+      from_name: 'Building Technology Solutions',
+      from_email: 'admin@bts.local',
+    });
+    expect(sharedGrafterSmtpFromEnv(
+      { RESEND_API_KEY: '', SMTP_PASS: 're_shared' },
+      { name: 'BTS', email: 'office@bts.example' },
+    )?.smtp_pass).toBe('re_shared');
+    expect(sharedGrafterSmtpFromEnv(
+      { RESEND_API_KEY: '', SMTP_PASS: '' },
+      { name: 'BTS', email: 'admin@bts.local' },
+    )).toBeNull();
     const gate = reminderEligibility({
       job: job(), client, settings: null, companyId: 'co-1', now,
     });

@@ -128,6 +128,15 @@ describe('decideQuoteSend', () => {
     expect(quoteStatusAfterSend(false, 'draft')).toBe('draft');
   });
 
+  it('rides shared Grafter send when company SMTP is present but incomplete', () => {
+    const decision = decideQuoteSend(bundle({
+      smtp: { smtp_host: '', smtp_pass: '', from_name: '', from_email: '' },
+    }));
+    expect(decision.ok).toBe(true);
+    if (!decision.ok) return;
+    expect(decision.to).toBe('jane@acme.com.au');
+  });
+
   it('is an honest setup_email miss only when nothing can send', () => {
     const decision = decideQuoteSend(bundle({ smtp: null, sharedSmtp: null }));
     expect(decision.ok).toBe(false);
