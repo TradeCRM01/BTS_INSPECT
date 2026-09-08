@@ -17,7 +17,6 @@ import {
   resizeJobTimes,
   rememberDraggedJob,
   readDroppedJobId,
-  consumeDragExclusiveAssign,
   type JobDropPayload,
   type ResizeEdge,
 } from '../../lib/dispatch';
@@ -238,8 +237,6 @@ export const NeedsDateRail = memo(function NeedsDateRail({
   );
 });
 
-// ── Hour plot (empty days keep the tracker; never swap to copy) ──
-
 function crewRowsForPlot(teamMembers?: TeamMember[]) {
   const rows: { id: string; name: string; schedule_color?: string | null }[] = [
     { id: UNASSIGNED_ROW_ID, name: 'Unassigned' },
@@ -250,78 +247,6 @@ function crewRowsForPlot(teamMembers?: TeamMember[]) {
   return rows;
 }
 
-/** Same hour × crew track as an empty DayBoardView. */
-function ScheduleDayHourPlot({ teamMembers }: { teamMembers?: TeamMember[] }) {
-  const rows = crewRowsForPlot(teamMembers);
-  const gridWidth = HOURS.length * HOUR_WIDTH;
-
-  return (
-    <div className="overflow-x-auto job-cal-board-scroll hub-schedule-track" data-day-grid="1" data-schedule-track="day">
-      <div className="flex border-b border-rule">
-        <div className="shrink-0 border-r border-rule bg-zebra" style={{ width: LABEL_WIDTH }}>
-          <div className="px-3 py-2 flex items-center gap-1.5">
-            <Users size={13} />
-            <span className="hub-schedule-label">Crew</span>
-          </div>
-        </div>
-        <div className="flex" style={{ minWidth: gridWidth }}>
-          {HOURS.map(h => (
-            <div
-              key={h}
-              className="text-center border-r border-rule last:border-r-0"
-              style={{ width: HOUR_WIDTH }}
-            >
-              <div className="px-1 py-2">
-                <span className="hub-schedule-label">{formatHourLabel(h)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      {rows.map((row, rowIdx) => {
-        const isUnassigned = row.id === UNASSIGNED_ROW_ID;
-        const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
-        return (
-          <div
-            key={row.id}
-            className={`flex ${rowIdx < rows.length - 1 ? 'border-b border-rule' : ''} ${
-              isUnassigned ? 'bg-zebra' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-zebra'
-            }`}
-          >
-            <div
-              className="shrink-0 border-r border-rule flex items-center gap-2 px-3"
-              style={{
-                width: LABEL_WIDTH,
-                height: ROW_MIN,
-                borderLeft: isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${color}`,
-              }}
-            >
-              <span
-                className="ops-crew-mark"
-                style={{
-                  background: isUnassigned ? 'transparent' : color,
-                  outline: isUnassigned ? `1px solid ${colors.navy}` : undefined,
-                }}
-              />
-              <div className="min-w-0">
-                <p className="hub-schedule-crew-name truncate">{row.name}</p>
-              </div>
-            </div>
-            <div className="relative" style={{ width: gridWidth, height: ROW_MIN }}>
-              {HOURS.map(h => (
-                <div
-                  key={h}
-                  className="absolute top-0 bottom-0 border-r border-rule last:border-r-0"
-                  style={{ left: (h - DAY_START) * HOUR_WIDTH, width: HOUR_WIDTH }}
-                />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function WeekJobChip({
   job,
@@ -429,36 +354,86 @@ function PhoneJobCard({
 }
 
 export const PhoneDayList = memo(function PhoneDayList({
-  jobs, teamMembers, currentDate, onJobClick, onDragStart,
+  jobs, teamMembers, currentDate, onJobClick, onDragStart, onJobDrop,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
   currentDate: Date;
   onJobClick: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
+  onJobDrop?: (drop: JobDropPayload) => void;
 }) {
+  const [dropHoverId, setDropHoverId] = useState<string | null>(null);
   const dateStr = dateKey(currentDate);
   const dayJobs = useMemo(() => jobsOnScheduleDay(jobs, dateStr), [jobs, dateStr]);
+  const rows = useMemo(() => crewRowsForPlot(teamMembers), [teamMembers]);
+  const jobsByRow = useMemo(() => {
+    const map = new Map<string, JobWithClient[]>();
+    for (const row of rows) map.set(row.id, []);
+    for (const job of dayJobs) {
+      const assigned = job.assigned_team ?? [];
+      if (assigned.length === 0) {
+        map.get(UNASSIGNED_ROW_ID)?.push(job);
+      } else {
+        for (const empId of assigned) {
+          map.get(empId)?.push(job);
+        }
+      }
+    }
+    return map;
+  }, [dayJobs, rows]);
+
+  useEffect(() => {
+    const clear = () => setDropHoverId(null);
+    window.addEventListener('dragend', clear);
+    return () => window.removeEventListener('dragend', clear);
+  }, []);
+
+  const handleDrop = (e: React.DragEvent, empId: string) => {
+    e.preventDefault();
+    const jobId = readDroppedJobId(e.dataTransfer);
+    if (jobId && onJobDrop) {
+      onJobDrop({
+        jobId,
+        date: dateStr,
+        employeeId: empId === UNASSIGNED_ROW_ID ? null : empId,
+      });
+    }
+    setDropHoverId(null);
+  };
 
   return (
-    <div className="space-y-2" data-schedule-day={dateStr}>
+    <div className="space-y-3" data-schedule-day={dateStr} data-schedule-track="day">
       <h2 className="hub-schedule-label">
         {format(currentDate, 'EEEE d MMM')}
         <span className="hub-schedule-count"> ({dayJobs.length})</span>
       </h2>
-      {dayJobs.length === 0 ? (
-        <ScheduleDayHourPlot teamMembers={teamMembers} />
-      ) : (
-        dayJobs.map(job => (
-          <PhoneJobCard
-            key={job.id}
-            job={job}
-            teamMembers={teamMembers}
-            onJobClick={onJobClick}
-            onDragStart={onDragStart}
-          />
-        ))
-      )}
+      {rows.map(row => {
+        const rowJobs = jobsByRow.get(row.id) ?? [];
+        const hovering = dropHoverId === row.id;
+        return (
+          <section
+            key={row.id}
+            data-crew-drop={row.id}
+            className={`hub-phone-crew-drop${hovering ? ' is-hover' : ''}`}
+            onDragOver={e => { e.preventDefault(); setDropHoverId(row.id); }}
+            onDrop={e => handleDrop(e, row.id)}
+          >
+            <p className="hub-schedule-crew-name">{row.name}</p>
+            <div className="space-y-2 mt-2">
+              {rowJobs.map(job => (
+                <PhoneJobCard
+                  key={job.id}
+                  job={job}
+                  teamMembers={teamMembers}
+                  onJobClick={onJobClick}
+                  onDragStart={onDragStart}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 });
@@ -556,7 +531,6 @@ export const DayBoardView = memo(function DayBoardView({
 
   const handleDrop = (e: React.DragEvent, empId: string, startTime?: string) => {
     e.preventDefault();
-    const exclusiveAssign = consumeDragExclusiveAssign();
     const jobId = readDroppedJobId(e.dataTransfer);
     if (jobId && onJobDrop) {
       onJobDrop({
@@ -564,7 +538,6 @@ export const DayBoardView = memo(function DayBoardView({
         date: dateStr,
         employeeId: assignmentForRow(empId),
         startTime,
-        exclusiveAssign,
       });
     }
     setDragJobId(null);
@@ -630,7 +603,7 @@ export const DayBoardView = memo(function DayBoardView({
   const gridWidth = HOURS.length * HOUR_WIDTH;
 
   return (
-    <div className="ops-board">
+    <div className="ops-board" data-schedule-track="day">
       <div className="hub-schedule-board-head">
         <p className="hub-schedule-range">
           {format(currentDate, 'EEEE, d MMMM yyyy')}
@@ -642,7 +615,7 @@ export const DayBoardView = memo(function DayBoardView({
         </p>
         <p className="ops-meta">
           {unassignedCount > 0
-            ? `${unassignedCount} unassigned · drop on a person to add them`
+            ? `${unassignedCount} unassigned · drop on a person to assign them`
             : 'Search a job, drop it on a person or a time · drag the ends to change duration'}
         </p>
       </div>
@@ -860,14 +833,12 @@ export const WeekBoardView = memo(function WeekBoardView({
 
   const handleDrop = (e: React.DragEvent, date: string, crewId: string) => {
     e.preventDefault();
-    const exclusiveAssign = consumeDragExclusiveAssign();
     const jobId = readDroppedJobId(e.dataTransfer);
     if (jobId && onJobDrop) {
       onJobDrop({
         jobId,
         date,
         employeeId: crewId === WEEK_UNASSIGNED_CREW_ID ? null : crewId,
-        exclusiveAssign,
       });
     }
     setDragJobId(null);

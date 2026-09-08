@@ -1,3 +1,5 @@
+import { format } from 'date-fns';
+
 /** Day-board time grid (matches BoardViews). */
 export const DAY_START_HOUR = 6;
 export const DAY_END_HOUR = 20;
@@ -8,11 +10,9 @@ export const DEFAULT_SLOT_START = '08:00:00';
 export type ResizeEdge = 'start' | 'end';
 
 let draggedJobId: string | null = null;
-let draggedExclusiveAssign = false;
 
-export function rememberDraggedJob(jobId: string, opts?: { exclusiveAssign?: boolean }) {
+export function rememberDraggedJob(jobId: string) {
   draggedJobId = jobId;
-  draggedExclusiveAssign = opts?.exclusiveAssign === true;
 }
 
 export function readDroppedJobId(dataTransfer: DataTransfer | null | undefined): string | null {
@@ -22,10 +22,17 @@ export function readDroppedJobId(dataTransfer: DataTransfer | null | undefined):
   return id || null;
 }
 
-export function consumeDragExclusiveAssign(): boolean {
-  const value = draggedExclusiveAssign;
-  draggedExclusiveAssign = false;
-  return value;
+export function placePickedHint(
+  title: string,
+  date: Date,
+  startTime?: string | null,
+  today: Date = new Date(),
+): string {
+  const when = format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
+    ? 'today'
+    : format(date, 'EEE d MMM');
+  const slot = startTime ? '' : ' at 8:00';
+  return `${title} — tap a person to place it ${when}${slot}`;
 }
 
 export type AssignmentDrop = 'unassigned' | { employeeId: string };
@@ -35,23 +42,9 @@ export function asTeamIds(value: unknown): string[] {
   return value.filter((id): id is string => typeof id === 'string' && id.length > 0);
 }
 
-/**
- * Least-surprising crew change for a small AU trade board.
- *
- * - Drop on Unassigned: clear crew (caller keeps scheduled_date).
- * - Drop on a person when the job is unassigned: that person owns it.
- * - Drop on a person when it is already a crew job: add them, never replace the rest.
- * - Drop on a person already in the crew: leave the crew as-is.
- */
-export function nextAssignedTeam(
-  current: string[] | null | undefined,
-  drop: AssignmentDrop,
-): string[] {
-  const crew = asTeamIds(current);
+export function nextAssignedTeam(drop: AssignmentDrop): string[] {
   if (drop === 'unassigned') return [];
-  if (crew.length === 0) return [drop.employeeId];
-  if (crew.includes(drop.employeeId)) return crew;
-  return [...crew, drop.employeeId];
+  return [drop.employeeId];
 }
 
 export function timeToMinutes(t: string | null | undefined): number | null {
@@ -130,11 +123,9 @@ export function resizeJobTimes(
 
 export type JobDropInput = {
   date: string;
-  /** undefined = leave crew; null = unassign; string = assign/add that person */
+  /** undefined = leave crew; null = unassign; string = replace crew with that person */
   employeeId?: string | null;
   startTime?: string;
-  /** Search/tray drop: put the job on that person only, even if it was already scheduled. */
-  exclusiveAssign?: boolean;
 };
 
 export type JobDropPayload = JobDropInput & { jobId: string };
@@ -224,14 +215,9 @@ export function rescheduleJobPatch(
     scheduled_date: drop.date,
   };
   if (drop.employeeId !== undefined) {
-    if (drop.exclusiveAssign) {
-      updates.assigned_team = drop.employeeId === null ? [] : [drop.employeeId];
-    } else {
-      updates.assigned_team = nextAssignedTeam(
-        asTeamIds(current.assigned_team),
-        drop.employeeId === null ? 'unassigned' : { employeeId: drop.employeeId },
-      );
-    }
+    updates.assigned_team = nextAssignedTeam(
+      drop.employeeId === null ? 'unassigned' : { employeeId: drop.employeeId },
+    );
   }
   if (drop.startTime) {
     const shifted = applyDropStartTime(current.start_time, current.end_time, drop.startTime);
