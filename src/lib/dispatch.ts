@@ -22,7 +22,6 @@ export function readDroppedJobId(dataTransfer: DataTransfer | null | undefined):
   return id || null;
 }
 
-/** Phone/search place line. Uses the board date, not a baked "today". */
 export function placePickedHint(
   title: string,
   date: Date,
@@ -43,16 +42,7 @@ export function asTeamIds(value: unknown): string[] {
   return value.filter((id): id is string => typeof id === 'string' && id.length > 0);
 }
 
-/**
- * One crew contract for board, tray, and search.
- *
- * - Drop on Unassigned: clear crew (caller keeps scheduled_date).
- * - Drop on a person: that person owns the job. Prior crew is replaced.
- */
-export function nextAssignedTeam(
-  _current: string[] | null | undefined,
-  drop: AssignmentDrop,
-): string[] {
+export function nextAssignedTeam(drop: AssignmentDrop): string[] {
   if (drop === 'unassigned') return [];
   return [drop.employeeId];
 }
@@ -226,7 +216,6 @@ export function rescheduleJobPatch(
   };
   if (drop.employeeId !== undefined) {
     updates.assigned_team = nextAssignedTeam(
-      asTeamIds(current.assigned_team),
       drop.employeeId === null ? 'unassigned' : { employeeId: drop.employeeId },
     );
   }

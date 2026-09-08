@@ -14,21 +14,13 @@ import {
 } from './dispatch';
 
 describe('nextAssignedTeam', () => {
-  it('assigns the drop target when the job is unassigned', () => {
-    expect(nextAssignedTeam([], { employeeId: 'alice' })).toEqual(['alice']);
-    expect(nextAssignedTeam(null, { employeeId: 'alice' })).toEqual(['alice']);
-  });
-
-  it('replaces the crew with the drop target', () => {
-    expect(nextAssignedTeam(['alice', 'bob', 'cara'], { employeeId: 'dave' })).toEqual(['dave']);
-  });
-
-  it('keeps a one-person crew when dropping onto someone already assigned', () => {
-    expect(nextAssignedTeam(['alice', 'bob', 'cara'], { employeeId: 'bob' })).toEqual(['bob']);
+  it('assigns the drop target', () => {
+    expect(nextAssignedTeam({ employeeId: 'alice' })).toEqual(['alice']);
+    expect(nextAssignedTeam({ employeeId: 'dave' })).toEqual(['dave']);
   });
 
   it('clears crew when dropped on Unassigned', () => {
-    expect(nextAssignedTeam(['alice', 'bob', 'cara'], 'unassigned')).toEqual([]);
+    expect(nextAssignedTeam('unassigned')).toEqual([]);
   });
 });
 
@@ -146,6 +138,13 @@ describe('rescheduleJobPatch', () => {
     start_time: '08:00:00',
     end_time: '10:00:00',
   };
+
+  it('board drop does not stack a second crew member', () => {
+    expect(rescheduleJobPatch(
+      { assigned_team: ['field-audit'], start_time: '07:30:00', end_time: '16:00:00' },
+      { date: '2026-08-25', employeeId: 'sam' },
+    ).assigned_team).toEqual(['sam']);
+  });
 
   it('replaces a 3-person crew with the drop target', () => {
     expect(rescheduleJobPatch(crewJob, { date: '2026-08-21', employeeId: 'd' })).toEqual({

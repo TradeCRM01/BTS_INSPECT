@@ -237,8 +237,6 @@ export const NeedsDateRail = memo(function NeedsDateRail({
   );
 });
 
-// ── Hour plot (empty days keep the tracker; never swap to copy) ──
-
 function crewRowsForPlot(teamMembers?: TeamMember[]) {
   const rows: { id: string; name: string; schedule_color?: string | null }[] = [
     { id: UNASSIGNED_ROW_ID, name: 'Unassigned' },

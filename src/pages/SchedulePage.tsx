@@ -335,12 +335,15 @@ export function SchedulePage() {
     queryFn: async () => {
       const mock = getAuditTeamMembers();
       if (mock) {
-        return mock.map(m => ({
-          id: m.id,
-          name: m.name,
-          email: m.email,
-          schedule_color: null,
-        }));
+        return [
+          ...mock.map(m => ({
+            id: m.id,
+            name: m.name,
+            email: m.email,
+            schedule_color: null,
+          })),
+          { id: 'audit-crew-sam', name: 'Sam', email: 'sam@field-audit.example.com', schedule_color: null },
+        ];
       }
       if (!profile?.company_id) return [];
       const { data, error } = await supabase.rpc('get_company_members', {

@@ -237,7 +237,6 @@ export function weekBoardCrews(
   return members.filter(member => filteredIds.has(member.id));
 }
 
-/** One row per crew (plus Unassigned when dated jobs have no crew). */
 export function weekBoardRows<T extends WeekBoardJob>(
   jobs: T[],
   members: ScheduleCrewMember[],
@@ -247,14 +246,8 @@ export function weekBoardRows<T extends WeekBoardJob>(
   const days = scheduleWeekDayKeys(anchor);
   const visible = filterJobsByCrew(jobs, filteredIds);
   const crews = weekBoardCrews(members, filteredIds);
-  const hasUnassigned = visible.some(job => (
-    !!scheduleDayKey(job.scheduled_date) && (job.assigned_team ?? []).length === 0
-  ));
-
   const rows: ScheduleCrewMember[] = [
-    ...(hasUnassigned || crews.length === 0
-      ? [{ id: WEEK_UNASSIGNED_CREW_ID, name: 'Unassigned' }]
-      : []),
+    { id: WEEK_UNASSIGNED_CREW_ID, name: 'Unassigned' },
     ...crews,
   ];
 
