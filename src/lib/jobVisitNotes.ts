@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 
-/** Append-only visit notes on the existing job sheet. Not a Visit Wall module. */
 export const JOB_VISIT_NOTE_TABLE = 'job_visit_notes';
 
 export const JOB_VISIT_NOTE_COLUMNS =
@@ -38,7 +37,6 @@ export function trimVisitNote(raw: string | null | undefined): string {
   return (raw ?? '').trim();
 }
 
-/** Author is the signed-in profile name. Blank name still posts as Crew. */
 export function jobVisitNoteAuthor(profileName: string | null | undefined): string {
   return trimVisitNote(profileName) || JOB_VISIT_NOTE_CREW;
 }
@@ -75,7 +73,6 @@ export function decideJobVisitNotePost(input: {
   };
 }
 
-/** Newest created_at first. Same-instant rows break on id, newest id first. */
 export function sortJobVisitNotesNewestFirst(
   notes: JobVisitNote[] | null | undefined,
 ): JobVisitNote[] {

@@ -1,6 +1,3 @@
--- Append-only visit notes on the existing job sheet.
--- Company-scoped RLS. Author is the signed-in profile. created_at is the clock.
-
 CREATE TABLE IF NOT EXISTS public.job_visit_notes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
