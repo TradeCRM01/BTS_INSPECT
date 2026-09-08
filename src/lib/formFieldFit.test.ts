@@ -244,11 +244,11 @@ describe('form fields fit their type', () => {
     expect(src('src/pages/TimesheetsPage.tsx')).toContain('getAuditTeamMembers');
     expect(src('src/pages/TimesheetsPage.tsx')).toContain('getAuditJobs');
     expect(src('src/pages/SchedulePage.tsx')).toContain('ScheduleJobSearch');
-    expect(src('src/pages/SchedulePage.tsx')).toContain('exclusiveAssign: true');
+    expect(src('src/pages/SchedulePage.tsx')).toContain('placePickedHint');
     expect(src('src/pages/SchedulePage.tsx')).toContain('onJobResize');
     expect(src('src/pages/SchedulePage.tsx')).toContain('getAuditJobs');
     expect(src('src/components/crm/BoardViews.tsx')).toContain('readDroppedJobId');
-    expect(src('src/components/crm/BoardViews.tsx')).toContain('consumeDragExclusiveAssign');
+    expect(src('src/components/crm/BoardViews.tsx')).toContain('data-crew-drop={row.id}');
     expect(src('src/components/crm/BoardViews.tsx')).toContain('formatJobRef');
     expect(src('src/lib/devFieldAuditDocs.ts')).toContain('audit-stage-job');
     expect(src('src/lib/devFieldAuditDocs.ts')).toContain("cost_code: '01'");

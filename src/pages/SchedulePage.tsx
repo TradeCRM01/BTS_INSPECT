@@ -555,7 +555,7 @@ export function SchedulePage() {
   const handleRailDragStart = (e: React.DragEvent, jobId: string) => {
     e.dataTransfer.setData('text/plain', jobId);
     e.dataTransfer.effectAllowed = 'move';
-    rememberDraggedJob(jobId, { exclusiveAssign: true });
+    rememberDraggedJob(jobId);
   };
 
   const placePickedOnPerson = (employeeId: string) => {
@@ -565,7 +565,6 @@ export function SchedulePage() {
       date: format(currentDate, 'yyyy-MM-dd'),
       employeeId,
       startTime: pickedJob.start_time ? undefined : DEFAULT_SLOT_START,
-      exclusiveAssign: true,
     });
     setPickedJob(null);
     setJobQuery('');
@@ -890,6 +889,11 @@ export function SchedulePage() {
                   currentDate={currentDate}
                   onJobClick={job => openJob(job.id)}
                   onDragStart={handleRailDragStart}
+                  onJobDrop={drop => {
+                    rescheduleJob.mutate(drop);
+                    setJobQuery('');
+                    setPickedJob(null);
+                  }}
                 />
               </div>
             </div>

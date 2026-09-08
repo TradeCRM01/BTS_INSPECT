@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   applyDropStartTime,
   asTeamIds,
-  consumeDragExclusiveAssign,
   dayRowHeightPx,
   nextAssignedTeam,
   placeDayRowJobs,
@@ -157,13 +156,9 @@ describe('rescheduleJobPatch', () => {
 
   it('uses the same replace crew from board drop and search drop', () => {
     const board = rescheduleJobPatch(crewJob, { date: '2026-08-26', employeeId: 'dave' });
-    const search = rescheduleJobPatch(crewJob, {
-      date: '2026-08-26',
-      employeeId: 'dave',
-      exclusiveAssign: true,
-    });
+    const search = rescheduleJobPatch(crewJob, { date: '2026-08-26', employeeId: 'dave' });
+    expect(board).toEqual(search);
     expect(board.assigned_team).toEqual(['dave']);
-    expect(search.assigned_team).toEqual(['dave']);
   });
 
   it('clears crew on Unassigned without dropping the date', () => {
@@ -195,7 +190,6 @@ describe('rescheduleJobPatch', () => {
     expect(rescheduleJobPatch(crewJob, {
       date: '2026-08-26',
       employeeId: 'dave',
-      exclusiveAssign: true,
     })).toEqual({
       scheduled_date: '2026-08-26',
       assigned_team: ['dave'],
@@ -207,7 +201,6 @@ describe('rescheduleJobPatch', () => {
       date: '2026-08-26',
       employeeId: 'dave',
       startTime: '09:00:00',
-      exclusiveAssign: true,
     })).toEqual({
       scheduled_date: '2026-08-26',
       assigned_team: ['dave'],
@@ -220,7 +213,6 @@ describe('rescheduleJobPatch', () => {
     expect(rescheduleJobPatch(crewJob, {
       date: '2026-08-26',
       employeeId: null,
-      exclusiveAssign: true,
     })).toEqual({
       scheduled_date: '2026-08-26',
       assigned_team: [],
@@ -265,22 +257,6 @@ describe('readDroppedJobId', () => {
       getData: (type: string) => (type === 'text/plain' ? 'job-2' : ''),
     } as unknown as DataTransfer;
     expect(readDroppedJobId(dt)).toBe('job-2');
-  });
-});
-
-describe('consumeDragExclusiveAssign', () => {
-  it('moves from search and adds from the board', () => {
-    rememberDraggedJob('from-search', { exclusiveAssign: true });
-    expect(consumeDragExclusiveAssign()).toBe(true);
-    expect(consumeDragExclusiveAssign()).toBe(false);
-
-    rememberDraggedJob('from-board');
-    expect(consumeDragExclusiveAssign()).toBe(false);
-
-    rememberDraggedJob('from-search', { exclusiveAssign: true });
-    const empty = { getData: () => '' } as unknown as DataTransfer;
-    expect(readDroppedJobId(empty)).toBe('from-search');
-    expect(consumeDragExclusiveAssign()).toBe(true);
   });
 });
 
