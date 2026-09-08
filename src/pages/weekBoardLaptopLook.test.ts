@@ -38,6 +38,12 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(page).toContain("name: 'Jack'");
     expect(page).toContain("name: 'Sam'");
     expect(page).toContain('Warehouse lights');
+    expect(page).toContain('Hot water');
+    expect(page).toContain('Kitchen fit');
+    expect(page).toContain('Site measure');
+    expect(page).toContain('hub-week-track');
+    expect(page).toContain('WEEK_BOARD_LOOK_DAY_ANCHOR');
+    expect(src('src/lib/devFieldAuditAuth.ts')).toContain("params.get('look') === 'week-board'");
     expect(page).toContain('>Week<');
     expect(page).toContain('#F7931A');
     expect(page).toContain('#7C3AED');
@@ -68,7 +74,7 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(css).toContain('.hub-week-more.is-flip');
     expect(css).toContain('.hub-week-more.is-shift');
     expect(css).toContain('font-size: 12px');
-    expect(css).toContain('font-size: 56px !important');
+    expect(css).toContain('font-size: 32px !important');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(css).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
@@ -145,6 +151,10 @@ describe('week-board laptop LOOK frames', () => {
       'docs/look/week-board-laptop-1280-document.png',
       'docs/look/week-board-laptop-1280-overflow.png',
       'docs/look/quote-paper-reference.png',
+      'docs/look/schedule-week-laptop-1280.png',
+      'docs/look/schedule-day-laptop-1280.png',
+      'docs/look/schedule-week-phone-390.png',
+      'docs/look/schedule-day-phone-390.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
       expect(rel).not.toMatch(/ute/i);
