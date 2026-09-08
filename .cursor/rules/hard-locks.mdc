@@ -6,7 +6,9 @@ alwaysApply: true
 # Hard locks
 
 - Never write Relovi or Littleloop in product copy, UI, emails, or PDFs.
-- Public copy is all-trades. Never electrician-only. Never BTS-only. Public product name is Grafter.
+- Public copy is all-trades. Never electrician-only. Never BTS-only. The public product name is Grafter.
 - Do not add modules. Deepen jobs, quotes, invoices, schedule, JHA, inspections, Take 5, and clients.
-- LOOK is laptop 1280 and phone against quote paper in `docs/look/`. A CSS diff is not proof.
-- Route product work through poteto-mode. Prove it works on the real path before done.
+- LOOK proof is a laptop 1280 frame and a phone frame compared against the quote paper in `docs/look/`. A CSS diff is not proof.
+- Route product work through poteto-mode. Prove it works on the real path before you call it done.
+
+`AGENTS.md` at the repo root has the run, test, and look detail.
