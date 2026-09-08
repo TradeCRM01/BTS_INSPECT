@@ -6,7 +6,7 @@ This repo is Grafter, an app for trade crews. This file covers how to run it, ho
 
 1. Run `npm install`.
 2. Copy `.env.example` to `.env`. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
-3. Run `npm run dev` to start Vite.
+3. Run `npm run dev` to start Vite at http://127.0.0.1:5173.
 
 Check a change with these commands before you call it done:
 
@@ -27,7 +27,7 @@ The tokens live in two places. `tailwind.config.js` names `cream`, `navy`, and `
 
 ## All-trades public copy
 
-The public product name is Grafter. Public copy is for all trades. Never write electrician-only copy. Never write BTS-only copy in the product. The landing page already says Grafter is for trade crews (plumbing, mechanical, carpentry, electrical, the lot). Keep to that. The repo name BTS_INSPECT is not product copy.
+The public product name is Grafter. Public copy is for all trades. Never write electrician-only copy. Never write BTS-only copy in the product. The landing page already says Grafter is for trade crews (plumbing, mechanical, carpentry, electrical, the lot). Keep to that. The repo name BTS_INSPECT is not product copy. Building Technology Solutions Pty Ltd stays on Privacy and Terms. That name is the operator, not customer copy.
 
 ## Plumber scoreboard
 
