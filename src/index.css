@@ -5803,6 +5803,8 @@
   .hub-week-document .hub-week-board,
   .hub-week-document .hub-day-board {
     margin-top: 6px;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .hub-week-document .hub-schedule-board-head {
@@ -5839,10 +5841,28 @@
     color: #5B6B7C;
   }
 
+  .hub-day-track {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .hub-day-crew-rail {
+    flex: 0 0 104px;
+    width: 104px;
+    z-index: 5;
+    background: #FFFDF8;
+  }
+
+  .hub-day-hours {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+  }
+
   .hub-day-crew-lock {
-    position: sticky;
-    left: 0;
-    z-index: 4;
+    width: 100%;
     background: #FFFDF8;
   }
 
@@ -5962,12 +5982,12 @@
   .hub-week-chip-ref,
   .hub-week-chip-desc {
     display: block;
-    white-space: nowrap;
   }
 
   .hub-week-chip-ref {
     overflow: visible;
     text-overflow: clip;
+    white-space: nowrap;
     font-family: 'Source Sans 3', system-ui, sans-serif;
     font-size: 13px;
     font-weight: 700;
@@ -5976,8 +5996,9 @@
   }
 
   .hub-week-chip-desc {
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
     font-family: 'Source Sans 3', system-ui, sans-serif;
     font-size: 12px;
     font-weight: 500;
@@ -6095,6 +6116,11 @@
       grid-template-columns: 80px repeat(7, 156px);
       width: max-content;
       min-width: 1172px;
+    }
+
+    .hub-day-crew-rail {
+      flex-basis: 88px;
+      width: 88px;
     }
 
     .hub-week-corner,

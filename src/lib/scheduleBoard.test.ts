@@ -20,6 +20,7 @@ import {
   scheduleWeekDays,
   weekBoardChip,
   weekBoardChipColor,
+  weekBoardChipDescription,
   weekBoardFamilyKey,
   weekBoardRows,
 } from './scheduleBoard';
@@ -311,6 +312,19 @@ describe('week-board grouping and chips', () => {
       color: '#8B4513',
     });
     expect(weekBoardChip(siblings[2], siblings).ref).toBe('#0042.02');
+  });
+
+  it('uses the job title on the chip, not an empty-site line', () => {
+    expect(weekBoardChipDescription({
+      id: 'bare',
+      title: 'Kitchen fit',
+      description: null,
+    })).toBe('Kitchen fit');
+    expect(weekBoardChip({
+      id: 'bare',
+      title: 'Install 2x new switchboards',
+      job_number: 55,
+    }).description).toBe('Install 2x new switchboards');
   });
 
   it('inherits a family colour when a child has no color of its own', () => {

@@ -41,6 +41,8 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(page).toContain('Hot water');
     expect(page).toContain('Kitchen fit');
     expect(page).toContain('Site measure');
+    expect(page).toContain('Install 2x new switchboards');
+    expect(page).toContain('address: null');
     expect(page).toContain('hub-week-track');
     expect(page).toContain('WEEK_BOARD_LOOK_DAY_ANCHOR');
     expect(src('src/lib/devFieldAuditAuth.ts')).toContain("params.get('look') === 'week-board'");
@@ -108,6 +110,10 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(board).toContain('is-empty');
     expect(board).toContain('weekBoardRows');
     expect(board).toContain('data-schedule-track="day"');
+    expect(board).toContain('hub-day-track');
+    expect(board).toContain('hub-day-crew-rail');
+    expect(board).toContain('hub-day-hours');
+    expect(board).not.toContain('No site address');
     expect(board).not.toContain('No jobs on this day');
     expect(board).not.toContain('No jobs this day');
     expect(board).not.toContain('hub-schedule-empty');

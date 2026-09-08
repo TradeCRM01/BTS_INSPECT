@@ -117,6 +117,7 @@ function weekBoardLookJobs(): JobWithClient[] {
       job_number: 52,
       start_time: '10:00',
       end_time: '15:00',
+      address: null,
       color: WEEK_LOOK_FIT,
     }),
     weekBoardLookJob({
@@ -144,7 +145,7 @@ function weekBoardLookJobs(): JobWithClient[] {
     }),
     weekBoardLookJob({
       id: 'look-job-0055',
-      title: 'Call-back',
+      title: 'Install 2x new switchboards',
       scheduled_date: '2025-04-04',
       assigned_team: [WEEK_LOOK_DAVE],
       job_number: 55,

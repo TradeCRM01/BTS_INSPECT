@@ -60,7 +60,6 @@ const HOUR_WIDTH = HOUR_WIDTH_PX;
 const DAY_START = DAY_START_HOUR;
 const DAY_END = DAY_END_HOUR;
 const HOURS = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => DAY_START + i);
-const LABEL_WIDTH = 168;
 const ALL_DAY_H = 56;
 const TIMED_H = 72;
 const ROW_PAD = 6;
@@ -115,7 +114,7 @@ const JobBlock = memo(function JobBlock({
         }
       }}
       data-schedule-job={job.id}
-      className={`hub-week-chip job-cal-host cursor-pointer w-full h-full ${
+      className={`hub-week-chip cursor-pointer w-full h-full ${
         dragging ? 'is-dragging' : ''
       }`}
       style={{ background: chip.color, color: ink }}
@@ -429,6 +428,27 @@ export const DayBoardView = memo(function DayBoardView({
   };
 
   const gridWidth = HOURS.length * HOUR_WIDTH;
+  const paintedRows = rows.map((row, rowIdx) => {
+    const isUnassigned = row.id === UNASSIGNED_ROW_ID;
+    const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
+    const rowJobs = jobsByRow.get(row.id) ?? [];
+    const layout = placeDayRowJobs(rowJobs);
+    const placementById = new Map(layout.placements.map(p => [p.id, p]));
+    const height = dayRowHeightPx(layout.allDayCount, layout.timedLaneCount, {
+      min: ROW_MIN, allDayH: ALL_DAY_H, timedH: TIMED_H, pad: ROW_PAD,
+    });
+    return {
+      row,
+      rowIdx,
+      isUnassigned,
+      color,
+      rowJobs,
+      layout,
+      placementById,
+      height,
+      hovering: dropHoverId === row.id,
+    };
+  });
 
   return (
     <div className="ops-board hub-day-board" data-schedule-track="day" data-day-board="1">
@@ -448,15 +468,50 @@ export const DayBoardView = memo(function DayBoardView({
         </p>
       </div>
 
-      <div ref={scrollRef} className="overflow-x-auto job-cal-board-scroll">
-        <div className="flex sticky top-0 z-20 bg-white border-b border-rule">
-          <div className="hub-day-crew-lock shrink-0 border-r border-rule bg-zebra" style={{ width: LABEL_WIDTH }}>
+      <div className="hub-day-track">
+        <div className="hub-day-crew-rail">
+          <div className="hub-day-crew-lock hub-day-crew-head border-r border-b border-rule">
             <div className="px-3 py-2 flex items-center gap-1.5">
               <Users size={13} />
               <span className="hub-schedule-label">Crew</span>
             </div>
           </div>
-          <div className="flex" style={{ minWidth: gridWidth }}>
+          {paintedRows.map(painted => (
+            <div
+              key={painted.row.id}
+              data-crew-drop={painted.row.id}
+              className={`hub-day-crew-lock border-r border-rule cursor-pointer hover:bg-zebra transition-colors flex items-center gap-2 px-3 ${
+                painted.rowIdx < paintedRows.length - 1 ? 'border-b' : ''
+              } ${painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'}`}
+              style={{
+                height: painted.height,
+                borderLeft: painted.isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${painted.color}`,
+              }}
+              onClick={() => onDayClick(dateStr, painted.isUnassigned ? undefined : painted.row.id)}
+              onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropHoverId(painted.row.id); }}
+              onDrop={e => { e.stopPropagation(); handleDrop(e, painted.row.id); }}
+            >
+              <span
+                className="ops-crew-mark"
+                style={{
+                  background: painted.isUnassigned ? 'transparent' : painted.color,
+                  outline: painted.isUnassigned ? `1px solid ${colors.navy}` : undefined,
+                }}
+              />
+              <div className="min-w-0">
+                <p className="hub-schedule-crew-name truncate">{painted.row.name}</p>
+                <p className="ops-meta">
+                  {painted.isUnassigned
+                    ? (painted.rowJobs.length === 0 ? 'Drop here — date stays' : `${painted.rowJobs.length} · needs crew`)
+                    : `${painted.rowJobs.length} job${painted.rowJobs.length !== 1 ? 's' : ''}`}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div ref={scrollRef} className="hub-day-hours job-cal-board-scroll">
+          <div className="flex border-b border-rule" style={{ minWidth: gridWidth }}>
             {HOURS.map(h => (
               <div key={h} className="text-center border-r border-rule last:border-r-0"
                 style={{ width: HOUR_WIDTH }}>
@@ -466,64 +521,23 @@ export const DayBoardView = memo(function DayBoardView({
               </div>
             ))}
           </div>
-        </div>
 
-        {rows.map((row, rowIdx) => {
-          const isUnassigned = row.id === UNASSIGNED_ROW_ID;
-          const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
-          const rowJobs = jobsByRow.get(row.id) ?? [];
-          const layout = placeDayRowJobs(rowJobs);
-          const placementById = new Map(layout.placements.map(p => [p.id, p]));
-          const height = dayRowHeightPx(layout.allDayCount, layout.timedLaneCount, {
-            min: ROW_MIN, allDayH: ALL_DAY_H, timedH: TIMED_H, pad: ROW_PAD,
-          });
-          const hovering = dropHoverId === row.id;
-
-          return (
+          {paintedRows.map(painted => (
             <div
-              key={row.id}
-              className={`flex ${rowIdx < rows.length - 1 ? 'border-b border-rule' : ''} ${
-                isUnassigned ? 'bg-zebra' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-zebra'
-              } ${hovering ? 'bg-zebra' : ''}`}
-              onDragOver={e => { e.preventDefault(); setDropHoverId(row.id); }}
-              onDrop={e => handleDrop(e, row.id)}
+              key={painted.row.id}
+              className={`${painted.rowIdx < paintedRows.length - 1 ? 'border-b border-rule' : ''} ${
+                painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'
+              }`}
+              onDragOver={e => { e.preventDefault(); setDropHoverId(painted.row.id); }}
+              onDrop={e => handleDrop(e, painted.row.id)}
             >
-              <div
-                data-crew-drop={row.id}
-                className="hub-day-crew-lock shrink-0 border-r border-rule cursor-pointer hover:bg-zebra transition-colors flex items-center gap-2 px-3"
-                style={{
-                  width: LABEL_WIDTH,
-                  height,
-                  borderLeft: isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${color}`,
-                }}
-                onClick={() => onDayClick(dateStr, isUnassigned ? undefined : row.id)}
-                onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropHoverId(row.id); }}
-                onDrop={e => { e.stopPropagation(); handleDrop(e, row.id); }}
-              >
-                <span
-                  className="ops-crew-mark"
-                  style={{
-                    background: isUnassigned ? 'transparent' : color,
-                    outline: isUnassigned ? `1px solid ${colors.navy}` : undefined,
-                  }}
-                />
-                <div className="min-w-0">
-                  <p className="hub-schedule-crew-name truncate">{row.name}</p>
-                  <p className="ops-meta">
-                    {isUnassigned
-                      ? (rowJobs.length === 0 ? 'Drop here — date stays' : `${rowJobs.length} · needs crew`)
-                      : `${rowJobs.length} job${rowJobs.length !== 1 ? 's' : ''}`}
-                  </p>
-                </div>
-              </div>
-
               <div
                 data-day-grid="1"
                 className="relative cursor-pointer"
-                style={{ width: gridWidth, height }}
-                onClick={() => onDayClick(dateStr, isUnassigned ? undefined : row.id)}
-                onDragOver={e => { e.preventDefault(); setDropHoverId(row.id); }}
-                onDrop={e => handleTimeDrop(e, row.id)}
+                style={{ width: gridWidth, height: painted.height }}
+                onClick={() => onDayClick(dateStr, painted.isUnassigned ? undefined : painted.row.id)}
+                onDragOver={e => { e.preventDefault(); setDropHoverId(painted.row.id); }}
+                onDrop={e => handleTimeDrop(e, painted.row.id)}
               >
                 {HOURS.map(h => (
                   <div
@@ -535,8 +549,8 @@ export const DayBoardView = memo(function DayBoardView({
 
                 {isToday(currentDate) && <CurrentTimeVerticalIndicator />}
 
-                {rowJobs.map(job => {
-                  const placed = placementById.get(job.id);
+                {painted.rowJobs.map(job => {
+                  const placed = painted.placementById.get(job.id);
                   if (!placed) return null;
                   if (placed.allDay) {
                     return (
@@ -562,7 +576,7 @@ export const DayBoardView = memo(function DayBoardView({
                   if (startM == null) return null;
                   const left = Math.max(0, (startM / 60 - DAY_START) * HOUR_WIDTH + 2);
                   const width = Math.max(60, ((endM - startM) / 60) * HOUR_WIDTH - 4);
-                  const top = ROW_PAD + layout.allDayCount * ALL_DAY_H + placed.lane * TIMED_H;
+                  const top = ROW_PAD + painted.layout.allDayCount * ALL_DAY_H + placed.lane * TIMED_H;
                   const displayJob = preview
                     ? { ...job, start_time: preview.start_time, end_time: preview.end_time }
                     : job;
@@ -611,8 +625,8 @@ export const DayBoardView = memo(function DayBoardView({
                 })}
               </div>
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -67,6 +67,16 @@ async function measure(page) {
       ? [...board.querySelectorAll('.hub-week-cell.is-empty')].length
       : 0;
     const rail = document.querySelector('.hub-week-document .ops-tray');
+    const locks = board
+      ? [...board.querySelectorAll('.hub-day-crew-lock')].map((el) => {
+        const box = el.getBoundingClientRect();
+        return {
+          text: (el.textContent || '').replace(/\s+/g, ' ').trim(),
+          left: Math.round(box.left),
+          clipBy: paperBox ? Math.round(paperBox.left - box.left) : 0,
+        };
+      })
+      : [];
     return {
       cream: cream ? getComputedStyle(cream).backgroundColor : null,
       paper: paper ? getComputedStyle(paper).backgroundColor : null,
@@ -83,6 +93,9 @@ async function measure(page) {
       cellAir: cellBox && chipBox ? Math.round((cellBox.height - chipBox.height) / 2) : null,
       weekendEmpty,
       railOnSheet: !!(paper && rail && paper.contains(rail)),
+      crewClip: locks,
+      crewNamesReadable: locks.length === 0
+        || locks.every((lock) => lock.clipBy <= 0 && /Crew|Dave|Jack|Sam/.test(lock.text)),
       chipCount: chips.length,
       trackInPaper: !!(paper && track && paper.contains(track)),
       boardInPaper: !!(paper && board && paper.contains(board)),
