@@ -55,6 +55,18 @@ async function measure(page) {
       ? board.querySelectorAll('[data-week-chip], [data-schedule-job]')
       : [];
     const paperStyle = paper ? getComputedStyle(paper) : null;
+    const pageBox = cream?.getBoundingClientRect();
+    const paperBox = paper?.getBoundingClientRect();
+    const boardBox = board?.getBoundingClientRect();
+    const cell = board?.querySelector('.hub-week-cell:not(.is-empty)')
+      || board?.querySelector('.hub-week-cell');
+    const chip = cell?.querySelector('.hub-week-chip');
+    const cellBox = cell?.getBoundingClientRect();
+    const chipBox = chip?.getBoundingClientRect();
+    const weekendEmpty = board
+      ? [...board.querySelectorAll('.hub-week-cell.is-empty')].length
+      : 0;
+    const rail = document.querySelector('.hub-week-document .ops-tray');
     return {
       cream: cream ? getComputedStyle(cream).backgroundColor : null,
       paper: paper ? getComputedStyle(paper).backgroundColor : null,
@@ -63,7 +75,14 @@ async function measure(page) {
       barBg: bar ? getComputedStyle(bar).backgroundColor : null,
       heroPx: hero ? getComputedStyle(hero).fontSize : null,
       heroFamily: hero ? getComputedStyle(hero).fontFamily : null,
-      boardTop: board ? Math.round(board.getBoundingClientRect().top) : null,
+      boardTop: pageBox && boardBox ? Math.round(boardBox.top - pageBox.top) : null,
+      boardTopPaper: paperBox && boardBox ? Math.round(boardBox.top - paperBox.top) : null,
+      boardTopViewport: boardBox ? Math.round(boardBox.top) : null,
+      cellH: cellBox ? Math.round(cellBox.height) : null,
+      cellPadY: cell ? parseFloat(getComputedStyle(cell).paddingTop) : null,
+      cellAir: cellBox && chipBox ? Math.round((cellBox.height - chipBox.height) / 2) : null,
+      weekendEmpty,
+      railOnSheet: !!(paper && rail && paper.contains(rail)),
       chipCount: chips.length,
       trackInPaper: !!(paper && track && paper.contains(track)),
       boardInPaper: !!(paper && board && paper.contains(board)),

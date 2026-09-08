@@ -4919,7 +4919,7 @@
     margin: 0;
     background: var(--schedule-page);
     color: var(--schedule-ink);
-    padding: 24px 24px 40px;
+    padding: 16px 24px 32px;
   }
 
   .hub-board-cal.is-week-doc > .ops-page-head,
@@ -5391,6 +5391,12 @@
     overflow: visible;
   }
 
+  .hub-week-document .ops-tray {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #E2D9CC;
+  }
+
   .hub-week-sheet .hub-week-board.ops-board {
     overflow-x: auto;
     overflow-y: visible;
@@ -5405,8 +5411,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    min-height: 22px;
-    padding: 4px 24px;
+    min-height: 18px;
+    padding: 2px 20px;
     background: #FFFDF8;
     color: #0A2540;
     border-bottom: 1px solid #E2D9CC;
@@ -5423,7 +5429,7 @@
   }
 
   .hub-week-sheet-body {
-    padding: 16px 24px 20px;
+    padding: 8px 20px 14px;
     background: #FFFDF8;
     box-shadow: inset 0 1px 0 #fff;
   }
@@ -5431,8 +5437,8 @@
   .hub-week-identity-row {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 12px 16px;
+    align-items: center;
+    gap: 6px 12px;
   }
 
   .hub-week-hero {
@@ -5445,12 +5451,17 @@
     margin: 0;
   }
 
+  .hub-week-document .hub-week-hero {
+    font-size: 20px !important;
+    line-height: 1;
+  }
+
   .hub-week-status-whisper {
     display: block;
-    margin: 8px 0 0;
+    margin: 2px 0 0;
     padding: 0;
     font-family: 'Source Sans 3', system-ui, sans-serif;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
@@ -5499,7 +5510,7 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
+    gap: 2px;
   }
 
   .hub-week-id-label {
@@ -5596,9 +5607,10 @@
 
   .hub-week-tools {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 8px;
+    min-width: 0;
   }
 
   .hub-week-quiet {
@@ -5725,6 +5737,7 @@
     font-size: 14px;
     font-weight: 500;
     color: #0A2540;
+    white-space: nowrap;
   }
 
   .hub-week-place {
@@ -5777,18 +5790,19 @@
 
   .hub-week-track {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 8px 16px;
-    margin-top: 12px;
-    padding: 8px 0 10px;
+    gap: 4px 12px;
+    margin-top: 6px;
+    padding: 4px 0 6px;
     border-top: 1px solid #E2D9CC;
     border-bottom: 1px solid #E2D9CC;
+    overflow-x: auto;
   }
 
   .hub-week-document .hub-week-board,
   .hub-week-document .hub-day-board {
-    margin-top: 12px;
+    margin-top: 6px;
   }
 
   .hub-week-document .hub-schedule-board-head {
@@ -5891,8 +5905,8 @@
   .hub-week-crew {
     display: flex;
     align-items: center;
-    padding: 12px 14px;
-    min-height: 92px;
+    padding: 6px 10px;
+    min-height: 44px;
     position: sticky;
     left: 0;
     z-index: 2;
@@ -5910,11 +5924,11 @@
   .hub-week-cell {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-height: 92px;
-    padding: 10px 8px;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 3px;
+    min-height: 44px;
+    padding: 4px;
     cursor: pointer;
   }
 
@@ -5935,10 +5949,17 @@
     overflow: visible;
     border: none;
     border-radius: 4px;
-    padding: 8px 10px;
+    padding: 4px 6px;
     text-align: left;
     cursor: pointer;
     box-shadow: none;
+  }
+
+  .hub-week-board .hub-week-chip {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: 6px;
   }
 
   .hub-week-chip.is-dragging {
@@ -6031,11 +6052,11 @@
     }
 
     .hub-week-sheet-bar {
-      padding: 6px 16px;
+      padding: 2px 16px;
     }
 
     .hub-week-sheet-body {
-      padding: 12px 16px 16px;
+      padding: 8px 16px 12px;
     }
 
     .hub-week-hero {
@@ -6044,7 +6065,7 @@
 
     .hub-week-identity-row {
       flex-wrap: nowrap;
-      align-items: flex-end;
+      align-items: center;
     }
 
     .hub-week-page-tools {
