@@ -74,7 +74,6 @@ function firstNonEmptyEnv(...values: Array<string | null | undefined>): string {
   return "";
 }
 
-/** Shared Grafter Resend — same smtp_pass pipe as company email_settings, not a second mail product. */
 function sharedGrafterSmtp(
   company?: { name?: string | null; email?: string | null } | null,
 ): EmailSettings | null {

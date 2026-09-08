@@ -242,9 +242,14 @@ describe('honest misses — no send', () => {
     expect(emailSettingsReady({ smtp_host: 'smtp.mailgun.org', smtp_pass: 'x', from_email: 'a@b.c' })).toBe(false);
     expect(emailSettingsReady({ smtp_host: 'smtp.resend.com', smtp_pass: '', from_email: 'a@b.c' })).toBe(false);
     expect(emailSettingsReady(smtp)).toBe(true);
+    const gate = reminderEligibility({
+      job: job(), client, settings: null, companyId: 'co-1', now,
+    });
+    expect(gate).toMatchObject({ ok: false, reason: 'no_smtp' });
+    expect(missMessage('no_smtp')).toBe('Email is not set up.');
+  });
 
-    // Live BTS quote #0002: company SMTP row absent. Blank platform FROM_EMAIL
-    // must not hide company.email or SMTP_PASS, or Send dies as no_smtp.
+  it('uses company from-address when platform FROM env is blank', () => {
     expect(sharedGrafterSmtpFromEnv(
       { RESEND_API_KEY: 're_test', RESEND_FROM_EMAIL: '', FROM_EMAIL: '' },
       { name: 'Building Technology Solutions', email: 'admin@bts.local' },
@@ -262,11 +267,6 @@ describe('honest misses — no send', () => {
       { RESEND_API_KEY: '', SMTP_PASS: '' },
       { name: 'BTS', email: 'admin@bts.local' },
     )).toBeNull();
-    const gate = reminderEligibility({
-      job: job(), client, settings: null, companyId: 'co-1', now,
-    });
-    expect(gate).toMatchObject({ ok: false, reason: 'no_smtp' });
-    expect(missMessage('no_smtp')).toBe('Email is not set up.');
   });
 
   it('does not send for another company or a closed job', () => {
