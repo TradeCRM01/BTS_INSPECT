@@ -40,13 +40,19 @@ describe('schedule page week/day board', () => {
       board.indexOf('export const PhoneDayList'),
       board.indexOf('export const PhoneWeekList'),
     );
+    const dayBoard = board.slice(
+      board.indexOf('export const DayBoardView'),
+      board.indexOf('function CurrentTimeVerticalIndicator'),
+    );
     const phoneDayMount = page.slice(
       page.indexOf('<PhoneDayList'),
       page.indexOf('</PhoneDayList>'),
     );
     expect(phoneDay).toContain('onJobDrop?: (drop: JobDropPayload) => void');
-    expect(phoneDay).toContain('data-crew-drop={row.id}');
-    expect(phoneDay).toContain('onDrop={e => handleDrop(e, row.id)}');
+    expect(phoneDay).toContain('onJobDrop={onJobDrop}');
+    expect(phoneDay).toContain('DayBoardView');
+    expect(dayBoard).toContain('data-crew-drop={row.id}');
+    expect(dayBoard).toContain('handleDrop(e, row.id)');
     expect(phoneDayMount).toContain('onJobDrop={drop => {');
     expect(page).toContain('placePickedHint');
     expect(page).not.toContain('today at 8:00');
@@ -167,6 +173,10 @@ describe('schedule board cream paper look', () => {
       'docs/look/schedule-empty-day-phone.png',
       'docs/look/schedule-week-board-desktop.png',
       'docs/look/schedule-week-board-phone.png',
+      'docs/look/schedule-week-laptop-1280.png',
+      'docs/look/schedule-day-laptop-1280.png',
+      'docs/look/schedule-week-phone-390.png',
+      'docs/look/schedule-day-phone-390.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
     }

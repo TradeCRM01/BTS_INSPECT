@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   applyDropStartTime,
   asTeamIds,
+  dayBoardHoursFit,
+  dayBoardHourWidthPx,
   dayRowHeightPx,
   nextAssignedTeam,
   placeDayRowJobs,
@@ -94,6 +96,15 @@ describe('applyDropStartTime', () => {
       start_time: '07:00:00',
       end_time: '08:00:00',
     });
+  });
+});
+
+describe('dayBoardHourWidthPx', () => {
+  it('fits a normal work day at laptop width and keeps phone at 96', () => {
+    expect(dayBoardHourWidthPx(952)).toBe(63);
+    expect(dayBoardHoursFit(952)).toBe(true);
+    expect(dayBoardHourWidthPx(238)).toBe(96);
+    expect(dayBoardHoursFit(238)).toBe(false);
   });
 });
 

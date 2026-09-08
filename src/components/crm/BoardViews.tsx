@@ -3,8 +3,7 @@ import type { JobWithClient } from '../../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
 import { getReadableText, pickEmployeeColor } from '../../lib/jobColors';
 import { colors } from '../../lib/colors';
-import { boardDispatchHint, jobCardHint } from '../../lib/jobNextAction';
-import { OpsSiteRow, OpsStatus, opsSiteLabel } from '../ui/OpsCard';
+import { OpsStatus, opsSiteLabel } from '../ui/OpsCard';
 import {
   startTimeFromDropOffset,
   placeDayRowJobs,
@@ -13,6 +12,8 @@ import {
   DAY_START_HOUR,
   DAY_END_HOUR,
   HOUR_WIDTH_PX,
+  dayBoardHourWidthPx,
+  dayBoardHoursFit,
   timeToMinutes,
   resizeJobTimes,
   rememberDraggedJob,
@@ -21,16 +22,15 @@ import {
   type ResizeEdge,
 } from '../../lib/dispatch';
 import { format, isToday, parseISO } from 'date-fns';
-import { Clock, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { JobCalendarOverflow } from '../jobs/JobCalendarOverflow';
 import { calendarSite } from '../../lib/jobCalendar';
 import { formatJobRef } from '../../lib/jobRef';
 import {
   jobsOnScheduleDay,
-  scheduleClockLabel,
-  scheduleCrewLabel,
+  scheduleChipClock,
   scheduleDateKey,
-  scheduleDayKey,
+  schedulePlotTimes,
   scheduleWeekDays,
   weekBoardChip,
   weekBoardRows,
@@ -57,11 +57,9 @@ export interface BoardProps {
   onSelectDay?: (date: Date) => void;
 }
 
-const HOUR_WIDTH = HOUR_WIDTH_PX;
 const DAY_START = DAY_START_HOUR;
 const DAY_END = DAY_END_HOUR;
 const HOURS = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => DAY_START + i);
-const LABEL_WIDTH = 168;
 const ALL_DAY_H = 56;
 const TIMED_H = 72;
 const ROW_PAD = 6;
@@ -69,10 +67,6 @@ const ROW_MIN = 72;
 
 function dateKey(d: Date): string {
   return scheduleDateKey(d);
-}
-
-function jobDateKey(job: JobWithClient): string | null {
-  return scheduleDayKey(job.scheduled_date);
 }
 
 function formatHourLabel(h: number): string {
@@ -95,14 +89,11 @@ interface JobBlockProps {
 }
 
 const JobBlock = memo(function JobBlock({
-  job, teamMembers, onClick, onDragStart, compact, dragging, fill = true, detail = false,
+  job, onClick, onDragStart, dragging,
 }: JobBlockProps) {
-  const rail = JOB_STATUS_RAIL[job.status];
-  const hint = boardDispatchHint(job);
-  const next = hint ?? jobCardHint(job);
-  const site = opsSiteLabel(job.address, job.client_address);
-  const clock = scheduleClockLabel(job.start_time, job.end_time);
-  const crew = scheduleCrewLabel(job.assigned_team, teamMembers);
+  const chip = weekBoardChip(job);
+  const ink = getReadableText(chip.color);
+  const clock = scheduleChipClock(job.start_time, job.end_time);
 
   return (
     <div
@@ -119,49 +110,14 @@ const JobBlock = memo(function JobBlock({
         }
       }}
       data-schedule-job={job.id}
-      className={`${fill ? 'absolute left-1 right-1' : 'w-full'} ops-card job-cal-host ops-card-hover cursor-pointer active:scale-[0.98] ${
-        dragging ? 'opacity-40' : ''
+      data-chip-clock={clock}
+      className={`hub-week-chip cursor-pointer w-full h-full ${
+        dragging ? 'is-dragging' : ''
       }`}
-      style={{ borderLeftWidth: 3, borderLeftColor: rail }}
+      style={{ background: chip.color, color: ink }}
     >
-      <div className="px-1.5 py-1 text-left relative">
-        {compact ? (
-          <div className="absolute top-0 right-0 z-10">
-            <JobCalendarOverflow
-              job={job}
-              site={calendarSite(job.address, job.client_address)}
-              members={teamMembers}
-            />
-          </div>
-        ) : (
-          <div className="flex items-start justify-between gap-1 mb-1">
-            <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
-            <JobCalendarOverflow
-              job={job}
-              site={calendarSite(job.address, job.client_address)}
-              members={teamMembers}
-            />
-          </div>
-        )}
-        <p className={`${compact ? 'hub-schedule-ref pr-10' : 'hub-schedule-ref'} truncate`}>
-          {compact && clock ? `${clock} · ` : ''}
-          {formatJobRef(job)} | {site}
-        </p>
-        {!compact && job.title && (
-          <p className="ops-meta mt-0.5 truncate">{job.title}</p>
-        )}
-        {!compact && clock && (
-          <p className="ops-meta mt-0.5 flex items-center gap-0.5">
-            <Clock size={12} /> {clock}
-          </p>
-        )}
-        {!compact && (
-          <p className="ops-meta mt-0.5 flex items-center gap-0.5 truncate">
-            <Users size={12} /> {crew}
-          </p>
-        )}
-        <span className={`mt-1 ${detail ? 'hub-schedule-next' : 'hub-schedule-next is-compact'}`}>{next}</span>
-      </div>
+      <span className="hub-week-chip-ref">{`${clock} · ${chip.ref}`}</span>
+      {chip.description ? <span className="hub-week-chip-desc">{chip.description}</span> : null}
     </div>
   );
 });
@@ -237,17 +193,6 @@ export const NeedsDateRail = memo(function NeedsDateRail({
   );
 });
 
-function crewRowsForPlot(teamMembers?: TeamMember[]) {
-  const rows: { id: string; name: string; schedule_color?: string | null }[] = [
-    { id: UNASSIGNED_ROW_ID, name: 'Unassigned' },
-  ];
-  for (const member of teamMembers ?? []) {
-    rows.push({ id: member.id, name: member.name, schedule_color: member.schedule_color });
-  }
-  return rows;
-}
-
-
 function WeekJobChip({
   job,
   familyJobs,
@@ -288,158 +233,33 @@ function WeekJobChip({
   );
 }
 
-// ── Phone day list ───────────────────────────────────────────────
-
-function PhoneJobCard({
-  job, teamMembers, onJobClick, onDragStart,
-}: {
-  job: JobWithClient;
-  teamMembers?: TeamMember[];
-  onJobClick: (job: JobWithClient) => void;
-  onDragStart: (e: React.DragEvent, jobId: string) => void;
-}) {
-  const site = opsSiteLabel(job.address, job.client_address);
-  const mapsQuery = (job.address || job.client_address)?.trim() || null;
-  const next = boardDispatchHint(job) ?? jobCardHint(job);
-  const clock = scheduleClockLabel(job.start_time, job.end_time);
-  const crew = scheduleCrewLabel(job.assigned_team, teamMembers);
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      draggable
-      data-schedule-job={job.id}
-      onDragStart={e => onDragStart(e, job.id)}
-      onClick={() => onJobClick(job)}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onJobClick(job);
-        }
-      }}
-      className="ops-card job-cal-host ops-card-hover w-full text-left cursor-pointer"
-      style={{ borderLeftWidth: 4, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
-    >
-      <div className="ops-card-body">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <p className="hub-schedule-ref truncate">{formatJobRef(job)} | {site}</p>
-          <div className="flex items-center gap-1 shrink-0">
-            <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
-            <JobCalendarOverflow
-              job={job}
-              site={calendarSite(job.address, job.client_address)}
-              members={teamMembers}
-            />
-          </div>
-        </div>
-        <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
-        <div className="ops-card-footer">
-          <span className="hub-schedule-next">{next}</span>
-        </div>
-        <div className="mt-2 space-y-0.5">
-          {clock && (
-            <p className="ops-meta flex items-center gap-1">
-              <Clock size={12} /> {clock}
-            </p>
-          )}
-          <p className="ops-meta flex items-center gap-1 truncate">
-            <Users size={12} /> {crew}
-          </p>
-          {job.client_name && <p className="ops-meta truncate">{job.client_name}</p>}
-          {job.title && <p className="ops-meta truncate">{job.title}</p>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export const PhoneDayList = memo(function PhoneDayList({
-  jobs, teamMembers, currentDate, onJobClick, onDragStart, onJobDrop,
+  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, onJobResize,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
   currentDate: Date;
   onJobClick: (job: JobWithClient) => void;
-  onDragStart: (e: React.DragEvent, jobId: string) => void;
+  onDayClick: (dateStr: string, employeeId?: string) => void;
   onJobDrop?: (drop: JobDropPayload) => void;
+  onJobResize?: (jobId: string, startTime: string, endTime: string) => void;
 }) {
-  const [dropHoverId, setDropHoverId] = useState<string | null>(null);
-  const dateStr = dateKey(currentDate);
-  const dayJobs = useMemo(() => jobsOnScheduleDay(jobs, dateStr), [jobs, dateStr]);
-  const rows = useMemo(() => crewRowsForPlot(teamMembers), [teamMembers]);
-  const jobsByRow = useMemo(() => {
-    const map = new Map<string, JobWithClient[]>();
-    for (const row of rows) map.set(row.id, []);
-    for (const job of dayJobs) {
-      const assigned = job.assigned_team ?? [];
-      if (assigned.length === 0) {
-        map.get(UNASSIGNED_ROW_ID)?.push(job);
-      } else {
-        for (const empId of assigned) {
-          map.get(empId)?.push(job);
-        }
-      }
-    }
-    return map;
-  }, [dayJobs, rows]);
-
-  useEffect(() => {
-    const clear = () => setDropHoverId(null);
-    window.addEventListener('dragend', clear);
-    return () => window.removeEventListener('dragend', clear);
-  }, []);
-
-  const handleDrop = (e: React.DragEvent, empId: string) => {
-    e.preventDefault();
-    const jobId = readDroppedJobId(e.dataTransfer);
-    if (jobId && onJobDrop) {
-      onJobDrop({
-        jobId,
-        date: dateStr,
-        employeeId: empId === UNASSIGNED_ROW_ID ? null : empId,
-      });
-    }
-    setDropHoverId(null);
-  };
-
   return (
-    <div className="space-y-3" data-schedule-day={dateStr} data-schedule-track="day">
-      <h2 className="hub-schedule-label">
-        {format(currentDate, 'EEEE d MMM')}
-        <span className="hub-schedule-count"> ({dayJobs.length})</span>
-      </h2>
-      {rows.map(row => {
-        const rowJobs = jobsByRow.get(row.id) ?? [];
-        const hovering = dropHoverId === row.id;
-        return (
-          <section
-            key={row.id}
-            data-crew-drop={row.id}
-            className={`hub-phone-crew-drop${hovering ? ' is-hover' : ''}`}
-            onDragOver={e => { e.preventDefault(); setDropHoverId(row.id); }}
-            onDrop={e => handleDrop(e, row.id)}
-          >
-            <p className="hub-schedule-crew-name">{row.name}</p>
-            <div className="space-y-2 mt-2">
-              {rowJobs.map(job => (
-                <PhoneJobCard
-                  key={job.id}
-                  job={job}
-                  teamMembers={teamMembers}
-                  onJobClick={onJobClick}
-                  onDragStart={onDragStart}
-                />
-              ))}
-            </div>
-          </section>
-        );
-      })}
-    </div>
+    <DayBoardView
+      jobs={jobs}
+      teamMembers={teamMembers ?? []}
+      currentDate={currentDate}
+      onJobClick={onJobClick}
+      onDayClick={onDayClick}
+      onJobDrop={onJobDrop}
+      onJobResize={onJobResize}
+      filteredEmployeeIds={new Set()}
+    />
   );
 });
 
 export const PhoneWeekList = memo(function PhoneWeekList({
-  jobs, teamMembers, currentDate, onJobClick, onDragStart: _onDragStart, onSelectDay, onDayClick, onJobDrop,
+  jobs, teamMembers, currentDate, onJobClick, onSelectDay, onDayClick, onJobDrop,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
@@ -472,6 +292,7 @@ export const DayBoardView = memo(function DayBoardView({
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverId, setDropHoverId] = useState<string | null>(null);
   const [resizePreview, setResizePreview] = useState<{ jobId: string; start_time: string; end_time: string } | null>(null);
+  const [hourWidth, setHourWidth] = useState(HOUR_WIDTH_PX);
   const dateStr = dateKey(currentDate);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -490,8 +311,7 @@ export const DayBoardView = memo(function DayBoardView({
   const jobsByRow = useMemo(() => {
     const map = new Map<string, JobWithClient[]>();
     for (const row of rows) map.set(row.id, []);
-    for (const job of jobs) {
-      if (jobDateKey(job) !== dateStr) continue;
+    for (const job of jobsOnScheduleDay(jobs, dateStr)) {
       const assigned = job.assigned_team ?? [];
       if (assigned.length === 0) {
         map.get(UNASSIGNED_ROW_ID)?.push(job);
@@ -510,7 +330,17 @@ export const DayBoardView = memo(function DayBoardView({
   const unassignedCount = jobsByRow.get(UNASSIGNED_ROW_ID)?.length ?? 0;
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollLeft = 0;
+    const el = scrollRef.current;
+    if (!el) return;
+    const apply = () => {
+      const next = dayBoardHourWidthPx(el.clientWidth);
+      setHourWidth(next);
+      el.scrollLeft = dayBoardHoursFit(el.clientWidth) ? 0 : (8 - DAY_START) * next;
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, [currentDate]);
 
   useEffect(() => {
@@ -548,7 +378,7 @@ export const DayBoardView = memo(function DayBoardView({
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const startTime = startTimeFromDropOffset(e.clientX - rect.left, {
-      hourWidth: HOUR_WIDTH,
+      hourWidth,
       dayStart: DAY_START,
       dayEnd: DAY_END,
     });
@@ -566,7 +396,7 @@ export const DayBoardView = memo(function DayBoardView({
 
     const minutesAt = (clientX: number) => {
       const start = startTimeFromDropOffset(clientX - gridLeft, {
-        hourWidth: HOUR_WIDTH,
+        hourWidth,
         dayStart: DAY_START,
         dayEnd: DAY_END,
       });
@@ -600,10 +430,34 @@ export const DayBoardView = memo(function DayBoardView({
     window.addEventListener('pointercancel', finish);
   };
 
-  const gridWidth = HOURS.length * HOUR_WIDTH;
+  const gridWidth = HOURS.length * hourWidth;
+  const paintedRows = rows.map((row, rowIdx) => {
+    const isUnassigned = row.id === UNASSIGNED_ROW_ID;
+    const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
+    const rowJobs = jobsByRow.get(row.id) ?? [];
+    const layout = placeDayRowJobs(rowJobs.map(job => {
+      const plot = schedulePlotTimes(job);
+      return { id: job.id, start_time: plot.start_time, end_time: plot.end_time };
+    }));
+    const placementById = new Map(layout.placements.map(p => [p.id, p]));
+    const height = dayRowHeightPx(layout.allDayCount, layout.timedLaneCount, {
+      min: ROW_MIN, allDayH: ALL_DAY_H, timedH: TIMED_H, pad: ROW_PAD,
+    });
+    return {
+      row,
+      rowIdx,
+      isUnassigned,
+      color,
+      rowJobs,
+      layout,
+      placementById,
+      height,
+      hovering: dropHoverId === row.id,
+    };
+  });
 
   return (
-    <div className="ops-board" data-schedule-track="day">
+    <div className="ops-board hub-day-board" data-schedule-track="day" data-day-board="1">
       <div className="hub-schedule-board-head">
         <p className="hub-schedule-range">
           {format(currentDate, 'EEEE, d MMMM yyyy')}
@@ -620,121 +474,101 @@ export const DayBoardView = memo(function DayBoardView({
         </p>
       </div>
 
-      <div ref={scrollRef} className="overflow-x-auto job-cal-board-scroll">
-        <div className="flex sticky top-0 z-20 bg-white border-b border-rule">
-          <div className="shrink-0 border-r border-rule bg-zebra" style={{ width: LABEL_WIDTH }}>
+      <div className="hub-day-track">
+        <div className="hub-day-crew-rail">
+          <div className="hub-day-crew-lock hub-day-crew-head border-r border-b border-rule">
             <div className="px-3 py-2 flex items-center gap-1.5">
               <Users size={13} />
               <span className="hub-schedule-label">Crew</span>
             </div>
           </div>
-          <div className="flex" style={{ minWidth: gridWidth }}>
+          {paintedRows.map(painted => {
+            const row = painted.row;
+            return (
+            <div
+              key={row.id}
+              data-crew-drop={row.id}
+              className={`hub-day-crew-lock border-r border-rule cursor-pointer hover:bg-zebra transition-colors flex items-center gap-2 px-3 ${
+                painted.rowIdx < paintedRows.length - 1 ? 'border-b' : ''
+              } ${painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'}`}
+              style={{
+                height: painted.height,
+                borderLeft: painted.isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${painted.color}`,
+              }}
+              onClick={() => onDayClick(dateStr, painted.isUnassigned ? undefined : row.id)}
+              onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropHoverId(row.id); }}
+              onDrop={e => { e.stopPropagation(); handleDrop(e, row.id); }}
+            >
+              <span
+                className="ops-crew-mark"
+                style={{
+                  background: painted.isUnassigned ? 'transparent' : painted.color,
+                  outline: painted.isUnassigned ? `1px solid ${colors.navy}` : undefined,
+                }}
+              />
+              <div className="min-w-0">
+                <p className="hub-schedule-crew-name truncate">{row.name}</p>
+                <p className="ops-meta">
+                  {painted.isUnassigned
+                    ? (painted.rowJobs.length === 0 ? 'Drop here — date stays' : `${painted.rowJobs.length} · needs crew`)
+                    : `${painted.rowJobs.length} job${painted.rowJobs.length !== 1 ? 's' : ''}`}
+                </p>
+              </div>
+            </div>
+            );
+          })}
+        </div>
+
+        <div ref={scrollRef} className="hub-day-hours job-cal-board-scroll" data-day-hours="1">
+          <div className="flex border-b border-rule" style={{ minWidth: gridWidth }}>
             {HOURS.map(h => (
               <div key={h} className="text-center border-r border-rule last:border-r-0"
-                style={{ width: HOUR_WIDTH }}>
+                style={{ width: hourWidth }}>
                 <div className="px-1 py-2">
                   <span className="hub-schedule-label">{formatHourLabel(h)}</span>
                 </div>
               </div>
             ))}
           </div>
-        </div>
 
-        {rows.map((row, rowIdx) => {
-          const isUnassigned = row.id === UNASSIGNED_ROW_ID;
-          const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
-          const rowJobs = jobsByRow.get(row.id) ?? [];
-          const layout = placeDayRowJobs(rowJobs);
-          const placementById = new Map(layout.placements.map(p => [p.id, p]));
-          const height = dayRowHeightPx(layout.allDayCount, layout.timedLaneCount, {
-            min: ROW_MIN, allDayH: ALL_DAY_H, timedH: TIMED_H, pad: ROW_PAD,
-          });
-          const hovering = dropHoverId === row.id;
-
-          return (
+          {paintedRows.map(painted => (
             <div
-              key={row.id}
-              className={`flex ${rowIdx < rows.length - 1 ? 'border-b border-rule' : ''} ${
-                isUnassigned ? 'bg-zebra' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-zebra'
-              } ${hovering ? 'bg-zebra' : ''}`}
-              onDragOver={e => { e.preventDefault(); setDropHoverId(row.id); }}
-              onDrop={e => handleDrop(e, row.id)}
+              key={painted.row.id}
+              className={`${painted.rowIdx < paintedRows.length - 1 ? 'border-b border-rule' : ''} ${
+                painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'
+              }`}
+              onDragOver={e => { e.preventDefault(); setDropHoverId(painted.row.id); }}
+              onDrop={e => handleDrop(e, painted.row.id)}
             >
-              <div
-                data-crew-drop={row.id}
-                className="shrink-0 border-r border-rule cursor-pointer hover:bg-zebra transition-colors flex items-center gap-2 px-3"
-                style={{
-                  width: LABEL_WIDTH,
-                  height,
-                  borderLeft: isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${color}`,
-                }}
-                onClick={() => onDayClick(dateStr, isUnassigned ? undefined : row.id)}
-                onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropHoverId(row.id); }}
-                onDrop={e => { e.stopPropagation(); handleDrop(e, row.id); }}
-              >
-                <span
-                  className="ops-crew-mark"
-                  style={{
-                    background: isUnassigned ? 'transparent' : color,
-                    outline: isUnassigned ? `1px solid ${colors.navy}` : undefined,
-                  }}
-                />
-                <div className="min-w-0">
-                  <p className="hub-schedule-crew-name truncate">{row.name}</p>
-                  <p className="ops-meta">
-                    {isUnassigned
-                      ? (rowJobs.length === 0 ? 'Drop here — date stays' : `${rowJobs.length} · needs crew`)
-                      : `${rowJobs.length} job${rowJobs.length !== 1 ? 's' : ''}`}
-                  </p>
-                </div>
-              </div>
-
               <div
                 data-day-grid="1"
                 className="relative cursor-pointer"
-                style={{ width: gridWidth, height }}
-                onClick={() => onDayClick(dateStr, isUnassigned ? undefined : row.id)}
-                onDragOver={e => { e.preventDefault(); setDropHoverId(row.id); }}
-                onDrop={e => handleTimeDrop(e, row.id)}
+                style={{ width: gridWidth, height: painted.height }}
+                onClick={() => onDayClick(dateStr, painted.isUnassigned ? undefined : painted.row.id)}
+                onDragOver={e => { e.preventDefault(); setDropHoverId(painted.row.id); }}
+                onDrop={e => handleTimeDrop(e, painted.row.id)}
               >
                 {HOURS.map(h => (
                   <div
                     key={h}
                     className="absolute top-0 bottom-0 border-r border-rule last:border-r-0"
-                    style={{ left: (h - DAY_START) * HOUR_WIDTH, width: HOUR_WIDTH }}
+                    style={{ left: (h - DAY_START) * hourWidth, width: hourWidth }}
                   />
                 ))}
 
-                {isToday(currentDate) && <CurrentTimeVerticalIndicator />}
+                {isToday(currentDate) && <CurrentTimeVerticalIndicator hourWidth={hourWidth} />}
 
-                {rowJobs.map(job => {
-                  const placed = placementById.get(job.id);
+                {painted.rowJobs.map(job => {
+                  const placed = painted.placementById.get(job.id);
                   if (!placed) return null;
-                  if (placed.allDay) {
-                    return (
-                      <div
-                        key={job.id}
-                        className="absolute left-1 right-1"
-                        style={{ top: ROW_PAD + placed.lane * ALL_DAY_H, height: ALL_DAY_H - 2 }}
-                      >
-                        <JobBlock
-                          job={job}
-                          teamMembers={teamMembers}
-                          compact
-                          dragging={dragJobId === job.id}
-                          onClick={() => onJobClick(job)}
-                          onDragStart={e => handleDragStart(e, job.id)}
-                        />
-                      </div>
-                    );
-                  }
+                  const plot = schedulePlotTimes(job);
                   const preview = resizePreview?.jobId === job.id ? resizePreview : null;
-                  const startM = timeToMinutes(preview?.start_time ?? job.start_time);
-                  const endM = timeToMinutes(preview?.end_time ?? job.end_time) ?? (startM ?? DAY_START * 60) + 60;
+                  const startM = timeToMinutes(preview?.start_time ?? plot.start_time);
+                  const endM = timeToMinutes(preview?.end_time ?? plot.end_time) ?? (startM ?? DAY_START * 60) + 60;
                   if (startM == null) return null;
-                  const left = Math.max(0, (startM / 60 - DAY_START) * HOUR_WIDTH + 2);
-                  const width = Math.max(60, ((endM - startM) / 60) * HOUR_WIDTH - 4);
-                  const top = ROW_PAD + layout.allDayCount * ALL_DAY_H + placed.lane * TIMED_H;
+                  const left = Math.max(0, (startM / 60 - DAY_START) * hourWidth + 2);
+                  const width = Math.max(60, ((endM - startM) / 60) * hourWidth - 4);
+                  const top = ROW_PAD + painted.layout.allDayCount * ALL_DAY_H + placed.lane * TIMED_H;
                   const displayJob = preview
                     ? { ...job, start_time: preview.start_time, end_time: preview.end_time }
                     : job;
@@ -744,7 +578,7 @@ export const DayBoardView = memo(function DayBoardView({
                       className="absolute"
                       style={{ left, width, top, height: TIMED_H - 4 }}
                     >
-                      {onJobResize && (
+                      {onJobResize && plot.stored && (
                         <>
                           <div
                             role="separator"
@@ -783,18 +617,18 @@ export const DayBoardView = memo(function DayBoardView({
                 })}
               </div>
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
     </div>
   );
 });
 
-function CurrentTimeVerticalIndicator() {
+function CurrentTimeVerticalIndicator({ hourWidth }: { hourWidth: number }) {
   const now = new Date();
   const h = now.getHours() + now.getMinutes() / 60;
   if (h < DAY_START || h > DAY_END) return null;
-  const left = (h - DAY_START) * HOUR_WIDTH;
+  const left = (h - DAY_START) * hourWidth;
   return (
     <div className="absolute top-0 bottom-0 z-20 pointer-events-none" style={{ left }}>
       <div className="flex flex-col items-center h-full">
