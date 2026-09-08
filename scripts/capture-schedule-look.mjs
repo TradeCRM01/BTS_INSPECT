@@ -177,6 +177,7 @@ const phoneDay = await phoneDayCtx.newPage();
 await openHarness(phoneDay, DAY);
 await framePaper(phoneDay);
 const dayPhoneBefore = await measure(phoneDay);
+await phoneDay.screenshot({ path: `${OUT}/schedule-day-phone-390.png`, type: 'png' });
 await phoneDay.evaluate(() => {
   const hours = [...document.querySelectorAll('[data-day-hours="1"]')]
     .find((el) => el.getBoundingClientRect().width > 0);
@@ -184,7 +185,6 @@ await phoneDay.evaluate(() => {
 });
 await phoneDay.waitForTimeout(200);
 const dayPhoneAfterScroll = await measure(phoneDay);
-await phoneDay.screenshot({ path: `${OUT}/schedule-day-phone-390.png`, type: 'png' });
 await phoneDayCtx.close();
 
 const look = {
