@@ -10,7 +10,7 @@ function src(rel: string): string {
 function testingDueLookCss(): string {
   const page = src('src/pages/JobDetailPage.tsx');
   const start = page.indexOf('const JOB_TESTING_DUE_LOOK_CSS');
-  const end = page.indexOf('export function JobDetailPage');
+  const end = page.indexOf('const JOB_VISIT_NOTES_LOOK_CSS');
   return page.slice(start, end);
 }
 
