@@ -66,21 +66,28 @@ function emailSettingsReady(settings: EmailSettings | null): boolean {
     && !!String(settings.from_email ?? "").trim();
 }
 
-/** Shared Grafter Resend — same smtp_pass pipe as company email_settings, not a second mail product. */
+function firstNonEmptyEnv(...values: Array<string | null | undefined>): string {
+  for (const value of values) {
+    const trimmed = String(value ?? "").trim();
+    if (trimmed) return trimmed;
+  }
+  return "";
+}
+
 function sharedGrafterSmtp(
   company?: { name?: string | null; email?: string | null } | null,
 ): EmailSettings | null {
-  const pass = (Deno.env.get("RESEND_API_KEY") ?? Deno.env.get("SMTP_PASS") ?? "").trim();
-  const fromEmail = (
-    Deno.env.get("RESEND_FROM_EMAIL") ??
-    Deno.env.get("FROM_EMAIL") ??
-    String(company?.email ?? "")
-  ).trim();
-  const fromName = (
-    Deno.env.get("RESEND_FROM_NAME") ??
-    Deno.env.get("FROM_NAME") ??
-    String(company?.name ?? "")
-  ).trim() || "Grafter";
+  const pass = firstNonEmptyEnv(Deno.env.get("RESEND_API_KEY"), Deno.env.get("SMTP_PASS"));
+  const fromEmail = firstNonEmptyEnv(
+    Deno.env.get("RESEND_FROM_EMAIL"),
+    Deno.env.get("FROM_EMAIL"),
+    company?.email,
+  );
+  const fromName = firstNonEmptyEnv(
+    Deno.env.get("RESEND_FROM_NAME"),
+    Deno.env.get("FROM_NAME"),
+    company?.name,
+  ) || "Grafter";
   if (!pass || !fromEmail.includes("@")) return null;
   const settings: EmailSettings = {
     smtp_host: "smtp.resend.com",

@@ -48,6 +48,8 @@ describe('quote send deliver path', () => {
     expect(edge).toContain('resolveSendSmtp');
     expect(edge).toContain('RESEND_API_KEY');
     expect(edge).toContain('sharedGrafterSmtp');
+    expect(edge).toMatch(/firstNonEmptyEnv/);
+    expect(deliver).not.toMatch(/sharedSmtp\s*:/);
     expect(edge).toContain('quotePatch.status = "sent"');
     expect(edge).toContain('api.twilio.com');
     expect(edge).toContain('TWILIO_ACCOUNT_SID');

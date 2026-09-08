@@ -22,6 +22,7 @@ import {
   dateOnly,
   decideReminderSend,
   emailSettingsReady,
+  sharedGrafterSmtpFromEnv,
   formatJobDate,
   isCronAuthorized,
   isExistingScheduleSurface,
@@ -246,6 +247,26 @@ describe('honest misses — no send', () => {
     });
     expect(gate).toMatchObject({ ok: false, reason: 'no_smtp' });
     expect(missMessage('no_smtp')).toBe('Email is not set up.');
+  });
+
+  it('uses company from-address when platform FROM env is blank', () => {
+    expect(sharedGrafterSmtpFromEnv(
+      { RESEND_API_KEY: 're_test', RESEND_FROM_EMAIL: '', FROM_EMAIL: '' },
+      { name: 'Building Technology Solutions', email: 'admin@bts.local' },
+    )).toEqual({
+      smtp_host: 'smtp.resend.com',
+      smtp_pass: 're_test',
+      from_name: 'Building Technology Solutions',
+      from_email: 'admin@bts.local',
+    });
+    expect(sharedGrafterSmtpFromEnv(
+      { RESEND_API_KEY: '', SMTP_PASS: 're_shared' },
+      { name: 'BTS', email: 'office@bts.example' },
+    )?.smtp_pass).toBe('re_shared');
+    expect(sharedGrafterSmtpFromEnv(
+      { RESEND_API_KEY: '', SMTP_PASS: '' },
+      { name: 'BTS', email: 'admin@bts.local' },
+    )).toBeNull();
   });
 
   it('does not send for another company or a closed job', () => {
