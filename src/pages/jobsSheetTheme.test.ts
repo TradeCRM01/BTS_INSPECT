@@ -139,6 +139,7 @@ describe('job hub open sheet LOOK', () => {
       'title="JHA / SWMS"',
       'title="Take 5"',
       'title="Time on this job"',
+      'id="job-visit-notes"',
       'title="Inspections"',
       'JOB_TESTING_DUE_TITLE',
       'title="Invoices"',
