@@ -77,6 +77,15 @@ import {
   localDateIso,
   planTimesheetClockOff,
 } from '../lib/timesheetJob';
+import {
+  JOB_VISIT_NOTE_TABLE,
+  decideJobVisitNotePost,
+  jobVisitNotePostToast,
+  jobVisitNotesQuery,
+  postJobVisitNote,
+  sortJobVisitNotesNewestFirst,
+  type JobVisitNote,
+} from '../lib/jobVisitNotes';
 import { format, parseISO, addDays } from 'date-fns';
 
 type JobInspection = {
@@ -347,6 +356,7 @@ export function JobDetailPage() {
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
+  const [visitDraft, setVisitDraft] = useState('');
   const [arrivingSent, setArrivingSent] = useState(false);
   const [arrivingBusy, setArrivingBusy] = useState(false);
   const moreRef = useRef<HTMLDetailsElement>(null);
@@ -650,6 +660,29 @@ export function JobDetailPage() {
     enabled: !!id && !!profile,
   });
 
+  const { data: visitNotes } = useQuery<JobVisitNote[]>({
+    queryKey: ['job-visit-notes', id],
+    queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as JobVisitNote[];
+      const scope = jobVisitNotesQuery({
+        companyId: profile!.company_id,
+        jobId: id!,
+      });
+      if (!scope) return [];
+      const { data, error } = await supabase
+        .from(JOB_VISIT_NOTE_TABLE)
+        .select('id, company_id, job_id, author_id, author_name, body, created_at')
+        .eq('company_id', scope.eq.company_id)
+        .eq('job_id', scope.eq.job_id)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
+      if (error) throw error;
+      return sortJobVisitNotesNewestFirst((data ?? []) as JobVisitNote[]);
+    },
+    enabled: !!id && !!profile?.company_id,
+  });
+
   const { data: myTimesheets } = useQuery<Timesheet[]>({
     queryKey: ['timesheets-job-clock', profile?.id],
     queryFn: async () => {
@@ -793,6 +826,25 @@ export function JobDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['job-client', job?.client_id] });
       setClientPhoneDraft(result.phone ?? '');
       const toast = jobClientPhoneSaveToast(result.phone);
+      showToast(toast.message, toast.kind);
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
+
+  const postVisitNote = useMutation({
+    mutationFn: async () => {
+      return postJobVisitNote({
+        jobId: job?.id,
+        companyId: profile?.company_id,
+        authorId: profile?.id,
+        authorName: profile?.name,
+        body: visitDraft,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['job-visit-notes', id] });
+      setVisitDraft('');
+      const toast = jobVisitNotePostToast();
       showToast(toast.message, toast.kind);
     },
     onError: (e: Error) => showToast(e.message, 'info'),
@@ -1041,6 +1093,14 @@ export function JobDetailPage() {
   };
 
   const inspectHref = `/inspections/new?jobId=${job.id}`;
+  const visitDecision = decideJobVisitNotePost({
+    jobId: job.id,
+    companyId: profile?.company_id,
+    authorId: profile?.id,
+    authorName: profile?.name,
+    body: visitDraft,
+  });
+  const visitLog = sortJobVisitNotesNewestFirst(visitNotes);
   const lookTray = testingDueLookKind();
   const dueSource = lookTray === 'rows'
     ? lookTestingDueInspections(job.id)
@@ -1721,6 +1781,59 @@ export function JobDetailPage() {
           })}
         </JobRelatedSection>
         </div>
+
+        <section className="ops-tray" id="job-visit-notes">
+          <div className="ops-tray-head">
+            <h2 className="ops-section-title flex items-center gap-1.5 min-w-0">
+              <FileText size={14} className="text-navy shrink-0" />
+              <span className="truncate">Visit notes</span>
+              <span className="ops-meta font-normal">{visitLog.length}</span>
+            </h2>
+          </div>
+          <form
+            className="mt-3 space-y-2"
+            onSubmit={e => {
+              e.preventDefault();
+              if (visitDecision.action === 'miss') {
+                showToast(visitDecision.message, 'info');
+                return;
+              }
+              postVisitNote.mutate();
+            }}
+          >
+            <textarea
+              className="form-input-sm"
+              rows={4}
+              value={visitDraft}
+              onChange={e => setVisitDraft(e.target.value)}
+              placeholder="What was done, materials, left to do, customer wants"
+              aria-label="Visit note"
+            />
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={postVisitNote.isPending || visitDecision.action === 'miss'}
+            >
+              Post note
+            </button>
+          </form>
+          {visitLog.length === 0 ? (
+            <div className="ops-tray-empty">
+              <p className="text-sm text-navy">No visit notes on this job yet.</p>
+            </div>
+          ) : (
+            <div className="ops-related-list mt-3">
+              {visitLog.map(note => (
+                <div key={note.id} className="ops-related-row px-3 py-2.5">
+                  <p className="ops-meta">
+                    {note.author_name} · {format(parseISO(note.created_at), 'd MMM yyyy · HH:mm')}
+                  </p>
+                  <p className="hub-jobs-ledger-row hub-jobs-muted whitespace-pre-wrap">{note.body}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
           <div id="job-insp">
           <JobRelatedSection
