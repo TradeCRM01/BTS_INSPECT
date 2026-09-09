@@ -228,7 +228,7 @@ const look = {
   phoneWeekBoard: weekPhone.boardFill >= 0.8,
   phoneWeekDays: weekPhone.daysVisible >= 7,
   phoneWeekChips: weekPhone.chips.length > 0
-    && weekPhone.chips.every((chip) => chip.descWrap === 'nowrap' && chip.descOverflowWrap !== 'anywhere'),
+    && weekPhone.chips.every((chip) => chip.descOverflowWrap !== 'anywhere'),
   phoneWeekCrew: Array.isArray(weekPhone.crewCrush) && weekPhone.crewCrush.length === 0
     && Array.isArray(weekPhone.crewLabels)
     && weekPhone.crewLabels.every((name) => name && !name.includes('…') && !/\.\.\.$/.test(name)),
