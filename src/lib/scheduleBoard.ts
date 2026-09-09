@@ -162,7 +162,6 @@ export function scheduleCrewLabel(
   return 'Unassigned';
 }
 
-/** First name on the week/day rail. Unassigned stays one readable word. */
 export function weekBoardCrewLabel(name: string | null | undefined): string {
   const trimmed = (name ?? '').trim();
   if (!trimmed) return 'Crew';
