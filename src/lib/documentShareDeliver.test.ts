@@ -1,8 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { clientPortalTokenInsert } from './documentShareDeliver';
+import {
+  AUDIT_SHARE_PORTAL_TOKEN,
+  auditSharePortalUrl,
+  clientPortalTokenInsert,
+} from './documentShareDeliver';
 import { clientPortalPublicUrl } from './sendQuote';
+import { GRAFTER_PUBLIC_ORIGIN } from './publicSeo';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -23,6 +28,18 @@ describe('documentShareDeliver', () => {
     expect(deliver).not.toContain('smtp_pass');
     expect(deliver).not.toContain('COMPANY_EMAIL_SETTINGS_HREF');
     expect(dialog).not.toContain('send-quote');
+    expect(deliver).toContain('isDevFieldAuditAuth');
+    expect(deliver).toContain('auditSharePortalUrl');
+  });
+
+  it('builds a client-usable portal URL for DEV field-audit without SMTP', () => {
+    expect(auditSharePortalUrl('https://grafter.com.au')).toBe(
+      `${GRAFTER_PUBLIC_ORIGIN}/p?t=${AUDIT_SHARE_PORTAL_TOKEN}`,
+    );
+    expect(auditSharePortalUrl('http://127.0.0.1:5173')).toBe(
+      `http://127.0.0.1:5173/p?t=${AUDIT_SHARE_PORTAL_TOKEN}`,
+    );
+    expect(AUDIT_SHARE_PORTAL_TOKEN).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it('builds a year-long token the same way the office portal page does', () => {

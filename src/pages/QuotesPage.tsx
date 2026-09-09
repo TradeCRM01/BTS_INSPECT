@@ -11,6 +11,7 @@ import {
 } from '../lib/devFieldAuditAuth';
 import {
   AUDIT_DOC_CLIENT_ID,
+  AUDIT_QUOTE_ID,
   getAuditClients,
   getAuditTeamMembers,
 } from '../lib/devFieldAuditDocs';
@@ -126,6 +127,39 @@ function fieldAuditConvertQuote(): QuoteListItem | null {
   };
 }
 
+function fieldAuditShareQuote(): QuoteListItem | null {
+  if (!isDevFieldAuditAuth()) return null;
+  return {
+    id: AUDIT_QUOTE_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    quote_number: 2001,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    job_id: null,
+    status: 'draft',
+    description: 'Switchboard upgrade',
+    scope_of_works: 'Isolate and replace the main board.',
+    line_items: [{ description: 'Switchboard labour', quantity: 8, unit_price: 95 }],
+    subtotal: 760,
+    tax_rate: 10,
+    tax_amount: 76,
+    total: 836,
+    validity_date: '2026-09-07',
+    notes: null,
+    inclusions: [],
+    exclusions: [],
+    scheduled_date: null,
+    assigned_team: [],
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: '2026-08-24T00:00:00.000Z',
+    updated_at: '2026-08-24T00:00:00.000Z',
+    client_name: 'Northside Electrical',
+    client_email: 'accounts@northside.example',
+    job_title: null,
+    job_address: null,
+    invoice_id: null,
+  };
+}
+
 function quoteTitle(quote: { quote_number?: number | null } | null): string {
   return quote?.quote_number != null ? `Quote ${quoteRef(quote)}` : 'New quote';
 }
@@ -161,8 +195,12 @@ export function QuotesPage() {
   const { data: quotes, isLoading, error } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes'],
     queryFn: async () => {
-      const auditQuote = fieldAuditConvertQuote();
-      if (auditQuote) return [auditQuote];
+      const convertQuote = fieldAuditConvertQuote();
+      if (convertQuote) {
+        if (lookLetterhead) return [convertQuote];
+        const shareQuote = fieldAuditShareQuote();
+        return shareQuote ? [convertQuote, shareQuote] : [convertQuote];
+      }
       const { data, error } = await supabase
         .from('quotes')
         .select('id, company_id, quote_number, client_id, job_id, status, description, scope_of_works, line_items, subtotal, tax_rate, tax_amount, total, validity_date, notes, inclusions, exclusions, scheduled_date, assigned_team, created_by, created_at, updated_at')

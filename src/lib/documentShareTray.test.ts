@@ -44,5 +44,8 @@ describe('quote / invoice share tray — no Grafter SMTP', () => {
     expect(invoiceNext).not.toContain('COMPANY_EMAIL_SETTINGS_HREF');
     expect(convert).toContain('CONVERT_QUOTE_NEED_DATE_CREW');
     expect(src('src/pages/QuotesPage.tsx')).toContain('hub-quote-convert');
+    expect(src('src/pages/QuotesPage.tsx')).toContain('if (lookLetterhead) return [convertQuote]');
+    expect(src('src/pages/QuotesPage.tsx')).toContain('fieldAuditShareQuote');
+    expect(src('src/pages/InvoicesPage.tsx')).toContain('isDevFieldAuditAuth()');
   });
 });

@@ -1,4 +1,6 @@
 import { supabase } from './supabase';
+import { isDevFieldAuditAuth } from './devFieldAuditAuth';
+import { GRAFTER_PUBLIC_ORIGIN } from './publicSeo';
 import {
   clientPortalPublicUrl,
   pickActiveClientPortalToken,
@@ -7,6 +9,13 @@ import {
   invoiceStatusAfterMarkSent,
   quoteStatusAfterMarkSent,
 } from './documentShare';
+
+export const AUDIT_SHARE_PORTAL_TOKEN = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+
+export function auditSharePortalUrl(origin: string): string {
+  return clientPortalPublicUrl(origin, AUDIT_SHARE_PORTAL_TOKEN)
+    ?? `${GRAFTER_PUBLIC_ORIGIN}/p?t=${AUDIT_SHARE_PORTAL_TOKEN}`;
+}
 
 export const CLIENT_PORTAL_TOKEN_COLUMNS = 'token, revoked, expires_at';
 
@@ -30,6 +39,7 @@ export async function loadActiveClientPortalUrl(args: {
   clientId: string;
   origin: string;
 }): Promise<string | null> {
+  if (isDevFieldAuditAuth()) return null;
   const companyId = args.companyId.trim();
   const clientId = args.clientId.trim();
   if (!companyId || !clientId) return null;
@@ -49,6 +59,7 @@ export async function ensureClientPortalUrl(args: {
   clientId: string;
   origin: string;
 }): Promise<string> {
+  if (isDevFieldAuditAuth()) return auditSharePortalUrl(args.origin);
   const existing = await loadActiveClientPortalUrl(args);
   if (existing) return existing;
   const row = clientPortalTokenInsert({
@@ -68,6 +79,7 @@ export async function markQuoteSentForShare(args: {
 }): Promise<{ status: string; markedSent: boolean }> {
   const next = quoteStatusAfterMarkSent(args.status);
   if (!next) return { status: args.status, markedSent: false };
+  if (isDevFieldAuditAuth()) return { status: next, markedSent: true };
   const { error } = await supabase
     .from('quotes')
     .update({ status: next, updated_at: new Date().toISOString() })
@@ -83,6 +95,7 @@ export async function markInvoiceSentForShare(args: {
 }): Promise<{ status: string; markedSent: boolean }> {
   const next = invoiceStatusAfterMarkSent(args.status);
   if (!next) return { status: args.status, markedSent: false };
+  if (isDevFieldAuditAuth()) return { status: next, markedSent: true };
   const { error } = await supabase
     .from('invoices')
     .update({ status: next, updated_at: new Date().toISOString() })
