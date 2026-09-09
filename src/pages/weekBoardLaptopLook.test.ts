@@ -129,8 +129,10 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(css).toContain('.hub-week-cell.is-empty');
     expect(css).toContain('.hub-week-chip');
     expect(css).toContain('repeat(7, 156px)');
-    expect(css).toContain('repeat(7, 70px)');
+    expect(css).toContain('repeat(7, minmax(0, 1fr))');
     expect(css).toContain('.hub-week-head-short');
+    expect(css).toContain('.hub-week-head-dow');
+    expect(board).toContain('hub-week-head-dow');
     expect(src('src/lib/scheduleBoard.ts')).toContain('export function weekBoardCrewLabel');
   });
 

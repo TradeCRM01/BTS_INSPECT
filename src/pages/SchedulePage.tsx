@@ -649,8 +649,12 @@ export function SchedulePage() {
     [boardJobs],
   );
 
-  const weekRangeLabel = `${format(startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'EEE d MMM')} – ${format(endOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'EEE d MMM yyyy')}`;
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON });
+  const weekEnd = endOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON });
+  const weekRangeLabel = `${format(weekStart, 'EEE d MMM')} – ${format(weekEnd, 'EEE d MMM yyyy')}`;
+  const weekRangeShort = `${format(weekStart, 'd MMM')} – ${format(weekEnd, 'd MMM')}`;
   const dayRangeLabel = format(currentDate, 'EEE d MMM yyyy');
+  const dayRangeShort = format(currentDate, 'EEE d MMM');
   const unassignedOnBoard = onBoard.filter(j => !(j.assigned_team ?? []).length).length;
   const weekWhisper = [
     `${onBoard.length} on the board`,
@@ -738,7 +742,10 @@ export function SchedulePage() {
         >
           <ChevronRight size={16} />
         </button>
-        <p className="hub-week-range">{boardRangeLabel}</p>
+        <p className="hub-week-range">
+          <span className="hub-week-range-full">{boardRangeLabel}</span>
+          <span className="hub-week-range-short">{viewMode === 'day' ? dayRangeShort : weekRangeShort}</span>
+        </p>
       </div>
     </div>
   );

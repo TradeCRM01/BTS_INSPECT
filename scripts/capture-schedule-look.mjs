@@ -86,6 +86,7 @@ async function measure(page) {
           w: Math.round(box.width),
           h: Math.round(box.height),
           descWrap: descStyle ? descStyle.whiteSpace : null,
+          descOverflowWrap: descStyle ? descStyle.overflowWrap : null,
           ellipsis: !!(desc && descStyle?.textOverflow === 'ellipsis' && desc.scrollWidth > desc.clientWidth + 1),
           hasSiteCopy: /no site address/i.test(text),
           staleDate: /31 Mar|31 March|created/i.test(text),
@@ -217,15 +218,17 @@ const dayPhoneAfterScroll = await measure(phoneDay);
 await phoneDayCtx.close();
 
 const look = {
-  titlesWrap: weekLaptop.titlesWrap && dayLaptop.titlesWrap && weekPhone.titlesWrap,
+  titlesWrap: weekLaptop.titlesWrap && dayLaptop.titlesWrap,
   noSiteHero: weekLaptop.noSiteHero && dayLaptop.noSiteHero && weekPhone.noSiteHero,
   noStaleChipDate: weekLaptop.noStaleChipDate && dayLaptop.noStaleChipDate && weekPhone.noStaleChipDate,
   dayFits1280: dayLaptop.hours && !dayLaptop.hours.overflow,
   untimedWeight: dayLaptop.untimedWeight,
   phoneCrewReadable: dayPhoneBefore.crewNamesReadable && dayPhoneAfterScroll.crewNamesReadable,
-  phoneWeekFill: weekPhone.sheetFill >= 0.86 && weekPhone.creamBelow !== null && weekPhone.creamBelow <= 64,
+  phoneWeekFill: weekPhone.sheetFill >= 0.86 && weekPhone.creamBelow !== null && weekPhone.creamBelow <= 16,
   phoneWeekBoard: weekPhone.boardFill >= 0.8,
-  phoneWeekDays: weekPhone.daysVisible >= 4,
+  phoneWeekDays: weekPhone.daysVisible >= 7,
+  phoneWeekChips: weekPhone.chips.length > 0
+    && weekPhone.chips.every((chip) => chip.descWrap === 'nowrap' && chip.descOverflowWrap !== 'anywhere'),
   phoneWeekCrew: Array.isArray(weekPhone.crewCrush) && weekPhone.crewCrush.length === 0
     && Array.isArray(weekPhone.crewLabels)
     && weekPhone.crewLabels.every((name) => name && !name.includes('…') && !/\.\.\.$/.test(name)),
