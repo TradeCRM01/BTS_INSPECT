@@ -254,9 +254,9 @@ describe('quote-send honesty — wiring on the existing Send sheet', () => {
     const dialog = src('src/components/invoicing/QuoteSendDialog.tsx');
     const handleAttach = dialog.slice(dialog.indexOf('const handleAttach'), dialog.indexOf('const handleSaveEmail'));
     const handleEmail = dialog.slice(dialog.indexOf('const handleSaveEmail'), dialog.indexOf('const handleSavePhone'));
-    const handlePhone = dialog.slice(dialog.indexOf('const handleSavePhone'), dialog.indexOf('const handleSend'));
-    const handleSendFn = dialog.slice(dialog.indexOf('const handleSend'), dialog.indexOf('const ready'));
-    const sendBtn = dialog.slice(dialog.indexOf('{showSend &&'), dialog.indexOf('{showSmtpSettings'));
+    const handlePhone = dialog.slice(dialog.indexOf('const handleSavePhone'), dialog.indexOf('const prepareShare'));
+    const handleSendFn = dialog.slice(dialog.indexOf('const handleDownload'), dialog.indexOf('const ready'));
+    const sendBtn = dialog.slice(dialog.indexOf('{showShare && share?.canMailto'), dialog.indexOf('{showShare && !share?.canMailto'));
 
     expect(dialog).toContain('saveJobClientEmail');
     expect(dialog).toContain('saveJobClientPhone');
@@ -264,37 +264,37 @@ describe('quote-send honesty — wiring on the existing Send sheet', () => {
     expect(dialog).toContain('QUOTE_SEND_NO_EMAIL_FIELD');
     expect(dialog).toContain('This client has no email. Add one below before you send.');
     expect(dialog).toContain('QUOTE_CLIENT_ATTACH_NO_CLIENTS');
-    expect(dialog).toContain("blocker === 'no_email'");
-    expect(dialog).toContain("blocker === 'no_client'");
+    expect(dialog).toContain('noEmailMiss');
+    expect(dialog).toContain('noClientMiss');
     expect(dialog).toContain('job-client-email');
     expect(dialog).toContain('job-client-phone');
     expect(dialog).toContain('job-client-attach');
-    expect(dialog).toContain('disabled={sending || !ready}');
-    expect(sendBtn).toContain('Send quote');
-    expect(sendBtn).toContain('disabled={sending || !ready}');
+    expect(dialog).toContain('disabled={!!busy}');
+    expect(sendBtn).toContain('Open mail draft');
+    expect(sendBtn).toContain('disabled={!!busy}');
 
     expect(handleAttach).toContain('attachQuoteClient');
-    expect(handleAttach).toContain('decideQuoteSend(next)');
+    expect(handleAttach).toContain('applyBundle(next)');
     expect(handleAttach).not.toContain('deliverQuote');
     expect(handleAttach).not.toContain('onSent');
     expect(handleAttach).not.toContain('insert({');
 
     expect(handleEmail).toContain('saveJobClientEmail');
-    expect(handleEmail).toContain('decideQuoteSend(next)');
+    expect(handleEmail).toContain('applyBundle(next)');
     expect(handleEmail).not.toContain('deliverQuote');
     expect(handleEmail).not.toContain('onSent');
 
     expect(handlePhone).toContain('saveJobClientPhone');
-    expect(handlePhone).toContain('decideQuoteSend(next)');
+    expect(handlePhone).toContain('applyBundle(next)');
     expect(handlePhone).not.toContain('deliverQuote');
     expect(handlePhone).not.toContain('onSent');
     expect(handlePhone).not.toContain('sendSms');
 
-    expect(handleSendFn).toContain('deliverQuote');
+    expect(handleSendFn).toContain('generateCommercialPdf');
     expect(handleSendFn).not.toContain('saveJobClientEmail');
     expect(handleSendFn).not.toContain('saveJobClientPhone');
     expect(handleSendFn).not.toContain('attachQuoteClient');
-    expect(handleSendFn).not.toContain('if (!decision?.ok) return');
+    expect(handleSendFn).not.toContain('deliverQuote');
   });
 
   it('miss first, then the field or picker — does not bounce to a client record', () => {

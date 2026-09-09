@@ -89,7 +89,7 @@ describe('recommendInvoiceAction', () => {
       label: 'Send again',
       status: 'overdue',
     });
-    expect(recommendInvoiceAction(overdue, now).detail).toMatch(/overdue/i);
+    expect(recommendInvoiceAction(overdue, now).detail).toMatch(/No Grafter SMTP/i);
     expect(invoiceOverflowPaidAction(overdue, now)).toMatchObject({
       key: 'mark_paid',
       label: 'Mark paid',

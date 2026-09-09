@@ -177,7 +177,7 @@ describe('job-sheet Send next — wiring', () => {
     expect(page).toContain("next.key === 'invoice'");
     expect(invoicesPage).toContain('InvoiceSendDialog');
     expect(invoicesPage).toContain('Send again');
-    expect(dialog).toContain('deliverInvoice');
+    expect(dialog).toContain('Download PDF');
     expect(invoiceNext).toContain("label: 'Send again'");
     expect(invoiceNext).toContain('invoiceOverflowPaidAction');
   });

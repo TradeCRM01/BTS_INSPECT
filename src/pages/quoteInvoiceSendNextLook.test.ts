@@ -56,8 +56,8 @@ describe('quote / invoice Send Next look', () => {
     const css = src('src/index.css');
     const quoteSheet = css.slice(css.indexOf('  .hub-quote-sheet {'), css.indexOf('  .hub-quote-banner {'));
     const invoiceSheet = css.slice(css.indexOf('  .hub-invoice-sheet {'), css.indexOf('  .hub-invoice-banner {'));
-    expect(quoteSheet).toContain('box-shadow: none');
-    expect(invoiceSheet).toContain('box-shadow: none');
+    expect(quoteSheet).toContain('background: #FFFDF8');
+    expect(invoiceSheet).toContain('background: #FFFDF8');
     expect(src('src/lib/sendQuote.ts')).toContain('export function decideQuoteSend');
     expect(src('src/lib/sendInvoice.ts')).toContain('export function decideInvoiceSend');
   });

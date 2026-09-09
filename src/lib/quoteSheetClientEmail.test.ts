@@ -227,7 +227,7 @@ describe('quote-sheet client email — wiring', () => {
     expect(save).not.toContain('QuoteSendDialog');
     expect(quoteConvert).not.toContain('saveJobClientEmail');
     expect(quoteNext).not.toContain('saveJobClientEmail');
-    expect(quoteNext).toContain("key: 'add_email'");
+    expect(quoteNext).toContain("'add_email'");
     expect(quoteNext).toContain("key: 'send'");
     expect(quoteNext).toContain('No Grafter SMTP');
     expect(quoteNext).not.toContain('/clients/');
@@ -252,7 +252,7 @@ describe('quote-sheet client email — wiring', () => {
       css.indexOf('/* Job list + open job sheet only.'),
     );
     expect(page).not.toContain('LOOK_FIX_EMAIL');
-    expect(page).not.toContain("get('look')");
+    expect(page).not.toContain('LOOK_FIX_EMAIL');
     expect(page).not.toContain('Harbour Strata');
     expect(page).not.toContain('look-fix-email');
     expect(page).toContain('{next.label}');

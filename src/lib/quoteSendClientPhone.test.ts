@@ -151,11 +151,11 @@ describe('quote-send client phone — wiring', () => {
     const send = src('src/lib/sendQuote.ts');
     const deliver = src('src/lib/sendQuoteDeliver.ts');
     const handleSaveStart = dialog.indexOf('const handleSavePhone');
-    const handleSaveEnd = dialog.indexOf('const handleSend');
+    const handleSaveEnd = dialog.indexOf('const prepareShare');
     expect(handleSaveStart).toBeGreaterThan(-1);
     expect(handleSaveEnd).toBeGreaterThan(handleSaveStart);
     const handle = dialog.slice(handleSaveStart, handleSaveEnd);
-    const handleSendFn = dialog.slice(dialog.indexOf('const handleSend'), dialog.indexOf('const ready'));
+    const handleSendFn = dialog.slice(dialog.indexOf('const handleDownload'), dialog.indexOf('const ready'));
 
     expect(save).toContain("from('clients')");
     expect(save).toContain('update({ phone:');
@@ -184,17 +184,17 @@ describe('quote-send client phone — wiring', () => {
     expect(handle).toContain('saveJobClientPhone');
     expect(handle).toContain('phoneRow.clientId');
     expect(handle).toContain('clientPhoneDraft');
-    expect(handle).toContain('decideQuoteSend(next)');
+    expect(handle).toContain('applyBundle(next)');
     expect(handle).not.toContain('deliverQuote');
-    expect(handle).not.toContain('handleSend');
+    expect(handle).not.toContain('handleDownload');
     expect(handle).not.toContain('onSent');
     expect(handle).not.toContain('sendSms');
     expect(handle).not.toContain('job-reminder');
     expect(handle).not.toContain('attachQuoteClient');
 
-    expect(handleSendFn).toContain('deliverQuote');
+    expect(handleSendFn).toContain('generateCommercialPdf');
     expect(handleSendFn).not.toContain('saveJobClientPhone');
-    expect(handleSendFn).not.toContain('if (!decision?.ok) return');
+    expect(handleSendFn).not.toContain('deliverQuote');
 
     expect(send).not.toContain('saveJobClientPhone');
     expect(deliver).not.toContain('saveJobClientPhone');
@@ -211,8 +211,8 @@ describe('quote-send client phone — wiring', () => {
     expect(dialog).toContain('Send quote');
     expect(dialog).toContain('job-client-phone-save');
     expect(dialog).toContain('job-client-phone-num');
-    expect(dialog).toContain('showSend');
-    expect(dialog).toContain('disabled={sending || !ready}');
+    expect(dialog).toContain('showShare');
+    expect(dialog).toContain('disabled={!!busy}');
     expect(dialog).not.toContain('Add client phone');
     expect(dialog).not.toContain('className="btn-primary job-client-phone-save"');
     expect(sendCss).toContain('.job-client-phone-save');
@@ -234,16 +234,16 @@ describe('quote-send client phone — wiring', () => {
 
   it('does not change Send enablement unless decideQuoteSend already needs phone', () => {
     const dialog = src('src/components/invoicing/QuoteSendDialog.tsx');
-    const handleSave = dialog.slice(dialog.indexOf('const handleSavePhone'), dialog.indexOf('const handleSend'));
-    const handleSendFn = dialog.slice(dialog.indexOf('const handleSend'), dialog.indexOf('const ready'));
-    const sendBtn = dialog.slice(dialog.indexOf('{showSend &&'), dialog.indexOf('{showSmtpSettings'));
+    const handleSave = dialog.slice(dialog.indexOf('const handleSavePhone'), dialog.indexOf('const prepareShare'));
+    const handleSendFn = dialog.slice(dialog.indexOf('const handleDownload'), dialog.indexOf('const ready'));
+    const mailBtn = dialog.slice(dialog.indexOf('{showShare && share?.canMailto'), dialog.indexOf('{showShare && !share?.canMailto'));
 
-    expect(dialog).toContain('disabled={sending || !ready}');
-    expect(sendBtn).toContain('Send quote');
-    expect(handleSave).toContain('decideQuoteSend(next)');
+    expect(dialog).toContain('disabled={!!busy}');
+    expect(mailBtn).toContain('Open mail draft');
+    expect(handleSave).toContain('applyBundle(next)');
     expect(handleSave).not.toContain('deliverQuote');
     expect(handleSave).not.toContain('onSent');
-    expect(handleSendFn).toContain('deliverQuote');
+    expect(handleSendFn).toContain('generateCommercialPdf');
 
     const afterBlank = decideQuoteSend(bundle({
       client: { ...client, email: 'jane@acme.com.au', phone: jobClientPhoneToStore('') },
@@ -269,10 +269,10 @@ describe('quote-send client phone — wiring', () => {
     const send = src('src/lib/sendQuote.ts');
     const deliver = src('src/lib/sendQuoteDeliver.ts');
 
-    expect(dialog).toContain('Company settings');
-    expect(dialog).toContain("blocker === 'no_smtp'");
+    expect(dialog).toContain('Download PDF');
+    expect(dialog).toContain('Copy link');
     expect(dialog).toContain('SMS To');
-    expect(dialog).toContain('deliverQuote');
+    expect(dialog).toContain('Open mail draft');
     expect(dialog).toContain('Send quote');
     expect(dialog).toContain('saveJobClientEmail');
     expect(send).toContain('clientPhoneForSms');

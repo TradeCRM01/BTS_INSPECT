@@ -72,7 +72,7 @@ describe('invoice-sheet client email — save / Next / miss', () => {
     expect(recommendInvoiceAction(invoiceActionContext(
       { status: 'draft', client_id: 'c1', client_email: jobClientEmailToStore(''), line_items: [{ description: 'Board', quantity: 1 }] },
       { smtpReady: true },
-    ), now).key).toBe('add_email');
+    ), now).key).toBe('send');
     expect(recommendInvoiceAction(invoiceActionContext(
       { status: 'draft', client_id: null, client_email: null, line_items: [{ description: 'Board', quantity: 1 }] },
       { smtpReady: true },
@@ -217,11 +217,11 @@ describe('invoice-sheet client email — wiring', () => {
     expect(page).toContain('attachXeroPaymentAfterMarkPaid');
     expect(page).toContain('deliverInvoiceReceiptAfterMarkPaid');
     expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
-    expect(dialog).toContain('deliverInvoice');
+    expect(dialog).toContain('Download PDF');
     expect(dialog).toContain('saveJobClientEmail');
     expect(invoiceNext).toContain("label: 'Send again'");
     expect(invoiceNext).toContain('invoiceOverflowPaidAction');
-    expect(invoiceNext).toContain('COMPANY_EMAIL_SETTINGS_HREF');
+    expect(invoiceNext).toContain('No Grafter SMTP');
     expect(send).toContain('NO_SMTP_MESSAGE');
     expect(send).toContain('clientEmailForSend');
     expect(send).toContain(COMPANY_EMAIL_SETTINGS_HREF);

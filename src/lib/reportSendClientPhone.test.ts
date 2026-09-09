@@ -433,7 +433,7 @@ describe('report-send client phone — wiring', () => {
     expect(send).not.toContain('saveJobClientPhone');
     expect(invoiceDialog).toContain('attachInvoiceClient');
     expect(invoiceDialog).not.toContain('Open client');
-    expect(invoiceDialog).toContain('Company settings');
+    expect(invoiceDialog).toContain('Download PDF');
   });
 
   it('leaves job-sheet and invoice-sheet phone writes as signed', () => {
