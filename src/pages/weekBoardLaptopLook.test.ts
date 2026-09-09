@@ -34,9 +34,9 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(page).toContain('All crews');
     expect(page).toContain('className="btn-primary"');
     expect(page).toContain("look') === WEEK_BOARD_LOOK");
-    expect(page).toContain("name: 'Dave'");
-    expect(page).toContain("name: 'Jack'");
-    expect(page).toContain("name: 'Sam'");
+    expect(page).toContain("name: 'Dave Hale'");
+    expect(page).toContain("name: 'Jack Wieland'");
+    expect(page).toContain("name: 'Sam Ortiz'");
     expect(page).toContain('Warehouse lights');
     expect(page).toContain('Hot water');
     expect(page).toContain('Kitchen fit');
@@ -87,6 +87,7 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(css).toContain('text-transform: none');
     expect(css).toContain('letter-spacing: 0');
     expect(css).toContain('.hub-week-document .hub-week-chip');
+    expect(css).toContain('.hub-week-document .ops-tray:has(.ops-tray-empty)');
     expect(css).not.toMatch(/\.hub-week-document \.hub-week-chip \{[^}]*background:\s*#FFFDF8 !important/);
     expect(css).not.toContain('color: #0A2540 !important');
     expect(css).toContain('.form-input::placeholder');
@@ -106,11 +107,14 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     const css = src('src/index.css');
 
     expect(page).toContain('WeekBoardView');
+    expect(page).toContain('hub-week-mount');
     expect(page).toContain('data-week-sheet="1"');
     expect(board).toContain('data-week-board="1"');
     expect(board).toContain('data-week-cell');
     expect(board).toContain('is-empty');
     expect(board).toContain('weekBoardRows');
+    expect(board).toContain('weekBoardCrewLabel');
+    expect(board).toContain('hub-week-head-short');
     expect(board).toContain('data-schedule-track="day"');
     expect(board).toContain('hub-day-track');
     expect(board).toContain('hub-day-crew-rail');
@@ -126,6 +130,11 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(css).toContain('.hub-week-cell.is-empty');
     expect(css).toContain('.hub-week-chip');
     expect(css).toContain('repeat(7, 156px)');
+    expect(css).toContain('repeat(7, minmax(0, 1fr))');
+    expect(css).toContain('.hub-week-head-short');
+    expect(css).toContain('.hub-week-head-dow');
+    expect(board).toContain('hub-week-head-dow');
+    expect(src('src/lib/scheduleBoard.ts')).toContain('export function weekBoardCrewLabel');
   });
 
   it('does not rewrite persist, dispatch, or convert writes', () => {

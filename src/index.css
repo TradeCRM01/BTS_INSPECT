@@ -5397,6 +5397,10 @@
     border-top: 1px solid #E2D9CC;
   }
 
+  .hub-week-document .ops-tray:has(.ops-tray-empty) {
+    display: none;
+  }
+
   .hub-week-sheet .hub-week-board.ops-board {
     overflow-x: auto;
     overflow-y: visible;
@@ -5922,6 +5926,18 @@
     box-shadow: none;
   }
 
+  .hub-week-head-short {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    line-height: 1.1;
+  }
+
+  .hub-week-range-short {
+    display: none;
+  }
+
   .hub-week-head.is-today {
     color: var(--schedule-ink);
     background: var(--schedule-sheet);
@@ -5932,7 +5948,7 @@
     display: flex;
     align-items: center;
     padding: 6px 10px;
-    min-height: 44px;
+    min-height: 64px;
     position: sticky;
     left: 0;
     z-index: 2;
@@ -5945,6 +5961,9 @@
     font-weight: 600;
     letter-spacing: 0;
     color: var(--schedule-ink);
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
   }
 
   .hub-week-cell {
@@ -5953,7 +5972,7 @@
     align-items: stretch;
     justify-content: flex-start;
     gap: 3px;
-    min-height: 44px;
+    min-height: 64px;
     padding: 4px;
     cursor: pointer;
   }
@@ -6004,7 +6023,7 @@
   .hub-week-chip-desc {
     overflow: visible;
     white-space: normal;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
     font-family: 'Source Sans 3', system-ui, sans-serif;
     font-size: 12px;
     font-weight: 500;
@@ -6148,6 +6167,248 @@
     .hub-week-corner,
     .hub-week-crew {
       box-shadow: 6px 0 10px rgba(10, 37, 64, 0.06);
+    }
+  }
+
+  @media (max-width: 639px) {
+    .hub-board-cal.is-week-doc.ops-page {
+      padding: 0;
+      height: calc(100dvh - 4.25rem);
+      min-height: calc(100dvh - 4.25rem);
+      max-height: calc(100dvh - 4.25rem);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hub-board-cal.is-week-doc .hub-schedule-desk,
+    .hub-board-cal.is-week-doc .hub-schedule-phone {
+      max-width: none;
+      width: 100%;
+      margin: 0;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-document {
+      max-width: none;
+      width: 100%;
+      margin: 0;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      border-radius: 0;
+      border: none;
+      box-shadow: inset 0 1px 0 #fff;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-sheet-bar {
+      display: none;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-search {
+      padding: 0 12px 4px;
+      flex: 0 0 auto;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-sheet-body {
+      flex: 1 1 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding: 4px 0 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-identity-row {
+      padding: 0 12px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-track {
+      margin-top: 4px;
+      padding: 2px 12px 4px;
+      flex: 0 0 auto;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-mount.lg\:hidden {
+      flex: 1 1 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-document .hub-week-board {
+      flex: 1 1 0;
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100dvh - 17rem);
+      height: 100%;
+      margin-top: 4px;
+      overflow-x: hidden;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-document .hub-day-board {
+      flex: 1 1 0;
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100dvh - 17rem);
+      margin-top: 4px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-track {
+      flex: 1 1 0;
+      min-height: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-crew-rail {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-crew-lock.hub-day-crew-head {
+      flex: 0 0 auto;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-crew-lock:not(.hub-day-crew-head) {
+      flex: 1 1 0;
+      height: auto !important;
+      min-height: 88px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-hours {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-hours > .flex.border-b {
+      flex: 0 0 auto;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-hours > div:not(:first-child) {
+      flex: 1 1 0;
+      min-height: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-hours [data-day-grid] {
+      height: 100% !important;
+      min-height: 88px;
+    }
+
+    .hub-week-head-full {
+      display: none;
+    }
+
+    .hub-week-head-short {
+      display: flex;
+    }
+
+    .hub-week-head-dow {
+      font-size: 10px;
+      font-weight: 600;
+      color: #5B6B7C;
+    }
+
+    .hub-week-head-dom {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0A2540;
+    }
+
+    .hub-week-head.is-today .hub-week-head-dom {
+      color: #2E75B6;
+    }
+
+    .hub-week-tools .hub-week-range-full {
+      display: none;
+    }
+
+    .hub-week-tools .hub-week-range-short {
+      display: inline;
+    }
+
+    .hub-week-grid {
+      grid-template-columns: 58px repeat(7, minmax(0, 1fr));
+      grid-template-rows: 40px;
+      grid-auto-rows: minmax(64px, 1fr);
+      width: 100%;
+      min-width: 0;
+      flex: 1 1 0;
+      height: 100%;
+      align-content: stretch;
+    }
+
+    .hub-week-corner,
+    .hub-week-head {
+      min-width: 0;
+      min-height: 40px;
+      padding: 4px 2px;
+      font-size: 12px;
+    }
+
+    .hub-week-crew {
+      min-width: 0;
+      padding: 6px 4px;
+    }
+
+    .hub-week-crew .hub-schedule-crew-name {
+      font-size: 11px;
+      line-height: 1.15;
+      white-space: normal;
+      overflow-wrap: break-word;
+      overflow: visible;
+      text-overflow: clip;
+    }
+
+    .hub-day-crew-lock .hub-schedule-crew-name {
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: visible;
+      text-overflow: clip;
+    }
+
+    .hub-week-cell {
+      min-width: 0;
+      padding: 2px 1px;
+      min-height: 48px;
+    }
+
+    .hub-week-document .hub-week-board .hub-week-chip {
+      min-width: 0;
+      min-height: 36px;
+      justify-content: center;
+      overflow: hidden;
+      padding: 4px 3px;
+    }
+
+    .hub-week-document .hub-week-board .hub-week-chip-ref {
+      display: none;
+    }
+
+    .hub-week-document .hub-week-board .hub-week-chip-desc {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: normal;
+      overflow-wrap: normal;
+      word-break: normal;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1.15;
+    }
+
+    .hub-week-document .hub-day-board .hub-week-chip-ref,
+    .hub-week-document .hub-day-board .hub-week-chip-desc {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow-wrap: normal;
     }
   }
 

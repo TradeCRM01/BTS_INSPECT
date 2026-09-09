@@ -44,9 +44,9 @@ const WEEK_LOOK_CALLBACK = '#2E75B6';
 const WEEK_LOOK_INK = '#0A2540';
 
 const WEEK_BOARD_LOOK_CREW: TeamMember[] = [
-  { id: WEEK_LOOK_DAVE, name: 'Dave', email: 'dave@look.example', schedule_color: null },
-  { id: WEEK_LOOK_JACK, name: 'Jack', email: 'jack@look.example', schedule_color: null },
-  { id: WEEK_LOOK_SAM, name: 'Sam', email: 'sam@look.example', schedule_color: null },
+  { id: WEEK_LOOK_DAVE, name: 'Dave Hale', email: 'dave@look.example', schedule_color: null },
+  { id: WEEK_LOOK_JACK, name: 'Jack Wieland', email: 'jack@look.example', schedule_color: null },
+  { id: WEEK_LOOK_SAM, name: 'Sam Ortiz', email: 'sam@look.example', schedule_color: null },
 ];
 
 function weekBoardLookJob(
@@ -649,8 +649,12 @@ export function SchedulePage() {
     [boardJobs],
   );
 
-  const weekRangeLabel = `${format(startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'EEE d MMM')} – ${format(endOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'EEE d MMM yyyy')}`;
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON });
+  const weekEnd = endOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON });
+  const weekRangeLabel = `${format(weekStart, 'EEE d MMM')} – ${format(weekEnd, 'EEE d MMM yyyy')}`;
+  const weekRangeShort = `${format(weekStart, 'd MMM')} – ${format(weekEnd, 'd MMM')}`;
   const dayRangeLabel = format(currentDate, 'EEE d MMM yyyy');
+  const dayRangeShort = format(currentDate, 'EEE d MMM');
   const unassignedOnBoard = onBoard.filter(j => !(j.assigned_team ?? []).length).length;
   const weekWhisper = [
     `${onBoard.length} on the board`,
@@ -738,7 +742,10 @@ export function SchedulePage() {
         >
           <ChevronRight size={16} />
         </button>
-        <p className="hub-week-range">{boardRangeLabel}</p>
+        <p className="hub-week-range">
+          <span className="hub-week-range-full">{boardRangeLabel}</span>
+          <span className="hub-week-range-short">{viewMode === 'day' ? dayRangeShort : weekRangeShort}</span>
+        </p>
       </div>
     </div>
   );
@@ -845,7 +852,7 @@ export function SchedulePage() {
                 )}
                 {viewMode === 'week' ? (
                   <>
-                    <div className="lg:hidden">
+                    <div className="lg:hidden hub-week-mount">
                       <PhoneWeekList
                         jobs={onBoard}
                         teamMembers={boardCrew}
@@ -860,7 +867,7 @@ export function SchedulePage() {
                         onJobDrop={placeExisting}
                       />
                     </div>
-                    <div className="hidden lg:block">
+                    <div className="hidden lg:block hub-week-mount">
                       <WeekBoardView
                         jobs={onBoard}
                         teamMembers={boardCrew}
@@ -878,7 +885,7 @@ export function SchedulePage() {
                   </>
                 ) : (
                   <>
-                    <div className="lg:hidden">
+                    <div className="lg:hidden hub-week-mount">
                       <PhoneDayList
                         jobs={onBoard}
                         teamMembers={boardCrew}
@@ -889,7 +896,7 @@ export function SchedulePage() {
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
                       />
                     </div>
-                    <div className="hidden lg:block">
+                    <div className="hidden lg:block hub-week-mount">
                       <DayBoardView
                         jobs={onBoard}
                         teamMembers={boardCrew}

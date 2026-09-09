@@ -34,6 +34,7 @@ import {
   schedulePlotTimes,
   scheduleWeekDays,
   weekBoardChip,
+  weekBoardCrewLabel,
   weekBoardRows,
   WEEK_UNASSIGNED_CREW_ID,
 } from '../../lib/scheduleBoard';
@@ -148,7 +149,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
       </div>
       <div className="p-2 space-y-2 max-h-[70vh] overflow-y-auto">
         {jobs.length === 0 ? (
-          <p className="ops-meta px-1 py-2">No unscheduled jobs.</p>
+          <p className="ops-meta ops-tray-empty px-1 py-2">No unscheduled jobs.</p>
         ) : (
           jobs.map(job => {
             const site = opsSiteLabel(job.address, job.client_address);
@@ -322,11 +323,11 @@ export const DayBoardView = memo(function DayBoardView({
 
   const rows = useMemo(() => {
     const r: { id: string; name: string; schedule_color?: string | null }[] = [
-      { id: UNASSIGNED_ROW_ID, name: 'Unassigned' },
+      { id: UNASSIGNED_ROW_ID, name: weekBoardCrewLabel('Unassigned') },
     ];
     for (const m of teamMembers) {
       if (filteredEmployeeIds.size === 0 || filteredEmployeeIds.has(m.id)) {
-        r.push({ id: m.id, name: m.name, schedule_color: m.schedule_color });
+        r.push({ id: m.id, name: weekBoardCrewLabel(m.name), schedule_color: m.schedule_color });
       }
     }
     return r;
@@ -531,7 +532,7 @@ export const DayBoardView = memo(function DayBoardView({
                 }}
               />
               <div className="min-w-0">
-                <p className="hub-schedule-crew-name truncate">{row.name}</p>
+                <p className="hub-schedule-crew-name">{row.name}</p>
                 <p className="ops-meta">
                   {painted.isUnassigned
                     ? (painted.rowJobs.length === 0 ? 'Drop here — date stays' : `${painted.rowJobs.length} · needs crew`)
@@ -730,14 +731,18 @@ export const WeekBoardView = memo(function WeekBoardView({
               onClick={() => openDay(ds)}
               className={`hub-week-head ${today ? 'is-today' : ''}`}
             >
-              {format(day, 'EEE d MMM')}
+              <span className="hub-week-head-full">{format(day, 'EEE d MMM')}</span>
+              <span className="hub-week-head-short">
+                <span className="hub-week-head-dow">{format(day, 'EEE')}</span>
+                <span className="hub-week-head-dom">{format(day, 'd')}</span>
+              </span>
             </button>
           );
         })}
         {rows.map(row => (
           <div key={row.crewId} className="contents">
             <div className="hub-week-crew" data-week-crew={row.crewId}>
-              <p className="hub-schedule-crew-name truncate">{row.crewName}</p>
+              <p className="hub-schedule-crew-name" data-week-crew-label={row.crewName}>{row.crewName}</p>
             </div>
             {row.cells.map(cell => {
               const hoverKey = `${row.crewId}:${cell.date}`;

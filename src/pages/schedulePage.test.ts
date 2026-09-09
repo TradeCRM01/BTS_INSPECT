@@ -110,6 +110,10 @@ describe('schedule board cream paper look', () => {
     expect(css).toContain('.hub-week-board');
     expect(css).toContain('.hub-week-chip');
     expect(css).toContain('.hub-week-sheet');
+    expect(css).toContain('.hub-week-head-short');
+    expect(css).toContain('.hub-week-head-dow');
+    expect(css).toContain('repeat(7, minmax(0, 1fr))');
+    expect(page).toContain('hub-week-range-short');
     expect(css).toContain('.hub-week-seg');
     expect(css).toContain('.hub-week-quiet');
     expect(css).toContain('inset 0 1px 0 #fff');
@@ -126,9 +130,9 @@ describe('schedule board cream paper look', () => {
     expect(page).toContain('WeekBoardChrome');
     expect(page).toContain('All crews');
     expect(page).toContain("look') === WEEK_BOARD_LOOK");
-    expect(page).toContain("name: 'Dave'");
-    expect(page).toContain("name: 'Jack'");
-    expect(page).toContain("name: 'Sam'");
+    expect(page).toContain("name: 'Dave Hale'");
+    expect(page).toContain("name: 'Jack Wieland'");
+    expect(page).toContain("name: 'Sam Ortiz'");
     expect(page).toContain('#0A2540');
     expect(page).toContain('#F7931A');
     expect(page).toContain('#7C3AED');

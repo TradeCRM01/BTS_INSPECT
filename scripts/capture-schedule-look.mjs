@@ -67,6 +67,11 @@ async function measure(page) {
       ? [...board.querySelectorAll('.hub-week-cell.is-empty')].length
       : 0;
     const rail = document.querySelector('.hub-week-document .ops-tray');
+    const shell = document.querySelector('.shell-header');
+    const dayHeads = board ? [...board.querySelectorAll('.hub-week-head')] : [];
+    const crewLabels = board
+      ? [...board.querySelectorAll('.hub-week-crew .hub-schedule-crew-name, .hub-day-crew-lock .hub-schedule-crew-name')]
+      : [];
     const hours = board?.querySelector('[data-day-hours="1"]');
     const hoursBox = hours?.getBoundingClientRect();
     const hourCol = hours?.querySelector('.hub-schedule-label')?.parentElement?.parentElement;
@@ -81,6 +86,7 @@ async function measure(page) {
           w: Math.round(box.width),
           h: Math.round(box.height),
           descWrap: descStyle ? descStyle.whiteSpace : null,
+          descOverflowWrap: descStyle ? descStyle.overflowWrap : null,
           ellipsis: !!(desc && descStyle?.textOverflow === 'ellipsis' && desc.scrollWidth > desc.clientWidth + 1),
           hasSiteCopy: /no site address/i.test(text),
           staleDate: /31 Mar|31 March|created/i.test(text),
@@ -116,7 +122,7 @@ async function measure(page) {
       railOnSheet: !!(paper && rail && paper.contains(rail)),
       crewClip: locks,
       crewNamesReadable: locks.length === 0
-        || locks.every((lock) => lock.clipBy <= 0 && /Crew|Dave|Jack|Sam/.test(lock.text)),
+        || locks.every((lock) => lock.clipBy <= 0 && /Crew|Dave|Jack|Sam|Unassigned/.test(lock.text)),
       hours: hours
         ? {
           clientWidth: Math.round(hours.clientWidth),
@@ -139,6 +145,43 @@ async function measure(page) {
       primaryBg: primary ? getComputedStyle(primary).backgroundColor : null,
       viewW: window.innerWidth,
       viewH: window.innerHeight,
+      shellH: shell ? Math.round(shell.getBoundingClientRect().height) : 0,
+      paperH: paperBox ? Math.round(paperBox.height) : 0,
+      paperBottom: paperBox ? Math.round(paperBox.bottom) : 0,
+      sheetFill: (() => {
+        const shellH = shell ? shell.getBoundingClientRect().height : 0;
+        const usable = window.innerHeight - shellH;
+        return usable > 0 && paperBox ? Number((paperBox.height / usable).toFixed(3)) : 0;
+      })(),
+      creamBelow: paperBox ? Math.round(window.innerHeight - paperBox.bottom) : null,
+      boardFill: paperBox && boardBox
+        ? Number((boardBox.height / Math.max(paperBox.height - (boardBox.top - paperBox.top), 1)).toFixed(3))
+        : 0,
+      daysVisible: dayHeads.filter((el) => {
+        const box = el.getBoundingClientRect();
+        const visible = Math.min(box.right, window.innerWidth) - Math.max(box.left, 0);
+        return box.width > 0 && visible / box.width >= 0.7;
+      }).length,
+      crewCrush: crewLabels
+        .filter((el) => {
+          const style = getComputedStyle(el);
+          return style.textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1;
+        })
+        .map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim()),
+      crewLabels: crewLabels.map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim()),
+      lastCrewGap: (() => {
+        const last = [...(board?.querySelectorAll('.hub-week-crew, .hub-day-crew-lock:not(.hub-day-crew-head)') ?? [])].at(-1);
+        const box = last?.getBoundingClientRect();
+        return box ? Math.round(window.innerHeight - box.bottom) : null;
+      })(),
+      emptyRail: !!document.querySelector('.hub-week-document .ops-tray:has(.ops-tray-empty)'),
+      emptyRailShown: (() => {
+        const rail = document.querySelector('.hub-week-document .ops-tray:has(.ops-tray-empty)');
+        if (!rail) return false;
+        const box = rail.getBoundingClientRect();
+        const style = getComputedStyle(rail);
+        return style.display !== 'none' && box.height > 0;
+      })(),
       whisper: document.querySelector('.hub-week-status-whisper')?.textContent ?? null,
     };
   });
@@ -188,12 +231,27 @@ const dayPhoneAfterScroll = await measure(phoneDay);
 await phoneDayCtx.close();
 
 const look = {
-  titlesWrap: weekLaptop.titlesWrap && dayLaptop.titlesWrap && weekPhone.titlesWrap,
+  titlesWrap: weekLaptop.titlesWrap && dayLaptop.titlesWrap,
   noSiteHero: weekLaptop.noSiteHero && dayLaptop.noSiteHero && weekPhone.noSiteHero,
   noStaleChipDate: weekLaptop.noStaleChipDate && dayLaptop.noStaleChipDate && weekPhone.noStaleChipDate,
   dayFits1280: dayLaptop.hours && !dayLaptop.hours.overflow,
   untimedWeight: dayLaptop.untimedWeight,
   phoneCrewReadable: dayPhoneBefore.crewNamesReadable && dayPhoneAfterScroll.crewNamesReadable,
+  phoneWeekFill: weekPhone.sheetFill >= 0.86 && weekPhone.creamBelow !== null && weekPhone.creamBelow <= 16,
+  phoneWeekBoard: weekPhone.boardFill >= 0.8,
+  phoneDayFill: dayPhoneBefore.sheetFill >= 0.86 && dayPhoneBefore.creamBelow !== null && dayPhoneBefore.creamBelow <= 16,
+  phoneDayBoard: dayPhoneBefore.boardFill >= 0.75,
+  phoneWeekCrewFill: weekPhone.lastCrewGap !== null && weekPhone.lastCrewGap <= 48,
+  phoneDayCrewFill: dayPhoneBefore.lastCrewGap !== null && dayPhoneBefore.lastCrewGap <= 48,
+  emptyRailHidden: !weekLaptop.emptyRailShown && !weekPhone.emptyRailShown,
+  laptopWeekPaper: weekLaptop.paperH >= 480,
+  phoneWeekDays: weekPhone.daysVisible >= 7,
+  phoneWeekChips: weekPhone.chips.length > 0
+    && weekPhone.chips.every((chip) => chip.descOverflowWrap !== 'anywhere'),
+  phoneWeekCrew: Array.isArray(weekPhone.crewCrush) && weekPhone.crewCrush.length === 0
+    && Array.isArray(weekPhone.crewLabels)
+    && weekPhone.crewLabels.every((name) => name && !name.includes('…') && !/\.\.\.$/.test(name)),
+  laptopWeekDays: weekLaptop.daysVisible >= 7,
 };
 console.log('phone-day-before', dayPhoneBefore);
 console.log('phone-day-after-scroll', dayPhoneAfterScroll);
