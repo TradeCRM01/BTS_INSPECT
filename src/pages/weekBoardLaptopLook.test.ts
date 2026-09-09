@@ -106,6 +106,7 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     const css = src('src/index.css');
 
     expect(page).toContain('WeekBoardView');
+    expect(page).toContain('hub-week-mount');
     expect(page).toContain('data-week-sheet="1"');
     expect(board).toContain('data-week-board="1"');
     expect(board).toContain('data-week-cell');

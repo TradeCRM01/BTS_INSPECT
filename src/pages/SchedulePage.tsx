@@ -845,7 +845,7 @@ export function SchedulePage() {
                 )}
                 {viewMode === 'week' ? (
                   <>
-                    <div className="lg:hidden">
+                    <div className="lg:hidden hub-week-mount">
                       <PhoneWeekList
                         jobs={onBoard}
                         teamMembers={boardCrew}
@@ -860,7 +860,7 @@ export function SchedulePage() {
                         onJobDrop={placeExisting}
                       />
                     </div>
-                    <div className="hidden lg:block">
+                    <div className="hidden lg:block hub-week-mount">
                       <WeekBoardView
                         jobs={onBoard}
                         teamMembers={boardCrew}
@@ -878,7 +878,7 @@ export function SchedulePage() {
                   </>
                 ) : (
                   <>
-                    <div className="lg:hidden">
+                    <div className="lg:hidden hub-week-mount">
                       <PhoneDayList
                         jobs={onBoard}
                         teamMembers={boardCrew}
@@ -889,7 +889,7 @@ export function SchedulePage() {
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
                       />
                     </div>
-                    <div className="hidden lg:block">
+                    <div className="hidden lg:block hub-week-mount">
                       <DayBoardView
                         jobs={onBoard}
                         teamMembers={boardCrew}

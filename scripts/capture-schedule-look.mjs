@@ -121,7 +121,7 @@ async function measure(page) {
       railOnSheet: !!(paper && rail && paper.contains(rail)),
       crewClip: locks,
       crewNamesReadable: locks.length === 0
-        || locks.every((lock) => lock.clipBy <= 0 && /Crew|Dave|Jack|Sam/.test(lock.text)),
+        || locks.every((lock) => lock.clipBy <= 0 && /Crew|Dave|Jack|Sam|Unassigned/.test(lock.text)),
       hours: hours
         ? {
           clientWidth: Math.round(hours.clientWidth),
@@ -153,6 +153,9 @@ async function measure(page) {
         return usable > 0 && paperBox ? Number((paperBox.height / usable).toFixed(3)) : 0;
       })(),
       creamBelow: paperBox ? Math.round(window.innerHeight - paperBox.bottom) : null,
+      boardFill: paperBox && boardBox
+        ? Number((boardBox.height / Math.max(paperBox.height - (boardBox.top - paperBox.top), 1)).toFixed(3))
+        : 0,
       daysVisible: dayHeads.filter((el) => {
         const box = el.getBoundingClientRect();
         const visible = Math.min(box.right, window.innerWidth) - Math.max(box.left, 0);
@@ -221,6 +224,7 @@ const look = {
   untimedWeight: dayLaptop.untimedWeight,
   phoneCrewReadable: dayPhoneBefore.crewNamesReadable && dayPhoneAfterScroll.crewNamesReadable,
   phoneWeekFill: weekPhone.sheetFill >= 0.86 && weekPhone.creamBelow !== null && weekPhone.creamBelow <= 64,
+  phoneWeekBoard: weekPhone.boardFill >= 0.6,
   phoneWeekDays: weekPhone.daysVisible >= 4,
   phoneWeekCrew: Array.isArray(weekPhone.crewCrush) && weekPhone.crewCrush.length === 0
     && Array.isArray(weekPhone.crewLabels)
