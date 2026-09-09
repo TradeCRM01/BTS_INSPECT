@@ -55,7 +55,6 @@ export function ScheduleJobSearch({
       if (dragging) return;
       if (!rootRef.current?.contains(e.target as Node)) {
         onQuery('');
-        onSelect(null);
       }
     };
     const onKey = (e: KeyboardEvent) => {

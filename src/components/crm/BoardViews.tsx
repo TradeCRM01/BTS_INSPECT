@@ -30,6 +30,7 @@ import {
   jobsOnScheduleDay,
   scheduleChipClock,
   scheduleDateKey,
+  scheduleJobHref,
   schedulePlotTimes,
   scheduleWeekDays,
   weekBoardChip,
@@ -50,7 +51,7 @@ export interface BoardProps {
   teamMembers: TeamMember[];
   currentDate: Date;
   onJobClick: (job: JobWithClient) => void;
-  onDayClick: (dateStr: string, employeeId?: string) => void;
+  onDayClick: (dateStr: string, employeeId?: string | null) => void;
   onJobDrop?: (drop: JobDropPayload) => void;
   onJobResize?: (jobId: string, startTime: string, endTime: string) => void;
   filteredEmployeeIds: Set<string>;
@@ -126,6 +127,7 @@ const JobBlock = memo(function JobBlock({
 
 export const NeedsDateRail = memo(function NeedsDateRail({
   jobs, teamMembers, onJobClick, onDragStart, alwaysShow = false, className = '',
+  selectedId = null, onOpenJob,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
@@ -133,11 +135,13 @@ export const NeedsDateRail = memo(function NeedsDateRail({
   onDragStart: (e: React.DragEvent, jobId: string) => void;
   alwaysShow?: boolean;
   className?: string;
+  selectedId?: string | null;
+  onOpenJob?: (job: JobWithClient) => void;
 }) {
   if (jobs.length === 0 && !alwaysShow) return null;
 
   return (
-    <div className={`ops-tray ${className}`.trim()}>
+    <div className={`ops-tray ${className}`.trim()} data-schedule-rail="1">
       <div className="ops-tray-head">
         <p className="ops-card-kicker">Unscheduled</p>
         <span className="ops-meta">{jobs.length}</span>
@@ -148,12 +152,14 @@ export const NeedsDateRail = memo(function NeedsDateRail({
         ) : (
           jobs.map(job => {
             const site = opsSiteLabel(job.address, job.client_address);
+            const selected = selectedId === job.id;
             return (
               <div
                 key={job.id}
                 role="button"
                 tabIndex={0}
                 draggable
+                aria-pressed={selected}
                 onDragStart={e => onDragStart(e, job.id)}
                 onClick={() => onJobClick(job)}
                 onKeyDown={e => {
@@ -163,7 +169,10 @@ export const NeedsDateRail = memo(function NeedsDateRail({
                   }
                 }}
                 data-schedule-job={job.id}
-                className="ops-card job-cal-host ops-card-hover w-full text-left active:scale-[0.98] cursor-pointer"
+                data-schedule-rail-job={job.id}
+                className={`ops-card job-cal-host ops-card-hover w-full text-left active:scale-[0.98] cursor-pointer ${
+                  selected ? 'is-on' : ''
+                }`}
                 style={{ borderLeftWidth: 3, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
               >
                 <div className="ops-card-body">
@@ -171,6 +180,21 @@ export const NeedsDateRail = memo(function NeedsDateRail({
                     <p className="hub-schedule-ref truncate">{formatJobRef(job)} | {site}</p>
                     <div className="flex items-center gap-1 shrink-0">
                       <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                      {onOpenJob ? (
+                        <a
+                          href={scheduleJobHref(job.id)}
+                          data-schedule-open-job={job.id}
+                          className="hub-schedule-next"
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onOpenJob(job);
+                          }}
+                          onPointerDown={e => e.stopPropagation()}
+                        >
+                          Open
+                        </a>
+                      ) : null}
                       <JobCalendarOverflow
                         job={job}
                         site={calendarSite(job.address, job.client_address)}
@@ -240,7 +264,7 @@ export const PhoneDayList = memo(function PhoneDayList({
   teamMembers?: TeamMember[];
   currentDate: Date;
   onJobClick: (job: JobWithClient) => void;
-  onDayClick: (dateStr: string, employeeId?: string) => void;
+  onDayClick: (dateStr: string, employeeId?: string | null) => void;
   onJobDrop?: (drop: JobDropPayload) => void;
   onJobResize?: (jobId: string, startTime: string, endTime: string) => void;
 }) {
@@ -267,7 +291,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
   onJobClick: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
   onSelectDay: (date: Date) => void;
-  onDayClick: (dateStr: string, employeeId?: string) => void;
+  onDayClick: (dateStr: string, employeeId?: string | null) => void;
   onJobDrop?: (drop: JobDropPayload) => void;
 }) {
   return (
@@ -495,7 +519,7 @@ export const DayBoardView = memo(function DayBoardView({
                 height: painted.height,
                 borderLeft: painted.isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${painted.color}`,
               }}
-              onClick={() => onDayClick(dateStr, painted.isUnassigned ? undefined : row.id)}
+              onClick={() => onDayClick(dateStr, painted.isUnassigned ? null : row.id)}
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropHoverId(row.id); }}
               onDrop={e => { e.stopPropagation(); handleDrop(e, row.id); }}
             >
@@ -544,7 +568,7 @@ export const DayBoardView = memo(function DayBoardView({
                 data-day-grid="1"
                 className="relative cursor-pointer"
                 style={{ width: gridWidth, height: painted.height }}
-                onClick={() => onDayClick(dateStr, painted.isUnassigned ? undefined : painted.row.id)}
+                onClick={() => onDayClick(dateStr, painted.isUnassigned ? null : painted.row.id)}
                 onDragOver={e => { e.preventDefault(); setDropHoverId(painted.row.id); }}
                 onDrop={e => handleTimeDrop(e, painted.row.id)}
               >
@@ -717,7 +741,7 @@ export const WeekBoardView = memo(function WeekBoardView({
             {row.cells.map(cell => {
               const hoverKey = `${row.crewId}:${cell.date}`;
               const hovering = dropHoverKey === hoverKey;
-              const crewId = row.crewId === WEEK_UNASSIGNED_CREW_ID ? undefined : row.crewId;
+              const crewId = row.crewId === WEEK_UNASSIGNED_CREW_ID ? null : row.crewId;
               return (
                 <div
                   key={hoverKey}

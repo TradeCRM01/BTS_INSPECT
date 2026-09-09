@@ -34,7 +34,19 @@ export function placePickedHint(
     ? 'today'
     : format(date, 'EEE d MMM');
   const slot = startTime ? '' : ' at 8:00';
-  return `${title} — tap a person to place it ${when}${slot}`;
+  return `${title} — drop it on a crew and day, or tap a person to place it ${when}${slot}`;
+}
+
+export function placePickedOnCell(
+  job: { id: string },
+  date: string,
+  employeeId: string | null,
+): JobDropPayload {
+  return {
+    jobId: job.id,
+    date,
+    employeeId,
+  };
 }
 
 export type AssignmentDrop = 'unassigned' | { employeeId: string };

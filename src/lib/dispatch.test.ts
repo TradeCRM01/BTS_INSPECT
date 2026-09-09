@@ -8,6 +8,7 @@ import {
   nextAssignedTeam,
   placeDayRowJobs,
   placePickedHint,
+  placePickedOnCell,
   rescheduleJobPatch,
   rememberDraggedJob,
   readDroppedJobId,
@@ -31,20 +32,59 @@ describe('placePickedHint', () => {
 
   it('names today when the board is on today', () => {
     expect(placePickedHint('Switchboard', today, null, today)).toBe(
-      'Switchboard — tap a person to place it today at 8:00',
+      'Switchboard — drop it on a crew and day, or tap a person to place it today at 8:00',
     );
   });
 
   it('names the selected day, not today, when the board moved', () => {
     expect(placePickedHint('Switchboard', new Date(2026, 8, 10), null, today)).toBe(
-      'Switchboard — tap a person to place it Thu 10 Sep at 8:00',
+      'Switchboard — drop it on a crew and day, or tap a person to place it Thu 10 Sep at 8:00',
     );
   });
 
   it('does not invent 8:00 when the job already has a time', () => {
     expect(placePickedHint('Switchboard', today, '07:30:00', today)).toBe(
-      'Switchboard — tap a person to place it today',
+      'Switchboard — drop it on a crew and day, or tap a person to place it today',
     );
+  });
+});
+
+describe('placePickedOnCell', () => {
+  it('places an unscheduled job on that day and crew without inventing a second job', () => {
+    expect(placePickedOnCell(
+      { id: 'audit-undated-job' },
+      '2026-08-25',
+      'audit-crew-sam',
+    )).toEqual({
+      jobId: 'audit-undated-job',
+      date: '2026-08-25',
+      employeeId: 'audit-crew-sam',
+    });
+  });
+
+  it('clears crew when the cell is Unassigned', () => {
+    expect(placePickedOnCell(
+      { id: 'job-1' },
+      '2026-08-26',
+      null,
+    )).toEqual({
+      jobId: 'job-1',
+      date: '2026-08-26',
+      employeeId: null,
+    });
+  });
+
+  it('is the same update as a board drop', () => {
+    const clicked = placePickedOnCell({ id: 'job-1' }, '2026-08-25', 'sam');
+    expect(rescheduleJobPatch(
+      { assigned_team: [], start_time: null, end_time: null },
+      clicked,
+    )).toEqual({
+      scheduled_date: '2026-08-25',
+      assigned_team: ['sam'],
+      start_time: '08:00:00',
+      end_time: '09:00:00',
+    });
   });
 });
 

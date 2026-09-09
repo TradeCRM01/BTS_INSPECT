@@ -15,7 +15,7 @@ import {
   DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList, PhoneWeekList,
   type TeamMember,
 } from '../components/crm/BoardViews';
-import { DEFAULT_SLOT_START, placePickedHint, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
+import { placePickedHint, placePickedOnCell, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
@@ -608,21 +608,24 @@ export function SchedulePage() {
     rememberDraggedJob(jobId);
   };
 
-  const placePickedOnPerson = (employeeId: string) => {
-    if (!pickedJob) return;
-    rescheduleJob.mutate({
-      jobId: pickedJob.id,
-      date: format(currentDate, 'yyyy-MM-dd'),
-      employeeId,
-      startTime: pickedJob.start_time ? undefined : DEFAULT_SLOT_START,
-    });
-    setPickedJob(null);
+  const placeExisting = (drop: JobDropPayload) => {
+    rescheduleJob.mutate(drop);
     setJobQuery('');
+    setPickedJob(null);
   };
 
-  const handleDayClick = (dateStr: string, employeeId?: string) => {
+  const placePickedOnPerson = (employeeId: string) => {
+    if (!pickedJob) return;
+    placeExisting(placePickedOnCell(pickedJob, format(currentDate, 'yyyy-MM-dd'), employeeId));
+  };
+
+  const handleDayClick = (dateStr: string, employeeId?: string | null) => {
+    if (pickedJob) {
+      placeExisting(placePickedOnCell(pickedJob, dateStr, employeeId ?? null));
+      return;
+    }
     setSelectedDate(dateStr);
-    setPresetEmployeeId(employeeId);
+    setPresetEmployeeId(employeeId ?? undefined);
     setShowForm(true);
   };
 
@@ -867,11 +870,7 @@ export function SchedulePage() {
                           setView('day');
                         }}
                         onDayClick={handleDayClick}
-                        onJobDrop={drop => {
-                          rescheduleJob.mutate(drop);
-                          setJobQuery('');
-                          setPickedJob(null);
-                        }}
+                        onJobDrop={placeExisting}
                       />
                     </div>
                     <div className="hidden lg:block">
@@ -885,11 +884,7 @@ export function SchedulePage() {
                           setCurrentDate(date);
                           setView('day');
                         }}
-                        onJobDrop={drop => {
-                          rescheduleJob.mutate(drop);
-                          setJobQuery('');
-                          setPickedJob(null);
-                        }}
+                        onJobDrop={placeExisting}
                         filteredEmployeeIds={filteredEmployeeIds}
                       />
                     </div>
@@ -903,11 +898,7 @@ export function SchedulePage() {
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
                         onDayClick={handleDayClick}
-                        onJobDrop={drop => {
-                          rescheduleJob.mutate(drop);
-                          setJobQuery('');
-                          setPickedJob(null);
-                        }}
+                        onJobDrop={placeExisting}
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
                       />
                     </div>
@@ -918,11 +909,7 @@ export function SchedulePage() {
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
                         onDayClick={handleDayClick}
-                        onJobDrop={drop => {
-                          rescheduleJob.mutate(drop);
-                          setJobQuery('');
-                          setPickedJob(null);
-                        }}
+                        onJobDrop={placeExisting}
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
                         filteredEmployeeIds={filteredEmployeeIds}
                       />
@@ -932,8 +919,11 @@ export function SchedulePage() {
                 <NeedsDateRail
                   jobs={needsDate}
                   teamMembers={boardCrew}
-                  onJobClick={job => openJob(job.id)}
+                  selectedId={pickedJob?.id ?? null}
+                  onJobClick={handlePickJob}
+                  onOpenJob={job => openJob(job.id)}
                   onDragStart={handleRailDragStart}
+                  alwaysShow
                 />
               </WeekBoardDocument>
             </div>

@@ -6052,7 +6052,8 @@
   }
 
   .hub-schedule-search-hit:hover,
-  .hub-schedule-search-hit.is-on {
+  .hub-schedule-search-hit.is-on,
+  .hub-week-document .ops-card.is-on {
     background: var(--schedule-page);
   }
 
