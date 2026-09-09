@@ -6212,6 +6212,7 @@
 
     .hub-board-cal.is-week-doc .hub-week-search {
       padding: 0 12px 4px;
+      flex: 0 0 auto;
     }
 
     .hub-board-cal.is-week-doc .hub-week-sheet-body {
@@ -6232,7 +6233,7 @@
       flex: 0 0 auto;
     }
 
-    .hub-board-cal.is-week-doc .hub-week-mount.lg\\:hidden {
+    .hub-board-cal.is-week-doc .hub-week-mount.lg\:hidden {
       flex: 1 1 0;
       display: flex;
       flex-direction: column;
