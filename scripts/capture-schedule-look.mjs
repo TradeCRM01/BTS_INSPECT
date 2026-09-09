@@ -226,6 +226,8 @@ const look = {
   phoneCrewReadable: dayPhoneBefore.crewNamesReadable && dayPhoneAfterScroll.crewNamesReadable,
   phoneWeekFill: weekPhone.sheetFill >= 0.86 && weekPhone.creamBelow !== null && weekPhone.creamBelow <= 16,
   phoneWeekBoard: weekPhone.boardFill >= 0.8,
+  phoneDayFill: dayPhoneBefore.sheetFill >= 0.86 && dayPhoneBefore.creamBelow !== null && dayPhoneBefore.creamBelow <= 16,
+  phoneDayBoard: dayPhoneBefore.boardFill >= 0.75,
   phoneWeekDays: weekPhone.daysVisible >= 7,
   phoneWeekChips: weekPhone.chips.length > 0
     && weekPhone.chips.every((chip) => chip.descOverflowWrap !== 'anywhere'),
