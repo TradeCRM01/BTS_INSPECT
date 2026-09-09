@@ -87,6 +87,7 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(css).toContain('text-transform: none');
     expect(css).toContain('letter-spacing: 0');
     expect(css).toContain('.hub-week-document .hub-week-chip');
+    expect(css).toContain('.hub-week-document .ops-tray:has(.ops-tray-empty)');
     expect(css).not.toMatch(/\.hub-week-document \.hub-week-chip \{[^}]*background:\s*#FFFDF8 !important/);
     expect(css).not.toContain('color: #0A2540 !important');
     expect(css).toContain('.form-input::placeholder');
