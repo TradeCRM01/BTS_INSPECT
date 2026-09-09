@@ -224,7 +224,7 @@ const look = {
   untimedWeight: dayLaptop.untimedWeight,
   phoneCrewReadable: dayPhoneBefore.crewNamesReadable && dayPhoneAfterScroll.crewNamesReadable,
   phoneWeekFill: weekPhone.sheetFill >= 0.86 && weekPhone.creamBelow !== null && weekPhone.creamBelow <= 64,
-  phoneWeekBoard: weekPhone.boardFill >= 0.6,
+  phoneWeekBoard: weekPhone.boardFill >= 0.8,
   phoneWeekDays: weekPhone.daysVisible >= 4,
   phoneWeekCrew: Array.isArray(weekPhone.crewCrush) && weekPhone.crewCrush.length === 0
     && Array.isArray(weekPhone.crewLabels)
