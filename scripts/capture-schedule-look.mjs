@@ -169,6 +169,19 @@ async function measure(page) {
         })
         .map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim()),
       crewLabels: crewLabels.map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim()),
+      lastCrewGap: (() => {
+        const last = [...(board?.querySelectorAll('.hub-week-crew, .hub-day-crew-lock:not(.hub-day-crew-head)') ?? [])].at(-1);
+        const box = last?.getBoundingClientRect();
+        return box ? Math.round(window.innerHeight - box.bottom) : null;
+      })(),
+      emptyRail: !!document.querySelector('.hub-week-document .ops-tray:has(.ops-tray-empty)'),
+      emptyRailShown: (() => {
+        const rail = document.querySelector('.hub-week-document .ops-tray:has(.ops-tray-empty)');
+        if (!rail) return false;
+        const box = rail.getBoundingClientRect();
+        const style = getComputedStyle(rail);
+        return style.display !== 'none' && box.height > 0;
+      })(),
       whisper: document.querySelector('.hub-week-status-whisper')?.textContent ?? null,
     };
   });
@@ -228,6 +241,10 @@ const look = {
   phoneWeekBoard: weekPhone.boardFill >= 0.8,
   phoneDayFill: dayPhoneBefore.sheetFill >= 0.86 && dayPhoneBefore.creamBelow !== null && dayPhoneBefore.creamBelow <= 16,
   phoneDayBoard: dayPhoneBefore.boardFill >= 0.75,
+  phoneWeekCrewFill: weekPhone.lastCrewGap !== null && weekPhone.lastCrewGap <= 48,
+  phoneDayCrewFill: dayPhoneBefore.lastCrewGap !== null && dayPhoneBefore.lastCrewGap <= 48,
+  emptyRailHidden: !weekLaptop.emptyRailShown && !weekPhone.emptyRailShown,
+  laptopWeekPaper: weekLaptop.paperH >= 480,
   phoneWeekDays: weekPhone.daysVisible >= 7,
   phoneWeekChips: weekPhone.chips.length > 0
     && weekPhone.chips.every((chip) => chip.descOverflowWrap !== 'anywhere'),

@@ -5397,6 +5397,10 @@
     border-top: 1px solid #E2D9CC;
   }
 
+  .hub-week-document .ops-tray:has(.ops-tray-empty) {
+    display: none;
+  }
+
   .hub-week-sheet .hub-week-board.ops-board {
     overflow-x: auto;
     overflow-y: visible;
@@ -5944,7 +5948,7 @@
     display: flex;
     align-items: center;
     padding: 6px 10px;
-    min-height: 44px;
+    min-height: 64px;
     position: sticky;
     left: 0;
     z-index: 2;
@@ -5968,7 +5972,7 @@
     align-items: stretch;
     justify-content: flex-start;
     gap: 3px;
-    min-height: 44px;
+    min-height: 64px;
     padding: 4px;
     cursor: pointer;
   }
@@ -6203,8 +6207,11 @@
     }
 
     .hub-board-cal.is-week-doc .hub-week-sheet-bar {
-      padding: 8px 12px 0;
-      border-radius: 0;
+      display: none;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-search {
+      padding: 0 12px 4px;
     }
 
     .hub-board-cal.is-week-doc .hub-week-sheet-body {
@@ -6244,9 +6251,51 @@
 
     .hub-board-cal.is-week-doc .hub-week-document .hub-day-board {
       flex: 1 1 0;
+      display: flex;
+      flex-direction: column;
       min-height: calc(100dvh - 17rem);
-      height: 100%;
       margin-top: 4px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-track {
+      flex: 1 1 0;
+      min-height: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-crew-rail {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-crew-lock.hub-day-crew-head {
+      flex: 0 0 auto;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-crew-lock:not(.hub-day-crew-head) {
+      flex: 1 1 0;
+      height: auto !important;
+      min-height: 88px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-hours {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-hours > .flex.border-b {
+      flex: 0 0 auto;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-hours > div:not(:first-child) {
+      flex: 1 1 0;
+      min-height: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-day-hours [data-day-grid] {
+      height: 100% !important;
+      min-height: 88px;
     }
 
     .hub-week-head-full {

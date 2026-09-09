@@ -149,7 +149,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
       </div>
       <div className="p-2 space-y-2 max-h-[70vh] overflow-y-auto">
         {jobs.length === 0 ? (
-          <p className="ops-meta px-1 py-2">No unscheduled jobs.</p>
+          <p className="ops-meta ops-tray-empty px-1 py-2">No unscheduled jobs.</p>
         ) : (
           jobs.map(job => {
             const site = opsSiteLabel(job.address, job.client_address);
