@@ -75,17 +75,10 @@ export function recommendQuoteAction(ctx: QuoteActionContext): RecommendedQuoteA
     if (!ctx.hasLines) {
       return { key: 'none', label: 'Add line items', detail: 'Add the work and materials so the quote has a price.' };
     }
-    if (ctx.hasClientEmail === false) {
-      return {
-        key: 'add_email',
-        label: 'Fix email',
-        detail: 'This client has no email. Add one on this quote before you can send.',
-      };
-    }
     return {
       key: 'send',
       label: 'Send',
-      detail: 'Send this quote to the client. Preview the PDF if you need a copy.',
+      detail: 'Download the PDF, copy the portal link, or open a mail draft. No Grafter SMTP.',
     };
   }
   if (ctx.status === 'sent') {
