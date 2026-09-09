@@ -44,9 +44,9 @@ const WEEK_LOOK_CALLBACK = '#2E75B6';
 const WEEK_LOOK_INK = '#0A2540';
 
 const WEEK_BOARD_LOOK_CREW: TeamMember[] = [
-  { id: WEEK_LOOK_DAVE, name: 'Dave', email: 'dave@look.example', schedule_color: null },
-  { id: WEEK_LOOK_JACK, name: 'Jack', email: 'jack@look.example', schedule_color: null },
-  { id: WEEK_LOOK_SAM, name: 'Sam', email: 'sam@look.example', schedule_color: null },
+  { id: WEEK_LOOK_DAVE, name: 'Dave Hale', email: 'dave@look.example', schedule_color: null },
+  { id: WEEK_LOOK_JACK, name: 'Jack Wieland', email: 'jack@look.example', schedule_color: null },
+  { id: WEEK_LOOK_SAM, name: 'Sam Ortiz', email: 'sam@look.example', schedule_color: null },
 ];
 
 function weekBoardLookJob(

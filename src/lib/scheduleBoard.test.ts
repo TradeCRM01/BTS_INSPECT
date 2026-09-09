@@ -23,6 +23,7 @@ import {
   weekBoardChip,
   weekBoardChipColor,
   weekBoardChipDescription,
+  weekBoardCrewLabel,
   weekBoardFamilyKey,
   weekBoardRows,
 } from './scheduleBoard';
@@ -152,6 +153,15 @@ describe('crew filter and labels', () => {
     expect(scheduleCrewLabel(['emp-a', 'emp-b'], members)).toBe('Alex Crew, Blair Hand');
     expect(scheduleCrewLabel([], members)).toBe('Unassigned');
     expect(scheduleCrewLabel(['ghost'], members)).toBe('Crew');
+  });
+
+  it('keeps the week rail on a first name so phone cells do not crush', () => {
+    expect(weekBoardCrewLabel('Jack Wieland')).toBe('Jack');
+    expect(weekBoardCrewLabel('David Hale')).toBe('David');
+    expect(weekBoardCrewLabel('Albie W')).toBe('Albie');
+    expect(weekBoardCrewLabel('Unassigned')).toBe('Unassigned');
+    expect(weekBoardCrewLabel('  Sam Ortiz  ')).toBe('Sam');
+    expect(weekBoardCrewLabel('')).toBe('Crew');
   });
 });
 

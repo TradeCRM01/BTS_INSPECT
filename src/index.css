@@ -5922,6 +5922,10 @@
     box-shadow: none;
   }
 
+  .hub-week-head-short {
+    display: none;
+  }
+
   .hub-week-head.is-today {
     color: var(--schedule-ink);
     background: var(--schedule-sheet);
@@ -5945,6 +5949,9 @@
     font-weight: 600;
     letter-spacing: 0;
     color: var(--schedule-ink);
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
   }
 
   .hub-week-cell {
@@ -6148,6 +6155,120 @@
     .hub-week-corner,
     .hub-week-crew {
       box-shadow: 6px 0 10px rgba(10, 37, 64, 0.06);
+    }
+  }
+
+  @media (max-width: 639px) {
+    .hub-board-cal.is-week-doc.ops-page {
+      padding: 8px 0 0;
+      min-height: calc(100dvh - 3.5rem);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hub-board-cal.is-week-doc .hub-schedule-desk,
+    .hub-board-cal.is-week-doc .hub-schedule-phone {
+      max-width: none;
+      width: 100%;
+      margin: 0;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-document {
+      max-width: none;
+      width: 100%;
+      margin: 0;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-radius: 16px 16px 0 0;
+      border-left: none;
+      border-right: none;
+      border-bottom: none;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-sheet-bar {
+      padding: 8px 12px 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-sheet-body {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding: 4px 8px 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-track {
+      margin-top: 4px;
+      padding: 2px 0 4px;
+      flex: 0 0 auto;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-document .hub-week-board {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      margin-top: 4px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-document .hub-day-board {
+      flex: 1 1 auto;
+      min-height: 0;
+      margin-top: 4px;
+    }
+
+    .hub-week-head-full {
+      display: none;
+    }
+
+    .hub-week-head-short {
+      display: inline;
+    }
+
+    .hub-week-grid {
+      grid-template-columns: 72px repeat(7, 70px);
+      grid-auto-rows: minmax(48px, 1fr);
+      width: max-content;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .hub-week-corner,
+    .hub-week-head {
+      min-height: 36px;
+      padding: 6px 4px;
+      font-size: 12px;
+    }
+
+    .hub-week-crew {
+      padding: 6px 8px;
+    }
+
+    .hub-week-crew .hub-schedule-crew-name,
+    .hub-day-crew-lock .hub-schedule-crew-name {
+      font-size: 12px;
+      overflow: visible;
+      text-overflow: clip;
+    }
+
+    .hub-week-cell {
+      padding: 4px;
+      min-height: 48px;
+    }
+
+    .hub-week-document .hub-week-chip {
+      padding: 3px 4px;
+    }
+
+    .hub-week-document .hub-week-chip-ref,
+    .hub-week-document .hub-week-chip-desc {
+      font-size: 11px;
     }
   }
 

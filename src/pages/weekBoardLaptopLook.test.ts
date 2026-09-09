@@ -34,9 +34,9 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(page).toContain('All crews');
     expect(page).toContain('className="btn-primary"');
     expect(page).toContain("look') === WEEK_BOARD_LOOK");
-    expect(page).toContain("name: 'Dave'");
-    expect(page).toContain("name: 'Jack'");
-    expect(page).toContain("name: 'Sam'");
+    expect(page).toContain("name: 'Dave Hale'");
+    expect(page).toContain("name: 'Jack Wieland'");
+    expect(page).toContain("name: 'Sam Ortiz'");
     expect(page).toContain('Warehouse lights');
     expect(page).toContain('Hot water');
     expect(page).toContain('Kitchen fit');
@@ -111,6 +111,8 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(board).toContain('data-week-cell');
     expect(board).toContain('is-empty');
     expect(board).toContain('weekBoardRows');
+    expect(board).toContain('weekBoardCrewLabel');
+    expect(board).toContain('hub-week-head-short');
     expect(board).toContain('data-schedule-track="day"');
     expect(board).toContain('hub-day-track');
     expect(board).toContain('hub-day-crew-rail');
@@ -126,6 +128,9 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(css).toContain('.hub-week-cell.is-empty');
     expect(css).toContain('.hub-week-chip');
     expect(css).toContain('repeat(7, 156px)');
+    expect(css).toContain('repeat(7, 70px)');
+    expect(css).toContain('.hub-week-head-short');
+    expect(src('src/lib/scheduleBoard.ts')).toContain('export function weekBoardCrewLabel');
   });
 
   it('does not rewrite persist, dispatch, or convert writes', () => {

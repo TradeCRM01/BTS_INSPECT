@@ -67,6 +67,11 @@ async function measure(page) {
       ? [...board.querySelectorAll('.hub-week-cell.is-empty')].length
       : 0;
     const rail = document.querySelector('.hub-week-document .ops-tray');
+    const shell = document.querySelector('.shell-header');
+    const dayHeads = board ? [...board.querySelectorAll('.hub-week-head')] : [];
+    const crewLabels = board
+      ? [...board.querySelectorAll('.hub-week-crew .hub-schedule-crew-name, .hub-day-crew-lock .hub-schedule-crew-name')]
+      : [];
     const hours = board?.querySelector('[data-day-hours="1"]');
     const hoursBox = hours?.getBoundingClientRect();
     const hourCol = hours?.querySelector('.hub-schedule-label')?.parentElement?.parentElement;
@@ -139,6 +144,27 @@ async function measure(page) {
       primaryBg: primary ? getComputedStyle(primary).backgroundColor : null,
       viewW: window.innerWidth,
       viewH: window.innerHeight,
+      shellH: shell ? Math.round(shell.getBoundingClientRect().height) : 0,
+      paperH: paperBox ? Math.round(paperBox.height) : 0,
+      paperBottom: paperBox ? Math.round(paperBox.bottom) : 0,
+      sheetFill: (() => {
+        const shellH = shell ? shell.getBoundingClientRect().height : 0;
+        const usable = window.innerHeight - shellH;
+        return usable > 0 && paperBox ? Number((paperBox.height / usable).toFixed(3)) : 0;
+      })(),
+      creamBelow: paperBox ? Math.round(window.innerHeight - paperBox.bottom) : null,
+      daysVisible: dayHeads.filter((el) => {
+        const box = el.getBoundingClientRect();
+        const visible = Math.min(box.right, window.innerWidth) - Math.max(box.left, 0);
+        return box.width > 0 && visible / box.width >= 0.7;
+      }).length,
+      crewCrush: crewLabels
+        .filter((el) => {
+          const style = getComputedStyle(el);
+          return style.textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1;
+        })
+        .map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim()),
+      crewLabels: crewLabels.map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim()),
       whisper: document.querySelector('.hub-week-status-whisper')?.textContent ?? null,
     };
   });
@@ -194,6 +220,12 @@ const look = {
   dayFits1280: dayLaptop.hours && !dayLaptop.hours.overflow,
   untimedWeight: dayLaptop.untimedWeight,
   phoneCrewReadable: dayPhoneBefore.crewNamesReadable && dayPhoneAfterScroll.crewNamesReadable,
+  phoneWeekFill: weekPhone.sheetFill >= 0.86 && weekPhone.creamBelow !== null && weekPhone.creamBelow <= 64,
+  phoneWeekDays: weekPhone.daysVisible >= 4,
+  phoneWeekCrew: Array.isArray(weekPhone.crewCrush) && weekPhone.crewCrush.length === 0
+    && Array.isArray(weekPhone.crewLabels)
+    && weekPhone.crewLabels.every((name) => name && !name.includes('…') && !/\.\.\.$/.test(name)),
+  laptopWeekDays: weekLaptop.daysVisible >= 7,
 };
 console.log('phone-day-before', dayPhoneBefore);
 console.log('phone-day-after-scroll', dayPhoneAfterScroll);

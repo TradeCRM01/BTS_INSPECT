@@ -162,6 +162,14 @@ export function scheduleCrewLabel(
   return 'Unassigned';
 }
 
+/** First name on the week/day rail. Unassigned stays one readable word. */
+export function weekBoardCrewLabel(name: string | null | undefined): string {
+  const trimmed = (name ?? '').trim();
+  if (!trimmed) return 'Crew';
+  if (/^unassigned$/i.test(trimmed)) return 'Unassigned';
+  return trimmed.split(/\s+/)[0] || 'Crew';
+}
+
 /** Display-only day weight for jobs with no stored clock. Not persisted. */
 export const UNTIMED_DISPLAY_START = '08:00';
 export const UNTIMED_DISPLAY_END = '16:00';
@@ -284,7 +292,9 @@ export function weekBoardRows<T extends WeekBoardJob>(
 
   return rows.map(crew => ({
     crewId: crew.id,
-    crewName: (crew.name ?? '').trim() || (crew.id === WEEK_UNASSIGNED_CREW_ID ? 'Unassigned' : 'Crew'),
+    crewName: weekBoardCrewLabel(
+      crew.name || (crew.id === WEEK_UNASSIGNED_CREW_ID ? 'Unassigned' : 'Crew'),
+    ),
     cells: days.map(date => {
       const cellJobs = jobsForCrewOnDay(visible, crew.id, date);
       return {
