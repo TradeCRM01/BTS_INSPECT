@@ -20,7 +20,7 @@ describe('quote / invoice share tray — no Grafter SMTP', () => {
     expect(quote).toContain('Mark sent');
     expect(quote).toContain('ensureClientPortalUrl');
     expect(quote).toContain('markQuoteSentForShare');
-    expect(quote).toContain('window.location.href = next.mailtoHref');
+    expect(quote).toContain('openDocumentShareMailto(next.mailtoHref)');
     expect(quote).not.toContain('Company settings');
     expect(quote).not.toContain('COMPANY_EMAIL_SETTINGS_HREF');
     expect(quote).not.toContain('deliverQuote');
@@ -33,7 +33,7 @@ describe('quote / invoice share tray — no Grafter SMTP', () => {
     expect(invoice).toContain('Mark sent');
     expect(invoice).toContain('ensureClientPortalUrl');
     expect(invoice).toContain('markInvoiceSentForShare');
-    expect(invoice).toContain('window.location.href = next.mailtoHref');
+    expect(invoice).toContain('openDocumentShareMailto(next.mailtoHref)');
     expect(invoice).not.toContain('Company settings');
     expect(invoice).not.toContain('deliverInvoice');
     expect(invoice).not.toContain('Relovi');

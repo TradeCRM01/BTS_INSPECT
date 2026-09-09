@@ -106,7 +106,8 @@ describe('decideQuoteShare', () => {
       companyName: 'BTS',
       clientEmail: 'sam@client.example',
     });
-    expect(draft.canMailto).toBe(false);
+    expect(draft.canMailto).toBe(true);
+    expect(draft.mailtoHref).toBeNull();
     const withLink = quoteShareAfterPortalUrl(
       draft,
       'https://grafter.com.au/p?t=abc',

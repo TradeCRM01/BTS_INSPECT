@@ -17,6 +17,7 @@ import {
   ensureClientPortalUrl,
   loadActiveClientPortalUrl,
   markQuoteSentForShare,
+  openDocumentShareMailto,
   triggerBrowserDownload,
 } from '../../lib/documentShareDeliver';
 import {
@@ -330,7 +331,7 @@ export function QuoteSendDialog({
         emailInputRef.current?.focus();
         return;
       }
-      window.location.href = next.mailtoHref;
+      openDocumentShareMailto(next.mailtoHref);
       onSent(next.to || 'client', 'Mail draft opened with the accept link.');
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not open a mail draft.');

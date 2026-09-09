@@ -14,9 +14,13 @@ async function proveShareTray(page, {
   sendButton,
   title,
   shotPrefix,
+  listFilter,
 }) {
   await page.goto(`${BASE}${openPath}`, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: sendButton }).first().click();
+  if (listFilter) {
+    await page.getByRole('button', { name: listFilter, exact: true }).click();
+  }
+  await page.getByRole('button', { name: sendButton, exact: true }).click();
   await page.waitForSelector('.hub-quote-send, .hub-invoice-send', { timeout: 20000 });
   const dialog = page.locator('.hub-quote-send, .hub-invoice-send').first();
   await dialog.getByRole('heading', { name: title }).waitFor();
@@ -46,15 +50,27 @@ async function proveShareTray(page, {
     throw new Error(`${title}: copied a localhost link the client cannot open`);
   }
 
-  let mailtoHref = '';
-  await page.route('mailto:**', async (route) => {
-    mailtoHref = route.request().url();
-    await route.abort();
+  await page.evaluate(() => {
+    window.__shareMailtoHref = '';
+    const proto = HTMLAnchorElement.prototype;
+    if (!proto.__shareMailtoPatched) {
+      const orig = proto.click;
+      proto.click = function click() {
+        if (typeof this.href === 'string' && this.href.startsWith('mailto:')) {
+          window.__shareMailtoHref = this.href;
+          return;
+        }
+        return orig.apply(this, arguments);
+      };
+      proto.__shareMailtoPatched = true;
+    }
   });
   await dialog.getByRole('button', { name: 'Open mail draft' }).click();
   const started = Date.now();
+  let mailtoHref = '';
   while (!mailtoHref && Date.now() - started < 4000) {
-    await page.waitForTimeout(100);
+    mailtoHref = await page.evaluate(() => window.__shareMailtoHref || '');
+    if (!mailtoHref) await page.waitForTimeout(100);
   }
   if (!mailtoHref.startsWith('mailto:')) throw new Error(`${title}: mailto did not fire`);
   if (!mailtoHref.includes('p%3Ft%3D') && !mailtoHref.includes('/p?t=')) {
@@ -79,14 +95,15 @@ const quoteTray = await proveShareTray(page, {
   shotPrefix: 'quote-share',
 });
 
+await page.keyboard.press('Escape');
 await page.locator('.hub-quotes-row', { hasText: '#2002' }).click();
 await page.waitForSelector('.hub-quote-convert', { timeout: 20000 });
-const convertVisible = await page.getByRole('button', { name: 'Convert to job' }).first().isVisible();
-if (!convertVisible) throw new Error('accepted quote is missing Convert to job');
+const convertBtn = page.locator('.hub-quote-editor').getByRole('button', { name: 'Convert to job', exact: true });
+if (!(await convertBtn.isVisible())) throw new Error('accepted quote is missing Convert to job');
 const dateValue = await page.locator('.hub-quote-convert input[type="date"]').inputValue();
 if (dateValue !== '2026-09-03') throw new Error(`convert date drifted: ${dateValue}`);
 await page.locator('.hub-quote-convert input[type="date"]').fill('');
-await page.getByRole('button', { name: 'Convert to job' }).first().click();
+await convertBtn.click();
 await page.locator('.hub-quote-convert-miss').waitFor();
 const miss = await page.locator('.hub-quote-convert-miss').innerText();
 if (miss !== CONVERT_MISS) {
@@ -99,6 +116,7 @@ const invoiceTray = await proveShareTray(page, {
   sendButton: 'Send',
   title: 'Send invoice',
   shotPrefix: 'invoice-share',
+  listFilter: 'Draft',
 });
 
 const phone = await browser.newContext({
@@ -109,7 +127,7 @@ const phone = await browser.newContext({
 });
 const phonePage = await phone.newPage();
 await phonePage.goto(`${BASE}/quotes?auditAuth=1`, { waitUntil: 'domcontentloaded' });
-await phonePage.getByRole('button', { name: 'Send' }).first().click();
+await phonePage.getByRole('button', { name: 'Send', exact: true }).click();
 await phonePage.waitForSelector('.hub-quote-send', { timeout: 20000 });
 await phonePage.screenshot({ path: `${OUT}/quote-share-phone-390.png`, type: 'png' });
 await phone.close();

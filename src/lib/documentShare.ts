@@ -19,7 +19,6 @@ export type DocumentShareExport = {
   canMarkSent: boolean;
 };
 
-/** Localhost is not a client-usable Accept URL. Prefer the public origin there. */
 export function documentShareOrigin(windowOrigin: string | null | undefined): string {
   const raw = (windowOrigin ?? '').trim().replace(/\/$/, '');
   if (!raw || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(raw)) {
@@ -112,7 +111,7 @@ export function decideQuoteShare(args: {
     needsMarkSent,
     canDownloadPdf: args.hasLines,
     canCopyLink: args.hasClient,
-    canMailto: !!mailtoHref,
+    canMailto: !!to,
     canMarkSent: needsMarkSent && args.hasClient && args.hasLines,
   };
 }
@@ -153,7 +152,7 @@ export function decideInvoiceShare(args: {
     needsMarkSent,
     canDownloadPdf: args.hasLines,
     canCopyLink: args.hasClient,
-    canMailto: !!mailtoHref,
+    canMailto: !!to,
     canMarkSent: needsMarkSent && args.hasClient && args.hasLines,
   };
 }

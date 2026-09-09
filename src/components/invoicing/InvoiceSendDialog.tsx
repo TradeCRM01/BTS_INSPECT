@@ -15,6 +15,7 @@ import {
   ensureClientPortalUrl,
   loadActiveClientPortalUrl,
   markInvoiceSentForShare,
+  openDocumentShareMailto,
   triggerBrowserDownload,
 } from '../../lib/documentShareDeliver';
 import {
@@ -330,7 +331,7 @@ export function InvoiceSendDialog({
         emailInputRef.current?.focus();
         return;
       }
-      window.location.href = next.mailtoHref;
+      openDocumentShareMailto(next.mailtoHref);
       onSent(next.to || 'client', 'Mail draft opened with the invoice link.');
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not open a mail draft.');

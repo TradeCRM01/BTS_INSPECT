@@ -30,6 +30,7 @@ describe('documentShareDeliver', () => {
     expect(dialog).not.toContain('send-quote');
     expect(deliver).toContain('isDevFieldAuditAuth');
     expect(deliver).toContain('auditSharePortalUrl');
+    expect(deliver).toContain('openDocumentShareMailto');
   });
 
   it('builds a client-usable portal URL for DEV field-audit without SMTP', () => {

@@ -119,3 +119,12 @@ export async function copyTextToClipboard(text: string): Promise<void> {
   if (!value) throw new Error('Nothing to copy.');
   await navigator.clipboard.writeText(value);
 }
+
+export function openDocumentShareMailto(href: string): void {
+  const value = href.trim();
+  if (!value.startsWith('mailto:')) throw new Error('Not a mail draft link.');
+  const a = document.createElement('a');
+  a.href = value;
+  a.rel = 'noopener';
+  a.click();
+}
