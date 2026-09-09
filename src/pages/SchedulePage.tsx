@@ -163,7 +163,6 @@ function WeekBoardMore({
   onPrev,
   onNext,
   rangeLabel,
-  search,
   filtered,
   onClearCrew,
 }: {
@@ -173,7 +172,6 @@ function WeekBoardMore({
   onPrev: () => void;
   onNext: () => void;
   rangeLabel: string;
-  search: ReactNode;
   filtered: boolean;
   onClearCrew: () => void;
 }) {
@@ -230,9 +228,6 @@ function WeekBoardMore({
         <MoreHorizontal size={18} />
       </summary>
       <div className="hub-week-crews-menu hub-week-more-menu" role="menu">
-        <div className="hub-week-search hub-schedule-chrome">
-          {search}
-        </div>
         <p className="hub-week-more-range">{rangeLabel}</p>
         <button
           type="button"
@@ -700,7 +695,6 @@ export function SchedulePage() {
       onPrev={() => setCurrentDate(d => (viewMode === 'day' ? addDays(d, -1) : addWeeks(d, -1)))}
       onNext={() => setCurrentDate(d => (viewMode === 'day' ? addDays(d, 1) : addWeeks(d, 1)))}
       rangeLabel={boardRangeLabel}
-      search={weekSearch}
       filtered={filteredEmployeeIds.size > 0}
       onClearCrew={clearEmployeeFilters}
     />
@@ -792,16 +786,6 @@ export function SchedulePage() {
               ))}
             </div>
           )}
-          <ScheduleJobSearch
-            query={jobQuery}
-            onQuery={setJobQuery}
-            results={searchHits}
-            loading={searchLoading && debouncedQuery.length > 0}
-            selectedId={pickedJob?.id ?? null}
-            onSelect={handlePickJob}
-            onOpenJob={job => openJob(job.id)}
-            onDragStart={handleRailDragStart}
-          />
         </div>
 
         {pickedJob && boardCrew.length > 0 && (
@@ -837,8 +821,11 @@ export function SchedulePage() {
                 crews={weekCrews}
                 track={boardTrack}
               >
+                <div className="hub-week-search" data-schedule-search="1">
+                  {weekSearch}
+                </div>
                 {pickedJob && boardCrew.length > 0 && (
-                  <div className="hub-week-place hub-schedule-place">
+                  <div className="hub-week-place hub-schedule-place" data-schedule-place="1">
                     <p>
                       {placePickedHint(pickedJob.title, currentDate, pickedJob.start_time)}
                     </p>

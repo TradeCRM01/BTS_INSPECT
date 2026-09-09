@@ -9,15 +9,12 @@
     "__unassigned__"
   ],
   "weekBefore": [
-    "00000000-0000-0000-0000-000000000002:2026-08-25",
     "00000000-0000-0000-0000-000000000002:2026-08-25"
   ],
   "weekAfterSam": [
-    "audit-crew-sam:2026-08-25",
     "audit-crew-sam:2026-08-25"
   ],
   "weekAfterUnassigned": [
-    "__unassigned__:2026-08-25",
     "__unassigned__:2026-08-25"
   ],
   "phoneZones": [
@@ -51,5 +48,32 @@
   ],
   "phoneAfterSam": [
     "audit-crew-sam"
-  ]
+  ],
+  "undatedRailBefore": 1,
+  "undatedDayRows": [
+    "audit-crew-sam"
+  ],
+  "undatedDayChips": 1,
+  "undatedRailAfterDrop": 0,
+  "undatedNewJobAfterDrop": 0,
+  "weekPlaceCell": "audit-crew-sam:2026-09-07",
+  "weekClickCells": [
+    "audit-crew-sam:2026-09-07"
+  ],
+  "weekClickChips": 1,
+  "weekClickRail": 0,
+  "weekClickNewJob": 0,
+  "searchPlaceCell": "audit-crew-sam:2026-09-07",
+  "searchWeekCells": [
+    "audit-crew-sam:2026-09-07"
+  ],
+  "searchWeekChips": 1,
+  "searchWeekRail": 0,
+  "searchWeekNewJob": 0,
+  "searchClickCell": "audit-crew-sam:2026-09-07",
+  "searchClickCells": [
+    "audit-crew-sam:2026-09-07"
+  ],
+  "searchClickChips": 1,
+  "searchClickNewJob": 0
 }

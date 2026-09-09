@@ -29,6 +29,7 @@ describe('schedule page week/day board', () => {
     expect(page).toContain('onJobClick={handlePickJob}');
     expect(page).toContain('placePickedOnCell');
     expect(page).toContain('onJobDrop={placeExisting}');
+    expect(page).toContain('data-schedule-search="1"');
     expect(board).toContain('data-schedule-job={job.id}');
     expect(board).toContain('data-schedule-rail-job={job.id}');
     expect(board).toContain('weekBoardRows');
@@ -56,6 +57,7 @@ describe('schedule page week/day board', () => {
     expect(phoneDay).toContain('onJobDrop={onJobDrop}');
     expect(phoneDay).toContain('DayBoardView');
     expect(dayBoard).toContain('data-crew-drop={row.id}');
+    expect(dayBoard).toContain('data-crew-lane={painted.row.id}');
     expect(dayBoard).toContain('handleDrop(e, row.id)');
     expect(phoneDayMount).toContain('onJobDrop={placeExisting}');
     expect(page).toContain('placePickedHint');

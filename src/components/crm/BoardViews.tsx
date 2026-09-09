@@ -558,6 +558,7 @@ export const DayBoardView = memo(function DayBoardView({
           {paintedRows.map(painted => (
             <div
               key={painted.row.id}
+              data-crew-lane={painted.row.id}
               className={`${painted.rowIdx < paintedRows.length - 1 ? 'border-b border-rule' : ''} ${
                 painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'
               }`}

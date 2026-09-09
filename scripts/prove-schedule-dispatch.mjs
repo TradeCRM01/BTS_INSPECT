@@ -38,20 +38,26 @@ async function html5Drop(page, sourceSel, targetSel, jobId = JOB) {
   await page.waitForTimeout(250);
 }
 
-async function dayRowsForJob(page) {
-  return page.evaluate((jobId) => (
-    [...document.querySelectorAll('[data-crew-drop]')].filter((row) => (
-      row.querySelector(`[data-schedule-job="${jobId}"]`)
-    )).map((row) => row.getAttribute('data-crew-drop'))
-  ), JOB);
+async function dayRowsForJob(page, jobId = JOB) {
+  return page.evaluate(({ jobId }) => (
+    [...document.querySelectorAll('[data-crew-lane]')].filter((row) => {
+      const r = row.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && row.querySelector(`[data-schedule-job="${jobId}"]`);
+    }).map((row) => row.getAttribute('data-crew-lane'))
+  ), { jobId });
 }
 
-async function weekCellsForJob(page) {
-  return page.evaluate((jobId) => (
-    [...document.querySelectorAll('[data-week-cell]')].filter((cell) => (
-      cell.querySelector(`[data-schedule-job="${jobId}"]`)
-    )).map((cell) => cell.getAttribute('data-week-cell'))
-  ), JOB);
+async function weekCellsForJob(page, jobId = JOB) {
+  return page.evaluate(({ jobId }) => (
+    [...document.querySelectorAll('[data-week-cell]')].filter((cell) => {
+      const r = cell.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && cell.querySelector(`[data-schedule-job="${jobId}"]`);
+    }).map((cell) => cell.getAttribute('data-week-cell'))
+  ), { jobId });
+}
+
+async function waitVisible(page, sel) {
+  await page.locator(sel).locator('visible=true').first().waitFor({ timeout: 20000 });
 }
 
 async function openAudit(page, path) {
@@ -65,8 +71,8 @@ const notes = {};
 {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await openAudit(page, '/schedule?view=day&auditAuth=1&date=2026-08-25');
-  await page.locator(`.hub-schedule-desk [data-schedule-job="${JOB}"]`).first().waitFor({ timeout: 20000 });
-  await page.locator(`.hub-schedule-desk [data-crew-drop="${SAM}"]`).waitFor();
+  await waitVisible(page, `.hub-day-board [data-schedule-job="${JOB}"]`);
+  await waitVisible(page, `.hub-day-board [data-crew-drop="${SAM}"]`);
   notes.dayBefore = await dayRowsForJob(page);
   await html5Drop(page, `[data-schedule-job="${JOB}"]`, `[data-crew-drop="${SAM}"]`);
   notes.dayAfterSam = await dayRowsForJob(page);
@@ -80,8 +86,8 @@ const notes = {};
 {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await openAudit(page, '/schedule?view=day&auditAuth=1&date=2026-08-25');
-  await page.locator(`.hub-schedule-desk [data-schedule-job="${JOB}"]`).first().waitFor({ timeout: 20000 });
-  await page.locator('.hub-schedule-filters button', { hasText: 'Week' }).click();
+  await waitVisible(page, `.hub-day-board [data-schedule-job="${JOB}"]`);
+  await page.locator('.hub-week-seg-btn', { hasText: 'Week' }).click();
   await page.locator('div.hidden.lg\\:block [data-week-board="1"]').waitFor({ timeout: 20000 });
   await page.waitForFunction((key) => (
     [...document.querySelectorAll(`[data-week-cell="${key}"]`)].some((el) => el.getBoundingClientRect().width > 0)
@@ -119,23 +125,20 @@ const notes = {};
   notes.phoneAfterSam = await dayRowsForJob(page);
   await page.screenshot({ path: `${OUT}/phone-day-after-replace-sam.png`, fullPage: true });
 
-  const search = page.getByPlaceholder('Search jobs or clients...');
+  const search = page.locator('[data-schedule-search="1"] [placeholder="Search jobs or clients..."]');
   await search.fill('Meter');
   const hit = page.locator('[data-schedule-search-hit="audit-undated-job"]').first();
   if (await hit.count()) {
     await hit.click();
     await page.locator('.hub-schedule-step').nth(1).click();
     await page.waitForTimeout(200);
-    notes.placeCopy = (await page.locator('.hub-schedule-place').first().textContent().catch(() => ''))
+    notes.placeCopy = (await page.locator('.hub-schedule-place').locator('visible=true').first().textContent().catch(() => ''))
       ?.replace(/\s+/g, ' ')
       .trim() ?? null;
   }
   await page.screenshot({ path: `${OUT}/phone-day-place-copy.png`, fullPage: true });
   await page.close();
 }
-
-writeFileSync(`${OUT}/notes.json`, JSON.stringify(notes, null, 2));
-console.log(JSON.stringify(notes, null, 2));
 
 const stackedDay = (notes.dayAfterSam ?? []).includes(FIELD) && (notes.dayAfterSam ?? []).includes(SAM);
 const stackedWeek = (notes.weekAfterSam ?? []).some((cell) => cell?.startsWith(`${FIELD}:`))
@@ -170,12 +173,8 @@ if (notes.placeCopy && /today at 8:00/.test(notes.placeCopy)) {
   await page.locator(`[data-schedule-rail-job="${UNDATED}"]`).waitFor({ timeout: 20000 });
   notes.undatedRailBefore = await page.locator(`[data-schedule-rail-job="${UNDATED}"]`).count();
   await html5Drop(page, `[data-schedule-rail-job="${UNDATED}"]`, `[data-crew-drop="${SAM}"]`, UNDATED);
-  notes.undatedDayRows = await page.evaluate((jobId) => (
-    [...document.querySelectorAll('[data-crew-drop]')].filter((row) => (
-      row.querySelector(`[data-schedule-job="${jobId}"]`)
-    )).map((row) => row.getAttribute('data-crew-drop'))
-  ), UNDATED);
-  notes.undatedDayChips = await page.locator(`.hub-day-board [data-schedule-job="${UNDATED}"]`).count();
+  notes.undatedDayRows = await dayRowsForJob(page, UNDATED);
+  notes.undatedDayChips = await page.locator(`.hub-day-board [data-schedule-job="${UNDATED}"]`).locator('visible=true').count();
   notes.undatedRailAfterDrop = await page.locator(`[data-schedule-rail-job="${UNDATED}"]`).count();
   notes.undatedNewJobAfterDrop = await page.getByText('New Job', { exact: true }).count();
   await page.screenshot({ path: `${OUT}/day-after-place-undated.png` });
@@ -190,15 +189,11 @@ if (notes.placeCopy && /today at 8:00/.test(notes.placeCopy)) {
   const samCell = page.locator('div.hidden.lg\\:block [data-week-cell^="audit-crew-sam:"]').first();
   await samCell.waitFor();
   notes.weekPlaceCell = await samCell.getAttribute('data-week-cell');
-  await page.locator(`[data-schedule-rail-job="${UNDATED}"]`).click();
-  await page.locator('.hub-schedule-place').first().waitFor();
+  await page.locator(`[data-schedule-rail-job="${UNDATED}"] .hub-schedule-ref`).click();
+  await page.locator('[data-schedule-place="1"]').waitFor();
   await samCell.click();
-  notes.weekClickCells = await page.evaluate((jobId) => (
-    [...document.querySelectorAll('[data-week-cell]')].filter((cell) => (
-      cell.querySelector(`[data-schedule-job="${jobId}"]`)
-    )).map((cell) => cell.getAttribute('data-week-cell'))
-  ), UNDATED);
-  notes.weekClickChips = await page.locator(`.hub-week-board [data-schedule-job="${UNDATED}"]`).count();
+  notes.weekClickCells = await weekCellsForJob(page, UNDATED);
+  notes.weekClickChips = await page.locator(`.hub-week-board [data-schedule-job="${UNDATED}"]`).locator('visible=true').count();
   notes.weekClickRail = await page.locator(`[data-schedule-rail-job="${UNDATED}"]`).count();
   notes.weekClickNewJob = await page.getByText('New Job', { exact: true }).count();
   await page.screenshot({ path: `${OUT}/week-after-click-place-undated.png` });
@@ -209,24 +204,20 @@ if (notes.placeCopy && /today at 8:00/.test(notes.placeCopy)) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await openAudit(page, '/schedule?auditAuth=1');
   await page.locator('div.hidden.lg\\:block [data-week-board="1"]').waitFor({ timeout: 20000 });
-  const search = page.getByPlaceholder('Search jobs or clients...');
+  const search = page.locator('[data-schedule-search="1"] [placeholder="Search jobs or clients..."]');
   await search.fill('Meter');
-  const hit = page.locator(`[data-schedule-search-hit="${UNDATED}"]`).first();
+  const hit = page.locator(`[data-schedule-search="1"] [data-schedule-search-hit="${UNDATED}"]`);
   await hit.waitFor({ timeout: 20000 });
   const samCell = page.locator('div.hidden.lg\\:block [data-week-cell^="audit-crew-sam:"]').first();
   notes.searchPlaceCell = await samCell.getAttribute('data-week-cell');
   await html5Drop(
     page,
-    `[data-schedule-search-hit="${UNDATED}"]`,
+    `[data-schedule-search="1"] [data-schedule-search-hit="${UNDATED}"]`,
     `div.hidden.lg\\:block [data-week-cell="${notes.searchPlaceCell}"]`,
     UNDATED,
   );
-  notes.searchWeekCells = await page.evaluate((jobId) => (
-    [...document.querySelectorAll('[data-week-cell]')].filter((cell) => (
-      cell.querySelector(`[data-schedule-job="${jobId}"]`)
-    )).map((cell) => cell.getAttribute('data-week-cell'))
-  ), UNDATED);
-  notes.searchWeekChips = await page.locator(`.hub-week-board [data-schedule-job="${UNDATED}"]`).count();
+  notes.searchWeekCells = await weekCellsForJob(page, UNDATED);
+  notes.searchWeekChips = await page.locator(`.hub-week-board [data-schedule-job="${UNDATED}"]`).locator('visible=true').count();
   notes.searchWeekRail = await page.locator(`[data-schedule-rail-job="${UNDATED}"]`).count();
   notes.searchWeekNewJob = await page.getByText('New Job', { exact: true }).count();
   await page.screenshot({ path: `${OUT}/week-after-search-drop-undated.png` });
@@ -262,19 +253,15 @@ if (notes.searchWeekRail !== 0 || notes.searchWeekNewJob) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await openAudit(page, '/schedule?auditAuth=1');
   await page.locator('div.hidden.lg\\:block [data-week-board="1"]').waitFor({ timeout: 20000 });
-  const search = page.getByPlaceholder('Search jobs or clients...');
+  const search = page.locator('[data-schedule-search="1"] [placeholder="Search jobs or clients..."]');
   await search.fill('Meter');
-  await page.locator(`[data-schedule-search-hit="${UNDATED}"]`).first().click();
-  await page.locator('.hub-schedule-place').first().waitFor();
+  await page.locator(`[data-schedule-search="1"] [data-schedule-search-hit="${UNDATED}"] .hub-schedule-ref`).click();
+  await page.locator('[data-schedule-place="1"]').waitFor();
   const samCell = page.locator('div.hidden.lg\\:block [data-week-cell^="audit-crew-sam:"]').first();
   notes.searchClickCell = await samCell.getAttribute('data-week-cell');
   await samCell.click();
-  notes.searchClickCells = await page.evaluate((jobId) => (
-    [...document.querySelectorAll('[data-week-cell]')].filter((cell) => (
-      cell.querySelector(`[data-schedule-job="${jobId}"]`)
-    )).map((cell) => cell.getAttribute('data-week-cell'))
-  ), UNDATED);
-  notes.searchClickChips = await page.locator(`.hub-week-board [data-schedule-job="${UNDATED}"]`).count();
+  notes.searchClickCells = await weekCellsForJob(page, UNDATED);
+  notes.searchClickChips = await page.locator(`.hub-week-board [data-schedule-job="${UNDATED}"]`).locator('visible=true').count();
   notes.searchClickNewJob = await page.getByText('New Job', { exact: true }).count();
   await page.screenshot({ path: `${OUT}/week-after-search-click-undated.png` });
   await page.close();
@@ -286,6 +273,9 @@ if (!(notes.searchClickCells ?? []).includes(notes.searchClickCell) || notes.sea
 if (notes.searchClickNewJob) {
   throw new Error('search then cell click opened New Job');
 }
+
+writeFileSync(`${OUT}/notes.json`, JSON.stringify(notes, null, 2));
+console.log(JSON.stringify(notes, null, 2));
 
 await browser.close();
 console.log('schedule dispatch proof ok');
