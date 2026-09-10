@@ -237,7 +237,8 @@ export function InspectionsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inspections')
-        .select('id, status, meta, started_at, completed_at, template_snapshot, inspector_id, archived, parent_inspection_id, crm_job_id, responses, due_on')
+        // Omit due_on until 059 is on this database (column missing => 42703 / HTTP 400).
+        .select('id, status, meta, started_at, completed_at, template_snapshot, inspector_id, archived, parent_inspection_id, crm_job_id, responses')
         .order('started_at', { ascending: false });
       if (error) throw error;
 

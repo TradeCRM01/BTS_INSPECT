@@ -281,7 +281,8 @@ export function JobDetailPage() {
       if (empty) return empty as JobInspection[];
       const { data, error } = await supabase
         .from('inspections')
-        .select('id, status, started_at, template_snapshot, meta, responses, crm_job_id, due_on, archived')
+        // Omit due_on until 059 is on this database (column missing => 42703 / HTTP 400).
+        .select('id, status, started_at, template_snapshot, meta, responses, crm_job_id, archived')
         .eq('crm_job_id', id!)
         .order('started_at', { ascending: false });
       if (error) throw error;
@@ -290,7 +291,7 @@ export function JobDetailPage() {
       if (linkedId && !list.some(i => i.id === linkedId)) {
         const { data: extra } = await supabase
           .from('inspections')
-          .select('id, status, started_at, template_snapshot, meta, responses, crm_job_id, due_on, archived')
+          .select('id, status, started_at, template_snapshot, meta, responses, crm_job_id, archived')
           .eq('id', linkedId)
           .maybeSingle();
         if (extra) list.push(extra as JobInspection);
@@ -1351,6 +1352,7 @@ export function JobDetailPage() {
         </div>
 
         <div className="job-panel grid grid-cols-1 md:grid-cols-2 gap-3 mb-5" hidden={tab !== 'money'} role="tabpanel">
+          {(quotes ?? []).length > 0 && (
           <JobRelatedSection
             title="Quotes"
             icon={FileText}
@@ -1384,7 +1386,9 @@ export function JobDetailPage() {
               />
             ))}
           </JobRelatedSection>
+          )}
 
+          {(invoices ?? []).length > 0 && (
           <JobRelatedSection
             title="Invoices"
             icon={Receipt}
@@ -1414,6 +1418,7 @@ export function JobDetailPage() {
               );
             })}
           </JobRelatedSection>
+          )}
         </div>
 
         <div id="job-hours" className="job-panel" hidden={tab !== 'time'} role="tabpanel">
