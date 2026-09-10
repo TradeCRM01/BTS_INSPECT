@@ -9,6 +9,7 @@ import { JobFormModal } from '../components/crm/JobFormModal';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
 import { JobClientReminder } from '../components/jobs/JobClientReminder';
+import JobWorkspaceTabs, { type JobWorkspaceTab } from '../components/jobs/JobWorkspaceTabs';
 import { JobCalendarOverflow } from '../components/jobs/JobCalendarOverflow';
 import { calendarSite } from '../lib/jobCalendar';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
@@ -158,6 +159,7 @@ export function JobDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const [tab, setTab] = useState<JobWorkspaceTab>('schedule');
   const [showEdit, setShowEdit] = useState(false);
   const [showStage, setShowStage] = useState(false);
   const [showTimeEntry, setShowTimeEntry] = useState(false);
@@ -1055,7 +1057,18 @@ export function JobDetailPage() {
           </div>
         </article>
 
-        <div id="job-schedule">
+        <JobWorkspaceTabs
+          active={tab}
+          onChange={setTab}
+          counts={{
+            schedule: stages.length,
+            paperwork: (inspections ?? []).length + (jhas ?? []).length + (take5s ?? []).length,
+            money: (quotes ?? []).length + (invoices ?? []).length,
+            time: (timesheets ?? []).length,
+          }}
+        />
+
+        <div id="job-schedule" className="job-panel" hidden={tab !== 'schedule'} role="tabpanel">
           <JobDispatchPanel
             job={job}
             teamMembers={teamMembers ?? []}
@@ -1070,7 +1083,7 @@ export function JobDetailPage() {
         </div>
 
         {stages.length > 0 && (
-          <div className="mb-5">
+          <div className="job-panel mb-5" hidden={tab !== 'schedule'}>
             <JobRelatedSection
               title="Project stages"
               icon={GitBranch}
@@ -1095,7 +1108,7 @@ export function JobDetailPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
+        <div className="job-panel grid grid-cols-1 md:grid-cols-2 gap-3 mb-5" hidden={tab !== 'paperwork'} role="tabpanel">
           <div id="job-insp">
           <JobRelatedSection
             title="Inspections"
@@ -1335,7 +1348,9 @@ export function JobDetailPage() {
             })}
           </JobRelatedSection>
           </div>
+        </div>
 
+        <div className="job-panel grid grid-cols-1 md:grid-cols-2 gap-3 mb-5" hidden={tab !== 'money'} role="tabpanel">
           <JobRelatedSection
             title="Quotes"
             icon={FileText}
@@ -1401,7 +1416,7 @@ export function JobDetailPage() {
           </JobRelatedSection>
         </div>
 
-        <div id="job-hours">
+        <div id="job-hours" className="job-panel" hidden={tab !== 'time'} role="tabpanel">
         <JobRelatedSection
           title="Time on this job"
           icon={Clock}
@@ -1453,7 +1468,7 @@ export function JobDetailPage() {
         </JobRelatedSection>
         </div>
 
-        <div id="job-bill" className="mt-5 mb-6">
+        <div id="job-bill" className="job-panel mt-5 mb-6" hidden={tab !== 'money'} role="tabpanel">
           <button
             type="button"
             onClick={() => setBillOpen(o => !o)}

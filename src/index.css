@@ -4723,3 +4723,92 @@
     }
   }
 }
+
+/* Panels are hidden rather than unmounted, so query and form state survive a
+   tab change. The !important beats Tailwind display utilities on the same node. */
+.job-panel[hidden] {
+  display: none !important;
+}
+
+/* Job workspace tabs — in-page navigation for the job sheet. */
+.job-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  padding: 0.25rem 0.125rem 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.job-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.job-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex: 0 0 auto;
+  padding: 0.625rem 0.875rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #64748B;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.job-tab:hover {
+  color: var(--ops-navy, #0A2540);
+}
+
+.job-tab.is-active {
+  color: var(--ops-navy, #0A2540);
+  border-bottom-color: var(--ops-accent, #2E75B6);
+}
+
+.job-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.3125rem;
+  border-radius: 999px;
+  background: #E2E8F0;
+  color: #475569;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.job-tab.is-active .job-tab-count {
+  background: var(--ops-accent, #2E75B6);
+  color: #FFFFFF;
+}
+
+.job-tab-label-short {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .job-tab-label {
+    display: none;
+  }
+
+  .job-tab-label-short {
+    display: inline;
+  }
+
+  .job-tab {
+    padding: 0.625rem 0.75rem;
+    min-height: 44px;
+  }
+}
