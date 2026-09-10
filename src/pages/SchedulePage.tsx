@@ -15,6 +15,15 @@ import {
 } from '../components/crm/BoardViews';
 import { pickEmployeeColor } from '../lib/jobColors';
 import { rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
+import {
+  bookingWarnings,
+  isMissingRelation,
+  memberNameMap,
+  shouldProceedWithBooking,
+  staffHoursFromRow,
+  type StaffHours,
+} from '../lib/booking';
+import { StaffHoursPanel } from '../components/jobs/StaffHoursPanel';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
@@ -163,6 +172,25 @@ export function SchedulePage() {
     enabled: !!profile,
   });
 
+  const { data: hoursPack } = useQuery<{ rows: StaffHours[]; missing: boolean }>({
+    queryKey: ['staff-hours', rangeStart, rangeEnd],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('staff_hours')
+        .select('member_id, date, working, start_time, end_time, reason')
+        .gte('date', rangeStart)
+        .lte('date', rangeEnd);
+      if (error) {
+        if (isMissingRelation(error)) return { rows: [], missing: true };
+        throw error;
+      }
+      return { rows: (data ?? []).map(staffHoursFromRow), missing: false };
+    },
+    enabled: !!profile,
+  });
+  const hours = hoursPack?.rows ?? [];
+  const hoursMissing = hoursPack?.missing ?? false;
+
   useEffect(() => {
     if (preselectClient) {
       setPresetClientId(preselectClient);
@@ -204,6 +232,60 @@ export function SchedulePage() {
       queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
       queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
     },
+  });
+
+  const names = useMemo(() => memberNameMap(teamMembers ?? []), [teamMembers]);
+
+  const handleJobDrop = (drop: JobDropPayload) => {
+    const current = [...onBoard, ...needsDate].find(j => j.id === drop.jobId);
+    if (current) {
+      const patch = rescheduleJobPatch({
+        assigned_team: current.assigned_team,
+        start_time: current.start_time,
+        end_time: current.end_time,
+      }, drop);
+      const proposed = {
+        ...current,
+        scheduled_date: patch.scheduled_date,
+        assigned_team: patch.assigned_team ?? current.assigned_team,
+        start_time: patch.start_time ?? current.start_time,
+        end_time: patch.end_time === undefined ? current.end_time : patch.end_time,
+      };
+      const warnings = bookingWarnings(proposed, [...onBoard, ...needsDate], names, hours);
+      if (!shouldProceedWithBooking(warnings, message => window.confirm(message))) return;
+    }
+    rescheduleJob.mutate(drop);
+  };
+
+  const saveHours = useMutation({
+    mutationFn: async (row: StaffHours) => {
+      const { error } = await supabase.from('staff_hours').upsert({
+        company_id: profile?.company_id,
+        member_id: row.memberId,
+        date: row.date,
+        working: row.working,
+        start_time: row.working ? row.start : null,
+        end_time: row.working ? row.end : null,
+        reason: row.reason ?? null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'company_id,member_id,date' });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-hours'] }),
+    onError: (e: Error) => alert(e.message),
+  });
+
+  const clearHours = useMutation({
+    mutationFn: async ({ memberId, date }: { memberId: string; date: string }) => {
+      const { error } = await supabase
+        .from('staff_hours')
+        .delete()
+        .eq('member_id', memberId)
+        .eq('date', date);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-hours'] }),
+    onError: (e: Error) => alert(e.message),
   });
 
   const handleDayClick = (dateStr: string, employeeId?: string) => {
@@ -362,6 +444,16 @@ export function SchedulePage() {
           </div>
         )}
 
+        <StaffHoursPanel
+          date={format(currentDate, 'yyyy-MM-dd')}
+          members={teamMembers ?? []}
+          hours={hours}
+          unavailable={hoursMissing}
+          saving={saveHours.isPending || clearHours.isPending}
+          onSave={row => saveHours.mutate(row)}
+          onClear={(memberId, date) => clearHours.mutate({ memberId, date })}
+        />
+
         {isLoading ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : (
@@ -404,8 +496,9 @@ export function SchedulePage() {
                     currentDate={currentDate}
                     onJobClick={job => navigate(`/jobs/${job.id}`)}
                     onDayClick={handleDayClick}
-                    onJobDrop={drop => rescheduleJob.mutate(drop)}
+                    onJobDrop={handleJobDrop}
                     filteredEmployeeIds={filteredEmployeeIds}
+                    hours={hours}
                   />
                 ) : (
                   <WeekBoardView
@@ -414,8 +507,9 @@ export function SchedulePage() {
                     currentDate={currentDate}
                     onJobClick={job => navigate(`/jobs/${job.id}`)}
                     onDayClick={handleDayClick}
-                    onJobDrop={drop => rescheduleJob.mutate(drop)}
+                    onJobDrop={handleJobDrop}
                     filteredEmployeeIds={filteredEmployeeIds}
+                    hours={hours}
                   />
                 )}
               </div>

@@ -10,6 +10,14 @@ import { format } from 'date-fns';
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { jobSiteAddressFromClient, visibleClientContacts } from '../../lib/clientRecords';
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
+import {
+  bookingWarnings,
+  isMissingRelation,
+  memberNameMap,
+  shouldProceedWithBooking,
+  staffHoursFromRow,
+  type BookedJob,
+} from '../../lib/booking';
 
 interface JobFormModalProps {
   job: Job | null;
@@ -123,6 +131,36 @@ export function JobFormModal({
       payload.start_time = form.start_time || null;
       payload.end_time = form.end_time || null;
       payload.assigned_team = form.assigned_team;
+    }
+
+    if (!detailsOnly && form.scheduled_date && form.assigned_team.length > 0) {
+      const proposed: BookedJob = {
+        id: job?.id ?? 'new',
+        job_number: job?.job_number,
+        title: form.title,
+        status: form.status,
+        scheduled_date: form.scheduled_date,
+        start_time: form.start_time || null,
+        end_time: form.end_time || null,
+        assigned_team: form.assigned_team,
+      };
+      const [{ data: siblings }, hoursRes] = await Promise.all([
+        supabase
+          .from('jobs')
+          .select('id, job_number, title, status, scheduled_date, start_time, end_time, assigned_team')
+          .eq('scheduled_date', form.scheduled_date)
+          .neq('id', job?.id ?? '00000000-0000-0000-0000-000000000000'),
+        supabase
+          .from('staff_hours')
+          .select('member_id, date, working, start_time, end_time, reason')
+          .eq('date', form.scheduled_date),
+      ]);
+      const hours = isMissingRelation(hoursRes.error) ? [] : (hoursRes.data ?? []).map(staffHoursFromRow);
+      const warnings = bookingWarnings(proposed, (siblings ?? []) as BookedJob[], memberNameMap(teamMembers), hours);
+      if (!shouldProceedWithBooking(warnings, message => window.confirm(message))) {
+        setSaving(false);
+        return;
+      }
     }
 
     if (job) {

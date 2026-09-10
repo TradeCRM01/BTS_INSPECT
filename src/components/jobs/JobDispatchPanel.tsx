@@ -6,6 +6,14 @@ import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
 import { useToast } from '../ui';
 import type { Job } from '../../types/crm';
+import {
+  bookingWarnings,
+  isMissingRelation,
+  memberNameMap,
+  shouldProceedWithBooking,
+  staffHoursFromRow,
+  type BookedJob,
+} from '../../lib/booking';
 
 function toTimeInput(t: string | null | undefined): string {
   return (t ?? '').slice(0, 5);
@@ -27,9 +35,42 @@ export function JobDispatchPanel({
     ? `/schedule?date=${job.scheduled_date}`
     : '/schedule';
 
+  const names = memberNameMap(teamMembers);
+
   const save = useMutation({
     mutationFn: async (patch: Record<string, unknown>) => {
       if (isDevFieldAuditAuth()) return;
+      const nextDate = ('scheduled_date' in patch
+        ? (patch.scheduled_date as string | null)
+        : job.scheduled_date) ?? null;
+      if (nextDate && ('scheduled_date' in patch || 'start_time' in patch || 'end_time' in patch || 'assigned_team' in patch)) {
+        const proposed: BookedJob = {
+          id: job.id,
+          job_number: job.job_number,
+          title: job.title,
+          status: job.status,
+          scheduled_date: nextDate,
+          start_time: ('start_time' in patch ? patch.start_time as string | null : job.start_time),
+          end_time: ('end_time' in patch ? patch.end_time as string | null : job.end_time),
+          assigned_team: ('assigned_team' in patch ? patch.assigned_team as string[] : job.assigned_team),
+        };
+        const [{ data: siblings }, hoursRes] = await Promise.all([
+          supabase
+            .from('jobs')
+            .select('id, job_number, title, status, scheduled_date, start_time, end_time, assigned_team')
+            .eq('scheduled_date', nextDate)
+            .neq('id', job.id),
+          supabase
+            .from('staff_hours')
+            .select('member_id, date, working, start_time, end_time, reason')
+            .eq('date', nextDate),
+        ]);
+        const hours = isMissingRelation(hoursRes.error) ? [] : (hoursRes.data ?? []).map(staffHoursFromRow);
+        const warnings = bookingWarnings(proposed, (siblings ?? []) as BookedJob[], names, hours);
+        if (!shouldProceedWithBooking(warnings, message => window.confirm(message))) {
+          throw new Error('BOOKING_CANCELLED');
+        }
+      }
       const { error } = await supabase
         .from('jobs')
         .update({ ...patch, updated_at: new Date().toISOString() })
@@ -51,7 +92,10 @@ export function JobDispatchPanel({
       queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
       queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
     },
-    onError: (e: Error) => showToast(e.message),
+    onError: (e: Error) => {
+      if (e.message === 'BOOKING_CANCELLED') return;
+      showToast(e.message);
+    },
   });
 
   const toggleCrew = (memberId: string) => {

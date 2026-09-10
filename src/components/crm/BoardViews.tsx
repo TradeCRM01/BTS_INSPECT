@@ -22,6 +22,7 @@ import {
 import { Clock, Users } from 'lucide-react';
 import { JobCalendarOverflow } from '../jobs/JobCalendarOverflow';
 import { calendarSite } from '../../lib/jobCalendar';
+import { clashingJobIds, type StaffHours } from '../../lib/booking';
 
 export interface TeamMember {
   id: string;
@@ -39,6 +40,7 @@ export interface BoardProps {
   onDayClick: (dateStr: string, employeeId?: string) => void;
   onJobDrop?: (drop: JobDropPayload) => void;
   filteredEmployeeIds: Set<string>;
+  hours?: StaffHours[];
 }
 
 const HOUR_WIDTH = HOUR_WIDTH_PX;
@@ -81,10 +83,11 @@ interface JobBlockProps {
   dragging?: boolean;
   fill?: boolean;
   detail?: boolean;
+  clash?: boolean;
 }
 
 const JobBlock = memo(function JobBlock({
-  job, teamMembers, onClick, onDragStart, compact, dragging, fill = true, detail = false,
+  job, teamMembers, onClick, onDragStart, compact, dragging, fill = true, detail = false, clash = false,
 }: JobBlockProps) {
   const rail = JOB_STATUS_RAIL[job.status];
   const hint = boardDispatchHint(job);
@@ -132,6 +135,7 @@ const JobBlock = memo(function JobBlock({
         <p className={`${compact ? 'ops-chip-site pr-10' : 'ops-card-site'} truncate`}>
           {compact && job.start_time ? `${job.start_time.slice(0, 5)} · ` : ''}
           {formatJobNumber(job.job_number) || 'JOB'} | {site}
+          {clash ? ' · Overlap' : ''}
         </p>
         {!compact && job.start_time && (
           <p className="ops-meta mt-0.5 flex items-center gap-0.5">
@@ -218,12 +222,13 @@ export const NeedsDateRail = memo(function NeedsDateRail({
 // ── Phone day list (no hour grid) ────────────────────────────────
 
 const PhoneJobCard = memo(function PhoneJobCard({
-  job, teamMembers, onJobClick, onDragStart,
+  job, teamMembers, onJobClick, onDragStart, clash = false,
 }: {
   job: JobWithClient;
   teamMembers?: TeamMember[];
   onJobClick: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
+  clash?: boolean;
 }) {
   const site = opsSiteLabel(job.address, job.client_address);
   const mapsQuery = (job.address || job.client_address)?.trim() || null;
@@ -246,7 +251,7 @@ const PhoneJobCard = memo(function PhoneJobCard({
     >
       <div className="ops-card-body">
         <div className="flex items-start justify-between gap-2 mb-1">
-          <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}</p>
+          <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}{clash ? ' · Overlap' : ''}</p>
           <div className="flex items-center gap-1 shrink-0">
             <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
             <JobCalendarOverflow
@@ -285,6 +290,7 @@ export const PhoneDayList = memo(function PhoneDayList({
   onDragStart: (e: React.DragEvent, jobId: string) => void;
 }) {
   const dateStr = dateKey(currentDate);
+  const clashIds = useMemo(() => clashingJobIds(jobs), [jobs]);
   const dayJobs = useMemo(() => {
     return jobs
       .filter(job => jobDateKey(job) === dateStr)
@@ -307,6 +313,7 @@ export const PhoneDayList = memo(function PhoneDayList({
             teamMembers={teamMembers}
             onJobClick={onJobClick}
             onDragStart={onDragStart}
+            clash={clashIds.has(job.id)}
           />
         ))
       )}
@@ -333,6 +340,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
     [weekStart],
   );
   const selected = dateKey(currentDate);
+  const clashIds = useMemo(() => clashingJobIds(jobs), [jobs]);
 
   const rows = useMemo(() => {
     const r: { id: string; name: string; schedule_color?: string | null }[] = [
@@ -440,6 +448,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
                   teamMembers={teamMembers}
                   onJobClick={onJobClick}
                   onDragStart={onDragStart}
+                  clash={clashIds.has(job.id)}
                 />
               ))
             )}
@@ -453,11 +462,12 @@ export const PhoneWeekList = memo(function PhoneWeekList({
 // ── Day Board View ───────────────────────────────────────────────
 
 export const DayBoardView = memo(function DayBoardView({
-  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds,
+  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds, hours = [],
 }: BoardProps) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverId, setDropHoverId] = useState<string | null>(null);
   const dateStr = dateKey(currentDate);
+  const clashIds = useMemo(() => clashingJobIds(jobs), [jobs]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const rows = useMemo(() => {
@@ -620,7 +630,9 @@ export const DayBoardView = memo(function DayBoardView({
                   <p className="ops-meta">
                     {isUnassigned
                       ? (rowJobs.length === 0 ? 'Drop here — date stays' : `${rowJobs.length} · needs crew`)
-                      : `${rowJobs.length} job${rowJobs.length !== 1 ? 's' : ''}`}
+                      : hours.find(h => h.memberId === row.id && h.date === dateStr && !h.working)
+                        ? 'Off'
+                        : `${rowJobs.length} job${rowJobs.length !== 1 ? 's' : ''}`}
                   </p>
                 </div>
               </div>
@@ -656,6 +668,7 @@ export const DayBoardView = memo(function DayBoardView({
                           job={job}
                           teamMembers={teamMembers}
                           compact
+                          clash={clashIds.has(job.id)}
                           dragging={dragJobId === job.id}
                           onClick={() => onJobClick(job)}
                           onDragStart={e => handleDragStart(e, job.id)}
@@ -679,6 +692,7 @@ export const DayBoardView = memo(function DayBoardView({
                         job={job}
                         teamMembers={teamMembers}
                         compact={width < 120}
+                        clash={clashIds.has(job.id)}
                         dragging={dragJobId === job.id}
                         onClick={() => onJobClick(job)}
                         onDragStart={e => handleDragStart(e, job.id)}
@@ -713,7 +727,7 @@ function CurrentTimeVerticalIndicator() {
 // ── Week Board View ──────────────────────────────────────────────
 
 export const WeekBoardView = memo(function WeekBoardView({
-  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds,
+  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds, hours = [],
 }: BoardProps) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverKey, setDropHoverKey] = useState<string | null>(null);
@@ -723,6 +737,7 @@ export const WeekBoardView = memo(function WeekBoardView({
     [weekStart],
   );
   const dateStrs = useMemo(() => days.map(d => dateKey(d)), [days]);
+  const clashIds = useMemo(() => clashingJobIds(jobs), [jobs]);
 
   // Same row model as the day board: Unassigned first, then visible crew.
   const rows = useMemo(() => {
@@ -879,11 +894,15 @@ export const WeekBoardView = memo(function WeekBoardView({
                           job={job}
                           teamMembers={teamMembers}
                           fill={false}
+                          clash={clashIds.has(job.id)}
                           dragging={dragJobId === job.id}
                           onClick={() => onJobClick(job)}
                           onDragStart={e => handleDragStart(e, job.id)}
                         />
                       ))}
+                      {cellJobs.length === 0 && !isUnassigned && hours.some(h => h.memberId === row.id && h.date === ds && !h.working) && (
+                        <p className="ops-meta px-0.5">Off</p>
+                      )}
                     </div>
                   );
                 })}
