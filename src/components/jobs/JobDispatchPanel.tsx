@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -10,10 +11,10 @@ import {
   bookingWarnings,
   isMissingRelation,
   memberNameMap,
-  shouldProceedWithBooking,
   staffHoursFromRow,
   type BookedJob,
 } from '../../lib/booking';
+import { BookingWarningBanner } from './BookingWarningBanner';
 
 function toTimeInput(t: string | null | undefined): string {
   return (t ?? '').slice(0, 5);
@@ -30,6 +31,7 @@ export function JobDispatchPanel({
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const [pending, setPending] = useState<{ patch: Record<string, unknown>; warnings: string[] } | null>(null);
   const assigned = job.assigned_team ?? [];
   const scheduleHref = job.scheduled_date
     ? `/schedule?date=${job.scheduled_date}`
@@ -38,7 +40,7 @@ export function JobDispatchPanel({
   const names = memberNameMap(teamMembers);
 
   const save = useMutation({
-    mutationFn: async (patch: Record<string, unknown>) => {
+    mutationFn: async ({ patch, acknowledged = false }: { patch: Record<string, unknown>; acknowledged?: boolean }) => {
       if (isDevFieldAuditAuth()) return;
       const nextDate = ('scheduled_date' in patch
         ? (patch.scheduled_date as string | null)
@@ -67,8 +69,9 @@ export function JobDispatchPanel({
         ]);
         const hours = isMissingRelation(hoursRes.error) ? [] : (hoursRes.data ?? []).map(staffHoursFromRow);
         const warnings = bookingWarnings(proposed, (siblings ?? []) as BookedJob[], names, hours);
-        if (!shouldProceedWithBooking(warnings, message => window.confirm(message))) {
-          throw new Error('BOOKING_CANCELLED');
+        if (warnings.length > 0 && !acknowledged) {
+          setPending({ patch, warnings });
+          return;
         }
       }
       const { error } = await supabase
@@ -93,16 +96,20 @@ export function JobDispatchPanel({
       queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
     },
     onError: (e: Error) => {
-      if (e.message === 'BOOKING_CANCELLED') return;
       showToast(e.message);
     },
   });
+
+  const requestSave = (patch: Record<string, unknown>, acknowledged = false) => {
+    setPending(null);
+    save.mutate({ patch, acknowledged });
+  };
 
   const toggleCrew = (memberId: string) => {
     const next = assigned.includes(memberId)
       ? assigned.filter(id => id !== memberId)
       : [...assigned, memberId];
-    save.mutate({ assigned_team: next });
+    requestSave({ assigned_team: next });
   };
 
   return (
@@ -120,13 +127,20 @@ export function JobDispatchPanel({
         {rescheduleBanner && (
           <p className="job-reschedule-banner" role="status">{rescheduleBanner}</p>
         )}
+        {pending && (
+          <BookingWarningBanner
+            warnings={pending.warnings}
+            onBookAnyway={() => requestSave(pending.patch, true)}
+            onDismiss={() => setPending(null)}
+          />
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <label className="block">
             <span className="ops-field-label">Date</span>
             <input
               type="date"
               value={job.scheduled_date ?? ''}
-              onChange={e => save.mutate({ scheduled_date: e.target.value || null })}
+              onChange={e => requestSave({ scheduled_date: e.target.value || null })}
               className="form-input"
             />
           </label>
@@ -135,7 +149,7 @@ export function JobDispatchPanel({
             <input
               type="time"
               value={toTimeInput(job.start_time)}
-              onChange={e => save.mutate({ start_time: e.target.value || null })}
+              onChange={e => requestSave({ start_time: e.target.value || null })}
               className="form-input"
             />
           </label>
@@ -144,7 +158,7 @@ export function JobDispatchPanel({
             <input
               type="time"
               value={toTimeInput(job.end_time)}
-              onChange={e => save.mutate({ end_time: e.target.value || null })}
+              onChange={e => requestSave({ end_time: e.target.value || null })}
               className="form-input"
             />
           </label>
@@ -160,7 +174,7 @@ export function JobDispatchPanel({
           {assigned.length > 0 && (
             <button
               type="button"
-              onClick={() => save.mutate({ assigned_team: [] })}
+              onClick={() => requestSave({ assigned_team: [] })}
               className="ops-link text-xs"
             >
               Clear crew
