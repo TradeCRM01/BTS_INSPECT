@@ -19,11 +19,13 @@ import {
   bookingWarnings,
   isMissingRelation,
   memberNameMap,
-  shouldProceedWithBooking,
   staffHoursFromRow,
+  staffHoursUpsertPayload,
+  STAFF_HOURS_CONFLICT,
   type StaffHours,
 } from '../lib/booking';
 import { StaffHoursPanel } from '../components/jobs/StaffHoursPanel';
+import { BookingWarningBanner } from '../components/jobs/BookingWarningBanner';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
@@ -60,6 +62,7 @@ export function SchedulePage() {
   const [presetEmployeeId, setPresetEmployeeId] = useState<string | undefined>(undefined);
   const [filteredEmployeeIds, setFilteredEmployeeIds] = useState<Set<string>>(new Set());
   const [colorSavingId, setColorSavingId] = useState<string | null>(null);
+  const [pendingDrop, setPendingDrop] = useState<{ drop: JobDropPayload; warnings: string[] } | null>(null);
 
   const preselectClient = searchParams.get('client');
   const preselectJob = searchParams.get('job');
@@ -252,23 +255,21 @@ export function SchedulePage() {
         end_time: patch.end_time === undefined ? current.end_time : patch.end_time,
       };
       const warnings = bookingWarnings(proposed, [...onBoard, ...needsDate], names, hours);
-      if (!shouldProceedWithBooking(warnings, message => window.confirm(message))) return;
+      if (warnings.length > 0) {
+        setPendingDrop({ drop, warnings });
+        return;
+      }
     }
     rescheduleJob.mutate(drop);
   };
 
   const saveHours = useMutation({
     mutationFn: async (row: StaffHours) => {
-      const { error } = await supabase.from('staff_hours').upsert({
-        company_id: profile?.company_id,
-        member_id: row.memberId,
-        date: row.date,
-        working: row.working,
-        start_time: row.working ? row.start : null,
-        end_time: row.working ? row.end : null,
-        reason: row.reason ?? null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'company_id,member_id,date' });
+      if (!profile?.company_id) throw new Error('No company on this session — cannot save hours.');
+      const { error } = await supabase.from('staff_hours').upsert(
+        staffHoursUpsertPayload(profile.company_id, row),
+        { onConflict: STAFF_HOURS_CONFLICT },
+      );
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-hours'] }),
@@ -277,9 +278,11 @@ export function SchedulePage() {
 
   const clearHours = useMutation({
     mutationFn: async ({ memberId, date }: { memberId: string; date: string }) => {
+      if (!profile?.company_id) throw new Error('No company on this session — cannot clear hours.');
       const { error } = await supabase
         .from('staff_hours')
         .delete()
+        .eq('company_id', profile.company_id)
         .eq('member_id', memberId)
         .eq('date', date);
       if (error) throw error;
@@ -442,6 +445,18 @@ export function SchedulePage() {
               })}
             </div>
           </div>
+        )}
+
+        {pendingDrop && (
+          <BookingWarningBanner
+            warnings={pendingDrop.warnings}
+            onBookAnyway={() => {
+              const drop = pendingDrop.drop;
+              setPendingDrop(null);
+              rescheduleJob.mutate(drop);
+            }}
+            onDismiss={() => setPendingDrop(null)}
+          />
         )}
 
         <StaffHoursPanel

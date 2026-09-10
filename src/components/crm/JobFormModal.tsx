@@ -14,10 +14,10 @@ import {
   bookingWarnings,
   isMissingRelation,
   memberNameMap,
-  shouldProceedWithBooking,
   staffHoursFromRow,
   type BookedJob,
 } from '../../lib/booking';
+import { BookingWarningBanner } from '../jobs/BookingWarningBanner';
 
 interface JobFormModalProps {
   job: Job | null;
@@ -52,6 +52,7 @@ export function JobFormModal({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [bookingNotes, setBookingNotes] = useState<string[]>([]);
   const [parentJobs, setParentJobs] = useState<{ id: string; title: string; job_number: number | null }[]>([]);
 
   const [form, setForm] = useState({
@@ -109,11 +110,12 @@ export function JobFormModal({
     }));
   };
 
-  const handleSave = async () => {
+  const handleSave = async (acknowledged = false) => {
     if (!form.title.trim()) { setErr('Title is required'); return; }
     if (!profile?.company_id) return;
     setSaving(true);
     setErr('');
+    if (!acknowledged) setBookingNotes([]);
 
     const payload: Record<string, unknown> = {
       title: form.title.trim(),
@@ -157,7 +159,8 @@ export function JobFormModal({
       ]);
       const hours = isMissingRelation(hoursRes.error) ? [] : (hoursRes.data ?? []).map(staffHoursFromRow);
       const warnings = bookingWarnings(proposed, (siblings ?? []) as BookedJob[], memberNameMap(teamMembers), hours);
-      if (!shouldProceedWithBooking(warnings, message => window.confirm(message))) {
+      if (warnings.length > 0 && !acknowledged) {
+        setBookingNotes(warnings);
         setSaving(false);
         return;
       }
@@ -369,6 +372,15 @@ export function JobFormModal({
           )}
 
           {err && <p className="overlay-form-span-all text-sm text-fail">{err}</p>}
+          {bookingNotes.length > 0 && (
+            <div className="overlay-form-span-all">
+              <BookingWarningBanner
+                warnings={bookingNotes}
+                onBookAnyway={() => { void handleSave(true); }}
+                onDismiss={() => setBookingNotes([])}
+              />
+            </div>
+          )}
           </div>
         </div>
 
@@ -391,7 +403,7 @@ export function JobFormModal({
             <button onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button onClick={handleSave} disabled={saving}
+            <button onClick={() => { void handleSave(); }} disabled={saving}
               className="btn-primary min-h-[44px] disabled:opacity-50">
               {saving ? 'Saving...' : job ? 'Save Changes' : presetParentJobId ? 'Create stage' : 'Create Job'}
             </button>

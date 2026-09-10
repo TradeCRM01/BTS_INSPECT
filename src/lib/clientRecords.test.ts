@@ -311,6 +311,7 @@ describe('client inspection query', () => {
     expect(scope!.inFilters.id).toBeUndefined();
     expect(scope!.eq.id).toBeUndefined();
     expect(JSON.stringify(scope)).not.toContain('inspection_id');
+    expect(scope!.columns).not.toContain('due_on');
   });
 
   it('does not scan inspections when the client has no jobs', () => {
