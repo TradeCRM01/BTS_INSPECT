@@ -166,3 +166,48 @@ export function isMissingRelation(error: { code?: string; message?: string } | n
   if (!error) return false;
   return error.code === '42P01' || /staff_hours/i.test(error.message ?? '');
 }
+
+export const STAFF_HOURS_CONFLICT = 'company_id,member_id,date';
+
+/** HH:MM for the time column. HTML time inputs are already this shape. */
+export function clockTime(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  return `${match[1].padStart(2, '0')}:${match[2]}`;
+}
+
+/** Unique key is company_id + member_id + date. company_id must be the signed-in company. */
+export function staffHoursUpsertPayload(
+  companyId: string,
+  row: StaffHours,
+  now = new Date(),
+): {
+  company_id: string;
+  member_id: string;
+  date: string;
+  working: boolean;
+  start_time: string | null;
+  end_time: string | null;
+  reason: string | null;
+  updated_at: string;
+} {
+  const company = companyId.trim();
+  if (!company) throw new Error('No company on this session — cannot save hours.');
+  if (!row.memberId) throw new Error('Pick a person.');
+  const date = dateKey(row.date);
+  if (!date) throw new Error('Pick a date.');
+  const start = row.working ? clockTime(row.start ?? null) : null;
+  const end = row.working ? clockTime(row.end ?? null) : null;
+  if (row.working && (!start || !end)) throw new Error('Set start and end times.');
+  return {
+    company_id: company,
+    member_id: row.memberId,
+    date,
+    working: row.working,
+    start_time: start,
+    end_time: end,
+    reason: row.reason?.trim() || null,
+    updated_at: now.toISOString(),
+  };
+}

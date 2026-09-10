@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   bookingWarnings,
   clashingJobIds,
+  clockTime,
   hoursWarnings,
   jobBookingLabel,
   jobsClash,
   shouldProceedWithBooking,
+  staffHoursUpsertPayload,
+  STAFF_HOURS_CONFLICT,
 } from './booking';
 
 const names = new Map([
@@ -124,5 +127,45 @@ describe('shouldProceedWithBooking', () => {
 describe('jobBookingLabel', () => {
   it('prefers a padded job number', () => {
     expect(jobBookingLabel({ job_number: 5, title: 'Test' })).toBe('#0005 Test');
+  });
+});
+
+describe('staffHoursUpsertPayload', () => {
+  const now = new Date('2026-09-10T08:00:00.000Z');
+  const off: Parameters<typeof staffHoursUpsertPayload>[1] = {
+    memberId: 'alice',
+    date: '2026-09-11',
+    working: false,
+    reason: 'Annual leave',
+  };
+
+  it('sets company_id and the unique member+date key', () => {
+    expect(staffHoursUpsertPayload('co-1', off, now)).toEqual({
+      company_id: 'co-1',
+      member_id: 'alice',
+      date: '2026-09-11',
+      working: false,
+      start_time: null,
+      end_time: null,
+      reason: 'Annual leave',
+      updated_at: now.toISOString(),
+    });
+    expect(STAFF_HOURS_CONFLICT).toBe('company_id,member_id,date');
+  });
+
+  it('refuses a blank company', () => {
+    expect(() => staffHoursUpsertPayload('  ', off, now)).toThrow(/company/i);
+  });
+
+  it('keeps working hours as HH:MM', () => {
+    expect(clockTime('7:00:00')).toBe('07:00');
+    expect(staffHoursUpsertPayload('co-1', {
+      memberId: 'alice',
+      date: '2026-09-11T00:00:00',
+      working: true,
+      start: '07:00',
+      end: '16:00',
+      reason: 'Early finish',
+    }, now).start_time).toBe('07:00');
   });
 });
