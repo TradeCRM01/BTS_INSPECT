@@ -4724,6 +4724,13 @@
   }
 }
 
+/* Week board: crew down the side, days across. One shared template keeps the
+   sticky day header aligned with every crew row. */
+.week-grid {
+  display: grid;
+  grid-template-columns: 132px repeat(7, minmax(96px, 1fr));
+}
+
 /* Panels are hidden rather than unmounted, so query and form state survive a
    tab change. The !important beats Tailwind display utilities on the same node. */
 .job-panel[hidden] {

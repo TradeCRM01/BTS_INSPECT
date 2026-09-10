@@ -316,7 +316,7 @@ export function SchedulePage() {
           </div>
         </div>
 
-        {viewMode === 'day' && teamMembers && teamMembers.length > 0 && (
+        {teamMembers && teamMembers.length > 0 && (
           <div className="hidden lg:flex items-center gap-2 mb-3 flex-wrap">
             <div className="flex items-center gap-1.5 ops-meta font-medium">
               <Users size={13} /> Crew

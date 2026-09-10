@@ -19,7 +19,7 @@ import {
 import {
   format, isToday, addDays, startOfWeek,
 } from 'date-fns';
-import { Clock, Plus, Users } from 'lucide-react';
+import { Clock, Users } from 'lucide-react';
 import { JobCalendarOverflow } from '../jobs/JobCalendarOverflow';
 import { calendarSite } from '../../lib/jobCalendar';
 
@@ -561,14 +561,54 @@ function CurrentTimeVerticalIndicator() {
 // ── Week Board View ──────────────────────────────────────────────
 
 export const WeekBoardView = memo(function WeekBoardView({
-  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop,
+  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds,
 }: BoardProps) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
-  const [dropHoverDate, setDropHoverDate] = useState<string | null>(null);
+  const [dropHoverKey, setDropHoverKey] = useState<string | null>(null);
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const dateStrs = days.map(d => dateKey(d));
+  const days = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
+    [weekStart],
+  );
+  const dateStrs = useMemo(() => days.map(d => dateKey(d)), [days]);
 
+  // Same row model as the day board: Unassigned first, then visible crew.
+  const rows = useMemo(() => {
+    const r: { id: string; name: string; schedule_color?: string | null }[] = [
+      { id: UNASSIGNED_ROW_ID, name: 'Unassigned' },
+    ];
+    for (const m of teamMembers) {
+      if (filteredEmployeeIds.size === 0 || filteredEmployeeIds.has(m.id)) {
+        r.push({ id: m.id, name: m.name, schedule_color: m.schedule_color });
+      }
+    }
+    return r;
+  }, [teamMembers, filteredEmployeeIds]);
+
+  const cellKey = (rowId: string, ds: string) => `${rowId}|${ds}`;
+
+  // A job crewed by three people appears in three rows — the same job, seen
+  // from each person's week, not three bookings.
+  const jobsByCell = useMemo(() => {
+    const map = new Map<string, JobWithClient[]>();
+    for (const row of rows) for (const ds of dateStrs) map.set(cellKey(row.id, ds), []);
+    for (const job of jobs) {
+      const ds = jobDateKey(job);
+      if (!ds) continue;
+      const assigned = job.assigned_team ?? [];
+      if (assigned.length === 0) {
+        map.get(cellKey(UNASSIGNED_ROW_ID, ds))?.push(job);
+      } else {
+        for (const empId of assigned) map.get(cellKey(empId, ds))?.push(job);
+      }
+    }
+    for (const [, list] of map) {
+      list.sort((a, b) => (a.start_time ?? '99').localeCompare(b.start_time ?? '99'));
+    }
+    return map;
+  }, [jobs, rows, dateStrs]);
+
+  // Header counts stay whole-week truth, independent of the crew filter.
   const jobsByDay = useMemo(() => {
     const map = new Map<string, JobWithClient[]>();
     for (const ds of dateStrs) map.set(ds, []);
@@ -576,9 +616,6 @@ export const WeekBoardView = memo(function WeekBoardView({
       const key = jobDateKey(job);
       if (!key) continue;
       map.get(key)?.push(job);
-    }
-    for (const [, list] of map) {
-      list.sort((a, b) => (a.start_time ?? '99').localeCompare(b.start_time ?? '99'));
     }
     return map;
   }, [jobs, dateStrs]);
@@ -590,85 +627,118 @@ export const WeekBoardView = memo(function WeekBoardView({
   };
 
   useEffect(() => {
-    const clear = () => { setDragJobId(null); setDropHoverDate(null); };
+    const clear = () => { setDragJobId(null); setDropHoverKey(null); };
     window.addEventListener('dragend', clear);
     return () => window.removeEventListener('dragend', clear);
   }, []);
 
-  const handleDrop = (e: React.DragEvent, date: string) => {
+  // Dropping on a person's day sets the date and the crew in one gesture;
+  // dropping on the Unassigned row moves the date and clears crew.
+  const handleDrop = (e: React.DragEvent, rowId: string, date: string) => {
     e.preventDefault();
     const jobId = e.dataTransfer.getData('text/plain');
-    if (jobId && onJobDrop) onJobDrop({ jobId, date });
+    if (jobId && onJobDrop) {
+      onJobDrop({ jobId, date, employeeId: rowId === UNASSIGNED_ROW_ID ? null : rowId });
+    }
     setDragJobId(null);
-    setDropHoverDate(null);
+    setDropHoverKey(null);
   };
 
   return (
     <div className="ops-board">
       <div className="px-3 py-2 border-b border-rule flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm font-semibold tracking-tight text-navy">This week</p>
+        <p className="text-sm font-semibold tracking-tight text-navy">This week, by crew</p>
         <p className="ops-meta">
-          Drag to another day to move the date. Crew stays put.
+          Drop on a person’s day to set the date and add them · Unassigned keeps the date
         </p>
       </div>
-      <div className="flex border-b border-rule">
-        {days.map((day, i) => {
-          const ds = dateKey(day);
-          const dayJobs = jobsByDay.get(ds) ?? [];
-          const today = isToday(day);
-          const needsCrew = dayJobs.filter(j => !(j.assigned_team ?? []).length).length;
-          return (
-            <div key={i} className="flex-1 min-w-[120px] border-r border-rule last:border-r-0 px-2 py-2 text-center">
-              <p className="ops-meta uppercase">{format(day, 'EEE')}</p>
-              <p className={`text-sm font-bold ${today ? 'text-white bg-navy w-6 h-6 rounded-md flex items-center justify-center mx-auto' : 'text-ink'}`}>
-                {format(day, 'd')}
-              </p>
-              <p className="ops-meta mt-0.5">
-                {dayJobs.length} job{dayJobs.length !== 1 ? 's' : ''}
-                {needsCrew > 0 ? ` · ${needsCrew} unassigned` : ''}
-              </p>
-            </div>
-          );
-        })}
-      </div>
 
-      <div className="flex">
-        {days.map((day, i) => {
-          const ds = dateKey(day);
-          const dayJobs = jobsByDay.get(ds) ?? [];
-          const hovering = dropHoverDate === ds;
-          return (
-            <div
-              key={i}
-              onDragOver={e => { e.preventDefault(); setDropHoverDate(ds); }}
-              onDrop={e => handleDrop(e, ds)}
-              onClick={() => onDayClick(ds)}
-              className={`flex-1 min-w-[120px] border-r border-rule last:border-r-0 p-1 space-y-1 cursor-pointer min-h-[300px] ${
-                hovering ? 'bg-zebra' : ''
-              }`}
-            >
-              {dayJobs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-20 text-[#D1D5DB]">
-                  <Plus size={16} />
-                  <span className="ops-meta mt-1">Add job</span>
-                </div>
-              ) : (
-                dayJobs.map(job => (
-                  <JobBlock
-                    key={job.id}
-                    job={job}
-                    teamMembers={teamMembers}
-                    fill={false}
-                    detail
-                    dragging={dragJobId === job.id}
-                    onClick={() => onJobClick(job)}
-                    onDragStart={e => handleDragStart(e, job.id)}
-                  />
-                ))
-              )}
+      <div className="overflow-x-auto">
+        <div className="min-w-[860px]">
+          <div className="week-grid border-b border-rule bg-white sticky top-0 z-10">
+            <div className="border-r border-rule px-2 py-2">
+              <p className="ops-meta uppercase">Crew</p>
             </div>
-          );
-        })}
+            {days.map(day => {
+              const ds = dateKey(day);
+              const dayJobs = jobsByDay.get(ds) ?? [];
+              const today = isToday(day);
+              const needsCrew = dayJobs.filter(j => !(j.assigned_team ?? []).length).length;
+              return (
+                <div key={ds} className="border-r border-rule last:border-r-0 px-2 py-2 text-center">
+                  <p className="ops-meta uppercase">{format(day, 'EEE')}</p>
+                  <p className={`text-sm font-bold ${today ? 'text-white bg-navy w-6 h-6 rounded-md flex items-center justify-center mx-auto' : 'text-ink'}`}>
+                    {format(day, 'd')}
+                  </p>
+                  <p className="ops-meta mt-0.5">
+                    {dayJobs.length} job{dayJobs.length !== 1 ? 's' : ''}
+                    {needsCrew > 0 ? ` · ${needsCrew} unassigned` : ''}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          {rows.map((row, rowIdx) => {
+            const isUnassigned = row.id === UNASSIGNED_ROW_ID;
+            const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
+            const weekCount = dateStrs.reduce(
+              (n, ds) => n + (jobsByCell.get(cellKey(row.id, ds))?.length ?? 0), 0,
+            );
+            return (
+              <div
+                key={row.id}
+                className={`week-grid border-b border-rule last:border-b-0 ${
+                  isUnassigned ? 'bg-zebra' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-zebra'
+                }`}
+              >
+                <div
+                  className="border-r border-rule px-2 py-2 flex items-start gap-1.5"
+                  style={{ borderLeft: isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${color}` }}
+                >
+                  <span
+                    className="mt-0.5 w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{
+                      background: isUnassigned ? 'transparent' : color,
+                      outline: isUnassigned ? `1px solid ${colors.navy}` : undefined,
+                    }}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-ink truncate">{row.name}</p>
+                    <p className="ops-meta">{weekCount} this week</p>
+                  </div>
+                </div>
+
+                {dateStrs.map(ds => {
+                  const cellJobs = jobsByCell.get(cellKey(row.id, ds)) ?? [];
+                  const hovering = dropHoverKey === cellKey(row.id, ds);
+                  return (
+                    <div
+                      key={ds}
+                      onDragOver={e => { e.preventDefault(); setDropHoverKey(cellKey(row.id, ds)); }}
+                      onDrop={e => handleDrop(e, row.id, ds)}
+                      onClick={() => onDayClick(ds, isUnassigned ? undefined : row.id)}
+                      className="border-r border-rule last:border-r-0 p-1 space-y-1 cursor-pointer min-h-[64px]"
+                      style={hovering ? { background: '#EAF2FB' } : undefined}
+                    >
+                      {cellJobs.map(job => (
+                        <JobBlock
+                          key={job.id}
+                          job={job}
+                          teamMembers={teamMembers}
+                          fill={false}
+                          dragging={dragJobId === job.id}
+                          onClick={() => onJobClick(job)}
+                          onDragStart={e => handleDragStart(e, job.id)}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
