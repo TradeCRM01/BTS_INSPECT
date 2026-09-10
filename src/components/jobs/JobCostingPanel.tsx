@@ -382,7 +382,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {COST_TYPES.map(type => {
+        {COST_TYPES.filter(type => costs.some(c => c.cost_type === type)).map(type => {
           const Icon = COST_ICON[type];
           return (
             <div key={type} className={`bg-white rounded-xl border border-[#E5E7EB] border-l-4 ${STAT_BORDER[type]} p-3`}>
