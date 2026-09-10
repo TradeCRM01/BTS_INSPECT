@@ -1,0 +1,33 @@
+name = "daily-paper"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+
+# Crons run in UTC. 21:30 UTC is 05:30 in Perth (AWST, no daylight saving).
+# 10:00 UTC is 18:00 in Perth. Shift both if PAPER_TZ changes.
+[triggers]
+crons = ["30 21 * * *", "0 10 * * *"]
+
+[[kv_namespaces]]
+binding = "PAPER"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[vars]
+PAPER_TZ = "Australia/Perth"
+PAPER_DEMO = "false"
+# Public URL of this worker, used for links in the email.
+PAPER_URL = "https://daily-paper.example.workers.dev"
+# Local hour boundaries: a scheduled run before this hour is the morning edition,
+# after it the evening edition.
+PAPER_NOON = "12"
+
+# Secrets (set with `wrangler secret put NAME`):
+#   PAPER_TOKEN              one long random string; the only login there is
+#   RESEND_API_KEY           resend.com
+#   MAIL_FROM                "The Paper <paper@yourdomain>"
+#   MAIL_TO                  your address
+#   GOOGLE_CLIENT_ID         OAuth client (Calendar + Gmail readonly scopes)
+#   GOOGLE_CLIENT_SECRET
+#   GOOGLE_REFRESH_TOKEN
+#   MAIL_ME                  your Gmail address, so replies you sent are not "waiting on you"
+#   GRAFTER_SUPABASE_URL     https://xxxx.supabase.co
+#   GRAFTER_SERVICE_KEY      service role key (read only use; never in a browser)

@@ -1,0 +1,20 @@
+{
+  "name": "daily-paper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A one-reader morning paper. Reads calendar, inbox and the Grafter numbers, writes eight lines with a verdict, keeps the score.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260910.1",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.0",
+    "wrangler": "^4.30.0"
+  }
+}

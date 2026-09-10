@@ -1,0 +1,16 @@
+# Copy to .dev.vars for `npm run dev`. Never commit .dev.vars.
+PAPER_TOKEN=change-me-to-something-long
+PAPER_DEMO=true
+PAPER_URL=http://127.0.0.1:8787
+
+RESEND_API_KEY=
+MAIL_FROM=The Paper <paper@example.com>
+MAIL_TO=you@example.com
+
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REFRESH_TOKEN=
+MAIL_ME=you@example.com
+
+GRAFTER_SUPABASE_URL=
+GRAFTER_SERVICE_KEY=
