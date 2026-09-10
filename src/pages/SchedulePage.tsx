@@ -10,7 +10,7 @@ import { PageError } from '../components/ui/PageError';
 import type { Job, JobWithClient, Client } from '../types/crm';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import {
-  DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList,
+  DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList, PhoneWeekList,
   type TeamMember,
 } from '../components/crm/BoardViews';
 import { pickEmployeeColor } from '../lib/jobColors';
@@ -299,7 +299,7 @@ export function SchedulePage() {
             </h2>
           </div>
 
-          <div className="hidden lg:flex ops-seg">
+          <div className="flex ops-seg">
             {([
               { mode: 'day' as const, label: 'Day', Icon: Columns3 },
               { mode: 'week' as const, label: 'Week', Icon: CalIcon },
@@ -307,7 +307,7 @@ export function SchedulePage() {
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`ops-seg-btn ${viewMode === mode ? 'ops-seg-btn-on' : 'ops-seg-btn-off'}`}
+                className={`ops-seg-btn min-h-11 ${viewMode === mode ? 'ops-seg-btn-on' : 'ops-seg-btn-off'}`}
               >
                 <Icon size={14} />
                 {label}
@@ -373,13 +373,26 @@ export function SchedulePage() {
                 onJobClick={job => navigate(`/jobs/${job.id}`)}
                 onDragStart={handleRailDragStart}
               />
-              <PhoneDayList
-                jobs={onBoard}
-                teamMembers={teamMembers ?? []}
-                currentDate={currentDate}
-                onJobClick={job => navigate(`/jobs/${job.id}`)}
-                onDragStart={handleRailDragStart}
-              />
+              {viewMode === 'day' ? (
+                <PhoneDayList
+                  jobs={onBoard}
+                  teamMembers={teamMembers ?? []}
+                  currentDate={currentDate}
+                  onJobClick={job => navigate(`/jobs/${job.id}`)}
+                  onDragStart={handleRailDragStart}
+                />
+              ) : (
+                <PhoneWeekList
+                  jobs={onBoard}
+                  teamMembers={teamMembers ?? []}
+                  currentDate={currentDate}
+                  onJobClick={job => navigate(`/jobs/${job.id}`)}
+                  onPickDay={setCurrentDate}
+                  onDayClick={handleDayClick}
+                  onDragStart={handleRailDragStart}
+                  filteredEmployeeIds={filteredEmployeeIds}
+                />
+              )}
             </div>
 
             <div className="hidden lg:flex items-start gap-3">

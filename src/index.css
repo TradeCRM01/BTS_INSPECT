@@ -4731,6 +4731,79 @@
   grid-template-columns: 132px repeat(7, minmax(96px, 1fr));
 }
 
+.phone-week-days {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.phone-week-day {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  min-height: 56px;
+  padding: 0.375rem 0.125rem;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.375rem;
+  background: #FFFFFF;
+  color: #64748B;
+  cursor: pointer;
+}
+
+.phone-week-day-dow {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.phone-week-day-num {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0A2540;
+  line-height: 1;
+}
+
+.phone-week-day-count {
+  font-size: 0.625rem;
+  color: #94A3B8;
+}
+
+.phone-week-day.is-today:not(.is-selected) .phone-week-day-dow {
+  color: #0A2540;
+}
+
+.phone-week-day.is-selected {
+  border-color: #2E75B6;
+  background: #EAF2FB;
+}
+
+.phone-week-day.is-selected .phone-week-day-num {
+  color: #FFFFFF;
+  background: #0A2540;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phone-week-free {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed #CBD5E1;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: #94A3B8;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+
 /* Panels are hidden rather than unmounted, so query and form state survive a
    tab change. The !important beats Tailwind display utilities on the same node. */
 .job-panel[hidden] {

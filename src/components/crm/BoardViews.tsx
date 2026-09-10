@@ -217,6 +217,64 @@ export const NeedsDateRail = memo(function NeedsDateRail({
 
 // ── Phone day list (no hour grid) ────────────────────────────────
 
+const PhoneJobCard = memo(function PhoneJobCard({
+  job, teamMembers, onJobClick, onDragStart,
+}: {
+  job: JobWithClient;
+  teamMembers?: TeamMember[];
+  onJobClick: (job: JobWithClient) => void;
+  onDragStart: (e: React.DragEvent, jobId: string) => void;
+}) {
+  const site = opsSiteLabel(job.address, job.client_address);
+  const mapsQuery = (job.address || job.client_address)?.trim() || null;
+  const next = boardDispatchHint(job) ?? jobCardHint(job);
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      draggable
+      onDragStart={e => onDragStart(e, job.id)}
+      onClick={() => onJobClick(job)}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onJobClick(job);
+        }
+      }}
+      className="ops-card job-cal-host ops-card-hover w-full text-left cursor-pointer"
+      style={{ borderLeftWidth: 4, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
+    >
+      <div className="ops-card-body">
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}</p>
+          <div className="flex items-center gap-1 shrink-0">
+            <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+            <JobCalendarOverflow
+              job={job}
+              site={calendarSite(job.address, job.client_address)}
+              members={teamMembers}
+            />
+          </div>
+        </div>
+        <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
+        <div className="ops-card-footer">
+          <span className="ops-next-control-block">{next}</span>
+        </div>
+        <div className="mt-2 space-y-0.5">
+          {job.start_time && (
+            <p className="ops-meta flex items-center gap-1">
+              <Clock size={12} /> {job.start_time.slice(0, 5)}
+              {job.end_time ? ` – ${job.end_time.slice(0, 5)}` : ''}
+            </p>
+          )}
+          {job.client_name && <p className="ops-meta truncate">{job.client_name}</p>}
+          {job.title && <p className="ops-meta truncate">{job.title}</p>}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export const PhoneDayList = memo(function PhoneDayList({
   jobs, teamMembers, currentDate, onJobClick, onDragStart,
 }: {
@@ -242,58 +300,152 @@ export const PhoneDayList = memo(function PhoneDayList({
       {dayJobs.length === 0 ? (
         <p className="ops-meta px-1 py-3">No jobs on this day. Drag from the tray or add a job.</p>
       ) : (
-        dayJobs.map(job => {
-          const site = opsSiteLabel(job.address, job.client_address);
-          const mapsQuery = (job.address || job.client_address)?.trim() || null;
-          const next = boardDispatchHint(job) ?? jobCardHint(job);
-          return (
-            <div
-              key={job.id}
-              role="button"
-              tabIndex={0}
-              draggable
-              onDragStart={e => onDragStart(e, job.id)}
-              onClick={() => onJobClick(job)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onJobClick(job);
-                }
-              }}
-              className="ops-card job-cal-host ops-card-hover w-full text-left cursor-pointer"
-              style={{ borderLeftWidth: 4, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
-            >
-              <div className="ops-card-body">
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}</p>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
-                    <JobCalendarOverflow
-                      job={job}
-                      site={calendarSite(job.address, job.client_address)}
-                      members={teamMembers}
-                    />
-                  </div>
-                </div>
-                <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
-                <div className="ops-card-footer">
-                  <span className="ops-next-control-block">{next}</span>
-                </div>
-                <div className="mt-2 space-y-0.5">
-                  {job.start_time && (
-                    <p className="ops-meta flex items-center gap-1">
-                      <Clock size={12} /> {job.start_time.slice(0, 5)}
-                      {job.end_time ? ` – ${job.end_time.slice(0, 5)}` : ''}
-                    </p>
-                  )}
-                  {job.client_name && <p className="ops-meta truncate">{job.client_name}</p>}
-                  {job.title && <p className="ops-meta truncate">{job.title}</p>}
-                </div>
-              </div>
-            </div>
-          );
-        })
+        dayJobs.map(job => (
+          <PhoneJobCard
+            key={job.id}
+            job={job}
+            teamMembers={teamMembers}
+            onJobClick={onJobClick}
+            onDragStart={onDragStart}
+          />
+        ))
       )}
+    </div>
+  );
+});
+
+/** Phone week: pick a day, then see that day grouped the same way as the week board. */
+export const PhoneWeekList = memo(function PhoneWeekList({
+  jobs, teamMembers, currentDate, onJobClick, onPickDay, onDayClick, onDragStart, filteredEmployeeIds,
+}: {
+  jobs: JobWithClient[];
+  teamMembers: TeamMember[];
+  currentDate: Date;
+  onJobClick: (job: JobWithClient) => void;
+  onPickDay: (day: Date) => void;
+  onDayClick: (dateStr: string, employeeId?: string) => void;
+  onDragStart: (e: React.DragEvent, jobId: string) => void;
+  filteredEmployeeIds: Set<string>;
+}) {
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+  const days = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
+    [weekStart],
+  );
+  const selected = dateKey(currentDate);
+
+  const rows = useMemo(() => {
+    const r: { id: string; name: string; schedule_color?: string | null }[] = [
+      { id: UNASSIGNED_ROW_ID, name: 'Unassigned' },
+    ];
+    for (const m of teamMembers) {
+      if (filteredEmployeeIds.size === 0 || filteredEmployeeIds.has(m.id)) {
+        r.push({ id: m.id, name: m.name, schedule_color: m.schedule_color });
+      }
+    }
+    return r;
+  }, [teamMembers, filteredEmployeeIds]);
+
+  const jobsByDay = useMemo(() => {
+    const map = new Map<string, JobWithClient[]>();
+    for (const day of days) map.set(dateKey(day), []);
+    for (const job of jobs) {
+      const key = jobDateKey(job);
+      if (!key) continue;
+      map.get(key)?.push(job);
+    }
+    return map;
+  }, [jobs, days]);
+
+  const jobsByRow = useMemo(() => {
+    const map = new Map<string, JobWithClient[]>();
+    for (const row of rows) map.set(row.id, []);
+    for (const job of jobs) {
+      if (jobDateKey(job) !== selected) continue;
+      const assigned = job.assigned_team ?? [];
+      if (assigned.length === 0) {
+        map.get(UNASSIGNED_ROW_ID)?.push(job);
+      } else {
+        for (const empId of assigned) map.get(empId)?.push(job);
+      }
+    }
+    for (const [, list] of map) {
+      list.sort((a, b) => (a.start_time ?? '99').localeCompare(b.start_time ?? '99'));
+    }
+    return map;
+  }, [jobs, rows, selected]);
+
+  return (
+    <div className="space-y-3">
+      <div className="phone-week-days" role="tablist" aria-label="Days this week">
+        {days.map(day => {
+          const ds = dateKey(day);
+          const count = jobsByDay.get(ds)?.length ?? 0;
+          const isSelected = ds === selected;
+          const today = isToday(day);
+          return (
+            <button
+              key={ds}
+              type="button"
+              role="tab"
+              aria-selected={isSelected}
+              onClick={() => onPickDay(day)}
+              className={`phone-week-day ${isSelected ? 'is-selected' : ''} ${today ? 'is-today' : ''}`}
+            >
+              <span className="phone-week-day-dow">{format(day, 'EEE')}</span>
+              <span className="phone-week-day-num">{format(day, 'd')}</span>
+              <span className="phone-week-day-count">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <h2 className="ops-group-title">
+        {format(currentDate, 'EEEE d MMM')}
+        <span className="text-muted normal-case font-normal">
+          {' '}({jobsByDay.get(selected)?.length ?? 0})
+        </span>
+      </h2>
+
+      {rows.map(row => {
+        const isUnassigned = row.id === UNASSIGNED_ROW_ID;
+        const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
+        const rowJobs = jobsByRow.get(row.id) ?? [];
+        return (
+          <section key={row.id} className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{
+                  background: isUnassigned ? 'transparent' : color,
+                  outline: isUnassigned ? `1px solid ${colors.navy}` : undefined,
+                }}
+              />
+              <p className="text-xs font-semibold text-ink">{row.name}</p>
+              <span className="ops-meta">{rowJobs.length}</span>
+            </div>
+            {rowJobs.length === 0 ? (
+              <button
+                type="button"
+                onClick={() => onDayClick(selected, isUnassigned ? undefined : row.id)}
+                className="phone-week-free"
+              >
+                Free — add a job
+              </button>
+            ) : (
+              rowJobs.map(job => (
+                <PhoneJobCard
+                  key={job.id}
+                  job={job}
+                  teamMembers={teamMembers}
+                  onJobClick={onJobClick}
+                  onDragStart={onDragStart}
+                />
+              ))
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 });
