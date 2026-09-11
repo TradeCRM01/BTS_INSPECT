@@ -67,7 +67,7 @@ import { clientRecordHref } from '../lib/clientRecords';
 import {
   Calendar, Clock, User, Phone, Mail, ChevronDown,
   FileText, ShieldCheck, ShieldAlert, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
-  MoreHorizontal, MapPin,
+  MoreHorizontal, MapPin, Camera, CheckCircle2, CornerDownRight, Lock, ChevronRight,
 } from 'lucide-react';
 import {
   buildJobClockOffEntry,
@@ -79,17 +79,21 @@ import {
 } from '../lib/timesheetJob';
 import {
   JOB_VISIT_NOTE_TABLE,
-  VISIT_NOTE_SECTIONS,
   composeVisitNoteBody,
   decideJobVisitNotePost,
-  emptyVisitNoteSections,
+  emptyVisitUpdateDraft,
+  jobVisitNoteAuthor,
   jobVisitNotePostToast,
   jobVisitNotesQuery,
   parseVisitNoteBody,
   postJobVisitNote,
   sortJobVisitNotesNewestFirst,
+  visitAuthorInitials,
+  visitPhotoCountLabel,
+  visitUpdateSections,
   type JobVisitNote,
-  type VisitNoteSections,
+  type VisitUpdateDraft,
+  type VisitUpdateOutcome,
 } from '../lib/jobVisitNotes';
 import {
   JOB_GALLERY_FILTERS,
@@ -489,9 +493,10 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           --visit-action: #2E75B6;
           display: block;
           margin: 0;
-          padding: 4px 0 0;
+          padding: 4px 0 4px;
           background: none;
           border: none;
+          border-bottom: 1px solid var(--visit-line);
           border-radius: 0;
           box-shadow: none;
           overflow: visible;
@@ -502,8 +507,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           grid-template-columns: none;
           column-gap: 0;
           min-height: 0;
-          padding: 4px 0 0;
-          border-bottom: none;
+          padding: 4px 0 4px;
         }
         .hub-jobs.is-record-open #job-visit-notes .ops-tray-head,
         .hub-jobs.is-record-open #job-visit-notes .ops-tray-empty,
@@ -511,158 +515,418 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           display: block;
         }
         .hub-jobs.is-record-open #job-visit-notes .ops-tray-head {
-          padding: 12px 0 2px;
+          padding: 16px 0 4px;
           border: none;
           background: none;
         }
+        /* A flow, not a row. The title sits a step above the paper's 16px row titles. */
         .hub-jobs.is-record-open #job-visit-notes .ops-section-title {
           font-family: Rajdhani, sans-serif;
           font-weight: 700;
-          font-size: 16px;
-          letter-spacing: 0.02em;
+          font-size: 20px;
+          line-height: 24px;
+          letter-spacing: 0.01em;
           text-transform: none;
           color: var(--visit-ink);
-        }
-        .hub-jobs.is-record-open #job-visit-notes .ops-section-title .ops-meta {
-          display: inline;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
-          font-size: 12px;
-          font-weight: 500;
-          letter-spacing: 0;
-          color: var(--visit-muted);
         }
         .hub-jobs.is-record-open #job-visit-notes .ops-section-title svg {
           display: none;
         }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-compose {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) auto;
-          align-items: baseline;
-          gap: 6px 16px;
-          margin: 0;
-          padding: 0 0 4px;
-          background: none;
-          border: none;
-          box-shadow: none;
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-sections {
-          grid-column: 1 / -1;
-          display: grid;
-          gap: 0;
-          padding: 2px 0 0;
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field {
-          display: block;
-          margin: 0;
-          padding: 8px 0 0;
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-tabs {
+          display: flex;
+          gap: 20px;
+          margin: 2px 0 16px;
           border-bottom: 1px solid var(--visit-line);
         }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field:has(.job-visit-hairline:focus) {
-          border-bottom-color: var(--visit-action);
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-section-label {
-          display: block;
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-tab {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          padding: 8px 0 10px;
           margin: 0;
-          font-family: Rajdhani, sans-serif;
-          font-weight: 700;
-          font-size: 11px;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          line-height: 16px;
-          color: var(--visit-muted);
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field:has(.job-visit-hairline:not(:placeholder-shown)) .job-visit-section-label {
-          color: var(--visit-ink);
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field:has(.job-visit-hairline:focus) .job-visit-section-label {
-          color: var(--visit-action);
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline {
-          display: block;
-          width: 100%;
-          min-height: 0;
-          height: auto;
-          field-sizing: content;
-          padding: 2px 0 8px;
-          margin: 0;
+          background: none;
           border: none;
           border-radius: 0;
-          background: transparent;
           box-shadow: none;
-          outline: none;
-          resize: none;
-          color: var(--visit-ink);
           font-family: 'Source Sans 3', system-ui, sans-serif;
-          font-size: 14px;
-          font-weight: 400;
+          font-size: 15px;
+          font-weight: 600;
           line-height: 20px;
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline:focus {
-          box-shadow: none;
-          outline: none;
-        }
-        @media (min-width: 640px) {
-          .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field {
-            display: grid;
-            grid-template-columns: minmax(7rem, 9.5rem) minmax(0, 1fr);
-            column-gap: 16px;
-            align-items: start;
-            padding: 0;
-          }
-          .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field .job-visit-section-label {
-            padding: 9px 0 0;
-          }
-          .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline {
-            padding: 7px 0 7px;
-          }
-        }
-        /* Laptop only: typed text matches the 14px posted note. Phones keep 16px so iOS does not zoom. */
-        @media (min-width: 640px) and (hover: hover) and (pointer: fine) {
-          .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline {
-            font-size: 14px !important;
-          }
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline::placeholder {
           color: var(--visit-muted);
+          cursor: pointer;
         }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-post {
-          grid-column: 2;
-          grid-row: 2;
-          justify-self: end;
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-tab[aria-selected="true"] {
+          color: var(--visit-ink);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-tab[aria-selected="true"]::after {
+          content: '';
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: -1px;
+          height: 2px;
+          background: var(--visit-ink);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-tab:focus-visible {
+          outline: 2px solid var(--visit-action);
+          outline-offset: 2px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-tab-count {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-height: 36px;
-          height: auto;
-          padding: 0;
+          min-width: 20px;
+          height: 20px;
+          padding: 0 6px;
+          margin-left: 6px;
+          border-radius: 10px;
+          background: var(--visit-page);
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--visit-muted);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-compose {
+          display: grid;
+          gap: 22px;
           margin: 0;
+          padding: 0 0 18px;
           background: none;
           border: none;
-          border-radius: 0;
           box-shadow: none;
-          color: var(--visit-action);
+        }
+        /* Laptop: photos on the left, the two questions on the right, like FROM and TO on the quote paper. */
+        @media (min-width: 900px) {
+          .hub-jobs.is-record-open #job-visit-notes .job-notes-compose {
+            grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+            column-gap: 40px;
+            align-items: start;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-notes-step[data-step="photos"] {
+            grid-column: 1;
+            grid-row: 1 / 3;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-notes-step[data-step="done"] {
+            grid-column: 2;
+            grid-row: 1;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-notes-step[data-step="outcome"] {
+            grid-column: 2;
+            grid-row: 2;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-notes-more,
+          .hub-jobs.is-record-open #job-visit-notes .job-notes-foot {
+            grid-column: 1 / -1;
+          }
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-compose fieldset {
+          min-width: 0;
+          margin: 0;
+          padding: 0;
+          border: none;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-compose legend {
+          padding: 0;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-step {
+          display: grid;
+          gap: 10px;
+          margin: 0;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-step-head {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-step-title {
+          margin: 0;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 15px;
+          font-weight: 600;
+          line-height: 20px;
+          color: var(--visit-ink);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-step-meta,
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-helper {
+          margin: 0;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 13px;
+          font-weight: 400;
+          line-height: 18px;
+          color: var(--visit-muted);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-step-meta {
+          white-space: nowrap;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-step-foot {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-link {
           font-family: 'Source Sans 3', system-ui, sans-serif;
           font-size: 14px;
           font-weight: 600;
-          letter-spacing: 0;
-          cursor: pointer;
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-post:hover {
+          line-height: 18px;
           color: var(--visit-action);
           text-decoration: underline;
-          background: none;
+          text-underline-offset: 3px;
+          cursor: pointer;
         }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-post:disabled {
-          color: var(--visit-muted);
-          font-weight: 500;
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-input:focus-visible + .job-notes-link,
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-input:focus-visible + .job-notes-primary {
+          outline: 2px solid var(--visit-action);
+          outline-offset: 2px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-primary,
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-post,
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-choice-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          height: 44px;
+          margin: 0;
+          padding: 0 18px;
+          border-radius: 10px;
+          border: 1px solid var(--visit-line);
+          background: var(--visit-sheet);
+          box-shadow: inset 0 1px 0 #fff;
+          color: var(--visit-ink);
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 15px;
+          font-weight: 600;
+          line-height: 20px;
+          letter-spacing: 0;
           text-decoration: none;
+          cursor: pointer;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-primary,
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-post {
+          min-width: 200px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-primary:hover,
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-post:not(:disabled):hover,
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-choice-btn:hover {
+          border-color: var(--visit-ink);
+          background: var(--visit-sheet);
+          color: var(--visit-ink);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-primary.is-filled,
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-post.is-filled {
+          border-color: transparent;
+          background: var(--visit-action);
+          box-shadow: none;
+          color: #fff;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-primary.is-filled:hover,
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-post.is-filled:not(:disabled):hover {
+          border-color: transparent;
+          background: var(--visit-action);
+          color: #fff;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-post:disabled {
+          border-color: var(--visit-line);
+          background: var(--visit-sheet);
+          box-shadow: inset 0 1px 0 #fff;
+          color: var(--visit-muted);
           cursor: default;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-post:focus-visible,
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-choice-btn:focus-visible {
+          outline: 2px solid var(--visit-action);
+          outline-offset: 2px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-field {
+          display: block;
+          width: 100%;
+          min-height: 44px;
+          height: auto;
+          field-sizing: content;
+          margin: 0;
+          padding: 10px 12px;
+          border: 1px solid var(--visit-line);
+          border-radius: 10px;
+          background: var(--visit-sheet);
+          box-shadow: inset 0 1px 0 #fff;
+          color: var(--visit-ink);
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 16px;
+          font-weight: 400;
+          line-height: 22px;
+          resize: none;
+          outline: none;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-field:focus {
+          border-color: var(--visit-action);
+          box-shadow: inset 0 1px 0 #fff, 0 0 0 3px rgba(46, 117, 182, 0.15);
+          outline: none;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-field::placeholder {
+          color: var(--visit-muted);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-field[data-visit-section="done"],
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-field[data-visit-section="left"] {
+          min-height: 66px;
+        }
+        /* Laptop only: typed text matches the 14px posted note. Phones keep 16px so iOS does not zoom. */
+        @media (min-width: 640px) and (hover: hover) and (pointer: fine) {
+          .hub-jobs.is-record-open #job-visit-notes .job-notes-field {
+            font-size: 14px !important;
+            line-height: 20px;
+          }
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-choice {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-choice-btn {
+          padding: 0 12px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-choice-btn svg {
+          color: var(--visit-muted);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-choice-btn[aria-pressed="true"] {
+          border-color: var(--visit-ink);
+          background: var(--visit-page);
+          box-shadow: inset 0 0 0 1px var(--visit-ink);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-choice-btn[aria-pressed="true"] svg {
+          color: var(--visit-action);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-more {
+          margin: 0;
+          padding: 14px 0 0;
+          border-top: 1px solid var(--visit-line);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-more-summary {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 4px 0;
+          list-style: none;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 15px;
+          font-weight: 600;
+          line-height: 20px;
+          color: var(--visit-ink);
+          cursor: pointer;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-more-summary::-webkit-details-marker {
+          display: none;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-more-summary:focus-visible {
+          outline: 2px solid var(--visit-action);
+          outline-offset: 2px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-more-chevron {
+          color: var(--visit-muted);
+          transition: transform 120ms ease;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-more[open] .job-notes-more-chevron {
+          transform: rotate(90deg);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-more-body {
+          display: grid;
+          gap: 14px;
+          padding: 14px 0 2px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-step-sub {
+          display: grid;
+          gap: 6px;
+          margin: 0;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-sub-title {
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 14px;
+          font-weight: 600;
+          line-height: 18px;
+          text-transform: none;
+          color: var(--visit-ink);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-strip {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-strip img {
+          display: block;
+          width: 64px;
+          height: 64px;
+          object-fit: cover;
+          border-radius: 8px;
+          border: 1px solid var(--visit-line);
+          background: var(--visit-page);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-foot {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding-top: 14px;
+          border-top: 1px solid var(--visit-line);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-stamp {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin: 0;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 13px;
+          font-weight: 400;
+          line-height: 18px;
+          color: var(--visit-muted);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-avatar {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex: none;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          border: 1px solid var(--visit-line);
+          background: var(--visit-page);
+          font-family: Rajdhani, sans-serif;
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          color: var(--visit-ink);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-stamp-lines {
+          display: grid;
+          gap: 2px;
+          min-width: 0;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-notes-team-only {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          margin: 0;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 12px;
+          font-weight: 400;
+          line-height: 16px;
+          color: var(--visit-muted);
+        }
+        @media (max-width: 639px) {
+          .hub-jobs.is-record-open #job-visit-notes .job-notes-primary,
+          .hub-jobs.is-record-open #job-visit-notes .job-notes-post {
+            width: 100%;
+            min-width: 0;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-notes-foot {
+            flex-direction: column-reverse;
+            align-items: stretch;
+          }
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-log {
           display: grid;
           gap: 10px;
           margin: 0;
-          padding: 10px 0 4px;
+          padding: 0 0 18px;
           background: none;
           border: none;
           box-shadow: none;
@@ -722,6 +986,13 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           margin-bottom: 0;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-body .job-visit-section-label {
+          display: block;
+          margin: 0;
+          font-family: Rajdhani, sans-serif;
+          font-weight: 700;
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
           line-height: 14px;
           color: var(--visit-ink);
         }
@@ -769,9 +1040,6 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           display: none;
         }
         @media (max-width: 639px) {
-          .hub-jobs.is-record-open #job-visit-notes .job-visit-post {
-            min-height: 24px;
-          }
           .hub-jobs.is-record-open #job-visit-notes .job-visit-row {
             padding: 10px 12px;
           }
@@ -781,36 +1049,6 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           width: 1px;
           height: 1px;
           opacity: 0;
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-bar {
-          grid-column: 1;
-          grid-row: 2;
-          display: flex;
-          align-items: baseline;
-          gap: 12px;
-          min-height: 24px;
-          margin: -2px 0 0;
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-add {
-          color: var(--visit-muted);
-          font-family: 'Source Sans 3', system-ui, sans-serif;
-          font-size: 14px;
-          font-weight: 500;
-          line-height: 24px;
-          cursor: pointer;
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-add:hover {
-          color: var(--visit-ink);
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-input:focus-visible + .job-visit-photo-add {
-          color: var(--visit-action);
-          text-decoration: underline;
-        }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-count {
-          margin: 0;
-          color: var(--visit-muted);
-          font-family: 'Source Sans 3', system-ui, sans-serif;
-          font-size: 12px;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-photos {
           display: grid;
@@ -1125,7 +1363,8 @@ export function JobDetailPage() {
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
-  const [visitDraft, setVisitDraft] = useState<VisitNoteSections>(emptyVisitNoteSections);
+  const [visitDraft, setVisitDraft] = useState<VisitUpdateDraft>(emptyVisitUpdateDraft);
+  const [visitTab, setVisitTab] = useState<'new' | 'history'>('new');
   const [visitPhotos, setVisitPhotos] = useState<AttachedPhoto[]>([]);
   const [visitAttaching, setVisitAttaching] = useState(false);
   const [galleryFilter, setGalleryFilter] = useState<JobGalleryFilter>('all');
@@ -1133,7 +1372,10 @@ export function JobDetailPage() {
   const [arrivingSent, setArrivingSent] = useState(false);
   const [arrivingBusy, setArrivingBusy] = useState(false);
   const visitPhotoRef = useRef<HTMLInputElement>(null);
+  const visitGalleryRef = useRef<HTMLInputElement>(null);
   const visitAttachSeq = useRef(0);
+  const visitStripUrls = useMemo(() => visitPhotos.map(photo => URL.createObjectURL(photo.file)), [visitPhotos]);
+  useEffect(() => () => { visitStripUrls.forEach(url => URL.revokeObjectURL(url)); }, [visitStripUrls]);
   const galleryPhotoRef = useRef<HTMLInputElement>(null);
   const lightboxRef = useRef<HTMLDialogElement>(null);
   const moreRef = useRef<HTMLDetailsElement>(null);
@@ -1695,7 +1937,7 @@ export function JobDetailPage() {
         companyId: profile?.company_id,
         authorId: profile?.id,
         authorName: profile?.name,
-        sections: visitDraft,
+        sections: visitUpdateSections(visitDraft),
         photoCount: visitPhotos.length,
       });
       let failed = 0;
@@ -1714,9 +1956,10 @@ export function JobDetailPage() {
     onSuccess: ({ failed }) => {
       queryClient.invalidateQueries({ queryKey: ['job-visit-notes', id] });
       queryClient.invalidateQueries({ queryKey: ['job-photos', id] });
-      setVisitDraft(emptyVisitNoteSections());
+      setVisitDraft(emptyVisitUpdateDraft());
       setVisitPhotos([]);
       if (visitPhotoRef.current) visitPhotoRef.current.value = '';
+      if (visitGalleryRef.current) visitGalleryRef.current.value = '';
       const toast = jobVisitNotePostToast();
       showToast(toast.message, toast.kind);
       if (failed > 0) {
@@ -2009,10 +2252,31 @@ export function JobDetailPage() {
     companyId: profile?.company_id,
     authorId: profile?.id,
     authorName: profile?.name,
-    sections: visitDraft,
+    sections: visitUpdateSections(visitDraft),
     photoCount: visitPhotos.length,
   });
+  const visitReady = visitDecision.action === 'write';
   const visitLog = sortJobVisitNotesNewestFirst(visitNotes);
+  const attachVisitPhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    // A second pick while the first waits on the permission prompt must win.
+    const seq = visitAttachSeq.current + 1;
+    visitAttachSeq.current = seq;
+    setVisitAttaching(true);
+    resolvePhotoProvenance(files, BROWSER_PROVENANCE_DEPS).then(photos => {
+      if (visitAttachSeq.current !== seq) return;
+      setVisitPhotos(photos);
+      setVisitAttaching(false);
+    });
+  };
+  const chooseVisitOutcome = (outcome: VisitUpdateOutcome) => {
+    setVisitDraft(draft => ({ ...draft, outcome: draft.outcome === outcome ? null : outcome }));
+  };
+  const typeVisitText = (key: Exclude<keyof VisitUpdateDraft, 'outcome'>) =>
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const value = e.target.value;
+      setVisitDraft(draft => ({ ...draft, [key]: value }));
+    };
   const galleryCounts = galleryFilterCounts(gallery);
   const visibleGallery = filterJobGallery(gallery, galleryFilter);
   const lightboxPlace = describePhotoPlace(lightboxPhoto?.place ?? null);
@@ -2710,12 +2974,36 @@ export function JobDetailPage() {
           <div className="ops-tray-head">
             <h2 className="ops-section-title flex items-center gap-1.5 min-w-0">
               <FileText size={14} className="text-navy shrink-0" />
-              <span className="truncate">Visit notes</span>
-              <span className="ops-meta font-normal">{visitLog.length}</span>
+              <span className="truncate">Job notes & photos</span>
             </h2>
           </div>
+          <div className="job-notes-tabs" role="tablist" aria-label="Job notes">
+            <button
+              type="button"
+              role="tab"
+              className="job-notes-tab"
+              data-tab="new"
+              aria-selected={visitTab === 'new'}
+              onClick={() => setVisitTab('new')}
+            >
+              New update
+            </button>
+            <button
+              type="button"
+              role="tab"
+              className="job-notes-tab"
+              data-tab="history"
+              aria-selected={visitTab === 'history'}
+              onClick={() => setVisitTab('history')}
+            >
+              History
+              <span className="job-notes-tab-count">{visitLog.length}</span>
+            </button>
+          </div>
+          {visitTab === 'new' ? (
           <form
-            className="job-visit-compose"
+            className="job-notes-compose"
+            role="tabpanel"
             onSubmit={e => {
               e.preventDefault();
               if (visitDecision.action === 'miss') {
@@ -2725,33 +3013,13 @@ export function JobDetailPage() {
               postVisitNote.mutate();
             }}
           >
-            <div className="job-visit-sections">
-              {VISIT_NOTE_SECTIONS.map(section => (
-                <label key={section.key} className="job-visit-section-field">
-                  <span className="job-visit-section-label">{section.label}</span>
-                  <textarea
-                    className="job-visit-hairline"
-                    rows={1}
-                    data-visit-section={section.key}
-                    aria-label={section.label}
-                    value={visitDraft[section.key]}
-                    onChange={e => {
-                      const value = e.target.value;
-                      setVisitDraft(draft => ({ ...draft, [section.key]: value }));
-                    }}
-                    placeholder={section.placeholder}
-                  />
-                </label>
-              ))}
-            </div>
-            <button
-              type="submit"
-              className="job-visit-post"
-              disabled={postVisitNote.isPending || visitAttaching || visitDecision.action === 'miss'}
-            >
-              Post note
-            </button>
-            <div className="job-visit-photo-bar">
+            <section className="job-notes-step" data-step="photos">
+              <div className="job-notes-step-head">
+                <span className="job-notes-step-title">Show the finished work</span>
+                <span className="job-notes-step-meta job-visit-photo-count">
+                  {visitAttaching ? 'Reading photo time and place…' : visitPhotoCountLabel(visitPhotos.length)}
+                </span>
+              </div>
               <input
                 ref={visitPhotoRef}
                 type="file"
@@ -2760,31 +3028,154 @@ export function JobDetailPage() {
                 capture="environment"
                 className="job-visit-photo-input"
                 id="job-visit-photo-input"
-                onChange={e => {
-                  const files = Array.from(e.target.files ?? []);
-                  // A second pick while the first waits on the permission prompt must win.
-                  const seq = visitAttachSeq.current + 1;
-                  visitAttachSeq.current = seq;
-                  setVisitAttaching(true);
-                  resolvePhotoProvenance(files, BROWSER_PROVENANCE_DEPS).then(photos => {
-                    if (visitAttachSeq.current !== seq) return;
-                    setVisitPhotos(photos);
-                    setVisitAttaching(false);
-                  });
-                }}
+                onChange={attachVisitPhotos}
               />
-              <label htmlFor="job-visit-photo-input" className="job-visit-photo-add">Add photos</label>
-              {visitAttaching && (
-                <span className="job-visit-photo-count">Reading photo time and place…</span>
+              <label
+                htmlFor="job-visit-photo-input"
+                className={`job-notes-primary${visitReady ? '' : ' is-filled'}`}
+              >
+                <Camera size={18} />
+                {visitPhotos.length > 0 ? 'Take more photos' : 'Take photos'}
+              </label>
+              <div className="job-notes-step-foot">
+                <span className="job-notes-helper">One wide shot + a close-up</span>
+                <input
+                  ref={visitGalleryRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="job-visit-photo-input"
+                  id="job-visit-gallery-input"
+                  onChange={attachVisitPhotos}
+                />
+                <label htmlFor="job-visit-gallery-input" className="job-notes-link">Choose from gallery</label>
+              </div>
+              {visitPhotos.length > 0 && (
+                <div className="job-notes-strip">
+                  {visitStripUrls.map(url => (
+                    <img key={url} src={url} alt="" />
+                  ))}
+                </div>
               )}
-              {!visitAttaching && visitPhotos.length > 0 && (
-                <span className="job-visit-photo-count">{visitPhotos.length} photo(s) attached</span>
+            </section>
+            <label className="job-notes-step" data-step="done">
+              <span className="job-notes-step-head">
+                <span className="job-notes-step-title">What did you do?</span>
+                <span className="job-notes-step-meta">A sentence or two</span>
+              </span>
+              <textarea
+                className="job-notes-field"
+                rows={2}
+                data-visit-section="done"
+                aria-label="What did you do?"
+                placeholder="e.g. Fitted the new unit, tested it and tidied up."
+                value={visitDraft.done}
+                onChange={typeVisitText('done')}
+              />
+            </label>
+            <fieldset className="job-notes-step" data-step="outcome">
+              <legend className="job-notes-step-title">Anything left to do?</legend>
+              <div className="job-notes-choice">
+                <button
+                  type="button"
+                  className="job-notes-choice-btn"
+                  data-outcome="all_done"
+                  aria-pressed={visitDraft.outcome === 'all_done'}
+                  onClick={() => chooseVisitOutcome('all_done')}
+                >
+                  <CheckCircle2 size={18} />
+                  All done
+                </button>
+                <button
+                  type="button"
+                  className="job-notes-choice-btn"
+                  data-outcome="more_to_do"
+                  aria-pressed={visitDraft.outcome === 'more_to_do'}
+                  onClick={() => chooseVisitOutcome('more_to_do')}
+                >
+                  <CornerDownRight size={18} />
+                  More to do
+                </button>
+              </div>
+              {visitDraft.outcome === 'more_to_do' && (
+                <textarea
+                  className="job-notes-field"
+                  rows={2}
+                  data-visit-section="left"
+                  aria-label="What's left to do"
+                  placeholder="e.g. Label the board and tidy the run next visit."
+                  value={visitDraft.left}
+                  onChange={typeVisitText('left')}
+                />
               )}
+            </fieldset>
+            <details className="job-notes-more" data-step="more">
+              <summary className="job-notes-more-summary">
+                <ChevronRight size={16} className="job-notes-more-chevron" />
+                Parts used & customer requests
+                <span className="job-notes-step-meta">· optional</span>
+              </summary>
+              <div className="job-notes-more-body">
+                <label className="job-notes-step-sub">
+                  <span className="job-notes-sub-title">Parts used</span>
+                  <textarea
+                    className="job-notes-field"
+                    rows={1}
+                    data-visit-section="parts_used"
+                    placeholder="Materials and quantities"
+                    value={visitDraft.parts_used}
+                    onChange={typeVisitText('parts_used')}
+                  />
+                </label>
+                <label className="job-notes-step-sub">
+                  <span className="job-notes-sub-title">Parts needed next visit</span>
+                  <textarea
+                    className="job-notes-field"
+                    rows={1}
+                    data-visit-section="parts_needed"
+                    placeholder="What to bring next time"
+                    value={visitDraft.parts_needed}
+                    onChange={typeVisitText('parts_needed')}
+                  />
+                </label>
+                <label className="job-notes-step-sub">
+                  <span className="job-notes-sub-title">Customer wants</span>
+                  <textarea
+                    className="job-notes-field"
+                    rows={1}
+                    data-visit-section="customer_wants"
+                    placeholder="What the customer asked for"
+                    value={visitDraft.customer_wants}
+                    onChange={typeVisitText('customer_wants')}
+                  />
+                </label>
+              </div>
+            </details>
+            <div className="job-notes-foot">
+              <p className="job-notes-stamp">
+                <span className="job-notes-avatar">{visitAuthorInitials(profile?.name)}</span>
+                <span className="job-notes-stamp-lines">
+                  <span className="job-notes-stamp-text">{jobVisitNoteAuthor(profile?.name)} · name & time added for you</span>
+                  <span className="job-notes-team-only">
+                    <Lock size={12} />
+                    Team only · not sent to the customer
+                  </span>
+                </span>
+              </p>
+              <button
+                type="submit"
+                className={`job-visit-post job-notes-post${visitReady ? ' is-filled' : ''}`}
+                disabled={postVisitNote.isPending || visitAttaching || visitDecision.action === 'miss'}
+              >
+                Post update
+              </button>
             </div>
           </form>
+          ) : (
+          <div role="tabpanel">
           {visitLog.length === 0 ? (
             <div className="ops-tray-empty">
-              <p className="text-sm text-navy">No visit notes on this job yet.</p>
+              <p className="text-sm text-navy">No updates on this job yet.</p>
             </div>
           ) : (
             <div className="job-visit-log">
@@ -2832,6 +3223,8 @@ export function JobDetailPage() {
                 );
               })}
             </div>
+          )}
+          </div>
           )}
         </section>
 
