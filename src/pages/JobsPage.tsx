@@ -113,6 +113,51 @@ function jobsListLookRows(): JobRowModel[] {
       client_name: 'Midland Workshops',
       client_address: '44 Helena St, Midland WA 6056',
     },
+    {
+      ...base,
+      id: 'look-job-bayswater',
+      client_id: 'look-client-bayswater',
+      title: 'Hot water swap',
+      status: 'completed',
+      scheduled_date: '2026-09-01',
+      start_time: '07:00',
+      end_time: '11:00',
+      address: '3 Guildford Rd, Bayswater WA 6053',
+      assigned_team: ['look-jobs-jack'],
+      job_number: 45,
+      client_name: 'Bayswater Body Corporate',
+      client_address: '3 Guildford Rd, Bayswater WA 6053',
+    },
+    {
+      ...base,
+      id: 'look-job-scarborough',
+      client_id: 'look-client-scarborough',
+      title: 'Deck repair',
+      status: 'scheduled',
+      scheduled_date: '2026-09-09',
+      start_time: '08:00',
+      end_time: '14:00',
+      address: '21 The Esplanade, Scarborough WA 6019',
+      assigned_team: ['look-jobs-dave'],
+      job_number: 46,
+      client_name: 'Coastal Holiday Rentals',
+      client_address: '21 The Esplanade, Scarborough WA 6019',
+    },
+    {
+      ...base,
+      id: 'look-job-osborne',
+      client_id: 'look-client-osborne',
+      title: 'Rooftop unit service',
+      status: 'cancelled',
+      scheduled_date: '2026-08-28',
+      start_time: '09:30',
+      end_time: '12:30',
+      address: '9 Hutton St, Osborne Park WA 6017',
+      assigned_team: ['look-jobs-jack'],
+      job_number: 47,
+      client_name: 'Osborne Park Medical',
+      client_address: '9 Hutton St, Osborne Park WA 6017',
+    },
   ];
 }
 
@@ -261,13 +306,22 @@ export function JobsPage() {
                 <Plus size={16} /> New job
               </button>
               <div className="hub-jobs-list-tools-overflow">
-                <JobsListFind
-                  statusFilter={statusFilter}
-                  onStatusFilter={setStatusFilter}
-                  search={search}
-                  onSearch={setSearch}
-                />
+                <JobsListFind search={search} onSearch={setSearch} />
               </div>
+            </div>
+            <div className="hub-jobs-list-filters" role="tablist" aria-label="Job status">
+              {STATUS_FILTERS.map(tab => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={statusFilter === tab.key}
+                  onClick={() => setStatusFilter(tab.key)}
+                  className={`hub-jobs-list-filter ${statusFilter === tab.key ? 'is-on' : ''}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
             {isLoading ? (
               <div className="flex justify-center py-20"><LoadingSpinner /></div>
@@ -342,13 +396,9 @@ function placeJobsListMore(more: HTMLDetailsElement) {
 }
 
 function JobsListFind({
-  statusFilter,
-  onStatusFilter,
   search,
   onSearch,
 }: {
-  statusFilter: StatusFilter;
-  onStatusFilter: (key: StatusFilter) => void;
   search: string;
   onSearch: (value: string) => void;
 }) {
@@ -380,24 +430,11 @@ function JobsListFind({
 
   return (
     <details ref={moreRef} className="hub-jobs-list-more hub-jobs-list-find">
-      <summary aria-label="Find">
+      <summary aria-label="Search">
         <MoreHorizontal size={18} />
       </summary>
       <div className="hub-jobs-list-more-menu" role="menu">
         <div className="hub-jobs-chrome">
-          <div className="hub-jobs-filters">
-            {STATUS_FILTERS.map(tab => (
-              <button
-                key={tab.key}
-                type="button"
-                role="menuitem"
-                onClick={() => onStatusFilter(tab.key)}
-                className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
           <SearchBar value={search} onChange={onSearch} placeholder="Search jobs or clients..." />
         </div>
       </div>
