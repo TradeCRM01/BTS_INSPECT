@@ -209,8 +209,8 @@ async function proveViewport(browser, tag, viewport, shot, photoJpeg) {
   const composed = wall.find((r) => r.paragraphs.some((p) => p.includes('Fitted the new unit')));
   const free = wall.find((r) => r.paragraphs.some((p) => p.includes('Pulled the old unit')));
   check(`${tag}WallShowsSectionLabelsOnComposedNote`,
-    !!composed && composed.labels.join('|') === 'Done|Left to do|Parts used|Customer wants'
-    && composed.paragraphs.length === 4
+    !!composed && composed.labels.join('|') === 'Done|Left to do|Parts used|Parts needed next visit|Customer wants'
+    && composed.paragraphs.length === 5
     && composed.paragraphs[0] === 'DoneFitted the new unit. Tested and running.',
     { labels: composed?.labels ?? null, paragraphs: composed?.paragraphs ?? null, stamp: composed?.stamp ?? null });
   check(`${tag}WallRendersFreeTextNoteWithoutLabels`,

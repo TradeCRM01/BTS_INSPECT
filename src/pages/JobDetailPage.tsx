@@ -303,6 +303,7 @@ function lookVisitNotes(jobId: string): JobVisitNote[] {
         done: 'Fitted the new unit. Tested and running.',
         left: 'Tidy the run and label the board.',
         parts_used: '1 unit, 3 m of 20 mm pipe, 4 saddles.',
+        parts_needed: 'Two brackets and a bag of fixings.',
         customer_wants: 'A quote for the upstairs run.',
       }),
       created_at: '2026-09-08T09:15:00.000Z',
@@ -658,31 +659,55 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           cursor: default;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-log {
+          display: grid;
+          gap: 10px;
           margin: 0;
-          padding: 0;
+          padding: 10px 0 4px;
           background: none;
           border: none;
           box-shadow: none;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-row {
           margin: 0;
-          padding: 10px 0;
-          border: none;
-          border-bottom: 1px solid var(--visit-line);
-          background: none;
-          box-shadow: none;
+          padding: 12px 14px;
+          border: 1px solid var(--visit-line);
+          border-radius: 12px;
+          background: var(--visit-sheet);
+          box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(10, 37, 64, 0.06);
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-stamp {
-          margin: 0 0 4px;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 2px 12px;
+          margin: 0 0 8px;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 12px;
+          font-weight: 500;
+          letter-spacing: 0;
+          text-transform: none;
+          color: var(--visit-muted);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-author {
           font-family: Rajdhani, sans-serif;
           font-weight: 700;
+          font-size: 14px;
+          letter-spacing: 0.02em;
+          line-height: 18px;
+          color: var(--visit-ink);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-time {
+          font-family: 'Source Sans 3', system-ui, sans-serif;
           font-size: 12px;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
+          font-weight: 500;
+          line-height: 18px;
           color: var(--visit-muted);
+          white-space: nowrap;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-body {
           margin: 0;
+          padding-left: 8px;
           font-family: 'Source Sans 3', system-ui, sans-serif;
           font-size: 14px;
           font-weight: 400;
@@ -701,9 +726,14 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           color: var(--visit-ink);
         }
         @media (min-width: 640px) {
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-body {
+            padding-left: 12px;
+          }
+          /* Card border 1px + padding 14px + body inset 12px = 27px. Narrowing the label column by
+             that much lines the nested text up with the composer's text column above. */
           .hub-jobs.is-record-open #job-visit-notes .job-visit-body .job-visit-block {
             display: grid;
-            grid-template-columns: minmax(7rem, 9.5rem) minmax(0, 1fr);
+            grid-template-columns: minmax(calc(7rem - 27px), calc(9.5rem - 27px)) minmax(0, 1fr);
             column-gap: 16px;
             align-items: start;
             margin: 0 0 4px;
@@ -741,6 +771,9 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
         @media (max-width: 639px) {
           .hub-jobs.is-record-open #job-visit-notes .job-visit-post {
             min-height: 24px;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-row {
+            padding: 10px 12px;
           }
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-input {
@@ -783,7 +816,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           display: grid;
           grid-template-columns: repeat(auto-fill, 72px);
           gap: 6px;
-          margin: 8px 0 2px;
+          margin: 8px 0 2px 8px;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-photos button {
           display: block;
@@ -808,6 +841,11 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
         @media (max-width: 639px) {
           .hub-jobs.is-record-open #job-visit-notes .job-visit-photos {
             grid-template-columns: repeat(4, minmax(0, 1fr));
+          }
+        }
+        @media (min-width: 640px) {
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-photos {
+            margin-left: 12px;
           }
         }
 `;
@@ -2756,7 +2794,10 @@ export function JobDetailPage() {
                 return (
                 <div key={note.id} className="job-visit-row">
                   <p className="job-visit-stamp">
-                    {note.author_name} · {format(parseISO(note.created_at), 'd MMM yyyy · HH:mm')}
+                    <span className="job-visit-author">{note.author_name}</span>
+                    <time className="job-visit-time" dateTime={note.created_at}>
+                      {format(parseISO(note.created_at), 'd MMM yyyy · HH:mm')}
+                    </time>
                   </p>
                   {blocks.length > 0 && (
                     <div className="job-visit-body">
