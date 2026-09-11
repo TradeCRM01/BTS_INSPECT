@@ -9,13 +9,15 @@
 // pages read profile, company, jobs, quotes, invoices, crew and reminders from the fake store.
 // Run: node scripts/prove-reminders-harness.mjs
 // Needs a dev server on LOOK_BASE_URL (default http://127.0.0.1:5173) started with that .env.
-// Writes docs/proof/reminders/harness-*.png, harness-notes.json and docs/look/reminders-*.png.
+// Writes docs/proof/reminders/harness-*.png, harness-notes.json and the look frames
+// docs/look/reminders-{list,edit,today}-{laptop-1280,phone-390}.png.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const BASE = process.env.LOOK_BASE_URL || 'http://127.0.0.1:5173';
 const OUT = 'docs/proof/reminders';
 const LOOK = 'docs/look';
+const FRAME = { laptop: 'laptop-1280', phone: 'phone-390' };
 
 const ME = '00000000-0000-0000-0000-000000000002';
 const COMPANY = '00000000-0000-0000-0000-000000000001';
@@ -289,7 +291,7 @@ async function proveViewport(browser, tag, viewport) {
     list.find((r) => r.id === 'rem-3')?.meta?.includes('#0043') && /Today/.test(list.find((r) => r.id === 'rem-3')?.meta ?? ''),
     { meta: list.find((r) => r.id === 'rem-3')?.meta ?? null });
   checkPaper(`${tag}List`, await measurePaper(page, '[data-reminders-page]'));
-  await page.screenshot({ path: `${LOOK}/reminders-list-${tag}.png` });
+  await page.screenshot({ path: `${LOOK}/reminders-list-${FRAME[tag]}.png` });
 
   // 2. Quick capture: one line and Add.
   await page.fill('#reminder-capture', 'Send Sarah the upstairs quote');
@@ -323,11 +325,11 @@ async function proveViewport(browser, tag, viewport) {
   check(`${tag}JobOptionReadsRefAndTitle`, editJobOption === '#0043 · Upstairs lighting', { option: editJobOption });
   checkPaper(`${tag}Edit`, await measurePaper(page, '[data-reminder-edit]'));
   if (tag === 'phone') {
-    await page.screenshot({ path: `${LOOK}/reminders-edit-${tag}-visibility.png` });
+    await page.screenshot({ path: `${LOOK}/reminders-edit-${FRAME[tag]}-visibility.png` });
     await page.evaluate(() => document.querySelector('[data-reminder-edit] .dashboard-home-hero')?.scrollIntoView({ block: 'start' }));
     await settle(page, 200);
   }
-  await page.screenshot({ path: `${LOOK}/reminders-edit-${tag}.png` });
+  await page.screenshot({ path: `${LOOK}/reminders-edit-${FRAME[tag]}.png` });
   await page.click('.reminder-save');
   await page.waitForSelector('[data-reminders-page]', { timeout: 15000 });
   await settle(page);
@@ -500,7 +502,7 @@ async function proveViewport(browser, tag, viewport) {
   await page.evaluate(() => window.scrollTo(0, 0));
   await settle(page);
   checkPaper(`${tag}Today`, await measurePaper(page, '.dashboard-home'));
-  await page.screenshot({ path: `${LOOK}/reminders-today-${tag}.png` });
+  await page.screenshot({ path: `${LOOK}/reminders-today-${FRAME[tag]}.png` });
 
   // 8. Quotes list shows the chase chip on the stale sent quote and it opens the send dialog.
   await page.goto(`${BASE}/quotes`, { waitUntil: 'domcontentloaded' });
