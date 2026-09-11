@@ -38,6 +38,19 @@ describe('readJpegExif', () => {
     expect(exif.lng).toBeCloseTo(153.0251, 6);
   });
 
+  it('reads the same values from a little-endian (II) TIFF, the order most Android cameras write', () => {
+    const exif = readJpegExif(buffer(withExif(BARE_JPEG, {
+      dateTimeOriginal: '2026:09:08 09:15:30',
+      offsetTimeOriginal: '+10:00',
+      ...BRISBANE,
+      little: true,
+    })));
+    expect(exif.dateTimeOriginal).toBe('2026:09:08 09:15:30');
+    expect(exif.offsetTimeOriginal).toBe('+10:00');
+    expect(exif.lat).toBeCloseTo(-27.4698, 6);
+    expect(exif.lng).toBeCloseTo(153.0251, 6);
+  });
+
   it('reads a fix west of Greenwich as negative longitude', () => {
     const exif = readJpegExif(buffer(withExif(BARE_JPEG, { lat: 51.5007, lng: -0.1246 })));
     expect(exif.lat).toBeCloseTo(51.5007, 6);
@@ -67,8 +80,12 @@ describe('exifDateToIso', () => {
     expect(exifDateToIso('2026:09:08 09:15:30', 'garbage')).toBe('2026-09-08T09:15:30.000Z');
   });
 
-  it('refuses blank and malformed clocks', () => {
+  it('refuses blank, malformed, pre-1900, and impossible-day clocks', () => {
     expect(exifDateToIso('0000:00:00 00:00:00', null)).toBe(null);
+    expect(exifDateToIso('0050:01:01 00:00:00', null)).toBe(null);
+    expect(exifDateToIso('2026:02:30 10:00:00', null)).toBe(null);
+    expect(exifDateToIso('2026:02:30 10:00:00', '+10:00')).toBe(null);
+    expect(exifDateToIso('2026:02:28 23:30:00', '-05:00')).toBe('2026-03-01T04:30:00.000Z');
     expect(exifDateToIso('yesterday', null)).toBe(null);
     expect(exifDateToIso(null, '+10:00')).toBe(null);
   });
@@ -138,16 +155,22 @@ describe('resolvePhotoProvenance', () => {
     expect(attached.map(photo => photo.provenance.place?.source)).toEqual(['exif', 'exif']);
   });
 
-  it('leaves place empty when the device declines', async () => {
-    const attached = await resolvePhotoProvenance(
-      [jpegFile('plain.jpg', BARE_JPEG)],
-      { now: () => attachClock, locate: async () => null },
-    );
-    expect(attached[0].provenance).toEqual({
+  it('leaves place empty when the device declines or the fix throws', async () => {
+    const expected = {
       takenAt: '2026-09-11T01:02:03.000Z',
       takenAtSource: 'upload',
       place: null,
-    });
+    };
+    const declined = await resolvePhotoProvenance(
+      [jpegFile('plain.jpg', BARE_JPEG)],
+      { now: () => attachClock, locate: async () => null },
+    );
+    expect(declined[0].provenance).toEqual(expected);
+    const threw = await resolvePhotoProvenance(
+      [jpegFile('plain.jpg', BARE_JPEG)],
+      { now: () => attachClock, locate: async () => { throw new Error('no geolocation'); } },
+    );
+    expect(threw[0].provenance).toEqual(expected);
   });
 });
 

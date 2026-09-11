@@ -14,18 +14,18 @@ function ascii(text) {
   return Uint8Array.from([...text].map((c) => c.charCodeAt(0)).concat([0]));
 }
 
-function u32(value) {
+function u32(value, little) {
   const out = new Uint8Array(4);
-  new DataView(out.buffer).setUint32(0, value >>> 0);
+  new DataView(out.buffer).setUint32(0, value >>> 0, little);
   return out;
 }
 
-function rationals(pairs) {
+function rationals(pairs, little) {
   const out = new Uint8Array(pairs.length * 8);
   const view = new DataView(out.buffer);
   pairs.forEach(([num, den], i) => {
-    view.setUint32(i * 8, num >>> 0);
-    view.setUint32(i * 8 + 4, den >>> 0);
+    view.setUint32(i * 8, num >>> 0, little);
+    view.setUint32(i * 8 + 4, den >>> 0, little);
   });
   return out;
 }
@@ -51,23 +51,23 @@ function concat(chunks) {
   return out;
 }
 
-/** Big-endian IFD table plus its value heap, laid out at `ifdOffset` inside the TIFF. */
-function ifdBlock(entries, ifdOffset) {
+/** IFD table plus its value heap, laid out at `ifdOffset` inside the TIFF. */
+function ifdBlock(entries, ifdOffset, little) {
   const tableSize = 2 + entries.length * 12 + 4;
   const table = new Uint8Array(tableSize);
   const view = new DataView(table.buffer);
-  view.setUint16(0, entries.length);
+  view.setUint16(0, entries.length, little);
   const heap = [];
   let heapAt = ifdOffset + tableSize;
   entries.forEach((entry, i) => {
     const row = 2 + i * 12;
-    view.setUint16(row, entry.tag);
-    view.setUint16(row + 2, entry.type);
-    view.setUint32(row + 4, entry.count);
+    view.setUint16(row, entry.tag, little);
+    view.setUint16(row + 2, entry.type, little);
+    view.setUint32(row + 4, entry.count, little);
     if (entry.bytes.length <= 4) {
       table.set(entry.bytes, row + 8);
     } else {
-      view.setUint32(row + 8, heapAt);
+      view.setUint32(row + 8, heapAt, little);
       const padded = entry.bytes.length % 2 ? concat([entry.bytes, new Uint8Array(1)]) : entry.bytes;
       heap.push(padded);
       heapAt += padded.length;
@@ -78,10 +78,12 @@ function ifdBlock(entries, ifdOffset) {
 
 /**
  * Returns `jpeg` with an EXIF APP1 inserted right after SOI.
- * options: { dateTimeOriginal?: 'YYYY:MM:DD HH:MM:SS', offsetTimeOriginal?: '+10:00', lat?: number, lng?: number }
+ * options: { dateTimeOriginal?: 'YYYY:MM:DD HH:MM:SS', offsetTimeOriginal?: '+10:00', lat?: number, lng?: number, little?: boolean }
+ * `little` writes the TIFF as II (little-endian), the order most Android cameras use. Default MM.
  */
 export function withExif(jpeg, options) {
   if (jpeg[0] !== 0xff || jpeg[1] !== 0xd8) throw new Error('not a JPEG');
+  const little = !!options.little;
   const exifEntries = [];
   if (options.dateTimeOriginal) {
     const bytes = ascii(options.dateTimeOriginal);
@@ -94,9 +96,9 @@ export function withExif(jpeg, options) {
   const hasFix = typeof options.lat === 'number' && typeof options.lng === 'number';
   const gpsEntries = hasFix ? [
     { tag: 1, type: TYPE_ASCII, count: 2, bytes: ascii(options.lat < 0 ? 'S' : 'N') },
-    { tag: 2, type: TYPE_RATIONAL, count: 3, bytes: rationals(toDms(options.lat)) },
+    { tag: 2, type: TYPE_RATIONAL, count: 3, bytes: rationals(toDms(options.lat), little) },
     { tag: 3, type: TYPE_ASCII, count: 2, bytes: ascii(options.lng < 0 ? 'W' : 'E') },
-    { tag: 4, type: TYPE_RATIONAL, count: 3, bytes: rationals(toDms(options.lng)) },
+    { tag: 4, type: TYPE_RATIONAL, count: 3, bytes: rationals(toDms(options.lng), little) },
   ] : [];
 
   const ifd0Entries = [];
@@ -105,17 +107,19 @@ export function withExif(jpeg, options) {
   let next = ifd0Offset + ifd0Size;
   let exifBlock = new Uint8Array(0);
   if (exifEntries.length) {
-    ifd0Entries.push({ tag: TAG_EXIF_IFD, type: TYPE_LONG, count: 1, bytes: u32(next) });
-    exifBlock = ifdBlock(exifEntries, next);
+    ifd0Entries.push({ tag: TAG_EXIF_IFD, type: TYPE_LONG, count: 1, bytes: u32(next, little) });
+    exifBlock = ifdBlock(exifEntries, next, little);
     next += exifBlock.length;
   }
   let gpsBlock = new Uint8Array(0);
   if (gpsEntries.length) {
-    ifd0Entries.push({ tag: TAG_GPS_IFD, type: TYPE_LONG, count: 1, bytes: u32(next) });
-    gpsBlock = ifdBlock(gpsEntries, next);
+    ifd0Entries.push({ tag: TAG_GPS_IFD, type: TYPE_LONG, count: 1, bytes: u32(next, little) });
+    gpsBlock = ifdBlock(gpsEntries, next, little);
   }
-  const header = Uint8Array.from([0x4d, 0x4d, 0x00, 0x2a, 0x00, 0x00, 0x00, 0x08]);
-  const tiff = concat([header, ifdBlock(ifd0Entries, ifd0Offset), exifBlock, gpsBlock]);
+  const header = little
+    ? Uint8Array.from([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00])
+    : Uint8Array.from([0x4d, 0x4d, 0x00, 0x2a, 0x00, 0x00, 0x00, 0x08]);
+  const tiff = concat([header, ifdBlock(ifd0Entries, ifd0Offset, little), exifBlock, gpsBlock]);
   const payload = concat([ascii('Exif'), new Uint8Array(1), tiff]);
   const marker = new Uint8Array(4);
   new DataView(marker.buffer).setUint16(0, 0xffe1);

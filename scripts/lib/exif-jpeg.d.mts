@@ -3,6 +3,7 @@ export interface ExifJpegOptions {
   offsetTimeOriginal?: string;
   lat?: number;
   lng?: number;
+  little?: boolean;
 }
 
 export function toDms(degrees: number): Array<[number, number]>;

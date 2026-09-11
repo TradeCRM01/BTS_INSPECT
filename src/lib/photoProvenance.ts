@@ -22,7 +22,7 @@ export interface AttachedPhoto {
   provenance: PhotoProvenance;
 }
 
-/** The six EXIF fields Grafter reads. Anything else in the file is ignored. */
+/** What Grafter reads out of a photo's EXIF. Anything else in the file is ignored. */
 export interface ExifCapture {
   dateTimeOriginal: string | null;
   offsetTimeOriginal: string | null;
@@ -122,7 +122,7 @@ function readAscii(tiff: Tiff, entry: IfdEntry | undefined): string | null {
 }
 
 function readOffset(tiff: Tiff, entry: IfdEntry | undefined): number | null {
-  if (!entry) return null;
+  if (!entry || entry.count !== 1 || entry.at + 4 > tiff.view.byteLength) return null;
   if (entry.type === TYPE_LONG) return tiff.view.getUint32(entry.at, tiff.little);
   if (entry.type === TYPE_SHORT) return tiff.view.getUint16(entry.at, tiff.little);
   return null;
@@ -180,7 +180,7 @@ function hasExifHeader(view: DataView, at: number): boolean {
   return true;
 }
 
-/** Pure. Walks JPEG segments to the EXIF APP1 and reads the six tags. Anything malformed reads as empty. */
+/** Pure. Walks JPEG segments to the EXIF APP1 and reads the clock and the fix. Anything malformed reads as empty. */
 export function readJpegExif(buffer: ArrayBuffer): ExifCapture {
   try {
     const view = new DataView(buffer);
@@ -212,13 +212,24 @@ const EXIF_OFFSET = /^[+-]\d{2}:\d{2}$/;
 export function exifDateToIso(dateTime: string | null, offset: string | null): string | null {
   const match = dateTime?.match(EXIF_DATE);
   if (!match) return null;
-  const [, y, mo, d, h, mi, s] = match;
-  if (y === '0000') return null;
+  const [y, mo, d, h, mi, s] = match.slice(1).map(Number);
+  if (y < 1900) return null;
   const zone = offset && EXIF_OFFSET.test(offset) ? offset : null;
   const date = zone
-    ? new Date(`${y}-${mo}-${d}T${h}:${mi}:${s}${zone}`)
-    : new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s));
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+    ? new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}${zone}`)
+    : new Date(y, mo - 1, d, h, mi, s);
+  if (Number.isNaN(date.getTime())) return null;
+  // Date rolls an impossible day (30 Feb) forward instead of rejecting it. Read the wall day back.
+  const wall = zone ? new Date(date.getTime() + zoneMinutes(zone) * 60_000) : date;
+  const [wallMonth, wallDay] = zone
+    ? [wall.getUTCMonth() + 1, wall.getUTCDate()]
+    : [wall.getMonth() + 1, wall.getDate()];
+  return wallMonth === mo && wallDay === d ? date.toISOString() : null;
+}
+
+function zoneMinutes(zone: string): number {
+  const [hours, minutes] = zone.slice(1).split(':').map(Number);
+  return (zone.startsWith('-') ? -1 : 1) * (hours * 60 + minutes);
 }
 
 /** Pure. EXIF wins on both axes. The fallback clock and fix fill whatever EXIF lacks. */
@@ -258,7 +269,7 @@ export async function resolvePhotoProvenance(
 ): Promise<AttachedPhoto[]> {
   const exifs = await Promise.all(files.map(readFileExif));
   const needsFix = exifs.some(exif => exif.lat === null || exif.lng === null);
-  const devicePlace = needsFix ? await deps.locate() : null;
+  const devicePlace = needsFix ? await deps.locate().catch(() => null) : null;
   const now = deps.now();
   return files.map((file, i) => ({
     file,
