@@ -1,11 +1,11 @@
 {
   "base": "http://127.0.0.1:5173",
   "supabaseUrl": "https://proof-harness.invalid.supabase.co",
-  "startedAt": "2026-09-11T07:44:45.024Z",
+  "startedAt": "2026-09-11T07:59:54.216Z",
   "galleryAddWritesPhotoClockAndPhotoGps": {
     "ok": true,
     "row": {
-      "id": "1ff0c73b-484b-4dd1-b92b-f7a7e73fb1e7",
+      "id": "0195dbff-b713-4896-93db-8bf1df46a36f",
       "visit_note_id": null,
       "taken_at": "2026-09-07T23:15:30.000Z",
       "taken_at_source": "exif",
@@ -18,9 +18,9 @@
   "galleryAddFallsBackToAttachClockAndDeviceFix": {
     "ok": true,
     "row": {
-      "id": "7ba014fb-b9b8-47f5-a56c-5bc516afb9d8",
+      "id": "461804b3-12e9-45f5-86a8-794c98c6dd24",
       "visit_note_id": null,
-      "taken_at": "2026-09-11T07:44:47.729Z",
+      "taken_at": "2026-09-11T07:59:57.147Z",
       "taken_at_source": "upload",
       "lat": -33.8688,
       "lng": 151.2093,
@@ -31,14 +31,14 @@
   "galleryAddStoragePathUnderCompanyJob": {
     "ok": true,
     "paths": [
-      "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/1ff0c73b-484b-4dd1-b92b-f7a7e73fb1e7.jpg",
-      "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/7ba014fb-b9b8-47f5-a56c-5bc516afb9d8.jpg"
+      "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/0195dbff-b713-4896-93db-8bf1df46a36f.jpg",
+      "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/461804b3-12e9-45f5-86a8-794c98c6dd24.jpg"
     ]
   },
   "visitWallPostWritesPhotoClockAndPhotoGps": {
     "ok": true,
     "row": {
-      "id": "c8e05aa4-1d17-40eb-a4b1-4790025adaff",
+      "id": "0dfa2375-0a2c-4774-8895-712ac27eebf5",
       "visit_note_id": "harness-note-1",
       "taken_at": "2026-09-07T23:15:30.000Z",
       "taken_at_source": "exif",
@@ -108,11 +108,11 @@
   },
   "inserts": [
     {
-      "id": "1ff0c73b-484b-4dd1-b92b-f7a7e73fb1e7",
+      "id": "0195dbff-b713-4896-93db-8bf1df46a36f",
       "company_id": "00000000-0000-0000-0000-000000000001",
       "job_id": "audit-doc-job",
       "visit_note_id": null,
-      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/1ff0c73b-484b-4dd1-b92b-f7a7e73fb1e7.jpg",
+      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/0195dbff-b713-4896-93db-8bf1df46a36f.jpg",
       "created_by": "00000000-0000-0000-0000-000000000002",
       "taken_at": "2026-09-07T23:15:30.000Z",
       "taken_at_source": "exif",
@@ -122,13 +122,13 @@
       "location_accuracy_m": null
     },
     {
-      "id": "7ba014fb-b9b8-47f5-a56c-5bc516afb9d8",
+      "id": "461804b3-12e9-45f5-86a8-794c98c6dd24",
       "company_id": "00000000-0000-0000-0000-000000000001",
       "job_id": "audit-doc-job",
       "visit_note_id": null,
-      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/7ba014fb-b9b8-47f5-a56c-5bc516afb9d8.jpg",
+      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/461804b3-12e9-45f5-86a8-794c98c6dd24.jpg",
       "created_by": "00000000-0000-0000-0000-000000000002",
-      "taken_at": "2026-09-11T07:44:47.729Z",
+      "taken_at": "2026-09-11T07:59:57.147Z",
       "taken_at_source": "upload",
       "lat": -33.8688,
       "lng": 151.2093,
@@ -136,11 +136,11 @@
       "location_accuracy_m": 12
     },
     {
-      "id": "c8e05aa4-1d17-40eb-a4b1-4790025adaff",
+      "id": "0dfa2375-0a2c-4774-8895-712ac27eebf5",
       "company_id": "00000000-0000-0000-0000-000000000001",
       "job_id": "audit-doc-job",
       "visit_note_id": "harness-note-1",
-      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/c8e05aa4-1d17-40eb-a4b1-4790025adaff.jpg",
+      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/0dfa2375-0a2c-4774-8895-712ac27eebf5.jpg",
       "created_by": "00000000-0000-0000-0000-000000000002",
       "taken_at": "2026-09-07T23:15:30.000Z",
       "taken_at_source": "exif",
@@ -150,6 +150,6 @@
       "location_accuracy_m": null
     }
   ],
-  "finishedAt": "2026-09-11T07:44:51.166Z",
+  "finishedAt": "2026-09-11T08:00:00.728Z",
   "failures": []
 }

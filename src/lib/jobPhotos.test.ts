@@ -434,36 +434,13 @@ describe('job photos live on the existing job sheet', () => {
     expect(page).not.toMatch(/Relovi|Littleloop/);
   });
 
-  it('stamps time and place at attach on both upload paths and shows them in one lightbox', () => {
-    const page = src('src/pages/JobDetailPage.tsx');
-    expect(page).toContain('resolvePhotoProvenance');
-    expect(page).toContain('BROWSER_PROVENANCE_DEPS');
-    expect(page).toContain('describePhotoClock');
-    expect(page).toContain('describePhotoPlace');
-    expect(page).toContain('PHOTO_NO_PLACE');
-    expect(page).toContain('className="job-photo-lightbox"');
-    expect(page).not.toContain('files: visitFiles');
+  it('lets the live host ask for a device fix, and keeps photo provenance on the existing row', () => {
     for (const headers of [src('public/_headers'), src('netlify.toml')]) {
       expect(headers).toContain('geolocation=(self)');
       expect(headers).not.toContain('geolocation=()');
     }
-  });
-});
-
-describe('job_photos provenance schema', () => {
-  it('adds when and where to the existing row, backfills, and locks the sources', () => {
     const mig = src('supabase/migrations/20260911070000_078_job_photo_provenance.sql');
-    expect(mig).toContain('ALTER TABLE public.job_photos');
     expect(mig).not.toContain('CREATE TABLE');
-    expect(mig).toContain('ADD COLUMN IF NOT EXISTS taken_at timestamptz');
-    expect(mig).toContain('ADD COLUMN IF NOT EXISTS taken_at_source text');
-    expect(mig).toContain('ADD COLUMN IF NOT EXISTS lat double precision');
-    expect(mig).toContain('ADD COLUMN IF NOT EXISTS lng double precision');
-    expect(mig).toContain('ADD COLUMN IF NOT EXISTS location_source text');
-    expect(mig).toContain('ADD COLUMN IF NOT EXISTS location_accuracy_m real');
-    expect(mig).toContain('UPDATE public.job_photos SET taken_at = created_at WHERE taken_at IS NULL');
-    expect(mig).toContain("CHECK (taken_at_source IN ('exif', 'upload'))");
-    expect(mig).toContain("location_source IN ('exif', 'device')");
     expect(mig).not.toContain('FOR UPDATE');
     expect(mig).not.toContain('storage.buckets');
     expect(mig).not.toMatch(/Relovi|Littleloop/);

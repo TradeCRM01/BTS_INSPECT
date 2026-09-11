@@ -58,8 +58,8 @@ const companyId = profile.company_id;
 notes.company = companyId;
 
 async function findOrCreateJob() {
-  const { data: found } = await sb.from('jobs').select('id').eq('company_id', companyId).eq('title', JOB_TITLE).maybeSingle();
-  if (found) return found.id;
+  const { data: found } = await sb.from('jobs').select('id').eq('company_id', companyId).eq('title', JOB_TITLE).order('created_at').limit(1);
+  if (found?.[0]) return found[0].id;
   const { data, error } = await sb.from('jobs').insert({
     company_id: companyId,
     title: JOB_TITLE,
@@ -70,10 +70,16 @@ async function findOrCreateJob() {
   return data.id;
 }
 
-async function rowsSince(sinceIso) {
-  const { data, error } = await sb.from('job_photos').select(PROVENANCE_COLUMNS).eq('job_id', jobId).gte('created_at', sinceIso).order('created_at', { ascending: false });
+async function photoRows() {
+  const { data, error } = await sb.from('job_photos').select(PROVENANCE_COLUMNS).eq('job_id', jobId).order('created_at', { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+/** Rows the page wrote since `before`, by id, so a Node clock ahead of the database cannot hide them. */
+async function rowsAddedSince(before) {
+  const seen = new Set(before.map((r) => r.id));
+  return (await photoRows()).filter((r) => !seen.has(r.id));
 }
 
 const jobId = await findOrCreateJob();
@@ -104,10 +110,11 @@ await page.waitForSelector('#job-visit-notes', { timeout: 30000 });
 await page.waitForSelector('[data-job-gallery="1"]', { timeout: 30000 });
 
 const galleryAttachedAt = new Date().toISOString();
+const rowsBeforeGallery = await photoRows();
 const jobBefore = await page.$$eval('[data-gallery-source="job"]', (els) => els.length);
 await page.setInputFiles('#job-gallery-photo-input', [sitePhotoFile(siteJpeg), plainPhotoFile(plainJpeg)]);
 await page.waitForFunction((n) => document.querySelectorAll('[data-gallery-source="job"]').length >= n + 2, jobBefore, { timeout: 60000 });
-const galleryRows = (await rowsSince(galleryAttachedAt)).filter((r) => r.visit_note_id === null);
+const galleryRows = (await rowsAddedSince(rowsBeforeGallery)).filter((r) => r.visit_note_id === null);
 const exifRow = galleryRows.find((r) => r.taken_at_source === 'exif');
 const deviceRow = galleryRows.find((r) => r.taken_at_source === 'upload');
 const galleryExif = checkExifRow(exifRow);
@@ -116,7 +123,7 @@ check('dbGalleryAddRowHasPhotoClockAndPhotoGps', galleryExif.ok, galleryExif);
 check('dbGalleryAddRowFallsBackToAttachClockAndDeviceFix', galleryDevice.ok, galleryDevice);
 
 const noteBody = `Provenance proof ${new Date().toISOString()}`;
-const visitAttachedAt = new Date().toISOString();
+const rowsBeforeVisit = await photoRows();
 await page.fill('#job-visit-notes .job-visit-hairline', noteBody);
 await page.setInputFiles('#job-visit-photo-input', [sitePhotoFile(siteJpeg)]);
 await page.waitForFunction(() => document.querySelector('#job-visit-notes .job-visit-photo-count')?.textContent?.includes('1 photo(s) attached'), null, { timeout: 30000 });
@@ -124,7 +131,7 @@ await page.click('#job-visit-notes .job-visit-post');
 await page.waitForFunction((body) => (
   [...document.querySelectorAll('.job-visit-row')].some((row) => row.textContent.includes(body) && row.querySelector('[data-visit-photo] img'))
 ), noteBody, { timeout: 60000 });
-const visitRow = (await rowsSince(visitAttachedAt)).find((r) => r.visit_note_id);
+const visitRow = (await rowsAddedSince(rowsBeforeVisit)).find((r) => r.visit_note_id);
 const visitExif = checkExifRow(visitRow);
 check('dbVisitWallRowHasPhotoClockAndPhotoGps', visitExif.ok, visitExif);
 
