@@ -9027,6 +9027,104 @@
     font-weight: 600;
   }
 
+  /* Status strip is the primary filter. One hairline across the sheet; slides sideways on phone. */
+  .hub-jobs-list-filters {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    margin-top: 24px;
+    border-bottom: 1px solid #E2D9CC;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+
+  .hub-jobs-list-filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hub-jobs-list-filter {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 0;
+    background: none;
+    color: #5B6B7C;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    scroll-snap-align: start;
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  .hub-jobs-list-filter:first-child {
+    margin-left: -12px;
+  }
+
+  .hub-jobs-list-filter:hover {
+    color: #0A2540;
+  }
+
+  .hub-jobs-list-filter.is-on {
+    color: #0A2540;
+    font-weight: 600;
+    box-shadow: inset 0 -2px 0 #2E75B6;
+  }
+
+  .hub-jobs-list-filter:focus-visible {
+    outline: 2px solid #2E75B6;
+    outline-offset: -2px;
+  }
+
+  /* Status chips are the primary filter. One strip across the sheet; slides sideways on phone. */
+  .hub-jobs-list-filters {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    margin-top: 24px;
+    border-bottom: 1px solid #E2D9CC;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hub-jobs-list-filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hub-jobs-list-filter {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 0;
+    background: none;
+    color: #5B6B7C;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  .hub-jobs-list-filter.is-on {
+    color: #0A2540;
+    font-weight: 600;
+    box-shadow: inset 0 -2px 0 #2E75B6;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-list-filters + .hub-jobs-thead {
+    margin-top: 8px;
+  }
+
   .hub-jobs-list-find .hub-jobs-chrome {
     max-width: none;
     margin: 0;
@@ -9088,9 +9186,10 @@
     box-shadow: inset 0 -2px 0 #2E75B6;
   }
 
+  /* Customer absorbs the slack like the quote description column. Suburb and status sit tight by the more control. */
   .hub-jobs-list-doc .hub-jobs-thead,
   .hub-jobs-list-doc .hub-jobs-row {
-    grid-template-columns: 72px minmax(0, 1.4fr) minmax(0, 1fr) 120px 32px;
+    grid-template-columns: 72px minmax(0, 1fr) 220px 120px 32px;
     padding-left: 0;
     padding-right: 0;
   }
@@ -9229,14 +9328,56 @@
       padding: 24px 16px 16px;
     }
 
+    /* Phone keeps the table. Four columns span the sheet: ref, customer over suburb, status, more. */
+    .hub-jobs-list-doc .hub-jobs-thead,
+    .hub-jobs-list-doc .hub-jobs-row {
+      grid-template-columns: 52px minmax(0, 1fr) 80px 32px;
+      gap: 2px 8px;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
     .hub-jobs-list-doc .hub-jobs-thead {
       display: grid;
     }
 
-    .hub-jobs-list-doc .hub-jobs-thead,
+    .hub-jobs-list-doc .hub-jobs-thead > :nth-child(3) {
+      display: none;
+    }
+
     .hub-jobs-list-doc .hub-jobs-row {
-      padding-left: 0;
-      padding-right: 0;
+      grid-template-areas:
+        "ref cust pill next"
+        "ref sub pill next";
+      align-items: start;
+      padding: 12px 0;
+    }
+
+    .hub-jobs-list-doc .hub-jobs-row .hub-jobs-ref {
+      line-height: 1.5;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .hub-jobs-list-doc .hub-jobs-row .hub-jobs-name {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .hub-jobs-list-doc .hub-jobs-row .hub-jobs-muted,
+    .hub-jobs-list-doc .hub-jobs-row .hub-jobs-status {
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .hub-jobs-list-doc .hub-jobs-row .hub-jobs-row-next {
+      margin-top: -6px;
     }
   }
 
