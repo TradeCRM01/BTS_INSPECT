@@ -2582,11 +2582,11 @@ export function JobDetailPage() {
             <h2 className="ops-section-title flex items-center gap-1.5 min-w-0">
               <ListChecks size={14} className="text-navy shrink-0" />
               <span className="truncate">{JOB_PACK_TITLE}</span>
-              <span className="ops-meta font-normal" data-job-pack-progress={`${packProgress.ticked}/${packProgress.total}`}>
-                {packProgress.total > 0 ? `${packProgress.ticked}/${packProgress.total}` : 0}
-              </span>
-              {packProgress.done && <span className="ops-meta font-normal" data-job-pack-packed="1">{JOB_PACK_PACKED}</span>}
             </h2>
+            <span className="ops-meta tabular-nums" data-job-pack-progress={`${packProgress.ticked}/${packProgress.total}`}>
+              {packProgress.done && <span className="mr-2 text-navy font-semibold" data-job-pack-packed="1">{JOB_PACK_PACKED}</span>}
+              {`${packProgress.ticked}/${packProgress.total}`}
+            </span>
           </div>
           {pack.length === 0 ? (
             <div className="ops-tray-empty space-y-2">

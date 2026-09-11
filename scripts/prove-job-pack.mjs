@@ -13,7 +13,7 @@
 //   Signs in with supabase-js, creates a fresh job, logs in through /login on the same dev
 //   server, and ticks against the real project. Needs migration 079 applied.
 //
-// Writes docs/proof/job-pack/pack-phone-390.png, pack-phone-390-packed.png,
+// Writes docs/proof/job-pack/pack-phone-390-pick.png, pack-phone-390.png, pack-phone-390-packed.png,
 // pack-laptop-1280.png and notes.json. Exit code 1 on any failed check.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
@@ -143,7 +143,8 @@ async function allRows() {
 
 async function readPack(page) {
   return page.evaluate(() => {
-    const height = (el) => Math.round(el.getBoundingClientRect().height);
+    const height = (el) => (el ? Math.round(el.getBoundingClientRect().height) : 0);
+    const progressEl = document.querySelector('[data-job-pack-progress]');
     return {
       starts: [...document.querySelectorAll('[data-job-pack-start]')].map((el) => ({ key: el.getAttribute('data-job-pack-start'), height: height(el) })),
       groups: [...document.querySelectorAll('[data-job-pack-group]')].map((el) => el.getAttribute('data-job-pack-group')),
@@ -154,8 +155,9 @@ async function readPack(page) {
         group: el.closest('[data-job-pack-group]')?.getAttribute('data-job-pack-group') ?? null,
         height: height(el),
       })),
-      progress: document.querySelector('[data-job-pack-progress]')?.getAttribute('data-job-pack-progress') ?? null,
-      packed: !!document.querySelector('[data-job-pack-packed]'),
+      progress: progressEl?.getAttribute('data-job-pack-progress') ?? null,
+      progressVisible: height(progressEl) > 0 && (progressEl?.textContent?.trim().length ?? 0) > 0,
+      packed: height(document.querySelector('[data-job-pack-packed]')) > 0,
     };
   });
 }
@@ -200,6 +202,7 @@ const empty = await readPack(page);
 check('emptyStateOffersAllFivePacksAt44px',
   empty.starts.map((s) => s.key).join(',') === PACK_KEYS.join(',') && empty.starts.every((s) => s.height >= 44) && empty.items.length === 0,
   { starts: empty.starts, items: empty.items.length, progress: empty.progress });
+await shoot(page, 'pack-phone-390-pick.png');
 
 await page.click('[data-job-pack-start="plumbing"]');
 await waitItems(page, PLUMBING_COUNT);
@@ -216,8 +219,8 @@ await waitProgress(page, `3/${PLUMBING_COUNT}`);
 await waitFor(async () => (await tickedRows()).length === 3, 'three ticks written');
 const three = await readPack(page);
 check('threeTicksShowThreeOverSeventeen',
-  three.progress === `3/${PLUMBING_COUNT}` && three.items.filter((i) => i.checked).map((i) => i.id).join(',') === firstThree.join(','),
-  { progress: three.progress, checked: three.items.filter((i) => i.checked).map((i) => i.label) });
+  three.progress === `3/${PLUMBING_COUNT}` && three.progressVisible && three.items.filter((i) => i.checked).map((i) => i.id).join(',') === firstThree.join(','),
+  { progress: three.progress, progressVisible: three.progressVisible, checked: three.items.filter((i) => i.checked).map((i) => i.label) });
 await shoot(page, 'pack-phone-390.png');
 
 await openSheet(page);
