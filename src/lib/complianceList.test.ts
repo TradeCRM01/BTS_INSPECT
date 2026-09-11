@@ -18,6 +18,12 @@ import {
   complianceListSearchHaystack,
   complianceMatchesListFilter,
   complianceMatchesSearch,
+  complianceSheetClientId,
+  complianceSheetClientLedger,
+  complianceSheetClientLedgerEmpty,
+  complianceSheetInspectionHref,
+  complianceSheetSiblingCompliance,
+  complianceSheetSiblingInspections,
   computeNextDueDate,
   decorateComplianceForList,
   decorateComplianceList,
@@ -28,6 +34,7 @@ import {
   sortComplianceListFloor,
   type ComplianceListRow,
 } from './complianceList';
+import type { DueInspection, DueInspectionJob } from './inspectionDueReminder';
 
 const now = new Date(2026, 7, 21, 12, 0, 0);
 
@@ -40,9 +47,34 @@ function row(over: Partial<ComplianceListRow> = {}): ComplianceListRow {
     last_completed_date: '2025-11-01',
     first_due_date: '2024-11-01',
     standard_or_regulation: 'AS/NZS 3760',
+    client_id: 'client-acme',
     client_name: 'Acme Plants',
     description: 'Switchboard test at Plant A',
     notes: 'Book the leading hand',
+    ...over,
+  };
+}
+
+function insp(over: Partial<DueInspection> = {}): DueInspection {
+  return {
+    id: 'insp-1',
+    status: 'draft',
+    client_id: 'client-acme',
+    crm_job_id: 'job-1',
+    archived: false,
+    due_on: '2026-08-20',
+    template_snapshot: { name: 'Annual plant inspection' },
+    ...over,
+  };
+}
+
+function job(over: Partial<DueInspectionJob> = {}): DueInspectionJob {
+  return {
+    id: 'job-1',
+    company_id: 'co-1',
+    client_id: 'client-acme',
+    title: 'Plant service',
+    scheduled_date: '2026-08-20',
     ...over,
   };
 }
@@ -183,5 +215,98 @@ describe('compliance list empty copy and recurrence', () => {
     expect(deriveComplianceStatus('2026-08-01', null, true, now)).toBe('paused');
     const statuses: ComplianceStatus[] = ['upcoming', 'due_soon', 'overdue', 'completed', 'paused'];
     expect(statuses).toHaveLength(5);
+  });
+});
+
+describe('open-sheet same-client ledger (G2–G4)', () => {
+  it('lists other due/open compliance for that client and excludes the open row (G2)', () => {
+    const items = decorateComplianceList([
+      row({ id: 'open', title: 'Open plant test', client_id: 'client-acme', next_due_date: '2026-08-01' }),
+      row({ id: 'sib-due', title: 'Extinguisher service', client_id: 'client-acme', next_due_date: '2026-08-10' }),
+      row({ id: 'sib-open', title: 'Warranty renewal', client_id: 'client-acme', next_due_date: '2026-12-01' }),
+      row({ id: 'other-client', title: 'Other yard test', client_id: 'client-other', next_due_date: '2026-08-05' }),
+      row({ id: 'done', title: 'Finished', client_id: 'client-acme', status: 'completed', next_due_date: '2026-08-01' }),
+      row({ id: 'paused', title: 'On hold', client_id: 'client-acme', status: 'paused', next_due_date: '2026-08-01' }),
+    ], now);
+    const siblings = complianceSheetSiblingCompliance(items, {
+      currentId: 'open',
+      clientId: 'client-acme',
+    }, now);
+    expect(siblings.map(item => item.row.id)).toEqual(['sib-due', 'sib-open']);
+    expect(siblings.every(item => item.row.id !== 'open')).toBe(true);
+    expect(complianceSheetClientId({ client_id: 'client-acme' })).toBe('client-acme');
+    expect(complianceSheetSiblingCompliance(items, { currentId: 'open', clientId: null }, now)).toEqual([]);
+    expect(complianceSheetSiblingCompliance(items, { currentId: 'open', clientId: '' }, now)).toEqual([]);
+    expect(complianceSheetClientLedgerEmpty(null)).toBe('No client on this item.');
+    expect(complianceSheetClientLedgerEmpty('')).toBe('No client on this item.');
+    expect(complianceSheetClientLedgerEmpty('client-acme')).toBe('Nothing else due or open for this client.');
+  });
+
+  it('lists booked or due inspections for that same client from the inspections table (G3)', () => {
+    const inspections = [
+      insp({ id: 'insp-due', due_on: '2026-08-01', template_snapshot: { name: 'Plant inspection' } }),
+      insp({
+        id: 'insp-job-only',
+        client_id: null,
+        crm_job_id: 'job-1',
+        due_on: null,
+        status: 'draft',
+        template_snapshot: { name: 'Site check' },
+      }),
+      insp({
+        id: 'insp-other',
+        client_id: 'client-other',
+        crm_job_id: 'job-other',
+        template_snapshot: { name: 'Other yard' },
+      }),
+      insp({
+        id: 'insp-done',
+        status: 'issued',
+        due_on: null,
+        template_snapshot: { name: 'Issued report' },
+      }),
+      insp({
+        id: 'insp-archived',
+        archived: true,
+        template_snapshot: { name: 'Archived' },
+      }),
+    ];
+    const jobs = [
+      job(),
+      job({ id: 'job-other', client_id: 'client-other', title: 'Other yard' }),
+    ];
+    const siblings = complianceSheetSiblingInspections(inspections, jobs, { clientId: 'client-acme' }, now);
+    expect(siblings.map(item => item.id)).toEqual(['insp-due', 'insp-job-only']);
+    expect(siblings.every(item => item.kind === 'inspection')).toBe(true);
+    expect(siblings.every(item => item.href.startsWith('/inspections/'))).toBe(true);
+    expect(complianceSheetSiblingInspections(inspections, jobs, { clientId: null }, now)).toEqual([]);
+    expect(complianceSheetSiblingInspections([], jobs, { clientId: 'client-acme' }, now)).toEqual([]);
+  });
+
+  it('taps existing open compliance sheet and existing inspection fill — no new routes (G4)', () => {
+    const compliance = decorateComplianceList([
+      row({ id: 'sib', title: 'Warranty renewal', client_id: 'client-acme', next_due_date: '2026-12-01' }),
+    ], now);
+    const inspections = complianceSheetSiblingInspections(
+      [insp({ id: 'insp-1', template_snapshot: { name: 'Plant inspection' } })],
+      [job()],
+      { clientId: 'client-acme' },
+      now,
+    );
+    const ledger = complianceSheetClientLedger({
+      compliance: complianceSheetSiblingCompliance(compliance, { currentId: 'open', clientId: 'client-acme' }, now),
+      inspections,
+    });
+    expect(ledger).toHaveLength(2);
+    const complianceRow = ledger.find(item => item.kind === 'compliance');
+    const inspectionRow = ledger.find(item => item.kind === 'inspection');
+    expect(complianceRow?.href).toBe('/compliance?id=sib');
+    expect(complianceRow?.href).toBe(complianceListOpenHref('sib'));
+    expect(inspectionRow?.href).toBe('/inspections/insp-1');
+    expect(inspectionRow?.href).toBe(complianceSheetInspectionHref('insp-1'));
+    expect(complianceSheetInspectionHref('insp-1')).not.toContain('/compliance/client');
+    expect(complianceSheetInspectionHref('insp-1')).not.toContain('/inspections/new');
+    expect(complianceListOpenHref('sib')).not.toContain('/audit');
+    expect(complianceListOpenHref('sib')).not.toContain('/clients/');
   });
 });

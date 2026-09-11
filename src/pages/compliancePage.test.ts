@@ -39,6 +39,37 @@ describe('Compliance page due-or-open floor wiring', () => {
     expect(existsSync(resolve(process.cwd(), 'src/pages/AuditPage.tsx'))).toBe(false);
   });
 
+  it('rides the open sheet with a same-client due/open ledger — no new page (G1–G5)', () => {
+    expect(page).toContain('hub-compliance-ledger');
+    expect(page).toContain('hub-compliance-jobline');
+    expect(page).toContain('data-compliance-client-ledger');
+    expect(page).toContain('data-compliance-sibling');
+    expect(page).toContain('data-compliance-sibling-kind');
+    expect(page).toContain('data-inspection-href');
+    expect(page).toContain('complianceSheetSiblingCompliance');
+    expect(page).toContain('complianceSheetSiblingInspections');
+    expect(page).toContain('complianceSheetClientLedger');
+    expect(page).toContain("from('inspections')");
+    expect(page).toContain("from('jobs')");
+    expect(page).toContain("from('clients')");
+    expect(page).toContain('.eq(\'client_id\', openedClientId)');
+    expect(page).toContain("kind === 'compliance'");
+    expect(page).toContain("kind === 'inspection'");
+    expect(page).toContain('onOpenSibling');
+    expect(page).not.toContain('/compliance/client');
+    expect(page).not.toContain('ClientCompliancePage');
+    expect(page).not.toContain('ComplianceHubPage');
+    expect(page).not.toContain('TeamSettingsPage');
+    expect(page).not.toContain('tickets');
+    expect(page).not.toContain('job-reminder');
+    expect(helper).toContain('complianceSheetSiblingCompliance');
+    expect(helper).toContain('complianceSheetSiblingInspections');
+    expect(helper).toContain('complianceSheetInspectionHref');
+    expect(helper).toContain('return `/inspections/${encodeURIComponent(id)}`');
+    expect(helper).not.toContain('inspectionsList');
+    expect(existsSync(resolve(process.cwd(), 'src/pages/ClientCompliancePage.tsx'))).toBe(false);
+  });
+
   it('stays on CompliancePage plus the list-owned helper', () => {
     expect(page).not.toContain('TimesheetsPage');
     expect(page).not.toContain('timesheetsList');
