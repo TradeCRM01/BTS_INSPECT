@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import {
   JOB_VISIT_NOTE_COLUMNS,
   JOB_VISIT_NOTE_CREW,
-  JOB_VISIT_NOTE_EMPTY,
   JOB_VISIT_NOTE_NO_JOB,
   JOB_VISIT_NOTE_NOT_SIGNED_IN,
   JOB_VISIT_NOTE_POSTED,
@@ -80,19 +79,50 @@ describe('decideJobVisitNotePost', () => {
     });
   });
 
-  it('refuses a blank body', () => {
+  it('refuses a blank body when no photos are attached', () => {
     expect(decideJobVisitNotePost({
       jobId: 'job-1',
       companyId: 'co-1',
       authorId: 'p-alex',
       authorName: 'Alex Reed',
       body: '   ',
+      photoCount: 0,
     })).toEqual({
       action: 'miss',
       reason: 'empty',
-      message: JOB_VISIT_NOTE_EMPTY,
+      message: 'Write what was done.',
     });
-    expect(JOB_VISIT_NOTE_EMPTY).toBe('Write what was done.');
+    expect(decideJobVisitNotePost({
+      jobId: 'job-1',
+      companyId: 'co-1',
+      authorId: 'p-alex',
+      authorName: 'Alex Reed',
+      body: '',
+    })).toEqual({
+      action: 'miss',
+      reason: 'empty',
+      message: 'Write what was done.',
+    });
+  });
+
+  it('posts a blank body when photos are attached', () => {
+    expect(decideJobVisitNotePost({
+      jobId: 'job-1',
+      companyId: 'co-1',
+      authorId: 'p-alex',
+      authorName: 'Alex Reed',
+      body: '   ',
+      photoCount: 2,
+    })).toEqual({
+      action: 'write',
+      row: {
+        company_id: 'co-1',
+        job_id: 'job-1',
+        author_id: 'p-alex',
+        author_name: 'Alex Reed',
+        body: '',
+      },
+    });
   });
 
   it('refuses a post with no signed-in profile', () => {

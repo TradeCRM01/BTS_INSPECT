@@ -1,0 +1,162 @@
+{
+  "base": "http://127.0.0.1:5173",
+  "startedAt": "2026-09-11T05:33:55.511Z",
+  "company": "36e5dae1-2b88-44bb-bd15-b9f05721be62",
+  "jobId": "ff55aec6-2c37-4d88-bcf0-d74e35684dc3",
+  "inspection": {
+    "inspectionId": "e92dd6a6-efef-48aa-90c1-2094ea53571f",
+    "path": "e92dd6a6-efef-48aa-90c1-2094ea53571f/proof-q1/7de18d31-802d-4c26-9cde-4df722230c7c.jpg"
+  },
+  "jha": {
+    "docId": "2d09d355-e2ef-4a9a-8151-9edfbd054775",
+    "path": "jha/2d09d355-e2ef-4a9a-8151-9edfbd054775/step-1/b1398abe-8b07-4342-9362-d65425e6cdf2.jpg"
+  },
+  "loginLandedOn": "/",
+  "galleryBefore": [
+    {
+      "key": "inspection:e92dd6a6-efef-48aa-90c1-2094ea53571f/proof-q1/7de18d31-802d-4c26-9cde-4df722230c7c.jpg",
+      "source": "inspection",
+      "visible": true,
+      "loaded": false
+    },
+    {
+      "key": "job:81a9937e-fbf2-4a63-83ce-ebb5142bf36e",
+      "source": "job",
+      "visible": true,
+      "loaded": false
+    },
+    {
+      "key": "visit:5ed1176a-58dc-4b39-b6e4-7932378a167f",
+      "source": "visit",
+      "visible": true,
+      "loaded": false
+    },
+    {
+      "key": "inspection:e92dd6a6-efef-48aa-90c1-2094ea53571f/proof-q1/7784ef91-e4ca-4235-ade8-5c4e3ae487c3.jpg",
+      "source": "inspection",
+      "visible": true,
+      "loaded": false
+    },
+    {
+      "key": "jha:2d09d355-e2ef-4a9a-8151-9edfbd054775:da134e22-2fdd-44cc-b764-b6927267fa92",
+      "source": "jha",
+      "visible": true,
+      "loaded": false
+    },
+    {
+      "key": "jha:2d09d355-e2ef-4a9a-8151-9edfbd054775:e9af983a-8d52-494d-a182-c28d497943fe",
+      "source": "jha",
+      "visible": true,
+      "loaded": false
+    },
+    {
+      "key": "jha:2d09d355-e2ef-4a9a-8151-9edfbd054775:f2534682-0845-4e2f-8e70-f6cf98b397c5",
+      "source": "jha",
+      "visible": true,
+      "loaded": false
+    },
+    {
+      "key": "inspection:e92dd6a6-efef-48aa-90c1-2094ea53571f/proof-q1/e10a30a6-f2e0-448c-a8e2-1b7a5b8d28c2.jpg",
+      "source": "inspection",
+      "visible": true,
+      "loaded": false
+    }
+  ],
+  "visitNotePostsWithPhoto": {
+    "ok": true,
+    "noteBody": "Proof visit 2026-09-11T05:34:02.645Z"
+  },
+  "galleryAfter": [
+    {
+      "key": "job:c89e60c1-7971-4b31-af3b-8aa2fa93359f",
+      "source": "job",
+      "visible": true,
+      "loaded": true
+    },
+    {
+      "key": "visit:145b5405-b0d1-4530-8371-ff5f051c637f",
+      "source": "visit",
+      "visible": true,
+      "loaded": true
+    },
+    {
+      "key": "inspection:e92dd6a6-efef-48aa-90c1-2094ea53571f/proof-q1/7de18d31-802d-4c26-9cde-4df722230c7c.jpg",
+      "source": "inspection",
+      "visible": true,
+      "loaded": true
+    },
+    {
+      "key": "job:81a9937e-fbf2-4a63-83ce-ebb5142bf36e",
+      "source": "job",
+      "visible": true,
+      "loaded": true
+    },
+    {
+      "key": "visit:5ed1176a-58dc-4b39-b6e4-7932378a167f",
+      "source": "visit",
+      "visible": true,
+      "loaded": true
+    },
+    {
+      "key": "inspection:e92dd6a6-efef-48aa-90c1-2094ea53571f/proof-q1/7784ef91-e4ca-4235-ade8-5c4e3ae487c3.jpg",
+      "source": "inspection",
+      "visible": true,
+      "loaded": true
+    },
+    {
+      "key": "jha:2d09d355-e2ef-4a9a-8151-9edfbd054775:da134e22-2fdd-44cc-b764-b6927267fa92",
+      "source": "jha",
+      "visible": true,
+      "loaded": true
+    },
+    {
+      "key": "jha:2d09d355-e2ef-4a9a-8151-9edfbd054775:e9af983a-8d52-494d-a182-c28d497943fe",
+      "source": "jha",
+      "visible": true,
+      "loaded": true
+    },
+    {
+      "key": "jha:2d09d355-e2ef-4a9a-8151-9edfbd054775:f2534682-0845-4e2f-8e70-f6cf98b397c5",
+      "source": "jha",
+      "visible": true,
+      "loaded": true
+    },
+    {
+      "key": "inspection:e92dd6a6-efef-48aa-90c1-2094ea53571f/proof-q1/e10a30a6-f2e0-448c-a8e2-1b7a5b8d28c2.jpg",
+      "source": "inspection",
+      "visible": true,
+      "loaded": true
+    }
+  ],
+  "galleryListsAllFourSources": {
+    "ok": true,
+    "sources": [
+      "job",
+      "visit",
+      "inspection",
+      "jha"
+    ],
+    "count": 10
+  },
+  "galleryThumbnailsLoadFromSignedUrls": {
+    "ok": true,
+    "unloaded": []
+  },
+  "dbJobPhotosRowsMatchUpload": {
+    "ok": true,
+    "visitRows": 2,
+    "jobRows": 2,
+    "samplePath": "36e5dae1-2b88-44bb-bd15-b9f05721be62/jobs/ff55aec6-2c37-4d88-bcf0-d74e35684dc3/c89e60c1-7971-4b31-af3b-8aa2fa93359f.jpg"
+  },
+  "storageObjectsExistUnderCompanyJobPrefix": {
+    "ok": true,
+    "objects": 4,
+    "rows": 4
+  },
+  "filterVisitShowsOnlyVisit": {
+    "ok": true,
+    "shown": 2
+  },
+  "finishedAt": "2026-09-11T05:34:12.034Z",
+  "failures": []
+}

@@ -47,6 +47,7 @@ export function decideJobVisitNotePost(input: {
   authorId: string | null | undefined;
   authorName: string | null | undefined;
   body: string | null | undefined;
+  photoCount?: number;
 }): DecideJobVisitNote {
   const jobId = trimVisitNote(input.jobId);
   if (!jobId) {
@@ -58,7 +59,8 @@ export function decideJobVisitNotePost(input: {
     return { action: 'miss', reason: 'not_signed_in', message: JOB_VISIT_NOTE_NOT_SIGNED_IN };
   }
   const body = trimVisitNote(input.body);
-  if (!body) {
+  const photoCount = input.photoCount ?? 0;
+  if (!body && photoCount <= 0) {
     return { action: 'miss', reason: 'empty', message: JOB_VISIT_NOTE_EMPTY };
   }
   return {
@@ -109,10 +111,16 @@ export async function postJobVisitNote(input: {
   authorId: string | null | undefined;
   authorName: string | null | undefined;
   body: string | null | undefined;
-}): Promise<JobVisitNoteWrite> {
+  photoCount?: number;
+}): Promise<string> {
   const decision = decideJobVisitNotePost(input);
   if (decision.action === 'miss') throw new Error(decision.message);
-  const { error } = await supabase.from(JOB_VISIT_NOTE_TABLE).insert(decision.row);
+  const { data, error } = await supabase
+    .from(JOB_VISIT_NOTE_TABLE)
+    .insert(decision.row)
+    .select('id')
+    .single();
   if (error) throw error;
-  return decision.row;
+  if (!data?.id) throw new Error('Visit note was not saved.');
+  return data.id as string;
 }

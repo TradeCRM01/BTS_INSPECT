@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -86,6 +86,23 @@ import {
   sortJobVisitNotesNewestFirst,
   type JobVisitNote,
 } from '../lib/jobVisitNotes';
+import {
+  JOB_GALLERY_FILTERS,
+  JOB_PHOTOS_TABLE,
+  JOB_PHOTO_SOURCE_LABEL,
+  buildJobGallery,
+  decideJobPhotoUpload,
+  filterJobGallery,
+  galleryFilterCounts,
+  jobPhotosAddedToast,
+  jobPhotosQuery,
+  photosForVisitNote,
+  signJobGalleryUrls,
+  uploadJobPhotos,
+  type InspectionGalleryRow,
+  type JobGalleryFilter,
+  type JobPhotoRow,
+} from '../lib/jobPhotos';
 import { format, parseISO, addDays } from 'date-fns';
 
 type JobInspection = {
@@ -107,7 +124,11 @@ type JobJha = {
   created_at: string;
   template_snapshot: { name?: string } | null;
   meta: Record<string, string> | null;
-  steps?: Array<{ hazards?: string | null; description?: string | null }> | null;
+  steps?: Array<{
+    hazards?: string | null;
+    description?: string | null;
+    photos?: Array<{ id: string; storagePath: string; caption?: string }>;
+  }> | null;
 };
 
 type JobTake5 = {
@@ -567,6 +588,130 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
             justify-self: start;
           }
         }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-input {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          opacity: 0;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-bar {
+          grid-column: 1 / -1;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-add {
+          color: var(--visit-muted);
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-count {
+          margin-left: 12px;
+          color: var(--visit-muted);
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 12px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photos {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+          gap: 8px;
+          margin: 8px 0 0;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photos img {
+          display: block;
+          aspect-ratio: 1;
+          object-fit: cover;
+          width: 100%;
+        }
+`;
+
+const JOB_GALLERY_LOOK_CSS = `
+        .hub-jobs.is-record-open #job-gallery {
+          display: block;
+          margin: 0;
+          padding: 4px 0 0;
+          background: none;
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+        }
+        .hub-jobs.is-record-open #job-gallery .ops-tray-head {
+          padding: 12px 0 2px;
+          border: none;
+          background: none;
+        }
+        .hub-jobs.is-record-open #job-gallery .ops-section-title {
+          font-family: Rajdhani, sans-serif;
+          font-weight: 700;
+          font-size: 16px;
+          letter-spacing: 0.02em;
+          text-transform: none;
+          color: #0A2540;
+        }
+        .hub-jobs.is-record-open #job-gallery .ops-section-title .ops-meta {
+          display: inline;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 12px;
+          font-weight: 500;
+          color: #5B6B7C;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-photo-input {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          opacity: 0;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-add {
+          display: inline-block;
+          margin: 0 0 8px;
+          color: #5B6B7C;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-filter {
+          background: none;
+          border: none;
+          padding: 0;
+          margin: 0 16px 8px 0;
+          color: #5B6B7C;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 13px;
+          cursor: pointer;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-filter[aria-pressed="true"] {
+          color: #0A2540;
+          text-decoration: underline;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+          gap: 8px;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-item {
+          color: inherit;
+          text-decoration: none;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-item img {
+          display: block;
+          aspect-ratio: 1;
+          object-fit: cover;
+          width: 100%;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-meta {
+          display: block;
+          margin-top: 4px;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 11px;
+          color: #5B6B7C;
+        }
+        .hub-jobs.is-record-open #job-gallery .ops-tray-empty {
+          margin: 0;
+          padding: 8px 0 12px;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 14px;
+          color: #5B6B7C;
+        }
 `;
 
 export function JobDetailPage() {
@@ -587,8 +732,12 @@ export function JobDetailPage() {
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [visitDraft, setVisitDraft] = useState('');
+  const [visitFiles, setVisitFiles] = useState<File[]>([]);
+  const [galleryFilter, setGalleryFilter] = useState<JobGalleryFilter>('all');
   const [arrivingSent, setArrivingSent] = useState(false);
   const [arrivingBusy, setArrivingBusy] = useState(false);
+  const visitPhotoRef = useRef<HTMLInputElement>(null);
+  const galleryPhotoRef = useRef<HTMLInputElement>(null);
   const moreRef = useRef<HTMLDetailsElement>(null);
   const reminderRef = useRef<JobClientReminderHandle>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
@@ -914,6 +1063,70 @@ export function JobDetailPage() {
     enabled: !!id && !!profile?.company_id,
   });
 
+  const { data: jobPhotos } = useQuery<JobPhotoRow[]>({
+    queryKey: ['job-photos', id],
+    queryFn: async () => {
+      if (visitNotesLookOn()) return [];
+      const empty = getAuditEmptyList();
+      if (empty) return empty as JobPhotoRow[];
+      const scope = jobPhotosQuery({
+        companyId: profile!.company_id,
+        jobId: id!,
+      });
+      if (!scope) return [];
+      const { data, error } = await supabase
+        .from(JOB_PHOTOS_TABLE)
+        .select('id, company_id, job_id, visit_note_id, storage_path, caption, created_by, created_at')
+        .eq('company_id', scope.eq.company_id)
+        .eq('job_id', scope.eq.job_id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as JobPhotoRow[];
+    },
+    enabled: !!id && !!profile?.company_id,
+  });
+
+  const { data: inspectionGalleryPhotos } = useQuery<InspectionGalleryRow[]>({
+    queryKey: ['job-gallery-inspection-photos', id, job?.inspection_id, (inspections ?? []).map(i => i.id).join(',')],
+    queryFn: async () => {
+      if (visitNotesLookOn()) return [];
+      const empty = getAuditEmptyList();
+      if (empty) return empty as InspectionGalleryRow[];
+      const ids = [...(inspections ?? []).map(i => i.id)];
+      if (job?.inspection_id && !ids.includes(job.inspection_id)) ids.push(job.inspection_id);
+      if (ids.length === 0) return [];
+      const { data, error } = await supabase
+        .from('photos')
+        .select('inspection_id, storage_path, caption, uploaded_at')
+        .in('inspection_id', ids);
+      if (error) throw error;
+      return (data ?? []) as InspectionGalleryRow[];
+    },
+    enabled: !!id && !!inspections,
+  });
+
+  const gallery = useMemo(() => buildJobGallery({
+    jobPhotos: jobPhotos ?? [],
+    inspectionPhotos: inspectionGalleryPhotos ?? [],
+    jhaDocuments: (jhas ?? []).map(doc => ({
+      id: doc.id,
+      steps: doc.steps,
+      created_at: doc.created_at,
+    })),
+  }), [jobPhotos, inspectionGalleryPhotos, jhas]);
+
+  const { data: galleryUrls } = useQuery<Record<string, string>>({
+    queryKey: ['job-gallery-urls', id, gallery.map(photo => photo.key).join(',')],
+    queryFn: async () => {
+      if (visitNotesLookOn()) return {};
+      const empty = getAuditEmptyList();
+      if (empty) return {};
+      if (gallery.length === 0) return {};
+      return signJobGalleryUrls(gallery);
+    },
+    enabled: !!id && gallery.length > 0,
+  });
+
   const { data: myTimesheets } = useQuery<Timesheet[]>({
     queryKey: ['timesheets-job-clock', profile?.id],
     queryFn: async () => {
@@ -1064,19 +1277,73 @@ export function JobDetailPage() {
 
   const postVisitNote = useMutation({
     mutationFn: async () => {
-      return postJobVisitNote({
+      const noteId = await postJobVisitNote({
         jobId: job?.id,
         companyId: profile?.company_id,
         authorId: profile?.id,
         authorName: profile?.name,
         body: visitDraft,
+        photoCount: visitFiles.length,
       });
+      let failed = 0;
+      if (visitFiles.length > 0 && profile?.company_id && job?.id && profile.id) {
+        const result = await uploadJobPhotos({
+          companyId: profile.company_id,
+          jobId: job.id,
+          userId: profile.id,
+          visitNoteId: noteId,
+          files: visitFiles,
+        });
+        failed = result.failed;
+      }
+      return { failed };
     },
-    onSuccess: () => {
+    onSuccess: ({ failed }) => {
       queryClient.invalidateQueries({ queryKey: ['job-visit-notes', id] });
+      queryClient.invalidateQueries({ queryKey: ['job-photos', id] });
       setVisitDraft('');
+      setVisitFiles([]);
+      if (visitPhotoRef.current) visitPhotoRef.current.value = '';
       const toast = jobVisitNotePostToast();
       showToast(toast.message, toast.kind);
+      if (failed > 0) {
+        showToast(
+          failed === 1 ? '1 photo failed to upload' : `${failed} photos failed to upload`,
+          'info',
+        );
+      }
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
+
+  const addGalleryPhotos = useMutation({
+    mutationFn: async (files: File[]) => {
+      const decision = decideJobPhotoUpload({
+        companyId: profile?.company_id,
+        jobId: job?.id,
+        userId: profile?.id,
+        fileCount: files.length,
+      });
+      if (decision.action === 'miss') throw new Error(decision.message);
+      return uploadJobPhotos({
+        companyId: profile!.company_id,
+        jobId: job!.id,
+        userId: profile!.id,
+        visitNoteId: null,
+        files,
+      });
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['job-photos', id] });
+      if (galleryPhotoRef.current) galleryPhotoRef.current.value = '';
+      const toast = jobPhotosAddedToast();
+      showToast(toast.message, toast.kind);
+      if (result.failed > 0) {
+        showToast(
+          result.failed === 1 ? '1 photo failed to upload' : `${result.failed} photos failed to upload`,
+          'info',
+        );
+      }
     },
     onError: (e: Error) => showToast(e.message, 'info'),
   });
@@ -1330,8 +1597,11 @@ export function JobDetailPage() {
     authorId: profile?.id,
     authorName: profile?.name,
     body: visitDraft,
+    photoCount: visitFiles.length,
   });
   const visitLog = sortJobVisitNotesNewestFirst(visitNotes);
+  const galleryCounts = galleryFilterCounts(gallery);
+  const visibleGallery = filterJobGallery(gallery, galleryFilter);
   const lookTray = testingDueLookKind();
   const dueSource = lookTray === 'rows'
     ? lookTestingDueInspections(job.id)
@@ -1379,6 +1649,7 @@ export function JobDetailPage() {
         }
         ${JOB_TESTING_DUE_LOOK_CSS}
         ${JOB_VISIT_NOTES_LOOK_CSS}
+        ${JOB_GALLERY_LOOK_CSS}
       `}</style>
       <div className={`ops-page hub-jobs hub-job-cal is-record-open${visitNotesLookOn() ? ' is-visit-notes-look' : ''}`}>
         <Breadcrumbs items={[
@@ -1432,6 +1703,13 @@ export function JobDetailPage() {
                     onClick={() => { closeMore(); navigate(inspectHref); }}
                   >
                     Start inspection
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); scrollToId('job-gallery'); }}
+                  >
+                    Gallery
                   </button>
                   <button
                     type="button"
@@ -2048,6 +2326,22 @@ export function JobDetailPage() {
             >
               Post note
             </button>
+            <div className="job-visit-photo-bar">
+              <input
+                ref={visitPhotoRef}
+                type="file"
+                accept="image/*"
+                multiple
+                capture="environment"
+                className="job-visit-photo-input"
+                id="job-visit-photo-input"
+                onChange={e => setVisitFiles(Array.from(e.target.files ?? []))}
+              />
+              <label htmlFor="job-visit-photo-input" className="job-visit-photo-add">Add photos</label>
+              {visitFiles.length > 0 && (
+                <span className="job-visit-photo-count">{visitFiles.length} photo(s) attached</span>
+              )}
+            </div>
           </form>
           {visitLog.length === 0 ? (
             <div className="ops-tray-empty">
@@ -2055,14 +2349,36 @@ export function JobDetailPage() {
             </div>
           ) : (
             <div className="job-visit-log">
-              {visitLog.map(note => (
+              {visitLog.map(note => {
+                const notePhotos = photosForVisitNote(gallery, note.id);
+                return (
                 <div key={note.id} className="job-visit-row">
                   <p className="job-visit-stamp">
                     {note.author_name} · {format(parseISO(note.created_at), 'd MMM yyyy · HH:mm')}
                   </p>
                   <p className="job-visit-body">{note.body}</p>
+                  {notePhotos.length > 0 && (
+                    <div className="job-visit-photos">
+                      {notePhotos.map(photo => {
+                        const url = galleryUrls?.[photo.key];
+                        if (!url) return null;
+                        return (
+                          <a
+                            key={photo.key}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            data-visit-photo={photo.key}
+                          >
+                            <img src={url} alt="" loading="lazy" />
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
@@ -2139,6 +2455,69 @@ export function JobDetailPage() {
             })}
           </JobRelatedSection>
           </div>
+
+        <section id="job-gallery" className="ops-tray job-gallery" data-job-gallery="1">
+          <div className="ops-tray-head">
+            <h2 className="ops-section-title flex items-center gap-1.5 min-w-0">
+              <FileText size={14} className="text-navy shrink-0" />
+              <span className="truncate">Gallery</span>
+              <span className="ops-meta font-normal">{gallery.length}</span>
+            </h2>
+          </div>
+          {JOB_GALLERY_FILTERS.map(filter => (
+            <button
+              key={filter}
+              type="button"
+              className="job-gallery-filter"
+              aria-pressed={galleryFilter === filter}
+              data-gallery-filter={filter}
+              onClick={() => setGalleryFilter(filter)}
+            >
+              {filter === 'all' ? 'All' : JOB_PHOTO_SOURCE_LABEL[filter]} ({galleryCounts[filter]})
+            </button>
+          ))}
+          <input
+            ref={galleryPhotoRef}
+            type="file"
+            accept="image/*"
+            multiple
+            capture="environment"
+            className="job-gallery-photo-input"
+            id="job-gallery-photo-input"
+            onChange={e => {
+              const files = Array.from(e.target.files ?? []);
+              e.target.value = '';
+              if (files.length === 0) return;
+              addGalleryPhotos.mutate(files);
+            }}
+          />
+          <label htmlFor="job-gallery-photo-input" className="job-gallery-add">Add photos</label>
+          {gallery.length === 0 ? (
+            <p className="ops-tray-empty">No photos on this job yet.</p>
+          ) : (
+            <div className="job-gallery-grid">
+              {visibleGallery.map(photo => {
+                const url = galleryUrls?.[photo.key] ?? '';
+                return (
+                  <a
+                    key={photo.key}
+                    className="job-gallery-item"
+                    data-gallery-photo={photo.key}
+                    data-gallery-source={photo.source}
+                    href={url || undefined}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <img src={url} alt={photo.caption ?? ''} loading="lazy" />
+                    <span className="job-gallery-meta">
+                      {JOB_PHOTO_SOURCE_LABEL[photo.source]} · {format(parseISO(photo.takenAt), 'd MMM yyyy')}
+                    </span>
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
           <div id="job-testing-due">
           <JobRelatedSection

@@ -55,6 +55,7 @@ export interface Database {
       compliance_logs: AnyTable;
       member_tickets: AnyTable;
       job_visit_notes: AnyTable;
+      job_photos: AnyTable;
       platform_operators: AnyTable;
       platform_operator_events: AnyTable;
       platform_company_notes: AnyTable;
