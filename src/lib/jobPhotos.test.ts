@@ -9,9 +9,11 @@ import {
   decideJobPhotoUpload,
   filterJobGallery,
   galleryFilterCounts,
+  jobPhotoInsert,
   jobPhotoStoragePath,
   jobPhotosQuery,
   photosForVisitNote,
+  placeFromJobPhotoRow,
   type JobGalleryPhoto,
   type JobPhotoRow,
 } from './jobPhotos';
@@ -28,7 +30,13 @@ const visitRow: JobPhotoRow = {
   storage_path: 'co-1/jobs/job-1/ph-visit.jpg',
   caption: 'After the pull',
   created_by: 'p-alex',
-  created_at: '2026-09-10T09:00:00.000Z',
+  created_at: '2026-09-10T09:30:00.000Z',
+  taken_at: '2026-09-10T09:00:00.000Z',
+  taken_at_source: 'exif',
+  lat: -27.4698,
+  lng: 153.0251,
+  location_source: 'exif',
+  location_accuracy_m: null,
 };
 
 const jobRow: JobPhotoRow = {
@@ -40,6 +48,12 @@ const jobRow: JobPhotoRow = {
   caption: null,
   created_by: 'p-sam',
   created_at: '2026-09-09T08:00:00.000Z',
+  taken_at: '2026-09-09T08:00:00.000Z',
+  taken_at_source: 'upload',
+  lat: null,
+  lng: null,
+  location_source: null,
+  location_accuracy_m: null,
 };
 
 const visitGallery: JobGalleryPhoto = {
@@ -48,6 +62,8 @@ const visitGallery: JobGalleryPhoto = {
   bucket: JOB_PHOTOS_BUCKET,
   storagePath: 'co-1/jobs/job-1/ph-visit.jpg',
   takenAt: '2026-09-10T09:00:00.000Z',
+  takenAtSource: 'exif',
+  place: { lat: -27.4698, lng: 153.0251, source: 'exif', accuracyM: null },
   caption: 'After the pull',
   visitNoteId: 'note-1',
   inspectionId: null,
@@ -60,6 +76,8 @@ const jobGallery: JobGalleryPhoto = {
   bucket: JOB_PHOTOS_BUCKET,
   storagePath: 'co-1/jobs/job-1/ph-job.jpg',
   takenAt: '2026-09-09T08:00:00.000Z',
+  takenAtSource: 'upload',
+  place: null,
   caption: null,
   visitNoteId: null,
   inspectionId: null,
@@ -72,6 +90,8 @@ const inspectionGallery: JobGalleryPhoto = {
   bucket: INSPECTION_PHOTOS_BUCKET,
   storagePath: 'insp-1/shot.jpg',
   takenAt: '2026-09-11T10:00:00.000Z',
+  takenAtSource: 'upload',
+  place: null,
   caption: 'Board face',
   visitNoteId: null,
   inspectionId: 'insp-1',
@@ -84,6 +104,8 @@ const jhaGallery: JobGalleryPhoto = {
   bucket: INSPECTION_PHOTOS_BUCKET,
   storagePath: 'jha/jha-1/step-1/step-photo-1.jpg',
   takenAt: '2026-09-08T07:00:00.000Z',
+  takenAtSource: 'upload',
+  place: null,
   caption: 'Isolation point',
   visitNoteId: null,
   inspectionId: null,
@@ -160,7 +182,95 @@ describe('decideJobPhotoUpload', () => {
   });
 });
 
+describe('jobPhotoInsert', () => {
+  it('writes the photo clock and photo GPS onto the row', () => {
+    expect(jobPhotoInsert({
+      photoId: 'ph-1',
+      companyId: 'co-1',
+      jobId: 'job-1',
+      visitNoteId: 'note-1',
+      userId: 'p-alex',
+      provenance: {
+        takenAt: '2026-09-07T23:15:30.000Z',
+        takenAtSource: 'exif',
+        place: { lat: -27.4698, lng: 153.0251, source: 'exif', accuracyM: null },
+      },
+    })).toEqual({
+      id: 'ph-1',
+      company_id: 'co-1',
+      job_id: 'job-1',
+      visit_note_id: 'note-1',
+      storage_path: 'co-1/jobs/job-1/ph-1.jpg',
+      created_by: 'p-alex',
+      taken_at: '2026-09-07T23:15:30.000Z',
+      taken_at_source: 'exif',
+      lat: -27.4698,
+      lng: 153.0251,
+      location_source: 'exif',
+      location_accuracy_m: null,
+    });
+  });
+
+  it('writes the upload clock and the device fix with its accuracy, or nulls with no fix', () => {
+    const withDevice = jobPhotoInsert({
+      photoId: 'ph-2',
+      companyId: 'co-1',
+      jobId: 'job-1',
+      visitNoteId: null,
+      userId: 'p-sam',
+      provenance: {
+        takenAt: '2026-09-11T01:02:03.000Z',
+        takenAtSource: 'upload',
+        place: { lat: -33.8688, lng: 151.2093, source: 'device', accuracyM: 12 },
+      },
+    });
+    expect(withDevice).toMatchObject({
+      visit_note_id: null,
+      taken_at: '2026-09-11T01:02:03.000Z',
+      taken_at_source: 'upload',
+      lat: -33.8688,
+      lng: 151.2093,
+      location_source: 'device',
+      location_accuracy_m: 12,
+    });
+    const noFix = jobPhotoInsert({
+      photoId: 'ph-3',
+      companyId: 'co-1',
+      jobId: 'job-1',
+      visitNoteId: null,
+      userId: 'p-sam',
+      provenance: { takenAt: '2026-09-11T01:02:03.000Z', takenAtSource: 'upload', place: null },
+    });
+    expect([noFix.lat, noFix.lng, noFix.location_source, noFix.location_accuracy_m]).toEqual([null, null, null, null]);
+  });
+});
+
+describe('placeFromJobPhotoRow', () => {
+  it('rebuilds the place from row columns and reads a half-written fix as none', () => {
+    expect(placeFromJobPhotoRow(visitRow)).toEqual({ lat: -27.4698, lng: 153.0251, source: 'exif', accuracyM: null });
+    expect(placeFromJobPhotoRow({ ...jobRow, lat: -27.4698, lng: 153.0251, location_source: 'device', location_accuracy_m: 20 }))
+      .toEqual({ lat: -27.4698, lng: 153.0251, source: 'device', accuracyM: 20 });
+    expect(placeFromJobPhotoRow({ ...jobRow, lat: -27.4698 })).toBe(null);
+  });
+});
+
 describe('buildJobGallery', () => {
+  it('orders job photos by the photo clock, not the upload clock', () => {
+    const shotEarlierUploadedLater: JobPhotoRow = {
+      ...jobRow,
+      id: 'ph-late-upload',
+      storage_path: 'co-1/jobs/job-1/ph-late-upload.jpg',
+      created_at: '2026-09-12T08:00:00.000Z',
+      taken_at: '2026-09-01T08:00:00.000Z',
+      taken_at_source: 'exif',
+    };
+    expect(buildJobGallery({
+      jobPhotos: [shotEarlierUploadedLater, jobRow],
+      inspectionPhotos: [],
+      jhaDocuments: [],
+    }).map(photo => photo.key)).toEqual(['job:ph-job', 'job:ph-late-upload']);
+  });
+
   it('merges visit, job, inspection, and JHA photos newest first', () => {
     expect(buildJobGallery({
       jobPhotos: [visitRow, jobRow],
@@ -298,7 +408,7 @@ describe('jobPhotosQuery', () => {
   it('scopes the board to this company and this job', () => {
     expect(jobPhotosQuery({ companyId: 'co-1', jobId: 'job-1' })).toEqual({
       table: 'job_photos',
-      columns: 'id, company_id, job_id, visit_note_id, storage_path, caption, created_by, created_at',
+      columns: 'id, company_id, job_id, visit_note_id, storage_path, caption, created_by, created_at, taken_at, taken_at_source, lat, lng, location_source, location_accuracy_m',
       eq: { company_id: 'co-1', job_id: 'job-1' },
     });
     expect(JOB_PHOTOS_TABLE).toBe('job_photos');
@@ -322,6 +432,19 @@ describe('job photos live on the existing job sheet', () => {
     expect(app).not.toContain('path="/gallery"');
     expect(page).not.toMatch(/\bute\b/i);
     expect(page).not.toMatch(/Relovi|Littleloop/);
+  });
+
+  it('lets the live host ask for a device fix, and keeps photo provenance on the existing row', () => {
+    for (const headers of [src('public/_headers'), src('netlify.toml')]) {
+      expect(headers).toContain('geolocation=(self)');
+      expect(headers).not.toContain('geolocation=()');
+    }
+    const mig = src('supabase/migrations/20260911070000_078_job_photo_provenance.sql');
+    expect(mig).not.toContain('CREATE TABLE');
+    expect(mig).not.toContain('FOR UPDATE');
+    expect(mig).not.toContain('storage.buckets');
+    expect(mig).not.toMatch(/Relovi|Littleloop/);
+    expect(mig).not.toMatch(/\bute\b/i);
   });
 });
 

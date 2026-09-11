@@ -1,11 +1,18 @@
 import { compressImage } from './imageCompression';
+import type {
+  AttachedPhoto,
+  PhotoClockSource,
+  PhotoPlace,
+  PhotoPlaceSource,
+  PhotoProvenance,
+} from './photoProvenance';
 import { supabase } from './supabase';
 
 export const JOB_PHOTOS_TABLE = 'job_photos';
 export const JOB_PHOTOS_BUCKET = 'uploaded-pdfs';
 export const INSPECTION_PHOTOS_BUCKET = 'photos';
 export const JOB_PHOTOS_COLUMNS =
-  'id, company_id, job_id, visit_note_id, storage_path, caption, created_by, created_at';
+  'id, company_id, job_id, visit_note_id, storage_path, caption, created_by, created_at, taken_at, taken_at_source, lat, lng, location_source, location_accuracy_m';
 
 export const JOB_PHOTO_NO_JOB = 'This job is missing.';
 export const JOB_PHOTO_NOT_SIGNED_IN = 'Not signed in';
@@ -39,7 +46,15 @@ export interface JobPhotoRow {
   caption: string | null;
   created_by: string | null;
   created_at: string;
+  taken_at: string;
+  taken_at_source: PhotoClockSource;
+  lat: number | null;
+  lng: number | null;
+  location_source: PhotoPlaceSource | null;
+  location_accuracy_m: number | null;
 }
+
+export type JobPhotoInsert = Omit<JobPhotoRow, 'caption' | 'created_at'>;
 
 export interface JobGalleryPhoto {
   key: string;
@@ -47,6 +62,8 @@ export interface JobGalleryPhoto {
   bucket: typeof JOB_PHOTOS_BUCKET | typeof INSPECTION_PHOTOS_BUCKET;
   storagePath: string;
   takenAt: string;
+  takenAtSource: PhotoClockSource;
+  place: PhotoPlace | null;
   caption: string | null;
   visitNoteId: string | null;
   inspectionId: string | null;
@@ -111,6 +128,48 @@ export function decideJobPhotoUpload(input: {
   return { action: 'write' };
 }
 
+export function placeFromJobPhotoRow(
+  row: Pick<JobPhotoRow, 'lat' | 'lng' | 'location_source' | 'location_accuracy_m'>,
+): PhotoPlace | null {
+  if (row.lat === null || row.lng === null || row.location_source === null) return null;
+  return {
+    lat: row.lat,
+    lng: row.lng,
+    source: row.location_source,
+    accuracyM: row.location_accuracy_m,
+  };
+}
+
+/** Pure. The insert the browser sends for one attached photo. */
+export function jobPhotoInsert(args: {
+  photoId: string;
+  companyId: string;
+  jobId: string;
+  visitNoteId: string | null;
+  userId: string;
+  provenance: PhotoProvenance;
+}): JobPhotoInsert {
+  const { place } = args.provenance;
+  return {
+    id: args.photoId,
+    company_id: args.companyId,
+    job_id: args.jobId,
+    visit_note_id: args.visitNoteId,
+    storage_path: jobPhotoStoragePath({
+      companyId: args.companyId,
+      jobId: args.jobId,
+      photoId: args.photoId,
+    }),
+    created_by: args.userId,
+    taken_at: args.provenance.takenAt,
+    taken_at_source: args.provenance.takenAtSource,
+    lat: place?.lat ?? null,
+    lng: place?.lng ?? null,
+    location_source: place?.source ?? null,
+    location_accuracy_m: place?.accuracyM ?? null,
+  };
+}
+
 function fromJobPhotoRow(
   row: JobPhotoRow,
   source: 'visit' | 'job',
@@ -120,7 +179,9 @@ function fromJobPhotoRow(
     source,
     bucket: JOB_PHOTOS_BUCKET,
     storagePath: row.storage_path,
-    takenAt: row.created_at,
+    takenAt: row.taken_at,
+    takenAtSource: row.taken_at_source,
+    place: placeFromJobPhotoRow(row),
     caption: row.caption,
     visitNoteId: row.visit_note_id,
     inspectionId: null,
@@ -152,6 +213,8 @@ function loadInspectionPhotos(input: BuildJobGalleryInput): JobGalleryPhoto[] {
       bucket: INSPECTION_PHOTOS_BUCKET,
       storagePath: row.storage_path,
       takenAt: row.uploaded_at,
+      takenAtSource: 'upload',
+      place: null,
       caption: row.caption,
       visitNoteId: null,
       inspectionId: row.inspection_id,
@@ -173,6 +236,8 @@ function loadJhaPhotos(input: BuildJobGalleryInput): JobGalleryPhoto[] {
           bucket: INSPECTION_PHOTOS_BUCKET,
           storagePath: photo.storagePath,
           takenAt,
+          takenAtSource: 'upload',
+          place: null,
           caption: photo.caption ?? null,
           visitNoteId: null,
           inspectionId: null,
@@ -233,7 +298,11 @@ export function galleryFilterCounts(
 export function jobPhotosQuery(args: {
   companyId: string;
   jobId: string;
-}): { table: typeof JOB_PHOTOS_TABLE; columns: string; eq: { company_id: string; job_id: string } } | null {
+}): {
+  table: typeof JOB_PHOTOS_TABLE;
+  columns: typeof JOB_PHOTOS_COLUMNS;
+  eq: { company_id: string; job_id: string };
+} | null {
   const companyId = trimPhotoField(args.companyId);
   const jobId = trimPhotoField(args.jobId);
   if (!companyId || !jobId) return null;
@@ -253,17 +322,19 @@ export async function uploadJobPhotos(input: {
   jobId: string;
   userId: string;
   visitNoteId: string | null;
-  files: File[];
+  photos: AttachedPhoto[];
 }): Promise<{ uploaded: JobPhotoRow[]; failed: number }> {
   const uploaded: JobPhotoRow[] = [];
   let failed = 0;
-  for (const file of input.files) {
+  for (const { file, provenance } of input.photos) {
     try {
-      const photoId = crypto.randomUUID();
-      const storagePath = jobPhotoStoragePath({
+      const row = jobPhotoInsert({
+        photoId: crypto.randomUUID(),
         companyId: input.companyId,
         jobId: input.jobId,
-        photoId,
+        visitNoteId: input.visitNoteId,
+        userId: input.userId,
+        provenance,
       });
       const compressed = await compressImage(file, {
         maxWidth: 1200,
@@ -272,7 +343,7 @@ export async function uploadJobPhotos(input: {
       });
       const { error: uploadError } = await supabase.storage
         .from(JOB_PHOTOS_BUCKET)
-        .upload(storagePath, compressed.blob, {
+        .upload(row.storage_path, compressed.blob, {
           contentType: 'image/jpeg',
           cacheControl: '3600',
           upsert: false,
@@ -280,14 +351,7 @@ export async function uploadJobPhotos(input: {
       if (uploadError) throw uploadError;
       const { data, error } = await supabase
         .from(JOB_PHOTOS_TABLE)
-        .insert({
-          id: photoId,
-          company_id: input.companyId,
-          job_id: input.jobId,
-          visit_note_id: input.visitNoteId,
-          storage_path: storagePath,
-          created_by: input.userId,
-        })
+        .insert(row)
         .select(JOB_PHOTOS_COLUMNS)
         .single();
       if (error || !data) throw error ?? new Error('Photo row was not saved.');
