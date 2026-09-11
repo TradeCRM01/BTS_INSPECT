@@ -1018,6 +1018,7 @@ export function JobDetailPage() {
   const [arrivingSent, setArrivingSent] = useState(false);
   const [arrivingBusy, setArrivingBusy] = useState(false);
   const visitPhotoRef = useRef<HTMLInputElement>(null);
+  const visitAttachSeq = useRef(0);
   const galleryPhotoRef = useRef<HTMLInputElement>(null);
   const lightboxRef = useRef<HTMLDialogElement>(null);
   const moreRef = useRef<HTMLDetailsElement>(null);
@@ -2635,10 +2636,15 @@ export function JobDetailPage() {
                 id="job-visit-photo-input"
                 onChange={e => {
                   const files = Array.from(e.target.files ?? []);
+                  // A second pick while the first waits on the permission prompt must win.
+                  const seq = visitAttachSeq.current + 1;
+                  visitAttachSeq.current = seq;
                   setVisitAttaching(true);
-                  resolvePhotoProvenance(files, BROWSER_PROVENANCE_DEPS)
-                    .then(setVisitPhotos)
-                    .finally(() => setVisitAttaching(false));
+                  resolvePhotoProvenance(files, BROWSER_PROVENANCE_DEPS).then(photos => {
+                    if (visitAttachSeq.current !== seq) return;
+                    setVisitPhotos(photos);
+                    setVisitAttaching(false);
+                  });
                 }}
               />
               <label htmlFor="job-visit-photo-input" className="job-visit-photo-add">Add photos</label>
