@@ -90,6 +90,8 @@ import {
   JOB_GALLERY_FILTERS,
   JOB_PHOTOS_TABLE,
   JOB_PHOTO_SOURCE_LABEL,
+  INSPECTION_PHOTOS_BUCKET,
+  JOB_PHOTOS_BUCKET,
   buildJobGallery,
   decideJobPhotoUpload,
   filterJobGallery,
@@ -101,7 +103,9 @@ import {
   uploadJobPhotos,
   type InspectionGalleryRow,
   type JobGalleryFilter,
+  type JobGalleryPhoto,
   type JobPhotoRow,
+  type JobPhotoSource,
 } from '../lib/jobPhotos';
 import { format, parseISO, addDays } from 'date-fns';
 
@@ -196,6 +200,9 @@ const TESTING_DUE_LOOK_EMPTY = 'testing-due-empty';
 const TESTING_DUE_LOOK_ROWS = 'testing-due-rows';
 /** Playwright: /jobs/audit-doc-job?look=visit-notes */
 const VISIT_NOTES_LOOK = 'visit-notes';
+/** Playwright: /jobs/audit-doc-job?look=job-photos — visit notes with photos plus a seeded Gallery. */
+const JOB_PHOTOS_LOOK = 'job-photos';
+const LOOK_PHOTO_DIR = '/look/photos';
 
 function lookSearchParam(): string | null {
   if (!import.meta.env.DEV) return null;
@@ -213,8 +220,51 @@ function testingDueLookKind(): 'empty' | 'rows' | null {
   return null;
 }
 
+function jobPhotosLookOn(): boolean {
+  return lookSearchParam() === JOB_PHOTOS_LOOK;
+}
+
+/** Both paper looks seed the same visit log; job-photos adds photos on top. */
 function visitNotesLookOn(): boolean {
-  return lookSearchParam() === VISIT_NOTES_LOOK;
+  const look = lookSearchParam();
+  return look === VISIT_NOTES_LOOK || look === JOB_PHOTOS_LOOK;
+}
+
+function lookGalleryPhoto(args: {
+  id: string;
+  source: JobPhotoSource;
+  file: string;
+  takenAt: string;
+  visitNoteId?: string;
+  caption?: string;
+}): JobGalleryPhoto {
+  return {
+    key: `${args.source}:${args.id}`,
+    source: args.source,
+    bucket: args.source === 'inspection' || args.source === 'jha' ? INSPECTION_PHOTOS_BUCKET : JOB_PHOTOS_BUCKET,
+    storagePath: `${LOOK_PHOTO_DIR}/${args.file}.jpg`,
+    takenAt: args.takenAt,
+    caption: args.caption ?? null,
+    visitNoteId: args.visitNoteId ?? null,
+    inspectionId: args.source === 'inspection' ? 'look-insp' : null,
+    jhaDocumentId: args.source === 'jha' ? 'look-jha' : null,
+  };
+}
+
+/** Sample job-site photos under public/look/photos. Newest first, like the real board. */
+function lookGallery(): JobGalleryPhoto[] {
+  return [
+    lookGalleryPhoto({ id: 'new-1', source: 'visit', file: 'site-switchboard', takenAt: '2026-09-08T09:15:00.000Z', visitNoteId: 'look-visit-new' }),
+    lookGalleryPhoto({ id: 'new-2', source: 'visit', file: 'site-wall-cavity', takenAt: '2026-09-08T09:14:00.000Z', visitNoteId: 'look-visit-new' }),
+    lookGalleryPhoto({ id: 'job-1', source: 'job', file: 'site-pipework', takenAt: '2026-09-07T14:30:00.000Z', caption: 'Isolator location' }),
+    lookGalleryPhoto({ id: 'mid-1', source: 'visit', file: 'site-barrier', takenAt: '2026-09-07T08:00:00.000Z', visitNoteId: 'look-visit-mid' }),
+    lookGalleryPhoto({ id: 'insp-1', source: 'inspection', file: 'site-switchboard', takenAt: '2026-09-06T17:10:00.000Z', caption: 'Main board' }),
+    lookGalleryPhoto({ id: 'jha-1', source: 'jha', file: 'site-barrier', takenAt: '2026-09-06T16:20:00.000Z', caption: 'Exclusion zone' }),
+  ];
+}
+
+function lookGalleryUrls(photos: JobGalleryPhoto[]): Record<string, string> {
+  return Object.fromEntries(photos.map(photo => [photo.key, photo.storagePath]));
 }
 
 function lookVanTodayYmd(): string {
@@ -576,16 +626,30 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           color: var(--visit-muted);
           box-shadow: none;
         }
-        .hub-jobs.is-visit-notes-look .hub-jobs-more-trays > :not(#job-hours):not(#job-visit-notes):not(#job-insp) {
+        .hub-jobs.is-visit-notes-look .hub-jobs-more-trays > :not(#job-hours):not(#job-visit-notes):not(#job-insp):not(#job-gallery) {
+          display: none;
+        }
+        .hub-jobs.is-visit-notes-look:not(.is-job-photos-look) .hub-jobs-more-trays > #job-gallery {
           display: none;
         }
         @media (max-width: 639px) {
           .hub-jobs.is-record-open #job-visit-notes .job-visit-compose {
-            grid-template-columns: 1fr;
-            gap: 4px;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: baseline;
+            gap: 4px 16px;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline {
+            grid-column: 1 / -1;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-bar {
+            grid-column: 1;
+            grid-row: 2;
           }
           .hub-jobs.is-record-open #job-visit-notes .job-visit-post {
-            justify-self: start;
+            grid-column: 2;
+            grid-row: 2;
+            justify-self: end;
+            min-height: 24px;
           }
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-input {
@@ -596,31 +660,61 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-bar {
           grid-column: 1 / -1;
+          display: flex;
+          align-items: baseline;
+          gap: 12px;
+          min-height: 24px;
+          margin: -2px 0 0;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-add {
           color: var(--visit-muted);
           font-family: 'Source Sans 3', system-ui, sans-serif;
           font-size: 14px;
           font-weight: 500;
+          line-height: 24px;
           cursor: pointer;
         }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-add:hover {
+          color: var(--visit-ink);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-input:focus-visible + .job-visit-photo-add {
+          color: var(--visit-action);
+          text-decoration: underline;
+        }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-count {
-          margin-left: 12px;
+          margin: 0;
           color: var(--visit-muted);
           font-family: 'Source Sans 3', system-ui, sans-serif;
           font-size: 12px;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-photos {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-          gap: 8px;
-          margin: 8px 0 0;
+          grid-template-columns: repeat(auto-fill, 72px);
+          gap: 6px;
+          margin: 8px 0 2px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photos a {
+          display: block;
+          border-radius: 3px;
+          overflow: hidden;
+          border: 1px solid var(--visit-line);
+          background: var(--visit-page);
+          box-shadow: 0 1px 2px rgba(10, 37, 64, 0.06);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photos a:focus-visible {
+          outline: 2px solid var(--visit-action);
+          outline-offset: 1px;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-photos img {
           display: block;
           aspect-ratio: 1;
           object-fit: cover;
           width: 100%;
+        }
+        @media (max-width: 639px) {
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-photos {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+          }
         }
 `;
 
@@ -635,9 +729,16 @@ const JOB_GALLERY_LOOK_CSS = `
           box-shadow: none;
         }
         .hub-jobs.is-record-open #job-gallery .ops-tray-head {
-          padding: 12px 0 2px;
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 12px 0 6px;
           border: none;
           background: none;
+        }
+        .hub-jobs.is-record-open #job-gallery .ops-tray-empty {
+          display: block;
         }
         .hub-jobs.is-record-open #job-gallery .ops-section-title {
           font-family: Rajdhani, sans-serif;
@@ -654,6 +755,9 @@ const JOB_GALLERY_LOOK_CSS = `
           font-weight: 500;
           color: #5B6B7C;
         }
+        .hub-jobs.is-record-open #job-gallery .ops-section-title svg {
+          display: none;
+        }
         .hub-jobs.is-record-open #job-gallery .job-gallery-photo-input {
           position: absolute;
           width: 1px;
@@ -662,33 +766,66 @@ const JOB_GALLERY_LOOK_CSS = `
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-add {
           display: inline-block;
-          margin: 0 0 8px;
+          margin: 0;
           color: #5B6B7C;
           font-family: 'Source Sans 3', system-ui, sans-serif;
           font-size: 14px;
           font-weight: 500;
+          line-height: 24px;
+          white-space: nowrap;
           cursor: pointer;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-add:hover {
+          color: #0A2540;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-photo-input:focus-visible + .job-gallery-add {
+          color: #2E75B6;
+          text-decoration: underline;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-filters {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0 20px;
+          margin: 0 0 10px;
+          border-bottom: 1px solid #E2D9CC;
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-filter {
           background: none;
           border: none;
-          padding: 0;
-          margin: 0 16px 8px 0;
+          border-bottom: 2px solid transparent;
+          border-radius: 0;
+          padding: 4px 0 6px;
+          margin: 0 0 -1px;
           color: #5B6B7C;
           font-family: 'Source Sans 3', system-ui, sans-serif;
           font-size: 13px;
+          font-weight: 500;
+          line-height: 1.2;
           cursor: pointer;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-filter:hover {
+          color: #0A2540;
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-filter[aria-pressed="true"] {
           color: #0A2540;
-          text-decoration: underline;
+          border-bottom-color: #0A2540;
+          text-decoration: none;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-filter .job-gallery-filter-count {
+          margin-left: 4px;
+          font-weight: 400;
+          color: #5B6B7C;
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-          gap: 8px;
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          gap: 12px 10px;
+          padding: 0 0 14px;
+          border-bottom: 1px solid #E2D9CC;
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-item {
+          display: block;
+          min-width: 0;
           color: inherit;
           text-decoration: none;
         }
@@ -697,13 +834,27 @@ const JOB_GALLERY_LOOK_CSS = `
           aspect-ratio: 1;
           object-fit: cover;
           width: 100%;
+          border-radius: 3px;
+          border: 1px solid #E2D9CC;
+          background: #F5F0E6;
+          box-shadow: 0 1px 2px rgba(10, 37, 64, 0.06);
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-item:focus-visible img {
+          outline: 2px solid #2E75B6;
+          outline-offset: 1px;
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-meta {
           display: block;
-          margin-top: 4px;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          margin-top: 5px;
+          font-family: Rajdhani, sans-serif;
+          font-weight: 700;
           font-size: 11px;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
           color: #5B6B7C;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .hub-jobs.is-record-open #job-gallery .ops-tray-empty {
           margin: 0;
@@ -711,6 +862,22 @@ const JOB_GALLERY_LOOK_CSS = `
           font-family: 'Source Sans 3', system-ui, sans-serif;
           font-size: 14px;
           color: #5B6B7C;
+          border-bottom: 1px solid #E2D9CC;
+        }
+        @media (max-width: 639px) {
+          .hub-jobs.is-record-open #job-gallery .job-gallery-filters {
+            gap: 0 14px;
+          }
+          .hub-jobs.is-record-open #job-gallery .job-gallery-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px 8px;
+          }
+          .hub-jobs.is-record-open #job-gallery .job-gallery-meta {
+            letter-spacing: 0.04em;
+          }
+          .hub-jobs.is-record-open #job-gallery .job-gallery-meta-year {
+            display: none;
+          }
         }
 `;
 
@@ -1105,19 +1272,23 @@ export function JobDetailPage() {
     enabled: !!id && !!inspections,
   });
 
-  const gallery = useMemo(() => buildJobGallery({
-    jobPhotos: jobPhotos ?? [],
-    inspectionPhotos: inspectionGalleryPhotos ?? [],
-    jhaDocuments: (jhas ?? []).map(doc => ({
-      id: doc.id,
-      steps: doc.steps,
-      created_at: doc.created_at,
-    })),
-  }), [jobPhotos, inspectionGalleryPhotos, jhas]);
+  const gallery = useMemo(() => {
+    if (jobPhotosLookOn()) return lookGallery();
+    return buildJobGallery({
+      jobPhotos: jobPhotos ?? [],
+      inspectionPhotos: inspectionGalleryPhotos ?? [],
+      jhaDocuments: (jhas ?? []).map(doc => ({
+        id: doc.id,
+        steps: doc.steps,
+        created_at: doc.created_at,
+      })),
+    });
+  }, [jobPhotos, inspectionGalleryPhotos, jhas]);
 
   const { data: galleryUrls } = useQuery<Record<string, string>>({
     queryKey: ['job-gallery-urls', id, gallery.map(photo => photo.key).join(',')],
     queryFn: async () => {
+      if (jobPhotosLookOn()) return lookGalleryUrls(gallery);
       if (visitNotesLookOn()) return {};
       const empty = getAuditEmptyList();
       if (empty) return {};
@@ -1651,7 +1822,7 @@ export function JobDetailPage() {
         ${JOB_VISIT_NOTES_LOOK_CSS}
         ${JOB_GALLERY_LOOK_CSS}
       `}</style>
-      <div className={`ops-page hub-jobs hub-job-cal is-record-open${visitNotesLookOn() ? ' is-visit-notes-look' : ''}`}>
+      <div className={`ops-page hub-jobs hub-job-cal is-record-open${visitNotesLookOn() ? ' is-visit-notes-look' : ''}${jobPhotosLookOn() ? ' is-job-photos-look' : ''}`}>
         <Breadcrumbs items={[
           { label: 'Jobs', to: '/jobs' },
           { label: `${jobRef} ${job.title}` },
@@ -2463,35 +2634,38 @@ export function JobDetailPage() {
               <span className="truncate">Gallery</span>
               <span className="ops-meta font-normal">{gallery.length}</span>
             </h2>
+            <input
+              ref={galleryPhotoRef}
+              type="file"
+              accept="image/*"
+              multiple
+              capture="environment"
+              className="job-gallery-photo-input"
+              id="job-gallery-photo-input"
+              onChange={e => {
+                const files = Array.from(e.target.files ?? []);
+                e.target.value = '';
+                if (files.length === 0) return;
+                addGalleryPhotos.mutate(files);
+              }}
+            />
+            <label htmlFor="job-gallery-photo-input" className="job-gallery-add">Add photos</label>
           </div>
-          {JOB_GALLERY_FILTERS.map(filter => (
-            <button
-              key={filter}
-              type="button"
-              className="job-gallery-filter"
-              aria-pressed={galleryFilter === filter}
-              data-gallery-filter={filter}
-              onClick={() => setGalleryFilter(filter)}
-            >
-              {filter === 'all' ? 'All' : JOB_PHOTO_SOURCE_LABEL[filter]} ({galleryCounts[filter]})
-            </button>
-          ))}
-          <input
-            ref={galleryPhotoRef}
-            type="file"
-            accept="image/*"
-            multiple
-            capture="environment"
-            className="job-gallery-photo-input"
-            id="job-gallery-photo-input"
-            onChange={e => {
-              const files = Array.from(e.target.files ?? []);
-              e.target.value = '';
-              if (files.length === 0) return;
-              addGalleryPhotos.mutate(files);
-            }}
-          />
-          <label htmlFor="job-gallery-photo-input" className="job-gallery-add">Add photos</label>
+          <div className="job-gallery-filters" role="group" aria-label="Photo source">
+            {JOB_GALLERY_FILTERS.map(filter => (
+              <button
+                key={filter}
+                type="button"
+                className="job-gallery-filter"
+                aria-pressed={galleryFilter === filter}
+                data-gallery-filter={filter}
+                onClick={() => setGalleryFilter(filter)}
+              >
+                {filter === 'all' ? 'All' : JOB_PHOTO_SOURCE_LABEL[filter]}
+                <span className="job-gallery-filter-count">{galleryCounts[filter]}</span>
+              </button>
+            ))}
+          </div>
           {gallery.length === 0 ? (
             <p className="ops-tray-empty">No photos on this job yet.</p>
           ) : (
@@ -2510,7 +2684,8 @@ export function JobDetailPage() {
                   >
                     <img src={url} alt={photo.caption ?? ''} loading="lazy" />
                     <span className="job-gallery-meta">
-                      {JOB_PHOTO_SOURCE_LABEL[photo.source]} · {format(parseISO(photo.takenAt), 'd MMM yyyy')}
+                      {JOB_PHOTO_SOURCE_LABEL[photo.source]} · {format(parseISO(photo.takenAt), 'd MMM')}
+                      <span className="job-gallery-meta-year">{format(parseISO(photo.takenAt), ' yyyy')}</span>
                     </span>
                   </a>
                 );
