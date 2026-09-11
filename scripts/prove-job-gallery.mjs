@@ -178,7 +178,7 @@ const before = await galleryItems(page);
 notes.galleryBefore = before;
 
 const noteBody = `Proof visit ${new Date().toISOString()}`;
-await page.fill('#job-visit-notes .job-visit-hairline', noteBody);
+await page.fill('#job-visit-notes textarea[data-visit-section="done"]', noteBody);
 await page.setInputFiles('#job-visit-photo-input', [visitFile]);
 await page.click('#job-visit-notes .job-visit-post');
 await page.waitForFunction((body) => (
