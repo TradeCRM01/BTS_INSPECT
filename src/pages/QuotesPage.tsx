@@ -64,6 +64,8 @@ import {
 } from '../lib/attachQuoteClient';
 import {
   quoteActionContext,
+  quoteChaseDue,
+  quoteChaseLabel,
   recommendQuoteAction,
   type QuoteActionKey,
 } from '../lib/quoteNextAction';
@@ -404,6 +406,7 @@ export function QuotesPage() {
 
 function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () => void; onSend: (quoteId: string) => void }) {
   const next = recommendQuoteAction(quoteActionContext(quote));
+  const chase = quoteChaseDue(quote);
   const site = visibleSite(quote.job_address);
   const suburb = site ? suburbFromSite(site) : '';
   const money = quoteMoney(quote.total);
@@ -421,6 +424,11 @@ function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () 
       <span className={`hub-quotes-pill is-${quote.status}`}>{QUOTE_STATUS_LABELS[quote.status]}</span>
       <span className="hub-quotes-total">{money ?? ''}</span>
       <span className="hub-quotes-row-next" onClick={e => e.stopPropagation()}>
+        {chase.due && (
+          <button type="button" className="hub-quotes-chase" onClick={() => onSend(quote.id)}>
+            {quoteChaseLabel(chase.days)}
+          </button>
+        )}
         {next.key === 'none' ? (
           <span className="hub-quotes-muted">{next.label}</span>
         ) : (
