@@ -917,9 +917,11 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
             width: 100%;
             min-width: 0;
           }
+          /* Phone reads like the form ends: who it is stamped as, then Post update. */
           .hub-jobs.is-record-open #job-visit-notes .job-notes-foot {
-            flex-direction: column-reverse;
+            flex-direction: column;
             align-items: stretch;
+            gap: 14px;
           }
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-log {

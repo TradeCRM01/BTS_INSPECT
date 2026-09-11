@@ -3,7 +3,7 @@
   "supabaseUrl": "https://look-harness.supabase.co",
   "expectedBody": "Done:\nReplaced the failed unit and tested the run.\n\nLeft to do:\nTidy the run and label the board.\n\nParts used:\n1 unit, 3 m of 20 mm pipe, 4 saddles.\n\nCustomer wants:\nA quote for the upstairs run.",
   "expectedSecondBody": "Done:\nSecond pass done.\n\nLeft to do:\nAll done",
-  "startedAt": "2026-09-11T13:54:09.735Z",
+  "startedAt": "2026-09-11T13:59:48.188Z",
   "laptopNewUpdateTabSelectedWithHistoryCount": {
     "ok": true,
     "selectedTab": "new",
@@ -151,7 +151,7 @@
     "photoInserts": 1,
     "visit_note_id": "harness-note-1",
     "job_id": "audit-doc-job",
-    "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/3f1ac5f0-47ff-4244-843f-ed7592b62e64.jpg"
+    "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/8250eb8c-8ff7-4798-8d62-7be810dd898e.jpg"
   },
   "laptopComposerClearsAfterPost": {
     "ok": true,
@@ -267,13 +267,13 @@
   ],
   "laptopPhotoInserts": [
     {
-      "id": "3f1ac5f0-47ff-4244-843f-ed7592b62e64",
+      "id": "8250eb8c-8ff7-4798-8d62-7be810dd898e",
       "company_id": "00000000-0000-0000-0000-000000000001",
       "job_id": "audit-doc-job",
       "visit_note_id": "harness-note-1",
-      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/3f1ac5f0-47ff-4244-843f-ed7592b62e64.jpg",
+      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/8250eb8c-8ff7-4798-8d62-7be810dd898e.jpg",
       "created_by": "00000000-0000-0000-0000-000000000002",
-      "taken_at": "2026-09-11T13:54:12.218Z",
+      "taken_at": "2026-09-11T13:59:50.283Z",
       "taken_at_source": "upload",
       "lat": null,
       "lng": null,
@@ -478,7 +478,7 @@
     "photoInserts": 1,
     "visit_note_id": "harness-note-1",
     "job_id": "audit-doc-job",
-    "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/a244e945-2e26-47f7-85bd-b5ce3ec89cee.jpg"
+    "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/8132508b-345a-4bc0-9e4c-ecaf0b27068a.jpg"
   },
   "phoneComposerClearsAfterPost": {
     "ok": true,
@@ -594,13 +594,13 @@
   ],
   "phonePhotoInserts": [
     {
-      "id": "a244e945-2e26-47f7-85bd-b5ce3ec89cee",
+      "id": "8132508b-345a-4bc0-9e4c-ecaf0b27068a",
       "company_id": "00000000-0000-0000-0000-000000000001",
       "job_id": "audit-doc-job",
       "visit_note_id": "harness-note-1",
-      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/a244e945-2e26-47f7-85bd-b5ce3ec89cee.jpg",
+      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/8132508b-345a-4bc0-9e4c-ecaf0b27068a.jpg",
       "created_by": "00000000-0000-0000-0000-000000000002",
-      "taken_at": "2026-09-11T13:54:16.047Z",
+      "taken_at": "2026-09-11T13:59:54.115Z",
       "taken_at_source": "upload",
       "lat": null,
       "lng": null,
@@ -612,6 +612,6 @@
     "ok": true,
     "pageErrors": []
   },
-  "finishedAt": "2026-09-11T13:54:17.640Z",
+  "finishedAt": "2026-09-11T13:59:55.716Z",
   "failures": []
 }
