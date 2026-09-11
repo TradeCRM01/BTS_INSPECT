@@ -79,12 +79,17 @@ import {
 } from '../lib/timesheetJob';
 import {
   JOB_VISIT_NOTE_TABLE,
+  VISIT_NOTE_SECTIONS,
+  composeVisitNoteBody,
   decideJobVisitNotePost,
+  emptyVisitNoteSections,
   jobVisitNotePostToast,
   jobVisitNotesQuery,
+  parseVisitNoteBody,
   postJobVisitNote,
   sortJobVisitNotesNewestFirst,
   type JobVisitNote,
+  type VisitNoteSections,
 } from '../lib/jobVisitNotes';
 import {
   JOB_GALLERY_FILTERS,
@@ -294,7 +299,12 @@ function lookVisitNotes(jobId: string): JobVisitNote[] {
       job_id: jobId,
       author_id: 'look-alex',
       author_name: 'Alex Reed',
-      body: 'Fitted the new unit. Customer wants a quote for the upstairs run.',
+      body: composeVisitNoteBody({
+        done: 'Fitted the new unit. Tested and running.',
+        left: 'Tidy the run and label the board.',
+        parts_used: '1 unit, 3 m of 20 mm pipe, 4 saddles.',
+        customer_wants: 'A quote for the upstairs run.',
+      }),
       created_at: '2026-09-08T09:15:00.000Z',
     },
     {
@@ -526,22 +536,55 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
         .hub-jobs.is-record-open #job-visit-notes .job-visit-compose {
           display: grid;
           grid-template-columns: minmax(0, 1fr) auto;
-          align-items: end;
-          gap: 8px 16px;
+          align-items: baseline;
+          gap: 6px 16px;
           margin: 0;
           padding: 0 0 4px;
           background: none;
           border: none;
           box-shadow: none;
         }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-sections {
+          grid-column: 1 / -1;
+          display: grid;
+          gap: 0;
+          padding: 2px 0 0;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field {
+          display: block;
+          margin: 0;
+          padding: 8px 0 0;
+          border-bottom: 1px solid var(--visit-line);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field:has(.job-visit-hairline:focus) {
+          border-bottom-color: var(--visit-action);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-section-label {
+          display: block;
+          margin: 0;
+          font-family: Rajdhani, sans-serif;
+          font-weight: 700;
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          line-height: 16px;
+          color: var(--visit-muted);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field:has(.job-visit-hairline:not(:placeholder-shown)) .job-visit-section-label {
+          color: var(--visit-ink);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field:has(.job-visit-hairline:focus) .job-visit-section-label {
+          color: var(--visit-action);
+        }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline {
+          display: block;
           width: 100%;
-          min-height: 36px;
+          min-height: 0;
           height: auto;
-          padding: 8px 0;
+          field-sizing: content;
+          padding: 2px 0 8px;
           margin: 0;
           border: none;
-          border-bottom: 1px solid var(--visit-line);
           border-radius: 0;
           background: transparent;
           box-shadow: none;
@@ -551,17 +594,40 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           font-family: 'Source Sans 3', system-ui, sans-serif;
           font-size: 14px;
           font-weight: 400;
-          line-height: 1.35;
+          line-height: 20px;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline:focus {
-          border-bottom-color: var(--visit-action);
           box-shadow: none;
           outline: none;
+        }
+        @media (min-width: 640px) {
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field {
+            display: grid;
+            grid-template-columns: minmax(7rem, 9.5rem) minmax(0, 1fr);
+            column-gap: 16px;
+            align-items: start;
+            padding: 0;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field .job-visit-section-label {
+            padding: 9px 0 0;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline {
+            padding: 7px 0 7px;
+          }
+        }
+        /* Laptop only: typed text matches the 14px posted note. Phones keep 16px so iOS does not zoom. */
+        @media (min-width: 640px) and (hover: hover) and (pointer: fine) {
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline {
+            font-size: 14px !important;
+          }
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline::placeholder {
           color: var(--visit-muted);
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-post {
+          grid-column: 2;
+          grid-row: 2;
+          justify-self: end;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -573,19 +639,22 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           border: none;
           border-radius: 0;
           box-shadow: none;
-          color: var(--visit-muted);
+          color: var(--visit-action);
           font-family: 'Source Sans 3', system-ui, sans-serif;
           font-size: 14px;
-          font-weight: 500;
+          font-weight: 600;
           letter-spacing: 0;
           cursor: pointer;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-post:hover {
-          color: var(--visit-ink);
+          color: var(--visit-action);
+          text-decoration: underline;
           background: none;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-post:disabled {
           color: var(--visit-muted);
+          font-weight: 500;
+          text-decoration: none;
           cursor: default;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-log {
@@ -621,6 +690,28 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           color: var(--visit-ink);
           white-space: pre-wrap;
         }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-body p {
+          margin: 0 0 8px;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-body p:last-child {
+          margin-bottom: 0;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-body .job-visit-section-label {
+          line-height: 14px;
+          color: var(--visit-ink);
+        }
+        @media (min-width: 640px) {
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-body .job-visit-block {
+            display: grid;
+            grid-template-columns: minmax(7rem, 9.5rem) minmax(0, 1fr);
+            column-gap: 16px;
+            align-items: start;
+            margin: 0 0 4px;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-body .job-visit-block .job-visit-section-label {
+            padding-top: 3px;
+          }
+        }
         .hub-jobs.is-record-open #job-visit-notes .ops-tray-empty {
           padding: 8px 0 12px;
           background: none;
@@ -648,22 +739,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           display: none;
         }
         @media (max-width: 639px) {
-          .hub-jobs.is-record-open #job-visit-notes .job-visit-compose {
-            grid-template-columns: minmax(0, 1fr) auto;
-            align-items: baseline;
-            gap: 4px 16px;
-          }
-          .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline {
-            grid-column: 1 / -1;
-          }
-          .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-bar {
-            grid-column: 1;
-            grid-row: 2;
-          }
           .hub-jobs.is-record-open #job-visit-notes .job-visit-post {
-            grid-column: 2;
-            grid-row: 2;
-            justify-self: end;
             min-height: 24px;
           }
         }
@@ -674,7 +750,8 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           opacity: 0;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-photo-bar {
-          grid-column: 1 / -1;
+          grid-column: 1;
+          grid-row: 2;
           display: flex;
           align-items: baseline;
           gap: 12px;
@@ -1010,7 +1087,7 @@ export function JobDetailPage() {
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
-  const [visitDraft, setVisitDraft] = useState('');
+  const [visitDraft, setVisitDraft] = useState<VisitNoteSections>(emptyVisitNoteSections);
   const [visitPhotos, setVisitPhotos] = useState<AttachedPhoto[]>([]);
   const [visitAttaching, setVisitAttaching] = useState(false);
   const [galleryFilter, setGalleryFilter] = useState<JobGalleryFilter>('all');
@@ -1580,7 +1657,7 @@ export function JobDetailPage() {
         companyId: profile?.company_id,
         authorId: profile?.id,
         authorName: profile?.name,
-        body: visitDraft,
+        sections: visitDraft,
         photoCount: visitPhotos.length,
       });
       let failed = 0;
@@ -1599,7 +1676,7 @@ export function JobDetailPage() {
     onSuccess: ({ failed }) => {
       queryClient.invalidateQueries({ queryKey: ['job-visit-notes', id] });
       queryClient.invalidateQueries({ queryKey: ['job-photos', id] });
-      setVisitDraft('');
+      setVisitDraft(emptyVisitNoteSections());
       setVisitPhotos([]);
       if (visitPhotoRef.current) visitPhotoRef.current.value = '';
       const toast = jobVisitNotePostToast();
@@ -1894,7 +1971,7 @@ export function JobDetailPage() {
     companyId: profile?.company_id,
     authorId: profile?.id,
     authorName: profile?.name,
-    body: visitDraft,
+    sections: visitDraft,
     photoCount: visitPhotos.length,
   });
   const visitLog = sortJobVisitNotesNewestFirst(visitNotes);
@@ -2610,14 +2687,25 @@ export function JobDetailPage() {
               postVisitNote.mutate();
             }}
           >
-            <textarea
-              className="job-visit-hairline"
-              rows={2}
-              value={visitDraft}
-              onChange={e => setVisitDraft(e.target.value)}
-              placeholder="What was done, materials, left to do, customer wants"
-              aria-label="Visit note"
-            />
+            <div className="job-visit-sections">
+              {VISIT_NOTE_SECTIONS.map(section => (
+                <label key={section.key} className="job-visit-section-field">
+                  <span className="job-visit-section-label">{section.label}</span>
+                  <textarea
+                    className="job-visit-hairline"
+                    rows={1}
+                    data-visit-section={section.key}
+                    aria-label={section.label}
+                    value={visitDraft[section.key]}
+                    onChange={e => {
+                      const value = e.target.value;
+                      setVisitDraft(draft => ({ ...draft, [section.key]: value }));
+                    }}
+                    placeholder={section.placeholder}
+                  />
+                </label>
+              ))}
+            </div>
             <button
               type="submit"
               className="job-visit-post"
@@ -2664,12 +2752,22 @@ export function JobDetailPage() {
             <div className="job-visit-log">
               {visitLog.map(note => {
                 const notePhotos = photosForVisitNote(gallery, note.id);
+                const blocks = parseVisitNoteBody(note.body);
                 return (
                 <div key={note.id} className="job-visit-row">
                   <p className="job-visit-stamp">
                     {note.author_name} · {format(parseISO(note.created_at), 'd MMM yyyy · HH:mm')}
                   </p>
-                  <p className="job-visit-body">{note.body}</p>
+                  {blocks.length > 0 && (
+                    <div className="job-visit-body">
+                      {blocks.map((block, index) => (
+                        <p key={block.key ?? `free-${index}`} className={block.label ? 'job-visit-block' : undefined}>
+                          {block.label && <span className="job-visit-section-label">{block.label}</span>}
+                          {block.text}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   {notePhotos.length > 0 && (
                     <div className="job-visit-photos">
                       {notePhotos.map(photo => {
