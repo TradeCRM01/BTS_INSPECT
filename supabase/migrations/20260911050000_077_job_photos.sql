@@ -1,7 +1,7 @@
 -- Job photos on an existing job: visit-note shots or general job shots.
 -- Company-scoped, RLS. Files ride uploaded-pdfs under
--- {companyId}/jobs/{jobId}/{photoId}.jpg — same family as member ticket
--- photos. Not a gallery module, not a new bucket, not public.photos.
+-- {companyId}/jobs/{jobId}/{photoId}.jpg, the same family as member ticket
+-- photos (075). Not a gallery module, not a new bucket, not public.photos.
 
 CREATE TABLE IF NOT EXISTS public.job_photos (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -37,8 +37,8 @@ CREATE POLICY "Company members can insert job photos"
     AND created_by = auth.uid()
     AND EXISTS (
       SELECT 1 FROM public.jobs j
-      WHERE j.id = job_id
-        AND j.company_id = company_id
+      WHERE j.id = job_photos.job_id
+        AND j.company_id = job_photos.company_id
     )
   );
 

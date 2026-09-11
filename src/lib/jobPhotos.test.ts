@@ -338,6 +338,7 @@ describe('job_photos schema', () => {
     expect(mig).toContain('FOR DELETE');
     expect(mig).not.toContain('FOR UPDATE');
     expect(mig).not.toContain('my_company_id');
+    expect(mig).toContain('AND j.company_id = job_photos.company_id');
     expect(mig).not.toContain('storage.buckets');
     expect(mig).not.toMatch(/Relovi|Littleloop/);
     expect(mig).not.toMatch(/\bute\b/i);

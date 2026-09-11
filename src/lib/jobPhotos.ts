@@ -292,7 +292,8 @@ export async function uploadJobPhotos(input: {
         .single();
       if (error || !data) throw error ?? new Error('Photo row was not saved.');
       uploaded.push(data as JobPhotoRow);
-    } catch {
+    } catch (error) {
+      console.error('job photo upload failed', file.name, error);
       failed += 1;
     }
   }
