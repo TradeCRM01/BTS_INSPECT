@@ -80,7 +80,7 @@ describe('JOB_PACK_TEMPLATES', () => {
       }
     }
     expect([JOB_PACK_TITLE, JOB_PACK_PACKED, JOB_PACK_ADD, JOB_PACK_ADD_PLACEHOLDER, JOB_PACK_FIRST_TICK, JOB_PACK_TRADES_LABEL, JOB_PACK_TRADES_HELP])
-      .toEqual(['Job pack', 'Packed', 'Add item', 'Add an item', 'Saves from the first tick.', 'Trades', 'First pick is the primary trade. Job packs load it.']);
+      .toEqual(['Job pack', 'Packed', 'Add item', 'Add an item', 'Saves from the first tick.', 'Trades', 'First pick is the primary trade.']);
     expect(lib).not.toContain('JOB_PACK_EMPTY');
     expect(lib).not.toContain('JOB_PACK_PICK');
   });
@@ -405,44 +405,40 @@ describe('jobPackItemsQuery', () => {
   });
 });
 
-describe('job pack lives on the existing job sheet', () => {
-  it('ticks from JobDetailPage /jobs/:id between the bill and JHA, with no pack route', () => {
+describe('the job sheet carries no pack', () => {
+  it('has no pack tray, pack markers, pack route, or jobPack import on JobDetailPage', () => {
     const page = src('src/pages/JobDetailPage.tsx');
     const app = src('src/App.tsx');
-    expect(page).toContain('id="job-pack"');
-    expect(page).toContain('data-job-pack-start');
-    expect(page).toContain('data-job-pack-item');
-    expect(page).toContain('startJobPack');
-    expect(page).toContain('tickJobPackItem');
-    expect(page).toContain('addJobPackItem');
-    expect(page.indexOf('id="job-pack"')).toBeGreaterThan(page.indexOf('id="job-bill"'));
-    expect(page.indexOf('id="job-pack"')).toBeLessThan(page.indexOf('id="job-swms"'));
+    const auth = src('src/lib/devFieldAuditAuth.ts');
+    expect(page).not.toContain('id="job-pack"');
+    expect(page).not.toContain('data-job-pack');
+    expect(page).not.toContain("from '../lib/jobPack'");
+    expect(page).not.toMatch(/JOB_PACK_|jobPack|JobPack/);
+    expect(page.indexOf('id="job-swms"')).toBeGreaterThan(page.indexOf('id="job-bill"'));
     expect(app).not.toContain('path="/job-pack"');
     expect(app).not.toContain('path="/packs"');
-    expect(page).not.toContain('JOB_PACK_TEMPLATES.map');
-    expect(page).toContain('data-job-pack-template');
+    expect(auth).not.toContain("'job-pack'");
     expect(page).not.toMatch(/Relovi|Littleloop|ute photos/i);
   });
 });
 
-describe('company trades decide the pack', () => {
-  it('stores trades on the company, sets them at signup and in Settings, and the harness walks both shapes', () => {
+describe('company trades stay on Settings and Signup', () => {
+  it('stores trades on the company and sets them at signup and in Settings', () => {
     const mig = src('supabase/migrations/20260911100000_080_company_trades.sql');
     const settings = src('src/pages/CompanySettingsPage.tsx');
     const signup = src('src/pages/SignupPage.tsx');
     const edge = src('supabase/functions/signup-user/index.ts');
-    const prove = src('scripts/prove-job-pack.mjs');
     expect(mig).toContain("ADD COLUMN IF NOT EXISTS trades text[] NOT NULL DEFAULT '{}'");
     expect(mig).toContain("CHECK (trades <@ ARRAY['plumbing', 'electrical', 'hvac', 'carpentry', 'general']::text[])");
     expect(settings).toContain('data-company-trade');
     expect(settings).toContain('parseCompanyTrades');
     expect(signup).toContain('data-signup-trade');
     expect(signup).toContain('trades,');
+    expect(settings).not.toMatch(/job pack/i);
+    expect(signup).not.toMatch(/job pack/i);
     expect(edge).toContain('trades,');
     expect(edge).not.toMatch(/electrician|switchboard|electrical-only/i);
-    expect(prove).toContain('firstOpenAutoLoadsElectricalWithoutAPicker');
-    expect(prove).toContain('trades=plumbing,electrical');
-    for (const text of [mig, settings, signup, edge, prove]) expect(text).not.toMatch(/Relovi|Littleloop/);
+    for (const text of [mig, settings, signup, edge]) expect(text).not.toMatch(/Relovi|Littleloop/);
   });
 });
 

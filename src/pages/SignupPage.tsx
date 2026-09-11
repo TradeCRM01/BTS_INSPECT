@@ -119,7 +119,7 @@ export function SignupPage() {
 
         <div>
           <label className="form-label">What trades do you do?</label>
-          <p className="text-xs text-muted">Pick one or more. First pick is the primary trade. Job packs load it.</p>
+          <p className="text-xs text-muted">Pick one or more. First pick is the primary trade.</p>
           <div role="group" aria-label="Trades" className="flex flex-wrap gap-2 mt-2">
             {JOB_PACK_TEMPLATES.map(t => {
               const pressed = trades.includes(t.key);

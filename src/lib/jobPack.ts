@@ -18,7 +18,7 @@ export const JOB_PACK_ADD_EMPTY = 'Write the item first.';
 export const JOB_PACK_NO_PACK = 'Pick a pack before adding items.';
 export const JOB_PACK_UNKNOWN_ITEM = 'That item is not on the pack.';
 export const JOB_PACK_TRADES_LABEL = 'Trades';
-export const JOB_PACK_TRADES_HELP = 'First pick is the primary trade. Job packs load it.';
+export const JOB_PACK_TRADES_HELP = 'First pick is the primary trade.';
 export const JOB_PACK_FIRST_TICK = 'Saves from the first tick.';
 
 export const JOB_PACK_LABEL_MAX = 80;
