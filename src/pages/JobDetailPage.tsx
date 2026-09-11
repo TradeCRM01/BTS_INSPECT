@@ -2833,39 +2833,6 @@ export function JobDetailPage() {
           )}
         </section>
 
-        <dialog
-          ref={lightboxRef}
-          className="job-photo-lightbox"
-          data-photo-lightbox={lightboxPhoto?.key ?? ''}
-          onClose={() => setLightboxKey(null)}
-          onClick={e => { if (e.target === e.currentTarget) setLightboxKey(null); }}
-        >
-          {lightboxPhoto && (
-            <div className="job-photo-lightbox-sheet">
-              <img src={galleryUrls?.[lightboxPhoto.key] ?? ''} alt={lightboxPhoto.caption ?? ''} />
-              <div className="job-photo-lightbox-meta">
-                <p className="job-photo-lightbox-kind">
-                  {JOB_PHOTO_SOURCE_LABEL[lightboxPhoto.source]} photo
-                  {lightboxPhoto.caption ? ` · ${lightboxPhoto.caption}` : ''}
-                </p>
-                <p data-photo-when>{describePhotoClock(lightboxPhoto.takenAt, lightboxPhoto.takenAtSource)}</p>
-                {lightboxPlace ? (
-                  <p className="job-photo-lightbox-where" data-photo-where>
-                    <MapPin size={13} aria-hidden="true" />
-                    <span>{lightboxPlace.text}</span>
-                    <a href={lightboxPlace.mapUrl} target="_blank" rel="noreferrer">Open map</a>
-                  </p>
-                ) : (
-                  <p className="job-photo-lightbox-where" data-photo-where>{PHOTO_NO_PLACE}</p>
-                )}
-              </div>
-              <button type="button" className="job-photo-lightbox-close" onClick={() => setLightboxKey(null)}>
-                Close
-              </button>
-            </div>
-          )}
-        </dialog>
-
           <div id="job-testing-due">
           <JobRelatedSection
             title={JOB_TESTING_DUE_TITLE}
@@ -3016,6 +2983,38 @@ export function JobDetailPage() {
           }}
         />
       )}
+      <dialog
+        ref={lightboxRef}
+        className="job-photo-lightbox"
+        data-photo-lightbox={lightboxPhoto?.key ?? ''}
+        onClose={() => setLightboxKey(null)}
+        onClick={e => { if (e.target === e.currentTarget) setLightboxKey(null); }}
+      >
+        {lightboxPhoto && (
+          <div className="job-photo-lightbox-sheet">
+            <img src={galleryUrls?.[lightboxPhoto.key] ?? ''} alt={lightboxPhoto.caption ?? ''} />
+            <div className="job-photo-lightbox-meta">
+              <p className="job-photo-lightbox-kind">
+                {JOB_PHOTO_SOURCE_LABEL[lightboxPhoto.source]} photo
+                {lightboxPhoto.caption ? ` · ${lightboxPhoto.caption}` : ''}
+              </p>
+              <p data-photo-when>{describePhotoClock(lightboxPhoto.takenAt, lightboxPhoto.takenAtSource)}</p>
+              {lightboxPlace ? (
+                <p className="job-photo-lightbox-where" data-photo-where>
+                  <MapPin size={13} aria-hidden="true" />
+                  <span>{lightboxPlace.text}</span>
+                  <a href={lightboxPlace.mapUrl} target="_blank" rel="noreferrer">Open map</a>
+                </p>
+              ) : (
+                <p className="job-photo-lightbox-where" data-photo-where>{PHOTO_NO_PLACE}</p>
+              )}
+            </div>
+            <button type="button" className="job-photo-lightbox-close" onClick={() => setLightboxKey(null)}>
+              Close
+            </button>
+          </div>
+        )}
+      </dialog>
     </AppShell>
   );
 }
