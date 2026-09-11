@@ -30,11 +30,13 @@ export function plainPhotoFile(jpeg) {
 }
 
 const near = (a, b) => typeof a === 'number' && Math.abs(a - b) < 1e-6;
+// Postgres returns timestamptz as `+00:00`, the browser writes `.000Z`. Compare instants, not strings.
+const instant = (s) => (typeof s === 'string' ? Date.parse(s) : NaN);
 
 /** A row written from SITE_SHOT: photo clock in +10:00, photo GPS, no accuracy. */
 export function checkExifRow(row) {
   const ok = !!row
-    && row.taken_at === SITE_SHOT_TAKEN_AT
+    && instant(row.taken_at) === Date.parse(SITE_SHOT_TAKEN_AT)
     && row.taken_at_source === 'exif'
     && near(row.lat, SITE_SHOT.lat)
     && near(row.lng, SITE_SHOT.lng)
@@ -47,9 +49,8 @@ export function checkExifRow(row) {
 export function checkDeviceRow(row, sinceIso) {
   const ok = !!row
     && row.taken_at_source === 'upload'
-    && typeof row.taken_at === 'string'
-    && row.taken_at >= sinceIso
-    && row.taken_at <= new Date(Date.now() + 60_000).toISOString()
+    && instant(row.taken_at) >= Date.parse(sinceIso)
+    && instant(row.taken_at) <= Date.now() + 60_000
     && near(row.lat, DEVICE_FIX.latitude)
     && near(row.lng, DEVICE_FIX.longitude)
     && row.location_source === 'device'
