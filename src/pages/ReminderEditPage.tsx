@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Lock, Users } from 'lucide-react';
+import { Check, CheckCircle2, Lock, Users } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, useToast } from '../components/ui';
@@ -155,7 +155,7 @@ function ReminderEditSheet({
 
   return (
     <div className="ops-page dashboard-home reminders-page" data-reminder-edit={reminder.id}>
-      <article className="dashboard-home-sheet reminders-sheet">
+      <article className="dashboard-home-sheet reminders-sheet is-edit">
         <header className="dashboard-home-sheet-bar">
           <span className="dashboard-home-mark">Reminders</span>
         </header>
@@ -172,7 +172,7 @@ function ReminderEditSheet({
           <textarea
             id="reminder-title"
             className="reminders-field"
-            rows={3}
+            rows={2}
             value={title}
             disabled={!isOwner}
             onChange={e => setTitle(e.target.value)}
@@ -236,51 +236,54 @@ function ReminderEditSheet({
             </button>
           )}
 
-          <fieldset className="reminders-visibility" disabled={!isOwner}>
-            <legend>Who can see this</legend>
-            <label>
-              <input
-                type="radio"
-                name="reminder-visibility"
-                value="private"
-                checked={visibility === 'private'}
-                onChange={() => setVisibility('private')}
-              />
-              Private <span>Only you and anyone you tag</span>
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="reminder-visibility"
-                value="company"
-                checked={visibility === 'company'}
-                onChange={() => setVisibility('company')}
-              />
-              Company <span>Everyone at {company?.name || 'your company'}</span>
-            </label>
-          </fieldset>
+          <section className="reminders-sharing">
+            <h2 className="reminders-eyebrow">Sharing</h2>
+            <fieldset className="reminders-visibility" disabled={!isOwner}>
+              <legend>Who can see this</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="reminder-visibility"
+                  value="private"
+                  checked={visibility === 'private'}
+                  onChange={() => setVisibility('private')}
+                />
+                Private <span>Only you and anyone you tag</span>
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="reminder-visibility"
+                  value="company"
+                  checked={visibility === 'company'}
+                  onChange={() => setVisibility('company')}
+                />
+                Company <span>Everyone at {company?.name || 'your company'}</span>
+              </label>
+            </fieldset>
 
-          <div className="reminders-tag">
-            <span className="reminders-field-label">Tag teammates</span>
-            {teammates.length === 0 ? (
-              <p className="reminders-tag-empty">No teammates yet. Invite them from Team settings.</p>
-            ) : (
-              <div className="reminders-tag-chips">
-                {teammates.map(member => (
-                  <button
-                    key={member.id}
-                    type="button"
-                    data-reminder-tag={member.id}
-                    aria-pressed={taggedUserIds.includes(member.id)}
-                    disabled={!isOwner}
-                    onClick={() => toggleTag(member.id)}
-                  >
-                    {member.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+            <div className="reminders-tag">
+              <span className="reminders-field-label">Tag teammates</span>
+              {teammates.length === 0 ? (
+                <p className="reminders-tag-empty">No teammates yet. Invite them from Team settings.</p>
+              ) : (
+                <div className="reminders-tag-chips">
+                  {teammates.map(member => (
+                    <button
+                      key={member.id}
+                      type="button"
+                      data-reminder-tag={member.id}
+                      aria-pressed={taggedUserIds.includes(member.id)}
+                      disabled={!isOwner}
+                      onClick={() => toggleTag(member.id)}
+                    >
+                      {member.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
 
           <div className="reminders-actions">
             {isOwner && (
@@ -300,7 +303,7 @@ function ReminderEditSheet({
                 disabled={busy}
                 onClick={() => void toggleDone()}
               >
-                {reminder.completed ? 'Mark as not done' : 'Mark as done'}
+                <CheckCircle2 size={16} /> {reminder.completed ? 'Mark as not done' : 'Mark as done'}
               </button>
             )}
           </div>
