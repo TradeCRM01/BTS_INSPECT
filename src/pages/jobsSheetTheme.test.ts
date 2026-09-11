@@ -136,6 +136,7 @@ describe('job hub open sheet LOOK', () => {
       'title="Quotes"',
       'title="Project stages"',
       'ops-section-title">Job bill',
+      'id="job-pack"',
       'title="JHA / SWMS"',
       'title="Take 5"',
       'title="Time on this job"',

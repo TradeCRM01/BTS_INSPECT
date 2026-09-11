@@ -67,7 +67,7 @@ import { clientRecordHref } from '../lib/clientRecords';
 import {
   Calendar, Clock, User, Phone, Mail, ChevronDown,
   FileText, ShieldCheck, ShieldAlert, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
-  MoreHorizontal, MapPin,
+  MoreHorizontal, MapPin, ListChecks, Check,
 } from 'lucide-react';
 import {
   buildJobClockOffEntry,
@@ -91,6 +91,31 @@ import {
   type JobVisitNote,
   type VisitNoteSections,
 } from '../lib/jobVisitNotes';
+import {
+  JOB_PACK_ADD,
+  JOB_PACK_ADD_PLACEHOLDER,
+  JOB_PACK_COLUMNS,
+  JOB_PACK_EMPTY,
+  JOB_PACK_GROUPS,
+  JOB_PACK_PACKED,
+  JOB_PACK_PICK,
+  JOB_PACK_TABLE,
+  JOB_PACK_TEMPLATES,
+  JOB_PACK_TITLE,
+  addJobPackItem,
+  applyJobPackTick,
+  decideJobPackAddItem,
+  decideJobPackStart,
+  decideJobPackTick,
+  groupJobPackItems,
+  jobPackItemsQuery,
+  jobPackProgress,
+  startJobPack,
+  tickJobPackItem,
+  type JobPackGroupKey,
+  type JobPackItem,
+  type JobPackTickPatch,
+} from '../lib/jobPack';
 import {
   JOB_GALLERY_FILTERS,
   JOB_PHOTOS_TABLE,
@@ -216,6 +241,8 @@ const TESTING_DUE_LOOK_ROWS = 'testing-due-rows';
 const VISIT_NOTES_LOOK = 'visit-notes';
 /** Playwright: /jobs/audit-doc-job?look=job-photos — visit notes with photos plus a seeded Gallery. */
 const JOB_PHOTOS_LOOK = 'job-photos';
+/** Playwright: /jobs/audit-doc-job?look=job-pack — pack reads and writes go to Supabase (intercepted by the prove script). */
+const JOB_PACK_LOOK = 'job-pack';
 const LOOK_PHOTO_DIR = '/look/photos';
 
 function lookSearchParam(): string | null {
@@ -236,6 +263,10 @@ function testingDueLookKind(): 'empty' | 'rows' | null {
 
 function jobPhotosLookOn(): boolean {
   return lookSearchParam() === JOB_PHOTOS_LOOK;
+}
+
+function jobPackLookOn(): boolean {
+  return lookSearchParam() === JOB_PACK_LOOK;
 }
 
 /** Both paper looks seed the same visit log; job-photos adds photos on top. */
@@ -1090,6 +1121,8 @@ export function JobDetailPage() {
   const [visitDraft, setVisitDraft] = useState<VisitNoteSections>(emptyVisitNoteSections);
   const [visitPhotos, setVisitPhotos] = useState<AttachedPhoto[]>([]);
   const [visitAttaching, setVisitAttaching] = useState(false);
+  const [packAddLabel, setPackAddLabel] = useState('');
+  const [packAddGroup, setPackAddGroup] = useState<JobPackGroupKey>('materials');
   const [galleryFilter, setGalleryFilter] = useState<JobGalleryFilter>('all');
   const [lightboxKey, setLightboxKey] = useState<string | null>(null);
   const [arrivingSent, setArrivingSent] = useState(false);
@@ -1107,7 +1140,7 @@ export function JobDetailPage() {
     queryFn: async () => {
       const mock = getAuditJob(id!);
       if (mock) {
-        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn()) {
+        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn() || jobPackLookOn()) {
           return { ...mock, scheduled_date: lookVanTodayYmd() } as Job;
         }
         return mock as Job;
@@ -1423,6 +1456,31 @@ export function JobDetailPage() {
     enabled: !!id && !!profile?.company_id,
   });
 
+  const { data: packItems } = useQuery<JobPackItem[]>({
+    queryKey: ['job-pack', id],
+    queryFn: async () => {
+      if (!jobPackLookOn()) {
+        const empty = getAuditEmptyList();
+        if (empty) return empty as JobPackItem[];
+      }
+      const scope = jobPackItemsQuery({ companyId: profile!.company_id, jobId: id! });
+      if (!scope) return [];
+      const { data, error } = await supabase
+        .from(JOB_PACK_TABLE)
+        .select(JOB_PACK_COLUMNS)
+        .eq('company_id', scope.eq.company_id)
+        .eq('job_id', scope.eq.job_id)
+        .order('position', { ascending: true })
+        .order('id', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as JobPackItem[];
+    },
+    enabled: !!id && !!profile?.company_id,
+  });
+  const pack = packItems ?? [];
+  const packGroups = groupJobPackItems(pack);
+  const packProgress = jobPackProgress(pack);
+
   const { data: jobPhotos } = useQuery<JobPhotoRow[]>({
     queryKey: ['job-photos', id],
     queryFn: async () => {
@@ -1687,6 +1745,75 @@ export function JobDetailPage() {
           'info',
         );
       }
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
+
+  const packQueryKey = ['job-pack', id];
+  const startPack = useMutation({
+    mutationFn: async (packKey: string) => {
+      const decision = decideJobPackStart({
+        jobId: job?.id,
+        companyId: profile?.company_id,
+        userId: profile?.id,
+        packKey,
+        existing: pack,
+      });
+      if (decision.action === 'miss') {
+        showToast(decision.message, 'info');
+        return;
+      }
+      await startJobPack(decision.rows);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: packQueryKey });
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+  });
+
+  const tickPack = useMutation({
+    mutationKey: ['job-pack-tick', id],
+    mutationFn: ({ item, patch }: { item: JobPackItem; patch: JobPackTickPatch }) => tickJobPackItem(item.id, patch),
+    onMutate: async ({ item, patch }) => {
+      await queryClient.cancelQueries({ queryKey: packQueryKey });
+      queryClient.setQueryData<JobPackItem[]>(packQueryKey, old => applyJobPackTick(old ?? [], item.id, patch));
+    },
+    onError: (e: Error) => showToast(e.message, 'info'),
+    onSettled: () => {
+      // A refetch while a sibling tick is still in flight would briefly undo that tick on screen.
+      if (queryClient.isMutating({ mutationKey: ['job-pack-tick', id] }) <= 1) {
+        queryClient.invalidateQueries({ queryKey: packQueryKey });
+      }
+    },
+  });
+  const tickPackItem = (item: JobPackItem) => {
+    tickPack.mutate({
+      item,
+      patch: decideJobPackTick({ item, userId: profile?.id ?? null, userName: profile?.name, now: new Date() }),
+    });
+  };
+
+  const addPackItem = useMutation({
+    mutationFn: async () => {
+      const decision = decideJobPackAddItem({
+        jobId: job?.id,
+        companyId: profile?.company_id,
+        userId: profile?.id,
+        groupKey: packAddGroup,
+        label: packAddLabel,
+        existing: pack,
+      });
+      if (decision.action === 'miss') {
+        showToast(decision.message, 'info');
+        return false;
+      }
+      await addJobPackItem(decision.row);
+      return true;
+    },
+    onSuccess: (written) => {
+      if (!written) return;
+      setPackAddLabel('');
+      queryClient.invalidateQueries({ queryKey: packQueryKey });
     },
     onError: (e: Error) => showToast(e.message, 'info'),
   });
@@ -2449,6 +2576,99 @@ export function JobDetailPage() {
             </div>
           )}
         </div>
+
+        <section className="ops-tray" id="job-pack" data-job-pack="1">
+          <div className="ops-tray-head">
+            <h2 className="ops-section-title flex items-center gap-1.5 min-w-0">
+              <ListChecks size={14} className="text-navy shrink-0" />
+              <span className="truncate">{JOB_PACK_TITLE}</span>
+              <span className="ops-meta font-normal" data-job-pack-progress={`${packProgress.ticked}/${packProgress.total}`}>
+                {packProgress.total > 0 ? `${packProgress.ticked}/${packProgress.total}` : 0}
+              </span>
+              {packProgress.done && <span className="ops-meta font-normal" data-job-pack-packed="1">{JOB_PACK_PACKED}</span>}
+            </h2>
+          </div>
+          {pack.length === 0 ? (
+            <div className="ops-tray-empty space-y-2">
+              <p className="text-sm text-navy">{JOB_PACK_EMPTY}</p>
+              <p className="text-sm text-navy/70">{JOB_PACK_PICK}</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {JOB_PACK_TEMPLATES.map(t => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    data-job-pack-start={t.key}
+                    disabled={startPack.isPending}
+                    onClick={() => startPack.mutate(t.key)}
+                    className="w-full min-h-[44px] px-4 py-3 rounded-md border border-navy/20 text-left text-sm text-navy"
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 space-y-4">
+              {packGroups.map(({ group, items, ticked }) => (
+                <div key={group.key} data-job-pack-group={group.key}>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-navy/70 mb-1">
+                    {group.label} <span className="font-normal">{ticked}/{items.length}</span>
+                  </h3>
+                  <div className="space-y-1">
+                    {items.map(item => {
+                      const on = item.ticked_at !== null;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          role="checkbox"
+                          aria-checked={on}
+                          data-job-pack-item={item.id}
+                          onClick={() => tickPackItem(item)}
+                          className={`w-full min-h-[44px] px-3 py-2 rounded-md border text-left text-sm flex items-center gap-3 ${on ? 'border-accent bg-accent/10 text-navy' : 'border-navy/20 text-navy'}`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border ${on ? 'border-accent bg-accent text-white' : 'border-navy/40'}`}
+                          >
+                            {on ? <Check size={14} /> : null}
+                          </span>
+                          <span className={`flex-1 ${on ? 'line-through opacity-70' : ''}`}>{item.label}</span>
+                          {on && item.ticked_by_name && <span className="ops-meta">{item.ticked_by_name}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              <form
+                data-job-pack-add="1"
+                className="flex flex-wrap gap-2 items-center"
+                onSubmit={e => {
+                  e.preventDefault();
+                  addPackItem.mutate();
+                }}
+              >
+                <input
+                  aria-label={JOB_PACK_ADD_PLACEHOLDER}
+                  placeholder={JOB_PACK_ADD_PLACEHOLDER}
+                  value={packAddLabel}
+                  onChange={e => setPackAddLabel(e.target.value)}
+                  className="flex-1 min-w-[10rem] min-h-[44px] px-3 rounded-md border border-navy/20 text-sm"
+                />
+                <select
+                  aria-label="Group"
+                  value={packAddGroup}
+                  onChange={e => setPackAddGroup(e.target.value as JobPackGroupKey)}
+                  className="min-h-[44px] px-2 rounded-md border border-navy/20 text-sm"
+                >
+                  {JOB_PACK_GROUPS.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
+                </select>
+                <button type="submit" className="ops-link min-h-[44px]" disabled={addPackItem.isPending}>{JOB_PACK_ADD}</button>
+              </form>
+            </div>
+          )}
+        </section>
           <div id="job-swms">
           <JobRelatedSection
             title="JHA / SWMS"

@@ -265,6 +265,24 @@ describe('jobPackItemsQuery', () => {
   });
 });
 
+describe('job pack lives on the existing job sheet', () => {
+  it('ticks from JobDetailPage /jobs/:id between the bill and JHA, with no pack route', () => {
+    const page = src('src/pages/JobDetailPage.tsx');
+    const app = src('src/App.tsx');
+    expect(page).toContain('id="job-pack"');
+    expect(page).toContain('data-job-pack-start');
+    expect(page).toContain('data-job-pack-item');
+    expect(page).toContain('startJobPack');
+    expect(page).toContain('tickJobPackItem');
+    expect(page).toContain('addJobPackItem');
+    expect(page.indexOf('id="job-pack"')).toBeGreaterThan(page.indexOf('id="job-bill"'));
+    expect(page.indexOf('id="job-pack"')).toBeLessThan(page.indexOf('id="job-swms"'));
+    expect(app).not.toContain('path="/job-pack"');
+    expect(app).not.toContain('path="/packs"');
+    expect(page).not.toMatch(/Relovi|Littleloop|ute photos/i);
+  });
+});
+
 describe('job_pack_items schema', () => {
   it('locks one row per item with the four group keys and company-scoped RLS', () => {
     const mig = src('supabase/migrations/20260911090000_079_job_pack_items.sql');
