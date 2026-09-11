@@ -12,7 +12,7 @@ import { plainPhotoFile, renderJpeg } from './lib/photo-proof.mjs';
 
 const BASE = process.env.LOOK_BASE_URL || 'http://127.0.0.1:5173';
 const OUT = 'docs/proof/visit-note-composer';
-const HARNESS = '/jobs/audit-doc-job?look=visit-notes';
+const HARNESS = '/jobs/audit-doc-job?look=visit-notes&tab=notes';
 
 const SECTION_KEYS = ['done', 'left', 'parts_used', 'parts_needed', 'customer_wants'];
 
