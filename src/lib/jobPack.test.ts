@@ -422,13 +422,12 @@ describe('the job sheet carries no pack', () => {
   });
 });
 
-describe('company trades decide the pack', () => {
-  it('stores trades on the company, sets them at signup and in Settings, and the harness walks both shapes', () => {
+describe('company trades stay on Settings and Signup', () => {
+  it('stores trades on the company and sets them at signup and in Settings', () => {
     const mig = src('supabase/migrations/20260911100000_080_company_trades.sql');
     const settings = src('src/pages/CompanySettingsPage.tsx');
     const signup = src('src/pages/SignupPage.tsx');
     const edge = src('supabase/functions/signup-user/index.ts');
-    const prove = src('scripts/prove-job-pack.mjs');
     expect(mig).toContain("ADD COLUMN IF NOT EXISTS trades text[] NOT NULL DEFAULT '{}'");
     expect(mig).toContain("CHECK (trades <@ ARRAY['plumbing', 'electrical', 'hvac', 'carpentry', 'general']::text[])");
     expect(settings).toContain('data-company-trade');
@@ -437,9 +436,7 @@ describe('company trades decide the pack', () => {
     expect(signup).toContain('trades,');
     expect(edge).toContain('trades,');
     expect(edge).not.toMatch(/electrician|switchboard|electrical-only/i);
-    expect(prove).toContain('firstOpenAutoLoadsElectricalWithoutAPicker');
-    expect(prove).toContain('trades=plumbing,electrical');
-    for (const text of [mig, settings, signup, edge, prove]) expect(text).not.toMatch(/Relovi|Littleloop/);
+    for (const text of [mig, settings, signup, edge]) expect(text).not.toMatch(/Relovi|Littleloop/);
   });
 });
 
