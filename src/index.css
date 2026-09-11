@@ -8396,6 +8396,62 @@
     font-weight: 600;
   }
 
+  /* Section rail on the open sheet. Same strip as the list's status filters: one hairline, slides sideways on phone. */
+  .hub-jobs-document .job-sheet-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    margin-top: 16px;
+    border-bottom: 1px solid var(--job-look-line);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+
+  .hub-jobs-document .job-sheet-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hub-jobs-document .job-sheet-tab {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 0;
+    background: none;
+    color: var(--job-look-muted);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+    scroll-snap-align: start;
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  .hub-jobs-document .job-sheet-tab:first-child {
+    margin-left: -12px;
+  }
+
+  .hub-jobs-document .job-sheet-tab:hover {
+    color: var(--job-look-ink);
+  }
+
+  .hub-jobs-document .job-sheet-tab.is-on {
+    color: var(--job-look-ink);
+    font-weight: 600;
+    box-shadow: inset 0 -2px 0 #2E75B6;
+  }
+
+  .hub-jobs-document .job-sheet-tab:focus-visible {
+    outline: 2px solid #2E75B6;
+    outline-offset: -2px;
+  }
+
   .hub-jobs-hours {
     margin: 0;
     font-family: Rajdhani, sans-serif;
@@ -8546,6 +8602,12 @@
 
   .hub-jobs-document .hub-jobs-more-trays > div:not(#job-schedule) {
     display: contents;
+  }
+
+  /* Off-tab panes stay mounted for refs and drafts. !important because display: contents above and the
+     `.hub-jobs.is-record-open #job-gallery { display: block }` sheet rule both outrank the UA [hidden]. */
+  .hub-jobs-document [data-job-tab][hidden] {
+    display: none !important;
   }
 
   .hub-jobs-document .ops-tray:has(.ops-tray-empty),
