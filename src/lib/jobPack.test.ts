@@ -4,15 +4,16 @@ import { describe, expect, it } from 'vitest';
 import {
   JOB_PACK_ADD,
   JOB_PACK_ADD_PLACEHOLDER,
-  JOB_PACK_EMPTY,
+  JOB_PACK_FIRST_TICK,
   JOB_PACK_GROUPS,
   JOB_PACK_NO_JOB,
   JOB_PACK_NOT_SIGNED_IN,
   JOB_PACK_PACKED,
-  JOB_PACK_PICK,
   JOB_PACK_TABLE,
   JOB_PACK_TEMPLATES,
   JOB_PACK_TITLE,
+  JOB_PACK_TRADES_HELP,
+  JOB_PACK_TRADES_LABEL,
   applyJobPackTick,
   decideJobPackAddItem,
   decideJobPackStart,
@@ -21,6 +22,11 @@ import {
   jobPackItemsQuery,
   jobPackProgress,
   jobPackTemplate,
+  jobPackTickPatch,
+  jobPackTray,
+  parseCompanyTrades,
+  resolveJobPackTemplate,
+  templateJobPackRows,
   type JobPackItem,
 } from './jobPack';
 
@@ -73,8 +79,79 @@ describe('JOB_PACK_TEMPLATES', () => {
         }
       }
     }
-    expect([JOB_PACK_TITLE, JOB_PACK_EMPTY, JOB_PACK_PICK, JOB_PACK_PACKED, JOB_PACK_ADD, JOB_PACK_ADD_PLACEHOLDER])
-      .toEqual(['Job pack', 'No pack on this job', 'Pick a pack for this job', 'Packed', 'Add item', 'Add an item']);
+    expect([JOB_PACK_TITLE, JOB_PACK_PACKED, JOB_PACK_ADD, JOB_PACK_ADD_PLACEHOLDER, JOB_PACK_FIRST_TICK, JOB_PACK_TRADES_LABEL, JOB_PACK_TRADES_HELP])
+      .toEqual(['Job pack', 'Packed', 'Add item', 'Add an item', 'Saves from the first tick.', 'Trades', 'First pick is the primary trade. Job packs load it.']);
+    expect(lib).not.toContain('JOB_PACK_EMPTY');
+    expect(lib).not.toContain('JOB_PACK_PICK');
+  });
+});
+
+describe('parseCompanyTrades', () => {
+  it('keeps known keys in the order set and drops unknowns and repeats', () => {
+    expect(parseCompanyTrades(['hvac', 'plumbing', 'hvac', 'roofing', 7])).toEqual(['hvac', 'plumbing']);
+  });
+
+  it('reads anything that is not an array as no trades', () => {
+    expect(parseCompanyTrades(null)).toEqual([]);
+    expect(parseCompanyTrades('electrical')).toEqual([]);
+  });
+});
+
+describe('resolveJobPackTemplate', () => {
+  it('loads electrical with no chooser when the company has no trades', () => {
+    const { template, choices } = resolveJobPackTemplate([], null);
+    expect(template.key).toBe('electrical');
+    expect(choices).toEqual([]);
+  });
+
+  it('loads the only trade with a single choice', () => {
+    const { template, choices } = resolveJobPackTemplate(['plumbing'], null);
+    expect(template.key).toBe('plumbing');
+    expect(choices.map(t => t.key)).toEqual(['plumbing']);
+  });
+
+  it('treats the first trade as primary and offers every company trade', () => {
+    const { template, choices } = resolveJobPackTemplate(['hvac', 'plumbing'], null);
+    expect(template.key).toBe('hvac');
+    expect(choices.map(t => t.key)).toEqual(['hvac', 'plumbing']);
+  });
+
+  it('honours an override only when it names one of the company trades and there is more than one', () => {
+    expect(resolveJobPackTemplate(['hvac', 'plumbing'], 'plumbing').template.key).toBe('plumbing');
+    expect(resolveJobPackTemplate(['hvac', 'plumbing'], 'carpentry').template.key).toBe('hvac');
+    expect(resolveJobPackTemplate(['hvac'], 'plumbing').template.key).toBe('hvac');
+  });
+
+  it('falls back to general when electrical is missing from the registry', () => {
+    const noElectrical = JOB_PACK_TEMPLATES.filter(t => t.key !== 'electrical');
+    expect(resolveJobPackTemplate([], null, noElectrical).template.key).toBe('general');
+  });
+});
+
+describe('templateJobPackRows', () => {
+  it('lays electrical out as 17 rows in group order with positions counting across the pack', () => {
+    const rows = templateJobPackRows(jobPackTemplate('electrical')!);
+    expect(rows).toHaveLength(17);
+    expect(rows[0]).toEqual({ position: 0, group_key: 'tools', label: 'Multimeter and tester' });
+    expect(rows.map(r => r.position)).toEqual([...Array(17).keys()]);
+    expect(rows[16].group_key).toBe('safety');
+  });
+});
+
+describe('jobPackTray', () => {
+  it('shows the electrical template with no choices for an empty job at a company with no trades', () => {
+    const tray = jobPackTray([], [], null);
+    expect(tray.kind).toBe('template');
+    if (tray.kind !== 'template') return;
+    expect(tray.template.key).toBe('electrical');
+    expect(tray.rows).toHaveLength(17);
+    expect(tray.choices).toEqual([]);
+  });
+
+  it('shows the saved items once one row exists, whatever the company trades say', () => {
+    const saved = [item({ id: 'i-1', position: 0 })];
+    expect(jobPackTray(saved, ['hvac', 'plumbing'], 'plumbing')).toEqual({ kind: 'saved', items: saved });
+    expect(jobPackTray(undefined, [], null).kind).toBe('template');
   });
 });
 
@@ -123,6 +200,60 @@ describe('decideJobPackStart', () => {
     });
   });
 
+  it('writes the whole pack with the first tick already on the tapped row', () => {
+    const patch = { ticked_at: '2026-09-11T07:30:00.000Z', ticked_by: 'p-sam', ticked_by_name: 'Sam Cole' };
+    const decision = decideJobPackStart({ ...signedIn, packKey: 'electrical', existing: [], tick: { position: 2, patch } });
+    expect(decision.action).toBe('write');
+    if (decision.action !== 'write') return;
+    expect(decision.rows).toHaveLength(17);
+    expect(decision.rows[2]).toEqual({
+      company_id: 'co-1',
+      job_id: 'job-1',
+      pack_key: 'electrical',
+      group_key: 'tools',
+      label: 'Cable stripper and crimper',
+      position: 2,
+      created_by: 'p-sam',
+      ...patch,
+    });
+    const rest = decision.rows.filter(r => r.position !== 2);
+    expect(rest).toHaveLength(16);
+    expect(rest.every(r => r.ticked_at === null && r.ticked_by === null && r.ticked_by_name === null)).toBe(true);
+  });
+
+  it('refuses a first tick on a position the template does not have', () => {
+    const patch = { ticked_at: '2026-09-11T07:30:00.000Z', ticked_by: 'p-sam', ticked_by_name: 'Sam Cole' };
+    expect(decideJobPackStart({ ...signedIn, packKey: 'electrical', existing: [], tick: { position: 99, patch } })).toEqual({
+      action: 'miss',
+      reason: 'unknown_item',
+      message: 'That item is not on the pack.',
+    });
+  });
+
+  it('writes the whole pack plus the added item when the first action is an add', () => {
+    const decision = decideJobPackStart({ ...signedIn, packKey: 'electrical', existing: [], add: { groupKey: 'materials', label: ' Spare washers ' } });
+    expect(decision.action).toBe('write');
+    if (decision.action !== 'write') return;
+    expect(decision.rows).toHaveLength(18);
+    expect(decision.rows[17]).toEqual({
+      company_id: 'co-1',
+      job_id: 'job-1',
+      pack_key: 'electrical',
+      group_key: 'materials',
+      label: 'Spare washers',
+      position: 17,
+      ticked_at: null,
+      ticked_by: null,
+      ticked_by_name: null,
+      created_by: 'p-sam',
+    });
+    expect(decideJobPackStart({ ...signedIn, packKey: 'electrical', existing: [], add: { groupKey: 'materials', label: '   ' } })).toEqual({
+      action: 'miss',
+      reason: 'empty',
+      message: 'Write the item first.',
+    });
+  });
+
   it('refuses when there is no job or no signed-in profile', () => {
     expect(decideJobPackStart({ ...signedIn, jobId: ' ', packKey: 'general', existing: [] })).toEqual({
       action: 'miss',
@@ -153,6 +284,15 @@ describe('decideJobPackTick', () => {
   it('stamps a blank profile name as Crew', () => {
     expect(decideJobPackTick({ item: item({ id: 'i-1', position: 0 }), userId: 'p-sam', userName: '   ', now }).ticked_by_name).toBe('Crew');
     expect(decideJobPackTick({ item: item({ id: 'i-1', position: 0 }), userId: 'p-sam', userName: undefined, now }).ticked_by_name).toBe('Crew');
+  });
+
+  it('builds the same patch for a first tick on a template row', () => {
+    expect(jobPackTickPatch('p-sam', ' Sam Cole ', now)).toEqual({
+      ticked_at: '2026-09-11T07:30:00.000Z',
+      ticked_by: 'p-sam',
+      ticked_by_name: 'Sam Cole',
+    });
+    expect(jobPackTickPatch(undefined, '', now)).toEqual({ ticked_at: '2026-09-11T07:30:00.000Z', ticked_by: null, ticked_by_name: 'Crew' });
   });
 
   it('unticks a ticked item back to three nulls', () => {
@@ -279,7 +419,30 @@ describe('job pack lives on the existing job sheet', () => {
     expect(page.indexOf('id="job-pack"')).toBeLessThan(page.indexOf('id="job-swms"'));
     expect(app).not.toContain('path="/job-pack"');
     expect(app).not.toContain('path="/packs"');
+    expect(page).not.toContain('JOB_PACK_TEMPLATES.map');
+    expect(page).toContain('data-job-pack-template');
     expect(page).not.toMatch(/Relovi|Littleloop|ute photos/i);
+  });
+});
+
+describe('company trades decide the pack', () => {
+  it('stores trades on the company, sets them at signup and in Settings, and the harness walks both shapes', () => {
+    const mig = src('supabase/migrations/20260911100000_080_company_trades.sql');
+    const settings = src('src/pages/CompanySettingsPage.tsx');
+    const signup = src('src/pages/SignupPage.tsx');
+    const edge = src('supabase/functions/signup-user/index.ts');
+    const prove = src('scripts/prove-job-pack.mjs');
+    expect(mig).toContain("ADD COLUMN IF NOT EXISTS trades text[] NOT NULL DEFAULT '{}'");
+    expect(mig).toContain("CHECK (trades <@ ARRAY['plumbing', 'electrical', 'hvac', 'carpentry', 'general']::text[])");
+    expect(settings).toContain('data-company-trade');
+    expect(settings).toContain('parseCompanyTrades');
+    expect(signup).toContain('data-signup-trade');
+    expect(signup).toContain('trades,');
+    expect(edge).toContain('trades,');
+    expect(edge).not.toMatch(/electrician|switchboard|electrical-only/i);
+    expect(prove).toContain('firstOpenAutoLoadsElectricalWithoutAPicker');
+    expect(prove).toContain('trades=plumbing,electrical');
+    for (const text of [mig, settings, signup, edge, prove]) expect(text).not.toMatch(/Relovi|Littleloop/);
   });
 });
 

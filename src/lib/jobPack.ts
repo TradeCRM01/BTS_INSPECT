@@ -6,8 +6,6 @@ export const JOB_PACK_COLUMNS =
   'id, company_id, job_id, pack_key, group_key, label, position, ticked_at, ticked_by, ticked_by_name, created_by, created_at';
 
 export const JOB_PACK_TITLE = 'Job pack';
-export const JOB_PACK_EMPTY = 'No pack on this job';
-export const JOB_PACK_PICK = 'Pick a pack for this job';
 export const JOB_PACK_PACKED = 'Packed';
 export const JOB_PACK_ADD = 'Add item';
 export const JOB_PACK_ADD_PLACEHOLDER = 'Add an item';
@@ -18,6 +16,10 @@ export const JOB_PACK_UNKNOWN_PACK = 'That pack is not on the list.';
 export const JOB_PACK_ALREADY_STARTED = 'This job already has a pack.';
 export const JOB_PACK_ADD_EMPTY = 'Write the item first.';
 export const JOB_PACK_NO_PACK = 'Pick a pack before adding items.';
+export const JOB_PACK_UNKNOWN_ITEM = 'That item is not on the pack.';
+export const JOB_PACK_TRADES_LABEL = 'Trades';
+export const JOB_PACK_TRADES_HELP = 'First pick is the primary trade. Job packs load it.';
+export const JOB_PACK_FIRST_TICK = 'Saves from the first tick.';
 
 export const JOB_PACK_LABEL_MAX = 80;
 
@@ -90,6 +92,11 @@ export const JOB_PACK_TEMPLATES: readonly JobPackTemplate[] = [
   },
 ];
 
+export type JobPackTradeKey = JobPackTemplate['key'];
+export const JOB_PACK_TRADE_KEYS: readonly JobPackTradeKey[] = JOB_PACK_TEMPLATES.map(t => t.key);
+export const JOB_PACK_DEFAULT_TRADE: JobPackTradeKey = 'electrical';
+export const JOB_PACK_FALLBACK_TRADE: JobPackTradeKey = 'general';
+
 export type JobPackItem = {
   id: string;
   company_id: string;
@@ -109,8 +116,14 @@ export type JobPackItemWrite = Omit<JobPackItem, 'id' | 'created_at'>;
 export type JobPackTickPatch = Pick<JobPackItem, 'ticked_at' | 'ticked_by' | 'ticked_by_name'>;
 
 export type DecideJobPackStart =
-  | { action: 'miss'; reason: 'no_job' | 'not_signed_in' | 'unknown_pack' | 'already_started'; message: string }
+  | { action: 'miss'; reason: 'no_job' | 'not_signed_in' | 'unknown_pack' | 'already_started' | 'unknown_item' | 'empty'; message: string }
   | { action: 'write'; rows: JobPackItemWrite[] };
+
+export type JobPackTemplateRow = { position: number; group_key: JobPackGroupKey; label: string };
+
+export type JobPackTray =
+  | { kind: 'saved'; items: JobPackItem[] }
+  | { kind: 'template'; template: JobPackTemplate; rows: JobPackTemplateRow[]; choices: readonly JobPackTemplate[] };
 
 export type DecideJobPackAddItem =
   | { action: 'miss'; reason: 'no_job' | 'not_signed_in' | 'empty' | 'no_pack'; message: string }
@@ -134,12 +147,63 @@ export function jobPackTemplate(key: string | null | undefined): JobPackTemplate
   return JOB_PACK_TEMPLATES.find(template => template.key === key) ?? null;
 }
 
+/** companies.trades at the boundary: keep known keys in the order set (first is primary), drop unknowns and repeats. */
+export function parseCompanyTrades(raw: unknown): JobPackTradeKey[] {
+  if (!Array.isArray(raw)) return [];
+  const trades: JobPackTradeKey[] = [];
+  for (const value of raw) {
+    const key = JOB_PACK_TRADE_KEYS.find(k => k === value);
+    if (key && !trades.includes(key)) trades.push(key);
+  }
+  return trades;
+}
+
+/** Which template an empty tray loads. choices is the company's templates (per-job override only when more than one). */
+export function resolveJobPackTemplate(
+  companyTrades: readonly JobPackTradeKey[],
+  override: string | null | undefined,
+  templates: readonly JobPackTemplate[] = JOB_PACK_TEMPLATES,
+): { template: JobPackTemplate; choices: readonly JobPackTemplate[] } {
+  const choices = companyTrades.flatMap(key => templates.filter(t => t.key === key));
+  const overridden = choices.length > 1 ? choices.find(t => t.key === override) : undefined;
+  const template = overridden
+    ?? choices[0]
+    ?? templates.find(t => t.key === JOB_PACK_DEFAULT_TRADE)
+    ?? templates.find(t => t.key === JOB_PACK_FALLBACK_TRADE)
+    ?? templates[0];
+  return { template, choices };
+}
+
+/** The rows a template writes, in group order, positions counting across the pack. Shared by the tray preview and decideJobPackStart so positions agree. */
+export function templateJobPackRows(template: JobPackTemplate): JobPackTemplateRow[] {
+  const rows: JobPackTemplateRow[] = [];
+  for (const group of JOB_PACK_GROUPS) {
+    for (const label of template.items[group.key]) {
+      rows.push({ position: rows.length, group_key: group.key, label });
+    }
+  }
+  return rows;
+}
+
+export function jobPackTray(
+  items: JobPackItem[] | null | undefined,
+  companyTrades: readonly JobPackTradeKey[],
+  override: string | null | undefined,
+): JobPackTray {
+  const saved = items ?? [];
+  if (saved.length > 0) return { kind: 'saved', items: saved };
+  const { template, choices } = resolveJobPackTemplate(companyTrades, override);
+  return { kind: 'template', template, rows: templateJobPackRows(template), choices };
+}
+
 export function decideJobPackStart(input: {
   jobId: string | null | undefined;
   companyId: string | null | undefined;
   userId: string | null | undefined;
   packKey: string | null | undefined;
   existing: JobPackItem[];
+  tick?: { position: number; patch: JobPackTickPatch };
+  add?: { groupKey: JobPackGroupKey; label: string | null | undefined };
 }): DecideJobPackStart {
   const jobId = trimPack(input.jobId);
   if (!jobId) return { action: 'miss', reason: 'no_job', message: JOB_PACK_NO_JOB };
@@ -153,24 +217,40 @@ export function decideJobPackStart(input: {
   if (input.existing.length > 0) {
     return { action: 'miss', reason: 'already_started', message: JOB_PACK_ALREADY_STARTED };
   }
-  const rows: JobPackItemWrite[] = [];
-  for (const group of JOB_PACK_GROUPS) {
-    for (const label of template.items[group.key]) {
-      rows.push({
-        company_id: companyId,
-        job_id: jobId,
-        pack_key: template.key,
-        group_key: group.key,
-        label,
-        position: rows.length,
-        ticked_at: null,
-        ticked_by: null,
-        ticked_by_name: null,
-        created_by: userId,
-      });
-    }
+  const blank = {
+    company_id: companyId,
+    job_id: jobId,
+    pack_key: template.key,
+    ticked_at: null,
+    ticked_by: null,
+    ticked_by_name: null,
+    created_by: userId,
+  };
+  const rows: JobPackItemWrite[] = templateJobPackRows(template).map(row => ({ ...blank, ...row }));
+  const tick = input.tick;
+  if (tick) {
+    const index = rows.findIndex(row => row.position === tick.position);
+    if (index < 0) return { action: 'miss', reason: 'unknown_item', message: JOB_PACK_UNKNOWN_ITEM };
+    rows[index] = { ...rows[index], ...tick.patch };
+  }
+  if (input.add) {
+    const label = trimPack(input.add.label).slice(0, JOB_PACK_LABEL_MAX);
+    if (!label) return { action: 'miss', reason: 'empty', message: JOB_PACK_ADD_EMPTY };
+    rows.push({ ...blank, group_key: input.add.groupKey, label, position: rows.length });
   }
   return { action: 'write', rows };
+}
+
+export function jobPackTickPatch(
+  userId: string | null | undefined,
+  userName: string | null | undefined,
+  now: Date,
+): JobPackTickPatch {
+  return {
+    ticked_at: now.toISOString(),
+    ticked_by: trimPack(userId) || null,
+    ticked_by_name: trimPack(userName) || JOB_PACK_CREW,
+  };
 }
 
 export function decideJobPackTick(input: {
@@ -182,11 +262,7 @@ export function decideJobPackTick(input: {
   if (input.item.ticked_at !== null) {
     return { ticked_at: null, ticked_by: null, ticked_by_name: null };
   }
-  return {
-    ticked_at: input.now.toISOString(),
-    ticked_by: trimPack(input.userId) || null,
-    ticked_by_name: trimPack(input.userName) || JOB_PACK_CREW,
-  };
+  return jobPackTickPatch(input.userId, input.userName, input.now);
 }
 
 export function applyJobPackTick(

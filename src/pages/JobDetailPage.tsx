@@ -95,12 +95,10 @@ import {
   JOB_PACK_ADD,
   JOB_PACK_ADD_PLACEHOLDER,
   JOB_PACK_COLUMNS,
-  JOB_PACK_EMPTY,
+  JOB_PACK_FIRST_TICK,
   JOB_PACK_GROUPS,
   JOB_PACK_PACKED,
-  JOB_PACK_PICK,
   JOB_PACK_TABLE,
-  JOB_PACK_TEMPLATES,
   JOB_PACK_TITLE,
   addJobPackItem,
   applyJobPackTick,
@@ -110,6 +108,9 @@ import {
   groupJobPackItems,
   jobPackItemsQuery,
   jobPackProgress,
+  jobPackTickPatch,
+  jobPackTray,
+  parseCompanyTrades,
   startJobPack,
   tickJobPackItem,
   type JobPackGroupKey,
@@ -267,6 +268,36 @@ function jobPhotosLookOn(): boolean {
 
 function jobPackLookOn(): boolean {
   return lookSearchParam() === JOB_PACK_LOOK;
+}
+
+function JobPackItemButton({ itemKey, label, on, tickedByName, disabled, onClick }: {
+  itemKey: string;
+  label: string;
+  on: boolean;
+  tickedByName: string | null;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={on}
+      data-job-pack-item={itemKey}
+      disabled={disabled}
+      onClick={onClick}
+      className={`w-full min-h-[44px] px-3 py-2 rounded-md border text-left text-sm flex items-center gap-3 ${on ? 'border-accent bg-accent/10 text-navy' : 'border-navy/20 text-navy'}`}
+    >
+      <span
+        aria-hidden="true"
+        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border ${on ? 'border-accent bg-accent text-white' : 'border-navy/40'}`}
+      >
+        {on ? <Check size={14} /> : null}
+      </span>
+      <span className={`flex-1 ${on ? 'line-through opacity-70' : ''}`}>{label}</span>
+      {on && tickedByName && <span className="ops-meta">{tickedByName}</span>}
+    </button>
+  );
 }
 
 /** Both paper looks seed the same visit log; job-photos adds photos on top. */
@@ -1123,6 +1154,7 @@ export function JobDetailPage() {
   const [visitAttaching, setVisitAttaching] = useState(false);
   const [packAddLabel, setPackAddLabel] = useState('');
   const [packAddGroup, setPackAddGroup] = useState<JobPackGroupKey>('materials');
+  const [packOverride, setPackOverride] = useState<string | null>(null);
   const [galleryFilter, setGalleryFilter] = useState<JobGalleryFilter>('all');
   const [lightboxKey, setLightboxKey] = useState<string | null>(null);
   const [arrivingSent, setArrivingSent] = useState(false);
@@ -1478,8 +1510,12 @@ export function JobDetailPage() {
     enabled: !!id && !!profile?.company_id,
   });
   const pack = packItems ?? [];
+  const companyTrades = parseCompanyTrades(company?.trades);
+  const tray = jobPackTray(pack, companyTrades, packOverride);
   const packGroups = groupJobPackItems(pack);
-  const packProgress = jobPackProgress(pack);
+  const packProgress = tray.kind === 'saved'
+    ? jobPackProgress(tray.items)
+    : { ticked: 0, total: tray.rows.length, done: false };
 
   const { data: jobPhotos } = useQuery<JobPhotoRow[]>({
     queryKey: ['job-photos', id],
@@ -1751,22 +1787,27 @@ export function JobDetailPage() {
 
   const packQueryKey = ['job-pack', id];
   const startPack = useMutation({
-    mutationFn: async (packKey: string) => {
+    mutationFn: async (first: { tick?: { position: number }; add?: { groupKey: JobPackGroupKey; label: string } }) => {
       const decision = decideJobPackStart({
         jobId: job?.id,
         companyId: profile?.company_id,
         userId: profile?.id,
-        packKey,
+        packKey: tray.kind === 'template' ? tray.template.key : null,
         existing: pack,
+        tick: first.tick && { position: first.tick.position, patch: jobPackTickPatch(profile?.id, profile?.name, new Date()) },
+        add: first.add,
       });
       if (decision.action === 'miss') {
         showToast(decision.message, 'info');
-        return;
+        return false;
       }
       await startJobPack(decision.rows);
+      // Stay pending through the refetch so a second tap cannot write a second pack while the preview is still up.
+      await queryClient.invalidateQueries({ queryKey: packQueryKey });
+      return true;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: packQueryKey });
+    onSuccess: (written, first) => {
+      if (written && first.add) setPackAddLabel('');
     },
     onError: (e: Error) => showToast(e.message, 'info'),
   });
@@ -2577,7 +2618,13 @@ export function JobDetailPage() {
           )}
         </div>
 
-        <section className="ops-tray" id="job-pack" data-job-pack="1">
+        <section
+          className="ops-tray"
+          id="job-pack"
+          data-job-pack="1"
+          data-job-pack-state={tray.kind}
+          data-job-pack-template={tray.kind === 'saved' ? tray.items[0]?.pack_key ?? '' : tray.template.key}
+        >
           <div className="ops-tray-head">
             <h2 className="ops-section-title flex items-center gap-1.5 min-w-0">
               <ListChecks size={14} className="text-navy shrink-0" />
@@ -2588,86 +2635,111 @@ export function JobDetailPage() {
               {`${packProgress.ticked}/${packProgress.total}`}
             </span>
           </div>
-          {pack.length === 0 ? (
-            <div className="ops-tray-empty space-y-2">
-              <p className="text-sm text-navy">{JOB_PACK_EMPTY}</p>
-              <p className="text-sm text-navy/70">{JOB_PACK_PICK}</p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {JOB_PACK_TEMPLATES.map(t => (
-                  <button
-                    key={t.key}
-                    type="button"
-                    data-job-pack-start={t.key}
-                    disabled={startPack.isPending}
-                    onClick={() => startPack.mutate(t.key)}
-                    className="w-full min-h-[44px] px-4 py-3 rounded-md border border-navy/20 text-left text-sm text-navy"
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="p-3 space-y-4">
-              {packGroups.map(({ group, items, ticked }) => (
+          <div className="p-3 space-y-4">
+            {tray.kind === 'template' ? (
+              <>
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <p className="text-sm text-navy" data-job-pack-pack-name="1">{tray.template.label} pack</p>
+                  <span className="ops-meta">{JOB_PACK_FIRST_TICK}</span>
+                </div>
+                {tray.choices.length > 1 && (
+                  <div role="group" aria-label="Pack" className="flex flex-wrap gap-2">
+                    {tray.choices.map(t => {
+                      const pressed = t.key === tray.template.key;
+                      return (
+                        <button
+                          key={t.key}
+                          type="button"
+                          data-job-pack-start={t.key}
+                          aria-pressed={pressed}
+                          onClick={() => setPackOverride(t.key)}
+                          className={`min-h-[44px] px-4 rounded-md border text-sm text-navy ${pressed ? 'border-accent bg-accent/10' : 'border-navy/20'}`}
+                        >
+                          {t.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {JOB_PACK_GROUPS.map(group => {
+                  const rows = tray.rows.filter(r => r.group_key === group.key);
+                  if (rows.length === 0) return null;
+                  return (
+                    <div key={group.key} data-job-pack-group={group.key}>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-navy/70 mb-1">
+                        {group.label} <span className="font-normal">0/{rows.length}</span>
+                      </h3>
+                      <div className="space-y-1">
+                        {rows.map(row => (
+                          <JobPackItemButton
+                            key={row.position}
+                            itemKey={`new-${row.position}`}
+                            label={row.label}
+                            on={false}
+                            tickedByName={null}
+                            disabled={startPack.isPending}
+                            onClick={() => startPack.mutate({ tick: { position: row.position } })}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            ) : (
+              packGroups.map(({ group, items, ticked }) => (
                 <div key={group.key} data-job-pack-group={group.key}>
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-navy/70 mb-1">
                     {group.label} <span className="font-normal">{ticked}/{items.length}</span>
                   </h3>
                   <div className="space-y-1">
-                    {items.map(item => {
-                      const on = item.ticked_at !== null;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          role="checkbox"
-                          aria-checked={on}
-                          data-job-pack-item={item.id}
-                          onClick={() => tickPackItem(item)}
-                          className={`w-full min-h-[44px] px-3 py-2 rounded-md border text-left text-sm flex items-center gap-3 ${on ? 'border-accent bg-accent/10 text-navy' : 'border-navy/20 text-navy'}`}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border ${on ? 'border-accent bg-accent text-white' : 'border-navy/40'}`}
-                          >
-                            {on ? <Check size={14} /> : null}
-                          </span>
-                          <span className={`flex-1 ${on ? 'line-through opacity-70' : ''}`}>{item.label}</span>
-                          {on && item.ticked_by_name && <span className="ops-meta">{item.ticked_by_name}</span>}
-                        </button>
-                      );
-                    })}
+                    {items.map(item => (
+                      <JobPackItemButton
+                        key={item.id}
+                        itemKey={item.id}
+                        label={item.label}
+                        on={item.ticked_at !== null}
+                        tickedByName={item.ticked_by_name}
+                        onClick={() => tickPackItem(item)}
+                      />
+                    ))}
                   </div>
                 </div>
-              ))}
-              <form
-                data-job-pack-add="1"
-                className="flex flex-wrap gap-2 items-center"
-                onSubmit={e => {
-                  e.preventDefault();
-                  addPackItem.mutate();
-                }}
+              ))
+            )}
+            <form
+              data-job-pack-add="1"
+              className="flex flex-wrap gap-2 items-center"
+              onSubmit={e => {
+                e.preventDefault();
+                if (tray.kind === 'template') startPack.mutate({ add: { groupKey: packAddGroup, label: packAddLabel } });
+                else addPackItem.mutate();
+              }}
+            >
+              <input
+                aria-label={JOB_PACK_ADD_PLACEHOLDER}
+                placeholder={JOB_PACK_ADD_PLACEHOLDER}
+                value={packAddLabel}
+                onChange={e => setPackAddLabel(e.target.value)}
+                className="flex-1 min-w-[10rem] min-h-[44px] px-3 rounded-md border border-navy/20 text-sm"
+              />
+              <select
+                aria-label="Group"
+                value={packAddGroup}
+                onChange={e => setPackAddGroup(e.target.value as JobPackGroupKey)}
+                className="min-h-[44px] px-2 rounded-md border border-navy/20 text-sm"
               >
-                <input
-                  aria-label={JOB_PACK_ADD_PLACEHOLDER}
-                  placeholder={JOB_PACK_ADD_PLACEHOLDER}
-                  value={packAddLabel}
-                  onChange={e => setPackAddLabel(e.target.value)}
-                  className="flex-1 min-w-[10rem] min-h-[44px] px-3 rounded-md border border-navy/20 text-sm"
-                />
-                <select
-                  aria-label="Group"
-                  value={packAddGroup}
-                  onChange={e => setPackAddGroup(e.target.value as JobPackGroupKey)}
-                  className="min-h-[44px] px-2 rounded-md border border-navy/20 text-sm"
-                >
-                  {JOB_PACK_GROUPS.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
-                </select>
-                <button type="submit" className="ops-link min-h-[44px]" disabled={addPackItem.isPending}>{JOB_PACK_ADD}</button>
-              </form>
-            </div>
-          )}
+                {JOB_PACK_GROUPS.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
+              </select>
+              <button
+                type="submit"
+                className="ops-link min-h-[44px]"
+                disabled={tray.kind === 'template' ? startPack.isPending : addPackItem.isPending}
+              >
+                {JOB_PACK_ADD}
+              </button>
+            </form>
+          </div>
         </section>
           <div id="job-swms">
           <JobRelatedSection
