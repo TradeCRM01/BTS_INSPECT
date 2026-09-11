@@ -33,8 +33,75 @@ export type DecideJobVisitNote =
   | { action: 'miss'; reason: 'no_job' | 'not_signed_in' | 'empty'; message: string }
   | { action: 'write'; row: JobVisitNoteWrite };
 
+export type VisitNoteSection = {
+  key: 'done' | 'left' | 'parts_used' | 'parts_needed' | 'customer_wants';
+  label: string;
+  placeholder: string;
+};
+
+/** The guided composer's prompts, in the order they compose into one note body. */
+export const VISIT_NOTE_SECTIONS: readonly VisitNoteSection[] = [
+  { key: 'done', label: 'Done', placeholder: 'What was done on site' },
+  { key: 'left', label: 'Left to do', placeholder: 'Works remaining' },
+  { key: 'parts_used', label: 'Parts used', placeholder: 'Materials and quantities used' },
+  { key: 'parts_needed', label: 'Parts needed next visit', placeholder: 'What to bring next time' },
+  { key: 'customer_wants', label: 'Customer wants', placeholder: 'What the customer asked for' },
+];
+
+export type VisitNoteSectionKey = VisitNoteSection['key'];
+export type VisitNoteSections = Record<VisitNoteSectionKey, string>;
+
+export type VisitNoteBlock = {
+  key: VisitNoteSectionKey | null;
+  label: string | null;
+  text: string;
+};
+
+export function emptyVisitNoteSections(): VisitNoteSections {
+  return { done: '', left: '', parts_used: '', parts_needed: '', customer_wants: '' };
+}
+
 export function trimVisitNote(raw: string | null | undefined): string {
   return (raw ?? '').trim();
+}
+
+/** One body string with `Label:` headings, empty sections left out. All empty gives ''. */
+export function composeVisitNoteBody(sections: Partial<VisitNoteSections>): string {
+  return VISIT_NOTE_SECTIONS
+    .map(section => ({ section, text: trimVisitNote(sections[section.key]) }))
+    .filter(({ text }) => text)
+    .map(({ section, text }) => `${section.label}:\n${text}`)
+    .join('\n\n');
+}
+
+const SECTION_BY_HEADING = new Map(
+  VISIT_NOTE_SECTIONS.map(section => [`${section.label}:`, section] as const),
+);
+
+/**
+ * Splits a stored body back into labelled blocks. A body with no `Label:` line
+ * comes back as one free-text block so older notes render as they always did.
+ */
+export function parseVisitNoteBody(body: string | null | undefined): VisitNoteBlock[] {
+  const blocks: VisitNoteBlock[] = [];
+  let current: VisitNoteSection | null = null;
+  let lines: string[] = [];
+  const flush = () => {
+    const text = lines.join('\n').trim();
+    if (text) blocks.push({ key: current?.key ?? null, label: current?.label ?? null, text });
+    lines = [];
+  };
+  for (const line of (body ?? '').split('\n')) {
+    const heading = SECTION_BY_HEADING.get(line.trim());
+    if (heading) {
+      flush();
+      current = heading;
+    } else {
+      lines.push(line);
+    }
+  }
+  flush();
+  return blocks;
 }
 
 export function jobVisitNoteAuthor(profileName: string | null | undefined): string {
@@ -46,7 +113,7 @@ export function decideJobVisitNotePost(input: {
   companyId: string | null | undefined;
   authorId: string | null | undefined;
   authorName: string | null | undefined;
-  body: string | null | undefined;
+  sections: Partial<VisitNoteSections>;
   photoCount?: number;
 }): DecideJobVisitNote {
   const jobId = trimVisitNote(input.jobId);
@@ -58,7 +125,7 @@ export function decideJobVisitNotePost(input: {
   if (!companyId || !authorId) {
     return { action: 'miss', reason: 'not_signed_in', message: JOB_VISIT_NOTE_NOT_SIGNED_IN };
   }
-  const body = trimVisitNote(input.body);
+  const body = composeVisitNoteBody(input.sections);
   const photoCount = input.photoCount ?? 0;
   if (!body && photoCount <= 0) {
     return { action: 'miss', reason: 'empty', message: JOB_VISIT_NOTE_EMPTY };
@@ -110,7 +177,7 @@ export async function postJobVisitNote(input: {
   companyId: string | null | undefined;
   authorId: string | null | undefined;
   authorName: string | null | undefined;
-  body: string | null | undefined;
+  sections: Partial<VisitNoteSections>;
   photoCount?: number;
 }): Promise<string> {
   const decision = decideJobVisitNotePost(input);

@@ -8,10 +8,14 @@ import {
   JOB_VISIT_NOTE_NOT_SIGNED_IN,
   JOB_VISIT_NOTE_POSTED,
   JOB_VISIT_NOTE_TABLE,
+  VISIT_NOTE_SECTIONS,
+  composeVisitNoteBody,
   decideJobVisitNotePost,
+  emptyVisitNoteSections,
   jobVisitNoteAuthor,
   jobVisitNotePostToast,
   jobVisitNotesQuery,
+  parseVisitNoteBody,
   sortJobVisitNotesNewestFirst,
 } from './jobVisitNotes';
 
@@ -59,14 +63,96 @@ const sameInstantLaterId = {
   created_at: '2026-09-08T10:00:00.000Z',
 };
 
+const fullSections = {
+  done: 'Ran the pipe, 3 m of 20 mm.',
+  left: 'Pressure test.',
+  parts_used: '3 m of 20 mm pipe, 2 elbows.',
+  parts_needed: 'One more elbow.',
+  customer_wants: 'A quote for the upstairs run.',
+};
+
+const composedFull = [
+  'Done:\nRan the pipe, 3 m of 20 mm.',
+  'Left to do:\nPressure test.',
+  'Parts used:\n3 m of 20 mm pipe, 2 elbows.',
+  'Parts needed next visit:\nOne more elbow.',
+  'Customer wants:\nA quote for the upstairs run.',
+].join('\n\n');
+
+describe('composeVisitNoteBody', () => {
+  it('writes the five prompts as labelled sections in the fixed order', () => {
+    expect(composeVisitNoteBody(fullSections)).toBe(composedFull);
+    expect(VISIT_NOTE_SECTIONS.map(s => s.key)).toEqual(['done', 'left', 'parts_used', 'parts_needed', 'customer_wants']);
+  });
+
+  it('keeps the fixed order even when the draft object is keyed in another order', () => {
+    expect(composeVisitNoteBody({ customer_wants: 'Quote please.', done: 'Fitted the unit.' }))
+      .toBe('Done:\nFitted the unit.\n\nCustomer wants:\nQuote please.');
+  });
+
+  it('omits empty sections and trims each one', () => {
+    expect(composeVisitNoteBody({
+      done: '  Fitted the unit.  ',
+      left: '   ',
+      parts_used: '',
+      parts_needed: '\n2 brackets\n',
+      customer_wants: 'Call before the next visit.',
+    })).toBe('Done:\nFitted the unit.\n\nParts needed next visit:\n2 brackets\n\nCustomer wants:\nCall before the next visit.');
+  });
+
+  it('composes an all-empty draft to an empty string', () => {
+    expect(composeVisitNoteBody(emptyVisitNoteSections())).toBe('');
+    expect(composeVisitNoteBody({ done: '  ', left: '\n' })).toBe('');
+    expect(composeVisitNoteBody({})).toBe('');
+  });
+});
+
+describe('parseVisitNoteBody', () => {
+  it('round-trips a composed body into labelled blocks in order', () => {
+    expect(parseVisitNoteBody(composeVisitNoteBody(fullSections))).toEqual([
+      { key: 'done', label: 'Done', text: 'Ran the pipe, 3 m of 20 mm.' },
+      { key: 'left', label: 'Left to do', text: 'Pressure test.' },
+      { key: 'parts_used', label: 'Parts used', text: '3 m of 20 mm pipe, 2 elbows.' },
+      { key: 'parts_needed', label: 'Parts needed next visit', text: 'One more elbow.' },
+      { key: 'customer_wants', label: 'Customer wants', text: 'A quote for the upstairs run.' },
+    ]);
+    expect(parseVisitNoteBody(composeVisitNoteBody({ done: 'Fitted the unit.', customer_wants: 'Quote please.' }))).toEqual([
+      { key: 'done', label: 'Done', text: 'Fitted the unit.' },
+      { key: 'customer_wants', label: 'Customer wants', text: 'Quote please.' },
+    ]);
+  });
+
+  it('keeps line breaks inside one section', () => {
+    expect(parseVisitNoteBody('Parts used:\n3 m pipe\n2 elbows\n\nLeft to do:\nTest.')).toEqual([
+      { key: 'parts_used', label: 'Parts used', text: '3 m pipe\n2 elbows' },
+      { key: 'left', label: 'Left to do', text: 'Test.' },
+    ]);
+  });
+
+  it('returns a plain unlabelled body unchanged as one free-text block', () => {
+    expect(parseVisitNoteBody('Pulled the old unit. Left the isolator tagged.')).toEqual([
+      { key: null, label: null, text: 'Pulled the old unit. Left the isolator tagged.' },
+    ]);
+    expect(parseVisitNoteBody('Left to do: pressure test.\nCustomer wants a quote.')).toEqual([
+      { key: null, label: null, text: 'Left to do: pressure test.\nCustomer wants a quote.' },
+    ]);
+    expect(parseVisitNoteBody('')).toEqual([]);
+    expect(parseVisitNoteBody(null)).toEqual([]);
+  });
+});
+
 describe('decideJobVisitNotePost', () => {
-  it('posts free text stamped with the signed-in profile, and leaves created_at to the database clock', () => {
+  it('posts the composed sections stamped with the signed-in profile, and leaves created_at to the database clock', () => {
     expect(decideJobVisitNotePost({
       jobId: 'job-1',
       companyId: 'co-1',
       authorId: 'p-alex',
       authorName: 'Alex Reed',
-      body: '  Ran the pipe, used 3m of 20mm. Left to do: pressure test. Customer wants a quote for the upstairs run.  ',
+      sections: {
+        done: '  Ran the pipe, used 3m of 20mm.  ',
+        left: 'Pressure test.',
+        customer_wants: 'A quote for the upstairs run.',
+      },
     })).toEqual({
       action: 'write',
       row: {
@@ -74,18 +160,18 @@ describe('decideJobVisitNotePost', () => {
         job_id: 'job-1',
         author_id: 'p-alex',
         author_name: 'Alex Reed',
-        body: 'Ran the pipe, used 3m of 20mm. Left to do: pressure test. Customer wants a quote for the upstairs run.',
+        body: 'Done:\nRan the pipe, used 3m of 20mm.\n\nLeft to do:\nPressure test.\n\nCustomer wants:\nA quote for the upstairs run.',
       },
     });
   });
 
-  it('refuses a blank body when no photos are attached', () => {
+  it('refuses an all-empty draft when no photos are attached', () => {
     expect(decideJobVisitNotePost({
       jobId: 'job-1',
       companyId: 'co-1',
       authorId: 'p-alex',
       authorName: 'Alex Reed',
-      body: '   ',
+      sections: { done: '   ', left: '', parts_used: ' ', parts_needed: '', customer_wants: '\n' },
       photoCount: 0,
     })).toEqual({
       action: 'miss',
@@ -97,7 +183,7 @@ describe('decideJobVisitNotePost', () => {
       companyId: 'co-1',
       authorId: 'p-alex',
       authorName: 'Alex Reed',
-      body: '',
+      sections: emptyVisitNoteSections(),
     })).toEqual({
       action: 'miss',
       reason: 'empty',
@@ -105,13 +191,13 @@ describe('decideJobVisitNotePost', () => {
     });
   });
 
-  it('posts a blank body when photos are attached', () => {
+  it('posts an empty body when photos are attached', () => {
     expect(decideJobVisitNotePost({
       jobId: 'job-1',
       companyId: 'co-1',
       authorId: 'p-alex',
       authorName: 'Alex Reed',
-      body: '   ',
+      sections: { done: '   ' },
       photoCount: 2,
     })).toEqual({
       action: 'write',
@@ -131,7 +217,7 @@ describe('decideJobVisitNotePost', () => {
       companyId: 'co-1',
       authorId: '',
       authorName: 'Alex Reed',
-      body: 'On site.',
+      sections: { done: 'On site.' },
     })).toEqual({
       action: 'miss',
       reason: 'not_signed_in',
@@ -142,7 +228,7 @@ describe('decideJobVisitNotePost', () => {
       companyId: null,
       authorId: 'p-alex',
       authorName: 'Alex Reed',
-      body: 'On site.',
+      sections: { done: 'On site.' },
     }).action).toBe('miss');
     expect(JOB_VISIT_NOTE_NOT_SIGNED_IN).toBe('Not signed in');
   });
@@ -153,7 +239,7 @@ describe('decideJobVisitNotePost', () => {
       companyId: 'co-1',
       authorId: 'p-alex',
       authorName: 'Alex Reed',
-      body: 'On site.',
+      sections: { done: 'On site.' },
     })).toEqual({
       action: 'miss',
       reason: 'no_job',
@@ -169,7 +255,7 @@ describe('decideJobVisitNotePost', () => {
       companyId: 'co-1',
       authorId: 'p-alex',
       authorName: '   ',
-      body: 'On site.',
+      sections: { done: 'On site.' },
     })).toEqual({
       action: 'write',
       row: {
@@ -177,7 +263,7 @@ describe('decideJobVisitNotePost', () => {
         job_id: 'job-1',
         author_id: 'p-alex',
         author_name: 'Crew',
-        body: 'On site.',
+        body: 'Done:\nOn site.',
       },
     });
   });
@@ -224,7 +310,11 @@ describe('visit notes live on the existing job sheet', () => {
     expect(page).toContain('note.body');
     expect(page).toContain('profile?.name');
     expect(page).toContain('Visit notes');
-    expect(page).toContain('What was done, materials, left to do, customer wants');
+    expect(page).toContain('VISIT_NOTE_SECTIONS.map');
+    expect(page).toContain('data-visit-section={section.key}');
+    expect(page).toContain('aria-label={section.label}');
+    expect(page).toContain('parseVisitNoteBody(note.body)');
+    expect(page).not.toContain('What was done, materials, left to do, customer wants');
     expect(page).toContain('Post note');
     expect(page).toContain('No visit notes on this job yet.');
     expect(page).toContain('JOB_VISIT_NOTE_TABLE');
