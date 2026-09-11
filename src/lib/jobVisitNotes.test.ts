@@ -12,11 +12,15 @@ import {
   composeVisitNoteBody,
   decideJobVisitNotePost,
   emptyVisitNoteSections,
+  emptyVisitUpdateDraft,
   jobVisitNoteAuthor,
   jobVisitNotePostToast,
   jobVisitNotesQuery,
   parseVisitNoteBody,
   sortJobVisitNotesNewestFirst,
+  visitAuthorInitials,
+  visitPhotoCountLabel,
+  visitUpdateSections,
 } from './jobVisitNotes';
 
 function src(rel: string): string {
@@ -104,6 +108,66 @@ describe('composeVisitNoteBody', () => {
     expect(composeVisitNoteBody(emptyVisitNoteSections())).toBe('');
     expect(composeVisitNoteBody({ done: '  ', left: '\n' })).toBe('');
     expect(composeVisitNoteBody({})).toBe('');
+  });
+});
+
+describe('visitUpdateSections', () => {
+  const typed = {
+    ...emptyVisitUpdateDraft(),
+    done: 'Fitted the unit.',
+    left: 'Label the board.',
+    parts_used: '4 saddles.',
+    parts_needed: 'Two brackets.',
+    customer_wants: 'A quote for upstairs.',
+  };
+
+  it('writes All done into Left to do and drops any typed left text', () => {
+    expect(visitUpdateSections({ ...typed, outcome: 'all_done' })).toEqual({
+      done: 'Fitted the unit.',
+      left: 'All done',
+      parts_used: '4 saddles.',
+      parts_needed: 'Two brackets.',
+      customer_wants: 'A quote for upstairs.',
+    });
+  });
+
+  it('keeps the typed left text under More to do', () => {
+    expect(visitUpdateSections({ ...typed, outcome: 'more_to_do' }).left).toBe('Label the board.');
+  });
+
+  it('leaves Left to do empty when no outcome is chosen, even with left text typed', () => {
+    expect(visitUpdateSections({ ...typed, outcome: null }).left).toBe('');
+    expect(visitUpdateSections(emptyVisitUpdateDraft())).toEqual(emptyVisitNoteSections());
+  });
+
+  it('composes a done-plus-All-done update into the stored two-section body', () => {
+    expect(composeVisitNoteBody(visitUpdateSections({
+      ...emptyVisitUpdateDraft(),
+      done: 'Fitted the unit.',
+      outcome: 'all_done',
+    }))).toBe('Done:\nFitted the unit.\n\nLeft to do:\nAll done');
+  });
+});
+
+describe('visitPhotoCountLabel', () => {
+  it('reads 0 photos, 1 photo, N photos', () => {
+    expect(visitPhotoCountLabel(0)).toBe('0 photos');
+    expect(visitPhotoCountLabel(1)).toBe('1 photo');
+    expect(visitPhotoCountLabel(3)).toBe('3 photos');
+  });
+});
+
+describe('visitAuthorInitials', () => {
+  it('takes the first letter of the first two names', () => {
+    expect(visitAuthorInitials('Alex Reed')).toBe('AR');
+    expect(visitAuthorInitials('  sam  cole jones ')).toBe('SC');
+    expect(visitAuthorInitials('Crew')).toBe('C');
+  });
+
+  it('falls back to Crew for a blank profile name', () => {
+    expect(visitAuthorInitials('')).toBe('C');
+    expect(visitAuthorInitials(null)).toBe('C');
+    expect(visitAuthorInitials(undefined)).toBe('C');
   });
 });
 
@@ -309,14 +373,17 @@ describe('visit notes live on the existing job sheet', () => {
     expect(page).toContain('note.created_at');
     expect(page).toContain('note.body');
     expect(page).toContain('profile?.name');
-    expect(page).toContain('Visit notes');
-    expect(page).toContain('VISIT_NOTE_SECTIONS.map');
-    expect(page).toContain('data-visit-section={section.key}');
-    expect(page).toContain('aria-label={section.label}');
+    expect(page).toContain('Job notes & photos');
+    expect(page).toContain('visitUpdateSections(visitDraft)');
+    expect(page).toContain('data-visit-section="done"');
+    expect(page).toContain('data-visit-section="left"');
+    expect(page).toContain('data-visit-section="parts_used"');
+    expect(page).toContain('data-visit-section="parts_needed"');
+    expect(page).toContain('data-visit-section="customer_wants"');
     expect(page).toContain('parseVisitNoteBody(note.body)');
     expect(page).not.toContain('What was done, materials, left to do, customer wants');
-    expect(page).toContain('Post note');
-    expect(page).toContain('No visit notes on this job yet.');
+    expect(page).toContain('Post update');
+    expect(page).toContain('No updates on this job yet.');
     expect(page).toContain('JOB_VISIT_NOTE_TABLE');
     expect(jobVisitNotePostToast()).toEqual({ message: JOB_VISIT_NOTE_POSTED, kind: 'success' });
     expect(app).toContain('<Route path="/jobs/:id"');

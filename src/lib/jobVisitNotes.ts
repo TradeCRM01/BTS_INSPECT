@@ -61,6 +61,51 @@ export function emptyVisitNoteSections(): VisitNoteSections {
   return { done: '', left: '', parts_used: '', parts_needed: '', customer_wants: '' };
 }
 
+export type VisitUpdateOutcome = 'all_done' | 'more_to_do';
+export const VISIT_NOTE_ALL_DONE = 'All done';
+
+/** What the field flow collects before it composes into one stored note body. */
+export type VisitUpdateDraft = {
+  done: string;
+  outcome: VisitUpdateOutcome | null;
+  left: string;
+  parts_used: string;
+  parts_needed: string;
+  customer_wants: string;
+};
+
+export function emptyVisitUpdateDraft(): VisitUpdateDraft {
+  return { done: '', outcome: null, left: '', parts_used: '', parts_needed: '', customer_wants: '' };
+}
+
+/** The one place the All done / More to do choice becomes body text. */
+export function visitUpdateSections(draft: VisitUpdateDraft): VisitNoteSections {
+  const left = draft.outcome === 'all_done'
+    ? VISIT_NOTE_ALL_DONE
+    : draft.outcome === 'more_to_do'
+      ? draft.left
+      : '';
+  return {
+    done: draft.done,
+    left,
+    parts_used: draft.parts_used,
+    parts_needed: draft.parts_needed,
+    customer_wants: draft.customer_wants,
+  };
+}
+
+export function visitPhotoCountLabel(count: number): string {
+  return count === 1 ? '1 photo' : `${count} photos`;
+}
+
+export function visitAuthorInitials(name: string | null | undefined): string {
+  return jobVisitNoteAuthor(name)
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
 export function trimVisitNote(raw: string | null | undefined): string {
   return (raw ?? '').trim();
 }
