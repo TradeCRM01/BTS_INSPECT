@@ -95,12 +95,11 @@ describe('invoice send deliver path', () => {
     expect(dialog).toContain('SMS To');
     expect(dialog).toContain('hub-invoice-send-tos');
     expect(dialog).toContain('Send invoice');
-    expect(dialog).toContain('chaseCopy');
-    expect(dialog).toContain(' · Overdue');
+    expect(dialog).toContain('Download PDF');
+    expect(dialog).toContain('Copy link');
+    expect(dialog).toContain('Open mail draft');
     expect(dialog).not.toContain('Send again');
-    expect(dialog).toContain('invoiceSendXeroMissLine');
-    expect(dialog).toContain('hub-invoice-send-xero-miss');
-    expect(dialog).toContain('keepOpen: true');
+    expect(dialog).not.toContain('Company settings');
     expect(dialog).not.toContain('Connect Xero');
     expect(dialog).not.toContain('xero-accounting');
     expect(page).toContain('keepOpen');

@@ -33,7 +33,7 @@ describe('recommendInvoiceAction', () => {
     expect(recommendInvoiceAction(readyDraft, now)).toMatchObject({
       key: 'send',
       label: 'Send',
-      detail: 'Email this invoice to the client. Status becomes sent only if it delivers.',
+      detail: 'Download the PDF, copy the portal link, or open a mail draft. No Grafter SMTP.',
     });
   });
 
@@ -44,28 +44,26 @@ describe('recommendInvoiceAction', () => {
     });
   });
 
-  it('is honest setup_email only when nothing can send', () => {
+  it('keeps Send when nothing can SMTP — share does not ask for Company settings', () => {
     expect(recommendInvoiceAction({
       ...readyDraft,
       smtpReady: false,
       sharedSendReady: false,
     }, now)).toMatchObject({
-      key: 'setup_email',
-      label: 'Set up email',
-      href: '/settings/company',
+      key: 'send',
+      label: 'Send',
     });
     expect(recommendInvoiceAction({
       ...readyDraft,
       smtpReady: false,
       sharedSendReady: false,
-    }, now).detail).toMatch(/Company settings/i);
+    }, now).detail).toMatch(/No Grafter SMTP/i);
   });
 
-  it('is honest when the client has no email', () => {
+  it('keeps Send when the client has no email — mailto is optional on the share tray', () => {
     expect(recommendInvoiceAction({ ...readyDraft, hasClientEmail: false }, now)).toMatchObject({
-      key: 'add_email',
-      label: 'Add client email',
-      href: '/clients/c1',
+      key: 'send',
+      label: 'Send',
     });
   });
 
@@ -91,7 +89,7 @@ describe('recommendInvoiceAction', () => {
       label: 'Send again',
       status: 'overdue',
     });
-    expect(recommendInvoiceAction(overdue, now).detail).toMatch(/overdue/i);
+    expect(recommendInvoiceAction(overdue, now).detail).toMatch(/No Grafter SMTP/i);
     expect(invoiceOverflowPaidAction(overdue, now)).toMatchObject({
       key: 'mark_paid',
       label: 'Mark paid',
@@ -113,8 +111,8 @@ describe('recommendInvoiceAction', () => {
       smtpReady: false,
       sharedSendReady: false,
     }, now)).toMatchObject({
-      key: 'setup_email',
-      label: 'Set up email',
+      key: 'send',
+      label: 'Send again',
       status: 'overdue',
     });
     expect(recommendInvoiceAction({ ...overdue, smtpReady: false }, now)).toMatchObject({
@@ -123,8 +121,8 @@ describe('recommendInvoiceAction', () => {
       status: 'overdue',
     });
     expect(recommendInvoiceAction({ ...overdue, hasClientEmail: false }, now)).toMatchObject({
-      key: 'add_email',
-      label: 'Add client email',
+      key: 'send',
+      label: 'Send again',
       status: 'overdue',
     });
     expect(invoiceOverflowPaidAction({
@@ -172,15 +170,15 @@ describe('recommendInvoiceAction', () => {
     expect(recommendInvoiceAction(invoiceActionContext(
       { status: 'draft', client_id: 'c1', client_email: null, line_items: [{ description: 'Board', quantity: 1 }] },
       { smtpReady: true },
-    ), now).key).toBe('add_email');
+    ), now).key).toBe('send');
     expect(recommendInvoiceAction(invoiceActionContext(
       { status: 'draft', client_id: 'c1', client_email: '', line_items: [{ description: 'Board', quantity: 1 }] },
       { smtpReady: true },
-    ), now).key).toBe('add_email');
+    ), now).key).toBe('send');
     expect(recommendInvoiceAction(invoiceActionContext(
       { status: 'draft', client_id: 'c1', client_email: 'not-an-email', line_items: [{ description: 'Board', quantity: 1 }] },
       { smtpReady: true },
-    ), now).key).toBe('add_email');
+    ), now).key).toBe('send');
     expect(recommendInvoiceAction(invoiceActionContext(
       { status: 'draft', client_id: null, client_email: 'jane@acme.com.au', line_items: [{ description: 'Board', quantity: 1 }] },
       { smtpReady: true },
@@ -206,7 +204,7 @@ describe('invoiceActionContext / invoiceCardHint', () => {
       { status: 'draft', client_id: 'c1', client_email: null, line_items: [{ description: 'Board', quantity: 1 }] },
       { smtpReady: true },
     );
-    expect(invoiceCardHint(noEmail, now)).toBe('Add client email');
+    expect(invoiceCardHint(noEmail, now)).toBe('Send');
 
     const noSmtp = invoiceActionContext(
       { status: 'draft', client_id: 'c1', client_email: 'jane@acme.com.au', line_items: [{ description: 'Board', quantity: 1 }] },
@@ -217,7 +215,7 @@ describe('invoiceActionContext / invoiceCardHint', () => {
       { status: 'draft', client_id: 'c1', client_email: 'jane@acme.com.au', line_items: [{ description: 'Board', quantity: 1 }] },
       { smtpReady: false, sharedSendReady: false },
     );
-    expect(invoiceCardHint(nothingCanSend, now)).toBe('Set up email');
+    expect(invoiceCardHint(nothingCanSend, now)).toBe('Send');
   });
 
   it('uses the next action label, not a spreadsheet status', () => {

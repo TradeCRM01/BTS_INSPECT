@@ -372,7 +372,7 @@ describe('report-send client email — wiring', () => {
     expect(send).not.toContain('saveJobClientEmail');
     expect(invoiceDialog).toContain('attachInvoiceClient');
     expect(invoiceDialog).not.toContain('Open client');
-    expect(invoiceDialog).toContain('Company settings');
+    expect(invoiceDialog).toContain('Download PDF');
   });
 
   it('leaves quote convert / PR #17 off this control', () => {

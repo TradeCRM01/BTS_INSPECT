@@ -1,6 +1,6 @@
 import type { InvoiceStatus } from '../types/fsm';
 import { effectiveInvoiceStatus } from './invoiceStatus';
-import { clientEmailForSend, COMPANY_EMAIL_SETTINGS_HREF, invoiceHasChargeableLines } from './sendInvoice';
+import { clientEmailForSend, invoiceHasChargeableLines } from './sendInvoice';
 
 export type InvoiceActionKey = 'send' | 'setup_email' | 'add_email' | 'mark_paid' | 'none';
 
@@ -68,24 +68,6 @@ function invoiceSendBlocker(
   if (inv.hasLines === false) {
     return { key: 'none', label: 'Add line items', detail: 'Add at least one line item before you send.', status };
   }
-  if (inv.smtpReady === false && inv.sharedSendReady === false) {
-    return {
-      key: 'setup_email',
-      label: 'Set up email',
-      detail: 'Email is not set up. Add SMTP in Company settings — there is a test send there.',
-      status,
-      href: COMPANY_EMAIL_SETTINGS_HREF,
-    };
-  }
-  if (inv.hasClientEmail === false) {
-    return {
-      key: 'add_email',
-      label: 'Add client email',
-      detail: 'This client has no email. Add one before you can send the invoice.',
-      status,
-      href: inv.clientId ? `/clients/${inv.clientId}` : undefined,
-    };
-  }
   return null;
 }
 
@@ -100,7 +82,7 @@ export function recommendInvoiceAction(inv: InvoiceActionContext, now = new Date
     return {
       key: 'send',
       label: 'Send',
-      detail: 'Email this invoice to the client. Status becomes sent only if it delivers.',
+      detail: 'Download the PDF, copy the portal link, or open a mail draft. No Grafter SMTP.',
       status,
     };
   }
@@ -110,7 +92,7 @@ export function recommendInvoiceAction(inv: InvoiceActionContext, now = new Date
     return {
       key: 'send',
       label: 'Send again',
-      detail: 'This invoice is overdue. Send it again to chase the client. Status stays honest if it misses.',
+      detail: 'Download the PDF, copy the portal link, or open a mail draft. No Grafter SMTP.',
       status,
     };
   }

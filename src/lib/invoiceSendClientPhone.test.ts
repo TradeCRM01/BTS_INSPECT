@@ -150,11 +150,11 @@ describe('invoice-send client phone — wiring', () => {
     const send = src('src/lib/sendInvoice.ts');
     const deliver = src('src/lib/sendInvoiceDeliver.ts');
     const handleSaveStart = dialog.indexOf('const handleSavePhone');
-    const handleSaveEnd = dialog.indexOf('const handleSend');
+    const handleSaveEnd = dialog.indexOf('const prepareShare');
     expect(handleSaveStart).toBeGreaterThan(-1);
     expect(handleSaveEnd).toBeGreaterThan(handleSaveStart);
     const handle = dialog.slice(handleSaveStart, handleSaveEnd);
-    const handleSendFn = dialog.slice(dialog.indexOf('const handleSend'), dialog.indexOf('const ready'));
+    const handleSendFn = dialog.slice(dialog.indexOf('const handleDownload'), dialog.indexOf('const ready'));
 
     expect(save).toContain("from('clients')");
     expect(save).toContain('update({ phone:');
@@ -190,18 +190,18 @@ describe('invoice-send client phone — wiring', () => {
     expect(handle).toContain('saveJobClientPhone');
     expect(handle).toContain('phoneRow.clientId');
     expect(handle).toContain('clientPhoneDraft');
-    expect(handle).toContain('decideInvoiceSend(next)');
+    expect(handle).toContain('applyBundle(next)');
     expect(handle).not.toContain('deliverInvoice');
-    expect(handle).not.toContain('handleSend');
+    expect(handle).not.toContain('handleDownload');
     expect(handle).not.toContain('onSent');
     expect(handle).not.toContain('insert({');
     expect(handle).not.toContain('chased_at');
     expect(handle).not.toContain('sendSms');
     expect(handle).not.toContain('job-reminder');
 
-    expect(handleSendFn).toContain('deliverInvoice');
+    expect(handleSendFn).toContain('generateCommercialPdf');
     expect(handleSendFn).not.toContain('saveJobClientPhone');
-    expect(handleSendFn).not.toContain('if (!decision?.ok) return');
+    expect(handleSendFn).not.toContain('deliverInvoice');
 
     expect(send).not.toContain('saveJobClientPhone');
     expect(deliver).not.toContain('saveJobClientPhone');
@@ -218,8 +218,8 @@ describe('invoice-send client phone — wiring', () => {
     expect(dialog).toContain('Send invoice');
     expect(dialog).toContain('job-client-phone-save');
     expect(dialog).toContain('job-client-phone-num');
-    expect(dialog).toContain('showSend');
-    expect(dialog).toContain('disabled={sending || !ready}');
+    expect(dialog).toContain('showShare');
+    expect(dialog).toContain('disabled={!!busy}');
     expect(dialog).not.toContain('Add client phone');
     expect(dialog).not.toContain('className="btn-primary job-client-phone-save"');
     expect(sendCss).toContain('.job-client-phone-save');
@@ -270,18 +270,17 @@ describe('invoice-send client phone — wiring', () => {
 
   it('does not change Send enablement unless decideInvoiceSend already needs phone', () => {
     const dialog = src('src/components/invoicing/InvoiceSendDialog.tsx');
-    const handleSave = dialog.slice(dialog.indexOf('const handleSavePhone'), dialog.indexOf('const handleSend'));
-    const handleSendFn = dialog.slice(dialog.indexOf('const handleSend'), dialog.indexOf('const ready'));
-    const sendBtn = dialog.slice(dialog.indexOf('{showSend &&'), dialog.indexOf('{showSmtpSettings'));
+    const handleSave = dialog.slice(dialog.indexOf('const handleSavePhone'), dialog.indexOf('const prepareShare'));
+    const handleSendFn = dialog.slice(dialog.indexOf('const handleDownload'), dialog.indexOf('const ready'));
+    const mailBtn = dialog.slice(dialog.indexOf('{showShare && share?.canMailto'), dialog.indexOf('{showShare && !share?.canMailto'));
 
-    expect(dialog).toContain('disabled={sending || !ready}');
-    expect(sendBtn).toContain('Send invoice');
-    expect(sendBtn).toContain('disabled={sending || !ready}');
-    expect(handleSave).toContain('decideInvoiceSend(next)');
+    expect(dialog).toContain('disabled={!!busy}');
+    expect(mailBtn).toContain('Open mail draft');
+    expect(handleSave).toContain('applyBundle(next)');
     expect(handleSave).not.toContain('deliverInvoice');
     expect(handleSave).not.toContain('onSent');
-    expect(handleSendFn).toContain('deliverInvoice');
-    expect(handleSendFn).not.toContain('if (!decision?.ok) return');
+    expect(handleSendFn).toContain('generateCommercialPdf');
+    expect(handleSendFn).not.toContain('deliverInvoice');
 
     const afterBlank = decideInvoiceSend(bundle({
       client: { ...client, email: 'jane@acme.com.au', phone: jobClientPhoneToStore('') },
@@ -314,12 +313,12 @@ describe('invoice-send client phone — wiring', () => {
     const deliver = src('src/lib/sendInvoiceDeliver.ts');
     const reportDialog = src('src/components/inspection/ReportSendDialog.tsx');
 
-    expect(dialog).toContain('Company settings');
-    expect(dialog).toContain("blocker === 'no_smtp'");
+    expect(dialog).toContain('Download PDF');
+    expect(dialog).toContain('Copy link');
     expect(dialog).toContain('SMS To');
-    expect(dialog).toContain('deliverInvoice');
+    expect(dialog).toContain('Open mail draft');
     expect(dialog).toContain('Send invoice');
-    expect(dialog).toContain('invoiceSendXeroMissLine');
+    expect(dialog).not.toContain('Company settings');
     expect(dialog).toContain('saveJobClientEmail');
     expect(send).toContain('NO_SMTP_MESSAGE');
     expect(send).toContain('clientEmailForSend');

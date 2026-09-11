@@ -420,7 +420,7 @@ describe('receipt source lock — Mark paid sheet, existing pipe, quotes off', (
     expect(send).toContain('invoiceReceiptHtml');
     expect(send).toContain('invoiceReceiptSmsBody');
     expect(send).toContain("kind !== 'chase'");
-    expect(dialog).toContain('decideInvoiceSend');
+    expect(dialog).toContain('decideInvoiceShare');
     expect(dialog).not.toContain('decideInvoiceReceipt');
     expect(dialog).not.toContain('purpose: \'receipt\'');
     expect(dialog).not.toContain('deliverInvoiceReceiptAfterMarkPaid');

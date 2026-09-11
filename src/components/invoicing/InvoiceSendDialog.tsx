@@ -1,22 +1,33 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Mail, Phone, User } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { generateCommercialPdf } from '../../reports/commercial/generateCommercialPdf';
 import { supabase } from '../../lib/supabase';
 import {
+  decideInvoiceShare,
+  documentShareOrigin,
+  invoiceShareAfterPortalUrl,
+  type DocumentShareExport,
+} from '../../lib/documentShare';
+import {
+  copyTextToClipboard,
+  ensureClientPortalUrl,
+  loadActiveClientPortalUrl,
+  markInvoiceSentForShare,
+  openDocumentShareMailto,
+  triggerBrowserDownload,
+} from '../../lib/documentShareDeliver';
+import {
   commercialPdfDataForInvoice,
-  decideInvoiceSend,
   INVOICE_SEND_CLIENT_COLUMNS,
+  invoiceHasChargeableLines,
   padInvoiceNumber,
   type InvoiceSendBundle,
   type InvoiceSendClient,
   type InvoiceSendCompany,
-  type InvoiceSendDecision,
 } from '../../lib/sendInvoice';
-import { deliverInvoice, loadInvoiceSendBundle } from '../../lib/sendInvoiceDeliver';
-import { invoiceSendXeroMissLine } from '../../lib/xeroAccounting';
+import { loadInvoiceSendBundle } from '../../lib/sendInvoiceDeliver';
 import { jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
 import { jobClientPhoneRow, saveJobClientPhone } from '../../lib/saveJobClientPhone';
 import {
@@ -25,9 +36,25 @@ import {
   invoiceClientAttachRow,
 } from '../../lib/attachInvoiceClient';
 
-/** Honest no_email miss — write the address on this dialog. */
+/** Honest no_email miss — write the address on this dialog for mailto. */
 export const INVOICE_SEND_NO_EMAIL_FIELD =
   'This client has no email. Add one below before you send.';
+
+function invoiceShareFromBundle(
+  bundle: InvoiceSendBundle,
+  portalUrl: string | null,
+): DocumentShareExport {
+  const invoice = bundle.invoice;
+  return decideInvoiceShare({
+    status: invoice?.status ?? 'draft',
+    hasClient: !!invoice?.client_id,
+    hasLines: invoiceHasChargeableLines(invoice?.line_items),
+    invoiceNumber: invoice?.invoice_number,
+    companyName: bundle.company.name,
+    clientEmail: bundle.client?.email,
+    portalUrl,
+  });
+}
 
 export function InvoiceSendDialog({
   invoiceId,
@@ -42,17 +69,19 @@ export function InvoiceSendDialog({
 }) {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
+  const [busy, setBusy] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
   const [savingPhone, setSavingPhone] = useState(false);
   const [bundle, setBundle] = useState<InvoiceSendBundle | null>(null);
-  const [decision, setDecision] = useState<InvoiceSendDecision | null>(null);
+  const [share, setShare] = useState<DocumentShareExport | null>(null);
+  const [portalUrl, setPortalUrl] = useState<string | null>(null);
   const [err, setErr] = useState('');
-  const [xeroMiss, setXeroMiss] = useState('');
+  const [copied, setCopied] = useState(false);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [savingAttach, setSavingAttach] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,8 +91,21 @@ export function InvoiceSendDialog({
       try {
         const loaded = await loadInvoiceSendBundle(invoiceId, company);
         if (cancelled) return;
+        const origin = documentShareOrigin(
+          typeof window !== 'undefined' ? window.location.origin : '',
+        );
+        let url: string | null = null;
+        if (loaded.invoice?.client_id) {
+          url = await loadActiveClientPortalUrl({
+            companyId: company.id,
+            clientId: loaded.invoice.client_id,
+            origin,
+          });
+        }
+        if (cancelled) return;
         setBundle(loaded);
-        setDecision(decideInvoiceSend(loaded));
+        setPortalUrl(url);
+        setShare(invoiceShareFromBundle(loaded, url));
         setClientEmailDraft(loaded.client?.email ?? '');
         setClientPhoneDraft(loaded.client?.phone ?? '');
       } catch (e) {
@@ -86,11 +128,10 @@ export function InvoiceSendDialog({
     clientId: invoiceClientId,
     client: bundle?.client ?? null,
   });
-  const noEmailMiss = decision != null && !decision.ok && decision.blocker === 'no_email';
-  const noClientMiss = decision != null && !decision.ok && decision.blocker === 'no_client';
-  const smtpMiss = decision != null && !decision.ok && decision.blocker === 'no_smtp';
+  const noClientMiss = !!bundle?.invoice && !bundle.invoice.client_id;
+  const noEmailMiss = !!share && share.canCopyLink && !share.to;
   const showEmailEditor = !loading && noEmailMiss && emailRow.kind === 'edit';
-  const showPhoneEditor = !loading && !smtpMiss && !noClientMiss && phoneRow.kind === 'edit';
+  const showPhoneEditor = !loading && !noClientMiss && phoneRow.kind === 'edit';
   const showPhoneInkOnMiss = !loading && noEmailMiss && phoneRow.kind === 'tel';
 
   const attachClientsQuery = useQuery<{ id: string; name: string }[]>({
@@ -118,6 +159,13 @@ export function InvoiceSendDialog({
   });
   const noClientsNamedMiss = noClientMiss && attachRow.kind === 'miss';
 
+  const applyBundle = (next: InvoiceSendBundle, url = portalUrl) => {
+    setBundle(next);
+    setShare(invoiceShareFromBundle(next, url));
+    setClientEmailDraft(next.client?.email ?? '');
+    setClientPhoneDraft(next.client?.phone ?? '');
+  };
+
   const handleAttach = async () => {
     if (!bundle?.invoice || attachRow.kind !== 'pick') return;
     setSavingAttach(true);
@@ -144,10 +192,7 @@ export function InvoiceSendDialog({
           ? { id: picked.id, name: picked.name, email: null, phone: null, address: null }
           : null),
       };
-      setBundle(next);
-      setDecision(decideInvoiceSend(next));
-      setClientEmailDraft(next.client?.email ?? '');
-      setClientPhoneDraft(next.client?.phone ?? '');
+      applyBundle(next);
       setClientAttachDraft('');
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
       void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
@@ -171,9 +216,7 @@ export function InvoiceSendDialog({
         ...bundle,
         client: bundle.client ? { ...bundle.client, email: result.email } : bundle.client,
       };
-      setBundle(next);
-      setDecision(decideInvoiceSend(next));
-      setClientEmailDraft(result.email ?? '');
+      applyBundle(next);
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
       void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
     } catch (e) {
@@ -196,9 +239,7 @@ export function InvoiceSendDialog({
         ...bundle,
         client: bundle.client ? { ...bundle.client, phone: result.phone } : bundle.client,
       };
-      setBundle(next);
-      setDecision(decideInvoiceSend(next));
-      setClientPhoneDraft(result.phone ?? '');
+      applyBundle(next);
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
       void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
     } catch (e) {
@@ -208,54 +249,131 @@ export function InvoiceSendDialog({
     }
   };
 
-  const handleSend = async () => {
-    setSending(true);
+  const origin = documentShareOrigin(
+    typeof window !== 'undefined' ? window.location.origin : '',
+  );
+
+  const prepareShare = async (): Promise<{ url: string; status: string }> => {
+    if (!bundle?.invoice?.client_id) throw new Error('Pick a client before you can copy a portal link.');
+    const url = await ensureClientPortalUrl({
+      companyId: company.id,
+      clientId: bundle.invoice.client_id,
+      origin,
+    });
+    const marked = await markInvoiceSentForShare({
+      invoiceId,
+      status: bundle.invoice.status,
+    });
+    const nextInvoice = { ...bundle.invoice, status: marked.status };
+    const nextBundle = { ...bundle, invoice: nextInvoice };
+    setPortalUrl(url);
+    setBundle(nextBundle);
+    setShare(invoiceShareAfterPortalUrl(
+      invoiceShareFromBundle(nextBundle, url),
+      url,
+      nextBundle.company.name,
+      nextInvoice.invoice_number,
+    ));
+    if (marked.markedSent) {
+      void queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    }
+    return { url, status: marked.status };
+  };
+
+  const handleDownload = async () => {
+    if (!bundle || !share?.canDownloadPdf) return;
+    setBusy('download');
     setErr('');
-    setXeroMiss('');
     try {
-      const result = await deliverInvoice({
-        invoiceId,
-        company,
-        buildPdf: async (loaded) => {
-          const data = commercialPdfDataForInvoice(loaded);
-          if (!data) throw new Error('Could not build the invoice PDF.');
-          return generateCommercialPdf(data);
-        },
-      });
-      if (!result.ok) {
-        setErr(result.message);
-        return;
-      }
-      const miss = invoiceSendXeroMissLine(result.xero);
-      if (miss) {
-        setXeroMiss(miss);
-        onSent(result.to, result.message, { keepOpen: true });
-        return;
-      }
-      onSent(result.to, result.message);
+      const data = commercialPdfDataForInvoice(bundle);
+      if (!data) throw new Error('Could not build the invoice PDF.');
+      const pdf = await generateCommercialPdf(data);
+      triggerBrowserDownload(pdf, share.filename);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Could not send the invoice.');
+      setErr(e instanceof Error ? e.message : 'Could not download the invoice PDF.');
     } finally {
-      setSending(false);
+      setBusy('');
     }
   };
 
-  const ready = decision?.ok === true;
-  const blockerHref = decision && !decision.ok ? decision.href : undefined;
-  const blockerMessage = noEmailMiss
-    ? INVOICE_SEND_NO_EMAIL_FIELD
-    : noClientsNamedMiss
-      ? INVOICE_CLIENT_ATTACH_NO_CLIENTS
-      : (decision && !decision.ok ? decision.message : '');
+  const handleCopyLink = async () => {
+    if (!share?.canCopyLink) return;
+    setBusy('copy');
+    setErr('');
+    setCopied(false);
+    try {
+      const prepared = await prepareShare();
+      await copyTextToClipboard(prepared.url);
+      setCopied(true);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not copy the portal link.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const handleMailto = async () => {
+    setBusy('mailto');
+    setErr('');
+    try {
+      const prepared = await prepareShare();
+      const next = invoiceShareAfterPortalUrl(
+        invoiceShareFromBundle({
+          ...bundle!,
+          invoice: bundle!.invoice ? { ...bundle!.invoice, status: prepared.status } : bundle!.invoice,
+        }, prepared.url),
+        prepared.url,
+        bundle!.company.name,
+        bundle!.invoice?.invoice_number,
+      );
+      if (!next.mailtoHref) {
+        setErr(INVOICE_SEND_NO_EMAIL_FIELD);
+        emailInputRef.current?.focus();
+        return;
+      }
+      openDocumentShareMailto(next.mailtoHref);
+      onSent(next.to || 'client', 'Mail draft opened with the invoice link.');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not open a mail draft.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const handleMarkSent = async () => {
+    if (!bundle?.invoice) return;
+    setBusy('sent');
+    setErr('');
+    try {
+      const marked = await markInvoiceSentForShare({
+        invoiceId,
+        status: bundle.invoice.status,
+      });
+      const nextInvoice = { ...bundle.invoice, status: marked.status };
+      applyBundle({ ...bundle, invoice: nextInvoice }, portalUrl);
+      if (marked.markedSent) {
+        void queryClient.invalidateQueries({ queryKey: ['invoices'] });
+        onSent(share?.to || 'client', 'Invoice marked sent.');
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not mark this invoice sent.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const blockerMessage = noClientsNamedMiss
+    ? INVOICE_CLIENT_ATTACH_NO_CLIENTS
+    : noClientMiss
+      ? 'Pick a client before you can copy a portal link.'
+      : noEmailMiss
+        ? INVOICE_SEND_NO_EMAIL_FIELD
+        : '';
   const invoiceLabel = bundle?.invoice
     ? `Invoice #${padInvoiceNumber(bundle.invoice.invoice_number)}`
     : '';
-  const chaseCopy = ready && decision.ok && /overdue/i.test(decision.subject);
-  const pdfName = ready && decision.ok
-    ? (bundle?.existingPdf?.filename ?? decision.filename)
-    : '';
-  const showSend = !loading && (ready || (noEmailMiss && emailRow.kind === 'edit') || noClientMiss);
-  const showSmtpSettings = !loading && smtpMiss && !!blockerHref;
+  const showShare = !loading && !!share && (share.canDownloadPdf || share.canCopyLink);
+  const ready = showShare && !!share && share.canCopyLink && share.canDownloadPdf;
 
   return (
     <Modal open onClose={onClose} size="md">
@@ -263,24 +381,55 @@ export function InvoiceSendDialog({
         <div className="hub-invoice-send-head">
           <div className="min-w-0">
             <h2 className="hub-invoice-send-title">Send invoice</h2>
-            {invoiceLabel ? (
-              <p className="hub-invoice-muted mt-1">
-                {invoiceLabel}{chaseCopy ? ' · Overdue' : ''}
-              </p>
-            ) : null}
+            {invoiceLabel ? <p className="hub-invoice-muted mt-1">{invoiceLabel}</p> : null}
           </div>
         </div>
 
         <div className="hub-invoice-send-body">
           {loading && <p className="hub-invoice-muted">Loading send details…</p>}
 
-          {!loading && ready && decision.ok && (
+          {!loading && share && ready && (
             <>
               <div className="hub-invoice-send-tos">
                 <div className="hub-invoice-send-field">
                   <p className="hub-invoice-kicker">To</p>
-                  <p className="hub-invoice-send-value">{decision.to}</p>
-                  <p className="hub-invoice-muted">{decision.toName} — already on the invoice.</p>
+                  {showEmailEditor && emailRow.kind === 'edit' ? (
+                    <form
+                      className="job-client-email"
+                      onSubmit={e => {
+                        e.preventDefault();
+                        void handleSaveEmail();
+                      }}
+                    >
+                      <Mail size={13} />
+                      <input
+                        ref={emailInputRef}
+                        type="email"
+                        value={clientEmailDraft}
+                        onChange={e => setClientEmailDraft(e.target.value)}
+                        placeholder="Email"
+                        className="form-input-sm"
+                        aria-label="Client email"
+                        autoComplete="email"
+                      />
+                      <button
+                        type="submit"
+                        className="job-client-email-save"
+                        disabled={savingEmail}
+                      >
+                        Save
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <p className={`hub-invoice-send-value${share.to ? '' : ' is-miss'}`}>
+                        {share.to || 'No client email'}
+                      </p>
+                      <p className="hub-invoice-muted">
+                        {share.to ? 'Already on the invoice. Used only for the mail draft.' : INVOICE_SEND_NO_EMAIL_FIELD}
+                      </p>
+                    </>
+                  )}
                 </div>
                 <div className="hub-invoice-send-field">
                   <p className="hub-invoice-kicker">SMS To</p>
@@ -312,34 +461,32 @@ export function InvoiceSendDialog({
                       </button>
                     </form>
                   ) : (
-                    <>
-                      <p className={`hub-invoice-send-value tabular-nums${decision.smsTo ? '' : ' is-miss'}`}>
-                        {decision.smsTo || 'No client phone'}
-                      </p>
-                      {decision.smsTo ? null : (
-                        <p className="hub-invoice-muted">{decision.smsMessage}</p>
-                      )}
-                    </>
+                    <p className="hub-invoice-send-value tabular-nums">
+                      {phoneRow.kind === 'tel' ? phoneRow.phone : 'No client phone'}
+                    </p>
                   )}
                 </div>
               </div>
               <div className="hub-invoice-send-field">
                 <p className="hub-invoice-kicker">Subject</p>
-                <p className="hub-invoice-send-value">{decision.subject}</p>
+                <p className="hub-invoice-send-value">{share.subject}</p>
               </div>
               <div className="hub-invoice-send-field">
                 <p className="hub-invoice-kicker">PDF</p>
-                <p className="hub-invoice-pdf">{pdfName}</p>
+                <p className="hub-invoice-pdf">{share.filename}</p>
               </div>
-              {xeroMiss ? (
-                <p className="hub-invoice-send-xero-miss">{xeroMiss}</p>
-              ) : null}
+              <div className="hub-invoice-send-field">
+                <p className="hub-invoice-kicker">Portal link</p>
+                <p className="hub-invoice-send-value">
+                  {share.portalUrl || 'Copy link creates one the client can open.'}
+                </p>
+              </div>
             </>
           )}
 
           {!loading && !ready && (
             <>
-              <p className="hub-invoice-err">{blockerMessage || err || 'This invoice cannot be sent yet.'}</p>
+              <p className="hub-invoice-err">{blockerMessage || err || 'This invoice cannot be shared yet.'}</p>
               {noClientMiss && attachRow.kind === 'pick' && (
                 <form
                   className="job-client-attach"
@@ -379,6 +526,7 @@ export function InvoiceSendDialog({
                 >
                   <Mail size={13} />
                   <input
+                    ref={emailInputRef}
                     type="email"
                     value={clientEmailDraft}
                     onChange={e => setClientEmailDraft(e.target.value)}
@@ -442,15 +590,54 @@ export function InvoiceSendDialog({
           <button type="button" onClick={onClose} className="ops-link shrink-0">
             Cancel
           </button>
-          {showSend && (
-            <button type="button" onClick={() => void handleSend()} disabled={sending || !ready} className="btn-primary">
-              {sending ? 'Sending…' : 'Send invoice'}
+          {showShare && share?.canDownloadPdf && (
+            <button
+              type="button"
+              onClick={() => void handleDownload()}
+              disabled={busy === 'download'}
+              className="ops-link shrink-0"
+            >
+              {busy === 'download' ? 'Downloading…' : 'Download PDF'}
             </button>
           )}
-          {showSmtpSettings && blockerHref && (
-            <Link to={blockerHref} className="btn-primary" onClick={onClose}>
-              Company settings
-            </Link>
+          {showShare && share?.canCopyLink && (
+            <button
+              type="button"
+              onClick={() => void handleCopyLink()}
+              disabled={!!busy}
+              className="ops-link shrink-0"
+            >
+              {busy === 'copy' ? 'Copying…' : copied ? 'Copied' : 'Copy link'}
+            </button>
+          )}
+          {showShare && share?.canMarkSent && (
+            <button
+              type="button"
+              onClick={() => void handleMarkSent()}
+              disabled={!!busy}
+              className="ops-link shrink-0"
+            >
+              {busy === 'sent' ? 'Marking…' : 'Mark sent'}
+            </button>
+          )}
+          {showShare && share?.canMailto && (
+            <button
+              type="button"
+              onClick={() => void handleMailto()}
+              disabled={!!busy}
+              className="btn-primary"
+            >
+              {busy === 'mailto' ? 'Opening…' : 'Open mail draft'}
+            </button>
+          )}
+          {showShare && !share?.canMailto && noEmailMiss && emailRow.kind === 'edit' && (
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => emailInputRef.current?.focus()}
+            >
+              Fix email
+            </button>
           )}
         </div>
       </div>

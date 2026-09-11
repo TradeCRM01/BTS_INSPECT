@@ -3,7 +3,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote, StockItem, PriceBookItem } from '../types/fsm';
@@ -153,7 +153,7 @@ export function InvoicesPage() {
   const { data: invoices, isLoading, error } = useQuery<InvoiceWithDetails[]>({
     queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live'],
     queryFn: async () => {
-      if (lookLetterhead) {
+      if (isDevFieldAuditAuth()) {
         const row = getAuditInvoiceEditorRow(AUDIT_INVOICE_ID);
         if (row) return [row as InvoiceWithDetails];
       }

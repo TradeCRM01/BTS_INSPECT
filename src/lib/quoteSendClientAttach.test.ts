@@ -120,7 +120,7 @@ describe('quote-send client attach — wiring', () => {
     expect(handleStart).toBeGreaterThan(-1);
     expect(handleEnd).toBeGreaterThan(handleStart);
     const handle = dialog.slice(handleStart, handleEnd);
-    const handleSendFn = dialog.slice(dialog.indexOf('const handleSend'), dialog.indexOf('const ready'));
+    const handleSendFn = dialog.slice(dialog.indexOf('const handleDownload'), dialog.indexOf('const ready'));
 
     expect(attach).toContain("from('quotes')");
     expect(attach).toContain('update({ client_id:');
@@ -143,7 +143,7 @@ describe('quote-send client attach — wiring', () => {
     expect(dialog).toContain("queryKey: ['quote-attach-clients'");
     expect(dialog).toContain('quoteClientAttachRow({');
     expect(dialog).toContain('quoteClientId');
-    expect(dialog).toContain("blocker === 'no_client'");
+    expect(dialog).toContain('noClientMiss');
     expect(dialog).not.toContain('Open client');
     expect(dialog).not.toContain('ClientAttachDialog');
     expect(dialog).not.toContain('Create client');
@@ -151,14 +151,14 @@ describe('quote-send client attach — wiring', () => {
 
     expect(handle).toContain('attachQuoteClient');
     expect(handle).toContain('clientAttachDraft');
-    expect(handle).toContain('decideQuoteSend(next)');
+    expect(handle).toContain('applyBundle(next)');
     expect(handle).not.toContain('deliverQuote');
-    expect(handle).not.toContain('handleSend');
+    expect(handle).not.toContain('handleDownload');
     expect(handle).not.toContain('onSent');
     expect(handle).not.toContain('insert({');
     expect(handle).not.toContain('saveJobClientEmail');
 
-    expect(handleSendFn).toContain('deliverQuote');
+    expect(handleSendFn).toContain('generateCommercialPdf');
     expect(handleSendFn).not.toContain('attachQuoteClient');
     expect(send).not.toContain('attachQuoteClient');
     expect(deliver).not.toContain('attachQuoteClient');
@@ -172,7 +172,7 @@ describe('quote-send client attach — wiring', () => {
     expect(dialog).toContain('job-client-email');
     expect(dialog).toContain('saveJobClientEmail');
     expect(dialog).toContain('handleSaveEmail()');
-    expect(dialog).toContain("blocker === 'no_email'");
+    expect(dialog).toContain('noEmailMiss');
     expect(dialog).not.toContain('job-client-attach-email');
     expect(dialog).not.toContain('ClientEmailDialog');
   });
@@ -187,8 +187,8 @@ describe('quote-send client attach — wiring', () => {
     expect(dialog).toContain('className="btn-primary"');
     expect(dialog).toContain('Send quote');
     expect(dialog).toContain('job-client-attach-save');
-    expect(dialog).toContain('showSend');
-    expect(dialog).toContain('disabled={sending || !ready}');
+    expect(dialog).toContain('showShare');
+    expect(dialog).toContain('disabled={!!busy}');
     expect(dialog).not.toContain('Open client');
     expect(dialog).not.toContain('className="btn-primary job-client-attach-save"');
     expect(sendCss).toContain('.job-client-attach-save');

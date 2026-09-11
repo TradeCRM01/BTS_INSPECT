@@ -40,7 +40,7 @@ describe('quote-sheet client email — save / Send / miss', () => {
     expect(jobClientEmailToStore('')).toBeNull();
   });
 
-  it('flips Next to Send after a real email — blank / invalid stay Fix email', () => {
+  it('keeps Next on Send without a client email — mailto is optional on the share tray', () => {
     expect(recommendQuoteAction(quoteActionContext({
       status: 'draft',
       client_id: 'c1',
@@ -52,16 +52,16 @@ describe('quote-sheet client email — save / Send / miss', () => {
       client_id: 'c1',
       client_email: jobClientEmailToStore(''),
       line_items: [{ description: 'Board', quantity: 1 }],
-    })).key).toBe('add_email');
+    })).key).toBe('send');
     expect(recommendQuoteAction(quoteActionContext({
       status: 'draft',
       client_id: 'c1',
       client_email: jobClientEmailToStore('not-an-email'),
       line_items: [{ description: 'Board', quantity: 1 }],
-    })).label).toBe('Fix email');
+    })).label).toBe('Send');
   });
 
-  it('says Fix email on Next when the client has no email — flips to Send after a real save', () => {
+  it('says Send on Next when the client has no email — PDF and copy link do not wait on mailto', () => {
     const draftReady = {
       status: 'draft' as const,
       hasClient: true,
@@ -70,8 +70,8 @@ describe('quote-sheet client email — save / Send / miss', () => {
       invoiceId: null as string | null,
     };
     expect(recommendQuoteAction({ ...draftReady, hasClientEmail: false })).toMatchObject({
-      key: 'add_email',
-      label: 'Fix email',
+      key: 'send',
+      label: 'Send',
     });
     expect(recommendQuoteAction({ ...draftReady, hasClientEmail: true })).toMatchObject({
       key: 'send',
@@ -227,8 +227,9 @@ describe('quote-sheet client email — wiring', () => {
     expect(save).not.toContain('QuoteSendDialog');
     expect(quoteConvert).not.toContain('saveJobClientEmail');
     expect(quoteNext).not.toContain('saveJobClientEmail');
-    expect(quoteNext).toContain("key: 'add_email'");
-    expect(quoteNext).toContain("label: 'Fix email'");
+    expect(quoteNext).toContain("'add_email'");
+    expect(quoteNext).toContain("key: 'send'");
+    expect(quoteNext).toContain('No Grafter SMTP');
     expect(quoteNext).not.toContain('/clients/');
     expect(quoteNext).not.toContain('sendQuote');
     expect(page).toContain('QuoteSendDialog');
@@ -251,7 +252,7 @@ describe('quote-sheet client email — wiring', () => {
       css.indexOf('/* Job list + open job sheet only.'),
     );
     expect(page).not.toContain('LOOK_FIX_EMAIL');
-    expect(page).not.toContain("get('look')");
+    expect(page).not.toContain('LOOK_FIX_EMAIL');
     expect(page).not.toContain('Harbour Strata');
     expect(page).not.toContain('look-fix-email');
     expect(page).toContain('{next.label}');

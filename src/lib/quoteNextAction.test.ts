@@ -48,7 +48,7 @@ describe('recommendQuoteAction', () => {
     }).key).toBe('send');
   });
 
-  it('says Fix email when the client has no email — flips to Send after a real address', () => {
+  it('keeps Send when the client has no email — share does not wait on SMTP or mailto', () => {
     const priced = {
       status: 'draft' as const,
       hasClient: true,
@@ -57,10 +57,10 @@ describe('recommendQuoteAction', () => {
       invoiceId: null as string | null,
     };
     expect(recommendQuoteAction({ ...priced, hasClientEmail: false })).toMatchObject({
-      key: 'add_email',
-      label: 'Fix email',
+      key: 'send',
+      label: 'Send',
     });
-    expect(recommendQuoteAction({ ...priced, hasClientEmail: false }).detail).toMatch(/this quote/i);
+    expect(recommendQuoteAction({ ...priced, hasClientEmail: false }).detail).toMatch(/No Grafter SMTP/i);
     expect(recommendQuoteAction({ ...priced, hasClientEmail: true })).toMatchObject({
       key: 'send',
       label: 'Send',
@@ -71,13 +71,13 @@ describe('recommendQuoteAction', () => {
       client_id: 'c1',
       client_email: jobClientEmailToStore(''),
       line_items: [{ description: 'Board', quantity: 1 }],
-    })).key).toBe('add_email');
+    })).key).toBe('send');
     expect(recommendQuoteAction(quoteActionContext({
       status: 'draft',
       client_id: 'c1',
       client_email: jobClientEmailToStore('not-an-email'),
       line_items: [{ description: 'Board', quantity: 1 }],
-    })).key).toBe('add_email');
+    })).key).toBe('send');
     expect(recommendQuoteAction(quoteActionContext({
       status: 'draft',
       client_id: 'c1',
@@ -133,6 +133,6 @@ describe('quoteActionContext / quoteCardHint', () => {
       line_items: [{ description: 'Board', quantity: 1 }],
     });
     expect(noEmail).toMatchObject({ hasClient: true, hasClientEmail: false, hasLines: true });
-    expect(quoteCardHint(noEmail)).toBe('Fix email');
+    expect(quoteCardHint(noEmail)).toBe('Send');
   });
 });

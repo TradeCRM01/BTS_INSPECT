@@ -425,6 +425,12 @@ const SEND_CLIENT_NO_EMAIL = {
   address: '12 Workshop Rd, Perth WA 6000',
 };
 
+const SEND_CLIENT = {
+  ...SEND_CLIENT_NO_EMAIL,
+  email: 'accounts@northside.example',
+  phone: '0412 000 111',
+};
+
 const SEND_LINE = { description: 'Switchboard labour', quantity: 8, unit_price: 95 };
 
 export function getAuditInvoiceSendBundle(
@@ -451,7 +457,7 @@ export function getAuditInvoiceSendBundle(
       inclusions: [],
       exclusions: [],
     },
-    client: SEND_CLIENT_NO_EMAIL,
+    client: SEND_CLIENT,
     jobAddress: '12 Workshop Rd, Perth WA 6000',
     smtp: AUDIT_SMTP,
     company,
@@ -483,7 +489,7 @@ export function getAuditQuoteSendBundle(
       inclusions: [],
       exclusions: [],
     },
-    client: SEND_CLIENT_NO_EMAIL,
+    client: SEND_CLIENT,
     jobAddress: '12 Workshop Rd, Perth WA 6000',
     smtp: AUDIT_SMTP,
     company,

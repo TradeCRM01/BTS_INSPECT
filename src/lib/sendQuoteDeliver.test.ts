@@ -40,7 +40,7 @@ describe('quote send deliver path', () => {
     expect(page).not.toContain('mailto:?subject=');
     expect(nextAction).toContain("key: 'send'");
     expect(nextAction).not.toContain('sendQuote');
-    expect(nextAction).toContain('Send this quote to the client');
+    expect(nextAction).toContain('No Grafter SMTP');
     expect(edge).toContain('quoteId');
     expect(edge).toContain('from("quotes")');
     expect(edge).toContain('api.resend.com/emails');

@@ -751,6 +751,7 @@ describe('attachXeroPaymentAfterMarkPaid', () => {
 describe('invoice sheet Mark paid stays the one surface', () => {
   const invoicesPage = readFileSync(resolve(process.cwd(), 'src/pages/InvoicesPage.tsx'), 'utf8');
   const deliver = readFileSync(resolve(process.cwd(), 'src/lib/sendInvoiceDeliver.ts'), 'utf8');
+  const xero = readFileSync(resolve(process.cwd(), 'src/lib/xeroAccounting.ts'), 'utf8');
   const dialog = readFileSync(resolve(process.cwd(), 'src/components/invoicing/InvoiceSendDialog.tsx'), 'utf8');
   const accounting = readFileSync(resolve(process.cwd(), 'src/pages/AccountingSettingsPage.tsx'), 'utf8');
 
@@ -793,7 +794,7 @@ describe('invoice sheet Mark paid stays the one surface', () => {
   it('leaves push-on-send and Sync now on their signed paths', () => {
     expect(deliver).toContain('pushInvoiceToXeroAfterSend');
     expect(deliver).not.toContain('attachXeroPaymentAfterMarkPaid');
-    expect(dialog).toContain('invoiceSendXeroMissLine');
+    expect(xero).toContain('invoiceSendXeroMissLine');
     expect(dialog).not.toContain('attachXeroPaymentAfterMarkPaid');
     expect(dialog).not.toContain('invoiceMarkPaidXeroMissLine');
     expect(accounting).toContain("action: 'sync'");
