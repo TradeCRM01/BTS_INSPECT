@@ -547,33 +547,44 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
         .hub-jobs.is-record-open #job-visit-notes .job-visit-sections {
           grid-column: 1 / -1;
           display: grid;
-          gap: 2px;
+          gap: 0;
+          padding: 2px 0 0;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field {
           display: block;
           margin: 0;
-          padding: 6px 0 0;
+          padding: 8px 0 0;
+          border-bottom: 1px solid var(--visit-line);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field:has(.job-visit-hairline:focus) {
+          border-bottom-color: var(--visit-action);
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-section-label {
           display: block;
           margin: 0;
           font-family: Rajdhani, sans-serif;
           font-weight: 700;
-          font-size: 13px;
-          letter-spacing: 0.02em;
-          line-height: 1.2;
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          line-height: 16px;
+          color: var(--visit-muted);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field:has(.job-visit-hairline:not(:placeholder-shown)) .job-visit-section-label {
           color: var(--visit-ink);
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field:has(.job-visit-hairline:focus) .job-visit-section-label {
+          color: var(--visit-action);
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline {
           display: block;
           width: 100%;
-          min-height: 32px;
+          min-height: 0;
           height: auto;
           field-sizing: content;
-          padding: 4px 0 6px;
+          padding: 2px 0 8px;
           margin: 0;
           border: none;
-          border-bottom: 1px solid var(--visit-line);
           border-radius: 0;
           background: transparent;
           box-shadow: none;
@@ -583,12 +594,32 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           font-family: 'Source Sans 3', system-ui, sans-serif;
           font-size: 14px;
           font-weight: 400;
-          line-height: 1.35;
+          line-height: 20px;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline:focus {
-          border-bottom-color: var(--visit-action);
           box-shadow: none;
           outline: none;
+        }
+        @media (min-width: 640px) {
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field {
+            display: grid;
+            grid-template-columns: minmax(7rem, 9.5rem) minmax(0, 1fr);
+            column-gap: 16px;
+            align-items: start;
+            padding: 0;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-section-field .job-visit-section-label {
+            padding: 9px 0 0;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline {
+            padding: 7px 0 7px;
+          }
+        }
+        /* Laptop only: typed text matches the 14px posted note. Phones keep 16px so iOS does not zoom. */
+        @media (min-width: 640px) and (hover: hover) and (pointer: fine) {
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline {
+            font-size: 14px !important;
+          }
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-hairline::placeholder {
           color: var(--visit-muted);
@@ -608,19 +639,22 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           border: none;
           border-radius: 0;
           box-shadow: none;
-          color: var(--visit-muted);
+          color: var(--visit-action);
           font-family: 'Source Sans 3', system-ui, sans-serif;
           font-size: 14px;
-          font-weight: 500;
+          font-weight: 600;
           letter-spacing: 0;
           cursor: pointer;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-post:hover {
-          color: var(--visit-ink);
+          color: var(--visit-action);
+          text-decoration: underline;
           background: none;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-post:disabled {
           color: var(--visit-muted);
+          font-weight: 500;
+          text-decoration: none;
           cursor: default;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-log {
@@ -657,10 +691,26 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           white-space: pre-wrap;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-body p {
-          margin: 0 0 6px;
+          margin: 0 0 8px;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-body p:last-child {
           margin-bottom: 0;
+        }
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-body .job-visit-section-label {
+          line-height: 14px;
+          color: var(--visit-ink);
+        }
+        @media (min-width: 640px) {
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-body .job-visit-block {
+            display: grid;
+            grid-template-columns: minmax(7rem, 9.5rem) minmax(0, 1fr);
+            column-gap: 16px;
+            align-items: start;
+            margin: 0 0 4px;
+          }
+          .hub-jobs.is-record-open #job-visit-notes .job-visit-body .job-visit-block .job-visit-section-label {
+            padding-top: 3px;
+          }
         }
         .hub-jobs.is-record-open #job-visit-notes .ops-tray-empty {
           padding: 8px 0 12px;
@@ -2711,7 +2761,7 @@ export function JobDetailPage() {
                   {blocks.length > 0 && (
                     <div className="job-visit-body">
                       {blocks.map((block, index) => (
-                        <p key={block.key ?? `free-${index}`}>
+                        <p key={block.key ?? `free-${index}`} className={block.label ? 'job-visit-block' : undefined}>
                           {block.label && <span className="job-visit-section-label">{block.label}</span>}
                           {block.text}
                         </p>
