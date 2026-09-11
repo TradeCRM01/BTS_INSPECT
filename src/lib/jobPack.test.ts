@@ -405,22 +405,19 @@ describe('jobPackItemsQuery', () => {
   });
 });
 
-describe('job pack lives on the existing job sheet', () => {
-  it('ticks from JobDetailPage /jobs/:id between the bill and JHA, with no pack route', () => {
+describe('the job sheet carries no pack', () => {
+  it('has no pack tray, pack markers, pack route, or jobPack import on JobDetailPage', () => {
     const page = src('src/pages/JobDetailPage.tsx');
     const app = src('src/App.tsx');
-    expect(page).toContain('id="job-pack"');
-    expect(page).toContain('data-job-pack-start');
-    expect(page).toContain('data-job-pack-item');
-    expect(page).toContain('startJobPack');
-    expect(page).toContain('tickJobPackItem');
-    expect(page).toContain('addJobPackItem');
-    expect(page.indexOf('id="job-pack"')).toBeGreaterThan(page.indexOf('id="job-bill"'));
-    expect(page.indexOf('id="job-pack"')).toBeLessThan(page.indexOf('id="job-swms"'));
+    const auth = src('src/lib/devFieldAuditAuth.ts');
+    expect(page).not.toContain('id="job-pack"');
+    expect(page).not.toContain('data-job-pack');
+    expect(page).not.toContain("from '../lib/jobPack'");
+    expect(page).not.toMatch(/JOB_PACK_|jobPack|JobPack/);
+    expect(page.indexOf('id="job-swms"')).toBeGreaterThan(page.indexOf('id="job-bill"'));
     expect(app).not.toContain('path="/job-pack"');
     expect(app).not.toContain('path="/packs"');
-    expect(page).not.toContain('JOB_PACK_TEMPLATES.map');
-    expect(page).toContain('data-job-pack-template');
+    expect(auth).not.toContain("'job-pack'");
     expect(page).not.toMatch(/Relovi|Littleloop|ute photos/i);
   });
 });

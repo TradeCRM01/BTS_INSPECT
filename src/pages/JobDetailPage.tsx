@@ -67,7 +67,7 @@ import { clientRecordHref } from '../lib/clientRecords';
 import {
   Calendar, Clock, User, Phone, Mail, ChevronDown,
   FileText, ShieldCheck, ShieldAlert, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
-  MoreHorizontal, MapPin, ListChecks, Check, Camera, CheckCircle2, CornerDownRight, Lock, ChevronRight,
+  MoreHorizontal, MapPin, Camera, CheckCircle2, CornerDownRight, Lock, ChevronRight,
 } from 'lucide-react';
 import {
   buildJobClockOffEntry,
@@ -95,32 +95,6 @@ import {
   type VisitUpdateDraft,
   type VisitUpdateOutcome,
 } from '../lib/jobVisitNotes';
-import {
-  JOB_PACK_ADD,
-  JOB_PACK_ADD_PLACEHOLDER,
-  JOB_PACK_COLUMNS,
-  JOB_PACK_FIRST_TICK,
-  JOB_PACK_GROUPS,
-  JOB_PACK_PACKED,
-  JOB_PACK_TABLE,
-  JOB_PACK_TITLE,
-  addJobPackItem,
-  applyJobPackTick,
-  decideJobPackAddItem,
-  decideJobPackStart,
-  decideJobPackTick,
-  groupJobPackItems,
-  jobPackItemsQuery,
-  jobPackProgress,
-  jobPackTickPatch,
-  jobPackTray,
-  parseCompanyTrades,
-  startJobPack,
-  tickJobPackItem,
-  type JobPackGroupKey,
-  type JobPackItem,
-  type JobPackTickPatch,
-} from '../lib/jobPack';
 import {
   JOB_GALLERY_FILTERS,
   JOB_PHOTOS_TABLE,
@@ -246,8 +220,6 @@ const TESTING_DUE_LOOK_ROWS = 'testing-due-rows';
 const VISIT_NOTES_LOOK = 'visit-notes';
 /** Playwright: /jobs/audit-doc-job?look=job-photos — visit notes with photos plus a seeded Gallery. */
 const JOB_PHOTOS_LOOK = 'job-photos';
-/** Playwright: /jobs/audit-doc-job?look=job-pack — pack reads and writes go to Supabase (intercepted by the prove script). */
-const JOB_PACK_LOOK = 'job-pack';
 const LOOK_PHOTO_DIR = '/look/photos';
 
 function lookSearchParam(): string | null {
@@ -268,40 +240,6 @@ function testingDueLookKind(): 'empty' | 'rows' | null {
 
 function jobPhotosLookOn(): boolean {
   return lookSearchParam() === JOB_PHOTOS_LOOK;
-}
-
-function jobPackLookOn(): boolean {
-  return lookSearchParam() === JOB_PACK_LOOK;
-}
-
-function JobPackItemButton({ itemKey, label, on, tickedByName, disabled, onClick }: {
-  itemKey: string;
-  label: string;
-  on: boolean;
-  tickedByName: string | null;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={on}
-      data-job-pack-item={itemKey}
-      disabled={disabled}
-      onClick={onClick}
-      className={`w-full min-h-[44px] px-3 py-2 rounded-md border text-left text-sm flex items-center gap-3 ${on ? 'border-accent bg-accent/10 text-navy' : 'border-navy/20 text-navy'}`}
-    >
-      <span
-        aria-hidden="true"
-        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border ${on ? 'border-accent bg-accent text-white' : 'border-navy/40'}`}
-      >
-        {on ? <Check size={14} /> : null}
-      </span>
-      <span className={`flex-1 ${on ? 'line-through opacity-70' : ''}`}>{label}</span>
-      {on && tickedByName && <span className="ops-meta">{tickedByName}</span>}
-    </button>
-  );
 }
 
 /** Both paper looks seed the same visit log; job-photos adds photos on top. */
@@ -1431,9 +1369,6 @@ export function JobDetailPage() {
   const [visitTab, setVisitTab] = useState<'new' | 'history'>('new');
   const [visitPhotos, setVisitPhotos] = useState<AttachedPhoto[]>([]);
   const [visitAttaching, setVisitAttaching] = useState(false);
-  const [packAddLabel, setPackAddLabel] = useState('');
-  const [packAddGroup, setPackAddGroup] = useState<JobPackGroupKey>('materials');
-  const [packOverride, setPackOverride] = useState<string | null>(null);
   const [galleryFilter, setGalleryFilter] = useState<JobGalleryFilter>('all');
   const [lightboxKey, setLightboxKey] = useState<string | null>(null);
   const [arrivingSent, setArrivingSent] = useState(false);
@@ -1454,7 +1389,7 @@ export function JobDetailPage() {
     queryFn: async () => {
       const mock = getAuditJob(id!);
       if (mock) {
-        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn() || jobPackLookOn()) {
+        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn()) {
           return { ...mock, scheduled_date: lookVanTodayYmd() } as Job;
         }
         return mock as Job;
@@ -1770,35 +1705,6 @@ export function JobDetailPage() {
     enabled: !!id && !!profile?.company_id,
   });
 
-  const { data: packItems } = useQuery<JobPackItem[]>({
-    queryKey: ['job-pack', id],
-    queryFn: async () => {
-      if (!jobPackLookOn()) {
-        const empty = getAuditEmptyList();
-        if (empty) return empty as JobPackItem[];
-      }
-      const scope = jobPackItemsQuery({ companyId: profile!.company_id, jobId: id! });
-      if (!scope) return [];
-      const { data, error } = await supabase
-        .from(JOB_PACK_TABLE)
-        .select(JOB_PACK_COLUMNS)
-        .eq('company_id', scope.eq.company_id)
-        .eq('job_id', scope.eq.job_id)
-        .order('position', { ascending: true })
-        .order('id', { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as JobPackItem[];
-    },
-    enabled: !!id && !!profile?.company_id,
-  });
-  const pack = packItems ?? [];
-  const companyTrades = parseCompanyTrades(company?.trades);
-  const tray = jobPackTray(pack, companyTrades, packOverride);
-  const packGroups = groupJobPackItems(pack);
-  const packProgress = tray.kind === 'saved'
-    ? jobPackProgress(tray.items)
-    : { ticked: 0, total: tray.rows.length, done: false };
-
   const { data: jobPhotos } = useQuery<JobPhotoRow[]>({
     queryKey: ['job-photos', id],
     queryFn: async () => {
@@ -2064,80 +1970,6 @@ export function JobDetailPage() {
           'info',
         );
       }
-    },
-    onError: (e: Error) => showToast(e.message, 'info'),
-  });
-
-  const packQueryKey = ['job-pack', id];
-  const startPack = useMutation({
-    mutationFn: async (first: { tick?: { position: number }; add?: { groupKey: JobPackGroupKey; label: string } }) => {
-      const decision = decideJobPackStart({
-        jobId: job?.id,
-        companyId: profile?.company_id,
-        userId: profile?.id,
-        packKey: tray.kind === 'template' ? tray.template.key : null,
-        existing: pack,
-        tick: first.tick && { position: first.tick.position, patch: jobPackTickPatch(profile?.id, profile?.name, new Date()) },
-        add: first.add,
-      });
-      if (decision.action === 'miss') {
-        showToast(decision.message, 'info');
-        return false;
-      }
-      await startJobPack(decision.rows);
-      // Stay pending through the refetch so a second tap cannot write a second pack while the preview is still up.
-      await queryClient.invalidateQueries({ queryKey: packQueryKey });
-      return true;
-    },
-    onSuccess: (written, first) => {
-      if (written && first.add) setPackAddLabel('');
-    },
-    onError: (e: Error) => showToast(e.message, 'info'),
-  });
-
-  const tickPack = useMutation({
-    mutationKey: ['job-pack-tick', id],
-    mutationFn: ({ item, patch }: { item: JobPackItem; patch: JobPackTickPatch }) => tickJobPackItem(item.id, patch),
-    onMutate: async ({ item, patch }) => {
-      await queryClient.cancelQueries({ queryKey: packQueryKey });
-      queryClient.setQueryData<JobPackItem[]>(packQueryKey, old => applyJobPackTick(old ?? [], item.id, patch));
-    },
-    onError: (e: Error) => showToast(e.message, 'info'),
-    onSettled: () => {
-      // A refetch while a sibling tick is still in flight would briefly undo that tick on screen.
-      if (queryClient.isMutating({ mutationKey: ['job-pack-tick', id] }) <= 1) {
-        queryClient.invalidateQueries({ queryKey: packQueryKey });
-      }
-    },
-  });
-  const tickPackItem = (item: JobPackItem) => {
-    tickPack.mutate({
-      item,
-      patch: decideJobPackTick({ item, userId: profile?.id ?? null, userName: profile?.name, now: new Date() }),
-    });
-  };
-
-  const addPackItem = useMutation({
-    mutationFn: async () => {
-      const decision = decideJobPackAddItem({
-        jobId: job?.id,
-        companyId: profile?.company_id,
-        userId: profile?.id,
-        groupKey: packAddGroup,
-        label: packAddLabel,
-        existing: pack,
-      });
-      if (decision.action === 'miss') {
-        showToast(decision.message, 'info');
-        return false;
-      }
-      await addJobPackItem(decision.row);
-      return true;
-    },
-    onSuccess: (written) => {
-      if (!written) return;
-      setPackAddLabel('');
-      queryClient.invalidateQueries({ queryKey: packQueryKey });
     },
     onError: (e: Error) => showToast(e.message, 'info'),
   });
@@ -2922,129 +2754,6 @@ export function JobDetailPage() {
           )}
         </div>
 
-        <section
-          className="ops-tray"
-          id="job-pack"
-          data-job-pack="1"
-          data-job-pack-state={tray.kind}
-          data-job-pack-template={tray.kind === 'saved' ? tray.items[0]?.pack_key ?? '' : tray.template.key}
-        >
-          <div className="ops-tray-head">
-            <h2 className="ops-section-title flex items-center gap-1.5 min-w-0">
-              <ListChecks size={14} className="text-navy shrink-0" />
-              <span className="truncate">{JOB_PACK_TITLE}</span>
-            </h2>
-            <span className="ops-meta tabular-nums" data-job-pack-progress={`${packProgress.ticked}/${packProgress.total}`}>
-              {packProgress.done && <span className="mr-2 text-navy font-semibold" data-job-pack-packed="1">{JOB_PACK_PACKED}</span>}
-              {`${packProgress.ticked}/${packProgress.total}`}
-            </span>
-          </div>
-          <div className="p-3 space-y-4">
-            {tray.kind === 'template' ? (
-              <>
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <p className="text-sm text-navy" data-job-pack-pack-name="1">{tray.template.label} pack</p>
-                  <span className="ops-meta">{JOB_PACK_FIRST_TICK}</span>
-                </div>
-                {tray.choices.length > 1 && (
-                  <div role="group" aria-label="Pack" className="flex flex-wrap gap-2">
-                    {tray.choices.map(t => {
-                      const pressed = t.key === tray.template.key;
-                      return (
-                        <button
-                          key={t.key}
-                          type="button"
-                          data-job-pack-start={t.key}
-                          aria-pressed={pressed}
-                          onClick={() => setPackOverride(t.key)}
-                          className={`min-h-[44px] px-4 rounded-md border text-sm text-navy ${pressed ? 'border-accent bg-accent/10' : 'border-navy/20'}`}
-                        >
-                          {t.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                {JOB_PACK_GROUPS.map(group => {
-                  const rows = tray.rows.filter(r => r.group_key === group.key);
-                  if (rows.length === 0) return null;
-                  return (
-                    <div key={group.key} data-job-pack-group={group.key}>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-navy/70 mb-1">
-                        {group.label} <span className="font-normal">0/{rows.length}</span>
-                      </h3>
-                      <div className="space-y-1">
-                        {rows.map(row => (
-                          <JobPackItemButton
-                            key={row.position}
-                            itemKey={`new-${row.position}`}
-                            label={row.label}
-                            on={false}
-                            tickedByName={null}
-                            disabled={startPack.isPending}
-                            onClick={() => startPack.mutate({ tick: { position: row.position } })}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </>
-            ) : (
-              packGroups.map(({ group, items, ticked }) => (
-                <div key={group.key} data-job-pack-group={group.key}>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-navy/70 mb-1">
-                    {group.label} <span className="font-normal">{ticked}/{items.length}</span>
-                  </h3>
-                  <div className="space-y-1">
-                    {items.map(item => (
-                      <JobPackItemButton
-                        key={item.id}
-                        itemKey={item.id}
-                        label={item.label}
-                        on={item.ticked_at !== null}
-                        tickedByName={item.ticked_by_name}
-                        onClick={() => tickPackItem(item)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))
-            )}
-            <form
-              data-job-pack-add="1"
-              className="flex flex-wrap gap-2 items-center"
-              onSubmit={e => {
-                e.preventDefault();
-                if (tray.kind === 'template') startPack.mutate({ add: { groupKey: packAddGroup, label: packAddLabel } });
-                else addPackItem.mutate();
-              }}
-            >
-              <input
-                aria-label={JOB_PACK_ADD_PLACEHOLDER}
-                placeholder={JOB_PACK_ADD_PLACEHOLDER}
-                value={packAddLabel}
-                onChange={e => setPackAddLabel(e.target.value)}
-                className="flex-1 min-w-[10rem] min-h-[44px] px-3 rounded-md border border-navy/20 text-sm"
-              />
-              <select
-                aria-label="Group"
-                value={packAddGroup}
-                onChange={e => setPackAddGroup(e.target.value as JobPackGroupKey)}
-                className="min-h-[44px] px-2 rounded-md border border-navy/20 text-sm"
-              >
-                {JOB_PACK_GROUPS.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
-              </select>
-              <button
-                type="submit"
-                className="ops-link min-h-[44px]"
-                disabled={tray.kind === 'template' ? startPack.isPending : addPackItem.isPending}
-              >
-                {JOB_PACK_ADD}
-              </button>
-            </form>
-          </div>
-        </section>
           <div id="job-swms">
           <JobRelatedSection
             title="JHA / SWMS"
