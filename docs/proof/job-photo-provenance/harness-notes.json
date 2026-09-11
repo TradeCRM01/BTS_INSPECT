@@ -1,0 +1,155 @@
+{
+  "base": "http://127.0.0.1:5173",
+  "supabaseUrl": "https://proof-harness.invalid.supabase.co",
+  "startedAt": "2026-09-11T07:44:45.024Z",
+  "galleryAddWritesPhotoClockAndPhotoGps": {
+    "ok": true,
+    "row": {
+      "id": "1ff0c73b-484b-4dd1-b92b-f7a7e73fb1e7",
+      "visit_note_id": null,
+      "taken_at": "2026-09-07T23:15:30.000Z",
+      "taken_at_source": "exif",
+      "lat": -27.4698,
+      "lng": 153.0251,
+      "location_source": "exif",
+      "location_accuracy_m": null
+    }
+  },
+  "galleryAddFallsBackToAttachClockAndDeviceFix": {
+    "ok": true,
+    "row": {
+      "id": "7ba014fb-b9b8-47f5-a56c-5bc516afb9d8",
+      "visit_note_id": null,
+      "taken_at": "2026-09-11T07:44:47.729Z",
+      "taken_at_source": "upload",
+      "lat": -33.8688,
+      "lng": 151.2093,
+      "location_source": "device",
+      "location_accuracy_m": 12
+    }
+  },
+  "galleryAddStoragePathUnderCompanyJob": {
+    "ok": true,
+    "paths": [
+      "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/1ff0c73b-484b-4dd1-b92b-f7a7e73fb1e7.jpg",
+      "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/7ba014fb-b9b8-47f5-a56c-5bc516afb9d8.jpg"
+    ]
+  },
+  "visitWallPostWritesPhotoClockAndPhotoGps": {
+    "ok": true,
+    "row": {
+      "id": "c8e05aa4-1d17-40eb-a4b1-4790025adaff",
+      "visit_note_id": "harness-note-1",
+      "taken_at": "2026-09-07T23:15:30.000Z",
+      "taken_at_source": "exif",
+      "lat": -27.4698,
+      "lng": 153.0251,
+      "location_source": "exif",
+      "location_accuracy_m": null
+    }
+  },
+  "gridShowsTimeAndPin": {
+    "ok": true,
+    "text": "19:15",
+    "pin": true
+  },
+  "gridHidesPinWithoutPlace": {
+    "ok": true,
+    "text": "18:00",
+    "pin": false
+  },
+  "lightboxShowsPhotoClockAndPhotoGps": {
+    "ok": true,
+    "open": true,
+    "key": "visit:new-1",
+    "when": "8 Sep 2026 · 19:15 · photo clock",
+    "where": "-27.46980, 153.02510 · photo GPS",
+    "mapHref": "https://www.google.com/maps?q=-27.4698,153.0251",
+    "imageLoaded": true
+  },
+  "escapeClosesLightbox": {
+    "ok": true
+  },
+  "lightboxShowsDeviceFixWithAccuracy": {
+    "ok": true,
+    "open": true,
+    "key": "job:job-1",
+    "when": "8 Sep 2026 · 00:30 · photo clock",
+    "where": "-27.47050, 153.02600 · ±14 m · device GPS",
+    "mapHref": "https://www.google.com/maps?q=-27.4705,153.026",
+    "imageLoaded": true
+  },
+  "lightboxSaysNoLocation": {
+    "ok": true,
+    "open": true,
+    "key": "visit:mid-1",
+    "when": "7 Sep 2026 · 18:00 · photo clock",
+    "where": "No location on this photo.",
+    "mapHref": null,
+    "imageLoaded": true
+  },
+  "visitWallThumbOpensSameLightbox": {
+    "ok": true,
+    "open": true,
+    "key": "visit:new-1",
+    "when": "8 Sep 2026 · 19:15 · photo clock",
+    "where": "-27.46980, 153.02510 · photo GPS",
+    "mapHref": "https://www.google.com/maps?q=-27.4698,153.0251",
+    "imageLoaded": true
+  },
+  "phoneLightboxShowsClockAndPlace": {
+    "ok": true,
+    "open": true,
+    "key": "visit:new-1",
+    "when": "8 Sep 2026 · 19:15 · photo clock",
+    "where": "-27.46980, 153.02510 · photo GPS",
+    "mapHref": "https://www.google.com/maps?q=-27.4698,153.0251",
+    "imageLoaded": true
+  },
+  "inserts": [
+    {
+      "id": "1ff0c73b-484b-4dd1-b92b-f7a7e73fb1e7",
+      "company_id": "00000000-0000-0000-0000-000000000001",
+      "job_id": "audit-doc-job",
+      "visit_note_id": null,
+      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/1ff0c73b-484b-4dd1-b92b-f7a7e73fb1e7.jpg",
+      "created_by": "00000000-0000-0000-0000-000000000002",
+      "taken_at": "2026-09-07T23:15:30.000Z",
+      "taken_at_source": "exif",
+      "lat": -27.4698,
+      "lng": 153.0251,
+      "location_source": "exif",
+      "location_accuracy_m": null
+    },
+    {
+      "id": "7ba014fb-b9b8-47f5-a56c-5bc516afb9d8",
+      "company_id": "00000000-0000-0000-0000-000000000001",
+      "job_id": "audit-doc-job",
+      "visit_note_id": null,
+      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/7ba014fb-b9b8-47f5-a56c-5bc516afb9d8.jpg",
+      "created_by": "00000000-0000-0000-0000-000000000002",
+      "taken_at": "2026-09-11T07:44:47.729Z",
+      "taken_at_source": "upload",
+      "lat": -33.8688,
+      "lng": 151.2093,
+      "location_source": "device",
+      "location_accuracy_m": 12
+    },
+    {
+      "id": "c8e05aa4-1d17-40eb-a4b1-4790025adaff",
+      "company_id": "00000000-0000-0000-0000-000000000001",
+      "job_id": "audit-doc-job",
+      "visit_note_id": "harness-note-1",
+      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/c8e05aa4-1d17-40eb-a4b1-4790025adaff.jpg",
+      "created_by": "00000000-0000-0000-0000-000000000002",
+      "taken_at": "2026-09-07T23:15:30.000Z",
+      "taken_at_source": "exif",
+      "lat": -27.4698,
+      "lng": 153.0251,
+      "location_source": "exif",
+      "location_accuracy_m": null
+    }
+  ],
+  "finishedAt": "2026-09-11T07:44:51.166Z",
+  "failures": []
+}
