@@ -1,0 +1,716 @@
+{
+  "base": "http://127.0.0.1:5173",
+  "supabaseUrl": "https://proof-local.supabase.co",
+  "mode": "harness",
+  "startedAt": "2026-09-11T09:37:26.610Z",
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/email_settings?select=smtp_host%2Csmtp_pass%2Cfrom_name%2Cfrom_email&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/photos?select=storage_path&inspection_id=in.%28audit-inspection-fill%29&order=uploaded_at.desc&limit=1",
+      "body": null
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/job_pack_items?columns=%22company_id%22%2C%22job_id%22%2C%22pack_key%22%2C%22group_key%22%2C%22label%22%2C%22position%22%2C%22ticked_at%22%2C%22ticked_by%22%2C%22ticked_by_name%22%2C%22created_by%22&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": [
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "tools",
+          "label": "Pipe wrench set",
+          "position": 0,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "tools",
+          "label": "Press tool and jaws",
+          "position": 1,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "tools",
+          "label": "Pipe cutters",
+          "position": 2,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "tools",
+          "label": "Drain camera",
+          "position": 3,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "tools",
+          "label": "Test plugs and pressure gauge",
+          "position": 4,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "materials",
+          "label": "Copper and PEX fittings",
+          "position": 5,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "materials",
+          "label": "Tapware and washers",
+          "position": 6,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "materials",
+          "label": "Thread tape and jointing compound",
+          "position": 7,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "materials",
+          "label": "Solvent cement and primer",
+          "position": 8,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "photos",
+          "label": "Before photo of the work area",
+          "position": 9,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "photos",
+          "label": "Photo of the isolation valve",
+          "position": 10,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "photos",
+          "label": "Photo of the pressure test reading",
+          "position": 11,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "photos",
+          "label": "After photo of the finished work",
+          "position": 12,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "safety",
+          "label": "Take 5 done",
+          "position": 13,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "safety",
+          "label": "Water isolated and tagged",
+          "position": 14,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "safety",
+          "label": "Gloves and eye protection",
+          "position": 15,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "company_id": "00000000-0000-0000-0000-000000000001",
+          "job_id": "audit-doc-job",
+          "pack_key": "plumbing",
+          "group_key": "safety",
+          "label": "Confined space check if working in a pit",
+          "position": 16,
+          "ticked_at": null,
+          "ticked_by": null,
+          "ticked_by_name": null,
+          "created_by": "00000000-0000-0000-0000-000000000002"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.777e827b-873b-4f84-a696-4e74f80ed5b2&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:28.694Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.bae76e34-9527-4346-8275-c15363d13921&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:28.728Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.f2a8012d-e090-42aa-b9f7-1ebe6fe8e516&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:28.761Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/email_settings?select=smtp_host%2Csmtp_pass%2Cfrom_name%2Cfrom_email&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/photos?select=storage_path&inspection_id=in.%28audit-inspection-fill%29&order=uploaded_at.desc&limit=1",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.777e827b-873b-4f84-a696-4e74f80ed5b2&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": null,
+        "ticked_by": null,
+        "ticked_by_name": null
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/email_settings?select=smtp_host%2Csmtp_pass%2Cfrom_name%2Cfrom_email&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/photos?select=storage_path&inspection_id=in.%28audit-inspection-fill%29&order=uploaded_at.desc&limit=1",
+      "body": null
+    },
+    {
+      "method": "POST",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "job_id": "audit-doc-job",
+        "pack_key": "plumbing",
+        "group_key": "materials",
+        "label": "Spare washers",
+        "position": 17,
+        "ticked_at": null,
+        "ticked_by": null,
+        "ticked_by_name": null,
+        "created_by": "00000000-0000-0000-0000-000000000002"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.777e827b-873b-4f84-a696-4e74f80ed5b2&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.110Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.90e700d1-c193-43f6-bdda-92a3688aca36&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.177Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.6e837554-2486-4962-9899-a9ad8b939a25&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.245Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.e5835fca-f21c-4f15-9fc8-54fcac1c4f27&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.310Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.b0a9e70f-a761-4615-90ec-e578c30cd825&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.377Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.497cee2e-0b46-4169-b796-2946e98cab75&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.444Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.4e0b549e-749e-46f2-8c3b-6c54baa352c7&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.510Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.6870a2dd-022a-468f-a03b-8e4787eb2f93&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.577Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.2fd66dab-11fc-4dcc-b12f-c5a91b542ab1&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.644Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.8fd7b185-a589-433a-ae11-d07be73287ed&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.710Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.133949a0-1ff0-4941-a58b-9e6ed4f75c04&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.777Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.4144ee57-6da0-467c-ac60-b287b9498a4e&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.844Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.7ccf84b7-1abd-4789-a53c-9b2b3abea6a5&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.909Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.2beb3d09-d78e-4e59-a173-63e9f9f9d492&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:32.979Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.5dd7fb82-9921-4d6c-9fa6-8bec6432ac8b&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:33.044Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/job_pack_items?id=eq.0cf50580-8baa-46f9-b72a-a2bbba0f193e&select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at",
+      "body": {
+        "ticked_at": "2026-09-11T09:37:33.110Z",
+        "ticked_by": "00000000-0000-0000-0000-000000000002",
+        "ticked_by_name": "Field Audit"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/job_pack_items?select=id%2Ccompany_id%2Cjob_id%2Cpack_key%2Cgroup_key%2Clabel%2Cposition%2Cticked_at%2Cticked_by%2Cticked_by_name%2Ccreated_by%2Ccreated_at&company_id=eq.00000000-0000-0000-0000-000000000001&job_id=eq.audit-doc-job&order=position.asc%2Cid.asc",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/email_settings?select=smtp_host%2Csmtp_pass%2Cfrom_name%2Cfrom_email&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/photos?select=storage_path&inspection_id=in.%28audit-inspection-fill%29&order=uploaded_at.desc&limit=1",
+      "body": null
+    }
+  ],
+  "emptyStateOffersAllFivePacksAt44px": {
+    "ok": true,
+    "starts": [
+      {
+        "key": "plumbing",
+        "height": 46
+      },
+      {
+        "key": "electrical",
+        "height": 46
+      },
+      {
+        "key": "hvac",
+        "height": 46
+      },
+      {
+        "key": "carpentry",
+        "height": 46
+      },
+      {
+        "key": "general",
+        "height": 46
+      }
+    ],
+    "items": 0,
+    "progress": "0/0"
+  },
+  "plumbingPackSeedsSeventeenItemsInGroupOrder": {
+    "ok": true,
+    "count": 17,
+    "groups": [
+      "tools",
+      "materials",
+      "photos",
+      "safety"
+    ],
+    "first": "Pipe wrench set",
+    "progress": "0/17"
+  },
+  "everyItemButtonIsAtLeast44pxTall": {
+    "ok": true,
+    "heights": [
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44
+    ]
+  },
+  "threeTicksShowThreeOverSeventeen": {
+    "ok": true,
+    "progress": "3/17",
+    "progressVisible": true,
+    "checked": [
+      "Pipe wrench set",
+      "Press tool and jaws",
+      "Pipe cutters"
+    ]
+  },
+  "ticksPersistAcrossReload": {
+    "ok": true,
+    "progress": "3/17",
+    "checked": [
+      "777e827b-873b-4f84-a696-4e74f80ed5b2",
+      "bae76e34-9527-4346-8275-c15363d13921",
+      "f2a8012d-e090-42aa-b9f7-1ebe6fe8e516"
+    ]
+  },
+  "untickPersistsAcrossReload": {
+    "ok": true,
+    "progress": "2/17",
+    "first": {
+      "id": "777e827b-873b-4f84-a696-4e74f80ed5b2",
+      "checked": false,
+      "label": "Pipe wrench set",
+      "group": "tools",
+      "height": 44
+    }
+  },
+  "addedItemLandsInMaterialsAndGrowsTheTotal": {
+    "ok": true,
+    "added": {
+      "id": "6870a2dd-022a-468f-a03b-8e4787eb2f93",
+      "checked": false,
+      "label": "Spare washers",
+      "group": "materials",
+      "height": 44
+    },
+    "progress": "2/18"
+  },
+  "addInputClearsAfterSubmit": {
+    "ok": true
+  },
+  "allTickedShowsPacked": {
+    "ok": true,
+    "progress": "18/18",
+    "packed": true
+  },
+  "fakeStoreHoldsEighteenTickedRows": {
+    "ok": true,
+    "rows": 18,
+    "unticked": 0
+  },
+  "tickPatchesCarryOnlyTheTickColumns": {
+    "ok": true,
+    "patches": 20,
+    "keys": [
+      "ticked_at,ticked_by,ticked_by_name"
+    ]
+  },
+  "laptopReadsTheSamePackedState": {
+    "ok": true,
+    "progress": "18/18"
+  },
+  "noPageErrors": {
+    "ok": true,
+    "pageErrors": []
+  },
+  "finishedAt": "2026-09-11T09:37:35.394Z",
+  "failures": []
+}
