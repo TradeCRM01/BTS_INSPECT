@@ -307,6 +307,24 @@ describe('jobPhotosQuery', () => {
 });
 
 
+describe('job photos live on the existing job sheet', () => {
+  it('places Gallery after Inspections and before testing due, with no gallery route', () => {
+    const page = src('src/pages/JobDetailPage.tsx');
+    const app = src('src/App.tsx');
+    const trays = page.slice(page.indexOf('hub-trays hub-jobs-more-trays'), page.indexOf('id="job-schedule"'));
+    expect(trays.indexOf('id="job-insp"')).toBeGreaterThan(-1);
+    expect(trays.indexOf('id="job-gallery"')).toBeGreaterThan(trays.indexOf('id="job-insp"'));
+    expect(trays.indexOf('JOB_TESTING_DUE_TITLE')).toBeGreaterThan(trays.indexOf('id="job-gallery"'));
+    expect(page).toContain('JOB_PHOTOS_TABLE');
+    expect(page).toContain('uploadJobPhotos');
+    expect(page).toContain('buildJobGallery');
+    expect(page).toContain('No photos on this job yet.');
+    expect(app).not.toContain('path="/gallery"');
+    expect(page).not.toMatch(/\bute\b/i);
+    expect(page).not.toMatch(/Relovi|Littleloop/);
+  });
+});
+
 describe('job_photos schema', () => {
   it('locks a company-scoped table with job and visit-note FKs, and no storage change', () => {
     const mig = src('supabase/migrations/20260911050000_077_job_photos.sql');
