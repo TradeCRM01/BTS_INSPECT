@@ -6,7 +6,7 @@ import { DevConsole } from '../ui/DevConsole';
 import { BrandLockup } from '../brand/BrandLockup';
 import { resolveAppShellColors } from './appShellTheme';
 import {
-  ClipboardList, LayoutTemplate, Settings, LogOut,
+  ClipboardList, LayoutTemplate, Settings, LogOut, Bell,
   User, Menu, X, Zap, ChevronDown, Users, BrainCircuit, RotateCw, Sparkles, FileText,
   Calendar, Receipt, ShoppingCart, Package, Truck, FolderOpen,
   Briefcase, Wrench, Home, HardDrive, BookOpen, Clock, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, ShieldAlert, Wallet, Search, Shield, type LucideIcon,
@@ -42,6 +42,7 @@ const OFFICE_GROUPS: NavGroup[] = [
     icon: Home,
     items: [
       { to: '/', label: 'Overview', icon: Zap },
+      { to: '/reminders', label: 'Reminders', icon: Bell },
       { to: '/schedule', label: 'Schedule', icon: Calendar },
       { to: '/reports-advanced', label: 'Reports & KPIs', icon: BarChart3 },
     ],
