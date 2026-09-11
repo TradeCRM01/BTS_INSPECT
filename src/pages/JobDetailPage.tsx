@@ -50,6 +50,15 @@ import {
   isJobRescheduleQuery,
   jobOfficeRescheduleBanner,
 } from '../lib/jobReminder';
+import {
+  JOB_SHEET_TABS,
+  JOB_SHEET_TAB_PARAM,
+  jobSheetTabFor,
+  readJobSheetTab,
+  writeJobSheetTab,
+  type JobSheetSection,
+  type JobSheetTab,
+} from '../lib/jobSheetTabs';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel, recommendJhaListAction } from '../lib/jhaNextAction';
 import { livingInspectionSummary, livingSwmsSummary, livingTake5Summary } from '../lib/livingJha';
 import { take5CardHint, take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
@@ -1350,8 +1359,34 @@ const JOB_GALLERY_LOOK_CSS = `
 
 export function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const rescheduleAsked = isJobRescheduleQuery(searchParams);
+  const tab = readJobSheetTab(searchParams, window.location.hash);
+  // Replace, not push. Tab switches must not stack history, and back from an invoice still lands on the same tab.
+  const setTab = (next: JobSheetTab) =>
+    setSearchParams(prev => writeJobSheetTab(new URLSearchParams(prev), next), { replace: true });
+  const pane = (section: JobSheetSection) => ({
+    'data-job-tab': jobSheetTabFor(section),
+    hidden: tab !== jobSheetTabFor(section),
+  });
+  const revealSection = (section: JobSheetSection) => {
+    setTab(jobSheetTabFor(section));
+    window.setTimeout(() => scrollToId(section), 60);
+  };
+  const tabRailSettled = useRef(false);
+  useEffect(() => {
+    if (!tabRailSettled.current) {
+      tabRailSettled.current = true;
+      return;
+    }
+    const on = document.querySelector<HTMLElement>('.job-sheet-tab.is-on');
+    const rail = on?.parentElement;
+    if (!on || !rail) return;
+    const chip = on.getBoundingClientRect();
+    const strip = rail.getBoundingClientRect();
+    if (chip.left < strip.left) rail.scrollBy({ left: chip.left - strip.left });
+    else if (chip.right > strip.right) rail.scrollBy({ left: chip.right - strip.right });
+  }, [tab]);
   const { profile, company } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -1858,7 +1893,7 @@ export function JobDetailPage() {
       showToast(e.message, 'info');
       if (e.message === JOB_BILL_INVOICE_NO_LINES) {
         setBillOpen(true);
-        setTimeout(() => scrollToId('job-bill'), 50);
+        revealSection('job-bill');
       }
     },
   });
@@ -2127,13 +2162,17 @@ export function JobDetailPage() {
   useEffect(() => {
     if (!job) return;
     const hash = window.location.hash.replace(/^#/, '');
-    const target = hash || (rescheduleAsked ? 'job-schedule' : '');
-    if (!target) return;
-    const t = window.setTimeout(() => {
-      document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
+    if (!hash && !rescheduleAsked) return;
+    if (!hash) {
+      // The schedule lives on Overview, so a reschedule link overrides any ?tab= it arrived with.
+      const params = new URLSearchParams(window.location.search);
+      if (params.has(JOB_SHEET_TAB_PARAM)) {
+        navigate({ search: writeJobSheetTab(params, 'overview').toString() }, { replace: true });
+      }
+    }
+    const t = window.setTimeout(() => scrollToId(hash || 'job-schedule'), 60);
     return () => window.clearTimeout(t);
-  }, [job, rescheduleAsked]);
+  }, [job, rescheduleAsked, navigate]);
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !job) return <AppShell><PageError message="Could not load this job" /></AppShell>;
@@ -2171,7 +2210,7 @@ export function JobDetailPage() {
       return;
     }
     setShowJhaPicker(open => !open);
-    scrollToId('job-swms');
+    revealSection('job-swms');
   };
 
   const startTake5 = () => {
@@ -2231,8 +2270,11 @@ export function JobDetailPage() {
       saveClientPhone.mutate();
       return;
     }
-    phoneInputRef.current?.focus();
-    phoneInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTab('overview');
+    window.setTimeout(() => {
+      phoneInputRef.current?.focus();
+      phoneInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 60);
   };
 
   const runNext = () => {
@@ -2241,7 +2283,7 @@ export function JobDetailPage() {
       return;
     }
     if (next.key === 'phone') writeClientPhone();
-    else if (next.key === 'schedule' || next.key === 'crew' || sheetNext.label === 'Remind client') scrollToId('job-schedule');
+    else if (next.key === 'schedule' || next.key === 'crew' || sheetNext.label === 'Remind client') revealSection('job-schedule');
     else if (next.key === 'jha') startJha();
     else if (next.key === 'invoice') handleInvoice();
     else if (next.key === 'send') handleSend();
@@ -2353,7 +2395,7 @@ export function JobDetailPage() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => { closeMore(); scrollToId('job-schedule'); }}
+                    onClick={() => { closeMore(); revealSection('job-schedule'); }}
                   >
                     Schedule / crew
                   </button>
@@ -2387,7 +2429,7 @@ export function JobDetailPage() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => { closeMore(); scrollToId('job-gallery'); }}
+                    onClick={() => { closeMore(); revealSection('job-gallery'); }}
                   >
                     Gallery
                   </button>
@@ -2473,11 +2515,29 @@ export function JobDetailPage() {
               )}
             </div>
 
+            <div className="job-sheet-tabs" role="tablist" aria-label="Job sections">
+              {JOB_SHEET_TABS.map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  data-tab={t.id}
+                  aria-selected={tab === t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`job-sheet-tab ${tab === t.id ? 'is-on' : ''}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
             {coverPhotoUrl ? (
-              <OpsPhotoStamp src={coverPhotoUrl} hub />
+              <div {...pane('job-cover')}>
+                <OpsPhotoStamp src={coverPhotoUrl} hub />
+              </div>
             ) : null}
 
-            <div className="hub-jobs-ledger">
+            <div className="hub-jobs-ledger" {...pane('job-ledger')}>
               <div className="hub-jobs-identity">
               <div className="hub-jobs-identity-col is-site">
                 <div className="hub-jobs-ledger-row">
@@ -2660,6 +2720,7 @@ export function JobDetailPage() {
             </div>
 
             <div className="hub-trays hub-jobs-more-trays">
+          <div {...pane('job-quotes')}>
           <JobRelatedSection
             title="Quotes"
             icon={FileText}
@@ -2693,8 +2754,10 @@ export function JobDetailPage() {
               />
             ))}
           </JobRelatedSection>
+          </div>
 
         {stages.length > 0 && (
+          <div {...pane('job-stages')}>
             <JobRelatedSection
               title="Project stages"
               icon={GitBranch}
@@ -2720,9 +2783,10 @@ export function JobDetailPage() {
                 />
               ))}
             </JobRelatedSection>
+          </div>
         )}
 
-        <div id="job-bill">
+        <div id="job-bill" {...pane('job-bill')}>
           <button
             type="button"
             onClick={() => setBillOpen(o => !o)}
@@ -2754,7 +2818,7 @@ export function JobDetailPage() {
           )}
         </div>
 
-          <div id="job-swms">
+          <div id="job-swms" {...pane('job-swms')}>
           <JobRelatedSection
             title="JHA / SWMS"
             icon={ShieldCheck}
@@ -2921,7 +2985,7 @@ export function JobDetailPage() {
           </JobRelatedSection>
           </div>
 
-        <div id="job-hours">
+        <div id="job-hours" {...pane('job-hours')}>
         <JobRelatedSection
           title="Time on this job"
           icon={Clock}
@@ -2973,7 +3037,7 @@ export function JobDetailPage() {
         </JobRelatedSection>
         </div>
 
-        <section className="ops-tray" id="job-visit-notes">
+        <section className="ops-tray" id="job-visit-notes" {...pane('job-visit-notes')}>
           <div className="ops-tray-head">
             <h2 className="ops-section-title flex items-center gap-1.5 min-w-0">
               <FileText size={14} className="text-navy shrink-0" />
@@ -3231,7 +3295,7 @@ export function JobDetailPage() {
           )}
         </section>
 
-          <div id="job-insp">
+          <div id="job-insp" {...pane('job-insp')}>
           <JobRelatedSection
             title="Inspections"
             icon={ClipboardList}
@@ -3304,7 +3368,7 @@ export function JobDetailPage() {
           </JobRelatedSection>
           </div>
 
-        <section id="job-gallery" className="ops-tray job-gallery" data-job-gallery="1">
+        <section id="job-gallery" className="ops-tray job-gallery" data-job-gallery="1" {...pane('job-gallery')}>
           <div className="ops-tray-head">
             <h2 className="ops-section-title flex items-center gap-1.5 min-w-0">
               <FileText size={14} className="text-navy shrink-0" />
@@ -3374,7 +3438,7 @@ export function JobDetailPage() {
           )}
         </section>
 
-          <div id="job-testing-due">
+          <div id="job-testing-due" {...pane('job-testing-due')}>
           <JobRelatedSection
             title={JOB_TESTING_DUE_TITLE}
             icon={ClipboardList}
@@ -3397,6 +3461,7 @@ export function JobDetailPage() {
           </JobRelatedSection>
           </div>
 
+          <div {...pane('job-invoices')}>
           <JobRelatedSection
             title="Invoices"
             icon={Receipt}
@@ -3426,9 +3491,10 @@ export function JobDetailPage() {
               );
             })}
           </JobRelatedSection>
+          </div>
 
             </div>
-            <div id="job-schedule">
+            <div id="job-schedule" {...pane('job-schedule')}>
           <JobDispatchPanel
             job={job}
             teamMembers={teamMembers ?? []}

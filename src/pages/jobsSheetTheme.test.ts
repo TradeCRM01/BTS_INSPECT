@@ -29,6 +29,8 @@ describe('job hub open sheet LOOK', () => {
     expect(page).toContain('OpsSiteRow');
     expect(page).toContain('Add to calendar');
     expect(page).toContain('buildJobCalendar');
+    expect(page).toContain('job-sheet-tabs');
+    expect(page).toContain('role="tablist" aria-label="Job sections"');
     expect(page).not.toContain('hub-jobs-jobline');
     expect(page).not.toContain('JobCalendarOverflow');
     expect(page).toContain('Job status');
@@ -77,6 +79,8 @@ describe('job hub open sheet LOOK', () => {
     expect(lookCss).toContain('.hub-jobs-row-next .ops-next-control-block');
     expect(lookCss).toContain('.hub-jobs-document .hub-jobs-tools .btn-primary');
     expect(lookCss).toContain('.hub-jobs-document .hub-jobs-tools .ops-next-control-block');
+    expect(lookCss).toContain('.hub-jobs-document .job-sheet-tab.is-on');
+    expect(lookCss).toContain('.hub-jobs-document [data-job-tab][hidden]');
     expect(lookCss).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(lookCss).toContain('inset 0 1px 0 #fff');
     const hero = lookCss.slice(lookCss.indexOf('  .hub-jobs-hero {'), lookCss.indexOf('  .hub-jobs-tools {'));

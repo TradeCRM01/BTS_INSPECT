@@ -150,6 +150,11 @@ async function galleryItems(page) {
   })));
 }
 
+async function showTab(page, tab) {
+  await page.click(`.job-sheet-tab[data-tab="${tab}"]`);
+  await page.waitForSelector(`.job-sheet-tab.is-on[data-tab="${tab}"]`, { timeout: 5000 });
+}
+
 async function waitForImages(page) {
   await page.waitForFunction(() => {
     const imgs = [...document.querySelectorAll('[data-gallery-photo] img, [data-visit-photo] img')];
@@ -169,15 +174,16 @@ await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30000 
 notes.loginLandedOn = new URL(page.url()).pathname;
 
 await page.goto(`${BASE}/jobs/${jobId}`, { waitUntil: 'domcontentloaded' });
-await page.waitForSelector('#job-visit-notes', { timeout: 30000 });
-await page.waitForSelector('[data-job-gallery="1"]', { timeout: 30000 });
-await page.waitForSelector('[data-gallery-source="inspection"] img', { timeout: 30000 });
-await page.waitForSelector('[data-gallery-source="jha"] img', { timeout: 30000 });
+await page.waitForSelector('#job-visit-notes', { state: 'attached', timeout: 30000 });
+await page.waitForSelector('[data-job-gallery="1"]', { state: 'attached', timeout: 30000 });
+await page.waitForSelector('[data-gallery-source="inspection"] img', { state: 'attached', timeout: 30000 });
+await page.waitForSelector('[data-gallery-source="jha"] img', { state: 'attached', timeout: 30000 });
 
 const before = await galleryItems(page);
 notes.galleryBefore = before;
 
 const noteBody = `Proof visit ${new Date().toISOString()}`;
+await showTab(page, 'notes');
 await page.fill('#job-visit-notes textarea[data-visit-section="done"]', noteBody);
 await page.setInputFiles('#job-visit-photo-input', [visitFile]);
 await page.click('#job-visit-notes .job-visit-post');
@@ -211,6 +217,7 @@ check('dbJobPhotosRowsMatchUpload', visitRows.length >= 1 && jobRows.length >= 1
 const { data: objects } = await sb.storage.from('uploaded-pdfs').list(`${companyId}/jobs/${jobId}`);
 check('storageObjectsExistUnderCompanyJobPrefix', (objects || []).length >= rows.length, { objects: (objects || []).length, rows: rows.length });
 
+await showTab(page, 'gallery');
 await page.click('[data-gallery-filter="visit"]');
 await page.waitForTimeout(200);
 const visitOnly = await galleryItems(page);
@@ -221,6 +228,7 @@ await page.waitForTimeout(200);
 await page.evaluate(() => document.querySelector('#job-gallery')?.scrollIntoView({ block: 'start' }));
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${OUT}/gallery-laptop-1280.png` });
+await showTab(page, 'notes');
 await page.evaluate(() => document.querySelector('#job-visit-notes')?.scrollIntoView({ block: 'start' }));
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${OUT}/visit-notes-laptop-1280.png` });
