@@ -124,9 +124,9 @@ check('dbGalleryAddRowFallsBackToAttachClockAndDeviceFix', galleryDevice.ok, gal
 
 const noteBody = `Provenance proof ${new Date().toISOString()}`;
 const rowsBeforeVisit = await photoRows();
-await page.fill('#job-visit-notes .job-visit-hairline', noteBody);
+await page.fill('#job-visit-notes textarea[data-visit-section="done"]', noteBody);
 await page.setInputFiles('#job-visit-photo-input', [sitePhotoFile(siteJpeg)]);
-await page.waitForFunction(() => document.querySelector('#job-visit-notes .job-visit-photo-count')?.textContent?.includes('1 photo(s) attached'), null, { timeout: 30000 });
+await page.waitForFunction(() => document.querySelector('#job-visit-notes .job-visit-photo-count')?.textContent?.trim() === '1 photo', null, { timeout: 30000 });
 await page.click('#job-visit-notes .job-visit-post');
 await page.waitForFunction((body) => (
   [...document.querySelectorAll('.job-visit-row')].some((row) => row.textContent.includes(body) && row.querySelector('[data-visit-photo] img'))

@@ -111,9 +111,9 @@ check('galleryAddFallsBackToAttachClockAndDeviceFix', galleryDevice.ok, galleryD
 check('galleryAddStoragePathUnderCompanyJob', galleryRows.every((r) => /^[^/]+\/jobs\/audit-doc-job\/[^/]+\.jpg$/.test(r.storage_path)), { paths: galleryRows.map((r) => r.storage_path) });
 
 const noteBody = `Provenance proof ${new Date().toISOString()}`;
-await page.fill('#job-visit-notes .job-visit-hairline', noteBody);
+await page.fill('#job-visit-notes textarea[data-visit-section="done"]', noteBody);
 await page.setInputFiles('#job-visit-photo-input', [sitePhotoFile(siteJpeg)]);
-await page.waitForFunction(() => document.querySelector('#job-visit-notes .job-visit-photo-count')?.textContent?.includes('1 photo(s) attached'), null, { timeout: 30000 });
+await page.waitForFunction(() => document.querySelector('#job-visit-notes .job-visit-photo-count')?.textContent?.trim() === '1 photo', null, { timeout: 30000 });
 await page.click('#job-visit-notes .job-visit-post');
 await waitFor(() => inserts.some((r) => r.visit_note_id === 'harness-note-1'), 'visit-wall insert');
 const visitExif = checkExifRow(inserts.find((r) => r.visit_note_id === 'harness-note-1'));
