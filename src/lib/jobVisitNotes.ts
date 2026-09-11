@@ -74,8 +74,8 @@ export function composeVisitNoteBody(sections: Partial<VisitNoteSections>): stri
     .join('\n\n');
 }
 
-const SECTION_BY_HEADING = new Map(
-  VISIT_NOTE_SECTIONS.map(section => [`${section.label}:`, section] as const),
+const SECTION_BY_HEADING = new Map<string, VisitNoteSection>(
+  VISIT_NOTE_SECTIONS.map(section => [`${section.label}:`, section]),
 );
 
 /**
