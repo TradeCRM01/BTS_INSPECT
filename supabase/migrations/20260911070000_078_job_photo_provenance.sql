@@ -32,11 +32,9 @@ ALTER TABLE public.job_photos
     CHECK (
       (lat IS NULL AND lng IS NULL AND location_source IS NULL AND location_accuracy_m IS NULL)
       OR (
-        lat BETWEEN -90 AND 90
-        AND lng BETWEEN -180 AND 180
+        lat IS NOT NULL AND lat BETWEEN -90 AND 90
+        AND lng IS NOT NULL AND lng BETWEEN -180 AND 180
         AND location_source IN ('exif', 'device')
+        AND (location_accuracy_m IS NULL OR location_accuracy_m >= 0)
       )
     );
-
-CREATE INDEX IF NOT EXISTS idx_job_photos_job_taken
-  ON public.job_photos (company_id, job_id, taken_at DESC);
