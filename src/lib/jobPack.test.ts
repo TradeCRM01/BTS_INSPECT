@@ -80,7 +80,7 @@ describe('JOB_PACK_TEMPLATES', () => {
       }
     }
     expect([JOB_PACK_TITLE, JOB_PACK_PACKED, JOB_PACK_ADD, JOB_PACK_ADD_PLACEHOLDER, JOB_PACK_FIRST_TICK, JOB_PACK_TRADES_LABEL, JOB_PACK_TRADES_HELP])
-      .toEqual(['Job pack', 'Packed', 'Add item', 'Add an item', 'Saves from the first tick.', 'Trades', 'First pick is the primary trade. Job packs load it.']);
+      .toEqual(['Job pack', 'Packed', 'Add item', 'Add an item', 'Saves from the first tick.', 'Trades', 'First pick is the primary trade.']);
     expect(lib).not.toContain('JOB_PACK_EMPTY');
     expect(lib).not.toContain('JOB_PACK_PICK');
   });
@@ -434,6 +434,8 @@ describe('company trades stay on Settings and Signup', () => {
     expect(settings).toContain('parseCompanyTrades');
     expect(signup).toContain('data-signup-trade');
     expect(signup).toContain('trades,');
+    expect(settings).not.toMatch(/job pack/i);
+    expect(signup).not.toMatch(/job pack/i);
     expect(edge).toContain('trades,');
     expect(edge).not.toMatch(/electrician|switchboard|electrical-only/i);
     for (const text of [mig, settings, signup, edge]) expect(text).not.toMatch(/Relovi|Littleloop/);
