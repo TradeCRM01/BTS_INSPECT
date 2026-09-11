@@ -2,7 +2,7 @@
   "base": "http://127.0.0.1:5173",
   "supabaseUrl": "https://harness-proof.supabase.co",
   "expectedBody": "Done:\nReplaced the failed unit and tested the run.\n\nLeft to do:\nTidy the run and label the board.\n\nParts used:\n1 unit, 3 m of 20 mm pipe, 4 saddles.\n\nCustomer wants:\nA quote for the upstairs run.",
-  "startedAt": "2026-09-11T08:35:08.430Z",
+  "startedAt": "2026-09-11T08:44:42.810Z",
   "laptopComposerHasFiveSectionFieldsInOrder": {
     "ok": true,
     "order": [
@@ -76,6 +76,12 @@
     "ok": true,
     "postDisabled": false
   },
+  "laptopPhotoAttachesOnSameCompose": {
+    "ok": true,
+    "photoCount": "1 photo(s) attached",
+    "insertsBeforePost": 0,
+    "photoInsertsBeforePost": 0
+  },
   "laptopExactlyOneInsert": {
     "ok": true,
     "count": 1
@@ -91,9 +97,17 @@
     "company_id": "00000000-0000-0000-0000-000000000001",
     "author_id": "00000000-0000-0000-0000-000000000002"
   },
+  "laptopOnePhotoRowBoundToTheOneNote": {
+    "ok": true,
+    "photoInserts": 1,
+    "visit_note_id": "harness-note-1",
+    "job_id": "audit-doc-job",
+    "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/c466c1d4-142d-4478-b094-f6b934bed4a7.jpg"
+  },
   "laptopComposerClearsAfterPost": {
     "ok": true,
-    "postDisabled": true
+    "postDisabled": true,
+    "photoCountShown": false
   },
   "laptopWallShowsSectionLabelsOnComposedNote": {
     "ok": true,
@@ -125,6 +139,22 @@
       "author_id": "00000000-0000-0000-0000-000000000002",
       "author_name": "Field Audit",
       "body": "Done:\nReplaced the failed unit and tested the run.\n\nLeft to do:\nTidy the run and label the board.\n\nParts used:\n1 unit, 3 m of 20 mm pipe, 4 saddles.\n\nCustomer wants:\nA quote for the upstairs run."
+    }
+  ],
+  "laptopPhotoInserts": [
+    {
+      "id": "c466c1d4-142d-4478-b094-f6b934bed4a7",
+      "company_id": "00000000-0000-0000-0000-000000000001",
+      "job_id": "audit-doc-job",
+      "visit_note_id": "harness-note-1",
+      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/c466c1d4-142d-4478-b094-f6b934bed4a7.jpg",
+      "created_by": "00000000-0000-0000-0000-000000000002",
+      "taken_at": "2026-09-11T08:44:45.316Z",
+      "taken_at_source": "upload",
+      "lat": null,
+      "lng": null,
+      "location_source": null,
+      "location_accuracy_m": null
     }
   ],
   "phoneComposerHasFiveSectionFieldsInOrder": {
@@ -230,6 +260,12 @@
       }
     ]
   },
+  "phonePhotoAttachesOnSameCompose": {
+    "ok": true,
+    "photoCount": "1 photo(s) attached",
+    "insertsBeforePost": 0,
+    "photoInsertsBeforePost": 0
+  },
   "phoneExactlyOneInsert": {
     "ok": true,
     "count": 1
@@ -245,9 +281,17 @@
     "company_id": "00000000-0000-0000-0000-000000000001",
     "author_id": "00000000-0000-0000-0000-000000000002"
   },
+  "phoneOnePhotoRowBoundToTheOneNote": {
+    "ok": true,
+    "photoInserts": 1,
+    "visit_note_id": "harness-note-1",
+    "job_id": "audit-doc-job",
+    "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/9a9c956b-6f54-4742-9372-d1ad09cdffe3.jpg"
+  },
   "phoneComposerClearsAfterPost": {
     "ok": true,
-    "postDisabled": true
+    "postDisabled": true,
+    "photoCountShown": false
   },
   "phoneWallShowsSectionLabelsOnComposedNote": {
     "ok": true,
@@ -281,10 +325,26 @@
       "body": "Done:\nReplaced the failed unit and tested the run.\n\nLeft to do:\nTidy the run and label the board.\n\nParts used:\n1 unit, 3 m of 20 mm pipe, 4 saddles.\n\nCustomer wants:\nA quote for the upstairs run."
     }
   ],
+  "phonePhotoInserts": [
+    {
+      "id": "9a9c956b-6f54-4742-9372-d1ad09cdffe3",
+      "company_id": "00000000-0000-0000-0000-000000000001",
+      "job_id": "audit-doc-job",
+      "visit_note_id": "harness-note-1",
+      "storage_path": "00000000-0000-0000-0000-000000000001/jobs/audit-doc-job/9a9c956b-6f54-4742-9372-d1ad09cdffe3.jpg",
+      "created_by": "00000000-0000-0000-0000-000000000002",
+      "taken_at": "2026-09-11T08:44:48.600Z",
+      "taken_at_source": "upload",
+      "lat": null,
+      "lng": null,
+      "location_source": null,
+      "location_accuracy_m": null
+    }
+  ],
   "noPageErrors": {
     "ok": true,
     "pageErrors": []
   },
-  "finishedAt": "2026-09-11T08:35:15.127Z",
+  "finishedAt": "2026-09-11T08:44:49.648Z",
   "failures": []
 }

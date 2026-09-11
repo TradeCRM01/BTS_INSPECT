@@ -1,12 +1,14 @@
-// Proves the guided visit-note composer posts one composed note on the real job sheet
-// without Supabase credentials. Runs the DEV look harness (/jobs/audit-doc-job?look=visit-notes)
-// against a dev server whose .env points VITE_SUPABASE_URL at a host this script intercepts,
-// so the page's own handlers run end to end and the job_visit_notes insert is captured here.
+// Proves the guided visit-note composer posts one composed note, with a photo attached on
+// the same compose, on the real job sheet without Supabase credentials. Runs the DEV look
+// harness (/jobs/audit-doc-job?look=visit-notes) against a dev server whose .env points
+// VITE_SUPABASE_URL at a host this script intercepts, so the page's own handlers run end to
+// end and the job_visit_notes / job_photos inserts are captured here.
 // Run: node scripts/prove-visit-note-composer-harness.mjs
 // Needs a dev server on LOOK_BASE_URL (default http://127.0.0.1:5173) started with that .env.
 // Writes docs/proof/visit-note-composer/harness-*.png and harness-notes.json.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
+import { plainPhotoFile, renderJpeg } from './lib/photo-proof.mjs';
 
 const BASE = process.env.LOOK_BASE_URL || 'http://127.0.0.1:5173';
 const OUT = 'docs/proof/visit-note-composer';
@@ -49,7 +51,7 @@ function check(name, ok, detail) {
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name}`, detail ? JSON.stringify(detail) : '');
 }
 
-async function interceptSupabase(context, inserts) {
+async function interceptSupabase(context, inserts, photoInserts) {
   await context.route(`${supabaseUrl}/**`, async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -57,6 +59,14 @@ async function interceptSupabase(context, inserts) {
     if (url.pathname === '/rest/v1/job_visit_notes' && request.method() === 'POST') {
       inserts.push(JSON.parse(request.postData()));
       return json({ id: `harness-note-${inserts.length}` }, 201);
+    }
+    if (url.pathname.startsWith('/storage/v1/object/') && request.method() === 'POST') {
+      return json({ Key: url.pathname.replace('/storage/v1/object/', ''), Id: crypto.randomUUID() });
+    }
+    if (url.pathname === '/rest/v1/job_photos' && request.method() === 'POST') {
+      const row = JSON.parse(request.postData());
+      photoInserts.push(row);
+      return json({ ...row, caption: null, created_at: new Date().toISOString() }, 201);
     }
     return json([]);
   });
@@ -142,10 +152,11 @@ function checkInsert(tag, inserts) {
     { author_name: row?.author_name ?? null, job_id: row?.job_id ?? null, company_id: row?.company_id ?? null, author_id: row?.author_id ?? null });
 }
 
-async function proveViewport(browser, tag, viewport, shot) {
+async function proveViewport(browser, tag, viewport, shot, photoJpeg) {
   const inserts = [];
+  const photoInserts = [];
   const context = await browser.newContext({ viewport, locale: 'en-AU', timezoneId: 'Australia/Brisbane', ...(tag === 'phone' ? { isMobile: true, hasTouch: true } : {}) });
-  await interceptSupabase(context, inserts);
+  await interceptSupabase(context, inserts, photoInserts);
   const page = await context.newPage();
   page.on('pageerror', (err) => { notes.pageErrors = [...(notes.pageErrors || []), `${tag}: ${String(err)}`]; });
   await openHarness(page);
@@ -166,16 +177,33 @@ async function proveViewport(browser, tag, viewport, shot) {
     check('phoneFieldsFitOneColumn', filled.fields.every((f) => f && f.width <= 390 && f.width >= 300 && f.height >= 28), { fields: filled.fields.map((f) => ({ key: f.key, width: f.width, height: f.height })) });
   }
 
+  // The existing photo attach stays on this same compose: one photo rides on the same Post.
+  await page.setInputFiles('#job-visit-photo-input', [plainPhotoFile(photoJpeg)]);
+  await page.waitForFunction(() => document.querySelector('#job-visit-notes .job-visit-photo-count')?.textContent?.includes('1 photo(s) attached'), null, { timeout: 30000 });
+  const photoCount = await page.$eval('#job-visit-notes .job-visit-photo-count', (el) => el.textContent.trim());
+  check(`${tag}PhotoAttachesOnSameCompose`, photoCount === '1 photo(s) attached' && inserts.length === 0 && photoInserts.length === 0, { photoCount, insertsBeforePost: inserts.length, photoInsertsBeforePost: photoInserts.length });
+
   await page.evaluate(() => document.querySelector('#job-visit-notes')?.scrollIntoView({ block: 'start' }));
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/${shot}` });
 
   await page.click('#job-visit-notes .job-visit-post');
-  await waitFor(() => inserts.length >= 1, `${tag} visit-note insert`);
+  await waitFor(() => inserts.length >= 1 && photoInserts.length >= 1, `${tag} visit-note and photo inserts`);
   await page.waitForTimeout(500);
   checkInsert(tag, inserts);
+  const photoRow = photoInserts[0];
+  check(`${tag}OnePhotoRowBoundToTheOneNote`,
+    photoInserts.length === 1 && photoRow?.visit_note_id === 'harness-note-1'
+    && photoRow?.job_id === inserts[0]?.job_id && photoRow?.company_id === inserts[0]?.company_id
+    && typeof photoRow?.storage_path === 'string' && photoRow.storage_path.length > 0,
+    { photoInserts: photoInserts.length, visit_note_id: photoRow?.visit_note_id ?? null, job_id: photoRow?.job_id ?? null, storage_path: photoRow?.storage_path ?? null });
   const after = await readComposer(page);
-  check(`${tag}ComposerClearsAfterPost`, after.postDisabled === true && (await page.$$eval('#job-visit-notes .job-visit-compose textarea', (els) => els.every((el) => el.value === ''))), { postDisabled: after.postDisabled });
+  const photoBarAfter = await page.$('#job-visit-notes .job-visit-photo-count');
+  check(`${tag}ComposerClearsAfterPost`,
+    after.postDisabled === true
+    && (await page.$$eval('#job-visit-notes .job-visit-compose textarea', (els) => els.every((el) => el.value === '')))
+    && !photoBarAfter,
+    { postDisabled: after.postDisabled, photoCountShown: !!photoBarAfter });
 
   const wall = await readWall(page);
   const composed = wall.find((r) => r.paragraphs.some((p) => p.includes('Fitted the new unit')));
@@ -190,12 +218,14 @@ async function proveViewport(browser, tag, viewport, shot) {
     { labels: free?.labels ?? null, paragraphs: free?.paragraphs ?? null });
 
   notes[`${tag}Inserts`] = inserts;
+  notes[`${tag}PhotoInserts`] = photoInserts;
   await context.close();
 }
 
 const browser = await chromium.launch({ headless: true });
-await proveViewport(browser, 'laptop', { width: 1280, height: 900 }, 'harness-laptop-1280.png');
-await proveViewport(browser, 'phone', { width: 390, height: 844 }, 'harness-phone-390.png');
+const photoJpeg = await renderJpeg(browser, 'SITE', '#2e75b6');
+await proveViewport(browser, 'laptop', { width: 1280, height: 900 }, 'harness-laptop-1280.png', photoJpeg);
+await proveViewport(browser, 'phone', { width: 390, height: 844 }, 'harness-phone-390.png', photoJpeg);
 await browser.close();
 
 check('noPageErrors', !notes.pageErrors, { pageErrors: notes.pageErrors ?? [] });
