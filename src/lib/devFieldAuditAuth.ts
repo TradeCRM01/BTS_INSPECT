@@ -48,6 +48,7 @@ export function isDevFieldAuditAuth(): boolean {
       || params.get('look') === 'dashboard'
       || params.get('look') === 'visit-notes'
       || params.get('look') === 'job-photos'
+      || params.get('look') === 'job-pack'
       || params.get('look') === 'week-board'
       || window.location.pathname === '/__field-audit'
     ) {
@@ -101,6 +102,17 @@ export const DEV_AUDIT_PROFILE = {
   template_access: 'edit',
 } as unknown as Profile;
 
+/** Lets the harness stand up a multi-trade company with ?trades=plumbing,electrical. */
+function devAuditCompanyTrades(): string[] {
+  if (!import.meta.env.DEV) return [];
+  try {
+    const raw = new URLSearchParams(window.location.search).get('trades');
+    return raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
 export const DEV_AUDIT_COMPANY = {
   id: AUDIT_COMPANY_ID,
   created_by: AUDIT_USER_ID,
@@ -120,4 +132,5 @@ export const DEV_AUDIT_COMPANY = {
   seat_limit: 5,
   stripe_customer_id: null,
   stripe_subscription_id: null,
+  trades: devAuditCompanyTrades(),
 } as unknown as Company;

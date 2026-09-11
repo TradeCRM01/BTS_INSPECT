@@ -12,7 +12,10 @@ interface SignupRequest {
   password: string;
   name: string;
   company_name?: string;
+  trades?: string[];
 }
+
+const KNOWN_TRADES = ["plumbing", "electrical", "hvac", "carpentry", "general"];
 
 async function findAuthUserByEmail(
   adminClient: ReturnType<typeof createClient>,
@@ -40,6 +43,9 @@ Deno.serve(async (req: Request) => {
 
     const { email, password, name } = payload;
     const companyName = (payload.company_name || "").trim() || `${name.trim()}'s company`;
+    const trades = Array.isArray(payload.trades)
+      ? [...new Set(payload.trades.filter((t) => KNOWN_TRADES.includes(t)))]
+      : [];
 
     if (!email || !password || !name) {
       throw new Error("Missing required fields");
@@ -118,6 +124,7 @@ Deno.serve(async (req: Request) => {
       .insert({
         name: companyName,
         email,
+        trades,
         access_status: "active",
         billing_status: "trial",
         plan: "crew",

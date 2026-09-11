@@ -5,12 +5,14 @@ import { Eye, EyeOff } from 'lucide-react';
 import { AuthShell } from '../components/auth/AuthShell';
 import { useAuth } from '../contexts/AuthContext';
 import { preparePasswordAuth } from '../lib/authSessionGuard';
+import { JOB_PACK_TEMPLATES, type JobPackTradeKey } from '../lib/jobPack';
 
 export function SignupPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [trades, setTrades] = useState<JobPackTradeKey[]>([]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -49,6 +51,7 @@ export function SignupPage() {
           password,
           name,
           company_name: companyName.trim(),
+          trades,
         }),
       });
 
@@ -112,6 +115,28 @@ export function SignupPage() {
             className="form-input"
             placeholder="Northside Electrics"
           />
+        </div>
+
+        <div>
+          <label className="form-label">What trades do you do?</label>
+          <p className="text-xs text-muted">Pick one or more. First pick is the primary trade. Job packs load it.</p>
+          <div role="group" aria-label="Trades" className="flex flex-wrap gap-2 mt-2">
+            {JOB_PACK_TEMPLATES.map(t => {
+              const pressed = trades.includes(t.key);
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  data-signup-trade={t.key}
+                  aria-pressed={pressed}
+                  onClick={() => setTrades(prev => (prev.includes(t.key) ? prev.filter(k => k !== t.key) : [...prev, t.key]))}
+                  className={`min-h-[44px] px-3 rounded-md border text-sm ${pressed ? 'border-accent bg-accent/10 text-navy' : 'border-navy/20 text-navy'}`}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div>
