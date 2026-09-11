@@ -37,6 +37,8 @@ describe('job-sheet Visit notes LOOK', () => {
     expect(tray).toContain('job-visit-log');
     expect(tray).toContain('job-visit-row');
     expect(tray).toContain('job-visit-stamp');
+    expect(tray).toContain('job-visit-author');
+    expect(tray).toContain('job-visit-time');
     expect(tray).toContain('job-visit-body');
     expect(tray).toContain('Visit notes');
     expect(tray).toContain('Post note');
@@ -67,6 +69,8 @@ describe('job-sheet Visit notes LOOK', () => {
     expect(lookCss).toContain('.job-visit-post');
     expect(lookCss).toContain('background: none');
     expect(lookCss).toContain('box-shadow: none');
+    expect(lookCss).toContain('border-radius: 12px');
+    expect(lookCss).toContain('background: var(--visit-sheet)');
     expect(lookCss).not.toMatch(/\.job-visit-post[\s\S]{0,220}background:\s*#2E75B6/);
     expect(lookCss).not.toMatch(/#16A34A|#15803D|#1B7F3A/);
     expect(lookCss).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
@@ -118,6 +122,8 @@ describe('job-sheet Visit notes LOOK frames', () => {
     for (const rel of [
       'docs/look/visit-notes-laptop-1280.png',
       'docs/look/visit-notes-phone-390.png',
+      'docs/look/visit-composed-note-laptop-1280.png',
+      'docs/look/visit-composed-note-phone-390.png',
       'docs/look/quote-paper-reference.png',
     ]) {
       expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
