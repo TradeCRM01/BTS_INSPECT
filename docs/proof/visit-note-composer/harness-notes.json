@@ -1,0 +1,290 @@
+{
+  "base": "http://127.0.0.1:5173",
+  "supabaseUrl": "https://harness-proof.supabase.co",
+  "expectedBody": "Done:\nReplaced the failed unit and tested the run.\n\nLeft to do:\nTidy the run and label the board.\n\nParts used:\n1 unit, 3 m of 20 mm pipe, 4 saddles.\n\nCustomer wants:\nA quote for the upstairs run.",
+  "startedAt": "2026-09-11T08:35:08.430Z",
+  "laptopComposerHasFiveSectionFieldsInOrder": {
+    "ok": true,
+    "order": [
+      "done",
+      "left",
+      "parts_used",
+      "parts_needed",
+      "customer_wants"
+    ],
+    "fields": [
+      {
+        "key": "done",
+        "tag": "textarea",
+        "ariaLabel": "Done",
+        "hairline": true,
+        "width": 1034,
+        "height": 33,
+        "visible": true
+      },
+      {
+        "key": "left",
+        "tag": "textarea",
+        "ariaLabel": "Left to do",
+        "hairline": true,
+        "width": 1034,
+        "height": 33,
+        "visible": true
+      },
+      {
+        "key": "parts_used",
+        "tag": "textarea",
+        "ariaLabel": "Parts used",
+        "hairline": true,
+        "width": 1034,
+        "height": 33,
+        "visible": true
+      },
+      {
+        "key": "parts_needed",
+        "tag": "textarea",
+        "ariaLabel": "Parts needed next visit",
+        "hairline": true,
+        "width": 1034,
+        "height": 33,
+        "visible": true
+      },
+      {
+        "key": "customer_wants",
+        "tag": "textarea",
+        "ariaLabel": "Customer wants",
+        "hairline": true,
+        "width": 1034,
+        "height": 33,
+        "visible": true
+      }
+    ],
+    "viewW": 1280
+  },
+  "laptopPostDisabledWhileAllSectionsEmpty": {
+    "ok": true,
+    "postDisabled": true,
+    "postText": "Post note",
+    "postCount": 1
+  },
+  "laptopKeepsAddPhotosBarAndInput": {
+    "ok": true,
+    "photoInput": true,
+    "addPhotos": "Add photos"
+  },
+  "laptopPostEnabledOnceASectionHasText": {
+    "ok": true,
+    "postDisabled": false
+  },
+  "laptopExactlyOneInsert": {
+    "ok": true,
+    "count": 1
+  },
+  "laptopBodyIsComposedInOrderWithEmptySectionOmitted": {
+    "ok": true,
+    "body": "Done:\nReplaced the failed unit and tested the run.\n\nLeft to do:\nTidy the run and label the board.\n\nParts used:\n1 unit, 3 m of 20 mm pipe, 4 saddles.\n\nCustomer wants:\nA quote for the upstairs run."
+  },
+  "laptopRowCarriesAuthorJobAndCompany": {
+    "ok": true,
+    "author_name": "Field Audit",
+    "job_id": "audit-doc-job",
+    "company_id": "00000000-0000-0000-0000-000000000001",
+    "author_id": "00000000-0000-0000-0000-000000000002"
+  },
+  "laptopComposerClearsAfterPost": {
+    "ok": true,
+    "postDisabled": true
+  },
+  "laptopWallShowsSectionLabelsOnComposedNote": {
+    "ok": true,
+    "labels": [
+      "Done",
+      "Left to do",
+      "Parts used",
+      "Customer wants"
+    ],
+    "paragraphs": [
+      "DoneFitted the new unit. Tested and running.",
+      "Left to doTidy the run and label the board.",
+      "Parts used1 unit, 3 m of 20 mm pipe, 4 saddles.",
+      "Customer wantsA quote for the upstairs run."
+    ],
+    "stamp": "Alex Reed · 8 Sep 2026 · 19:15"
+  },
+  "laptopWallRendersFreeTextNoteWithoutLabels": {
+    "ok": true,
+    "labels": [],
+    "paragraphs": [
+      "Pulled the old unit. Left the isolator tagged."
+    ]
+  },
+  "laptopInserts": [
+    {
+      "company_id": "00000000-0000-0000-0000-000000000001",
+      "job_id": "audit-doc-job",
+      "author_id": "00000000-0000-0000-0000-000000000002",
+      "author_name": "Field Audit",
+      "body": "Done:\nReplaced the failed unit and tested the run.\n\nLeft to do:\nTidy the run and label the board.\n\nParts used:\n1 unit, 3 m of 20 mm pipe, 4 saddles.\n\nCustomer wants:\nA quote for the upstairs run."
+    }
+  ],
+  "phoneComposerHasFiveSectionFieldsInOrder": {
+    "ok": true,
+    "order": [
+      "done",
+      "left",
+      "parts_used",
+      "parts_needed",
+      "customer_wants"
+    ],
+    "fields": [
+      {
+        "key": "done",
+        "tag": "textarea",
+        "ariaLabel": "Done",
+        "hairline": true,
+        "width": 324,
+        "height": 33,
+        "visible": true
+      },
+      {
+        "key": "left",
+        "tag": "textarea",
+        "ariaLabel": "Left to do",
+        "hairline": true,
+        "width": 324,
+        "height": 33,
+        "visible": true
+      },
+      {
+        "key": "parts_used",
+        "tag": "textarea",
+        "ariaLabel": "Parts used",
+        "hairline": true,
+        "width": 324,
+        "height": 33,
+        "visible": true
+      },
+      {
+        "key": "parts_needed",
+        "tag": "textarea",
+        "ariaLabel": "Parts needed next visit",
+        "hairline": true,
+        "width": 324,
+        "height": 33,
+        "visible": true
+      },
+      {
+        "key": "customer_wants",
+        "tag": "textarea",
+        "ariaLabel": "Customer wants",
+        "hairline": true,
+        "width": 324,
+        "height": 33,
+        "visible": true
+      }
+    ],
+    "viewW": 390
+  },
+  "phonePostDisabledWhileAllSectionsEmpty": {
+    "ok": true,
+    "postDisabled": true,
+    "postText": "Post note",
+    "postCount": 1
+  },
+  "phoneKeepsAddPhotosBarAndInput": {
+    "ok": true,
+    "photoInput": true,
+    "addPhotos": "Add photos"
+  },
+  "phonePostEnabledOnceASectionHasText": {
+    "ok": true,
+    "postDisabled": false
+  },
+  "phoneFieldsFitOneColumn": {
+    "ok": true,
+    "fields": [
+      {
+        "key": "done",
+        "width": 324,
+        "height": 33
+      },
+      {
+        "key": "left",
+        "width": 324,
+        "height": 33
+      },
+      {
+        "key": "parts_used",
+        "width": 324,
+        "height": 33
+      },
+      {
+        "key": "parts_needed",
+        "width": 324,
+        "height": 33
+      },
+      {
+        "key": "customer_wants",
+        "width": 324,
+        "height": 33
+      }
+    ]
+  },
+  "phoneExactlyOneInsert": {
+    "ok": true,
+    "count": 1
+  },
+  "phoneBodyIsComposedInOrderWithEmptySectionOmitted": {
+    "ok": true,
+    "body": "Done:\nReplaced the failed unit and tested the run.\n\nLeft to do:\nTidy the run and label the board.\n\nParts used:\n1 unit, 3 m of 20 mm pipe, 4 saddles.\n\nCustomer wants:\nA quote for the upstairs run."
+  },
+  "phoneRowCarriesAuthorJobAndCompany": {
+    "ok": true,
+    "author_name": "Field Audit",
+    "job_id": "audit-doc-job",
+    "company_id": "00000000-0000-0000-0000-000000000001",
+    "author_id": "00000000-0000-0000-0000-000000000002"
+  },
+  "phoneComposerClearsAfterPost": {
+    "ok": true,
+    "postDisabled": true
+  },
+  "phoneWallShowsSectionLabelsOnComposedNote": {
+    "ok": true,
+    "labels": [
+      "Done",
+      "Left to do",
+      "Parts used",
+      "Customer wants"
+    ],
+    "paragraphs": [
+      "DoneFitted the new unit. Tested and running.",
+      "Left to doTidy the run and label the board.",
+      "Parts used1 unit, 3 m of 20 mm pipe, 4 saddles.",
+      "Customer wantsA quote for the upstairs run."
+    ],
+    "stamp": "Alex Reed · 8 Sep 2026 · 19:15"
+  },
+  "phoneWallRendersFreeTextNoteWithoutLabels": {
+    "ok": true,
+    "labels": [],
+    "paragraphs": [
+      "Pulled the old unit. Left the isolator tagged."
+    ]
+  },
+  "phoneInserts": [
+    {
+      "company_id": "00000000-0000-0000-0000-000000000001",
+      "job_id": "audit-doc-job",
+      "author_id": "00000000-0000-0000-0000-000000000002",
+      "author_name": "Field Audit",
+      "body": "Done:\nReplaced the failed unit and tested the run.\n\nLeft to do:\nTidy the run and label the board.\n\nParts used:\n1 unit, 3 m of 20 mm pipe, 4 saddles.\n\nCustomer wants:\nA quote for the upstairs run."
+    }
+  ],
+  "noPageErrors": {
+    "ok": true,
+    "pageErrors": []
+  },
+  "finishedAt": "2026-09-11T08:35:15.127Z",
+  "failures": []
+}
