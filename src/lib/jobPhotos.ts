@@ -12,8 +12,7 @@ export const JOB_PHOTOS_TABLE = 'job_photos';
 export const JOB_PHOTOS_BUCKET = 'uploaded-pdfs';
 export const INSPECTION_PHOTOS_BUCKET = 'photos';
 export const JOB_PHOTOS_COLUMNS =
-  'id, company_id, job_id, visit_note_id, storage_path, caption, created_by, created_at, '
-  + 'taken_at, taken_at_source, lat, lng, location_source, location_accuracy_m';
+  'id, company_id, job_id, visit_note_id, storage_path, caption, created_by, created_at, taken_at, taken_at_source, lat, lng, location_source, location_accuracy_m';
 
 export const JOB_PHOTO_NO_JOB = 'This job is missing.';
 export const JOB_PHOTO_NOT_SIGNED_IN = 'Not signed in';
@@ -299,7 +298,11 @@ export function galleryFilterCounts(
 export function jobPhotosQuery(args: {
   companyId: string;
   jobId: string;
-}): { table: typeof JOB_PHOTOS_TABLE; columns: string; eq: { company_id: string; job_id: string } } | null {
+}): {
+  table: typeof JOB_PHOTOS_TABLE;
+  columns: typeof JOB_PHOTOS_COLUMNS;
+  eq: { company_id: string; job_id: string };
+} | null {
   const companyId = trimPhotoField(args.companyId);
   const jobId = trimPhotoField(args.jobId);
   if (!companyId || !jobId) return null;

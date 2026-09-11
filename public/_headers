@@ -4,7 +4,7 @@
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: geolocation=(), microphone=(), payment=()
+  Permissions-Policy: geolocation=(self), microphone=(), payment=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
 
 /index.html
@@ -12,7 +12,7 @@
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: geolocation=(), microphone=(), payment=()
+  Permissions-Policy: geolocation=(self), microphone=(), payment=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
 
 # Hashed assets are immutable; missing ones must not fall through to HTML

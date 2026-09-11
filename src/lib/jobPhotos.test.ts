@@ -408,8 +408,7 @@ describe('jobPhotosQuery', () => {
   it('scopes the board to this company and this job', () => {
     expect(jobPhotosQuery({ companyId: 'co-1', jobId: 'job-1' })).toEqual({
       table: 'job_photos',
-      columns: 'id, company_id, job_id, visit_note_id, storage_path, caption, created_by, created_at, '
-        + 'taken_at, taken_at_source, lat, lng, location_source, location_accuracy_m',
+      columns: 'id, company_id, job_id, visit_note_id, storage_path, caption, created_by, created_at, taken_at, taken_at_source, lat, lng, location_source, location_accuracy_m',
       eq: { company_id: 'co-1', job_id: 'job-1' },
     });
     expect(JOB_PHOTOS_TABLE).toBe('job_photos');

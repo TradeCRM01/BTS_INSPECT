@@ -67,7 +67,7 @@ import { clientRecordHref } from '../lib/clientRecords';
 import {
   Calendar, Clock, User, Phone, Mail, ChevronDown,
   FileText, ShieldCheck, ShieldAlert, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
-  MoreHorizontal,
+  MoreHorizontal, MapPin,
 } from 'lucide-react';
 import {
   buildJobClockOffEntry,
@@ -107,6 +107,15 @@ import {
   type JobPhotoRow,
   type JobPhotoSource,
 } from '../lib/jobPhotos';
+import {
+  BROWSER_PROVENANCE_DEPS,
+  PHOTO_NO_PLACE,
+  describePhotoClock,
+  describePhotoPlace,
+  resolvePhotoProvenance,
+  type AttachedPhoto,
+  type PhotoPlace,
+} from '../lib/photoProvenance';
 import { format, parseISO, addDays } from 'date-fns';
 
 type JobInspection = {
@@ -237,6 +246,7 @@ function lookGalleryPhoto(args: {
   takenAt: string;
   visitNoteId?: string;
   caption?: string;
+  place?: PhotoPlace;
 }): JobGalleryPhoto {
   return {
     key: `${args.source}:${args.id}`,
@@ -244,6 +254,8 @@ function lookGalleryPhoto(args: {
     bucket: args.source === 'inspection' || args.source === 'jha' ? INSPECTION_PHOTOS_BUCKET : JOB_PHOTOS_BUCKET,
     storagePath: `${LOOK_PHOTO_DIR}/${args.file}.jpg`,
     takenAt: args.takenAt,
+    takenAtSource: args.source === 'visit' || args.source === 'job' ? 'exif' : 'upload',
+    place: args.place ?? null,
     caption: args.caption ?? null,
     visitNoteId: args.visitNoteId ?? null,
     inspectionId: args.source === 'inspection' ? 'look-insp' : null,
@@ -251,12 +263,15 @@ function lookGalleryPhoto(args: {
   };
 }
 
+const LOOK_SITE_FIX: PhotoPlace = { lat: -27.4698, lng: 153.0251, source: 'exif', accuracyM: null };
+const LOOK_DEVICE_FIX: PhotoPlace = { lat: -27.4705, lng: 153.0260, source: 'device', accuracyM: 14 };
+
 /** Sample job-site photos under public/look/photos. Newest first, like the real board. */
 function lookGallery(): JobGalleryPhoto[] {
   return [
-    lookGalleryPhoto({ id: 'new-1', source: 'visit', file: 'site-switchboard', takenAt: '2026-09-08T09:15:00.000Z', visitNoteId: 'look-visit-new' }),
-    lookGalleryPhoto({ id: 'new-2', source: 'visit', file: 'site-wall-cavity', takenAt: '2026-09-08T09:14:00.000Z', visitNoteId: 'look-visit-new' }),
-    lookGalleryPhoto({ id: 'job-1', source: 'job', file: 'site-pipework', takenAt: '2026-09-07T14:30:00.000Z', caption: 'Isolator location' }),
+    lookGalleryPhoto({ id: 'new-1', source: 'visit', file: 'site-switchboard', takenAt: '2026-09-08T09:15:00.000Z', visitNoteId: 'look-visit-new', place: LOOK_SITE_FIX }),
+    lookGalleryPhoto({ id: 'new-2', source: 'visit', file: 'site-wall-cavity', takenAt: '2026-09-08T09:14:00.000Z', visitNoteId: 'look-visit-new', place: LOOK_SITE_FIX }),
+    lookGalleryPhoto({ id: 'job-1', source: 'job', file: 'site-pipework', takenAt: '2026-09-07T14:30:00.000Z', caption: 'Isolator location', place: LOOK_DEVICE_FIX }),
     lookGalleryPhoto({ id: 'mid-1', source: 'visit', file: 'site-barrier', takenAt: '2026-09-07T08:00:00.000Z', visitNoteId: 'look-visit-mid' }),
     lookGalleryPhoto({ id: 'insp-1', source: 'inspection', file: 'site-switchboard', takenAt: '2026-09-06T17:10:00.000Z', caption: 'Main board' }),
     lookGalleryPhoto({ id: 'jha-1', source: 'jha', file: 'site-barrier', takenAt: '2026-09-06T16:20:00.000Z', caption: 'Exclusion zone' }),
@@ -693,15 +708,17 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           gap: 6px;
           margin: 8px 0 2px;
         }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-photos a {
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photos button {
           display: block;
+          padding: 0;
+          cursor: pointer;
           border-radius: 3px;
           overflow: hidden;
           border: 1px solid var(--visit-line);
           background: var(--visit-page);
           box-shadow: 0 1px 2px rgba(10, 37, 64, 0.06);
         }
-        .hub-jobs.is-record-open #job-visit-notes .job-visit-photos a:focus-visible {
+        .hub-jobs.is-record-open #job-visit-notes .job-visit-photos button:focus-visible {
           outline: 2px solid var(--visit-action);
           outline-offset: 1px;
         }
@@ -826,8 +843,15 @@ const JOB_GALLERY_LOOK_CSS = `
         .hub-jobs.is-record-open #job-gallery .job-gallery-item {
           display: block;
           min-width: 0;
+          width: 100%;
+          padding: 0;
+          border: 0;
+          background: none;
+          text-align: left;
+          cursor: pointer;
           color: inherit;
           text-decoration: none;
+          font: inherit;
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-item img {
           display: block;
@@ -855,6 +879,94 @@ const JOB_GALLERY_LOOK_CSS = `
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-when {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          margin-top: 1px;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 12px;
+          color: #5B6B7C;
+          white-space: nowrap;
+        }
+        .hub-jobs.is-record-open #job-gallery .job-gallery-when svg {
+          color: #2E75B6;
+          flex: none;
+        }
+        .job-photo-lightbox {
+          border: 0;
+          padding: 0;
+          background: transparent;
+          max-width: min(94vw, 960px);
+          max-height: 94vh;
+          overflow: visible;
+        }
+        .job-photo-lightbox::backdrop {
+          background: rgba(10, 37, 64, 0.72);
+        }
+        .job-photo-lightbox-sheet {
+          display: grid;
+          gap: 10px;
+          padding: 12px;
+          background: #FFFDF8;
+          border: 1px solid #E2D9CC;
+          border-radius: 4px;
+          box-shadow: 0 12px 32px rgba(10, 37, 64, 0.28);
+          color: #0A2540;
+        }
+        .job-photo-lightbox-sheet img {
+          display: block;
+          max-width: 100%;
+          max-height: 66vh;
+          object-fit: contain;
+          margin: 0 auto;
+          border-radius: 3px;
+          background: #F5F0E6;
+        }
+        .job-photo-lightbox-meta {
+          display: grid;
+          gap: 2px;
+          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-size: 14px;
+          line-height: 1.35;
+        }
+        .job-photo-lightbox-kind {
+          font-family: Rajdhani, sans-serif;
+          font-weight: 700;
+          font-size: 12px;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #5B6B7C;
+        }
+        .job-photo-lightbox-where {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 4px 6px;
+        }
+        .job-photo-lightbox-where svg {
+          color: #2E75B6;
+          flex: none;
+        }
+        .job-photo-lightbox-where a {
+          color: #2E75B6;
+          text-decoration: underline;
+        }
+        .job-photo-lightbox-close {
+          justify-self: end;
+          height: 36px;
+          padding: 0 14px;
+          border: 1px solid #0A2540;
+          border-radius: 3px;
+          background: #FFFDF8;
+          color: #0A2540;
+          font-family: Rajdhani, sans-serif;
+          font-weight: 700;
+          font-size: 13px;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          cursor: pointer;
         }
         .hub-jobs.is-record-open #job-gallery .ops-tray-empty {
           margin: 0;
@@ -899,12 +1011,15 @@ export function JobDetailPage() {
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [visitDraft, setVisitDraft] = useState('');
-  const [visitFiles, setVisitFiles] = useState<File[]>([]);
+  const [visitPhotos, setVisitPhotos] = useState<AttachedPhoto[]>([]);
+  const [visitAttaching, setVisitAttaching] = useState(false);
   const [galleryFilter, setGalleryFilter] = useState<JobGalleryFilter>('all');
+  const [lightboxKey, setLightboxKey] = useState<string | null>(null);
   const [arrivingSent, setArrivingSent] = useState(false);
   const [arrivingBusy, setArrivingBusy] = useState(false);
   const visitPhotoRef = useRef<HTMLInputElement>(null);
   const galleryPhotoRef = useRef<HTMLInputElement>(null);
+  const lightboxRef = useRef<HTMLDialogElement>(null);
   const moreRef = useRef<HTMLDetailsElement>(null);
   const reminderRef = useRef<JobClientReminderHandle>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
@@ -1243,7 +1358,7 @@ export function JobDetailPage() {
       if (!scope) return [];
       const { data, error } = await supabase
         .from(JOB_PHOTOS_TABLE)
-        .select('id, company_id, job_id, visit_note_id, storage_path, caption, created_by, created_at')
+        .select(scope.columns)
         .eq('company_id', scope.eq.company_id)
         .eq('job_id', scope.eq.job_id)
         .order('created_at', { ascending: false });
@@ -1297,6 +1412,17 @@ export function JobDetailPage() {
     },
     enabled: !!id && gallery.length > 0,
   });
+
+  const lightboxPhoto = lightboxKey
+    ? gallery.find(photo => photo.key === lightboxKey) ?? null
+    : null;
+
+  useEffect(() => {
+    const dialog = lightboxRef.current;
+    if (!dialog) return;
+    if (lightboxPhoto && !dialog.open) dialog.showModal();
+    if (!lightboxPhoto && dialog.open) dialog.close();
+  }, [lightboxPhoto]);
 
   const { data: myTimesheets } = useQuery<Timesheet[]>({
     queryKey: ['timesheets-job-clock', profile?.id],
@@ -1454,16 +1580,16 @@ export function JobDetailPage() {
         authorId: profile?.id,
         authorName: profile?.name,
         body: visitDraft,
-        photoCount: visitFiles.length,
+        photoCount: visitPhotos.length,
       });
       let failed = 0;
-      if (visitFiles.length > 0 && profile?.company_id && job?.id && profile.id) {
+      if (visitPhotos.length > 0 && profile?.company_id && job?.id && profile.id) {
         const result = await uploadJobPhotos({
           companyId: profile.company_id,
           jobId: job.id,
           userId: profile.id,
           visitNoteId: noteId,
-          files: visitFiles,
+          photos: visitPhotos,
         });
         failed = result.failed;
       }
@@ -1473,7 +1599,7 @@ export function JobDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['job-visit-notes', id] });
       queryClient.invalidateQueries({ queryKey: ['job-photos', id] });
       setVisitDraft('');
-      setVisitFiles([]);
+      setVisitPhotos([]);
       if (visitPhotoRef.current) visitPhotoRef.current.value = '';
       const toast = jobVisitNotePostToast();
       showToast(toast.message, toast.kind);
@@ -1501,7 +1627,7 @@ export function JobDetailPage() {
         jobId: job!.id,
         userId: profile!.id,
         visitNoteId: null,
-        files,
+        photos: await resolvePhotoProvenance(files, BROWSER_PROVENANCE_DEPS),
       });
     },
     onSuccess: (result) => {
@@ -1768,11 +1894,12 @@ export function JobDetailPage() {
     authorId: profile?.id,
     authorName: profile?.name,
     body: visitDraft,
-    photoCount: visitFiles.length,
+    photoCount: visitPhotos.length,
   });
   const visitLog = sortJobVisitNotesNewestFirst(visitNotes);
   const galleryCounts = galleryFilterCounts(gallery);
   const visibleGallery = filterJobGallery(gallery, galleryFilter);
+  const lightboxPlace = describePhotoPlace(lightboxPhoto?.place ?? null);
   const lookTray = testingDueLookKind();
   const dueSource = lookTray === 'rows'
     ? lookTestingDueInspections(job.id)
@@ -2493,7 +2620,7 @@ export function JobDetailPage() {
             <button
               type="submit"
               className="job-visit-post"
-              disabled={postVisitNote.isPending || visitDecision.action === 'miss'}
+              disabled={postVisitNote.isPending || visitAttaching || visitDecision.action === 'miss'}
             >
               Post note
             </button>
@@ -2506,11 +2633,20 @@ export function JobDetailPage() {
                 capture="environment"
                 className="job-visit-photo-input"
                 id="job-visit-photo-input"
-                onChange={e => setVisitFiles(Array.from(e.target.files ?? []))}
+                onChange={e => {
+                  const files = Array.from(e.target.files ?? []);
+                  setVisitAttaching(true);
+                  resolvePhotoProvenance(files, BROWSER_PROVENANCE_DEPS)
+                    .then(setVisitPhotos)
+                    .finally(() => setVisitAttaching(false));
+                }}
               />
               <label htmlFor="job-visit-photo-input" className="job-visit-photo-add">Add photos</label>
-              {visitFiles.length > 0 && (
-                <span className="job-visit-photo-count">{visitFiles.length} photo(s) attached</span>
+              {visitAttaching && (
+                <span className="job-visit-photo-count">Reading photo time and place…</span>
+              )}
+              {!visitAttaching && visitPhotos.length > 0 && (
+                <span className="job-visit-photo-count">{visitPhotos.length} photo(s) attached</span>
               )}
             </div>
           </form>
@@ -2534,15 +2670,15 @@ export function JobDetailPage() {
                         const url = galleryUrls?.[photo.key];
                         if (!url) return null;
                         return (
-                          <a
+                          <button
                             key={photo.key}
-                            href={url}
-                            target="_blank"
-                            rel="noreferrer"
+                            type="button"
                             data-visit-photo={photo.key}
+                            aria-label={`Open photo, ${describePhotoClock(photo.takenAt, photo.takenAtSource)}`}
+                            onClick={() => setLightboxKey(photo.key)}
                           >
                             <img src={url} alt="" loading="lazy" />
-                          </a>
+                          </button>
                         );
                       })}
                     </div>
@@ -2673,26 +2809,62 @@ export function JobDetailPage() {
               {visibleGallery.map(photo => {
                 const url = galleryUrls?.[photo.key] ?? '';
                 return (
-                  <a
+                  <button
                     key={photo.key}
+                    type="button"
                     className="job-gallery-item"
                     data-gallery-photo={photo.key}
                     data-gallery-source={photo.source}
-                    href={url || undefined}
-                    target="_blank"
-                    rel="noreferrer"
+                    onClick={() => setLightboxKey(photo.key)}
                   >
                     <img src={url} alt={photo.caption ?? ''} loading="lazy" />
                     <span className="job-gallery-meta">
                       {JOB_PHOTO_SOURCE_LABEL[photo.source]} · {format(parseISO(photo.takenAt), 'd MMM')}
                       <span className="job-gallery-meta-year">{format(parseISO(photo.takenAt), ' yyyy')}</span>
                     </span>
-                  </a>
+                    <span className="job-gallery-when" data-gallery-when>
+                      {format(parseISO(photo.takenAt), 'HH:mm')}
+                      {photo.place && <MapPin size={11} aria-label="Has location" />}
+                    </span>
+                  </button>
                 );
               })}
             </div>
           )}
         </section>
+
+        <dialog
+          ref={lightboxRef}
+          className="job-photo-lightbox"
+          data-photo-lightbox={lightboxPhoto?.key ?? ''}
+          onClose={() => setLightboxKey(null)}
+          onClick={e => { if (e.target === e.currentTarget) setLightboxKey(null); }}
+        >
+          {lightboxPhoto && (
+            <div className="job-photo-lightbox-sheet">
+              <img src={galleryUrls?.[lightboxPhoto.key] ?? ''} alt={lightboxPhoto.caption ?? ''} />
+              <div className="job-photo-lightbox-meta">
+                <p className="job-photo-lightbox-kind">
+                  {JOB_PHOTO_SOURCE_LABEL[lightboxPhoto.source]} photo
+                  {lightboxPhoto.caption ? ` · ${lightboxPhoto.caption}` : ''}
+                </p>
+                <p data-photo-when>{describePhotoClock(lightboxPhoto.takenAt, lightboxPhoto.takenAtSource)}</p>
+                {lightboxPlace ? (
+                  <p className="job-photo-lightbox-where" data-photo-where>
+                    <MapPin size={13} aria-hidden="true" />
+                    <span>{lightboxPlace.text}</span>
+                    <a href={lightboxPlace.mapUrl} target="_blank" rel="noreferrer">Open map</a>
+                  </p>
+                ) : (
+                  <p className="job-photo-lightbox-where" data-photo-where>{PHOTO_NO_PLACE}</p>
+                )}
+              </div>
+              <button type="button" className="job-photo-lightbox-close" onClick={() => setLightboxKey(null)}>
+                Close
+              </button>
+            </div>
+          )}
+        </dialog>
 
           <div id="job-testing-due">
           <JobRelatedSection
