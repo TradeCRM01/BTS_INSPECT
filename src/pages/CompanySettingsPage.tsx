@@ -22,6 +22,13 @@ import {
 } from '../lib/companyLogo';
 import { CompanyLogoStripCrop } from '../lib/CompanyLogoStripCrop';
 import {
+  JOB_PACK_TEMPLATES,
+  JOB_PACK_TRADES_HELP,
+  JOB_PACK_TRADES_LABEL,
+  parseCompanyTrades,
+  type JobPackTradeKey,
+} from '../lib/jobPack';
+import {
   blankCompanyPaymentMethod,
   COMPANY_PAYMENT_KIND_LABEL,
   companyPaymentMethodsSaveError,
@@ -431,6 +438,8 @@ export function CompanySettingsPage() {
   const [name, setName] = useState(company?.name ?? '');
   const [abn, setAbn] = useState(company?.abn ?? '');
   const [licenceNumber, setLicenceNumber] = useState(company?.licence_number ?? '');
+  const [trades, setTrades] = useState<JobPackTradeKey[]>(() => parseCompanyTrades(company?.trades));
+  const [tradesTouched, setTradesTouched] = useState(false);
   const [phone, setPhone] = useState(company?.phone ?? '');
   const [email, setEmail] = useState(company?.email ?? '');
   const [website, setWebsite] = useState(company?.website ?? '');
@@ -511,6 +520,7 @@ export function CompanySettingsPage() {
       setLogoCrop(companyLogoCropFrom(company));
       setLogoSizePx(companyLogoLetterheadSizePx(company));
       setPaymentMethods(parseCompanyPaymentMethods((company as { payment_methods?: unknown }).payment_methods));
+      setTrades(parseCompanyTrades(company.trades));
       loadRenderers();
       if (isAdmin) loadEmailSettings();
       const theme = (company as { report_theme?: Partial<ReportTheme> | null }).report_theme;
@@ -665,7 +675,18 @@ export function CompanySettingsPage() {
     setError('');
     const { error } = await supabase
       .from('companies')
-      .update({ name, abn, licence_number: licenceNumber, phone, email, website, default_tax_rate: Number(taxRate), default_material_markup: Number(materialMarkup) || 0 })
+      .update({
+        name,
+        abn,
+        licence_number: licenceNumber,
+        phone,
+        email,
+        website,
+        default_tax_rate: Number(taxRate),
+        default_material_markup: Number(materialMarkup) || 0,
+        // Before migration 080 the column is missing; only send it once an admin has touched the chips.
+        ...(tradesTouched || Array.isArray(company.trades) ? { trades } : {}),
+      })
       .eq('id', company.id);
     if (error) {
       setError(error.message);
@@ -1248,6 +1269,32 @@ export function CompanySettingsPage() {
             <div className="hub-company-field">
               <input value={licenceNumber} onChange={e => setLicenceNumber(e.target.value)}
                 className={inputClass + ' font-mono'} placeholder="EL-12345" />
+            </div>
+          </div>
+          <div className="hub-company-row">
+            <label className="hub-company-row-label">{JOB_PACK_TRADES_LABEL}</label>
+            <div className="hub-company-field">
+              <div role="group" aria-label={JOB_PACK_TRADES_LABEL} className="flex flex-wrap gap-2">
+                {JOB_PACK_TEMPLATES.map(t => {
+                  const pressed = trades.includes(t.key);
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      data-company-trade={t.key}
+                      aria-pressed={pressed}
+                      onClick={() => {
+                        setTrades(prev => (prev.includes(t.key) ? prev.filter(k => k !== t.key) : [...prev, t.key]));
+                        setTradesTouched(true);
+                      }}
+                      className={`min-h-[44px] px-3 rounded-md border text-sm ${pressed ? 'border-accent bg-accent/10 text-navy' : 'border-navy/20 text-navy'}`}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-navy/70">{JOB_PACK_TRADES_HELP}</p>
             </div>
           </div>
           <div className="hub-company-row">
