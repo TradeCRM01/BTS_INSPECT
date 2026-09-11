@@ -56,6 +56,7 @@ export interface Database {
       member_tickets: AnyTable;
       job_visit_notes: AnyTable;
       job_photos: AnyTable;
+      job_pack_items: AnyTable;
       platform_operators: AnyTable;
       platform_operator_events: AnyTable;
       platform_company_notes: AnyTable;
