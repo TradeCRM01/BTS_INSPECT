@@ -7,10 +7,12 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, useToast } from '../components/ui';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
+  REMINDER_ACCESS_NOTE,
   REMINDER_DELETED,
   REMINDER_NOT_YOURS,
   REMINDER_SAVED,
   canSeeReminder,
+  reminderAccess,
   deleteReminder,
   formatReminderJobOption,
   getReminder,
@@ -87,7 +89,9 @@ function ReminderEditSheet({
   const queryClient = useQueryClient();
   const { company } = useAuth();
   const { showToast } = useToast();
-  const isOwner = reminder.ownerId === userId;
+  const access = reminderAccess(reminder, userId);
+  const isOwner = access === 'owner';
+  const ownerName = crew.find(member => member.id === reminder.ownerId)?.name ?? 'The owner';
   const seeded = reminderDueInputs(reminder.dueAt);
   const [title, setTitle] = useState(reminder.title);
   const [details, setDetails] = useState(reminder.details);
@@ -157,7 +161,12 @@ function ReminderEditSheet({
         </header>
         <div className="dashboard-home-sheet-body">
           <Link to="/reminders" className="reminders-back">‹ Reminders</Link>
-          <h1 className="ops-page-title dashboard-home-hero">Edit reminder</h1>
+          <h1 className="ops-page-title dashboard-home-hero">{isOwner ? 'Edit reminder' : 'Reminder'}</h1>
+          {!isOwner && (
+            <p className="reminders-access-note" data-reminder-access={access}>
+              {REMINDER_ACCESS_NOTE[access](ownerName)}
+            </p>
+          )}
 
           <label className="reminders-field-label" htmlFor="reminder-title">What do you need to remember?</label>
           <textarea
@@ -165,6 +174,7 @@ function ReminderEditSheet({
             className="reminders-field"
             rows={3}
             value={title}
+            disabled={!isOwner}
             onChange={e => setTitle(e.target.value)}
           />
 
@@ -173,6 +183,7 @@ function ReminderEditSheet({
             id="reminder-job"
             className="reminders-field"
             value={jobId}
+            disabled={!isOwner}
             onChange={e => setJobId(e.target.value)}
           >
             <option value="">No linked job</option>
@@ -187,6 +198,7 @@ function ReminderEditSheet({
             className="reminders-field"
             rows={3}
             value={details}
+            disabled={!isOwner}
             onChange={e => setDetails(e.target.value)}
           />
 
@@ -198,6 +210,7 @@ function ReminderEditSheet({
                 type="date"
                 className="reminders-field"
                 value={date}
+                disabled={!isOwner}
                 onChange={e => setDate(e.target.value)}
               />
             </div>
@@ -208,11 +221,12 @@ function ReminderEditSheet({
                 type="time"
                 className="reminders-field"
                 value={time}
+                disabled={!isOwner}
                 onChange={e => setTime(e.target.value)}
               />
             </div>
           </div>
-          {date && (
+          {isOwner && date && (
             <button
               type="button"
               className="reminder-remove-date reminders-link"
@@ -269,22 +283,26 @@ function ReminderEditSheet({
           </div>
 
           <div className="reminders-actions">
-            <button
-              type="button"
-              className="btn-primary dashboard-home-primary reminder-save"
-              disabled={busy || !title.trim()}
-              onClick={() => void save()}
-            >
-              Save changes <Check size={16} />
-            </button>
-            <button
-              type="button"
-              className="reminder-done reminders-secondary"
-              disabled={busy}
-              onClick={() => void toggleDone()}
-            >
-              {reminder.completed ? 'Mark as not done' : 'Mark as done'}
-            </button>
+            {isOwner && (
+              <button
+                type="button"
+                className="btn-primary dashboard-home-primary reminder-save"
+                disabled={busy || !title.trim()}
+                onClick={() => void save()}
+              >
+                Save changes <Check size={16} />
+              </button>
+            )}
+            {access !== 'viewer' && (
+              <button
+                type="button"
+                className={`reminder-done ${isOwner ? 'reminders-secondary' : 'btn-primary dashboard-home-primary'}`}
+                disabled={busy}
+                onClick={() => void toggleDone()}
+              >
+                {reminder.completed ? 'Mark as not done' : 'Mark as done'}
+              </button>
+            )}
           </div>
           <p className="reminder-visibility-note"><NoteIcon size={14} /> {note}</p>
           {isOwner && (

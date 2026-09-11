@@ -171,6 +171,29 @@ export function canSeeReminder(r: Pick<Reminder, 'visibility' | 'ownerId' | 'tag
   return r.visibility === 'company' || r.ownerId === userId || r.taggedUserIds.includes(userId);
 }
 
+/** Mirrors the UPDATE policy: the owner or a tagged teammate may tick it done. Company viewers read. */
+export function canTickReminder(r: Pick<Reminder, 'ownerId' | 'taggedUserIds'>, userId: string): boolean {
+  return r.ownerId === userId || r.taggedUserIds.includes(userId);
+}
+
+/** Mirrors the tick-only trigger: text, job, details, date, visibility and tags are the owner's. */
+export function canEditReminder(r: Pick<Reminder, 'ownerId'>, userId: string): boolean {
+  return r.ownerId === userId;
+}
+
+export type ReminderAccess = 'owner' | 'tagged' | 'viewer';
+
+export function reminderAccess(r: Pick<Reminder, 'ownerId' | 'taggedUserIds'>, userId: string): ReminderAccess {
+  if (canEditReminder(r, userId)) return 'owner';
+  if (canTickReminder(r, userId)) return 'tagged';
+  return 'viewer';
+}
+
+export const REMINDER_ACCESS_NOTE: Record<Exclude<ReminderAccess, 'owner'>, (ownerName: string) => string> = {
+  tagged: owner => `${owner} tagged you. You can mark it done; only ${owner} can edit it.`,
+  viewer: owner => `${owner} shared this with the company. Only ${owner} can edit or tick it.`,
+};
+
 const SCOPE_PREDICATE: Record<ReminderScope, (r: Reminder, userId: string) => boolean> = {
   all: canSeeReminder,
   mine: (r, userId) => r.ownerId === userId,

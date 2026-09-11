@@ -9,6 +9,7 @@ import {
   REMINDER_EMPTY_LIST,
   REMINDER_LISTS,
   REMINDER_SCOPES,
+  canTickReminder,
   listReminderCrew,
   listReminderJobs,
   listReminders,
@@ -181,6 +182,7 @@ export function RemindersPage() {
                     ownerName={reminder.ownerId ? crewNames.get(reminder.ownerId) ?? null : null}
                     crewNames={crewNames}
                     isMine={reminder.ownerId === userId}
+                    canTick={canTickReminder(reminder, userId)}
                     onToggleDone={toggleDone}
                     onPostpone={postpone}
                   />

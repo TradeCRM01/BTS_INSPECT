@@ -93,9 +93,18 @@ function seed() {
   };
 }
 
-// The RLS SELECT predicate from migration 079, mirrored for the signed-in audit user.
+// The RLS predicates from migration 081, mirrored for the signed-in user. SELECT: owner,
+// tagged, or company. UPDATE: owner or tagged, and a tagged member may only touch the
+// completed columns. The predicates themselves are proven against Postgres separately.
 function visibleToMe(row) {
   return row.visibility === 'company' || row.user_id === ME || (row.tagged_user_ids ?? []).includes(ME);
+}
+function updatableByMe(row) {
+  return row.user_id === ME || (row.tagged_user_ids ?? []).includes(ME);
+}
+const TICK_COLUMNS = new Set(['completed', 'completed_at', 'updated_at']);
+function tickOnlyViolation(row, patch) {
+  return row.user_id !== ME && Object.keys(patch).some((key) => !TICK_COLUMNS.has(key));
 }
 
 function matches(row, key, expr) {
@@ -190,7 +199,11 @@ function fakePostgrest(store, log) {
     }
     if (method === 'PATCH') {
       const patch = JSON.parse(request.postData() || '{}');
-      const targets = applyFilters(isReminders ? table.filter(visibleToMe) : table, url.searchParams);
+      const targets = applyFilters(isReminders ? table.filter(updatableByMe) : table, url.searchParams);
+      if (isReminders && targets.some((row) => tickOnlyViolation(row, patch))) {
+        log.push({ method, table: name, filter: url.search, body: patch, rejected: 'tick-only' });
+        return route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ code: '42501', message: 'Only the owner can edit this reminder. Tagged teammates can mark it done.' }) });
+      }
       for (const row of targets) Object.assign(row, patch);
       log.push({ method, table: name, filter: url.search, body: patch, matched: targets.length });
       return reply(targets);
@@ -351,6 +364,79 @@ async function proveViewport(browser, tag, viewport) {
   check(`${tag}MineFilterShowsMyRows`, list.map((r) => r.id).sort().join(',') === [newId, 'rem-1'].sort().join(','), { ids: list.map((r) => r.id) });
   await page.click('[data-reminders-scope="all"]');
   await settle(page, 150);
+
+  // 4b. Who may tick: owner and tagged. A company viewer's tick is disabled; only the owner gets the clock.
+  const ticks = await page.evaluate(() => Object.fromEntries(
+    [...document.querySelectorAll('[data-reminders-page] .reminders-row')].map((row) => [
+      row.getAttribute('data-reminder-id'),
+      { tickDisabled: row.querySelector('.reminders-tick')?.disabled ?? null, clock: !!row.querySelector('.reminders-clock') },
+    ]),
+  ));
+  check(`${tag}CompanyViewerCannotTickAndOnlyOwnerPostpones`,
+    ticks['rem-2']?.tickDisabled === true && ticks['rem-2']?.clock === false
+    && ticks['rem-3']?.tickDisabled === false && ticks['rem-3']?.clock === false
+    && ticks['rem-1']?.tickDisabled === false && ticks['rem-1']?.clock === true,
+    ticks);
+
+  // 4c. Tagged non-owner opens Sam's reminder: read-only fields, no Save, Mark as done only.
+  await page.goto(`${BASE}/reminders/rem-3`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('[data-reminder-edit] #reminder-title', { timeout: 15000 });
+  await settle(page);
+  const taggedSheet = await page.evaluate(() => ({
+    hero: document.querySelector('[data-reminder-edit] .dashboard-home-hero')?.textContent?.trim() ?? null,
+    access: document.querySelector('.reminders-access-note')?.getAttribute('data-reminder-access') ?? null,
+    note: document.querySelector('.reminders-access-note')?.textContent?.trim() ?? null,
+    disabled: ['#reminder-title', '#reminder-job', '#reminder-details', '#reminder-date', '#reminder-time'].map((sel) => document.querySelector(sel)?.disabled ?? null),
+    visibilityDisabled: document.querySelector('.reminders-visibility')?.disabled ?? null,
+    tagsDisabled: [...document.querySelectorAll('[data-reminder-tag]')].map((el) => el.disabled),
+    save: !!document.querySelector('.reminder-save'),
+    removeDate: !!document.querySelector('.reminder-remove-date'),
+    done: document.querySelector('.reminder-done')?.textContent?.trim() ?? null,
+    del: !!document.querySelector('.reminder-delete'),
+  }));
+  check(`${tag}TaggedNonOwnerSeesTickOnlySheet`,
+    taggedSheet.hero === 'Reminder' && taggedSheet.access === 'tagged'
+    && taggedSheet.note === 'Sam Carter tagged you. You can mark it done; only Sam Carter can edit it.'
+    && taggedSheet.disabled.every((d) => d === true) && taggedSheet.visibilityDisabled === true
+    && taggedSheet.tagsDisabled.length > 0 && taggedSheet.tagsDisabled.every(Boolean)
+    && !taggedSheet.save && !taggedSheet.removeDate && taggedSheet.done === 'Mark as done' && !taggedSheet.del,
+    taggedSheet);
+  await page.click('.reminder-done');
+  await page.waitForSelector('[data-reminders-page]', { timeout: 15000 });
+  await settle(page);
+  const taggedTick = log.filter((e) => e.method === 'PATCH' && e.table === 'agent_reminders').at(-1);
+  check(`${tag}TaggedMarkAsDoneWritesOnlyTickColumns`,
+    !!taggedTick && taggedTick.filter.includes('id=eq.rem-3') && taggedTick.rejected === undefined
+    && taggedTick.body.completed === true && Object.keys(taggedTick.body).sort().join(',') === 'completed,completed_at,updated_at',
+    { body: taggedTick?.body ?? null, rejected: taggedTick?.rejected ?? null });
+  await page.click('[data-reminders-tab="completed"]');
+  await settle(page, 200);
+  const doneIds = (await readList(page)).map((r) => r.id);
+  check(`${tag}TaggedTickLandsInCompleted`, doneIds.includes('rem-3'), { doneIds });
+  await page.click(`.reminders-row[data-reminder-id="rem-3"] .reminders-tick`);
+  await page.waitForFunction(() => !document.querySelector('[data-reminders-page] .reminders-row[data-reminder-id="rem-3"]'), null, { timeout: 15000 });
+  await page.click('[data-reminders-tab="upcoming"]');
+  await settle(page, 200);
+
+  // 4d. Company viewer opens Sam's company reminder: read-only, no Save, no Mark as done.
+  await page.goto(`${BASE}/reminders/rem-2`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('[data-reminder-edit] #reminder-title', { timeout: 15000 });
+  await settle(page);
+  const viewerSheet = await page.evaluate(() => ({
+    access: document.querySelector('.reminders-access-note')?.getAttribute('data-reminder-access') ?? null,
+    note: document.querySelector('.reminders-access-note')?.textContent?.trim() ?? null,
+    save: !!document.querySelector('.reminder-save'),
+    done: !!document.querySelector('.reminder-done'),
+    titleDisabled: document.querySelector('#reminder-title')?.disabled ?? null,
+  }));
+  check(`${tag}CompanyViewerSeesReadOnlySheet`,
+    viewerSheet.access === 'viewer' && viewerSheet.note === 'Sam Carter shared this with the company. Only Sam Carter can edit or tick it.'
+    && !viewerSheet.save && !viewerSheet.done && viewerSheet.titleDisabled === true,
+    viewerSheet);
+  if (tag === 'phone') await page.screenshot({ path: `${OUT}/harness-viewer-sheet-${tag}.png` });
+  await page.goto(`${BASE}/reminders`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('[data-reminders-page] .reminders-row', { timeout: 30000 });
+  await settle(page);
 
   // 5. Tick done moves the row to Completed; tick again brings it back.
   await page.click(`.reminders-row[data-reminder-id="${newId}"] .reminders-tick`);

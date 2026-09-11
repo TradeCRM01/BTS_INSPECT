@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  REMINDER_ACCESS_NOTE,
+  canEditReminder,
   canSeeReminder,
+  canTickReminder,
+  reminderAccess,
   decideQuickCapture,
   formatReminderJobOption,
   postponeTo,
@@ -147,6 +151,19 @@ describe('canSeeReminder / reminderInScope', () => {
     expect(canSeeReminder(tagged, ME)).toBe(true);
     expect(canSeeReminder(shared, ME)).toBe(true);
     expect(canSeeReminder({ ...daves, ownerId: null }, ME)).toBe(false);
+  });
+
+  it('lets the owner edit, a tagged teammate tick, and a company viewer only read', () => {
+    expect(canEditReminder(mine, ME)).toBe(true);
+    expect(canEditReminder(tagged, ME)).toBe(false);
+    expect(canTickReminder(mine, ME)).toBe(true);
+    expect(canTickReminder(tagged, ME)).toBe(true);
+    expect(canTickReminder(shared, ME)).toBe(false);
+    expect(reminderAccess(mine, ME)).toBe('owner');
+    expect(reminderAccess(tagged, ME)).toBe('tagged');
+    expect(reminderAccess(shared, ME)).toBe('viewer');
+    expect(REMINDER_ACCESS_NOTE.tagged('Dave')).toBe('Dave tagged you. You can mark it done; only Dave can edit it.');
+    expect(REMINDER_ACCESS_NOTE.viewer('Dave')).toBe('Dave shared this with the company. Only Dave can edit or tick it.');
   });
 
   it('filters the list by chip', () => {

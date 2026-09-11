@@ -18,6 +18,7 @@ export function ReminderRow({
   ownerName,
   crewNames,
   isMine,
+  canTick,
   now,
   onToggleDone,
   onPostpone,
@@ -27,6 +28,7 @@ export function ReminderRow({
   ownerName: string | null;
   crewNames: Map<string, string>;
   isMine: boolean;
+  canTick: boolean;
   now?: Date;
   onToggleDone: (id: string, done: boolean) => void;
   onPostpone: (id: string, choice: PostponeChoice) => void;
@@ -73,8 +75,9 @@ export function ReminderRow({
       <button
         type="button"
         className="reminders-tick"
-        aria-label="Mark as done"
+        aria-label={canTick ? 'Mark as done' : 'Only the owner or a tagged teammate can mark this done'}
         aria-pressed={reminder.completed}
+        disabled={!canTick}
         onClick={() => onToggleDone(reminder.id, !reminder.completed)}
       >
         {reminder.completed && <Check size={14} strokeWidth={3} />}
@@ -97,24 +100,26 @@ export function ReminderRow({
       >
         <VisibilityIcon size={14} />
       </span>
-      <details ref={postponeRef} className="reminders-postpone">
-        <summary className="reminders-clock" aria-label="Postpone">
-          <Clock size={16} />
-        </summary>
-        <div className="reminders-postpone-menu" role="menu">
-          {POSTPONE_CHOICES.map(choice => (
-            <button
-              key={choice.key}
-              type="button"
-              role="menuitem"
-              data-postpone={choice.key}
-              onClick={() => postpone(choice.key)}
-            >
-              {choice.label}
-            </button>
-          ))}
-        </div>
-      </details>
+      {isMine && (
+        <details ref={postponeRef} className="reminders-postpone">
+          <summary className="reminders-clock" aria-label="Postpone">
+            <Clock size={16} />
+          </summary>
+          <div className="reminders-postpone-menu" role="menu">
+            {POSTPONE_CHOICES.map(choice => (
+              <button
+                key={choice.key}
+                type="button"
+                role="menuitem"
+                data-postpone={choice.key}
+                onClick={() => postpone(choice.key)}
+              >
+                {choice.label}
+              </button>
+            ))}
+          </div>
+        </details>
+      )}
     </li>
   );
 }

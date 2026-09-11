@@ -10468,6 +10468,33 @@
     opacity: 0.7;
   }
 
+  .reminders-field:disabled {
+    color: #0A2540;
+    background: #F5F0E6;
+    opacity: 1;
+    cursor: default;
+  }
+
+  .reminders-access-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    margin: 16px 0 0;
+    padding: 0 12px;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    color: #0A2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .reminders-tick:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+
   .reminders-tag-empty {
     margin: 8px 0 0;
     color: #5B6B7C;

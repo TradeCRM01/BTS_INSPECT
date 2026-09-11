@@ -47,7 +47,9 @@ describe('reminders LOOK — same paper as the signed-in home', () => {
     expect(list).toContain('<ReminderRow');
 
     expect(edit).toContain('data-reminder-edit');
-    expect(edit).toContain('ops-page-title dashboard-home-hero">Edit reminder');
+    expect(edit).toContain(`ops-page-title dashboard-home-hero">{isOwner ? 'Edit reminder' : 'Reminder'}`);
+    expect(edit).toContain('data-reminder-access={access}');
+    expect(edit).toContain('disabled={!isOwner}');
     expect(edit).toContain('className="reminders-back">‹ Reminders');
     for (const id of ['reminder-title', 'reminder-job', 'reminder-details', 'reminder-date', 'reminder-time']) {
       expect(edit).toContain(`id="${id}"`);
@@ -55,7 +57,7 @@ describe('reminders LOOK — same paper as the signed-in home', () => {
     expect(edit).toContain('name="reminder-visibility"');
     expect(edit).toContain('data-reminder-tag={member.id}');
     expect(edit).toContain('className="btn-primary dashboard-home-primary reminder-save"');
-    expect(edit).toContain('className="reminder-done reminders-secondary"');
+    expect(edit).toContain("className={`reminder-done ${isOwner ? 'reminders-secondary' : 'btn-primary dashboard-home-primary'}`}");
     expect(edit).toContain('className="reminder-delete reminders-link is-danger"');
     expect(edit).toContain('className="reminder-visibility-note"');
 
@@ -75,7 +77,8 @@ describe('reminders LOOK — same paper as the signed-in home', () => {
   it('renders one ReminderRow for both surfaces with tick, body link, chips, visibility, and postpone', () => {
     const row = src('src/components/reminders/ReminderRow.tsx');
     expect(row).toContain('className="reminders-tick"');
-    expect(row).toContain('aria-label="Mark as done"');
+    expect(row).toContain("aria-label={canTick ? 'Mark as done' : 'Only the owner or a tagged teammate can mark this done'}");
+    expect(row).toContain('disabled={!canTick}');
     expect(row).toContain('className="reminders-body"');
     expect(row).toContain('className="reminders-title"');
     expect(row).toContain('className="reminders-meta"');

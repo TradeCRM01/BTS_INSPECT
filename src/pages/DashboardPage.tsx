@@ -9,6 +9,7 @@ import { EmptyState, LoadingSpinner, PageError, useToast } from '../components/u
 import { ReminderRow } from '../components/reminders/ReminderRow';
 import { deriveNudges, type NudgeInvoice, type NudgeQuote } from '../lib/nudges';
 import {
+  canTickReminder,
   listReminderJobsById,
   listReminders,
   postponeReminder,
@@ -677,6 +678,7 @@ export function DashboardPage() {
                       ownerName={reminder.ownerId ? crewNames.get(reminder.ownerId) ?? null : null}
                       crewNames={crewNames}
                       isMine={reminder.ownerId === profile?.id}
+                      canTick={canTickReminder(reminder, profile?.id ?? '')}
                       now={now}
                       onToggleDone={toggleReminderDone}
                       onPostpone={postponeReminderTo}
