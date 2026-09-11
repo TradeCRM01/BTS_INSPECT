@@ -711,34 +711,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // ── GET /reminders ─────────────────────────────────────────────────────────
-    if (req.method === "GET" && path === "reminders") {
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      const { data } = await supabase
-        .from("agent_reminders")
-        .select("id,title,due_date,completed,related_type,created_at")
-        .eq("company_id", userCtx.companyId)
-        .order("due_date", { ascending: true, nullsFirst: false })
-        .limit(20);
-      return new Response(JSON.stringify({ reminders: data ?? [] }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // ── POST /reminders/:id/complete ───────────────────────────────────────────
-    if (req.method === "POST" && path.match(/^reminders\/[^/]+\/complete$/)) {
-      const reminderId = path.split("/")[1];
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      await supabase
-        .from("agent_reminders")
-        .update({ completed: true, completed_at: new Date().toISOString() })
-        .eq("id", reminderId)
-        .eq("company_id", userCtx.companyId);
-      return new Response(JSON.stringify({ ok: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // ── POST /chat ────────────────────────────────────────────────────────────
     if (req.method === "POST" && (!path || path === "chat")) {
       const body = await req.json();

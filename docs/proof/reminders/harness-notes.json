@@ -1,0 +1,799 @@
+{
+  "base": "http://127.0.0.1:5173",
+  "supabaseUrl": "https://harness.supabase.invalid",
+  "startedAt": "2026-09-11T15:13:58.253Z",
+  "laptopUpcomingShowsMineTaggedAndCompanyOnly": {
+    "ok": true,
+    "ids": [
+      "rem-2",
+      "rem-3",
+      "rem-1"
+    ],
+    "titles": [
+      "Toolbox talk Friday 7am",
+      "Bring the ladder for the Upstairs job",
+      "Order the 20 mm fittings"
+    ]
+  },
+  "laptopTaggedRowCarriesJobRefAndTodayLabel": {
+    "ok": true,
+    "meta": "#0043 · Upstairs lighting · Today · 3:00 pm · Sam Carter"
+  },
+  "laptopListPaperIsCreamSheetNavyAccent44": {
+    "ok": true,
+    "page": "rgb(245, 240, 230)",
+    "sheet": "rgb(255, 253, 248)",
+    "sheetW": 1232,
+    "bar": "rgb(10, 37, 64)",
+    "primaryH": 44,
+    "primaryBg": "rgb(46, 117, 182)",
+    "fieldH": 44,
+    "viewW": 1280
+  },
+  "laptopQuickCaptureInsertsPrivateUntaggedRow": {
+    "ok": true,
+    "body": {
+      "company_id": "00000000-0000-0000-0000-000000000001",
+      "user_id": "00000000-0000-0000-0000-000000000002",
+      "title": "Send Sarah the upstairs quote",
+      "visibility": "private",
+      "tagged_user_ids": []
+    }
+  },
+  "laptopCaptureClearsAfterAdd": {
+    "ok": true
+  },
+  "laptopEditOpensWithTitle": {
+    "ok": true
+  },
+  "laptopPrivateNoteBeforeEdit": {
+    "ok": true,
+    "note": " Only you can see this reminder"
+  },
+  "laptopCompanyNoteAfterRadio": {
+    "ok": true,
+    "note": " Everyone at Northside Plumbing can see this reminder"
+  },
+  "laptopJobOptionReadsRefAndTitle": {
+    "ok": true,
+    "option": "#0043 · Upstairs lighting"
+  },
+  "laptopEditPaperIsCreamSheetNavyAccent44": {
+    "ok": true,
+    "page": "rgb(245, 240, 230)",
+    "sheet": "rgb(255, 253, 248)",
+    "sheetW": 1232,
+    "bar": "rgb(10, 37, 64)",
+    "primaryH": 44,
+    "primaryBg": "rgb(46, 117, 182)",
+    "fieldH": 89,
+    "viewW": 1280
+  },
+  "laptopSaveWritesJobDetailsDateVisibilityAndTag": {
+    "ok": true,
+    "body": {
+      "title": "Send Sarah the upstairs quote",
+      "details": "Quote the additional upstairs lighting run.",
+      "related_type": "job",
+      "related_id": "job-43",
+      "due_date": "2026-09-12T02:30:00.000Z",
+      "visibility": "company",
+      "tagged_user_ids": [
+        "00000000-0000-0000-0000-000000000003"
+      ],
+      "updated_at": "2026-09-11T01:00:00.000Z"
+    },
+    "dueLocal": "12/09/2026, 10:30:00",
+    "filter": "?id=eq.harness-agent_reminders-6&select=id%2Ccompany_id%2Cuser_id%2Ctitle%2Cdetails%2Cdue_date%2Crelated_type%2Crelated_id%2Ccompleted%2Ccompleted_at%2Cvisibility%2Ctagged_user_ids%2Ccreated_at%2Cupdated_at"
+  },
+  "laptopListRowShowsJobTomorrowCompanyAndTag": {
+    "ok": true,
+    "row": {
+      "id": "harness-agent_reminders-6",
+      "title": "Send Sarah the upstairs quote",
+      "meta": "#0043 · Upstairs lighting · Tomorrow · 10:30 am · Company",
+      "visibility": "company",
+      "done": false,
+      "tagged": [
+        "SC"
+      ]
+    }
+  },
+  "laptopCompanyFilterShowsOnlyCompanyRows": {
+    "ok": true,
+    "ids": [
+      "rem-2",
+      "harness-agent_reminders-6"
+    ]
+  },
+  "laptopTaggedFilterShowsRowsTaggedToMe": {
+    "ok": true,
+    "ids": [
+      "rem-3"
+    ]
+  },
+  "laptopMineFilterShowsMyRows": {
+    "ok": true,
+    "ids": [
+      "harness-agent_reminders-6",
+      "rem-1"
+    ]
+  },
+  "laptopCompanyViewerCannotTickAndOnlyOwnerPostpones": {
+    "ok": true,
+    "rem-2": {
+      "tickDisabled": true,
+      "clock": false
+    },
+    "rem-3": {
+      "tickDisabled": false,
+      "clock": false
+    },
+    "harness-agent_reminders-6": {
+      "tickDisabled": false,
+      "clock": true
+    },
+    "rem-1": {
+      "tickDisabled": false,
+      "clock": true
+    }
+  },
+  "laptopTaggedNonOwnerSeesTickOnlySheet": {
+    "ok": true,
+    "hero": "Reminder",
+    "access": "tagged",
+    "note": "Sam Carter tagged you. You can mark it done; only Sam Carter can edit it.",
+    "disabled": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "visibilityDisabled": true,
+    "tagsDisabled": [
+      true,
+      true
+    ],
+    "save": false,
+    "removeDate": false,
+    "done": "Mark as done",
+    "del": false
+  },
+  "laptopTaggedMarkAsDoneWritesOnlyTickColumns": {
+    "ok": true,
+    "body": {
+      "completed": true,
+      "completed_at": "2026-09-11T01:00:00.000Z",
+      "updated_at": "2026-09-11T01:00:00.000Z"
+    },
+    "rejected": null
+  },
+  "laptopTaggedTickLandsInCompleted": {
+    "ok": true,
+    "doneIds": [
+      "rem-3",
+      "rem-5"
+    ]
+  },
+  "laptopCompanyViewerSeesReadOnlySheet": {
+    "ok": true,
+    "access": "viewer",
+    "note": "Sam Carter shared this with the company. Only Sam Carter can edit or tick it.",
+    "save": false,
+    "done": false,
+    "titleDisabled": true
+  },
+  "laptopTickWritesCompletedTrue": {
+    "ok": true,
+    "body": {
+      "completed": true,
+      "completed_at": "2026-09-11T01:00:00.000Z",
+      "updated_at": "2026-09-11T01:00:00.000Z"
+    }
+  },
+  "laptopCompletedTabListsTickedRows": {
+    "ok": true,
+    "ids": [
+      "harness-agent_reminders-6",
+      "rem-5"
+    ],
+    "done": [
+      true,
+      true
+    ]
+  },
+  "laptopUntickWritesCompletedFalse": {
+    "ok": true,
+    "body": {
+      "completed": false,
+      "completed_at": null,
+      "updated_at": "2026-09-11T01:00:00.000Z"
+    }
+  },
+  "laptopPostponeWritesTomorrowEight": {
+    "ok": true,
+    "dueLocal": "12/09/2026, 08:00:00",
+    "body": {
+      "due_date": "2026-09-12T00:00:00.000Z",
+      "updated_at": "2026-09-11T01:00:00.000Z"
+    }
+  },
+  "laptopTodayStripShowsDueTodayAndUndatedNotTomorrow": {
+    "ok": true,
+    "reminderIds": [
+      "rem-2",
+      "rem-3"
+    ],
+    "allHref": "/reminders",
+    "capture": true
+  },
+  "laptopTodayHasRemindersAndScheduleHeads": {
+    "ok": true,
+    "heads": [
+      "Reminders",
+      "Today's schedule"
+    ],
+    "scheduleHref": [
+      "/reminders",
+      "/schedule"
+    ],
+    "ledgerRows": [
+      "07:30 – 12:00Switchboard upgrade#0042 · Sarah Lee · Perth · Jack Wieland · TodayPerth",
+      "09:30 – 11:00Hot water swap#0044 · Harbour Lights · Fremantle · Jack Wieland · TodayFremantle"
+    ]
+  },
+  "laptopNudgesCoverLeaveSoonTomorrowQuoteInvoice": {
+    "ok": true,
+    "nudges": [
+      {
+        "kind": "leave_soon",
+        "href": "/jobs/job-44",
+        "label": "Leave soon · 9:30 am",
+        "detail": "#0044 · Hot water swap · Fremantle"
+      },
+      {
+        "kind": "jobs_tomorrow",
+        "href": "/jobs/job-43",
+        "label": "Tomorrow · 8:00 am",
+        "detail": "#0043 · Upstairs lighting · Subiaco"
+      },
+      {
+        "kind": "quote_chase",
+        "href": "/quotes?id=quote-12",
+        "label": "Chase quote #0012",
+        "detail": "Sent 6 days ago · Sarah Lee"
+      },
+      {
+        "kind": "invoice_unpaid",
+        "href": "/invoices?id=inv-2002",
+        "label": "Unpaid invoice #2002",
+        "detail": "5 days overdue · Harbour Lights · $836.00"
+      }
+    ]
+  },
+  "laptopTodayCaptureInsertsPrivateRow": {
+    "ok": true,
+    "body": {
+      "company_id": "00000000-0000-0000-0000-000000000001",
+      "user_id": "00000000-0000-0000-0000-000000000002",
+      "title": "Pick up the isolators",
+      "visibility": "private",
+      "tagged_user_ids": []
+    }
+  },
+  "laptopTodayPaperIsCreamSheetNavyAccent44": {
+    "ok": true,
+    "page": "rgb(245, 240, 230)",
+    "sheet": "rgb(255, 253, 248)",
+    "sheetW": 1232,
+    "bar": "rgb(10, 37, 64)",
+    "primaryH": 44,
+    "primaryBg": "rgb(46, 117, 182)",
+    "fieldH": 44,
+    "viewW": 1280
+  },
+  "laptopStaleSentQuoteShowsChaseChip": {
+    "ok": true,
+    "chaseText": "Chase · 6 days"
+  },
+  "laptopChaseOpensSendDialog": {
+    "ok": true
+  },
+  "laptopLog": [
+    {
+      "method": "POST",
+      "table": "agent_reminders",
+      "body": {
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "user_id": "00000000-0000-0000-0000-000000000002",
+        "title": "Send Sarah the upstairs quote",
+        "visibility": "private",
+        "tagged_user_ids": []
+      }
+    },
+    {
+      "method": "PATCH",
+      "table": "agent_reminders",
+      "filter": "?id=eq.harness-agent_reminders-6&select=id%2Ccompany_id%2Cuser_id%2Ctitle%2Cdetails%2Cdue_date%2Crelated_type%2Crelated_id%2Ccompleted%2Ccompleted_at%2Cvisibility%2Ctagged_user_ids%2Ccreated_at%2Cupdated_at",
+      "body": {
+        "title": "Send Sarah the upstairs quote",
+        "details": "Quote the additional upstairs lighting run.",
+        "related_type": "job",
+        "related_id": "job-43",
+        "due_date": "2026-09-12T02:30:00.000Z",
+        "visibility": "company",
+        "tagged_user_ids": [
+          "00000000-0000-0000-0000-000000000003"
+        ],
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "PATCH",
+      "table": "agent_reminders",
+      "filter": "?id=eq.rem-3",
+      "body": {
+        "completed": true,
+        "completed_at": "2026-09-11T01:00:00.000Z",
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "PATCH",
+      "table": "agent_reminders",
+      "filter": "?id=eq.rem-3",
+      "body": {
+        "completed": false,
+        "completed_at": null,
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "PATCH",
+      "table": "agent_reminders",
+      "filter": "?id=eq.harness-agent_reminders-6",
+      "body": {
+        "completed": true,
+        "completed_at": "2026-09-11T01:00:00.000Z",
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "PATCH",
+      "table": "agent_reminders",
+      "filter": "?id=eq.harness-agent_reminders-6",
+      "body": {
+        "completed": false,
+        "completed_at": null,
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "PATCH",
+      "table": "agent_reminders",
+      "filter": "?id=eq.rem-1",
+      "body": {
+        "due_date": "2026-09-12T00:00:00.000Z",
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "POST",
+      "table": "agent_reminders",
+      "body": {
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "user_id": "00000000-0000-0000-0000-000000000002",
+        "title": "Pick up the isolators",
+        "visibility": "private",
+        "tagged_user_ids": []
+      }
+    }
+  ],
+  "phoneUpcomingShowsMineTaggedAndCompanyOnly": {
+    "ok": true,
+    "ids": [
+      "rem-2",
+      "rem-3",
+      "rem-1"
+    ],
+    "titles": [
+      "Toolbox talk Friday 7am",
+      "Bring the ladder for the Upstairs job",
+      "Order the 20 mm fittings"
+    ]
+  },
+  "phoneTaggedRowCarriesJobRefAndTodayLabel": {
+    "ok": true,
+    "meta": "#0043 · Upstairs lighting · Today · 3:00 pm · Sam Carter"
+  },
+  "phoneListPaperIsCreamSheetNavyAccent44": {
+    "ok": true,
+    "page": "rgb(245, 240, 230)",
+    "sheet": "rgb(255, 253, 248)",
+    "sheetW": 358,
+    "bar": "rgb(10, 37, 64)",
+    "primaryH": 44,
+    "primaryBg": "rgb(46, 117, 182)",
+    "fieldH": 44,
+    "viewW": 390
+  },
+  "phoneQuickCaptureInsertsPrivateUntaggedRow": {
+    "ok": true,
+    "body": {
+      "company_id": "00000000-0000-0000-0000-000000000001",
+      "user_id": "00000000-0000-0000-0000-000000000002",
+      "title": "Send Sarah the upstairs quote",
+      "visibility": "private",
+      "tagged_user_ids": []
+    }
+  },
+  "phoneCaptureClearsAfterAdd": {
+    "ok": true
+  },
+  "phoneEditOpensWithTitle": {
+    "ok": true
+  },
+  "phonePrivateNoteBeforeEdit": {
+    "ok": true,
+    "note": " Only you can see this reminder"
+  },
+  "phoneCompanyNoteAfterRadio": {
+    "ok": true,
+    "note": " Everyone at Northside Plumbing can see this reminder"
+  },
+  "phoneJobOptionReadsRefAndTitle": {
+    "ok": true,
+    "option": "#0043 · Upstairs lighting"
+  },
+  "phoneEditPaperIsCreamSheetNavyAccent44": {
+    "ok": true,
+    "page": "rgb(245, 240, 230)",
+    "sheet": "rgb(255, 253, 248)",
+    "sheetW": 358,
+    "bar": "rgb(10, 37, 64)",
+    "primaryH": 44,
+    "primaryBg": "rgb(46, 117, 182)",
+    "fieldH": 89,
+    "viewW": 390
+  },
+  "phoneSaveWritesJobDetailsDateVisibilityAndTag": {
+    "ok": true,
+    "body": {
+      "title": "Send Sarah the upstairs quote",
+      "details": "Quote the additional upstairs lighting run.",
+      "related_type": "job",
+      "related_id": "job-43",
+      "due_date": "2026-09-12T02:30:00.000Z",
+      "visibility": "company",
+      "tagged_user_ids": [
+        "00000000-0000-0000-0000-000000000003"
+      ],
+      "updated_at": "2026-09-11T01:00:00.000Z"
+    },
+    "dueLocal": "12/09/2026, 10:30:00",
+    "filter": "?id=eq.harness-agent_reminders-6&select=id%2Ccompany_id%2Cuser_id%2Ctitle%2Cdetails%2Cdue_date%2Crelated_type%2Crelated_id%2Ccompleted%2Ccompleted_at%2Cvisibility%2Ctagged_user_ids%2Ccreated_at%2Cupdated_at"
+  },
+  "phoneListRowShowsJobTomorrowCompanyAndTag": {
+    "ok": true,
+    "row": {
+      "id": "harness-agent_reminders-6",
+      "title": "Send Sarah the upstairs quote",
+      "meta": "#0043 · Upstairs lighting · Tomorrow · 10:30 am · Company",
+      "visibility": "company",
+      "done": false,
+      "tagged": [
+        "SC"
+      ]
+    }
+  },
+  "phoneCompanyFilterShowsOnlyCompanyRows": {
+    "ok": true,
+    "ids": [
+      "rem-2",
+      "harness-agent_reminders-6"
+    ]
+  },
+  "phoneTaggedFilterShowsRowsTaggedToMe": {
+    "ok": true,
+    "ids": [
+      "rem-3"
+    ]
+  },
+  "phoneMineFilterShowsMyRows": {
+    "ok": true,
+    "ids": [
+      "harness-agent_reminders-6",
+      "rem-1"
+    ]
+  },
+  "phoneCompanyViewerCannotTickAndOnlyOwnerPostpones": {
+    "ok": true,
+    "rem-2": {
+      "tickDisabled": true,
+      "clock": false
+    },
+    "rem-3": {
+      "tickDisabled": false,
+      "clock": false
+    },
+    "harness-agent_reminders-6": {
+      "tickDisabled": false,
+      "clock": true
+    },
+    "rem-1": {
+      "tickDisabled": false,
+      "clock": true
+    }
+  },
+  "phoneTaggedNonOwnerSeesTickOnlySheet": {
+    "ok": true,
+    "hero": "Reminder",
+    "access": "tagged",
+    "note": "Sam Carter tagged you. You can mark it done; only Sam Carter can edit it.",
+    "disabled": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "visibilityDisabled": true,
+    "tagsDisabled": [
+      true,
+      true
+    ],
+    "save": false,
+    "removeDate": false,
+    "done": "Mark as done",
+    "del": false
+  },
+  "phoneTaggedMarkAsDoneWritesOnlyTickColumns": {
+    "ok": true,
+    "body": {
+      "completed": true,
+      "completed_at": "2026-09-11T01:00:00.000Z",
+      "updated_at": "2026-09-11T01:00:00.000Z"
+    },
+    "rejected": null
+  },
+  "phoneTaggedTickLandsInCompleted": {
+    "ok": true,
+    "doneIds": [
+      "rem-3",
+      "rem-5"
+    ]
+  },
+  "phoneCompanyViewerSeesReadOnlySheet": {
+    "ok": true,
+    "access": "viewer",
+    "note": "Sam Carter shared this with the company. Only Sam Carter can edit or tick it.",
+    "save": false,
+    "done": false,
+    "titleDisabled": true
+  },
+  "phoneTickWritesCompletedTrue": {
+    "ok": true,
+    "body": {
+      "completed": true,
+      "completed_at": "2026-09-11T01:00:00.000Z",
+      "updated_at": "2026-09-11T01:00:00.000Z"
+    }
+  },
+  "phoneCompletedTabListsTickedRows": {
+    "ok": true,
+    "ids": [
+      "harness-agent_reminders-6",
+      "rem-5"
+    ],
+    "done": [
+      true,
+      true
+    ]
+  },
+  "phoneUntickWritesCompletedFalse": {
+    "ok": true,
+    "body": {
+      "completed": false,
+      "completed_at": null,
+      "updated_at": "2026-09-11T01:00:00.000Z"
+    }
+  },
+  "phonePostponeWritesTomorrowEight": {
+    "ok": true,
+    "dueLocal": "12/09/2026, 08:00:00",
+    "body": {
+      "due_date": "2026-09-12T00:00:00.000Z",
+      "updated_at": "2026-09-11T01:00:00.000Z"
+    }
+  },
+  "phoneTodayStripShowsDueTodayAndUndatedNotTomorrow": {
+    "ok": true,
+    "reminderIds": [
+      "rem-2",
+      "rem-3"
+    ],
+    "allHref": "/reminders",
+    "capture": true
+  },
+  "phoneTodayHasRemindersAndScheduleHeads": {
+    "ok": true,
+    "heads": [
+      "Reminders",
+      "Today's schedule"
+    ],
+    "scheduleHref": [
+      "/reminders",
+      "/schedule"
+    ],
+    "ledgerRows": [
+      "07:30 – 12:00Switchboard upgrade#0042 · Sarah Lee · Perth · Jack Wieland · TodayPerth",
+      "09:30 – 11:00Hot water swap#0044 · Harbour Lights · Fremantle · Jack Wieland · TodayFremantle"
+    ]
+  },
+  "phoneNudgesCoverLeaveSoonTomorrowQuoteInvoice": {
+    "ok": true,
+    "nudges": [
+      {
+        "kind": "leave_soon",
+        "href": "/jobs/job-44",
+        "label": "Leave soon · 9:30 am",
+        "detail": "#0044 · Hot water swap · Fremantle"
+      },
+      {
+        "kind": "jobs_tomorrow",
+        "href": "/jobs/job-43",
+        "label": "Tomorrow · 8:00 am",
+        "detail": "#0043 · Upstairs lighting · Subiaco"
+      },
+      {
+        "kind": "quote_chase",
+        "href": "/quotes?id=quote-12",
+        "label": "Chase quote #0012",
+        "detail": "Sent 6 days ago · Sarah Lee"
+      },
+      {
+        "kind": "invoice_unpaid",
+        "href": "/invoices?id=inv-2002",
+        "label": "Unpaid invoice #2002",
+        "detail": "5 days overdue · Harbour Lights · $836.00"
+      }
+    ]
+  },
+  "phoneTodayCaptureInsertsPrivateRow": {
+    "ok": true,
+    "body": {
+      "company_id": "00000000-0000-0000-0000-000000000001",
+      "user_id": "00000000-0000-0000-0000-000000000002",
+      "title": "Pick up the isolators",
+      "visibility": "private",
+      "tagged_user_ids": []
+    }
+  },
+  "phoneTodayPaperIsCreamSheetNavyAccent44": {
+    "ok": true,
+    "page": "rgb(245, 240, 230)",
+    "sheet": "rgb(255, 253, 248)",
+    "sheetW": 358,
+    "bar": "rgb(10, 37, 64)",
+    "primaryH": 44,
+    "primaryBg": "rgb(46, 117, 182)",
+    "fieldH": 44,
+    "viewW": 390
+  },
+  "phoneStaleSentQuoteShowsChaseChip": {
+    "ok": true,
+    "chaseText": "Chase · 6 days"
+  },
+  "phoneChaseOpensSendDialog": {
+    "ok": true
+  },
+  "phoneLog": [
+    {
+      "method": "POST",
+      "table": "agent_reminders",
+      "body": {
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "user_id": "00000000-0000-0000-0000-000000000002",
+        "title": "Send Sarah the upstairs quote",
+        "visibility": "private",
+        "tagged_user_ids": []
+      }
+    },
+    {
+      "method": "PATCH",
+      "table": "agent_reminders",
+      "filter": "?id=eq.harness-agent_reminders-6&select=id%2Ccompany_id%2Cuser_id%2Ctitle%2Cdetails%2Cdue_date%2Crelated_type%2Crelated_id%2Ccompleted%2Ccompleted_at%2Cvisibility%2Ctagged_user_ids%2Ccreated_at%2Cupdated_at",
+      "body": {
+        "title": "Send Sarah the upstairs quote",
+        "details": "Quote the additional upstairs lighting run.",
+        "related_type": "job",
+        "related_id": "job-43",
+        "due_date": "2026-09-12T02:30:00.000Z",
+        "visibility": "company",
+        "tagged_user_ids": [
+          "00000000-0000-0000-0000-000000000003"
+        ],
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "PATCH",
+      "table": "agent_reminders",
+      "filter": "?id=eq.rem-3",
+      "body": {
+        "completed": true,
+        "completed_at": "2026-09-11T01:00:00.000Z",
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "PATCH",
+      "table": "agent_reminders",
+      "filter": "?id=eq.rem-3",
+      "body": {
+        "completed": false,
+        "completed_at": null,
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "PATCH",
+      "table": "agent_reminders",
+      "filter": "?id=eq.harness-agent_reminders-6",
+      "body": {
+        "completed": true,
+        "completed_at": "2026-09-11T01:00:00.000Z",
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "PATCH",
+      "table": "agent_reminders",
+      "filter": "?id=eq.harness-agent_reminders-6",
+      "body": {
+        "completed": false,
+        "completed_at": null,
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "PATCH",
+      "table": "agent_reminders",
+      "filter": "?id=eq.rem-1",
+      "body": {
+        "due_date": "2026-09-12T00:00:00.000Z",
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "POST",
+      "table": "agent_reminders",
+      "body": {
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "user_id": "00000000-0000-0000-0000-000000000002",
+        "title": "Pick up the isolators",
+        "visibility": "private",
+        "tagged_user_ids": []
+      }
+    }
+  ],
+  "noPageErrors": {
+    "ok": true,
+    "pageErrors": []
+  },
+  "finishedAt": "2026-09-11T15:14:31.469Z",
+  "failures": []
+}

@@ -3,7 +3,7 @@ import {
   FileText, TrendingUp, Calendar, Activity, DollarSign,
   Gauge, ListTodo, Calculator, Users, Briefcase,
   ShoppingCart, Package, Receipt,
-  Bot, Newspaper, Shield, Zap, Wrench, CheckCircle2, Activity,
+  Bot, Newspaper, Shield, Zap, Wrench, CheckCircle2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -280,8 +280,8 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
   },
   {
     type: 'agent_reminders',
-    label: 'Agent Reminders',
-    description: 'Reminders created by the AI agent, with complete buttons',
+    label: 'Reminders',
+    description: 'Your reminders, with tick-off',
     icon: CheckCircle2,
     defaultSize: { w: 3, h: 3 },
     minSize: { w: 2, h: 2 },

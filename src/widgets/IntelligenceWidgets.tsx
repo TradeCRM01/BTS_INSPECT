@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { listReminders, setReminderDone } from '../lib/reminders';
 import { format, formatDistanceToNow, isPast, isWithinInterval, addDays, subDays } from 'date-fns';
 import {
-  Bot, Send, User, Sparkles, TrendingUp, TrendingDown, AlertTriangle,
+  Bot, Send, User, Sparkles, TrendingUp, AlertTriangle,
   Clock, Activity, Shield, Newspaper, Zap, ArrowUpRight, ArrowDownRight,
-  CheckCircle, Calendar, Users, Briefcase, FileText, DollarSign,
+  CheckCircle, Users, Briefcase, FileText,
   Loader2, Wrench, AlertCircle,
 } from 'lucide-react';
 import type { WidgetProps } from './WidgetComponents';
@@ -514,29 +515,18 @@ export function TeamActivityWidget() {
 
 export function AgentRemindersWidget() {
   const queryClient = useQueryClient();
-  const { session } = useAuth();
+  const { profile } = useAuth();
+  const companyId = profile?.company_id ?? '';
   const { data, isLoading } = useQuery({
-    queryKey: ['widget-agent-reminders'],
-    queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-console/reminders`, {
-        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
-      });
-      if (!res.ok) throw new Error('Failed to load reminders');
-      const json = await res.json();
-      return (json.reminders ?? []) as Array<{
-        id: string; title: string; due_date: string | null;
-        completed: boolean; related_type: string | null; created_at: string;
-      }>;
-    },
+    queryKey: ['reminders', companyId],
+    queryFn: () => listReminders(companyId),
+    enabled: !!companyId,
   });
 
   const complete = useCallback(async (id: string) => {
-    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-console/reminders/${id}/complete`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
-    });
-    queryClient.invalidateQueries({ queryKey: ['widget-agent-reminders'] });
-  }, [session, queryClient]);
+    await setReminderDone(id, true);
+    queryClient.invalidateQueries({ queryKey: ['reminders'] });
+  }, [queryClient]);
 
   const pending = (data ?? []).filter(r => !r.completed).slice(0, 8);
 
@@ -544,31 +534,38 @@ export function AgentRemindersWidget() {
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-1.5 mb-2">
         <CheckCircle size={14} className="text-[#2E75B6]" />
-        <span className="text-xs font-semibold text-[#4A5568]">Agent Reminders</span>
+        <span className="text-xs font-semibold text-[#4A5568]">Reminders</span>
       </div>
       <div className="flex-1 overflow-auto -mx-1 px-1 space-y-1.5 min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center h-full text-xs text-gray-400">Loading…</div>
         ) : !pending.length ? (
           <div className="flex flex-col items-center justify-center h-full text-xs text-gray-400 text-center px-2">
-            <CheckCircle size={18} className="mb-1 text-green-500" />
-            No pending reminders.<br />Ask the agent to create one.
+            <CheckCircle size={18} className="mb-1 text-[#2E75B6]" />
+            Nothing to remember.<br />Add one from Reminders.
           </div>
         ) : pending.map(r => (
           <div key={r.id} className="flex items-start gap-2 group">
-            <button onClick={() => complete(r.id)}
-              className="w-4 h-4 rounded border-2 border-gray-300 hover:border-green-500 hover:bg-green-50 shrink-0 mt-0.5 transition-colors" />
+            <button
+              type="button"
+              aria-label="Mark as done"
+              onClick={() => complete(r.id)}
+              className="w-4 h-4 rounded border-2 border-gray-300 hover:border-[#2E75B6] shrink-0 mt-0.5 transition-colors"
+            />
             <div className="flex-1 min-w-0">
               <p className="text-[11px] text-[#1A1A1A] leading-snug">{r.title}</p>
-              {r.due_date && (
+              {r.dueAt && (
                 <p className="text-[9px] text-gray-400 mt-0.5">
-                  Due {format(new Date(r.due_date), 'd MMM')} · {formatDistanceToNow(new Date(r.due_date), { addSuffix: true })}
+                  Due {format(new Date(r.dueAt), 'd MMM')} · {formatDistanceToNow(new Date(r.dueAt), { addSuffix: true })}
                 </p>
               )}
             </div>
           </div>
         ))}
       </div>
+      <Link to="/reminders" className="mt-2 text-[11px] font-medium text-[#2E75B6] hover:underline shrink-0">
+        All reminders
+      </Link>
     </div>
   );
 }

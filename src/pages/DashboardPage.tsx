@@ -1,10 +1,26 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { addDays } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { EmptyState, LoadingSpinner, PageError } from '../components/ui';
+import { EmptyState, LoadingSpinner, PageError, useToast } from '../components/ui';
+import { ReminderRow } from '../components/reminders/ReminderRow';
+import { deriveNudges, type NudgeInvoice, type NudgeQuote } from '../lib/nudges';
+import {
+  canTickReminder,
+  listReminderJobsById,
+  listReminders,
+  postponeReminder,
+  quickCaptureReminder,
+  reminderCrewNames,
+  reminderJobLabels,
+  setReminderDone,
+  splitReminderLists,
+  todayReminders,
+  type PostponeChoice,
+} from '../lib/reminders';
 import { getAuditClients, getAuditDashboardWidgets, getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
@@ -200,6 +216,56 @@ function dashboardLookJobs(): JobWithClient[] {
   ];
 }
 
+type DashboardNudgeData = { jobs: JobWithClient[]; quotes: NudgeQuote[]; invoices: NudgeInvoice[] };
+type ClientRef = { client_id: string | null };
+type NudgeClient = Pick<Client, 'id' | 'name' | 'phone' | 'address'>;
+
+function withClientName<T extends ClientRef>(row: T, names: Map<string, string>): T & { client_name: string | null } {
+  return { ...row, client_name: row.client_id ? names.get(row.client_id) ?? null : null };
+}
+
+/** Today's and tomorrow's jobs, sent quotes, and unpaid invoices, each carrying its client name. */
+async function loadDashboardNudgeData(todayKey: string, tomorrowKey: string): Promise<DashboardNudgeData> {
+  const [jobsRes, quotesRes, invoicesRes] = await Promise.all([
+    supabase
+      .from('jobs')
+      .select('*')
+      .gte('scheduled_date', todayKey)
+      .lte('scheduled_date', tomorrowKey),
+    supabase
+      .from('quotes')
+      .select('id, quote_number, status, updated_at, client_id')
+      .eq('status', 'sent'),
+    supabase
+      .from('invoices')
+      .select('id, invoice_number, status, due_date, total, chased_at, client_id')
+      .in('status', ['sent', 'overdue']),
+  ]);
+  if (jobsRes.error) throw jobsRes.error;
+  if (quotesRes.error) throw quotesRes.error;
+  if (invoicesRes.error) throw invoicesRes.error;
+  const jobs = (jobsRes.data ?? []) as Job[];
+  const quotes = (quotesRes.data ?? []) as (NudgeQuote & ClientRef)[];
+  const invoices = (invoicesRes.data ?? []) as (NudgeInvoice & ClientRef)[];
+
+  const clientIds = [...new Set([...jobs, ...quotes, ...invoices].map(r => r.client_id).filter(Boolean))] as string[];
+  let clients: NudgeClient[] = [];
+  if (clientIds.length > 0) {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('id, name, phone, address')
+      .in('id', clientIds);
+    if (error) throw error;
+    clients = (data ?? []) as NudgeClient[];
+  }
+  const names = new Map(clients.map(c => [c.id, c.name]));
+  return {
+    jobs: attachJobClients(jobs, clients),
+    quotes: quotes.map(q => withClientName(q, names)),
+    invoices: invoices.map(i => withClientName(i, names)),
+  };
+}
+
 export function DashboardPage() {
   const { profile, company } = useAuth();
   const queryClient = useQueryClient();
@@ -209,7 +275,10 @@ export function DashboardPage() {
   const [showPicker, setShowPicker] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
-  const todayKey = dashboardTodayKey();
+  const now = new Date();
+  const todayKey = dashboardTodayKey(now);
+  const tomorrowKey = dashboardTodayKey(addDays(now, 1));
+  const { showToast } = useToast();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -349,6 +418,60 @@ export function DashboardPage() {
     },
     enabled: !!profile,
   });
+
+  const companyId = profile?.company_id ?? '';
+  const liveCompany = !!companyId && !lookDashboard;
+  const { data: reminders } = useQuery({
+    queryKey: ['reminders', companyId],
+    queryFn: () => listReminders(companyId),
+    enabled: liveCompany,
+  });
+  const stripRows = todayReminders(splitReminderLists(reminders ?? []).upcoming, now);
+  const linkedJobIds = [...new Set(stripRows.map(r => r.jobId).filter(Boolean))] as string[];
+  const { data: linkedJobs } = useQuery({
+    queryKey: ['reminders-linked-jobs', linkedJobIds],
+    queryFn: () => listReminderJobsById(linkedJobIds),
+    enabled: liveCompany && linkedJobIds.length > 0,
+  });
+  const jobLabels = reminderJobLabels(linkedJobs);
+  const crewNames = reminderCrewNames(teamMembers);
+
+  const { data: nudgeData } = useQuery<DashboardNudgeData>({
+    queryKey: ['dashboard-nudges', todayKey],
+    queryFn: () => loadDashboardNudgeData(todayKey, tomorrowKey),
+    enabled: liveCompany,
+  });
+  const nudges = nudgeData
+    ? deriveNudges({ ...nudgeData, userId: profile?.id ?? null, now })
+    : [];
+
+  const [reminderTitle, setReminderTitle] = useState('');
+  const [reminderSaving, setReminderSaving] = useState(false);
+  const reminderCaptureRef = useRef<HTMLInputElement>(null);
+
+  const runReminder = async (work: () => Promise<void>) => {
+    try {
+      await work();
+      await queryClient.invalidateQueries({ queryKey: ['reminders'] });
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Could not save the reminder.', 'error');
+    }
+  };
+
+  const captureReminder = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!reminderTitle.trim() || reminderSaving) return;
+    setReminderSaving(true);
+    await runReminder(async () => {
+      await quickCaptureReminder({ companyId, userId: profile?.id, title: reminderTitle });
+      setReminderTitle('');
+    });
+    setReminderSaving(false);
+    reminderCaptureRef.current?.focus();
+  };
+
+  const toggleReminderDone = (id: string, done: boolean) => void runReminder(() => setReminderDone(id, done));
+  const postponeReminderTo = (id: string, choice: PostponeChoice) => void runReminder(() => postponeReminder(id, choice));
 
   // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ CRUD Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const addWidget = async (widgetType: string) => {
@@ -519,6 +642,71 @@ export function DashboardPage() {
                   onToggleEdit={() => setEditMode(e => !e)}
                 />
               </div>
+            </div>
+
+            <section className="dashboard-home-strip" data-dashboard-reminders="1">
+              <div className="dashboard-home-section-head">
+                <h2 className="ops-section-title">Reminders</h2>
+                <Link to="/reminders" className="dashboard-home-all">All ›</Link>
+              </div>
+              <form className="reminders-capture dashboard-reminders-capture" onSubmit={captureReminder}>
+                <input
+                  ref={reminderCaptureRef}
+                  id="dashboard-reminder-capture"
+                  className="reminders-capture-input"
+                  placeholder="What do you need to remember?"
+                  aria-label="What do you need to remember?"
+                  value={reminderTitle}
+                  onChange={e => setReminderTitle(e.target.value)}
+                  autoComplete="off"
+                />
+                <button
+                  type="submit"
+                  className="btn-primary dashboard-home-primary reminders-capture-add"
+                  disabled={!reminderTitle.trim() || reminderSaving}
+                >
+                  Add
+                </button>
+              </form>
+              {stripRows.length > 0 && (
+                <ul className="reminders-list">
+                  {stripRows.map(reminder => (
+                    <ReminderRow
+                      key={reminder.id}
+                      reminder={reminder}
+                      jobLabel={reminder.jobId ? jobLabels.get(reminder.jobId) ?? null : null}
+                      ownerName={reminder.ownerId ? crewNames.get(reminder.ownerId) ?? null : null}
+                      crewNames={crewNames}
+                      isMine={reminder.ownerId === profile?.id}
+                      canTick={canTickReminder(reminder, profile?.id ?? '')}
+                      now={now}
+                      onToggleDone={toggleReminderDone}
+                      onPostpone={postponeReminderTo}
+                    />
+                  ))}
+                </ul>
+              )}
+              {nudges.length > 0 && (
+                <p className="dashboard-nudges-label">From your jobs, quotes and invoices</p>
+              )}
+              {nudges.length > 0 && (
+                <ul className="dashboard-nudges">
+                  {nudges.map(n => (
+                    <li key={n.key}>
+                      <Link to={n.href} className="dashboard-nudge" data-nudge-kind={n.kind}>
+                        <span className="dashboard-nudge-label">{n.label}</span>
+                        <span className="dashboard-nudge-detail">{n.detail}</span>
+                        <span className="dashboard-nudge-go">›</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <div className="dashboard-home-section-head">
+              <h2 className="ops-section-title">Today's schedule</h2>
+              <Link to="/schedule" className="dashboard-home-all">Schedule ›</Link>
             </div>
 
             {jobsLoading ? (

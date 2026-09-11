@@ -57,6 +57,7 @@ export interface Database {
       job_visit_notes: AnyTable;
       job_photos: AnyTable;
       job_pack_items: AnyTable;
+      agent_reminders: AnyTable;
       platform_operators: AnyTable;
       platform_operator_events: AnyTable;
       platform_company_notes: AnyTable;

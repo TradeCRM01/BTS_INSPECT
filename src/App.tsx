@@ -48,6 +48,8 @@ const SuppliersPage = lazy(() => import('./pages/SuppliersPage').then(m => ({ de
 const SupplierDetailPage = lazy(() => import('./pages/SupplierDetailPage').then(m => ({ default: m.SupplierDetailPage })));
 const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage').then(m => ({ default: m.PurchaseOrdersPage })));
 const SchedulePage = lazy(() => import('./pages/SchedulePage').then(m => ({ default: m.SchedulePage })));
+const RemindersPage = lazy(() => import('./pages/RemindersPage').then(m => ({ default: m.RemindersPage })));
+const ReminderEditPage = lazy(() => import('./pages/ReminderEditPage').then(m => ({ default: m.ReminderEditPage })));
 const QuotesPage = lazy(() => import('./pages/QuotesPage').then(m => ({ default: m.QuotesPage })));
 const InvoicesPage = lazy(() => import('./pages/InvoicesPage').then(m => ({ default: m.InvoicesPage })));
 const ExpensesPage = lazy(() => import('./pages/ExpensesPage').then(m => ({ default: m.ExpensesPage })));
@@ -153,6 +155,8 @@ export default function App() {
       <Route path="/suppliers/:id" element={<Protected><SupplierDetailPage /></Protected>} />
       <Route path="/purchase-orders" element={<Protected><PurchaseOrdersPage /></Protected>} />
       <Route path="/schedule" element={<Protected><SchedulePage /></Protected>} />
+      <Route path="/reminders" element={<Protected><RemindersPage /></Protected>} />
+      <Route path="/reminders/:id" element={<Protected><ReminderEditPage /></Protected>} />
       <Route path="/quotes" element={<Protected><QuotesPage /></Protected>} />
       <Route path="/invoices" element={<Protected><InvoicesPage /></Protected>} />
       <Route path="/expenses" element={<Protected><ExpensesPage /></Protected>} />
