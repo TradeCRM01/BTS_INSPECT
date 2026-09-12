@@ -1,0 +1,572 @@
+[
+  {
+    "name": "phone: bar is visible and navy",
+    "ok": true,
+    "detail": {
+      "pathname": "/jobs",
+      "viewH": 844,
+      "navVisible": true,
+      "navBg": "rgb(10, 37, 64)",
+      "nav": {
+        "top": 788,
+        "bottom": 844,
+        "h": 56
+      },
+      "main": {
+        "top": 69,
+        "bottom": 788,
+        "h": 719
+      },
+      "tabs": [
+        {
+          "id": "today",
+          "label": "Today",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        },
+        {
+          "id": "schedule",
+          "label": "Schedule",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        },
+        {
+          "id": "jobs",
+          "label": "Jobs",
+          "active": true,
+          "current": "page",
+          "expanded": null,
+          "topRule": "rgb(46, 117, 182)",
+          "h": 55
+        },
+        {
+          "id": "more",
+          "label": "More",
+          "active": false,
+          "current": null,
+          "expanded": "false",
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        }
+      ],
+      "hamburger": false,
+      "menuOpen": false,
+      "topGroups": [
+        "Dashboard",
+        "CRM",
+        "Field Work",
+        "Financials",
+        "Inventory"
+      ]
+    }
+  },
+  {
+    "name": "phone: four tabs in order",
+    "ok": true,
+    "detail": [
+      {
+        "id": "today",
+        "label": "Today",
+        "active": false,
+        "current": null,
+        "expanded": null,
+        "topRule": "rgba(0, 0, 0, 0)",
+        "h": 55
+      },
+      {
+        "id": "schedule",
+        "label": "Schedule",
+        "active": false,
+        "current": null,
+        "expanded": null,
+        "topRule": "rgba(0, 0, 0, 0)",
+        "h": 55
+      },
+      {
+        "id": "jobs",
+        "label": "Jobs",
+        "active": true,
+        "current": "page",
+        "expanded": null,
+        "topRule": "rgb(46, 117, 182)",
+        "h": 55
+      },
+      {
+        "id": "more",
+        "label": "More",
+        "active": false,
+        "current": null,
+        "expanded": "false",
+        "topRule": "rgba(0, 0, 0, 0)",
+        "h": 55
+      }
+    ]
+  },
+  {
+    "name": "phone: bar sits on the viewport floor and main ends where the bar starts",
+    "ok": true,
+    "detail": {
+      "pathname": "/jobs",
+      "viewH": 844,
+      "navVisible": true,
+      "navBg": "rgb(10, 37, 64)",
+      "nav": {
+        "top": 788,
+        "bottom": 844,
+        "h": 56
+      },
+      "main": {
+        "top": 69,
+        "bottom": 788,
+        "h": 719
+      },
+      "tabs": [
+        {
+          "id": "today",
+          "label": "Today",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        },
+        {
+          "id": "schedule",
+          "label": "Schedule",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        },
+        {
+          "id": "jobs",
+          "label": "Jobs",
+          "active": true,
+          "current": "page",
+          "expanded": null,
+          "topRule": "rgb(46, 117, 182)",
+          "h": 55
+        },
+        {
+          "id": "more",
+          "label": "More",
+          "active": false,
+          "current": null,
+          "expanded": "false",
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        }
+      ],
+      "hamburger": false,
+      "menuOpen": false,
+      "topGroups": [
+        "Dashboard",
+        "CRM",
+        "Field Work",
+        "Financials",
+        "Inventory"
+      ]
+    }
+  },
+  {
+    "name": "phone: every tab is at least 44px tall",
+    "ok": true,
+    "detail": [
+      {
+        "id": "today",
+        "label": "Today",
+        "active": false,
+        "current": null,
+        "expanded": null,
+        "topRule": "rgba(0, 0, 0, 0)",
+        "h": 55
+      },
+      {
+        "id": "schedule",
+        "label": "Schedule",
+        "active": false,
+        "current": null,
+        "expanded": null,
+        "topRule": "rgba(0, 0, 0, 0)",
+        "h": 55
+      },
+      {
+        "id": "jobs",
+        "label": "Jobs",
+        "active": true,
+        "current": "page",
+        "expanded": null,
+        "topRule": "rgb(46, 117, 182)",
+        "h": 55
+      },
+      {
+        "id": "more",
+        "label": "More",
+        "active": false,
+        "current": null,
+        "expanded": "false",
+        "topRule": "rgba(0, 0, 0, 0)",
+        "h": 55
+      }
+    ]
+  },
+  {
+    "name": "phone: header hamburger is gone",
+    "ok": true,
+    "detail": {
+      "pathname": "/jobs",
+      "viewH": 844,
+      "navVisible": true,
+      "navBg": "rgb(10, 37, 64)",
+      "nav": {
+        "top": 788,
+        "bottom": 844,
+        "h": 56
+      },
+      "main": {
+        "top": 69,
+        "bottom": 788,
+        "h": 719
+      },
+      "tabs": [
+        {
+          "id": "today",
+          "label": "Today",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        },
+        {
+          "id": "schedule",
+          "label": "Schedule",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        },
+        {
+          "id": "jobs",
+          "label": "Jobs",
+          "active": true,
+          "current": "page",
+          "expanded": null,
+          "topRule": "rgb(46, 117, 182)",
+          "h": 55
+        },
+        {
+          "id": "more",
+          "label": "More",
+          "active": false,
+          "current": null,
+          "expanded": "false",
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        }
+      ],
+      "hamburger": false,
+      "menuOpen": false,
+      "topGroups": [
+        "Dashboard",
+        "CRM",
+        "Field Work",
+        "Financials",
+        "Inventory"
+      ]
+    }
+  },
+  {
+    "name": "phone: Jobs lit on /jobs with the accent rule",
+    "ok": true,
+    "detail": [
+      {
+        "id": "today",
+        "label": "Today",
+        "active": false,
+        "current": null,
+        "expanded": null,
+        "topRule": "rgba(0, 0, 0, 0)",
+        "h": 55
+      },
+      {
+        "id": "schedule",
+        "label": "Schedule",
+        "active": false,
+        "current": null,
+        "expanded": null,
+        "topRule": "rgba(0, 0, 0, 0)",
+        "h": 55
+      },
+      {
+        "id": "jobs",
+        "label": "Jobs",
+        "active": true,
+        "current": "page",
+        "expanded": null,
+        "topRule": "rgb(46, 117, 182)",
+        "h": 55
+      },
+      {
+        "id": "more",
+        "label": "More",
+        "active": false,
+        "current": null,
+        "expanded": "false",
+        "topRule": "rgba(0, 0, 0, 0)",
+        "h": 55
+      }
+    ]
+  },
+  {
+    "name": "phone: tap today lands on / and lights only today",
+    "ok": true,
+    "detail": {
+      "pathname": "/",
+      "lit": [
+        "today"
+      ],
+      "menuOpen": false
+    }
+  },
+  {
+    "name": "phone: tap schedule lands on /schedule and lights only schedule",
+    "ok": true,
+    "detail": {
+      "pathname": "/schedule",
+      "lit": [
+        "schedule"
+      ],
+      "menuOpen": false
+    }
+  },
+  {
+    "name": "phone: tap jobs lands on /jobs and lights only jobs",
+    "ok": true,
+    "detail": {
+      "pathname": "/jobs",
+      "lit": [
+        "jobs"
+      ],
+      "menuOpen": false
+    }
+  },
+  {
+    "name": "phone: More opens the menu and lights More",
+    "ok": true,
+    "detail": {
+      "pathname": "/jobs",
+      "viewH": 844,
+      "navVisible": true,
+      "navBg": "rgb(10, 37, 64)",
+      "nav": {
+        "top": 788,
+        "bottom": 844,
+        "h": 56
+      },
+      "main": {
+        "top": 787,
+        "bottom": 788,
+        "h": 1
+      },
+      "tabs": [
+        {
+          "id": "today",
+          "label": "Today",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        },
+        {
+          "id": "schedule",
+          "label": "Schedule",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        },
+        {
+          "id": "jobs",
+          "label": "Jobs",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        },
+        {
+          "id": "more",
+          "label": "More",
+          "active": true,
+          "current": null,
+          "expanded": "true",
+          "topRule": "rgb(46, 117, 182)",
+          "h": 55
+        }
+      ],
+      "hamburger": false,
+      "menuOpen": true,
+      "topGroups": [
+        "Dashboard",
+        "CRM",
+        "Field Work",
+        "Financials",
+        "Inventory"
+      ]
+    }
+  },
+  {
+    "name": "phone: the open menu stops above the bar, bar still on the viewport floor",
+    "ok": true,
+    "detail": {
+      "top": 788,
+      "bottom": 844,
+      "h": 56
+    }
+  },
+  {
+    "name": "phone: a menu hop to /quotes closes the menu and lights no tab",
+    "ok": true,
+    "detail": {
+      "pathname": "/quotes",
+      "viewH": 844,
+      "navVisible": true,
+      "navBg": "rgb(10, 37, 64)",
+      "nav": {
+        "top": 788,
+        "bottom": 844,
+        "h": 56
+      },
+      "main": {
+        "top": 69,
+        "bottom": 788,
+        "h": 719
+      },
+      "tabs": [
+        {
+          "id": "today",
+          "label": "Today",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        },
+        {
+          "id": "schedule",
+          "label": "Schedule",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        },
+        {
+          "id": "jobs",
+          "label": "Jobs",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        },
+        {
+          "id": "more",
+          "label": "More",
+          "active": false,
+          "current": null,
+          "expanded": "false",
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 55
+        }
+      ],
+      "hamburger": false,
+      "menuOpen": false,
+      "topGroups": [
+        "Dashboard",
+        "CRM",
+        "Field Work",
+        "Financials",
+        "Inventory"
+      ]
+    }
+  },
+  {
+    "name": "laptop 1280: bar hidden, main reaches the floor, top groups unchanged",
+    "ok": true,
+    "detail": {
+      "pathname": "/jobs",
+      "viewH": 900,
+      "navVisible": false,
+      "navBg": "rgb(10, 37, 64)",
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "h": 0
+      },
+      "main": {
+        "top": 69,
+        "bottom": 900,
+        "h": 831
+      },
+      "tabs": [
+        {
+          "id": "today",
+          "label": "Today",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 0
+        },
+        {
+          "id": "schedule",
+          "label": "Schedule",
+          "active": false,
+          "current": null,
+          "expanded": null,
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 0
+        },
+        {
+          "id": "jobs",
+          "label": "Jobs",
+          "active": true,
+          "current": "page",
+          "expanded": null,
+          "topRule": "rgb(46, 117, 182)",
+          "h": 0
+        },
+        {
+          "id": "more",
+          "label": "More",
+          "active": false,
+          "current": null,
+          "expanded": "false",
+          "topRule": "rgba(0, 0, 0, 0)",
+          "h": 0
+        }
+      ],
+      "hamburger": false,
+      "menuOpen": false,
+      "topGroups": [
+        "Dashboard",
+        "CRM",
+        "Field Work",
+        "Financials",
+        "Inventory"
+      ]
+    }
+  }
+]
