@@ -4745,9 +4745,11 @@
     background: color-mix(in srgb, #B54708 12%, #fff);
   }
 
+  /* Settled reads as ink on the paper chip. Pending reads muted on the same chip. No green on the sheet. */
   :is(#job-swms, #job-insp, #job-lanes) .ops-status-ok {
-    color: var(--job-pass);
-    background: color-mix(in srgb, #1B7F3A 12%, #fff);
+    color: var(--job-ink);
+    background: var(--job-page);
+    border-color: var(--job-line);
   }
 
   :is(#job-swms, #job-insp, #job-lanes) .ops-status-info {
