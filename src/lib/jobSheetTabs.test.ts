@@ -80,11 +80,8 @@ describe('job sheet tabs', () => {
   });
 
   it('keeps labels all-trades and free of locked names', () => {
-    for (const t of JOB_SHEET_TABS) {
-      expect(t.label).not.toMatch(/Relovi|Littleloop|electric/i);
-    }
-    for (const g of JOB_SHEET_PAPERWORK_GROUPS) {
-      expect(g.label).not.toMatch(/Relovi|Littleloop|electric/i);
+    for (const { label } of [...JOB_SHEET_TABS, ...JOB_SHEET_PAPERWORK_GROUPS]) {
+      expect(label).not.toMatch(/Relovi|Littleloop|electric/i);
     }
   });
 });
