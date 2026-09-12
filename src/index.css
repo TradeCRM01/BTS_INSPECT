@@ -8985,6 +8985,25 @@
       padding: 24px 16px 16px;
     }
 
+    /* Phone rail. The hairline runs the width of the paper and all four labels sit at rest. Gaps close
+       to 16px and the type drops one step so Materials is a word, not a letter, at 390. */
+    .hub-jobs-document .job-sheet-tabs {
+      gap: 0;
+      margin-left: -16px;
+      margin-right: -16px;
+      padding: 0 16px;
+      scroll-padding: 0 16px;
+    }
+
+    .hub-jobs-document .job-sheet-tab {
+      padding: 0 8px;
+      font-size: 13px;
+    }
+
+    .hub-jobs-document .job-sheet-tab:first-child {
+      margin-left: -8px;
+    }
+
     .hub-jobs-identity {
       gap: 8px 12px;
     }
