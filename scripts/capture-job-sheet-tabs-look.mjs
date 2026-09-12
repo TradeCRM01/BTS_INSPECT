@@ -1,7 +1,8 @@
 // LOOK + FUNCTION proof for the job sheet section rail and its Overview hub.
 // Opens the DEV audit job (/jobs/audit-doc-job?auditAuth=1) at laptop 1280 and phone 390, measures the rail
-// against the paper kit, walks the four tabs and reads which trays are on the page, reads the five Overview
-// lane chips (empty fixture, then ?look=job-photos for real note and photo counts), clicks each lane and
+// against the paper kit (all four labels at rest on both, no scroll), walks the four tabs and reads which trays
+// are on the page, reads the five Overview lane chips and their cream / navy / #2E75B6 paint (empty fixture, then
+// ?look=job-photos for real note and photo counts), clicks each lane and
 // checks the sheet lands on its tray, reads the Paperwork group labels, the open bill on Materials, the
 // reschedule deep link, the one primary, the More menu, and Post update landing in the notes composer.
 // Run: node scripts/capture-job-sheet-tabs-look.mjs (needs `npm run dev` on LOOK_BASE_URL).
@@ -86,8 +87,14 @@ async function readRail(page) {
       tabFont: `${cs(on).fontFamily} ${cs(on).fontSize}`,
       hairline: cs(rail).borderBottom,
       scrolls: rail.scrollWidth > rail.clientWidth,
-      // The first chip carries margin-left: -12px so its text lines up with the hero, like the list strip.
+      // The first chip carries a negative margin so its text lines up with the hero, like the list strip.
       onInsideRail: onRect.left >= railRect.left - 13 && onRect.right <= railRect.right + 1,
+      // Every label sits inside the rail's visible box at rest. On phone that is what keeps Materials a word.
+      allInsideRail: tabs.every(t => {
+        const r = t.getBoundingClientRect();
+        return r.left >= railRect.left - 13 && r.right <= railRect.right + 1;
+      }),
+      railFlush: Math.round(railRect.left) === Math.round(document.querySelector('.hub-jobs-sheet-body').getBoundingClientRect().left),
       primaryCount: primaries.length,
       primaryGap: Math.round(railRect.top - primary.getBoundingClientRect().bottom),
       primaryH: Math.round(primary.getBoundingClientRect().height),
@@ -128,6 +135,9 @@ async function readLanes(page) {
       chipClasses: [...chip.classList],
       chipH: Math.round(chip.getBoundingClientRect().height),
       chipFont: getComputedStyle(chip).fontFamily,
+      chipColor: getComputedStyle(chip).color,
+      chipBg: getComputedStyle(chip).backgroundColor,
+      chipBorder: getComputedStyle(chip).borderColor,
       rowH: Math.round(row.getBoundingClientRect().height),
       isButton: !!row.querySelector('button.ops-related-main'),
       chevron: !!row.querySelector('svg.lucide-chevron-right'),
@@ -160,7 +170,8 @@ async function landedOn(page, id) {
   }, id);
 }
 
-function checkLook(label, m) {
+// Phone drops the tab type one step and runs the rail flush to the paper edge so all four labels sit at rest.
+function checkLook(label, m, phone) {
   assert(JSON.stringify(m.labels) === JSON.stringify(TABS), `${label}: tabs ${JSON.stringify(m.labels)}`);
   assert(JSON.stringify(m.roles) === JSON.stringify(['tablist', 'tab']), `${label}: roles ${JSON.stringify(m.roles)}`);
   assert(m.selectedCount === 1, `${label}: ${m.selectedCount} tabs selected`);
@@ -168,7 +179,9 @@ function checkLook(label, m) {
   assert(m.onShadow.includes(ACTION) && m.onShadow.includes('inset'), `${label}: on tab underline ${m.onShadow}`);
   assert(m.offColor === MUTED && m.offShadow === 'none', `${label}: off tab ${m.offColor} ${m.offShadow}`);
   assert(m.tabH === 44, `${label}: tab height ${m.tabH}`);
-  assert(m.tabFont.includes('Source Sans 3') && m.tabFont.endsWith('14px'), `${label}: tab font ${m.tabFont}`);
+  assert(m.tabFont.includes('Source Sans 3') && m.tabFont.endsWith(phone ? '13px' : '14px'), `${label}: tab font ${m.tabFont}`);
+  assert(!m.scrolls && m.allInsideRail, `${label}: rail scrolls ${m.scrolls}, all tabs inside ${m.allInsideRail}`);
+  assert(m.railFlush === phone, `${label}: rail flush to the paper edge ${m.railFlush}`);
   assert(m.hairline === `1px solid ${LINE}`, `${label}: rail hairline ${m.hairline}`);
   assert(m.primaryGap >= 8 && m.primaryGap <= 24, `${label}: rail sits ${m.primaryGap}px under the primary`);
   assert(m.primaryCount === 1, `${label}: ${m.primaryCount} primaries in the tools row`);
@@ -209,10 +222,18 @@ function checkLanes(label, lanes, chips, metas) {
 }
 
 // The ?look= harnesses hide the hub, so only the plain audit page measures the rows.
+// Chips speak cream, navy, and #2E75B6 only. Settled is ink on the cream chip, pending is muted on the same chip.
 function checkLaneLook(label, lanes) {
   for (const lane of lanes) {
     assert(lane.chipH === 24 && lane.chipFont.includes('Source Sans 3'), `${label}: ${lane.lane} chip ${lane.chipH}px ${lane.chipFont}`);
-    assert(lane.rowH >= 44, `${label}: ${lane.lane} row ${lane.rowH}px`);
+    assert(lane.rowH === lanes[0].rowH && lane.rowH >= 44, `${label}: ${lane.lane} row ${lane.rowH}px against ${lanes[0].rowH}px`);
+    if (lane.chipClasses.includes('ops-status-ok')) {
+      assert(lane.chipColor === INK && lane.chipBg === PAGE && lane.chipBorder === LINE, `${label}: ${lane.lane} ok chip ${lane.chipColor} on ${lane.chipBg} / ${lane.chipBorder}`);
+    } else if (lane.chipClasses.includes('ops-status-wait')) {
+      assert(lane.chipColor === MUTED && lane.chipBg === PAGE && lane.chipBorder === LINE, `${label}: ${lane.lane} wait chip ${lane.chipColor} on ${lane.chipBg} / ${lane.chipBorder}`);
+    } else {
+      assert(lane.chipColor === ACTION, `${label}: ${lane.lane} chip ${lane.chipColor} on ${lane.chipBg}`);
+    }
   }
 }
 
@@ -222,7 +243,7 @@ async function frame(context, label, viewport) {
 
   const fresh = await readRail(page);
   console.log(label, fresh);
-  checkLook(label, fresh);
+  checkLook(label, fresh, viewport === 'phone-390');
   assert(fresh.on === 'overview' && !fresh.url.includes('tab='), `${label}: default ${fresh.on} ${fresh.url}`);
   await checkTab(page, label, 'overview');
   const lanes = await readLanes(page);
@@ -266,7 +287,6 @@ async function frame(context, label, viewport) {
       await page.screenshot({ path: `${EXTRA_DIR}/job-sheet-tabs-${tab}-${viewport}.png`, type: 'png' });
     }
   }
-  assert(fresh.scrolls === (viewport === 'phone-390'), `${label}: rail scrolls ${fresh.scrolls}`);
 
   for (const lane of LANES) {
     await clickTab(page, 'overview');
