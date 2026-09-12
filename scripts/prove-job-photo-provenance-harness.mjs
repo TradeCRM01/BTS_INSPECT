@@ -94,7 +94,7 @@ async function waitForLoadedImages(page, selector, min) {
 async function openHarness(page) {
   await page.goto(`${BASE}${HARNESS}`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#job-gallery .job-gallery-grid img', { state: 'attached', timeout: 30000 });
-  await showTab(page, 'gallery');
+  await showTab(page, 'paperwork');
   await waitForLoadedImages(page, '#job-gallery .job-gallery-grid img, #job-visit-notes [data-visit-photo] img', 6);
   await page.evaluate(() => document.fonts.ready);
 }
@@ -122,7 +122,7 @@ check('galleryAddFallsBackToAttachClockAndDeviceFix', galleryDevice.ok, galleryD
 check('galleryAddStoragePathUnderCompanyJob', galleryRows.every((r) => /^[^/]+\/jobs\/audit-doc-job\/[^/]+\.jpg$/.test(r.storage_path)), { paths: galleryRows.map((r) => r.storage_path) });
 
 const noteBody = `Provenance proof ${new Date().toISOString()}`;
-await showTab(page, 'notes');
+await showTab(page, 'paperwork');
 await page.fill('#job-visit-notes textarea[data-visit-section="done"]', noteBody);
 await page.setInputFiles('#job-visit-photo-input', [sitePhotoFile(siteJpeg)]);
 await page.waitForFunction(() => document.querySelector('#job-visit-notes .job-visit-photo-count')?.textContent?.trim() === '1 photo', null, { timeout: 30000 });
@@ -136,7 +136,7 @@ check('gridShowsTimeAndPin', gridWhen.text === '19:15' && gridWhen.pin, gridWhen
 const gridNoPin = await page.$eval('[data-gallery-photo="visit:mid-1"] [data-gallery-when]', (el) => ({ text: el.textContent.trim(), pin: !!el.querySelector('svg') }));
 check('gridHidesPinWithoutPlace', gridNoPin.text === '18:00' && !gridNoPin.pin, gridNoPin);
 
-await showTab(page, 'gallery');
+await showTab(page, 'paperwork');
 await page.click('[data-gallery-photo="visit:new-1"]');
 await page.waitForSelector('dialog.job-photo-lightbox[open] img', { timeout: 10000 });
 await page.waitForFunction(() => { const img = document.querySelector('dialog.job-photo-lightbox img'); return img && img.complete && img.naturalWidth > 0; });
@@ -173,7 +173,7 @@ check('lightboxSaysNoLocation', lightboxNoPlace.where === 'No location on this p
 await page.keyboard.press('Escape');
 await page.waitForFunction(() => !document.querySelector('dialog.job-photo-lightbox')?.open);
 
-await showTab(page, 'notes');
+await showTab(page, 'paperwork');
 await page.click('[data-visit-photo="visit:new-1"]');
 await page.waitForSelector('dialog.job-photo-lightbox[open]');
 const fromVisitWall = await readLightbox(page);
@@ -191,7 +191,7 @@ const phone = await browser.newContext({
 await interceptSupabase(phone);
 const pp = await phone.newPage();
 await openHarness(pp);
-await showTab(pp, 'gallery');
+await showTab(pp, 'paperwork');
 await pp.evaluate(() => document.querySelector('#job-gallery')?.scrollIntoView({ block: 'start' }));
 await pp.waitForTimeout(300);
 await pp.screenshot({ path: `${OUT}/harness-gallery-phone-390.png` });

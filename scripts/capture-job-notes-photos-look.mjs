@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
 const BASE = process.env.LOOK_BASE_URL || 'http://127.0.0.1:5173';
 const OUT = 'docs/look';
 const FILLED_DIR = process.env.LOOK_FILLED_DIR || null;
-const HARNESS = '/jobs/audit-doc-job?look=visit-notes&tab=notes';
+const HARNESS = '/jobs/audit-doc-job?look=visit-notes&tab=paperwork';
 const PHOTOS = ['public/look/photos/site-switchboard.jpg', 'public/look/photos/site-wall-cavity.jpg'];
 
 const SHEET = 'rgb(255, 253, 248)';
