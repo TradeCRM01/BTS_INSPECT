@@ -438,7 +438,7 @@ export function AppShell({ children }: AppShellProps) {
         </div>
 
         {menuOpen && (
-          <div className="md:hidden border-t border-white/10 bg-navy max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <div className="shell-phone-menu md:hidden border-t border-white/10 bg-navy overflow-y-auto">
             <button
               type="button"
               onClick={() => {
