@@ -183,7 +183,7 @@ const before = await galleryItems(page);
 notes.galleryBefore = before;
 
 const noteBody = `Proof visit ${new Date().toISOString()}`;
-await showTab(page, 'notes');
+await showTab(page, 'paperwork');
 await page.fill('#job-visit-notes textarea[data-visit-section="done"]', noteBody);
 await page.setInputFiles('#job-visit-photo-input', [visitFile]);
 await page.click('#job-visit-notes .job-visit-post');
@@ -217,7 +217,7 @@ check('dbJobPhotosRowsMatchUpload', visitRows.length >= 1 && jobRows.length >= 1
 const { data: objects } = await sb.storage.from('uploaded-pdfs').list(`${companyId}/jobs/${jobId}`);
 check('storageObjectsExistUnderCompanyJobPrefix', (objects || []).length >= rows.length, { objects: (objects || []).length, rows: rows.length });
 
-await showTab(page, 'gallery');
+await showTab(page, 'paperwork');
 await page.click('[data-gallery-filter="visit"]');
 await page.waitForTimeout(200);
 const visitOnly = await galleryItems(page);
@@ -228,7 +228,7 @@ await page.waitForTimeout(200);
 await page.evaluate(() => document.querySelector('#job-gallery')?.scrollIntoView({ block: 'start' }));
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${OUT}/gallery-laptop-1280.png` });
-await showTab(page, 'notes');
+await showTab(page, 'paperwork');
 await page.evaluate(() => document.querySelector('#job-visit-notes')?.scrollIntoView({ block: 'start' }));
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${OUT}/visit-notes-laptop-1280.png` });

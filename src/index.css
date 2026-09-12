@@ -4717,7 +4717,7 @@
     color: var(--job-ink);
   }
 
-  :is(#job-swms, #job-insp) .ops-status {
+  :is(#job-swms, #job-insp, #job-lanes) .ops-status {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -4734,23 +4734,25 @@
     white-space: nowrap;
   }
 
-  :is(#job-swms, #job-insp) .ops-status-wait {
+  :is(#job-swms, #job-insp, #job-lanes) .ops-status-wait {
     color: var(--job-muted);
     background: var(--job-page);
     border-color: var(--job-line);
   }
 
-  :is(#job-swms, #job-insp) .ops-status-progress {
+  :is(#job-swms, #job-insp, #job-lanes) .ops-status-progress {
     color: var(--job-warn);
     background: color-mix(in srgb, #B54708 12%, #fff);
   }
 
-  :is(#job-swms, #job-insp) .ops-status-ok {
-    color: var(--job-pass);
-    background: color-mix(in srgb, #1B7F3A 12%, #fff);
+  /* Settled reads as ink on the paper chip. Pending reads muted on the same chip. No green on the sheet. */
+  :is(#job-swms, #job-insp, #job-lanes) .ops-status-ok {
+    color: var(--job-ink);
+    background: var(--job-page);
+    border-color: var(--job-line);
   }
 
-  :is(#job-swms, #job-insp) .ops-status-info {
+  :is(#job-swms, #job-insp, #job-lanes) .ops-status-info {
     color: var(--job-action);
     background: color-mix(in srgb, #2E75B6 12%, #fff);
   }
@@ -8452,6 +8454,28 @@
     outline-offset: -2px;
   }
 
+  /* Paperwork group label. Quiet eyebrow over the first tray of each group, hidden with it. */
+  .hub-jobs-document .job-sheet-group {
+    margin: 16px 0 0;
+    padding: 0 0 4px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--job-look-muted);
+  }
+
+  .hub-jobs-document .hub-jobs-ledger > .hub-jobs-scope {
+    display: block;
+    font-weight: 500;
+  }
+
+  .hub-jobs-document .hub-jobs-scope .ops-meta {
+    margin-bottom: 4px;
+    color: var(--job-look-muted);
+  }
+
   .hub-jobs-hours {
     margin: 0;
     font-family: Rajdhani, sans-serif;
@@ -8483,11 +8507,6 @@
     color: var(--job-look-ink);
     font-family: 'Source Sans 3', system-ui, sans-serif;
     text-decoration: none;
-  }
-
-  .hub-jobs-document .hub-jobs-ledger > .hub-jobs-ledger-row.hub-jobs-muted {
-    color: var(--job-look-ink);
-    font-weight: 500;
   }
 
   .hub-jobs-ledger-row .hub-jobs-hours {
@@ -8572,7 +8591,7 @@
     max-width: 100%;
   }
 
-  .hub-jobs-document :is(#job-swms, #job-insp) {
+  .hub-jobs-document :is(#job-swms, #job-insp, #job-lanes) {
     font-family: 'Source Sans 3', system-ui, sans-serif;
     --job-page: var(--job-look-page);
     --job-sheet: var(--job-look-sheet);
@@ -8580,6 +8599,11 @@
     --job-muted: var(--job-look-muted);
     --job-line: var(--job-look-line);
     --job-pass: var(--job-look-muted);
+  }
+
+  /* Hub rows keep one height whether or not a lane has a meta line, so the five read as one list. */
+  .hub-jobs-document #job-lanes .ops-related-main {
+    min-height: 60px;
   }
 
   .hub-jobs-document .ops-tray,
@@ -8945,6 +8969,7 @@
     .hub-jobs-document .hub-jobs-identity .ops-hub-site,
     .hub-jobs-document .hub-jobs-identity a,
     .hub-jobs-document .hub-jobs-identity .ops-meta,
+    .hub-jobs-document .hub-jobs-identity .hub-jobs-ledger-row,
     .hub-jobs-document .hub-jobs-identity .hub-jobs-hours {
       font-size: 12px;
     }
@@ -8966,6 +8991,25 @@
       padding: 24px 16px 16px;
     }
 
+    /* Phone rail. The hairline runs the width of the paper and all four labels sit at rest. Gaps close
+       to 16px and the type drops one step so Materials is a word, not a letter, at 390. */
+    .hub-jobs-document .job-sheet-tabs {
+      gap: 0;
+      margin-left: -16px;
+      margin-right: -16px;
+      padding: 0 16px;
+      scroll-padding: 0 16px;
+    }
+
+    .hub-jobs-document .job-sheet-tab {
+      padding: 0 8px;
+      font-size: 13px;
+    }
+
+    .hub-jobs-document .job-sheet-tab:first-child {
+      margin-left: -8px;
+    }
+
     .hub-jobs-identity {
       gap: 8px 12px;
     }
@@ -8975,6 +9019,15 @@
     }
 
     .hub-jobs-document .hub-jobs-identity .is-site .hub-jobs-ledger-row {
+      flex: 1 0 100%;
+    }
+
+    /* Crew and date take their own line under the client contact instead of wrapping into it. */
+    .hub-jobs-document .hub-jobs-identity .hub-jobs-identity-col.is-ops {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px 12px;
       flex: 1 0 100%;
     }
 

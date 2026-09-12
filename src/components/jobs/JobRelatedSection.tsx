@@ -46,6 +46,8 @@ export function JobRelatedSection({
 
 export function JobRelatedRow({
   href,
+  onClick,
+  lane,
   icon: Icon,
   title,
   meta,
@@ -54,6 +56,10 @@ export function JobRelatedRow({
   rowClassName,
 }: {
   href?: string;
+  /** Without an href, an in-page action renders the row as a button. */
+  onClick?: () => void;
+  /** Rendered as `data-lane` on the row wrapper so a hub row can be found by the section it opens. */
+  lane?: string;
   icon: LucideIcon;
   title: string;
   meta?: string;
@@ -74,11 +80,15 @@ export function JobRelatedRow({
 
   const className = 'ops-related-main flex items-center gap-2.5 px-3 py-2.5 hover:bg-zebra transition-colors';
   return (
-    <div className={['ops-related-row flex items-center gap-2 pr-2', rowClassName].filter(Boolean).join(' ')}>
+    <div className={['ops-related-row flex items-center gap-2 pr-2', rowClassName].filter(Boolean).join(' ')} data-lane={lane}>
       {href ? (
         <Link to={href} className={`${className} min-w-0 flex-1`}>
           {inner}
         </Link>
+      ) : onClick ? (
+        <button type="button" onClick={onClick} className={`${className} min-w-0 flex-1 w-full min-h-[44px] text-left`}>
+          {inner}
+        </button>
       ) : (
         <div className={`${className} min-w-0 flex-1`}>{inner}</div>
       )}
