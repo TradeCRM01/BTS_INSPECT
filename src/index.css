@@ -8601,6 +8601,11 @@
     --job-pass: var(--job-look-muted);
   }
 
+  /* Hub rows keep one height whether or not a lane has a meta line, so the five read as one list. */
+  .hub-jobs-document #job-lanes .ops-related-main {
+    min-height: 60px;
+  }
+
   .hub-jobs-document .ops-tray,
   .hub-jobs-document .ops-card,
   .hub-jobs-document .hub-jobs-bill-head,
@@ -8964,6 +8969,7 @@
     .hub-jobs-document .hub-jobs-identity .ops-hub-site,
     .hub-jobs-document .hub-jobs-identity a,
     .hub-jobs-document .hub-jobs-identity .ops-meta,
+    .hub-jobs-document .hub-jobs-identity .hub-jobs-ledger-row,
     .hub-jobs-document .hub-jobs-identity .hub-jobs-hours {
       font-size: 12px;
     }
@@ -9013,6 +9019,15 @@
     }
 
     .hub-jobs-document .hub-jobs-identity .is-site .hub-jobs-ledger-row {
+      flex: 1 0 100%;
+    }
+
+    /* Crew and date take their own line under the client contact instead of wrapping into it. */
+    .hub-jobs-document .hub-jobs-identity .hub-jobs-identity-col.is-ops {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px 12px;
       flex: 1 0 100%;
     }
 
