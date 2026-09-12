@@ -6,6 +6,7 @@ export function JobRelatedSection({
   title,
   icon: Icon,
   count,
+  summary,
   action,
   emptyTitle,
   emptyAction,
@@ -14,6 +15,11 @@ export function JobRelatedSection({
   title: string;
   icon: LucideIcon;
   count: number;
+  /**
+   * A running total read beside the label, for example clocked time. Inherits the heading ink at normal
+   * weight and stays on one line on phone. Not `ops-meta`: the job sheet hides that inside tray titles.
+   */
+  summary?: string;
   action?: ReactNode;
   emptyTitle: string;
   emptyAction?: ReactNode;
@@ -29,6 +35,7 @@ export function JobRelatedSection({
           <Icon size={14} className="text-navy shrink-0" />
           <span className="truncate">{title}</span>
           <span className="ops-meta font-normal">{count}</span>
+          {summary && <span className="font-normal shrink-0 whitespace-nowrap tabular-nums" data-summary>· {summary}</span>}
         </h2>
         {action}
       </div>

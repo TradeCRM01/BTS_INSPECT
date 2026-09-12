@@ -10,6 +10,8 @@ import {
   buildTimesheetClockOnUpdate,
   entryMinutes,
   findRunningJobEntry,
+  formatJobHoursTotal,
+  jobClockedMinutes,
   localDateIso,
   planTimesheetClockOff,
   timesheetWorkedMinutes,
@@ -44,6 +46,34 @@ describe('entryMinutes', () => {
     expect(entryMinutes(null, '2026-08-20T09:00:00.000Z')).toBe(0);
     expect(entryMinutes('2026-08-20T09:00:00.000Z', undefined)).toBe(0);
     expect(entryMinutes('2026-08-20T09:00:00.000Z', '2026-08-20T09:00:00.000Z')).toBe(0);
+  });
+});
+
+describe('jobClockedMinutes', () => {
+  it('sums closed entries and skips the running one', () => {
+    expect(jobClockedMinutes([
+      { start_time: '2026-09-08T07:30:00.000Z', end_time: '2026-09-08T09:00:00.000Z' },
+      { start_time: '2026-09-07T13:00:00.000Z', end_time: '2026-09-07T13:45:00.000Z' },
+      { start_time: '2026-09-08T10:00:00.000Z', end_time: null },
+    ])).toBe(135);
+  });
+
+  it('is 0 with no entries', () => {
+    expect(jobClockedMinutes([])).toBe(0);
+  });
+});
+
+describe('formatJobHoursTotal', () => {
+  it('pads minutes to two digits', () => {
+    expect(formatJobHoursTotal(135)).toBe('2h 15m');
+    expect(formatJobHoursTotal(65)).toBe('1h 05m');
+    expect(formatJobHoursTotal(60)).toBe('1h 00m');
+    expect(formatJobHoursTotal(0)).toBe('0h 00m');
+  });
+
+  it('rounds fractional minutes and clamps negatives', () => {
+    expect(formatJobHoursTotal(89.6)).toBe('1h 30m');
+    expect(formatJobHoursTotal(-5)).toBe('0h 00m');
   });
 });
 

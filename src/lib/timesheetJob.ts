@@ -19,6 +19,17 @@ export function entryMinutes(startIso?: string | null, endIso?: string | null): 
   return Math.max(0, Math.round((end - start) / 60000));
 }
 
+/** Clocked time on a job. A running entry (no end_time) adds nothing until it closes. */
+export function jobClockedMinutes(entries: ReadonlyArray<{ start_time: string; end_time: string | null }>): number {
+  return entries.reduce((sum, row) => sum + entryMinutes(row.start_time, row.end_time), 0);
+}
+
+/** Heading total, readable on a ute: `2h 15m`, `1h 05m`, `0h 00m`. */
+export function formatJobHoursTotal(minutes: number): string {
+  const whole = Math.max(0, Math.round(minutes));
+  return `${Math.floor(whole / 60)}h ${String(whole % 60).padStart(2, '0')}m`;
+}
+
 export function localDateIso(now = new Date(), timeZone = TIMESHEET_COMPANY_TZ): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,

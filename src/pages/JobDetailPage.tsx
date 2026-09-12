@@ -85,6 +85,8 @@ import {
   buildJobClockOnEntry,
   buildOpenTimesheetInsert,
   buildTimesheetClockOnUpdate,
+  formatJobHoursTotal,
+  jobClockedMinutes,
   localDateIso,
   planTimesheetClockOff,
 } from '../lib/timesheetJob';
@@ -242,6 +244,8 @@ const TESTING_DUE_LOOK_ROWS = 'testing-due-rows';
 const VISIT_NOTES_LOOK = 'visit-notes';
 /** Playwright: /jobs/audit-doc-job?look=job-photos — visit notes with photos plus a seeded Gallery. */
 const JOB_PHOTOS_LOOK = 'job-photos';
+/** Playwright: /jobs/audit-doc-job?auditAuth=1&look=job-hours&tab=schedule — two closed entries and one running. */
+const JOB_HOURS_LOOK = 'job-hours';
 const LOOK_PHOTO_DIR = '/look/photos';
 
 function lookSearchParam(): string | null {
@@ -262,6 +266,29 @@ function testingDueLookKind(): 'empty' | 'rows' | null {
 
 function jobPhotosLookOn(): boolean {
   return lookSearchParam() === JOB_PHOTOS_LOOK;
+}
+
+function jobHoursLookOn(): boolean {
+  return lookSearchParam() === JOB_HOURS_LOOK;
+}
+
+/** 1h 30m + 0h 45m closed, plus a running entry the total must ignore. Heading reads 2h 15m. */
+function lookJobTimesheets(jobId: string): JobTimesheet[] {
+  const row = (id: string, start: string, end: string | null, workType: string): JobTimesheet => ({
+    id,
+    timesheet_id: `look-ts-${id}`,
+    job_id: jobId,
+    start_time: start,
+    end_time: end,
+    work_type: workType,
+    billable: true,
+    notes: null,
+  });
+  return [
+    row('look-hours-running', '2026-09-08T00:30:00.000Z', null, 'Fit-off'),
+    row('look-hours-new', '2026-09-07T21:30:00.000Z', '2026-09-07T23:00:00.000Z', 'Fit-off'),
+    row('look-hours-old', '2026-09-07T03:00:00.000Z', '2026-09-07T03:45:00.000Z', 'Rough-in'),
+  ];
 }
 
 /** Both paper looks seed the same visit log; job-photos adds photos on top. */
@@ -1719,6 +1746,7 @@ export function JobDetailPage() {
   const { data: timesheets } = useQuery<JobTimesheet[]>({
     queryKey: ['job-timesheets', id],
     queryFn: async () => {
+      if (jobHoursLookOn()) return lookJobTimesheets(id!);
       const empty = getAuditEmptyList();
       if (empty) return empty as JobTimesheet[];
       const { data, error } = await supabase
@@ -3545,6 +3573,7 @@ export function JobDetailPage() {
           title="Time on this job"
           icon={Clock}
           count={(timesheets ?? []).length}
+          summary={formatJobHoursTotal(jobClockedMinutes(timesheets ?? []))}
           action={
             <div className="flex items-center gap-3">
               {runningEntry ? (
