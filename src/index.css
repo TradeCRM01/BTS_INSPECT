@@ -4717,7 +4717,7 @@
     color: var(--job-ink);
   }
 
-  :is(#job-swms, #job-insp) .ops-status {
+  :is(#job-swms, #job-insp, #job-lanes) .ops-status {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -4734,23 +4734,23 @@
     white-space: nowrap;
   }
 
-  :is(#job-swms, #job-insp) .ops-status-wait {
+  :is(#job-swms, #job-insp, #job-lanes) .ops-status-wait {
     color: var(--job-muted);
     background: var(--job-page);
     border-color: var(--job-line);
   }
 
-  :is(#job-swms, #job-insp) .ops-status-progress {
+  :is(#job-swms, #job-insp, #job-lanes) .ops-status-progress {
     color: var(--job-warn);
     background: color-mix(in srgb, #B54708 12%, #fff);
   }
 
-  :is(#job-swms, #job-insp) .ops-status-ok {
+  :is(#job-swms, #job-insp, #job-lanes) .ops-status-ok {
     color: var(--job-pass);
     background: color-mix(in srgb, #1B7F3A 12%, #fff);
   }
 
-  :is(#job-swms, #job-insp) .ops-status-info {
+  :is(#job-swms, #job-insp, #job-lanes) .ops-status-info {
     color: var(--job-action);
     background: color-mix(in srgb, #2E75B6 12%, #fff);
   }
@@ -8452,6 +8452,28 @@
     outline-offset: -2px;
   }
 
+  /* Paperwork group label. Quiet eyebrow over the first tray of each group, hidden with it. */
+  .hub-jobs-document .job-sheet-group {
+    margin: 16px 0 0;
+    padding: 0 0 4px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--job-look-muted);
+  }
+
+  .hub-jobs-document .hub-jobs-ledger > .hub-jobs-scope {
+    display: block;
+    font-weight: 500;
+  }
+
+  .hub-jobs-document .hub-jobs-scope .ops-meta {
+    margin-bottom: 4px;
+    color: var(--job-look-muted);
+  }
+
   .hub-jobs-hours {
     margin: 0;
     font-family: Rajdhani, sans-serif;
@@ -8483,11 +8505,6 @@
     color: var(--job-look-ink);
     font-family: 'Source Sans 3', system-ui, sans-serif;
     text-decoration: none;
-  }
-
-  .hub-jobs-document .hub-jobs-ledger > .hub-jobs-ledger-row.hub-jobs-muted {
-    color: var(--job-look-ink);
-    font-weight: 500;
   }
 
   .hub-jobs-ledger-row .hub-jobs-hours {
@@ -8572,7 +8589,7 @@
     max-width: 100%;
   }
 
-  .hub-jobs-document :is(#job-swms, #job-insp) {
+  .hub-jobs-document :is(#job-swms, #job-insp, #job-lanes) {
     font-family: 'Source Sans 3', system-ui, sans-serif;
     --job-page: var(--job-look-page);
     --job-sheet: var(--job-look-sheet);

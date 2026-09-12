@@ -395,11 +395,11 @@ describe('visit notes live on the existing job sheet', () => {
     expect(page).not.toMatch(/electrician|electrical/i);
   });
 
-  it('keeps the log in job-conduct order after time on this job', () => {
+  it('keeps the log in job-conduct order after the safety trays', () => {
     const page = src('src/pages/JobDetailPage.tsx');
     const trays = page.slice(page.indexOf('hub-trays hub-jobs-more-trays'), page.indexOf('id="job-schedule"'));
-    expect(trays.indexOf('title="Time on this job"')).toBeGreaterThan(-1);
-    expect(trays.indexOf('id="job-visit-notes"')).toBeGreaterThan(trays.indexOf('title="Time on this job"'));
+    expect(trays.indexOf('title="Take 5"')).toBeGreaterThan(-1);
+    expect(trays.indexOf('id="job-visit-notes"')).toBeGreaterThan(trays.indexOf('title="Take 5"'));
     expect(trays.indexOf('title="Inspections"')).toBeGreaterThan(trays.indexOf('id="job-visit-notes"'));
   });
 });

@@ -137,15 +137,18 @@ describe('job hub open sheet LOOK', () => {
     expect(header.indexOf('hub-jobs-identity')).toBeLessThan(header.indexOf('job.description'));
 
     const markers = [
-      'title="Quotes"',
+      'id="job-lanes"',
       'title="Project stages"',
       'ops-section-title">Job bill',
+      "groupLabel('job-swms')",
       'title="JHA / SWMS"',
       'title="Take 5"',
-      'title="Time on this job"',
+      "groupLabel('job-visit-notes')",
       'id="job-visit-notes"',
       'title="Inspections"',
       'JOB_TESTING_DUE_TITLE',
+      "groupLabel('job-quotes')",
+      'title="Quotes"',
       'title="Invoices"',
     ];
     const at = markers.map(m => trays.indexOf(m));
@@ -154,9 +157,13 @@ describe('job hub open sheet LOOK', () => {
       expect(at[i]).toBeGreaterThan(at[i - 1]);
     }
     expect(trays).toContain('stages.length > 0');
-    expect(trays.indexOf('JOB_TESTING_DUE_TITLE')).toBeLessThan(trays.indexOf('title="Invoices"'));
+    expect(trays).not.toContain('title="Time on this job"');
+    expect(trays.indexOf('JOB_TESTING_DUE_TITLE')).toBeLessThan(trays.indexOf('title="Quotes"'));
     expect(trays.indexOf('title="Project stages"')).toBeLessThan(trays.indexOf('ops-section-title">Job bill'));
-    expect(trays.indexOf('title="Project stages"')).toBeGreaterThan(trays.indexOf('title="Quotes"'));
+    expect(trays.indexOf('id="job-lanes"')).toBeLessThan(trays.indexOf('title="Project stages"'));
+    const schedule = page.slice(page.indexOf('id="job-schedule"'), page.indexOf('</article>'));
+    expect(schedule.indexOf('JobClientReminder')).toBeLessThan(schedule.indexOf('id="job-hours"'));
+    expect(schedule.indexOf('id="job-hours"')).toBeLessThan(schedule.indexOf('title="Time on this job"'));
 
     expect(trays).not.toContain('title="Reports"');
     expect(trays).not.toContain('<table');

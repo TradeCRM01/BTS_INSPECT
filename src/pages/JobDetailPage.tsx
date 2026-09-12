@@ -52,7 +52,8 @@ import {
 } from '../lib/jobReminder';
 import {
   JOB_SHEET_TABS,
-  JOB_SHEET_TAB_PARAM,
+  jobSheetGroupLabel,
+  jobSheetOverviewRows,
   jobSheetTabFor,
   readJobSheetTab,
   writeJobSheetTab,
@@ -77,6 +78,7 @@ import {
   Calendar, Clock, User, Phone, Mail, ChevronDown,
   FileText, ShieldCheck, ShieldAlert, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
   MoreHorizontal, MapPin, Camera, CheckCircle2, CornerDownRight, Lock, ChevronRight,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   buildJobClockOffEntry,
@@ -219,8 +221,19 @@ function inspectionHref(status: string, id: string): string {
 }
 
 function scrollToId(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const el = document.getElementById(id);
+  // Tray wrappers are display: contents, so they have no box to scroll to. Their first child does.
+  const target = el && el.getClientRects().length === 0 ? el.firstElementChild : el;
+  target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+const LANE_ICONS: Partial<Record<JobSheetSection, LucideIcon>> = {
+  'job-schedule': Calendar,
+  'job-swms': ShieldCheck,
+  'job-visit-notes': ClipboardList,
+  'job-quotes': FileText,
+  'job-bill': DollarSign,
+};
 
 /** DEV look frames only — empty / due rows on the audit job. Not a production path. */
 const TESTING_DUE_LOOK_EMPTY = 'testing-due-empty';
@@ -1362,9 +1375,13 @@ export function JobDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const rescheduleAsked = isJobRescheduleQuery(searchParams);
   const tab = readJobSheetTab(searchParams, window.location.hash);
+  // Materials is only the bill, so landing there opens the cost panel without a second tap.
+  const [billOpen, setBillOpen] = useState(tab === 'materials');
   // Replace, not push. Tab switches must not stack history, and back from an invoice still lands on the same tab.
-  const setTab = (next: JobSheetTab) =>
+  const setTab = (next: JobSheetTab) => {
+    if (next === 'materials') setBillOpen(true);
     setSearchParams(prev => writeJobSheetTab(new URLSearchParams(prev), next), { replace: true });
+  };
   const pane = (section: JobSheetSection) => ({
     'data-job-tab': jobSheetTabFor(section),
     hidden: tab !== jobSheetTabFor(section),
@@ -1395,7 +1412,6 @@ export function JobDetailPage() {
   const [showStage, setShowStage] = useState(false);
   const [showTimeEntry, setShowTimeEntry] = useState(false);
   const [showJhaPicker, setShowJhaPicker] = useState(false);
-  const [billOpen, setBillOpen] = useState(false);
   const [sendingReportId, setSendingReportId] = useState<string | null>(null);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
@@ -2164,10 +2180,11 @@ export function JobDetailPage() {
     const hash = window.location.hash.replace(/^#/, '');
     if (!hash && !rescheduleAsked) return;
     if (!hash) {
-      // The schedule lives on Overview, so a reschedule link overrides any ?tab= it arrived with.
+      // A reschedule link lands on the schedule's own tab whatever ?tab= it arrived with, or without.
       const params = new URLSearchParams(window.location.search);
-      if (params.has(JOB_SHEET_TAB_PARAM)) {
-        navigate({ search: writeJobSheetTab(params, 'overview').toString() }, { replace: true });
+      const scheduleTab = jobSheetTabFor('job-schedule');
+      if (readJobSheetTab(params, '') !== scheduleTab) {
+        navigate({ search: writeJobSheetTab(params, scheduleTab).toString() }, { replace: true });
       }
     }
     const t = window.setTimeout(() => scrollToId(hash || 'job-schedule'), 60);
@@ -2277,6 +2294,14 @@ export function JobDetailPage() {
     }, 60);
   };
 
+  const openPostUpdate = () => {
+    setVisitTab('new');
+    revealSection('job-visit-notes');
+    window.setTimeout(() => {
+      document.querySelector<HTMLTextAreaElement>('#job-visit-notes textarea')?.focus({ preventScroll: true });
+    }, 60);
+  };
+
   const runNext = () => {
     if (arrivingPrimary) {
       reminderRef.current?.sendArriving();
@@ -2339,6 +2364,26 @@ export function JobDetailPage() {
     title: job.title,
     address: job.address,
   });
+  const laneRows = jobSheetOverviewRows({
+    scheduledDate: job.scheduled_date,
+    startTime: job.start_time,
+    crewNames: assigned,
+    jhaCount: (jhas ?? []).length,
+    take5Count: (take5s ?? []).length,
+    inspectionCount: (inspections ?? []).length,
+    testingDueCount: dueTests.length,
+    noteCount: visitLog.length,
+    photoCount: gallery.length,
+    quoteCount: (quotes ?? []).length,
+    invoiceCount: (invoices ?? []).length,
+    billLines: costTotals?.lines ?? 0,
+    billCost: actualCost,
+    billCharge: chargeTotal,
+  });
+  const groupLabel = (section: JobSheetSection) => {
+    const label = jobSheetGroupLabel(section);
+    return label ? <p className="job-sheet-group" {...pane(section)}>{label}</p> : null;
+  };
 
   return (
     <AppShell>
@@ -2397,7 +2442,14 @@ export function JobDetailPage() {
                     role="menuitem"
                     onClick={() => { closeMore(); revealSection('job-schedule'); }}
                   >
-                    Schedule / crew
+                    Schedule & people
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); openPostUpdate(); }}
+                  >
+                    Post update
                   </button>
                   {(jhaTemplates ?? []).length <= 1 ? (
                     <button
@@ -2511,7 +2563,12 @@ export function JobDetailPage() {
                   {sheetNext.label}
                 </button>
               ) : (
-                <span className="ops-next-control-done">{sheetNext.label}</span>
+                <>
+                  <button type="button" className="btn-primary ops-next-control-block" onClick={openPostUpdate}>
+                    Post update
+                  </button>
+                  <span className="ops-next-control-done">{sheetNext.label}</span>
+                </>
               )}
             </div>
 
@@ -2694,6 +2751,13 @@ export function JobDetailPage() {
               </div>
               </div>
 
+            {job.description && (
+              <div className="hub-jobs-ledger-row hub-jobs-scope">
+                <p className="ops-meta">Scope of works</p>
+                <p className="whitespace-pre-wrap">{job.description}</p>
+              </div>
+            )}
+
             {((quotes ?? []).length > 0 || (invoices ?? []).length > 0) && (
               <>
                 {(quotes ?? []).map(q => (
@@ -2713,47 +2777,25 @@ export function JobDetailPage() {
                 })}
               </>
             )}
-
-            {job.description && (
-              <p className="hub-jobs-ledger-row hub-jobs-muted whitespace-pre-wrap">{job.description}</p>
-            )}
             </div>
 
             <div className="hub-trays hub-jobs-more-trays">
-          <div {...pane('job-quotes')}>
-          <JobRelatedSection
-            title="Quotes"
-            icon={FileText}
-            count={(quotes ?? []).length}
-            emptyTitle="No quote on this job. That’s fine for do-and-charge — invoice from the bill."
-          >
-            {(quotes ?? []).map(q => (
-              <JobRelatedRow
-                key={q.id}
-                href={`/quotes?id=${q.id}`}
-                icon={FileText}
-                title={`Quote #${padNum(q.quote_number)}`}
-                meta={formatMoney(Number(q.total))}
-                trailing={
-                  <OpsStatus className={QUOTE_STATUS_STYLES[q.status as keyof typeof QUOTE_STATUS_STYLES] ?? 'ops-status-wait'}>
-                    {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}
-                  </OpsStatus>
-                }
-                action={
-                  q.status === 'accepted' && !(invoices ?? []).some(inv => inv.quote_id === q.id) ? (
-                    <button
-                      type="button"
-                      onClick={() => invoiceFromQuote.mutate(q.id)}
-                      disabled={invoiceFromQuote.isPending}
-                      className="ops-next-control-sm w-auto px-3 shrink-0"
-                    >
-                      Invoice
-                    </button>
-                  ) : undefined
-                }
-              />
-            ))}
-          </JobRelatedSection>
+          <div id="job-lanes" {...pane('job-lanes')}>
+            <section className="ops-tray">
+              <div className="ops-related-list">
+                {laneRows.map(row => (
+                  <JobRelatedRow
+                    key={row.section}
+                    lane={row.section}
+                    onClick={() => revealSection(row.section)}
+                    icon={LANE_ICONS[row.section] ?? FileText}
+                    title={row.label}
+                    meta={row.meta || undefined}
+                    trailing={<OpsStatus className={`ops-status-${row.tone}`}>{row.status}</OpsStatus>}
+                  />
+                ))}
+              </div>
+            </section>
           </div>
 
         {stages.length > 0 && (
@@ -2818,6 +2860,7 @@ export function JobDetailPage() {
           )}
         </div>
 
+          {groupLabel('job-swms')}
           <div id="job-swms" {...pane('job-swms')}>
           <JobRelatedSection
             title="JHA / SWMS"
@@ -2985,58 +3028,7 @@ export function JobDetailPage() {
           </JobRelatedSection>
           </div>
 
-        <div id="job-hours" {...pane('job-hours')}>
-        <JobRelatedSection
-          title="Time on this job"
-          icon={Clock}
-          count={(timesheets ?? []).length}
-          action={
-            <div className="flex items-center gap-3">
-              {runningEntry ? (
-                <button type="button" onClick={() => clockOffJob.mutate()} disabled={clockOffJob.isPending} className="ops-link text-xs">
-                  Clock off
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => clockOnJob.mutate()}
-                  disabled={clockOnJob.isPending || job.status === 'cancelled'}
-                  className="ops-link text-xs"
-                >
-                  Clock on
-                </button>
-              )}
-              <button type="button" onClick={() => setShowTimeEntry(true)} className="ops-link text-xs">
-                <Plus size={12} className="inline" /> Add hours
-              </button>
-            </div>
-          }
-          emptyTitle="Nobody has clocked onto this job yet."
-          emptyAction={
-            runningEntry ? undefined : (
-              <button type="button" onClick={() => clockOnJob.mutate()} className="ops-link">
-                Clock on
-              </button>
-            )
-          }
-        >
-          {(timesheets ?? []).map(entry => {
-            const duration = entry.end_time
-              ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
-              : 0;
-            return (
-              <JobRelatedRow
-                key={entry.id}
-                icon={Clock}
-                title={`${format(new Date(entry.start_time), 'd MMM yyyy')} · ${format(new Date(entry.start_time), 'HH:mm')}${entry.end_time ? `–${format(new Date(entry.end_time), 'HH:mm')}` : ' · running'}`}
-                meta={[entry.work_type, entry.billable ? 'Billable' : 'Non-billable'].filter(Boolean).join(' · ')}
-                trailing={duration > 0 ? <span className="ops-meta">{formatDuration(duration)}</span> : undefined}
-              />
-            );
-          })}
-        </JobRelatedSection>
-        </div>
-
+        {groupLabel('job-visit-notes')}
         <section className="ops-tray" id="job-visit-notes" {...pane('job-visit-notes')}>
           <div className="ops-tray-head">
             <h2 className="ops-section-title flex items-center gap-1.5 min-w-0">
@@ -3461,6 +3453,43 @@ export function JobDetailPage() {
           </JobRelatedSection>
           </div>
 
+          {groupLabel('job-quotes')}
+          <div id="job-quotes" {...pane('job-quotes')}>
+          <JobRelatedSection
+            title="Quotes"
+            icon={FileText}
+            count={(quotes ?? []).length}
+            emptyTitle="No quote on this job. That’s fine for do-and-charge — invoice from the bill."
+          >
+            {(quotes ?? []).map(q => (
+              <JobRelatedRow
+                key={q.id}
+                href={`/quotes?id=${q.id}`}
+                icon={FileText}
+                title={`Quote #${padNum(q.quote_number)}`}
+                meta={formatMoney(Number(q.total))}
+                trailing={
+                  <OpsStatus className={QUOTE_STATUS_STYLES[q.status as keyof typeof QUOTE_STATUS_STYLES] ?? 'ops-status-wait'}>
+                    {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}
+                  </OpsStatus>
+                }
+                action={
+                  q.status === 'accepted' && !(invoices ?? []).some(inv => inv.quote_id === q.id) ? (
+                    <button
+                      type="button"
+                      onClick={() => invoiceFromQuote.mutate(q.id)}
+                      disabled={invoiceFromQuote.isPending}
+                      className="ops-next-control-sm w-auto px-3 shrink-0"
+                    >
+                      Invoice
+                    </button>
+                  ) : undefined
+                }
+              />
+            ))}
+          </JobRelatedSection>
+          </div>
+
           <div {...pane('job-invoices')}>
           <JobRelatedSection
             title="Invoices"
@@ -3510,6 +3539,58 @@ export function JobDetailPage() {
             onArrivingBusy={setArrivingBusy}
           />
             </div>
+
+        <div id="job-hours" {...pane('job-hours')}>
+        <JobRelatedSection
+          title="Time on this job"
+          icon={Clock}
+          count={(timesheets ?? []).length}
+          action={
+            <div className="flex items-center gap-3">
+              {runningEntry ? (
+                <button type="button" onClick={() => clockOffJob.mutate()} disabled={clockOffJob.isPending} className="ops-link text-xs">
+                  Clock off
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => clockOnJob.mutate()}
+                  disabled={clockOnJob.isPending || job.status === 'cancelled'}
+                  className="ops-link text-xs"
+                >
+                  Clock on
+                </button>
+              )}
+              <button type="button" onClick={() => setShowTimeEntry(true)} className="ops-link text-xs">
+                <Plus size={12} className="inline" /> Add hours
+              </button>
+            </div>
+          }
+          emptyTitle="Nobody has clocked onto this job yet."
+          emptyAction={
+            runningEntry ? undefined : (
+              <button type="button" onClick={() => clockOnJob.mutate()} className="ops-link">
+                Clock on
+              </button>
+            )
+          }
+        >
+          {(timesheets ?? []).map(entry => {
+            const duration = entry.end_time
+              ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
+              : 0;
+            return (
+              <JobRelatedRow
+                key={entry.id}
+                icon={Clock}
+                title={`${format(new Date(entry.start_time), 'd MMM yyyy')} · ${format(new Date(entry.start_time), 'HH:mm')}${entry.end_time ? `–${format(new Date(entry.end_time), 'HH:mm')}` : ' · running'}`}
+                meta={[entry.work_type, entry.billable ? 'Billable' : 'Non-billable'].filter(Boolean).join(' · ')}
+                trailing={duration > 0 ? <span className="ops-meta">{formatDuration(duration)}</span> : undefined}
+              />
+            );
+          })}
+        </JobRelatedSection>
+        </div>
           </div>
         </article>
       </div>
