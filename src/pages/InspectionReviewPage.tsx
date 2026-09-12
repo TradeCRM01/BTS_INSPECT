@@ -538,7 +538,7 @@ export function InspectionReviewPage() {
       </div>
 
       {/* Bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] px-4 py-3 flex items-center justify-between">
+      <div className="fixed left-0 right-0 bg-white border-t border-[#E5E7EB] px-4 py-3 flex items-center justify-between" style={{ bottom: 'var(--shell-bottom-nav-h, 0px)' }}>
         <button
           onClick={() => navigate(`/inspections/${id}`)}
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-md border border-[#E5E7EB] text-sm font-medium text-[#4A5568] hover:bg-[#F9FAFB]"
