@@ -4615,6 +4615,15 @@
       border-radius: 16px !important;
     }
 
+    .hub-invoice-send-foot {
+      flex-wrap: wrap;
+      row-gap: 12px;
+    }
+
+    .hub-invoice-send-foot .btn-primary {
+      white-space: nowrap;
+    }
+
     #job-schedule .job-reminder-tos,
     #inspection-due .job-reminder-tos {
       grid-template-columns: 1fr;
