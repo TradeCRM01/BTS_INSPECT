@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { DevConsole } from '../ui/DevConsole';
 import { BrandLockup } from '../brand/BrandLockup';
 import { resolveAppShellColors } from './appShellTheme';
+import { PHONE_TABS, activePhoneTab, type PhoneTabId } from './appShellPhoneNav';
 import {
   ClipboardList, LayoutTemplate, Settings, LogOut, Bell,
   User, Menu, X, Zap, ChevronDown, Users, BrainCircuit, RotateCw, Sparkles, FileText,
@@ -117,6 +118,13 @@ function isGroupActive(group: NavGroup, pathname: string): boolean {
 function menuItemClass(active: boolean) {
   return `shell-menu-item ${active ? 'shell-menu-item-active' : ''}`;
 }
+
+const PHONE_TAB_ICONS: Record<PhoneTabId, LucideIcon> = {
+  today: Home,
+  schedule: Calendar,
+  jobs: Briefcase,
+  more: Menu,
+};
 
 /** Whisper chrome hooks — Take 5 matches JHA documents, not a second hero. */
 function fieldWorkNavAttrs(to: string) {
@@ -248,6 +256,7 @@ export function AppShell({ children }: AppShellProps) {
   const chrome = resolveAppShellColors(
     (company as { report_theme?: unknown } | null)?.report_theme ?? null,
   );
+  const phoneTab = activePhoneTab(location.pathname, menuOpen);
 
   const renderGroupMenu = (group: NavGroup) => (
     group.items.map((item) => {
@@ -269,7 +278,7 @@ export function AppShell({ children }: AppShellProps) {
   );
 
   return (
-    <div className="bg-zebra flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
+    <div className="shell-root bg-zebra flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
       <header
         className="shell-header"
         style={{
@@ -425,10 +434,6 @@ export function AppShell({ children }: AppShellProps) {
                 </>
               )}
             </div>
-
-            <button className="md:hidden p-2 hover:bg-white/5" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'}>
-              {menuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
           </div>
         </div>
 
@@ -553,6 +558,47 @@ export function AppShell({ children }: AppShellProps) {
           {children}
         </div>
       </main>
+
+      <nav
+        className="shell-bottom-nav md:hidden"
+        aria-label="Phone navigation"
+        style={{ '--shell-navy': chrome.navy, '--shell-accent': chrome.accent } as CSSProperties}
+      >
+        {PHONE_TABS.map((tab) => {
+          const active = phoneTab === tab.id;
+          const className = `shell-bottom-tab ${active ? 'shell-bottom-tab-active' : ''}`;
+          if (tab.to === null) {
+            const MoreIcon = menuOpen ? X : PHONE_TAB_ICONS.more;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                data-phone-tab={tab.id}
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen(!menuOpen)}
+                className={className}
+              >
+                <MoreIcon size={20} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          }
+          const TabIcon = PHONE_TAB_ICONS[tab.id];
+          return (
+            <Link
+              key={tab.id}
+              to={tab.to}
+              data-phone-tab={tab.id}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => setMenuOpen(false)}
+              className={className}
+            >
+              <TabIcon size={20} />
+              <span>{tab.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
       {showDevConsole && (
         <DevConsole

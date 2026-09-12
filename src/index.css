@@ -13607,6 +13607,35 @@
     @apply bg-white/10 text-white font-medium;
   }
 
+  /* Phone shell: navy bar bookends the header. Hidden from md up (Tailwind md:hidden on the nav). */
+  .shell-root {
+    --shell-bottom-nav-h: 0px;
+  }
+
+  @media (max-width: 767px) {
+    .shell-root {
+      --shell-bottom-nav-h: calc(56px + env(safe-area-inset-bottom));
+    }
+  }
+
+  .shell-bottom-nav {
+    --shell-navy: #0A2540;
+    --shell-accent: #2E75B6;
+    @apply flex-shrink-0 grid grid-cols-4 border-t border-white/10 text-white;
+    background-color: var(--shell-navy);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .shell-bottom-tab {
+    @apply flex h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium tracking-tight text-white/65 transition-colors;
+    border-top: 2px solid transparent;
+  }
+
+  .shell-bottom-tab-active {
+    @apply text-white;
+    border-top-color: var(--shell-accent);
+  }
+
   /* Field Work Take 5 — same whisper chrome as JHA documents. */
   a[data-take5-nav],
   a[data-jha-nav] {
