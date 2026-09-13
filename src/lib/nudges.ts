@@ -28,6 +28,8 @@ export type NudgeQuote = {
   quote_number: number | null;
   status: string;
   updated_at: string;
+  validity_date?: string | null;
+  total: number;
   client_name?: string | null;
 };
 
@@ -52,7 +54,13 @@ export type NudgeInput = {
 export const LEAVE_SOON_MINUTES = 60;
 export const QUOTE_CHASE_AFTER_DAYS = 5;
 export const NUDGE_LIMIT = 6;
-export const JOBS_TOMORROW_ROLLUP_AFTER = 3;
+export const NUDGE_ROLLUP_AFTER = 3;
+
+export type QuoteChase =
+  | { state: 'quiet'; days: number }
+  | { state: 'lapsed'; days: number; daysPast: number };
+
+export type QuoteChaseInput = { status: string; updated_at: string; validity_date?: string | null };
 
 type NudgeRule = (input: NudgeInput) => Nudge[];
 
@@ -73,6 +81,33 @@ function plural(n: number, word: string): string {
 function localDay(key: string): Date {
   const [y, m, d] = key.split('-').map(Number);
   return new Date(y, m - 1, d);
+}
+
+/** null when the quote is not sent, or sent and fresh. Lapsed wins over quiet. */
+export function quoteChase(quote: QuoteChaseInput, now: Date): QuoteChase | null {
+  if (quote.status !== 'sent') return null;
+  const days = differenceInCalendarDays(now, new Date(quote.updated_at));
+  const validKey = scheduleDayKey(quote.validity_date);
+  if (validKey && validKey < scheduleDateKey(now)) {
+    return { state: 'lapsed', days, daysPast: differenceInCalendarDays(now, localDay(validKey)) };
+  }
+  return days >= QUOTE_CHASE_AFTER_DAYS ? { state: 'quiet', days } : null;
+}
+
+export function quoteChaseChipLabel(chase: QuoteChase): string {
+  return chase.state === 'lapsed'
+    ? `Lapsed · ${plural(chase.daysPast, 'day')}`
+    : `Chase · ${plural(chase.days, 'day')}`;
+}
+
+/** Patch to write after the plumber re-shares an already-sent quote. null unless status is sent. */
+export function quoteChasePatch(quote: { status: string }, now: Date): { updated_at: string } | null {
+  return quote.status === 'sent' ? { updated_at: now.toISOString() } : null;
+}
+
+function quoteValidTo(validityDate: string | null | undefined): string {
+  const key = scheduleDayKey(validityDate);
+  return key ? `Valid to ${format(localDay(key), 'd MMM')}` : '';
 }
 
 /** Job start as a local instant on its scheduled day, or null when the job has no clock. */
@@ -132,12 +167,12 @@ const NUDGE_RULES: Record<NudgeKind, NudgeRule> = {
   jobs_tomorrow: input => {
     const tomorrow = scheduledOn(input, scheduleDateKey(addDays(input.now, 1)));
     if (tomorrow.length === 0) return [];
-    if (tomorrow.length > JOBS_TOMORROW_ROLLUP_AFTER) {
+    if (tomorrow.length > NUDGE_ROLLUP_AFTER) {
       return [{
         key: 'jobs_tomorrow:all',
         kind: 'jobs_tomorrow',
         label: `${tomorrow.length} jobs tomorrow`,
-        detail: tomorrow.slice(0, JOBS_TOMORROW_ROLLUP_AFTER).map(formatJobRef).join(' · '),
+        detail: tomorrow.slice(0, NUDGE_ROLLUP_AFTER).map(formatJobRef).join(' · '),
         href: '/schedule',
       }];
     }
@@ -150,19 +185,44 @@ const NUDGE_RULES: Record<NudgeKind, NudgeRule> = {
     }));
   },
 
-  quote_chase: input =>
-    input.quotes
-      .filter(quote => quote.status === 'sent')
-      .map(quote => ({ quote, days: differenceInCalendarDays(input.now, new Date(quote.updated_at)) }))
-      .filter(({ days }) => days >= QUOTE_CHASE_AFTER_DAYS)
-      .sort((a, b) => b.days - a.days)
-      .map(({ quote, days }) => ({
-        key: `quote_chase:${quote.id}`,
-        kind: 'quote_chase' as const,
-        label: `Chase quote ${quoteRef(quote.quote_number)}`,
-        detail: [`Sent ${plural(days, 'day')} ago`, quote.client_name?.trim()].filter(Boolean).join(' · '),
-        href: `/quotes?id=${quote.id}`,
-      })),
+  quote_chase: input => {
+    const due = input.quotes
+      .flatMap(quote => {
+        const chase = quoteChase(quote, input.now);
+        return chase ? [{ quote, chase }] : [];
+      })
+      .sort((a, b) => b.chase.days - a.chase.days);
+    if (due.length > NUDGE_ROLLUP_AFTER) {
+      return [{
+        key: 'quote_chase:all',
+        kind: 'quote_chase',
+        label: `${due.length} quotes to chase`,
+        detail: due.slice(0, NUDGE_ROLLUP_AFTER).map(({ quote }) => quoteRef(quote.quote_number)).join(' · '),
+        href: '/quotes?status=sent',
+      }];
+    }
+    return due.map(({ quote, chase }) => {
+      const ref = quoteRef(quote.quote_number);
+      const total = Number(quote.total ?? 0);
+      const detail = (lead: string) =>
+        [lead, total > 0 ? formatMoney(total) : '', quote.client_name?.trim()].filter(Boolean).join(' · ');
+      return chase.state === 'lapsed'
+        ? {
+            key: `quote_chase:${quote.id}`,
+            kind: 'quote_chase' as const,
+            label: `Quote ${ref} lapsed`,
+            detail: detail(quoteValidTo(quote.validity_date)),
+            href: `/quotes?id=${quote.id}`,
+          }
+        : {
+            key: `quote_chase:${quote.id}`,
+            kind: 'quote_chase' as const,
+            label: `Chase quote ${ref}`,
+            detail: detail(`Quiet ${plural(chase.days, 'day')}`),
+            href: `/quotes?id=${quote.id}&send=1`,
+          };
+    });
+  },
 
   invoice_unpaid: input => {
     const todayKey = scheduleDateKey(input.now);

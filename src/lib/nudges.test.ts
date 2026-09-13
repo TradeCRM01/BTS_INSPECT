@@ -3,6 +3,9 @@ import {
   deriveNudges,
   nudgeClockLabel,
   nudgeJobDetail,
+  quoteChase,
+  quoteChaseChipLabel,
+  quoteChasePatch,
   type NudgeInvoice,
   type NudgeJob,
   type NudgeQuote,
@@ -25,7 +28,7 @@ function job(over: Partial<NudgeJob> & { id: string }): NudgeJob {
 }
 
 function quote(over: Partial<NudgeQuote> & { id: string }): NudgeQuote {
-  return { quote_number: 12, status: 'sent', updated_at: new Date(2026, 8, 5, 12).toISOString(), client_name: 'Sarah Lee', ...over };
+  return { quote_number: 12, status: 'sent', updated_at: new Date(2026, 8, 5, 12).toISOString(), total: 1320, client_name: 'Sarah Lee', ...over };
 }
 
 function invoice(over: Partial<NudgeInvoice> & { id: string }): NudgeInvoice {
@@ -86,19 +89,85 @@ describe('jobs_tomorrow', () => {
   });
 });
 
+describe('quoteChase', () => {
+  const now = new Date(2026, 8, 11, 9, 30);
+
+  it('is quiet on a sent quote five calendar days after its last touch', () => {
+    expect(quoteChase({ status: 'sent', updated_at: new Date(2026, 8, 5, 16).toISOString() }, now))
+      .toEqual({ state: 'quiet', days: 6 });
+    expect(quoteChase({ status: 'sent', updated_at: new Date(2026, 8, 6, 23, 59).toISOString() }, now))
+      .toEqual({ state: 'quiet', days: 5 });
+    expect(quoteChase({ status: 'sent', updated_at: new Date(2026, 8, 7, 0, 1).toISOString() }, now)).toBeNull();
+    expect(quoteChase({ status: 'accepted', updated_at: new Date(2026, 8, 1).toISOString() }, now)).toBeNull();
+    expect(quoteChase({ status: 'draft', updated_at: new Date(2026, 8, 1).toISOString() }, now)).toBeNull();
+  });
+
+  it('lapses once the validity day has passed, even on a fresh quote, and stays valid through that day', () => {
+    const fresh = new Date(2026, 8, 9, 12).toISOString();
+    expect(quoteChase({ status: 'sent', updated_at: fresh, validity_date: '2026-09-10' }, now))
+      .toEqual({ state: 'lapsed', days: 2, daysPast: 1 });
+    expect(quoteChase({ status: 'sent', updated_at: fresh, validity_date: '2026-09-11' }, now)).toBeNull();
+    expect(quoteChase({ status: 'sent', updated_at: new Date(2026, 8, 1, 12).toISOString(), validity_date: '2026-09-08' }, now))
+      .toEqual({ state: 'lapsed', days: 10, daysPast: 3 });
+    expect(quoteChase({ status: 'sent', updated_at: new Date(2026, 8, 1, 12).toISOString(), validity_date: 'soon' }, now))
+      .toEqual({ state: 'quiet', days: 10 });
+    expect(quoteChase({ status: 'accepted', updated_at: fresh, validity_date: '2026-09-01' }, now)).toBeNull();
+  });
+
+  it('prints the chip label for both states', () => {
+    expect(quoteChaseChipLabel({ state: 'quiet', days: 6 })).toBe('Chase · 6 days');
+    expect(quoteChaseChipLabel({ state: 'quiet', days: 1 })).toBe('Chase · 1 day');
+    expect(quoteChaseChipLabel({ state: 'lapsed', days: 9, daysPast: 3 })).toBe('Lapsed · 3 days');
+    expect(quoteChaseChipLabel({ state: 'lapsed', days: 9, daysPast: 1 })).toBe('Lapsed · 1 day');
+  });
+
+  it('stamps updated_at after a re-share of a sent quote only', () => {
+    expect(quoteChasePatch({ status: 'sent' }, now)).toEqual({ updated_at: now.toISOString() });
+    expect(quoteChasePatch({ status: 'draft' }, now)).toBeNull();
+    expect(quoteChasePatch({ status: 'accepted' }, now)).toBeNull();
+  });
+});
+
 describe('quote_chase', () => {
   it('chases a sent quote five or more calendar days after its last update', () => {
     expect(derive({ quotes: [quote({ id: 'q1' })] })).toEqual([{
       key: 'quote_chase:q1',
       kind: 'quote_chase',
       label: 'Chase quote #0012',
-      detail: 'Sent 6 days ago · Sarah Lee',
-      href: '/quotes?id=q1',
+      detail: 'Quiet 6 days · $1,320.00 · Sarah Lee',
+      href: '/quotes?id=q1&send=1',
     }]);
     expect(derive({ quotes: [quote({ id: 'q-fresh', updated_at: new Date(2026, 8, 7, 12).toISOString() })] })).toEqual([]);
-    expect(derive({ quotes: [quote({ id: 'q-five', updated_at: new Date(2026, 8, 6, 17).toISOString(), client_name: null })] })[0])
-      .toMatchObject({ label: 'Chase quote #0012', detail: 'Sent 5 days ago' });
+    expect(derive({ quotes: [quote({ id: 'q-five', updated_at: new Date(2026, 8, 6, 17).toISOString(), client_name: null, total: 0 })] })[0])
+      .toMatchObject({ label: 'Chase quote #0012', detail: 'Quiet 5 days' });
     expect(derive({ quotes: [quote({ id: 'q-accepted', status: 'accepted' })] })).toEqual([]);
+  });
+
+  it('names a lapsed quote by its validity day and opens the editor, not the send dialog', () => {
+    expect(derive({ quotes: [quote({ id: 'q-lapsed', validity_date: '2026-09-08', total: 2000 })] })).toEqual([{
+      key: 'quote_chase:q-lapsed',
+      kind: 'quote_chase',
+      label: 'Quote #0012 lapsed',
+      detail: 'Valid to 8 Sep · $2,000.00 · Sarah Lee',
+      href: '/quotes?id=q-lapsed',
+    }]);
+    expect(derive({ quotes: [quote({ id: 'q-valid', validity_date: '2026-09-11' })] })[0])
+      .toMatchObject({ label: 'Chase quote #0012', href: '/quotes?id=q-valid&send=1' });
+  });
+
+  it('rolls four or more stale quotes into one Sent filter nudge', () => {
+    const quotes = [12, 13, 14, 15].map(n => quote({
+      id: `q-${n}`,
+      quote_number: n,
+      updated_at: new Date(2026, 8, 17 - n, 12).toISOString(),
+    }));
+    expect(derive({ quotes })).toEqual([{
+      key: 'quote_chase:all',
+      kind: 'quote_chase',
+      label: '4 quotes to chase',
+      detail: '#0015 · #0014 · #0013',
+      href: '/quotes?status=sent',
+    }]);
   });
 });
 
