@@ -10,7 +10,8 @@
 // Run: node scripts/prove-reminders-harness.mjs
 // Needs a dev server on LOOK_BASE_URL (default http://127.0.0.1:5173) started with that .env.
 // Writes docs/proof/reminders/harness-*.png, harness-notes.json and the look frames
-// docs/look/reminders-{list,edit,today}-{laptop-1280,phone-390}.png.
+// docs/look/reminders-{list,edit,today}-{laptop-1280,phone-390}.png and
+// docs/look/quotes-chase-{laptop-1280,phone-390}.png.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
@@ -74,8 +75,13 @@ function seed() {
       { id: SARAH, company_id: COMPANY, name: 'Sarah Lee', email: 'sarah@example.com', phone: null, address: '5 Hill St, Subiaco WA 6008' },
       { id: HARBOUR, company_id: COMPANY, name: 'Harbour Lights', email: 'accounts@example.com', phone: null, address: '8 Marina Way, Fremantle WA 6160' },
     ],
+    // quote-12 is quiet (sent 6 days ago, no validity date), quote-13 is fresh and still valid,
+    // quote-14 lapsed 3 days ago, quote-15 is accepted so it never chases.
     quotes: [
       { id: 'quote-12', company_id: COMPANY, quote_number: 12, client_id: SARAH, job_id: null, status: 'sent', line_items: [{ description: 'Lighting run', quantity: 1, unit_price: 1200 }], subtotal: 1200, tax_rate: 10, tax_amount: 120, total: 1320, validity_date: null, created_by: ME, created_at: iso('2026-09-05T02:00:00Z'), updated_at: iso('2026-09-05T02:00:00Z') },
+      { id: 'quote-13', company_id: COMPANY, quote_number: 13, client_id: HARBOUR, job_id: null, status: 'sent', line_items: [{ description: 'Tap service', quantity: 1, unit_price: 436.36 }], subtotal: 436.36, tax_rate: 10, tax_amount: 43.64, total: 480, validity_date: '2026-10-01', created_by: ME, created_at: iso('2026-09-09T02:00:00Z'), updated_at: iso('2026-09-09T02:00:00Z') },
+      { id: 'quote-14', company_id: COMPANY, quote_number: 14, client_id: SARAH, job_id: null, status: 'sent', line_items: [{ description: 'Bathroom rough-in', quantity: 1, unit_price: 1818.18 }], subtotal: 1818.18, tax_rate: 10, tax_amount: 181.82, total: 2000, validity_date: '2026-09-08', created_by: ME, created_at: iso('2026-08-20T02:00:00Z'), updated_at: iso('2026-08-20T02:00:00Z') },
+      { id: 'quote-15', company_id: COMPANY, quote_number: 15, client_id: HARBOUR, job_id: null, status: 'accepted', line_items: [{ description: 'Gas fit-off', quantity: 1, unit_price: 818.18 }], subtotal: 818.18, tax_rate: 10, tax_amount: 81.82, total: 900, validity_date: '2026-08-15', created_by: ME, created_at: iso('2026-08-01T02:00:00Z'), updated_at: iso('2026-08-01T02:00:00Z') },
     ],
     invoices: [
       { id: 'inv-2002', company_id: COMPANY, invoice_number: 2002, client_id: HARBOUR, job_id: null, quote_id: null, status: 'overdue', line_items: [], subtotal: 760, tax_rate: 10, tax_amount: 76, total: 836, due_date: '2026-09-06', chased_at: null, created_by: ME, created_at: iso('2026-08-20T02:00:00Z'), updated_at: iso('2026-08-20T02:00:00Z') },
@@ -223,6 +229,28 @@ function fakePostgrest(store, log) {
 async function settle(page, ms = 350) {
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(ms);
+}
+
+async function waitForLog(page, log, predicate, timeout = 10000) {
+  const until = Date.now() + timeout;
+  while (Date.now() < until) {
+    const hit = log.find(predicate);
+    if (hit) return hit;
+    await page.waitForTimeout(100);
+  }
+  return null;
+}
+
+async function readQuoteRows(page) {
+  return page.evaluate(() => [...document.querySelectorAll('.hub-quotes-row')].map((row) => ({
+    ref: row.querySelector('.hub-quotes-ref')?.textContent?.trim() ?? null,
+    chipText: row.querySelector('.hub-quotes-chase')?.textContent?.trim() ?? null,
+    chipState: row.querySelector('.hub-quotes-chase')?.getAttribute('data-chase-state') ?? null,
+  })));
+}
+
+function quoteRowChip(page, ref) {
+  return page.locator('.hub-quotes-row', { has: page.locator('.hub-quotes-ref', { hasText: ref }) }).locator('.hub-quotes-chase');
 }
 
 async function readList(page) {
@@ -486,11 +514,18 @@ async function proveViewport(browser, tag, viewport) {
     today.heads.includes('Reminders') && today.heads.some((h) => /Today.s schedule/.test(h)) && today.scheduleHref.includes('/schedule')
     && today.ledgerRows.length === 2 && today.ledgerRows.some((t) => t.includes('Switchboard upgrade')) && today.ledgerRows.some((t) => t.includes('Hot water swap')),
     { heads: today.heads, scheduleHref: today.scheduleHref, ledgerRows: today.ledgerRows });
+  // byKind collapses same-kind nudges, so the two quote nudges are picked by href.
   const byKind = Object.fromEntries(today.nudges.map((n) => [n.kind, n]));
+  const byHref = Object.fromEntries(today.nudges.map((n) => [n.href, n]));
+  const quietQuote = byHref['/quotes?id=quote-12&send=1'];
+  const lapsedQuote = byHref['/quotes?id=quote-14'];
   check(`${tag}NudgesCoverLeaveSoonTomorrowQuoteInvoice`,
-    byKind.leave_soon?.href === '/jobs/job-44' && /Leave soon/.test(byKind.leave_soon?.label ?? '') && /#0044/.test(byKind.leave_soon?.detail ?? '')
+    today.nudges.length === 5
+    && byKind.leave_soon?.href === '/jobs/job-44' && /Leave soon/.test(byKind.leave_soon?.label ?? '') && /#0044/.test(byKind.leave_soon?.detail ?? '')
     && byKind.jobs_tomorrow?.href === '/jobs/job-43' && /Tomorrow/.test(byKind.jobs_tomorrow?.label ?? '') && /#0043/.test(byKind.jobs_tomorrow?.detail ?? '')
-    && byKind.quote_chase?.href === '/quotes?id=quote-12' && /Chase quote/.test(byKind.quote_chase?.label ?? '') && /6 days ago/.test(byKind.quote_chase?.detail ?? '') && /Sarah Lee/.test(byKind.quote_chase?.detail ?? '')
+    && quietQuote?.kind === 'quote_chase' && /Chase quote/.test(quietQuote?.label ?? '') && /Quiet 6 days/.test(quietQuote?.detail ?? '') && /\$1,320\.00/.test(quietQuote?.detail ?? '') && /Sarah Lee/.test(quietQuote?.detail ?? '')
+    && lapsedQuote?.kind === 'quote_chase' && /lapsed/.test(lapsedQuote?.label ?? '') && /Valid to 8 Sep/.test(lapsedQuote?.detail ?? '') && /\$2,000\.00/.test(lapsedQuote?.detail ?? '')
+    && !today.nudges.some((n) => /quote-13|quote-15/.test(n.href ?? ''))
     && byKind.invoice_unpaid?.href === '/invoices?id=inv-2002' && /Unpaid/.test(byKind.invoice_unpaid?.label ?? '') && /5 days overdue/.test(byKind.invoice_unpaid?.detail ?? '') && /836/.test(byKind.invoice_unpaid?.detail ?? ''),
     { nudges: today.nudges });
   // Quick capture from Today writes the same row shape.
@@ -504,19 +539,68 @@ async function proveViewport(browser, tag, viewport) {
   checkPaper(`${tag}Today`, await measurePaper(page, '.dashboard-home'));
   await page.screenshot({ path: `${LOOK}/reminders-today-${FRAME[tag]}.png` });
 
-  // 8. Quotes list shows the chase chip on the stale sent quote and it opens the send dialog.
+  // 8. Quotes list: quiet and lapsed chips, the lapsed chip opens the editor, the nudge deep link
+  // opens the send dialog, a re-share stamps updated_at and clears the chip, ?status=sent filters.
   await page.goto(`${BASE}/quotes`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.hub-quotes-row', { timeout: 30000 });
   await settle(page);
-  const chase = await page.$('.hub-quotes-chase');
-  const chaseText = chase ? (await chase.textContent())?.trim() : null;
-  check(`${tag}StaleSentQuoteShowsChaseChip`, /Chase/.test(chaseText ?? '') && /6 days/.test(chaseText ?? ''), { chaseText });
-  if (chase) {
-    await chase.click();
-    const dialogOpened = await page.waitForSelector('.overlay-panel-md, .overlay-backdrop, [role="dialog"]', { timeout: 10000 }).then(() => true).catch(() => false);
-    check(`${tag}ChaseOpensSendDialog`, dialogOpened, {});
-    await page.screenshot({ path: `${OUT}/harness-quote-chase-${tag}.png` });
+  const chipRows = Object.fromEntries((await readQuoteRows(page)).map((r) => [r.ref, r]));
+  check(`${tag}QuoteChipsQuietLapsedAndNone`,
+    chipRows['#0012']?.chipText === 'Chase · 6 days' && chipRows['#0012']?.chipState === 'quiet'
+    && chipRows['#0014']?.chipText === 'Lapsed · 3 days' && chipRows['#0014']?.chipState === 'lapsed'
+    && chipRows['#0013']?.chipText === null && chipRows['#0015']?.chipText === null,
+    { rows: Object.values(chipRows) });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await settle(page, 200);
+  await page.screenshot({ path: `${LOOK}/quotes-chase-${FRAME[tag]}.png` });
+
+  await quoteRowChip(page, '#0014').click();
+  const editorOpened = await page.waitForSelector('.hub-quote-editor', { timeout: 10000 }).then(() => true).catch(() => false);
+  const editorTitle = editorOpened ? await page.textContent('.hub-quote-editor-title') : null;
+  check(`${tag}LapsedChipOpensEditor`, editorOpened && /#0014/.test(editorTitle ?? ''), { editorTitle });
+  if (editorOpened) {
+    await page.click('.hub-quote-close');
+    await page.waitForSelector('.hub-quote-editor', { state: 'detached', timeout: 10000 });
   }
+
+  await page.goto(`${BASE}/quotes?id=quote-12&send=1`, { waitUntil: 'domcontentloaded' });
+  const dialogOpened = await page.waitForSelector('.overlay-panel-md, .overlay-backdrop, [role="dialog"]', { timeout: 15000 }).then(() => true).catch(() => false);
+  await settle(page, 200);
+  const sendUrl = new URL(page.url());
+  check(`${tag}SendDeepLinkOpensDialogAndDropsParams`,
+    dialogOpened && !sendUrl.searchParams.has('send') && !sendUrl.searchParams.has('id'),
+    { url: page.url() });
+  await page.screenshot({ path: `${OUT}/harness-quote-chase-${tag}.png` });
+
+  const mailButton = await page.waitForSelector('button:has-text("Open mail draft")', { timeout: 15000 }).catch(() => null);
+  const patchesBefore = log.filter((e) => e.method === 'PATCH' && e.table === 'quotes').length;
+  if (mailButton) await mailButton.click();
+  const chasePatch = await waitForLog(page, log, (e) => e.method === 'PATCH' && e.table === 'quotes' && e.filter.includes('id=eq.quote-12'));
+  check(`${tag}ReShareStampsUpdatedAtOnSentQuoteOnly`,
+    !!mailButton && !!chasePatch && chasePatch.filter.includes('status=eq.sent')
+    && Object.keys(chasePatch.body).join(',') === 'updated_at' && !Number.isNaN(Date.parse(chasePatch.body.updated_at))
+    && log.filter((e) => e.method === 'PATCH' && e.table === 'quotes').length === patchesBefore + 1,
+    { filter: chasePatch?.filter ?? null, body: chasePatch?.body ?? null, mailButton: !!mailButton });
+  const chipCleared = await page.waitForFunction(() => {
+    const row = [...document.querySelectorAll('.hub-quotes-row')].find((r) => r.querySelector('.hub-quotes-ref')?.textContent?.trim() === '#0012');
+    return !!row && !row.querySelector('.hub-quotes-chase');
+  }, null, { timeout: 15000 }).then(() => true).catch(() => false);
+  const afterRows = Object.fromEntries((await readQuoteRows(page)).map((r) => [r.ref, r]));
+  check(`${tag}ChaseClearsQuietChipAndKeepsLapsed`,
+    chipCleared && afterRows['#0012']?.chipText === null && afterRows['#0014']?.chipState === 'lapsed',
+    { rows: Object.values(afterRows) });
+
+  await page.goto(`${BASE}/quotes?status=sent`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.hub-quotes-row', { timeout: 30000 });
+  await settle(page);
+  const sentFilter = await page.evaluate(() => ({
+    on: [...document.querySelectorAll('.hub-chrome-filter-on')].map((el) => el.textContent.trim()),
+    refs: [...document.querySelectorAll('.hub-quotes-ref')].map((el) => el.textContent.trim()).sort(),
+    url: window.location.search,
+  }));
+  check(`${tag}StatusParamSelectsSentFilter`,
+    sentFilter.on.join(',') === 'Sent' && sentFilter.refs.join(',') === '#0012,#0013,#0014' && !/status=/.test(sentFilter.url),
+    sentFilter);
 
   notes[`${tag}Log`] = log;
   await context.close();
