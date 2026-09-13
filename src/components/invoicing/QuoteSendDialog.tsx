@@ -13,12 +13,13 @@ import {
   type DocumentShareExport,
 } from '../../lib/documentShare';
 import {
-  copyTextToClipboard,
+  copyShareText,
   ensureClientPortalUrl,
   loadActiveClientPortalUrl,
   markQuoteSentForShare,
   openDocumentShareMailto,
   triggerBrowserDownload,
+  type ShareCopyResult,
 } from '../../lib/documentShareDeliver';
 import {
   commercialPdfDataForQuote,
@@ -76,7 +77,7 @@ export function QuoteSendDialog({
   const [share, setShare] = useState<DocumentShareExport | null>(null);
   const [portalUrl, setPortalUrl] = useState<string | null>(null);
   const [err, setErr] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [copy, setCopy] = useState<ShareCopyResult | null>(null);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
@@ -300,11 +301,10 @@ export function QuoteSendDialog({
     if (!share?.canCopyLink) return;
     setBusy('copy');
     setErr('');
-    setCopied(false);
+    setCopy(null);
     try {
-      const prepared = await prepareShare();
-      await copyTextToClipboard(prepared.url);
-      setCopied(true);
+      const result = await copyShareText(async () => (await prepareShare()).url);
+      setCopy(result);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not copy the portal link.');
     } finally {
@@ -475,9 +475,24 @@ export function QuoteSendDialog({
               </div>
               <div className="hub-invoice-send-field">
                 <p className="hub-invoice-kicker">Portal link</p>
-                <p className="hub-invoice-send-value">
-                  {share.portalUrl || 'Copy link creates one the client can Accept.'}
-                </p>
+                {copy?.kind === 'manual' ? (
+                  <>
+                    <input
+                      type="text"
+                      readOnly
+                      value={copy.text}
+                      onFocus={e => e.currentTarget.select()}
+                      onClick={e => e.currentTarget.select()}
+                      className="form-input-sm"
+                      aria-label="Portal link"
+                    />
+                    <p className="hub-invoice-send-value">Hold the link to copy it.</p>
+                  </>
+                ) : (
+                  <p className="hub-invoice-send-value">
+                    {share.portalUrl || 'Copy link creates one the client can Accept.'}
+                  </p>
+                )}
               </div>
             </>
           )}
@@ -605,7 +620,7 @@ export function QuoteSendDialog({
               disabled={!!busy}
               className="ops-link shrink-0"
             >
-              {busy === 'copy' ? 'Copying…' : copied ? 'Copied' : 'Copy link'}
+              {busy === 'copy' ? 'Copying…' : copy?.kind === 'copied' ? 'Copied' : 'Copy link'}
             </button>
           )}
           {showShare && share?.canMarkSent && (
