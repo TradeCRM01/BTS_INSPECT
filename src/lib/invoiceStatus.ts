@@ -27,3 +27,25 @@ export function effectiveInvoiceStatus(
 export function persistableInvoiceStatus(status: InvoiceStatus): InvoiceStatus {
   return status === 'overdue' ? 'sent' : status;
 }
+
+/** List tabs, dashboard KPIs and money widgets must share this rule. */
+export function overdueInvoiceRows<T extends { status: InvoiceStatus | string; due_date?: string | null }>(
+  invoices: T[],
+  now = new Date(),
+): T[] {
+  return invoices.filter(inv => effectiveInvoiceStatus(inv, now) === 'overdue');
+}
+
+export function overdueInvoiceCount(
+  invoices: { status: InvoiceStatus | string; due_date?: string | null }[],
+  now = new Date(),
+): number {
+  return overdueInvoiceRows(invoices, now).length;
+}
+
+export function overdueInvoiceTotal(
+  invoices: { status: InvoiceStatus | string; due_date?: string | null; total?: number | string | null }[],
+  now = new Date(),
+): number {
+  return overdueInvoiceRows(invoices, now).reduce((sum, inv) => sum + Number(inv.total ?? 0), 0);
+}

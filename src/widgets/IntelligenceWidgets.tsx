@@ -11,6 +11,7 @@ import {
   Loader2, Wrench, AlertCircle,
 } from 'lucide-react';
 import type { WidgetProps } from './WidgetComponents';
+import { overdueInvoiceCount } from '../lib/invoiceStatus';
 
 // ────────────────────────────────────────────────────────────────────────────
 // AI Agent Widget — your on-dashboard assistant that can take real actions
@@ -380,18 +381,19 @@ export function KpiScorecardWidget() {
       const [
         { count: openJobs },
         { count: inspectionsToday },
-        { count: overdueInv },
+        overdueRes,
         { count: lowStock },
       ] = await Promise.all([
         supabase.from('jobs').select('*', { count: 'exact', head: true }).in('status', ['scheduled', 'in_progress']),
         supabase.from('inspections').select('*', { count: 'exact', head: true }).gte('started_at', today),
-        supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('status', 'overdue'),
+        supabase.from('invoices').select('id, status, due_date').in('status', ['sent', 'overdue']),
         supabase.from('stock_items').select('*', { count: 'exact', head: true }).eq('archived', false),
       ]);
+      if (overdueRes.error) throw overdueRes.error;
       return {
         openJobs: openJobs ?? 0,
         inspectionsToday: inspectionsToday ?? 0,
-        overdueInvoices: overdueInv ?? 0,
+        overdueInvoices: overdueInvoiceCount(overdueRes.data ?? []),
         stockItems: lowStock ?? 0,
       };
     },
@@ -400,7 +402,7 @@ export function KpiScorecardWidget() {
   const kpis = [
     { label: 'Active Jobs', value: data?.openJobs ?? 0, icon: Briefcase, color: 'text-[#2E75B6]', bg: 'bg-[#EFF6FF]' },
     { label: 'Inspections Today', value: data?.inspectionsToday ?? 0, icon: FileText, color: 'text-green-600', bg: 'bg-green-50' },
-    { label: 'Overdue Inv.', value: data?.overdueInvoices ?? 0, icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-50' },
+    { label: 'Overdue Inv.', value: data?.overdueInvoices ?? 0, icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-50', href: '/invoices?status=overdue' },
     { label: 'Stock Items', value: data?.stockItems ?? 0, icon: Activity, color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
 
@@ -416,14 +418,20 @@ export function KpiScorecardWidget() {
         <div className="flex-1 grid grid-cols-2 gap-2">
           {kpis.map(k => {
             const Icon = k.icon;
-            return (
-              <div key={k.label} className="flex flex-col items-center justify-center rounded-lg bg-[#F9FAFB] py-2">
+            const body = (
+              <>
                 <div className={`w-7 h-7 rounded-md ${k.bg} flex items-center justify-center mb-1`}>
                   <Icon size={13} className={k.color} />
                 </div>
                 <span className={`text-lg font-bold ${k.color}`}>{k.value}</span>
                 <span className="text-[9px] text-[#4A5568] text-center leading-tight">{k.label}</span>
-              </div>
+              </>
+            );
+            const cls = 'flex flex-col items-center justify-center rounded-lg bg-[#F9FAFB] py-2';
+            return k.href ? (
+              <Link key={k.label} to={k.href} className={cls}>{body}</Link>
+            ) : (
+              <div key={k.label} className={cls}>{body}</div>
             );
           })}
         </div>

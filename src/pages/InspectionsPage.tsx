@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { isMissingColumnError } from '../lib/missingColumn';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, OpsDocHead, OpsSiteRow, OpsStatus, PageError, opsSiteLabel } from '../components/ui';
@@ -232,13 +233,21 @@ export function InspectionsPage() {
   const [sendToDriveFor, setSendToDriveFor] = useState<string | null>(null);
   const [sendingReportId, setSendingReportId] = useState<string | null>(null);
 
-  const { data: inspections, isLoading, isError, refetch } = useQuery({
+  const { data: inspections, isLoading, error: loadError, refetch } = useQuery({
     queryKey: ['inspections'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const full = 'id, status, meta, started_at, completed_at, template_snapshot, inspector_id, archived, parent_inspection_id, crm_job_id, responses, due_on';
+      const withoutDue = 'id, status, meta, started_at, completed_at, template_snapshot, inspector_id, archived, parent_inspection_id, crm_job_id, responses';
+      let { data, error } = await supabase
         .from('inspections')
-        .select('id, status, meta, started_at, completed_at, template_snapshot, inspector_id, archived, parent_inspection_id, crm_job_id, responses, due_on')
+        .select(full)
         .order('started_at', { ascending: false });
+      if (error && isMissingColumnError(error)) {
+        ({ data, error } = await supabase
+          .from('inspections')
+          .select(withoutDue)
+          .order('started_at', { ascending: false }));
+      }
       if (error) throw error;
 
       const list = (data ?? []) as Inspection[];
@@ -379,8 +388,8 @@ export function InspectionsPage() {
 
   const openDocs = filtered.filter(d => inspectionListBucket(d.status) === 'open');
   const doneDocs = filtered.filter(d => inspectionListBucket(d.status) === 'done');
-  const noneAtAll = !isLoading && !pageQueryBlocked(isError) && (inspections ?? []).filter(i => showArchived ? i.archived : !i.archived).length === 0;
-  const noneMatch = !isLoading && !pageQueryBlocked(isError) && (inspections ?? []).length > 0 && filtered.length === 0 && !noneAtAll;
+  const noneAtAll = !isLoading && !pageQueryBlocked(loadError) && (inspections ?? []).filter(i => showArchived ? i.archived : !i.archived).length === 0;
+  const noneMatch = !isLoading && !pageQueryBlocked(loadError) && (inspections ?? []).length > 0 && filtered.length === 0 && !noneAtAll;
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -513,7 +522,12 @@ export function InspectionsPage() {
         {isLoading && (
           <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
         )}
-        {pageQueryBlocked(isError) && <PageError onRetry={refetch} />}
+        {pageQueryBlocked(loadError) && (
+          <PageError
+            message={loadError instanceof Error ? loadError.message : 'The inspection register could not be loaded.'}
+            onRetry={refetch}
+          />
+        )}
 
         {noneAtAll && (
           <EmptyState

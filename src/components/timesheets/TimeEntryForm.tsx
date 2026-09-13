@@ -10,6 +10,7 @@ import {
   buildJobTimeEntry,
   buildOpenTimesheetInsert,
   entryMinutes,
+  isRecordedDuration,
 } from '../../lib/timesheetJob';
 import type { Timesheet } from '../../types/fsm';
 
@@ -51,6 +52,11 @@ export function TimeEntryForm({
     try {
       const startDateTime = new Date(`${form.date}T${form.start_time}`);
       const endDateTime = form.end_time ? new Date(`${form.date}T${form.end_time}`) : null;
+      if (endDateTime && !isRecordedDuration(entryMinutes(startDateTime.toISOString(), endDateTime.toISOString()))) {
+        setErr('That entry has no duration. Change the finish time, or leave it running.');
+        setSaving(false);
+        return;
+      }
 
       const existing = timesheets.find(t => t.date === form.date);
       let tsId = existing?.id;

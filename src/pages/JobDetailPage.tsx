@@ -12,6 +12,7 @@ import { JobClientReminder } from '../components/jobs/JobClientReminder';
 import JobWorkspaceTabs, { type JobWorkspaceTab } from '../components/jobs/JobWorkspaceTabs';
 import { JobCalendarOverflow } from '../components/jobs/JobCalendarOverflow';
 import { calendarSite } from '../lib/jobCalendar';
+import { isMissingColumnError } from '../lib/missingColumn';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import type { Client, Job, JobStatus } from '../types/crm';
@@ -279,21 +280,37 @@ export function JobDetailPage() {
     queryFn: async () => {
       const empty = getAuditEmptyList();
       if (empty) return empty as JobInspection[];
-      const { data, error } = await supabase
+      const cols = 'id, status, started_at, template_snapshot, meta, responses, crm_job_id, due_on, archived';
+      const safe = 'id, status, started_at, template_snapshot, meta, responses, crm_job_id, archived';
+      let { data, error } = await supabase
         .from('inspections')
-        .select('id, status, started_at, template_snapshot, meta, responses, crm_job_id, due_on, archived')
+        .select(cols)
         .eq('crm_job_id', id!)
         .order('started_at', { ascending: false });
+      if (error && isMissingColumnError(error)) {
+        ({ data, error } = await supabase
+          .from('inspections')
+          .select(safe)
+          .eq('crm_job_id', id!)
+          .order('started_at', { ascending: false }));
+      }
       if (error) throw error;
       const list = (data ?? []) as JobInspection[];
       const linkedId = job?.inspection_id;
       if (linkedId && !list.some(i => i.id === linkedId)) {
-        const { data: extra } = await supabase
+        let extraRes = await supabase
           .from('inspections')
-          .select('id, status, started_at, template_snapshot, meta, responses, crm_job_id, due_on, archived')
+          .select(cols)
           .eq('id', linkedId)
           .maybeSingle();
-        if (extra) list.push(extra as JobInspection);
+        if (extraRes.error && isMissingColumnError(extraRes.error)) {
+          extraRes = await supabase
+            .from('inspections')
+            .select(safe)
+            .eq('id', linkedId)
+            .maybeSingle();
+        }
+        if (extraRes.data) list.push(extraRes.data as JobInspection);
       }
       return list;
     },

@@ -5,6 +5,11 @@ export function findRunningJobEntry<T extends { job_id: string | null; end_time:
   return entries.find(e => e.job_id === jobId && e.end_time == null);
 }
 
+/** A finished entry must be at least one minute or it is not time. */
+export function isRecordedDuration(minutes: number): boolean {
+  return Number.isFinite(minutes) && minutes >= 1;
+}
+
 export function entryMinutes(startIso: string, endIso: string): number {
   const start = new Date(startIso).getTime();
   const end = new Date(endIso).getTime();

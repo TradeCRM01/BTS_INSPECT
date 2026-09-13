@@ -5,6 +5,7 @@ import {
   buildOpenTimesheetInsert,
   entryMinutes,
   findRunningJobEntry,
+  isRecordedDuration,
   localDateIso,
 } from './timesheetJob';
 
@@ -31,6 +32,11 @@ describe('entryMinutes', () => {
 
   it('does not go negative', () => {
     expect(entryMinutes('2026-08-20T10:00:00.000Z', '2026-08-20T09:00:00.000Z')).toBe(0);
+  });
+
+  it('treats a zero-length interval as no recorded time', () => {
+    expect(isRecordedDuration(0)).toBe(false);
+    expect(isRecordedDuration(1)).toBe(true);
   });
 });
 

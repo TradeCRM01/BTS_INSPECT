@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { formatMoney, getStockLevel, STOCK_LEVEL_STYLES, STOCK_LEVEL_LABELS } from '../types/fsm';
+import { overdueInvoiceTotal } from '../lib/invoiceStatus';
 import {
   AiAgentWidget,
   IndustryNewsWidget,
@@ -1117,7 +1118,7 @@ export function OutstandingInvoicesWidget() {
       if (error) throw error;
       const invs = (data ?? []) as any[];
       const outstanding = invs.reduce((s, i) => s + Number(i.total ?? 0), 0);
-      const overdue = invs.filter(i => i.status === 'overdue').reduce((s, i) => s + Number(i.total ?? 0), 0);
+      const overdue = overdueInvoiceTotal(invs);
       return { count: invs.length, outstanding, overdue, recent: invs.slice(0, 5) };
     },
   });
@@ -1129,7 +1130,7 @@ export function OutstandingInvoicesWidget() {
           <Receipt size={14} className="text-blue-500" />
           <span className="text-xs font-semibold text-[#4A5568]">Invoices</span>
         </div>
-        <Link to="/invoices" className="text-[10px] text-blue-500 hover:underline">View all</Link>
+        <Link to="/invoices?status=overdue" className="text-[10px] text-blue-500 hover:underline">Overdue</Link>
       </div>
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center text-xs text-gray-400">Loading…</div>

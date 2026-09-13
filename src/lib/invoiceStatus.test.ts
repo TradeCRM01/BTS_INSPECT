@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveInvoiceStatus, persistableInvoiceStatus, todayIsoDate } from './invoiceStatus';
+import {
+  effectiveInvoiceStatus,
+  overdueInvoiceCount,
+  overdueInvoiceTotal,
+  persistableInvoiceStatus,
+  todayIsoDate,
+} from './invoiceStatus';
 
 describe('effectiveInvoiceStatus', () => {
   const now = new Date(2026, 7, 20); // 20 Aug 2026 local
@@ -33,6 +39,26 @@ describe('persistableInvoiceStatus', () => {
     expect(persistableInvoiceStatus('sent')).toBe('sent');
     expect(persistableInvoiceStatus('paid')).toBe('paid');
     expect(persistableInvoiceStatus('draft')).toBe('draft');
+  });
+});
+
+describe('overdueInvoiceCount', () => {
+  const now = new Date(2026, 7, 20);
+
+  it('counts stored overdue and sent-past-due together', () => {
+    expect(overdueInvoiceCount([
+      { status: 'overdue', due_date: '2026-08-01' },
+      { status: 'sent', due_date: '2026-08-19' },
+      { status: 'sent', due_date: '2026-08-21' },
+      { status: 'draft', due_date: '2026-08-01' },
+    ], now)).toBe(2);
+  });
+
+  it('sums the same rows the invoice Overdue tab would show', () => {
+    expect(overdueInvoiceTotal([
+      { status: 'sent', due_date: '2026-08-19', total: 40 },
+      { status: 'sent', due_date: '2026-08-21', total: 10 },
+    ], now)).toBe(40);
   });
 });
 

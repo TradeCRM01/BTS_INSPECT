@@ -100,7 +100,10 @@ export function InvoicesPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const raw = searchParams.get('status') ?? searchParams.get('due');
+    return STATUS_FILTERS.some(tab => tab.key === raw) ? (raw as StatusFilter) : 'all';
+  });
   const [search, setSearch] = useState('');
   const [editingInvoice, setEditingInvoice] = useState<InvoiceWithDetails | null>(null);
   const [presetClientId, setPresetClientId] = useState<string | null>(null);

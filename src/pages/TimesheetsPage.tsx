@@ -127,10 +127,15 @@ export function TimesheetsPage() {
 
   const submitMutation = useMutation({
     mutationFn: async (id: string) => {
+      const row = (timesheets ?? []).find(t => t.id === id);
+      if (!row || (row.total_minutes ?? 0) < 1) {
+        throw new Error('Cannot submit a timesheet with no recorded time.');
+      }
       const { error } = await supabase.from('timesheets').update({ status: 'submitted' }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['timesheets'] }); showToast('Timesheet submitted'); },
+    onError: (e: Error) => showToast(e.message),
   });
 
   const myTimesheets = useMemo(() => {
@@ -249,7 +254,9 @@ export function TimesheetsPage() {
                           </Link>
                         )}
                         {entry.billable ? <span className="text-xs text-green-600 font-medium">Billable</span> : <span className="text-xs text-gray-500">Non-billable</span>}
-                        {duration > 0 && <span className="text-sm font-medium text-[#1A1A1A]">{formatDuration(duration)}</span>}
+                        <span className="text-sm font-medium text-[#1A1A1A]">
+                          {duration > 0 ? formatDuration(duration) : '0m — no time'}
+                        </span>
                       </div>
                     </div>
                   );
@@ -259,6 +266,11 @@ export function TimesheetsPage() {
           </div>
 
           {/* Submit section */}
+          {myTimesheets.some(t => t.status === 'submitted' && (t.total_minutes ?? 0) < 1) && (
+            <p className="px-4 py-2 text-xs text-[#92400E] bg-amber-50 border-t border-amber-100">
+              A submitted timesheet on this week has no recorded minutes. It should not be treated as a worked day.
+            </p>
+          )}
           {myTimesheets.length > 0 && (
             <div className="px-4 py-3 border-t border-[#E5E7EB] flex items-center justify-between">
               <p className="text-sm text-[#4A5568]">Submit timesheets for approval when ready</p>
