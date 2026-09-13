@@ -11,7 +11,7 @@ Do not treat any category as a verified 9 / 10 until Milestone 5 gates and physi
 | Overall app | 6.5 | In progress | No |
 | UI/UX vs competitors | 6.0 | Unchanged | No |
 | Desktop efficiency | 6.5 | Today command bar + denser Jobs/CRM lists | No |
-| Mobile field | 5.5 provisional | Phone week exists; not physically validated | No |
+| Mobile field | 5.5 provisional | Field path on job sheet; not physically validated | No |
 | Scheduling / dispatch | 6.0 | Overlap, dated hours, load vs recorded hours | No |
 | Reliability / recovery | 4.5 | Milestone 0 in this branch | No |
 
@@ -49,10 +49,18 @@ Still open on M1: widget canvas itself; a full settings IA split; physical confi
 
 Tests: `crewDayLoad`, `capacityWarnings`, `applyDropStartTime` default duration.
 
+## Milestone 3 — field path (implemented, not physically validated)
+
+- Dashboard On today opens `/jobs?when=today`.
+- Below `lg`, the job sheet has a 44px On site strip: clock, photo, note, More to do, All done. Header clock controls stay on desktop only so the same action is not tapped twice.
+- Notes append to `jobs.description`. Photos upload to the existing `photos` bucket and record a line on the job. No new schema.
+
+Tests: `jobFieldPath`.
+
 ## Later milestones
 
 1. Shell and list density — this branch (above). Not verified 9+.
 2. Dispatch load vs recorded hours, default one-hour slot on timed drop — this branch. Skills, travel, and a booking audit log are not started (no schema invented). Not verified 9+.
-3. Unified job timeline and one-handed field path — not started.
+3. Mobile field path on the job sheet (clock, photo, note, All done / More to do) and Today → `/jobs?when=today`. Photos are stored in the existing photos bucket plus a description line — not a new photos table. Not physically validated. Not verified 9+.
 4. CRM/commercial/inventory exception depth — not started.
 5. Rubric, E2E, visual regression, real-device 9+ gate — not started.

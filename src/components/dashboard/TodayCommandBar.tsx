@@ -30,7 +30,7 @@ export function TodayCommandBar() {
   const stats = data ?? { todayOpen: 0, unassignedDated: 0, needsDate: 0, overdueInvoices: 0 };
 
   const tiles = [
-    { label: 'On today', value: stats.todayOpen, href: '/schedule', icon: Calendar },
+    { label: 'On today', value: stats.todayOpen, href: '/jobs?when=today', icon: Calendar },
     { label: 'Unassigned', value: stats.unassignedDated, href: '/schedule', icon: Users },
     { label: 'Needs a date', value: stats.needsDate, href: '/jobs', icon: CalendarX },
     { label: 'Overdue invoices', value: stats.overdueInvoices, href: '/invoices?status=overdue', icon: AlertTriangle },

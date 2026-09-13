@@ -10,6 +10,8 @@ import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
 import { JobClientReminder } from '../components/jobs/JobClientReminder';
 import JobWorkspaceTabs, { type JobWorkspaceTab } from '../components/jobs/JobWorkspaceTabs';
+import { JobFieldPathBar } from '../components/jobs/JobFieldPathBar';
+import { appendJobFieldNote, nextJobStatusAfterField } from '../lib/jobFieldPath';
 import { JobCalendarOverflow } from '../components/jobs/JobCalendarOverflow';
 import { calendarSite } from '../lib/jobCalendar';
 import { isMissingColumnError } from '../lib/missingColumn';
@@ -692,6 +694,45 @@ export function JobDetailPage() {
     onError: (e: Error) => showToast(e.message),
   });
 
+  const saveFieldNote = useMutation({
+    mutationFn: async (note: string) => {
+      const next = appendJobFieldNote(job?.description, note, new Date());
+      const { error } = await supabase
+        .from('jobs')
+        .update({ description: next, updated_at: new Date().toISOString() })
+        .eq('id', id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['job', id] });
+      showToast('Note saved');
+    },
+    onError: (e: Error) => showToast(e.message),
+  });
+
+  const saveFieldPhoto = useMutation({
+    mutationFn: async (file: File) => {
+      const path = `jobs/${id}/${Date.now()}.jpg`;
+      const { error: upErr } = await supabase.storage.from('photos').upload(path, file, {
+        contentType: file.type || 'image/jpeg',
+        upsert: false,
+      });
+      const note = upErr ? `Photo could not be stored (${upErr.message})` : `Photo ${path}`;
+      const next = appendJobFieldNote(job?.description, note, new Date());
+      const { error } = await supabase
+        .from('jobs')
+        .update({ description: next, updated_at: new Date().toISOString() })
+        .eq('id', id!);
+      if (error) throw error;
+      if (upErr) throw new Error(upErr.message);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['job', id] });
+      showToast('Photo noted');
+    },
+    onError: (e: Error) => showToast(e.message),
+  });
+
   useEffect(() => {
     if (!job) return;
     const hash = window.location.hash.replace(/^#/, '');
@@ -1046,7 +1087,7 @@ export function JobDetailPage() {
                   type="button"
                   onClick={() => clockOffJob.mutate()}
                   disabled={clockOffJob.isPending}
-                  className="btn-danger"
+                  className="btn-danger hidden lg:inline-flex"
                 >
                   <Square size={14} /> Clock off
                 </button>
@@ -1055,7 +1096,7 @@ export function JobDetailPage() {
                   type="button"
                   onClick={() => clockOnJob.mutate()}
                   disabled={clockOnJob.isPending || job.status === 'cancelled'}
-                  className="btn-secondary"
+                  className="btn-secondary hidden lg:inline-flex"
                 >
                   <Play size={14} /> Clock on
                 </button>
@@ -1073,6 +1114,31 @@ export function JobDetailPage() {
             </div>
           </div>
         </article>
+
+        <JobFieldPathBar
+          status={job.status}
+          clockedOn={!!runningEntry}
+          busy={
+            clockOnJob.isPending
+            || clockOffJob.isPending
+            || updateStatus.isPending
+            || saveFieldNote.isPending
+            || saveFieldPhoto.isPending
+          }
+          onClockOn={() => clockOnJob.mutate()}
+          onClockOff={() => clockOffJob.mutate()}
+          onNote={note => saveFieldNote.mutate(note)}
+          onPhoto={file => saveFieldPhoto.mutate(file)}
+          onAllDone={async () => {
+            if (runningEntry) await clockOffJob.mutateAsync();
+            await updateStatus.mutateAsync(nextJobStatusAfterField('all_done', job.status));
+            showToast('Job marked done');
+          }}
+          onMoreToDo={async () => {
+            await updateStatus.mutateAsync(nextJobStatusAfterField('more_to_do', job.status));
+            showToast('Still more to do');
+          }}
+        />
 
         <JobWorkspaceTabs
           active={tab}

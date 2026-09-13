@@ -3800,6 +3800,20 @@
     gap: 8px;
   }
 
+  .job-field-path {
+    @apply mb-4 rounded-lg border border-rule bg-white p-3;
+  }
+
+  .job-field-path-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .job-field-path-grid .btn-primary {
+    grid-column: 1 / -1;
+  }
+
   .job-cal-quiet {
     margin-left: auto;
     display: flex;

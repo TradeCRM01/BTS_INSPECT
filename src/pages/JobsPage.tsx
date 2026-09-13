@@ -13,6 +13,7 @@ import {
   JOB_PRIORITY_DOT,
 } from '../types/crm';
 import { jobListBucket, jobListNext } from '../lib/jobNextAction';
+import { isJobOnToday } from '../lib/jobFieldPath';
 import { withReminderNext } from '../lib/jobReminder';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { Plus, Briefcase, Search, Calendar, Clock } from 'lucide-react';
@@ -101,8 +102,11 @@ export function JobsPage() {
         (j.job_number != null && String(j.job_number).includes(q))
       );
     }
+    if (searchParams.get('when') === 'today') {
+      result = result.filter(j => isJobOnToday(j));
+    }
     return result;
-  }, [jobs, statusFilter, search]);
+  }, [jobs, statusFilter, search, searchParams]);
 
   const counts = useMemo(() => {
     if (!jobs) return { all: 0, scheduled: 0, in_progress: 0, completed: 0, cancelled: 0 };
@@ -153,6 +157,7 @@ export function JobsPage() {
           <div>
             <h1 className="ops-page-title">Jobs</h1>
             <p className="ops-meta mt-0.5">
+              {searchParams.get('when') === 'today' ? 'Today · ' : ''}
               {filtered.length} of {jobs?.length ?? 0} jobs
             </p>
           </div>
