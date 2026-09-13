@@ -8656,6 +8656,13 @@
     display: none;
   }
 
+  /* The Time lane heading carries its clocked total, so its label column fits the pair instead of clipping. */
+  @media (min-width: 640px) {
+    .hub-jobs-document #job-hours .ops-tray:has(.ops-tray-empty) {
+      grid-template-columns: max-content minmax(0, 1fr) auto;
+    }
+  }
+
   .hub-jobs-bill-head {
     display: flex;
     align-items: center;
