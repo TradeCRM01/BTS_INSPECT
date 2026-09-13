@@ -9,6 +9,7 @@ import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast,
 import type { MenuEntry } from '../components/ui';
 import type { Client, ClientWithStats } from '../types/crm';
 import { formatMoney } from '../types/fsm';
+import { format, parseISO } from 'date-fns';
 import { Plus, Users, X, Trash2, CreditCard as Edit3, Archive, ArchiveRestore, Briefcase, FileText, Receipt } from 'lucide-react';
 import {
   AU_ADDRESS_PLACEHOLDER,
@@ -306,6 +307,13 @@ const ClientRow = memo(function ClientRow({
           <p className="ops-meta truncate">{client.contact_person}</p>
         ) : null}
         {site ? <p className="ops-meta truncate">{site}</p> : null}
+        <p className="ops-meta mt-1">
+          {client.active_jobs ? `${client.active_jobs} open` : 'No open jobs'}
+          {client.last_job_date ? ` · last ${format(parseISO(client.last_job_date.slice(0, 10)), 'd MMM')}` : ''}
+          {(client.outstanding_total ?? 0) > 0 && signal?.kind !== 'overdue'
+            ? ` · ${formatMoney(client.outstanding_total)} outstanding`
+            : ''}
+        </p>
         {lines.length > 0 ? (
           <div className="mt-1 flex flex-col gap-0.5 min-w-0">
             {lines.map(line => (

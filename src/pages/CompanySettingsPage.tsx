@@ -333,8 +333,30 @@ export function CompanySettingsPage() {
         <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">Company Settings</h1>
         <p className="text-sm text-[#4A5568] mb-6">Manage your company profile and branding.</p>
 
+        <nav className="flex flex-wrap gap-2 mb-6" aria-label="Settings sections">
+          {[
+            { href: '#settings-tax', label: 'Tax & markup' },
+            { href: '#settings-logo', label: 'Logo' },
+            ...(isAdmin ? [{ href: '#settings-theme', label: 'Report theme' }] : []),
+            { href: '#settings-types', label: 'Inspection types' },
+            ...(isAdmin ? [
+              { href: '#settings-email', label: 'Email' },
+              { href: '#settings-users', label: 'Users' },
+            ] : []),
+            { href: '#settings-company', label: 'Company details' },
+          ].map(link => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="text-xs px-2.5 py-1.5 rounded-md border border-[#E5E7EB] bg-white text-[#0A2540] hover:border-[#2E75B6]"
+            >
+              {link.label}
+            </a>
+          ))}
+        </nav>
+
         {/* Default Tax Rate */}
-        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
+        <div id="settings-tax" className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4 scroll-mt-20">
           <h2 className="text-sm font-semibold text-[#1A1A1A] mb-1">Tax & Markup Defaults</h2>
           <p className="text-xs text-[#4A5568] mb-3">Used as defaults on new quotes, invoices, and purchase orders.</p>
           <div className="flex flex-wrap items-center gap-6">
@@ -371,7 +393,7 @@ export function CompanySettingsPage() {
         </div>
 
         {/* Logo — existing company settings strip only. Not a branding page. */}
-        <div className="company-logo-strip">
+        <div id="settings-logo" className="company-logo-strip scroll-mt-20">
           <h2 className="company-logo-strip-title">Company Logo</h2>
           <div className="company-logo-strip-row">
             {logoUrl ? (
@@ -410,7 +432,7 @@ export function CompanySettingsPage() {
 
         {/* Report branding / theme — admin only */}
         {isAdmin && (
-          <form onSubmit={handleSaveReportTheme} className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
+          <form id="settings-theme" onSubmit={handleSaveReportTheme} className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4 scroll-mt-20">
             <div className="flex items-center gap-2 mb-1">
               <Palette size={16} className="text-[#2E75B6]" />
               <h2 className="text-sm font-semibold text-[#1A1A1A]">Report branding / theme</h2>
@@ -464,7 +486,7 @@ export function CompanySettingsPage() {
         )}
 
         {/* Inspection Types */}
-        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
+        <div id="settings-types" className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4 scroll-mt-20">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-[#1A1A1A]">Inspection Types</h2>
             {!showAddRenderer && (
@@ -534,7 +556,7 @@ export function CompanySettingsPage() {
 
         {/* Email / SMTP Settings â€” admin only */}
         {isAdmin && (
-          <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
+          <div id="settings-email" className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4 scroll-mt-20">
             <div className="flex items-center gap-2 mb-1">
               <Mail size={16} className="text-[#2E75B6]" />
               <h2 className="text-sm font-semibold text-[#1A1A1A]">Email Settings</h2>
@@ -680,7 +702,7 @@ export function CompanySettingsPage() {
 
         {/* Registered Users â€” admin only */}
         {isAdmin && (
-          <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4">
+          <div id="settings-users" className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 mb-4 scroll-mt-20">
             <div className="flex items-center justify-between gap-2 mb-4">
               <div className="flex items-center gap-2">
                 <Users size={16} className="text-[#2E75B6]" />
@@ -744,7 +766,7 @@ export function CompanySettingsPage() {
         )}
 
         {/* Company details */}
-        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6">
+        <div id="settings-company" className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6 scroll-mt-20">
           <h2 className="text-sm font-semibold text-[#1A1A1A] mb-4">Company Details</h2>
           <form onSubmit={handleSave} className="space-y-4">
             <div>

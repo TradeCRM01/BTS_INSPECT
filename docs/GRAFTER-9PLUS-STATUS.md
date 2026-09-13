@@ -10,7 +10,7 @@ Do not treat any category as a verified 9 / 10 until Milestone 5 gates and physi
 | --- | ---: | ---: | --- |
 | Overall app | 6.5 | In progress | No |
 | UI/UX vs competitors | 6.0 | Unchanged | No |
-| Desktop efficiency | 6.5 | Unchanged | No |
+| Desktop efficiency | 6.5 | Today command bar + denser Jobs/CRM lists | No |
 | Mobile field | 5.5 provisional | Phone week exists; not physically validated | No |
 | Scheduling / dispatch | 6.0 | Crew-axis week + overlap/hours warnings | No |
 | Reliability / recovery | 4.5 | Milestone 0 in this branch | No |
@@ -28,9 +28,21 @@ Tests added/updated: `missingColumn`, `installPrompt`, `invoiceStatus` overdue c
 
 Still open on M0: live deploy of this branch; physical-device confirmation of the install banner; inspection register not re-proven in a signed-in browser this session.
 
+## Milestone 1 — shell and list density (implemented, not a 9+)
+
+- Dashboard keeps the widget canvas; a Today command strip sits above it (on today, unassigned dated work, needs a date, overdue invoices).
+- Jobs table has a Crew column; job cards show date, time, and crew count.
+- Client rows show open jobs, last scheduled date, and outstanding (when not already in the overdue signal).
+- Desktop Field / CRM / Financials / Inventory menus no longer use a full-screen overlay that ate clicks; click-away is document-level; buttons expose `aria-expanded`.
+- Settings is still one page (not a rewrite) with jump links to tax, logo, theme, types, email, users, and company details.
+
+Tests: `todayCommand`.
+
+Still open on M1: widget canvas itself; a full settings IA split; physical confirmation that menus open on a real desktop pointer.
+
 ## Later milestones
 
-1. Shell, navigation, dashboard command centre, dense Jobs/CRM lists, settings split — not started.
+1. Shell and list density — this branch (above). Not verified 9+.
 2. Dispatch intelligence beyond overlap + dated hours — not started.
 3. Unified job timeline and one-handed field path — not started.
 4. CRM/commercial/inventory exception depth — not started.

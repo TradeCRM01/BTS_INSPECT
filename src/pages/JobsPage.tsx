@@ -223,6 +223,7 @@ export function JobsPage() {
                     <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2">Priority</th>
                     <th className="px-3 py-2">Scheduled</th>
+                    <th className="px-3 py-2">Crew</th>
                     <th className="px-3 py-2">Next</th>
                   </tr>
                 </thead>
@@ -243,6 +244,7 @@ export function JobsPage() {
                         <td className="px-3 py-2"><OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus></td>
                         <td className="px-3 py-2"><span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />{JOB_PRIORITY_LABELS[job.priority]}</span></td>
                         <td className="px-3 py-2 ops-meta">{jobDate ? format(jobDate, 'd MMM yyyy') : 'No date'}{job.start_time && <span className="block">{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>}</td>
+                        <td className="px-3 py-2 ops-meta">{(job.assigned_team ?? []).length || 'Unassigned'}</td>
                         <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
                           {next.actionable ? (
                             <Link to={next.href} className="ops-next-control-block">{next.label}</Link>
@@ -322,6 +324,11 @@ function JobCard({ job }: { job: JobCardModel }) {
       />
       <div className="ops-card-body">
         <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
+        <p className="ops-meta mt-1">
+          {job.scheduled_date ? format(parseISO(job.scheduled_date), 'd MMM') : 'No date'}
+          {job.start_time ? ` · ${job.start_time.slice(0, 5)}` : ''}
+          {` · ${(job.assigned_team ?? []).length ? `${job.assigned_team.length} crew` : 'Unassigned'}`}
+        </p>
         <div className="ops-card-footer" onClick={e => e.stopPropagation()}>
           {next.actionable ? (
             <Link to={next.href} className="ops-next-control-block">{next.label}</Link>

@@ -165,6 +165,17 @@ export function AppShell({ children }: AppShellProps) {
   };
 
   useEffect(() => {
+    if (!openGroup) return;
+    const onDocDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('[data-nav-group]')) return;
+      setOpenGroup(null);
+    };
+    document.addEventListener('mousedown', onDocDown);
+    return () => document.removeEventListener('mousedown', onDocDown);
+  }, [openGroup]);
+
+  useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
       const el = mainRef.current;
       if (!isRefreshing && el && el.scrollTop === 0 && e.touches.length > 0) {
@@ -283,11 +294,15 @@ export function AppShell({ children }: AppShellProps) {
               return (
                 <div
                   key={group.label}
+                  data-nav-group={group.label}
                   className="relative h-full flex items-center"
                   onMouseEnter={() => handleGroupEnter(group.label)}
                   onMouseLeave={handleGroupLeave}
                 >
                   <button
+                    type="button"
+                    aria-expanded={isOpen}
+                    aria-haspopup="menu"
                     onClick={() => {
                       if (isOpen) {
                         setOpenGroup(null);
@@ -307,12 +322,9 @@ export function AppShell({ children }: AppShellProps) {
                   </button>
 
                   {isOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setOpenGroup(null)} />
-                      <div className="shell-menu left-0">
-                        {renderGroupMenu(group)}
-                      </div>
-                    </>
+                    <div className="shell-menu left-0" role="menu">
+                      {renderGroupMenu(group)}
+                    </div>
                   )}
                 </div>
               );

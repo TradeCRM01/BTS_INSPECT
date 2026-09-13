@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { WIDGET_REGISTRY, WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
 import { WidgetRenderer } from '../widgets/WidgetComponents';
+import { TodayCommandBar } from '../components/dashboard/TodayCommandBar';
 import type { Json } from '../types/database';
 
 interface DashboardWidget {
@@ -236,6 +237,8 @@ export function DashboardPage() {
             )}
           </div>
         </div>
+
+        <TodayCommandBar />
 
         {/* Free-form Canvas (desktop) / Stacked (mobile) */}
         {isLoading ? (
