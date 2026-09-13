@@ -4574,11 +4574,16 @@
 
   .hub-invoice-send-foot {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
-    gap: 16px;
+    gap: 12px 16px;
     padding-top: 16px;
     border-top: 1px solid #D5DCE3;
+  }
+
+  .hub-invoice-send-foot .btn-primary {
+    white-space: nowrap;
   }
 
   @media (max-width: 639px) {
