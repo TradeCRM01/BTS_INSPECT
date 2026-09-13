@@ -15,6 +15,7 @@ import { PageError, EmptyState, SearchBar, useToast } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS } from '../lib/useManagedList';
+import { expenseNeedsJobReconcile } from '../lib/expenseReconcile';
 import {
   ApplyEmployeeCostModelModal,
   ApplyExpenseTemplateModal,
@@ -210,6 +211,11 @@ export function ExpensesPage() {
     return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
   }, [filtered]);
 
+  const jobCogsToCheck = useMemo(
+    () => expenses.filter(expenseNeedsJobReconcile).length,
+    [expenses],
+  );
+
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load expenses" /></AppShell>;
 
   return (
@@ -363,6 +369,13 @@ export function ExpensesPage() {
             </div>
           </div>
         )}
+
+        {jobCogsToCheck > 0 ? (
+          <div className="mb-4 rounded-lg border border-[#F5D0C5] bg-[#FFF7F5] px-3 py-2.5 text-sm text-[#0A2540]">
+            {jobCogsToCheck} cost-of-sales {jobCogsToCheck === 1 ? 'expense is' : 'expenses are'} on a job.
+            Check the job bill so the same spend is not counted twice in profit.
+          </div>
+        ) : null}
 
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <SearchBar value={search} onChange={setSearch} placeholder="Search description, vendor, employee, category…" />

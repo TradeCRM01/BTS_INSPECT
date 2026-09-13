@@ -57,10 +57,32 @@ Tests: `crewDayLoad`, `capacityWarnings`, `applyDropStartTime` default duration.
 
 Tests: `jobFieldPath`.
 
+## Milestone 4 — commercial / inventory exceptions (partial)
+
+- Stock list shows available (on hand) and allocated (sum of `allocated_to_job` movements). Allocations already decrement on-hand, so available is not on-hand minus allocated again.
+- Expenses show a reconcile banner when recorded/paid COGS is tagged to a job.
+- Quotes already expose convert/invoice next actions.
+
+Tests: `stockAvailability`, `expenseReconcile`.
+
+## Milestone 5 — 9+ gate (not passed)
+
+Weights from the 13 Sep brief, recorded so we do not invent a score:
+
+| Category | Audit | This branch (honest) | 9+ |
+| --- | ---: | --- | --- |
+| Reliability | 4.5 | Better in code; not re-proven on production JS | No |
+| Desktop | 6.5 | Command bar + menus + denser lists | No |
+| Mobile field | 5.5 | Field path exists; no physical iPhone/Android pass | No |
+| Scheduling | 6.0 | Load vs recorded hours only | No |
+| CRM / money / stock | — | Exception banners and columns only | No |
+
+Not done for a 9+: deploy of this branch, E2E, visual regression, 1366 and 390 viewports in a signed-in browser this session, VoiceOver/TalkBack, offline no-dupe proof, skills/travel/audit log, settings IA rewrite, widget canvas, Simpro-depth dispatch.
+
 ## Later milestones
 
 1. Shell and list density — this branch (above). Not verified 9+.
 2. Dispatch load vs recorded hours, default one-hour slot on timed drop — this branch. Skills, travel, and a booking audit log are not started (no schema invented). Not verified 9+.
 3. Mobile field path on the job sheet (clock, photo, note, All done / More to do) and Today → `/jobs?when=today`. Photos are stored in the existing photos bucket plus a description line — not a new photos table. Not physically validated. Not verified 9+.
-4. CRM/commercial/inventory exception depth — not started.
-5. Rubric, E2E, visual regression, real-device 9+ gate — not started.
+4. Stock available vs allocated-to-job; expenses warn when COGS is already on a job. Quotes already had next-action buckets. Not verified 9+.
+5. Rubric recorded above — gates not passed. Not a 9+.

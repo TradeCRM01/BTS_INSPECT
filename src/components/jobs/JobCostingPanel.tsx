@@ -667,7 +667,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                     <p className="text-xs text-[#4A5568]">{item.sku ?? '—'}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-[#4A5568]">{item.quantity_on_hand} on hand</p>
+                    <p className="text-xs text-[#4A5568]">{item.quantity_on_hand} available</p>
                     <p className="text-xs font-medium text-[#0A2540]">{formatMoney(item.unit_cost)}</p>
                   </div>
                 </button>
@@ -682,7 +682,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
               <div>
                 <p className="text-sm font-medium text-[#1A1A1A]">{selectedItem.name}</p>
                 <p className="text-xs text-[#4A5568]">
-                  {selectedItem.quantity_on_hand} on hand · cost {formatMoney(selectedItem.unit_cost)}
+                  {selectedItem.quantity_on_hand} available · cost {formatMoney(selectedItem.unit_cost)}
                   {defaultMarkup > 0 ? ` · +${defaultMarkup}% markup` : ''}
                 </p>
               </div>

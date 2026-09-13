@@ -14,6 +14,7 @@ import type { StockItem, StockItemWithSupplier, Supplier } from '../types/fsm';
 import { getStockLevel, STOCK_LEVEL_STYLES, STOCK_LEVEL_LABELS, formatMoney } from '../types/fsm';
 import { DriveCard } from './StockLocationPage';
 import { locationLabel, encodeLocationKey } from '../lib/stockLocations';
+import { allocatedFromMovements, stockShelfCounts } from '../lib/stockAvailability';
 import {
   Plus, Package, X, Trash2, Pencil, Archive, ArchiveRestore,
   ChevronDown, Tag, Boxes, Filter, HardDrive,
@@ -53,6 +54,19 @@ export function StockPage() {
       return ((data ?? []) as (StockItem & { suppliers?: { name: string } | null })[]).map(
         i => ({ ...i, supplier_name: i.suppliers?.name ?? null } as StockItemWithSupplier)
       );
+    },
+    enabled: !!profile,
+  });
+
+  const { data: movements = [] } = useQuery({
+    queryKey: ['stock-movements-alloc', profile?.company_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('stock_movements')
+        .select('stock_item_id, movement_type, quantity')
+        .eq('movement_type', 'allocated_to_job');
+      if (error) throw error;
+      return data ?? [];
     },
     enabled: !!profile,
   });
@@ -281,6 +295,7 @@ export function StockPage() {
                   <StockCard
                     key={item.id}
                     item={item}
+                    allocated={allocatedFromMovements(movements, item.id)}
                     onEdit={() => { setEditingItem(item); setShowForm(true); }}
                     onArchive={() => archiveMutation.mutate({ id: item.id, archived: !item.archived })}
                     onDelete={() => setDeleteTarget(item)}
@@ -297,7 +312,8 @@ export function StockPage() {
                         <th className="px-4 py-3">SKU</th>
                         <th className="px-4 py-3">Category</th>
                         <th className="px-4 py-3">Drive</th>
-                        <th className="px-4 py-3 text-right">Qty</th>
+                        <th className="px-4 py-3 text-right">Available</th>
+                        <th className="px-4 py-3 text-right">Allocated</th>
                         <th className="px-4 py-3 text-right">Unit Cost</th>
                         <th className="px-4 py-3">Level</th>
                         <th className="px-4 py-3 w-10"></th>
@@ -319,7 +335,12 @@ export function StockPage() {
                               {locationLabel(item.storage_location)}
                             </Link>
                           </td>
-                          <td className="px-4 py-3 text-right text-[#4A5568]">{item.quantity_on_hand} {item.unit_of_measure}</td>
+                          <td className="px-4 py-3 text-right text-[#4A5568]">
+                            {stockShelfCounts(item.quantity_on_hand, allocatedFromMovements(movements, item.id)).available} {item.unit_of_measure}
+                          </td>
+                          <td className="px-4 py-3 text-right text-[#4A5568]">
+                            {stockShelfCounts(item.quantity_on_hand, allocatedFromMovements(movements, item.id)).allocated}
+                          </td>
                           <td className="px-4 py-3 text-right font-medium text-[#1A1A1A]">{formatMoney(item.unit_cost)}</td>
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STOCK_LEVEL_STYLES[getStockLevel(item)]}`}>{STOCK_LEVEL_LABELS[getStockLevel(item)]}</span>
@@ -375,13 +396,15 @@ export function StockPage() {
 // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Stock Card ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 
 const StockCard = memo(function StockCard({
-  item, onEdit, onArchive, onDelete,
+  item, allocated, onEdit, onArchive, onDelete,
 }: {
   item: StockItemWithSupplier;
+  allocated: number;
   onEdit: () => void;
   onArchive: () => void;
   onDelete: () => void;
 }) {
+  const shelf = stockShelfCounts(item.quantity_on_hand, allocated);
   const level = getStockLevel(item);
   const menuItems: MenuEntry[] = [
     { label: 'Edit', icon: Pencil, onClick: onEdit },
@@ -425,7 +448,7 @@ const StockCard = memo(function StockCard({
         {/* Stats footer */}
         <div className="mt-3 pt-3 border-t border-[#F3F4F6] flex items-center gap-4 text-xs text-[#6B7280]">
           <span className="flex items-center gap-1">
-            <Boxes size={12} /> {item.quantity_on_hand} {item.unit_of_measure}
+            <Boxes size={12} /> {shelf.available} avail · {shelf.allocated} on jobs
           </span>
           <span className="ml-auto font-medium text-[#1A1A1A]">{formatMoney(item.unit_cost)}</span>
         </div>
