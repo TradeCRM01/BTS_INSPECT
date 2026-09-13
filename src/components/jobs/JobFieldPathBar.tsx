@@ -12,6 +12,8 @@ export function JobFieldPathBar({
   onPhoto,
   onAllDone,
   onMoreToDo,
+  onStartJha,
+  onStartTake5,
 }: {
   status: JobStatus;
   clockedOn: boolean;
@@ -22,6 +24,8 @@ export function JobFieldPathBar({
   onPhoto: (file: File) => void;
   onAllDone: () => void;
   onMoreToDo: () => void;
+  onStartJha: () => void;
+  onStartTake5: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [noteOpen, setNoteOpen] = useState(false);
@@ -37,8 +41,16 @@ export function JobFieldPathBar({
   }
 
   return (
-    <div className="job-field-path lg:hidden">
+    <div className="job-field-path lg:hidden" data-testid="job-field-path">
       <p className="ops-meta mb-2">On site</p>
+      <div className="job-field-path-paper">
+        <button type="button" className="job-field-path-paper-btn" disabled={busy} onClick={onStartJha}>
+          JHA
+        </button>
+        <button type="button" className="job-field-path-paper-btn" disabled={busy} onClick={onStartTake5}>
+          Take 5
+        </button>
+      </div>
       <div className="job-field-path-grid">
         {clockedOn ? (
           <button type="button" className="btn-danger" disabled={busy} onClick={onClockOff}>

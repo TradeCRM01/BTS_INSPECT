@@ -1115,31 +1115,6 @@ export function JobDetailPage() {
           </div>
         </article>
 
-        <JobFieldPathBar
-          status={job.status}
-          clockedOn={!!runningEntry}
-          busy={
-            clockOnJob.isPending
-            || clockOffJob.isPending
-            || updateStatus.isPending
-            || saveFieldNote.isPending
-            || saveFieldPhoto.isPending
-          }
-          onClockOn={() => clockOnJob.mutate()}
-          onClockOff={() => clockOffJob.mutate()}
-          onNote={note => saveFieldNote.mutate(note)}
-          onPhoto={file => saveFieldPhoto.mutate(file)}
-          onAllDone={async () => {
-            if (runningEntry) await clockOffJob.mutateAsync();
-            await updateStatus.mutateAsync(nextJobStatusAfterField('all_done', job.status));
-            showToast('Job marked done');
-          }}
-          onMoreToDo={async () => {
-            await updateStatus.mutateAsync(nextJobStatusAfterField('more_to_do', job.status));
-            showToast('Still more to do');
-          }}
-        />
-
         <JobWorkspaceTabs
           active={tab}
           onChange={setTab}
@@ -1583,8 +1558,35 @@ export function JobDetailPage() {
           )}
         </div>
 
+        <JobFieldPathBar
+          status={job.status}
+          clockedOn={!!runningEntry}
+          busy={
+            clockOnJob.isPending
+            || clockOffJob.isPending
+            || updateStatus.isPending
+            || saveFieldNote.isPending
+            || saveFieldPhoto.isPending
+          }
+          onClockOn={() => clockOnJob.mutate()}
+          onClockOff={() => clockOffJob.mutate()}
+          onNote={note => saveFieldNote.mutate(note)}
+          onPhoto={file => saveFieldPhoto.mutate(file)}
+          onAllDone={async () => {
+            if (runningEntry) await clockOffJob.mutateAsync();
+            await updateStatus.mutateAsync(nextJobStatusAfterField('all_done', job.status));
+            showToast('Job marked done');
+          }}
+          onMoreToDo={async () => {
+            await updateStatus.mutateAsync(nextJobStatusAfterField('more_to_do', job.status));
+            showToast('Still more to do');
+          }}
+          onStartJha={startJha}
+          onStartTake5={startTake5}
+        />
+
         {next.key !== 'none' && (
-          <div className="ops-sticky -mx-4 sm:mx-0">
+          <div className="ops-sticky -mx-4 sm:mx-0 hidden lg:block">
             {next.key === 'inspect' ? (
               <Link to={inspectHref} className="ops-next-control-block">{next.label}</Link>
             ) : (

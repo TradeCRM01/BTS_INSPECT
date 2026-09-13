@@ -3659,6 +3659,12 @@
   }
 
   /* Job hub action row + schedule board cards only. Signed overflow grammar. */
+  @media (max-width: 1023px) {
+    .hub-job-cal {
+      padding-bottom: 12px;
+    }
+  }
+
   .hub-job-cal,
   .hub-board-cal,
   .job-cal-host {
@@ -3801,7 +3807,22 @@
   }
 
   .job-field-path {
-    @apply mb-4 rounded-lg border border-rule bg-white p-3;
+    @apply rounded-t-lg border border-rule bg-white p-3;
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    box-shadow: 0 -8px 20px rgba(10, 37, 64, 0.08);
+  }
+
+  .job-field-path-paper {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .job-field-path-paper-btn {
+    @apply flex-1 min-h-[44px] text-sm font-semibold text-navy border border-rule rounded-md bg-white;
   }
 
   .job-field-path-grid {
@@ -3812,6 +3833,12 @@
 
   .job-field-path-grid .btn-primary {
     grid-column: 1 / -1;
+  }
+
+  @media (min-width: 1024px) {
+    .job-field-path {
+      display: none;
+    }
   }
 
   .job-cal-quiet {

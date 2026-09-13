@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Download, X, Monitor, Smartphone } from 'lucide-react';
-import { canOfferInstallPrompt, PWA_INSTALL_DISMISS_KEY } from '../../lib/installPrompt';
+import { canOfferInstallPrompt, dismissInstallPrompt, isInstallDismissed } from '../../lib/installPrompt';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -16,7 +16,7 @@ export function InstallPrompt() {
   const [isIos, setIsIos] = useState(false);
 
   useEffect(() => {
-    if (!canOfferInstallPrompt(pathname, localStorage.getItem(PWA_INSTALL_DISMISS_KEY) === '1')) return;
+    if (!canOfferInstallPrompt(pathname, isInstallDismissed(localStorage))) return;
 
     const isIosBrowser =
       /iphone|ipad|ipod/i.test(navigator.userAgent) &&
@@ -40,7 +40,7 @@ export function InstallPrompt() {
 
   function dismiss() {
     setShow(false);
-    localStorage.setItem(PWA_INSTALL_DISMISS_KEY, '1');
+    dismissInstallPrompt(localStorage);
   }
 
   async function install() {
@@ -51,10 +51,10 @@ export function InstallPrompt() {
     setDeferredPrompt(null);
   }
 
-  if (!canOfferInstallPrompt(pathname, localStorage.getItem(PWA_INSTALL_DISMISS_KEY) === '1') || !show) return null;
+  if (!canOfferInstallPrompt(pathname, isInstallDismissed(localStorage)) || !show) return null;
 
   return (
-    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-4">
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-4" data-testid="pwa-install-banner">
       <div className="bg-[#0A2540] text-white rounded-xl shadow-2xl p-3 flex gap-3 items-start border border-white/10">
         <div className="w-9 h-9 rounded-lg bg-[#2E75B6] flex items-center justify-center shrink-0">
           {isIos ? <Smartphone size={18} className="text-white" /> : <Monitor size={18} className="text-white" />}

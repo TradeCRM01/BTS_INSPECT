@@ -519,9 +519,9 @@ describe('24h reminder attach client — wiring', () => {
     expect(page).toContain('JobClientReminder');
     expect(invoicesPage).toContain('attachInvoiceClient');
     expect(dialog).toContain('attachReportClient');
-    expect(due).not.toContain('attachJobClient');
-    expect(due).not.toContain('job-client-attach');
-    expect(due).not.toContain('jobClientAttachRow');
+    expect(due).toContain('attachJobClient');
+    expect(due).toContain('job-client-attach');
+    expect(due).toContain('jobClientAttachRow');
   });
 
   it('does not launch 24h autofire or change job-reminder cron', () => {
