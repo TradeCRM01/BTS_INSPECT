@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   bookingWarnings,
+  capacityWarnings,
   clashingJobIds,
+  crewDayLoad,
   hoursWarnings,
   jobBookingLabel,
+  jobLoadMinutes,
   jobsClash,
   shouldProceedWithBooking,
 } from './booking';
@@ -124,5 +127,36 @@ describe('shouldProceedWithBooking', () => {
 describe('jobBookingLabel', () => {
   it('prefers a padded job number', () => {
     expect(jobBookingLabel({ job_number: 5, title: 'Test' })).toBe('#0005 Test');
+  });
+});
+
+describe('crew day load', () => {
+  it('counts an untimed dated job as one hour', () => {
+    expect(jobLoadMinutes(job({ id: 'a' }))).toBe(60);
+  });
+
+  it('uses timed duration and does not invent weekday hours', () => {
+    const load = crewDayLoad(
+      [job({ id: 'a', start_time: '08:00:00', end_time: '11:00:00' })],
+      'alice',
+      '2026-09-11',
+      [],
+    );
+    expect(load).toEqual({
+      bookedMinutes: 180,
+      availableMinutes: null,
+      overCapacity: false,
+      off: false,
+    });
+  });
+
+  it('flags over recorded hours only when that day has a working window', () => {
+    const jobs = [
+      job({ id: 'a', start_time: '07:00:00', end_time: '12:00:00' }),
+      job({ id: 'b', start_time: '12:00:00', end_time: '16:00:00' }),
+    ];
+    const hours = [{ memberId: 'alice', date: '2026-09-11', working: true, start: '07:00:00', end: '15:00:00' }];
+    expect(crewDayLoad(jobs, 'alice', '2026-09-11', hours).overCapacity).toBe(true);
+    expect(capacityWarnings(jobs[1], [jobs[0]], hours, names)[0]).toMatch(/Alice would be booked/);
   });
 });

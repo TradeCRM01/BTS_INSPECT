@@ -483,6 +483,7 @@ export function SchedulePage() {
                   onDayClick={handleDayClick}
                   onDragStart={handleRailDragStart}
                   filteredEmployeeIds={filteredEmployeeIds}
+                  hours={hours}
                 />
               )}
             </div>

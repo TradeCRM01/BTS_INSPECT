@@ -12,7 +12,7 @@ Do not treat any category as a verified 9 / 10 until Milestone 5 gates and physi
 | UI/UX vs competitors | 6.0 | Unchanged | No |
 | Desktop efficiency | 6.5 | Today command bar + denser Jobs/CRM lists | No |
 | Mobile field | 5.5 provisional | Phone week exists; not physically validated | No |
-| Scheduling / dispatch | 6.0 | Crew-axis week + overlap/hours warnings | No |
+| Scheduling / dispatch | 6.0 | Overlap, dated hours, load vs recorded hours | No |
 | Reliability / recovery | 4.5 | Milestone 0 in this branch | No |
 
 ## Milestone 0 — reliability (implemented, not yet deployed)
@@ -40,10 +40,19 @@ Tests: `todayCommand`.
 
 Still open on M1: widget canvas itself; a full settings IA split; physical confirmation that menus open on a real desktop pointer.
 
+## Milestone 2 — dispatch load (implemented, not Simpro parity)
+
+- Week and day boards show booked hours per crew cell. Available hours appear only when that date has a `staff_hours` working window — weekdays are not invented.
+- Booking warnings include over-capacity against those recorded hours.
+- Dropping an untimed job onto a time on the day grid sets a one-hour end.
+- Skills, equipment, travel time, and a persisted booking audit log are not in this slice.
+
+Tests: `crewDayLoad`, `capacityWarnings`, `applyDropStartTime` default duration.
+
 ## Later milestones
 
 1. Shell and list density — this branch (above). Not verified 9+.
-2. Dispatch intelligence beyond overlap + dated hours — not started.
+2. Dispatch load vs recorded hours, default one-hour slot on timed drop — this branch. Skills, travel, and a booking audit log are not started (no schema invented). Not verified 9+.
 3. Unified job timeline and one-handed field path — not started.
 4. CRM/commercial/inventory exception depth — not started.
 5. Rubric, E2E, visual regression, real-device 9+ gate — not started.

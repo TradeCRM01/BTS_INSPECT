@@ -68,7 +68,11 @@ export function applyDropStartTime(
 ): { start_time: string; end_time: string | null } {
   const startM = timeToMinutes(currentStart);
   const endM = timeToMinutes(currentEnd);
-  if (startM == null || endM == null) {
+  if (startM == null) {
+    const nextStart = timeToMinutes(newStart) ?? 0;
+    return { start_time: newStart, end_time: minutesToTime(nextStart + 60) };
+  }
+  if (endM == null) {
     return { start_time: newStart, end_time: currentEnd ?? null };
   }
   const duration = Math.max(0, endM - startM);

@@ -22,7 +22,7 @@ import {
 import { Clock, Users } from 'lucide-react';
 import { JobCalendarOverflow } from '../jobs/JobCalendarOverflow';
 import { calendarSite } from '../../lib/jobCalendar';
-import { clashingJobIds, type StaffHours } from '../../lib/booking';
+import { clashingJobIds, crewDayLoad, formatLoadHours, type StaffHours } from '../../lib/booking';
 
 export interface TeamMember {
   id: string;
@@ -323,7 +323,7 @@ export const PhoneDayList = memo(function PhoneDayList({
 
 /** Phone week: pick a day, then see that day grouped the same way as the week board. */
 export const PhoneWeekList = memo(function PhoneWeekList({
-  jobs, teamMembers, currentDate, onJobClick, onPickDay, onDayClick, onDragStart, filteredEmployeeIds,
+  jobs, teamMembers, currentDate, onJobClick, onPickDay, onDayClick, onDragStart, filteredEmployeeIds, hours = [],
 }: {
   jobs: JobWithClient[];
   teamMembers: TeamMember[];
@@ -333,6 +333,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
   onDayClick: (dateStr: string, employeeId?: string) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
   filteredEmployeeIds: Set<string>;
+  hours?: StaffHours[];
 }) {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const days = useMemo(
@@ -419,6 +420,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
         const isUnassigned = row.id === UNASSIGNED_ROW_ID;
         const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
         const rowJobs = jobsByRow.get(row.id) ?? [];
+        const load = isUnassigned ? null : crewDayLoad(rowJobs, row.id, selected, hours);
         return (
           <section key={row.id} className="space-y-2">
             <div className="flex items-center gap-2 px-1">
@@ -430,7 +432,11 @@ export const PhoneWeekList = memo(function PhoneWeekList({
                 }}
               />
               <p className="text-xs font-semibold text-ink">{row.name}</p>
-              <span className="ops-meta">{rowJobs.length}</span>
+              <span className={`ops-meta ${load?.overCapacity ? 'text-fail' : ''}`}>
+                {rowJobs.length}
+                {load && load.bookedMinutes > 0 ? ` · ${formatLoadHours(load.bookedMinutes)}` : ''}
+                {load?.overCapacity ? ' over' : ''}
+              </span>
             </div>
             {rowJobs.length === 0 ? (
               <button
@@ -627,12 +633,19 @@ export const DayBoardView = memo(function DayBoardView({
                 />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold tracking-tight text-navy truncate">{row.name}</p>
-                  <p className="ops-meta">
+                  <p className={`ops-meta ${!isUnassigned && crewDayLoad(rowJobs, row.id, dateStr, hours).overCapacity ? 'text-fail' : ''}`}>
                     {isUnassigned
                       ? (rowJobs.length === 0 ? 'Drop here — date stays' : `${rowJobs.length} · needs crew`)
-                      : hours.find(h => h.memberId === row.id && h.date === dateStr && !h.working)
-                        ? 'Off'
-                        : `${rowJobs.length} job${rowJobs.length !== 1 ? 's' : ''}`}
+                      : (() => {
+                        const load = crewDayLoad(rowJobs, row.id, dateStr, hours);
+                        if (load.off) return 'Off';
+                        const jobsLabel = `${rowJobs.length} job${rowJobs.length !== 1 ? 's' : ''}`;
+                        if (load.bookedMinutes === 0) return jobsLabel;
+                        const hoursLabel = load.availableMinutes != null
+                          ? `${formatLoadHours(load.bookedMinutes)} / ${formatLoadHours(load.availableMinutes)}`
+                          : formatLoadHours(load.bookedMinutes);
+                        return `${jobsLabel} · ${hoursLabel}${load.overCapacity ? ' over' : ''}`;
+                      })()}
                   </p>
                 </div>
               </div>
@@ -879,6 +892,7 @@ export const WeekBoardView = memo(function WeekBoardView({
                 {dateStrs.map(ds => {
                   const cellJobs = jobsByCell.get(cellKey(row.id, ds)) ?? [];
                   const hovering = dropHoverKey === cellKey(row.id, ds);
+                  const load = isUnassigned ? null : crewDayLoad(cellJobs, row.id, ds, hours);
                   return (
                     <div
                       key={ds}
@@ -888,6 +902,16 @@ export const WeekBoardView = memo(function WeekBoardView({
                       className="border-r border-rule last:border-r-0 p-1 space-y-1 cursor-pointer min-h-[64px]"
                       style={hovering ? { background: '#EAF2FB' } : undefined}
                     >
+                      {load && (load.bookedMinutes > 0 || load.off) ? (
+                        <p className={`ops-meta px-0.5 ${load.overCapacity ? 'text-fail' : ''}`}>
+                          {load.off ? 'Off' : null}
+                          {!load.off ? formatLoadHours(load.bookedMinutes) : null}
+                          {!load.off && load.availableMinutes != null
+                            ? ` / ${formatLoadHours(load.availableMinutes)}`
+                            : ''}
+                          {load.overCapacity && !load.off ? ' over' : ''}
+                        </p>
+                      ) : null}
                       {cellJobs.map(job => (
                         <JobBlock
                           key={job.id}
@@ -900,9 +924,6 @@ export const WeekBoardView = memo(function WeekBoardView({
                           onDragStart={e => handleDragStart(e, job.id)}
                         />
                       ))}
-                      {cellJobs.length === 0 && !isUnassigned && hours.some(h => h.memberId === row.id && h.date === ds && !h.working) && (
-                        <p className="ops-meta px-0.5">Off</p>
-                      )}
                     </div>
                   );
                 })}

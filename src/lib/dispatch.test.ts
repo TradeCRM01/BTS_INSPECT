@@ -75,10 +75,10 @@ describe('applyDropStartTime', () => {
     });
   });
 
-  it('turns an all-day job into a timed slot', () => {
+  it('turns an all-day job into a one-hour timed slot', () => {
     expect(applyDropStartTime(null, null, '07:00:00')).toEqual({
       start_time: '07:00:00',
-      end_time: null,
+      end_time: '08:00:00',
     });
   });
 });

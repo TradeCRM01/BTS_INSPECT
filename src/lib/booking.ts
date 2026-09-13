@@ -36,6 +36,9 @@ function dateKey(value: string | null | undefined): string | null {
   return value.slice(0, 10);
 }
 
+/** Load estimate only — untimed dated work counts as one hour, not a real clock time. */
+export const DEFAULT_LOAD_MINUTES = 60;
+
 function interval(job: BookedJob): { start: number; end: number } | null {
   const start = timeToMinutes(job.start_time);
   if (start == null) return null;
@@ -110,13 +113,89 @@ export function hoursWarnings(
   return warnings;
 }
 
+export function jobLoadMinutes(job: BookedJob): number {
+  if (!isOpenBooking(job) || !dateKey(job.scheduled_date)) return 0;
+  const slot = interval(job);
+  if (slot) return Math.max(15, slot.end - slot.start);
+  return DEFAULT_LOAD_MINUTES;
+}
+
+export type CrewDayLoad = {
+  bookedMinutes: number;
+  availableMinutes: number | null;
+  overCapacity: boolean;
+  off: boolean;
+};
+
+export function crewDayLoad(
+  jobs: BookedJob[],
+  memberId: string,
+  date: string,
+  hours: StaffHours[] = [],
+): CrewDayLoad {
+  const day = date.slice(0, 10);
+  const bookedMinutes = jobs
+    .filter(job =>
+      isOpenBooking(job)
+      && dateKey(job.scheduled_date) === day
+      && (job.assigned_team ?? []).includes(memberId),
+    )
+    .reduce((sum, job) => sum + jobLoadMinutes(job), 0);
+  const row = hoursFor(memberId, day, hours);
+  if (row && !row.working) {
+    return { bookedMinutes, availableMinutes: 0, overCapacity: bookedMinutes > 0, off: true };
+  }
+  let availableMinutes: number | null = null;
+  if (row?.working && row.start && row.end) {
+    const start = timeToMinutes(row.start);
+    const end = timeToMinutes(row.end);
+    if (start != null && end != null && end > start) availableMinutes = end - start;
+  }
+  return {
+    bookedMinutes,
+    availableMinutes,
+    overCapacity: availableMinutes != null && bookedMinutes > availableMinutes,
+    off: false,
+  };
+}
+
+export function formatLoadHours(minutes: number): string {
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
+}
+
+export function capacityWarnings(
+  proposed: BookedJob,
+  others: BookedJob[],
+  hours: StaffHours[],
+  names: Map<string, string>,
+): string[] {
+  const date = dateKey(proposed.scheduled_date);
+  if (!date || !isOpenBooking(proposed)) return [];
+  const pack = others.filter(job => job.id !== proposed.id).concat(proposed);
+  const warnings: string[] = [];
+  for (const memberId of proposed.assigned_team ?? []) {
+    const load = crewDayLoad(pack, memberId, date, hours);
+    if (!load.overCapacity || load.off) continue;
+    const name = names.get(memberId) ?? 'Someone';
+    const booked = formatLoadHours(load.bookedMinutes);
+    const avail = load.availableMinutes != null ? formatLoadHours(load.availableMinutes) : '';
+    warnings.push(`${name} would be booked ${booked} against ${avail} recorded hours on ${date}.`);
+  }
+  return warnings;
+}
+
 export function bookingWarnings(
   proposed: BookedJob,
   others: BookedJob[],
   names: Map<string, string>,
   hours: StaffHours[] = [],
 ): string[] {
-  return [...crewConflictWarnings(proposed, others, names), ...hoursWarnings(proposed, hours, names)];
+  return [
+    ...crewConflictWarnings(proposed, others, names),
+    ...hoursWarnings(proposed, hours, names),
+    ...capacityWarnings(proposed, others, hours, names),
+  ];
 }
 
 export function clashingJobIds(jobs: BookedJob[]): Set<string> {
