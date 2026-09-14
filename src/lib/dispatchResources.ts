@@ -98,6 +98,15 @@ export function isPhysicallyImpossible(kind: DispatchConflictKind): boolean {
     || kind === 'crew_timed_overlap';
 }
 
+/** Soft issues that still require an admin reason before a write. Legacy empty requirements are display-only. */
+export function isSoftWriteGate(conflict: DispatchConflict): boolean {
+  if (conflict.severity !== 'soft') return false;
+  return conflict.kind === 'hours_unknown'
+    || conflict.kind === 'hours_over_window'
+    || conflict.kind === 'crew_count_short'
+    || conflict.kind === 'required_resource_missing';
+}
+
 export function qualificationHolds(
   row: DispatchQualification | undefined,
   today: string,
@@ -197,7 +206,7 @@ export function evaluateDispatch(snap: DispatchSnapshot): DispatchConflict[] {
       kind: 'crew_count_short',
       severity: ready ? 'hard' : 'soft',
       message: `Needs ${snap.requiredCrewCount} crew; ${snap.assignedTeam.length} assigned.`,
-      overridable: true,
+      overridable: !ready,
     });
   }
 
@@ -218,14 +227,14 @@ export function evaluateDispatch(snap: DispatchSnapshot): DispatchConflict[] {
         kind: 'expired_qualification',
         severity: 'hard',
         message: `${label} has expired.`,
-        overridable: true,
+        overridable: false,
       });
     } else {
       conflicts.push({
         kind: 'missing_qualification',
         severity: 'hard',
         message: `Needs qualified crew for ${label}.`,
-        overridable: true,
+        overridable: false,
       });
     }
   }
@@ -251,7 +260,7 @@ export function evaluateDispatch(snap: DispatchSnapshot): DispatchConflict[] {
         message: req.resourceId
           ? `${resourceName(snap.resources, req.resourceId)} is not allocated.`
           : `Needs ${qty} ${(req.category ?? 'resource')} on the job.`,
-        overridable: true,
+        overridable: !ready,
       });
       continue;
     }
@@ -348,24 +357,24 @@ export function decideDispatchWrite(args: {
   message?: string;
 } {
   const hard = args.conflicts.filter(c => c.severity === 'hard');
-  if (hard.length === 0) {
-    return { ok: true, blocker: null, overridden: false };
-  }
-  const impossible = hard.filter(c => isPhysicallyImpossible(c.kind) || !c.overridable);
-  if (impossible.length > 0) {
+  if (hard.length > 0) {
     return {
       ok: false,
       blocker: 'not_overridable',
       overridden: false,
-      message: impossible[0].message,
+      message: hard[0].message,
     };
+  }
+  const softGate = args.conflicts.filter(isSoftWriteGate);
+  if (softGate.length === 0) {
+    return { ok: true, blocker: null, overridden: false };
   }
   if (args.role !== 'admin') {
     return {
       ok: false,
       blocker: 'member_hard',
       overridden: false,
-      message: hard[0].message,
+      message: softGate[0].message,
     };
   }
   const reason = (args.overrideReason ?? '').trim();

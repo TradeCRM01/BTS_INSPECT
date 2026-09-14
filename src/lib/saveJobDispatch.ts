@@ -55,6 +55,9 @@ export function buildDispatchPayload(input: SaveJobDispatchInput, write: { overr
     })),
     required_crew_count: input.requiredCrewCount,
     dispatch_ready: input.dispatchReady,
+    scheduled_date: input.snapshot.job.scheduled_date,
+    start_time: input.snapshot.job.start_time,
+    end_time: input.snapshot.job.end_time,
     override_reason: input.overrideReason ?? null,
     overridden: write.overridden,
     event_kind: dispatchEventKind(write.overridden, !!input.reschedule),
@@ -63,12 +66,49 @@ export function buildDispatchPayload(input: SaveJobDispatchInput, write: { overr
   };
 }
 
-export function mapDispatchRpcError(error: { message?: string; code?: string }): {
+export function parseDispatchBlocked(details?: string | null): {
+  code: string;
+  message: string;
+  conflicts: DispatchConflict[];
+} | null {
+  if (!details) return null;
+  try {
+    const parsed = JSON.parse(details) as {
+      code?: string;
+      conflicts?: Array<{ kind?: string; severity?: string; message?: string; overridable?: boolean }>;
+    };
+    const conflicts = (parsed.conflicts ?? []).map(c => ({
+      kind: (c.kind ?? 'missing_qualification') as DispatchConflict['kind'],
+      severity: (c.severity === 'soft' ? 'soft' : 'hard') as DispatchConflict['severity'],
+      message: c.message ?? 'Assignment blocked.',
+      overridable: !!c.overridable,
+    }));
+    return {
+      code: parsed.code ?? 'dispatch_blocked',
+      message: conflicts[0]?.message ?? 'Assignment blocked.',
+      conflicts,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function mapDispatchRpcError(error: { message?: string; code?: string; details?: string }): {
   ok: false;
   code: 'blocked' | 'stale' | 'tenant' | 'error';
   message: string;
+  conflicts?: DispatchConflict[];
 } {
   const text = error.message ?? '';
+  const blocked = parseDispatchBlocked(error.details);
+  if (/dispatch_blocked/i.test(text) || blocked) {
+    return {
+      ok: false,
+      code: 'blocked',
+      message: blocked?.message ?? 'Assignment blocked.',
+      conflicts: blocked?.conflicts,
+    };
+  }
   if (/stale_dispatch/i.test(text) || error.code === '40001') {
     return { ok: false, code: 'stale', message: 'Someone else just changed this job. Refresh and try again.' };
   }
@@ -107,7 +147,8 @@ export async function saveJobDispatch(input: SaveJobDispatchInput): Promise<Save
   const payload = buildDispatchPayload(input, { overridden: write.overridden });
   const { data, error } = await supabase.rpc('save_job_dispatch', { p: payload });
   if (error) {
-    return { ...mapDispatchRpcError(error), conflicts };
+    const mapped = mapDispatchRpcError(error);
+    return { ...mapped, conflicts: mapped.conflicts ?? conflicts };
   }
   const row = data as { updated_at?: string; dispatch_version?: number; event_id?: string; replayed?: boolean };
   return {

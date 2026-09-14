@@ -184,18 +184,30 @@ describe('crew overlap and planning vs ready', () => {
     const conflicts = evaluateDispatch(snap());
     expect(conflicts.every(c => c.severity === 'soft')).toBe(true);
     expect(conflicts.some(c => c.kind === 'legacy_no_requirements')).toBe(true);
-    expect(decideDispatchWrite({ role: 'member', conflicts }).ok).toBe(true);
+    expect(conflicts.every(c => c.kind === 'legacy_no_requirements' || c.kind === 'hours_unknown')).toBe(true);
   });
 });
 
 describe('override and write gates', () => {
-  it('requires an admin reason and rejects a member override', () => {
+  it('blocks missing qualifications even for an admin with a reason', () => {
     const conflicts = evaluateDispatch(snap({
       skillRequirements: [{ skillId: 'sk-test' }],
     }));
+    expect(decideDispatchWrite({ role: 'member', conflicts, overrideReason: 'please' }).blocker).toBe('not_overridable');
+    expect(decideDispatchWrite({ role: 'admin', conflicts, overrideReason: 'paper ticket on site' }).ok).toBe(false);
+  });
+
+  it('requires an admin reason for a soft planning warning', () => {
+    const conflicts = evaluateDispatch(snap({
+      requiredCrewCount: 2,
+      assignedTeam: ['alice'],
+      dispatchReady: false,
+      hours: [{ memberId: 'alice', date: '2026-09-14', working: true, start: '07:00', end: '16:00' }],
+    }));
+    expect(conflicts.find(c => c.kind === 'crew_count_short')?.severity).toBe('soft');
     expect(decideDispatchWrite({ role: 'member', conflicts, overrideReason: 'please' }).blocker).toBe('member_hard');
     expect(decideDispatchWrite({ role: 'admin', conflicts, overrideReason: '' }).blocker).toBe('override_reason_required');
-    expect(decideDispatchWrite({ role: 'admin', conflicts, overrideReason: 'paper ticket on site' })).toEqual({
+    expect(decideDispatchWrite({ role: 'admin', conflicts, overrideReason: 'second tech arriving later' })).toEqual({
       ok: true,
       blocker: null,
       overridden: true,
@@ -226,6 +238,7 @@ describe('hours are unknown, not a hard block', () => {
   it('soft-warns when staff_hours is absent', () => {
     const conflicts = evaluateDispatch(snap());
     expect(conflicts.find(c => c.kind === 'hours_unknown')?.severity).toBe('soft');
-    expect(decideDispatchWrite({ role: 'member', conflicts }).ok).toBe(true);
+    expect(decideDispatchWrite({ role: 'member', conflicts }).ok).toBe(false);
+    expect(decideDispatchWrite({ role: 'admin', conflicts, overrideReason: 'usual pattern' }).ok).toBe(true);
   });
 });

@@ -12,7 +12,7 @@ import {
   memberNameMap,
   staffHoursFromRow,
 } from '../../lib/booking';
-import { decideDispatchWrite, evaluateDispatch, newIdempotencyKey } from '../../lib/dispatchResources';
+import { decideDispatchWrite, evaluateDispatch, isSoftWriteGate, newIdempotencyKey } from '../../lib/dispatchResources';
 import { loadDispatchPack, snapshotForJob } from '../../lib/loadDispatchSnapshot';
 import { saveJobDispatch } from '../../lib/saveJobDispatch';
 import type { DispatchRole, JobResourceRequirement } from '../../lib/dispatchResources';
@@ -374,7 +374,7 @@ export function JobDispatchPanel({
             {conflicts.filter(c => c.severity === 'soft').slice(0, 2).map(c => (
               <p key={c.kind + c.message} className="ops-meta mt-1">{c.message}</p>
             ))}
-            {role === 'admin' && conflicts.some(c => c.severity === 'hard' && c.overridable) && (
+            {role === 'admin' && conflicts.some(isSoftWriteGate) && (
               <label className="block mt-2">
                 <span className="ops-field-label">Override reason</span>
                 <input

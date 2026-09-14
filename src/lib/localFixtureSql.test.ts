@@ -34,6 +34,15 @@ describe('local sandbox SQL is not a production grant path', () => {
     expect(dispatchSec).toMatch(/tenant_mismatch/);
     expect(dispatchSec).toMatch(/stale_dispatch/);
     expect(dispatchSec).toMatch(/m6-sec-retry-key-0001/);
+    expect(dispatchSec).toMatch(/m6-sec-missing-qual-01/);
+    expect(dispatchSec).toMatch(/m6-sec-expired-qual-01/);
+    expect(dispatchSec).toMatch(/m6-sec-oos-01/);
+    expect(dispatchSec).toMatch(/m6-sec-res-overlap-01/);
+    expect(dispatchSec).toMatch(/m6-sec-crew-overlap-01/);
+    expect(dispatchSec).toMatch(/m6-sec-ready-omit-01/);
+    expect(dispatchSec).toMatch(/has_function_privilege\('anon'/);
+    expect(src('scripts/local-m6-dispatch-race.ps1')).toMatch(/m6-sec-race-hold-01/);
+    expect(src('scripts/local-m6-dispatch-race.ps1')).toMatch(/m6-sec-race-job-01/);
     expect(dispatchSec).not.toMatch(/GRANT\s+[^;]*\banon\b/i);
   });
 

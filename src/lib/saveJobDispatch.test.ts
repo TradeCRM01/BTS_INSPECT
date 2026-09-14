@@ -70,13 +70,17 @@ describe('local dispatch SQL is not a production grant path', () => {
     expect(sql).toMatch(/Not a production migration/i);
     expect(sql).not.toMatch(/GRANT\s+[^;]*\banon\b/i);
     expect(sql).toMatch(/REVOKE ALL ON TABLE %I FROM anon/i);
-    expect(sql).toMatch(/REVOKE ALL ON FUNCTION save_job_dispatch\(jsonb\) FROM PUBLIC, anon/i);
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION (?:public\.)?save_job_dispatch\(jsonb\) FROM PUBLIC, anon/i);
     expect(sql).toMatch(/stale_dispatch/);
     expect(sql).toMatch(/updated_at = clock_timestamp\(\)/);
     expect(sql).toMatch(/tenant_mismatch/);
     expect(sql).toMatch(/ON CONFLICT \(company_id, idempotency_key\)/);
     expect(sql).toMatch(/replayed/);
     expect(sql).toMatch(/override_forbidden/);
+    expect(sql).toMatch(/dispatch_blocked/);
+    expect(sql).toMatch(/FOR UPDATE/);
+    expect(sql).toMatch(/SET search_path = pg_catalog, public/);
+    expect(sql).toMatch(/public\.job_resource_allocations/);
     expect(sql).toMatch(/REVOKE INSERT, UPDATE, DELETE ON TABLE %I FROM authenticated/);
     expect(sql).toMatch(/company_insert_admin/);
     expect(sql).not.toMatch(/CREATE TABLE.*staff_hours/i);
@@ -103,5 +107,12 @@ describe('local dispatch SQL is not a production grant path', () => {
     });
     expect(mapDispatchRpcError({ message: 'tenant_mismatch' }).code).toBe('tenant');
     expect(mapDispatchRpcError({ message: 'override_forbidden' }).code).toBe('blocked');
+    expect(mapDispatchRpcError({
+      message: 'dispatch_blocked',
+      details: JSON.stringify({
+        code: 'missing_qualification',
+        conflicts: [{ kind: 'missing_qualification', severity: 'hard', message: 'Needs qualified crew for Tester ticket.', overridable: false }],
+      }),
+    }).message).toMatch(/Tester ticket/);
   });
 });

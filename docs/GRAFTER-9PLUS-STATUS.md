@@ -174,7 +174,7 @@ Tables (all `company_id` + RLS, `authenticated`/`service_role` only, `REVOKE` fr
 - `job_resource_allocations`
 - `dispatch_events` (`UNIQUE (company_id, idempotency_key)`)
 
-Write path: `save_job_dispatch(jsonb)` — expected `updated_at` (`clock_timestamp()` so same-transaction retries cannot collide), one transaction for crew + requirements + allocations + one audit event. Replay on the same idempotency key (`replayed: true`). `stale_dispatch` / `tenant_mismatch`. Admin override requires a reason in the RPC; members cannot set `overridden`. Skill and resource IDs must belong to the caller’s company. Physical overlaps and out-of-service resources are not overridable in the client evaluator. No second `staff_hours` table.
+Write path: `public.save_job_dispatch(jsonb)` is `SECURITY DEFINER` with `search_path = pg_catalog, public`. Every save loads the locked job, catalogue, qualifications, resource state and sibling allocations from the database. Client `conflicts` / `overridden` are not trusted. Crew and selected resources are locked `FOR UPDATE` in ID order before availability checks. Crew + requirements + allocations + job bump (`clock_timestamp()`) + one `dispatch_events` row are one transaction. Replay on the same idempotency key (`replayed: true`). `stale_dispatch` / `tenant_mismatch`. Hard conflicts raise `dispatch_blocked` with JSON `DETAIL`. Soft gates (`hours_unknown`, hours window, planning crew/resource shortfall) need an **admin** and a non-empty reason. Members cannot override. Admins cannot override hard conflicts. Execute: `authenticated` + `service_role` only. No second `staff_hours` table.
 
 Live privilege: `has_table_privilege('anon', …, SELECT/INSERT)` is **false** on all seven new tables. `authenticated` can **SELECT** job requirements, allocations and events, but **cannot INSERT/UPDATE/DELETE** them (RPC only). Catalogue writes are **admin** + same company.
 
@@ -197,37 +197,47 @@ No maps, travel time, or route suggestions.
 
 | Check | Result |
 | --- | --- |
-| Full `vitest run` | **92 files, 1093 passed, 0 skip** (14 Sep 2026, this machine, after security/empty-state pass) |
-| `vite build` | Pass (47.37s) on the M6 foundation commit. Not re-run this security pass. |
-| Live local RPC/RLS | `scripts/local-m6-dispatch-security.sql` — **passed** (NOTICE: member override, tenant, stale, retry, and RLS checks passed) |
+| Full `vitest run` | **92 files, 1094 passed, 0 skip** (14 Sep 2026, this machine, after server-side validation pass) |
+| `vite build` | **Pass** (`built in 2m 26s`) this pass. |
+| Live local RPC | `scripts/local-m6-dispatch-security.sql` — **passed** (NOTICE: server validation, override policy, tenant, stale, retry, and RLS checks passed) |
+| Live local race | `scripts/local-m6-dispatch-race.ps1` — **passed** (one kit allocation; second client `dispatch_blocked`) |
 
 Covered in unit tests: valid/expired/missing qualification; licence does not satisfy a skill; valid allocation; OOS and overlap blocks; timed crew overlap; planning warning vs ready block; admin reason + member reject; tenant/stale RPC mapping; idempotent payload key; legacy job readable; no `staff_hours` recreation; Needs resources empty copy.
 
-#### Security pass — live local negatives
+#### Security pass — live local negatives (server-side, 14 Sep 2026)
 
-Run after the schema script, against local Docker only. Isolated fixtures (not a production login path):
+Crafted RPC with `overridden: false` against isolated fixtures (`M6 Hard Ticket`, `M6 Dead Kit`, `M6 Race Kit`). Jack’s real Tester ticket was not expired. Isolated fixtures (not a production login path):
 
 | Case | Result |
 | --- | --- |
-| Member JWT + `overridden: true` + reason | `override_forbidden` |
+| Missing mandatory qualification | `dispatch_blocked` / `missing_qualification`; no job/allocation/event write |
+| Expired qualification + admin reason | `dispatch_blocked` / `expired_qualification`; no write |
+| Out-of-service resource | `dispatch_blocked` / `resource_out_of_service`; no write |
+| Resource overlap | `dispatch_blocked` / `resource_overlap`; no write |
+| Timed crew overlap | `dispatch_blocked` / `crew_timed_overlap`; no write |
+| Ready/confirmed omit required resource | `dispatch_blocked` / `required_resource_missing`; no write |
+| Member + hours_unknown + reason / `overridden: true` | `override_forbidden`; no write |
+| Admin soft without reason | `override_reason_required`; no write |
+| Admin soft with reason | success, `overridden: true` |
 | Other-company JWT on a BTS job | `tenant_mismatch` |
 | Admin JWT allocating another company’s resource | `tenant_mismatch` |
 | Same idempotency key twice | One allocation, one event, `replayed: true` |
 | Second key with stale `updated_at` | `stale_dispatch` |
+| `has_function_privilege('anon'/'public', save_job_dispatch, execute)` | **false** (`SET ROLE anon` + invoke segfaults this local image; catalog revoke is the proof) |
 | Other company `SELECT` on BTS `dispatch_resources` as `authenticated` | 0 rows |
 | `authenticated` INSERT into `dispatch_events` / allocations | denied |
+| Two clients, same kit, same slot | exactly one allocation |
 
-`now()` was replaced with `clock_timestamp()` after the first stale case matched inside one transaction.
+`now()` stays `clock_timestamp()` on job writes.
 
 #### Limitations
 
 - Local schema only. Production still has no dispatch-resource tables.
-- **Physical iPhone and Android were not run this pass.** Safe area, hardware keyboard, offline retry, VoiceOver and TalkBack remain open. Cursor-browser session had expired (login screen); empty-state copy is covered by unit/source tests, not a new signed-in screenshot.
-- Client evaluator still owns physical overlap / out-of-service blocks. A crafted RPC call with `overridden: false` is not re-validated for those in SQL.
+- **Physical iPhone and Android were not run this pass.** Safe area, hardware keyboard, offline retry, VoiceOver and TalkBack remain open. No new signed-in browser pass this change (RPC/SQL + unit tests + `vite build` only).
 - Direct `jobs` updates (legacy last-write-wins) still exist when the sandbox schema is missing, and for status/date fields outside this RPC.
 - No maps or travel work.
-- No new dispatcher role; admin only for override.
+- No new dispatcher role; admin only for soft override.
 
 ## Review branch
 
-M6 plus this security/empty-state pass are **local** commits on `integration/job-workspace-tabs`. **Do not push** until asked. Do not deploy to `grafter.com.au` or apply production migrations. Physical-device validation is still required before a review-branch push is treated as mobile-complete.
+M6 plus server-side dispatch validation are **local** commits on `integration/job-workspace-tabs`. **Do not push** until asked. Do not deploy to `grafter.com.au` or apply production migrations. Physical-device validation is still required before a review-branch push is treated as mobile-complete.
