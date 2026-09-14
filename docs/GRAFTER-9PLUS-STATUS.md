@@ -1,6 +1,6 @@
 # Grafter 9+ programme — development status
 
-**Programme state:** Milestones 0–5 plus the 13–14 Sep 2026 hardening / validation pass are on `integration/job-workspace-tabs`. This document is the living record.
+**Programme state:** Milestones 0–6 plus the 13–14 Sep 2026 hardening / validation pass are on `integration/job-workspace-tabs`. This document is the living record. Milestone 6 is **local sandbox only**.
 
 Baseline: live UX audit of original Grafter, 13 September 2026.
 Repo: original Grafter (`TradeCRM01/BTS_INSPECT`).
@@ -15,7 +15,7 @@ Production deploys, `grafter.com.au`, payments, and customer email stay out of s
 | UI/UX vs competitors | 6.0 | Unchanged vs competitor UI | No |
 | Desktop efficiency | 6.5 | 1366×768 signed-in smoke after sticky correction | No |
 | Mobile field | 5.5 provisional | Emulated pointer passes at **390×844** and **375×667** | No |
-| Scheduling / dispatch | 6.0 | Local `staff_hours` fixture; least-privilege grants | No |
+| Scheduling / dispatch | 6.0 | M6 local resource layer (not Simpro-depth) | No |
 | Reliability / recovery | 4.5 | `due_on` list loads locally; PWA dismiss via **controlled** event | No |
 
 ## Hardening pass — 14 Sep 2026 (local sandbox)
@@ -23,7 +23,7 @@ Production deploys, `grafter.com.au`, payments, and customer email stay out of s
 App: `http://127.0.0.1:5174` with `VITE_SUPABASE_URL=http://127.0.0.1:55321` (overrides `.env` production URL).
 Data: local Supabase only. Company “Building Technology Solutions”. **No writes to `ezszahvwwmbuekpedumf` or grafter.com.au.** Local login passwords are not recorded here.
 
-Local-only tables (`expenses`, `staff_hours`) stay in `scripts/local-apply-cogs-hours.sql` / `scripts/local-validation-fixtures.sql`. Those files are **not** production migrations. `GRANT` is `authenticated` + `service_role` only. `REVOKE ALL` from `anon` and `PUBLIC`. Re-run is idempotent (`NOT EXISTS`). Static guard: `src/lib/localFixtureSql.test.ts`. Live local check: `has_table_privilege('anon', …)` is **false** for SELECT/INSERT/UPDATE/DELETE on both tables. All three local jobs share one `company_id`.
+Local-only tables (`expenses`, `staff_hours`) stay in `scripts/local-apply-cogs-hours.sql` / `scripts/local-validation-fixtures.sql`. Milestone 6 dispatch tables stay in `scripts/local-m6-dispatch-resources.sql`. Those files are **not** production migrations. `GRANT` is `authenticated` + `service_role` only. `REVOKE ALL` from `anon` and `PUBLIC`. Re-run is idempotent (`NOT EXISTS`). Static guard: `src/lib/localFixtureSql.test.ts`. Live local check: `has_table_privilege('anon', …)` is **false** for SELECT/INSERT/UPDATE/DELETE on both tables. All three local jobs share one `company_id`.
 
 ### Sticky action hierarchy
 
@@ -153,6 +153,62 @@ Stock available vs allocated; COGS-on-job helper. Banner live-proven with a loca
 ### Milestone 5 — 9+ gate
 
 **Not passed.**
+
+### Milestone 6 — resource-aware dispatch (14 Sep 2026, local only)
+
+**Not 9+. Not Simpro parity.** No production migration. Schema lives in `scripts/local-m6-dispatch-resources.sql` (`LOCAL SANDBOX ONLY` / `Not a production migration`). **Not** copied into `supabase/migrations`.
+
+Applied to local Docker Postgres (`supabase_db_BTS_INSPECT`) only. Company “Building Technology Solutions”. Seed: Tester ticket, Fluke tester (available), EWP-1 (out of service), dated member qualifications. `profiles.licence_number` stays display-only.
+
+#### Local schema
+
+Job columns: `dispatch_ready`, `dispatch_version`, `required_crew_count`, `last_dispatch_override_at`, `last_dispatch_override_reason`.
+
+Tables (all `company_id` + RLS, `authenticated`/`service_role` only, `REVOKE` from `anon`/`PUBLIC`):
+
+- `dispatch_skills`
+- `dispatch_member_qualifications`
+- `dispatch_resources` (operational pool — not `assets`, not stock)
+- `job_skill_requirements`
+- `job_resource_requirements`
+- `job_resource_allocations`
+- `dispatch_events` (`UNIQUE (company_id, idempotency_key)`)
+
+Write path: `save_job_dispatch(jsonb)` — expected `updated_at`, one transaction for crew + requirements + allocations + one audit event. Replay on the same idempotency key (`replayed: true`). `stale_dispatch` / `tenant_mismatch`. Admin override requires a reason in the RPC; members cannot set `overridden`. Physical overlaps and out-of-service resources are not overridable. No second `staff_hours` table.
+
+Live privilege: `has_table_privilege('anon', …, SELECT/INSERT)` is **false** on all seven new tables.
+
+#### Browser (signed-in local, `127.0.0.1:5174`)
+
+| Viewport | Check | Result |
+| --- | --- | --- |
+| 1366×768 | Schedule: **Needs resources** filter | Present. With no hard badges, day list went to **Monday 14 Sep (0)** — filter is actionable, not decorative. |
+| 1366×768 | Job `#0001` Requirements | Tickets / equipment / ready checkbox in Schedule & crew. Tester ticket saved via RPC (`job_skill_requirements` + one `assign` event). |
+| 1366×768 | Hard blocks | EWP-1 out-of-service did not insert an allocation. Clear crew without override reason left `assigned_team` unchanged; still one event. |
+| 390×844 | Schedule | Agenda/list (`scrollWidth` 390). No desktop grid. **Needs resources** in the toolbar (not a new sticky). |
+| 390×844 | Job field path | On-site strip unchanged (JHA / Take 5 / Clock / Photo / Note / More to do / All done). JHA target 44px. One sticky. |
+| 375×667 | Schedule + job | `scrollWidth` 375. Agenda list + same On-site strip. Take 5 still needs a parent JHA. |
+
+Screenshots: `docs/validation/2026-09-14/desktop-1366-job-dispatch.png`, `desktop-1366-schedule-needs-resources.png`, `phone-390-schedule-agenda.png`, `phone-390-job-field-m6.png`, `phone-375-schedule-agenda.png`, `phone-375-job-field-m6.png`.
+
+No maps, travel time, or route suggestions.
+
+#### Automated
+
+| Check | Result |
+| --- | --- |
+| Full `vitest run` | **92 files, 1092 passed, 0 skip** (14 Sep 2026, this machine) |
+| `vite build` | Pass (47.37s). Large-chunk warning only (`vendor-pdf`). |
+
+Covered in unit tests: valid/expired/missing qualification; licence does not satisfy a skill; valid allocation; OOS and overlap blocks; timed crew overlap; planning warning vs ready block; admin reason + member reject; tenant/stale RPC mapping; idempotent payload key; legacy job readable; no `staff_hours` recreation.
+
+#### Limitations
+
+- Local schema only. Production still has no dispatch-resource tables.
+- Physical phones still required before any 9+ mobile claim.
+- Schedule badges appear only for **hard** conflicts or a recorded override. Soft planning warnings stay on the job panel.
+- Fallback last-write-wins job update remains if the local tables are missing.
+- No new dispatcher role; admin only for override.
 
 ## Review branch
 
