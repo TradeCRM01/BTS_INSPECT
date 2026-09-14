@@ -247,4 +247,30 @@ Crafted RPC with `overridden: false` against isolated fixtures (`M6 Hard Ticket`
 
 ## Review branch
 
-Pushed `integration/job-workspace-tabs` as a **review backup only**. Do not merge. Do not deploy to `grafter.com.au` or apply production migrations. Physical-device, offline/retry, keyboard, safe-area, VoiceOver, and TalkBack validation is required before this branch is treated as mobile-complete.
+Pushed `integration/job-workspace-tabs` as a **review backup only** at `6863cbd`. Do not merge. Do not deploy to `grafter.com.au` or apply production migrations.
+
+## Milestone 7 — physical-device validation (15 Sep 2026)
+
+**Not started on hardware. Not 9+. Not mobile-complete.**
+
+Fetch confirmed `HEAD` = `origin/integration/job-workspace-tabs` = `6863cbd`. No reset.
+
+### Runtime before sign-in (this session)
+
+| Role | Resolved URL |
+| --- | --- |
+| Vite | `http://127.0.0.1:5174/` (`--host 127.0.0.1`) |
+| Local Supabase (Kong) | `http://127.0.0.1:55321` (Vite override `VITE_SUPABASE_URL`) |
+
+`.env` still names production `ezszahvwwmbuekpedumf.supabase.co`. That host was **not** used. No tunnel. No `grafter.com.au`.
+
+### Physical devices
+
+| Device | Result | Blocker |
+| --- | --- | --- |
+| iPhone + Safari | **Not run** | No physical iPhone attached to this Cursor session; Safari on device cannot be operated from here. |
+| Android + Chrome | **Not run** | No physical Android attached to this Cursor session; Chrome on device cannot be operated from here. |
+
+No screenshots. Notes: `docs/validation/2026-09-15/physical/NOT-RUN.md`. Emulator / 390 / 375 passes stay interim only.
+
+Feature work stays paused. Resume M7 only when both phones are on the private LAN and the chat checklist (cut off at “Required physical-d”) is complete.
