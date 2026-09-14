@@ -121,7 +121,7 @@ export function mapDispatchRpcError(error: { message?: string; code?: string; de
   if (/override_reason_required/i.test(text)) {
     return { ok: false, code: 'blocked', message: 'Admin override needs a reason.' };
   }
-  return { ok: false, code: 'error', message: text || 'Could not save dispatch.' };
+  return { ok: false, code: 'error', message: 'Could not save dispatch.' };
 }
 
 export async function saveJobDispatch(input: SaveJobDispatchInput): Promise<SaveJobDispatchResult> {

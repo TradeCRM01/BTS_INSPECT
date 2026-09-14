@@ -223,21 +223,28 @@ Crafted RPC with `overridden: false` against isolated fixtures (`M6 Hard Ticket`
 | Admin JWT allocating another company’s resource | `tenant_mismatch` |
 | Same idempotency key twice | One allocation, one event, `replayed: true` |
 | Second key with stale `updated_at` | `stale_dispatch` |
-| `has_function_privilege('anon'/'public', save_job_dispatch, execute)` | **false** (`SET ROLE anon` + invoke segfaults this local image; catalog revoke is the proof) |
+| `has_function_privilege('anon'/'public', save_job_dispatch, execute)` | **false** — catalog evidence that execute is revoked. **Not** a direct anonymous invocation proof. `SET ROLE anon` then calling this SECURITY DEFINER is a **local-image limitation** (segfault on this Docker Postgres); do not treat that crash as the grant test. |
 | Other company `SELECT` on BTS `dispatch_resources` as `authenticated` | 0 rows |
 | `authenticated` INSERT into `dispatch_events` / allocations | denied |
 | Two clients, same kit, same slot | exactly one allocation |
 
 `now()` stays `clock_timestamp()` on job writes.
 
+#### Pre-push static/security check (15 Sep 2026)
+
+- `save_job_dispatch` and `dispatch_time_to_minutes` set `search_path = pg_catalog, public`. Every relation in the RPC body is `public.`-qualified (`jobs`, `profiles`, catalogue, allocations, events, `staff_hours`).
+- Script grants: `REVOKE ALL … FROM PUBLIC, anon` then `GRANT EXECUTE … TO authenticated, service_role`. Live catalog on local Docker: `authenticated` / `service_role` execute **true**; `anon` / `public` execute **false**.
+- Race helper is two `docker exec … psql -U postgres` sessions (peer auth). No dblink, no committed password, no reusable credential in `scripts/local-m6-dispatch-race.ps1`.
+- `dispatch_blocked` DETAIL is JSON `{ code, conflicts }` (kind / severity / operator-facing message / overridable). The client maps that to `blocked` plus the first conflict message. Stale/tenant/override codes use fixed copy. Unexpected RPC text is **not** shown (`Could not save dispatch.`).
+
 #### Limitations
 
 - Local schema only. Production still has no dispatch-resource tables.
-- **Physical iPhone and Android were not run this pass.** Safe area, hardware keyboard, offline retry, VoiceOver and TalkBack remain open. No new signed-in browser pass this change (RPC/SQL + unit tests + `vite build` only).
+- **Physical-device gate is now the stop:** iPhone and Android — safe area, hardware keyboard, offline/retry, VoiceOver, TalkBack. Feature work on this branch pauses until that gate is run. No new signed-in browser pass on the validation commit itself.
 - Direct `jobs` updates (legacy last-write-wins) still exist when the sandbox schema is missing, and for status/date fields outside this RPC.
 - No maps or travel work.
 - No new dispatcher role; admin only for soft override.
 
 ## Review branch
 
-M6 plus server-side dispatch validation are **local** commits on `integration/job-workspace-tabs`. **Do not push** until asked. Do not deploy to `grafter.com.au` or apply production migrations. Physical-device validation is still required before a review-branch push is treated as mobile-complete.
+Pushed `integration/job-workspace-tabs` as a **review backup only**. Do not merge. Do not deploy to `grafter.com.au` or apply production migrations. Physical-device, offline/retry, keyboard, safe-area, VoiceOver, and TalkBack validation is required before this branch is treated as mobile-complete.

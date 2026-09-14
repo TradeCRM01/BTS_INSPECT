@@ -114,5 +114,13 @@ describe('local dispatch SQL is not a production grant path', () => {
         conflicts: [{ kind: 'missing_qualification', severity: 'hard', message: 'Needs qualified crew for Tester ticket.', overridable: false }],
       }),
     }).message).toMatch(/Tester ticket/);
+    expect(mapDispatchRpcError({
+      message: 'column "pg_proc" does not exist',
+      details: 'HINT:  No operator matches the given name and argument types',
+    })).toEqual({
+      ok: false,
+      code: 'error',
+      message: 'Could not save dispatch.',
+    });
   });
 });
