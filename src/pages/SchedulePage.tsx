@@ -10,7 +10,7 @@ import { PageError } from '../components/ui/PageError';
 import type { Job, JobWithClient, Client } from '../types/crm';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import {
-  DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList, PhoneWeekList,
+  DayBoardView, WeekBoardView, DispatchQueue, PhoneDayList, PhoneWeekList,
   type TeamMember,
 } from '../components/crm/BoardViews';
 import { pickEmployeeColor } from '../lib/jobColors';
@@ -25,20 +25,19 @@ import {
 } from '../lib/booking';
 import { StaffHoursPanel } from '../components/jobs/StaffHoursPanel';
 import { loadDispatchPack, snapshotForJob } from '../lib/loadDispatchSnapshot';
-import { cardBadge, evaluateDispatch, NEEDS_RESOURCES_EMPTY } from '../lib/dispatchResources';
+import { cardBadge, cardTone, evaluateDispatch, NEEDS_RESOURCES_EMPTY } from '../lib/dispatchResources';
+import { buildScheduleQueue } from '../lib/scheduleQueue';
+import { DispatchCommandBar } from '../components/jobs/DispatchCommandBar';
+import { timeToMinutes, WORKDAY_END_HOUR, WORKDAY_START_HOUR } from '../lib/dispatch';
 import { saveJobDispatch } from '../lib/saveJobDispatch';
 import { newIdempotencyKey } from '../lib/dispatchResources';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
 import {
-  ChevronLeft, ChevronRight, Plus, Calendar as CalIcon,
-  Columns3, Users, X,
+  Users, X,
 } from 'lucide-react';
-import {
-  format, startOfWeek, endOfWeek,
-  addDays, addWeeks,
-} from 'date-fns';
+import { format, startOfWeek, endOfWeek, addDays, addWeeks } from 'date-fns';
 
 type ViewMode = 'day' | 'week';
 
@@ -64,6 +63,8 @@ export function SchedulePage() {
   const [presetEmployeeId, setPresetEmployeeId] = useState<string | undefined>(undefined);
   const [filteredEmployeeIds, setFilteredEmployeeIds] = useState<Set<string>>(new Set());
   const [attentionOnly, setAttentionOnly] = useState(false);
+  const [hoursOpen, setHoursOpen] = useState(false);
+  const [extendedHours, setExtendedHours] = useState(false);
   const [colorSavingId, setColorSavingId] = useState<string | null>(null);
 
   const preselectClient = searchParams.get('client');
@@ -258,9 +259,12 @@ export function SchedulePage() {
         hours,
         names,
       });
+      const conflicts = evaluateDispatch(snap);
+      const override = !!job.last_dispatch_override_at;
       return {
         ...job,
-        dispatchBadge: cardBadge(evaluateDispatch(snap), !!job.last_dispatch_override_at),
+        dispatchBadge: cardBadge(conflicts, override),
+        dispatchTone: cardTone(conflicts, override),
       };
     });
   }, [jobs, dispatchPack, hours, names]);
@@ -392,6 +396,22 @@ export function SchedulePage() {
     : null;
 
   const unassignedOnBoard = onBoard.filter(j => !(j.assigned_team ?? []).length).length;
+  const attentionCount = onBoard.filter(j => j.dispatchBadge).length;
+  const queueGroups = useMemo(
+    () => buildScheduleQueue(needsDate, onBoard),
+    [needsDate, onBoard],
+  );
+  const outsideWorkdayCount = onBoard.filter(j => {
+    const start = timeToMinutes(j.start_time);
+    if (start == null) return false;
+    return start < WORKDAY_START_HOUR * 60 || start >= WORKDAY_END_HOUR * 60;
+  }).length;
+  const summary = [
+    `${onBoard.length} on the board`,
+    unassignedOnBoard > 0 ? `${unassignedOnBoard} unassigned` : null,
+    needsDate.length > 0 ? `${needsDate.length} without a date` : null,
+    attentionCount > 0 ? `${attentionCount} need attention` : null,
+  ].filter(Boolean).join(' · ');
 
   const handleRailDragStart = (e: React.DragEvent, jobId: string) => {
     e.dataTransfer.setData('text/plain', jobId);
@@ -402,87 +422,31 @@ export function SchedulePage() {
 
   return (
     <AppShell>
-      <div className="ops-page hub-board-cal">
-        <div className="ops-page-head">
-          <div>
-            <h1 className="ops-page-title">Schedule</h1>
-            <p className="ops-meta mt-0.5">
-              {onBoard.length} on the board
-              {unassignedOnBoard > 0 ? ` · ${unassignedOnBoard} unassigned` : ''}
-              {needsDate.length > 0 ? ` · ${needsDate.length} without a date` : ''}
-              {onBoard.filter(j => j.dispatchBadge).length > 0 ? ` · ${onBoard.filter(j => j.dispatchBadge).length} need attention` : ''}
-              {viewMode === 'day' && ` · ${format(currentDate, 'EEEE, d MMMM yyyy')}`}
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setSelectedDate(format(currentDate, 'yyyy-MM-dd'));
-              setPresetEmployeeId(undefined);
-              setShowForm(true);
-            }}
-            className="btn-primary"
-          >
-            <Plus size={16} /> New Job
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setCurrentDate(new Date())}
-              className="btn-secondary">
-              Today
-            </button>
-            <div className="flex items-center">
-              <button
-                onClick={() => setCurrentDate(d =>
-                  viewMode === 'day' ? addDays(d, -1) : addWeeks(d, -1)
-                )}
-                className="w-11 h-11 flex items-center justify-center rounded-l-md border border-rule hover:bg-zebra text-muted"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                onClick={() => setCurrentDate(d =>
-                  viewMode === 'day' ? addDays(d, 1) : addWeeks(d, 1)
-                )}
-                className="w-11 h-11 flex items-center justify-center rounded-r-md border-y border-r border-rule hover:bg-zebra text-muted"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-            <h2 className="ops-section-title ml-1">
-              {viewMode === 'day' && format(currentDate, 'd MMMM yyyy')}
-              {viewMode === 'week' && `${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'd MMM')} – ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'd MMM yyyy')}`}
-            </h2>
-          </div>
-
-          <button
-            type="button"
-            className={`btn-secondary min-h-11 ${attentionOnly ? 'ring-1 ring-navy' : ''}`}
-            onClick={() => setAttentionOnly(v => !v)}
-            aria-pressed={attentionOnly}
-          >
-            Needs resources
-          </button>
-          <div className="flex ops-seg">
-            {([
-              { mode: 'day' as const, label: 'Day', Icon: Columns3 },
-              { mode: 'week' as const, label: 'Week', Icon: CalIcon },
-            ]).map(({ mode, label, Icon }) => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={`ops-seg-btn min-h-11 ${viewMode === mode ? 'ops-seg-btn-on' : 'ops-seg-btn-off'}`}
-              >
-                <Icon size={14} />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
+      <div className="ops-page hub-board-cal dc-page">
+        <DispatchCommandBar
+          currentDate={currentDate}
+          viewMode={viewMode}
+          onViewMode={setViewMode}
+          onToday={() => setCurrentDate(new Date())}
+          onPrev={() => setCurrentDate(d => viewMode === 'day' ? addDays(d, -1) : addWeeks(d, -1))}
+          onNext={() => setCurrentDate(d => viewMode === 'day' ? addDays(d, 1) : addWeeks(d, 1))}
+          summary={summary}
+          attentionOnly={attentionOnly}
+          attentionCount={attentionCount}
+          onToggleAttention={() => setAttentionOnly(v => !v)}
+          hoursOpen={hoursOpen}
+          onToggleHours={() => setHoursOpen(v => !v)}
+          extendedHours={extendedHours}
+          onToggleExtended={() => setExtendedHours(v => !v)}
+          outsideWorkdayCount={outsideWorkdayCount}
+          onNewJob={() => {
+            setSelectedDate(format(currentDate, 'yyyy-MM-dd'));
+            setPresetEmployeeId(undefined);
+            setShowForm(true);
+          }}
+        >
         {teamMembers && teamMembers.length > 0 && (
-          <div className="hidden lg:flex items-center gap-2 mb-3 flex-wrap">
+          <div className="hidden lg:flex items-center gap-2 mt-2 flex-wrap">
             <div className="flex items-center gap-1.5 ops-meta font-medium">
               <Users size={13} /> Crew
             </div>
@@ -526,8 +490,10 @@ export function SchedulePage() {
             </div>
           </div>
         )}
+        </DispatchCommandBar>
 
         <StaffHoursPanel
+          open={hoursOpen}
           date={format(currentDate, 'yyyy-MM-dd')}
           members={teamMembers ?? []}
           hours={hours}
@@ -542,12 +508,6 @@ export function SchedulePage() {
         ) : (
           <>
             <div className="lg:hidden space-y-3">
-              <NeedsDateRail
-                jobs={needsDate}
-                teamMembers={teamMembers ?? []}
-                onJobClick={job => navigate(`/jobs/${job.id}`)}
-                onDragStart={handleRailDragStart}
-              />
               {viewMode === 'day' ? (
                 <PhoneDayList
                   jobs={attentionBoard}
@@ -571,6 +531,12 @@ export function SchedulePage() {
                   emptyMessage={attentionEmpty}
                 />
               )}
+              <DispatchQueue
+                groups={queueGroups}
+                teamMembers={teamMembers ?? []}
+                onJobClick={job => navigate(`/jobs/${job.id}`)}
+                onDragStart={handleRailDragStart}
+              />
             </div>
 
             <div className="hidden lg:flex items-start gap-3">
@@ -586,6 +552,7 @@ export function SchedulePage() {
                     filteredEmployeeIds={filteredEmployeeIds}
                     hours={hours}
                     emptyMessage={attentionEmpty}
+                    extendedHours={extendedHours}
                   />
                 ) : (
                   <WeekBoardView
@@ -601,10 +568,10 @@ export function SchedulePage() {
                   />
                 )}
               </div>
-              <NeedsDateRail
-                className="w-72 shrink-0 sticky top-3"
+              <DispatchQueue
+                className="dc-queue-rail"
                 alwaysShow
-                jobs={needsDate}
+                groups={queueGroups}
                 teamMembers={teamMembers ?? []}
                 onJobClick={job => navigate(`/jobs/${job.id}`)}
                 onDragStart={handleRailDragStart}

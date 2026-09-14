@@ -1,8 +1,16 @@
-/** Day-board time grid (matches BoardViews). */
+/** Full day-board range (extended hours). Default workday is 7–17. */
 export const DAY_START_HOUR = 6;
 export const DAY_END_HOUR = 20;
-export const HOUR_WIDTH_PX = 96;
+export const WORKDAY_START_HOUR = 7;
+export const WORKDAY_END_HOUR = 17;
+export const HOUR_WIDTH_PX = 72;
 export const SNAP_MINUTES = 15;
+
+export function visibleDayHours(extended: boolean): { start: number; end: number } {
+  return extended
+    ? { start: DAY_START_HOUR, end: DAY_END_HOUR }
+    : { start: WORKDAY_START_HOUR, end: WORKDAY_END_HOUR };
+}
 
 export type AssignmentDrop = 'unassigned' | { employeeId: string };
 

@@ -10,12 +10,12 @@ import {
   placeDayRowJobs,
   dayRowHeightPx,
   UNASSIGNED_ROW_ID,
-  DAY_START_HOUR,
-  DAY_END_HOUR,
   HOUR_WIDTH_PX,
   timeToMinutes,
+  visibleDayHours,
   type JobDropPayload,
 } from '../../lib/dispatch';
+import type { ScheduleQueueGroup } from '../../lib/scheduleQueue';
 import {
   format, isToday, addDays, startOfWeek,
 } from 'date-fns';
@@ -42,13 +42,11 @@ export interface BoardProps {
   filteredEmployeeIds: Set<string>;
   hours?: StaffHours[];
   emptyMessage?: string | null;
+  extendedHours?: boolean;
 }
 
 const HOUR_WIDTH = HOUR_WIDTH_PX;
-const DAY_START = DAY_START_HOUR;
-const DAY_END = DAY_END_HOUR;
-const HOURS = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => DAY_START + i);
-const LABEL_WIDTH = 168;
+const LABEL_WIDTH = 196;
 const ALL_DAY_H = 56;
 const TIMED_H = 72;
 const ROW_PAD = 6;
@@ -139,7 +137,7 @@ const JobBlock = memo(function JobBlock({
           {clash ? ' · Overlap' : ''}
         </p>
         {job.dispatchBadge ? (
-          <p className="ops-meta mt-0.5 truncate">{job.dispatchBadge}</p>
+          <span className={`dc-chip dc-chip-${job.dispatchTone ?? 'hard'}`}>{job.dispatchBadge}</span>
         ) : null}
         {!compact && job.start_time && (
           <p className="ops-meta mt-0.5 flex items-center gap-0.5">
@@ -155,71 +153,72 @@ const JobBlock = memo(function JobBlock({
 
 // ── Unscheduled tray (jobs that would otherwise vanish) ──────────
 
-export const NeedsDateRail = memo(function NeedsDateRail({
-  jobs, teamMembers, onJobClick, onDragStart, alwaysShow = false, className = '',
+export const DispatchQueue = memo(function DispatchQueue({
+  groups, teamMembers, onJobClick, onDragStart, alwaysShow = false, className = '',
 }: {
-  jobs: JobWithClient[];
+  groups: ScheduleQueueGroup<JobWithClient>[];
   teamMembers?: TeamMember[];
   onJobClick: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
   alwaysShow?: boolean;
   className?: string;
 }) {
-  if (jobs.length === 0 && !alwaysShow) return null;
+  const total = groups.reduce((n, g) => n + g.jobs.length, 0);
+  if (total === 0 && !alwaysShow) return null;
 
   return (
-    <div className={`ops-tray ${className}`.trim()}>
-      <div className="ops-tray-head">
-        <p className="ops-card-kicker">Unscheduled</p>
-        <span className="ops-meta">{jobs.length}</span>
+    <aside className={`dc-queue ${className}`.trim()} aria-label="Dispatch queue">
+      <div className="dc-queue-head">
+        <p className="ops-card-kicker">Dispatch queue</p>
+        <span className="dc-count">{total}</span>
       </div>
-      <div className="p-2 space-y-2 max-h-[70vh] overflow-y-auto">
-        {jobs.length === 0 ? (
-          <p className="ops-meta px-1 py-2">No unscheduled jobs.</p>
+      <div className="dc-queue-body">
+        {total === 0 ? (
+          <p className="ops-meta px-1 py-2">Queue is clear. Dated jobs with crew sit on the board.</p>
         ) : (
-          jobs.map(job => {
-            const site = opsSiteLabel(job.address, job.client_address);
-            return (
-              <div
-                key={job.id}
-                role="button"
-                tabIndex={0}
-                draggable
-                onDragStart={e => onDragStart(e, job.id)}
-                onClick={() => onJobClick(job)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onJobClick(job);
-                  }
-                }}
-                className="ops-card job-cal-host ops-card-hover w-full text-left active:scale-[0.98] cursor-pointer"
-                style={{ borderLeftWidth: 3, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
-              >
-                <div className="ops-card-body">
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}</p>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
-                      <JobCalendarOverflow
-                        job={job}
-                        site={calendarSite(job.address, job.client_address)}
-                        members={teamMembers}
-                      />
+          groups.filter(g => g.jobs.length > 0).map(group => (
+            <section key={group.kind} className="dc-queue-group">
+              <h3 className="dc-queue-label">
+                {group.label}
+                <span className="dc-count">{group.jobs.length}</span>
+              </h3>
+              {group.jobs.map(job => {
+                const site = opsSiteLabel(job.address, job.client_address);
+                return (
+                  <div
+                    key={job.id}
+                    role="button"
+                    tabIndex={0}
+                    draggable
+                    onDragStart={e => onDragStart(e, job.id)}
+                    onClick={() => onJobClick(job)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onJobClick(job);
+                      }
+                    }}
+                    className="ops-card job-cal-host ops-card-hover w-full text-left active:scale-[0.98] cursor-pointer"
+                    style={{ borderLeftWidth: 3, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
+                  >
+                    <div className="ops-card-body dc-queue-card">
+                      <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} · {site}</p>
+                      <div className="flex items-center gap-1 flex-wrap mt-1">
+                        <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                        {job.dispatchBadge ? (
+                          <span className={`dc-chip dc-chip-${job.dispatchTone ?? 'hard'}`}>{job.dispatchBadge}</span>
+                        ) : null}
+                      </div>
+                      {job.client_name ? <p className="ops-meta mt-1 truncate">{job.client_name}</p> : null}
                     </div>
                   </div>
-                  <div className="ops-card-footer">
-                    <span className="ops-next-control-block">Set a date</span>
-                  </div>
-                  {job.client_name && <p className="ops-meta mt-1.5 truncate">{job.client_name}</p>}
-                  {job.title && <p className="ops-meta mt-0.5 truncate">{job.title}</p>}
-                </div>
-              </div>
-            );
-          })
+                );
+              })}
+            </section>
+          ))
         )}
       </div>
-    </div>
+    </aside>
   );
 });
 
@@ -255,7 +254,7 @@ const PhoneJobCard = memo(function PhoneJobCard({
     >
       <div className="ops-card-body">
         <div className="flex items-start justify-between gap-2 mb-1">
-          <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}{clash ? ' · Overlap' : ''}{job.dispatchBadge ? ` · ${job.dispatchBadge}` : ''}</p>
+          <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} · {site}{clash ? ' · Overlap' : ''}</p>
           <div className="flex items-center gap-1 shrink-0">
             <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
             <JobCalendarOverflow
@@ -267,7 +266,7 @@ const PhoneJobCard = memo(function PhoneJobCard({
         </div>
         <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
         {job.dispatchBadge ? (
-          <p className="ops-meta min-h-11 flex items-center">{job.dispatchBadge}</p>
+          <span className={`dc-chip dc-chip-${job.dispatchTone ?? 'hard'}`}>{job.dispatchBadge}</span>
         ) : null}
         <div className="ops-card-footer">
           <span className="ops-next-control-block">{next}</span>
@@ -482,13 +481,15 @@ export const PhoneWeekList = memo(function PhoneWeekList({
 // ── Day Board View ───────────────────────────────────────────────
 
 export const DayBoardView = memo(function DayBoardView({
-  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds, hours = [], emptyMessage,
+  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds, hours = [], emptyMessage, extendedHours = false,
 }: BoardProps) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverId, setDropHoverId] = useState<string | null>(null);
   const dateStr = dateKey(currentDate);
   const clashIds = useMemo(() => clashingJobIds(jobs), [jobs]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { start: DAY_START, end: DAY_END } = visibleDayHours(extendedHours);
+  const HOURS = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => DAY_START + i);
 
   const rows = useMemo(() => {
     const r: { id: string; name: string; schedule_color?: string | null }[] = [
@@ -683,7 +684,7 @@ export const DayBoardView = memo(function DayBoardView({
                   />
                 ))}
 
-                {isToday(currentDate) && <CurrentTimeVerticalIndicator />}
+                {isToday(currentDate) && <CurrentTimeVerticalIndicator dayStart={DAY_START} dayEnd={DAY_END} />}
 
                 {rowJobs.map(job => {
                   const placed = placementById.get(job.id);
@@ -740,11 +741,11 @@ export const DayBoardView = memo(function DayBoardView({
   );
 });
 
-function CurrentTimeVerticalIndicator() {
+function CurrentTimeVerticalIndicator({ dayStart, dayEnd }: { dayStart: number; dayEnd: number }) {
   const now = new Date();
   const h = now.getHours() + now.getMinutes() / 60;
-  if (h < DAY_START || h > DAY_END) return null;
-  const left = (h - DAY_START) * HOUR_WIDTH;
+  if (h < dayStart || h > dayEnd) return null;
+  const left = (h - dayStart) * HOUR_WIDTH;
   return (
     <div className="absolute top-0 bottom-0 z-20 pointer-events-none" style={{ left }}>
       <div className="flex flex-col items-center h-full">

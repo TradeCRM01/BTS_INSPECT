@@ -7,6 +7,7 @@ import {
   placeDayRowJobs,
   rescheduleJobPatch,
   startTimeFromDropOffset,
+  visibleDayHours,
 } from './dispatch';
 
 describe('nextAssignedTeam', () => {
@@ -32,6 +33,13 @@ describe('nextAssignedTeam', () => {
   });
 });
 
+describe('visibleDayHours', () => {
+  it('defaults to a 7am–5pm workday and can extend to 6am–8pm', () => {
+    expect(visibleDayHours(false)).toEqual({ start: 7, end: 17 });
+    expect(visibleDayHours(true)).toEqual({ start: 6, end: 20 });
+  });
+});
+
 describe('asTeamIds', () => {
   it('ignores non-arrays and empty ids', () => {
     expect(asTeamIds(undefined)).toEqual([]);
@@ -46,17 +54,17 @@ describe('startTimeFromDropOffset', () => {
   });
 
   it('maps one hour column to 07:00', () => {
-    expect(startTimeFromDropOffset(96)).toBe('07:00:00');
+    expect(startTimeFromDropOffset(72)).toBe('07:00:00');
   });
 
   it('snaps to 15 minutes', () => {
-    expect(startTimeFromDropOffset(24)).toBe('06:15:00');
-    expect(startTimeFromDropOffset(48)).toBe('06:30:00');
+    expect(startTimeFromDropOffset(18)).toBe('06:15:00');
+    expect(startTimeFromDropOffset(36)).toBe('06:30:00');
   });
 
   it('clamps to the visible day', () => {
     expect(startTimeFromDropOffset(-40)).toBe('06:00:00');
-    expect(startTimeFromDropOffset(96 * 20)).toBe('20:00:00');
+    expect(startTimeFromDropOffset(72 * 20)).toBe('20:00:00');
   });
 });
 

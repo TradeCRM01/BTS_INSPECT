@@ -9,6 +9,7 @@ export function StaffHoursPanel({
   hours,
   saving = false,
   unavailable = false,
+  open = false,
   onSave,
   onClear,
 }: {
@@ -17,6 +18,7 @@ export function StaffHoursPanel({
   hours: StaffHoursRow[];
   saving?: boolean;
   unavailable?: boolean;
+  open?: boolean;
   onSave: (row: StaffHours) => void;
   onClear: (memberId: string, date: string) => void;
 }) {
@@ -28,9 +30,11 @@ export function StaffHoursPanel({
 
   const existing = hours.filter(h => h.date === date);
 
+  if (!open) return null;
+
   if (unavailable) {
     return (
-      <div className="ops-tray mb-3">
+      <div id="schedule-hours-panel" className="ops-tray mb-3" role="region" aria-label="Hours and leave">
         <div className="ops-tray-head">
           <p className="ops-card-kicker">Hours & leave</p>
         </div>
@@ -44,7 +48,7 @@ export function StaffHoursPanel({
   if (members.length === 0) return null;
 
   return (
-    <div className="ops-tray mb-3">
+    <div id="schedule-hours-panel" className="ops-tray mb-3" role="region" aria-label="Hours and leave">
       <div className="ops-tray-head">
         <p className="ops-card-kicker">Hours & leave</p>
         <span className="ops-meta">{date}</span>

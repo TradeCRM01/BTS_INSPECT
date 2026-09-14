@@ -1,6 +1,6 @@
 # Grafter 9+ programme — development status
 
-**Programme state:** Milestones 0–6 plus the 13–14 Sep 2026 hardening / validation pass are on `integration/job-workspace-tabs`. This document is the living record. Milestone 6 is **local sandbox only**.
+**Programme state:** Milestones 0–7 (Schedule dispatch-centre redesign) are on `integration/job-workspace-tabs`. Milestone 6–7 schema/fixtures are **local sandbox only**. **No production deployment. No production migration. No verified 9+ rating. No Simpro parity.** Physical iPhone/Android remain required after this redesign.
 
 Baseline: live UX audit of original Grafter, 13 September 2026.
 Repo: original Grafter (`TradeCRM01/BTS_INSPECT`).
@@ -249,6 +249,44 @@ Crafted RPC with `overridden: false` against isolated fixtures (`M6 Hard Ticket`
 
 Pushed `integration/job-workspace-tabs` as a **review backup only** at `6863cbd`. Do not merge. Do not deploy to `grafter.com.au` or apply production migrations.
 
+## Milestone 7 — Schedule / Dispatch Centre (15 Sep 2026, local)
+
+**Not 9+. Not Simpro parity. Not physical-device complete.**
+
+Hierarchy rebuild of Schedule around dispatcher work. Did not restyle borders only.
+
+### What changed
+
+- One compact **dispatch command bar**: title + live summary, Today / prev / next, readable range, Day/Week, Needs resources + count, Hours & leave disclosure, 7am–5pm vs 6am–8pm, New Job. Desktop crew filter sits inside that bar.
+- **Hours & leave** is closed by default (`StaffHoursPanel` `open`). Office can still record dated hours.
+- Day board default **7am–5pm** at **72px/hour** so a normal workday fits 1366 without default horizontal scroll. Jobs outside that window increment the extended-hours control; they are not silently dropped. Full 6am–8pm remains available.
+- Crew rows still show name, job count, booked/available hours, off/over. Job cards use **hard / soft / override chips** instead of muted sentences.
+- Right rail is a **Dispatch queue** grouped No date / Blocked / Unassigned / Needs resources, with a compact empty state.
+- Mobile is **agenda first** (date command + today’s list), then the queue. Hours stay a secondary disclosure. On-site job strip unchanged.
+
+### Preserved
+
+`jobs.assigned_team`, day/week views, drag/drop and timed drop (`save_job_dispatch` + booking warnings), crew colours, `staff_hours`, M6 requirements/allocations/readiness/hard-soft rules/idempotency/RLS, auth/role boundaries. No second calendar, no extra hours table, no paid calendar dependency.
+
+### Local fixture
+
+`scripts/local-m7-dispatch-centre.sql` — `LOCAL SANDBOX ONLY`, not a migration. Applied to local Docker. Fictional titles `LOCAL M7 …`: timed overlap, late/over-hours, untimed, unassigned, no-date, ready job with EWP-1 (hard), recorded override. Jack + M6 Member. Static guard in `localFixtureSql.test.ts`.
+
+### Viewport evidence
+
+Signed-in Schedule screenshots **were not captured** this pass: Cursor browser tabs were on `/login`. Baseline/after files under `docs/validation/2026-09-15/` were **not written**. Emulator viewports (1366, 1440, 390, 375) are **not physical**. Interaction (Day/Week, New Job, crew filter, Needs resources, Hours disclosure, click-through, drag/drop, M6 blocks) needs a signed-in local session after this commit.
+
+### Automated
+
+| Check | Result |
+| --- | --- |
+| Full `vitest run` | **93 files, 1096 passed** |
+| `vite build` | **Pass** (`built in 1m 23s`) |
+
+### Remaining gates
+
+Physical iPhone Safari and Android Chrome, offline/retry, hardware keyboard, VoiceOver, TalkBack. Safe-area on hardware. No 9+ mobile claim until both phones are evidenced.
+
 ## Milestone 7 — physical-device validation (15 Sep 2026)
 
 **Not started on hardware. Not 9+. Not mobile-complete.**
@@ -273,4 +311,4 @@ Fetch confirmed `HEAD` = `origin/integration/job-workspace-tabs` = `6863cbd`. No
 
 No screenshots. Notes: `docs/validation/2026-09-15/physical/NOT-RUN.md`. Emulator / 390 / 375 passes stay interim only.
 
-Feature work stays paused. Resume M7 only when both phones are on the private LAN and the chat checklist (cut off at “Required physical-d”) is complete.
+Physical sign-off remains open after the dispatch-centre redesign. Resume hardware validation when both phones are on the private LAN.

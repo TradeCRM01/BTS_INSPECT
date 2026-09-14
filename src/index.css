@@ -4938,3 +4938,130 @@
     min-height: 44px;
   }
 }
+
+/* Milestone 7 — dispatch centre (Schedule). Navy/cream, meaning colour only. */
+.dc-page {
+  max-width: none;
+}
+.dc-command {
+  margin-bottom: 0.75rem;
+}
+.dc-command-lead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.dc-command-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dc-command-dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.dc-command-range {
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: #0A2540;
+  letter-spacing: -0.02em;
+}
+.dc-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  margin-left: 0.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #0A2540;
+  color: #F4F0E6;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.dc-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+.dc-chip-hard {
+  background: #FDE8E6;
+  color: #B42318;
+}
+.dc-chip-soft {
+  background: #FEF0C7;
+  color: #B54708;
+}
+.dc-chip-override {
+  background: #E8EEF5;
+  color: #0A2540;
+}
+.dc-queue {
+  background: #FFFFFF;
+  border: 1px solid #D5DCE3;
+  border-radius: 8px;
+}
+.dc-queue-rail {
+  width: 16.5rem;
+  max-width: 28%;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0.75rem;
+}
+.dc-queue-head,
+.dc-queue-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+.dc-queue-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5B6B7C;
+  padding-bottom: 0.25rem;
+}
+.dc-queue-body {
+  padding: 0 0.5rem 0.5rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.dc-queue-group + .dc-queue-group {
+  margin-top: 0.5rem;
+  border-top: 1px solid #E5E7EB;
+  padding-top: 0.25rem;
+}
+.dc-queue-card {
+  padding: 0.65rem 0.75rem !important;
+}
+.hub-board-cal .ops-card.job-cal-host {
+  border-radius: 8px;
+}
+@media (max-width: 1023px) {
+  .dc-queue-rail {
+    width: auto;
+    max-width: none;
+    position: static;
+  }
+  .dc-command-lead {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

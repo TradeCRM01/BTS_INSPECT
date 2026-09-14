@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   cardBadge,
+  cardTone,
   decideDispatchWrite,
   evaluateDispatch,
   licenceNumberSatisfiesSkill,
@@ -220,6 +221,8 @@ describe('override and write gates', () => {
     }));
     expect(cardBadge(conflicts, true)).toBe('Override recorded');
     expect(cardBadge(conflicts, false)).toBe('Needs qualified crew');
+    expect(cardTone(conflicts, true)).toBe('override');
+    expect(cardTone(conflicts, false)).toBe('hard');
   });
 });
 
@@ -228,9 +231,10 @@ describe('needs-resources empty state', () => {
     expect(NEEDS_RESOURCES_EMPTY).toMatch(/Turn off Needs resources/i);
     expect(NEEDS_RESOURCES_EMPTY).toMatch(/recorded override/i);
     const schedule = readFileSync(resolve(process.cwd(), 'src/pages/SchedulePage.tsx'), 'utf8');
+    const bar = readFileSync(resolve(process.cwd(), 'src/components/jobs/DispatchCommandBar.tsx'), 'utf8');
     expect(schedule).toContain('NEEDS_RESOURCES_EMPTY');
     expect(schedule).toContain('emptyMessage={attentionEmpty}');
-    expect(schedule).toContain('aria-pressed={attentionOnly}');
+    expect(bar).toContain('aria-pressed={attentionOnly}');
   });
 });
 

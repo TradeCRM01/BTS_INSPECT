@@ -58,6 +58,7 @@ export interface JobWithClient extends Job {
   client_phone?: string | null;
   client_address?: string | null;
   dispatchBadge?: string | null;
+  dispatchTone?: 'hard' | 'soft' | 'override' | null;
 }
 
 import { colors } from '../lib/colors';

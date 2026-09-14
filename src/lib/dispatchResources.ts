@@ -163,6 +163,15 @@ export function resourcePeriodsOverlap(
   return a.start < b.end && a.end > b.start;
 }
 
+export type DispatchCardTone = 'hard' | 'soft' | 'override' | null;
+
+export function cardTone(conflicts: DispatchConflict[], overrideRecorded: boolean): DispatchCardTone {
+  if (overrideRecorded) return 'override';
+  if (conflicts.some(c => c.severity === 'hard')) return 'hard';
+  if (conflicts.some(isSoftWriteGate)) return 'soft';
+  return null;
+}
+
 export function cardBadge(conflicts: DispatchConflict[], overrideRecorded: boolean): string | null {
   if (overrideRecorded) return 'Override recorded';
   const hard = conflicts.find(c => c.severity === 'hard');
