@@ -25,7 +25,7 @@ import {
 } from '../lib/booking';
 import { StaffHoursPanel } from '../components/jobs/StaffHoursPanel';
 import { loadDispatchPack, snapshotForJob } from '../lib/loadDispatchSnapshot';
-import { cardBadge, evaluateDispatch } from '../lib/dispatchResources';
+import { cardBadge, evaluateDispatch, NEEDS_RESOURCES_EMPTY } from '../lib/dispatchResources';
 import { saveJobDispatch } from '../lib/saveJobDispatch';
 import { newIdempotencyKey } from '../lib/dispatchResources';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
@@ -387,6 +387,9 @@ export function SchedulePage() {
   const attentionBoard = attentionOnly
     ? onBoard.filter(j => j.dispatchBadge)
     : onBoard;
+  const attentionEmpty = attentionOnly && attentionBoard.length === 0
+    ? NEEDS_RESOURCES_EMPTY
+    : null;
 
   const unassignedOnBoard = onBoard.filter(j => !(j.assigned_team ?? []).length).length;
 
@@ -457,6 +460,7 @@ export function SchedulePage() {
             type="button"
             className={`btn-secondary min-h-11 ${attentionOnly ? 'ring-1 ring-navy' : ''}`}
             onClick={() => setAttentionOnly(v => !v)}
+            aria-pressed={attentionOnly}
           >
             Needs resources
           </button>
@@ -551,6 +555,7 @@ export function SchedulePage() {
                   currentDate={currentDate}
                   onJobClick={job => navigate(`/jobs/${job.id}`)}
                   onDragStart={handleRailDragStart}
+                  emptyMessage={attentionEmpty}
                 />
               ) : (
                 <PhoneWeekList
@@ -563,6 +568,7 @@ export function SchedulePage() {
                   onDragStart={handleRailDragStart}
                   filteredEmployeeIds={filteredEmployeeIds}
                   hours={hours}
+                  emptyMessage={attentionEmpty}
                 />
               )}
             </div>
@@ -579,6 +585,7 @@ export function SchedulePage() {
                     onJobDrop={handleJobDrop}
                     filteredEmployeeIds={filteredEmployeeIds}
                     hours={hours}
+                    emptyMessage={attentionEmpty}
                   />
                 ) : (
                   <WeekBoardView
@@ -590,6 +597,7 @@ export function SchedulePage() {
                     onJobDrop={handleJobDrop}
                     filteredEmployeeIds={filteredEmployeeIds}
                     hours={hours}
+                    emptyMessage={attentionEmpty}
                   />
                 )}
               </div>

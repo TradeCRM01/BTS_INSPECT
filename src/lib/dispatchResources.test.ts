@@ -4,11 +4,14 @@ import {
   decideDispatchWrite,
   evaluateDispatch,
   licenceNumberSatisfiesSkill,
+  NEEDS_RESOURCES_EMPTY,
   qualificationHolds,
   resourcePeriodsOverlap,
   timedCrewOverlap,
   type DispatchSnapshot,
 } from './dispatchResources';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const skill = { id: 'sk-test', name: 'Tester ticket' };
 const tester = { id: 'res-fluke', name: 'Fluke tester', category: 'tester', status: 'available' as const };
@@ -205,6 +208,17 @@ describe('override and write gates', () => {
     }));
     expect(cardBadge(conflicts, true)).toBe('Override recorded');
     expect(cardBadge(conflicts, false)).toBe('Needs qualified crew');
+  });
+});
+
+describe('needs-resources empty state', () => {
+  it('tells the dispatcher why the board is empty and how to leave the filter', () => {
+    expect(NEEDS_RESOURCES_EMPTY).toMatch(/Turn off Needs resources/i);
+    expect(NEEDS_RESOURCES_EMPTY).toMatch(/recorded override/i);
+    const schedule = readFileSync(resolve(process.cwd(), 'src/pages/SchedulePage.tsx'), 'utf8');
+    expect(schedule).toContain('NEEDS_RESOURCES_EMPTY');
+    expect(schedule).toContain('emptyMessage={attentionEmpty}');
+    expect(schedule).toContain('aria-pressed={attentionOnly}');
   });
 });
 

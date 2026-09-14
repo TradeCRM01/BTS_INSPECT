@@ -41,6 +41,7 @@ export interface BoardProps {
   onJobDrop?: (drop: JobDropPayload) => void;
   filteredEmployeeIds: Set<string>;
   hours?: StaffHours[];
+  emptyMessage?: string | null;
 }
 
 const HOUR_WIDTH = HOUR_WIDTH_PX;
@@ -287,13 +288,14 @@ const PhoneJobCard = memo(function PhoneJobCard({
 });
 
 export const PhoneDayList = memo(function PhoneDayList({
-  jobs, teamMembers, currentDate, onJobClick, onDragStart,
+  jobs, teamMembers, currentDate, onJobClick, onDragStart, emptyMessage,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
   currentDate: Date;
   onJobClick: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
+  emptyMessage?: string | null;
 }) {
   const dateStr = dateKey(currentDate);
   const clashIds = useMemo(() => clashingJobIds(jobs), [jobs]);
@@ -310,7 +312,9 @@ export const PhoneDayList = memo(function PhoneDayList({
         <span className="text-muted normal-case font-normal"> ({dayJobs.length})</span>
       </h2>
       {dayJobs.length === 0 ? (
-        <p className="ops-meta px-1 py-3">No jobs on this day. Drag from the tray or add a job.</p>
+        <p className="ops-meta px-1 py-3" role="status">
+          {emptyMessage ?? 'No jobs on this day. Drag from the tray or add a job.'}
+        </p>
       ) : (
         dayJobs.map(job => (
           <PhoneJobCard
@@ -329,7 +333,7 @@ export const PhoneDayList = memo(function PhoneDayList({
 
 /** Phone week: pick a day, then see that day grouped the same way as the week board. */
 export const PhoneWeekList = memo(function PhoneWeekList({
-  jobs, teamMembers, currentDate, onJobClick, onPickDay, onDayClick, onDragStart, filteredEmployeeIds, hours = [],
+  jobs, teamMembers, currentDate, onJobClick, onPickDay, onDayClick, onDragStart, filteredEmployeeIds, hours = [], emptyMessage,
 }: {
   jobs: JobWithClient[];
   teamMembers: TeamMember[];
@@ -340,6 +344,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
   onDragStart: (e: React.DragEvent, jobId: string) => void;
   filteredEmployeeIds: Set<string>;
   hours?: StaffHours[];
+  emptyMessage?: string | null;
 }) {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const days = useMemo(
@@ -392,6 +397,9 @@ export const PhoneWeekList = memo(function PhoneWeekList({
 
   return (
     <div className="space-y-3">
+      {emptyMessage && jobs.length === 0 ? (
+        <p className="ops-meta px-1" role="status">{emptyMessage}</p>
+      ) : null}
       <div className="phone-week-days" role="tablist" aria-label="Days this week">
         {days.map(day => {
           const ds = dateKey(day);
@@ -474,7 +482,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
 // ── Day Board View ───────────────────────────────────────────────
 
 export const DayBoardView = memo(function DayBoardView({
-  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds, hours = [],
+  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds, hours = [], emptyMessage,
 }: BoardProps) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverId, setDropHoverId] = useState<string | null>(null);
@@ -562,9 +570,13 @@ export const DayBoardView = memo(function DayBoardView({
   };
 
   const gridWidth = HOURS.length * HOUR_WIDTH;
+  const dayJobCount = jobs.filter(job => jobDateKey(job) === dateStr).length;
 
   return (
     <div className="ops-board">
+      {emptyMessage && dayJobCount === 0 ? (
+        <p className="px-3 py-2 border-b border-rule ops-meta" role="status">{emptyMessage}</p>
+      ) : null}
       <div className="px-3 py-2 border-b border-rule flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm font-semibold tracking-tight text-navy">
           {format(currentDate, 'EEEE, d MMMM yyyy')}
@@ -746,7 +758,7 @@ function CurrentTimeVerticalIndicator() {
 // ── Week Board View ──────────────────────────────────────────────
 
 export const WeekBoardView = memo(function WeekBoardView({
-  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds, hours = [],
+  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds, hours = [], emptyMessage,
 }: BoardProps) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverKey, setDropHoverKey] = useState<string | null>(null);
@@ -832,6 +844,9 @@ export const WeekBoardView = memo(function WeekBoardView({
 
   return (
     <div className="ops-board">
+      {emptyMessage && jobs.length === 0 ? (
+        <p className="px-3 py-2 border-b border-rule ops-meta" role="status">{emptyMessage}</p>
+      ) : null}
       <div className="px-3 py-2 border-b border-rule flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm font-semibold tracking-tight text-navy">This week, by crew</p>
         <p className="ops-meta">

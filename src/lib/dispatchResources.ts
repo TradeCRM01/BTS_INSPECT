@@ -386,6 +386,9 @@ export function dispatchEventKind(overridden: boolean, reschedule: boolean): 'ov
   return 'assign';
 }
 
+export const NEEDS_RESOURCES_EMPTY =
+  'No jobs need resources or have a recorded override on this view. Turn off Needs resources to see the full board.';
+
 export function newIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return `dispatch-${Date.now()}-${Math.random().toString(16).slice(2)}`;
