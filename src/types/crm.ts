@@ -37,6 +37,11 @@ export interface Job {
   parent_job_id?: string | null;
   client_reminder_sent_at?: string | null;
   client_reminder_sent_for_date?: string | null;
+  dispatch_ready?: boolean;
+  dispatch_version?: number;
+  required_crew_count?: number;
+  last_dispatch_override_at?: string | null;
+  last_dispatch_override_reason?: string | null;
 }
 
 export interface ClientWithStats extends Client {
@@ -52,6 +57,7 @@ export interface JobWithClient extends Job {
   client_name?: string | null;
   client_phone?: string | null;
   client_address?: string | null;
+  dispatchBadge?: string | null;
 }
 
 import { colors } from '../lib/colors';

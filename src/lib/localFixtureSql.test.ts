@@ -8,6 +8,7 @@ function src(rel: string): string {
 
 const APPLY = 'scripts/local-apply-cogs-hours.sql';
 const SEED = 'scripts/local-validation-fixtures.sql';
+const DISPATCH = 'scripts/local-m6-dispatch-resources.sql';
 
 describe('local sandbox SQL is not a production grant path', () => {
   it('keeps fixture scripts local-only, idempotent, and off the migrations tree', () => {
@@ -21,7 +22,11 @@ describe('local sandbox SQL is not a production grant path', () => {
     expect(seed).toContain('NOT EXISTS');
     expect(existsSync(resolve(process.cwd(), 'supabase/migrations', 'local-apply-cogs-hours.sql'))).toBe(false);
     const migrationNames = readdirSync(resolve(process.cwd(), 'supabase/migrations'));
-    expect(migrationNames.some(name => /cogs-hours|local-validation-fixtures|local-apply/i.test(name))).toBe(false);
+    expect(migrationNames.some(name => /cogs-hours|local-validation-fixtures|local-apply|local-m6-dispatch/i.test(name))).toBe(false);
+    const dispatch = src(DISPATCH);
+    expect(dispatch).toMatch(/LOCAL SANDBOX ONLY/i);
+    expect(dispatch).toMatch(/Not a production migration/i);
+    expect(dispatch).not.toMatch(/GRANT\s+[^;]*\banon\b/i);
   });
 
   it('does not grant anon or PUBLIC DML on expenses or staff_hours', () => {
