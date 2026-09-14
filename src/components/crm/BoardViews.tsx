@@ -137,6 +137,9 @@ const JobBlock = memo(function JobBlock({
           {formatJobNumber(job.job_number) || 'JOB'} | {site}
           {clash ? ' · Overlap' : ''}
         </p>
+        {job.dispatchBadge ? (
+          <p className="ops-meta mt-0.5 truncate">{job.dispatchBadge}</p>
+        ) : null}
         {!compact && job.start_time && (
           <p className="ops-meta mt-0.5 flex items-center gap-0.5">
             <Clock size={12} /> {job.start_time.slice(0, 5)}
@@ -251,7 +254,7 @@ const PhoneJobCard = memo(function PhoneJobCard({
     >
       <div className="ops-card-body">
         <div className="flex items-start justify-between gap-2 mb-1">
-          <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}{clash ? ' · Overlap' : ''}</p>
+          <p className="ops-card-site truncate">{formatJobNumber(job.job_number) || 'JOB'} | {site}{clash ? ' · Overlap' : ''}{job.dispatchBadge ? ` · ${job.dispatchBadge}` : ''}</p>
           <div className="flex items-center gap-1 shrink-0">
             <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
             <JobCalendarOverflow
@@ -262,6 +265,9 @@ const PhoneJobCard = memo(function PhoneJobCard({
           </div>
         </div>
         <OpsSiteRow site={site} phone={job.client_phone} mapsQuery={mapsQuery} />
+        {job.dispatchBadge ? (
+          <p className="ops-meta min-h-11 flex items-center">{job.dispatchBadge}</p>
+        ) : null}
         <div className="ops-card-footer">
           <span className="ops-next-control-block">{next}</span>
         </div>

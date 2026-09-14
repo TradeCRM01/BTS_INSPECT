@@ -9,6 +9,7 @@ import { PageError } from '../components/ui/PageError';
 import { OverlayPortal } from '../components/ui/OverlayPortal';
 import { Users, UserPlus, Mail, Shield, Eye, CreditCard as Edit2, EyeOff, Trash2, Crown, X, Check, AlertCircle, Send, Clock, Copy, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { DispatchCataloguePanel } from '../components/jobs/DispatchCataloguePanel';
 
 type TemplateAccess = 'view' | 'edit' | 'none';
 
@@ -561,6 +562,13 @@ export function TeamSettingsPage() {
             </div>
           )}
         </div>
+
+        {company && members && (
+          <DispatchCataloguePanel
+            companyId={company.id}
+            members={members.map(m => ({ id: m.id, name: m.name }))}
+          />
+        )}
 
         {/* Permissions legend */}
         <div className="mt-6 bg-[#F9FAFB] rounded-xl border border-[#E5E7EB] p-5">

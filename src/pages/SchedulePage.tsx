@@ -24,6 +24,10 @@ import {
   type StaffHours,
 } from '../lib/booking';
 import { StaffHoursPanel } from '../components/jobs/StaffHoursPanel';
+import { loadDispatchPack, snapshotForJob } from '../lib/loadDispatchSnapshot';
+import { cardBadge, evaluateDispatch } from '../lib/dispatchResources';
+import { saveJobDispatch } from '../lib/saveJobDispatch';
+import { newIdempotencyKey } from '../lib/dispatchResources';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { EmployeeColorSwatch } from '../components/crm/EmployeeColorSwatch';
@@ -59,6 +63,7 @@ export function SchedulePage() {
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [presetEmployeeId, setPresetEmployeeId] = useState<string | undefined>(undefined);
   const [filteredEmployeeIds, setFilteredEmployeeIds] = useState<Set<string>>(new Set());
+  const [attentionOnly, setAttentionOnly] = useState(false);
   const [colorSavingId, setColorSavingId] = useState<string | null>(null);
 
   const preselectClient = searchParams.get('client');
@@ -236,25 +241,88 @@ export function SchedulePage() {
 
   const names = useMemo(() => memberNameMap(teamMembers ?? []), [teamMembers]);
 
+  const { data: dispatchPack } = useQuery({
+    queryKey: ['dispatch-pack', (jobs ?? []).map(j => j.id).join('|')],
+    queryFn: () => loadDispatchPack((jobs ?? []).map(j => j.id)),
+    enabled: !!jobs,
+  });
+
+  const jobsWithBadges = useMemo(() => {
+    if (!jobs) return [];
+    if (!dispatchPack || dispatchPack.missing) return jobs;
+    return jobs.map(job => {
+      const snap = snapshotForJob({
+        job,
+        pack: dispatchPack,
+        siblings: jobs,
+        hours,
+        names,
+      });
+      return {
+        ...job,
+        dispatchBadge: cardBadge(evaluateDispatch(snap), !!job.last_dispatch_override_at),
+      };
+    });
+  }, [jobs, dispatchPack, hours, names]);
+
   const handleJobDrop = (drop: JobDropPayload) => {
     const current = [...onBoard, ...needsDate].find(j => j.id === drop.jobId);
-    if (current) {
-      const patch = rescheduleJobPatch({
-        assigned_team: current.assigned_team,
-        start_time: current.start_time,
-        end_time: current.end_time,
-      }, drop);
-      const proposed = {
-        ...current,
-        scheduled_date: patch.scheduled_date,
-        assigned_team: patch.assigned_team ?? current.assigned_team,
-        start_time: patch.start_time ?? current.start_time,
-        end_time: patch.end_time === undefined ? current.end_time : patch.end_time,
-      };
-      const warnings = bookingWarnings(proposed, [...onBoard, ...needsDate], names, hours);
-      if (!shouldProceedWithBooking(warnings, message => window.confirm(message))) return;
+    if (!current) return;
+    const patch = rescheduleJobPatch({
+      assigned_team: current.assigned_team,
+      start_time: current.start_time,
+      end_time: current.end_time,
+    }, drop);
+    const proposed = {
+      ...current,
+      scheduled_date: patch.scheduled_date,
+      assigned_team: patch.assigned_team ?? current.assigned_team,
+      start_time: patch.start_time ?? current.start_time,
+      end_time: patch.end_time === undefined ? current.end_time : patch.end_time,
+    };
+    const warnings = bookingWarnings(proposed, [...onBoard, ...needsDate], names, hours);
+    if (!shouldProceedWithBooking(warnings, message => window.confirm(message))) return;
+    if (!dispatchPack || dispatchPack.missing) {
+      rescheduleJob.mutate(drop);
+      return;
     }
-    rescheduleJob.mutate(drop);
+    const snap = snapshotForJob({
+      job: proposed,
+      pack: dispatchPack,
+      siblings: [...onBoard, ...needsDate],
+      hours,
+      names,
+    });
+    const role = profile?.role === 'admin' ? 'admin' as const : 'member' as const;
+    const conflicts = evaluateDispatch({ ...snap, assignedTeam: proposed.assigned_team ?? [] });
+    let overrideReason: string | null = null;
+    const hard = conflicts.filter(c => c.severity === 'hard');
+    if (hard.length > 0 && role === 'admin' && hard.every(c => c.overridable)) {
+      overrideReason = window.prompt('Admin override reason (required)') ?? '';
+    }
+    void saveJobDispatch({
+      jobId: current.id,
+      expectedUpdatedAt: current.updated_at,
+      assignedTeam: proposed.assigned_team ?? [],
+      resourceIds: snap.allocations.map(a => a.resourceId),
+      skillRequirements: snap.skillRequirements,
+      resourceRequirements: snap.resourceRequirements,
+      requiredCrewCount: snap.requiredCrewCount,
+      dispatchReady: snap.dispatchReady,
+      role,
+      overrideReason,
+      reschedule: true,
+      idempotencyKey: newIdempotencyKey(),
+      snapshot: { ...snap, assignedTeam: proposed.assigned_team ?? [] },
+    }).then(result => {
+      if (!result.ok) {
+        alert(result.message);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['job'] });
+      queryClient.invalidateQueries({ queryKey: ['dispatch-pack'] });
+    });
   };
 
   const saveHours = useMutation({
@@ -313,9 +381,12 @@ export function SchedulePage() {
   const clearEmployeeFilters = () => setFilteredEmployeeIds(new Set());
 
   const { needsDate, onBoard } = useMemo(
-    () => partitionScheduleJobs(jobs ?? []),
-    [jobs],
+    () => partitionScheduleJobs(jobsWithBadges),
+    [jobsWithBadges],
   );
+  const attentionBoard = attentionOnly
+    ? onBoard.filter(j => j.dispatchBadge)
+    : onBoard;
 
   const unassignedOnBoard = onBoard.filter(j => !(j.assigned_team ?? []).length).length;
 
@@ -336,6 +407,7 @@ export function SchedulePage() {
               {onBoard.length} on the board
               {unassignedOnBoard > 0 ? ` · ${unassignedOnBoard} unassigned` : ''}
               {needsDate.length > 0 ? ` · ${needsDate.length} without a date` : ''}
+              {onBoard.filter(j => j.dispatchBadge).length > 0 ? ` · ${onBoard.filter(j => j.dispatchBadge).length} need attention` : ''}
               {viewMode === 'day' && ` · ${format(currentDate, 'EEEE, d MMMM yyyy')}`}
             </p>
           </div>
@@ -381,6 +453,13 @@ export function SchedulePage() {
             </h2>
           </div>
 
+          <button
+            type="button"
+            className={`btn-secondary min-h-11 ${attentionOnly ? 'ring-1 ring-navy' : ''}`}
+            onClick={() => setAttentionOnly(v => !v)}
+          >
+            Needs resources
+          </button>
           <div className="flex ops-seg">
             {([
               { mode: 'day' as const, label: 'Day', Icon: Columns3 },
@@ -467,7 +546,7 @@ export function SchedulePage() {
               />
               {viewMode === 'day' ? (
                 <PhoneDayList
-                  jobs={onBoard}
+                  jobs={attentionBoard}
                   teamMembers={teamMembers ?? []}
                   currentDate={currentDate}
                   onJobClick={job => navigate(`/jobs/${job.id}`)}
@@ -475,7 +554,7 @@ export function SchedulePage() {
                 />
               ) : (
                 <PhoneWeekList
-                  jobs={onBoard}
+                  jobs={attentionBoard}
                   teamMembers={teamMembers ?? []}
                   currentDate={currentDate}
                   onJobClick={job => navigate(`/jobs/${job.id}`)}
@@ -492,7 +571,7 @@ export function SchedulePage() {
               <div className="min-w-0 flex-1">
                 {viewMode === 'day' ? (
                   <DayBoardView
-                    jobs={onBoard}
+                    jobs={attentionBoard}
                     teamMembers={teamMembers ?? []}
                     currentDate={currentDate}
                     onJobClick={job => navigate(`/jobs/${job.id}`)}
@@ -503,7 +582,7 @@ export function SchedulePage() {
                   />
                 ) : (
                   <WeekBoardView
-                    jobs={onBoard}
+                    jobs={attentionBoard}
                     teamMembers={teamMembers ?? []}
                     currentDate={currentDate}
                     onJobClick={job => navigate(`/jobs/${job.id}`)}

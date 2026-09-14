@@ -1125,6 +1125,7 @@ export function JobDetailPage() {
           <JobDispatchPanel
             job={job}
             teamMembers={teamMembers ?? []}
+            role={profile?.role === 'admin' ? 'admin' : 'member'}
             rescheduleBanner={rescheduleAsked ? jobOfficeRescheduleBanner(job).message : null}
           />
           <JobClientReminder
