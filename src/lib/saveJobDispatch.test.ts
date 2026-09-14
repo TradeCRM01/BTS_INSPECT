@@ -72,10 +72,13 @@ describe('local dispatch SQL is not a production grant path', () => {
     expect(sql).toMatch(/REVOKE ALL ON TABLE %I FROM anon/i);
     expect(sql).toMatch(/REVOKE ALL ON FUNCTION save_job_dispatch\(jsonb\) FROM PUBLIC, anon/i);
     expect(sql).toMatch(/stale_dispatch/);
+    expect(sql).toMatch(/updated_at = clock_timestamp\(\)/);
     expect(sql).toMatch(/tenant_mismatch/);
     expect(sql).toMatch(/ON CONFLICT \(company_id, idempotency_key\)/);
     expect(sql).toMatch(/replayed/);
     expect(sql).toMatch(/override_forbidden/);
+    expect(sql).toMatch(/REVOKE INSERT, UPDATE, DELETE ON TABLE %I FROM authenticated/);
+    expect(sql).toMatch(/company_insert_admin/);
     expect(sql).not.toMatch(/CREATE TABLE.*staff_hours/i);
     for (const table of [
       'dispatch_skills',

@@ -9,6 +9,7 @@ function src(rel: string): string {
 const APPLY = 'scripts/local-apply-cogs-hours.sql';
 const SEED = 'scripts/local-validation-fixtures.sql';
 const DISPATCH = 'scripts/local-m6-dispatch-resources.sql';
+const DISPATCH_SEC = 'scripts/local-m6-dispatch-security.sql';
 
 describe('local sandbox SQL is not a production grant path', () => {
   it('keeps fixture scripts local-only, idempotent, and off the migrations tree', () => {
@@ -27,6 +28,13 @@ describe('local sandbox SQL is not a production grant path', () => {
     expect(dispatch).toMatch(/LOCAL SANDBOX ONLY/i);
     expect(dispatch).toMatch(/Not a production migration/i);
     expect(dispatch).not.toMatch(/GRANT\s+[^;]*\banon\b/i);
+    const dispatchSec = src(DISPATCH_SEC);
+    expect(dispatchSec).toMatch(/LOCAL SANDBOX ONLY/i);
+    expect(dispatchSec).toMatch(/override_forbidden/);
+    expect(dispatchSec).toMatch(/tenant_mismatch/);
+    expect(dispatchSec).toMatch(/stale_dispatch/);
+    expect(dispatchSec).toMatch(/m6-sec-retry-key-0001/);
+    expect(dispatchSec).not.toMatch(/GRANT\s+[^;]*\banon\b/i);
   });
 
   it('does not grant anon or PUBLIC DML on expenses or staff_hours', () => {

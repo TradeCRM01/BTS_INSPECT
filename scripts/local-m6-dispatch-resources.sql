@@ -132,21 +132,50 @@ BEGIN
       'CREATE POLICY company_select ON %I FOR SELECT TO authenticated USING (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()))',
       t
     );
-    EXECUTE format(
-      'CREATE POLICY company_insert ON %I FOR INSERT TO authenticated WITH CHECK (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()))',
-      t
-    );
-    EXECUTE format(
-      'CREATE POLICY company_update ON %I FOR UPDATE TO authenticated USING (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid())) WITH CHECK (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()))',
-      t
-    );
-    EXECUTE format(
-      'CREATE POLICY company_delete ON %I FOR DELETE TO authenticated USING (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()))',
-      t
-    );
+    EXECUTE format('DROP POLICY IF EXISTS company_insert_admin ON %I', t);
+    EXECUTE format('DROP POLICY IF EXISTS company_update_admin ON %I', t);
+    EXECUTE format('DROP POLICY IF EXISTS company_delete_admin ON %I', t);
     EXECUTE format('REVOKE ALL ON TABLE %I FROM PUBLIC', t);
     EXECUTE format('REVOKE ALL ON TABLE %I FROM anon', t);
+  END LOOP;
+END $$;
+
+-- Catalogue writes: company admin only. Job reqs/allocs/events: RPC only.
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'dispatch_skills',
+    'dispatch_member_qualifications',
+    'dispatch_resources'
+  ]
+  LOOP
+    EXECUTE format(
+      'CREATE POLICY company_insert_admin ON %I FOR INSERT TO authenticated WITH CHECK (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()) AND (SELECT role FROM profiles WHERE id = auth.uid()) = ''admin'')',
+      t
+    );
+    EXECUTE format(
+      'CREATE POLICY company_update_admin ON %I FOR UPDATE TO authenticated USING (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()) AND (SELECT role FROM profiles WHERE id = auth.uid()) = ''admin'') WITH CHECK (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()) AND (SELECT role FROM profiles WHERE id = auth.uid()) = ''admin'')',
+      t
+    );
+    EXECUTE format(
+      'CREATE POLICY company_delete_admin ON %I FOR DELETE TO authenticated USING (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()) AND (SELECT role FROM profiles WHERE id = auth.uid()) = ''admin'')',
+      t
+    );
     EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE %I TO authenticated, service_role', t);
+  END LOOP;
+
+  FOREACH t IN ARRAY ARRAY[
+    'job_skill_requirements',
+    'job_resource_requirements',
+    'job_resource_allocations',
+    'dispatch_events'
+  ]
+  LOOP
+    EXECUTE format('REVOKE INSERT, UPDATE, DELETE ON TABLE %I FROM authenticated', t);
+    EXECUTE format('GRANT SELECT ON TABLE %I TO authenticated', t);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE %I TO service_role', t);
   END LOOP;
 END $$;
 
@@ -197,6 +226,42 @@ BEGIN
     END IF;
   END IF;
 
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(coalesce(p->'skill_requirements', '[]'::jsonb)) AS x
+    WHERE nullif(x->>'skill_id', '') IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM dispatch_skills s
+        WHERE s.id = (x->>'skill_id')::uuid AND s.company_id = v_company
+      )
+  ) THEN
+    RAISE EXCEPTION 'tenant_mismatch' USING ERRCODE = '42501';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(coalesce(p->'resource_requirements', '[]'::jsonb)) AS x
+    WHERE nullif(x->>'resource_id', '') IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM dispatch_resources r
+        WHERE r.id = (x->>'resource_id')::uuid AND r.company_id = v_company
+      )
+  ) THEN
+    RAISE EXCEPTION 'tenant_mismatch' USING ERRCODE = '42501';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements_text(coalesce(p->'resource_ids', '[]'::jsonb)) AS x
+    WHERE nullif(x, '') IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM dispatch_resources r
+        WHERE r.id = x::uuid AND r.company_id = v_company
+      )
+  ) THEN
+    RAISE EXCEPTION 'tenant_mismatch' USING ERRCODE = '42501';
+  END IF;
+
   SELECT e.id, j.updated_at, j.dispatch_version
   INTO v_event_id, v_new_updated, v_version
   FROM dispatch_events e
@@ -219,8 +284,8 @@ BEGIN
     dispatch_ready = v_ready,
     required_crew_count = v_crew,
     dispatch_version = dispatch_version + 1,
-    updated_at = now(),
-    last_dispatch_override_at = CASE WHEN v_overridden THEN now() ELSE last_dispatch_override_at END,
+    updated_at = clock_timestamp(),
+    last_dispatch_override_at = CASE WHEN v_overridden THEN clock_timestamp() ELSE last_dispatch_override_at END,
     last_dispatch_override_reason = CASE WHEN v_overridden THEN v_reason ELSE last_dispatch_override_reason END
   WHERE id = v_job_id
     AND company_id = v_company
