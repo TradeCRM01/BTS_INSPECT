@@ -3825,6 +3825,11 @@
     @apply flex-1 min-h-[44px] text-sm font-semibold text-navy border border-rule rounded-md bg-white;
   }
 
+  .job-field-path-paper-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
   .job-field-path-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

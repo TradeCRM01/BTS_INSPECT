@@ -30,6 +30,10 @@ describe('job field path', () => {
     expect(bar).toContain('job-field-path lg:hidden');
     expect(bar).toContain('onStartJha');
     expect(bar).toContain('onStartTake5');
+    expect(bar).toContain('take5Ready');
+    expect(bar).toContain('Start a JHA first — Take 5 needs that SWMS.');
+    expect(page).toContain('take5Ready={(jhas ?? []).length > 0}');
+    expect(page).not.toContain("showToast('Start a JHA / SWMS first, then Start Take 5')");
     expect(css).toMatch(/\.job-field-path \{[\s\S]*position:\s*sticky;[\s\S]*bottom:\s*0;/);
     expect(css).toMatch(/@media \(min-width: 1024px\) \{[\s\S]*\.job-field-path \{[\s\S]*display:\s*none;/);
   });

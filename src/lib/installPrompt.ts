@@ -1,4 +1,5 @@
 export const PWA_INSTALL_DISMISS_KEY = 'pwa-install-dismissed';
+export const INSTALL_PROMPT_REVEAL_MS = 3000;
 
 type DismissStore = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -24,4 +25,14 @@ export function shouldShowInstallBanner(
 ): boolean {
   if (!canOfferInstallPrompt(pathname, isInstallDismissed(store))) return false;
   return iosSafari || promptEvent != null;
+}
+
+/** Session used by the banner and by the controlled-event proof. */
+export function installPromptVisibleAfter(
+  pathname: string,
+  store: DismissStore,
+  opts: { event: Event | null; iosSafari: boolean; revealed: boolean },
+): boolean {
+  if (!opts.revealed) return false;
+  return shouldShowInstallBanner(pathname, store, opts.event, opts.iosSafari);
 }

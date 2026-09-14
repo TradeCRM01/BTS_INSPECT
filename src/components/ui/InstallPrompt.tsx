@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Download, X, Monitor, Smartphone } from 'lucide-react';
-import { canOfferInstallPrompt, dismissInstallPrompt, isInstallDismissed } from '../../lib/installPrompt';
+import {
+  canOfferInstallPrompt,
+  dismissInstallPrompt,
+  INSTALL_PROMPT_REVEAL_MS,
+  isInstallDismissed,
+} from '../../lib/installPrompt';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -22,16 +27,19 @@ export function InstallPrompt() {
       /iphone|ipad|ipod/i.test(navigator.userAgent) &&
       !(window.navigator as Navigator & { standalone?: boolean }).standalone;
 
+    const delayMs = (window as Window & { __GRAFTER_INSTALL_PROMPT_DELAY_MS?: number })
+      .__GRAFTER_INSTALL_PROMPT_DELAY_MS ?? INSTALL_PROMPT_REVEAL_MS;
+
     if (isIosBrowser) {
       setIsIos(true);
-      const t = window.setTimeout(() => setShow(true), 3000);
+      const t = window.setTimeout(() => setShow(true), delayMs);
       return () => window.clearTimeout(t);
     }
 
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      window.setTimeout(() => setShow(true), 3000);
+      window.setTimeout(() => setShow(true), delayMs);
     };
 
     window.addEventListener('beforeinstallprompt', handler);

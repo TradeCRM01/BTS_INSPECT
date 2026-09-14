@@ -779,13 +779,8 @@ export function JobDetailPage() {
   };
 
   const startTake5 = () => {
-    if (jhas === undefined) return;
-    const parent = jhas[0];
-    if (!parent) {
-      showToast('Start a JHA / SWMS first, then Start Take 5');
-      startJha();
-      return;
-    }
+    const parent = (jhas ?? [])[0];
+    if (!parent) return;
     navigate(take5FillPath(parent.id));
   };
 
@@ -1583,6 +1578,7 @@ export function JobDetailPage() {
           }}
           onStartJha={startJha}
           onStartTake5={startTake5}
+          take5Ready={(jhas ?? []).length > 0}
         />
 
         {next.key !== 'none' && (

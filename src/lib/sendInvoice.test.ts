@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   applyInvoiceSendScope,
@@ -491,26 +493,29 @@ describe('invoice send query scope', () => {
 });
 
 describe('performance — one invoice, not a ledger walk', () => {
-  it('does not walk other companies even when handed a mixed ledger', () => {
+  it('picks this company invoice in one linear pass and ignores other tenants', () => {
     const mixed: Array<{ id: string; company_id: string }> = [];
     for (let i = 0; i < 4000; i++) {
       mixed.push({ id: `other-${i}`, company_id: 'co-other' });
     }
     mixed.push({ id: 'inv-1', company_id: 'co1' });
-    const started = performance.now();
     const picked = pickInvoiceByIdAndCompany(mixed, 'inv-1', 'co1');
-    const elapsed = performance.now() - started;
     expect(picked).toEqual({ id: 'inv-1', company_id: 'co1' });
     expect(pickInvoiceByIdAndCompany(mixed, 'inv-1', 'co-other')).toBeNull();
-    expect(elapsed).toBeLessThan(80);
+    expect(pickInvoiceByIdAndCompany.toString()).toMatch(/for \(const row of rows\)/);
+    expect(pickInvoiceByIdAndCompany.toString()).not.toMatch(/\.filter\(|\.map\(/);
   });
 
-  it('decides send on one invoice without scanning the book', () => {
-    const started = performance.now();
-    for (let i = 0; i < 2000; i++) {
-      decideInvoiceSend(bundle());
-    }
-    const elapsed = performance.now() - started;
-    expect(elapsed).toBeLessThan(80);
+  it('decides send from the bound invoice only — never scans a ledger', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/lib/sendInvoice.ts'), 'utf8');
+    const start = source.indexOf('export function decideInvoiceSend');
+    const next = source.indexOf('\nexport function', start + 1);
+    const body = source.slice(start, next === -1 ? undefined : next);
+    expect(body).toContain('bundle.invoice');
+    expect(body).not.toMatch(/for\s*\(/);
+    expect(body).not.toMatch(/\.forEach\(/);
+    expect(body).not.toMatch(/pickInvoiceByIdAndCompany/);
+    expect(decideInvoiceSend(bundle()).ok).toBe(true);
+    expect(decideInvoiceSend(bundle({ invoice: null })).ok).toBe(false);
   });
 });

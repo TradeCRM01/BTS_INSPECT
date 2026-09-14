@@ -1,5 +1,7 @@
--- LOCAL SANDBOX ONLY. Creates expenses + staff_hours if missing, then seeds fixtures.
--- Never apply to production.
+-- LOCAL SANDBOX ONLY (127.0.0.1:55322).
+-- Not a production migration. Never apply to ezszahv / grafter.com.au.
+-- Creates expenses + staff_hours if missing, then seeds idempotent fixtures.
+-- Least privilege: authenticated + service_role only. anon and PUBLIC get no DML.
 
 CREATE TABLE IF NOT EXISTS expenses (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -102,8 +104,12 @@ CREATE POLICY "Company members can update staff hours"
   USING (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()))
   WITH CHECK (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()));
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON expenses TO authenticated, service_role, anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON staff_hours TO authenticated, service_role, anon;
+REVOKE ALL ON TABLE expenses FROM PUBLIC;
+REVOKE ALL ON TABLE expenses FROM anon;
+REVOKE ALL ON TABLE staff_hours FROM PUBLIC;
+REVOKE ALL ON TABLE staff_hours FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE expenses TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE staff_hours TO authenticated, service_role;
 
 INSERT INTO expenses (
   company_id, cost_class, category, description, amount, tax_rate, tax_amount, total,
@@ -125,7 +131,7 @@ SELECT
 FROM companies c
 JOIN jobs j ON j.company_id = c.id
 JOIN profiles p ON p.company_id = c.id
-WHERE j.title ILIKE '%Sandbox%'
+WHERE j.title ILIKE '%boarded%'
   AND NOT EXISTS (
     SELECT 1 FROM expenses e
     WHERE e.description = 'LOCAL FIXTURE — COGS on job (do not copy to production)'

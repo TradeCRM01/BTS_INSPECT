@@ -1,0 +1,32 @@
+# Review-only. No secrets. No production hosts or deploy steps.
+# GitHub currently has no required checks on this repository; this file prepares
+# the branch for Vitest + production build when Actions is later required.
+
+name: Review checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: review-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      VITE_SUPABASE_URL: http://127.0.0.1:55321
+      VITE_SUPABASE_ANON_KEY: local-review-placeholder-not-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build

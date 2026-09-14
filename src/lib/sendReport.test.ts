@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   applyReportSendScope,
@@ -395,28 +397,29 @@ describe('report send query scope', () => {
 });
 
 describe('performance — one report, not a drive walk', () => {
-  it('does not walk other companies even when handed a mixed drive', () => {
+  it('picks this company report in one linear pass and ignores other tenants', () => {
     const mixed: Array<{ id: string; company_id: string }> = [];
     for (let i = 0; i < 4000; i++) {
       mixed.push({ id: `other-${i}`, company_id: 'co-other' });
     }
     mixed.push({ id: 'rep-1', company_id: 'co1' });
-    const started = performance.now();
     const picked = pickReportByIdAndCompany(mixed, 'rep-1', 'co1');
-    const elapsed = performance.now() - started;
     expect(picked).toEqual({ id: 'rep-1', company_id: 'co1' });
     expect(pickReportByIdAndCompany(mixed, 'rep-1', 'co-other')).toBeNull();
-    expect(elapsed).toBeLessThan(80);
+    expect(pickReportByIdAndCompany.toString()).toMatch(/for \(const row of rows\)/);
+    expect(pickReportByIdAndCompany.toString()).not.toMatch(/\.filter\(|\.map\(/);
   });
 
-  // Q-2026-09-13-sendReport-perf — owner: platform. 2000× decideReportSend <80ms
-  // flakes under shared CI / Defender. Logic is covered by the cases above.
-  it.skip('decides send on one report without scanning the book', () => {
-    const started = performance.now();
-    for (let i = 0; i < 2000; i++) {
-      decideReportSend(bundle());
-    }
-    const elapsed = performance.now() - started;
-    expect(elapsed).toBeLessThan(80);
+  it('decides send from the bound report only — never scans a report list', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/lib/sendReport.ts'), 'utf8');
+    const start = source.indexOf('export function decideReportSend');
+    const next = source.indexOf('\nexport function', start + 1);
+    const body = source.slice(start, next === -1 ? undefined : next);
+    expect(body).toContain('bundle.report');
+    expect(body).not.toMatch(/for\s*\(/);
+    expect(body).not.toMatch(/\.forEach\(/);
+    expect(body).not.toMatch(/pickReportByIdAndCompany/);
+    expect(decideReportSend(bundle()).ok).toBe(true);
+    expect(decideReportSend(bundle({ report: null, existingPdf: null })).ok).toBe(false);
   });
 });

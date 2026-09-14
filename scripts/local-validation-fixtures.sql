@@ -1,6 +1,6 @@
 -- LOCAL SANDBOX ONLY (127.0.0.1:55322). Never run against ezszahv / production.
--- Seeds one recorded COGS-on-job expense and one dated staff_hours row so
--- the expenses banner and schedule hours path can be proven.
+-- Not a production migration. Seeds are idempotent (NOT EXISTS on the fixture text).
+-- Requires expenses + staff_hours from scripts/local-apply-cogs-hours.sql.
 
 INSERT INTO expenses (
   company_id, cost_class, category, description, amount, tax_rate, tax_amount, total,
@@ -23,7 +23,7 @@ FROM companies c
 JOIN jobs j ON j.company_id = c.id
 JOIN profiles p ON p.company_id = c.id
 WHERE c.name ILIKE '%Building Technology%'
-  AND j.title ILIKE '%Sandbox%'
+  AND j.title ILIKE '%boarded%'
   AND NOT EXISTS (
     SELECT 1 FROM expenses e
     WHERE e.company_id = c.id

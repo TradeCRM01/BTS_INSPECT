@@ -14,6 +14,7 @@ export function JobFieldPathBar({
   onMoreToDo,
   onStartJha,
   onStartTake5,
+  take5Ready,
 }: {
   status: JobStatus;
   clockedOn: boolean;
@@ -26,6 +27,7 @@ export function JobFieldPathBar({
   onMoreToDo: () => void;
   onStartJha: () => void;
   onStartTake5: () => void;
+  take5Ready: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [noteOpen, setNoteOpen] = useState(false);
@@ -47,10 +49,22 @@ export function JobFieldPathBar({
         <button type="button" className="job-field-path-paper-btn" disabled={busy} onClick={onStartJha}>
           JHA
         </button>
-        <button type="button" className="job-field-path-paper-btn" disabled={busy} onClick={onStartTake5}>
+        <button
+          type="button"
+          className="job-field-path-paper-btn"
+          disabled={busy || !take5Ready}
+          onClick={onStartTake5}
+          title={take5Ready ? 'Start Take 5 on this job’s JHA' : 'Start a JHA first, then Take 5'}
+          aria-describedby={take5Ready ? undefined : 'job-field-take5-hint'}
+        >
           Take 5
         </button>
       </div>
+      {take5Ready ? null : (
+        <p id="job-field-take5-hint" className="ops-meta mb-2">
+          Start a JHA first — Take 5 needs that SWMS.
+        </p>
+      )}
       <div className="job-field-path-grid">
         {clockedOn ? (
           <button type="button" className="btn-danger" disabled={busy} onClick={onClockOff}>
