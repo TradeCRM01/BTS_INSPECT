@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { buildDispatchPayload, mapDispatchRpcError } from './saveJobDispatch';
+import { buildDispatchPayload, mapDispatchRpcError, saveJobDispatch } from './saveJobDispatch';
 import type { DispatchSnapshot } from './dispatchResources';
 
 const snap: DispatchSnapshot = {
@@ -122,5 +122,27 @@ describe('local dispatch SQL is not a production grant path', () => {
       code: 'error',
       message: 'Could not save dispatch.',
     });
+  });
+
+  it('does not open an RPC when the browser reports offline', async () => {
+    Object.defineProperty(globalThis.navigator, 'onLine', { configurable: true, value: false });
+    const result = await saveJobDispatch({
+      jobId: 'job-1',
+      expectedUpdatedAt: '2026-09-14T00:00:00.000Z',
+      assignedTeam: ['alice'],
+      resourceIds: [],
+      skillRequirements: [],
+      resourceRequirements: [],
+      requiredCrewCount: 0,
+      dispatchReady: false,
+      role: 'admin',
+      overrideReason: 'offline retry check',
+      idempotencyKey: 'offline-retry-key-0001',
+      snapshot: { ...snap, hours: [{ memberId: 'alice', date: '2026-09-14', working: true, start: '07:00', end: '17:00' }] },
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe('error');
+    expect(result.message).toMatch(/back online/);
   });
 });

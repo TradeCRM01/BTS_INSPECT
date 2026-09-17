@@ -291,7 +291,7 @@ export function JobDispatchPanel({
                   type="button"
                   onClick={() => toggleCrew(m.id)}
                   disabled={persist.isPending}
-                  className={`px-2.5 py-1.5 min-h-[44px] sm:min-h-0 rounded-md text-xs font-medium transition-colors disabled:opacity-50 ${
+                  className={`job-crew-chip px-2.5 py-1.5 min-h-[44px] sm:min-h-0 rounded-md text-xs font-medium transition-colors disabled:opacity-50 ${
                     selected
                       ? 'bg-navy text-white'
                       : 'bg-zebra text-muted border border-rule hover:text-navy'
@@ -306,6 +306,15 @@ export function JobDispatchPanel({
         {assigned.length === 0 && (
           <p className="ops-meta mt-2">Unassigned — still on the board when a date is set.</p>
         )}
+        <p className="ops-meta mt-2" role="status" data-testid="job-dispatch-save-status">
+          {persist.isPending
+            ? 'Saving assignment…'
+            : persist.isError
+              ? persist.error?.message || 'Could not save assignment. Retry.'
+              : persist.isSuccess
+                ? 'Assignment saved.'
+                : ''}
+        </p>
 
         {pack && !pack.missing && snapshot ? (
           <div className="mt-4 pt-3 border-t border-rule">

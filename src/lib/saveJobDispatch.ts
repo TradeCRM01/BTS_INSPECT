@@ -144,6 +144,14 @@ export async function saveJobDispatch(input: SaveJobDispatchInput): Promise<Save
   if (!write.ok) {
     return { ok: false, code: 'blocked', message: write.message ?? 'Assignment blocked.', conflicts };
   }
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return {
+      ok: false,
+      code: 'error',
+      message: 'Could not save assignment. Retry when you are back online.',
+      conflicts,
+    };
+  }
   const payload = buildDispatchPayload(input, { overridden: write.overridden });
   const { data, error } = await supabase.rpc('save_job_dispatch', { p: payload });
   if (error) {

@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
@@ -28,8 +28,9 @@ import { loadDispatchPack, snapshotForJob } from '../lib/loadDispatchSnapshot';
 import { cardBadge, cardTone, evaluateDispatch, NEEDS_RESOURCES_EMPTY } from '../lib/dispatchResources';
 import { buildScheduleQueue } from '../lib/scheduleQueue';
 import { DispatchCommandBar } from '../components/jobs/DispatchCommandBar';
-import { timeToMinutes, WORKDAY_END_HOUR, WORKDAY_START_HOUR } from '../lib/dispatch';
-import { saveJobDispatch } from '../lib/saveJobDispatch';
+import { countJobsOutsideVisibleWindow, visibleDayHours } from '../lib/dispatch';
+import { scheduleBoardSummary } from '../lib/scheduleBoardSummary';
+import { saveJobDispatch, type SaveJobDispatchInput } from '../lib/saveJobDispatch';
 import { newIdempotencyKey } from '../lib/dispatchResources';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
@@ -66,6 +67,11 @@ export function SchedulePage() {
   const [hoursOpen, setHoursOpen] = useState(false);
   const [extendedHours, setExtendedHours] = useState(false);
   const [colorSavingId, setColorSavingId] = useState<string | null>(null);
+  const [dispatchSave, setDispatchSave] = useState<{
+    status: 'idle' | 'saving' | 'saved' | 'failed';
+    message: string;
+  }>({ status: 'idle', message: '' });
+  const lastDispatchRef = useRef<SaveJobDispatchInput | null>(null);
 
   const preselectClient = searchParams.get('client');
   const preselectJob = searchParams.get('job');
@@ -136,8 +142,9 @@ export function SchedulePage() {
     return format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
   }, [currentDate, viewMode]);
 
-  const { data: jobs, isLoading, error } = useQuery<JobWithClient[]>({
+  const { data: jobs, isLoading, isFetching, isPlaceholderData, error } = useQuery<JobWithClient[]>({
     queryKey: ['jobs', rangeStart, rangeEnd],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const [rangedRes, undatedRes] = await Promise.all([
         supabase
@@ -304,7 +311,7 @@ export function SchedulePage() {
     if (hard.length > 0 && role === 'admin' && hard.every(c => c.overridable)) {
       overrideReason = window.prompt('Admin override reason (required)') ?? '';
     }
-    void saveJobDispatch({
+    const input: SaveJobDispatchInput = {
       jobId: current.id,
       expectedUpdatedAt: current.updated_at,
       assignedTeam: proposed.assigned_team ?? [],
@@ -318,14 +325,29 @@ export function SchedulePage() {
       reschedule: true,
       idempotencyKey: newIdempotencyKey(),
       snapshot: { ...snap, assignedTeam: proposed.assigned_team ?? [] },
-    }).then(result => {
+    };
+    void runDispatchSave(input);
+  };
+
+  const runDispatchSave = (input: SaveJobDispatchInput) => {
+    lastDispatchRef.current = input;
+    setDispatchSave({ status: 'saving', message: 'Saving assignment…' });
+    void saveJobDispatch(input).then(result => {
       if (!result.ok) {
-        alert(result.message);
+        setDispatchSave({ status: 'failed', message: result.message });
         return;
+      }
+      if (result.replayed) {
+        setDispatchSave({ status: 'saved', message: 'Assignment already saved — no extra write.' });
+      } else {
+        setDispatchSave({ status: 'saved', message: 'Assignment saved.' });
+        lastDispatchRef.current = { ...input, idempotencyKey: newIdempotencyKey() };
       }
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['job'] });
       queryClient.invalidateQueries({ queryKey: ['dispatch-pack'] });
+    }).catch(() => {
+      setDispatchSave({ status: 'failed', message: 'Could not save assignment. Retry when you are back online.' });
     });
   };
 
@@ -401,17 +423,24 @@ export function SchedulePage() {
     () => buildScheduleQueue(needsDate, onBoard),
     [needsDate, onBoard],
   );
-  const outsideWorkdayCount = onBoard.filter(j => {
-    const start = timeToMinutes(j.start_time);
-    if (start == null) return false;
-    return start < WORKDAY_START_HOUR * 60 || start >= WORKDAY_END_HOUR * 60;
-  }).length;
-  const summary = [
-    `${onBoard.length} on the board`,
-    unassignedOnBoard > 0 ? `${unassignedOnBoard} unassigned` : null,
-    needsDate.length > 0 ? `${needsDate.length} without a date` : null,
-    attentionCount > 0 ? `${attentionCount} need attention` : null,
-  ].filter(Boolean).join(' · ');
+  const visibleHours = visibleDayHours(extendedHours);
+  const outsideWorkdayCount = countJobsOutsideVisibleWindow(
+    onBoard,
+    visibleHours.start,
+    visibleHours.end,
+  );
+  const summaryStatus = isLoading && jobs == null
+    ? 'loading'
+    : isPlaceholderData && isFetching
+      ? 'retained'
+      : 'ready';
+  const summary = scheduleBoardSummary({
+    status: summaryStatus,
+    onBoardCount: onBoard.length,
+    unassignedOnBoard,
+    needsDateCount: needsDate.length,
+    attentionCount,
+  });
 
   const handleRailDragStart = (e: React.DragEvent, jobId: string) => {
     e.dataTransfer.setData('text/plain', jobId);
@@ -492,6 +521,21 @@ export function SchedulePage() {
         )}
         </DispatchCommandBar>
 
+        {dispatchSave.status !== 'idle' && (
+          <p className="ops-meta px-1" role="status" data-testid="dispatch-save-status">
+            {dispatchSave.message}
+            {dispatchSave.status === 'failed' && lastDispatchRef.current && (
+              <button
+                type="button"
+                className="ops-link ml-2"
+                onClick={() => lastDispatchRef.current && runDispatchSave(lastDispatchRef.current)}
+              >
+                Retry
+              </button>
+            )}
+          </p>
+        )}
+
         <StaffHoursPanel
           open={hoursOpen}
           date={format(currentDate, 'yyyy-MM-dd')}
@@ -503,7 +547,7 @@ export function SchedulePage() {
           onClear={(memberId, date) => clearHours.mutate({ memberId, date })}
         />
 
-        {isLoading ? (
+        {isLoading && jobs == null ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : (
           <>

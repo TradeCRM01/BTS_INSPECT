@@ -27,7 +27,7 @@ Local-only tables (`expenses`, `staff_hours`) stay in `scripts/local-apply-cogs-
 
 ### Sticky action hierarchy
 
-Office Next (`ops-sticky`) is `hidden lg:block` and only renders when `next.key !== 'none'`. Phone primary is the On-site strip (`lg:hidden`): sticky bottom, `z-index: 30`.
+Office Next on the job page is `ops-job-next` (`hidden lg:block`, in document flow) and only renders when `next.key !== 'none'`. Other office surfaces still use `ops-sticky`. Phone On-site strip (`.job-field-path`, `lg:hidden`) stays sticky at the bottom (`z-index: 30`); job content uses `padding-bottom` / `scroll-padding-bottom` so crew stays reachable above it.
 
 Take 5 is **disabled** when the job has no parent JHA. Hint: “Start a JHA first — Take 5 needs that SWMS.” JHA in the same strip is the start path. Safety rule unchanged: Take 5 still requires a parent JHA to navigate.
 
@@ -312,3 +312,15 @@ Fetch confirmed `HEAD` = `origin/integration/job-workspace-tabs` = `6863cbd`. No
 No screenshots. Notes: `docs/validation/2026-09-15/physical/NOT-RUN.md`. Emulator / 390 / 375 passes stay interim only.
 
 Physical sign-off remains open after the dispatch-centre redesign. Resume hardware validation when both phones are on the private LAN.
+
+## Local acceptance repair — 16 Sep 2026
+
+HEAD `999338b` plus uncommitted Hours / Auth fixture repairs. **Not 9+.** No production migration.
+
+This machine’s working Kong is `http://127.0.0.1:54321` (DB `54322`). Documented `55321` is inside a Windows excluded port range here. That remap stays in local `config.toml` only.
+
+`m6.member@local.test` now signs in. GoTrue `email_change` NULL scan is repaired; password set via Auth admin API. Profile **member**, same company as Jack.
+
+`staff_hours` DELETE: product `068` already had company-scoped DELETE. Local apply script had lagged. Live session checks: `docs/validation/2026-09-16/schedule-acceptance/hours-rls.md`.
+
+Close-out matrix: `docs/validation/2026-09-16/schedule-acceptance/remaining-acceptance.md`. Hours-toggle count uses any timed portion outside the selected window. LOOK is unverified (OS screenshot required). Not 9+. Not release-ready.

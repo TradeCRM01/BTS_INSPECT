@@ -155,6 +155,61 @@ export function placeDayRowJobs(jobs: DayRowJob[]): {
   };
 }
 
+/** Visible columns run from `dayStart:00` through the end of the `dayEnd` hour. */
+export function clipJobToVisibleHours(
+  startM: number,
+  endM: number,
+  dayStart: number,
+  dayEnd: number,
+  hourWidth = HOUR_WIDTH_PX,
+): {
+  left: number;
+  width: number;
+  clippedStart: boolean;
+  clippedEnd: boolean;
+  hidden: boolean;
+} {
+  const visibleStart = dayStart * 60;
+  const visibleEnd = (dayEnd + 1) * 60;
+  const gridWidth = (dayEnd - dayStart + 1) * hourWidth;
+  const hidden = endM <= visibleStart || startM >= visibleEnd;
+  if (hidden) {
+    const atStart = endM <= visibleStart;
+    return {
+      left: atStart ? 2 : Math.max(2, gridWidth - 62),
+      width: 60,
+      clippedStart: atStart,
+      clippedEnd: !atStart,
+      hidden: true,
+    };
+  }
+  const drawStart = Math.max(startM, visibleStart);
+  const drawEnd = Math.min(endM, visibleEnd);
+  return {
+    left: Math.max(0, (drawStart / 60 - dayStart) * hourWidth + 2),
+    width: Math.max(60, ((drawEnd - drawStart) / 60) * hourWidth - 4),
+    clippedStart: startM < visibleStart,
+    clippedEnd: endM > dayEnd * 60,
+    hidden: false,
+  };
+}
+
+/** Timed jobs with any portion before `startHour:00` or after `endHour:00`. Untimed jobs are excluded. */
+export function countJobsOutsideVisibleWindow(
+  jobs: Array<{ start_time?: string | null; end_time?: string | null }>,
+  startHour: number,
+  endHour: number,
+): number {
+  const windowStart = startHour * 60;
+  const windowEnd = endHour * 60;
+  return jobs.filter(j => {
+    const start = timeToMinutes(j.start_time);
+    if (start == null) return false;
+    const end = timeToMinutes(j.end_time) ?? start + 60;
+    return start < windowStart || end > windowEnd;
+  }).length;
+}
+
 export function dayRowHeightPx(
   allDayCount: number,
   timedLaneCount: number,

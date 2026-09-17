@@ -171,6 +171,11 @@
     @apply sticky bottom-0 z-20 bg-white border-t border-rule px-3 py-2;
   }
 
+  /* Job office Next stays in document flow so it cannot cover crew controls. */
+  .ops-job-next {
+    @apply relative z-auto bg-white border-t border-rule px-3 py-2 mt-4;
+  }
+
   .ops-board {
     @apply bg-white border border-rule rounded-lg overflow-hidden shadow-none;
   }
@@ -3843,6 +3848,18 @@
   @media (min-width: 1024px) {
     .job-field-path {
       display: none;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    main:has(.hub-job-cal) {
+      scroll-padding-bottom: 18rem;
+    }
+    .hub-job-cal {
+      padding-bottom: 18rem;
+    }
+    .job-crew-chip {
+      scroll-margin-bottom: 18rem;
     }
   }
 

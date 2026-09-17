@@ -1583,7 +1583,7 @@ export function JobDetailPage() {
         />
 
         {next.key !== 'none' && (
-          <div className="ops-sticky -mx-4 sm:mx-0 hidden lg:block">
+          <div className="ops-job-next -mx-4 sm:mx-0 hidden lg:block">
             {next.key === 'inspect' ? (
               <Link to={inspectHref} className="ops-next-control-block">{next.label}</Link>
             ) : (

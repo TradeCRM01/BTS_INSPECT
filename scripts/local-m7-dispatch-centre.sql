@@ -111,6 +111,42 @@ BEGIN
     );
   END IF;
 
+  INSERT INTO jobs (
+    id, company_id, created_by, client_id, title, status, scheduled_date, start_time, end_time,
+    assigned_team, address
+  )
+  SELECT '22222222-0000-4000-8000-000000000018', v_bts, v_admin, v_client,
+    'LOCAL M7 ends exactly 5pm', 'scheduled', v_today, '16:00:00', '17:00:00',
+    jsonb_build_array(v_admin), '28 Local Yard'
+  WHERE NOT EXISTS (SELECT 1 FROM jobs j WHERE j.id = '22222222-0000-4000-8000-000000000018');
+
+  INSERT INTO jobs (
+    id, company_id, created_by, client_id, title, status, scheduled_date, start_time, end_time,
+    assigned_team, address
+  )
+  SELECT '22222222-0000-4000-8000-000000000019', v_bts, v_admin, v_client,
+    'LOCAL M7 spans 5pm isolated', 'scheduled', v_today, '15:00:00', '18:00:00',
+    jsonb_build_array(v_member), '30 Local Yard'
+  WHERE NOT EXISTS (SELECT 1 FROM jobs j WHERE j.id = '22222222-0000-4000-8000-000000000019');
+
+  INSERT INTO jobs (
+    id, company_id, created_by, client_id, title, status, scheduled_date, start_time, end_time,
+    assigned_team, address
+  )
+  SELECT '22222222-0000-4000-8000-000000000020', v_bts, v_admin, v_client,
+    'LOCAL M7 starts before 7am', 'scheduled', v_today, '05:30:00', '07:30:00',
+    jsonb_build_array(v_admin), '32 Local Yard'
+  WHERE NOT EXISTS (SELECT 1 FROM jobs j WHERE j.id = '22222222-0000-4000-8000-000000000020');
+
+  INSERT INTO jobs (
+    id, company_id, created_by, client_id, title, status, scheduled_date, start_time, end_time,
+    assigned_team, address
+  )
+  SELECT '22222222-0000-4000-8000-000000000021', v_bts, v_admin, v_client,
+    'LOCAL M7 starts after 8pm', 'scheduled', v_today, '21:00:00', '22:00:00',
+    jsonb_build_array(v_member), '34 Local Yard'
+  WHERE NOT EXISTS (SELECT 1 FROM jobs j WHERE j.id = '22222222-0000-4000-8000-000000000021');
+
   INSERT INTO staff_hours (company_id, member_id, date, working, start_time, end_time, reason)
   SELECT v_bts, v_admin, v_today, true, '07:00', '16:00', 'LOCAL M7 usual day'
   WHERE NOT EXISTS (

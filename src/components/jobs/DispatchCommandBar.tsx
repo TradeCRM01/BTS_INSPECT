@@ -126,7 +126,7 @@ export function DispatchCommandBar({
           aria-pressed={extendedHours}
         >
           {extendedHours ? '6am–8pm' : '7am–5pm'}
-          {!extendedHours && outsideWorkdayCount > 0 ? (
+          {outsideWorkdayCount > 0 ? (
             <span className="dc-count">{outsideWorkdayCount}</span>
           ) : null}
         </button>

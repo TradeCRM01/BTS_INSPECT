@@ -13,6 +13,7 @@ import {
   HOUR_WIDTH_PX,
   timeToMinutes,
   visibleDayHours,
+  clipJobToVisibleHours,
   type JobDropPayload,
 } from '../../lib/dispatch';
 import type { ScheduleQueueGroup } from '../../lib/scheduleQueue';
@@ -110,6 +111,8 @@ const JobBlock = memo(function JobBlock({
       className={`${fill ? 'absolute left-1 right-1' : 'w-full'} ops-card job-cal-host ops-card-hover cursor-pointer active:scale-[0.98] ${
         dragging ? 'opacity-40' : ''
       }`}
+      data-testid="schedule-job-block"
+      data-job-id={job.id}
       style={{ borderLeftWidth: 3, borderLeftColor: rail }}
     >
       <div className="px-1.5 py-1 text-left relative">
@@ -711,19 +714,20 @@ export const DayBoardView = memo(function DayBoardView({
                   const startM = timeToMinutes(job.start_time);
                   const endM = timeToMinutes(job.end_time) ?? (startM ?? DAY_START * 60) + 60;
                   if (startM == null) return null;
-                  const left = Math.max(0, (startM / 60 - DAY_START) * HOUR_WIDTH + 2);
-                  const width = Math.max(60, ((endM - startM) / 60) * HOUR_WIDTH - 4);
+                  const box = clipJobToVisibleHours(startM, endM, DAY_START, DAY_END, HOUR_WIDTH);
                   const top = ROW_PAD + layout.allDayCount * ALL_DAY_H + placed.lane * TIMED_H;
                   return (
                     <div
                       key={job.id}
                       className="absolute"
-                      style={{ left, width, top, height: TIMED_H - 4 }}
+                      data-clipped-start={box.clippedStart || undefined}
+                      data-clipped-end={box.clippedEnd || undefined}
+                      style={{ left: box.left, width: box.width, top, height: TIMED_H - 4 }}
                     >
                       <JobBlock
                         job={job}
                         teamMembers={teamMembers}
-                        compact={width < 120}
+                        compact={box.width < 120}
                         clash={clashIds.has(job.id)}
                         dragging={dragJobId === job.id}
                         onClick={() => onJobClick(job)}

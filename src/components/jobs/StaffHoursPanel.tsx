@@ -3,6 +3,14 @@ import type { StaffHours } from '../../lib/booking';
 
 export type StaffHoursRow = StaffHours & { id?: string };
 
+export function selectedHoursMemberId(
+  members: { id: string }[],
+  selected: string,
+): string {
+  if (selected && members.some(m => m.id === selected)) return selected;
+  return members[0]?.id ?? '';
+}
+
 export function StaffHoursPanel({
   date,
   members,
@@ -29,6 +37,7 @@ export function StaffHoursPanel({
   const [reason, setReason] = useState('');
 
   const existing = hours.filter(h => h.date === date);
+  const selectedMemberId = selectedHoursMemberId(members, memberId);
 
   if (!open) return null;
 
@@ -62,7 +71,7 @@ export function StaffHoursPanel({
             <span className="ops-field-label">Person</span>
             <select
               className="form-input"
-              value={memberId}
+              value={selectedMemberId}
               onChange={e => setMemberId(e.target.value)}
             >
               {members.map(m => (
@@ -106,9 +115,9 @@ export function StaffHoursPanel({
           <button
             type="button"
             className="btn-secondary min-h-11"
-            disabled={saving || !memberId || !reason.trim()}
+            disabled={saving || !selectedMemberId || !reason.trim()}
             onClick={() => onSave({
-              memberId,
+              memberId: selectedMemberId,
               date,
               working,
               start: working ? start : null,

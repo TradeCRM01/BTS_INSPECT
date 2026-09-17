@@ -104,6 +104,11 @@ CREATE POLICY "Company members can update staff hours"
   USING (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()))
   WITH CHECK (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Company members can delete staff hours" ON staff_hours;
+CREATE POLICY "Company members can delete staff hours"
+  ON staff_hours FOR DELETE TO authenticated
+  USING (company_id = (SELECT company_id FROM profiles WHERE id = auth.uid()));
+
 REVOKE ALL ON TABLE expenses FROM PUBLIC;
 REVOKE ALL ON TABLE expenses FROM anon;
 REVOKE ALL ON TABLE staff_hours FROM PUBLIC;

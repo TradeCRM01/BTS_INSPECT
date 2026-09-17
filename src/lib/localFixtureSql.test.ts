@@ -30,6 +30,10 @@ describe('local sandbox SQL is not a production grant path', () => {
     expect(centre).toMatch(/Not a production migration/i);
     expect(centre).toContain('NOT EXISTS');
     expect(centre).toMatch(/LOCAL M7/);
+    expect(centre).toMatch(/LOCAL M7 ends exactly 5pm/);
+    expect(centre).toMatch(/LOCAL M7 spans 5pm isolated/);
+    expect(centre).toMatch(/LOCAL M7 starts before 7am/);
+    expect(centre).toMatch(/LOCAL M7 starts after 8pm/);
     const dispatch = src(DISPATCH);
     expect(dispatch).toMatch(/LOCAL SANDBOX ONLY/i);
     expect(dispatch).toMatch(/Not a production migration/i);
@@ -47,6 +51,8 @@ describe('local sandbox SQL is not a production grant path', () => {
     expect(dispatchSec).toMatch(/m6-sec-crew-overlap-01/);
     expect(dispatchSec).toMatch(/m6-sec-ready-omit-01/);
     expect(dispatchSec).toMatch(/has_function_privilege\('anon'/);
+    expect(src('scripts/local-dispatch-lost-response.ps1')).toMatch(/lost-response-/);
+    expect(src('scripts/local-dispatch-lost-response.ps1')).toMatch(/LOCAL SANDBOX ONLY/);
     expect(src('scripts/local-m6-dispatch-race.ps1')).toMatch(/m6-sec-race-hold-01/);
     expect(src('scripts/local-m6-dispatch-race.ps1')).toMatch(/m6-sec-race-job-01/);
     expect(dispatchSec).not.toMatch(/GRANT\s+[^;]*\banon\b/i);
@@ -63,6 +69,7 @@ describe('local sandbox SQL is not a production grant path', () => {
     expect(apply).toMatch(/REVOKE ALL ON TABLE staff_hours FROM PUBLIC/i);
     expect(apply).toMatch(/GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE expenses TO authenticated, service_role/i);
     expect(apply).toMatch(/GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE staff_hours TO authenticated, service_role/i);
+    expect(apply).toMatch(/ON staff_hours FOR DELETE TO authenticated/i);
     expect(apply).toMatch(/TO authenticated\b/);
     expect(apply).not.toMatch(/FOR (SELECT|INSERT|UPDATE|DELETE) TO anon/i);
   });
