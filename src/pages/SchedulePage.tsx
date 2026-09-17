@@ -35,9 +35,8 @@ import {
 } from '../lib/booking';
 import { cardBadge, evaluateDispatch, NEEDS_RESOURCES_EMPTY, newIdempotencyKey } from '../lib/dispatchResources';
 import { loadDispatchPack, snapshotForJob } from '../lib/loadDispatchSnapshot';
-import { saveJobDispatch, type SaveJobDispatchInput } from '../lib/saveJobDispatch';
+import { DISPATCH_UNAVAILABLE, saveJobDispatch, type SaveJobDispatchInput } from '../lib/saveJobDispatch';
 import { scheduleBoardSummary } from '../lib/scheduleBoardSummary';
-import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
 import { parseScheduleView, scheduleDayKey, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
@@ -578,46 +577,6 @@ export function SchedulePage() {
     });
   };
 
-  const rescheduleJob = useMutation({
-    mutationFn: async (drop: JobDropPayload) => {
-      applyDropToCache(drop);
-      if (isDevFieldAuditAuth()) return;
-
-      const { data: current, error: loadError } = await supabase
-        .from('jobs')
-        .select('assigned_team, start_time, end_time')
-        .eq('id', drop.jobId)
-        .maybeSingle();
-      if (loadError) throw loadError;
-      if (!current) throw new Error('Job not found');
-
-      const updates = {
-        ...rescheduleJobPatch({
-          assigned_team: current.assigned_team,
-          start_time: current.start_time,
-          end_time: current.end_time,
-        }, drop),
-        updated_at: new Date().toISOString(),
-      };
-      const { error } = await supabase.from('jobs').update(updates).eq('id', drop.jobId);
-      if (error) throw error;
-      if (updates.assigned_team) {
-        await persistLivingJobOnBoundJhas(drop.jobId);
-      }
-    },
-    onSuccess: () => {
-      if (isDevFieldAuditAuth()) return;
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
-      queryClient.invalidateQueries({ queryKey: ['job'] });
-      queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
-      queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
-      queryClient.invalidateQueries({ queryKey: ['job-take5s'] });
-      queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
-      queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
-      queryClient.invalidateQueries({ queryKey: ['schedule-job-search'] });
-    },
-  });
-
   const resizeJob = useMutation({
     mutationFn: async ({ jobId, startTime, endTime }: { jobId: string; startTime: string; endTime: string }) => {
       if (isDevFieldAuditAuth()) {
@@ -631,12 +590,34 @@ export function SchedulePage() {
         );
         return;
       }
-      const { error } = await supabase.from('jobs').update({
-        start_time: startTime,
-        end_time: endTime,
-        updated_at: new Date().toISOString(),
-      }).eq('id', jobId);
-      if (error) throw error;
+      if (!dispatchPack || dispatchPack.missing) {
+        throw new Error(DISPATCH_UNAVAILABLE);
+      }
+      const current = (jobs ?? []).find(j => j.id === jobId);
+      if (!current) throw new Error('Job not found');
+      const names = memberNameMap(teamMembers ?? []);
+      const proposed = { ...current, start_time: startTime, end_time: endTime };
+      const snap = snapshotForJob({
+        job: proposed,
+        pack: dispatchPack,
+        siblings: jobs ?? [],
+        hours,
+        names,
+      });
+      const result = await saveJobDispatch({
+        jobId,
+        expectedUpdatedAt: current.updated_at,
+        assignedTeam: current.assigned_team ?? [],
+        resourceIds: snap.allocations.map(a => a.resourceId),
+        skillRequirements: snap.skillRequirements,
+        resourceRequirements: snap.resourceRequirements,
+        requiredCrewCount: snap.requiredCrewCount,
+        dispatchReady: snap.dispatchReady,
+        role: profile?.role === 'admin' ? 'admin' : 'member',
+        reschedule: true,
+        snapshot: { ...snap, assignedTeam: current.assigned_team ?? [] },
+      });
+      if (!result.ok) throw new Error(result.message);
     },
     onSuccess: () => {
       if (isDevFieldAuditAuth()) return;
@@ -715,10 +696,15 @@ export function SchedulePage() {
     const liveCrew = teamMembers ?? [];
     const current = [...liveJobs, ...(searchHits ?? [])].find(j => j.id === drop.jobId)
       ?? (pickedJob?.id === drop.jobId ? pickedJob : undefined);
-    if (!current) {
-      rescheduleJob.mutate(drop);
+    if (lookWeekBoard) return;
+    if (isDevFieldAuditAuth()) {
+      applyDropToCache(drop);
       setJobQuery('');
       setPickedJob(null);
+      return;
+    }
+    if (!current) {
+      setDispatchSave({ status: 'failed', message: DISPATCH_UNAVAILABLE });
       return;
     }
     const patch = rescheduleJobPatch({
@@ -737,9 +723,7 @@ export function SchedulePage() {
     const warnings = bookingWarnings(proposed, liveJobs, names, hours);
     if (!shouldProceedWithBooking(warnings, message => window.confirm(message))) return;
     if (!dispatchPack || dispatchPack.missing) {
-      rescheduleJob.mutate(drop);
-      setJobQuery('');
-      setPickedJob(null);
+      setDispatchSave({ status: 'failed', message: DISPATCH_UNAVAILABLE });
       return;
     }
     const snap = snapshotForJob({

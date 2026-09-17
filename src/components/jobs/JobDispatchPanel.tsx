@@ -14,7 +14,7 @@ import {
 } from '../../lib/booking';
 import { decideDispatchWrite, evaluateDispatch, isSoftWriteGate, newIdempotencyKey } from '../../lib/dispatchResources';
 import { loadDispatchPack, snapshotForJob } from '../../lib/loadDispatchSnapshot';
-import { saveJobDispatch } from '../../lib/saveJobDispatch';
+import { DISPATCH_UNAVAILABLE, nextIdempotencyKeyAfterResult, saveJobDispatch } from '../../lib/saveJobDispatch';
 import type { DispatchRole, JobResourceRequirement } from '../../lib/dispatchResources';
 
 function toTimeInput(t: string | null | undefined): string {
@@ -99,6 +99,7 @@ export function JobDispatchPanel({
     });
   }, [pack, job, siblings, hours, names]);
 
+  const dispatchLocked = !pack || pack.missing || !snapshot;
   const conflicts = snapshot ? evaluateDispatch(snapshot) : [];
   const writePreview = snapshot
     ? decideDispatchWrite({ role, conflicts, overrideReason })
@@ -119,19 +120,7 @@ export function JobDispatchPanel({
     }) => {
       if (isDevFieldAuditAuth()) return;
       if (!snapshot || !pack || pack.missing) {
-        const { error } = await supabase
-          .from('jobs')
-          .update({
-            assigned_team: patch.assigned_team ?? job.assigned_team,
-            scheduled_date: patch.scheduled_date === undefined ? job.scheduled_date : patch.scheduled_date,
-            start_time: patch.start_time === undefined ? job.start_time : patch.start_time,
-            end_time: patch.end_time === undefined ? job.end_time : patch.end_time,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', job.id);
-        if (error) throw error;
-        if (patch.assigned_team) await persistLivingJobOnBoundJhas(job.id);
-        return;
+        throw new Error(DISPATCH_UNAVAILABLE);
       }
       const assignedTeam = patch.assigned_team ?? job.assigned_team ?? [];
       const nextJob = {
@@ -161,9 +150,10 @@ export function JobDispatchPanel({
       if (assignedTeam !== job.assigned_team) {
         await persistLivingJobOnBoundJhas(job.id);
       }
+      return result;
     },
-    onSuccess: () => {
-      setPendingKey(newIdempotencyKey());
+    onSuccess: (result) => {
+      if (result) setPendingKey(key => nextIdempotencyKeyAfterResult(result, key));
       queryClient.invalidateQueries({ queryKey: ['job', job.id] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
@@ -240,6 +230,7 @@ export function JobDispatchPanel({
               type="date"
               value={job.scheduled_date ?? ''}
               onChange={e => persist.mutate({ scheduled_date: e.target.value || null, reschedule: true })}
+              disabled={dispatchLocked}
               className="form-input"
             />
           </label>
@@ -249,6 +240,7 @@ export function JobDispatchPanel({
               type="time"
               value={toTimeInput(job.start_time)}
               onChange={e => persist.mutate({ start_time: e.target.value || null, reschedule: true })}
+              disabled={dispatchLocked}
               className="form-input"
             />
           </label>
@@ -258,6 +250,7 @@ export function JobDispatchPanel({
               type="time"
               value={toTimeInput(job.end_time)}
               onChange={e => persist.mutate({ end_time: e.target.value || null, reschedule: true })}
+              disabled={dispatchLocked}
               className="form-input"
             />
           </label>
@@ -274,6 +267,7 @@ export function JobDispatchPanel({
             <button
               type="button"
               onClick={() => persist.mutate({ assigned_team: [] })}
+              disabled={dispatchLocked}
               className="ops-link text-xs min-h-11 sm:min-h-0"
             >
               Clear crew
@@ -291,7 +285,7 @@ export function JobDispatchPanel({
                   key={m.id}
                   type="button"
                   onClick={() => toggleCrew(m.id)}
-                  disabled={persist.isPending}
+                  disabled={persist.isPending || dispatchLocked}
                   className={`job-crew-chip px-2.5 py-1.5 min-h-[44px] sm:min-h-0 rounded-md text-xs font-medium transition-colors disabled:opacity-50 ${
                     selected
                       ? 'bg-navy text-white'
@@ -400,7 +394,9 @@ export function JobDispatchPanel({
             )}
           </div>
         ) : (
-          <p className="ops-meta mt-3">Dispatch requirements are local-only until the sandbox schema is applied.</p>
+          <p className="ops-meta mt-3" role="status" data-testid="job-dispatch-unavailable">
+            {DISPATCH_UNAVAILABLE} Date, time and crew on this tray stay read-only. Job details, status and notes still save as before.
+          </p>
         )}
       </div>
     </div>

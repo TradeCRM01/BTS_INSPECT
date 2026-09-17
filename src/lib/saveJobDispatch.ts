@@ -27,7 +27,27 @@ export type SaveJobDispatchInput = {
 
 export type SaveJobDispatchResult =
   | { ok: true; updatedAt: string; dispatchVersion: number; eventId: string; overridden: boolean; replayed?: boolean }
-  | { ok: false; code: 'blocked' | 'stale' | 'tenant' | 'error'; message: string; conflicts: DispatchConflict[] };
+  | { ok: false; code: 'blocked' | 'stale' | 'tenant' | 'unavailable' | 'error'; message: string; conflicts: DispatchConflict[] };
+
+/** Missing RPC is not a jobs.update fallback. Assignment stays closed until save_job_dispatch exists. */
+export const DISPATCH_UNAVAILABLE =
+  'Dispatch save is unavailable until save_job_dispatch is on this database.';
+
+export function isDispatchRpcUnavailable(error: { message?: string; code?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const text = `${error.code ?? ''} ${error.message ?? ''}`;
+  return /42883|PGRST202|Could not find the function|function public\.save_job_dispatch|schema cache/i.test(text);
+}
+
+/** Keep the same key after a block, miss, or lost response so retry cannot mint a second event. */
+export function nextIdempotencyKeyAfterResult(
+  result: SaveJobDispatchResult,
+  currentKey: string,
+  mint: () => string = newIdempotencyKey,
+): string {
+  if (result.ok && !result.replayed) return mint();
+  return currentKey;
+}
 
 export function buildDispatchPayload(input: SaveJobDispatchInput, write: { overridden: boolean }): Record<string, unknown> {
   const conflicts = evaluateDispatch({
@@ -120,6 +140,9 @@ export function mapDispatchRpcError(error: { message?: string; code?: string; de
   }
   if (/override_reason_required/i.test(text)) {
     return { ok: false, code: 'blocked', message: 'Admin override needs a reason.' };
+  }
+  if (isDispatchRpcUnavailable(error)) {
+    return { ok: false, code: 'unavailable', message: DISPATCH_UNAVAILABLE };
   }
   return { ok: false, code: 'error', message: 'Could not save dispatch.' };
 }
