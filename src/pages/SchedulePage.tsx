@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
@@ -15,7 +15,16 @@ import {
   DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList, PhoneWeekList,
   type TeamMember,
 } from '../components/crm/BoardViews';
-import { placePickedHint, placePickedOnCell, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
+import {
+  countJobsOutsideVisibleWindow,
+  placePickedHint,
+  placePickedOnCell,
+  rememberDraggedJob,
+  rescheduleJobPatch,
+  visibleDayHours,
+  type JobDropPayload,
+} from '../lib/dispatch';
+import { scheduleBoardSummary } from '../lib/scheduleBoardSummary';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
@@ -359,6 +368,7 @@ export function SchedulePage() {
   const [jobQuery, setJobQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [pickedJob, setPickedJob] = useState<JobWithClient | null>(null);
+  const [extendedHours, setExtendedHours] = useState(true);
 
   const preselectClient = searchParams.get('client');
   const preselectJob = searchParams.get('job');
@@ -434,8 +444,9 @@ export function SchedulePage() {
     return format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
   }, [currentDate, viewMode]);
 
-  const { data: jobs, isLoading, error } = useQuery<JobWithClient[]>({
+  const { data: jobs, isLoading, isFetching, isPlaceholderData, error } = useQuery<JobWithClient[]>({
     queryKey: ['jobs', rangeStart, rangeEnd],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const mock = getAuditJobs();
       if (mock) {
@@ -656,6 +667,20 @@ export function SchedulePage() {
   const dayRangeLabel = format(currentDate, 'EEE d MMM yyyy');
   const dayRangeShort = format(currentDate, 'EEE d MMM');
   const unassignedOnBoard = onBoard.filter(j => !(j.assigned_team ?? []).length).length;
+  const visibleHours = visibleDayHours(extendedHours);
+  const outsideWorkdayCount = countJobsOutsideVisibleWindow(onBoard, visibleHours.start, visibleHours.end);
+  const summaryStatus = isLoading && jobs == null
+    ? 'loading'
+    : isPlaceholderData && isFetching
+      ? 'retained'
+      : 'ready';
+  const summary = scheduleBoardSummary({
+    status: summaryStatus,
+    onBoardCount: onBoard.length,
+    unassignedOnBoard,
+    needsDateCount: needsDate.length,
+    attentionCount: 0,
+  });
   const weekWhisper = [
     `${onBoard.length} on the board`,
     unassignedOnBoard > 0 ? `${unassignedOnBoard} unassigned` : '',
@@ -742,6 +767,17 @@ export function SchedulePage() {
         >
           <ChevronRight size={16} />
         </button>
+        {viewMode === 'day' ? (
+          <button
+            type="button"
+            className="hub-week-quiet"
+            aria-pressed={extendedHours}
+            onClick={() => setExtendedHours(v => !v)}
+          >
+            {extendedHours ? '6am–8pm' : '7am–5pm'}
+            {outsideWorkdayCount > 0 ? ` · ${outsideWorkdayCount}` : ''}
+          </button>
+        ) : null}
         <p className="hub-week-range">
           <span className="hub-week-range-full">{boardRangeLabel}</span>
           <span className="hub-week-range-short">{viewMode === 'day' ? dayRangeShort : weekRangeShort}</span>
@@ -759,12 +795,12 @@ export function SchedulePage() {
           <div className="min-w-0">
             <h1 className="ops-page-title">Schedule</h1>
             <p className="ops-meta mt-2">
-              {onBoard.length} on the board
-              {unassignedOnBoard > 0 ? ` · ${unassignedOnBoard} unassigned` : ''}
-              {needsDate.length > 0 ? ` · ${needsDate.length} without a date` : ''}
-              {viewMode === 'day'
-                ? ` · ${format(currentDate, 'EEEE, d MMMM yyyy')}`
-                : ` · week of ${format(startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'd MMM')}`}
+              {summary}
+              {summaryStatus === 'ready' || summaryStatus === 'retained'
+                ? (viewMode === 'day'
+                  ? ` · ${format(currentDate, 'EEEE, d MMMM yyyy')}`
+                  : ` · week of ${format(startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'd MMM')}`)
+                : ''}
             </p>
           </div>
           <button
@@ -815,7 +851,7 @@ export function SchedulePage() {
           </div>
         )}
 
-        {!lookWeekBoard && isLoading ? (
+        {!lookWeekBoard && isLoading && jobs == null ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : (
           <>
@@ -894,6 +930,7 @@ export function SchedulePage() {
                         onDayClick={handleDayClick}
                         onJobDrop={placeExisting}
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
+                        extendedHours={extendedHours}
                       />
                     </div>
                     <div className="hidden lg:block hub-week-mount">
@@ -906,6 +943,7 @@ export function SchedulePage() {
                         onJobDrop={placeExisting}
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
                         filteredEmployeeIds={filteredEmployeeIds}
+                        extendedHours={extendedHours}
                       />
                     </div>
                   </>
