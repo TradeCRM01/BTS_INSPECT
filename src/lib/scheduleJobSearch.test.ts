@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { attachJobClients, jobMatchesSearch, mergeScheduleJobPatch, normalizeJobSearch, parseJobRefQuery, withScheduleJobPatches } from './scheduleJobSearch';
 import type { Job, JobWithClient } from '../types/crm';
 
@@ -73,6 +75,19 @@ describe('schedule job search', () => {
     );
     expect(rows[0].client_name).toBe('Northside Electrical');
     expect(rows[0].client_phone).toBe('0400 111 222');
+  });
+
+  it('lists company jobs for the existing-job picker without inserting a row', () => {
+    const src = readFileSync(resolve(process.cwd(), 'src/lib/scheduleJobSearch.ts'), 'utf8');
+    const page = readFileSync(resolve(process.cwd(), 'src/pages/SchedulePage.tsx'), 'utf8');
+    const listFn = src.slice(src.indexOf('export async function listCompanyScheduleJobs'), src.indexOf('export async function searchScheduleJobs'));
+    expect(listFn).toContain(".from('jobs')");
+    expect(listFn).toContain(".neq('status', 'cancelled')");
+    expect(listFn).not.toContain('.insert(');
+    expect(page).toContain('Add existing job');
+    expect(page).toContain('saveJobDispatch');
+    expect(page).toContain('openAddExisting');
+    expect(page).not.toMatch(/openAddExisting[\s\S]{0,120}setShowForm\(true\)/);
   });
 
   it('keeps a dropped job patched so it does not fall back to unscheduled', () => {
