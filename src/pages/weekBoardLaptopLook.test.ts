@@ -139,8 +139,10 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
 
   it('does not rewrite persist, dispatch, or convert writes', () => {
     const page = src('src/pages/SchedulePage.tsx');
-    expect(page).toContain('rescheduleJob.mutate');
+    expect(page).toContain('saveJobDispatch');
+    expect(page).toContain('runDispatchSave');
     expect(page).toContain('resizeJob.mutate');
+    expect(page).not.toContain('rescheduleJob.mutate');
     expect(page).toContain('scheduleJobHref');
     expect(page).toContain('JobFormModal');
     expect(page).not.toContain('sendQuoteDeliver');
