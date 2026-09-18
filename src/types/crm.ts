@@ -38,6 +38,10 @@ export interface Job {
   cost_code?: string | null;
   client_reminder_sent_at?: string | null;
   client_reminder_sent_for_date?: string | null;
+  dispatch_ready?: boolean;
+  required_crew_count?: number;
+  last_dispatch_override_at?: string | null;
+  last_dispatch_override_reason?: string | null;
 }
 
 export interface ClientWithStats extends Client {

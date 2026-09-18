@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
@@ -15,8 +15,28 @@ import {
   DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList, PhoneWeekList,
   type TeamMember,
 } from '../components/crm/BoardViews';
-import { placePickedHint, placePickedOnCell, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
-import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
+import { StaffHoursPanel } from '../components/jobs/StaffHoursPanel';
+import {
+  countJobsOutsideVisibleWindow,
+  placePickedHint,
+  placePickedOnCell,
+  rememberDraggedJob,
+  rescheduleJobPatch,
+  visibleDayHours,
+  type JobDropPayload,
+} from '../lib/dispatch';
+import {
+  bookingWarnings,
+  isMissingRelation,
+  memberNameMap,
+  shouldProceedWithBooking,
+  staffHoursFromRow,
+  type StaffHours,
+} from '../lib/booking';
+import { cardBadge, evaluateDispatch, NEEDS_RESOURCES_EMPTY, newIdempotencyKey } from '../lib/dispatchResources';
+import { loadDispatchPack, snapshotForJob } from '../lib/loadDispatchSnapshot';
+import { DISPATCH_UNAVAILABLE, saveJobDispatch, type SaveJobDispatchInput } from '../lib/saveJobDispatch';
+import { scheduleBoardSummary } from '../lib/scheduleBoardSummary';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
 import { parseScheduleView, scheduleDayKey, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
@@ -359,6 +379,14 @@ export function SchedulePage() {
   const [jobQuery, setJobQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [pickedJob, setPickedJob] = useState<JobWithClient | null>(null);
+  const [extendedHours, setExtendedHours] = useState(true);
+  const [hoursOpen, setHoursOpen] = useState(false);
+  const [attentionOnly, setAttentionOnly] = useState(false);
+  const [dispatchSave, setDispatchSave] = useState<{
+    status: 'idle' | 'saving' | 'saved' | 'failed';
+    message: string;
+  }>({ status: 'idle', message: '' });
+  const lastDispatchRef = useRef<SaveJobDispatchInput | null>(null);
 
   const preselectClient = searchParams.get('client');
   const preselectJob = searchParams.get('job');
@@ -434,8 +462,9 @@ export function SchedulePage() {
     return format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
   }, [currentDate, viewMode]);
 
-  const { data: jobs, isLoading, error } = useQuery<JobWithClient[]>({
+  const { data: jobs, isLoading, isFetching, isPlaceholderData, error } = useQuery<JobWithClient[]>({
     queryKey: ['jobs', rangeStart, rangeEnd],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const mock = getAuditJobs();
       if (mock) {
@@ -478,6 +507,30 @@ export function SchedulePage() {
       return hydrateJobParentNumbers(attachJobClients(jobs, [...clientMap.values()]));
     },
     enabled: !!profile,
+  });
+
+  const jobIds = (jobs ?? []).map(j => j.id);
+  const { data: dispatchPack } = useQuery({
+    queryKey: ['dispatch-pack', rangeStart, rangeEnd, jobIds.join(',')],
+    queryFn: () => loadDispatchPack(jobIds),
+    enabled: !!profile && !lookWeekBoard,
+  });
+
+  const { data: hours = [], isError: hoursMissing } = useQuery({
+    queryKey: ['staff-hours', rangeStart, rangeEnd],
+    queryFn: async () => {
+      const { data, error: hoursError } = await supabase
+        .from('staff_hours')
+        .select('member_id, date, working, start_time, end_time, reason')
+        .gte('date', rangeStart)
+        .lte('date', rangeEnd);
+      if (hoursError) {
+        if (isMissingRelation(hoursError)) return [];
+        throw hoursError;
+      }
+      return (data ?? []).map(staffHoursFromRow);
+    },
+    enabled: !!profile && !lookWeekBoard,
   });
 
   useEffect(() => {
@@ -524,46 +577,6 @@ export function SchedulePage() {
     });
   };
 
-  const rescheduleJob = useMutation({
-    mutationFn: async (drop: JobDropPayload) => {
-      applyDropToCache(drop);
-      if (isDevFieldAuditAuth()) return;
-
-      const { data: current, error: loadError } = await supabase
-        .from('jobs')
-        .select('assigned_team, start_time, end_time')
-        .eq('id', drop.jobId)
-        .maybeSingle();
-      if (loadError) throw loadError;
-      if (!current) throw new Error('Job not found');
-
-      const updates = {
-        ...rescheduleJobPatch({
-          assigned_team: current.assigned_team,
-          start_time: current.start_time,
-          end_time: current.end_time,
-        }, drop),
-        updated_at: new Date().toISOString(),
-      };
-      const { error } = await supabase.from('jobs').update(updates).eq('id', drop.jobId);
-      if (error) throw error;
-      if (updates.assigned_team) {
-        await persistLivingJobOnBoundJhas(drop.jobId);
-      }
-    },
-    onSuccess: () => {
-      if (isDevFieldAuditAuth()) return;
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
-      queryClient.invalidateQueries({ queryKey: ['job'] });
-      queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
-      queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
-      queryClient.invalidateQueries({ queryKey: ['job-take5s'] });
-      queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
-      queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
-      queryClient.invalidateQueries({ queryKey: ['schedule-job-search'] });
-    },
-  });
-
   const resizeJob = useMutation({
     mutationFn: async ({ jobId, startTime, endTime }: { jobId: string; startTime: string; endTime: string }) => {
       if (isDevFieldAuditAuth()) {
@@ -577,12 +590,34 @@ export function SchedulePage() {
         );
         return;
       }
-      const { error } = await supabase.from('jobs').update({
-        start_time: startTime,
-        end_time: endTime,
-        updated_at: new Date().toISOString(),
-      }).eq('id', jobId);
-      if (error) throw error;
+      if (!dispatchPack || dispatchPack.missing) {
+        throw new Error(DISPATCH_UNAVAILABLE);
+      }
+      const current = (jobs ?? []).find(j => j.id === jobId);
+      if (!current) throw new Error('Job not found');
+      const names = memberNameMap(teamMembers ?? []);
+      const proposed = { ...current, start_time: startTime, end_time: endTime };
+      const snap = snapshotForJob({
+        job: proposed,
+        pack: dispatchPack,
+        siblings: jobs ?? [],
+        hours,
+        names,
+      });
+      const result = await saveJobDispatch({
+        jobId,
+        expectedUpdatedAt: current.updated_at,
+        assignedTeam: current.assigned_team ?? [],
+        resourceIds: snap.allocations.map(a => a.resourceId),
+        skillRequirements: snap.skillRequirements,
+        resourceRequirements: snap.resourceRequirements,
+        requiredCrewCount: snap.requiredCrewCount,
+        dispatchReady: snap.dispatchReady,
+        role: profile?.role === 'admin' ? 'admin' : 'member',
+        reschedule: true,
+        snapshot: { ...snap, assignedTeam: current.assigned_team ?? [] },
+      });
+      if (!result.ok) throw new Error(result.message);
     },
     onSuccess: () => {
       if (isDevFieldAuditAuth()) return;
@@ -603,8 +638,124 @@ export function SchedulePage() {
     rememberDraggedJob(jobId);
   };
 
+  const runDispatchSave = (input: SaveJobDispatchInput) => {
+    lastDispatchRef.current = input;
+    setDispatchSave({ status: 'saving', message: 'Saving assignment…' });
+    void saveJobDispatch(input).then(result => {
+      if (!result.ok) {
+        setDispatchSave({ status: 'failed', message: result.message });
+        return;
+      }
+      if (result.replayed) {
+        setDispatchSave({ status: 'saved', message: 'Assignment already saved — no extra write.' });
+      } else {
+        setDispatchSave({ status: 'saved', message: 'Assignment saved.' });
+        lastDispatchRef.current = { ...input, idempotencyKey: newIdempotencyKey() };
+      }
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['job'] });
+      queryClient.invalidateQueries({ queryKey: ['dispatch-pack'] });
+    }).catch(() => {
+      setDispatchSave({ status: 'failed', message: 'Could not save assignment. Retry when you are back online.' });
+    });
+  };
+
+  const saveHours = useMutation({
+    mutationFn: async (row: StaffHours) => {
+      const { error: writeError } = await supabase.from('staff_hours').upsert({
+        company_id: profile?.company_id,
+        member_id: row.memberId,
+        date: row.date,
+        working: row.working,
+        start_time: row.working ? row.start : null,
+        end_time: row.working ? row.end : null,
+        reason: row.reason ?? null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'company_id,member_id,date' });
+      if (writeError) throw writeError;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-hours'] }),
+    onError: (e: Error) => alert(e.message),
+  });
+
+  const clearHours = useMutation({
+    mutationFn: async ({ memberId, date }: { memberId: string; date: string }) => {
+      const { error: writeError } = await supabase
+        .from('staff_hours')
+        .delete()
+        .eq('member_id', memberId)
+        .eq('date', date);
+      if (writeError) throw writeError;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-hours'] }),
+    onError: (e: Error) => alert(e.message),
+  });
+
   const placeExisting = (drop: JobDropPayload) => {
-    rescheduleJob.mutate(drop);
+    const liveJobs = lookWeekBoard ? [] : (jobs ?? []);
+    const liveCrew = teamMembers ?? [];
+    const current = [...liveJobs, ...(searchHits ?? [])].find(j => j.id === drop.jobId)
+      ?? (pickedJob?.id === drop.jobId ? pickedJob : undefined);
+    if (lookWeekBoard) return;
+    if (isDevFieldAuditAuth()) {
+      applyDropToCache(drop);
+      setJobQuery('');
+      setPickedJob(null);
+      return;
+    }
+    if (!current) {
+      setDispatchSave({ status: 'failed', message: DISPATCH_UNAVAILABLE });
+      return;
+    }
+    const patch = rescheduleJobPatch({
+      assigned_team: current.assigned_team,
+      start_time: current.start_time,
+      end_time: current.end_time,
+    }, drop);
+    const proposed = {
+      ...current,
+      scheduled_date: patch.scheduled_date,
+      assigned_team: patch.assigned_team ?? current.assigned_team,
+      start_time: patch.start_time ?? current.start_time,
+      end_time: patch.end_time === undefined ? current.end_time : patch.end_time,
+    };
+    const names = memberNameMap(liveCrew);
+    const warnings = bookingWarnings(proposed, liveJobs, names, hours);
+    if (!shouldProceedWithBooking(warnings, message => window.confirm(message))) return;
+    if (!dispatchPack || dispatchPack.missing) {
+      setDispatchSave({ status: 'failed', message: DISPATCH_UNAVAILABLE });
+      return;
+    }
+    const snap = snapshotForJob({
+      job: proposed,
+      pack: dispatchPack,
+      siblings: liveJobs,
+      hours,
+      names,
+    });
+    const role = profile?.role === 'admin' ? 'admin' as const : 'member' as const;
+    const conflicts = evaluateDispatch({ ...snap, assignedTeam: proposed.assigned_team ?? [] });
+    let overrideReason: string | null = null;
+    const hard = conflicts.filter(c => c.severity === 'hard');
+    if (hard.length > 0 && role === 'admin' && hard.every(c => c.overridable)) {
+      overrideReason = window.prompt('Admin override reason (required)') ?? '';
+    }
+    const input: SaveJobDispatchInput = {
+      jobId: current.id,
+      expectedUpdatedAt: current.updated_at,
+      assignedTeam: proposed.assigned_team ?? [],
+      resourceIds: snap.allocations.map(a => a.resourceId),
+      skillRequirements: snap.skillRequirements,
+      resourceRequirements: snap.resourceRequirements,
+      requiredCrewCount: snap.requiredCrewCount,
+      dispatchReady: snap.dispatchReady,
+      role,
+      overrideReason,
+      reschedule: true,
+      idempotencyKey: newIdempotencyKey(),
+      snapshot: { ...snap, assignedTeam: proposed.assigned_team ?? [] },
+    };
+    void runDispatchSave(input);
     setJobQuery('');
     setPickedJob(null);
   };
@@ -644,10 +795,36 @@ export function SchedulePage() {
     setCurrentDate(viewMode === 'day' ? WEEK_BOARD_LOOK_DAY_ANCHOR : WEEK_BOARD_LOOK_ANCHOR);
   }, [lookWeekBoard, viewMode]);
 
+  const jobsWithBadges = useMemo(() => {
+    if (!dispatchPack || dispatchPack.missing) return boardJobs;
+    const names = memberNameMap(boardCrew);
+    return boardJobs.map(job => {
+      const snap = snapshotForJob({
+        job,
+        pack: dispatchPack,
+        siblings: boardJobs,
+        hours,
+        names,
+      });
+      const conflicts = evaluateDispatch(snap);
+      return {
+        ...job,
+        dispatchBadge: cardBadge(conflicts, !!job.last_dispatch_override_at),
+      };
+    });
+  }, [boardJobs, boardCrew, dispatchPack, hours]);
+
   const { needsDate, onBoard } = useMemo(
-    () => partitionScheduleJobs(boardJobs),
-    [boardJobs],
+    () => partitionScheduleJobs(jobsWithBadges),
+    [jobsWithBadges],
   );
+  const attentionBoard = attentionOnly
+    ? onBoard.filter(j => 'dispatchBadge' in j && j.dispatchBadge)
+    : onBoard;
+  const attentionCount = onBoard.filter(j => 'dispatchBadge' in j && j.dispatchBadge).length;
+  const attentionEmpty = attentionOnly && attentionBoard.length === 0
+    ? NEEDS_RESOURCES_EMPTY
+    : null;
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON });
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON });
@@ -656,6 +833,20 @@ export function SchedulePage() {
   const dayRangeLabel = format(currentDate, 'EEE d MMM yyyy');
   const dayRangeShort = format(currentDate, 'EEE d MMM');
   const unassignedOnBoard = onBoard.filter(j => !(j.assigned_team ?? []).length).length;
+  const visibleHours = visibleDayHours(extendedHours);
+  const outsideWorkdayCount = countJobsOutsideVisibleWindow(onBoard, visibleHours.start, visibleHours.end);
+  const summaryStatus = isLoading && jobs == null
+    ? 'loading'
+    : isPlaceholderData && isFetching
+      ? 'retained'
+      : 'ready';
+  const summary = scheduleBoardSummary({
+    status: summaryStatus,
+    onBoardCount: onBoard.length,
+    unassignedOnBoard,
+    needsDateCount: needsDate.length,
+    attentionCount,
+  });
   const weekWhisper = [
     `${onBoard.length} on the board`,
     unassignedOnBoard > 0 ? `${unassignedOnBoard} unassigned` : '',
@@ -742,6 +933,36 @@ export function SchedulePage() {
         >
           <ChevronRight size={16} />
         </button>
+        {!lookWeekBoard && (
+          <>
+            <button
+              type="button"
+              className="hub-week-quiet"
+              aria-pressed={attentionOnly}
+              onClick={() => setAttentionOnly(v => !v)}
+            >
+              Needs resources
+              {attentionCount > 0 ? ` · ${attentionCount}` : ''}
+            </button>
+            <button
+              type="button"
+              className="hub-week-quiet"
+              aria-pressed={hoursOpen}
+              onClick={() => setHoursOpen(v => !v)}
+            >
+              Hours & leave
+            </button>
+            <button
+              type="button"
+              className="hub-week-quiet"
+              aria-pressed={extendedHours}
+              onClick={() => setExtendedHours(v => !v)}
+            >
+              {extendedHours ? '6am–8pm' : '7am–5pm'}
+              {outsideWorkdayCount > 0 ? ` · ${outsideWorkdayCount}` : ''}
+            </button>
+          </>
+        )}
         <p className="hub-week-range">
           <span className="hub-week-range-full">{boardRangeLabel}</span>
           <span className="hub-week-range-short">{viewMode === 'day' ? dayRangeShort : weekRangeShort}</span>
@@ -758,13 +979,17 @@ export function SchedulePage() {
         <div className="ops-page-head">
           <div className="min-w-0">
             <h1 className="ops-page-title">Schedule</h1>
-            <p className="ops-meta mt-2">
-              {onBoard.length} on the board
-              {unassignedOnBoard > 0 ? ` · ${unassignedOnBoard} unassigned` : ''}
-              {needsDate.length > 0 ? ` · ${needsDate.length} without a date` : ''}
-              {viewMode === 'day'
-                ? ` · ${format(currentDate, 'EEEE, d MMMM yyyy')}`
-                : ` · week of ${format(startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'd MMM')}`}
+            <p className="ops-meta mt-2" data-testid="schedule-board-summary">
+              {lookWeekBoard ? (
+                <>
+                  {onBoard.length} on the board
+                  {unassignedOnBoard > 0 ? ` · ${unassignedOnBoard} unassigned` : ''}
+                  {needsDate.length > 0 ? ` · ${needsDate.length} without a date` : ''}
+                  {viewMode === 'day'
+                    ? ` · ${format(currentDate, 'EEEE, d MMMM yyyy')}`
+                    : ` · week of ${format(startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'd MMM')}`}
+                </>
+              ) : summary}
             </p>
           </div>
           <button
@@ -815,7 +1040,37 @@ export function SchedulePage() {
           </div>
         )}
 
-        {!lookWeekBoard && isLoading ? (
+        {!lookWeekBoard && dispatchSave.status !== 'idle' && (
+          <p className="ops-meta mb-3" role="status" data-testid="schedule-dispatch-save-status">
+            {dispatchSave.message}
+            {dispatchSave.status === 'failed' && lastDispatchRef.current && (
+              <button
+                type="button"
+                className="ops-link ml-2 min-h-11"
+                onClick={() => lastDispatchRef.current && runDispatchSave(lastDispatchRef.current)}
+              >
+                Retry
+              </button>
+            )}
+          </p>
+        )}
+
+        <AttentionEmpty emptyMessage={attentionEmpty} />
+
+        {!lookWeekBoard && (
+          <StaffHoursPanel
+            date={format(currentDate, 'yyyy-MM-dd')}
+            members={boardCrew}
+            hours={hours}
+            saving={saveHours.isPending || clearHours.isPending}
+            unavailable={hoursMissing}
+            open={hoursOpen}
+            onSave={row => saveHours.mutate(row)}
+            onClear={(memberId, date) => clearHours.mutate({ memberId, date })}
+          />
+        )}
+
+        {!lookWeekBoard && isLoading && jobs == null ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : (
           <>
@@ -854,7 +1109,7 @@ export function SchedulePage() {
                   <>
                     <div className="lg:hidden hub-week-mount">
                       <PhoneWeekList
-                        jobs={onBoard}
+                        jobs={attentionBoard}
                         teamMembers={boardCrew}
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
@@ -869,7 +1124,7 @@ export function SchedulePage() {
                     </div>
                     <div className="hidden lg:block hub-week-mount">
                       <WeekBoardView
-                        jobs={onBoard}
+                        jobs={attentionBoard}
                         teamMembers={boardCrew}
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
@@ -887,18 +1142,19 @@ export function SchedulePage() {
                   <>
                     <div className="lg:hidden hub-week-mount">
                       <PhoneDayList
-                        jobs={onBoard}
+                        jobs={attentionBoard}
                         teamMembers={boardCrew}
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
                         onDayClick={handleDayClick}
                         onJobDrop={placeExisting}
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
+                        extendedHours={extendedHours}
                       />
                     </div>
                     <div className="hidden lg:block hub-week-mount">
                       <DayBoardView
-                        jobs={onBoard}
+                        jobs={attentionBoard}
                         teamMembers={boardCrew}
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
@@ -906,6 +1162,7 @@ export function SchedulePage() {
                         onJobDrop={placeExisting}
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
                         filteredEmployeeIds={filteredEmployeeIds}
+                        extendedHours={extendedHours}
                       />
                     </div>
                   </>
@@ -942,4 +1199,9 @@ export function SchedulePage() {
       )}
     </AppShell>
   );
+}
+
+function AttentionEmpty({ emptyMessage }: { emptyMessage: string | null }) {
+  if (!emptyMessage) return null;
+  return <p className="ops-meta mb-3">{emptyMessage}</p>;
 }
