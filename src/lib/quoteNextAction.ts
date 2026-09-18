@@ -1,6 +1,4 @@
-import { differenceInCalendarDays } from 'date-fns';
 import type { QuoteStatus } from '../types/fsm';
-import { QUOTE_CHASE_AFTER_DAYS } from './nudges';
 import { clientEmailForSend } from './sendInvoice';
 
 export type QuoteActionKey =
@@ -113,17 +111,4 @@ export function recommendQuoteAction(ctx: QuoteActionContext): RecommendedQuoteA
 
 export function quoteCardHint(ctx: QuoteActionContext): string {
   return recommendQuoteAction(ctx).label;
-}
-
-/** A sent quote nobody has touched for QUOTE_CHASE_AFTER_DAYS calendar days is due a chase. */
-export function quoteChaseDue(
-  quote: { status: QuoteStatus; updated_at: string },
-  now = new Date(),
-): { due: boolean; days: number } {
-  const days = differenceInCalendarDays(now, new Date(quote.updated_at));
-  return { due: quote.status === 'sent' && days >= QUOTE_CHASE_AFTER_DAYS, days };
-}
-
-export function quoteChaseLabel(days: number): string {
-  return `Chase · ${days} day${days === 1 ? '' : 's'}`;
 }

@@ -234,7 +234,7 @@ async function loadDashboardNudgeData(todayKey: string, tomorrowKey: string): Pr
       .lte('scheduled_date', tomorrowKey),
     supabase
       .from('quotes')
-      .select('id, quote_number, status, updated_at, client_id')
+      .select('id, quote_number, status, updated_at, validity_date, total, client_id')
       .eq('status', 'sent'),
     supabase
       .from('invoices')

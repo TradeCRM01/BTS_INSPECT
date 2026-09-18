@@ -1,7 +1,7 @@
 {
-  "base": "http://127.0.0.1:5173",
-  "supabaseUrl": "https://harness.supabase.invalid",
-  "startedAt": "2026-09-11T15:13:58.253Z",
+  "base": "http://localhost:5173",
+  "supabaseUrl": "https://harness.supabase.co",
+  "startedAt": "2026-09-13T00:26:35.513Z",
   "laptopUpcomingShowsMineTaggedAndCompanyOnly": {
     "ok": true,
     "ids": [
@@ -62,11 +62,11 @@
     "ok": true,
     "page": "rgb(245, 240, 230)",
     "sheet": "rgb(255, 253, 248)",
-    "sheetW": 1232,
+    "sheetW": 760,
     "bar": "rgb(10, 37, 64)",
     "primaryH": 44,
     "primaryBg": "rgb(46, 117, 182)",
-    "fieldH": 89,
+    "fieldH": 67,
     "viewW": 1280
   },
   "laptopSaveWritesJobDetailsDateVisibilityAndTag": {
@@ -260,9 +260,15 @@
       },
       {
         "kind": "quote_chase",
-        "href": "/quotes?id=quote-12",
+        "href": "/quotes?id=quote-14",
+        "label": "Quote #0014 lapsed",
+        "detail": "Valid to 8 Sep · $2,000.00 · Sarah Lee"
+      },
+      {
+        "kind": "quote_chase",
+        "href": "/quotes?id=quote-12&send=1",
         "label": "Chase quote #0012",
-        "detail": "Sent 6 days ago · Sarah Lee"
+        "detail": "Quiet 6 days · $1,320.00 · Sarah Lee"
       },
       {
         "kind": "invoice_unpaid",
@@ -293,12 +299,83 @@
     "fieldH": 44,
     "viewW": 1280
   },
-  "laptopStaleSentQuoteShowsChaseChip": {
+  "laptopQuoteChipsQuietLapsedAndNone": {
     "ok": true,
-    "chaseText": "Chase · 6 days"
+    "rows": [
+      {
+        "ref": "#0013",
+        "chipText": null,
+        "chipState": null
+      },
+      {
+        "ref": "#0012",
+        "chipText": "Chase · 6 days",
+        "chipState": "quiet"
+      },
+      {
+        "ref": "#0014",
+        "chipText": "Lapsed · 3 days",
+        "chipState": "lapsed"
+      },
+      {
+        "ref": "#0015",
+        "chipText": null,
+        "chipState": null
+      }
+    ]
   },
-  "laptopChaseOpensSendDialog": {
-    "ok": true
+  "laptopLapsedChipOpensEditor": {
+    "ok": true,
+    "editorTitle": "Quote #0014"
+  },
+  "laptopSendDeepLinkOpensDialogAndDropsParams": {
+    "ok": true,
+    "url": "http://localhost:5173/quotes"
+  },
+  "laptopReShareStampsUpdatedAtOnSentQuoteOnly": {
+    "ok": true,
+    "filter": "?id=eq.quote-12&status=eq.sent",
+    "body": {
+      "updated_at": "2026-09-11T01:00:00.000Z"
+    },
+    "mailButton": true
+  },
+  "laptopChaseClearsQuietChipAndKeepsLapsed": {
+    "ok": true,
+    "rows": [
+      {
+        "ref": "#0013",
+        "chipText": null,
+        "chipState": null
+      },
+      {
+        "ref": "#0012",
+        "chipText": null,
+        "chipState": null
+      },
+      {
+        "ref": "#0014",
+        "chipText": "Lapsed · 3 days",
+        "chipState": "lapsed"
+      },
+      {
+        "ref": "#0015",
+        "chipText": null,
+        "chipState": null
+      }
+    ]
+  },
+  "laptopStatusParamSelectsSentFilter": {
+    "ok": true,
+    "on": [
+      "Sent"
+    ],
+    "refs": [
+      "#0012",
+      "#0013",
+      "#0014"
+    ],
+    "url": ""
   },
   "laptopLog": [
     {
@@ -394,6 +471,25 @@
         "visibility": "private",
         "tagged_user_ids": []
       }
+    },
+    {
+      "method": "POST",
+      "table": "client_portal_tokens",
+      "body": {
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "client_id": "00000000-0000-0000-0000-000000000101",
+        "token": "03b37f4b49a54d21865cf85dc69d9b85f158baecbf7a487995e18318b48393e2",
+        "expires_at": "2027-09-11T01:00:00.000Z"
+      }
+    },
+    {
+      "method": "PATCH",
+      "table": "quotes",
+      "filter": "?id=eq.quote-12&status=eq.sent",
+      "body": {
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
     }
   ],
   "phoneUpcomingShowsMineTaggedAndCompanyOnly": {
@@ -460,7 +556,7 @@
     "bar": "rgb(10, 37, 64)",
     "primaryH": 44,
     "primaryBg": "rgb(46, 117, 182)",
-    "fieldH": 89,
+    "fieldH": 67,
     "viewW": 390
   },
   "phoneSaveWritesJobDetailsDateVisibilityAndTag": {
@@ -654,9 +750,15 @@
       },
       {
         "kind": "quote_chase",
-        "href": "/quotes?id=quote-12",
+        "href": "/quotes?id=quote-14",
+        "label": "Quote #0014 lapsed",
+        "detail": "Valid to 8 Sep · $2,000.00 · Sarah Lee"
+      },
+      {
+        "kind": "quote_chase",
+        "href": "/quotes?id=quote-12&send=1",
         "label": "Chase quote #0012",
-        "detail": "Sent 6 days ago · Sarah Lee"
+        "detail": "Quiet 6 days · $1,320.00 · Sarah Lee"
       },
       {
         "kind": "invoice_unpaid",
@@ -687,12 +789,83 @@
     "fieldH": 44,
     "viewW": 390
   },
-  "phoneStaleSentQuoteShowsChaseChip": {
+  "phoneQuoteChipsQuietLapsedAndNone": {
     "ok": true,
-    "chaseText": "Chase · 6 days"
+    "rows": [
+      {
+        "ref": "#0013",
+        "chipText": null,
+        "chipState": null
+      },
+      {
+        "ref": "#0012",
+        "chipText": "Chase · 6 days",
+        "chipState": "quiet"
+      },
+      {
+        "ref": "#0014",
+        "chipText": "Lapsed · 3 days",
+        "chipState": "lapsed"
+      },
+      {
+        "ref": "#0015",
+        "chipText": null,
+        "chipState": null
+      }
+    ]
   },
-  "phoneChaseOpensSendDialog": {
-    "ok": true
+  "phoneLapsedChipOpensEditor": {
+    "ok": true,
+    "editorTitle": "Quote #0014"
+  },
+  "phoneSendDeepLinkOpensDialogAndDropsParams": {
+    "ok": true,
+    "url": "http://localhost:5173/quotes"
+  },
+  "phoneReShareStampsUpdatedAtOnSentQuoteOnly": {
+    "ok": true,
+    "filter": "?id=eq.quote-12&status=eq.sent",
+    "body": {
+      "updated_at": "2026-09-11T01:00:00.000Z"
+    },
+    "mailButton": true
+  },
+  "phoneChaseClearsQuietChipAndKeepsLapsed": {
+    "ok": true,
+    "rows": [
+      {
+        "ref": "#0013",
+        "chipText": null,
+        "chipState": null
+      },
+      {
+        "ref": "#0012",
+        "chipText": null,
+        "chipState": null
+      },
+      {
+        "ref": "#0014",
+        "chipText": "Lapsed · 3 days",
+        "chipState": "lapsed"
+      },
+      {
+        "ref": "#0015",
+        "chipText": null,
+        "chipState": null
+      }
+    ]
+  },
+  "phoneStatusParamSelectsSentFilter": {
+    "ok": true,
+    "on": [
+      "Sent"
+    ],
+    "refs": [
+      "#0012",
+      "#0013",
+      "#0014"
+    ],
+    "url": ""
   },
   "phoneLog": [
     {
@@ -788,12 +961,31 @@
         "visibility": "private",
         "tagged_user_ids": []
       }
+    },
+    {
+      "method": "POST",
+      "table": "client_portal_tokens",
+      "body": {
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "client_id": "00000000-0000-0000-0000-000000000101",
+        "token": "6ea3798258424a66bc2a6f2d518653c86c6663c777144f86a4721a4ecbe5cfbf",
+        "expires_at": "2027-09-11T01:00:00.000Z"
+      }
+    },
+    {
+      "method": "PATCH",
+      "table": "quotes",
+      "filter": "?id=eq.quote-12&status=eq.sent",
+      "body": {
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
     }
   ],
   "noPageErrors": {
     "ok": true,
     "pageErrors": []
   },
-  "finishedAt": "2026-09-11T15:14:31.469Z",
+  "finishedAt": "2026-09-13T00:27:13.967Z",
   "failures": []
 }
