@@ -110,14 +110,63 @@ export function triggerBrowserDownload(blob: Blob, filename: string): void {
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  // Safari and Firefox start the download after this task ends; revoking now can abort it.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-export async function copyTextToClipboard(text: string): Promise<void> {
-  const value = text.trim();
-  if (!value) throw new Error('Nothing to copy.');
-  await navigator.clipboard.writeText(value);
+export type ShareCopyResult =
+  | { kind: 'copied' }
+  | { kind: 'manual'; text: string };
+
+// Safari drops the tap's transient activation across a network await, so the clipboard
+// write has to start before the text resolves (a promised ClipboardItem blob does that).
+// An http:// LAN origin has no navigator.clipboard at all, so the cascade ends in a
+// manual result the tray can show as a selectable field.
+export async function copyShareText(
+  resolveText: () => Promise<string>,
+): Promise<ShareCopyResult> {
+  const textPromise = resolveText().then(raw => {
+    const text = raw.trim();
+    if (!text) throw new Error('Nothing to copy.');
+    return text;
+  });
+
+  if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
+    const blobPromise = textPromise.then(t => new Blob([t], { type: 'text/plain' }));
+    blobPromise.catch(() => undefined);
+    try {
+      const item = new ClipboardItem({ 'text/plain': blobPromise });
+      await navigator.clipboard.write([item]);
+      return { kind: 'copied' };
+    } catch {
+      await textPromise;
+    }
+  }
+
+  const text = await textPromise;
+
+  if (navigator.clipboard?.writeText) {
+    const wrote = await navigator.clipboard.writeText(text).then(() => true, () => false);
+    if (wrote) return { kind: 'copied' };
+  }
+
+  if (typeof document.execCommand === 'function') {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.readOnly = true;
+    area.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0';
+    document.body.appendChild(area);
+    area.select();
+    const copied = document.execCommand('copy');
+    area.remove();
+    if (copied) return { kind: 'copied' };
+  }
+
+  return { kind: 'manual', text };
 }
 
 export function openDocumentShareMailto(href: string): void {
@@ -126,5 +175,7 @@ export function openDocumentShareMailto(href: string): void {
   const a = document.createElement('a');
   a.href = value;
   a.rel = 'noopener';
+  document.body.appendChild(a);
   a.click();
+  a.remove();
 }
