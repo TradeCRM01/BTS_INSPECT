@@ -25,6 +25,8 @@ export function ScheduleJobSearch({
   onSelect,
   onOpenJob,
   onDragStart,
+  pickerOpen = false,
+  onClosePicker,
 }: {
   query: string;
   onQuery: (value: string) => void;
@@ -34,9 +36,11 @@ export function ScheduleJobSearch({
   onSelect: (job: JobWithClient | null) => void;
   onOpenJob: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
+  pickerOpen?: boolean;
+  onClosePicker?: () => void;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const open = query.trim().length > 0;
+  const open = pickerOpen || query.trim().length > 0;
   const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
@@ -55,12 +59,14 @@ export function ScheduleJobSearch({
       if (dragging) return;
       if (!rootRef.current?.contains(e.target as Node)) {
         onQuery('');
+        if (pickerOpen) onClosePicker?.();
       }
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onQuery('');
         onSelect(null);
+        onClosePicker?.();
       }
     };
     document.addEventListener('mousedown', onDoc);
@@ -69,14 +75,14 @@ export function ScheduleJobSearch({
       document.removeEventListener('mousedown', onDoc);
       window.removeEventListener('keydown', onKey);
     };
-  }, [open, onQuery, onSelect, dragging]);
+  }, [open, pickerOpen, onQuery, onSelect, onClosePicker, dragging]);
 
   return (
     <div ref={rootRef} className="relative min-w-0 flex-1 max-w-xl">
       <SearchBar
         value={query}
         onChange={onQuery}
-        placeholder="Search jobs or clients..."
+        placeholder={pickerOpen ? 'Find an existing job…' : 'Search jobs or clients...'}
       />
       {open && (
         <div className={`hub-schedule-search-panel absolute z-30 mt-2 w-full overflow-hidden ${
@@ -84,8 +90,17 @@ export function ScheduleJobSearch({
         }`}>
           <div className="hub-schedule-search-head">
             <p className="ops-meta">
-              {loading ? 'Searching…' : `${results.length} match${results.length === 1 ? '' : 'es'} · drag onto a name or a time`}
+              {loading
+                ? 'Searching…'
+                : pickerOpen && !query.trim()
+                  ? `${results.length} job${results.length === 1 ? '' : 's'} in this company · pick one to schedule`
+                  : `${results.length} match${results.length === 1 ? '' : 'es'} · drag onto a name or a time`}
             </p>
+            {pickerOpen && onClosePicker ? (
+              <button type="button" className="ops-link min-h-11" onClick={onClosePicker}>
+                Close
+              </button>
+            ) : null}
           </div>
           {results.length === 0 && !loading ? (
             <p className="ops-meta px-4 py-4">No jobs match what you typed.</p>
@@ -106,11 +121,15 @@ export function ScheduleJobSearch({
                         onSelect(job);
                         onDragStart(e, job.id);
                       }}
-                      onClick={() => onSelect(job)}
+                      onClick={() => {
+                        onSelect(job);
+                        if (pickerOpen) onClosePicker?.();
+                      }}
                       onKeyDown={e => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
                           onSelect(job);
+                          if (pickerOpen) onClosePicker?.();
                         }
                       }}
                       className={`hub-schedule-search-hit ${selected ? 'is-on' : ''}`}

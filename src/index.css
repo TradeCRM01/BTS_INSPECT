@@ -5482,11 +5482,27 @@
 
   .hub-week-page-tools {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: flex-end;
     gap: 12px;
     margin-top: 0;
     margin-left: auto;
+  }
+
+  .hub-schedule-job-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .hub-schedule-job-actions .btn-secondary,
+  .hub-week-document .hub-week-page-tools .btn-secondary {
+    min-height: 44px;
+    height: 44px;
+    padding: 0 14px;
   }
 
   .hub-week-document .hub-week-page-tools .btn-primary {
@@ -6060,6 +6076,10 @@
   }
 
   .hub-schedule-search-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--schedule-line);
   }
