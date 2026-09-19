@@ -279,7 +279,7 @@ export function dayRowHeightPx(
   timedLaneCount: number,
   opts?: { min?: number; allDayH?: number; timedH?: number; pad?: number },
 ): number {
-  const min = opts?.min ?? 72;
+  const min = opts?.min ?? 88;
   const allDayH = opts?.allDayH ?? 22;
   const timedH = opts?.timedH ?? 48;
   const pad = opts?.pad ?? 6;

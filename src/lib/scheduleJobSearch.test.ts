@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { attachJobClients, jobMatchesSearch, mergeScheduleJobPatch, normalizeJobSearch, parseJobRefQuery, withScheduleJobPatches } from './scheduleJobSearch';
+import { attachJobClients, jobMatchesSearch, mergeScheduleJobPatch, mergeScheduleSearchHits, normalizeJobSearch, parseJobRefQuery, withScheduleJobPatches } from './scheduleJobSearch';
 import type { Job, JobWithClient } from '../types/crm';
 
 const job = {
@@ -27,6 +27,12 @@ describe('schedule job search', () => {
     expect(jobMatchesSearch(job, 'north')).toBe(true);
     expect(jobMatchesSearch(job, 'workshop')).toBe(true);
     expect(jobMatchesSearch(job, 'zzz')).toBe(false);
+  });
+
+  it('keeps a board-loaded job that the remote list missed', () => {
+    const audit = { ...job, id: 'loaded', title: '[TEST — ChatGPT] Job workflow audit' };
+    const hits = mergeScheduleSearchHits([audit], [], 'Job workflow audit');
+    expect(hits.map(j => j.id)).toEqual(['loaded']);
   });
 
   it('matches a stage by parent job number and cost code', () => {

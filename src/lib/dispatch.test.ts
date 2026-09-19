@@ -180,8 +180,8 @@ describe('placeDayRowJobs', () => {
 
 describe('dayRowHeightPx', () => {
   it('grows when unassigned all-day jobs stack', () => {
-    expect(dayRowHeightPx(0, 1)).toBe(72);
-    expect(dayRowHeightPx(3, 0)).toBeGreaterThan(72);
+    expect(dayRowHeightPx(0, 1)).toBe(88);
+    expect(dayRowHeightPx(3, 2)).toBeGreaterThan(88);
   });
 });
 

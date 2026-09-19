@@ -61,6 +61,46 @@ describe('save_job_dispatch payload', () => {
     expect(b.idempotency_key).toBe(a.idempotency_key);
     expect(a.resource_ids).toEqual(['res-1']);
   });
+
+  it('keeps the #228 client compatible: always-sent clocks are not treated as a clear', () => {
+    const timed = buildDispatchPayload({
+      jobId: 'job-1',
+      expectedUpdatedAt: '2026-09-14T00:00:00.000Z',
+      assignedTeam: ['alice'],
+      resourceIds: [],
+      skillRequirements: [],
+      resourceRequirements: [],
+      requiredCrewCount: 0,
+      dispatchReady: false,
+      role: 'member',
+      snapshot: snap,
+    }, { overridden: false });
+    expect(Object.prototype.hasOwnProperty.call(timed, 'start_time')).toBe(true);
+    expect(timed.start_time).toBe('09:00:00');
+    expect(timed.end_time).toBe('11:00:00');
+  });
+
+  it('sends present null clocks so a clear is not omitted', () => {
+    const payload = buildDispatchPayload({
+      jobId: 'job-1',
+      expectedUpdatedAt: '2026-09-14T00:00:00.000Z',
+      assignedTeam: [],
+      resourceIds: [],
+      skillRequirements: [],
+      resourceRequirements: [],
+      requiredCrewCount: 0,
+      dispatchReady: false,
+      role: 'admin',
+      overrideReason: 'Restore untimed booking',
+      snapshot: {
+        ...snap,
+        job: { ...snap.job, start_time: null, end_time: null, assigned_team: [] },
+        assignedTeam: [],
+      },
+    }, { overridden: true });
+    expect(payload).toMatchObject({ start_time: null, end_time: null });
+    expect(Object.prototype.hasOwnProperty.call(payload, 'start_time')).toBe(true);
+  });
 });
 
 describe('production dispatch SQL is tenant scoped and without anon DML', () => {
@@ -98,6 +138,17 @@ describe('production dispatch SQL is tenant scoped and without anon DML', () => 
     }
     expect(sql).toMatch(/CREATE POLICY company_select ON %I FOR SELECT TO authenticated/);
     expect(sql).toMatch(/auth\.uid\(\)/);
+  });
+
+  it('lets a present null clock clear stored times and rejects a zero-length slot', () => {
+    const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260919120000_084_save_job_dispatch_clear_times.sql'), 'utf8');
+    expect(sql).toMatch(/dispatch_json_clock/);
+    expect(sql).toMatch(/p \? key/);
+    expect(sql).toMatch(/invalid_interval/);
+    expect(sql).toMatch(/already received save_job_dispatch_clear_times/);
+    expect(sql).not.toMatch(/v_start := coalesce\(nullif\(p->>'start_time'/);
+    expect(sql).not.toMatch(/CREATE TABLE/);
+    expect(mapDispatchRpcError({ message: 'invalid_interval', code: '22007' }).message).toMatch(/End must be after start/);
   });
 
   it('rejects a stale write and a cross-tenant write cleanly', () => {

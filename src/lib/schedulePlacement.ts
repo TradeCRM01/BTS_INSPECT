@@ -1,7 +1,33 @@
+import { bookingIntervalIssue } from './booking';
 import { decideDispatchWrite, evaluateDispatch, newIdempotencyKey, type DispatchConflict, type DispatchRole, type DispatchSnapshot } from './dispatchResources';
 import { rescheduleJobPatch, type JobDropPayload } from './dispatch';
 import { DISPATCH_UNAVAILABLE, type SaveJobDispatchInput, type SaveJobDispatchResult } from './saveJobDispatch';
 import type { JobWithClient } from '../types/crm';
+
+export type PlacementDraft = {
+  jobId: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  employeeId: string | null;
+};
+
+export function draftFromJobDrop(job: JobWithClient, drop: JobDropPayload): PlacementDraft {
+  const patch = rescheduleJobPatch({
+    assigned_team: job.assigned_team,
+    start_time: job.start_time,
+    end_time: job.end_time,
+  }, drop);
+  return {
+    jobId: job.id,
+    date: drop.date,
+    startTime: patch.start_time ?? job.start_time ?? null,
+    endTime: patch.end_time === undefined ? (job.end_time ?? null) : patch.end_time,
+    employeeId: drop.employeeId === undefined
+      ? (job.assigned_team?.[0] ?? null)
+      : drop.employeeId,
+  };
+}
 
 export type PlacementSummary = {
   jobId: string;
@@ -26,7 +52,8 @@ export type PlacementDecision =
   | { status: 'member_blocked'; message: string; nextAction: string; conflicts: DispatchConflict[]; summary: PlacementSummary }
   | { status: 'hard_blocked'; message: string; conflicts: DispatchConflict[]; summary: PlacementSummary }
   | { status: 'unavailable'; message: string }
-  | { status: 'missing_job'; message: string };
+  | { status: 'missing_job'; message: string }
+  | { status: 'invalid_interval'; message: string; summary: PlacementSummary };
 
 export function placementFingerprint(input: SaveJobDispatchInput): string {
   return [
@@ -105,6 +132,7 @@ export function decideExistingJobPlacement(args: {
   crewLabel: string;
   overrideReason?: string | null;
   idempotencyKey: string;
+  times?: { start_time: string | null; end_time: string | null };
 }): PlacementDecision {
   if (!args.job) return { status: 'missing_job', message: 'That job is not loaded. Search again and retry.' };
   if (args.packMissing || !args.snapshot) {
@@ -120,8 +148,8 @@ export function decideExistingJobPlacement(args: {
     ...args.job,
     scheduled_date: patch.scheduled_date,
     assigned_team: patch.assigned_team ?? args.job.assigned_team,
-    start_time: patch.start_time ?? args.job.start_time,
-    end_time: patch.end_time === undefined ? args.job.end_time : patch.end_time,
+    start_time: args.times ? args.times.start_time : (patch.start_time ?? args.job.start_time),
+    end_time: args.times ? args.times.end_time : (patch.end_time === undefined ? args.job.end_time : patch.end_time),
   };
   const summary = placementSummary({
     job: args.job,
@@ -129,7 +157,12 @@ export function decideExistingJobPlacement(args: {
     crewLabel: args.crewLabel,
   });
 
-  if (weekDropNeedsTime(args.drop, args.job.start_time)) {
+  const intervalIssue = bookingIntervalIssue(proposed.start_time, proposed.end_time);
+  if (intervalIssue) {
+    return { status: 'invalid_interval', message: intervalIssue, summary };
+  }
+
+  if (!args.times && weekDropNeedsTime(args.drop, args.job.start_time)) {
     return { status: 'need_time', drop: args.drop, job: args.job, summary };
   }
 

@@ -64,7 +64,7 @@ export interface BoardProps {
 const ALL_DAY_H = 56;
 const TIMED_H = 72;
 const ROW_PAD = 6;
-const ROW_MIN = 72;
+const ROW_MIN = 88;
 
 function dateKey(d: Date): string {
   return scheduleDateKey(d);
@@ -257,8 +257,60 @@ function WeekJobChip({
   );
 }
 
+function PhoneScheduleAgenda({
+  jobs,
+  currentDate,
+  days,
+  onJobClick,
+  onPlaceJob,
+  onSelectDay,
+}: {
+  jobs: JobWithClient[];
+  currentDate: Date;
+  days: Date[];
+  onJobClick: (job: JobWithClient) => void;
+  onPlaceJob?: (job: JobWithClient) => void;
+  onSelectDay?: (date: Date) => void;
+}) {
+  return (
+    <div className="dc-phone-agenda" data-schedule-agenda="1">
+      {days.map(day => {
+        const key = scheduleDateKey(day);
+        const dayJobs = jobsOnScheduleDay(jobs, key);
+        const isCurrent = key === scheduleDateKey(currentDate);
+        return (
+          <section key={key} className={`dc-phone-agenda-day ${isCurrent ? 'is-on' : ''}`}>
+            <button
+              type="button"
+              className="dc-phone-agenda-date min-h-11"
+              onClick={() => onSelectDay?.(day)}
+            >
+              {format(day, 'EEE d MMM')}
+            </button>
+            {dayJobs.length === 0 ? (
+              <p className="ops-meta px-1">Nothing booked.</p>
+            ) : dayJobs.map(job => (
+              <article key={job.id} className="dc-phone-agenda-job">
+                <button type="button" className="dc-phone-agenda-open" onClick={() => onJobClick(job)}>
+                  <p className="hub-schedule-ref">{formatJobRef(job)} · {job.title}</p>
+                  <p className="ops-meta">{scheduleChipClock(job.start_time, job.end_time)}</p>
+                </button>
+                {onPlaceJob ? (
+                  <button type="button" className="btn-secondary min-h-11" onClick={() => onPlaceJob(job)}>
+                    Place
+                  </button>
+                ) : null}
+              </article>
+            ))}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 export const PhoneDayList = memo(function PhoneDayList({
-  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, onJobResize, extendedHours,
+  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, onJobResize, onPlaceJob, extendedHours,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
@@ -267,9 +319,20 @@ export const PhoneDayList = memo(function PhoneDayList({
   onDayClick: (dateStr: string, employeeId?: string | null) => void;
   onJobDrop?: (drop: JobDropPayload) => void;
   onJobResize?: (jobId: string, startTime: string, endTime: string) => void;
+  onPlaceJob?: (job: JobWithClient) => void;
   extendedHours?: boolean;
 }) {
   return (
+    <>
+      <PhoneScheduleAgenda
+        jobs={jobs}
+        currentDate={currentDate}
+        days={[currentDate]}
+        onJobClick={onJobClick}
+        onPlaceJob={onPlaceJob}
+      />
+      <details className="dc-phone-board">
+        <summary className="min-h-11">Day board</summary>
     <DayBoardView
       jobs={jobs}
       teamMembers={teamMembers ?? []}
@@ -281,11 +344,13 @@ export const PhoneDayList = memo(function PhoneDayList({
       filteredEmployeeIds={new Set()}
       extendedHours={extendedHours}
     />
+      </details>
+    </>
   );
 });
 
 export const PhoneWeekList = memo(function PhoneWeekList({
-  jobs, teamMembers, currentDate, onJobClick, onSelectDay, onDayClick, onJobDrop,
+  jobs, teamMembers, currentDate, onJobClick, onSelectDay, onDayClick, onJobDrop, onPlaceJob,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
@@ -295,8 +360,20 @@ export const PhoneWeekList = memo(function PhoneWeekList({
   onSelectDay: (date: Date) => void;
   onDayClick: (dateStr: string, employeeId?: string | null) => void;
   onJobDrop?: (drop: JobDropPayload) => void;
+  onPlaceJob?: (job: JobWithClient) => void;
 }) {
   return (
+    <>
+      <PhoneScheduleAgenda
+        jobs={jobs}
+        currentDate={currentDate}
+        days={scheduleWeekDays(currentDate)}
+        onJobClick={onJobClick}
+        onPlaceJob={onPlaceJob}
+        onSelectDay={onSelectDay}
+      />
+      <details className="dc-phone-board">
+        <summary className="min-h-11">Week board</summary>
     <WeekBoardView
       jobs={jobs}
       teamMembers={teamMembers ?? []}
@@ -307,6 +384,8 @@ export const PhoneWeekList = memo(function PhoneWeekList({
       onJobDrop={onJobDrop}
       filteredEmployeeIds={new Set()}
     />
+      </details>
+    </>
   );
 });
 

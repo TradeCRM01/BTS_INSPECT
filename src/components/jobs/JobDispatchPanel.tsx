@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Users } from 'lucide-react';
@@ -8,8 +8,10 @@ import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
 import { useToast } from '../ui';
 import type { Job } from '../../types/crm';
 import {
+  bookingIntervalIssue,
   isMissingRelation,
   memberNameMap,
+  normalizeClock,
   staffHoursFromRow,
 } from '../../lib/booking';
 import { decideDispatchWrite, evaluateDispatch, isSoftWriteGate, newIdempotencyKey } from '../../lib/dispatchResources';
@@ -36,11 +38,29 @@ export function JobDispatchPanel({
   const { showToast } = useToast();
   const assigned = job.assigned_team ?? [];
   const scheduleHref = job.scheduled_date
-    ? `/schedule?date=${job.scheduled_date}`
+    ? `/schedule?date=${job.scheduled_date}&view=day`
     : '/schedule';
   const names = memberNameMap(teamMembers);
   const [overrideReason, setOverrideReason] = useState('');
   const [pendingKey, setPendingKey] = useState(() => newIdempotencyKey());
+  const [draftDate, setDraftDate] = useState(job.scheduled_date ?? '');
+  const [draftStart, setDraftStart] = useState(toTimeInput(job.start_time));
+  const [draftEnd, setDraftEnd] = useState(toTimeInput(job.end_time));
+  const [draftCrew, setDraftCrew] = useState<string[]>(assigned);
+
+  useEffect(() => {
+    setDraftDate(job.scheduled_date ?? '');
+    setDraftStart(toTimeInput(job.start_time));
+    setDraftEnd(toTimeInput(job.end_time));
+    setDraftCrew(job.assigned_team ?? []);
+  }, [job.id, job.updated_at, job.scheduled_date, job.start_time, job.end_time, job.assigned_team]);
+
+  const bookingDirty =
+    (draftDate || '') !== (job.scheduled_date ?? '')
+    || draftStart !== toTimeInput(job.start_time)
+    || draftEnd !== toTimeInput(job.end_time)
+    || draftCrew.join(',') !== assigned.join(',');
+  const intervalIssue = bookingIntervalIssue(normalizeClock(draftStart), normalizeClock(draftEnd));
 
   const { data: pack } = useQuery({
     queryKey: ['dispatch-pack', job.id],
@@ -85,10 +105,10 @@ export function JobDispatchPanel({
       job: {
         id: job.id,
         status: job.status,
-        scheduled_date: job.scheduled_date,
-        start_time: job.start_time,
-        end_time: job.end_time,
-        assigned_team: job.assigned_team,
+        scheduled_date: draftDate || null,
+        start_time: normalizeClock(draftStart),
+        end_time: normalizeClock(draftEnd),
+        assigned_team: draftCrew,
         dispatch_ready: job.dispatch_ready,
         required_crew_count: job.required_crew_count,
       },
@@ -97,7 +117,7 @@ export function JobDispatchPanel({
       hours,
       names,
     });
-  }, [pack, job, siblings, hours, names]);
+  }, [pack, job, siblings, hours, names, draftDate, draftStart, draftEnd, draftCrew]);
 
   const dispatchLocked = !pack || pack.missing || !snapshot;
   const conflicts = snapshot ? evaluateDispatch(snapshot) : [];
@@ -122,12 +142,12 @@ export function JobDispatchPanel({
       if (!snapshot || !pack || pack.missing) {
         throw new Error(DISPATCH_UNAVAILABLE);
       }
-      const assignedTeam = patch.assigned_team ?? job.assigned_team ?? [];
+      const assignedTeam = patch.assigned_team ?? draftCrew;
       const nextJob = {
         ...snapshot.job,
-        scheduled_date: patch.scheduled_date === undefined ? job.scheduled_date : patch.scheduled_date,
-        start_time: patch.start_time === undefined ? job.start_time : patch.start_time,
-        end_time: patch.end_time === undefined ? job.end_time : patch.end_time,
+        scheduled_date: patch.scheduled_date === undefined ? (draftDate || null) : patch.scheduled_date,
+        start_time: patch.start_time === undefined ? normalizeClock(draftStart) : patch.start_time,
+        end_time: patch.end_time === undefined ? normalizeClock(draftEnd) : patch.end_time,
         assigned_team: assignedTeam,
       };
       const result = await saveJobDispatch({
@@ -170,10 +190,30 @@ export function JobDispatchPanel({
   });
 
   const toggleCrew = (memberId: string) => {
-    const next = assigned.includes(memberId)
-      ? assigned.filter(id => id !== memberId)
-      : [...assigned, memberId];
-    persist.mutate({ assigned_team: next });
+    setDraftCrew(current => current.includes(memberId)
+      ? current.filter(id => id !== memberId)
+      : [...current, memberId]);
+  };
+
+  const saveBooking = () => {
+    if (intervalIssue) {
+      showToast(intervalIssue);
+      return;
+    }
+    persist.mutate({
+      assigned_team: draftCrew,
+      scheduled_date: draftDate || null,
+      start_time: normalizeClock(draftStart),
+      end_time: normalizeClock(draftEnd),
+      reschedule: true,
+    });
+  };
+
+  const resetBooking = () => {
+    setDraftDate(job.scheduled_date ?? '');
+    setDraftStart(toTimeInput(job.start_time));
+    setDraftEnd(toTimeInput(job.end_time));
+    setDraftCrew(job.assigned_team ?? []);
   };
 
   const toggleSkill = (skillId: string) => {
@@ -228,8 +268,8 @@ export function JobDispatchPanel({
             <span className="ops-field-label">Date</span>
             <input
               type="date"
-              value={job.scheduled_date ?? ''}
-              onChange={e => persist.mutate({ scheduled_date: e.target.value || null, reschedule: true })}
+              value={draftDate}
+              onChange={e => setDraftDate(e.target.value)}
               disabled={dispatchLocked}
               className="form-input"
             />
@@ -238,8 +278,8 @@ export function JobDispatchPanel({
             <span className="ops-field-label">Start</span>
             <input
               type="time"
-              value={toTimeInput(job.start_time)}
-              onChange={e => persist.mutate({ start_time: e.target.value || null, reschedule: true })}
+              value={draftStart}
+              onChange={e => setDraftStart(e.target.value)}
               disabled={dispatchLocked}
               className="form-input"
             />
@@ -248,12 +288,41 @@ export function JobDispatchPanel({
             <span className="ops-field-label">End</span>
             <input
               type="time"
-              value={toTimeInput(job.end_time)}
-              onChange={e => persist.mutate({ end_time: e.target.value || null, reschedule: true })}
+              value={draftEnd}
+              onChange={e => setDraftEnd(e.target.value)}
               disabled={dispatchLocked}
               className="form-input"
             />
           </label>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <button
+            type="button"
+            className="ops-link min-h-11"
+            disabled={dispatchLocked}
+            onClick={() => { setDraftStart(''); setDraftEnd(''); }}
+          >
+            Clear times
+          </button>
+          {intervalIssue ? <p className="ops-meta text-[#B42318] mb-0">{intervalIssue}</p> : null}
+        </div>
+        <div className="flex flex-wrap gap-2 mb-3">
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={dispatchLocked || persist.isPending || !!intervalIssue || !bookingDirty}
+            onClick={saveBooking}
+          >
+            Save booking
+          </button>
+          <button
+            type="button"
+            className="btn-secondary min-h-11"
+            disabled={!bookingDirty || persist.isPending}
+            onClick={resetBooking}
+          >
+            Cancel
+          </button>
         </div>
         <p className="ops-meta mb-3">
           No date → Needs a date on the board. Dated but no crew → Unassigned. Dropping on a person adds them.
@@ -263,10 +332,10 @@ export function JobDispatchPanel({
           <span className="ops-field-label mb-0 flex items-center gap-1.5">
             <Users size={13} /> Crew
           </span>
-          {assigned.length > 0 && (
+          {draftCrew.length > 0 && (
             <button
               type="button"
-              onClick={() => persist.mutate({ assigned_team: [] })}
+              onClick={() => setDraftCrew([])}
               disabled={dispatchLocked}
               className="ops-link text-xs min-h-11 sm:min-h-0"
             >
@@ -279,7 +348,7 @@ export function JobDispatchPanel({
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {teamMembers.map(m => {
-              const selected = assigned.includes(m.id);
+              const selected = draftCrew.includes(m.id);
               return (
                 <button
                   key={m.id}
@@ -298,7 +367,7 @@ export function JobDispatchPanel({
             })}
           </div>
         )}
-        {assigned.length === 0 && (
+        {draftCrew.length === 0 && (
           <p className="ops-meta mt-2">Unassigned — still on the board when a date is set.</p>
         )}
         <p className="ops-meta mt-2" role="status" data-testid="job-dispatch-save-status">

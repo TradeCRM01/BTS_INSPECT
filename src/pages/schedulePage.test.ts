@@ -12,6 +12,7 @@ describe('schedule page week/day board', () => {
     expect(page).toContain("parseScheduleView(searchParams.get('view'))");
     expect(page).toContain('PhoneWeekList');
     expect(page).toContain('PhoneDayList');
+    expect(page).toContain('onPlaceJob');
     expect(page).toContain('data-schedule-view={viewMode}');
     expect(page).toContain("setView('day')");
     expect(page).not.toContain('hidden lg:flex ops-seg');
@@ -68,6 +69,7 @@ describe('schedule page week/day board', () => {
   it('groups the phone week from existing scheduled_date fields', () => {
     const board = src('src/components/crm/BoardViews.tsx');
     expect(board).toContain('export const PhoneWeekList');
+    expect(board).toContain('data-schedule-agenda="1"');
     expect(board).toContain('weekBoardRows(jobs, teamMembers, currentDate, filteredEmployeeIds)');
     expect(board).toContain('data-schedule-week="1"');
     expect(board).toContain('data-week-board="1"');
@@ -98,7 +100,10 @@ describe('schedule board cream paper look', () => {
     expect(page).toContain('openAddExisting');
     expect(page).toContain('decideExistingJobPlacement');
     expect(page).toContain('ScheduleJobsTray');
+    expect(page).toContain('SchedulePlacementEditor');
     expect(page).toContain('ScheduleOverrideDialog');
+    expect(page).toContain("next.set('date', format(currentDate, 'yyyy-MM-dd'))");
+    expect(page).not.toContain("next.delete('date')");
     expect(page).not.toContain('window.prompt');
     expect(page).not.toContain('New Job');
     expect(page).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
