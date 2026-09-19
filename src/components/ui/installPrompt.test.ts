@@ -42,6 +42,8 @@ describe('Install Grafter overlay vs signup', () => {
     const prompt = src('src/components/ui/InstallPrompt.tsx');
     expect(prompt).toContain('Install Grafter');
     expect(prompt).toContain('beforeinstallprompt');
+    expect(prompt).toContain('Dismiss install Grafter');
+    expect(prompt).toContain('[role="dialog"]');
     expect(src('src/main.tsx')).toContain('<InstallPrompt />');
     expect(src('src/App.tsx')).not.toMatch(/path="\/install"/);
   });
@@ -62,7 +64,7 @@ describe('Install Grafter overlay vs signup', () => {
     expect(prompt).toContain('#2E75B6');
     expect(prompt).toContain("font-family: Rajdhani, sans-serif");
     expect(prompt).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
-    expect(prompt).toContain('box-shadow:\n    inset 0 1px 0 #fff,\n    0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(prompt).toContain('box-shadow: inset 0 1px 0 #fff, 0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(prompt).toContain('min-height: 44px');
     expect(prompt).toMatch(/Install\s*<\/button>/);
     expect(prompt).not.toContain('bg-[#0A2540]');

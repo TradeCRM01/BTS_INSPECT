@@ -1,3 +1,4 @@
+import { bookingIntervalIssue } from './booking';
 import { supabase } from './supabase';
 import {
   decideDispatchWrite,
@@ -141,6 +142,9 @@ export function mapDispatchRpcError(error: { message?: string; code?: string; de
   if (/override_reason_required/i.test(text)) {
     return { ok: false, code: 'blocked', message: 'Admin override needs a reason.' };
   }
+  if (/invalid_interval/i.test(text) || error.code === '22007') {
+    return { ok: false, code: 'blocked', message: 'End must be after start. Overnight work is not supported.' };
+  }
   if (isDispatchRpcUnavailable(error)) {
     return { ok: false, code: 'unavailable', message: DISPATCH_UNAVAILABLE };
   }
@@ -158,6 +162,10 @@ export async function saveJobDispatch(input: SaveJobDispatchInput): Promise<Save
     allocations: input.resourceIds.map(resourceId => ({ jobId: input.jobId, resourceId })),
     job: { ...input.snapshot.job, assigned_team: input.assignedTeam },
   };
+  const intervalIssue = bookingIntervalIssue(nextSnap.job.start_time, nextSnap.job.end_time);
+  if (intervalIssue) {
+    return { ok: false, code: 'blocked', message: intervalIssue };
+  }
   const conflicts = evaluateDispatch(nextSnap);
   const write = decideDispatchWrite({
     role: input.role,

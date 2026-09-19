@@ -22,6 +22,7 @@ export function ScheduleJobsTray({
   onSelect,
   onSchedule,
   onDragStart,
+  onClose,
   feedback,
 }: {
   jobs: JobWithClient[];
@@ -33,6 +34,7 @@ export function ScheduleJobsTray({
   onSelect: (job: JobWithClient) => void;
   onSchedule: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
+  onClose?: () => void;
   feedback?: { message: string; retryable?: boolean; onRetry?: () => void } | null;
 }) {
   const { needsDate, onBoard } = partitionScheduleJobs(jobs);
@@ -42,8 +44,15 @@ export function ScheduleJobsTray({
   return (
     <aside className="dc-jobs-tray" data-schedule-jobs-tray="1">
       <div className="dc-jobs-tray-head">
-        <p className="ops-card-kicker">Existing jobs</p>
-        <p className="ops-meta">Drag a card onto the board, or tap Schedule.</p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="ops-card-kicker">Existing jobs</p>
+            <p className="ops-meta">Drag a card onto the board, or tap Schedule.</p>
+          </div>
+          {onClose ? (
+            <button type="button" className="ops-link min-h-11" onClick={onClose}>Close</button>
+          ) : null}
+        </div>
       </div>
       <SearchBar value={query} onChange={onQuery} placeholder="Job number, title, client or address" />
       <div className="flex gap-2 mt-2" role="group" aria-label="Job list">
@@ -78,7 +87,15 @@ export function ScheduleJobsTray({
       <ul className="dc-jobs-tray-list">
         {visible.length === 0 ? (
           <li className="ops-meta px-1 py-3">
-            {scope === 'unscheduled' ? 'No unscheduled jobs. Search or show all jobs.' : 'No jobs match.'}
+            {scope === 'unscheduled' ? (
+              <>
+                No undated jobs.
+                {jobs.length > 0 ? ` ${jobs.length} ${jobs.length === 1 ? 'job is' : 'jobs are'} already dated.` : ''}
+                <button type="button" className="ops-link ml-2 min-h-11" onClick={() => onScope('all')}>
+                  Show all jobs
+                </button>
+              </>
+            ) : 'No jobs match.'}
           </li>
         ) : visible.map(job => {
           const selected = selectedId === job.id;
@@ -87,22 +104,27 @@ export function ScheduleJobsTray({
               <div
                 className={`dc-job-card ${selected ? 'is-on' : ''}`}
                 data-schedule-tray-job={job.id}
+                draggable
+                onDragStart={e => {
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button:not(.dc-job-card-handle)')) {
+                    e.preventDefault();
+                    return;
+                  }
+                  onSelect(job);
+                  onDragStart(e, job.id);
+                }}
               >
                 <button
                   type="button"
                   className="dc-job-card-handle"
-                  draggable
                   aria-label={`Drag ${formatJobRef(job)}`}
-                  onDragStart={e => {
-                    onSelect(job);
-                    onDragStart(e, job.id);
-                  }}
                 >
                   <GripVertical size={16} aria-hidden />
                 </button>
                 <div className="min-w-0 flex-1">
-                  <p className="hub-schedule-ref truncate">{formatJobRef(job)} · {job.title}</p>
-                  <p className="ops-meta truncate">
+                  <p className="hub-schedule-ref dc-job-card-title">{formatJobRef(job)} · {job.title}</p>
+                  <p className="ops-meta dc-job-card-meta">
                     {[job.client_name, job.address || job.client_address, whenLabel(job)].filter(Boolean).join(' · ')}
                   </p>
                   {job.scheduled_date ? (

@@ -105,7 +105,7 @@ export function DispatchCommandBar({
           onClick={onToggleAttention}
           aria-pressed={attentionOnly}
         >
-          Needs resources
+          Attention
           {attentionCount > 0 ? <span className="dc-count">{attentionCount}</span> : null}
         </button>
 

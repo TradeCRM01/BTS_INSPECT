@@ -245,3 +245,37 @@ export function isMissingRelation(error: { code?: string; message?: string } | n
   if (!error) return false;
   return error.code === '42P01' || /staff_hours/i.test(error.message ?? '');
 }
+
+/** Same rule as SQL `dispatch_json_clock`: present key may be null; omitted key keeps fallback. */
+export function payloadClock(
+  payload: Record<string, unknown>,
+  key: string,
+  fallback: string | null,
+): string | null {
+  if (!Object.prototype.hasOwnProperty.call(payload, key)) return fallback;
+  const raw = payload[key];
+  if (raw == null) return null;
+  const text = String(raw).trim();
+  return text === '' ? null : text;
+}
+
+export function normalizeClock(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const text = value.trim();
+  if (!text) return null;
+  return text.length === 5 ? `${text}:00` : text;
+}
+
+export function bookingIntervalIssue(
+  start: string | null | undefined,
+  end: string | null | undefined,
+): string | null {
+  const startM = timeToMinutes(start);
+  const endM = timeToMinutes(end);
+  if (startM == null && endM == null) return null;
+  if (startM == null && endM != null) return 'Set a start time, or clear both times.';
+  if (startM != null && endM != null && endM <= startM) {
+    return 'End must be after start. Overnight work is not supported.';
+  }
+  return null;
+}

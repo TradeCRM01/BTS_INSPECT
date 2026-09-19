@@ -37,9 +37,7 @@ const INSTALL_LOOK_CSS = `
   border-radius: 16px;
   padding: 16px 16px 14px;
   overflow: hidden;
-  box-shadow:
-    inset 0 1px 0 #fff,
-    0 10px 28px rgba(10, 37, 64, 0.08);
+  box-shadow: inset 0 1px 0 #fff, 0 10px 28px rgba(10, 37, 64, 0.08);
 }
 .hub-install-row {
   display: flex;
@@ -98,8 +96,8 @@ const INSTALL_LOOK_CSS = `
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   margin: -4px -4px 0 0;
   padding: 0;
   border: none;
@@ -123,6 +121,7 @@ export function InstallPrompt() {
   const [show, setShow] = useState(false);
   const [isIos, setIsIos] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     if (localStorage.getItem('pwa-install-dismissed')) return;
@@ -146,12 +145,20 @@ export function InstallPrompt() {
   }, []);
 
   useEffect(() => {
-    if (blockOverlay || dismissed) return;
+    const check = () => setDialogOpen(!!document.querySelector('[role="dialog"], .dc-place-dialog'));
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (blockOverlay || dismissed || dialogOpen) return;
     if (localStorage.getItem('pwa-install-dismissed')) return;
     if (!isIos && !deferredPrompt) return;
     const timer = window.setTimeout(() => setShow(true), 3000);
     return () => window.clearTimeout(timer);
-  }, [blockOverlay, dismissed, isIos, deferredPrompt]);
+  }, [blockOverlay, dismissed, dialogOpen, isIos, deferredPrompt]);
 
   function dismiss() {
     setShow(false);
@@ -167,7 +174,7 @@ export function InstallPrompt() {
     setDeferredPrompt(null);
   }
 
-  if (blockOverlay || !show || dismissed) return null;
+  if (blockOverlay || !show || dismissed || dialogOpen) return null;
 
   return (
     <div className="hub-install-anchor">
@@ -190,6 +197,7 @@ export function InstallPrompt() {
             type="button"
             onClick={dismiss}
             className="hub-install-dismiss"
+            aria-label="Dismiss install Grafter"
           >
             <X size={16} />
           </button>
