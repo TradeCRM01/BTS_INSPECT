@@ -586,6 +586,9 @@ export const DayBoardView = memo(function DayBoardView({
                   />
                 ))}
 
+                {painted.hovering && (
+                  <p className="ops-meta absolute left-2 top-1 z-[1]">Drop · keep duration</p>
+                )}
                 {isToday(currentDate) && (
                   <CurrentTimeVerticalIndicator hourWidth={hourWidth} dayStart={DAY_START} dayEnd={DAY_END} />
                 )}
