@@ -8,8 +8,6 @@ import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, OpsSiteRow
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
-import { JobFieldPathBar } from '../components/jobs/JobFieldPathBar';
-import { nextJobStatusAfterField } from '../lib/jobFieldPath';
 import { JobClientReminder, type JobClientReminderHandle } from '../components/jobs/JobClientReminder';
 import { buildJobCalendar, calendarSite, downloadJobCalendar } from '../lib/jobCalendar';
 import { formatJobRef } from '../lib/jobRef';
@@ -96,7 +94,6 @@ import {
   JOB_VISIT_NOTE_TABLE,
   composeVisitNoteBody,
   decideJobVisitNotePost,
-  emptyVisitNoteSections,
   emptyVisitUpdateDraft,
   jobVisitNoteAuthor,
   jobVisitNotePostToast,
@@ -3558,7 +3555,6 @@ export function JobDetailPage() {
           <JobDispatchPanel
             job={job}
             teamMembers={teamMembers ?? []}
-            role={profile?.role === 'admin' ? 'admin' : 'member'}
             rescheduleBanner={rescheduleAsked ? jobOfficeRescheduleBanner(job).message : null}
           />
           <JobClientReminder
@@ -3625,44 +3621,6 @@ export function JobDetailPage() {
         </JobRelatedSection>
         </div>
           </div>
-          <JobFieldPathBar
-            status={job.status}
-            clockedOn={!!runningEntry}
-            busy={
-              clockOnJob.isPending
-              || clockOffJob.isPending
-              || updateStatus.isPending
-              || postVisitNote.isPending
-              || addGalleryPhotos.isPending
-            }
-            onClockOn={() => clockOnJob.mutate()}
-            onClockOff={() => clockOffJob.mutate()}
-            onNote={note => {
-              void postJobVisitNote({
-                jobId: job.id,
-                companyId: profile?.company_id,
-                authorId: profile?.id,
-                authorName: profile?.name,
-                sections: { ...emptyVisitNoteSections(), done: note },
-              }).then(() => {
-                queryClient.invalidateQueries({ queryKey: ['job-visit-notes', id] });
-                showToast('Visit note posted');
-              }).catch((e: Error) => showToast(e.message, 'info'));
-            }}
-            onPhoto={file => addGalleryPhotos.mutate([file])}
-            onAllDone={async () => {
-              if (runningEntry) await clockOffJob.mutateAsync();
-              await updateStatus.mutateAsync(nextJobStatusAfterField('all_done', job.status));
-              showToast('Job marked done');
-            }}
-            onMoreToDo={async () => {
-              await updateStatus.mutateAsync(nextJobStatusAfterField('more_to_do', job.status));
-              showToast('Still more to do');
-            }}
-            onStartJha={startJha}
-            onStartTake5={startTake5}
-            take5Ready={(jhas ?? []).length > 0}
-          />
         </article>
       </div>
       {showEdit && (

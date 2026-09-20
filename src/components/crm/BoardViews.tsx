@@ -9,8 +9,8 @@ import {
   placeDayRowJobs,
   dayRowHeightPx,
   UNASSIGNED_ROW_ID,
-  clipJobToVisibleHours,
-  visibleDayHours,
+  DAY_START_HOUR,
+  DAY_END_HOUR,
   HOUR_WIDTH_PX,
   dayBoardHourWidthPx,
   dayBoardHoursFit,
@@ -57,10 +57,11 @@ export interface BoardProps {
   onJobResize?: (jobId: string, startTime: string, endTime: string) => void;
   filteredEmployeeIds: Set<string>;
   onSelectDay?: (date: Date) => void;
-  /** Default true keeps the accepted 6am–8pm day board. */
-  extendedHours?: boolean;
 }
 
+const DAY_START = DAY_START_HOUR;
+const DAY_END = DAY_END_HOUR;
+const HOURS = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => DAY_START + i);
 const ALL_DAY_H = 56;
 const TIMED_H = 72;
 const ROW_PAD = 6;
@@ -258,7 +259,7 @@ function WeekJobChip({
 }
 
 export const PhoneDayList = memo(function PhoneDayList({
-  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, onJobResize, extendedHours,
+  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, onJobResize,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
@@ -267,7 +268,6 @@ export const PhoneDayList = memo(function PhoneDayList({
   onDayClick: (dateStr: string, employeeId?: string | null) => void;
   onJobDrop?: (drop: JobDropPayload) => void;
   onJobResize?: (jobId: string, startTime: string, endTime: string) => void;
-  extendedHours?: boolean;
 }) {
   return (
     <DayBoardView
@@ -279,7 +279,6 @@ export const PhoneDayList = memo(function PhoneDayList({
       onJobDrop={onJobDrop}
       onJobResize={onJobResize}
       filteredEmployeeIds={new Set()}
-      extendedHours={extendedHours}
     />
   );
 });
@@ -314,10 +313,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
 
 export const DayBoardView = memo(function DayBoardView({
   jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, onJobResize, filteredEmployeeIds,
-  extendedHours = true,
 }: BoardProps) {
-  const { start: DAY_START, end: DAY_END } = visibleDayHours(extendedHours);
-  const HOURS = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => DAY_START + i);
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverId, setDropHoverId] = useState<string | null>(null);
   const [resizePreview, setResizePreview] = useState<{ jobId: string; start_time: string; end_time: string } | null>(null);
@@ -370,7 +366,7 @@ export const DayBoardView = memo(function DayBoardView({
     const ro = new ResizeObserver(apply);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [currentDate, extendedHours]);
+  }, [currentDate]);
 
   useEffect(() => {
     const clear = () => { setDragJobId(null); setDropHoverId(null); };
@@ -586,9 +582,7 @@ export const DayBoardView = memo(function DayBoardView({
                   />
                 ))}
 
-                {isToday(currentDate) && (
-                  <CurrentTimeVerticalIndicator hourWidth={hourWidth} dayStart={DAY_START} dayEnd={DAY_END} />
-                )}
+                {isToday(currentDate) && <CurrentTimeVerticalIndicator hourWidth={hourWidth} />}
 
                 {painted.rowJobs.map(job => {
                   const placed = painted.placementById.get(job.id);
@@ -598,7 +592,8 @@ export const DayBoardView = memo(function DayBoardView({
                   const startM = timeToMinutes(preview?.start_time ?? plot.start_time);
                   const endM = timeToMinutes(preview?.end_time ?? plot.end_time) ?? (startM ?? DAY_START * 60) + 60;
                   if (startM == null) return null;
-                  const box = clipJobToVisibleHours(startM, endM, DAY_START, DAY_END, hourWidth);
+                  const left = Math.max(0, (startM / 60 - DAY_START) * hourWidth + 2);
+                  const width = Math.max(60, ((endM - startM) / 60) * hourWidth - 4);
                   const top = ROW_PAD + painted.layout.allDayCount * ALL_DAY_H + placed.lane * TIMED_H;
                   const displayJob = preview
                     ? { ...job, start_time: preview.start_time, end_time: preview.end_time }
@@ -607,9 +602,7 @@ export const DayBoardView = memo(function DayBoardView({
                     <div
                       key={job.id}
                       className="absolute"
-                      data-clipped-start={box.clippedStart || undefined}
-                      data-clipped-end={box.clippedEnd || undefined}
-                      style={{ left: box.left, width: box.width, top, height: TIMED_H - 4 }}
+                      style={{ left, width, top, height: TIMED_H - 4 }}
                     >
                       {onJobResize && plot.stored && (
                         <>
@@ -640,7 +633,7 @@ export const DayBoardView = memo(function DayBoardView({
                       <JobBlock
                         job={displayJob}
                         teamMembers={teamMembers}
-                        compact={box.width < 120}
+                        compact={width < 120}
                         dragging={dragJobId === job.id}
                         onClick={() => onJobClick(job)}
                         onDragStart={e => handleDragStart(e, job.id)}
@@ -657,13 +650,11 @@ export const DayBoardView = memo(function DayBoardView({
   );
 });
 
-function CurrentTimeVerticalIndicator({
-  hourWidth, dayStart, dayEnd,
-}: { hourWidth: number; dayStart: number; dayEnd: number }) {
+function CurrentTimeVerticalIndicator({ hourWidth }: { hourWidth: number }) {
   const now = new Date();
   const h = now.getHours() + now.getMinutes() / 60;
-  if (h < dayStart || h > dayEnd) return null;
-  const left = (h - dayStart) * hourWidth;
+  if (h < DAY_START || h > DAY_END) return null;
+  const left = (h - DAY_START) * hourWidth;
   return (
     <div className="absolute top-0 bottom-0 z-20 pointer-events-none" style={{ left }}>
       <div className="flex flex-col items-center h-full">

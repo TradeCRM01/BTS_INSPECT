@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   applyDropStartTime,
   asTeamIds,
-  clipJobToVisibleHours,
-  countJobsOutsideVisibleWindow,
   dayBoardHoursFit,
   dayBoardHourWidthPx,
   dayRowHeightPx,
@@ -330,52 +328,5 @@ describe('resizeJobTimes', () => {
   it('does not run past the visible day', () => {
     expect(resizeJobTimes('18:00:00', '19:00:00', 'end', 22 * 60).end_time).toBe('20:00:00');
     expect(resizeJobTimes('07:00:00', '08:00:00', 'start', 4 * 60).start_time).toBe('06:00:00');
-  });
-});
-
-describe('clipJobToVisibleHours', () => {
-  it('places a job that ends exactly on the 5pm label inside the workday', () => {
-    const box = clipJobToVisibleHours(16 * 60, 17 * 60, 7, 17, 96);
-    expect(box.hidden).toBe(false);
-    expect(box.clippedEnd).toBe(false);
-    expect(box.left).toBe((16 - 7) * 96 + 2);
-    expect(box.width).toBe(96 - 4);
-    expect(box.left + box.width).toBeLessThanOrEqual((17 - 7) * 96);
-  });
-
-  it('keeps a job that spans 5pm on the board and marks the clipped end', () => {
-    const box = clipJobToVisibleHours(15 * 60, 18 * 60, 7, 17, 96);
-    expect(box.hidden).toBe(false);
-    expect(box.clippedEnd).toBe(true);
-    expect(box.left + box.width).toBeLessThanOrEqual(11 * 96);
-  });
-
-  it('clips a start before 7am to the first visible column', () => {
-    const box = clipJobToVisibleHours(5 * 60 + 30, 7 * 60 + 30, 7, 17, 96);
-    expect(box.hidden).toBe(false);
-    expect(box.clippedStart).toBe(true);
-    expect(box.left).toBe(2);
-  });
-
-  it('keeps a stub for a job that starts after the extended window', () => {
-    const box = clipJobToVisibleHours(21 * 60, 22 * 60, 6, 20, 96);
-    expect(box.hidden).toBe(true);
-    expect(box.clippedEnd).toBe(true);
-    expect(box.width).toBe(60);
-  });
-});
-
-describe('countJobsOutsideVisibleWindow', () => {
-  it('counts each timed job with any portion outside the selected window once', () => {
-    const jobs = [
-      { start_time: '16:00:00', end_time: '17:00:00' },
-      { start_time: '15:00:00', end_time: '18:00:00' },
-      { start_time: '05:30:00', end_time: '07:30:00' },
-      { start_time: '21:00:00', end_time: '22:00:00' },
-      { start_time: '07:30:00', end_time: '08:30:00' },
-      { start_time: null, end_time: null },
-    ];
-    expect(countJobsOutsideVisibleWindow(jobs, 7, 17)).toBe(3);
-    expect(countJobsOutsideVisibleWindow(jobs, 6, 20)).toBe(2);
   });
 });

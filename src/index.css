@@ -6276,7 +6276,8 @@
     }
 
     .hub-board-cal.is-week-doc .hub-day-crew-lock:not(.hub-day-crew-head) {
-      flex: 0 0 auto;
+      flex: 1 1 0;
+      height: auto !important;
       min-height: 88px;
     }
 
@@ -6291,10 +6292,12 @@
     }
 
     .hub-board-cal.is-week-doc .hub-day-hours > div:not(:first-child) {
-      flex: 0 0 auto;
+      flex: 1 1 0;
+      min-height: 0;
     }
 
     .hub-board-cal.is-week-doc .hub-day-hours [data-day-grid] {
+      height: 100% !important;
       min-height: 88px;
     }
 
@@ -19178,61 +19181,6 @@
   color: #5B6B7C;
   margin: 0 0 8px;
   text-decoration: none;
-}
-
-.job-field-path {
-  @apply rounded-t-lg border border-rule bg-white p-3;
-  position: sticky;
-  bottom: 0;
-  z-index: 30;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
-  box-shadow: 0 -8px 20px rgba(10, 37, 64, 0.08);
-}
-
-.job-field-path-paper {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.job-field-path-paper-btn {
-  @apply flex-1 min-h-[44px] text-sm font-semibold text-navy border border-rule rounded-md bg-white;
-}
-
-.job-field-path-paper-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.job-field-path-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.job-field-path-grid .btn-primary {
-  grid-column: 1 / -1;
-}
-
-@media (min-width: 1024px) {
-  .job-field-path {
-    display: none;
-  }
-}
-
-@media (max-width: 1023px) {
-  main:has(.hub-job-cal) {
-    scroll-padding-bottom: 18rem;
-  }
-  .hub-job-cal {
-    padding-bottom: 18rem;
-  }
-  .job-crew-chip {
-    scroll-margin-bottom: 18rem;
-  }
-  .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools {
-    display: none;
-  }
 }
 
 .hub-inspections-group,
