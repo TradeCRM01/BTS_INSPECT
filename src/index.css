@@ -4926,7 +4926,7 @@
     margin: 0;
     background: var(--schedule-page);
     color: var(--schedule-ink);
-    padding: 16px 24px 32px;
+    padding: 8px 20px 24px;
   }
 
   .hub-board-cal.is-week-doc > .ops-page-head,
@@ -5487,11 +5487,227 @@
 
   .hub-week-page-tools {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: flex-end;
     gap: 12px;
     margin-top: 0;
     margin-left: auto;
+  }
+
+  .hub-schedule-job-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .dc-schedule-workspace {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  .dc-schedule-workspace.has-tray .hub-week-document {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .dc-jobs-tray {
+    flex: 0 0 320px;
+    width: 320px;
+    max-height: calc(100dvh - 8rem);
+    overflow: auto;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  .dc-jobs-tray-head {
+    margin-bottom: 8px;
+  }
+
+  .dc-jobs-tray-list {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .dc-job-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid #E2D9CC;
+    border-radius: 10px;
+    background: #FFFDF8;
+  }
+
+  .dc-job-card.is-on {
+    outline: 1px solid #2E75B6;
+  }
+
+  .dc-job-card {
+    cursor: grab;
+    align-items: flex-start;
+  }
+
+  .dc-job-card-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
+  }
+
+  .dc-job-card-meta {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .dc-job-card-handle {
+    flex: 0 0 auto;
+    width: 36px;
+    min-height: 44px;
+    color: #5B6B7C;
+    cursor: grab;
+  }
+
+  .dc-nav-cluster,
+  .dc-filter-cluster {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .dc-filter-cluster {
+    padding-left: 8px;
+    border-left: 1px solid #E2D9CC;
+  }
+
+  .dc-place-dialog-back {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 37, 64, 0.28);
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  .dc-place-dialog {
+    width: min(480px, 100%);
+    background: #FFFDF8;
+    color: #0A2540;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .dc-place-warnings {
+    margin: 12px 0 0;
+    padding-left: 18px;
+  }
+
+  .dc-place-feedback {
+    margin-top: 8px;
+  }
+
+  .dc-place-dialog {
+    max-height: min(90dvh, 720px);
+    overflow: auto;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .dc-phone-agenda {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .dc-phone-agenda-day {
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    padding: 8px;
+  }
+
+  .dc-phone-agenda-day.is-on {
+    outline: 1px solid #2E75B6;
+  }
+
+  .dc-phone-agenda-date {
+    width: 100%;
+    text-align: left;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
+    color: #0A2540;
+    background: none;
+    border: none;
+  }
+
+  .dc-phone-agenda-job {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .dc-phone-agenda-open {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    background: none;
+    border: none;
+    color: #0A2540;
+  }
+
+  .dc-phone-board > summary {
+    cursor: pointer;
+    color: #5B6B7C;
+  }
+
+  @media (min-width: 1280px) {
+    .hub-board-cal.is-week-doc .hub-week-sheet,
+    .hub-board-cal.is-week-doc .hub-week-document {
+      max-width: 1400px;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .dc-schedule-workspace {
+      flex-direction: column;
+    }
+
+    .dc-jobs-tray {
+      width: 100%;
+      flex-basis: auto;
+      max-height: 40vh;
+      margin-bottom: 72px;
+    }
+
+    .dc-filter-cluster {
+      border-left: none;
+      padding-left: 0;
+    }
+  }
+
+  .hub-schedule-job-actions .btn-secondary,
+  .hub-week-document .hub-week-page-tools .btn-secondary {
+    min-height: 44px;
+    height: 44px;
+    padding: 0 14px;
   }
 
   .hub-week-document .hub-week-page-tools .btn-primary {
@@ -5603,7 +5819,7 @@
   }
 
   .hub-week-seg-btn {
-    min-height: 32px;
+    min-height: 44px;
     padding: 0 8px;
     border: none;
     background: none;
@@ -5635,8 +5851,8 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 24px;
-    padding: 0;
+    min-height: 44px;
+    padding: 0 8px;
     border: none;
     border-radius: 0;
     background: none;
@@ -5866,8 +6082,8 @@
   }
 
   .hub-day-crew-rail {
-    flex: 0 0 104px;
-    width: 104px;
+    flex: 0 0 136px;
+    width: 136px;
     z-index: 5;
     background: #FFFDF8;
   }
@@ -5890,7 +6106,7 @@
 
   .hub-week-grid {
     display: grid;
-    grid-template-columns: 104px repeat(7, minmax(104px, 1fr));
+    grid-template-columns: 136px repeat(7, minmax(104px, 1fr));
     min-width: 880px;
     border-top: 1px solid #E2D9CC;
   }
@@ -6065,6 +6281,10 @@
   }
 
   .hub-schedule-search-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--schedule-line);
   }
@@ -6281,9 +6501,9 @@
     }
 
     .hub-board-cal.is-week-doc .hub-day-crew-lock:not(.hub-day-crew-head) {
-      flex: 1 1 0;
-      height: auto !important;
-      min-height: 88px;
+      flex: 0 0 auto;
+      box-sizing: border-box;
+      overflow: hidden;
     }
 
     .hub-board-cal.is-week-doc .hub-day-hours {
@@ -6297,13 +6517,11 @@
     }
 
     .hub-board-cal.is-week-doc .hub-day-hours > div:not(:first-child) {
-      flex: 1 1 0;
-      min-height: 0;
+      flex: 0 0 auto;
     }
 
     .hub-board-cal.is-week-doc .hub-day-hours [data-day-grid] {
-      height: 100% !important;
-      min-height: 88px;
+      box-sizing: border-box;
     }
 
     .hub-week-head-full {
@@ -8659,6 +8877,13 @@
   .hub-jobs-document .ops-tray:has(.ops-tray-empty) .ops-tray-head > :not(.ops-section-title),
   .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray:has(.ops-tray-empty) .ops-tray-head > :not(.ops-section-title) {
     display: none;
+  }
+
+  /* The Time lane heading carries its clocked total, so its label column fits the pair instead of clipping. */
+  @media (min-width: 640px) {
+    .hub-jobs-document #job-hours .ops-tray:has(.ops-tray-empty) {
+      grid-template-columns: max-content minmax(0, 1fr) auto;
+    }
   }
 
   .hub-jobs-bill-head {
@@ -19179,6 +19404,61 @@
   color: #5B6B7C;
   margin: 0 0 8px;
   text-decoration: none;
+}
+
+.job-field-path {
+  @apply rounded-t-lg border border-rule bg-white p-3;
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 20px rgba(10, 37, 64, 0.08);
+}
+
+.job-field-path-paper {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.job-field-path-paper-btn {
+  @apply flex-1 min-h-[44px] text-sm font-semibold text-navy border border-rule rounded-md bg-white;
+}
+
+.job-field-path-paper-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.job-field-path-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.job-field-path-grid .btn-primary {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 1024px) {
+  .job-field-path {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  main:has(.hub-job-cal) {
+    scroll-padding-bottom: 18rem;
+  }
+  .hub-job-cal {
+    padding-bottom: 18rem;
+  }
+  .job-crew-chip {
+    scroll-margin-bottom: 18rem;
+  }
+  .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools {
+    display: none;
+  }
 }
 
 .hub-inspections-group,
