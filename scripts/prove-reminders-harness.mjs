@@ -308,14 +308,15 @@ async function proveViewport(browser, tag, viewport) {
   await context.addInitScript(() => {
     window.__draftHrefs = [];
     window.__copiedText = '';
-    document.addEventListener('click', (event) => {
-      const anchor = event.target instanceof Element ? event.target.closest('a') : null;
-      const href = anchor?.href ?? '';
+    const originalAnchorClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function click() {
+      const href = this.href ?? '';
       if (href.startsWith('mailto:') || href.startsWith('sms:')) {
         window.__draftHrefs.push(href);
-        event.preventDefault();
+        return;
       }
-    }, true);
+      return originalAnchorClick.apply(this, arguments);
+    };
     class HarnessClipboardItem {
       constructor(record) { this.record = record; }
       getType(type) { return Promise.resolve(this.record[type]); }
