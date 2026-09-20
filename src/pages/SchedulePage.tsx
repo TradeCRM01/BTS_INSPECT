@@ -38,7 +38,7 @@ import { loadDispatchPack, snapshotForJob } from '../lib/loadDispatchSnapshot';
 import { DISPATCH_UNAVAILABLE, saveJobDispatch, type SaveJobDispatchInput } from '../lib/saveJobDispatch';
 import { scheduleBoardSummary } from '../lib/scheduleBoardSummary';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
-import { attachJobClients, hydrateJobParentNumbers, listCompanyScheduleJobs, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
+import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
 import { parseScheduleView, scheduleDayKey, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
 import {
   ChevronLeft, ChevronRight, MoreHorizontal, Plus,
@@ -310,46 +310,11 @@ function WeekBoardChrome() {
   return <div className="hub-week-chrome hub-week-identity" hidden style={{ color: WEEK_LOOK_INK }} />;
 }
 
-function ScheduleJobActions({
-  onAddExisting,
-  onNewJob,
-  hideAddExisting = false,
-}: {
-  onAddExisting: () => void;
-  onNewJob: () => void;
-  hideAddExisting?: boolean;
-}) {
-  return (
-    <div className="hub-schedule-job-actions">
-      {!hideAddExisting && (
-      <button
-        type="button"
-        className="btn-secondary min-h-11"
-        data-schedule-add-existing="1"
-        onClick={onAddExisting}
-      >
-        Add existing job
-      </button>
-      )}
-      <button
-        type="button"
-        className="btn-primary"
-        data-schedule-new-job="1"
-        onClick={onNewJob}
-      >
-        <Plus size={16} /> New job
-      </button>
-    </div>
-  );
-}
-
 function WeekBoardDocument({
   mark,
   whisper,
   rangeLabel,
-  onAddExisting,
   onNewJob,
-  hideAddExisting = false,
   crews,
   track,
   children,
@@ -357,9 +322,7 @@ function WeekBoardDocument({
   mark: string;
   whisper: string;
   rangeLabel: string;
-  onAddExisting: () => void;
   onNewJob: () => void;
-  hideAddExisting?: boolean;
   crews: ReactNode;
   track: ReactNode;
   children: ReactNode;
@@ -380,11 +343,9 @@ function WeekBoardDocument({
             <p className="hub-week-status-whisper">{whisper}</p>
           </div>
           <div className="hub-week-page-tools">
-            <ScheduleJobActions
-              hideAddExisting={hideAddExisting}
-              onAddExisting={onAddExisting}
-              onNewJob={onNewJob}
-            />
+            <button type="button" onClick={onNewJob} className="btn-primary">
+              <Plus size={16} /> New job
+            </button>
             <div className="hub-week-tools-overflow">
               {crews}
             </div>
@@ -416,7 +377,6 @@ export function SchedulePage() {
   const [presetEmployeeId, setPresetEmployeeId] = useState<string | undefined>(undefined);
   const [filteredEmployeeIds, setFilteredEmployeeIds] = useState<Set<string>>(new Set());
   const [jobQuery, setJobQuery] = useState('');
-  const [addExistingOpen, setAddExistingOpen] = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [pickedJob, setPickedJob] = useState<JobWithClient | null>(null);
   const [extendedHours, setExtendedHours] = useState(true);
@@ -579,13 +539,9 @@ export function SchedulePage() {
   }, [jobQuery]);
 
   const { data: searchHits = [], isFetching: searchLoading } = useQuery({
-    queryKey: ['schedule-job-search', addExistingOpen ? 'picker' : 'type', debouncedQuery],
-    queryFn: () => (
-      debouncedQuery.length > 0
-        ? searchScheduleJobs(debouncedQuery)
-        : listCompanyScheduleJobs()
-    ),
-    enabled: !!profile && (debouncedQuery.length > 0 || addExistingOpen),
+    queryKey: ['schedule-job-search', debouncedQuery],
+    queryFn: () => searchScheduleJobs(debouncedQuery),
+    enabled: !!profile && debouncedQuery.length > 0,
   });
 
   useEffect(() => {
@@ -745,7 +701,6 @@ export function SchedulePage() {
       applyDropToCache(drop);
       setJobQuery('');
       setPickedJob(null);
-      setAddExistingOpen(false);
       return;
     }
     if (!current) {
@@ -803,7 +758,6 @@ export function SchedulePage() {
     void runDispatchSave(input);
     setJobQuery('');
     setPickedJob(null);
-    setAddExistingOpen(false);
   };
 
   const placePickedOnPerson = (employeeId: string) => {
@@ -910,21 +864,9 @@ export function SchedulePage() {
   const boardRangeLabel = viewMode === 'day' ? dayRangeLabel : weekRangeLabel;
 
   const openNewJob = () => {
-    setAddExistingOpen(false);
     setSelectedDate(format(currentDate, 'yyyy-MM-dd'));
     setPresetEmployeeId(undefined);
     setShowForm(true);
-  };
-
-  const openAddExisting = () => {
-    setShowForm(false);
-    setJobQuery('');
-    setAddExistingOpen(true);
-  };
-
-  const closeAddExisting = () => {
-    setAddExistingOpen(false);
-    setJobQuery('');
   };
 
   const weekSearch = (
@@ -937,8 +879,6 @@ export function SchedulePage() {
       onSelect={handlePickJob}
       onOpenJob={job => openJob(job.id)}
       onDragStart={handleRailDragStart}
-      pickerOpen={addExistingOpen}
-      onClosePicker={closeAddExisting}
     />
   );
 
@@ -1052,11 +992,12 @@ export function SchedulePage() {
               ) : summary}
             </p>
           </div>
-          <ScheduleJobActions
-            hideAddExisting={lookWeekBoard}
-            onAddExisting={openAddExisting}
-            onNewJob={openNewJob}
-          />
+          <button
+            onClick={openNewJob}
+            className="btn-primary shrink-0"
+          >
+            <Plus size={16} /> New job
+          </button>
         </div>
 
         <div className="hub-schedule-chrome">
@@ -1138,8 +1079,6 @@ export function SchedulePage() {
                 mark={viewMode === 'day' ? 'Day' : 'Week'}
                 whisper={boardWhisper}
                 rangeLabel={boardRangeLabel}
-                hideAddExisting={lookWeekBoard}
-                onAddExisting={openAddExisting}
                 onNewJob={openNewJob}
                 crews={weekCrews}
                 track={boardTrack}

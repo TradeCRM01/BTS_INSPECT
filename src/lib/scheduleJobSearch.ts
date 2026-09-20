@@ -4,7 +4,6 @@ import type { Client, Job, JobWithClient } from '../types/crm';
 import { formatJobRef, withParentJobNumbers } from './jobRef';
 
 export const SCHEDULE_SEARCH_LIMIT = 15;
-export const SCHEDULE_PICKER_LIMIT = 20;
 
 export function normalizeJobSearch(raw: string): string {
   return raw.replace(/^#+/, '').trim();
@@ -77,39 +76,6 @@ export function parseJobRefQuery(raw: string): { jobNumber: number; costCode: st
   const m = q.match(/^(\d+)(?:\.([A-Za-z0-9][A-Za-z0-9_-]{0,11}))?$/);
   if (!m) return null;
   return { jobNumber: Number(m[1]), costCode: m[2] ?? null };
-}
-
-/** Recent jobs in the signed-in company (RLS). Read-only — never inserts. */
-export async function listCompanyScheduleJobs(): Promise<JobWithClient[]> {
-  const mockJobs = getAuditJobs();
-  if (mockJobs) {
-    return withScheduleJobPatches(
-      attachJobClients(mockJobs as Job[], getAuditClients() ?? []),
-    )
-      .filter(j => j.status !== 'cancelled')
-      .slice(0, SCHEDULE_PICKER_LIMIT);
-  }
-
-  const { data, error } = await supabase
-    .from('jobs')
-    .select('*')
-    .neq('status', 'cancelled')
-    .order('updated_at', { ascending: false })
-    .limit(SCHEDULE_PICKER_LIMIT);
-  if (error) throw error;
-
-  const jobs = (data ?? []) as Job[];
-  const clientIds = [...new Set(jobs.map(j => j.client_id).filter(Boolean))] as string[];
-  let clients: Pick<Client, 'id' | 'name' | 'phone' | 'address'>[] = [];
-  if (clientIds.length > 0) {
-    const { data: clientRows, error: clientErr } = await supabase
-      .from('clients')
-      .select('id, name, phone, address')
-      .in('id', clientIds);
-    if (clientErr) throw clientErr;
-    clients = clientRows ?? [];
-  }
-  return hydrateJobParentNumbers(attachJobClients(jobs, clients));
 }
 
 export async function searchScheduleJobs(raw: string): Promise<JobWithClient[]> {

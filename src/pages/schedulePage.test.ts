@@ -92,10 +92,6 @@ describe('schedule board cream paper look', () => {
     expect(page).toContain('hub-schedule-chrome');
     expect(page).toContain('hub-schedule-filters');
     expect(page).toContain('New job');
-    expect(page).toContain('Add existing job');
-    expect(page).toContain('data-schedule-add-existing="1"');
-    expect(page).toContain('listCompanyScheduleJobs');
-    expect(page).toContain('openAddExisting');
     expect(page).not.toContain('New Job');
     expect(page).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(page).not.toMatch(/Grafter|Relovi|Littleloop/);
