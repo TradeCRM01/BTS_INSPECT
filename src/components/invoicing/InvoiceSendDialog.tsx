@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import {
   decideInvoiceShare,
   documentShareOrigin,
+  invoiceChaseSummary,
   invoiceShareAfterPortalUrl,
   type DocumentShareExport,
 } from '../../lib/documentShare';
@@ -16,6 +17,7 @@ import {
   loadActiveClientPortalUrl,
   markInvoiceSentForShare,
   openDocumentShareMailto,
+  openDocumentShareSms,
   triggerBrowserDownload,
   type ShareCopyResult,
 } from '../../lib/documentShareDeliver';
@@ -36,6 +38,7 @@ import {
   attachInvoiceClient,
   invoiceClientAttachRow,
 } from '../../lib/attachInvoiceClient';
+import { invoiceChase } from '../../lib/nudges';
 
 /** Honest no_email miss — write the address on this dialog for mailto. */
 export const INVOICE_SEND_NO_EMAIL_FIELD =
@@ -46,6 +49,7 @@ function invoiceShareFromBundle(
   portalUrl: string | null,
 ): DocumentShareExport {
   const invoice = bundle.invoice;
+  const purpose = invoice && invoiceChase(invoice, new Date()) ? 'chase' : 'send';
   return decideInvoiceShare({
     status: invoice?.status ?? 'draft',
     hasClient: !!invoice?.client_id,
@@ -53,7 +57,11 @@ function invoiceShareFromBundle(
     invoiceNumber: invoice?.invoice_number,
     companyName: bundle.company.name,
     clientEmail: bundle.client?.email,
+    clientPhone: bundle.client?.phone,
     portalUrl,
+    purpose,
+    dueDate: invoice?.due_date,
+    total: invoice?.total,
   });
 }
 
@@ -254,7 +262,7 @@ export function InvoiceSendDialog({
     typeof window !== 'undefined' ? window.location.origin : '',
   );
 
-  const prepareShare = async (): Promise<{ url: string; status: string }> => {
+  const prepareShare = async (): Promise<{ url: string; share: DocumentShareExport }> => {
     if (!bundle?.invoice?.client_id) throw new Error('Pick a client before you can copy a portal link.');
     const url = await ensureClientPortalUrl({
       companyId: company.id,
@@ -269,16 +277,23 @@ export function InvoiceSendDialog({
     const nextBundle = { ...bundle, invoice: nextInvoice };
     setPortalUrl(url);
     setBundle(nextBundle);
-    setShare(invoiceShareAfterPortalUrl(
+    const nextShare = invoiceShareAfterPortalUrl(
       invoiceShareFromBundle(nextBundle, url),
       url,
       nextBundle.company.name,
       nextInvoice.invoice_number,
-    ));
+      {
+        purpose: invoiceChase(nextInvoice, new Date()) ? 'chase' : 'send',
+        dueDate: nextInvoice.due_date,
+        total: nextInvoice.total,
+        clientPhone: nextBundle.client?.phone,
+      },
+    );
+    setShare(nextShare);
     if (marked.markedSent) {
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
     }
-    return { url, status: marked.status };
+    return { url, share: nextShare };
   };
 
   const handleDownload = async () => {
@@ -303,8 +318,14 @@ export function InvoiceSendDialog({
     setErr('');
     setCopy(null);
     try {
-      const result = await copyShareText(async () => (await prepareShare()).url);
+      const result = await copyShareText(async () => {
+        const prepared = await prepareShare();
+        return prepared.share.copyText ?? prepared.url;
+      });
       setCopy(result);
+      if (result.kind === 'copied' && share.purpose === 'chase') {
+        onSent(bundle?.client?.email || 'client', 'Payment reminder copied.', { keepOpen: true });
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not copy the portal link.');
     } finally {
@@ -317,15 +338,7 @@ export function InvoiceSendDialog({
     setErr('');
     try {
       const prepared = await prepareShare();
-      const next = invoiceShareAfterPortalUrl(
-        invoiceShareFromBundle({
-          ...bundle!,
-          invoice: bundle!.invoice ? { ...bundle!.invoice, status: prepared.status } : bundle!.invoice,
-        }, prepared.url),
-        prepared.url,
-        bundle!.company.name,
-        bundle!.invoice?.invoice_number,
-      );
+      const next = prepared.share;
       if (!next.mailtoHref) {
         setErr(INVOICE_SEND_NO_EMAIL_FIELD);
         emailInputRef.current?.focus();
@@ -335,6 +348,24 @@ export function InvoiceSendDialog({
       onSent(next.to || 'client', 'Mail draft opened with the invoice link.');
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not open a mail draft.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const handleSms = async () => {
+    setBusy('sms');
+    setErr('');
+    try {
+      const prepared = await prepareShare();
+      if (!prepared.share.smsHref) {
+        setErr('This client has no phone. Add one below before you open an SMS draft.');
+        return;
+      }
+      openDocumentShareSms(prepared.share.smsHref);
+      onSent(bundle?.client?.phone || 'client', 'SMS draft opened with the payment reminder.');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not open an SMS draft.');
     } finally {
       setBusy('');
     }
@@ -372,6 +403,11 @@ export function InvoiceSendDialog({
   const invoiceLabel = bundle?.invoice
     ? `Invoice #${padInvoiceNumber(bundle.invoice.invoice_number)}`
     : '';
+  const isChase = share?.purpose === 'chase';
+  const chaseSummary = bundle?.invoice && isChase
+    ? invoiceChaseSummary({ dueDate: bundle.invoice.due_date, total: bundle.invoice.total })
+    : '';
+  const canOpenSmsDraft = isChase && phoneRow.kind === 'tel';
   const showShare = !loading && !!share && (share.canDownloadPdf || share.canCopyLink);
   const ready = showShare && !!share && share.canCopyLink && share.canDownloadPdf;
 
@@ -380,8 +416,9 @@ export function InvoiceSendDialog({
       <div className="hub-invoice-send">
         <div className="hub-invoice-send-head">
           <div className="min-w-0">
-            <h2 className="hub-invoice-send-title">Send invoice</h2>
+            <h2 className="hub-invoice-send-title">{isChase ? 'Chase invoice' : 'Send invoice'}</h2>
             {invoiceLabel ? <p className="hub-invoice-muted mt-1">{invoiceLabel}</p> : null}
+            {chaseSummary ? <p className="hub-invoice-muted mt-1">{chaseSummary}</p> : null}
           </div>
         </div>
 
@@ -493,7 +530,7 @@ export function InvoiceSendDialog({
                 ) : (
                   <p className="hub-invoice-send-value">
                     {copy?.kind === 'copied'
-                      ? 'Portal link copied.'
+                      ? isChase ? 'Payment reminder copied.' : 'Portal link copied.'
                       : share.portalUrl || 'Copy link creates one the client can open.'}
                   </p>
                 )}
@@ -624,7 +661,7 @@ export function InvoiceSendDialog({
               disabled={!!busy}
               className="ops-link shrink-0"
             >
-              {busy === 'copy' ? 'Copying…' : copy?.kind === 'copied' ? 'Copied' : 'Copy link'}
+              {busy === 'copy' ? 'Copying…' : copy?.kind === 'copied' ? 'Copied' : isChase ? 'Copy reminder' : 'Copy link'}
             </button>
           )}
           {showShare && share?.canMarkSent && (
@@ -642,9 +679,19 @@ export function InvoiceSendDialog({
               type="button"
               onClick={() => void handleMailto()}
               disabled={!!busy}
-              className="btn-primary"
+              className={canOpenSmsDraft ? 'ops-link shrink-0' : 'btn-primary'}
             >
               {busy === 'mailto' ? 'Opening…' : 'Open mail draft'}
+            </button>
+          )}
+          {showShare && canOpenSmsDraft && (
+            <button
+              type="button"
+              onClick={() => void handleSms()}
+              disabled={!!busy}
+              className="btn-primary"
+            >
+              {busy === 'sms' ? 'Opening…' : 'Open SMS draft'}
             </button>
           )}
           {showShare && !share?.canMailto && noEmailMiss && emailRow.kind === 'edit' && (

@@ -73,7 +73,7 @@ function seed() {
     ],
     clients: [
       { id: SARAH, company_id: COMPANY, name: 'Sarah Lee', email: 'sarah@example.com', phone: null, address: '5 Hill St, Subiaco WA 6008' },
-      { id: HARBOUR, company_id: COMPANY, name: 'Harbour Lights', email: 'accounts@example.com', phone: null, address: '8 Marina Way, Fremantle WA 6160' },
+      { id: HARBOUR, company_id: COMPANY, name: 'Harbour Lights', email: 'accounts@example.com', phone: '0412 345 678', address: '8 Marina Way, Fremantle WA 6160' },
     ],
     // quote-12 is quiet (sent 6 days ago, no validity date), quote-13 is fresh and still valid,
     // quote-14 lapsed 3 days ago, quote-15 is accepted so it never chases.
@@ -84,7 +84,8 @@ function seed() {
       { id: 'quote-15', company_id: COMPANY, quote_number: 15, client_id: HARBOUR, job_id: null, status: 'accepted', line_items: [{ description: 'Gas fit-off', quantity: 1, unit_price: 818.18 }], subtotal: 818.18, tax_rate: 10, tax_amount: 81.82, total: 900, validity_date: '2026-08-15', created_by: ME, created_at: iso('2026-08-01T02:00:00Z'), updated_at: iso('2026-08-01T02:00:00Z') },
     ],
     invoices: [
-      { id: 'inv-2002', company_id: COMPANY, invoice_number: 2002, client_id: HARBOUR, job_id: null, quote_id: null, status: 'overdue', line_items: [], subtotal: 760, tax_rate: 10, tax_amount: 76, total: 836, due_date: '2026-09-06', chased_at: null, created_by: ME, created_at: iso('2026-08-20T02:00:00Z'), updated_at: iso('2026-08-20T02:00:00Z') },
+      { id: 'inv-2002', company_id: COMPANY, invoice_number: 2002, client_id: HARBOUR, job_id: null, quote_id: null, status: 'overdue', line_items: [{ description: 'Callout labour', quantity: 1, unit_price: 760 }], subtotal: 760, tax_rate: 10, tax_amount: 76, total: 836, payment_terms: '7 days', due_date: '2026-09-06', notes: null, inclusions: [], exclusions: [], chased_at: null, created_by: ME, created_at: iso('2026-08-20T02:00:00Z'), updated_at: iso('2026-08-20T02:00:00Z') },
+      { id: 'inv-2003', company_id: COMPANY, invoice_number: 2003, client_id: SARAH, job_id: null, quote_id: null, status: 'sent', line_items: [{ description: 'Site labour', quantity: 1, unit_price: 600 }], subtotal: 600, tax_rate: 10, tax_amount: 60, total: 660, payment_terms: '30 days', due_date: '2026-10-01', notes: null, inclusions: [], exclusions: [], chased_at: null, created_by: ME, created_at: iso('2026-09-05T02:00:00Z'), updated_at: iso('2026-09-05T02:00:00Z') },
     ],
     agent_reminders: [
       { id: 'rem-1', company_id: COMPANY, user_id: ME, title: 'Order the 20 mm fittings', details: null, due_date: null, related_type: null, related_id: null, completed: false, completed_at: null, visibility: 'private', tagged_user_ids: [], created_at: iso('2026-09-10T01:00:00Z'), updated_at: iso('2026-09-10T01:00:00Z') },
@@ -185,6 +186,9 @@ function fakePostgrest(store, log) {
     const isReminders = name === 'agent_reminders';
     if (method === 'GET') {
       const rows = applyFilters(isReminders ? table.filter(visibleToMe) : table, url.searchParams);
+      if (name === 'invoices' && url.searchParams.has('id')) {
+        log.push({ method, table: name, filter: url.search, matched: rows.length });
+      }
       return reply(rows);
     }
     if (method === 'POST') {
@@ -253,6 +257,19 @@ function quoteRowChip(page, ref) {
   return page.locator('.hub-quotes-row', { has: page.locator('.hub-quotes-ref', { hasText: ref }) }).locator('.hub-quotes-chase');
 }
 
+async function readInvoiceRows(page) {
+  return page.evaluate(() => [...document.querySelectorAll('.hub-invoices-row')].map((row) => ({
+    ref: row.querySelector('.hub-invoices-ref')?.textContent?.trim() ?? null,
+    chipText: row.querySelector('.hub-invoices-chase')?.textContent?.trim() ?? null,
+    chipState: row.querySelector('.hub-invoices-chase')?.getAttribute('data-chase-state') ?? null,
+    status: row.querySelector('.hub-invoices-pill')?.textContent?.trim() ?? null,
+  })));
+}
+
+function invoiceRow(page, ref) {
+  return page.locator('.hub-invoices-row', { has: page.locator('.hub-invoices-ref', { hasText: ref }) });
+}
+
 async function readList(page) {
   return page.evaluate(() => {
     const rows = [...document.querySelectorAll('[data-reminders-page] .reminders-row')];
@@ -302,6 +319,36 @@ async function proveViewport(browser, tag, viewport) {
   const context = await browser.newContext({ viewport, locale: 'en-AU', timezoneId: 'Australia/Perth', ...(tag === 'phone' ? { isMobile: true, hasTouch: true } : {}) });
   await context.clock.setFixedTime(FIXED_NOW);
   await context.addInitScript(([key, value]) => { window.localStorage.setItem(key, value); }, [storageKey, JSON.stringify(session)]);
+  await context.addInitScript(() => {
+    window.__draftHrefs = [];
+    window.__copiedText = '';
+    const originalAnchorClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function click() {
+      const href = this.href ?? '';
+      if (href.startsWith('mailto:') || href.startsWith('sms:')) {
+        window.__draftHrefs.push(href);
+        return;
+      }
+      return originalAnchorClick.apply(this, arguments);
+    };
+    class HarnessClipboardItem {
+      constructor(record) { this.record = record; }
+      getType(type) { return Promise.resolve(this.record[type]); }
+    }
+    Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: HarnessClipboardItem });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        async write(items) {
+          const blob = await items[0].getType('text/plain');
+          window.__copiedText = await blob.text();
+        },
+        async writeText(text) {
+          window.__copiedText = text;
+        },
+      },
+    });
+  });
   await context.route(`${supabaseUrl}/**`, fakePostgrest(store, log));
   const page = await context.newPage();
   page.on('pageerror', (err) => { notes.pageErrors = [...(notes.pageErrors || []), `${tag}: ${String(err)}`]; });
@@ -514,19 +561,22 @@ async function proveViewport(browser, tag, viewport) {
     today.heads.includes('Reminders') && today.heads.some((h) => /Today.s schedule/.test(h)) && today.scheduleHref.includes('/schedule')
     && today.ledgerRows.length === 2 && today.ledgerRows.some((t) => t.includes('Switchboard upgrade')) && today.ledgerRows.some((t) => t.includes('Hot water swap')),
     { heads: today.heads, scheduleHref: today.scheduleHref, ledgerRows: today.ledgerRows });
-  // byKind collapses same-kind nudges, so the two quote nudges are picked by href.
+  // byKind collapses same-kind nudges, so repeated quote and invoice kinds are picked by href.
   const byKind = Object.fromEntries(today.nudges.map((n) => [n.kind, n]));
   const byHref = Object.fromEntries(today.nudges.map((n) => [n.href, n]));
   const quietQuote = byHref['/quotes?id=quote-12&send=1'];
   const lapsedQuote = byHref['/quotes?id=quote-14'];
+  const overdueInvoice = byHref['/invoices?id=inv-2002&send=1'];
+  const quietInvoice = byHref['/invoices?id=inv-2003&send=1'];
   check(`${tag}NudgesCoverLeaveSoonTomorrowQuoteInvoice`,
-    today.nudges.length === 5
+    today.nudges.length === 6
     && byKind.leave_soon?.href === '/jobs/job-44' && /Leave soon/.test(byKind.leave_soon?.label ?? '') && /#0044/.test(byKind.leave_soon?.detail ?? '')
     && byKind.jobs_tomorrow?.href === '/jobs/job-43' && /Tomorrow/.test(byKind.jobs_tomorrow?.label ?? '') && /#0043/.test(byKind.jobs_tomorrow?.detail ?? '')
     && quietQuote?.kind === 'quote_chase' && /Chase quote/.test(quietQuote?.label ?? '') && /Quiet 6 days/.test(quietQuote?.detail ?? '') && /\$1,320\.00/.test(quietQuote?.detail ?? '') && /Sarah Lee/.test(quietQuote?.detail ?? '')
     && lapsedQuote?.kind === 'quote_chase' && /lapsed/.test(lapsedQuote?.label ?? '') && /Valid to 8 Sep/.test(lapsedQuote?.detail ?? '') && /\$2,000\.00/.test(lapsedQuote?.detail ?? '')
     && !today.nudges.some((n) => /quote-13|quote-15/.test(n.href ?? ''))
-    && byKind.invoice_unpaid?.href === '/invoices?id=inv-2002' && /Unpaid/.test(byKind.invoice_unpaid?.label ?? '') && /5 days overdue/.test(byKind.invoice_unpaid?.detail ?? '') && /836/.test(byKind.invoice_unpaid?.detail ?? ''),
+    && /Overdue invoice/.test(overdueInvoice?.label ?? '') && /5 days overdue/.test(overdueInvoice?.detail ?? '') && /836/.test(overdueInvoice?.detail ?? '')
+    && /Chase invoice/.test(quietInvoice?.label ?? '') && /Quiet 6 days/.test(quietInvoice?.detail ?? '') && /660/.test(quietInvoice?.detail ?? ''),
     { nudges: today.nudges });
   // Quick capture from Today writes the same row shape.
   await page.fill('#dashboard-reminder-capture', 'Pick up the isolators');
@@ -538,6 +588,97 @@ async function proveViewport(browser, tag, viewport) {
   await settle(page);
   checkPaper(`${tag}Today`, await measurePaper(page, '.dashboard-home'));
   await page.screenshot({ path: `${LOOK}/reminders-today-${FRAME[tag]}.png` });
+
+  await page.locator('.dashboard-nudge[href="/invoices?id=inv-2002&send=1"]').click();
+  const chaseDialog = page.locator('.hub-invoice-send');
+  await chaseDialog.getByRole('heading', { name: 'Chase invoice' }).waitFor({ timeout: 15000 });
+  await settle(page, 200);
+  const chaseUrl = new URL(page.url());
+  const chaseText = await chaseDialog.textContent();
+  const chaseButtons = await chaseDialog.locator('button').allTextContents();
+  const smsHeight = await chaseDialog.getByRole('button', { name: 'Open SMS draft' }).evaluate((el) => Math.round(el.getBoundingClientRect().height));
+  const scopedInvoiceGet = log.find((entry) => entry.method === 'GET'
+    && entry.table === 'invoices'
+    && entry.filter.includes('id=eq.inv-2002')
+    && entry.filter.includes(`company_id=eq.${COMPANY}`));
+  check(`${tag}InvoiceNudgeOpensCompanyScopedChase`,
+    !chaseUrl.searchParams.has('id') && !chaseUrl.searchParams.has('send')
+    && /Invoice #2002/.test(chaseText ?? '')
+    && /Overdue · \$836\.00 incl\. GST · Due 6 Sep 2026/.test(chaseText ?? '')
+    && chaseButtons.some((text) => text.trim() === 'Copy reminder')
+    && chaseButtons.some((text) => text.trim() === 'Open mail draft')
+    && chaseButtons.some((text) => text.trim() === 'Open SMS draft')
+    && smsHeight === 44
+    && !!scopedInvoiceGet,
+    { url: page.url(), chaseText, chaseButtons, smsHeight, scopedInvoiceGet });
+  await page.screenshot({ path: `${LOOK}/unpaid-invoice-${FRAME[tag]}.png` });
+
+  const invoicePatchesBefore = log.filter((entry) => entry.method === 'PATCH' && entry.table === 'invoices').length;
+  await chaseDialog.getByRole('button', { name: 'Copy reminder' }).click();
+  await chaseDialog.getByRole('button', { name: 'Copied' }).waitFor({ timeout: 15000 });
+  const reSharePatch = await waitForLog(page, log, (entry) => entry.method === 'PATCH'
+    && entry.table === 'invoices'
+    && entry.filter.includes('id=eq.inv-2002')
+    && Object.keys(entry.body).join(',') === 'updated_at');
+  const copiedReminder = await page.evaluate(() => window.__copiedText);
+  check(`${tag}InvoiceChaseCopiesOneGstReminder`,
+    /Payment reminder from Northside Plumbing/.test(copiedReminder)
+    && /Invoice #2002 is overdue/.test(copiedReminder)
+    && /Amount due: \$836\.00 incl\. GST/.test(copiedReminder)
+    && /Due: 6 Sep 2026/.test(copiedReminder)
+    && /https:\/\/grafter\.com\.au\/p\?t=/.test(copiedReminder)
+    && !!reSharePatch
+    && reSharePatch.filter.includes(`company_id=eq.${COMPANY}`)
+    && reSharePatch.filter.includes('status=in.%28sent%2Coverdue%29')
+    && log.filter((entry) => entry.method === 'PATCH' && entry.table === 'invoices').length === invoicePatchesBefore + 1,
+    { copiedReminder, reSharePatch });
+
+  await chaseDialog.getByRole('button', { name: 'Open SMS draft' }).click();
+  const smsToast = page.getByText('SMS draft opened with the payment reminder.');
+  const smsQueued = await smsToast.waitFor({ timeout: 10000 }).then(() => true).catch(() => false);
+  check(`${tag}InvoiceChaseOpensUteSmsDraft`,
+    smsQueued,
+    { smsQueued });
+
+  await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.dashboard-nudge', { timeout: 15000 });
+  const invoiceHrefsAfterShare = await page.locator('.dashboard-nudge[data-nudge-kind="invoice_unpaid"]').evaluateAll(
+    (rows) => rows.map((row) => row.getAttribute('href')),
+  );
+  check(`${tag}InvoiceReShareClearsTodayChase`,
+    !invoiceHrefsAfterShare.includes('/invoices?id=inv-2002&send=1')
+    && invoiceHrefsAfterShare.includes('/invoices?id=inv-2003&send=1'),
+    { invoiceHrefsAfterShare });
+
+  await page.goto(`${BASE}/invoices?status=all`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.hub-invoices-row', { timeout: 15000 });
+  const invoiceRows = Object.fromEntries((await readInvoiceRows(page)).map((row) => [row.ref, row]));
+  const quietChipHeight = await invoiceRow(page, '#2003').locator('.hub-invoices-chase').evaluate(
+    (el) => Math.round(el.getBoundingClientRect().height),
+  );
+  check(`${tag}InvoiceListShowsQuietChipAndClearedOverdue`,
+    invoiceRows['#2002']?.chipText === null
+    && invoiceRows['#2003']?.chipText === 'Chase · 6 days'
+    && invoiceRows['#2003']?.chipState === 'quiet'
+    && quietChipHeight === 44,
+    { rows: Object.values(invoiceRows), quietChipHeight });
+
+  await invoiceRow(page, '#2003').getByRole('button', { name: 'Mark paid' }).click();
+  const paidPatch = await waitForLog(page, log, (entry) => entry.method === 'PATCH'
+    && entry.table === 'invoices'
+    && entry.filter.includes('id=eq.inv-2003')
+    && entry.body.status === 'paid');
+  const paidCleared = await page.waitForFunction(() => {
+    const row = [...document.querySelectorAll('.hub-invoices-row')].find(
+      (candidate) => candidate.querySelector('.hub-invoices-ref')?.textContent?.trim() === '#2003',
+    );
+    return !!row
+      && !row.querySelector('.hub-invoices-chase')
+      && row.querySelector('.hub-invoices-pill')?.textContent?.trim() === 'Paid';
+  }, null, { timeout: 15000 }).then(() => true).catch(() => false);
+  check(`${tag}InvoiceMarkPaidClearsListChase`,
+    !!paidPatch && paidPatch.filter.includes(`company_id=eq.${COMPANY}`) && paidCleared,
+    { paidPatch, rows: await readInvoiceRows(page) });
 
   // 8. Quotes list: quiet and lapsed chips, the lapsed chip opens the editor, the nudge deep link
   // opens the send dialog, a re-share stamps updated_at and clears the chip, ?status=sent filters.

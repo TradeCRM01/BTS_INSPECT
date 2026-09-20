@@ -3197,12 +3197,8 @@
     --invoice-warn: #B54708;
   }
 
-  :is(.hub-invoices, .hub-invoice-editor) {
+  :is(.hub-invoices, .hub-invoice-editor, .hub-invoice-send) {
     font-family: 'Source Sans 3', system-ui, sans-serif;
-  }
-
-  .hub-invoice-send {
-    font-family: Inter, system-ui, sans-serif;
   }
 
   .hub-invoices.ops-page {
@@ -3796,11 +3792,11 @@
   }
 
   .hub-invoice-send-title {
-    font-family: Inter, system-ui, sans-serif;
-    font-size: 22px;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
-    font-weight: 600;
+    font-family: Rajdhani, sans-serif;
+    font-size: 28px;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+    font-weight: 700;
     color: #0A2540;
     text-shadow: none;
   }
@@ -4293,8 +4289,8 @@
 
   .hub-invoice-send-field .hub-invoice-kicker {
     margin-bottom: 8px;
-    font-family: Inter, system-ui, sans-serif;
-    font-weight: 600;
+    font-family: Rajdhani, sans-serif;
+    font-weight: 700;
   }
 
   .hub-invoice-send-value {
@@ -7313,7 +7309,8 @@
     justify-content: center;
   }
 
-  .hub-quotes-chase {
+  .hub-quotes-chase,
+  .hub-invoices-chase {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
@@ -7331,7 +7328,8 @@
     cursor: pointer;
   }
 
-  .hub-quotes-chase:hover {
+  .hub-quotes-chase:hover,
+  .hub-invoices-chase:hover {
     color: color-mix(in srgb, #2E75B6 86%, #0A2540);
     text-decoration: underline;
   }

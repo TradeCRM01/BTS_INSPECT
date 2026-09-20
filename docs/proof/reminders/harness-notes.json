@@ -1,7 +1,7 @@
 {
-  "base": "http://localhost:5173",
+  "base": "http://127.0.0.1:5173",
   "supabaseUrl": "https://harness.supabase.co",
-  "startedAt": "2026-09-13T00:26:35.513Z",
+  "startedAt": "2026-09-20T23:31:49.229Z",
   "laptopUpcomingShowsMineTaggedAndCompanyOnly": {
     "ok": true,
     "ids": [
@@ -272,9 +272,15 @@
       },
       {
         "kind": "invoice_unpaid",
-        "href": "/invoices?id=inv-2002",
-        "label": "Unpaid invoice #2002",
+        "href": "/invoices?id=inv-2002&send=1",
+        "label": "Overdue invoice #2002",
         "detail": "5 days overdue · Harbour Lights · $836.00"
+      },
+      {
+        "kind": "invoice_unpaid",
+        "href": "/invoices?id=inv-2003&send=1",
+        "label": "Chase invoice #2003",
+        "detail": "Quiet 6 days · Sarah Lee · $660.00"
       }
     ]
   },
@@ -298,6 +304,93 @@
     "primaryBg": "rgb(46, 117, 182)",
     "fieldH": 44,
     "viewW": 1280
+  },
+  "laptopInvoiceNudgeOpensCompanyScopedChase": {
+    "ok": true,
+    "url": "http://127.0.0.1:5173/invoices",
+    "chaseText": "Chase invoiceInvoice #2002Overdue · $836.00 incl. GST · Due 6 Sep 2026Toaccounts@example.comAlready on the invoice. Used only for the mail draft.SMS To0412 345 678SubjectPayment reminder · Invoice #2002 from Northside PlumbingPDFinvoice-2002.pdfPortal linkCopy link creates one the client can open.CancelDownload PDFCopy reminderOpen mail draftOpen SMS draft",
+    "chaseButtons": [
+      "Cancel",
+      "Download PDF",
+      "Copy reminder",
+      "Open mail draft",
+      "Open SMS draft"
+    ],
+    "smsHeight": 44,
+    "scopedInvoiceGet": {
+      "method": "GET",
+      "table": "invoices",
+      "filter": "?select=id%2Ccompany_id%2Cinvoice_number%2Cclient_id%2Cjob_id%2Cquote_id%2Csource%2Cstatus%2Cline_items%2Csubtotal%2Ctax_rate%2Ctax_amount%2Ctotal%2Cpayment_terms%2Cdue_date%2Cnotes%2Cinclusions%2Cexclusions%2Cchased_at%2Ccreated_by%2Ccreated_at%2Cupdated_at&id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "matched": 1
+    }
+  },
+  "laptopInvoiceChaseCopiesOneGstReminder": {
+    "ok": true,
+    "copiedReminder": "Payment reminder from Northside Plumbing.\nInvoice #2002 is overdue.\nAmount due: $836.00 incl. GST.\nDue: 6 Sep 2026.\nView invoice: https://grafter.com.au/p?t=a052bebb1f4e4ec3940689293b82592a58d5386083674eedbb112461f2847293",
+    "reSharePatch": {
+      "method": "PATCH",
+      "table": "invoices",
+      "filter": "?id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001&status=in.%28sent%2Coverdue%29",
+      "body": {
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    }
+  },
+  "laptopInvoiceChaseOpensUteSmsDraft": {
+    "ok": true,
+    "smsQueued": true
+  },
+  "laptopInvoiceReShareClearsTodayChase": {
+    "ok": true,
+    "invoiceHrefsAfterShare": [
+      "/invoices?id=inv-2003&send=1"
+    ]
+  },
+  "laptopInvoiceListShowsQuietChipAndClearedOverdue": {
+    "ok": true,
+    "rows": [
+      {
+        "ref": "#2002",
+        "chipText": null,
+        "chipState": null,
+        "status": "Overdue"
+      },
+      {
+        "ref": "#2003",
+        "chipText": "Chase · 6 days",
+        "chipState": "quiet",
+        "status": "Sent"
+      }
+    ],
+    "quietChipHeight": 44
+  },
+  "laptopInvoiceMarkPaidClearsListChase": {
+    "ok": true,
+    "paidPatch": {
+      "method": "PATCH",
+      "table": "invoices",
+      "filter": "?id=eq.inv-2003&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "body": {
+        "status": "paid",
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    "rows": [
+      {
+        "ref": "#2002",
+        "chipText": null,
+        "chipState": null,
+        "status": "Overdue"
+      },
+      {
+        "ref": "#2003",
+        "chipText": null,
+        "chipState": null,
+        "status": "Paid"
+      }
+    ]
   },
   "laptopQuoteChipsQuietLapsedAndNone": {
     "ok": true,
@@ -330,7 +423,7 @@
   },
   "laptopSendDeepLinkOpensDialogAndDropsParams": {
     "ok": true,
-    "url": "http://localhost:5173/quotes"
+    "url": "http://127.0.0.1:5173/quotes"
   },
   "laptopReShareStampsUpdatedAtOnSentQuoteOnly": {
     "ok": true,
@@ -473,12 +566,84 @@
       }
     },
     {
+      "method": "GET",
+      "table": "invoices",
+      "filter": "?select=id%2Ccompany_id%2Cinvoice_number%2Cclient_id%2Cjob_id%2Cquote_id%2Csource%2Cstatus%2Cline_items%2Csubtotal%2Ctax_rate%2Ctax_amount%2Ctotal%2Cpayment_terms%2Cdue_date%2Cnotes%2Cinclusions%2Cexclusions%2Cchased_at%2Ccreated_by%2Ccreated_at%2Cupdated_at&id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "matched": 1
+    },
+    {
+      "method": "GET",
+      "table": "invoices",
+      "filter": "?select=id%2Ccompany_id%2Cinvoice_number%2Cclient_id%2Cjob_id%2Cquote_id%2Csource%2Cstatus%2Cline_items%2Csubtotal%2Ctax_rate%2Ctax_amount%2Ctotal%2Cpayment_terms%2Cdue_date%2Cnotes%2Cinclusions%2Cexclusions%2Cchased_at%2Ccreated_by%2Ccreated_at%2Cupdated_at&id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "matched": 1
+    },
+    {
+      "method": "GET",
+      "table": "invoices",
+      "filter": "?select=id%2Ccompany_id%2Cinvoice_number%2Cclient_id%2Cjob_id%2Cquote_id%2Csource%2Cstatus%2Cline_items%2Csubtotal%2Ctax_rate%2Ctax_amount%2Ctotal%2Cpayment_terms%2Cdue_date%2Cnotes%2Cinclusions%2Cexclusions%2Cchased_at%2Ccreated_by%2Ccreated_at%2Cupdated_at&id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "matched": 1
+    },
+    {
+      "method": "POST",
+      "table": "client_portal_tokens",
+      "body": {
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "client_id": "00000000-0000-0000-0000-000000000102",
+        "token": "a052bebb1f4e4ec3940689293b82592a58d5386083674eedbb112461f2847293",
+        "expires_at": "2027-09-11T01:00:00.000Z"
+      }
+    },
+    {
+      "method": "PATCH",
+      "table": "invoices",
+      "filter": "?id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001&status=in.%28sent%2Coverdue%29",
+      "body": {
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "POST",
+      "table": "client_portal_tokens",
+      "body": {
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "client_id": "00000000-0000-0000-0000-000000000102",
+        "token": "79a70d053b4746b58b64c78c7b2d74502d62d13b2561405ab5dfb47f790a88c4",
+        "expires_at": "2027-09-11T01:00:00.000Z"
+      }
+    },
+    {
+      "method": "PATCH",
+      "table": "invoices",
+      "filter": "?id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001&status=in.%28sent%2Coverdue%29",
+      "body": {
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "PATCH",
+      "table": "invoices",
+      "filter": "?id=eq.inv-2003&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "body": {
+        "status": "paid",
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "GET",
+      "table": "invoices",
+      "filter": "?select=id%2Ccompany_id%2Cinvoice_number%2Cclient_id%2Cjob_id%2Cquote_id%2Csource%2Cstatus%2Cline_items%2Csubtotal%2Ctax_rate%2Ctax_amount%2Ctotal%2Cpayment_terms%2Cdue_date%2Cnotes%2Cinclusions%2Cexclusions%2Cchased_at%2Ccreated_by%2Ccreated_at%2Cupdated_at&id=eq.inv-2003&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "matched": 1
+    },
+    {
       "method": "POST",
       "table": "client_portal_tokens",
       "body": {
         "company_id": "00000000-0000-0000-0000-000000000001",
         "client_id": "00000000-0000-0000-0000-000000000101",
-        "token": "03b37f4b49a54d21865cf85dc69d9b85f158baecbf7a487995e18318b48393e2",
+        "token": "6b7c3e5722f844b68ac37fefe5215113b8bac4ebdc0a422c95900298ffa7a511",
         "expires_at": "2027-09-11T01:00:00.000Z"
       }
     },
@@ -762,9 +927,15 @@
       },
       {
         "kind": "invoice_unpaid",
-        "href": "/invoices?id=inv-2002",
-        "label": "Unpaid invoice #2002",
+        "href": "/invoices?id=inv-2002&send=1",
+        "label": "Overdue invoice #2002",
         "detail": "5 days overdue · Harbour Lights · $836.00"
+      },
+      {
+        "kind": "invoice_unpaid",
+        "href": "/invoices?id=inv-2003&send=1",
+        "label": "Chase invoice #2003",
+        "detail": "Quiet 6 days · Sarah Lee · $660.00"
       }
     ]
   },
@@ -788,6 +959,93 @@
     "primaryBg": "rgb(46, 117, 182)",
     "fieldH": 44,
     "viewW": 390
+  },
+  "phoneInvoiceNudgeOpensCompanyScopedChase": {
+    "ok": true,
+    "url": "http://127.0.0.1:5173/invoices",
+    "chaseText": "Chase invoiceInvoice #2002Overdue · $836.00 incl. GST · Due 6 Sep 2026Toaccounts@example.comAlready on the invoice. Used only for the mail draft.SMS To0412 345 678SubjectPayment reminder · Invoice #2002 from Northside PlumbingPDFinvoice-2002.pdfPortal linkCopy link creates one the client can open.CancelDownload PDFCopy reminderOpen mail draftOpen SMS draft",
+    "chaseButtons": [
+      "Cancel",
+      "Download PDF",
+      "Copy reminder",
+      "Open mail draft",
+      "Open SMS draft"
+    ],
+    "smsHeight": 44,
+    "scopedInvoiceGet": {
+      "method": "GET",
+      "table": "invoices",
+      "filter": "?select=id%2Ccompany_id%2Cinvoice_number%2Cclient_id%2Cjob_id%2Cquote_id%2Csource%2Cstatus%2Cline_items%2Csubtotal%2Ctax_rate%2Ctax_amount%2Ctotal%2Cpayment_terms%2Cdue_date%2Cnotes%2Cinclusions%2Cexclusions%2Cchased_at%2Ccreated_by%2Ccreated_at%2Cupdated_at&id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "matched": 1
+    }
+  },
+  "phoneInvoiceChaseCopiesOneGstReminder": {
+    "ok": true,
+    "copiedReminder": "Payment reminder from Northside Plumbing.\nInvoice #2002 is overdue.\nAmount due: $836.00 incl. GST.\nDue: 6 Sep 2026.\nView invoice: https://grafter.com.au/p?t=421045456c1b4380ae62a37d19321c0ed29b89cba8d24a169b4d4c129eeb620f",
+    "reSharePatch": {
+      "method": "PATCH",
+      "table": "invoices",
+      "filter": "?id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001&status=in.%28sent%2Coverdue%29",
+      "body": {
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    }
+  },
+  "phoneInvoiceChaseOpensUteSmsDraft": {
+    "ok": true,
+    "smsQueued": true
+  },
+  "phoneInvoiceReShareClearsTodayChase": {
+    "ok": true,
+    "invoiceHrefsAfterShare": [
+      "/invoices?id=inv-2003&send=1"
+    ]
+  },
+  "phoneInvoiceListShowsQuietChipAndClearedOverdue": {
+    "ok": true,
+    "rows": [
+      {
+        "ref": "#2002",
+        "chipText": null,
+        "chipState": null,
+        "status": "Overdue"
+      },
+      {
+        "ref": "#2003",
+        "chipText": "Chase · 6 days",
+        "chipState": "quiet",
+        "status": "Sent"
+      }
+    ],
+    "quietChipHeight": 44
+  },
+  "phoneInvoiceMarkPaidClearsListChase": {
+    "ok": true,
+    "paidPatch": {
+      "method": "PATCH",
+      "table": "invoices",
+      "filter": "?id=eq.inv-2003&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "body": {
+        "status": "paid",
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    "rows": [
+      {
+        "ref": "#2002",
+        "chipText": null,
+        "chipState": null,
+        "status": "Overdue"
+      },
+      {
+        "ref": "#2003",
+        "chipText": null,
+        "chipState": null,
+        "status": "Paid"
+      }
+    ]
   },
   "phoneQuoteChipsQuietLapsedAndNone": {
     "ok": true,
@@ -820,7 +1078,7 @@
   },
   "phoneSendDeepLinkOpensDialogAndDropsParams": {
     "ok": true,
-    "url": "http://localhost:5173/quotes"
+    "url": "http://127.0.0.1:5173/quotes"
   },
   "phoneReShareStampsUpdatedAtOnSentQuoteOnly": {
     "ok": true,
@@ -963,12 +1221,84 @@
       }
     },
     {
+      "method": "GET",
+      "table": "invoices",
+      "filter": "?select=id%2Ccompany_id%2Cinvoice_number%2Cclient_id%2Cjob_id%2Cquote_id%2Csource%2Cstatus%2Cline_items%2Csubtotal%2Ctax_rate%2Ctax_amount%2Ctotal%2Cpayment_terms%2Cdue_date%2Cnotes%2Cinclusions%2Cexclusions%2Cchased_at%2Ccreated_by%2Ccreated_at%2Cupdated_at&id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "matched": 1
+    },
+    {
+      "method": "GET",
+      "table": "invoices",
+      "filter": "?select=id%2Ccompany_id%2Cinvoice_number%2Cclient_id%2Cjob_id%2Cquote_id%2Csource%2Cstatus%2Cline_items%2Csubtotal%2Ctax_rate%2Ctax_amount%2Ctotal%2Cpayment_terms%2Cdue_date%2Cnotes%2Cinclusions%2Cexclusions%2Cchased_at%2Ccreated_by%2Ccreated_at%2Cupdated_at&id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "matched": 1
+    },
+    {
+      "method": "GET",
+      "table": "invoices",
+      "filter": "?select=id%2Ccompany_id%2Cinvoice_number%2Cclient_id%2Cjob_id%2Cquote_id%2Csource%2Cstatus%2Cline_items%2Csubtotal%2Ctax_rate%2Ctax_amount%2Ctotal%2Cpayment_terms%2Cdue_date%2Cnotes%2Cinclusions%2Cexclusions%2Cchased_at%2Ccreated_by%2Ccreated_at%2Cupdated_at&id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "matched": 1
+    },
+    {
+      "method": "POST",
+      "table": "client_portal_tokens",
+      "body": {
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "client_id": "00000000-0000-0000-0000-000000000102",
+        "token": "421045456c1b4380ae62a37d19321c0ed29b89cba8d24a169b4d4c129eeb620f",
+        "expires_at": "2027-09-11T01:00:00.000Z"
+      }
+    },
+    {
+      "method": "PATCH",
+      "table": "invoices",
+      "filter": "?id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001&status=in.%28sent%2Coverdue%29",
+      "body": {
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "POST",
+      "table": "client_portal_tokens",
+      "body": {
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "client_id": "00000000-0000-0000-0000-000000000102",
+        "token": "43692331868348718828400e348864c392d1f18e907d4439bfa610aaed151e50",
+        "expires_at": "2027-09-11T01:00:00.000Z"
+      }
+    },
+    {
+      "method": "PATCH",
+      "table": "invoices",
+      "filter": "?id=eq.inv-2002&company_id=eq.00000000-0000-0000-0000-000000000001&status=in.%28sent%2Coverdue%29",
+      "body": {
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "PATCH",
+      "table": "invoices",
+      "filter": "?id=eq.inv-2003&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "body": {
+        "status": "paid",
+        "updated_at": "2026-09-11T01:00:00.000Z"
+      },
+      "matched": 1
+    },
+    {
+      "method": "GET",
+      "table": "invoices",
+      "filter": "?select=id%2Ccompany_id%2Cinvoice_number%2Cclient_id%2Cjob_id%2Cquote_id%2Csource%2Cstatus%2Cline_items%2Csubtotal%2Ctax_rate%2Ctax_amount%2Ctotal%2Cpayment_terms%2Cdue_date%2Cnotes%2Cinclusions%2Cexclusions%2Cchased_at%2Ccreated_by%2Ccreated_at%2Cupdated_at&id=eq.inv-2003&company_id=eq.00000000-0000-0000-0000-000000000001",
+      "matched": 1
+    },
+    {
       "method": "POST",
       "table": "client_portal_tokens",
       "body": {
         "company_id": "00000000-0000-0000-0000-000000000001",
         "client_id": "00000000-0000-0000-0000-000000000101",
-        "token": "6ea3798258424a66bc2a6f2d518653c86c6663c777144f86a4721a4ecbe5cfbf",
+        "token": "e289ded7cc814886b18fe97dbbb63487394728c1837844be886b69de29e269f1",
         "expires_at": "2027-09-11T01:00:00.000Z"
       }
     },
@@ -986,6 +1316,6 @@
     "ok": true,
     "pageErrors": []
   },
-  "finishedAt": "2026-09-13T00:27:13.967Z",
+  "finishedAt": "2026-09-20T23:32:37.830Z",
   "failures": []
 }

@@ -3,9 +3,12 @@ import { GRAFTER_PUBLIC_ORIGIN } from './publicSeo';
 import {
   decideInvoiceShare,
   decideQuoteShare,
+  documentShareSmsHref,
   documentShareMailtoHref,
   documentShareOrigin,
+  invoiceChaseSummary,
   invoiceNeedsMarkSent,
+  invoiceShareAfterPortalUrl,
   invoiceShareMailtoBody,
   invoiceStatusAfterMarkSent,
   quoteNeedsMarkSentForAccept,
@@ -160,5 +163,72 @@ describe('decideInvoiceShare', () => {
       invoiceNumber: 9,
       portalUrl: 'https://grafter.com.au/p?t=abc',
     })).toContain('View it here');
+  });
+
+  it('builds one AU payment reminder for mail, clipboard, and an SMS draft', () => {
+    const share = decideInvoiceShare({
+      status: 'overdue',
+      hasClient: true,
+      hasLines: true,
+      invoiceNumber: 2002,
+      companyName: 'Harbour Trade Co',
+      clientEmail: 'accounts@client.example',
+      clientPhone: '0412 345 678',
+      portalUrl: 'https://grafter.com.au/p?t=abc',
+      purpose: 'chase',
+      dueDate: '2026-09-06',
+      total: 836,
+    });
+
+    expect(share).toMatchObject({
+      purpose: 'chase',
+      subject: 'Payment reminder · Invoice #2002 from Harbour Trade Co',
+      canMailto: true,
+    });
+    expect(share.copyText).toBe([
+      'Payment reminder from Harbour Trade Co.',
+      'Invoice #2002 is overdue.',
+      'Amount due: $836.00 incl. GST.',
+      'Due: 6 Sep 2026.',
+      'View invoice: https://grafter.com.au/p?t=abc',
+    ].join('\n'));
+    expect(share.mailtoHref).toContain('accounts%40client.example');
+    expect(share.smsHref).toContain('sms:+61412345678?body=');
+    expect(decodeURIComponent(share.smsHref!)).toContain('$836.00 incl. GST');
+    expect(invoiceChaseSummary({ dueDate: '2026-09-06', total: 836 }))
+      .toBe('Overdue · $836.00 incl. GST · Due 6 Sep 2026');
+  });
+
+  it('fills chase drafts after it creates the company-scoped portal URL', () => {
+    const draft = decideInvoiceShare({
+      status: 'sent',
+      hasClient: true,
+      hasLines: true,
+      invoiceNumber: 2002,
+      companyName: 'Harbour Trade Co',
+      clientEmail: 'accounts@client.example',
+      clientPhone: '0412 345 678',
+      purpose: 'chase',
+      dueDate: '2026-09-06',
+      total: 836,
+    });
+    const ready = invoiceShareAfterPortalUrl(
+      draft,
+      'https://grafter.com.au/p?t=abc',
+      'Harbour Trade Co',
+      2002,
+      { purpose: 'chase', dueDate: '2026-09-06', total: 836, clientPhone: '0412 345 678' },
+    );
+
+    expect(draft.copyText).toBeNull();
+    expect(draft.smsHref).toBeNull();
+    expect(ready.copyText).toContain('Payment reminder');
+    expect(ready.mailtoHref).toContain('Payment%20reminder');
+    expect(ready.smsHref).toContain('sms:+61412345678');
+  });
+
+  it('does not invent an SMS draft without a valid client phone', () => {
+    expect(documentShareSmsHref({ phone: null, body: 'Payment reminder' })).toBeNull();
+    expect(documentShareSmsHref({ phone: 'phone unknown', body: 'Payment reminder' })).toBeNull();
   });
 });

@@ -23,6 +23,8 @@ describe('quote / invoice Send Next look', () => {
     expect(invoiceCss).toContain('.hub-invoices-row-next .hub-next.is-send');
     expect(invoiceCss).toMatch(/\.hub-invoices-row-next \.hub-next\.is-send[\s\S]*background: #2E75B6/);
     expect(invoiceCss).toMatch(/\.hub-invoices-row-next \.hub-next\.is-send[\s\S]*min-height: 44px/);
+    expect(css).toMatch(/\.hub-invoices-chase[\s\S]*min-height: 44px/);
+    expect(css).toMatch(/\.hub-invoices-chase[\s\S]*color: #2E75B6/);
     expect(quoteCss).toContain('.hub-quotes-row-next .btn-primary');
     expect(quoteCss).toMatch(/\.hub-quotes-row-next \.btn-primary[\s\S]*background: #2E75B6/);
     expect(quoteCss).toMatch(/\.hub-quotes-row-next \.btn-primary[\s\S]*min-height: 44px/);

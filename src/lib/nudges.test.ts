@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   deriveNudges,
+  invoiceChase,
+  invoiceChaseChipLabel,
+  invoiceChasePatch,
   nudgeClockLabel,
   nudgeJobDetail,
   quoteChase,
@@ -32,7 +35,15 @@ function quote(over: Partial<NudgeQuote> & { id: string }): NudgeQuote {
 }
 
 function invoice(over: Partial<NudgeInvoice> & { id: string }): NudgeInvoice {
-  return { invoice_number: 2002, status: 'sent', due_date: '2026-09-06', total: 836, client_name: 'Harbour Lights', ...over };
+  return {
+    invoice_number: 2002,
+    status: 'sent',
+    due_date: '2026-09-06',
+    updated_at: new Date(2026, 8, 5, 12).toISOString(),
+    total: 836,
+    client_name: 'Harbour Lights',
+    ...over,
+  };
 }
 
 function derive(over: { jobs?: NudgeJob[]; quotes?: NudgeQuote[]; invoices?: NudgeInvoice[]; userId?: string | null; now?: Date }) {
@@ -172,25 +183,70 @@ describe('quote_chase', () => {
 });
 
 describe('invoice_unpaid', () => {
-  it('names sent-past-due and overdue invoices with days, client, total, and chased', () => {
+  it('names quiet and overdue sent invoices with their state, client, and total', () => {
     expect(derive({ invoices: [
       invoice({ id: 'i1' }),
-      invoice({ id: 'i2', invoice_number: 2003, status: 'overdue', due_date: '2026-09-10', total: 1200.5, chased_at: '2026-09-11T00:00:00.000Z', client_name: null }),
+      invoice({ id: 'i2', invoice_number: 2003, status: 'sent', due_date: '2026-09-20', total: 1200.5, client_name: null }),
     ] })).toEqual([
-      { key: 'invoice_unpaid:i1', kind: 'invoice_unpaid', label: 'Unpaid invoice #2002', detail: '5 days overdue · Harbour Lights · $836.00', href: '/invoices?id=i1' },
-      { key: 'invoice_unpaid:i2', kind: 'invoice_unpaid', label: 'Unpaid invoice #2003', detail: '1 day overdue · $1,200.50 · chased', href: '/invoices?id=i2' },
+      { key: 'invoice_unpaid:i1', kind: 'invoice_unpaid', label: 'Overdue invoice #2002', detail: '5 days overdue · Harbour Lights · $836.00', href: '/invoices?id=i1&send=1' },
+      { key: 'invoice_unpaid:i2', kind: 'invoice_unpaid', label: 'Chase invoice #2003', detail: 'Quiet 6 days · $1,200.50', href: '/invoices?id=i2&send=1' },
     ]);
   });
 
-  it('leaves sent-and-not-yet-due, due today, paid, and draft alone', () => {
+  it('leaves recently touched, paid, and draft invoices alone', () => {
     expect(derive({ invoices: [
-      invoice({ id: 'due-today', due_date: '2026-09-11' }),
-      invoice({ id: 'due-later', due_date: '2026-09-20' }),
+      invoice({ id: 'due-today', due_date: '2026-09-11', updated_at: new Date(2026, 8, 9).toISOString() }),
+      invoice({ id: 'due-later', due_date: '2026-09-20', updated_at: new Date(2026, 8, 9).toISOString() }),
+      invoice({ id: 'recent-chase', chased_at: new Date(2026, 8, 10).toISOString() }),
       invoice({ id: 'paid', status: 'paid', due_date: '2026-09-01' }),
       invoice({ id: 'draft', status: 'draft', due_date: '2026-09-01' }),
     ] })).toEqual([]);
     expect(derive({ invoices: [invoice({ id: 'no-date', status: 'overdue', due_date: null })] })[0].detail)
       .toBe('Overdue · Harbour Lights · $836.00');
+  });
+
+  it('rolls four or more chaseable invoices into the All filter', () => {
+    const invoices = [2002, 2003, 2004, 2005].map((number, index) => invoice({
+      id: `i-${number}`,
+      invoice_number: number,
+      due_date: index < 2 ? `2026-09-0${6 + index}` : '2026-09-20',
+    }));
+    expect(derive({ invoices })).toEqual([{
+      key: 'invoice_unpaid:all',
+      kind: 'invoice_unpaid',
+      label: '4 invoices to chase',
+      detail: '#2002 · #2003 · #2004',
+      href: '/invoices?status=all',
+    }]);
+  });
+});
+
+describe('invoiceChase', () => {
+  it('models quiet and overdue after five untouched calendar days', () => {
+    const now = new Date(2026, 8, 11, 9, 30);
+    expect(invoiceChase(invoice({ id: 'quiet', due_date: '2026-09-20' }), now))
+      .toEqual({ state: 'quiet', days: 6 });
+    expect(invoiceChase(invoice({ id: 'overdue' }), now))
+      .toEqual({ state: 'overdue', days: 6, daysPast: 5 });
+    expect(invoiceChase(invoice({
+      id: 'fresh',
+      updated_at: new Date(2026, 8, 7, 0, 1).toISOString(),
+    }), now)).toBeNull();
+  });
+
+  it('uses the latest re-share clock and clears when paid', () => {
+    const now = new Date(2026, 8, 11, 9, 30);
+    const stale = invoice({ id: 'stale' });
+    const patch = invoiceChasePatch(stale, now);
+    expect(patch).toEqual({ updated_at: now.toISOString() });
+    expect(invoiceChase({ ...stale, ...patch }, now)).toBeNull();
+    expect(invoiceChase({ ...stale, status: 'paid' }, now)).toBeNull();
+    expect(invoiceChasePatch({ status: 'paid' }, now)).toBeNull();
+  });
+
+  it('prints both list chip states', () => {
+    expect(invoiceChaseChipLabel({ state: 'quiet', days: 6 })).toBe('Chase · 6 days');
+    expect(invoiceChaseChipLabel({ state: 'overdue', days: 9, daysPast: 3 })).toBe('Overdue · 3 days');
   });
 });
 
