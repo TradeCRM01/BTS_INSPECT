@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { evaluateDispatch, type DispatchSnapshot } from './dispatchResources';
 import {
   decideExistingJobPlacement,
-  draftFromJobDrop,
   isRetryableDispatchFailure,
   memberPlacementNextAction,
   nextPlacementIdempotencyKey,
@@ -135,41 +134,6 @@ describe('existing-job placement decisions', () => {
       idempotencyKey: 'key-1',
     });
     expect(decision.status).toBe('hard_blocked');
-  });
-
-  it('rejects a zero-length interval instead of saving 09:00–09:00', () => {
-    const decision = decideExistingJobPlacement({
-      job: job({ start_time: '09:00:00', end_time: '09:00:00' }),
-      drop: { jobId: 'job-1', date: '2026-09-10', employeeId: null, startTime: '09:00:00' },
-      role: 'admin',
-      packMissing: false,
-      snapshot: snap(),
-      crewLabel: 'Unassigned',
-      times: { start_time: '09:00:00', end_time: '09:00:00' },
-      idempotencyKey: 'key-1',
-    });
-    expect(decision.status).toBe('invalid_interval');
-  });
-
-  it('commits an explicit untimed draft without asking for a start', () => {
-    const dated = job({ scheduled_date: '2026-09-10', start_time: '09:00:00', end_time: '09:00:00' });
-    const draft = draftFromJobDrop(dated, { jobId: dated.id, date: '2026-09-10', employeeId: null });
-    expect(draft.startTime).toBe('09:00:00');
-    const decision = decideExistingJobPlacement({
-      job: dated,
-      drop: { jobId: dated.id, date: '2026-09-10', employeeId: null },
-      role: 'admin',
-      packMissing: false,
-      snapshot: snap(),
-      crewLabel: 'Unassigned',
-      times: { start_time: null, end_time: null },
-      overrideReason: 'Restore untimed test booking',
-      idempotencyKey: 'key-clear',
-    });
-    expect(decision.status).toBe('save');
-    if (decision.status !== 'save') return;
-    expect(decision.prepared.input.snapshot.job.start_time).toBeNull();
-    expect(decision.prepared.input.snapshot.job.end_time).toBeNull();
   });
 
   it('asks for time on a week drop that has none', () => {

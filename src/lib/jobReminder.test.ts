@@ -642,9 +642,9 @@ describe('reschedule target exists on the existing job schedule', () => {
     expect(page).not.toContain('createPortal');
 
     expect(panel).toContain('rescheduleBanner');
-    expect(panel).toContain('draftDate');
-    expect(panel).toContain('Save booking');
-    expect(panel).toContain('Clear times');
+    expect(panel).toContain('job.scheduled_date ?? \'\'');
+    expect(panel).toContain('scheduled_date: e.target.value || null');
+    expect(panel).not.toContain('btn-primary');
     expect(panel).not.toContain('new Date().toISOString().slice(0, 10)');
 
     expect(reminder).toContain('btn-primary');

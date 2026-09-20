@@ -188,33 +188,6 @@ export function cardBadge(conflicts: DispatchConflict[], overrideRecorded: boole
   return hard.message;
 }
 
-export type AttentionCategory = 'availability' | 'crew' | 'equipment' | 'qualification';
-
-export function attentionCategories(conflicts: DispatchConflict[]): AttentionCategory[] {
-  const found = new Set<AttentionCategory>();
-  for (const conflict of conflicts) {
-    if (conflict.kind === 'legacy_no_requirements') continue;
-    if (conflict.kind === 'hours_unknown' || conflict.kind === 'hours_unavailable' || conflict.kind === 'hours_over_window') {
-      found.add('availability');
-    } else if (conflict.kind === 'crew_count_short' || conflict.kind === 'crew_timed_overlap') {
-      found.add('crew');
-    } else if (
-      conflict.kind === 'required_resource_missing'
-      || conflict.kind === 'resource_out_of_service'
-      || conflict.kind === 'resource_overlap'
-    ) {
-      found.add('equipment');
-    } else if (conflict.kind === 'missing_qualification' || conflict.kind === 'expired_qualification') {
-      found.add('qualification');
-    }
-  }
-  return [...found];
-}
-
-export function jobNeedsAttention(conflicts: DispatchConflict[]): boolean {
-  return attentionCategories(conflicts).length > 0;
-}
-
 function hoursFor(hours: StaffHoursRow[], memberId: string, date: string): StaffHoursRow | undefined {
   return hours.find(h => h.memberId === memberId && h.date === date);
 }
@@ -442,7 +415,7 @@ export function dispatchEventKind(overridden: boolean, reschedule: boolean): 'ov
 }
 
 export const NEEDS_RESOURCES_EMPTY =
-  'No jobs need attention on this view. Turn off Attention to see the full board.';
+  'No jobs need resources or have a recorded override on this view. Turn off Needs resources to see the full board.';
 
 export function newIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();

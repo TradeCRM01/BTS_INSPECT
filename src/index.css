@@ -5548,26 +5548,6 @@
     outline: 1px solid #2E75B6;
   }
 
-  .dc-job-card {
-    cursor: grab;
-    align-items: flex-start;
-  }
-
-  .dc-job-card-title {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    white-space: normal;
-  }
-
-  .dc-job-card-meta {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
   .dc-job-card-handle {
     flex: 0 0 auto;
     width: 36px;
@@ -5616,61 +5596,6 @@
 
   .dc-place-feedback {
     margin-top: 8px;
-  }
-
-  .dc-place-dialog {
-    max-height: min(90dvh, 720px);
-    overflow: auto;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .dc-phone-agenda {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-
-  .dc-phone-agenda-day {
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 12px;
-    padding: 8px;
-  }
-
-  .dc-phone-agenda-day.is-on {
-    outline: 1px solid #2E75B6;
-  }
-
-  .dc-phone-agenda-date {
-    width: 100%;
-    text-align: left;
-    font-family: Rajdhani, sans-serif;
-    font-weight: 700;
-    color: #0A2540;
-    background: none;
-    border: none;
-  }
-
-  .dc-phone-agenda-job {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 8px;
-  }
-
-  .dc-phone-agenda-open {
-    flex: 1;
-    min-width: 0;
-    text-align: left;
-    background: none;
-    border: none;
-    color: #0A2540;
-  }
-
-  .dc-phone-board > summary {
-    cursor: pointer;
-    color: #5B6B7C;
   }
 
   @media (min-width: 1280px) {
@@ -5814,7 +5739,7 @@
   }
 
   .hub-week-seg-btn {
-    min-height: 44px;
+    min-height: 32px;
     padding: 0 8px;
     border: none;
     background: none;
@@ -5846,8 +5771,8 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 44px;
-    padding: 0 8px;
+    min-height: 24px;
+    padding: 0;
     border: none;
     border-radius: 0;
     background: none;
@@ -6497,8 +6422,7 @@
 
     .hub-board-cal.is-week-doc .hub-day-crew-lock:not(.hub-day-crew-head) {
       flex: 0 0 auto;
-      box-sizing: border-box;
-      overflow: hidden;
+      min-height: 88px;
     }
 
     .hub-board-cal.is-week-doc .hub-day-hours {
@@ -6516,7 +6440,7 @@
     }
 
     .hub-board-cal.is-week-doc .hub-day-hours [data-day-grid] {
-      box-sizing: border-box;
+      min-height: 88px;
     }
 
     .hub-week-head-full {

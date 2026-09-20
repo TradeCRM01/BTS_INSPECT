@@ -67,23 +67,8 @@ export async function hydrateJobParentNumbers(jobs: JobWithClient[]): Promise<Jo
 }
 
 function orFilter(columns: string[], value: string): string {
-  const v = value.replace(/'/g, "''").replace(/[(),]/g, '').replace(/\s+/g, '%');
+  const v = value.replace(/'/g, "''").replace(/[(),]/g, '');
   return columns.map(c => `${c}.ilike.%${v}%`).join(',');
-}
-
-export function mergeScheduleSearchHits(
-  loaded: JobWithClient[],
-  remote: JobWithClient[],
-  raw: string,
-): JobWithClient[] {
-  const query = normalizeJobSearch(raw);
-  const byId = new Map<string, JobWithClient>();
-  for (const job of [...loaded, ...remote]) {
-    if (job.status === 'cancelled') continue;
-    if (query && !jobMatchesSearch(job, query)) continue;
-    byId.set(job.id, job);
-  }
-  return [...byId.values()];
 }
 
 /** `#0042` / `42.01` → parent job number, optional cost code. */

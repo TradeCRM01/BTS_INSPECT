@@ -18,7 +18,7 @@ import {
 import { StaffHoursPanel } from '../components/jobs/StaffHoursPanel';
 import { ScheduleJobsTray } from '../components/jobs/ScheduleJobsTray';
 import { ScheduleOverrideDialog } from '../components/jobs/ScheduleOverrideDialog';
-import { SchedulePlacementEditor } from '../components/jobs/SchedulePlacementEditor';
+import { ScheduleTimeDialog } from '../components/jobs/ScheduleTimeDialog';
 import {
   countJobsOutsideVisibleWindow,
   placePickedHint,
@@ -34,22 +34,19 @@ import {
   staffHoursFromRow,
   type StaffHours,
 } from '../lib/booking';
-import { cardBadge, evaluateDispatch, jobNeedsAttention, NEEDS_RESOURCES_EMPTY } from '../lib/dispatchResources';
+import { cardBadge, evaluateDispatch, NEEDS_RESOURCES_EMPTY } from '../lib/dispatchResources';
 import { loadDispatchPack, snapshotForJob } from '../lib/loadDispatchSnapshot';
 import { DISPATCH_UNAVAILABLE, saveJobDispatch, type SaveJobDispatchInput } from '../lib/saveJobDispatch';
 import { scheduleBoardSummary } from '../lib/scheduleBoardSummary';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
-import { attachJobClients, hydrateJobParentNumbers, jobMatchesSearch, listCompanyScheduleJobs, mergeScheduleJobPatch, mergeScheduleSearchHits, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
+import { attachJobClients, hydrateJobParentNumbers, jobMatchesSearch, listCompanyScheduleJobs, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
 import {
   decideExistingJobPlacement,
-  draftFromJobDrop,
   isRetryableDispatchFailure,
   nextPlacementIdempotencyKey,
-  placementSummary,
   type PlacementDecision,
-  type PlacementDraft,
 } from '../lib/schedulePlacement';
-import { parseScheduleDateParam, parseScheduleView, scheduleDayKey, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
+import { parseScheduleView, scheduleDayKey, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
 import {
   ChevronLeft, ChevronRight, MoreHorizontal, Plus,
 } from 'lucide-react';
@@ -414,12 +411,10 @@ export function SchedulePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const lookWeekBoard = searchParams.get('look') === WEEK_BOARD_LOOK;
   const [currentDate, setCurrentDate] = useState(() => {
-    if (lookWeekBoard) {
-      return parseScheduleView(searchParams.get('view')) === 'day'
-        ? WEEK_BOARD_LOOK_DAY_ANCHOR
-        : WEEK_BOARD_LOOK_ANCHOR;
-    }
-    return parseScheduleDateParam(searchParams.get('date')) ?? new Date();
+    if (!lookWeekBoard) return new Date();
+    return parseScheduleView(searchParams.get('view')) === 'day'
+      ? WEEK_BOARD_LOOK_DAY_ANCHOR
+      : WEEK_BOARD_LOOK_ANCHOR;
   });
   const [viewMode, setViewMode] = useState<ScheduleViewMode>(() => parseScheduleView(searchParams.get('view')));
   const [showForm, setShowForm] = useState(false);
@@ -430,8 +425,8 @@ export function SchedulePage() {
   const [jobQuery, setJobQuery] = useState('');
   const [addExistingOpen, setAddExistingOpen] = useState(false);
   const [trayScope, setTrayScope] = useState<'unscheduled' | 'all'>('unscheduled');
-  const [placementDraft, setPlacementDraft] = useState<PlacementDraft | null>(null);
-  const [placementDialog, setPlacementDialog] = useState<Extract<PlacementDecision, { status: 'need_override' | 'need_time' | 'member_blocked' | 'hard_blocked' | 'invalid_interval' }> | null>(null);
+  const [pendingDrop, setPendingDrop] = useState<JobDropPayload | null>(null);
+  const [placementDialog, setPlacementDialog] = useState<Extract<PlacementDecision, { status: 'need_override' | 'need_time' | 'member_blocked' | 'hard_blocked' }> | null>(null);
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [pickedJob, setPickedJob] = useState<JobWithClient | null>(null);
   const [extendedHours, setExtendedHours] = useState(true);
@@ -447,6 +442,7 @@ export function SchedulePage() {
 
   const preselectClient = searchParams.get('client');
   const preselectJob = searchParams.get('job');
+  const preselectDate = searchParams.get('date');
 
   const openJob = useCallback((jobId: string) => {
     navigate(scheduleJobHref(jobId));
@@ -465,25 +461,16 @@ export function SchedulePage() {
   }, [preselectJob, navigate]);
 
   useEffect(() => {
-    if (lookWeekBoard) return;
-    const fromUrl = parseScheduleDateParam(searchParams.get('date'));
-    const view = parseScheduleView(searchParams.get('view'));
-    if (fromUrl && format(fromUrl, 'yyyy-MM-dd') !== format(currentDate, 'yyyy-MM-dd')) {
-      setCurrentDate(fromUrl);
-    }
-    if (view !== viewMode) setViewMode(view);
-  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (lookWeekBoard) return;
+    if (!preselectDate) return;
+    const parsed = new Date(`${preselectDate}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return;
+    setCurrentDate(parsed);
+    setViewMode('day');
     const next = new URLSearchParams(searchParams);
-    next.set('date', format(currentDate, 'yyyy-MM-dd'));
-    if (viewMode === 'day') next.set('view', 'day');
-    else next.delete('view');
-    if (next.toString() !== searchParams.toString()) {
-      setSearchParams(next, { replace: true });
-    }
-  }, [currentDate, viewMode, lookWeekBoard]); // eslint-disable-line react-hooks/exhaustive-deps
+    next.delete('date');
+    next.set('view', 'day');
+    setSearchParams(next, { replace: true });
+  }, [preselectDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: teamMembers } = useQuery<TeamMember[]>({
     queryKey: ['team-members-schedule'],
@@ -724,9 +711,8 @@ export function SchedulePage() {
         setDispatchSave({ status: 'saved', message: 'Assignment saved.' });
         placementKeyRef.current = null;
       }
+      setPendingDrop(null);
       setPlacementDialog(null);
-      setPlacementDraft(null);
-      setPickedJob(null);
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['job'] });
       queryClient.invalidateQueries({ queryKey: ['dispatch-pack'] });
@@ -774,11 +760,7 @@ export function SchedulePage() {
       ?? (pickedJob?.id === jobId ? pickedJob : undefined);
   };
 
-  const resolvePlacement = (
-    drop: JobDropPayload,
-    overrideReason?: string | null,
-    times?: { start_time: string | null; end_time: string | null },
-  ) => {
+  const resolvePlacement = (drop: JobDropPayload, overrideReason?: string | null) => {
     const liveJobs = lookWeekBoard ? [] : (jobs ?? []);
     const liveCrew = teamMembers ?? [];
     const current = findPlaceableJob(drop.jobId);
@@ -792,6 +774,7 @@ export function SchedulePage() {
       setDispatchSave({ status: 'failed', message: 'That job is not loaded. Search again.' });
       return;
     }
+    setPendingDrop(drop);
     const names = memberNameMap(liveCrew);
     const packMissing = !dispatchPack || dispatchPack.missing;
     const proposedPatch = rescheduleJobPatch({
@@ -824,7 +807,7 @@ export function SchedulePage() {
       resourceRequirements: snap?.resourceRequirements ?? [],
       requiredCrewCount: snap?.requiredCrewCount ?? 0,
       dispatchReady: snap?.dispatchReady ?? false,
-      role: profile?.role === 'admin' ? 'admin' as const : 'member' as const,
+      role: (profile?.role === 'admin' ? 'admin' : 'member') as const,
       overrideReason: overrideReason ?? null,
       reschedule: true,
       snapshot: snap ?? {
@@ -856,7 +839,6 @@ export function SchedulePage() {
         : 'Unassigned',
       overrideReason,
       idempotencyKey: key,
-      times,
     });
     if (decision.status === 'save') {
       placementKeyRef.current = { fingerprint: decision.prepared.fingerprint, key };
@@ -878,13 +860,7 @@ export function SchedulePage() {
   };
 
   const placeExisting = (drop: JobDropPayload) => {
-    const current = findPlaceableJob(drop.jobId);
-    if (!current) {
-      setDispatchSave({ status: 'failed', message: 'That job is not loaded. Search again.' });
-      return;
-    }
-    setPlacementDialog(null);
-    setPlacementDraft(draftFromJobDrop(current, drop));
+    resolvePlacement(drop);
   };
 
   const placePickedOnPerson = (employeeId: string) => {
@@ -937,7 +913,6 @@ export function SchedulePage() {
       return {
         ...job,
         dispatchBadge: cardBadge(conflicts, !!job.last_dispatch_override_at),
-        needsAttention: jobNeedsAttention(conflicts),
       };
     });
   }, [boardJobs, boardCrew, dispatchPack, hours]);
@@ -947,9 +922,9 @@ export function SchedulePage() {
     [jobsWithBadges],
   );
   const attentionBoard = attentionOnly
-    ? onBoard.filter(j => 'needsAttention' in j && j.needsAttention)
+    ? onBoard.filter(j => 'dispatchBadge' in j && j.dispatchBadge)
     : onBoard;
-  const attentionCount = onBoard.filter(j => 'needsAttention' in j && j.needsAttention).length;
+  const attentionCount = onBoard.filter(j => 'dispatchBadge' in j && j.dispatchBadge).length;
   const attentionEmpty = attentionOnly && attentionBoard.length === 0
     ? NEEDS_RESOURCES_EMPTY
     : null;
@@ -1009,11 +984,6 @@ export function SchedulePage() {
     setJobQuery('');
   };
 
-  const searchResults = useMemo(
-    () => mergeScheduleSearchHits(jobs ?? [], searchHits, jobQuery),
-    [jobs, searchHits, jobQuery],
-  );
-
   const trayJobs = useMemo(() => {
     const byId = new Map<string, JobWithClient>();
     for (const row of [...(jobs ?? []), ...searchHits]) byId.set(row.id, row);
@@ -1026,7 +996,7 @@ export function SchedulePage() {
     <ScheduleJobSearch
       query={jobQuery}
       onQuery={setJobQuery}
-      results={searchResults}
+      results={searchHits}
       loading={searchLoading && debouncedQuery.length > 0}
       selectedId={pickedJob?.id ?? null}
       onSelect={handlePickJob}
@@ -1096,7 +1066,7 @@ export function SchedulePage() {
               aria-pressed={attentionOnly}
               onClick={() => setAttentionOnly(v => !v)}
             >
-              Attention
+              Needs resources
               {attentionCount > 0 ? ` · ${attentionCount}` : ''}
             </button>
             <button
@@ -1240,14 +1210,14 @@ export function SchedulePage() {
                   onSelect={handlePickJob}
                   onSchedule={job => {
                     handlePickJob(job);
-                    placeExisting(placePickedOnCell(
-                      job,
-                      format(currentDate, 'yyyy-MM-dd'),
-                      job.assigned_team?.[0] ?? null,
-                    ));
+                    setDispatchSave({
+                      status: 'idle',
+                      message: job.scheduled_date
+                        ? 'Tap a crew or day to move this booking. Same job — no duplicate.'
+                        : 'Tap a crew or day to place this job.',
+                    });
                   }}
                   onDragStart={handleRailDragStart}
-                  onClose={closeAddExisting}
                   feedback={dispatchSave.status === 'idle' ? null : {
                     message: dispatchSave.message,
                     retryable: lastResultRetryable.current,
@@ -1302,11 +1272,6 @@ export function SchedulePage() {
                         }}
                         onDayClick={handleDayClick}
                         onJobDrop={placeExisting}
-                        onPlaceJob={job => placeExisting(placePickedOnCell(
-                          job,
-                          job.scheduled_date?.slice(0, 10) || format(currentDate, 'yyyy-MM-dd'),
-                          job.assigned_team?.[0] ?? null,
-                        ))}
                       />
                     </div>
                     <div className="hidden lg:block hub-week-mount">
@@ -1336,11 +1301,6 @@ export function SchedulePage() {
                         onDayClick={handleDayClick}
                         onJobDrop={placeExisting}
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
-                        onPlaceJob={job => placeExisting(placePickedOnCell(
-                          job,
-                          format(currentDate, 'yyyy-MM-dd'),
-                          job.assigned_team?.[0] ?? null,
-                        ))}
                         extendedHours={extendedHours}
                       />
                     </div>
@@ -1374,79 +1334,29 @@ export function SchedulePage() {
         )}
       </div>
 
-      {placementDraft && (() => {
-        const draftJob = findPlaceableJob(placementDraft.jobId);
-        const editorSummary = draftJob
-          ? placementSummary({
-            job: draftJob,
-            proposed: {
-              scheduled_date: placementDraft.date,
-              start_time: placementDraft.startTime,
-              end_time: placementDraft.endTime,
-            },
-            crewLabel: placementDraft.employeeId
-              ? ((teamMembers ?? []).find(m => m.id === placementDraft.employeeId)?.name ?? 'Crew')
-              : 'Unassigned',
-          })
-          : placementDialog && 'summary' in placementDialog
-            ? placementDialog.summary
-            : placementDialog && placementDialog.status === 'need_override'
-              ? placementDialog.prepared.summary
-              : {
-                jobId: placementDraft.jobId,
-                jobLabel: 'Job',
-                crewLabel: 'Unassigned',
-                whenLabel: placementDraft.date,
-                movingExisting: false,
-                previousWhen: null,
-              };
-        return (
-          <SchedulePlacementEditor
-            summary={editorSummary}
-            crew={teamMembers ?? []}
-            draft={placementDraft}
-            conflicts={
-              placementDialog?.status === 'need_override'
-                ? placementDialog.prepared.conflicts
-                : placementDialog && 'conflicts' in placementDialog
-                  ? placementDialog.conflicts
-                  : []
-            }
-            statusMessage={
-              placementDialog?.status === 'invalid_interval'
-                ? placementDialog.message
-                : dispatchSave.status === 'failed'
-                  ? dispatchSave.message
-                  : null
-            }
-            saving={dispatchSave.status === 'saving'}
-            reasonRequired={placementDialog?.status === 'need_override'}
-            blocked={placementDialog?.status === 'member_blocked' || placementDialog?.status === 'hard_blocked'}
-            nextAction={
-              placementDialog && 'nextAction' in placementDialog
-                ? placementDialog.nextAction
-                : null
-            }
-            onCancel={() => {
-              setPlacementDraft(null);
-              setPlacementDialog(null);
-            }}
-            onChange={setPlacementDraft}
-            onSave={reason => {
-              const drop: JobDropPayload = {
-                jobId: placementDraft.jobId,
-                date: placementDraft.date,
-                employeeId: placementDraft.employeeId,
-                startTime: placementDraft.startTime ?? undefined,
-              };
-              resolvePlacement(drop, reason || null, {
-                start_time: placementDraft.startTime,
-                end_time: placementDraft.endTime,
-              });
-            }}
-          />
-        );
-      })()}
+      {placementDialog?.status === 'need_time' && (
+        <ScheduleTimeDialog
+          summary={placementDialog.summary}
+          onCancel={() => setPlacementDialog(null)}
+          onConfirm={startTime => {
+            const drop = pendingDrop ?? placementDialog.drop;
+            setPlacementDialog(null);
+            resolvePlacement({ ...drop, startTime });
+          }}
+        />
+      )}
+      {placementDialog?.status === 'need_override' && (
+        <ScheduleOverrideDialog
+          summary={placementDialog.prepared.summary}
+          conflicts={placementDialog.prepared.conflicts}
+          onCancel={() => setPlacementDialog(null)}
+          onConfirm={reason => {
+            const drop = pendingDrop;
+            if (!drop) return;
+            resolvePlacement(drop, reason);
+          }}
+        />
+      )}
       {placementDialog?.status === 'member_blocked' && (
         <ScheduleOverrideDialog
           summary={placementDialog.summary}

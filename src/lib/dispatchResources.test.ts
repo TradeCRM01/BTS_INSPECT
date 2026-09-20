@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  attentionCategories,
   cardBadge,
-  jobNeedsAttention,
   cardTone,
   decideDispatchWrite,
   evaluateDispatch,
@@ -230,13 +228,8 @@ describe('override and write gates', () => {
 
 describe('needs-resources empty state', () => {
   it('tells the dispatcher why the board is empty and how to leave the filter', () => {
-    expect(NEEDS_RESOURCES_EMPTY).toMatch(/Turn off Attention/i);
-    expect(jobNeedsAttention(evaluateDispatch(snap()))).toBe(true);
-    expect(attentionCategories(evaluateDispatch(snap()))).toEqual(['availability']);
-    expect(jobNeedsAttention(evaluateDispatch(snap({
-      assignedTeam: [],
-      job: { ...snap().job, assigned_team: [] },
-    })))).toBe(false);
+    expect(NEEDS_RESOURCES_EMPTY).toMatch(/Turn off Needs resources/i);
+    expect(NEEDS_RESOURCES_EMPTY).toMatch(/recorded override/i);
     const schedule = readFileSync(resolve(process.cwd(), 'src/pages/SchedulePage.tsx'), 'utf8');
     const bar = readFileSync(resolve(process.cwd(), 'src/components/jobs/DispatchCommandBar.tsx'), 'utf8');
     expect(schedule).toContain('NEEDS_RESOURCES_EMPTY');

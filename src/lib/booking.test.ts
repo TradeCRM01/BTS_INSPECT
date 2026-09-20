@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  bookingIntervalIssue,
   bookingWarnings,
   capacityWarnings,
   clashingJobIds,
@@ -9,8 +8,6 @@ import {
   jobBookingLabel,
   jobLoadMinutes,
   jobsClash,
-  normalizeClock,
-  payloadClock,
   shouldProceedWithBooking,
 } from './booking';
 
@@ -124,25 +121,6 @@ describe('shouldProceedWithBooking', () => {
   it('asks before booking over a warning', () => {
     expect(shouldProceedWithBooking(['clash'], () => false)).toBe(false);
     expect(shouldProceedWithBooking(['clash'], () => true)).toBe(true);
-  });
-});
-
-describe('booking clocks', () => {
-  it('clears a present null and keeps an omitted clock', () => {
-    expect(payloadClock({ start_time: null }, 'start_time', '09:00:00')).toBeNull();
-    expect(payloadClock({ start_time: '' }, 'start_time', '09:00:00')).toBeNull();
-    expect(payloadClock({}, 'start_time', '09:00:00')).toBe('09:00:00');
-    expect(normalizeClock('08:00')).toBe('08:00:00');
-    expect(normalizeClock('')).toBeNull();
-  });
-
-  it('rejects zero and inverted intervals and allows untimed or open-ended start', () => {
-    expect(bookingIntervalIssue('09:00:00', '09:00:00')).toMatch(/End must be after start/);
-    expect(bookingIntervalIssue('10:00:00', '09:00:00')).toMatch(/End must be after start/);
-    expect(bookingIntervalIssue(null, '09:00:00')).toMatch(/clear both/);
-    expect(bookingIntervalIssue(null, null)).toBeNull();
-    expect(bookingIntervalIssue('08:00:00', null)).toBeNull();
-    expect(bookingIntervalIssue('08:00:00', '09:00:00')).toBeNull();
   });
 });
 

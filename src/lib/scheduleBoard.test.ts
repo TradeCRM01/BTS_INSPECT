@@ -8,9 +8,7 @@ import {
   groupJobsByScheduleDay,
   jobMatchesCrewFilter,
   jobsOnScheduleDay,
-  parseScheduleDateParam,
   parseScheduleView,
-  scheduleBoardSearch,
   scheduleChipClock,
   scheduleClockLabel,
   schedulePlotTimes,
@@ -67,17 +65,6 @@ describe('parseScheduleView', () => {
     expect(parseScheduleView('week')).toBe('week');
     expect(parseScheduleView('day')).toBe('day');
     expect(parseScheduleView('month')).toBe('week');
-  });
-});
-
-describe('schedule board URL', () => {
-  it('reads a date param and writes date plus day view', () => {
-    expect(parseScheduleDateParam('2026-09-21')?.getFullYear()).toBe(2026);
-    expect(parseScheduleDateParam('2026-09-21')?.getMonth()).toBe(8);
-    expect(parseScheduleDateParam('2026-09-21')?.getDate()).toBe(21);
-    expect(parseScheduleDateParam('nope')).toBeNull();
-    expect(scheduleBoardSearch('2026-09-21', 'week').toString()).toBe('date=2026-09-21');
-    expect(scheduleBoardSearch('2026-09-21', 'day').toString()).toBe('date=2026-09-21&view=day');
   });
 });
 
