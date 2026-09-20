@@ -3,8 +3,6 @@ import { jobClientEmailToStore } from './saveJobClientEmail';
 import {
   quoteActionContext,
   quoteCardHint,
-  quoteChaseDue,
-  quoteChaseLabel,
   quoteHasChargeableLines,
   quoteListBucket,
   recommendQuoteAction,
@@ -114,28 +112,11 @@ describe('recommendQuoteAction', () => {
     expect(recommendQuoteAction({ ...accepted, status: 'declined' }).key).toBe('none');
     expect(recommendQuoteAction({ ...accepted, status: 'expired' }).label).toBe('Expired');
   });
-});
 
-describe('quoteChaseDue', () => {
-  const now = new Date(2026, 8, 11, 9, 30);
-
-  it('is due on a sent quote five calendar days after its last touch, and Mark accepted stays Next', () => {
-    expect(quoteChaseDue({ status: 'sent', updated_at: new Date(2026, 8, 5, 16).toISOString() }, now))
-      .toEqual({ due: true, days: 6 });
-    expect(quoteChaseDue({ status: 'sent', updated_at: new Date(2026, 8, 6, 23, 59).toISOString() }, now))
-      .toEqual({ due: true, days: 5 });
-    expect(quoteChaseDue({ status: 'sent', updated_at: new Date(2026, 8, 7, 0, 1).toISOString() }, now))
-      .toEqual({ due: false, days: 4 });
-    expect(quoteChaseDue({ status: 'accepted', updated_at: new Date(2026, 8, 1).toISOString() }, now).due).toBe(false);
-    expect(quoteChaseDue({ status: 'draft', updated_at: new Date(2026, 8, 1).toISOString() }, now).due).toBe(false);
+  it('keeps Mark accepted as Next on a sent quote; the chase chip sits beside it', () => {
     expect(recommendQuoteAction({
       status: 'sent', hasClient: true, hasLines: true, jobId: null, invoiceId: null,
     }).label).toBe('Mark accepted');
-  });
-
-  it('prints the chip label', () => {
-    expect(quoteChaseLabel(6)).toBe('Chase · 6 days');
-    expect(quoteChaseLabel(1)).toBe('Chase · 1 day');
   });
 });
 
