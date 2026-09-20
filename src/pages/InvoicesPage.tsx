@@ -160,7 +160,7 @@ export function InvoicesPage() {
       }
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, company_id, invoice_number, client_id, job_id, quote_id, source, status, line_items, subtotal, tax_rate, tax_amount, total, payment_terms, due_date, notes, inclusions, exclusions, chased_at, created_by, created_at, updated_at')
+        .select('id, company_id, invoice_number, client_id, job_id, quote_id, source, status, line_items, subtotal, tax_rate, tax_amount, total, payment_terms, due_date, notes, inclusions, exclusions, created_by, created_at, updated_at')
         .order('created_at', { ascending: false });
       if (error) throw error;
       const list = (data ?? []) as InvoiceWithDetails[];
