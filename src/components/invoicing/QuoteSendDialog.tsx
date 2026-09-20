@@ -490,7 +490,9 @@ export function QuoteSendDialog({
                   </>
                 ) : (
                   <p className="hub-invoice-send-value">
-                    {share.portalUrl || 'Copy link creates one the client can Accept.'}
+                    {copy?.kind === 'copied'
+                      ? 'Portal link copied.'
+                      : share.portalUrl || 'Copy link creates one the client can Accept.'}
                   </p>
                 )}
               </div>
