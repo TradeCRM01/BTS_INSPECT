@@ -1,7 +1,7 @@
 {
   "base": "http://127.0.0.1:5173",
   "supabaseUrl": "https://harness.supabase.co",
-  "startedAt": "2026-09-20T23:15:16.840Z",
+  "startedAt": "2026-09-20T23:17:32.185Z",
   "laptopUpcomingShowsMineTaggedAndCompanyOnly": {
     "ok": true,
     "ids": [
@@ -320,7 +320,7 @@
   },
   "laptopInvoiceChaseCopiesOneGstReminder": {
     "ok": true,
-    "copiedReminder": "Payment reminder from Northside Plumbing.\nInvoice #2002 is overdue.\nAmount due: $836.00 incl. GST.\nDue: 6 Sep 2026.\nView invoice: https://grafter.com.au/p?t=12e250683fc441dfa80df327472af4e7c06be92ba5ad439d9f4f731dd34fbda4"
+    "copiedReminder": "Payment reminder from Northside Plumbing.\nInvoice #2002 is overdue.\nAmount due: $836.00 incl. GST.\nDue: 6 Sep 2026.\nView invoice: https://grafter.com.au/p?t=3befb9a703684e9d90f0c8c023a572a397c57861e3ca4f6681261010737c4b15"
   },
   "laptopInvoiceChaseOpensUteSmsDraft": {
     "ok": true,
@@ -529,7 +529,7 @@
       "body": {
         "company_id": "00000000-0000-0000-0000-000000000001",
         "client_id": "00000000-0000-0000-0000-000000000102",
-        "token": "12e250683fc441dfa80df327472af4e7c06be92ba5ad439d9f4f731dd34fbda4",
+        "token": "3befb9a703684e9d90f0c8c023a572a397c57861e3ca4f6681261010737c4b15",
         "expires_at": "2027-09-11T01:00:00.000Z"
       }
     },
@@ -539,7 +539,7 @@
       "body": {
         "company_id": "00000000-0000-0000-0000-000000000001",
         "client_id": "00000000-0000-0000-0000-000000000102",
-        "token": "9d657593ed4047c9988c08b9f73f4fed8bc174f7f1ab46c08a1f578cf4e4da2a",
+        "token": "e4d7d06474c94752a3f8d4c5d4646c956004547dc5c449bc902e063a672c8f72",
         "expires_at": "2027-09-11T01:00:00.000Z"
       }
     },
@@ -561,7 +561,7 @@
       "body": {
         "company_id": "00000000-0000-0000-0000-000000000001",
         "client_id": "00000000-0000-0000-0000-000000000102",
-        "token": "27e378b2bad942a4836f7e998fc2c800c1d91fec3e9a474a94442fe6f84dc45a",
+        "token": "699e2856f3d344ae8ec5ff90f5c35e8f62f8f17d88f94779bcd39fdd61617acb",
         "expires_at": "2027-09-11T01:00:00.000Z"
       }
     },
@@ -571,7 +571,7 @@
       "body": {
         "company_id": "00000000-0000-0000-0000-000000000001",
         "client_id": "00000000-0000-0000-0000-000000000101",
-        "token": "775082612d234fba85ce517361f8d1b556e803e7b4184359abc953ea38b3c150",
+        "token": "0e73e789f31344dcaf47e757ee45740c1945242b46ec4f21b2db7d077d64c3ac",
         "expires_at": "2027-09-11T01:00:00.000Z"
       }
     },
@@ -903,7 +903,7 @@
   },
   "phoneInvoiceChaseCopiesOneGstReminder": {
     "ok": true,
-    "copiedReminder": "Payment reminder from Northside Plumbing.\nInvoice #2002 is overdue.\nAmount due: $836.00 incl. GST.\nDue: 6 Sep 2026.\nView invoice: https://grafter.com.au/p?t=d29767a3ca694c6da903d700a3d529216b7324a0d3eb493bb86949d539505292"
+    "copiedReminder": "Payment reminder from Northside Plumbing.\nInvoice #2002 is overdue.\nAmount due: $836.00 incl. GST.\nDue: 6 Sep 2026.\nView invoice: https://grafter.com.au/p?t=7f702777350043fc8007583d72b6380a914b70e16b714176b1eadee2b1891237"
   },
   "phoneInvoiceChaseOpensUteSmsDraft": {
     "ok": true,
@@ -1112,7 +1112,7 @@
       "body": {
         "company_id": "00000000-0000-0000-0000-000000000001",
         "client_id": "00000000-0000-0000-0000-000000000102",
-        "token": "d29767a3ca694c6da903d700a3d529216b7324a0d3eb493bb86949d539505292",
+        "token": "7f702777350043fc8007583d72b6380a914b70e16b714176b1eadee2b1891237",
         "expires_at": "2027-09-11T01:00:00.000Z"
       }
     },
@@ -1122,7 +1122,7 @@
       "body": {
         "company_id": "00000000-0000-0000-0000-000000000001",
         "client_id": "00000000-0000-0000-0000-000000000102",
-        "token": "38e7fe66a61942cb9f79288a902cfedfe2db930d679a499ba0be115d2780919b",
+        "token": "a5d74bec8082486ea9b0f18c661d4fc92a3550a504fc4752a6f49c25c1eadb03",
         "expires_at": "2027-09-11T01:00:00.000Z"
       }
     },
@@ -1144,7 +1144,7 @@
       "body": {
         "company_id": "00000000-0000-0000-0000-000000000001",
         "client_id": "00000000-0000-0000-0000-000000000102",
-        "token": "eb28dc6923b34a1284c47de61e709d128cfd7c5507a64c63bfb623d587f5c605",
+        "token": "bd9ce30b90994291b1fdf49df1e99f431821a9cfdf0b4719b45820015b78c135",
         "expires_at": "2027-09-11T01:00:00.000Z"
       }
     },
@@ -1154,7 +1154,7 @@
       "body": {
         "company_id": "00000000-0000-0000-0000-000000000001",
         "client_id": "00000000-0000-0000-0000-000000000101",
-        "token": "6df1c6a361c44568a4c23888b9ab7146bd2c2c113a5b42ada8a66021361912aa",
+        "token": "4756d73bd5c64585bce82d5c5aabc3f47acfb564831c4e1cac6a011ecda8d1fd",
         "expires_at": "2027-09-11T01:00:00.000Z"
       }
     },
@@ -1172,6 +1172,6 @@
     "ok": true,
     "pageErrors": []
   },
-  "finishedAt": "2026-09-20T23:16:03.820Z",
+  "finishedAt": "2026-09-20T23:18:13.740Z",
   "failures": []
 }
