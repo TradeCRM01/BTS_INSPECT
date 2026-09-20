@@ -573,7 +573,7 @@ async function proveViewport(browser, tag, viewport) {
   await page.screenshot({ path: `${LOOK}/reminders-today-${FRAME[tag]}.png` });
 
   const invoiceNudge = byKind.invoice_unpaid;
-  await page.goto(`${BASE}${invoiceNudge.href}`, { waitUntil: 'domcontentloaded' });
+  await page.locator('.dashboard-nudge[data-nudge-kind="invoice_unpaid"]').click();
   const chaseDialog = page.locator('.hub-invoice-send');
   await chaseDialog.getByRole('heading', { name: 'Chase invoice' }).waitFor({ timeout: 15000 });
   await settle(page, 200);
