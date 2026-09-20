@@ -16,9 +16,6 @@ import {
   type TeamMember,
 } from '../components/crm/BoardViews';
 import { StaffHoursPanel } from '../components/jobs/StaffHoursPanel';
-import { ScheduleJobsTray } from '../components/jobs/ScheduleJobsTray';
-import { ScheduleOverrideDialog } from '../components/jobs/ScheduleOverrideDialog';
-import { ScheduleTimeDialog } from '../components/jobs/ScheduleTimeDialog';
 import {
   countJobsOutsideVisibleWindow,
   placePickedHint,
@@ -29,23 +26,19 @@ import {
   type JobDropPayload,
 } from '../lib/dispatch';
 import {
+  bookingWarnings,
   isMissingRelation,
   memberNameMap,
+  shouldProceedWithBooking,
   staffHoursFromRow,
   type StaffHours,
 } from '../lib/booking';
-import { cardBadge, evaluateDispatch, NEEDS_RESOURCES_EMPTY } from '../lib/dispatchResources';
+import { cardBadge, evaluateDispatch, NEEDS_RESOURCES_EMPTY, newIdempotencyKey } from '../lib/dispatchResources';
 import { loadDispatchPack, snapshotForJob } from '../lib/loadDispatchSnapshot';
 import { DISPATCH_UNAVAILABLE, saveJobDispatch, type SaveJobDispatchInput } from '../lib/saveJobDispatch';
 import { scheduleBoardSummary } from '../lib/scheduleBoardSummary';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
-import { attachJobClients, hydrateJobParentNumbers, jobMatchesSearch, listCompanyScheduleJobs, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
-import {
-  decideExistingJobPlacement,
-  isRetryableDispatchFailure,
-  nextPlacementIdempotencyKey,
-  type PlacementDecision,
-} from '../lib/schedulePlacement';
+import { attachJobClients, hydrateJobParentNumbers, listCompanyScheduleJobs, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
 import { parseScheduleView, scheduleDayKey, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
 import {
   ChevronLeft, ChevronRight, MoreHorizontal, Plus,
@@ -424,9 +417,6 @@ export function SchedulePage() {
   const [filteredEmployeeIds, setFilteredEmployeeIds] = useState<Set<string>>(new Set());
   const [jobQuery, setJobQuery] = useState('');
   const [addExistingOpen, setAddExistingOpen] = useState(false);
-  const [trayScope, setTrayScope] = useState<'unscheduled' | 'all'>('unscheduled');
-  const [pendingDrop, setPendingDrop] = useState<JobDropPayload | null>(null);
-  const [placementDialog, setPlacementDialog] = useState<Extract<PlacementDecision, { status: 'need_override' | 'need_time' | 'member_blocked' | 'hard_blocked' }> | null>(null);
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [pickedJob, setPickedJob] = useState<JobWithClient | null>(null);
   const [extendedHours, setExtendedHours] = useState(true);
@@ -437,8 +427,6 @@ export function SchedulePage() {
     message: string;
   }>({ status: 'idle', message: '' });
   const lastDispatchRef = useRef<SaveJobDispatchInput | null>(null);
-  const placementKeyRef = useRef<{ fingerprint: string; key: string } | null>(null);
-  const lastResultRetryable = useRef(false);
 
   const preselectClient = searchParams.get('client');
   const preselectJob = searchParams.get('job');
@@ -696,29 +684,22 @@ export function SchedulePage() {
 
   const runDispatchSave = (input: SaveJobDispatchInput) => {
     lastDispatchRef.current = input;
-    lastResultRetryable.current = false;
     setDispatchSave({ status: 'saving', message: 'Saving assignment…' });
     void saveJobDispatch(input).then(result => {
       if (!result.ok) {
-        lastResultRetryable.current = isRetryableDispatchFailure(result);
         setDispatchSave({ status: 'failed', message: result.message });
         return;
       }
-      lastResultRetryable.current = false;
       if (result.replayed) {
         setDispatchSave({ status: 'saved', message: 'Assignment already saved — no extra write.' });
       } else {
         setDispatchSave({ status: 'saved', message: 'Assignment saved.' });
-        placementKeyRef.current = null;
+        lastDispatchRef.current = { ...input, idempotencyKey: newIdempotencyKey() };
       }
-      setPendingDrop(null);
-      setPlacementDialog(null);
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['job'] });
       queryClient.invalidateQueries({ queryKey: ['dispatch-pack'] });
-      queryClient.invalidateQueries({ queryKey: ['schedule-job-search'] });
     }).catch(() => {
-      lastResultRetryable.current = true;
       setDispatchSave({ status: 'failed', message: 'Could not save assignment. Retry when you are back online.' });
     });
   };
@@ -754,113 +735,75 @@ export function SchedulePage() {
     onError: (e: Error) => alert(e.message),
   });
 
-  const findPlaceableJob = (jobId: string) => {
-    const liveJobs = lookWeekBoard ? [] : (jobs ?? []);
-    return [...liveJobs, ...(searchHits ?? [])].find(j => j.id === jobId)
-      ?? (pickedJob?.id === jobId ? pickedJob : undefined);
-  };
-
-  const resolvePlacement = (drop: JobDropPayload, overrideReason?: string | null) => {
+  const placeExisting = (drop: JobDropPayload) => {
     const liveJobs = lookWeekBoard ? [] : (jobs ?? []);
     const liveCrew = teamMembers ?? [];
-    const current = findPlaceableJob(drop.jobId);
+    const current = [...liveJobs, ...(searchHits ?? [])].find(j => j.id === drop.jobId)
+      ?? (pickedJob?.id === drop.jobId ? pickedJob : undefined);
     if (lookWeekBoard) return;
     if (isDevFieldAuditAuth()) {
       applyDropToCache(drop);
+      setJobQuery('');
       setPickedJob(null);
+      setAddExistingOpen(false);
       return;
     }
     if (!current) {
-      setDispatchSave({ status: 'failed', message: 'That job is not loaded. Search again.' });
+      setDispatchSave({ status: 'failed', message: DISPATCH_UNAVAILABLE });
       return;
     }
-    setPendingDrop(drop);
-    const names = memberNameMap(liveCrew);
-    const packMissing = !dispatchPack || dispatchPack.missing;
-    const proposedPatch = rescheduleJobPatch({
+    const patch = rescheduleJobPatch({
       assigned_team: current.assigned_team,
       start_time: current.start_time,
       end_time: current.end_time,
     }, drop);
     const proposed = {
       ...current,
-      scheduled_date: proposedPatch.scheduled_date,
-      assigned_team: proposedPatch.assigned_team ?? current.assigned_team,
-      start_time: proposedPatch.start_time ?? current.start_time,
-      end_time: proposedPatch.end_time === undefined ? current.end_time : proposedPatch.end_time,
+      scheduled_date: patch.scheduled_date,
+      assigned_team: patch.assigned_team ?? current.assigned_team,
+      start_time: patch.start_time ?? current.start_time,
+      end_time: patch.end_time === undefined ? current.end_time : patch.end_time,
     };
-    const snap = !packMissing && dispatchPack
-      ? snapshotForJob({
-        job: proposed,
-        pack: dispatchPack,
-        siblings: liveJobs,
-        hours,
-        names,
-      })
-      : null;
-    const draftInput = {
+    const names = memberNameMap(liveCrew);
+    const warnings = bookingWarnings(proposed, liveJobs, names, hours);
+    if (!shouldProceedWithBooking(warnings, message => window.confirm(message))) return;
+    if (!dispatchPack || dispatchPack.missing) {
+      setDispatchSave({ status: 'failed', message: DISPATCH_UNAVAILABLE });
+      return;
+    }
+    const snap = snapshotForJob({
+      job: proposed,
+      pack: dispatchPack,
+      siblings: liveJobs,
+      hours,
+      names,
+    });
+    const role = profile?.role === 'admin' ? 'admin' as const : 'member' as const;
+    const conflicts = evaluateDispatch({ ...snap, assignedTeam: proposed.assigned_team ?? [] });
+    let overrideReason: string | null = null;
+    const hard = conflicts.filter(c => c.severity === 'hard');
+    if (hard.length > 0 && role === 'admin' && hard.every(c => c.overridable)) {
+      overrideReason = window.prompt('Admin override reason (required)') ?? '';
+    }
+    const input: SaveJobDispatchInput = {
       jobId: current.id,
       expectedUpdatedAt: current.updated_at,
       assignedTeam: proposed.assigned_team ?? [],
-      resourceIds: snap?.allocations.map(a => a.resourceId) ?? [],
-      skillRequirements: snap?.skillRequirements ?? [],
-      resourceRequirements: snap?.resourceRequirements ?? [],
-      requiredCrewCount: snap?.requiredCrewCount ?? 0,
-      dispatchReady: snap?.dispatchReady ?? false,
-      role: (profile?.role === 'admin' ? 'admin' : 'member') as const,
-      overrideReason: overrideReason ?? null,
-      reschedule: true,
-      snapshot: snap ?? {
-        job: proposed,
-        dispatchReady: false,
-        requiredCrewCount: 0,
-        assignedTeam: proposed.assigned_team ?? [],
-        skillRequirements: [],
-        resourceRequirements: [],
-        allocations: [],
-        skills: [],
-        qualifications: [],
-        resources: [],
-        siblingJobs: [],
-        siblingAllocations: [],
-        hours,
-        names,
-      },
-    };
-    const key = nextPlacementIdempotencyKey(placementKeyRef.current, draftInput);
-    const decision = decideExistingJobPlacement({
-      job: current,
-      drop,
-      role: profile?.role === 'admin' ? 'admin' : 'member',
-      packMissing,
-      snapshot: snap,
-      crewLabel: drop.employeeId
-        ? (liveCrew.find(m => m.id === drop.employeeId)?.name ?? 'Crew')
-        : 'Unassigned',
+      resourceIds: snap.allocations.map(a => a.resourceId),
+      skillRequirements: snap.skillRequirements,
+      resourceRequirements: snap.resourceRequirements,
+      requiredCrewCount: snap.requiredCrewCount,
+      dispatchReady: snap.dispatchReady,
+      role,
       overrideReason,
-      idempotencyKey: key,
-    });
-    if (decision.status === 'save') {
-      placementKeyRef.current = { fingerprint: decision.prepared.fingerprint, key };
-      void runDispatchSave(decision.prepared.input);
-      return;
-    }
-    if (decision.status === 'unavailable' || decision.status === 'missing_job') {
-      lastResultRetryable.current = decision.status === 'unavailable';
-      setDispatchSave({ status: 'failed', message: decision.message });
-      return;
-    }
-    if (decision.status === 'hard_blocked') {
-      lastResultRetryable.current = false;
-      setDispatchSave({ status: 'failed', message: decision.message });
-      setPlacementDialog(decision);
-      return;
-    }
-    setPlacementDialog(decision);
-  };
-
-  const placeExisting = (drop: JobDropPayload) => {
-    resolvePlacement(drop);
+      reschedule: true,
+      idempotencyKey: newIdempotencyKey(),
+      snapshot: { ...snap, assignedTeam: proposed.assigned_team ?? [] },
+    };
+    void runDispatchSave(input);
+    setJobQuery('');
+    setPickedJob(null);
+    setAddExistingOpen(false);
   };
 
   const placePickedOnPerson = (employeeId: string) => {
@@ -984,15 +927,7 @@ export function SchedulePage() {
     setJobQuery('');
   };
 
-  const trayJobs = useMemo(() => {
-    const byId = new Map<string, JobWithClient>();
-    for (const row of [...(jobs ?? []), ...searchHits]) byId.set(row.id, row);
-    const list = [...byId.values()].filter(row => row.status !== 'cancelled');
-    if (!jobQuery.trim()) return list;
-    return list.filter(row => jobMatchesSearch(row, jobQuery));
-  }, [jobs, searchHits, jobQuery]);
-
-  const weekSearch = addExistingOpen ? null : (
+  const weekSearch = (
     <ScheduleJobSearch
       query={jobQuery}
       onQuery={setJobQuery}
@@ -1002,6 +937,8 @@ export function SchedulePage() {
       onSelect={handlePickJob}
       onOpenJob={job => openJob(job.id)}
       onDragStart={handleRailDragStart}
+      pickerOpen={addExistingOpen}
+      onClosePicker={closeAddExisting}
     />
   );
 
@@ -1037,7 +974,6 @@ export function SchedulePage() {
         </button>
       </div>
       <div className="hub-week-tools">
-        <div className="dc-nav-cluster" role="group" aria-label="Date">
         <button type="button" className="hub-week-quiet" onClick={() => setCurrentDate(new Date())}>
           Today
         </button>
@@ -1057,9 +993,8 @@ export function SchedulePage() {
         >
           <ChevronRight size={16} />
         </button>
-        </div>
         {!lookWeekBoard && (
-          <div className="dc-filter-cluster" role="group" aria-label="Board filters">
+          <>
             <button
               type="button"
               className="hub-week-quiet"
@@ -1086,7 +1021,7 @@ export function SchedulePage() {
               {extendedHours ? '6am–8pm' : '7am–5pm'}
               {outsideWorkdayCount > 0 ? ` · ${outsideWorkdayCount}` : ''}
             </button>
-          </div>
+          </>
         )}
         <p className="hub-week-range">
           <span className="hub-week-range-full">{boardRangeLabel}</span>
@@ -1164,10 +1099,10 @@ export function SchedulePage() {
           </div>
         )}
 
-        {!lookWeekBoard && dispatchSave.status !== 'idle' && !addExistingOpen && (
-          <p className="ops-meta mb-3 dc-place-feedback" role="status" data-testid="schedule-dispatch-save-status">
+        {!lookWeekBoard && dispatchSave.status !== 'idle' && (
+          <p className="ops-meta mb-3" role="status" data-testid="schedule-dispatch-save-status">
             {dispatchSave.message}
-            {dispatchSave.status === 'failed' && lastResultRetryable.current && lastDispatchRef.current && (
+            {dispatchSave.status === 'failed' && lastDispatchRef.current && (
               <button
                 type="button"
                 className="ops-link ml-2 min-h-11"
@@ -1198,33 +1133,7 @@ export function SchedulePage() {
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : (
           <>
-            <div className={`hub-schedule-desk hub-schedule-phone dc-schedule-workspace ${addExistingOpen ? 'has-tray' : ''}`}>
-              {addExistingOpen && !lookWeekBoard && (
-                <ScheduleJobsTray
-                  jobs={trayJobs}
-                  query={jobQuery}
-                  onQuery={setJobQuery}
-                  scope={trayScope}
-                  onScope={setTrayScope}
-                  selectedId={pickedJob?.id ?? null}
-                  onSelect={handlePickJob}
-                  onSchedule={job => {
-                    handlePickJob(job);
-                    setDispatchSave({
-                      status: 'idle',
-                      message: job.scheduled_date
-                        ? 'Tap a crew or day to move this booking. Same job — no duplicate.'
-                        : 'Tap a crew or day to place this job.',
-                    });
-                  }}
-                  onDragStart={handleRailDragStart}
-                  feedback={dispatchSave.status === 'idle' ? null : {
-                    message: dispatchSave.message,
-                    retryable: lastResultRetryable.current,
-                    onRetry: () => lastDispatchRef.current && runDispatchSave(lastDispatchRef.current),
-                  }}
-                />
-              )}
+            <div className="hub-schedule-desk hub-schedule-phone">
               <WeekBoardDocument
                 mark={viewMode === 'day' ? 'Day' : 'Week'}
                 whisper={boardWhisper}
@@ -1333,48 +1242,6 @@ export function SchedulePage() {
           </>
         )}
       </div>
-
-      {placementDialog?.status === 'need_time' && (
-        <ScheduleTimeDialog
-          summary={placementDialog.summary}
-          onCancel={() => setPlacementDialog(null)}
-          onConfirm={startTime => {
-            const drop = pendingDrop ?? placementDialog.drop;
-            setPlacementDialog(null);
-            resolvePlacement({ ...drop, startTime });
-          }}
-        />
-      )}
-      {placementDialog?.status === 'need_override' && (
-        <ScheduleOverrideDialog
-          summary={placementDialog.prepared.summary}
-          conflicts={placementDialog.prepared.conflicts}
-          onCancel={() => setPlacementDialog(null)}
-          onConfirm={reason => {
-            const drop = pendingDrop;
-            if (!drop) return;
-            resolvePlacement(drop, reason);
-          }}
-        />
-      )}
-      {placementDialog?.status === 'member_blocked' && (
-        <ScheduleOverrideDialog
-          summary={placementDialog.summary}
-          conflicts={placementDialog.conflicts}
-          memberBlocked
-          nextAction={placementDialog.nextAction}
-          onCancel={() => setPlacementDialog(null)}
-        />
-      )}
-      {placementDialog?.status === 'hard_blocked' && (
-        <ScheduleOverrideDialog
-          summary={placementDialog.summary}
-          conflicts={placementDialog.conflicts}
-          memberBlocked
-          nextAction="The card stays in its previous place. Pick another crew or time."
-          onCancel={() => setPlacementDialog(null)}
-        />
-      )}
 
       {showForm && (
         <JobFormModal

@@ -11,7 +11,6 @@ export type DispatchConflictKind =
   | 'required_resource_missing'
   | 'crew_count_short'
   | 'hours_unknown'
-  | 'hours_unavailable'
   | 'hours_over_window'
   | 'legacy_no_requirements';
 
@@ -103,7 +102,6 @@ export function isPhysicallyImpossible(kind: DispatchConflictKind): boolean {
 export function isSoftWriteGate(conflict: DispatchConflict): boolean {
   if (conflict.severity !== 'soft') return false;
   return conflict.kind === 'hours_unknown'
-    || conflict.kind === 'hours_unavailable'
     || conflict.kind === 'hours_over_window'
     || conflict.kind === 'crew_count_short'
     || conflict.kind === 'required_resource_missing';
@@ -327,20 +325,12 @@ export function evaluateDispatch(snap: DispatchSnapshot): DispatchConflict[] {
         conflicts.push({
           kind: 'hours_unknown',
           severity: 'soft',
-          message: `${name} has no hours record that day — availability is unknown, not a confirmed day off.`,
+          message: `${name} has no recorded hours that day — unknown, not blocked.`,
           overridable: true,
         });
         continue;
       }
-      if (!row.working) {
-        conflicts.push({
-          kind: 'hours_unavailable',
-          severity: 'soft',
-          message: `${name} is recorded as not working that day — confirmed unavailability, not an unknown hours record.`,
-          overridable: true,
-        });
-        continue;
-      }
+      if (!row.working) continue;
       if (!slot || !row.start || !row.end) continue;
       const start = timeToMinutes(row.start);
       const end = timeToMinutes(row.end);

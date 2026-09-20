@@ -96,10 +96,6 @@ describe('schedule board cream paper look', () => {
     expect(page).toContain('data-schedule-add-existing="1"');
     expect(page).toContain('listCompanyScheduleJobs');
     expect(page).toContain('openAddExisting');
-    expect(page).toContain('decideExistingJobPlacement');
-    expect(page).toContain('ScheduleJobsTray');
-    expect(page).toContain('ScheduleOverrideDialog');
-    expect(page).not.toContain('window.prompt');
     expect(page).not.toContain('New Job');
     expect(page).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(page).not.toMatch(/Grafter|Relovi|Littleloop/);
