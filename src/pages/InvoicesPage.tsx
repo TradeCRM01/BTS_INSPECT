@@ -211,16 +211,29 @@ export function InvoicesPage() {
   }, [filtered]);
 
   useEffect(() => {
+    const status = searchParams.get('status');
+    if (status) {
+      if (STATUS_FILTERS.some(tab => tab.key === status)) setStatusFilter(status as StatusFilter);
+      const next = new URLSearchParams(searchParams);
+      next.delete('status');
+      setSearchParams(next, { replace: true });
+      return;
+    }
     const invoiceId = searchParams.get('id');
     const clientId = searchParams.get('client');
     if (invoiceId) {
       if (openedInvoice === undefined) return;
       if (!openedInvoice) return;
-      setEditingInvoice(openedInvoice);
-      setPresetClientId(null);
-      setShowForm(true);
+      if (searchParams.get('send') === '1') {
+        setSendingInvoiceId(invoiceId);
+      } else {
+        setEditingInvoice(openedInvoice);
+        setPresetClientId(null);
+        setShowForm(true);
+      }
       const next = new URLSearchParams(searchParams);
       next.delete('id');
+      next.delete('send');
       next.delete('client');
       setSearchParams(next, { replace: true });
       return;
@@ -495,7 +508,7 @@ function InvoiceNextControl({
         className={`${chasePrimary ? 'btn-primary' : 'hub-next'}${next.key === 'send' ? ' is-send' : ''}`}
         title={next.detail}
       >
-        {busy && next.key !== 'mark_paid' ? 'Working…' : next.label}
+        {busy && next.key !== 'mark_paid' ? 'Working…' : chasePrimary ? 'Chase' : next.label}
       </button>
     );
   }

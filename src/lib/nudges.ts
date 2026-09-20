@@ -245,7 +245,7 @@ const NUDGE_RULES: Record<NudgeKind, NudgeRule> = {
           formatMoney(Number(invoice.total ?? 0)),
           invoice.chased_at ? 'chased' : '',
         ].filter(Boolean).join(' · '),
-        href: `/invoices?id=${invoice.id}`,
+        href: `/invoices?id=${invoice.id}&send=1`,
       }));
   },
 };

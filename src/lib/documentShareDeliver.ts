@@ -179,3 +179,14 @@ export function openDocumentShareMailto(href: string): void {
   a.click();
   a.remove();
 }
+
+export function openDocumentShareSms(href: string): void {
+  const value = href.trim();
+  if (!value.startsWith('sms:')) throw new Error('Not an SMS draft link.');
+  const a = document.createElement('a');
+  a.href = value;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}

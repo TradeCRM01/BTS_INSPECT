@@ -177,8 +177,8 @@ describe('invoice_unpaid', () => {
       invoice({ id: 'i1' }),
       invoice({ id: 'i2', invoice_number: 2003, status: 'overdue', due_date: '2026-09-10', total: 1200.5, chased_at: '2026-09-11T00:00:00.000Z', client_name: null }),
     ] })).toEqual([
-      { key: 'invoice_unpaid:i1', kind: 'invoice_unpaid', label: 'Unpaid invoice #2002', detail: '5 days overdue · Harbour Lights · $836.00', href: '/invoices?id=i1' },
-      { key: 'invoice_unpaid:i2', kind: 'invoice_unpaid', label: 'Unpaid invoice #2003', detail: '1 day overdue · $1,200.50 · chased', href: '/invoices?id=i2' },
+      { key: 'invoice_unpaid:i1', kind: 'invoice_unpaid', label: 'Unpaid invoice #2002', detail: '5 days overdue · Harbour Lights · $836.00', href: '/invoices?id=i1&send=1' },
+      { key: 'invoice_unpaid:i2', kind: 'invoice_unpaid', label: 'Unpaid invoice #2003', detail: '1 day overdue · $1,200.50 · chased', href: '/invoices?id=i2&send=1' },
     ]);
   });
 
