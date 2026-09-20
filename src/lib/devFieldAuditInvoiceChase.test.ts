@@ -12,13 +12,15 @@ import { effectiveInvoiceStatus } from './invoiceStatus';
 
 function armAudit(pathname = '/invoices'): void {
   const values = new Map<string, string>();
+  const sessionStorage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+  };
   vi.stubGlobal('window', {
     location: { pathname, search: '?auditAuth=1' },
-    sessionStorage: {
-      getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => values.set(key, value),
-    },
+    sessionStorage,
   });
+  vi.stubGlobal('sessionStorage', sessionStorage);
 }
 
 afterEach(() => {
