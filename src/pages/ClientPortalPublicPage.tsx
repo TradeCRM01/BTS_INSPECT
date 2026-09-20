@@ -10,8 +10,8 @@ import { usePublicDocumentHead } from '../lib/publicSeo';
 
 export const PORTAL_QUOTE_ACCEPT_ACTION = 'accept_quote';
 
-export function canAcceptPortalQuote(status: string): boolean {
-  return status === 'sent';
+export function canAcceptPortalQuote(status: string, jobId: string | null): boolean {
+  return status === 'sent' || (status === 'accepted' && !jobId);
 }
 
 export function portalQuoteAcceptBody(token: string, quoteId: string) {
@@ -42,7 +42,7 @@ type PortalPayload =
       kind: 'portal';
       company: { name: string; logoUrl?: string | null; phone?: string | null; email?: string | null; website?: string | null } | null;
       client: { name: string; email?: string | null; phone?: string | null; address?: string | null } | null;
-      quotes: Array<{ id: string; quote_number: string; status: string; total: number; validity_date: string | null; updated_at: string }>;
+      quotes: Array<{ id: string; quote_number: string; status: string; job_id: string | null; total: number; validity_date: string | null; updated_at: string }>;
       invoices: Array<{ id: string; invoice_number: string; status: string; total: number; due_date: string | null; updated_at: string }>;
       jobs: Array<{ id: string; title: string; status: string; scheduled_date: string | null; job_number: number | null; address: string | null; updated_at: string }>;
       reports: Array<{
@@ -241,14 +241,14 @@ export function ClientPortalPublicPage() {
               </div>
               <p className="portal-quote-total">{formatMoney(q.total)}</p>
             </div>
-            {canAcceptPortalQuote(q.status) && (
+            {canAcceptPortalQuote(q.status, q.job_id) && (
               <button
                 type="button"
                 onClick={() => void acceptQuote(q.id)}
                 disabled={acceptingId === q.id}
                 className="portal-quote-accept"
               >
-                {acceptingId === q.id ? 'Accepting...' : 'Accept'}
+                {acceptingId === q.id ? 'Booking...' : q.status === 'accepted' ? 'Finish booking' : 'Accept and book'}
               </button>
             )}
           </div>

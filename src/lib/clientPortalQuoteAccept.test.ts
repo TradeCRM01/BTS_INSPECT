@@ -22,13 +22,18 @@ function src(rel: string): string {
 describe('portal quote Accept — same write as office Mark accepted', () => {
   it('sent quotes can Accept; that write is quotes.status = accepted', () => {
     expect(canClientAcceptQuote('sent')).toBe(true);
-    expect(canAcceptPortalQuote('sent')).toBe(true);
+    expect(canAcceptPortalQuote('sent', null)).toBe(true);
     expect(canClientAcceptQuote('accepted')).toBe(false);
-    expect(canAcceptPortalQuote('draft')).toBe(false);
+    expect(canAcceptPortalQuote('draft', null)).toBe(false);
     expect(quoteStatusAfterClientAccept('sent')).toBe('accepted');
     expect(quoteStatusAfterClientAccept('expired')).toBeNull();
     expect(portalQuoteAcceptBody('tok', 'q1')).toEqual(clientPortalAcceptBody('tok', 'q1'));
     expect(PORTAL_QUOTE_ACCEPT_ACTION).toBe('accept_quote');
+  });
+
+  it('lets an accepted quote with no linked job finish booking, then stops retrying', () => {
+    expect(canAcceptPortalQuote('accepted', null)).toBe(true);
+    expect(canAcceptPortalQuote('accepted', 'job-1')).toBe(false);
   });
 
   it('rides the existing /p token portal — list Accept, no new route family', () => {
@@ -38,8 +43,8 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
 
     expect(page).toContain("functions.invoke('client-portal'");
     expect(page).toContain('portalQuoteAcceptBody(token, quoteId)');
-    expect(page).toContain('canAcceptPortalQuote(q.status)');
-    expect(page).toContain('{acceptingId === q.id ? \'Accepting...\' : \'Accept\'}');
+    expect(page).toContain('canAcceptPortalQuote(q.status, q.job_id)');
+    expect(page).toContain("'Finish booking' : 'Accept and book'");
     expect(page).not.toContain('path=');
     expect(page).not.toContain('/quote-accept');
     expect(page).not.toContain('How to pay');
@@ -157,7 +162,7 @@ describe('LOOK — portal Accept is a signed quote sheet, not a leftover CRM but
     expect(css).toContain('background: #2E75B6');
     expect(page).toContain('id="client-portal"');
     expect(page).toContain('className="portal-quote-accept"');
-    expect(page).toContain('{acceptingId === q.id ? \'Accepting...\' : \'Accept\'}');
+    expect(page).toContain("'Finish booking' : 'Accept and book'");
     expect(page).toContain('portalQuoteStatusLabel(q.status)');
     expect(page).not.toContain('bg-[#0A2540]');
     expect(page).not.toContain('<Check');
