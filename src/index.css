@@ -3574,7 +3574,7 @@
   }
 
   .overlay-backdrop:has(.hub-invoice-send) {
-    background: rgb(244 246 248 / 0.92);
+    background: rgb(245 240 230 / 0.94);
     padding: 16px;
     align-items: flex-start;
     justify-content: center;
@@ -3613,10 +3613,10 @@
   }
 
   .overlay-panel-md:has(.hub-invoice-send) {
-    background: #fff !important;
+    background: #FFFDF8 !important;
     color: #0A2540;
     box-shadow: none !important;
-    border: 1px solid #D5DCE3 !important;
+    border: 1px solid #E2D9CC !important;
     border-radius: 16px !important;
     width: min(480px, calc(100vw - 32px)) !important;
     max-width: min(480px, calc(100vw - 32px)) !important;
@@ -4262,7 +4262,7 @@
   }
 
   .hub-invoice-send {
-    background: #fff;
+    background: #FFFDF8;
     color: #0A2540;
     padding: 24px;
   }
@@ -4563,9 +4563,9 @@
     align-items: center;
     min-height: 32px;
     padding: 0 12px;
-    border: 1px solid #D5DCE3;
+    border: 1px solid #E2D9CC;
     border-radius: 999px;
-    background: #F4F6F8;
+    background: #F5F0E6;
     font-size: 14px;
     font-weight: 600;
     color: #0A2540;
@@ -4574,11 +4574,17 @@
 
   .hub-invoice-send-foot {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
-    gap: 16px;
+    gap: 12px 16px;
     padding-top: 16px;
-    border-top: 1px solid #D5DCE3;
+    border-top: 1px solid #E2D9CC;
+  }
+
+  .hub-invoice-send-foot .btn-primary {
+    margin-left: auto;
+    white-space: nowrap;
   }
 
   @media (max-width: 639px) {
@@ -4613,6 +4619,26 @@
       max-width: calc(100vw - 16px) !important;
       max-height: calc(100dvh - 16px) !important;
       border-radius: 16px !important;
+    }
+
+    .hub-invoice-send {
+      padding: 20px;
+    }
+
+    .hub-invoice-send-foot {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .hub-invoice-send-foot .ops-link {
+      width: 100%;
+    }
+
+    .hub-invoice-send-foot .btn-primary {
+      grid-column: 1 / -1;
+      width: 100%;
+      margin-left: 0;
     }
 
     #job-schedule .job-reminder-tos,
