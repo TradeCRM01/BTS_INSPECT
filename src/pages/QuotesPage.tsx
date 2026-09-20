@@ -64,11 +64,10 @@ import {
 } from '../lib/attachQuoteClient';
 import {
   quoteActionContext,
-  quoteChaseDue,
-  quoteChaseLabel,
   recommendQuoteAction,
   type QuoteActionKey,
 } from '../lib/quoteNextAction';
+import { quoteChase, quoteChaseChipLabel, quoteChasePatch } from '../lib/nudges';
 import { QUOTE_STATUS_LABELS, formatMoney } from '../types/fsm';
 import { Plus, FileText, Mail, Phone, User, X, MoreHorizontal } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
@@ -257,17 +256,30 @@ export function QuotesPage() {
   }, [quotes, statusFilter, search]);
 
   useEffect(() => {
+    const status = searchParams.get('status');
+    if (status) {
+      if (status in QUOTE_STATUS_LABELS) setStatusFilter(status as QuoteStatus);
+      const next = new URLSearchParams(searchParams);
+      next.delete('status');
+      setSearchParams(next, { replace: true });
+      return;
+    }
     const quoteId = searchParams.get('id');
     const clientId = searchParams.get('client');
     if (quoteId) {
       if (!quotes) return;
       const q = quotes.find(item => item.id === quoteId);
       if (!q) return;
-      setEditingQuote(q);
-      setPresetClientId(null);
-      setShowForm(true);
+      if (searchParams.get('send') === '1') {
+        setSendingQuoteId(quoteId);
+      } else {
+        setEditingQuote(q);
+        setPresetClientId(null);
+        setShowForm(true);
+      }
       const next = new URLSearchParams(searchParams);
       next.delete('id');
+      next.delete('send');
       next.delete('client');
       setSearchParams(next, { replace: true });
       return;
@@ -389,7 +401,12 @@ export function QuotesPage() {
           quoteId={sendingQuoteId}
           company={sendCompany}
           onClose={() => setSendingQuoteId(null)}
-          onSent={(to, message) => {
+          onSent={async (to, message) => {
+            const patch = quoteChasePatch(quotes?.find(q => q.id === sendingQuoteId) ?? { status: 'draft' }, new Date());
+            if (patch) {
+              const { error } = await supabase.from('quotes').update(patch).eq('id', sendingQuoteId).eq('status', 'sent');
+              if (error) showToast(error.message);
+            }
             setSendingQuoteId(null);
             queryClient.invalidateQueries({ queryKey: ['quotes'] });
             queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
@@ -406,7 +423,7 @@ export function QuotesPage() {
 
 function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () => void; onSend: (quoteId: string) => void }) {
   const next = recommendQuoteAction(quoteActionContext(quote));
-  const chase = quoteChaseDue(quote);
+  const chase = quoteChase(quote, new Date());
   const site = visibleSite(quote.job_address);
   const suburb = site ? suburbFromSite(site) : '';
   const money = quoteMoney(quote.total);
@@ -424,9 +441,14 @@ function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () 
       <span className={`hub-quotes-pill is-${quote.status}`}>{QUOTE_STATUS_LABELS[quote.status]}</span>
       <span className="hub-quotes-total">{money ?? ''}</span>
       <span className="hub-quotes-row-next" onClick={e => e.stopPropagation()}>
-        {chase.due && (
-          <button type="button" className="hub-quotes-chase" onClick={() => onSend(quote.id)}>
-            {quoteChaseLabel(chase.days)}
+        {chase && (
+          <button
+            type="button"
+            className="hub-quotes-chase"
+            data-chase-state={chase.state}
+            onClick={() => { if (chase.state === 'lapsed') onOpen(); else onSend(quote.id); }}
+          >
+            {quoteChaseChipLabel(chase)}
           </button>
         )}
         {next.key === 'none' ? (
