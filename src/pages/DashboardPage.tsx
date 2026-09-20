@@ -238,7 +238,7 @@ async function loadDashboardNudgeData(todayKey: string, tomorrowKey: string): Pr
       .eq('status', 'sent'),
     supabase
       .from('invoices')
-      .select('id, invoice_number, status, due_date, total, chased_at, client_id')
+      .select('id, invoice_number, status, due_date, updated_at, total, chased_at, client_id')
       .in('status', ['sent', 'overdue']),
   ]);
   if (jobsRes.error) throw jobsRes.error;

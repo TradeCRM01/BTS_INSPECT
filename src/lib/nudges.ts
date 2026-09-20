@@ -38,6 +38,7 @@ export type NudgeInvoice = {
   invoice_number: number | null;
   status: string;
   due_date: string | null;
+  updated_at: string;
   total: number;
   chased_at?: string | null;
   client_name?: string | null;
@@ -53,6 +54,7 @@ export type NudgeInput = {
 
 export const LEAVE_SOON_MINUTES = 60;
 export const QUOTE_CHASE_AFTER_DAYS = 5;
+export const INVOICE_CHASE_AFTER_DAYS = 5;
 export const NUDGE_LIMIT = 6;
 export const NUDGE_ROLLUP_AFTER = 3;
 
@@ -61,6 +63,17 @@ export type QuoteChase =
   | { state: 'lapsed'; days: number; daysPast: number };
 
 export type QuoteChaseInput = { status: string; updated_at: string; validity_date?: string | null };
+
+export type InvoiceChase =
+  | { state: 'quiet'; days: number }
+  | { state: 'overdue'; days: number; daysPast: number };
+
+export type InvoiceChaseInput = {
+  status: string;
+  due_date?: string | null;
+  updated_at?: string | null;
+  chased_at?: string | null;
+};
 
 type NudgeRule = (input: NudgeInput) => Nudge[];
 
@@ -103,6 +116,38 @@ export function quoteChaseChipLabel(chase: QuoteChase): string {
 /** Patch to write after the plumber re-shares an already-sent quote. null unless status is sent. */
 export function quoteChasePatch(quote: { status: string }, now: Date): { updated_at: string } | null {
   return quote.status === 'sent' ? { updated_at: now.toISOString() } : null;
+}
+
+export function invoiceChase(invoice: InvoiceChaseInput, now: Date): InvoiceChase | null {
+  if (invoice.status !== 'sent' && invoice.status !== 'overdue') return null;
+  const updatedAt = new Date(invoice.updated_at ?? '').getTime();
+  const chasedAt = new Date(invoice.chased_at ?? '').getTime();
+  const touchedAt = Math.max(
+    Number.isNaN(updatedAt) ? 0 : updatedAt,
+    Number.isNaN(chasedAt) ? 0 : chasedAt,
+  );
+  if (!touchedAt) return null;
+  const days = differenceInCalendarDays(now, new Date(touchedAt));
+  if (days < INVOICE_CHASE_AFTER_DAYS) return null;
+  const dueKey = scheduleDayKey(invoice.due_date);
+  const pastDue = !!dueKey && dueKey < scheduleDateKey(now);
+  if (invoice.status === 'overdue' || pastDue) {
+    const daysPast = dueKey ? differenceInCalendarDays(now, localDay(dueKey)) : 0;
+    return { state: 'overdue', days, daysPast };
+  }
+  return { state: 'quiet', days };
+}
+
+export function invoiceChaseChipLabel(chase: InvoiceChase): string {
+  return chase.state === 'overdue'
+    ? `Overdue · ${plural(chase.daysPast, 'day')}`
+    : `Chase · ${plural(chase.days, 'day')}`;
+}
+
+export function invoiceChasePatch(invoice: { status: string }, now: Date): { updated_at: string } | null {
+  return invoice.status === 'sent' || invoice.status === 'overdue'
+    ? { updated_at: now.toISOString() }
+    : null;
 }
 
 function quoteValidTo(validityDate: string | null | undefined): string {
@@ -225,28 +270,42 @@ const NUDGE_RULES: Record<NudgeKind, NudgeRule> = {
   },
 
   invoice_unpaid: input => {
-    const todayKey = scheduleDateKey(input.now);
-    return input.invoices
-      .map(invoice => {
-        const dueKey = scheduleDayKey(invoice.due_date);
-        const pastDue = !!dueKey && dueKey < todayKey;
-        const days = dueKey ? differenceInCalendarDays(input.now, localDay(dueKey)) : 0;
-        return { invoice, days, unpaid: invoice.status === 'overdue' || (invoice.status === 'sent' && pastDue) };
+    const due = input.invoices
+      .flatMap(invoice => {
+        const chase = invoiceChase(invoice, input.now);
+        return chase ? [{ invoice, chase }] : [];
       })
-      .filter(({ unpaid }) => unpaid)
-      .sort((a, b) => b.days - a.days)
-      .map(({ invoice, days }) => ({
+      .sort((a, b) => {
+        if (a.chase.state !== b.chase.state) return a.chase.state === 'overdue' ? -1 : 1;
+        const aDays = a.chase.state === 'overdue' ? a.chase.daysPast : a.chase.days;
+        const bDays = b.chase.state === 'overdue' ? b.chase.daysPast : b.chase.days;
+        return bDays - aDays;
+      });
+    if (due.length > NUDGE_ROLLUP_AFTER) {
+      return [{
+        key: 'invoice_unpaid:all',
+        kind: 'invoice_unpaid',
+        label: `${due.length} invoices to chase`,
+        detail: due.slice(0, NUDGE_ROLLUP_AFTER).map(({ invoice }) => invoiceRef(invoice.invoice_number)).join(' · '),
+        href: '/invoices?status=all',
+      }];
+    }
+    return due.map(({ invoice, chase }) => {
+      const overdue = chase.state === 'overdue';
+      return {
         key: `invoice_unpaid:${invoice.id}`,
         kind: 'invoice_unpaid' as const,
-        label: `Unpaid invoice ${invoiceRef(invoice.invoice_number)}`,
+        label: `${overdue ? 'Overdue' : 'Chase'} invoice ${invoiceRef(invoice.invoice_number)}`,
         detail: [
-          days > 0 ? `${plural(days, 'day')} overdue` : 'Overdue',
+          overdue
+            ? chase.daysPast > 0 ? `${plural(chase.daysPast, 'day')} overdue` : 'Overdue'
+            : `Quiet ${plural(chase.days, 'day')}`,
           invoice.client_name?.trim(),
           formatMoney(Number(invoice.total ?? 0)),
-          invoice.chased_at ? 'chased' : '',
         ].filter(Boolean).join(' · '),
         href: `/invoices?id=${invoice.id}&send=1`,
-      }));
+      };
+    });
   },
 };
 

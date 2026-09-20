@@ -95,6 +95,7 @@ export type InvoiceSendInvoice = {
   inclusions: unknown;
   exclusions: unknown;
   chased_at?: string | null;
+  updated_at?: string | null;
 };
 
 export type InvoiceSendClient = {

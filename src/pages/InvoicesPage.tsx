@@ -68,6 +68,7 @@ import {
   invoiceMarkPaidXeroMissLine,
   INVOICE_MARKED_PAID_MESSAGE,
 } from '../lib/xeroAccounting';
+import { invoiceChase, invoiceChaseChipLabel, invoiceChasePatch } from '../lib/nudges';
 import { INVOICE_STATUS_LABELS, formatMoney } from '../types/fsm';
 import { Plus, Receipt, Download, X, MoreHorizontal, Mail, Phone, User } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
@@ -159,7 +160,7 @@ export function InvoicesPage() {
       }
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, company_id, invoice_number, client_id, job_id, quote_id, source, status, line_items, subtotal, tax_rate, tax_amount, total, payment_terms, due_date, notes, inclusions, exclusions, created_by, created_at, updated_at')
+        .select('id, company_id, invoice_number, client_id, job_id, quote_id, source, status, line_items, subtotal, tax_rate, tax_amount, total, payment_terms, due_date, notes, inclusions, exclusions, chased_at, created_by, created_at, updated_at')
         .order('created_at', { ascending: false });
       if (error) throw error;
       const list = (data ?? []) as InvoiceWithDetails[];
@@ -269,6 +270,7 @@ export function InvoicesPage() {
     queryClient.invalidateQueries({ queryKey: ['invoice'] });
     queryClient.invalidateQueries({ queryKey: ['client-invoices'] });
     queryClient.invalidateQueries({ queryKey: ['clients'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-nudges'] });
     if (opts?.message !== '') {
       showToast(opts?.message ?? (editingInvoice ? 'Invoice updated' : 'Invoice created'));
     }
@@ -376,13 +378,27 @@ export function InvoicesPage() {
             payment_methods: (company as { payment_methods?: unknown }).payment_methods ?? [],
           }}
           onClose={() => setSendingInvoiceId(null)}
-          onSent={(to, message, opts) => {
+          onSent={async (to, message, opts) => {
+            const activeInvoice = invoices?.find(invoice => invoice.id === sendingInvoiceId)
+              ?? (openedInvoice?.id === sendingInvoiceId ? openedInvoice : null);
+            const patch = activeInvoice ? invoiceChasePatch(activeInvoice, new Date()) : null;
+            if (patch) {
+              const { error } = await supabase
+                .from('invoices')
+                .update(patch)
+                .eq('id', sendingInvoiceId)
+                .eq('company_id', company.id)
+                .in('status', ['sent', 'overdue']);
+              if (error) showToast(error.message, 'error');
+            }
             if (!opts?.keepOpen) setSendingInvoiceId(null);
             queryClient.invalidateQueries({ queryKey: ['invoices'] });
             queryClient.invalidateQueries({ queryKey: ['invoice'] });
             queryClient.invalidateQueries({ queryKey: ['client-invoices'] });
-            if (editingInvoice?.id === sendingInvoiceId) {
-              setEditingInvoice(inv => inv ? { ...inv, status: 'sent' } : inv);
+            queryClient.invalidateQueries({ queryKey: ['dashboard-nudges'] });
+            const sharedStatus = activeInvoice?.status === 'draft' ? 'sent' : activeInvoice?.status;
+            if (editingInvoice?.id === sendingInvoiceId && sharedStatus) {
+              setEditingInvoice(inv => inv ? { ...inv, status: sharedStatus } : inv);
             }
             if (!opts?.keepOpen) showToast(message ?? `Invoice sent to ${to}`);
           }}
@@ -439,6 +455,7 @@ function InvoiceNextControl({
   const ctx = invoiceActionContext(invoice, { smtpReady });
   const next = recommendInvoiceAction(ctx);
   const overflowPaid = invoiceOverflowPaidAction(ctx);
+  const chase = invoiceChase(invoice, new Date());
 
   const patchPaid = async () => {
     setBusy('mark_paid');
@@ -450,6 +467,7 @@ function InvoiceNextControl({
       if (error) throw error;
       paid = true;
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-nudges'] });
       const xero = await attachXeroPaymentAfterMarkPaid(
         (name, opts) => supabase.functions.invoke(name, opts),
         { paidSucceeded: true, invoiceId: invoice.id, status: 'paid' },
@@ -495,6 +513,8 @@ function InvoiceNextControl({
         {next.label}
       </button>
     );
+  } else if (next.key === 'send' && next.status === 'overdue') {
+    primary = null;
   } else if (next.key === 'send' || next.key === 'mark_paid') {
     const chasePrimary = next.key === 'send' && next.status === 'overdue';
     primary = (
@@ -508,15 +528,25 @@ function InvoiceNextControl({
         className={`${chasePrimary ? 'btn-primary' : 'hub-next'}${next.key === 'send' ? ' is-send' : ''}`}
         title={next.detail}
       >
-        {busy && next.key !== 'mark_paid' ? 'Working…' : chasePrimary ? 'Chase' : next.label}
+        {busy && next.key !== 'mark_paid' ? 'Working…' : next.label}
       </button>
     );
   }
 
-  if (!primary && !overflowPaid) return null;
+  if (!chase && !primary && !overflowPaid) return null;
 
   return (
     <span className="hub-invoice-editor-act">
+      {chase ? (
+        <button
+          type="button"
+          className="hub-invoices-chase"
+          data-chase-state={chase.state}
+          onClick={() => onSend(invoice.id)}
+        >
+          {invoiceChaseChipLabel(chase)}
+        </button>
+      ) : null}
       {primary}
       {overflowPaid ? (
         <details className="hub-invoice-more">

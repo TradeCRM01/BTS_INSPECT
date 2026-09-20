@@ -38,7 +38,7 @@ import {
   attachInvoiceClient,
   invoiceClientAttachRow,
 } from '../../lib/attachInvoiceClient';
-import { effectiveInvoiceStatus } from '../../lib/invoiceStatus';
+import { invoiceChase } from '../../lib/nudges';
 
 /** Honest no_email miss — write the address on this dialog for mailto. */
 export const INVOICE_SEND_NO_EMAIL_FIELD =
@@ -49,7 +49,7 @@ function invoiceShareFromBundle(
   portalUrl: string | null,
 ): DocumentShareExport {
   const invoice = bundle.invoice;
-  const purpose = invoice && effectiveInvoiceStatus(invoice) === 'overdue' ? 'chase' : 'send';
+  const purpose = invoice && invoiceChase(invoice, new Date()) ? 'chase' : 'send';
   return decideInvoiceShare({
     status: invoice?.status ?? 'draft',
     hasClient: !!invoice?.client_id,
@@ -283,7 +283,7 @@ export function InvoiceSendDialog({
       nextBundle.company.name,
       nextInvoice.invoice_number,
       {
-        purpose: effectiveInvoiceStatus(nextInvoice) === 'overdue' ? 'chase' : 'send',
+        purpose: invoiceChase(nextInvoice, new Date()) ? 'chase' : 'send',
         dueDate: nextInvoice.due_date,
         total: nextInvoice.total,
         clientPhone: nextBundle.client?.phone,
@@ -323,6 +323,9 @@ export function InvoiceSendDialog({
         return prepared.share.copyText ?? prepared.url;
       });
       setCopy(result);
+      if (result.kind === 'copied' && share.purpose === 'chase') {
+        onSent(bundle?.client?.email || 'client', 'Payment reminder copied.', { keepOpen: true });
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not copy the portal link.');
     } finally {

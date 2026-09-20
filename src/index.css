@@ -7313,7 +7313,8 @@
     justify-content: center;
   }
 
-  .hub-quotes-chase {
+  .hub-quotes-chase,
+  .hub-invoices-chase {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
@@ -7331,7 +7332,8 @@
     cursor: pointer;
   }
 
-  .hub-quotes-chase:hover {
+  .hub-quotes-chase:hover,
+  .hub-invoices-chase:hover {
     color: color-mix(in srgb, #2E75B6 86%, #0A2540);
     text-decoration: underline;
   }
