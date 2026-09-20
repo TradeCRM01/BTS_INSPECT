@@ -611,7 +611,7 @@ async function proveViewport(browser, tag, viewport) {
     && smsHeight === 44
     && !!scopedInvoiceGet,
     { url: page.url(), chaseText, chaseButtons, smsHeight, scopedInvoiceGet });
-  await page.screenshot({ path: `${LOOK}/unpaid-invoice-chase-${FRAME[tag]}.png` });
+  await page.screenshot({ path: `${LOOK}/unpaid-invoice-${FRAME[tag]}.png` });
 
   const invoicePatchesBefore = log.filter((entry) => entry.method === 'PATCH' && entry.table === 'invoices').length;
   await chaseDialog.getByRole('button', { name: 'Copy reminder' }).click();
