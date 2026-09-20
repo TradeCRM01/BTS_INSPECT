@@ -38,7 +38,12 @@ import {
   LETTERHEAD_LOOK,
 } from '../lib/companyLogo';
 import { CompanyLetterheadMark } from '../lib/CompanyLetterheadMark';
-import { AUDIT_INVOICE_ID, getAuditClients, getAuditInvoiceEditorRow } from '../lib/devFieldAuditDocs';
+import {
+  AUDIT_INVOICE_ID,
+  getAuditClients,
+  getAuditInvoiceEditorRow,
+  getAuditInvoiceEditorRows,
+} from '../lib/devFieldAuditDocs';
 import { companyPaymentMethodsForDocument } from '../lib/companyPaymentMethods';
 import {
   jobClientEmailRow,
@@ -130,6 +135,7 @@ export function InvoicesPage() {
   const { data: smtpSettings } = useQuery<SmtpSettingsRow | null>({
     queryKey: ['email-settings', profile?.company_id],
     queryFn: async () => {
+      if (isDevFieldAuditAuth()) return null;
       const { data, error } = await supabase
         .from('email_settings')
         .select('smtp_host, smtp_pass, from_name, from_email')
@@ -146,6 +152,8 @@ export function InvoicesPage() {
     queryKey: ['invoice', invoiceIdParam, profile?.company_id],
     queryFn: async () => {
       if (!invoiceIdParam || !profile?.company_id) return null;
+      const audit = getAuditInvoiceEditorRow(invoiceIdParam);
+      if (audit) return audit as InvoiceWithDetails;
       return loadInvoiceEditorRow(invoiceIdParam, profile.company_id);
     },
     enabled: !!invoiceIdParam && !!profile?.company_id,
@@ -155,8 +163,10 @@ export function InvoicesPage() {
     queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live'],
     queryFn: async () => {
       if (isDevFieldAuditAuth()) {
-        const row = getAuditInvoiceEditorRow(AUDIT_INVOICE_ID);
-        if (row) return [row as InvoiceWithDetails];
+        const rows = lookLetterhead
+          ? [getAuditInvoiceEditorRow(AUDIT_INVOICE_ID)].filter(row => row !== null)
+          : getAuditInvoiceEditorRows();
+        if (rows) return rows as InvoiceWithDetails[];
       }
       const { data, error } = await supabase
         .from('invoices')
@@ -382,7 +392,7 @@ export function InvoicesPage() {
             const activeInvoice = invoices?.find(invoice => invoice.id === sendingInvoiceId)
               ?? (openedInvoice?.id === sendingInvoiceId ? openedInvoice : null);
             const patch = activeInvoice ? invoiceChasePatch(activeInvoice, new Date()) : null;
-            if (patch) {
+            if (patch && !isDevFieldAuditAuth()) {
               const { error } = await supabase
                 .from('invoices')
                 .update(patch)

@@ -21,7 +21,13 @@ import {
   todayReminders,
   type PostponeChoice,
 } from '../lib/reminders';
-import { getAuditClients, getAuditDashboardWidgets, getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import {
+  getAuditClients,
+  getAuditDashboardWidgets,
+  getAuditInvoiceNudgeRows,
+  getAuditJobs,
+  getAuditTeamMembers,
+} from '../lib/devFieldAuditDocs';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
   DndContext, DragEndEvent, DragStartEvent, PointerSensor, useSensor, useSensors,
@@ -226,6 +232,8 @@ function withClientName<T extends ClientRef>(row: T, names: Map<string, string>)
 
 /** Today's and tomorrow's jobs, sent quotes, and unpaid invoices, each carrying its client name. */
 async function loadDashboardNudgeData(todayKey: string, tomorrowKey: string): Promise<DashboardNudgeData> {
+  const auditInvoices = getAuditInvoiceNudgeRows();
+  if (auditInvoices) return { jobs: [], quotes: [], invoices: auditInvoices };
   const [jobsRes, quotesRes, invoicesRes] = await Promise.all([
     supabase
       .from('jobs')

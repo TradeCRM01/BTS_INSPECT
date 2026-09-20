@@ -6,11 +6,14 @@ import type { ReportSendBundle, ReportSendCompany } from './sendReport';
 import type { JhaStep, JhaTemplateSchema } from '../types/jha';
 import type { PriceBook, PriceBookItem, ServiceContract, ServiceContractWithClient } from '../types/fsm';
 import type { ContractVisitReminderBundle, ContractVisitReminderCompany } from './contractVisitReminder';
+import type { NudgeInvoice } from './nudges';
 
 export const AUDIT_INSPECTION_ID = 'audit-inspection-fill';
 export const AUDIT_JHA_DOC_ID = 'audit-jha-fill';
 export const AUDIT_TAKE5_ID = 'audit-take5-fill';
 export const AUDIT_INVOICE_ID = 'audit-invoice-send';
+export const AUDIT_INVOICE_2002_ID = 'audit-invoice-2002';
+export const AUDIT_INVOICE_2003_ID = 'audit-invoice-2003';
 export const AUDIT_QUOTE_ID = 'audit-quote-send';
 export const AUDIT_PO_ID = 'audit-po-send';
 export const AUDIT_REPORT_ID = 'audit-report-send';
@@ -397,13 +400,37 @@ export function getAuditInvoiceEditorRow(invoiceId: string) {
     exclusions: bundle.invoice.exclusions ?? [],
     created_by: DEV_AUDIT_PROFILE.id,
     created_at: NOW,
-    updated_at: NOW,
+    updated_at: bundle.invoice.updated_at ?? NOW,
     client_name: bundle.client.name,
     client_email: bundle.client.email,
     client_phone: bundle.client.phone,
     job_title: 'Switchboard upgrade',
     job_address: bundle.jobAddress,
   };
+}
+
+export function getAuditInvoiceEditorRows() {
+  if (!isDevFieldAuditAuth()) return null;
+  return [AUDIT_INVOICE_2002_ID, AUDIT_INVOICE_2003_ID, AUDIT_INVOICE_ID]
+    .map(getAuditInvoiceEditorRow)
+    .filter(row => row !== null);
+}
+
+export function getAuditInvoiceNudgeRows(): NudgeInvoice[] | null {
+  const rows = getAuditInvoiceEditorRows();
+  if (!rows) return null;
+  return rows
+    .filter(row => row.id === AUDIT_INVOICE_2002_ID || row.id === AUDIT_INVOICE_2003_ID)
+    .map(row => ({
+      id: row.id,
+      invoice_number: row.invoice_number,
+      status: row.status,
+      due_date: row.due_date,
+      updated_at: row.updated_at,
+      total: row.total,
+      chased_at: row.chased_at,
+      client_name: row.client_name,
+    }));
 }
 
 export function getAuditListItems(defId: string) {
@@ -432,12 +459,71 @@ const SEND_CLIENT = {
 };
 
 const SEND_LINE = { description: 'Switchboard labour', quantity: 8, unit_price: 95 };
+const AUDIT_CHASE_CLIENT = {
+  id: 'audit-invoice-client',
+  name: 'Harbour Trade Co',
+  email: 'accounts@harbour-trade.example',
+  phone: '0412 345 678',
+  address: '8 Workshop Rd, Fremantle WA 6160',
+};
+const AUDIT_CHASE_LINE = { description: 'Site labour', quantity: 8, unit_price: 95 };
+
+function getAuditChaseInvoiceSendBundle(
+  invoiceId: string,
+  company: InvoiceSendCompany,
+): InvoiceSendBundle | null {
+  const invoice = invoiceId === AUDIT_INVOICE_2002_ID
+    ? {
+        id: AUDIT_INVOICE_2002_ID,
+        invoice_number: 2002,
+        status: 'overdue' as const,
+        due_date: '2026-09-06',
+        updated_at: '2026-09-01T00:00:00.000Z',
+        total: 836,
+        subtotal: 760,
+        tax_amount: 76,
+      }
+    : invoiceId === AUDIT_INVOICE_2003_ID
+      ? {
+          id: AUDIT_INVOICE_2003_ID,
+          invoice_number: 2003,
+          status: 'sent' as const,
+          due_date: '2026-09-10',
+          updated_at: '2026-09-02T00:00:00.000Z',
+          total: 660,
+          subtotal: 600,
+          tax_amount: 60,
+        }
+      : null;
+  if (!invoice) return null;
+  return {
+    invoice: {
+      ...invoice,
+      company_id: DEV_AUDIT_COMPANY.id,
+      client_id: AUDIT_CHASE_CLIENT.id,
+      job_id: null,
+      line_items: [AUDIT_CHASE_LINE],
+      tax_rate: 10,
+      payment_terms: '7 days',
+      notes: null,
+      inclusions: [],
+      exclusions: [],
+    },
+    client: AUDIT_CHASE_CLIENT,
+    jobAddress: AUDIT_CHASE_CLIENT.address,
+    smtp: null,
+    company,
+  };
+}
 
 export function getAuditInvoiceSendBundle(
   invoiceId: string,
   company: InvoiceSendCompany,
 ): InvoiceSendBundle | null {
-  if (!isDevFieldAuditAuth() || invoiceId !== AUDIT_INVOICE_ID) return null;
+  if (!isDevFieldAuditAuth()) return null;
+  const chase = getAuditChaseInvoiceSendBundle(invoiceId, company);
+  if (chase) return chase;
+  if (invoiceId !== AUDIT_INVOICE_ID) return null;
   return {
     invoice: {
       id: AUDIT_INVOICE_ID,
