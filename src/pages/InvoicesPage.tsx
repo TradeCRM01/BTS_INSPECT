@@ -461,9 +461,11 @@ function InvoiceNextControl({
     setBusy('mark_paid');
     let paid = false;
     try {
+      if (!company?.id) throw new Error('No company selected');
       const { error } = await supabase.from('invoices')
         .update({ status: persistableInvoiceStatus('paid'), updated_at: new Date().toISOString() })
-        .eq('id', invoice.id);
+        .eq('id', invoice.id)
+        .eq('company_id', company.id);
       if (error) throw error;
       paid = true;
       queryClient.invalidateQueries({ queryKey: ['invoices'] });

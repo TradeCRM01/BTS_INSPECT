@@ -677,7 +677,7 @@ async function proveViewport(browser, tag, viewport) {
       && row.querySelector('.hub-invoices-pill')?.textContent?.trim() === 'Paid';
   }, null, { timeout: 15000 }).then(() => true).catch(() => false);
   check(`${tag}InvoiceMarkPaidClearsListChase`,
-    !!paidPatch && paidCleared,
+    !!paidPatch && paidPatch.filter.includes(`company_id=eq.${COMPANY}`) && paidCleared,
     { paidPatch, rows: await readInvoiceRows(page) });
 
   // 8. Quotes list: quiet and lapsed chips, the lapsed chip opens the editor, the nudge deep link
