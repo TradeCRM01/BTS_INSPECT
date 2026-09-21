@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:sms-db": "node scripts/test-missed-call-sms.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
