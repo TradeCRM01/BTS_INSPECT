@@ -14665,15 +14665,15 @@
 
 /* Public /p portal only: signed quote sheet. Looplet document + xAI restraint. */
 #client-portal {
-  --portal-page: #F4F6F8;
-  --portal-sheet: #FFFFFF;
+  --portal-page: #F5F0E6;
+  --portal-sheet: #FFFDF8;
   --portal-ink: #0A2540;
   --portal-muted: #5B6B7C;
-  --portal-line: #D5DCE3;
+  --portal-line: #E2D9CC;
   --portal-action: #2E75B6;
   --portal-r-ctl: 12px;
   --portal-r-sheet: 16px;
-  font-family: Inter, system-ui, sans-serif;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   background: var(--portal-page);
   color: var(--portal-ink);
   min-height: 100dvh;
@@ -14750,10 +14750,11 @@
 
 #client-portal .portal-title {
   margin: 0;
-  font-size: 22px;
-  line-height: 1.25;
-  letter-spacing: -0.02em;
-  font-weight: 600;
+  font-family: Rajdhani, sans-serif;
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  font-weight: 700;
 }
 
 #client-portal .portal-muted {
@@ -14786,8 +14787,11 @@
 
 #client-portal .portal-sheet-title {
   margin: 0;
+  font-family: Rajdhani, sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 #client-portal .portal-empty {
@@ -14842,7 +14846,7 @@
   border-radius: var(--portal-r-ctl);
   background: #2E75B6;
   color: #fff;
-  font-family: Inter, system-ui, sans-serif;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 14px;
   font-weight: 600;
   box-shadow: none;

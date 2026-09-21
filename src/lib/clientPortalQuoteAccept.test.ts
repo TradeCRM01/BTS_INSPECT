@@ -10,25 +10,63 @@ import {
   quoteStatusAfterClientAccept,
 } from './sendQuote';
 import {
+  acceptClientPortalAuditQuote,
   canAcceptPortalQuote,
+  clientPortalAuditFixture,
+  isDevClientPortalAudit,
   PORTAL_QUOTE_ACCEPT_ACTION,
   portalQuoteAcceptBody,
 } from '../pages/ClientPortalPublicPage';
+import {
+  convertQuoteHasDateAndCrew,
+  jobFieldsFromQuote,
+} from './quoteJobFields';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
 describe('portal quote Accept — same write as office Mark accepted', () => {
+  it('runs the DEV audit fixture without inventing booking fields', () => {
+    expect(isDevClientPortalAudit(new URLSearchParams('auditAuth=1'))).toBe(true);
+    expect(isDevClientPortalAudit(new URLSearchParams('auditAuth=0'))).toBe(false);
+
+    const sent = clientPortalAuditFixture();
+    const source = sent.quotes[0];
+    expect(source).toMatchObject({
+      status: 'sent',
+      scheduled_date: '2026-09-24',
+      assigned_team: ['audit-crew-7'],
+    });
+    expect(sent.jobs).toEqual([]);
+
+    const accepted = acceptClientPortalAuditQuote(sent, source.id);
+    expect(sent.quotes[0].status).toBe('sent');
+    expect(accepted.quotes[0]).toMatchObject({
+      status: 'accepted',
+      job_id: `audit-job-${source.id}`,
+    });
+    expect(accepted.jobs).toEqual([expect.objectContaining({
+      status: 'scheduled',
+      scheduled_date: source.scheduled_date,
+      assigned_team: source.assigned_team,
+    })]);
+  });
+
   it('sent quotes can Accept; that write is quotes.status = accepted', () => {
     expect(canClientAcceptQuote('sent')).toBe(true);
-    expect(canAcceptPortalQuote('sent')).toBe(true);
+    expect(canAcceptPortalQuote('sent', null)).toBe(true);
     expect(canClientAcceptQuote('accepted')).toBe(false);
-    expect(canAcceptPortalQuote('draft')).toBe(false);
+    expect(canAcceptPortalQuote('draft', null)).toBe(false);
     expect(quoteStatusAfterClientAccept('sent')).toBe('accepted');
     expect(quoteStatusAfterClientAccept('expired')).toBeNull();
     expect(portalQuoteAcceptBody('tok', 'q1')).toEqual(clientPortalAcceptBody('tok', 'q1'));
     expect(PORTAL_QUOTE_ACCEPT_ACTION).toBe('accept_quote');
+  });
+
+  it('lets an accepted quote with no linked job finish booking, then stops retrying', () => {
+    expect(canAcceptPortalQuote('accepted', null)).toBe(true);
+    expect(canAcceptPortalQuote('accepted', 'job-1')).toBe(false);
   });
 
   it('rides the existing /p token portal — list Accept, no new route family', () => {
@@ -38,8 +76,8 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
 
     expect(page).toContain("functions.invoke('client-portal'");
     expect(page).toContain('portalQuoteAcceptBody(token, quoteId)');
-    expect(page).toContain('canAcceptPortalQuote(q.status)');
-    expect(page).toContain('{acceptingId === q.id ? \'Accepting...\' : \'Accept\'}');
+    expect(page).toContain('canAcceptPortalQuote(q.status, q.job_id)');
+    expect(page).toContain("'Finish booking' : 'Accept and book'");
     expect(page).not.toContain('path=');
     expect(page).not.toContain('/quote-accept');
     expect(page).not.toContain('How to pay');
@@ -59,6 +97,12 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
     expect(edge).toContain('from("quotes")');
     expect(edge).not.toContain('declined');
     expect(edge).not.toContain('How to pay');
+
+    const supabaseClient = src('src/lib/supabase.ts');
+    expect(supabaseClient).toContain("import.meta.env.DEV ? 'http://127.0.0.1:54321' : ''");
+    expect(page).toContain("enabled: !auditPortal && !!token");
+    const acceptHandler = page.slice(page.indexOf('const acceptQuote = async'), page.indexOf('if (!token && !auditPortal)'));
+    expect(acceptHandler.indexOf('if (auditPortal)')).toBeLessThan(acceptHandler.indexOf("supabase.functions.invoke('client-portal'"));
   });
 
   it('G1 Accept inserts one job and sets quotes.status = accepted — Convert is not a second tap', () => {
@@ -79,6 +123,20 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
   });
 
   it('G2 Accept copies quote date and crew onto the job when present', () => {
+    const sentQuote = {
+      quote_number: 42,
+      client_id: 'client-1',
+      description: 'Workshop fit-out',
+      scope_of_works: 'Complete the agreed site works.',
+      total: 2860,
+      scheduled_date: '2026-09-24',
+      assigned_team: ['crew-7'],
+    };
+    const bookedJob = jobFieldsFromQuote(sentQuote, '14 Smith Street');
+    expect(bookedJob.scheduled_date).toBe('2026-09-24');
+    expect(bookedJob.assigned_team).toEqual(['crew-7']);
+    expect(convertQuoteHasDateAndCrew(bookedJob)).toBe(true);
+
     const edge = src('supabase/functions/client-portal/index.ts');
     expect(edge).toContain('scheduled_date: scheduledDateFromQuote(quote.scheduled_date)');
     expect(edge).toContain('assigned_team: assignedTeamFromQuote(quote.assigned_team)');
@@ -143,21 +201,22 @@ describe('LOOK — portal Accept is a signed quote sheet, not a leftover CRM but
     const quoteCopy = edge.slice(quoteHtmlStart, edge.indexOf('async function resolveQuotePortalUrl'));
 
     expect(css).toContain('#client-portal');
-    expect(css).toContain('--portal-page: #F4F6F8');
-    expect(css).toContain('--portal-sheet: #FFFFFF');
+    expect(css).toContain('--portal-page: #F5F0E6');
+    expect(css).toContain('--portal-sheet: #FFFDF8');
     expect(css).toContain('--portal-ink: #0A2540');
     expect(css).toContain('--portal-muted: #5B6B7C');
-    expect(css).toContain('--portal-line: #D5DCE3');
+    expect(css).toContain('--portal-line: #E2D9CC');
     expect(css).toContain('--portal-action: #2E75B6');
     expect(css).toContain('--portal-r-ctl: 12px');
     expect(css).toContain('--portal-r-sheet: 16px');
-    expect(css).toContain('font-family: Inter, system-ui, sans-serif');
+    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(css).toContain('font-family: Rajdhani, sans-serif');
     expect(css).toContain('min-height: 44px');
     expect(css).toContain('.portal-quote-accept');
     expect(css).toContain('background: #2E75B6');
     expect(page).toContain('id="client-portal"');
     expect(page).toContain('className="portal-quote-accept"');
-    expect(page).toContain('{acceptingId === q.id ? \'Accepting...\' : \'Accept\'}');
+    expect(page).toContain("'Finish booking' : 'Accept and book'");
     expect(page).toContain('portalQuoteStatusLabel(q.status)');
     expect(page).not.toContain('bg-[#0A2540]');
     expect(page).not.toContain('<Check');
