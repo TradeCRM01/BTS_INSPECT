@@ -93,6 +93,11 @@ type AcceptQuoteRow = {
   created_by: string | null;
 };
 
+async function removeUnlinkedJob(admin: PortalAdmin, jobId: string): Promise<void> {
+  await admin.from("job_costs").delete().eq("job_id", jobId);
+  await admin.from("jobs").delete().eq("id", jobId);
+}
+
 /** One job per accepted quote. Date + crew copy when present; otherwise the job still exists. */
 async function ensureJobForAcceptedQuote(
   admin: PortalAdmin,
@@ -175,7 +180,10 @@ async function ensureJobForAcceptedQuote(
     .is("job_id", null)
     .select("id")
     .maybeSingle();
-  if (linkErr) return { jobId: null, error: linkErr.message };
+  if (linkErr) {
+    await removeUnlinkedJob(admin, jobId);
+    return { jobId: null, error: linkErr.message };
+  }
 
   if (!linked) {
     const { data: raced } = await admin
@@ -184,10 +192,11 @@ async function ensureJobForAcceptedQuote(
       .eq("id", quote.id)
       .maybeSingle();
     if (raced?.job_id && raced.job_id !== jobId) {
-      await admin.from("job_costs").delete().eq("job_id", jobId);
-      await admin.from("jobs").delete().eq("id", jobId);
+      await removeUnlinkedJob(admin, jobId);
       return { jobId: raced.job_id as string, error: null };
     }
+    await removeUnlinkedJob(admin, jobId);
+    return { jobId: null, error: "Could not link the booked job to the quote" };
   }
 
   return { jobId, error: null };
@@ -369,7 +378,7 @@ Deno.serve(async (req) => {
       await Promise.all([
         admin
           .from("quotes")
-          .select("id, quote_number, status, total, validity_date, updated_at")
+          .select("id, quote_number, status, job_id, total, validity_date, updated_at")
           .eq("client_id", portal.client_id)
           .order("updated_at", { ascending: false })
           .limit(50),

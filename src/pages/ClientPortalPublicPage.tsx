@@ -10,15 +10,39 @@ import { usePublicDocumentHead } from '../lib/publicSeo';
 
 export const PORTAL_QUOTE_ACCEPT_ACTION = 'accept_quote';
 
-export function canAcceptPortalQuote(status: string): boolean {
-  return status === 'sent';
+export function canAcceptPortalQuote(status: string, jobId: string | null): boolean {
+  return status === 'sent' || (status === 'accepted' && !jobId);
 }
 
 export function portalQuoteAcceptBody(token: string, quoteId: string) {
   return { token, action: PORTAL_QUOTE_ACCEPT_ACTION, quoteId };
 }
 
-type PortalPayload =
+type PortalQuote = {
+  id: string;
+  quote_number: string;
+  status: string;
+  job_id: string | null;
+  total: number;
+  validity_date: string | null;
+  updated_at: string;
+  scheduled_date?: string | null;
+  assigned_team?: string[];
+  job_title?: string;
+};
+
+type PortalJob = {
+  id: string;
+  title: string;
+  status: string;
+  scheduled_date: string | null;
+  assigned_team?: string[];
+  job_number: number | null;
+  address: string | null;
+  updated_at: string;
+};
+
+export type PortalPayload =
   | {
       kind: 'report';
       company: { name: string; logoUrl?: string | null; phone?: string | null; email?: string | null; website?: string | null } | null;
@@ -42,9 +66,9 @@ type PortalPayload =
       kind: 'portal';
       company: { name: string; logoUrl?: string | null; phone?: string | null; email?: string | null; website?: string | null } | null;
       client: { name: string; email?: string | null; phone?: string | null; address?: string | null } | null;
-      quotes: Array<{ id: string; quote_number: string; status: string; total: number; validity_date: string | null; updated_at: string }>;
+      quotes: PortalQuote[];
       invoices: Array<{ id: string; invoice_number: string; status: string; total: number; due_date: string | null; updated_at: string }>;
-      jobs: Array<{ id: string; title: string; status: string; scheduled_date: string | null; job_number: number | null; address: string | null; updated_at: string }>;
+      jobs: PortalJob[];
       reports: Array<{
         inspectionId: string;
         reportNumber: string | null;
@@ -57,6 +81,69 @@ type PortalPayload =
         issuedAt: string | null;
       }>;
     };
+
+type PortalAuditPayload = Extract<PortalPayload, { kind: 'portal' }>;
+
+export function isDevClientPortalAudit(params: URLSearchParams): boolean {
+  return import.meta.env.DEV && params.get('auditAuth') === '1';
+}
+
+export function clientPortalAuditFixture(): PortalAuditPayload {
+  if (!import.meta.env.DEV) throw new Error('Client portal audit is DEV only');
+  return {
+    kind: 'portal',
+    company: { name: 'Harbour Trade Co' },
+    client: { name: 'Smith Street Workshop' },
+    quotes: [{
+      id: 'audit-quote-42',
+      quote_number: '#0042',
+      status: 'sent',
+      job_id: null,
+      total: 2860,
+      validity_date: '2026-10-01',
+      updated_at: '2026-09-20T00:00:00.000Z',
+      scheduled_date: '2026-09-24',
+      assigned_team: ['audit-crew-7'],
+      job_title: 'Workshop fit-out',
+    }],
+    invoices: [],
+    jobs: [],
+    reports: [],
+  };
+}
+
+export function acceptClientPortalAuditQuote(
+  current: PortalAuditPayload,
+  quoteId: string,
+): PortalAuditPayload {
+  if (!import.meta.env.DEV) throw new Error('Client portal audit is DEV only');
+  const quote = current.quotes.find(row => row.id === quoteId);
+  if (
+    !quote
+    || quote.status !== 'sent'
+    || !quote.scheduled_date
+    || !quote.assigned_team?.length
+    || !quote.job_title
+  ) return current;
+
+  const jobId = `audit-job-${quote.id}`;
+  return {
+    ...current,
+    quotes: current.quotes.map(row => row.id === quote.id
+      ? { ...row, status: 'accepted', job_id: jobId }
+      : row),
+    jobs: [{
+      id: jobId,
+      title: quote.job_title,
+      status: 'scheduled',
+      scheduled_date: quote.scheduled_date,
+      assigned_team: [...quote.assigned_team],
+      job_number: null,
+      address: null,
+      updated_at: quote.updated_at,
+    }],
+  };
+}
 
 async function fetchPortal(token: string): Promise<PortalPayload> {
   const { data, error } = await supabase.functions.invoke('client-portal', {
@@ -112,20 +199,29 @@ export function ClientPortalPublicPage() {
   usePublicDocumentHead('portal');
   const [params] = useSearchParams();
   const token = useMemo(() => (params.get('t') || params.get('token') || '').trim(), [params]);
+  const auditPortal = isDevClientPortalAudit(params);
+  const [auditData, setAuditData] = useState<PortalAuditPayload | null>(
+    () => auditPortal ? clientPortalAuditFixture() : null,
+  );
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [acceptError, setAcceptError] = useState<string | null>(null);
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data: liveData, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['client-portal-public', token],
     queryFn: () => fetchPortal(token),
-    enabled: !!token,
+    enabled: !auditPortal && !!token,
     retry: 1,
   });
+  const data = auditPortal ? auditData : liveData;
 
   const acceptQuote = async (quoteId: string) => {
     setAcceptingId(quoteId);
     setAcceptError(null);
     try {
+      if (auditPortal) {
+        setAuditData(current => current ? acceptClientPortalAuditQuote(current, quoteId) : current);
+        return;
+      }
       const { data: result, error: acceptErr } = await supabase.functions.invoke('client-portal', {
         body: portalQuoteAcceptBody(token, quoteId),
       });
@@ -139,7 +235,7 @@ export function ClientPortalPublicPage() {
     }
   };
 
-  if (!token) {
+  if (!token && !auditPortal) {
     return (
       <PortalFrame>
         <div className="portal-state">
@@ -238,17 +334,22 @@ export function ClientPortalPublicPage() {
               <div>
                 <p className="portal-row-ref">{q.quote_number}</p>
                 <p className="portal-muted">{portalQuoteStatusLabel(q.status)}</p>
+                {auditPortal && q.scheduled_date && q.assigned_team?.length ? (
+                  <p className="portal-muted">
+                    {format(parseISO(q.scheduled_date), 'dd MMM yyyy')} · {q.assigned_team.length} crew
+                  </p>
+                ) : null}
               </div>
               <p className="portal-quote-total">{formatMoney(q.total)}</p>
             </div>
-            {canAcceptPortalQuote(q.status) && (
+            {canAcceptPortalQuote(q.status, q.job_id) && (
               <button
                 type="button"
                 onClick={() => void acceptQuote(q.id)}
                 disabled={acceptingId === q.id}
                 className="portal-quote-accept"
               >
-                {acceptingId === q.id ? 'Accepting...' : 'Accept'}
+                {acceptingId === q.id ? 'Booking...' : q.status === 'accepted' ? 'Finish booking' : 'Accept and book'}
               </button>
             )}
           </div>
@@ -275,6 +376,7 @@ export function ClientPortalPublicPage() {
               {j.status}
               {j.job_number != null ? ` · #${String(j.job_number).padStart(4, '0')}` : ''}
               {j.scheduled_date ? ` · ${format(parseISO(j.scheduled_date), 'dd MMM yyyy')}` : ''}
+              {auditPortal && j.assigned_team?.length ? ` · ${j.assigned_team.length} crew` : ''}
             </p>
           </div>
         ))}
