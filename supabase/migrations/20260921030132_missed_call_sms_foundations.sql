@@ -155,35 +155,16 @@ AS $$
 DECLARE
   v_sender public.company_twilio_senders%ROWTYPE;
 BEGIN
-  SELECT message.*
-  INTO v_existing
-  FROM public.sms_messages AS message
-  WHERE message.provider_message_sid = p_provider_message_sid;
-
-  IF FOUND THEN
-    IF v_existing.provider_account_sid IS DISTINCT FROM p_provider_account_sid
-      OR v_existing.from_phone_e164 IS DISTINCT FROM p_from_phone_e164
-      OR v_existing.to_phone_e164 IS DISTINCT FROM p_to_phone_e164
-      OR v_existing.body IS DISTINCT FROM coalesce(p_body, '')
-    THEN
-      RAISE EXCEPTION 'provider message SID conflicts with a different inbound message';
-    END IF;
-
-    RETURN jsonb_build_object(
-      'stored', true,
-      'replay', true,
-      'company_id', v_existing.company_id,
-      'message_id', v_existing.id
-    );
-  END IF;
-
   SELECT sender.*
   INTO v_sender
   FROM public.company_twilio_senders AS sender
   WHERE sender.company_id = NEW.company_id
     AND sender.id = NEW.sender_id;
 
-  IF NOT FOUND OR NOT v_sender.active THEN
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'SMS sender does not belong to the message company';
+  END IF;
+  IF NOT v_sender.active THEN
     RAISE EXCEPTION 'SMS must use an active company sender';
   END IF;
   IF NEW.direction = 'inbound' AND NEW.to_phone_e164 IS DISTINCT FROM v_sender.phone_e164 THEN
