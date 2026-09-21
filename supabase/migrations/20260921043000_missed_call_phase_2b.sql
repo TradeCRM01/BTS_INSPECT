@@ -1,3 +1,6 @@
+CREATE UNIQUE INDEX jobs_company_id_key
+  ON public.jobs (company_id, id);
+
 CREATE TABLE public.missed_call_sms_threads (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
@@ -7,7 +10,7 @@ CREATE TABLE public.missed_call_sms_threads (
   state text NOT NULL DEFAULT 'awaiting_reply'
     CHECK (state IN ('awaiting_reply', 'booking_pending', 'booked', 'office_review', 'opted_out')),
   latest_inbound_message_id uuid,
-  booked_job_id uuid REFERENCES public.jobs(id) ON DELETE SET NULL,
+  booked_job_id uuid,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (missed_call_id),
@@ -20,7 +23,10 @@ CREATE TABLE public.missed_call_sms_threads (
     REFERENCES public.missed_calls(company_id, id),
   CONSTRAINT missed_call_sms_threads_company_message_fkey
     FOREIGN KEY (company_id, latest_inbound_message_id)
-    REFERENCES public.sms_messages(company_id, id)
+    REFERENCES public.sms_messages(company_id, id),
+  CONSTRAINT missed_call_sms_threads_company_job_fkey
+    FOREIGN KEY (company_id, booked_job_id)
+    REFERENCES public.jobs(company_id, id)
 );
 
 CREATE INDEX missed_call_sms_threads_company_updated_idx
@@ -36,7 +42,7 @@ CREATE TABLE public.missed_call_booking_commands (
   booking_time time NOT NULL,
   payload_hash text NOT NULL CHECK (payload_hash ~ '^[0-9a-f]{32}$'),
   state text NOT NULL DEFAULT 'pending' CHECK (state IN ('pending', 'booked', 'review')),
-  job_id uuid REFERENCES public.jobs(id) ON DELETE SET NULL,
+  job_id uuid,
   review_reason text CHECK (
     review_reason IS NULL OR review_reason IN ('noneligible', 'ambiguous', 'stop', 'conflict')
   ),
@@ -50,7 +56,10 @@ CREATE TABLE public.missed_call_booking_commands (
     REFERENCES public.missed_call_sms_threads(company_id, id),
   CONSTRAINT missed_call_booking_commands_company_message_fkey
     FOREIGN KEY (company_id, inbound_message_id)
-    REFERENCES public.sms_messages(company_id, id)
+    REFERENCES public.sms_messages(company_id, id),
+  CONSTRAINT missed_call_booking_commands_company_job_fkey
+    FOREIGN KEY (company_id, job_id)
+    REFERENCES public.jobs(company_id, id)
 );
 
 CREATE INDEX missed_call_booking_commands_pending_idx
@@ -62,6 +71,7 @@ CREATE TABLE public.missed_call_office_reviews (
   company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   thread_id uuid,
   inbound_message_id uuid NOT NULL,
+  reminder_id uuid REFERENCES public.agent_reminders(id) ON DELETE SET NULL,
   reason text NOT NULL CHECK (reason IN ('noneligible', 'ambiguous', 'stop', 'conflict')),
   resolved_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -148,6 +158,9 @@ DECLARE
   v_command_id uuid;
   v_payload_hash text;
   v_review_reason text;
+  v_review_id uuid;
+  v_reminder_id uuid;
+  v_review_owner_id uuid;
 BEGIN
   IF p_reply_kind NOT IN ('stop', 'confirmed_slot', 'ambiguous', 'noneligible') THEN
     RAISE EXCEPTION 'invalid missed-call reply kind';
@@ -192,6 +205,7 @@ BEGIN
     AND missed.from_phone_e164 = p_from_phone_e164
     AND missed.to_phone_e164 = p_to_phone_e164
     AND missed.outbound_message_id IS NOT NULL
+    AND missed.received_at >= now() - interval '7 days'
   ORDER BY missed.received_at DESC
   LIMIT 1;
 
@@ -218,7 +232,7 @@ BEGIN
 
   IF p_reply_kind = 'stop' THEN
     v_review_reason := 'stop';
-    IF v_thread.id IS NOT NULL AND v_thread.state <> 'booked' THEN
+    IF v_thread.id IS NOT NULL THEN
       UPDATE public.missed_call_sms_threads
       SET state = 'opted_out', updated_at = now()
       WHERE id = v_thread.id;
@@ -277,6 +291,48 @@ BEGIN
     )
     ON CONFLICT (inbound_message_id) DO NOTHING;
 
+    SELECT review.id, review.reminder_id
+    INTO v_review_id, v_reminder_id
+    FROM public.missed_call_office_reviews AS review
+    WHERE review.inbound_message_id = v_message_id;
+
+    IF v_reminder_id IS NULL THEN
+      SELECT profile.id
+      INTO v_review_owner_id
+      FROM public.profiles AS profile
+      WHERE profile.company_id = v_company_id
+      ORDER BY (profile.role = 'admin') DESC, profile.created_at, profile.id
+      LIMIT 1;
+
+      INSERT INTO public.agent_reminders (
+        company_id,
+        user_id,
+        title,
+        details,
+        due_date,
+        related_type,
+        related_id,
+        visibility
+      )
+      VALUES (
+        v_company_id,
+        v_review_owner_id,
+        'Review missed-call SMS reply',
+        'Reason: ' || replace(v_review_reason, 'noneligible', 'non-eligible')
+          || '. Reply from ' || p_from_phone_e164 || '.',
+        now(),
+        'missed_call_office_review',
+        v_review_id,
+        'company'
+      )
+      RETURNING id INTO v_reminder_id;
+
+      UPDATE public.missed_call_office_reviews
+      SET reminder_id = v_reminder_id
+      WHERE id = v_review_id
+        AND reminder_id IS NULL;
+    END IF;
+
     IF v_thread.id IS NOT NULL
       AND v_review_reason <> 'stop'
       AND v_thread.state <> 'booked'
@@ -324,6 +380,9 @@ DECLARE
   v_job_id uuid;
   v_consent_status text;
   v_reason text;
+  v_review_id uuid;
+  v_reminder_id uuid;
+  v_review_owner_id uuid;
 BEGIN
   IF length(btrim(coalesce(p_worker_id, ''))) = 0 THEN
     RAISE EXCEPTION 'worker id is required';
@@ -444,7 +503,45 @@ BEGIN
       v_command.inbound_message_id,
       v_reason
     )
-    ON CONFLICT (inbound_message_id) DO UPDATE SET reason = EXCLUDED.reason;
+    ON CONFLICT (inbound_message_id) DO UPDATE SET reason = EXCLUDED.reason
+    RETURNING id, reminder_id INTO v_review_id, v_reminder_id;
+
+    IF v_reminder_id IS NULL THEN
+      SELECT profile.id
+      INTO v_review_owner_id
+      FROM public.profiles AS profile
+      WHERE profile.company_id = v_command.company_id
+      ORDER BY (profile.role = 'admin') DESC, profile.created_at, profile.id
+      LIMIT 1;
+
+      INSERT INTO public.agent_reminders (
+        company_id,
+        user_id,
+        title,
+        details,
+        due_date,
+        related_type,
+        related_id,
+        visibility
+      )
+      VALUES (
+        v_command.company_id,
+        v_review_owner_id,
+        'Review missed-call SMS reply',
+        'Reason: ' || replace(v_reason, 'noneligible', 'non-eligible')
+          || '. Reply from ' || v_thread.caller_phone_e164 || '.',
+        now(),
+        'missed_call_office_review',
+        v_review_id,
+        'company'
+      )
+      RETURNING id INTO v_reminder_id;
+
+      UPDATE public.missed_call_office_reviews
+      SET reminder_id = v_reminder_id
+      WHERE id = v_review_id
+        AND reminder_id IS NULL;
+    END IF;
 
     RETURN jsonb_build_object(
       'processed', true,

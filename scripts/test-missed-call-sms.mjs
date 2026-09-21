@@ -364,10 +364,25 @@ try {
   });
   assert.equal(vague.review_reason, 'ambiguous', 'vague yes does not book');
   const vagueReview = await must(
-    admin.from('missed_call_office_reviews').select('reason').eq('inbound_message_id', vague.message_id).single(),
+    admin.from('missed_call_office_reviews')
+      .select('reason, reminder_id')
+      .eq('inbound_message_id', vague.message_id)
+      .single(),
     'read vague review',
   );
   assert.equal(vagueReview.reason, 'ambiguous', 'vague reply is sent to office review');
+  const vagueTask = await must(
+    admin.from('agent_reminders')
+      .select('title, related_type, visibility')
+      .eq('id', vagueReview.reminder_id)
+      .single(),
+    'read vague office task',
+  );
+  assert.deepEqual(vagueTask, {
+    title: 'Review missed-call SMS reply',
+    related_type: 'missed_call_office_review',
+    visibility: 'company',
+  }, 'office review creates a company-visible task on the existing reminders path');
 
   const bookingDate = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
   const bookingReply = await ingest({
@@ -457,6 +472,11 @@ try {
     'read thread STOP review',
   );
   assert.equal(stopReview.reason, 'stop', 'thread STOP goes to office review without booking');
+  const stoppedThread = await must(
+    admin.from('missed_call_sms_threads').select('state').eq('id', stopReply.thread_id).single(),
+    'read stopped thread',
+  );
+  assert.equal(stoppedThread.state, 'opted_out', 'STOP advances the thread to opted out');
 
   const claimId = randomUUID();
   await must(
@@ -509,6 +529,10 @@ try {
 
   console.log('missed-call SMS database integration tests passed');
 } finally {
+  await admin.from('agent_reminders')
+    .delete()
+    .in('company_id', [companyA, companyB])
+    .eq('related_type', 'missed_call_office_review');
   await admin.from('missed_call_office_reviews').delete().in('company_id', [companyA, companyB]);
   await admin.from('missed_call_booking_commands').delete().in('company_id', [companyA, companyB]);
   await admin.from('missed_call_sms_threads').delete().in('company_id', [companyA, companyB]);

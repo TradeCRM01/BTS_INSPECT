@@ -2,8 +2,10 @@
 
 Phase 2B accepts replies to a missed-call text thread. The automatic booking
 syntax is `BOOK YYYY-MM-DD HH:MM`. Every other reply goes to
-`missed_call_office_reviews`. `STOP` also opts the caller out and cancels queued
-messages before a worker can send them.
+`missed_call_office_reviews` and creates a company-visible task on the existing
+reminders path. Replies only attach to a missed-call text-back from the previous
+seven days. `STOP` also opts the caller out and cancels queued messages before a
+worker can send them.
 
 ## Configure the reply webhook
 
@@ -45,4 +47,6 @@ confirmation through the existing SMS dispatcher. Run
 
 The worker sends no confirmation if consent changed, the caller sent `STOP`,
 the client is not an exact company-scoped phone match, or the slot conflicts
-with an active job. Inspect those cases in `missed_call_office_reviews`.
+with an active job. Work those cases from the `Review missed-call SMS reply`
+tasks; `missed_call_office_reviews` retains the machine-readable reason and
+source message.
