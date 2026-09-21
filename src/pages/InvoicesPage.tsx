@@ -1009,6 +1009,10 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       }
       const paidToast = await finishPaid(id);
       setSaving(false);
+      if (isDevFieldAuditAuth()) {
+        showToast(paidToast ?? opts?.message ?? 'Invoice updated');
+        return id;
+      }
       onSaved({ close: opts?.close ?? false, message: paidToast ?? opts?.message ?? 'Invoice updated' });
       return id;
     }
