@@ -50,6 +50,15 @@ async function createTenant(companyId, label) {
 }
 
 async function ingest({ sid, to, body = 'Hello' }) {
+  const stop = body.trim().toUpperCase() === 'STOP';
+  const confirmed = body.trim().match(/^BOOK\s+(\d{4}-\d{2}-\d{2})\s+(?:AT\s+)?(\d{2}:\d{2})$/i);
+  const replyKind = stop
+    ? 'stop'
+    : confirmed
+      ? 'confirmed_slot'
+      : /\b(?:yes|book|booking|available|works|confirm)\b/i.test(body)
+        ? 'ambiguous'
+        : 'noneligible';
   return must(
     admin.rpc('ingest_twilio_inbound_sms', {
       p_provider_account_sid: `AC${suffix}`,
@@ -57,7 +66,10 @@ async function ingest({ sid, to, body = 'Hello' }) {
       p_from_phone_e164: '+61412345678',
       p_to_phone_e164: to,
       p_body: body,
-      p_is_stop: body.trim().toUpperCase() === 'STOP',
+      p_is_stop: stop,
+      p_reply_kind: replyKind,
+      p_booking_date: confirmed?.[1] ?? null,
+      p_booking_time: confirmed?.[2] ?? null,
     }),
     `ingest ${sid}`,
   );
@@ -336,6 +348,116 @@ try {
     'sent state retains the provider Message SID',
   );
 
+  await must(
+    admin.from('clients').insert({
+      company_id: companyA,
+      name: 'Missed-call client',
+      phone: '+61412345678',
+      address: '1 Test Street',
+    }),
+    'create booking client',
+  );
+  const vague = await ingest({
+    sid: `SM${suffix}VAGUE`,
+    to: '+61280000001',
+    body: 'yes',
+  });
+  assert.equal(vague.review_reason, 'ambiguous', 'vague yes does not book');
+  const vagueReview = await must(
+    admin.from('missed_call_office_reviews').select('reason').eq('inbound_message_id', vague.message_id).single(),
+    'read vague review',
+  );
+  assert.equal(vagueReview.reason, 'ambiguous', 'vague reply is sent to office review');
+
+  const bookingDate = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+  const bookingReply = await ingest({
+    sid: `SM${suffix}BOOK`,
+    to: '+61280000001',
+    body: `BOOK ${bookingDate} 09:30`,
+  });
+  assert.ok(bookingReply.command_id, 'confirmed concrete slot creates a booking command');
+  const booked = await must(
+    admin.rpc('process_next_missed_call_booking', { p_worker_id: 'booking-test' }),
+    'process confirmed booking',
+  );
+  assert.equal(booked.booked, true, 'confirmed concrete slot books a job');
+  const bookedJob = await must(
+    admin.from('jobs')
+      .select('company_id, scheduled_date, start_time, created_by, created_via, automation_ref')
+      .eq('id', booked.job_id)
+      .single(),
+    'read automated job',
+  );
+  assert.equal(bookedJob.company_id, companyA, 'booking stays in the missed-call company');
+  assert.equal(bookedJob.scheduled_date, bookingDate, 'booking keeps the confirmed date');
+  assert.equal(bookedJob.start_time.slice(0, 5), '09:30', 'booking keeps the confirmed time');
+  assert.equal(bookedJob.created_by, null, 'automation does not spoof a human JWT');
+  assert.equal(bookedJob.created_via, 'missed_call_sms', 'job records automation provenance');
+  assert.equal(bookedJob.automation_ref, bookingReply.message_id, 'job references the inbound command message');
+  const confirmation = await must(
+    admin.from('sms_messages')
+      .select('state, body')
+      .like('idempotency_key', `booking-confirmation:${bookingReply.command_id}:%`)
+      .single(),
+    'read booking confirmation',
+  );
+  assert.equal(confirmation.state, 'queued', 'booking queues confirmation through shared dispatch');
+
+  const commandsA = await must(
+    clientA.from('missed_call_booking_commands').select('company_id'),
+    'company A booking command read',
+  );
+  const commandsB = await must(
+    clientB.from('missed_call_booking_commands').select('company_id'),
+    'company B booking command read',
+  );
+  assert.ok(commandsA.length > 0 && commandsA.every((row) => row.company_id === companyA), 'company A sees only A commands');
+  assert.equal(commandsB.length, 0, 'company B cannot see company A commands');
+
+  const rebook = await ingest({
+    sid: `SM${suffix}REBOOK`,
+    to: '+61280000001',
+    body: `BOOK ${bookingDate} 09:30`,
+  });
+  assert.equal(rebook.review_reason, 'conflict', 'a booked thread sends rebooking to office review');
+  const jobsAfterRebook = await must(
+    admin.from('jobs').select('id').eq('automation_ref', bookingReply.message_id),
+    'read jobs after rebook',
+  );
+  assert.equal(jobsAfterRebook.length, 1, 'idempotent rebook does not create a second job');
+
+  const conflictCallSid = `CA${`${suffix}c`.padEnd(32, 'c')}`;
+  await ingestCall({ sid: conflictCallSid, to: '+61280000001' });
+  const conflictReply = await ingest({
+    sid: `SM${suffix}CONFLICT`,
+    to: '+61280000001',
+    body: `BOOK ${bookingDate} 09:30`,
+  });
+  const conflictBooking = await must(
+    admin.rpc('process_next_missed_call_booking', { p_worker_id: 'booking-conflict-test' }),
+    'process conflicting booking',
+  );
+  assert.equal(conflictBooking.booked, false, 'occupied slot is not booked');
+  assert.equal(conflictBooking.review_reason, 'conflict', 'occupied slot goes to office review');
+  const conflictReview = await must(
+    admin.from('missed_call_office_reviews').select('reason').eq('inbound_message_id', conflictReply.message_id).single(),
+    'read conflict review',
+  );
+  assert.equal(conflictReview.reason, 'conflict', 'conflict review keeps its reason');
+
+  const stopCallSid = `CA${`${suffix}d`.padEnd(32, 'd')}`;
+  await ingestCall({ sid: stopCallSid, to: '+61280000001' });
+  const stopReply = await ingest({
+    sid: `SM${suffix}THREADSTOP`,
+    to: '+61280000001',
+    body: 'STOP',
+  });
+  const stopReview = await must(
+    admin.from('missed_call_office_reviews').select('reason').eq('inbound_message_id', stopReply.message_id).single(),
+    'read thread STOP review',
+  );
+  assert.equal(stopReview.reason, 'stop', 'thread STOP goes to office review without booking');
+
   const claimId = randomUUID();
   await must(
     admin.from('communication_preferences').insert({
@@ -387,6 +509,11 @@ try {
 
   console.log('missed-call SMS database integration tests passed');
 } finally {
+  await admin.from('missed_call_office_reviews').delete().in('company_id', [companyA, companyB]);
+  await admin.from('missed_call_booking_commands').delete().in('company_id', [companyA, companyB]);
+  await admin.from('missed_call_sms_threads').delete().in('company_id', [companyA, companyB]);
+  await admin.from('jobs').delete().in('company_id', [companyA, companyB]);
+  await admin.from('clients').delete().in('company_id', [companyA, companyB]);
   await admin.from('missed_calls').delete().in('company_id', [companyA, companyB]);
   await admin.from('sms_messages').delete().in('company_id', [companyA, companyB]);
   await admin.from('communication_preferences').delete().in('company_id', [companyA, companyB]);

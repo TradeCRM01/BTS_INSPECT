@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  classifyMissedCallReply,
   handleTwilioInboundWebhook,
   twilioSignature,
   type TwilioInboundRecord,
@@ -81,6 +82,23 @@ function payload(overrides: Partial<Record<string, string>> = {}): Record<string
 }
 
 describe('Twilio inbound webhook', () => {
+  it('requires the explicit booking command and a valid concrete slot', () => {
+    expect(classifyMissedCallReply('BOOK 2026-09-23 09:30')).toEqual({
+      kind: 'confirmed_slot',
+      date: '2026-09-23',
+      time: '09:30',
+    });
+    expect(classifyMissedCallReply('yes')).toEqual({ kind: 'ambiguous' });
+    expect(classifyMissedCallReply('Yes, Tuesday works')).toEqual({ kind: 'ambiguous' });
+    expect(classifyMissedCallReply('BOOK 2026-02-30 09:30')).toEqual({ kind: 'ambiguous' });
+    expect(classifyMissedCallReply('Please call me')).toEqual({ kind: 'noneligible' });
+  });
+
+  it('classifies STOP before booking language', () => {
+    expect(classifyMissedCallReply('STOP')).toEqual({ kind: 'stop' });
+    expect(classifyMissedCallReply('anything', 'STOP')).toEqual({ kind: 'stop' });
+  });
+
   it('matches Twilio’s published HMAC-SHA1 signature example', async () => {
     const params = new URLSearchParams({
       CallSid: 'CA1234567890ABCDE',
