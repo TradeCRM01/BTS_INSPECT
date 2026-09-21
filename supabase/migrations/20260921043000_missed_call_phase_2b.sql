@@ -395,6 +395,18 @@ BEGIN
       WHERE client.company_id = v_command.company_id
         AND client.id = v_client_id;
 
+      -- Serialize competing commands for the same company slot. The command-row
+      -- lock alone only protects retries of one command; this lock prevents two
+      -- different missed-call threads from both passing the conflict check.
+      PERFORM pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtextextended(
+          v_command.company_id::text || '|' ||
+          v_command.booking_date::text || '|' ||
+          v_command.booking_time::text,
+          0
+        )
+      );
+
       IF EXISTS (
         SELECT 1
         FROM public.jobs AS job
