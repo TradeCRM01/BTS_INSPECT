@@ -1085,7 +1085,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
               ) : null}
             </div>
             <div className="hub-invoice-banner">
-              <p className="hub-invoice-kicker">Invoice</p>
+              <p className="hub-invoice-kicker">Tax invoice</p>
               <h2 className="hub-invoice-editor-title">{editorTitle}</h2>
               <p className="hub-invoice-banner-meta">
                 {INVOICE_STATUS_LABELS[displayStatus]}
