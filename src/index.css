@@ -3759,6 +3759,18 @@
     background: #FFFDF8;
   }
 
+  .hub-invoice-masthead:not(:has(.hub-letterhead-mark)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hub-invoice-masthead:not(:has(.hub-letterhead-mark)) .hub-invoice-masthead-brand {
+    display: none;
+  }
+
+  .hub-invoice-masthead:not(:has(.hub-letterhead-mark)) .hub-invoice-banner {
+    text-align: left;
+  }
+
   .hub-invoice-masthead-brand {
     min-width: 0;
     max-width: 100%;
@@ -4596,6 +4608,25 @@
     .hub-invoice-letterhead {
       grid-template-columns: minmax(0, 1fr);
     }
+
+    .hub-invoice-table {
+      margin: 16px 16px 0;
+    }
+
+    .hub-invoice-lines {
+      table-layout: fixed;
+    }
+
+    .hub-invoice-lines :is(th, td) {
+      padding-left: 8px;
+      padding-right: 8px;
+      font-size: 12px;
+    }
+
+    .hub-invoice-lines :is(th, td):nth-child(1) { width: auto; }
+    .hub-invoice-lines :is(th, td):nth-child(2) { width: 42px; }
+    .hub-invoice-lines :is(th, td):nth-child(3) { width: 72px; }
+    .hub-invoice-lines :is(th, td):nth-child(4) { width: 80px; }
 
     .overlay-backdrop:has(.hub-invoice-editor),
     .overlay-backdrop:has(.hub-invoice-send) {
