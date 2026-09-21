@@ -14,6 +14,10 @@ import {
   PORTAL_QUOTE_ACCEPT_ACTION,
   portalQuoteAcceptBody,
 } from '../pages/ClientPortalPublicPage';
+import {
+  convertQuoteHasDateAndCrew,
+  jobFieldsFromQuote,
+} from './quoteJobFields';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -84,6 +88,20 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
   });
 
   it('G2 Accept copies quote date and crew onto the job when present', () => {
+    const sentQuote = {
+      quote_number: 42,
+      client_id: 'client-1',
+      description: 'Workshop fit-out',
+      scope_of_works: 'Complete the agreed site works.',
+      total: 2860,
+      scheduled_date: '2026-09-24',
+      assigned_team: ['crew-7'],
+    };
+    const bookedJob = jobFieldsFromQuote(sentQuote, '14 Smith Street');
+    expect(bookedJob.scheduled_date).toBe('2026-09-24');
+    expect(bookedJob.assigned_team).toEqual(['crew-7']);
+    expect(convertQuoteHasDateAndCrew(bookedJob)).toBe(true);
+
     const edge = src('supabase/functions/client-portal/index.ts');
     expect(edge).toContain('scheduled_date: scheduledDateFromQuote(quote.scheduled_date)');
     expect(edge).toContain('assigned_team: assignedTeamFromQuote(quote.assigned_team)');
