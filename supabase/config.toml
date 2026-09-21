@@ -406,6 +406,10 @@ verify_jwt = false
 [functions.missed-call-sms-worker]
 verify_jwt = false
 
+# A scheduler authenticates this atomic booking worker with its dedicated bearer secret.
+[functions.missed-call-booking-worker]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

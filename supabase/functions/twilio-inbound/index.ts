@@ -20,6 +20,9 @@ async function ingest(record: TwilioInboundRecord): Promise<TwilioIngestResult> 
     p_to_phone_e164: record.toPhoneE164,
     p_body: record.body,
     p_is_stop: record.isStop,
+    p_reply_kind: record.reply.kind,
+    p_booking_date: record.reply.kind === 'confirmed_slot' ? record.reply.date : null,
+    p_booking_time: record.reply.kind === 'confirmed_slot' ? record.reply.time : null,
   });
   if (error) throw error;
   return data as TwilioIngestResult;

@@ -14,7 +14,14 @@ export type TwilioInboundRecord = {
   toPhoneE164: string;
   body: string;
   isStop: boolean;
+  reply: MissedCallReply;
 };
+
+export type MissedCallReply =
+  | { kind: 'stop' }
+  | { kind: 'confirmed_slot'; date: string; time: string }
+  | { kind: 'ambiguous' }
+  | { kind: 'noneligible' };
 
 export type TwilioIngestResult = {
   stored: boolean;
@@ -126,6 +133,38 @@ export function isTwilioStop(body: string, optOutType: string | null): boolean {
   return TWILIO_STOP_WORDS.has(body.trim().toUpperCase());
 }
 
+export function classifyMissedCallReply(
+  body: string,
+  optOutType: string | null = null,
+): MissedCallReply {
+  if (isTwilioStop(body, optOutType)) return { kind: 'stop' };
+
+  const confirmed = body.trim().match(
+    /^BOOK\s+(\d{4})-(\d{2})-(\d{2})\s+(?:AT\s+)?([01]\d|2[0-3]):([0-5]\d)$/i,
+  );
+  if (confirmed) {
+    const [, year, month, day, hour, minute] = confirmed;
+    const date = `${year}-${month}-${day}`;
+    const parsed = new Date(`${date}T00:00:00Z`);
+    if (
+      parsed.getUTCFullYear() === Number(year)
+      && parsed.getUTCMonth() + 1 === Number(month)
+      && parsed.getUTCDate() === Number(day)
+    ) {
+      return { kind: 'confirmed_slot', date, time: `${hour}:${minute}` };
+    }
+  }
+
+  if (
+    /\b(?:yes|yeah|yep|book|booking|available|works|confirm)\b/i.test(body)
+    || /\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i.test(body)
+    || /\b(?:today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(body)
+  ) {
+    return { kind: 'ambiguous' };
+  }
+  return { kind: 'noneligible' };
+}
+
 export async function handleTwilioInboundWebhook(
   request: Request,
   dependencies: TwilioWebhookDependencies,
@@ -168,13 +207,15 @@ export async function handleTwilioInboundWebhook(
     return json({ ok: false, error: 'Invalid Twilio payload' }, 400);
   }
 
+  const reply = classifyMissedCallReply(body, params.get('OptOutType'));
   const result = await dependencies.ingest({
     providerAccountSid,
     providerMessageSid,
     fromPhoneE164,
     toPhoneE164,
     body,
-    isStop: isTwilioStop(body, params.get('OptOutType')),
+    isStop: reply.kind === 'stop',
+    reply,
   });
   if (!result.stored && result.reason === 'unknown_destination') {
     return json({ ok: false, error: 'Unknown destination' }, 404);
