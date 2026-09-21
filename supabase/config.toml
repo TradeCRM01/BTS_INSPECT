@@ -398,6 +398,14 @@ deno_version = 2
 [functions.twilio-inbound]
 verify_jwt = false
 
+# Twilio authenticates this public status callback with X-Twilio-Signature.
+[functions.twilio-voice-status]
+verify_jwt = false
+
+# A scheduler authenticates this queue worker with its dedicated bearer secret.
+[functions.missed-call-sms-worker]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
