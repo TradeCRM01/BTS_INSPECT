@@ -29,6 +29,7 @@ Deno.serve(async (request: Request) => {
   try {
     return await handleTwilioInboundWebhook(request, {
       authToken: Deno.env.get('TWILIO_AUTH_TOKEN')?.trim() ?? '',
+      expectedAccountSid: Deno.env.get('TWILIO_ACCOUNT_SID')?.trim() ?? '',
       publicUrl: Deno.env.get('TWILIO_WEBHOOK_URL')?.trim() ?? '',
       ingest,
     });

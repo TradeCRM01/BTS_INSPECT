@@ -10,6 +10,7 @@ Set these on the `twilio-inbound` Supabase Edge Function:
 
 ```sh
 npx supabase secrets set \
+  TWILIO_ACCOUNT_SID='AC…' \
   TWILIO_AUTH_TOKEN='…' \
   TWILIO_WEBHOOK_URL='https://PROJECT_REF.supabase.co/functions/v1/twilio-inbound'
 ```
@@ -22,14 +23,13 @@ Functions by Supabase. Never put the service-role key or Twilio auth token in a
 including scheme, host, path, and any query string. Signature validation uses
 this value instead of the proxy-facing request URL.
 
-The Twilio Account SID is stored with each sender mapping. The existing
-`TWILIO_ACCOUNT_SID` secret may remain for existing reminder sends, but this
-inbound function resolves and verifies the account through the mapping.
+The Twilio Account SID is also stored with each sender mapping. Phase 1 supports
+numbers in the single account identified by `TWILIO_ACCOUNT_SID`. Do not
+provision a subaccount number here: subaccounts use separate auth tokens.
 
 ## Provision a company number
 
-1. Buy or port an SMS-capable number in the intended Twilio account or
-   subaccount.
+1. Buy or port an SMS-capable number in the configured Twilio account.
 2. Record the Account SID (`AC…`), Incoming Phone Number SID (`PN…`), and E.164
    number.
 3. Apply the migration and add the mapping with an administrative database
@@ -109,6 +109,12 @@ npm run test:sms-db
 The integration script proves provider-SID replay handling, company RLS
 isolation, STOP-before-send, and concurrent `FOR UPDATE SKIP LOCKED` claims.
 Never run it against production.
+
+Outbound fixtures are claimable only when the company+phone preference is
+`consented` and the mapped sender remains active. A future sender must call
+`authorize_sms_dispatch(message_id, claim_token)` immediately before its
+provider request. STOP cancels a queued or leased row, so that authorization
+returns no row. Phase 1 contains no provider request.
 
 Operational queue checks:
 

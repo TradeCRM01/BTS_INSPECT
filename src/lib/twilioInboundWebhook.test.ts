@@ -15,7 +15,7 @@ type Outbox = { id: string; companyId: string; to: string; state: 'queued' | 'cl
 class InMemorySmsStore {
   senders: Sender[] = [];
   messages = new Map<string, TwilioInboundRecord & { companyId: string }>();
-  preferences = new Map<string, 'opted_out'>();
+  preferences = new Map<string, 'consented' | 'opted_out'>();
   outbox: Outbox[] = [];
   preferenceTransitions = 0;
 
@@ -46,7 +46,7 @@ class InMemorySmsStore {
     const candidate = this.outbox.find(
       (message) =>
         message.state === 'queued'
-        && !this.preferences.has(`${message.companyId}:${message.to}`),
+        && this.preferences.get(`${message.companyId}:${message.to}`) === 'consented',
     );
     if (candidate) candidate.state = 'claimed';
     return candidate;
@@ -84,14 +84,14 @@ describe('Twilio inbound webhook', () => {
   it('matches Twilio’s published HMAC-SHA1 signature example', async () => {
     const params = new URLSearchParams({
       CallSid: 'CA1234567890ABCDE',
-      Caller: '+12349013030',
+      Caller: '+14158675310',
       Digits: '1234',
-      From: '+12349013030',
+      From: '+14158675310',
       To: '+18005551212',
     });
     await expect(twilioSignature(
       '12345',
-      'https://mycompany.com/myapp.php?foo=1&bar=2',
+      'https://example.com/myapp.php?foo=1&bar=2',
       params,
     )).resolves.toBe('L/OH5YylLD5NRKLltdqwSvS0BnU=');
   });
@@ -104,6 +104,7 @@ describe('Twilio inbound webhook', () => {
 
     const response = await handleTwilioInboundWebhook(request, {
       authToken,
+      expectedAccountSid: 'AC111',
       publicUrl,
       ingest: async (record) => {
         calls += 1;
@@ -116,10 +117,25 @@ describe('Twilio inbound webhook', () => {
     expect(store.messages.size).toBe(0);
   });
 
+  it('rejects a signed request from a different Twilio account', async () => {
+    const store = new InMemorySmsStore();
+    const response = await handleTwilioInboundWebhook(
+      await signedRequest(payload({ AccountSid: 'AC999' })),
+      {
+        authToken,
+        expectedAccountSid: 'AC111',
+        publicUrl,
+        ingest: store.ingest,
+      },
+    );
+    expect(response.status).toBe(403);
+    expect(store.messages.size).toBe(0);
+  });
+
   it('stores a provider SID once when Twilio replays it', async () => {
     const store = new InMemorySmsStore();
     store.senders.push({ accountSid: 'AC111', to: '+61280000001', companyId: 'company-a' });
-    const dependencies = { authToken, publicUrl, ingest: store.ingest };
+    const dependencies = { authToken, expectedAccountSid: 'AC111', publicUrl, ingest: store.ingest };
 
     expect((await handleTwilioInboundWebhook(await signedRequest(payload()), dependencies)).status).toBe(200);
     expect((await handleTwilioInboundWebhook(await signedRequest(payload()), dependencies)).status).toBe(200);
@@ -134,7 +150,7 @@ describe('Twilio inbound webhook', () => {
     );
     const response = await handleTwilioInboundWebhook(
       await signedRequest(payload({ MessageSid: 'SM222', To: '+61280000002', Body: 'STOP' })),
-      { authToken, publicUrl, ingest: store.ingest },
+      { authToken, expectedAccountSid: 'AC111', publicUrl, ingest: store.ingest },
     );
 
     expect(response.status).toBe(200);
@@ -153,7 +169,7 @@ describe('Twilio inbound webhook', () => {
       state: 'queued',
     });
 
-    const dependencies = { authToken, publicUrl, ingest: store.ingest };
+    const dependencies = { authToken, expectedAccountSid: 'AC111', publicUrl, ingest: store.ingest };
     await handleTwilioInboundWebhook(
       await signedRequest(payload({ Body: ' stop ' })),
       dependencies,

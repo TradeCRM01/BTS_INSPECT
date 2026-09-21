@@ -27,11 +27,13 @@ export type TwilioIngestResult = {
 
 export type TwilioWebhookDependencies = {
   authToken: string;
+  expectedAccountSid: string;
   publicUrl: string;
   ingest: (record: TwilioInboundRecord) => Promise<TwilioIngestResult>;
 };
 
 const E164 = /^\+[1-9][0-9]{7,14}$/;
+const MAX_FORM_BYTES = 64 * 1024;
 
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -53,6 +55,28 @@ function constantTimeEqual(left: string, right: string): boolean {
     mismatch |= (left.charCodeAt(index) || 0) ^ (right.charCodeAt(index) || 0);
   }
   return mismatch === 0;
+}
+
+async function readLimitedBody(request: Request): Promise<string | null> {
+  const declaredLength = Number(request.headers.get('content-length') ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_FORM_BYTES) return null;
+  if (!request.body) return '';
+
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let body = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_FORM_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    body += decoder.decode(value, { stream: true });
+  }
+  return body + decoder.decode();
 }
 
 /**
@@ -107,7 +131,7 @@ export async function handleTwilioInboundWebhook(
   dependencies: TwilioWebhookDependencies,
 ): Promise<Response> {
   if (request.method !== 'POST') return json({ ok: false, error: 'POST only' }, 405);
-  if (!dependencies.authToken || !dependencies.publicUrl) {
+  if (!dependencies.authToken || !dependencies.expectedAccountSid || !dependencies.publicUrl) {
     return json({ ok: false, error: 'Webhook is not configured' }, 503);
   }
 
@@ -116,7 +140,9 @@ export async function handleTwilioInboundWebhook(
     return json({ ok: false, error: 'Form encoding required' }, 415);
   }
 
-  const params = new URLSearchParams(await request.text());
+  const rawBody = await readLimitedBody(request);
+  if (rawBody === null) return json({ ok: false, error: 'Payload too large' }, 413);
+  const params = new URLSearchParams(rawBody);
   const valid = await isValidTwilioSignature({
     authToken: dependencies.authToken,
     publicUrl: dependencies.publicUrl,
@@ -130,6 +156,9 @@ export async function handleTwilioInboundWebhook(
   const fromPhoneE164 = params.get('From')?.trim() ?? '';
   const toPhoneE164 = params.get('To')?.trim() ?? '';
   const body = params.get('Body') ?? '';
+  if (providerAccountSid !== dependencies.expectedAccountSid) {
+    return json({ ok: false, error: 'Invalid Twilio account' }, 403);
+  }
   if (
     !providerAccountSid
     || !providerMessageSid

@@ -92,7 +92,7 @@ GRANT ALL ON public.communication_preferences TO service_role;
 CREATE TABLE public.sms_messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
-  sender_id uuid,
+  sender_id uuid NOT NULL,
   direction text NOT NULL CHECK (direction IN ('inbound', 'outbound')),
   state text NOT NULL CHECK (state IN ('received', 'queued', 'claimed', 'sent', 'failed', 'cancelled')),
   from_phone_e164 text NOT NULL CHECK (from_phone_e164 ~ '^\+[1-9][0-9]{7,14}$'),
@@ -146,6 +146,62 @@ CREATE INDEX sms_messages_claim_idx
   ON public.sms_messages (next_attempt, created_at)
   WHERE direction = 'outbound' AND state IN ('queued', 'claimed');
 
+CREATE OR REPLACE FUNCTION public.enforce_sms_sender_mapping()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  v_sender public.company_twilio_senders%ROWTYPE;
+BEGIN
+  SELECT message.*
+  INTO v_existing
+  FROM public.sms_messages AS message
+  WHERE message.provider_message_sid = p_provider_message_sid;
+
+  IF FOUND THEN
+    IF v_existing.provider_account_sid IS DISTINCT FROM p_provider_account_sid
+      OR v_existing.from_phone_e164 IS DISTINCT FROM p_from_phone_e164
+      OR v_existing.to_phone_e164 IS DISTINCT FROM p_to_phone_e164
+      OR v_existing.body IS DISTINCT FROM coalesce(p_body, '')
+    THEN
+      RAISE EXCEPTION 'provider message SID conflicts with a different inbound message';
+    END IF;
+
+    RETURN jsonb_build_object(
+      'stored', true,
+      'replay', true,
+      'company_id', v_existing.company_id,
+      'message_id', v_existing.id
+    );
+  END IF;
+
+  SELECT sender.*
+  INTO v_sender
+  FROM public.company_twilio_senders AS sender
+  WHERE sender.company_id = NEW.company_id
+    AND sender.id = NEW.sender_id;
+
+  IF NOT FOUND OR NOT v_sender.active THEN
+    RAISE EXCEPTION 'SMS must use an active company sender';
+  END IF;
+  IF NEW.direction = 'inbound' AND NEW.to_phone_e164 IS DISTINCT FROM v_sender.phone_e164 THEN
+    RAISE EXCEPTION 'inbound SMS destination does not match its company sender';
+  END IF;
+  IF NEW.direction = 'outbound' AND NEW.from_phone_e164 IS DISTINCT FROM v_sender.phone_e164 THEN
+    RAISE EXCEPTION 'outbound SMS source does not match its company sender';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER enforce_sms_sender_mapping
+  BEFORE INSERT OR UPDATE OF company_id, sender_id, direction, from_phone_e164, to_phone_e164
+  ON public.sms_messages
+  FOR EACH ROW
+  EXECUTE FUNCTION public.enforce_sms_sender_mapping();
+
 ALTER TABLE public.sms_messages ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Company members can view SMS messages"
@@ -181,6 +237,7 @@ SET search_path = ''
 AS $$
 DECLARE
   v_sender public.company_twilio_senders%ROWTYPE;
+  v_existing public.sms_messages%ROWTYPE;
   v_message_id uuid;
 BEGIN
   SELECT sender.*
@@ -224,10 +281,24 @@ BEGIN
   RETURNING id INTO v_message_id;
 
   IF v_message_id IS NULL THEN
+    SELECT message.*
+    INTO v_existing
+    FROM public.sms_messages AS message
+    WHERE message.provider_message_sid = p_provider_message_sid;
+
+    IF v_existing.provider_account_sid IS DISTINCT FROM p_provider_account_sid
+      OR v_existing.from_phone_e164 IS DISTINCT FROM p_from_phone_e164
+      OR v_existing.to_phone_e164 IS DISTINCT FROM p_to_phone_e164
+      OR v_existing.body IS DISTINCT FROM coalesce(p_body, '')
+    THEN
+      RAISE EXCEPTION 'provider message SID conflicts with a different inbound message';
+    END IF;
+
     RETURN jsonb_build_object(
       'stored', true,
       'replay', true,
-      'company_id', v_sender.company_id
+      'company_id', v_existing.company_id,
+      'message_id', v_existing.id
     );
   END IF;
 
@@ -318,12 +389,20 @@ BEGIN
         OR
         (message.state = 'claimed' AND message.claim_expires_at <= now())
       )
-      AND NOT EXISTS (
+      AND EXISTS (
         SELECT 1
         FROM public.communication_preferences AS preference
         WHERE preference.company_id = message.company_id
           AND preference.phone_e164 = message.to_phone_e164
-          AND preference.sms_consent_status = 'opted_out'
+          AND preference.sms_consent_status = 'consented'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM public.company_twilio_senders AS sender
+        WHERE sender.company_id = message.company_id
+          AND sender.id = message.sender_id
+          AND sender.active
+          AND sender.phone_e164 = message.from_phone_e164
       )
     ORDER BY coalesce(message.next_attempt, message.created_at), message.created_at
     FOR UPDATE SKIP LOCKED
@@ -348,6 +427,40 @@ REVOKE ALL ON FUNCTION public.claim_next_sms_message(text, integer)
 GRANT EXECUTE ON FUNCTION public.claim_next_sms_message(text, integer)
   TO service_role;
 
+-- A future sender must call this with its lease token immediately before making
+-- the provider request. STOP or lease expiry makes the claim unreadable.
+CREATE OR REPLACE FUNCTION public.authorize_sms_dispatch(
+  p_message_id uuid,
+  p_claim_token uuid
+)
+RETURNS SETOF public.sms_messages
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+  SELECT message.*
+  FROM public.sms_messages AS message
+  JOIN public.company_twilio_senders AS sender
+    ON sender.company_id = message.company_id
+   AND sender.id = message.sender_id
+  JOIN public.communication_preferences AS preference
+    ON preference.company_id = message.company_id
+   AND preference.phone_e164 = message.to_phone_e164
+  WHERE message.id = p_message_id
+    AND message.direction = 'outbound'
+    AND message.state = 'claimed'
+    AND message.claim_token = p_claim_token
+    AND message.claim_expires_at > now()
+    AND sender.active
+    AND sender.phone_e164 = message.from_phone_e164
+    AND preference.sms_consent_status = 'consented'
+$$;
+
+REVOKE ALL ON FUNCTION public.authorize_sms_dispatch(uuid, uuid)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.authorize_sms_dispatch(uuid, uuid)
+  TO service_role;
+
 -- Future booking provenance. Human clients cannot manufacture an automation actor.
 ALTER TABLE public.jobs
   ALTER COLUMN created_by DROP NOT NULL,
@@ -359,7 +472,7 @@ ALTER TABLE public.jobs
     REFERENCES public.sms_messages(company_id, id),
   ADD CONSTRAINT jobs_creation_provenance_check
     CHECK (
-      (created_via = 'human' AND created_by IS NOT NULL AND automation_ref IS NULL)
+      (created_via = 'human' AND automation_ref IS NULL)
       OR
       (created_via = 'missed_call_sms' AND created_by IS NULL AND automation_ref IS NOT NULL)
     );
@@ -373,7 +486,7 @@ AS $$
 DECLARE
   v_direction text;
 BEGIN
-  IF (SELECT auth.role()) = 'authenticated' THEN
+  IF current_user = 'authenticated' THEN
     IF TG_OP = 'INSERT' AND (
       NEW.created_by IS DISTINCT FROM (SELECT auth.uid())
       OR NEW.created_via <> 'human'
@@ -387,7 +500,20 @@ BEGIN
       OR NEW.created_via IS DISTINCT FROM OLD.created_via
       OR NEW.automation_ref IS DISTINCT FROM OLD.automation_ref
     ) THEN
-      RAISE EXCEPTION 'job creation provenance is immutable';
+      -- Allow the existing ON DELETE SET NULL foreign-key action to preserve a
+      -- historical human job after its creator profile has been removed.
+      IF NOT (
+        OLD.created_via = 'human'
+        AND NEW.created_via = 'human'
+        AND OLD.created_by IS NOT NULL
+        AND NEW.created_by IS NULL
+        AND NEW.automation_ref IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM public.profiles WHERE id = OLD.created_by
+        )
+      ) THEN
+        RAISE EXCEPTION 'job creation provenance is immutable';
+      END IF;
     END IF;
   END IF;
 

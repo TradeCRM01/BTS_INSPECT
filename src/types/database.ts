@@ -69,7 +69,8 @@ export interface Database {
     Functions: {
       is_platform_operator: { Args: Record<string, never>; Returns: boolean };
       ingest_twilio_inbound_sms: { Args: Record<string, unknown>; Returns: Json };
-      claim_next_sms_message: { Args: Record<string, unknown>; Returns: any[] };
+      claim_next_sms_message: { Args: Record<string, unknown>; Returns: Json[] };
+      authorize_sms_dispatch: { Args: Record<string, unknown>; Returns: Json[] };
     };
   };
 }
