@@ -63,6 +63,20 @@ async function ingest({ sid, to, body = 'Hello' }) {
   );
 }
 
+async function ingestCall({ sid, to, from = '+61412345678', status = 'no-answer' }) {
+  return must(
+    admin.rpc('ingest_twilio_voice_status', {
+      p_provider_account_sid: `AC${suffix}`,
+      p_provider_call_sid: sid,
+      p_from_phone_e164: from,
+      p_to_phone_e164: to,
+      p_call_status: status,
+      p_direction: 'inbound',
+    }),
+    `ingest call ${sid}`,
+  );
+}
+
 try {
   const tenantA = await createTenant(companyA, 'a');
   const tenantB = await createTenant(companyB, 'b');
@@ -234,6 +248,94 @@ try {
   }), 'authorize after STOP');
   assert.equal(stoppedDispatch.length, 0, 'STOP revokes an existing lease before dispatch');
 
+  await must(
+    admin.from('communication_preferences').insert({
+      company_id: companyA,
+      phone_e164: '+61412345678',
+      sms_consent_status: 'consented',
+      consent_basis: 'express',
+      consent_source: 'integration_test',
+      consented_at: new Date().toISOString(),
+    }),
+    'record missed-call fixture consent',
+  );
+  const callSid = `CA${suffix.padEnd(32, 'a')}`;
+  const firstCall = await ingestCall({ sid: callSid, to: '+61280000001' });
+  const replayCall = await ingestCall({ sid: callSid, to: '+61280000001' });
+  assert.equal(firstCall.queued, true, 'eligible consented missed call queues a text-back');
+  assert.equal(replayCall.replay, true, 'CallSid replay is acknowledged');
+  const callRows = await must(
+    admin.from('missed_calls').select('company_id, outbound_message_id').eq('provider_call_sid', callSid),
+    'read deduplicated call',
+  );
+  assert.equal(callRows.length, 1, 'CallSid is stored once');
+  const callOutbox = await must(
+    admin.from('sms_messages').select('id, body, state').eq('idempotency_key', `missed-call:${callSid}`),
+    'read missed-call outbox',
+  );
+  assert.equal(callOutbox.length, 1, 'missed call queues exactly one outbox row');
+  assert.equal(
+    callOutbox[0].body,
+    'Sorry we missed your call. Reply here and our team will get back to you.',
+    'missed call uses the approved text-back',
+  );
+  const conflict = await admin.rpc('ingest_twilio_voice_status', {
+    p_provider_account_sid: `AC${suffix}`,
+    p_provider_call_sid: callSid,
+    p_from_phone_e164: '+61499999998',
+    p_to_phone_e164: '+61280000001',
+    p_call_status: 'no-answer',
+    p_direction: 'inbound',
+  });
+  assert.ok(conflict.error, 'CallSid cannot be reused for a different call identity');
+
+  const stoppedCallSid = `CA${`${suffix}b`.padEnd(32, 'b')}`;
+  const stoppedCall = await ingestCall({ sid: stoppedCallSid, to: '+61280000002' });
+  assert.equal(stoppedCall.queued, false, 'STOP preference blocks queueing');
+  const stoppedCallOutbox = await must(
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call:${stoppedCallSid}`),
+    'read STOP-blocked outbox',
+  );
+  assert.equal(stoppedCallOutbox.length, 0, 'STOP creates no outbound row');
+
+  const missedCallsA = await must(clientA.from('missed_calls').select('company_id'), 'company A missed-call read');
+  const missedCallsB = await must(clientB.from('missed_calls').select('company_id'), 'company B missed-call read');
+  assert.ok(
+    missedCallsA.length > 0 && missedCallsA.every((row) => row.company_id === companyA),
+    'company A sees only its missed calls',
+  );
+  assert.ok(
+    missedCallsB.length > 0 && missedCallsB.every((row) => row.company_id === companyB),
+    'company B sees only its missed calls',
+  );
+
+  const missedCallClaim = await must(admin.rpc('claim_next_sms_message', {
+    p_worker_id: 'missed-call-worker-test',
+    p_lease_seconds: 60,
+  }), 'claim missed-call text-back');
+  const claimedTextBack = missedCallClaim.find((row) => row.id === callOutbox[0].id);
+  assert.ok(claimedTextBack?.claim_token, 'worker claims the queued text-back');
+  const authorizedTextBack = await must(admin.rpc('authorize_sms_dispatch', {
+    p_message_id: claimedTextBack.id,
+    p_claim_token: claimedTextBack.claim_token,
+  }), 'authorize missed-call text-back');
+  assert.equal(authorizedTextBack.length, 1, 'consent is checked again before send');
+  const completedTextBack = await must(admin.rpc('complete_sms_dispatch', {
+    p_message_id: claimedTextBack.id,
+    p_claim_token: claimedTextBack.claim_token,
+    p_provider_message_sid: `SM${suffix}TEXTBACK`,
+  }), 'complete missed-call text-back');
+  assert.equal(completedTextBack, true, 'worker records successful dispatch');
+  const sentTextBack = await must(
+    admin.from('sms_messages').select('state, provider_message_sid').eq('id', claimedTextBack.id).single(),
+    'read sent text-back',
+  );
+  assert.deepEqual(
+    sentTextBack,
+    { state: 'sent', provider_message_sid: `SM${suffix}TEXTBACK` },
+    'sent state retains the provider Message SID',
+  );
+
   const claimId = randomUUID();
   await must(
     admin.from('communication_preferences').insert({
@@ -285,6 +387,7 @@ try {
 
   console.log('missed-call SMS database integration tests passed');
 } finally {
+  await admin.from('missed_calls').delete().in('company_id', [companyA, companyB]);
   await admin.from('sms_messages').delete().in('company_id', [companyA, companyB]);
   await admin.from('communication_preferences').delete().in('company_id', [companyA, companyB]);
   await admin.from('company_twilio_senders').delete().in('company_id', [companyA, companyB]);

@@ -64,13 +64,17 @@ export interface Database {
       company_twilio_senders: AnyTable;
       communication_preferences: AnyTable;
       sms_messages: AnyTable;
+      missed_calls: AnyTable;
     };
     Views: Record<string, never>;
     Functions: {
       is_platform_operator: { Args: Record<string, never>; Returns: boolean };
       ingest_twilio_inbound_sms: { Args: Record<string, unknown>; Returns: Json };
+      ingest_twilio_voice_status: { Args: Record<string, unknown>; Returns: Json };
       claim_next_sms_message: { Args: Record<string, unknown>; Returns: Json[] };
       authorize_sms_dispatch: { Args: Record<string, unknown>; Returns: Json[] };
+      complete_sms_dispatch: { Args: Record<string, unknown>; Returns: boolean };
+      fail_sms_dispatch: { Args: Record<string, unknown>; Returns: boolean };
     };
   };
 }
