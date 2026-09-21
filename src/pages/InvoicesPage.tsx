@@ -149,7 +149,9 @@ export function InvoicesPage() {
     queryFn: async () => {
       if (!invoiceIdParam || !profile?.company_id) return null;
       const row = await loadInvoiceEditorRow(invoiceIdParam, profile.company_id);
-      return row && paymentProof ? { ...row, status: 'sent' as const } : row;
+      return row && paymentProof
+        ? { ...row, status: 'sent' as const, due_date: '2099-12-31' }
+        : row;
     },
     enabled: !!invoiceIdParam && !!profile?.company_id,
   });
@@ -159,7 +161,13 @@ export function InvoicesPage() {
     queryFn: async () => {
       if (isDevFieldAuditAuth()) {
         const row = getAuditInvoiceEditorRow(AUDIT_INVOICE_ID);
-        if (row) return [{ ...row, status: paymentProof ? 'sent' : row.status } as InvoiceWithDetails];
+        if (row) {
+          return [{
+            ...row,
+            status: paymentProof ? 'sent' : row.status,
+            due_date: paymentProof ? '2099-12-31' : row.due_date,
+          } as InvoiceWithDetails];
+        }
       }
       const { data, error } = await supabase
         .from('invoices')
