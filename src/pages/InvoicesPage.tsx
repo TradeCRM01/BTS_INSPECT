@@ -621,7 +621,7 @@ function InvoicePaymentConfirm({
         aria-labelledby="invoice-payment-title"
         onClick={event => event.stopPropagation()}
       >
-        <p className="hub-invoice-kicker">Payment</p>
+        <p className="hub-invoice-payment-eyebrow">Payment</p>
         <h2 id="invoice-payment-title">Record payment received</h2>
         <p className="hub-invoice-payment-copy">
           This records the full GST invoice as paid. Partial payments are not available.
