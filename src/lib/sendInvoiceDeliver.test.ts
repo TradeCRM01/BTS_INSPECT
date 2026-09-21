@@ -80,7 +80,7 @@ describe('invoice send deliver path', () => {
     expect(sendOk).toBeGreaterThan(xeroAfterSend);
   });
 
-  it('chase look stays on the signed Send sheet — one 44px Send again, Mark paid in …', () => {
+  it('chase look stays on the signed Send sheet — one 44px Send again, Record payment in …', () => {
     const page = readFileSync(resolve(process.cwd(), 'src/pages/InvoicesPage.tsx'), 'utf8');
     const dialog = readFileSync(resolve(process.cwd(), 'src/components/invoicing/InvoiceSendDialog.tsx'), 'utf8');
     const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
@@ -88,7 +88,7 @@ describe('invoice send deliver path', () => {
 
     expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
     expect(page).toContain('hub-invoice-more');
-    expect(page).toContain('Mark paid');
+    expect(page).toContain('Record payment');
     expect(page).not.toContain('InvoiceChase');
     expect(page).not.toContain('ChaseDialog');
     expect(dialog).toContain('hub-invoice-send');
