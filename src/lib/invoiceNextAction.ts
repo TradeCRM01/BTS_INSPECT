@@ -106,7 +106,7 @@ export function invoiceOverflowPaidAction(
 ): RecommendedInvoiceAction | null {
   const status = effectiveInvoiceStatus(inv, now);
   if (status !== 'overdue') return null;
-  return { key: 'mark_paid', label: 'Mark paid', detail: 'This invoice is overdue.', status };
+  return { key: 'mark_paid', label: 'Record payment', detail: 'This invoice is overdue.', status };
 }
 
 export function invoiceCardHint(inv: InvoiceActionContext, now = new Date()): string {

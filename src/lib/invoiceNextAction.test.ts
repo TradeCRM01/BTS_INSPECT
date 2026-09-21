@@ -92,12 +92,12 @@ describe('recommendInvoiceAction', () => {
     expect(recommendInvoiceAction(overdue, now).detail).toMatch(/No Grafter SMTP/i);
     expect(invoiceOverflowPaidAction(overdue, now)).toMatchObject({
       key: 'mark_paid',
-      label: 'Mark paid',
+      label: 'Record payment',
       status: 'overdue',
     });
     expect(invoiceOverflowPaidAction(storedOverdue, now)).toMatchObject({
       key: 'mark_paid',
-      label: 'Mark paid',
+      label: 'Record payment',
       status: 'overdue',
     });
     expect(invoiceOverflowPaidAction({ status: 'sent', due_date: '2026-08-21' }, now)).toBeNull();

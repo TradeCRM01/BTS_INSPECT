@@ -1117,7 +1117,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                     onClick={() => { closeMore(); setShowPayment(true); }}
                     disabled={saving}
                   >
-                    Mark paid
+                    Record payment
                   </button>
                 )}
                 <button
