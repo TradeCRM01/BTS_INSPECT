@@ -19,6 +19,7 @@ import { asStringList } from '../lib/asStringList';
 import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
 import {
   effectiveInvoiceStatus,
+  fullInvoicePayment,
   invoiceListEmptyMessage,
   invoiceListEmptyTitle,
   invoiceListIsNoneYet,
@@ -126,6 +127,7 @@ export function InvoicesPage() {
   const [showForm, setShowForm] = useState(false);
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
   const invoiceIdParam = searchParams.get('id');
+  const paymentProof = isDevFieldAuditAuth() && searchParams.get('payment') === '1';
 
   const { data: smtpSettings } = useQuery<SmtpSettingsRow | null>({
     queryKey: ['email-settings', profile?.company_id],
@@ -143,20 +145,29 @@ export function InvoicesPage() {
   const smtpReady = smtpSettings === undefined ? null : isSmtpReady(smtpSettings);
 
   const { data: openedInvoice } = useQuery<InvoiceWithDetails | null>({
-    queryKey: ['invoice', invoiceIdParam, profile?.company_id],
+    queryKey: ['invoice', invoiceIdParam, profile?.company_id, paymentProof],
     queryFn: async () => {
       if (!invoiceIdParam || !profile?.company_id) return null;
-      return loadInvoiceEditorRow(invoiceIdParam, profile.company_id);
+      const row = await loadInvoiceEditorRow(invoiceIdParam, profile.company_id);
+      return row && paymentProof
+        ? { ...row, status: 'sent' as const, due_date: '2099-12-31' }
+        : row;
     },
     enabled: !!invoiceIdParam && !!profile?.company_id,
   });
 
   const { data: invoices, isLoading, error } = useQuery<InvoiceWithDetails[]>({
-    queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live'],
+    queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live', paymentProof],
     queryFn: async () => {
       if (isDevFieldAuditAuth()) {
         const row = getAuditInvoiceEditorRow(AUDIT_INVOICE_ID);
-        if (row) return [row as InvoiceWithDetails];
+        if (row) {
+          return [{
+            ...row,
+            status: paymentProof ? 'sent' : row.status,
+            due_date: paymentProof ? '2099-12-31' : row.due_date,
+          } as InvoiceWithDetails];
+        }
       }
       const { data, error } = await supabase
         .from('invoices')
@@ -452,24 +463,31 @@ function InvoiceNextControl({
   const { showToast } = useToast();
   const { company } = useAuth();
   const [busy, setBusy] = useState<InvoiceActionKey | null>(null);
+  const [showPayment, setShowPayment] = useState(false);
   const ctx = invoiceActionContext(invoice, { smtpReady });
   const next = recommendInvoiceAction(ctx);
   const overflowPaid = invoiceOverflowPaidAction(ctx);
   const chase = invoiceChase(invoice, new Date());
 
-  const patchPaid = async () => {
+  const patchPaid = async (): Promise<boolean> => {
     setBusy('mark_paid');
     let paid = false;
     try {
       if (!company?.id) throw new Error('No company selected');
-      const { error } = await supabase.from('invoices')
-        .update({ status: persistableInvoiceStatus('paid'), updated_at: new Date().toISOString() })
-        .eq('id', invoice.id)
-        .eq('company_id', company.id);
-      if (error) throw error;
+      if (!isDevFieldAuditAuth()) {
+        const { error } = await supabase.from('invoices')
+          .update({ status: persistableInvoiceStatus('paid'), updated_at: new Date().toISOString() })
+          .eq('id', invoice.id)
+          .eq('company_id', company.id);
+        if (error) throw error;
+      }
       paid = true;
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-nudges'] });
+      if (isDevFieldAuditAuth()) {
+        showToast(INVOICE_MARKED_PAID_MESSAGE);
+        return true;
+      }
       const xero = await attachXeroPaymentAfterMarkPaid(
         (name, opts) => supabase.functions.invoke(name, opts),
         { paidSucceeded: true, invoiceId: invoice.id, status: 'paid' },
@@ -491,6 +509,7 @@ function InvoiceNextControl({
     } finally {
       setBusy(null);
     }
+    return paid;
   };
 
   let primary: ReactNode = null;
@@ -524,7 +543,7 @@ function InvoiceNextControl({
         type="button"
         onClick={() => {
           if (next.key === 'send') onSend(invoice.id);
-          if (next.key === 'mark_paid') void patchPaid();
+          if (next.key === 'mark_paid') setShowPayment(true);
         }}
         disabled={!!busy}
         className={`${chasePrimary ? 'btn-primary' : 'hub-next'}${next.key === 'send' ? ' is-send' : ''}`}
@@ -559,7 +578,7 @@ function InvoiceNextControl({
             <button
               type="button"
               role="menuitem"
-              onClick={() => void patchPaid()}
+              onClick={() => setShowPayment(true)}
               disabled={!!busy}
             >
               {busy === 'mark_paid' ? 'Working…' : overflowPaid.label}
@@ -567,7 +586,60 @@ function InvoiceNextControl({
           </div>
         </details>
       ) : null}
+      {showPayment ? (
+        <InvoicePaymentConfirm
+          total={invoice.total}
+          busy={busy === 'mark_paid'}
+          onCancel={() => setShowPayment(false)}
+          onConfirm={async () => {
+            if (await patchPaid()) setShowPayment(false);
+          }}
+        />
+      ) : null}
     </span>
+  );
+}
+
+function InvoicePaymentConfirm({
+  total,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  total: number | string | null | undefined;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void | Promise<void>;
+}) {
+  const payment = fullInvoicePayment(total);
+  return (
+    <div className="hub-invoice-payment-backdrop" onClick={onCancel}>
+      <section
+        className="hub-invoice-payment-confirm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="invoice-payment-title"
+        onClick={event => event.stopPropagation()}
+      >
+        <p className="hub-invoice-payment-eyebrow">Payment</p>
+        <h2 id="invoice-payment-title">Record payment received</h2>
+        <p className="hub-invoice-payment-copy">
+          This records the full GST invoice as paid. Partial payments are not available.
+        </p>
+        <dl className="hub-invoice-payment-totals">
+          <div><dt>Invoice total</dt><dd>{formatMoney(payment.invoiceTotal)}</dd></div>
+          <div><dt>Payment received</dt><dd>{formatMoney(payment.paymentReceived)}</dd></div>
+          <div><dt>Balance after</dt><dd>{formatMoney(payment.balanceAfter)}</dd></div>
+          <div><dt>Status after</dt><dd>Paid</dd></div>
+        </dl>
+        <div className="hub-invoice-payment-actions">
+          <button type="button" className="ops-link" onClick={onCancel} disabled={busy}>Cancel</button>
+          <button type="button" className="btn-primary" onClick={() => void onConfirm()} disabled={busy}>
+            {busy ? 'Recording...' : 'Confirm payment received'}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -608,6 +680,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(searchParams.get('print') === '1');
   const [showEdit, setShowEdit] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
   const moreRef = useRef<HTMLDetailsElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState('');
@@ -907,6 +980,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     const finishPaid = async (savedInvoiceId: string): Promise<string | null> => {
       setForm(f => ({ ...f, status: storedStatus }));
       if (opts?.markPaid && storedStatus === 'paid') {
+        if (isDevFieldAuditAuth()) return INVOICE_MARKED_PAID_MESSAGE;
         const xero = await attachXeroPaymentAfterMarkPaid(
           (name, invokeOpts) => supabase.functions.invoke(name, invokeOpts),
           { paidSucceeded: true, invoiceId: savedInvoiceId, status: 'paid' },
@@ -929,18 +1003,24 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
 
     const id = savedId ?? invoice?.id;
     if (id) {
-      const { error } = await supabase.from('invoices').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id);
-      if (error) {
-        setSaving(false);
-        if (error.code === '23505') {
-          setErr('An invoice already exists for this quote');
+      if (!isDevFieldAuditAuth()) {
+        const { error } = await supabase.from('invoices').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id);
+        if (error) {
+          setSaving(false);
+          if (error.code === '23505') {
+            setErr('An invoice already exists for this quote');
+            return null;
+          }
+          setErr(error.message);
           return null;
         }
-        setErr(error.message);
-        return null;
       }
       const paidToast = await finishPaid(id);
       setSaving(false);
+      if (isDevFieldAuditAuth()) {
+        showToast(paidToast ?? opts?.message ?? 'Invoice updated');
+        return id;
+      }
       onSaved({ close: opts?.close ?? false, message: paidToast ?? opts?.message ?? 'Invoice updated' });
       return id;
     }
@@ -1018,15 +1098,11 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             {next.key === 'mark_paid' && (
               <button
                 type="button"
-                onClick={() => void persist('paid', {
-                  close: false,
-                  message: INVOICE_MARKED_PAID_MESSAGE,
-                  markPaid: true,
-                })}
+                onClick={() => setShowPayment(true)}
                 disabled={saving}
                 className="btn-primary"
               >
-                {saving ? 'Saving...' : 'Mark paid'}
+                {saving ? 'Saving...' : 'Record payment'}
               </button>
             )}
             <details ref={moreRef} className="hub-invoice-more">
@@ -1038,7 +1114,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => { closeMore(); void persist('paid', { close: false, message: INVOICE_MARKED_PAID_MESSAGE, markPaid: true }); }}
+                    onClick={() => { closeMore(); setShowPayment(true); }}
                     disabled={saving}
                   >
                     Mark paid
@@ -1076,6 +1152,21 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         </div>
         {err ? <p className="hub-invoice-err">{err}</p> : null}
         {xeroMiss ? <p className="hub-invoice-send-xero-miss">{xeroMiss}</p> : null}
+        {showPayment ? (
+          <InvoicePaymentConfirm
+            total={grandTotal}
+            busy={saving}
+            onCancel={() => setShowPayment(false)}
+            onConfirm={async () => {
+              const id = await persist('paid', {
+                close: false,
+                message: INVOICE_MARKED_PAID_MESSAGE,
+                markPaid: true,
+              });
+              if (id) setShowPayment(false);
+            }}
+          />
+        ) : null}
 
         <div className="hub-invoice-sheet">
           <header className="hub-invoice-masthead">

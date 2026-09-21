@@ -28,6 +28,24 @@ export function persistableInvoiceStatus(status: InvoiceStatus): InvoiceStatus {
   return status === 'overdue' ? 'sent' : status;
 }
 
+export type FullInvoicePayment = {
+  invoiceTotal: number;
+  paymentReceived: number;
+  balanceAfter: 0;
+  statusAfter: 'paid';
+};
+
+export function fullInvoicePayment(total: number | string | null | undefined): FullInvoicePayment {
+  const invoiceTotal = Number(total);
+  const honestTotal = Number.isFinite(invoiceTotal) && invoiceTotal > 0 ? invoiceTotal : 0;
+  return {
+    invoiceTotal: honestTotal,
+    paymentReceived: honestTotal,
+    balanceAfter: 0,
+    statusAfter: 'paid',
+  };
+}
+
 /** Existing /invoices tabs — default is the money that needs chasing. */
 export type InvoiceListStatusFilter = 'all' | InvoiceStatus;
 
