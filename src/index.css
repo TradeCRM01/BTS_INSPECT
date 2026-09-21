@@ -3759,6 +3759,18 @@
     background: #FFFDF8;
   }
 
+  .hub-invoice-masthead:not(:has(.hub-letterhead-mark)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hub-invoice-masthead:not(:has(.hub-letterhead-mark)) .hub-invoice-masthead-brand {
+    display: none;
+  }
+
+  .hub-invoice-masthead:not(:has(.hub-letterhead-mark)) .hub-invoice-banner {
+    text-align: left;
+  }
+
   .hub-invoice-masthead-brand {
     min-width: 0;
     max-width: 100%;
