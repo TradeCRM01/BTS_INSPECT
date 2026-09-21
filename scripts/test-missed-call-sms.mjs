@@ -49,7 +49,7 @@ async function createTenant(companyId, label) {
   return { client, userId: created.user.id };
 }
 
-async function ingest({ sid, to, body = 'Hello' }) {
+async function ingest({ sid, to, from = '+61412345678', body = 'Hello' }) {
   const stop = body.trim().toUpperCase() === 'STOP';
   const start = body.trim().toUpperCase() === 'START';
   const help = body.trim().toUpperCase() === 'HELP';
@@ -69,7 +69,7 @@ async function ingest({ sid, to, body = 'Hello' }) {
     admin.rpc('ingest_twilio_inbound_sms', {
       p_provider_account_sid: `AC${suffix}`,
       p_provider_message_sid: sid,
-      p_from_phone_e164: '+61412345678',
+      p_from_phone_e164: from,
       p_to_phone_e164: to,
       p_body: body,
       p_is_stop: stop,
@@ -120,6 +120,74 @@ try {
       },
     ]),
     'insert sender mappings',
+  );
+
+  const deniedStartPhone = '+61400000009';
+  const deniedStart = await ingest({
+    sid: `SM${suffix}DENIEDSTART`,
+    to: '+61280000001',
+    from: deniedStartPhone,
+    body: 'START',
+  });
+  assert.equal(deniedStart.start_allowed, false, 'START cannot manufacture first-time consent');
+  const deniedPreference = await must(
+    admin.from('communication_preferences')
+      .select('phone_e164')
+      .eq('company_id', companyA)
+      .eq('phone_e164', deniedStartPhone),
+    'read denied START preference',
+  );
+  assert.equal(deniedPreference.length, 0, 'denied START does not create a consent preference');
+  const deniedStartAudit = await must(
+    admin.from('communication_preference_events')
+      .select('previous_status, resulting_status, transition_source')
+      .eq('inbound_message_id', deniedStart.message_id)
+      .single(),
+    'read denied START audit',
+  );
+  assert.deepEqual(deniedStartAudit, {
+    previous_status: null,
+    resulting_status: 'unknown',
+    transition_source: 'twilio_inbound_start_denied',
+  }, 'denied START is still auditable');
+
+  const concurrentPhone = '+61400000008';
+  await must(
+    admin.from('communication_preferences').insert({
+      company_id: companyB,
+      phone_e164: concurrentPhone,
+      sms_consent_status: 'consented',
+      consent_basis: 'express',
+      consent_source: 'integration_test',
+      consented_at: new Date().toISOString(),
+    }),
+    'record concurrent consent fixture',
+  );
+  await Promise.all([
+    ingest({
+      sid: `SM${suffix}CONCURRENTSTOP`,
+      to: '+61280000002',
+      from: concurrentPhone,
+      body: 'STOP',
+    }),
+    ingest({
+      sid: `SM${suffix}CONCURRENTSTART`,
+      to: '+61280000002',
+      from: concurrentPhone,
+      body: 'START',
+    }),
+  ]);
+  const concurrentAudits = await must(
+    admin.from('communication_preference_events')
+      .select('event_kind')
+      .eq('company_id', companyB)
+      .eq('phone_e164', concurrentPhone),
+    'read concurrent consent audits',
+  );
+  assert.deepEqual(
+    new Set(concurrentAudits.map((event) => event.event_kind)),
+    new Set(['stop', 'start']),
+    'concurrent STOP and START serialize without losing either audit',
   );
 
   const unknownConsentId = randomUUID();
@@ -348,6 +416,14 @@ try {
     resulting_status: 'consented',
     transition_source: 'twilio_inbound_start',
   }, 'START records auditable transition provenance');
+  const restartReply = await must(
+    admin.from('sms_messages')
+      .select('body')
+      .eq('idempotency_key', `missed-call-reply:${restart.message_id}`)
+      .single(),
+    'read START reply without thread',
+  );
+  assert.match(restartReply.body, /Text HELP/, 'START without a thread does not invite a dead-end ladder reply');
 
   const missedCallsA = await must(clientA.from('missed_calls').select('company_id'), 'company A missed-call read');
   const missedCallsB = await must(clientB.from('missed_calls').select('company_id'), 'company B missed-call read');
@@ -423,7 +499,7 @@ try {
   const jobReply = await ingest({
     sid: `SM${suffix}JOB`,
     to: '+61280000001',
-    body: 'Leaking hot water service',
+    body: 'Leaking hot water service today',
   });
   assert.equal(jobReply.qualification_step, 'urgency', 'job or service advances the ladder');
 
@@ -462,6 +538,14 @@ try {
   });
   assert.equal(contactReply.qualification_step, 'time_window', 'name and area advance the ladder');
 
+  const vagueWindow = await ingest({
+    sid: `SM${suffix}VAGUEWINDOW`,
+    to: '+61280000001',
+    body: 'yes',
+  });
+  assert.equal(vagueWindow.qualification_step, 'time_window', 'vague time reply stays on the final rung');
+  assert.equal(vagueWindow.qualified, false, 'vague time reply cannot qualify the thread');
+
   const qualified = await ingest({
     sid: `SM${suffix}WINDOW`,
     to: '+61280000001',
@@ -484,7 +568,7 @@ try {
     best_time_window: qualifiedThread.best_time_window,
   }, {
     state: 'qualified',
-    job_service: 'Leaking hot water service',
+    job_service: 'Leaking hot water service today',
     urgency: 2,
     contact_name: 'Jack',
     service_area: 'Newtown',
@@ -537,6 +621,27 @@ try {
   );
   assert.equal(confirmation.state, 'queued', 'booking queues confirmation through shared dispatch');
 
+  const bookedStop = await ingest({
+    sid: `SM${suffix}BOOKEDSTOP`,
+    to: '+61280000001',
+    body: 'STOP',
+  });
+  assert.equal(bookedStop.reply_kind, 'stop', 'STOP still wins on a booked thread');
+  const bookedStart = await ingest({
+    sid: `SM${suffix}BOOKEDSTART`,
+    to: '+61280000001',
+    body: 'START',
+  });
+  assert.equal(bookedStart.start_allowed, true, 'START can restore consent after booked-thread STOP');
+  const restoredBookedThread = await must(
+    admin.from('missed_call_sms_threads').select('state, booked_job_id').eq('id', bookingReply.thread_id).single(),
+    'read restored booked thread',
+  );
+  assert.deepEqual(restoredBookedThread, {
+    state: 'booked',
+    booked_job_id: booked.job_id,
+  }, 'START never reopens a booked thread');
+
   const commandsA = await must(
     clientA.from('missed_call_booking_commands').select('company_id'),
     'company A booking command read',
@@ -559,7 +664,7 @@ try {
     clientB.from('communication_preference_events').select('company_id'),
     'company B consent audit read',
   );
-  assert.ok(auditA.every((row) => row.company_id === companyA), 'company A sees only A consent audits');
+  assert.ok(auditA.length > 0 && auditA.every((row) => row.company_id === companyA), 'company A sees only A consent audits');
   assert.ok(auditB.length > 0 && auditB.every((row) => row.company_id === companyB), 'company B sees only B consent audits');
 
   const rebook = await ingest({
@@ -576,6 +681,10 @@ try {
 
   const conflictCallSid = `CA${`${suffix}c`.padEnd(32, 'c')}`;
   await ingestCall({ sid: conflictCallSid, to: '+61280000001' });
+  await ingest({ sid: `SM${suffix}CONFLICTJOB`, to: '+61280000001', body: 'Blocked drain' });
+  await ingest({ sid: `SM${suffix}CONFLICTURG`, to: '+61280000001', body: '3' });
+  await ingest({ sid: `SM${suffix}CONFLICTWHO`, to: '+61280000001', body: 'Jack, Newtown' });
+  await ingest({ sid: `SM${suffix}CONFLICTWHEN`, to: '+61280000001', body: 'Weekday morning' });
   const conflictReply = await ingest({
     sid: `SM${suffix}CONFLICT`,
     to: '+61280000001',
@@ -595,6 +704,12 @@ try {
 
   const stopCallSid = `CA${`${suffix}d`.padEnd(32, 'd')}`;
   await ingestCall({ sid: stopCallSid, to: '+61280000001' });
+  const beforeMidLadderStop = await ingest({
+    sid: `SM${suffix}PRESTOPJOB`,
+    to: '+61280000001',
+    body: 'Replace broken tap',
+  });
+  assert.equal(beforeMidLadderStop.qualification_step, 'urgency', 'fixture reaches the middle of the ladder');
   const stopReply = await ingest({
     sid: `SM${suffix}THREADSTOP`,
     to: '+61280000001',
@@ -610,6 +725,15 @@ try {
     'read stopped thread',
   );
   assert.equal(stoppedThread.state, 'opted_out', 'STOP advances the thread to opted out');
+  assert.equal(stoppedThread.qualification_step, 'urgency', 'STOP preserves the current ladder rung');
+  const cancelledMidLadderPrompt = await must(
+    admin.from('sms_messages')
+      .select('state')
+      .eq('idempotency_key', `missed-call-reply:${beforeMidLadderStop.message_id}`)
+      .single(),
+    'read cancelled mid-ladder prompt',
+  );
+  assert.equal(cancelledMidLadderPrompt.state, 'cancelled', 'STOP cancels a queued ladder prompt');
   const afterStop = await ingest({
     sid: `SM${suffix}AFTERSTOP`,
     to: '+61280000001',

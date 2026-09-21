@@ -102,6 +102,9 @@ describe('Twilio inbound webhook', () => {
   it('classifies exact HELP and START keywords', () => {
     expect(classifyMissedCallReply(' help ')).toEqual({ kind: 'help' });
     expect(classifyMissedCallReply('START')).toEqual({ kind: 'start' });
+    expect(classifyMissedCallReply('anything', 'HELP')).toEqual({ kind: 'help' });
+    expect(classifyMissedCallReply('anything', 'START')).toEqual({ kind: 'start' });
+    expect(classifyMissedCallReply('HELP', 'STOP')).toEqual({ kind: 'stop' });
     expect(classifyMissedCallReply('START BOOK 2026-09-23 09:30')).toEqual({ kind: 'ambiguous' });
   });
 

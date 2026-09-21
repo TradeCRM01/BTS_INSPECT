@@ -161,14 +161,29 @@ BEGIN
     RAISE EXCEPTION 'confirmed booking requires one concrete date and time';
   END IF;
 
+  SELECT sender.*
+  INTO v_sender
+  FROM public.company_twilio_senders AS sender
+  WHERE sender.active
+    AND sender.phone_e164 = p_to_phone_e164
+    AND sender.provider_account_sid = p_provider_account_sid;
+
+  IF FOUND THEN
+    -- Serialize every inbound transition for one tenant + caller before either
+    -- the preference row or thread row is locked. This gives STOP, START, and
+    -- ladder replies one lock order and prevents cross-transition deadlocks.
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended(
+        v_sender.company_id::text || '|' || p_from_phone_e164,
+        0
+      )
+    );
+  END IF;
+
   SELECT preference.sms_consent_status
   INTO v_previous_status
   FROM public.communication_preferences AS preference
-  JOIN public.company_twilio_senders AS sender
-    ON sender.company_id = preference.company_id
-  WHERE sender.active
-    AND sender.phone_e164 = p_to_phone_e164
-    AND sender.provider_account_sid = p_provider_account_sid
+  WHERE preference.company_id = v_sender.company_id
     AND preference.phone_e164 = p_from_phone_e164;
 
   v_result := public.ingest_twilio_inbound_sms_ledger(
@@ -289,6 +304,7 @@ BEGIN
       IF v_thread.id IS NOT NULL AND v_thread.state = 'opted_out' THEN
         UPDATE public.missed_call_sms_threads
         SET state = CASE
+              WHEN booked_job_id IS NOT NULL THEN 'booked'
               WHEN qualification_step = 'complete' THEN 'qualified'
               ELSE 'awaiting_reply'
             END,
@@ -297,12 +313,18 @@ BEGIN
         RETURNING * INTO v_thread;
       END IF;
 
-      v_response := CASE coalesce(v_thread.qualification_step, 'job_service')
+      v_response := CASE
+        WHEN v_thread.id IS NULL THEN
+          'You are opted back in. Text HELP for the missed-call reply guide.'
+        WHEN v_thread.booked_job_id IS NOT NULL THEN
+          'You are opted back in. This missed-call request is already booked.'
+        ELSE CASE coalesce(v_thread.qualification_step, 'job_service')
         WHEN 'urgency' THEN 'You are opted back in. Reply 1 emergency, 2 today, 3 this week, or 4 flexible.'
         WHEN 'contact_area' THEN 'You are opted back in. Text your name and suburb/area, separated by a comma.'
         WHEN 'time_window' THEN 'You are opted back in. What is the best time window for our team to contact you?'
         WHEN 'complete' THEN 'You are opted back in. Reply BOOK YYYY-MM-DD HH:MM to request the agreed time.'
         ELSE 'You are opted back in. What job or service do you need?'
+        END
       END;
     END IF;
 
@@ -359,7 +381,9 @@ BEGIN
         ELSE 'Before booking, what job or service do you need?'
       END;
     ELSIF v_thread.qualification_step = 'job_service' THEN
-      IF p_reply_kind = 'ambiguous' OR length(v_trimmed_body) < 3 THEN
+      IF lower(v_trimmed_body) IN ('yes', 'yeah', 'yep', 'ok', 'okay', 'book', 'booking')
+        OR length(v_trimmed_body) < 3
+      THEN
         v_response := 'What job or service do you need? A few words is enough.';
       ELSE
         UPDATE public.missed_call_sms_threads
@@ -401,8 +425,14 @@ BEGIN
         v_response := 'Please text your name and suburb/area, separated by a comma.';
       END IF;
     ELSE
-      IF length(v_trimmed_body) < 3 THEN
-        v_response := 'What is the best time window for our team to contact you?';
+      IF length(v_trimmed_body) < 3
+        OR lower(v_trimmed_body) IN ('yes', 'yeah', 'yep', 'nah', 'no', 'idk', 'dunno', 'any')
+        OR NOT (
+          v_trimmed_body ~* '([0-9]{1,2})(:[0-9]{2})?[[:space:]]*(am|pm)'
+          OR v_trimmed_body ~* '(morning|afternoon|evening|weekday|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|anytime|business hours|after work|before work)'
+        )
+      THEN
+        v_response := 'Please give a clear time window, for example weekday morning or 2-4pm.';
       ELSE
         UPDATE public.missed_call_sms_threads
         SET best_time_window = left(v_trimmed_body, 300),

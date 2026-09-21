@@ -141,6 +141,10 @@ export function classifyMissedCallReply(
 ): MissedCallReply {
   if (isTwilioStop(body, optOutType)) return { kind: 'stop' };
 
+  const providerKeyword = optOutType?.trim().toUpperCase();
+  if (providerKeyword === 'START') return { kind: 'start' };
+  if (providerKeyword === 'HELP') return { kind: 'help' };
+
   const keyword = body.trim().toUpperCase();
   if (keyword === 'START') return { kind: 'start' };
   if (keyword === 'HELP') return { kind: 'help' };
