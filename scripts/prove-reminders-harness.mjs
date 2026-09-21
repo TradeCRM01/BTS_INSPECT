@@ -663,7 +663,7 @@ async function proveViewport(browser, tag, viewport) {
     && quietChipHeight === 44,
     { rows: Object.values(invoiceRows), quietChipHeight });
 
-  await invoiceRow(page, '#2003').getByRole('button', { name: 'Mark paid' }).click();
+  await invoiceRow(page, '#2003').getByRole('button', { name: 'Record payment' }).click();
   const paidPatch = await waitForLog(page, log, (entry) => entry.method === 'PATCH'
     && entry.table === 'invoices'
     && entry.filter.includes('id=eq.inv-2003')

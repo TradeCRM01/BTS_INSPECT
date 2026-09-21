@@ -306,7 +306,7 @@ describe('invoice-sheet attach client — wiring', () => {
     expect(editor).toContain('{next.label}');
     expect(editor).toContain("next.key === 'add_email'");
     expect(editor).toContain('Send again');
-    expect(editor).toContain('Mark paid');
+    expect(editor).toContain('Record payment');
     expect(editor).not.toContain('className="btn-primary job-client-attach-save"');
     expect(editor).not.toContain('className="ops-next-control-block job-client-attach-save"');
     expect(clientCss).toContain('.job-client-attach-save');
@@ -341,7 +341,7 @@ describe('invoice-sheet attach client — wiring', () => {
     expect(editor).toContain('aria-label="Attach client"');
   });
 
-  it('leaves Send / Send again / Mark paid / Xero / receipt / SMTP Company settings as signed', () => {
+  it('leaves Send / Send again / Record payment / Xero / receipt / SMTP Company settings as signed', () => {
     const page = src('src/pages/InvoicesPage.tsx');
     const dialog = src('src/components/invoicing/InvoiceSendDialog.tsx');
     const invoiceNext = src('src/lib/invoiceNextAction.ts');
@@ -355,7 +355,7 @@ describe('invoice-sheet attach client — wiring', () => {
 
     expect(page).toContain('InvoiceSendDialog');
     expect(page).toContain('Send again');
-    expect(page).toContain('Mark paid');
+    expect(page).toContain('Record payment');
     expect(page).toContain('attachXeroPaymentAfterMarkPaid');
     expect(page).toContain('deliverInvoiceReceiptAfterMarkPaid');
     expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");

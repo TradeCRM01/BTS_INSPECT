@@ -320,7 +320,7 @@ describe('job-sheet attach client — wiring', () => {
     expect(clientCss).toMatch(/\.job-client-attach-save[\s\S]*color: #5B6B7C/);
   });
 
-  it('leaves Invoice-sheet Send / Send again / Mark paid / Xero / receipt and SMTP Company settings as signed', () => {
+  it('leaves Invoice-sheet Send / Send again / Record payment / Xero / receipt and SMTP Company settings as signed', () => {
     const page = src('src/pages/JobDetailPage.tsx');
     const invoicesPage = src('src/pages/InvoicesPage.tsx');
     const dialog = src('src/components/invoicing/InvoiceSendDialog.tsx');
@@ -335,7 +335,7 @@ describe('job-sheet attach client — wiring', () => {
     expect(invoicesPage).not.toContain('jobClientAttachRow');
     expect(invoicesPage).toContain('InvoiceSendDialog');
     expect(invoicesPage).toContain('Send again');
-    expect(invoicesPage).toContain('Mark paid');
+    expect(invoicesPage).toContain('Record payment');
     expect(dialog).toContain('Download PDF');
     expect(dialog).not.toContain('attachJobClient');
     expect(invoiceNext).toContain("label: 'Send again'");
