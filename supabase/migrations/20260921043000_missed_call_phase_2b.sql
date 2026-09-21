@@ -1,6 +1,9 @@
 CREATE UNIQUE INDEX jobs_company_id_key
   ON public.jobs (company_id, id);
 
+CREATE UNIQUE INDEX agent_reminders_company_id_key
+  ON public.agent_reminders (company_id, id);
+
 CREATE TABLE public.missed_call_sms_threads (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
@@ -71,7 +74,7 @@ CREATE TABLE public.missed_call_office_reviews (
   company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   thread_id uuid,
   inbound_message_id uuid NOT NULL,
-  reminder_id uuid REFERENCES public.agent_reminders(id) ON DELETE SET NULL,
+  reminder_id uuid,
   reason text NOT NULL CHECK (reason IN ('noneligible', 'ambiguous', 'stop', 'conflict')),
   resolved_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -81,7 +84,10 @@ CREATE TABLE public.missed_call_office_reviews (
     REFERENCES public.missed_call_sms_threads(company_id, id),
   CONSTRAINT missed_call_office_reviews_company_message_fkey
     FOREIGN KEY (company_id, inbound_message_id)
-    REFERENCES public.sms_messages(company_id, id)
+    REFERENCES public.sms_messages(company_id, id),
+  CONSTRAINT missed_call_office_reviews_company_reminder_fkey
+    FOREIGN KEY (company_id, reminder_id)
+    REFERENCES public.agent_reminders(company_id, id)
 );
 
 ALTER TABLE public.missed_call_sms_threads ENABLE ROW LEVEL SECURITY;

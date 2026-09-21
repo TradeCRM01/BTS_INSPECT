@@ -529,11 +529,11 @@ try {
 
   console.log('missed-call SMS database integration tests passed');
 } finally {
+  await admin.from('missed_call_office_reviews').delete().in('company_id', [companyA, companyB]);
   await admin.from('agent_reminders')
     .delete()
     .in('company_id', [companyA, companyB])
     .eq('related_type', 'missed_call_office_review');
-  await admin.from('missed_call_office_reviews').delete().in('company_id', [companyA, companyB]);
   await admin.from('missed_call_booking_commands').delete().in('company_id', [companyA, companyB]);
   await admin.from('missed_call_sms_threads').delete().in('company_id', [companyA, companyB]);
   await admin.from('jobs').delete().in('company_id', [companyA, companyB]);
