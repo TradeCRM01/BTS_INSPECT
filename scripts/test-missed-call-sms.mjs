@@ -51,14 +51,20 @@ async function createTenant(companyId, label) {
 
 async function ingest({ sid, to, body = 'Hello' }) {
   const stop = body.trim().toUpperCase() === 'STOP';
+  const start = body.trim().toUpperCase() === 'START';
+  const help = body.trim().toUpperCase() === 'HELP';
   const confirmed = body.trim().match(/^BOOK\s+(\d{4}-\d{2}-\d{2})\s+(?:AT\s+)?(\d{2}:\d{2})$/i);
   const replyKind = stop
     ? 'stop'
-    : confirmed
-      ? 'confirmed_slot'
-      : /\b(?:yes|book|booking|available|works|confirm)\b/i.test(body)
-        ? 'ambiguous'
-        : 'noneligible';
+    : start
+      ? 'start'
+      : help
+        ? 'help'
+        : confirmed
+          ? 'confirmed_slot'
+          : /\b(?:yes|book|booking|available|works|confirm)\b/i.test(body)
+            ? 'ambiguous'
+            : 'noneligible';
   return must(
     admin.rpc('ingest_twilio_inbound_sms', {
       p_provider_account_sid: `AC${suffix}`,
@@ -310,6 +316,39 @@ try {
   );
   assert.equal(stoppedCallOutbox.length, 0, 'STOP creates no outbound row');
 
+  const restart = await ingest({
+    sid: `SM${suffix}START`,
+    to: '+61280000002',
+    body: 'START',
+  });
+  assert.equal(restart.start_allowed, true, 'START restores a previously consented recipient');
+  const restartedPreference = await must(
+    admin.from('communication_preferences')
+      .select('sms_consent_status, consent_basis, consent_source, opted_out_at')
+      .eq('company_id', companyB)
+      .eq('phone_e164', '+61412345678')
+      .single(),
+    'read START-restored preference',
+  );
+  assert.deepEqual(restartedPreference, {
+    sms_consent_status: 'consented',
+    consent_basis: 'express',
+    consent_source: 'integration_test',
+    opted_out_at: null,
+  }, 'START preserves the original consent provenance while clearing STOP');
+  const startAudit = await must(
+    admin.from('communication_preference_events')
+      .select('previous_status, resulting_status, transition_source')
+      .eq('inbound_message_id', restart.message_id)
+      .single(),
+    'read START audit event',
+  );
+  assert.deepEqual(startAudit, {
+    previous_status: 'opted_out',
+    resulting_status: 'consented',
+    transition_source: 'twilio_inbound_start',
+  }, 'START records auditable transition provenance');
+
   const missedCallsA = await must(clientA.from('missed_calls').select('company_id'), 'company A missed-call read');
   const missedCallsB = await must(clientB.from('missed_calls').select('company_id'), 'company B missed-call read');
   assert.ok(
@@ -348,6 +387,22 @@ try {
     'sent state retains the provider Message SID',
   );
 
+  const help = await ingest({
+    sid: `SM${suffix}HELP`,
+    to: '+61280000001',
+    body: 'HELP',
+  });
+  assert.equal(help.qualification_step, 'job_service', 'HELP does not skip the qualification ladder');
+  const helpReply = await must(
+    admin.from('sms_messages')
+      .select('body, state')
+      .eq('idempotency_key', `missed-call-reply:${help.message_id}`)
+      .single(),
+    'read HELP reply',
+  );
+  assert.equal(helpReply.state, 'queued', 'HELP queues a reply through the shared SMS outbox');
+  assert.match(helpReply.body, /STOP opts out; START opts in again\.$/, 'HELP explains keywords and ladder');
+
   await must(
     admin.from('clients').insert({
       company_id: companyA,
@@ -362,29 +417,93 @@ try {
     to: '+61280000001',
     body: 'yes',
   });
-  assert.equal(vague.review_reason, 'ambiguous', 'vague yes does not book');
-  const vagueReview = await must(
-    admin.from('missed_call_office_reviews')
-      .select('reason, reminder_id')
-      .eq('inbound_message_id', vague.message_id)
+  assert.equal(vague.qualification_step, 'job_service', 'vague reply stays on the current ladder step');
+  assert.equal(vague.command_id, null, 'vague reply never creates a booking command');
+
+  const jobReply = await ingest({
+    sid: `SM${suffix}JOB`,
+    to: '+61280000001',
+    body: 'Leaking hot water service',
+  });
+  assert.equal(jobReply.qualification_step, 'urgency', 'job or service advances the ladder');
+
+  const earlyBookingDate = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+  const earlyBook = await ingest({
+    sid: `SM${suffix}EARLYBOOK`,
+    to: '+61280000001',
+    body: `BOOK ${earlyBookingDate} 09:30`,
+  });
+  assert.equal(earlyBook.command_id, null, 'BOOK before qualification creates no command');
+  assert.equal(earlyBook.qualification_step, 'urgency', 'early BOOK stays on the current ladder step');
+
+  const invalidUrgency = await ingest({
+    sid: `SM${suffix}BADURGENCY`,
+    to: '+61280000001',
+    body: 'today please',
+  });
+  assert.equal(invalidUrgency.qualification_step, 'urgency', 'urgency requires a numbered reply');
+  const urgencyReply = await ingest({
+    sid: `SM${suffix}URGENCY`,
+    to: '+61280000001',
+    body: '2',
+  });
+  assert.equal(urgencyReply.qualification_step, 'contact_area', 'numbered urgency advances the ladder');
+
+  const badContact = await ingest({
+    sid: `SM${suffix}BADCONTACT`,
+    to: '+61280000001',
+    body: 'Jack',
+  });
+  assert.equal(badContact.qualification_step, 'contact_area', 'name without area stays on the ladder');
+  const contactReply = await ingest({
+    sid: `SM${suffix}CONTACT`,
+    to: '+61280000001',
+    body: 'Jack, Newtown',
+  });
+  assert.equal(contactReply.qualification_step, 'time_window', 'name and area advance the ladder');
+
+  const qualified = await ingest({
+    sid: `SM${suffix}WINDOW`,
+    to: '+61280000001',
+    body: 'Weekdays 2-4pm',
+  });
+  assert.equal(qualified.qualified, true, 'best time window completes qualification');
+  const qualifiedThread = await must(
+    admin.from('missed_call_sms_threads')
+      .select('state, job_service, urgency, contact_name, service_area, best_time_window, qualification_reminder_id')
+      .eq('id', qualified.thread_id)
       .single(),
-    'read vague review',
+    'read qualified thread',
   );
-  assert.equal(vagueReview.reason, 'ambiguous', 'vague reply is sent to office review');
-  const vagueTask = await must(
+  assert.deepEqual({
+    state: qualifiedThread.state,
+    job_service: qualifiedThread.job_service,
+    urgency: qualifiedThread.urgency,
+    contact_name: qualifiedThread.contact_name,
+    service_area: qualifiedThread.service_area,
+    best_time_window: qualifiedThread.best_time_window,
+  }, {
+    state: 'qualified',
+    job_service: 'Leaking hot water service',
+    urgency: 2,
+    contact_name: 'Jack',
+    service_area: 'Newtown',
+    best_time_window: 'Weekdays 2-4pm',
+  }, 'qualification answers persist on the thread');
+  const qualifiedTask = await must(
     admin.from('agent_reminders')
       .select('title, related_type, visibility')
-      .eq('id', vagueReview.reminder_id)
+      .eq('id', qualifiedThread.qualification_reminder_id)
       .single(),
-    'read vague office task',
+    'read qualified office task',
   );
-  assert.deepEqual(vagueTask, {
-    title: 'Review missed-call SMS reply',
-    related_type: 'missed_call_office_review',
+  assert.deepEqual(qualifiedTask, {
+    title: 'Qualified missed-call enquiry',
+    related_type: 'missed_call_sms_thread',
     visibility: 'company',
-  }, 'office review creates a company-visible task on the existing reminders path');
+  }, 'qualification pings the office through the existing reminders path');
 
-  const bookingDate = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+  const bookingDate = earlyBookingDate;
   const bookingReply = await ingest({
     sid: `SM${suffix}BOOK`,
     to: '+61280000001',
@@ -428,6 +547,20 @@ try {
   );
   assert.ok(commandsA.length > 0 && commandsA.every((row) => row.company_id === companyA), 'company A sees only A commands');
   assert.equal(commandsB.length, 0, 'company B cannot see company A commands');
+  const threadsA = await must(clientA.from('missed_call_sms_threads').select('company_id'), 'company A thread read');
+  const threadsB = await must(clientB.from('missed_call_sms_threads').select('company_id'), 'company B thread read');
+  assert.ok(threadsA.length > 0 && threadsA.every((row) => row.company_id === companyA), 'company A sees only A threads');
+  assert.equal(threadsB.length, 0, 'company B cannot see company A threads');
+  const auditA = await must(
+    clientA.from('communication_preference_events').select('company_id'),
+    'company A consent audit read',
+  );
+  const auditB = await must(
+    clientB.from('communication_preference_events').select('company_id'),
+    'company B consent audit read',
+  );
+  assert.ok(auditA.every((row) => row.company_id === companyA), 'company A sees only A consent audits');
+  assert.ok(auditB.length > 0 && auditB.every((row) => row.company_id === companyB), 'company B sees only B consent audits');
 
   const rebook = await ingest({
     sid: `SM${suffix}REBOOK`,
@@ -473,10 +606,26 @@ try {
   );
   assert.equal(stopReview.reason, 'stop', 'thread STOP goes to office review without booking');
   const stoppedThread = await must(
-    admin.from('missed_call_sms_threads').select('state').eq('id', stopReply.thread_id).single(),
+    admin.from('missed_call_sms_threads').select('state, qualification_step').eq('id', stopReply.thread_id).single(),
     'read stopped thread',
   );
   assert.equal(stoppedThread.state, 'opted_out', 'STOP advances the thread to opted out');
+  const afterStop = await ingest({
+    sid: `SM${suffix}AFTERSTOP`,
+    to: '+61280000001',
+    body: 'Blocked ladder answer',
+  });
+  assert.equal(afterStop.command_id, null, 'STOP blocks later booking work');
+  const threadAfterStop = await must(
+    admin.from('missed_call_sms_threads').select('state, qualification_step').eq('id', stopReply.thread_id).single(),
+    'read thread after blocked ladder reply',
+  );
+  assert.deepEqual(threadAfterStop, stoppedThread, 'STOP mid-ladder prevents state progression');
+  const blockedPrompt = await must(
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-reply:${afterStop.message_id}`),
+    'read blocked post-STOP prompt',
+  );
+  assert.equal(blockedPrompt.length, 0, 'STOP prevents outbound ladder prompts');
 
   const claimId = randomUUID();
   await must(
@@ -530,12 +679,17 @@ try {
   console.log('missed-call SMS database integration tests passed');
 } finally {
   await admin.from('missed_call_office_reviews').delete().in('company_id', [companyA, companyB]);
+  await admin.from('communication_preference_events').delete().in('company_id', [companyA, companyB]);
   await admin.from('agent_reminders')
     .delete()
     .in('company_id', [companyA, companyB])
     .eq('related_type', 'missed_call_office_review');
   await admin.from('missed_call_booking_commands').delete().in('company_id', [companyA, companyB]);
   await admin.from('missed_call_sms_threads').delete().in('company_id', [companyA, companyB]);
+  await admin.from('agent_reminders')
+    .delete()
+    .in('company_id', [companyA, companyB])
+    .eq('related_type', 'missed_call_sms_thread');
   await admin.from('jobs').delete().in('company_id', [companyA, companyB]);
   await admin.from('clients').delete().in('company_id', [companyA, companyB]);
   await admin.from('missed_calls').delete().in('company_id', [companyA, companyB]);

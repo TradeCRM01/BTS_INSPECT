@@ -19,6 +19,8 @@ export type TwilioInboundRecord = {
 
 export type MissedCallReply =
   | { kind: 'stop' }
+  | { kind: 'start' }
+  | { kind: 'help' }
   | { kind: 'confirmed_slot'; date: string; time: string }
   | { kind: 'ambiguous' }
   | { kind: 'noneligible' };
@@ -138,6 +140,10 @@ export function classifyMissedCallReply(
   optOutType: string | null = null,
 ): MissedCallReply {
   if (isTwilioStop(body, optOutType)) return { kind: 'stop' };
+
+  const keyword = body.trim().toUpperCase();
+  if (keyword === 'START') return { kind: 'start' };
+  if (keyword === 'HELP') return { kind: 'help' };
 
   const confirmed = body.trim().match(
     /^BOOK\s+(\d{4})-(\d{2})-(\d{2})\s+(?:AT\s+)?([01]\d|2[0-3]):([0-5]\d)$/i,
