@@ -10,7 +10,10 @@ import {
   quoteStatusAfterClientAccept,
 } from './sendQuote';
 import {
+  acceptClientPortalAuditQuote,
   canAcceptPortalQuote,
+  clientPortalAuditFixture,
+  isDevClientPortalAudit,
   PORTAL_QUOTE_ACCEPT_ACTION,
   portalQuoteAcceptBody,
 } from '../pages/ClientPortalPublicPage';
@@ -24,6 +27,32 @@ function src(rel: string): string {
 }
 
 describe('portal quote Accept — same write as office Mark accepted', () => {
+  it('runs the DEV audit fixture without inventing booking fields', () => {
+    expect(isDevClientPortalAudit(new URLSearchParams('auditAuth=1'))).toBe(true);
+    expect(isDevClientPortalAudit(new URLSearchParams('auditAuth=0'))).toBe(false);
+
+    const sent = clientPortalAuditFixture();
+    const source = sent.quotes[0];
+    expect(source).toMatchObject({
+      status: 'sent',
+      scheduled_date: '2026-09-24',
+      assigned_team: ['audit-crew-7'],
+    });
+    expect(sent.jobs).toEqual([]);
+
+    const accepted = acceptClientPortalAuditQuote(sent, source.id);
+    expect(sent.quotes[0].status).toBe('sent');
+    expect(accepted.quotes[0]).toMatchObject({
+      status: 'accepted',
+      job_id: `audit-job-${source.id}`,
+    });
+    expect(accepted.jobs).toEqual([expect.objectContaining({
+      status: 'scheduled',
+      scheduled_date: source.scheduled_date,
+      assigned_team: source.assigned_team,
+    })]);
+  });
+
   it('sent quotes can Accept; that write is quotes.status = accepted', () => {
     expect(canClientAcceptQuote('sent')).toBe(true);
     expect(canAcceptPortalQuote('sent', null)).toBe(true);
@@ -68,6 +97,12 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
     expect(edge).toContain('from("quotes")');
     expect(edge).not.toContain('declined');
     expect(edge).not.toContain('How to pay');
+
+    const supabaseClient = src('src/lib/supabase.ts');
+    expect(supabaseClient).toContain("import.meta.env.DEV ? 'http://127.0.0.1:54321' : ''");
+    expect(page).toContain("enabled: !auditPortal && !!token");
+    const acceptHandler = page.slice(page.indexOf('const acceptQuote = async'), page.indexOf('if (!token && !auditPortal)'));
+    expect(acceptHandler.indexOf('if (auditPortal)')).toBeLessThan(acceptHandler.indexOf("supabase.functions.invoke('client-portal'"));
   });
 
   it('G1 Accept inserts one job and sets quotes.status = accepted — Convert is not a second tap', () => {
