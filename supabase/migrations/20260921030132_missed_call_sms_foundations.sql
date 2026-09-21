@@ -18,6 +18,44 @@ CREATE UNIQUE INDEX company_twilio_senders_active_phone_key
   ON public.company_twilio_senders (phone_e164)
   WHERE active;
 
+CREATE OR REPLACE FUNCTION public.enforce_sms_sender_mapping()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  v_conflict boolean;
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.company_id IS DISTINCT FROM OLD.company_id THEN
+    RAISE EXCEPTION 'SMS sender company cannot be changed';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.company_twilio_senders AS sender
+    WHERE sender.id IS DISTINCT FROM NEW.id
+      AND sender.active
+      AND NEW.active
+      AND sender.phone_e164 = NEW.phone_e164
+      AND sender.company_id IS DISTINCT FROM NEW.company_id
+  )
+  INTO v_conflict;
+
+  IF v_conflict THEN
+    RAISE EXCEPTION 'SMS sender E.164 is already mapped to another company';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER enforce_sms_sender_mapping
+  BEFORE INSERT OR UPDATE OF company_id, phone_e164, active
+  ON public.company_twilio_senders
+  FOR EACH ROW
+  EXECUTE FUNCTION public.enforce_sms_sender_mapping();
+
 CREATE INDEX company_twilio_senders_company_idx
   ON public.company_twilio_senders (company_id);
 
@@ -146,7 +184,7 @@ CREATE INDEX sms_messages_claim_idx
   ON public.sms_messages (next_attempt, created_at)
   WHERE direction = 'outbound' AND state IN ('queued', 'claimed');
 
-CREATE OR REPLACE FUNCTION public.enforce_sms_sender_mapping()
+CREATE OR REPLACE FUNCTION public.enforce_sms_message_sender()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -177,11 +215,11 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER enforce_sms_sender_mapping
+CREATE TRIGGER enforce_sms_message_sender
   BEFORE INSERT OR UPDATE OF company_id, sender_id, direction, from_phone_e164, to_phone_e164
   ON public.sms_messages
   FOR EACH ROW
-  EXECUTE FUNCTION public.enforce_sms_sender_mapping();
+  EXECUTE FUNCTION public.enforce_sms_message_sender();
 
 ALTER TABLE public.sms_messages ENABLE ROW LEVEL SECURITY;
 
