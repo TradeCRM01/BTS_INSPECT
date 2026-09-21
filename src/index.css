@@ -3647,6 +3647,76 @@
     gap: 8px;
   }
 
+  .hub-invoice-payment-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgb(10 37 64 / 0.34);
+  }
+
+  .hub-invoice-payment-confirm {
+    width: min(440px, 100%);
+    padding: 24px;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
+    border-radius: 16px;
+    color: #0A2540;
+  }
+
+  .hub-invoice-payment-confirm h2 {
+    margin: 4px 0 8px;
+    font-family: Rajdhani, sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .hub-invoice-payment-copy {
+    margin: 0;
+    color: #5B6B7C;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .hub-invoice-payment-totals {
+    margin: 20px 0;
+    border-top: 1px solid #E2D9CC;
+  }
+
+  .hub-invoice-payment-totals div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    min-height: 44px;
+    padding: 10px 0;
+    border-bottom: 1px solid #E2D9CC;
+    gap: 16px;
+  }
+
+  .hub-invoice-payment-totals dt {
+    color: #5B6B7C;
+    font-size: 14px;
+  }
+
+  .hub-invoice-payment-totals dd {
+    margin: 0;
+    color: #0A2540;
+    font-weight: 700;
+  }
+
+  .hub-invoice-payment-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .hub-invoice-payment-actions .btn-primary {
+    min-height: 44px;
+  }
+
   .hub-invoice-more {
     position: relative;
   }
@@ -4646,6 +4716,30 @@
       max-width: calc(100vw - 16px) !important;
       max-height: calc(100dvh - 16px) !important;
       border-radius: 16px !important;
+    }
+
+    .hub-invoice-payment-backdrop {
+      align-items: end;
+      padding: 8px;
+    }
+
+    .hub-invoice-payment-confirm {
+      width: 100%;
+      padding: 20px 16px 16px;
+    }
+
+    .hub-invoice-payment-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    .hub-invoice-payment-actions .btn-primary {
+      grid-row: 1;
+      width: 100%;
+    }
+
+    .hub-invoice-payment-actions .ops-link {
+      width: 100%;
     }
 
     .hub-invoice-send {
