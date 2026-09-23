@@ -244,8 +244,9 @@ const TESTING_DUE_LOOK_ROWS = 'testing-due-rows';
 const VISIT_NOTES_LOOK = 'visit-notes';
 /** Playwright: /jobs/audit-doc-job?look=job-photos — visit notes with photos plus a seeded Gallery. */
 const JOB_PHOTOS_LOOK = 'job-photos';
-/** Playwright: /jobs/audit-doc-job?auditAuth=1&look=job-hours&tab=schedule — two closed entries and one running. */
+/** Playwright job-hours proofs: closed + running, and a running-only truth case. */
 const JOB_HOURS_LOOK = 'job-hours';
+const JOB_HOURS_RUNNING_LOOK = 'job-hours-running';
 const LOOK_PHOTO_DIR = '/look/photos';
 
 function lookSearchParam(): string | null {
@@ -269,10 +270,11 @@ function jobPhotosLookOn(): boolean {
 }
 
 function jobHoursLookOn(): boolean {
-  return lookSearchParam() === JOB_HOURS_LOOK;
+  const look = lookSearchParam();
+  return look === JOB_HOURS_LOOK || look === JOB_HOURS_RUNNING_LOOK;
 }
 
-/** 1h 30m + 0h 45m closed, plus a running entry the total must ignore. Heading reads 2h 15m. */
+/** 1h 30m + 0h 45m closed, plus 0h 45m live. The running-only case has zero closed entries. */
 function lookJobTimesheets(jobId: string): JobTimesheet[] {
   const row = (id: string, start: string, end: string | null, workType: string): JobTimesheet => ({
     id,
@@ -284,10 +286,14 @@ function lookJobTimesheets(jobId: string): JobTimesheet[] {
     billable: true,
     notes: null,
   });
+  const now = Date.now();
+  const isoMinutesAgo = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
+  const running = row('look-hours-running', isoMinutesAgo(45), null, 'Fit-off');
+  if (lookSearchParam() === JOB_HOURS_RUNNING_LOOK) return [running];
   return [
-    row('look-hours-running', '2026-09-08T00:30:00.000Z', null, 'Fit-off'),
-    row('look-hours-new', '2026-09-07T21:30:00.000Z', '2026-09-07T23:00:00.000Z', 'Fit-off'),
-    row('look-hours-old', '2026-09-07T03:00:00.000Z', '2026-09-07T03:45:00.000Z', 'Rough-in'),
+    running,
+    row('look-hours-new', isoMinutesAgo(240), isoMinutesAgo(150), 'Fit-off'),
+    row('look-hours-old', isoMinutesAgo(360), isoMinutesAgo(315), 'Rough-in'),
   ];
 }
 
@@ -2092,6 +2098,14 @@ export function JobDetailPage() {
 
   const myTimesheetIds = new Set((myTimesheets ?? []).map(t => t.id));
   const runningEntry = (timesheets ?? []).find(e => e.end_time == null && myTimesheetIds.has(e.timesheet_id));
+  const hasRunningJobTime = (timesheets ?? []).some(e => e.end_time == null);
+  const [jobHoursNow, setJobHoursNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!hasRunningJobTime) return;
+    setJobHoursNow(new Date());
+    const timer = window.setInterval(() => setJobHoursNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, [hasRunningJobTime]);
 
   const clockOnJob = useMutation({
     mutationFn: async () => {
@@ -3559,7 +3573,7 @@ export function JobDetailPage() {
           title="Time on this job"
           icon={Clock}
           count={(timesheets ?? []).length}
-          summary={formatJobHoursTotal(jobClockedMinutes(timesheets ?? []))}
+          summary={formatJobHoursTotal(jobClockedMinutes(timesheets ?? [], jobHoursNow))}
           action={
             <div className="flex items-center gap-3">
               {runningEntry ? (
