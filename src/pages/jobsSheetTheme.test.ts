@@ -104,13 +104,14 @@ describe('job hub open sheet LOOK', () => {
     expect(lookCss).not.toMatch(/\.hub-jobs[\s\S]{0,80}#111|#000\b/);
   });
 
-  it('keeps persist, schedule, reminder, and send writes on the existing path', () => {
+  it('keeps persist, schedule, reminder, and invoice share on existing paths', () => {
     const page = src('src/pages/JobDetailPage.tsx');
     expect(page).toContain('updateStatus.mutate');
     expect(page).toContain('id="job-schedule"');
     expect(page).toContain('JobDispatchPanel');
     expect(page).toContain('JobClientReminder');
-    expect(page).toContain('sendJobDraftInvoice');
+    expect(page).toContain('pickJobDraftToSend');
+    expect(page).toContain('send=1');
     expect(page).toContain('createInvoiceFromJobBill');
     expect(page).toContain('id="job-insp"');
     expect(page).toContain('id="job-swms"');

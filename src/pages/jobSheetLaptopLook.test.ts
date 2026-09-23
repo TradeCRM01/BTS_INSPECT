@@ -105,13 +105,14 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(css).not.toMatch(/\bute\b/i);
   });
 
-  it('does not rewrite persist, dispatch, costing, reminder, or convert writes', () => {
+  it('does not rewrite persist, dispatch, costing, reminder, share, or convert writes', () => {
     const page = src('src/pages/JobDetailPage.tsx');
     expect(page).toContain('updateStatus.mutate');
     expect(page).toContain('id="job-schedule"');
     expect(page).toContain('JobDispatchPanel');
     expect(page).toContain('JobClientReminder');
-    expect(page).toContain('sendJobDraftInvoice');
+    expect(page).toContain('pickJobDraftToSend');
+    expect(page).toContain('send=1');
     expect(page).toContain('createInvoiceFromJobBill');
     expect(page).toContain('id="job-insp"');
     expect(page).toContain('id="job-swms"');
