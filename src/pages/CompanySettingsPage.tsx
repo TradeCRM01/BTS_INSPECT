@@ -37,6 +37,13 @@ import {
   type CompanyPaymentKind,
   type CompanyPaymentMethod,
 } from '../lib/companyPaymentMethods';
+import {
+  emptyTwilioSenderSettings,
+  twilioSenderSettingsFromRow,
+  twilioSenderSettingsPayload,
+  validateTwilioSenderSettings,
+  type TwilioSenderSettings,
+} from '../lib/twilioSenderSettings';
 
 /** Page-local company settings sheet. Same tokens as signed team / open-record. */
 const COMPANY_LOOK_CSS = `
@@ -464,6 +471,15 @@ export function CompanySettingsPage() {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
 
+  // Twilio sender mapping only. Provider calls remain in server-side Edge Functions.
+  const [twilioSender, setTwilioSender] = useState<TwilioSenderSettings>(emptyTwilioSenderSettings);
+  const [twilioSenderId, setTwilioSenderId] = useState<string | null>(null);
+  const [showTwilioSender, setShowTwilioSender] = useState(false);
+  const [loadingTwilioSender, setLoadingTwilioSender] = useState(false);
+  const [savingTwilioSender, setSavingTwilioSender] = useState(false);
+  const [twilioSenderSaved, setTwilioSenderSaved] = useState(false);
+  const [twilioSenderError, setTwilioSenderError] = useState('');
+
   // Inspection renderers
   const [renderers, setRenderers] = useState<Array<{ id: string; key: string; label: string; built_in: boolean }>>([]);
   const [showAddRenderer, setShowAddRenderer] = useState(false);
@@ -522,7 +538,10 @@ export function CompanySettingsPage() {
       setPaymentMethods(parseCompanyPaymentMethods((company as { payment_methods?: unknown }).payment_methods));
       setTrades(parseCompanyTrades(company.trades));
       loadRenderers();
-      if (isAdmin) loadEmailSettings();
+      if (isAdmin) {
+        loadEmailSettings();
+        loadTwilioSender();
+      }
       const theme = (company as { report_theme?: Partial<ReportTheme> | null }).report_theme;
       if (theme) {
         setReportTheme({
@@ -587,6 +606,64 @@ export function CompanySettingsPage() {
       });
     }
     setLoadingEmail(false);
+  }
+
+  async function loadTwilioSender() {
+    if (!company) return;
+    setLoadingTwilioSender(true);
+    setTwilioSenderError('');
+    if (isDevFieldAuditAuth()) {
+      setTwilioSender(emptyTwilioSenderSettings);
+      setTwilioSenderId(null);
+      setLoadingTwilioSender(false);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('organisation_twilio_senders')
+      .select('id, phone_e164, provider_account_sid, provider_sender_sid, active')
+      .eq('organisation_id', company.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      setTwilioSenderError('Could not load the missed-call number.');
+    } else {
+      setTwilioSender(twilioSenderSettingsFromRow(data));
+      setTwilioSenderId(data?.id ?? null);
+    }
+    setLoadingTwilioSender(false);
+  }
+
+  async function handleSaveTwilioSender(e: React.FormEvent) {
+    e.preventDefault();
+    if (!company) return;
+    const validationError = validateTwilioSenderSettings(twilioSender);
+    if (validationError) {
+      setTwilioSenderError(validationError);
+      return;
+    }
+
+    setSavingTwilioSender(true);
+    setTwilioSenderError('');
+    const payload = twilioSenderSettingsPayload(company.id, twilioSender);
+    const request = twilioSenderId
+      ? supabase
+          .from('organisation_twilio_senders')
+          .update(payload)
+          .eq('id', twilioSenderId)
+          .eq('organisation_id', company.id)
+      : supabase.from('organisation_twilio_senders').insert(payload);
+    const { data, error } = await request.select('id').single();
+
+    if (error) {
+      setTwilioSenderError('Could not save the missed-call number.');
+    } else {
+      setTwilioSender(twilioSenderSettingsFromRow(payload));
+      setTwilioSenderId(data.id);
+      setTwilioSenderSaved(true);
+      setTimeout(() => setTwilioSenderSaved(false), 2000);
+    }
+    setSavingTwilioSender(false);
   }
 
   async function handleSaveEmailSettings(e: React.FormEvent) {
@@ -1056,6 +1133,127 @@ export function CompanySettingsPage() {
               )}
             </div>
           ))
+        )}
+
+        {/* Missed-call SMS sender — admin mapping only; no provider request leaves the browser. */}
+        {isAdmin && (
+          <>
+            <p className="hub-company-kicker">Missed-call text-back</p>
+            <p className="hub-company-lede">
+              Map this company to its Twilio number. Calls and messages are handled by the server.
+            </p>
+            {loadingTwilioSender ? (
+              <p className="hub-company-lede">Loading...</p>
+            ) : !showTwilioSender ? (
+              <div className="hub-company-row">
+                <div>
+                  <p className="hub-company-row-label">
+                    {twilioSenderId ? twilioSender.phone_e164 : 'No number configured'}
+                  </p>
+                  {twilioSenderId ? (
+                    <p className="hub-company-row-meta">
+                      {twilioSender.active ? 'Active' : 'Inactive'}
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  className="hub-company-sub"
+                  onClick={() => setShowTwilioSender(true)}
+                >
+                  {twilioSenderId ? 'Change mapping' : 'Configure'}
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSaveTwilioSender}>
+                <div className="hub-company-row">
+                  <label className="hub-company-row-label" htmlFor="twilio-phone-e164">Twilio number</label>
+                  <div className="hub-company-field">
+                    <input
+                      id="twilio-phone-e164"
+                      value={twilioSender.phone_e164}
+                      onChange={e => setTwilioSender(row => ({ ...row, phone_e164: e.target.value }))}
+                      className={inputClass + ' font-mono'}
+                      placeholder="+61400111222"
+                      autoComplete="tel"
+                      required
+                    />
+                    <p className="hub-company-row-meta">E.164 format, including the country code.</p>
+                  </div>
+                </div>
+                <div className="hub-company-row">
+                  <label className="hub-company-row-label" htmlFor="twilio-account-sid">Account SID</label>
+                  <div className="hub-company-field">
+                    <input
+                      id="twilio-account-sid"
+                      value={twilioSender.provider_account_sid}
+                      onChange={e => setTwilioSender(row => ({ ...row, provider_account_sid: e.target.value }))}
+                      className={inputClass + ' font-mono'}
+                      placeholder="AC…"
+                      autoComplete="off"
+                      spellCheck={false}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="hub-company-row">
+                  <label className="hub-company-row-label" htmlFor="twilio-phone-sid">Phone Number SID</label>
+                  <div className="hub-company-field">
+                    <input
+                      id="twilio-phone-sid"
+                      value={twilioSender.provider_sender_sid}
+                      onChange={e => setTwilioSender(row => ({ ...row, provider_sender_sid: e.target.value }))}
+                      className={inputClass + ' font-mono'}
+                      placeholder="PN…"
+                      autoComplete="off"
+                      spellCheck={false}
+                      required
+                    />
+                  </div>
+                </div>
+                <label className="hub-company-check">
+                  <input
+                    type="checkbox"
+                    checked={twilioSender.active}
+                    onChange={e => setTwilioSender(row => ({ ...row, active: e.target.checked }))}
+                  />
+                  Active sender mapping
+                </label>
+                <p className="hub-company-row-meta">
+                  Authentication tokens stay in Edge Function secrets and are never entered here.
+                </p>
+                {twilioSenderError ? (
+                  <p className="hub-company-fail">
+                    <AlertCircle size={14} /> {twilioSenderError}
+                  </p>
+                ) : null}
+                <div className="hub-company-add-acts">
+                  <button
+                    type="submit"
+                    className="hub-company-next"
+                    disabled={savingTwilioSender}
+                  >
+                    {twilioSenderSaved
+                      ? <><Check size={15} /> Saved</>
+                      : savingTwilioSender ? 'Saving...' : 'Save mapping'}
+                  </button>
+                  <button
+                    type="button"
+                    className="hub-company-sub is-quiet"
+                    onClick={() => setShowTwilioSender(false)}
+                    disabled={savingTwilioSender}
+                  >
+                    Close
+                  </button>
+                </div>
+              </form>
+            )}
+            {!showTwilioSender && twilioSenderError ? (
+              <p className="hub-company-fail">
+                <AlertCircle size={14} /> {twilioSenderError}
+              </p>
+            ) : null}
+          </>
         )}
 
         {/* Email / SMTP Settings — admin only */}
