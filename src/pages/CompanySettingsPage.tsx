@@ -439,7 +439,7 @@ export function CompanySettingsPage() {
   const { company: authCompany, profile, refreshProfile } = useAuth();
   const [searchParams] = useSearchParams();
   const company = companyWithLetterheadLookMark(authCompany, searchParams.get('look')) ?? authCompany;
-  const isAdmin = profile?.role === 'admin';
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'owner';
 
   // Company details
   const [name, setName] = useState(company?.name ?? '');
