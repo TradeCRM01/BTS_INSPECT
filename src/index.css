@@ -10231,6 +10231,13 @@
       padding: 10px 0;
     }
 
+    .dashboard-home-title,
+    .dashboard-home-ref {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+    }
+
     .dashboard-home-widgets {
       margin-top: 12px;
       padding-top: 8px;
