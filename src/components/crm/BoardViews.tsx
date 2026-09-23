@@ -718,6 +718,7 @@ export const WeekBoardView = memo(function WeekBoardView({
           Drag a chip onto a crew and day. Empty slots stay empty.
         </p>
       </div>
+      <p className="hub-week-swipe-helper">Swipe sideways for the full week.</p>
       <div className="hub-week-grid">
         <div className="hub-week-corner" />
         {days.map(day => {
