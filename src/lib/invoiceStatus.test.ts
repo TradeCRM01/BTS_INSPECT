@@ -83,13 +83,13 @@ describe('invoice list default filter', () => {
     { id: 'paid', status: 'paid', due_date: '2026-08-01' },
   ];
 
-  it('defaults /invoices to Overdue so the sparkie opens chase work first', () => {
-    expect(INVOICE_LIST_DEFAULT_FILTER).toBe('overdue');
+  it('defaults /invoices to All so existing paid invoices stay visible', () => {
+    expect(INVOICE_LIST_DEFAULT_FILTER).toBe('all');
     expect(rows.filter((row) => invoiceMatchesListFilter(row, INVOICE_LIST_DEFAULT_FILTER, now)).map((row) => row.id))
-      .toEqual(['late-stored', 'late-sent']);
+      .toEqual(['late-stored', 'late-sent', 'awaiting', 'draft', 'paid']);
   });
 
-  it('lets the sparkie switch back to All and still reach every existing status', () => {
+  it('keeps every existing status reachable through the filter tabs', () => {
     expect(rows.filter((row) => invoiceMatchesListFilter(row, 'all', now)).map((row) => row.id))
       .toEqual(['late-stored', 'late-sent', 'awaiting', 'draft', 'paid']);
     expect(rows.filter((row) => invoiceMatchesListFilter(row, 'draft', now)).map((row) => row.id)).toEqual(['draft']);
@@ -100,7 +100,6 @@ describe('invoice list default filter', () => {
   it('G4 — unpaid job-bill past due_date hits the existing Overdue tab', () => {
     const due = jobBillDueDate(new Date('2026-08-20T00:00:00+10:00'));
     expect(due).toBe('2026-08-27');
-    expect(INVOICE_LIST_DEFAULT_FILTER).toBe('overdue');
     expect(invoiceMatchesListFilter({ status: 'sent', due_date: due }, 'overdue', new Date(2026, 7, 28))).toBe(true);
     expect(invoiceMatchesListFilter({ status: 'sent', due_date: null }, 'overdue', new Date(2026, 7, 28))).toBe(false);
   });
@@ -117,7 +116,7 @@ describe('invoice list default filter', () => {
 });
 
 describe('invoice list default wiring', () => {
-  it('opens existing /invoices on Overdue and keeps All on the same tabs', () => {
+  it('opens existing /invoices on All and keeps every status tab', () => {
     const page = readFileSync(resolve(process.cwd(), 'src/pages/InvoicesPage.tsx'), 'utf8');
     const app = readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8');
 
