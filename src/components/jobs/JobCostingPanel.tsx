@@ -381,26 +381,28 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {COST_TYPES.map(type => {
-          const Icon = COST_ICON[type];
-          return (
-            <div key={type} className={`bg-white rounded-xl border border-[#E5E7EB] border-l-4 ${STAT_BORDER[type]} p-3`}>
-              <div className="flex items-center gap-1.5 text-[#4A5568]">
-                <Icon size={14} /><span className="text-xs font-medium">{COST_TYPE_LABELS[type]} cost</span>
+      {costs.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {COST_TYPES.map(type => {
+            const Icon = COST_ICON[type];
+            return (
+              <div key={type} className={`bg-white rounded-xl border border-[#E5E7EB] border-l-4 ${STAT_BORDER[type]} p-3`}>
+                <div className="flex items-center gap-1.5 text-[#4A5568]">
+                  <Icon size={14} /><span className="text-xs font-medium">{COST_TYPE_LABELS[type]} cost</span>
+                </div>
+                <p className="mt-1 text-lg font-bold text-[#0A2540]">{formatMoney(totals[type])}</p>
               </div>
-              <p className="mt-1 text-lg font-bold text-[#0A2540]">{formatMoney(totals[type])}</p>
+            );
+          })}
+          <div className="bg-[#0A2540] rounded-xl p-3 flex flex-col justify-center">
+            <div className="flex items-center gap-1.5 text-white/70">
+              <DollarSign size={14} /><span className="text-xs font-medium">Charge total</span>
             </div>
-          );
-        })}
-        <div className="bg-[#0A2540] rounded-xl p-3 flex flex-col justify-center">
-          <div className="flex items-center gap-1.5 text-white/70">
-            <DollarSign size={14} /><span className="text-xs font-medium">Charge total</span>
+            <p className="mt-1 text-lg font-bold text-white">{formatMoney(chargeTotal)}</p>
+            <p className="text-[10px] text-white/60 mt-0.5">Supply cost {formatMoney(costTotal)}</p>
           </div>
-          <p className="mt-1 text-lg font-bold text-white">{formatMoney(chargeTotal)}</p>
-          <p className="text-[10px] text-white/60 mt-0.5">Supply cost {formatMoney(costTotal)}</p>
         </div>
-      </div>
+      )}
 
       <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
@@ -419,13 +421,6 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E5E7EB]">
-            {costs.length === 0 && (
-              <tr>
-                <td colSpan={10} className="px-3 py-8 text-center text-[#4A5568]">
-                  No lines yet. Add materials / labour with cost and markup for do &amp; charge, or convert a quote.
-                </td>
-              </tr>
-            )}
             {costs.map(c => (
               <tr key={c.id} className={`hover:bg-[#F9FAFB] ${editingId === c.id ? 'bg-[#EFF6FF]' : ''}`}>
                 <td className="px-3 py-2 text-[#4A5568] whitespace-nowrap">{format(new Date(c.created_at), 'dd MMM')}</td>
@@ -458,21 +453,29 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
             ))}
           </tbody>
         </table>
+        {costs.length === 0 && (
+          <div className="px-3 py-8 text-center text-[#4A5568]">
+            <p className="font-medium text-[#0A2540]">No materials on this job yet.</p>
+            <p className="mt-1 text-xs">Parts and labour from site — add a line below.</p>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-[#6B7280]">
           Bill = supply cost + markup. Use this for do &amp; charge or to invoice a finished job.
         </p>
-        <button
-          type="button"
-          onClick={() => { setInvoiceMsg(''); createInvoice.mutate(); }}
-          disabled={createInvoice.isPending || costs.length === 0}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium bg-[#F7931A] text-white hover:bg-[#e08415] disabled:opacity-50"
-        >
-          <Receipt size={14} />
-          {createInvoice.isPending ? 'Creating…' : 'Create invoice from bill'}
-        </button>
+        {costs.length > 0 && (
+          <button
+            type="button"
+            onClick={() => { setInvoiceMsg(''); createInvoice.mutate(); }}
+            disabled={createInvoice.isPending}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium bg-[#F7931A] text-white hover:bg-[#e08415] disabled:opacity-50"
+          >
+            <Receipt size={14} />
+            {createInvoice.isPending ? 'Creating…' : 'Create invoice from bill'}
+          </button>
+        )}
       </div>
       {invoiceMsg && (
         <p className={`text-xs ${createInvoice.isError ? 'text-red-600' : 'text-green-700'}`}>{invoiceMsg}</p>
