@@ -2246,7 +2246,7 @@ export function JobDetailPage() {
     const templates = jhaTemplates ?? [];
     if (templates.length === 0) {
       showToast('Add a JHA template first');
-      navigate('/templates');
+      navigate('/templates?tab=jha');
       return;
     }
     if (templates.length === 1) {
@@ -2917,6 +2917,7 @@ export function JobDetailPage() {
               </details>
             ) : undefined}
             emptyTitle="No JHA/SWMS on this job"
+            emptyHelper="Your site risk pack before you dig."
             emptyAction={
               <div className="relative">
                 <button
@@ -2997,6 +2998,7 @@ export function JobDetailPage() {
               </button>
             ) : undefined}
             emptyTitle="No Take 5 on this job"
+            emptyHelper="Start a JHA / SWMS first."
             emptyAction={
               <button type="button" onClick={startTake5} className="btn-primary">
                 Start Take 5

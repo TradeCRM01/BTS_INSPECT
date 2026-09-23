@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
@@ -15,8 +15,9 @@ type Tab = 'inspections' | 'jha';
 export function TemplatesPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<Tab>('inspections');
+  const [activeTab, setActiveTab] = useState<Tab>(() => searchParams.get('tab') === 'jha' ? 'jha' : 'inspections');
   const [showArchived, setShowArchived] = useState(false);
 
   const canEdit = profile?.role === 'admin' || profile?.template_access === 'edit';
