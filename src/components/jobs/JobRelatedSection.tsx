@@ -9,6 +9,7 @@ export function JobRelatedSection({
   summary,
   action,
   emptyTitle,
+  emptyHelper,
   emptyAction,
   children,
 }: {
@@ -22,6 +23,7 @@ export function JobRelatedSection({
   summary?: string;
   action?: ReactNode;
   emptyTitle: string;
+  emptyHelper?: string;
   emptyAction?: ReactNode;
   children: ReactNode;
 }) {
@@ -41,7 +43,10 @@ export function JobRelatedSection({
       </div>
       {visible.length === 0 ? (
         <div className="ops-tray-empty">
-          <p className="text-sm text-navy">{emptyTitle}</p>
+          <p className="text-sm text-navy">
+            {emptyTitle}
+            {emptyHelper && <span className="block mt-0.5 text-xs text-muted">{emptyHelper}</span>}
+          </p>
           {emptyAction && <div className="ops-tray-empty-act">{emptyAction}</div>}
         </div>
       ) : (
