@@ -214,7 +214,7 @@ describe('invoice-sheet client phone — wiring', () => {
     expect(editor).toContain('job-client-phone-num');
     expect(editor).toContain('{next.label}');
     expect(editor).toContain('Share');
-    expect(editor).toContain('Record payment');
+    expect(editor).toContain('INVOICE_RECORD_PAYMENT_LABEL');
     expect(editor).not.toContain('className="btn-primary job-client-phone-save"');
     expect(editor).not.toContain('className="ops-next-control-block job-client-phone-save"');
     expect(clientCss).toContain('.job-client-phone-save');

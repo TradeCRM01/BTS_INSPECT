@@ -163,7 +163,7 @@ describe('invoice-sheet client email — wiring', () => {
     expect(editor).toContain('{next.label}');
     expect(editor).toContain("next.key === 'add_email'");
     expect(editor).toContain('Share');
-    expect(editor).toContain('Record payment');
+    expect(editor).toContain('INVOICE_RECORD_PAYMENT_LABEL');
     expect(clientCss).toContain('.job-client-email-save');
     expect(clientCss).toContain('.job-client-email-addr');
     expect(clientCss).not.toContain('min-height: 44px');

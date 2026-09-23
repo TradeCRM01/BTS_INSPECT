@@ -25,7 +25,7 @@ describe('quote / invoice Send Next look', () => {
     expect(invoiceCss).toContain('.hub-invoices-row-next .btn-primary');
     expect(invoiceCss).toMatch(/\.hub-invoices-row-next \.btn-primary[\s\S]*background: #2E75B6/);
     expect(invoiceCss).toMatch(/\.hub-invoices-row-next \.btn-primary[\s\S]*min-height: 44px/);
-    expect(invoiceCss).toMatch(/@media \(max-width: 639px\)[\s\S]*top: 3\.5rem/);
+    expect(invoiceCss).toMatch(/\.overlay-backdrop:has\(\.hub-invoice-editor\)[\s\S]*top: 3\.5rem/);
     expect(css).toMatch(/\.hub-invoices-chase[\s\S]*min-height: 44px/);
     expect(css).toMatch(/\.hub-invoices-chase[\s\S]*color: #2E75B6/);
     expect(quoteCss).toContain('.hub-quotes-row-next .btn-primary');
@@ -55,6 +55,19 @@ describe('quote / invoice Send Next look', () => {
     expect(invoiceCss).toMatch(/\.hub-invoice-editor \.hub-next[\s\S]*color: #5B6B7C/);
     expect(invoices).not.toContain('hub-mail-settings');
     expect(invoices).not.toMatch(/Grafter|Relovi|Littleloop/);
+  });
+
+  it('shows Share and Record payment together on eligible unpaid invoice sheets', () => {
+    const invoices = src('src/pages/InvoicesPage.tsx');
+    const editor = invoices.slice(invoices.indexOf('function InvoiceEditorModal'));
+    const toolbar = editor.slice(editor.indexOf('const showInvoiceActions'), editor.indexOf('{err ?'));
+    const overflow = editor.slice(editor.indexOf('<div className="hub-invoice-more-menu"'), editor.indexOf('<button type="button" onClick={onClose}'));
+
+    expect(toolbar).toContain("next.key === 'send' || next.key === 'mark_paid'");
+    expect(toolbar).toContain("onClick={() => void startSend()}");
+    expect(toolbar).toContain("onClick={() => setShowPayment(true)}");
+    expect(toolbar).toContain('INVOICE_RECORD_PAYMENT_LABEL');
+    expect(overflow).not.toContain('setShowPayment(true)');
   });
 
   it('does not restyle the quote or invoice document body', () => {

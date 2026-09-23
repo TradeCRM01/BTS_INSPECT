@@ -28,7 +28,7 @@ import {
   INVOICE_LIST_DEFAULT_FILTER,
   type InvoiceListStatusFilter,
 } from '../lib/invoiceStatus';
-import { invoiceActionContext, invoiceListBucket, invoiceOverflowPaidAction, recommendInvoiceAction, type InvoiceActionKey } from '../lib/invoiceNextAction';
+import { INVOICE_RECORD_PAYMENT_LABEL, invoiceActionContext, invoiceListBucket, invoiceOverflowPaidAction, recommendInvoiceAction, type InvoiceActionKey } from '../lib/invoiceNextAction';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
@@ -1055,6 +1055,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const editorSite = visibleSite(selectedJob?.address, selectedClient?.address);
   const editorTitle = invoice?.invoice_number != null ? invoiceTitle(invoice) : 'New invoice';
   const docLines = form.line_items.filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0);
+  const showInvoiceActions = next.key === 'send' || next.key === 'mark_paid';
 
   const closeMore = () => {
     if (moreRef.current) moreRef.current.open = false;
@@ -1089,19 +1090,21 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                 {next.label}
               </button>
             )}
-            {next.key === 'send' && (
+            {showInvoiceActions && (
               <button type="button" onClick={() => void startSend()} disabled={saving} className="btn-primary">
                 {saving ? 'Saving...' : 'Share'}
               </button>
             )}
-            {next.key === 'mark_paid' && (
+            {showInvoiceActions && (
               <button
                 type="button"
                 onClick={() => setShowPayment(true)}
                 disabled={saving}
                 className="btn-primary"
               >
-                {saving ? 'Saving...' : next.label}
+                {saving
+                  ? 'Saving...'
+                  : next.key === 'mark_paid' ? next.label : INVOICE_RECORD_PAYMENT_LABEL}
               </button>
             )}
             <details ref={moreRef} className="hub-invoice-more">
@@ -1109,16 +1112,6 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                 <MoreHorizontal size={18} />
               </summary>
               <div className="hub-invoice-more-menu" role="menu">
-                {form.status !== 'paid' && next.key !== 'mark_paid' && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { closeMore(); setShowPayment(true); }}
-                    disabled={saving}
-                  >
-                    Record payment
-                  </button>
-                )}
                 <button
                   type="button"
                   role="menuitem"

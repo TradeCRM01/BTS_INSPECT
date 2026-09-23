@@ -3568,6 +3568,7 @@
 
   .overlay-backdrop:has(.hub-invoice-editor) {
     background: rgb(245 240 230 / 0.92);
+    top: 3.5rem;
     padding: 16px;
     align-items: flex-start;
     justify-content: center;
@@ -4715,10 +4716,6 @@
     .overlay-backdrop:has(.hub-invoice-editor),
     .overlay-backdrop:has(.hub-invoice-send) {
       padding: 8px;
-    }
-
-    .overlay-backdrop:has(.hub-invoice-editor) {
-      top: 3.5rem;
     }
 
     .overlay-panel-xl.hub-invoice-editor {

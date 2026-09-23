@@ -80,7 +80,7 @@ describe('invoice send deliver path', () => {
     expect(sendOk).toBeGreaterThan(xeroAfterSend);
   });
 
-  it('chase look keeps 44px Share primary and Record payment in overflow', () => {
+  it('chase look keeps 44px Share and Record payment directly visible', () => {
     const page = readFileSync(resolve(process.cwd(), 'src/pages/InvoicesPage.tsx'), 'utf8');
     const dialog = readFileSync(resolve(process.cwd(), 'src/components/invoicing/InvoiceSendDialog.tsx'), 'utf8');
     const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
