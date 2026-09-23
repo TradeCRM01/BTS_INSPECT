@@ -57,7 +57,7 @@ string. Twilio signs those public URLs.
 
 ## 3. Map the sender to the current organisation
 
-An admin can open **Settings → Company → Missed-call text-back**, choose
+An admin or owner can open **Settings → Company → Missed-call text-back**, choose
 **Configure**, and enter:
 
 - the Twilio number in E.164 format;
