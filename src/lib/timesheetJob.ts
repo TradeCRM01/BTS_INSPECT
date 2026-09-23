@@ -19,9 +19,13 @@ export function entryMinutes(startIso?: string | null, endIso?: string | null): 
   return Math.max(0, Math.round((end - start) / 60000));
 }
 
-/** Clocked time on a job. A running entry (no end_time) adds nothing until it closes. */
-export function jobClockedMinutes(entries: ReadonlyArray<{ start_time: string; end_time: string | null }>): number {
-  return entries.reduce((sum, row) => sum + entryMinutes(row.start_time, row.end_time), 0);
+/** Clocked time on a job: closed intervals plus live elapsed time for every running entry. */
+export function jobClockedMinutes(
+  entries: ReadonlyArray<{ start_time: string; end_time: string | null }>,
+  now = new Date(),
+): number {
+  const nowIso = now.toISOString();
+  return entries.reduce((sum, row) => sum + entryMinutes(row.start_time, row.end_time ?? nowIso), 0);
 }
 
 /** Heading total, readable on a ute: `2h 15m`, `1h 05m`, `0h 00m`. */

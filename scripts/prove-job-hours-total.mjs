@@ -1,8 +1,7 @@
 // FUNCTION + LOOK proof for the running total on the job sheet's Time lane.
 // Opens the DEV audit job on Schedule & people at laptop 1280 and phone 390, reads the "Time on this job"
-// heading on the empty fixture (0h 00m) and on ?look=job-hours (1h 30m + 0h 45m closed, one running entry
-// ignored = 2h 15m), checks the total paints in navy / muted / #2E75B6 only, stays on one line inside its
-// tray on phone, leaves the per-row durations alone, and writes the frames to docs/look.
+// heading with no entries, with 1h 30m + 0h 45m closed and 0h 45m live, and with zero closed entries plus
+// 0h 45m live. Checks truth, paper colours, one-line phone fit, per-row durations, and writes docs/look frames.
 // Run: node scripts/prove-job-hours-total.mjs (needs `npm run dev` on LOOK_BASE_URL).
 import { mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
@@ -18,7 +17,8 @@ const PAPER = [INK, MUTED, ACTION];
 
 const FIXTURES = [
   { name: 'empty', query: '?auditAuth=1&tab=schedule', total: '0h 00m', count: '0', rows: [] },
-  { name: 'total', query: '?auditAuth=1&tab=schedule&look=job-hours', total: '2h 15m', count: '3', rows: ['', '1h 30m', '0h 45m'] },
+  { name: 'total', query: '?auditAuth=1&tab=schedule&look=job-hours', total: '3h 00m', count: '3', rows: ['', '1h 30m', '0h 45m'] },
+  { name: 'running', query: '?auditAuth=1&tab=schedule&look=job-hours-running', total: '0h 45m', count: '1', rows: [''] },
 ];
 
 mkdirSync(OUT, { recursive: true });
@@ -102,10 +102,13 @@ async function frame(context, label, viewport) {
     assert(!m.labelClipped, `${tag}: label clipped to an ellipsis`);
     assert(JSON.stringify(m.rowDurations) === JSON.stringify(fixture.rows), `${tag}: row durations ${JSON.stringify(m.rowDurations)}`);
     if (fixture.rows.length) {
-      assert(m.rowTitles[0].endsWith('running') && !m.rowTitles[1].endsWith('running'), `${tag}: running row ${JSON.stringify(m.rowTitles)}`);
+      assert(m.rowTitles[0].endsWith('running'), `${tag}: running row ${JSON.stringify(m.rowTitles)}`);
+      if (m.rowTitles.length > 1) {
+        assert(!m.rowTitles[1].endsWith('running'), `${tag}: closed row ${JSON.stringify(m.rowTitles)}`);
+      }
     }
     assert(pageErrors.length === 0, `${tag}: page errors ${JSON.stringify(pageErrors)}`);
-    const suffix = fixture.name === 'empty' ? '-empty' : '';
+    const suffix = fixture.name === 'total' ? '' : `-${fixture.name}`;
     await page.screenshot({ path: `${OUT}/job-hours-total${suffix}-${viewport}.png`, type: 'png' });
     await page.close();
   }

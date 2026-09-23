@@ -50,12 +50,18 @@ describe('entryMinutes', () => {
 });
 
 describe('jobClockedMinutes', () => {
-  it('sums closed entries and skips the running one', () => {
+  it('sums closed entries and live elapsed time for the running one', () => {
     expect(jobClockedMinutes([
       { start_time: '2026-09-08T07:30:00.000Z', end_time: '2026-09-08T09:00:00.000Z' },
       { start_time: '2026-09-07T13:00:00.000Z', end_time: '2026-09-07T13:45:00.000Z' },
       { start_time: '2026-09-08T10:00:00.000Z', end_time: null },
-    ])).toBe(135);
+    ], new Date('2026-09-08T10:30:00.000Z'))).toBe(165);
+  });
+
+  it('reports live elapsed time when there are zero closed entries', () => {
+    expect(jobClockedMinutes([
+      { start_time: '2026-09-23T13:18:00.000Z', end_time: null },
+    ], new Date('2026-09-23T14:03:00.000Z'))).toBe(45);
   });
 
   it('is 0 with no entries', () => {
