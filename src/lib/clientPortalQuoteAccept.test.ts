@@ -80,7 +80,7 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
     expect(page).toContain("'Finish booking' : 'Accept and book'");
     expect(page).not.toContain('path=');
     expect(page).not.toContain('/quote-accept');
-    expect(page).not.toContain('How to pay');
+    expect(page).toContain('How to pay');
     expect(page).not.toContain('Relovi');
     expect(page).not.toContain('Littleloop');
 

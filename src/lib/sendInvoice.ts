@@ -324,6 +324,7 @@ export function invoicePdfStoragePath(companyId: string, invoiceId: string): str
 export function invoiceSendHtml(opts: {
   clientName: string;
   companyName: string;
+  companyAbn?: string | null;
   invoiceNumber: number | null | undefined;
   totalLabel: string;
   dueLabel: string | null;
@@ -341,6 +342,9 @@ export function invoiceSendHtml(opts: {
   const terms = opts.paymentTerms?.trim()
     ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Payment terms: ${escapeHtml(opts.paymentTerms.trim())}</p>`
     : '';
+  const identity = opts.companyAbn?.trim()
+    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">${company} · ABN ${escapeHtml(opts.companyAbn.trim())}</p>`
+    : '';
   const payHow = invoicePayHowHtml(opts.paymentMethods);
   const pdfLine = opts.attachedPdf
     ? '<p>The invoice PDF is attached. Reply to this email if you have a question about the charges.</p>'
@@ -357,6 +361,7 @@ export function invoiceSendHtml(opts: {
           <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${total}</strong></p>
           ${due}
           ${terms}
+          ${identity}
           ${payHow}
           ${pdfLine}
         </div>
@@ -366,6 +371,7 @@ export function invoiceSendHtml(opts: {
 export function invoiceChaseHtml(opts: {
   clientName: string;
   companyName: string;
+  companyAbn?: string | null;
   invoiceNumber: number | null | undefined;
   totalLabel: string;
   dueLabel: string | null;
@@ -383,6 +389,9 @@ export function invoiceChaseHtml(opts: {
   const terms = opts.paymentTerms?.trim()
     ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Payment terms: ${escapeHtml(opts.paymentTerms.trim())}</p>`
     : '';
+  const identity = opts.companyAbn?.trim()
+    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">${company} · ABN ${escapeHtml(opts.companyAbn.trim())}</p>`
+    : '';
   const payHow = invoicePayHowHtml(opts.paymentMethods);
   const pdfLine = opts.attachedPdf
     ? '<p>The invoice PDF is attached. Reply to this email if you have a question about the charges.</p>'
@@ -399,6 +408,7 @@ export function invoiceChaseHtml(opts: {
           <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${total}</strong></p>
           ${due}
           ${terms}
+          ${identity}
           ${payHow}
           ${pdfLine}
         </div>

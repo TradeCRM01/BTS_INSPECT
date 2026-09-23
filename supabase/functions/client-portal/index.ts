@@ -370,7 +370,7 @@ Deno.serve(async (req) => {
 
     const { data: company } = await admin
       .from("companies")
-      .select("id, name, logo_url, phone, email, website")
+      .select("id, name, abn, logo_url, phone, email, website, payment_methods")
       .eq("id", portal.company_id)
       .maybeSingle();
 
@@ -450,10 +450,12 @@ Deno.serve(async (req) => {
       company: company
         ? {
           name: company.name,
+          abn: company.abn,
           logoUrl: company.logo_url,
           phone: company.phone,
           email: company.email,
           website: company.website,
+          paymentMethods: company.payment_methods,
         }
         : null,
       client: client

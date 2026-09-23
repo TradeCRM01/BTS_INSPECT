@@ -93,6 +93,11 @@ export function printableCompanyPaymentMethods(raw: unknown): CompanyPaymentMeth
   return parseCompanyPaymentMethods(raw).filter(companyPaymentMethodIsPrintable);
 }
 
+export function companyHasInvoicePaymentMethod(raw: unknown): boolean {
+  return printableCompanyPaymentMethods(raw)
+    .some(method => method.kind === 'bank_transfer' || method.kind === 'payid');
+}
+
 export function formatCompanyPaymentMethodLines(method: CompanyPaymentMethod): string[] {
   const lines: string[] = [];
   if (method.kind === 'bank_transfer') {

@@ -342,6 +342,7 @@ describe('invoice send copy / document name', () => {
     const send = invoiceSendHtml({
       clientName: 'Jane',
       companyName: 'BTS Electrical',
+      companyAbn: '12 345 678 901',
       invoiceNumber: 18,
       totalLabel: '$484.00',
       dueLabel: '19 Sep 2026',
@@ -352,10 +353,12 @@ describe('invoice send copy / document name', () => {
     expect(send).toContain('How to pay');
     expect(send).toContain('Bank transfer');
     expect(send).toContain('066-000');
+    expect(send).toContain('ABN 12 345 678 901');
 
     const chase = invoiceChaseHtml({
       clientName: 'Jane',
       companyName: 'BTS Electrical',
+      companyAbn: '12 345 678 901',
       invoiceNumber: 18,
       totalLabel: '$484.00',
       dueLabel: '19 Aug 2026',
@@ -365,6 +368,7 @@ describe('invoice send copy / document name', () => {
     });
     expect(chase).toContain('How to pay');
     expect(chase).toContain('12345678');
+    expect(chase).toContain('ABN 12 345 678 901');
   });
 
   it('overdue / sent-again uses chase copy with overdue and due date', () => {
