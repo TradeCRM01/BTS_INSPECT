@@ -1,6 +1,6 @@
 CREATE TABLE public.missed_calls (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  organisation_id uuid NOT NULL REFERENCES public.organisations(id) ON DELETE CASCADE,
   sender_id uuid NOT NULL,
   provider_account_sid text NOT NULL,
   provider_call_sid text NOT NULL UNIQUE,
@@ -12,27 +12,27 @@ CREATE TABLE public.missed_calls (
   outbound_message_id uuid,
   received_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (company_id, id),
-  CONSTRAINT missed_calls_company_sender_fkey
-    FOREIGN KEY (company_id, sender_id)
-    REFERENCES public.company_twilio_senders(company_id, id),
-  CONSTRAINT missed_calls_company_outbound_message_fkey
-    FOREIGN KEY (company_id, outbound_message_id)
-    REFERENCES public.sms_messages(company_id, id)
+  UNIQUE (organisation_id, id),
+  CONSTRAINT missed_calls_organisation_sender_fkey
+    FOREIGN KEY (organisation_id, sender_id)
+    REFERENCES public.organisation_twilio_senders(organisation_id, id),
+  CONSTRAINT missed_calls_organisation_outbound_message_fkey
+    FOREIGN KEY (organisation_id, outbound_message_id)
+    REFERENCES public.sms_messages(organisation_id, id)
 );
 
-CREATE INDEX missed_calls_company_received_idx
-  ON public.missed_calls (company_id, received_at DESC);
+CREATE INDEX missed_calls_organisation_received_idx
+  ON public.missed_calls (organisation_id, received_at DESC);
 
 ALTER TABLE public.missed_calls ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Company members can view missed calls"
+CREATE POLICY "Organisation members can view missed calls"
   ON public.missed_calls
   FOR SELECT
   TO authenticated
   USING (
-    company_id = (
-      SELECT profiles.company_id
+    organisation_id = (
+      SELECT profiles.organisation_id
       FROM public.profiles
       WHERE profiles.id = (SELECT auth.uid())
     )
@@ -56,7 +56,7 @@ SECURITY INVOKER
 SET search_path = ''
 AS $$
 DECLARE
-  v_sender public.company_twilio_senders%ROWTYPE;
+  v_sender public.organisation_twilio_senders%ROWTYPE;
   v_call public.missed_calls%ROWTYPE;
   v_message_id uuid;
   v_replay boolean := false;
@@ -89,13 +89,13 @@ BEGIN
 
     SELECT sender.*
     INTO v_sender
-    FROM public.company_twilio_senders AS sender
+    FROM public.organisation_twilio_senders AS sender
     WHERE sender.id = v_call.sender_id
-      AND sender.company_id = v_call.company_id;
+      AND sender.organisation_id = v_call.organisation_id;
   ELSE
     SELECT sender.*
     INTO v_sender
-    FROM public.company_twilio_senders AS sender
+    FROM public.organisation_twilio_senders AS sender
     WHERE sender.active
       AND sender.phone_e164 = p_to_phone_e164
       AND sender.provider_account_sid = p_provider_account_sid;
@@ -105,7 +105,7 @@ BEGIN
     END IF;
 
     INSERT INTO public.missed_calls (
-      company_id,
+      organisation_id,
       sender_id,
       provider_account_sid,
       provider_call_sid,
@@ -115,7 +115,7 @@ BEGIN
       direction
     )
     VALUES (
-      v_sender.company_id,
+      v_sender.organisation_id,
       v_sender.id,
       p_provider_account_sid,
       p_provider_call_sid,
@@ -158,13 +158,13 @@ BEGIN
     AND EXISTS (
       SELECT 1
       FROM public.communication_preferences AS preference
-      WHERE preference.company_id = v_call.company_id
+      WHERE preference.organisation_id = v_call.organisation_id
         AND preference.phone_e164 = p_from_phone_e164
         AND preference.sms_consent_status = 'consented'
     )
   THEN
     INSERT INTO public.sms_messages (
-      company_id,
+      organisation_id,
       sender_id,
       direction,
       state,
@@ -176,7 +176,7 @@ BEGIN
       next_attempt
     )
     VALUES (
-      v_call.company_id,
+      v_call.organisation_id,
       v_call.sender_id,
       'outbound',
       'queued',
@@ -207,7 +207,7 @@ BEGIN
   RETURN jsonb_build_object(
     'stored', true,
     'replay', v_replay,
-    'company_id', v_call.company_id,
+    'organisation_id', v_call.organisation_id,
     'call_id', v_call.id,
     'message_id', v_message_id,
     'queued', v_message_id IS NOT NULL
@@ -304,4 +304,4 @@ GRANT EXECUTE ON FUNCTION public.fail_sms_dispatch(uuid, uuid, text)
   TO service_role;
 
 COMMENT ON TABLE public.missed_calls IS
-  'Company-scoped Twilio voice status ledger deduplicated by provider CallSid.';
+  'Organisation-scoped Twilio voice status ledger deduplicated by provider CallSid.';

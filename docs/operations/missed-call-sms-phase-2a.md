@@ -2,7 +2,7 @@
 
 Phase 2A records Twilio voice status callbacks and queues one approved text-back
 for an inbound `busy`, `canceled`, `failed`, or `no-answer` call. The caller must
-already have a company-scoped `consented` preference. An unknown or opted-out
+already have an organisation-scoped `consented` preference. An unknown or opted-out
 preference creates no outbound message. The worker checks consent again
 immediately before sending.
 
@@ -58,5 +58,5 @@ left join public.sms_messages m on m.id = c.outbound_message_id
 where c.provider_call_sid = 'CA…';
 ```
 
-Send `STOP` to the company number before exercising the worker. The queued row
+Send `STOP` to the organisation number before exercising the worker. The queued row
 must become `cancelled`, and the worker must not make a provider request.

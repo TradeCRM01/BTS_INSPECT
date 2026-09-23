@@ -11,7 +11,7 @@ type AnyTable = { Row: any; Insert: any; Update: any; Relationships: any[] };
 export interface Database {
   public: {
     Tables: {
-      companies: AnyTable;
+      organisations: AnyTable;
       profiles: AnyTable;
       templates: AnyTable;
       inspections: AnyTable;
@@ -26,6 +26,7 @@ export interface Database {
       dashboard_widgets: AnyTable;
       clients: AnyTable;
       jobs: AnyTable;
+      job_visits: AnyTable;
       suppliers: AnyTable;
       stock_items: AnyTable;
       stock_movements: AnyTable;
@@ -61,7 +62,7 @@ export interface Database {
       platform_operators: AnyTable;
       platform_operator_events: AnyTable;
       platform_company_notes: AnyTable;
-      company_twilio_senders: AnyTable;
+      organisation_twilio_senders: AnyTable;
       communication_preferences: AnyTable;
       communication_preference_events: AnyTable;
       sms_messages: AnyTable;

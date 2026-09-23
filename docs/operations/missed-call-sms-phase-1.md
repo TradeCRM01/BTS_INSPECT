@@ -27,7 +27,7 @@ The Twilio Account SID is also stored with each sender mapping. Phase 1 supports
 numbers in the single account identified by `TWILIO_ACCOUNT_SID`. Do not
 provision a subaccount number here: subaccounts use separate auth tokens.
 
-## Provision a company number
+## Provision an organisation number
 
 1. Buy or port an SMS-capable number in the configured Twilio account.
 2. Record the Account SID (`AC…`), Incoming Phone Number SID (`PN…`), and E.164
@@ -36,14 +36,14 @@ provision a subaccount number here: subaccounts use separate auth tokens.
    connection:
 
    ```sql
-   insert into public.company_twilio_senders (
-     company_id,
+   insert into public.organisation_twilio_senders (
+     organisation_id,
      phone_e164,
      provider_account_sid,
      provider_sender_sid
    )
    values (
-     'COMPANY_UUID',
+     'ORGANISATION_UUID',
      '+61XXXXXXXXX',
      'AC…',
      'PN…'
@@ -59,15 +59,15 @@ provision a subaccount number here: subaccounts use separate auth tokens.
 5. In Twilio, set the number's incoming-message webhook to `POST` the exact
    `TWILIO_WEBHOOK_URL`.
 6. Send a harmless inbound test, then confirm one `received` row exists in
-   `sms_messages` for the mapped company.
-7. Send `STOP`; confirm the company+phone preference is `opted_out` and any
+   `sms_messages` for the mapped organisation.
+7. Send `STOP`; confirm the organisation+phone preference is `opted_out` and any
    queued or leased outbound rows for that recipient are `cancelled`.
 
 Only one active mapping may own an E.164 number. To retire a number without
 losing message history:
 
 ```sql
-update public.company_twilio_senders
+update public.organisation_twilio_senders
 set active = false, updated_at = now()
 where provider_sender_sid = 'PN…';
 ```
@@ -106,11 +106,11 @@ SUPABASE_SERVICE_ROLE_KEY='…' \
 npm run test:sms-db
 ```
 
-The integration script proves provider-SID replay handling, company RLS
+The integration script proves provider-SID replay handling, organisation RLS
 isolation, STOP-before-send, and concurrent `FOR UPDATE SKIP LOCKED` claims.
 Never run it against production.
 
-Outbound fixtures are claimable only when the company+phone preference is
+Outbound fixtures are claimable only when the organisation+phone preference is
 `consented` and the mapped sender remains active. A future sender must call
 `authorize_sms_dispatch(message_id, claim_token)` immediately before its
 provider request. STOP cancels a queued or leased row, so that authorization
@@ -119,7 +119,7 @@ returns no row. Phase 1 contains no provider request.
 Operational queue checks:
 
 ```sql
-select id, company_id, state, attempts, next_attempt, last_error
+select id, organisation_id, state, attempts, next_attempt, last_error
 from public.sms_messages
 where direction = 'outbound'
   and state in ('queued', 'claimed', 'failed')

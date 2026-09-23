@@ -5,8 +5,9 @@ import {
   type TwilioInboundRecord,
   type TwilioIngestResult,
 } from '../_shared/twilioInbound.ts';
+import type { Database } from '../_shared/database.ts';
 
-const db = createClient(
+const db = createClient<Database>(
   Deno.env.get('SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
   { auth: { persistSession: false, autoRefreshToken: false } },

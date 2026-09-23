@@ -18,7 +18,7 @@ export type TwilioVoiceIngestResult = {
   stored: boolean;
   reason?: string;
   replay?: boolean;
-  company_id?: string;
+  organisation_id?: string;
   call_id?: string;
   message_id?: string;
   queued?: boolean;

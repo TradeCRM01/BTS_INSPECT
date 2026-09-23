@@ -19,16 +19,16 @@ when the migration was applied retain their previous booking contract.
 - `HELP` returns the short keyword, ladder, and booking guide.
 - `STOP` wins over every other command, opts the number out, cancels queued or
   claimed messages, and pauses the thread.
-- `START` restores messaging only when the same company and phone had a prior
+- `START` restores messaging only when the same organisation and phone had a prior
   consent basis before `STOP`. It does not turn unknown consent into consent.
 
 `STOP` and `START` transitions are recorded in
 `communication_preference_events` with the source inbound message and consent
-provenance. Company members can read only their own records.
+provenance. Organisation members can read only their own records.
 
 ## Office handoff
 
-Completing the ladder creates a company-visible `Qualified missed-call
+Completing the ladder creates an organisation-visible `Qualified missed-call
 enquiry` on the existing reminders path. Vague or malformed answers stay on
 the current prompt; no reply silently books. Existing Phase 2B conflict and
 non-eligible booking failures still create `Review missed-call SMS reply`
