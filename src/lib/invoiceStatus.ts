@@ -46,10 +46,9 @@ export function fullInvoicePayment(total: number | string | null | undefined): F
   };
 }
 
-/** Existing /invoices tabs — default is the money that needs chasing. */
 export type InvoiceListStatusFilter = 'all' | InvoiceStatus;
 
-export const INVOICE_LIST_DEFAULT_FILTER: InvoiceListStatusFilter = 'overdue';
+export const INVOICE_LIST_DEFAULT_FILTER: InvoiceListStatusFilter = 'all';
 
 export function invoiceMatchesListFilter(
   inv: { status: InvoiceStatus | string; due_date?: string | null },
