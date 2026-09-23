@@ -85,10 +85,10 @@ values (
 );
 ```
 
-The live sender table is `organisation_twilio_senders`, and its tenant key is
-`organisation_id`. Do not copy the earlier Phase 1 draft's
-`company_twilio_senders` SQL into production. To retire a number without
-deleting history:
+The live sender table is `organisation_twilio_senders`. Its exact columns are
+`id`, `organisation_id`, `phone_e164`, `provider_account_sid`,
+`provider_sender_sid`, `active`, `created_at`, and `updated_at`. To retire a
+number without deleting history:
 
 ```sql
 update public.organisation_twilio_senders
@@ -153,8 +153,8 @@ not paste result sets into public tickets or logs.
 Sender mapping:
 
 ```sql
-select organisation_id, phone_e164, provider_account_sid,
-       provider_sender_sid, active, updated_at
+select id, organisation_id, phone_e164, provider_account_sid,
+       provider_sender_sid, active, created_at, updated_at
 from public.organisation_twilio_senders
 where organisation_id = 'ORGANISATION_UUID';
 ```
