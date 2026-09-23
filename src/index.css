@@ -6045,6 +6045,10 @@
     overflow-x: auto;
   }
 
+  .hub-week-swipe-helper {
+    display: none;
+  }
+
   .hub-week-grid {
     display: grid;
     grid-template-columns: 104px repeat(7, minmax(104px, 1fr));
@@ -6411,7 +6415,8 @@
       min-height: calc(100dvh - 17rem);
       height: 100%;
       margin-top: 4px;
-      overflow-x: hidden;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     .hub-board-cal.is-week-doc .hub-week-document .hub-day-board {
@@ -6495,11 +6500,22 @@
       display: inline;
     }
 
+    .hub-week-swipe-helper {
+      display: block;
+      flex: 0 0 auto;
+      margin: 0;
+      padding: 4px 12px 6px;
+      color: #5B6B7C;
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
     .hub-week-grid {
-      grid-template-columns: 58px repeat(7, minmax(0, 1fr));
+      grid-template-columns: 58px repeat(7, 156px);
       grid-template-rows: 40px;
       grid-auto-rows: minmax(64px, 1fr);
-      width: 100%;
+      width: max-content;
       min-width: 0;
       flex: 1 1 0;
       height: 100%;
@@ -6545,26 +6561,7 @@
       min-width: 0;
       min-height: 36px;
       justify-content: center;
-      overflow: hidden;
       padding: 4px 3px;
-    }
-
-    .hub-week-document .hub-week-board .hub-week-chip-ref {
-      display: none;
-    }
-
-    .hub-week-document .hub-week-board .hub-week-chip-desc {
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: normal;
-      overflow-wrap: normal;
-      word-break: normal;
-      font-size: 10px;
-      font-weight: 600;
-      line-height: 1.15;
     }
 
     .hub-week-document .hub-day-board .hub-week-chip-ref,
