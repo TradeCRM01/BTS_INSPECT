@@ -113,7 +113,7 @@ export function SignupPage() {
             onChange={e => setCompanyName(e.target.value)}
             required
             className="form-input"
-            placeholder="Northside Electrics"
+            placeholder="Northside Plumbing"
           />
         </div>
 

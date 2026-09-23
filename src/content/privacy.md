@@ -2,7 +2,7 @@
 
 **Effective 2 September 2026**
 
-Grafter is trade job software for Australian electrical and field crews. This policy explains how we handle personal information when you use Grafter.
+Grafter is trade job software for Australian trade crews. This policy explains how we handle personal information when you use Grafter.
 
 We wrote it in plain English so you can actually read it. If something is unclear, contact us — details at the end.
 
