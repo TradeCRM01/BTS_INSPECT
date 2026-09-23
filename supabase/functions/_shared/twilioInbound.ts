@@ -29,7 +29,7 @@ export type TwilioIngestResult = {
   stored: boolean;
   reason?: string;
   replay?: boolean;
-  company_id?: string;
+  organisation_id?: string;
   message_id?: string;
   opted_out?: boolean;
 };

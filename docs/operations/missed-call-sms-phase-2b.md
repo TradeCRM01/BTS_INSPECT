@@ -2,7 +2,7 @@
 
 Phase 2B accepts replies to a missed-call text thread. The automatic booking
 syntax is `BOOK YYYY-MM-DD HH:MM`. Every other reply goes to
-`missed_call_office_reviews` and creates a company-visible task on the existing
+`missed_call_office_reviews` and creates an organisation-visible task on the existing
 reminders path. Replies only attach to a missed-call text-back from the previous
 seven days. `STOP` also opts the caller out and cancels queued messages before a
 worker can send them.
@@ -41,12 +41,13 @@ Authorization: Bearer A_LONG_RANDOM_SECRET
 ```
 
 Each request processes at most one booking command. The database transaction
-creates the job, records `created_via = 'missed_call_sms'`, and queues one
-confirmation through the existing SMS dispatcher. Run
+creates the organisation-scoped job and its `job_visits` schedule row, records
+`created_via = 'missed_call_sms'`, and queues one confirmation through the
+existing SMS dispatcher. Run
 `missed-call-sms-worker` to send that confirmation.
 
 The worker sends no confirmation if consent changed, the caller sent `STOP`,
-the client is not an exact company-scoped phone match, or the slot conflicts
+the client is not an exact organisation-scoped phone match, or the slot conflicts
 with an active job. Work those cases from the `Review missed-call SMS reply`
 tasks; `missed_call_office_reviews` retains the machine-readable reason and
 source message.

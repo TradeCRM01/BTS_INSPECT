@@ -1,9 +1,9 @@
 -- Missed-call SMS Phase 1: tenant routing, consent, durable ledger, STOP and claims.
 -- This migration deliberately does not send SMS or create jobs.
 
-CREATE TABLE public.company_twilio_senders (
+CREATE TABLE public.organisation_twilio_senders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  organisation_id uuid NOT NULL REFERENCES public.organisations(id) ON DELETE CASCADE,
   phone_e164 text NOT NULL CHECK (phone_e164 ~ '^\+[1-9][0-9]{7,14}$'),
   provider_account_sid text NOT NULL CHECK (length(btrim(provider_account_sid)) > 0),
   provider_sender_sid text NOT NULL CHECK (length(btrim(provider_sender_sid)) > 0),
@@ -11,11 +11,11 @@ CREATE TABLE public.company_twilio_senders (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (provider_sender_sid),
-  UNIQUE (company_id, id)
+  UNIQUE (organisation_id, id)
 );
 
-CREATE UNIQUE INDEX company_twilio_senders_active_phone_key
-  ON public.company_twilio_senders (phone_e164)
+CREATE UNIQUE INDEX organisation_twilio_senders_active_phone_key
+  ON public.organisation_twilio_senders (phone_e164)
   WHERE active;
 
 CREATE OR REPLACE FUNCTION public.enforce_sms_sender_mapping()
@@ -27,23 +27,23 @@ AS $$
 DECLARE
   v_conflict boolean;
 BEGIN
-  IF TG_OP = 'UPDATE' AND NEW.company_id IS DISTINCT FROM OLD.company_id THEN
-    RAISE EXCEPTION 'SMS sender company cannot be changed';
+  IF TG_OP = 'UPDATE' AND NEW.organisation_id IS DISTINCT FROM OLD.organisation_id THEN
+    RAISE EXCEPTION 'SMS sender organisation cannot be changed';
   END IF;
 
   SELECT EXISTS (
     SELECT 1
-    FROM public.company_twilio_senders AS sender
+    FROM public.organisation_twilio_senders AS sender
     WHERE sender.id IS DISTINCT FROM NEW.id
       AND sender.active
       AND NEW.active
       AND sender.phone_e164 = NEW.phone_e164
-      AND sender.company_id IS DISTINCT FROM NEW.company_id
+      AND sender.organisation_id IS DISTINCT FROM NEW.organisation_id
   )
   INTO v_conflict;
 
   IF v_conflict THEN
-    RAISE EXCEPTION 'SMS sender E.164 is already mapped to another company';
+    RAISE EXCEPTION 'SMS sender E.164 is already mapped to another organisation';
   END IF;
 
   RETURN NEW;
@@ -51,34 +51,34 @@ END;
 $$;
 
 CREATE TRIGGER enforce_sms_sender_mapping
-  BEFORE INSERT OR UPDATE OF company_id, phone_e164, active
-  ON public.company_twilio_senders
+  BEFORE INSERT OR UPDATE OF organisation_id, phone_e164, active
+  ON public.organisation_twilio_senders
   FOR EACH ROW
   EXECUTE FUNCTION public.enforce_sms_sender_mapping();
 
-CREATE INDEX company_twilio_senders_company_idx
-  ON public.company_twilio_senders (company_id);
+CREATE INDEX organisation_twilio_senders_organisation_idx
+  ON public.organisation_twilio_senders (organisation_id);
 
-ALTER TABLE public.company_twilio_senders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organisation_twilio_senders ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Company members can view Twilio senders"
-  ON public.company_twilio_senders
+CREATE POLICY "Organisation members can view Twilio senders"
+  ON public.organisation_twilio_senders
   FOR SELECT
   TO authenticated
   USING (
-    company_id = (
-      SELECT profiles.company_id
+    organisation_id = (
+      SELECT profiles.organisation_id
       FROM public.profiles
       WHERE profiles.id = (SELECT auth.uid())
     )
   );
 
-REVOKE ALL ON public.company_twilio_senders FROM anon, authenticated;
-GRANT SELECT ON public.company_twilio_senders TO authenticated;
-GRANT ALL ON public.company_twilio_senders TO service_role;
+REVOKE ALL ON public.organisation_twilio_senders FROM anon, authenticated;
+GRANT SELECT ON public.organisation_twilio_senders TO authenticated;
+GRANT ALL ON public.organisation_twilio_senders TO service_role;
 
 CREATE TABLE public.communication_preferences (
-  company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  organisation_id uuid NOT NULL REFERENCES public.organisations(id) ON DELETE CASCADE,
   phone_e164 text NOT NULL CHECK (phone_e164 ~ '^\+[1-9][0-9]{7,14}$'),
   sms_consent_status text NOT NULL DEFAULT 'unknown'
     CHECK (sms_consent_status IN ('unknown', 'consented', 'opted_out')),
@@ -90,7 +90,7 @@ CREATE TABLE public.communication_preferences (
   opt_out_source text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (company_id, phone_e164),
+  PRIMARY KEY (organisation_id, phone_e164),
   CHECK (
     (sms_consent_status = 'unknown'
       AND consent_basis IS NULL
@@ -111,13 +111,13 @@ CREATE TABLE public.communication_preferences (
 
 ALTER TABLE public.communication_preferences ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Company members can view communication preferences"
+CREATE POLICY "Organisation members can view communication preferences"
   ON public.communication_preferences
   FOR SELECT
   TO authenticated
   USING (
-    company_id = (
-      SELECT profiles.company_id
+    organisation_id = (
+      SELECT profiles.organisation_id
       FROM public.profiles
       WHERE profiles.id = (SELECT auth.uid())
     )
@@ -129,7 +129,7 @@ GRANT ALL ON public.communication_preferences TO service_role;
 
 CREATE TABLE public.sms_messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  organisation_id uuid NOT NULL REFERENCES public.organisations(id) ON DELETE CASCADE,
   sender_id uuid NOT NULL,
   direction text NOT NULL CHECK (direction IN ('inbound', 'outbound')),
   state text NOT NULL CHECK (state IN ('received', 'queued', 'claimed', 'sent', 'failed', 'cancelled')),
@@ -152,10 +152,10 @@ CREATE TABLE public.sms_messages (
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (idempotency_key),
   UNIQUE (provider_message_sid),
-  UNIQUE (company_id, id),
-  CONSTRAINT sms_messages_company_sender_fkey
-    FOREIGN KEY (company_id, sender_id)
-    REFERENCES public.company_twilio_senders(company_id, id),
+  UNIQUE (organisation_id, id),
+  CONSTRAINT sms_messages_organisation_sender_fkey
+    FOREIGN KEY (organisation_id, sender_id)
+    REFERENCES public.organisation_twilio_senders(organisation_id, id),
   CHECK (
     (direction = 'inbound'
       AND state = 'received'
@@ -177,8 +177,8 @@ CREATE TABLE public.sms_messages (
   )
 );
 
-CREATE INDEX sms_messages_company_created_idx
-  ON public.sms_messages (company_id, created_at DESC);
+CREATE INDEX sms_messages_organisation_created_idx
+  ON public.sms_messages (organisation_id, created_at DESC);
 
 CREATE INDEX sms_messages_claim_idx
   ON public.sms_messages (next_attempt, created_at)
@@ -191,45 +191,45 @@ SECURITY INVOKER
 SET search_path = ''
 AS $$
 DECLARE
-  v_sender public.company_twilio_senders%ROWTYPE;
+  v_sender public.organisation_twilio_senders%ROWTYPE;
 BEGIN
   SELECT sender.*
   INTO v_sender
-  FROM public.company_twilio_senders AS sender
-  WHERE sender.company_id = NEW.company_id
+  FROM public.organisation_twilio_senders AS sender
+  WHERE sender.organisation_id = NEW.organisation_id
     AND sender.id = NEW.sender_id;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'SMS sender does not belong to the message company';
+    RAISE EXCEPTION 'SMS sender does not belong to the message organisation';
   END IF;
   IF NOT v_sender.active THEN
-    RAISE EXCEPTION 'SMS must use an active company sender';
+    RAISE EXCEPTION 'SMS must use an active organisation sender';
   END IF;
   IF NEW.direction = 'inbound' AND NEW.to_phone_e164 IS DISTINCT FROM v_sender.phone_e164 THEN
-    RAISE EXCEPTION 'inbound SMS destination does not match its company sender';
+    RAISE EXCEPTION 'inbound SMS destination does not match its organisation sender';
   END IF;
   IF NEW.direction = 'outbound' AND NEW.from_phone_e164 IS DISTINCT FROM v_sender.phone_e164 THEN
-    RAISE EXCEPTION 'outbound SMS source does not match its company sender';
+    RAISE EXCEPTION 'outbound SMS source does not match its organisation sender';
   END IF;
   RETURN NEW;
 END;
 $$;
 
 CREATE TRIGGER enforce_sms_message_sender
-  BEFORE INSERT OR UPDATE OF company_id, sender_id, direction, from_phone_e164, to_phone_e164
+  BEFORE INSERT OR UPDATE OF organisation_id, sender_id, direction, from_phone_e164, to_phone_e164
   ON public.sms_messages
   FOR EACH ROW
   EXECUTE FUNCTION public.enforce_sms_message_sender();
 
 ALTER TABLE public.sms_messages ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Company members can view SMS messages"
+CREATE POLICY "Organisation members can view SMS messages"
   ON public.sms_messages
   FOR SELECT
   TO authenticated
   USING (
-    company_id = (
-      SELECT profiles.company_id
+    organisation_id = (
+      SELECT profiles.organisation_id
       FROM public.profiles
       WHERE profiles.id = (SELECT auth.uid())
     )
@@ -240,7 +240,7 @@ GRANT SELECT ON public.sms_messages TO authenticated;
 GRANT ALL ON public.sms_messages TO service_role;
 
 -- One transaction maps the validated Twilio destination, stores once, and applies
--- STOP before any future sender can claim work for this company + phone.
+-- STOP before any future sender can claim work for this organisation + phone.
 CREATE OR REPLACE FUNCTION public.ingest_twilio_inbound_sms(
   p_provider_account_sid text,
   p_provider_message_sid text,
@@ -255,13 +255,13 @@ SECURITY INVOKER
 SET search_path = ''
 AS $$
 DECLARE
-  v_sender public.company_twilio_senders%ROWTYPE;
+  v_sender public.organisation_twilio_senders%ROWTYPE;
   v_existing public.sms_messages%ROWTYPE;
   v_message_id uuid;
 BEGIN
   SELECT sender.*
   INTO v_sender
-  FROM public.company_twilio_senders AS sender
+  FROM public.organisation_twilio_senders AS sender
   WHERE sender.active
     AND sender.phone_e164 = p_to_phone_e164
     AND sender.provider_account_sid = p_provider_account_sid;
@@ -271,7 +271,7 @@ BEGIN
   END IF;
 
   INSERT INTO public.sms_messages (
-    company_id,
+    organisation_id,
     sender_id,
     direction,
     state,
@@ -284,7 +284,7 @@ BEGIN
     received_at
   )
   VALUES (
-    v_sender.company_id,
+    v_sender.organisation_id,
     v_sender.id,
     'inbound',
     'received',
@@ -316,14 +316,14 @@ BEGIN
     RETURN jsonb_build_object(
       'stored', true,
       'replay', true,
-      'company_id', v_existing.company_id,
+      'organisation_id', v_existing.organisation_id,
       'message_id', v_existing.id
     );
   END IF;
 
   IF p_is_stop THEN
     INSERT INTO public.communication_preferences (
-      company_id,
+      organisation_id,
       phone_e164,
       sms_consent_status,
       consent_basis,
@@ -334,7 +334,7 @@ BEGIN
       updated_at
     )
     VALUES (
-      v_sender.company_id,
+      v_sender.organisation_id,
       p_from_phone_e164,
       'opted_out',
       NULL,
@@ -344,7 +344,7 @@ BEGIN
       'twilio_inbound_stop',
       now()
     )
-    ON CONFLICT (company_id, phone_e164) DO UPDATE
+    ON CONFLICT (organisation_id, phone_e164) DO UPDATE
     SET sms_consent_status = 'opted_out',
         opted_out_at = EXCLUDED.opted_out_at,
         opt_out_source = EXCLUDED.opt_out_source,
@@ -359,7 +359,7 @@ BEGIN
         claim_expires_at = NULL,
         claimed_by = NULL,
         updated_at = now()
-    WHERE company_id = v_sender.company_id
+    WHERE organisation_id = v_sender.organisation_id
       AND direction = 'outbound'
       AND to_phone_e164 = p_from_phone_e164
       AND state IN ('queued', 'claimed');
@@ -368,7 +368,7 @@ BEGIN
   RETURN jsonb_build_object(
     'stored', true,
     'replay', false,
-    'company_id', v_sender.company_id,
+    'organisation_id', v_sender.organisation_id,
     'message_id', v_message_id,
     'opted_out', p_is_stop
   );
@@ -411,14 +411,14 @@ BEGIN
       AND EXISTS (
         SELECT 1
         FROM public.communication_preferences AS preference
-        WHERE preference.company_id = message.company_id
+        WHERE preference.organisation_id = message.organisation_id
           AND preference.phone_e164 = message.to_phone_e164
           AND preference.sms_consent_status = 'consented'
       )
       AND EXISTS (
         SELECT 1
-        FROM public.company_twilio_senders AS sender
-        WHERE sender.company_id = message.company_id
+        FROM public.organisation_twilio_senders AS sender
+        WHERE sender.organisation_id = message.organisation_id
           AND sender.id = message.sender_id
           AND sender.active
           AND sender.phone_e164 = message.from_phone_e164
@@ -459,11 +459,11 @@ SET search_path = ''
 AS $$
   SELECT message.*
   FROM public.sms_messages AS message
-  JOIN public.company_twilio_senders AS sender
-    ON sender.company_id = message.company_id
+  JOIN public.organisation_twilio_senders AS sender
+    ON sender.organisation_id = message.organisation_id
    AND sender.id = message.sender_id
   JOIN public.communication_preferences AS preference
-    ON preference.company_id = message.company_id
+    ON preference.organisation_id = message.organisation_id
    AND preference.phone_e164 = message.to_phone_e164
   WHERE message.id = p_message_id
     AND message.direction = 'outbound'
@@ -486,9 +486,9 @@ ALTER TABLE public.jobs
   ADD COLUMN created_via text NOT NULL DEFAULT 'human'
     CHECK (created_via IN ('human', 'missed_call_sms')),
   ADD COLUMN automation_ref uuid,
-  ADD CONSTRAINT jobs_company_automation_ref_fkey
-    FOREIGN KEY (company_id, automation_ref)
-    REFERENCES public.sms_messages(company_id, id),
+  ADD CONSTRAINT jobs_organisation_automation_ref_fkey
+    FOREIGN KEY (organisation_id, automation_ref)
+    REFERENCES public.sms_messages(organisation_id, id),
   ADD CONSTRAINT jobs_creation_provenance_check
     CHECK (
       (created_via = 'human' AND automation_ref IS NULL)
@@ -540,11 +540,11 @@ BEGIN
     SELECT message.direction
     INTO v_direction
     FROM public.sms_messages AS message
-    WHERE message.company_id = NEW.company_id
+    WHERE message.organisation_id = NEW.organisation_id
       AND message.id = NEW.automation_ref;
 
     IF v_direction IS DISTINCT FROM 'inbound' THEN
-      RAISE EXCEPTION 'missed-call automation must reference an inbound company SMS';
+      RAISE EXCEPTION 'missed-call automation must reference an inbound organisation SMS';
     END IF;
   END IF;
 
@@ -553,19 +553,19 @@ END;
 $$;
 
 CREATE TRIGGER enforce_job_creation_provenance
-  BEFORE INSERT OR UPDATE OF company_id, created_by, created_via, automation_ref
+  BEFORE INSERT OR UPDATE OF organisation_id, created_by, created_via, automation_ref
   ON public.jobs
   FOR EACH ROW
   EXECUTE FUNCTION public.enforce_job_creation_provenance();
 
-DROP POLICY IF EXISTS "Company members can insert jobs" ON public.jobs;
-CREATE POLICY "Company members can insert jobs"
+DROP POLICY IF EXISTS "Organisation members can insert jobs" ON public.jobs;
+CREATE POLICY "Organisation members can insert jobs"
   ON public.jobs
   FOR INSERT
   TO authenticated
   WITH CHECK (
-    company_id = (
-      SELECT profiles.company_id
+    organisation_id = (
+      SELECT profiles.organisation_id
       FROM public.profiles
       WHERE profiles.id = (SELECT auth.uid())
     )
@@ -574,10 +574,10 @@ CREATE POLICY "Company members can insert jobs"
     AND automation_ref IS NULL
   );
 
-COMMENT ON TABLE public.company_twilio_senders IS
-  'Company-scoped Twilio inbound/from number mappings; auth tokens stay in Edge Function secrets.';
+COMMENT ON TABLE public.organisation_twilio_senders IS
+  'Organisation-scoped Twilio inbound/from number mappings; auth tokens stay in Edge Function secrets.';
 COMMENT ON TABLE public.communication_preferences IS
-  'Company and recipient phone scoped SMS consent and explicit opt-out state.';
+  'Organisation and recipient phone scoped SMS consent and explicit opt-out state.';
 COMMENT ON TABLE public.sms_messages IS
   'Durable inbound ledger and dormant outbound outbox. Phase 1 does not send messages.';
 COMMENT ON COLUMN public.jobs.automation_ref IS

@@ -38,13 +38,13 @@ ALTER TABLE public.missed_call_sms_threads
         AND qualified_at IS NOT NULL
       )
     ),
-  ADD CONSTRAINT missed_call_sms_threads_company_qualification_reminder_fkey
-    FOREIGN KEY (company_id, qualification_reminder_id)
-    REFERENCES public.agent_reminders(company_id, id);
+  ADD CONSTRAINT missed_call_sms_threads_organisation_qualification_reminder_fkey
+    FOREIGN KEY (organisation_id, qualification_reminder_id)
+    REFERENCES public.agent_reminders(organisation_id, id);
 
 CREATE TABLE public.communication_preference_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  organisation_id uuid NOT NULL REFERENCES public.organisations(id) ON DELETE CASCADE,
   phone_e164 text NOT NULL CHECK (phone_e164 ~ '^\+[1-9][0-9]{7,14}$'),
   inbound_message_id uuid NOT NULL,
   event_kind text NOT NULL CHECK (event_kind IN ('stop', 'start')),
@@ -55,21 +55,21 @@ CREATE TABLE public.communication_preference_events (
   transition_source text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (inbound_message_id, event_kind),
-  CONSTRAINT communication_preference_events_company_message_fkey
-    FOREIGN KEY (company_id, inbound_message_id)
-    REFERENCES public.sms_messages(company_id, id)
+  CONSTRAINT communication_preference_events_organisation_message_fkey
+    FOREIGN KEY (organisation_id, inbound_message_id)
+    REFERENCES public.sms_messages(organisation_id, id)
 );
 
-CREATE INDEX communication_preference_events_company_created_idx
-  ON public.communication_preference_events (company_id, created_at DESC);
+CREATE INDEX communication_preference_events_organisation_created_idx
+  ON public.communication_preference_events (organisation_id, created_at DESC);
 
 ALTER TABLE public.communication_preference_events ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Company members can view communication preference events"
+CREATE POLICY "Organisation members can view communication preference events"
   ON public.communication_preference_events FOR SELECT TO authenticated
   USING (
-    company_id = (
-      SELECT profiles.company_id
+    organisation_id = (
+      SELECT profiles.organisation_id
       FROM public.profiles
       WHERE profiles.id = (SELECT auth.uid())
     )
@@ -90,7 +90,7 @@ BEGIN
   SELECT thread.*
   INTO v_thread
   FROM public.missed_call_sms_threads AS thread
-  WHERE thread.company_id = NEW.company_id
+  WHERE thread.organisation_id = NEW.organisation_id
     AND thread.id = NEW.thread_id;
 
   IF v_thread.qualification_required
@@ -132,9 +132,9 @@ SET search_path = ''
 AS $$
 DECLARE
   v_result jsonb;
-  v_company_id uuid;
+  v_organisation_id uuid;
   v_message_id uuid;
-  v_sender public.company_twilio_senders%ROWTYPE;
+  v_sender public.organisation_twilio_senders%ROWTYPE;
   v_call_id uuid;
   v_thread public.missed_call_sms_threads%ROWTYPE;
   v_preference public.communication_preferences%ROWTYPE;
@@ -163,7 +163,7 @@ BEGIN
 
   SELECT sender.*
   INTO v_sender
-  FROM public.company_twilio_senders AS sender
+  FROM public.organisation_twilio_senders AS sender
   WHERE sender.active
     AND sender.phone_e164 = p_to_phone_e164
     AND sender.provider_account_sid = p_provider_account_sid;
@@ -174,7 +174,7 @@ BEGIN
     -- ladder replies one lock order and prevents cross-transition deadlocks.
     PERFORM pg_catalog.pg_advisory_xact_lock(
       pg_catalog.hashtextextended(
-        v_sender.company_id::text || '|' || p_from_phone_e164,
+        v_sender.organisation_id::text || '|' || p_from_phone_e164,
         0
       )
     );
@@ -183,7 +183,7 @@ BEGIN
   SELECT preference.sms_consent_status
   INTO v_previous_status
   FROM public.communication_preferences AS preference
-  WHERE preference.company_id = v_sender.company_id
+  WHERE preference.organisation_id = v_sender.organisation_id
     AND preference.phone_e164 = p_from_phone_e164;
 
   v_result := public.ingest_twilio_inbound_sms_ledger(
@@ -201,20 +201,20 @@ BEGIN
     RETURN v_result;
   END IF;
 
-  v_company_id := (v_result->>'company_id')::uuid;
+  v_organisation_id := (v_result->>'organisation_id')::uuid;
   v_message_id := (v_result->>'message_id')::uuid;
 
   SELECT sender.*
   INTO v_sender
-  FROM public.company_twilio_senders AS sender
-  WHERE sender.company_id = v_company_id
+  FROM public.organisation_twilio_senders AS sender
+  WHERE sender.organisation_id = v_organisation_id
     AND sender.phone_e164 = p_to_phone_e164
     AND sender.provider_account_sid = p_provider_account_sid;
 
   SELECT missed.id
   INTO v_call_id
   FROM public.missed_calls AS missed
-  WHERE missed.company_id = v_company_id
+  WHERE missed.organisation_id = v_organisation_id
     AND missed.sender_id = v_sender.id
     AND missed.from_phone_e164 = p_from_phone_e164
     AND missed.to_phone_e164 = p_to_phone_e164
@@ -225,14 +225,14 @@ BEGIN
 
   IF v_call_id IS NOT NULL THEN
     INSERT INTO public.missed_call_sms_threads (
-      company_id,
+      organisation_id,
       sender_id,
       missed_call_id,
       caller_phone_e164,
       latest_inbound_message_id
     )
     VALUES (
-      v_company_id,
+      v_organisation_id,
       v_sender.id,
       v_call_id,
       p_from_phone_e164,
@@ -246,7 +246,7 @@ BEGIN
 
   IF p_reply_kind = 'stop' THEN
     INSERT INTO public.communication_preference_events (
-      company_id,
+      organisation_id,
       phone_e164,
       inbound_message_id,
       event_kind,
@@ -257,7 +257,7 @@ BEGIN
       transition_source
     )
     SELECT
-      v_company_id,
+      v_organisation_id,
       p_from_phone_e164,
       v_message_id,
       'stop',
@@ -267,7 +267,7 @@ BEGIN
       preference.consent_source,
       'twilio_inbound_stop'
     FROM public.communication_preferences AS preference
-    WHERE preference.company_id = v_company_id
+    WHERE preference.organisation_id = v_organisation_id
       AND preference.phone_e164 = p_from_phone_e164
     ON CONFLICT (inbound_message_id, event_kind) DO NOTHING;
 
@@ -281,7 +281,7 @@ BEGIN
     SELECT preference.*
     INTO v_preference
     FROM public.communication_preferences AS preference
-    WHERE preference.company_id = v_company_id
+    WHERE preference.organisation_id = v_organisation_id
       AND preference.phone_e164 = p_from_phone_e164
     FOR UPDATE;
 
@@ -297,7 +297,7 @@ BEGIN
           opted_out_at = NULL,
           opt_out_source = NULL,
           updated_at = now()
-      WHERE company_id = v_company_id
+      WHERE organisation_id = v_organisation_id
         AND phone_e164 = p_from_phone_e164
       RETURNING * INTO v_preference;
 
@@ -329,7 +329,7 @@ BEGIN
     END IF;
 
     INSERT INTO public.communication_preference_events (
-      company_id,
+      organisation_id,
       phone_e164,
       inbound_message_id,
       event_kind,
@@ -340,7 +340,7 @@ BEGIN
       transition_source
     )
     VALUES (
-      v_company_id,
+      v_organisation_id,
       p_from_phone_e164,
       v_message_id,
       'start',
@@ -357,7 +357,7 @@ BEGIN
   ELSIF EXISTS (
     SELECT 1
     FROM public.communication_preferences AS preference
-    WHERE preference.company_id = v_company_id
+    WHERE preference.organisation_id = v_organisation_id
       AND preference.phone_e164 = p_from_phone_e164
       AND preference.sms_consent_status = 'opted_out'
   ) THEN
@@ -446,12 +446,12 @@ BEGIN
         SELECT profile.id
         INTO v_review_owner_id
         FROM public.profiles AS profile
-        WHERE profile.company_id = v_company_id
+        WHERE profile.organisation_id = v_organisation_id
         ORDER BY (profile.role = 'admin') DESC, profile.created_at, profile.id
         LIMIT 1;
 
         INSERT INTO public.agent_reminders (
-          company_id,
+          organisation_id,
           user_id,
           title,
           details,
@@ -461,7 +461,7 @@ BEGIN
           visibility
         )
         VALUES (
-          v_company_id,
+          v_organisation_id,
           v_review_owner_id,
           'Qualified missed-call enquiry',
           'Job: ' || v_thread.job_service
@@ -490,7 +490,7 @@ BEGIN
       'book_confirmed_slot|' || p_booking_date::text || '|' || p_booking_time::text
     );
     INSERT INTO public.missed_call_booking_commands (
-      company_id,
+      organisation_id,
       thread_id,
       inbound_message_id,
       command_kind,
@@ -499,7 +499,7 @@ BEGIN
       payload_hash
     )
     VALUES (
-      v_company_id,
+      v_organisation_id,
       v_thread.id,
       v_message_id,
       'book_confirmed_slot',
@@ -507,7 +507,7 @@ BEGIN
       p_booking_time,
       v_payload_hash
     )
-    ON CONFLICT (company_id, thread_id, command_kind, payload_hash) DO UPDATE
+    ON CONFLICT (organisation_id, thread_id, command_kind, payload_hash) DO UPDATE
     SET payload_hash = EXCLUDED.payload_hash
     RETURNING id INTO v_command_id;
 
@@ -520,13 +520,13 @@ BEGIN
     AND EXISTS (
       SELECT 1
       FROM public.communication_preferences AS preference
-      WHERE preference.company_id = v_company_id
+      WHERE preference.organisation_id = v_organisation_id
         AND preference.phone_e164 = p_from_phone_e164
         AND preference.sms_consent_status = 'consented'
     )
   THEN
     INSERT INTO public.sms_messages (
-      company_id,
+      organisation_id,
       sender_id,
       direction,
       state,
@@ -538,7 +538,7 @@ BEGIN
       next_attempt
     )
     VALUES (
-      v_company_id,
+      v_organisation_id,
       v_sender.id,
       'outbound',
       'queued',
@@ -554,13 +554,13 @@ BEGIN
 
   IF v_review_reason IS NOT NULL THEN
     INSERT INTO public.missed_call_office_reviews (
-      company_id,
+      organisation_id,
       thread_id,
       inbound_message_id,
       reason
     )
     VALUES (
-      v_company_id,
+      v_organisation_id,
       v_thread.id,
       v_message_id,
       v_review_reason
@@ -576,12 +576,12 @@ BEGIN
       SELECT profile.id
       INTO v_review_owner_id
       FROM public.profiles AS profile
-      WHERE profile.company_id = v_company_id
+      WHERE profile.organisation_id = v_organisation_id
       ORDER BY (profile.role = 'admin') DESC, profile.created_at, profile.id
       LIMIT 1;
 
       INSERT INTO public.agent_reminders (
-        company_id,
+        organisation_id,
         user_id,
         title,
         details,
@@ -591,7 +591,7 @@ BEGIN
         visibility
       )
       VALUES (
-        v_company_id,
+        v_organisation_id,
         v_review_owner_id,
         'Review missed-call SMS reply',
         'Reason: ' || replace(v_review_reason, 'noneligible', 'non-eligible')
@@ -632,6 +632,6 @@ END;
 $$;
 
 COMMENT ON TABLE public.communication_preference_events IS
-  'Append-only company-scoped provenance for inbound STOP and START consent transitions.';
+  'Append-only organisation-scoped provenance for inbound STOP and START consent transitions.';
 COMMENT ON COLUMN public.missed_call_sms_threads.qualification_required IS
   'True for Phase 2C threads; legacy Phase 2B threads retain their prior booking contract.';

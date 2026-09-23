@@ -14,8 +14,8 @@ const admin = createClient(url, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 const suffix = randomUUID().slice(0, 8);
-const companyA = randomUUID();
-const companyB = randomUUID();
+const organisationA = randomUUID();
+const organisationB = randomUUID();
 const userPassword = `Sms-${randomUUID()}-1a!`;
 const users = [];
 
@@ -25,20 +25,20 @@ async function must(query, label) {
   return result.data;
 }
 
-async function createTenant(companyId, label) {
+async function createTenant(organisationId, label) {
   const email = `sms-${label}-${suffix}@example.test`;
   const created = await must(
     admin.auth.admin.createUser({ email, password: userPassword, email_confirm: true }),
     `create ${label} auth user`,
   );
   users.push(created.user.id);
-  await must(admin.from('companies').insert({ id: companyId, name: `SMS test ${label}` }), `create ${label} company`);
+  await must(admin.from('organisations').insert({ id: organisationId, name: `SMS test ${label}` }), `create ${label} organisation`);
   await must(
     admin.from('profiles').insert({
       id: created.user.id,
       email,
       name: `SMS ${label}`,
-      company_id: companyId,
+      organisation_id: organisationId,
     }),
     `create ${label} profile`,
   );
@@ -96,24 +96,24 @@ async function ingestCall({ sid, to, from = '+61412345678', status = 'no-answer'
 }
 
 try {
-  const tenantA = await createTenant(companyA, 'a');
-  const tenantB = await createTenant(companyB, 'b');
+  const tenantA = await createTenant(organisationA, 'a');
+  const tenantB = await createTenant(organisationB, 'b');
   const clientA = tenantA.client;
   const clientB = tenantB.client;
   const senderA = randomUUID();
   const senderB = randomUUID();
   await must(
-    admin.from('company_twilio_senders').insert([
+    admin.from('organisation_twilio_senders').insert([
       {
         id: senderA,
-        company_id: companyA,
+        organisation_id: organisationA,
         phone_e164: '+61280000001',
         provider_account_sid: `AC${suffix}`,
         provider_sender_sid: `PN${suffix}A`,
       },
       {
         id: senderB,
-        company_id: companyB,
+        organisation_id: organisationB,
         phone_e164: '+61280000002',
         provider_account_sid: `AC${suffix}`,
         provider_sender_sid: `PN${suffix}B`,
@@ -133,7 +133,7 @@ try {
   const deniedPreference = await must(
     admin.from('communication_preferences')
       .select('phone_e164')
-      .eq('company_id', companyA)
+      .eq('organisation_id', organisationA)
       .eq('phone_e164', deniedStartPhone),
     'read denied START preference',
   );
@@ -154,7 +154,7 @@ try {
   const concurrentPhone = '+61400000008';
   await must(
     admin.from('communication_preferences').insert({
-      company_id: companyB,
+      organisation_id: organisationB,
       phone_e164: concurrentPhone,
       sms_consent_status: 'consented',
       consent_basis: 'express',
@@ -180,7 +180,7 @@ try {
   const concurrentAudits = await must(
     admin.from('communication_preference_events')
       .select('event_kind')
-      .eq('company_id', companyB)
+      .eq('organisation_id', organisationB)
       .eq('phone_e164', concurrentPhone),
     'read concurrent consent audits',
   );
@@ -194,7 +194,7 @@ try {
   await must(
     admin.from('sms_messages').insert({
       id: unknownConsentId,
-      company_id: companyA,
+      organisation_id: organisationA,
       sender_id: senderA,
       direction: 'outbound',
       state: 'queued',
@@ -214,7 +214,7 @@ try {
   await must(admin.from('sms_messages').delete().eq('id', unknownConsentId), 'remove unknown-consent fixture');
 
   const mismatchedSender = await admin.from('sms_messages').insert({
-    company_id: companyA,
+    organisation_id: organisationA,
     sender_id: senderA,
     direction: 'outbound',
     state: 'queued',
@@ -225,11 +225,11 @@ try {
   });
   assert.ok(mismatchedSender.error, 'outbound From must match its mapped sender');
   await must(
-    admin.from('company_twilio_senders').update({ active: false }).eq('id', senderA),
+    admin.from('organisation_twilio_senders').update({ active: false }).eq('id', senderA),
     'disable sender fixture',
   );
   const inactiveSender = await admin.from('sms_messages').insert({
-    company_id: companyA,
+    organisation_id: organisationA,
     sender_id: senderA,
     direction: 'outbound',
     state: 'queued',
@@ -240,7 +240,7 @@ try {
   });
   assert.ok(inactiveSender.error, 'inactive senders cannot queue messages');
   await must(
-    admin.from('company_twilio_senders').update({ active: true }).eq('id', senderA),
+    admin.from('organisation_twilio_senders').update({ active: true }).eq('id', senderA),
     'restore sender fixture',
   );
 
@@ -253,12 +253,12 @@ try {
     'read replay rows',
   );
   assert.equal(replayRows.length, 1, 'provider SID is stored once');
-  await must(admin.from('company_twilio_senders').update({ active: false }).eq('id', senderA), 'retire replay sender');
+  await must(admin.from('organisation_twilio_senders').update({ active: false }).eq('id', senderA), 'retire replay sender');
   const retiredReplay = await ingest({ sid: replaySid, to: '+61280000001' });
   assert.equal(retiredReplay.replay, true, 'replay remains idempotent after sender retirement');
-  await must(admin.from('company_twilio_senders').update({ active: true }).eq('id', senderA), 'restore replay sender');
+  await must(admin.from('organisation_twilio_senders').update({ active: true }).eq('id', senderA), 'restore replay sender');
   const forgedAutomation = await clientA.from('jobs').insert({
-    company_id: companyA,
+    organisation_id: organisationA,
     title: 'Must not persist',
     created_by: null,
     created_via: 'missed_call_sms',
@@ -266,14 +266,14 @@ try {
   });
   assert.ok(forgedAutomation.error, 'authenticated users cannot forge automation provenance');
 
-  const companyBSid = `SM${suffix}B`;
-  await ingest({ sid: companyBSid, to: '+61280000002' });
-  const rowsA = await must(clientA.from('sms_messages').select('company_id'), 'company A RLS read');
-  const rowsB = await must(clientB.from('sms_messages').select('company_id'), 'company B RLS read');
-  assert.ok(rowsA.length > 0 && rowsA.every((row) => row.company_id === companyA), 'company A sees only A');
-  assert.ok(rowsB.length > 0 && rowsB.every((row) => row.company_id === companyB), 'company B sees only B');
+  const organisationBSid = `SM${suffix}B`;
+  await ingest({ sid: organisationBSid, to: '+61280000002' });
+  const rowsA = await must(clientA.from('sms_messages').select('organisation_id'), 'organisation A RLS read');
+  const rowsB = await must(clientB.from('sms_messages').select('organisation_id'), 'organisation B RLS read');
+  assert.ok(rowsA.length > 0 && rowsA.every((row) => row.organisation_id === organisationA), 'organisation A sees only A');
+  assert.ok(rowsB.length > 0 && rowsB.every((row) => row.organisation_id === organisationB), 'organisation B sees only B');
   const forbiddenWrite = await clientA.from('sms_messages').insert({
-    company_id: companyA,
+    organisation_id: organisationA,
     sender_id: senderA,
     direction: 'outbound',
     state: 'queued',
@@ -292,7 +292,7 @@ try {
   const stoppedOutbound = randomUUID();
   await must(
     admin.from('communication_preferences').insert({
-      company_id: companyB,
+      organisation_id: organisationB,
       phone_e164: '+61412345678',
       sms_consent_status: 'consented',
       consent_basis: 'express',
@@ -304,7 +304,7 @@ try {
   await must(
     admin.from('sms_messages').insert({
       id: stoppedOutbound,
-      company_id: companyB,
+      organisation_id: organisationB,
       sender_id: senderB,
       direction: 'outbound',
       state: 'queued',
@@ -336,7 +336,7 @@ try {
 
   await must(
     admin.from('communication_preferences').insert({
-      company_id: companyA,
+      organisation_id: organisationA,
       phone_e164: '+61412345678',
       sms_consent_status: 'consented',
       consent_basis: 'express',
@@ -351,7 +351,7 @@ try {
   assert.equal(firstCall.queued, true, 'eligible consented missed call queues a text-back');
   assert.equal(replayCall.replay, true, 'CallSid replay is acknowledged');
   const callRows = await must(
-    admin.from('missed_calls').select('company_id, outbound_message_id').eq('provider_call_sid', callSid),
+    admin.from('missed_calls').select('organisation_id, outbound_message_id').eq('provider_call_sid', callSid),
     'read deduplicated call',
   );
   assert.equal(callRows.length, 1, 'CallSid is stored once');
@@ -393,7 +393,7 @@ try {
   const restartedPreference = await must(
     admin.from('communication_preferences')
       .select('sms_consent_status, consent_basis, consent_source, opted_out_at')
-      .eq('company_id', companyB)
+      .eq('organisation_id', organisationB)
       .eq('phone_e164', '+61412345678')
       .single(),
     'read START-restored preference',
@@ -425,15 +425,15 @@ try {
   );
   assert.match(restartReply.body, /Text HELP/, 'START without a thread does not invite a dead-end ladder reply');
 
-  const missedCallsA = await must(clientA.from('missed_calls').select('company_id'), 'company A missed-call read');
-  const missedCallsB = await must(clientB.from('missed_calls').select('company_id'), 'company B missed-call read');
+  const missedCallsA = await must(clientA.from('missed_calls').select('organisation_id'), 'organisation A missed-call read');
+  const missedCallsB = await must(clientB.from('missed_calls').select('organisation_id'), 'organisation B missed-call read');
   assert.ok(
-    missedCallsA.length > 0 && missedCallsA.every((row) => row.company_id === companyA),
-    'company A sees only its missed calls',
+    missedCallsA.length > 0 && missedCallsA.every((row) => row.organisation_id === organisationA),
+    'organisation A sees only its missed calls',
   );
   assert.ok(
-    missedCallsB.length > 0 && missedCallsB.every((row) => row.company_id === companyB),
-    'company B sees only its missed calls',
+    missedCallsB.length > 0 && missedCallsB.every((row) => row.organisation_id === organisationB),
+    'organisation B sees only its missed calls',
   );
 
   const missedCallClaim = await must(admin.rpc('claim_next_sms_message', {
@@ -481,7 +481,7 @@ try {
 
   await must(
     admin.from('clients').insert({
-      company_id: companyA,
+      organisation_id: organisationA,
       name: 'Missed-call client',
       phone: '+61412345678',
       address: '1 Test Street',
@@ -601,17 +601,35 @@ try {
   assert.equal(booked.booked, true, 'confirmed concrete slot books a job');
   const bookedJob = await must(
     admin.from('jobs')
-      .select('company_id, scheduled_date, start_time, created_by, created_via, automation_ref')
+      .select('organisation_id, created_by, created_via, automation_ref')
       .eq('id', booked.job_id)
       .single(),
     'read automated job',
   );
-  assert.equal(bookedJob.company_id, companyA, 'booking stays in the missed-call company');
-  assert.equal(bookedJob.scheduled_date, bookingDate, 'booking keeps the confirmed date');
-  assert.equal(bookedJob.start_time.slice(0, 5), '09:30', 'booking keeps the confirmed time');
+  assert.equal(bookedJob.organisation_id, organisationA, 'booking stays in the missed-call organisation');
   assert.equal(bookedJob.created_by, null, 'automation does not spoof a human JWT');
   assert.equal(bookedJob.created_via, 'missed_call_sms', 'job records automation provenance');
   assert.equal(bookedJob.automation_ref, bookingReply.message_id, 'job references the inbound command message');
+  const bookedVisit = await must(
+    admin.from('job_visits')
+      .select('organisation_id, scheduled_date, scheduled_start, scheduled_end, status')
+      .eq('job_id', booked.job_id)
+      .single(),
+    'read automated job visit',
+  );
+  assert.equal(bookedVisit.organisation_id, organisationA, 'visit stays in the missed-call organisation');
+  assert.equal(bookedVisit.scheduled_date, bookingDate, 'visit keeps the confirmed date');
+  assert.equal(
+    new Date(bookedVisit.scheduled_start).toISOString(),
+    `${bookingDate}T01:30:00.000Z`,
+    'visit stores the confirmed 09:30 Australia/Perth start',
+  );
+  assert.equal(
+    new Date(bookedVisit.scheduled_end).toISOString(),
+    `${bookingDate}T02:30:00.000Z`,
+    'visit defaults the booking to one hour',
+  );
+  assert.equal(bookedVisit.status, 'planned', 'visit starts planned');
   const confirmation = await must(
     admin.from('sms_messages')
       .select('state, body')
@@ -643,29 +661,29 @@ try {
   }, 'START never reopens a booked thread');
 
   const commandsA = await must(
-    clientA.from('missed_call_booking_commands').select('company_id'),
-    'company A booking command read',
+    clientA.from('missed_call_booking_commands').select('organisation_id'),
+    'organisation A booking command read',
   );
   const commandsB = await must(
-    clientB.from('missed_call_booking_commands').select('company_id'),
-    'company B booking command read',
+    clientB.from('missed_call_booking_commands').select('organisation_id'),
+    'organisation B booking command read',
   );
-  assert.ok(commandsA.length > 0 && commandsA.every((row) => row.company_id === companyA), 'company A sees only A commands');
-  assert.equal(commandsB.length, 0, 'company B cannot see company A commands');
-  const threadsA = await must(clientA.from('missed_call_sms_threads').select('company_id'), 'company A thread read');
-  const threadsB = await must(clientB.from('missed_call_sms_threads').select('company_id'), 'company B thread read');
-  assert.ok(threadsA.length > 0 && threadsA.every((row) => row.company_id === companyA), 'company A sees only A threads');
-  assert.equal(threadsB.length, 0, 'company B cannot see company A threads');
+  assert.ok(commandsA.length > 0 && commandsA.every((row) => row.organisation_id === organisationA), 'organisation A sees only A commands');
+  assert.equal(commandsB.length, 0, 'organisation B cannot see organisation A commands');
+  const threadsA = await must(clientA.from('missed_call_sms_threads').select('organisation_id'), 'organisation A thread read');
+  const threadsB = await must(clientB.from('missed_call_sms_threads').select('organisation_id'), 'organisation B thread read');
+  assert.ok(threadsA.length > 0 && threadsA.every((row) => row.organisation_id === organisationA), 'organisation A sees only A threads');
+  assert.equal(threadsB.length, 0, 'organisation B cannot see organisation A threads');
   const auditA = await must(
-    clientA.from('communication_preference_events').select('company_id'),
-    'company A consent audit read',
+    clientA.from('communication_preference_events').select('organisation_id'),
+    'organisation A consent audit read',
   );
   const auditB = await must(
-    clientB.from('communication_preference_events').select('company_id'),
-    'company B consent audit read',
+    clientB.from('communication_preference_events').select('organisation_id'),
+    'organisation B consent audit read',
   );
-  assert.ok(auditA.length > 0 && auditA.every((row) => row.company_id === companyA), 'company A sees only A consent audits');
-  assert.ok(auditB.length > 0 && auditB.every((row) => row.company_id === companyB), 'company B sees only B consent audits');
+  assert.ok(auditA.length > 0 && auditA.every((row) => row.organisation_id === organisationA), 'organisation A sees only A consent audits');
+  assert.ok(auditB.length > 0 && auditB.every((row) => row.organisation_id === organisationB), 'organisation B sees only B consent audits');
 
   const rebook = await ingest({
     sid: `SM${suffix}REBOOK`,
@@ -754,7 +772,7 @@ try {
   const claimId = randomUUID();
   await must(
     admin.from('communication_preferences').insert({
-      company_id: companyA,
+      organisation_id: organisationA,
       phone_e164: '+61499999999',
       sms_consent_status: 'consented',
       consent_basis: 'express',
@@ -766,7 +784,7 @@ try {
   await must(
     admin.from('sms_messages').insert({
       id: claimId,
-      company_id: companyA,
+      organisation_id: organisationA,
       sender_id: senderA,
       direction: 'outbound',
       state: 'queued',
@@ -802,25 +820,26 @@ try {
 
   console.log('missed-call SMS database integration tests passed');
 } finally {
-  await admin.from('missed_call_office_reviews').delete().in('company_id', [companyA, companyB]);
-  await admin.from('communication_preference_events').delete().in('company_id', [companyA, companyB]);
+  await admin.from('missed_call_office_reviews').delete().in('organisation_id', [organisationA, organisationB]);
+  await admin.from('communication_preference_events').delete().in('organisation_id', [organisationA, organisationB]);
   await admin.from('agent_reminders')
     .delete()
-    .in('company_id', [companyA, companyB])
+    .in('organisation_id', [organisationA, organisationB])
     .eq('related_type', 'missed_call_office_review');
-  await admin.from('missed_call_booking_commands').delete().in('company_id', [companyA, companyB]);
-  await admin.from('missed_call_sms_threads').delete().in('company_id', [companyA, companyB]);
+  await admin.from('missed_call_booking_commands').delete().in('organisation_id', [organisationA, organisationB]);
+  await admin.from('missed_call_sms_threads').delete().in('organisation_id', [organisationA, organisationB]);
   await admin.from('agent_reminders')
     .delete()
-    .in('company_id', [companyA, companyB])
+    .in('organisation_id', [organisationA, organisationB])
     .eq('related_type', 'missed_call_sms_thread');
-  await admin.from('jobs').delete().in('company_id', [companyA, companyB]);
-  await admin.from('clients').delete().in('company_id', [companyA, companyB]);
-  await admin.from('missed_calls').delete().in('company_id', [companyA, companyB]);
-  await admin.from('sms_messages').delete().in('company_id', [companyA, companyB]);
-  await admin.from('communication_preferences').delete().in('company_id', [companyA, companyB]);
-  await admin.from('company_twilio_senders').delete().in('company_id', [companyA, companyB]);
+  await admin.from('job_visits').delete().in('organisation_id', [organisationA, organisationB]);
+  await admin.from('jobs').delete().in('organisation_id', [organisationA, organisationB]);
+  await admin.from('clients').delete().in('organisation_id', [organisationA, organisationB]);
+  await admin.from('missed_calls').delete().in('organisation_id', [organisationA, organisationB]);
+  await admin.from('sms_messages').delete().in('organisation_id', [organisationA, organisationB]);
+  await admin.from('communication_preferences').delete().in('organisation_id', [organisationA, organisationB]);
+  await admin.from('organisation_twilio_senders').delete().in('organisation_id', [organisationA, organisationB]);
   await admin.from('profiles').delete().in('id', users);
-  await admin.from('companies').delete().in('id', [companyA, companyB]);
+  await admin.from('organisations').delete().in('id', [organisationA, organisationB]);
   for (const userId of users) await admin.auth.admin.deleteUser(userId);
 }
