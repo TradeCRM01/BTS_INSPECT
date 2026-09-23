@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   blankCompanyPaymentMethod,
+  companyHasInvoicePaymentMethod,
   companyPaymentMethodsForDocument,
   companyPaymentMethodsSaveError,
   companyPaymentMethodsSavePayload,
@@ -63,6 +64,16 @@ describe('company payment methods', () => {
     ]);
     expect(formatCompanyPaymentMethodLines(bank)[1]).toBe('BSB: 066-000');
     expect(companyPaymentMethodsSavePayload([bank])[0].bsb).toBe('066-000');
+    expect(companyHasInvoicePaymentMethod([bank])).toBe(true);
+    expect(companyHasInvoicePaymentMethod([blankCompanyPaymentMethod('bank_transfer')])).toBe(false);
+    expect(companyHasInvoicePaymentMethod([{
+      ...bank,
+      kind: 'other',
+      account_name: '',
+      bsb: '',
+      account_number: '',
+      notes: 'Pay in person',
+    }])).toBe(false);
     expect(
       companyPaymentMethodsSaveError("Could not find the 'payment_methods' column of 'companies' in the schema cache"),
     ).toMatch(/Run 066/);
@@ -83,6 +94,8 @@ describe('company payment methods', () => {
     const poSendDialog = src('src/components/invoicing/PurchaseOrderSendDialog.tsx');
     const xero = src('src/lib/xeroAccounting.ts');
     const edge = src('supabase/functions/job-reminder/index.ts');
+    const portal = src('src/pages/ClientPortalPublicPage.tsx');
+    const portalEdge = src('supabase/functions/client-portal/index.ts');
 
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS payment_methods jsonb');
     expect(settings).toContain('payment_methods');
@@ -108,6 +121,22 @@ describe('company payment methods', () => {
     expect(send).not.toContain('Relovi');
     expect(edge).toContain('payment_methods');
     expect(edge).toContain('How to pay');
+    expect(edge).toContain('companyAbn');
+    expect(portal).toContain('companyPaymentMethodsForDocument(data.company?.paymentMethods)');
+    expect(portal).toContain('ABN {data.company.abn}');
+    expect(portal).toContain('How to pay');
+    expect(portalEdge).toContain('abn, logo_url, phone, email, website, payment_methods');
+    expect(portalEdge).toContain('paymentMethods: company.payment_methods');
+    expect(settings).toContain('companyHasInvoicePaymentMethod(paymentMethods)');
+    expect(settings).toContain('Finish your invoice details');
+    expect(settings).toContain('Add your ABN so customer invoices identify your business.');
+    expect(settings).toContain('Add a bank transfer or PayID so customers know how to pay.');
+    expect(settings).toContain('href="#company-abn"');
+    expect(settings).toContain('href="#company-payment-methods"');
+    expect(settings).toContain('background: var(--co-look-page)');
+    expect(settings).toContain('color: var(--co-look-ink)');
+    expect(invoices).not.toContain('hub-invoice-pay-empty');
+    expect(invoices).not.toContain('Bank or PayID details are not set.');
     const receiptStart = edge.indexOf('function invoiceReceiptHtml');
     const receiptFn = edge.slice(receiptStart, edge.indexOf('function invoiceReceiptSmsBody'));
     expect(receiptFn).not.toContain('How to pay');

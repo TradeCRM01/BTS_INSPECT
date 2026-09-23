@@ -31,6 +31,7 @@ import {
 import {
   blankCompanyPaymentMethod,
   COMPANY_PAYMENT_KIND_LABEL,
+  companyHasInvoicePaymentMethod,
   companyPaymentMethodsSaveError,
   companyPaymentMethodsSavePayload,
   parseCompanyPaymentMethods,
@@ -205,6 +206,41 @@ const COMPANY_LOOK_CSS = `
   color: var(--co-look-muted);
   font-size: 14px;
   font-weight: 500;
+}
+.hub-company-invoice-empty {
+  margin: 24px 0 0;
+  padding: 20px;
+  border: 1px solid var(--co-look-line);
+  border-radius: var(--co-look-r-ctl);
+  background: var(--co-look-page);
+  color: var(--co-look-ink);
+}
+.hub-company-invoice-empty-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-family: Rajdhani, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+}
+.hub-company-invoice-empty p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.hub-company-invoice-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+}
+.hub-company-invoice-empty-actions a {
+  color: var(--co-look-ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .hub-company-fail {
   margin: 8px 0 0;
@@ -895,6 +931,9 @@ export function CompanySettingsPage() {
 
   const inputClass = 'hub-company-input';
   const sheetName = company?.name || 'Company';
+  const hasInvoicePaymentMethod = companyHasInvoicePaymentMethod(paymentMethods);
+  const invoiceIdentityMissing = !abn.trim();
+  const invoicePaymentMissing = !hasInvoicePaymentMethod;
 
   return (
     <AppShell>
@@ -909,6 +948,24 @@ export function CompanySettingsPage() {
           <div className="hub-company-sheet-body">
         <h1 className="hub-company-hero">{sheetName}</h1>
         <p className="hub-company-jobline">Company profile and branding</p>
+
+        {invoiceIdentityMissing || invoicePaymentMissing ? (
+          <section className="hub-company-invoice-empty" aria-labelledby="company-invoice-setup-title">
+            <h2 id="company-invoice-setup-title" className="hub-company-invoice-empty-head">
+              <AlertCircle size={18} /> Finish your invoice details
+            </h2>
+            {invoiceIdentityMissing ? (
+              <p>Add your ABN so customer invoices identify your business.</p>
+            ) : null}
+            {invoicePaymentMissing ? (
+              <p>Add a bank transfer or PayID so customers know how to pay.</p>
+            ) : null}
+            <div className="hub-company-invoice-empty-actions">
+              {invoiceIdentityMissing ? <a href="#company-abn">Add ABN</a> : null}
+              {invoicePaymentMissing ? <a href="#company-payment-methods">Add payment details</a> : null}
+            </div>
+          </section>
+        ) : null}
 
         {isAdmin && (
           <>
@@ -1459,7 +1516,7 @@ export function CompanySettingsPage() {
             <label className="hub-company-row-label">ABN</label>
             <div className="hub-company-field">
               <input value={abn} onChange={e => setAbn(e.target.value)}
-                className={inputClass + ' font-mono'} placeholder="00 000 000 000" />
+                id="company-abn" className={inputClass + ' font-mono'} placeholder="00 000 000 000" />
             </div>
           </div>
           <div className="hub-company-row">
@@ -1528,7 +1585,7 @@ export function CompanySettingsPage() {
           </button>
         </form>
 
-        <p className="hub-company-kicker">How clients pay</p>
+        <p id="company-payment-methods" className="hub-company-kicker">How clients pay</p>
         <p className="hub-company-lede">Printed on invoices as the way to pay. Leave empty if you do not want bank details on the invoice.</p>
         <form onSubmit={handleSavePaymentMethods}>
           {paymentMethods.map(method => (

@@ -205,6 +205,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
 function invoiceHtml(opts: {
   clientName: string;
   companyName: string;
+  companyAbn?: string | null;
   invoiceNumber: unknown;
   totalLabel: string;
   dueLabel: string;
@@ -220,6 +221,9 @@ function invoiceHtml(opts: {
   const terms = opts.paymentTerms
     ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Payment terms: ${escapeHtml(opts.paymentTerms)}</p>`
     : "";
+  const identity = opts.companyAbn?.trim()
+    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">${company} · ABN ${escapeHtml(opts.companyAbn.trim())}</p>`
+    : "";
   const payHow = invoicePayHowHtml(opts.paymentMethods);
   return `
       <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
@@ -233,6 +237,7 @@ function invoiceHtml(opts: {
           <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${escapeHtml(opts.totalLabel)}</strong></p>
           ${due}
           ${terms}
+          ${identity}
           ${payHow}
           <p>The invoice PDF is attached. Reply to this email if you have a question about the charges.</p>
         </div>
@@ -873,6 +878,7 @@ function invoiceSubject(opts: {
 function invoiceChaseHtml(opts: {
   clientName: string;
   companyName: string;
+  companyAbn?: string | null;
   invoiceNumber: unknown;
   totalLabel: string;
   dueLabel: string;
@@ -888,6 +894,9 @@ function invoiceChaseHtml(opts: {
   const terms = opts.paymentTerms
     ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">Payment terms: ${escapeHtml(opts.paymentTerms)}</p>`
     : "";
+  const identity = opts.companyAbn?.trim()
+    ? `<p style="color:#4A5568;font-size:15px;line-height:1.6;">${company} · ABN ${escapeHtml(opts.companyAbn.trim())}</p>`
+    : "";
   const payHow = invoicePayHowHtml(opts.paymentMethods);
   return `
       <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1A1A1A">
@@ -901,6 +910,7 @@ function invoiceChaseHtml(opts: {
           <p style="color:#4A5568;font-size:15px;line-height:1.6;">Total (inc GST): <strong>${escapeHtml(opts.totalLabel)}</strong></p>
           ${due}
           ${terms}
+          ${identity}
           ${payHow}
           <p>The invoice PDF is attached. Reply to this email if you have a question about the charges.</p>
         </div>
@@ -1040,7 +1050,7 @@ async function deliverInvoiceSend(opts: {
   admin: ReturnType<typeof createClient>;
   invoice: Record<string, unknown>;
   companyId: string;
-  company: { name?: string | null; email?: string | null; payment_methods?: unknown } | null;
+  company: { name?: string | null; abn?: string | null; email?: string | null; payment_methods?: unknown } | null;
   settings: EmailSettings | null;
   client: Record<string, unknown> | null;
   attachmentIn?: { filename?: string; content?: string };
@@ -1125,6 +1135,7 @@ async function deliverInvoiceSend(opts: {
     ? invoiceChaseHtml({
       clientName: toName,
       companyName,
+      companyAbn: opts.company?.abn,
       invoiceNumber: invoice.invoice_number,
       totalLabel: formatAud(invoice.total),
       dueLabel,
@@ -1141,6 +1152,7 @@ async function deliverInvoiceSend(opts: {
     : invoiceHtml({
       clientName: toName,
       companyName,
+      companyAbn: opts.company?.abn,
       invoiceNumber: invoice.invoice_number,
       totalLabel: formatAud(invoice.total),
       dueLabel,
@@ -2644,7 +2656,7 @@ Deno.serve(async (req) => {
         for (const row of clientRows ?? []) clients.set(row.id, row);
       }
 
-      const companyCache = new Map<string, { name?: string | null; payment_methods?: unknown }>();
+      const companyCache = new Map<string, { name?: string | null; abn?: string | null; payment_methods?: unknown }>();
       const results: Array<Record<string, unknown>> = [];
 
       for (const invoice of invoices) {
@@ -2653,7 +2665,7 @@ Deno.serve(async (req) => {
         if (!companyCache.has(companyId)) {
           const { data: company } = await admin
             .from("companies")
-            .select("name, payment_methods")
+            .select("name, abn, payment_methods")
             .eq("id", companyId)
             .maybeSingle();
           companyCache.set(companyId, company ?? {});
@@ -2708,7 +2720,7 @@ Deno.serve(async (req) => {
         if (!companyCache.has(companyId)) {
           const { data: company } = await admin
             .from("companies")
-            .select("name, payment_methods")
+            .select("name, abn, payment_methods")
             .eq("id", companyId)
             .maybeSingle();
           companyCache.set(companyId, company ?? {});
@@ -2784,7 +2796,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const { data: company } = await admin
         .from("companies")
-        .select("name, email, payment_methods")
+        .select("name, abn, email, payment_methods")
         .eq("id", userCompanyId)
         .maybeSingle();
 

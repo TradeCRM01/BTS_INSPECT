@@ -14952,6 +14952,30 @@
   border-bottom: none;
 }
 
+#client-portal .portal-invoice-payment {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  padding: 16px;
+  border-top: 1px solid var(--portal-line);
+  background: var(--portal-page);
+  color: var(--portal-ink);
+}
+
+#client-portal .portal-invoice-payment-method + .portal-invoice-payment-method {
+  margin-top: 12px;
+}
+
+#client-portal .portal-invoice-payment .portal-kicker {
+  margin: 0 0 6px;
+}
+
+@media (max-width: 520px) {
+  #client-portal .portal-invoice-payment {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 #client-portal .portal-row-split,
 #client-portal .portal-quote-meta {
   display: flex;

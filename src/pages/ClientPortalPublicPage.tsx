@@ -7,6 +7,17 @@ import { supabase } from '../lib/supabase';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { formatMoney, QUOTE_STATUS_LABELS } from '../types/fsm';
 import { usePublicDocumentHead } from '../lib/publicSeo';
+import { companyPaymentMethodsForDocument } from '../lib/companyPaymentMethods';
+
+type PortalCompany = {
+  name: string;
+  abn?: string | null;
+  logoUrl?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  paymentMethods?: unknown;
+};
 
 export const PORTAL_QUOTE_ACCEPT_ACTION = 'accept_quote';
 
@@ -45,7 +56,7 @@ type PortalJob = {
 export type PortalPayload =
   | {
       kind: 'report';
-      company: { name: string; logoUrl?: string | null; phone?: string | null; email?: string | null; website?: string | null } | null;
+      company: PortalCompany | null;
       report: {
         inspectionId: string;
         reportNumber: string | null;
@@ -64,7 +75,7 @@ export type PortalPayload =
     }
   | {
       kind: 'portal';
-      company: { name: string; logoUrl?: string | null; phone?: string | null; email?: string | null; website?: string | null } | null;
+      company: PortalCompany | null;
       client: { name: string; email?: string | null; phone?: string | null; address?: string | null } | null;
       quotes: PortalQuote[];
       invoices: Array<{ id: string; invoice_number: string; status: string; total: number; due_date: string | null; updated_at: string }>;
@@ -92,7 +103,20 @@ export function clientPortalAuditFixture(): PortalAuditPayload {
   if (!import.meta.env.DEV) throw new Error('Client portal audit is DEV only');
   return {
     kind: 'portal',
-    company: { name: 'Harbour Trade Co' },
+    company: {
+      name: 'Harbour Trade Co',
+      abn: '12 345 678 901',
+      paymentMethods: [{
+        id: 'audit-bank',
+        kind: 'bank_transfer',
+        label: 'Bank transfer',
+        account_name: 'Harbour Trade Co',
+        bsb: '062-000',
+        account_number: '12345678',
+        payid: '',
+        notes: 'Use the invoice number as the reference.',
+      }],
+    },
     client: { name: 'Smith Street Workshop' },
     quotes: [{
       id: 'audit-quote-42',
@@ -106,7 +130,14 @@ export function clientPortalAuditFixture(): PortalAuditPayload {
       assigned_team: ['audit-crew-7'],
       job_title: 'Workshop fit-out',
     }],
-    invoices: [],
+    invoices: [{
+      id: 'audit-invoice-18',
+      invoice_number: '#0018',
+      status: 'sent',
+      total: 484,
+      due_date: '2026-10-23',
+      updated_at: '2026-09-20T00:00:00.000Z',
+    }],
     jobs: [],
     reports: [],
   };
@@ -169,13 +200,7 @@ function PortalFrame({ children }: { children: React.ReactNode }) {
 function CompanyHeader({
   company,
 }: {
-  company: {
-    name: string;
-    logoUrl?: string | null;
-    phone?: string | null;
-    email?: string | null;
-    website?: string | null;
-  } | null;
+  company: PortalCompany | null;
 }) {
   if (!company) return null;
   return (
@@ -316,6 +341,8 @@ export function ClientPortalPublicPage() {
     );
   }
 
+  const invoicePaymentMethods = companyPaymentMethodsForDocument(data.company?.paymentMethods);
+
   return (
     <PortalFrame>
       <CompanyHeader company={data.company} />
@@ -366,6 +393,26 @@ export function ClientPortalPublicPage() {
             <p className="portal-quote-total">{formatMoney(inv.total)}</p>
           </div>
         ))}
+        {data.company ? (
+          <div className="portal-invoice-payment">
+            <div>
+              <p className="portal-kicker">From</p>
+              <p className="portal-row-ref">{data.company.name}</p>
+              {data.company.abn ? <p className="portal-muted">ABN {data.company.abn}</p> : null}
+            </div>
+            {invoicePaymentMethods.length > 0 ? (
+              <div>
+                <p className="portal-kicker">How to pay</p>
+                {invoicePaymentMethods.map(method => (
+                  <div key={method.label + method.lines.join()} className="portal-invoice-payment-method">
+                    <p className="portal-row-ref">{method.label}</p>
+                    {method.lines.map(line => <p key={line} className="portal-muted">{line}</p>)}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </Section>
 
       <Section title="Jobs" icon={<Wrench size={16} />} empty="No jobs" count={data.jobs.length}>
