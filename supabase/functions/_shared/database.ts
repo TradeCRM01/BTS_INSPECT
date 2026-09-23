@@ -17,6 +17,7 @@ export interface Database {
   public: {
     Tables: {
       organisations: AnyTable;
+      companies: AnyTable;
       profiles: AnyTable;
       clients: AnyTable;
       jobs: AnyTable;

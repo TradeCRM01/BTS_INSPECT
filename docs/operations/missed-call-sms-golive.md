@@ -4,6 +4,11 @@ This runbook joins the existing Phase 1, 2A, 2B, and 2C operations into one
 production path. It provisions a sender mapping and deploys the existing
 functions; it does not change the qualification ladder or booking rules.
 
+Production `grafter.com.au` uses Supabase project `ezszahvwwmbuekpedumf` and
+the `companies` tenant schema. Project `fbtmwpkfyjxamxqjxiaq` is the
+`organisations` reference stack only; do not point the live SPA or Twilio
+callbacks at it.
+
 ## 1. Server-side secrets
 
 Set the names read by the deployed functions:
@@ -12,8 +17,8 @@ Set the names read by the deployed functions:
 npx supabase secrets set \
   TWILIO_ACCOUNT_SID='AC…' \
   TWILIO_AUTH_TOKEN='…' \
-  TWILIO_WEBHOOK_URL='https://fbtmwpkfyjxamxqjxiaq.supabase.co/functions/v1/twilio-inbound' \
-  TWILIO_VOICE_STATUS_WEBHOOK_URL='https://fbtmwpkfyjxamxqjxiaq.supabase.co/functions/v1/twilio-voice-status' \
+  TWILIO_WEBHOOK_URL='https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/twilio-inbound' \
+  TWILIO_VOICE_STATUS_WEBHOOK_URL='https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/twilio-voice-status' \
   MISSED_CALL_SMS_WORKER_SECRET='SMS_WORKER_RANDOM_SECRET' \
   MISSED_CALL_BOOKING_WORKER_SECRET='BOOKING_WORKER_DIFFERENT_RANDOM_SECRET'
 ```
@@ -47,8 +52,8 @@ On the SMS-capable Twilio number, configure:
 
 | Twilio setting | Method | Exact callback |
 | --- | --- | --- |
-| Incoming message webhook | `POST` | `https://fbtmwpkfyjxamxqjxiaq.supabase.co/functions/v1/twilio-inbound` |
-| Voice status callback | `POST` | `https://fbtmwpkfyjxamxqjxiaq.supabase.co/functions/v1/twilio-voice-status` |
+| Incoming message webhook | `POST` | `https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/twilio-inbound` |
+| Voice status callback | `POST` | `https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/twilio-voice-status` |
 
 Leave the number's existing voice handler unchanged. The incoming-message URL
 must match `TWILIO_WEBHOOK_URL` byte-for-byte, and the status callback must
@@ -103,10 +108,10 @@ Use one trusted scheduler and two jobs. A practical starting pattern is once
 per minute for each endpoint:
 
 ```text
-* * * * *  POST https://fbtmwpkfyjxamxqjxiaq.supabase.co/functions/v1/missed-call-sms-worker
+* * * * *  POST https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/missed-call-sms-worker
              Authorization: Bearer SMS_WORKER_RANDOM_SECRET
 
-* * * * *  POST https://fbtmwpkfyjxamxqjxiaq.supabase.co/functions/v1/missed-call-booking-worker
+* * * * *  POST https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/missed-call-booking-worker
              Authorization: Bearer BOOKING_WORKER_DIFFERENT_RANDOM_SECRET
 ```
 

@@ -40,7 +40,7 @@ class InMemoryMissedCallStore {
       return {
         stored: true,
         replay: true,
-        company_id: existing.companyId,
+        organisation_id: existing.companyId,
         message_id: existing.messageId,
         queued: !!existing.messageId,
       };
@@ -74,7 +74,7 @@ class InMemoryMissedCallStore {
     return {
       stored: true,
       replay: false,
-      company_id: sender.companyId,
+      organisation_id: sender.companyId,
       message_id: call.messageId,
       queued: !!call.messageId,
     };
