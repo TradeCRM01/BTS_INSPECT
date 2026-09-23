@@ -334,7 +334,7 @@ describe('job-sheet attach client — wiring', () => {
     expect(invoicesPage).not.toContain('attachJobClient');
     expect(invoicesPage).not.toContain('jobClientAttachRow');
     expect(invoicesPage).toContain('InvoiceSendDialog');
-    expect(invoicesPage).toContain('Send again');
+    expect(invoicesPage).toContain('Share');
     expect(invoicesPage).toContain('Record payment');
     expect(dialog).toContain('Download PDF');
     expect(dialog).not.toContain('attachJobClient');

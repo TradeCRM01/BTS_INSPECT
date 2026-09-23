@@ -3465,8 +3465,7 @@
     justify-content: flex-end;
   }
 
-  .hub-invoices-row-next .btn-primary,
-  .hub-invoices-row-next .hub-next.is-send {
+  .hub-invoices-row-next .btn-primary {
     flex-shrink: 0;
     background: #2E75B6;
     color: #fff;
@@ -3569,6 +3568,7 @@
 
   .overlay-backdrop:has(.hub-invoice-editor) {
     background: rgb(245 240 230 / 0.92);
+    top: 3.5rem;
     padding: 16px;
     align-items: flex-start;
     justify-content: center;

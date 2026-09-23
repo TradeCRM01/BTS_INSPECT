@@ -5,6 +5,7 @@ import { clientEmailForSend, invoiceHasChargeableLines } from './sendInvoice';
 export type InvoiceActionKey = 'send' | 'setup_email' | 'add_email' | 'mark_paid' | 'none';
 
 export type InvoiceListBucket = 'overdue' | 'draft' | 'awaiting' | 'paid';
+export const INVOICE_RECORD_PAYMENT_LABEL = 'Record payment';
 
 export type InvoiceActionContext = {
   status: InvoiceStatus | string;
@@ -96,17 +97,17 @@ export function recommendInvoiceAction(inv: InvoiceActionContext, now = new Date
       status,
     };
   }
-  return { key: 'mark_paid', label: 'Mark paid', detail: 'Invoice was sent. Waiting on payment.', status };
+  return { key: 'mark_paid', label: INVOICE_RECORD_PAYMENT_LABEL, detail: 'Invoice was sent. Waiting on payment.', status };
 }
 
-/** Mark paid stays available on overdue, but it is never the next action. */
+/** Record payment stays available on overdue, but it is never the next action. */
 export function invoiceOverflowPaidAction(
   inv: InvoiceActionContext,
   now = new Date(),
 ): RecommendedInvoiceAction | null {
   const status = effectiveInvoiceStatus(inv, now);
   if (status !== 'overdue') return null;
-  return { key: 'mark_paid', label: 'Record payment', detail: 'This invoice is overdue.', status };
+  return { key: 'mark_paid', label: INVOICE_RECORD_PAYMENT_LABEL, detail: 'This invoice is overdue.', status };
 }
 
 export function invoiceCardHint(inv: InvoiceActionContext, now = new Date()): string {

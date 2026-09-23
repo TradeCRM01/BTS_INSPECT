@@ -269,7 +269,7 @@ describe('job-sheet client phone — wiring', () => {
     expect(page).not.toContain('Send again');
     expect(page).not.toContain('InvoiceSendDialog');
     expect(invoicesPage).toContain('InvoiceSendDialog');
-    expect(invoicesPage).toContain('Send again');
+    expect(invoicesPage).toContain('Share');
     expect(invoicesPage).toContain('Record payment');
     expect(dialog).toContain('Download PDF');
     expect(dialog).toContain('saveJobClientPhone');

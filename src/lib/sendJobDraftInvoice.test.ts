@@ -114,7 +114,7 @@ describe('sendJobDraftInvoice', () => {
 });
 
 describe('job-sheet Send next — wiring', () => {
-  it('Next Send presses sendJobDraftInvoice / deliverInvoice, not a dialog or a second draft', () => {
+  it('Next Share opens the existing invoice share tray without sending or creating a draft', () => {
     const page = src('src/pages/JobDetailPage.tsx');
     const send = src('src/lib/sendJobDraftInvoice.ts');
     const next = src('src/lib/jobNextAction.ts');
@@ -142,23 +142,24 @@ describe('job-sheet Send next — wiring', () => {
     expect(send).not.toContain('ALTER TABLE');
     expect(send).not.toContain('cron.schedule');
 
-    expect(page).toContain('sendJobDraftInvoice');
-    expect(page).toContain('jobDraftSendToast');
+    expect(page).not.toContain('sendJobDraftInvoice');
+    expect(page).not.toContain('jobDraftSendToast');
     expect(page).toContain('jobInvoiceActionFlags');
+    expect(page).toContain('pickJobDraftToSend');
     expect(page).toContain("next.key === 'send'");
-    expect(page).toContain('sendJobDraft.mutate()');
-    expect(page).toContain("invalidateQueries({ queryKey: ['job-invoices', id] })");
-    expect(page).toContain("invalidateQueries({ queryKey: ['invoices'] })");
+    expect(page).toContain("next.key === 'send' ? 'Share' : sheetNext.label");
+    expect(page).toContain('send=1');
     expect(page).toContain('ops-next-control-block');
     expect(page).not.toContain('InvoiceSendDialog');
     expect(page).not.toContain('QuoteSendDialog');
     expect(page).not.toContain('Send again');
     expect(page).not.toContain('ChaseDialog');
-    expect(handle).toContain('sendJobDraft.mutate()');
+    expect(handle).toContain('pickJobDraftToSend(invoices)');
+    expect(handle).toContain('navigate(`/invoices?id=${draft.id}&send=1`)');
     expect(handle).not.toContain('createInvoiceFromJobBill');
     expect(handle).not.toContain('convertQuoteToInvoice');
     expect(handle).not.toContain('invoiceFromJobBill');
-    expect(handle).not.toContain('navigate(');
+    expect(handle).not.toContain('deliverInvoice');
   });
 
   it('leaves Invoice next and invoice-sheet Send / chase as signed', () => {
@@ -176,7 +177,7 @@ describe('job-sheet Send next — wiring', () => {
     expect(handleInvoice).not.toContain('deliverInvoice');
     expect(page).toContain("next.key === 'invoice'");
     expect(invoicesPage).toContain('InvoiceSendDialog');
-    expect(invoicesPage).toContain('Send again');
+    expect(invoicesPage).toContain('Share');
     expect(dialog).toContain('Download PDF');
     expect(invoiceNext).toContain("label: 'Send again'");
     expect(invoiceNext).toContain('invoiceOverflowPaidAction');

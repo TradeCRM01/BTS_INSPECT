@@ -374,8 +374,8 @@ describe('receipt source lock — Mark paid sheet, existing pipe, quotes off', (
     expect(page).toContain('invoiceMarkPaidXeroMissLine');
     expect(page).toContain('invoiceMarkPaidSheetMissLine');
     expect(page).toContain('markPaid: true');
-    expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
-    expect(page).toContain('Send again');
+    expect(page).toContain('className="btn-primary"');
+    expect(page).toContain('Share');
     expect(page).toContain('hub-invoice-more');
     expect(page).not.toContain('Send receipt');
     expect(page).not.toContain('ReceiptDialog');

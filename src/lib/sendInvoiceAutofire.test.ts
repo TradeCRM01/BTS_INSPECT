@@ -799,7 +799,7 @@ describe('Perth overdue auto-fire source lock', () => {
   });
 
   it('Send again / Mark paid / Xero / quotes stay as signed', () => {
-    expect(page).toContain('Send again');
+    expect(page).toContain('Share');
     expect(page).toContain('invoiceOverflowPaidAction');
     expect(nextAction).toContain("label: 'Send again'");
     expect(nextAction).toContain('invoiceOverflowPaidAction');
@@ -870,7 +870,7 @@ describe('Perth overdue auto-fire source lock', () => {
     expect(hop).not.toContain('ADD COLUMN');
     expect(hop).not.toContain('cron.schedule');
 
-    expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
+    expect(page).toContain('className="btn-primary"');
     expect(page).toContain('hub-invoice-more');
     expect(css).toContain('.hub-invoices .btn-primary');
     expect(css).toMatch(/\.hub-invoices \.btn-primary[\s\S]*min-height:\s*44px/);
