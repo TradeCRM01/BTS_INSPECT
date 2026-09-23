@@ -27,7 +27,7 @@ class InMemorySmsStore {
     );
     if (!sender) return { stored: false, reason: 'unknown_destination' };
     if (this.messages.has(record.providerMessageSid)) {
-      return { stored: true, replay: true, company_id: sender.companyId };
+      return { stored: true, replay: true, organisation_id: sender.companyId };
     }
 
     this.messages.set(record.providerMessageSid, { ...record, companyId: sender.companyId });
@@ -40,7 +40,7 @@ class InMemorySmsStore {
         }
       }
     }
-    return { stored: true, replay: false, company_id: sender.companyId };
+    return { stored: true, replay: false, organisation_id: sender.companyId };
   };
 
   claim(): Outbox | undefined {
