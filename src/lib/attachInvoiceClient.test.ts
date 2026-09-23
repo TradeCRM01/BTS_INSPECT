@@ -305,7 +305,7 @@ describe('invoice-sheet attach client — wiring', () => {
     expect(editor).toContain('job-client-attach-save');
     expect(editor).toContain('{next.label}');
     expect(editor).toContain("next.key === 'add_email'");
-    expect(editor).toContain('Send again');
+    expect(editor).toContain('Share');
     expect(editor).toContain('Record payment');
     expect(editor).not.toContain('className="btn-primary job-client-attach-save"');
     expect(editor).not.toContain('className="ops-next-control-block job-client-attach-save"');
@@ -354,11 +354,11 @@ describe('invoice-sheet attach client — wiring', () => {
     const persistFn = editor.slice(persistStart, editor.indexOf('const startSend'));
 
     expect(page).toContain('InvoiceSendDialog');
-    expect(page).toContain('Send again');
+    expect(page).toContain('Share');
     expect(page).toContain('Record payment');
     expect(page).toContain('attachXeroPaymentAfterMarkPaid');
     expect(page).toContain('deliverInvoiceReceiptAfterMarkPaid');
-    expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
+    expect(page).toContain('className="btn-primary"');
     expect(dialog).toContain('Download PDF');
     expect(dialog).toContain('attachInvoiceClient');
     expect(invoiceNext).toContain("label: 'Send again'");

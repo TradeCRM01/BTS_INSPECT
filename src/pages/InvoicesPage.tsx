@@ -534,10 +534,7 @@ function InvoiceNextControl({
         {next.label}
       </button>
     );
-  } else if (next.key === 'send' && next.status === 'overdue') {
-    primary = null;
   } else if (next.key === 'send' || next.key === 'mark_paid') {
-    const chasePrimary = next.key === 'send' && next.status === 'overdue';
     primary = (
       <button
         type="button"
@@ -546,10 +543,12 @@ function InvoiceNextControl({
           if (next.key === 'mark_paid') setShowPayment(true);
         }}
         disabled={!!busy}
-        className={`${chasePrimary ? 'btn-primary' : 'hub-next'}${next.key === 'send' ? ' is-send' : ''}`}
+        className="btn-primary"
         title={next.detail}
       >
-        {busy && next.key !== 'mark_paid' ? 'Working…' : next.label}
+        {busy && next.key !== 'mark_paid'
+          ? 'Working…'
+          : next.key === 'send' ? 'Share' : next.label}
       </button>
     );
   }
@@ -1092,7 +1091,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             )}
             {next.key === 'send' && (
               <button type="button" onClick={() => void startSend()} disabled={saving} className="btn-primary">
-                {saving ? 'Saving...' : next.status === 'overdue' ? 'Send again' : 'Send invoice'}
+                {saving ? 'Saving...' : 'Share'}
               </button>
             )}
             {next.key === 'mark_paid' && (
@@ -1102,7 +1101,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                 disabled={saving}
                 className="btn-primary"
               >
-                {saving ? 'Saving...' : 'Record payment'}
+                {saving ? 'Saving...' : next.label}
               </button>
             )}
             <details ref={moreRef} className="hub-invoice-more">

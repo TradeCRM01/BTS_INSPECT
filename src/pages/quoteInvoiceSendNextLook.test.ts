@@ -18,11 +18,14 @@ describe('quote / invoice Send Next look', () => {
 
     expect(quoteNext).toContain("next.key === 'send' ? 'btn-primary' : 'hub-next'");
     expect(quoteNext).toContain('onSend(quote.id)');
-    expect(invoiceNext).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
-    expect(invoiceNext).toContain("next.key === 'send' ? ' is-send' : ''");
-    expect(invoiceCss).toContain('.hub-invoices-row-next .hub-next.is-send');
-    expect(invoiceCss).toMatch(/\.hub-invoices-row-next \.hub-next\.is-send[\s\S]*background: #2E75B6/);
-    expect(invoiceCss).toMatch(/\.hub-invoices-row-next \.hub-next\.is-send[\s\S]*min-height: 44px/);
+    expect(invoiceNext).toContain('className="btn-primary"');
+    expect(invoiceNext).toContain("next.key === 'send'");
+    expect(invoiceNext).toContain("next.key === 'mark_paid'");
+    expect(invoiceNext).toContain("? 'Share' : next.label");
+    expect(invoiceCss).toContain('.hub-invoices-row-next .btn-primary');
+    expect(invoiceCss).toMatch(/\.hub-invoices-row-next \.btn-primary[\s\S]*background: #2E75B6/);
+    expect(invoiceCss).toMatch(/\.hub-invoices-row-next \.btn-primary[\s\S]*min-height: 44px/);
+    expect(invoiceCss).toMatch(/@media \(max-width: 639px\)[\s\S]*top: 3\.5rem/);
     expect(css).toMatch(/\.hub-invoices-chase[\s\S]*min-height: 44px/);
     expect(css).toMatch(/\.hub-invoices-chase[\s\S]*color: #2E75B6/);
     expect(quoteCss).toContain('.hub-quotes-row-next .btn-primary');

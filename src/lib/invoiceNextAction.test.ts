@@ -77,6 +77,7 @@ describe('recommendInvoiceAction', () => {
     const storedOverdue = { ...readyDraft, status: 'overdue', due_date: '2026-08-19' };
     expect(recommendInvoiceAction({ status: 'sent', due_date: '2026-08-21' }, now)).toMatchObject({
       key: 'mark_paid',
+      label: 'Record payment',
       detail: 'Invoice was sent. Waiting on payment.',
     });
     expect(recommendInvoiceAction(overdue, now)).toMatchObject({
@@ -219,7 +220,7 @@ describe('invoiceActionContext / invoiceCardHint', () => {
   });
 
   it('uses the next action label, not a spreadsheet status', () => {
-    expect(invoiceCardHint({ status: 'sent', due_date: '2026-08-21' }, now)).toBe('Mark paid');
+    expect(invoiceCardHint({ status: 'sent', due_date: '2026-08-21' }, now)).toBe('Record payment');
     expect(invoiceCardHint({ ...readyDraft, status: 'sent', due_date: '2026-08-19' }, now)).toBe('Send again');
     expect(invoiceCardHint({ status: 'paid' }, now)).toBe('Paid');
   });

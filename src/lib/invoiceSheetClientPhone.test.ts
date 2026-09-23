@@ -213,7 +213,7 @@ describe('invoice-sheet client phone — wiring', () => {
     expect(editor).toContain('job-client-phone-save');
     expect(editor).toContain('job-client-phone-num');
     expect(editor).toContain('{next.label}');
-    expect(editor).toContain('Send again');
+    expect(editor).toContain('Share');
     expect(editor).toContain('Record payment');
     expect(editor).not.toContain('className="btn-primary job-client-phone-save"');
     expect(editor).not.toContain('className="ops-next-control-block job-client-phone-save"');
@@ -287,11 +287,11 @@ describe('invoice-sheet client phone — wiring', () => {
     const persistFn = editor.slice(persistStart, editor.indexOf('const startSend'));
 
     expect(page).toContain('InvoiceSendDialog');
-    expect(page).toContain('Send again');
+    expect(page).toContain('Share');
     expect(page).toContain('Record payment');
     expect(page).toContain('attachXeroPaymentAfterMarkPaid');
     expect(page).toContain('deliverInvoiceReceiptAfterMarkPaid');
-    expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
+    expect(page).toContain('className="btn-primary"');
     expect(dialog).toContain('Download PDF');
     expect(dialog).toContain('saveJobClientPhone');
     expect(dialog).toContain('jobClientPhoneRow');

@@ -26,8 +26,8 @@ describe('invoice send deliver path', () => {
     expect(dialog).not.toContain('send-quote');
     expect(page).toContain('InvoiceSendDialog');
     expect(page).toContain('invoiceOverflowPaidAction');
-    expect(page).toContain('Send again');
-    expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
+    expect(page).toContain('Share');
+    expect(page).toContain('className="btn-primary"');
     expect(nextAction).toContain("label: 'Send again'");
     expect(nextAction).toContain('invoiceOverflowPaidAction');
     expect(page).not.toContain('QuoteSendDialog');
@@ -80,13 +80,13 @@ describe('invoice send deliver path', () => {
     expect(sendOk).toBeGreaterThan(xeroAfterSend);
   });
 
-  it('chase look stays on the signed Send sheet — one 44px Send again, Record payment in …', () => {
+  it('chase look keeps 44px Share primary and Record payment in overflow', () => {
     const page = readFileSync(resolve(process.cwd(), 'src/pages/InvoicesPage.tsx'), 'utf8');
     const dialog = readFileSync(resolve(process.cwd(), 'src/components/invoicing/InvoiceSendDialog.tsx'), 'utf8');
     const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
     const invoiceCss = css.slice(css.indexOf('/* Invoice surfaces only'), css.indexOf('/* Job-hub JHA/SWMS'));
 
-    expect(page).toContain("chasePrimary ? 'btn-primary' : 'hub-next'");
+    expect(page).toContain('className="btn-primary"');
     expect(page).toContain('hub-invoice-more');
     expect(page).toContain('Record payment');
     expect(page).not.toContain('InvoiceChase');

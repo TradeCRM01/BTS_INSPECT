@@ -96,10 +96,10 @@ export function recommendInvoiceAction(inv: InvoiceActionContext, now = new Date
       status,
     };
   }
-  return { key: 'mark_paid', label: 'Mark paid', detail: 'Invoice was sent. Waiting on payment.', status };
+  return { key: 'mark_paid', label: 'Record payment', detail: 'Invoice was sent. Waiting on payment.', status };
 }
 
-/** Mark paid stays available on overdue, but it is never the next action. */
+/** Record payment stays available on overdue, but it is never the next action. */
 export function invoiceOverflowPaidAction(
   inv: InvoiceActionContext,
   now = new Date(),

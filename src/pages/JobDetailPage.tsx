@@ -28,8 +28,7 @@ import {
 } from '../lib/invoiceFromJobBill';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
-import { jobInvoiceActionFlags, jobOpenNext } from '../lib/jobNextAction';
-import { jobDraftSendToast, sendJobDraftInvoice } from '../lib/sendJobDraftInvoice';
+import { jobInvoiceActionFlags, jobOpenNext, pickJobDraftToSend } from '../lib/jobNextAction';
 import {
   JOB_CLIENT_ATTACH_NO_CLIENTS,
   attachJobClient,
@@ -1944,22 +1943,6 @@ export function JobDetailPage() {
     },
   });
 
-  const sendJobDraft = useMutation({
-    mutationFn: async () => {
-      return sendJobDraftInvoice({
-        invoices: invoices ?? [],
-        company,
-      });
-    },
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      const toast = jobDraftSendToast(result);
-      showToast(toast.message, toast.kind);
-    },
-    onError: (e: Error) => showToast(e.message, 'info'),
-  });
-
   const attachClient = useMutation({
     mutationFn: async () => {
       return attachJobClient({
@@ -2276,7 +2259,8 @@ export function JobDetailPage() {
   };
 
   const handleSend = () => {
-    sendJobDraft.mutate();
+    const draft = pickJobDraftToSend(invoices);
+    if (draft) navigate(`/invoices?id=${draft.id}&send=1`);
   };
 
   const emailRow = jobClientEmailRow({ clientId: job.client_id, client: client ?? null });
@@ -2303,11 +2287,11 @@ export function JobDetailPage() {
     phoneStored: phoneRow.kind === 'none' ? '' : phoneRow.phone,
   });
   const next = sheetNext.action;
+  const nextLabel = next.key === 'send' ? 'Share' : sheetNext.label;
   const arrivingPrimary = sheetNext.label === ARRIVING_NEXT_LABEL;
 
   const nextBusy =
     (next.key === 'invoice' && invoiceFromJobBill.isPending) ||
-    (next.key === 'send' && sendJobDraft.isPending) ||
     (arrivingPrimary && arrivingBusy) ||
     (next.key === 'clock' && clockOnJob.isPending) ||
     (next.key === 'phone' && saveClientPhone.isPending);
@@ -2582,7 +2566,7 @@ export function JobDetailPage() {
 
             <div className="hub-jobs-tools">
               {next.key === 'inspect' && !arrivingPrimary ? (
-                <Link to={inspectHref} className="btn-primary ops-next-control-block">{sheetNext.label}</Link>
+                <Link to={inspectHref} className="btn-primary ops-next-control-block">{nextLabel}</Link>
               ) : next.key !== 'none' || arrivingPrimary ? (
                 <button
                   type="button"
@@ -2590,14 +2574,14 @@ export function JobDetailPage() {
                   disabled={nextBusy}
                   onClick={runNext}
                 >
-                  {sheetNext.label}
+                  {nextLabel}
                 </button>
               ) : (
                 <>
                   <button type="button" className="btn-primary ops-next-control-block" onClick={openPostUpdate}>
                     Post update
                   </button>
-                  <span className="ops-next-control-done">{sheetNext.label}</span>
+                  <span className="ops-next-control-done">{nextLabel}</span>
                 </>
               )}
             </div>
