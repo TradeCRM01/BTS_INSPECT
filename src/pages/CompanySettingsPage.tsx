@@ -612,6 +612,12 @@ export function CompanySettingsPage() {
     if (!company) return;
     setLoadingTwilioSender(true);
     setTwilioSenderError('');
+    if (isDevFieldAuditAuth()) {
+      setTwilioSender(emptyTwilioSenderSettings);
+      setTwilioSenderId(null);
+      setLoadingTwilioSender(false);
+      return;
+    }
     const { data, error } = await supabase
       .from('organisation_twilio_senders')
       .select('id, phone_e164, provider_account_sid, provider_sender_sid, active')
