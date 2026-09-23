@@ -34,6 +34,19 @@ describe('quote PDF Looplet document look', () => {
     expect(commercial).toContain('company.report_theme');
   });
 
+  it('fits the existing quote PDF iframe inside phones without changing the renderer', () => {
+    const css = src('src/index.css');
+    const preview = src('src/components/invoicing/CommercialPdfPreviewModal.tsx');
+
+    expect(css).toContain('@media (max-width: 639px)');
+    expect(css).toContain(".hub-quote-pdf-sheet iframe[title='Document PDF preview']");
+    expect(css).toContain('width: calc(100% / 0.72) !important');
+    expect(css).toContain('transform: scale(0.72)');
+    expect(css).toContain('overflow-x: hidden');
+    expect(preview).toContain('<iframe');
+    expect(preview).toContain('src={url}');
+  });
+
   it('LOOK frames cover quote PDF desktop and phone only', () => {
     for (const rel of [
       'docs/look/quote-pdf-desktop.png',

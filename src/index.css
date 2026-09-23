@@ -7975,6 +7975,28 @@
     border-bottom: 1px solid #E2D9CC;
   }
 
+  @media (max-width: 639px) {
+    .hub-quote-pdf-sheet {
+      max-width: 100vw !important;
+      overflow-x: hidden;
+    }
+
+    .hub-quote-pdf-sheet > :last-child {
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .hub-quote-pdf-sheet iframe[title='Document PDF preview'] {
+      display: block;
+      width: calc(100% / 0.72) !important;
+      max-width: none;
+      height: calc(75vh / 0.72) !important;
+      border: 0;
+      transform: scale(0.72);
+      transform-origin: top left;
+    }
+  }
+
   .overlay-backdrop:has(.hub-quote-send) {
     background: #F5F0E6;
     padding: 16px;
