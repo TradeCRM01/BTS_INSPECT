@@ -1,0 +1,95 @@
+{
+  "base": "http://127.0.0.1:5173",
+  "finishedAt": "2026-09-23T09:57:06.468Z",
+  "checks": [
+    {
+      "name": "laptop-1280 empty helpers and actions",
+      "ok": true,
+      "detail": {
+        "galleryTitle": "Gallery",
+        "galleryEmptyTitle": "No photos on this job yet.",
+        "galleryHelper": "Site evidence before you leave.",
+        "addPhotosVisible": true,
+        "galleryChips": 0,
+        "galleryPrimaries": 0,
+        "testingTitle": "Testing due",
+        "testingEmptyTitle": "Nothing due on this job.",
+        "testingHelper": "Only overdue and due today — start an inspection above.",
+        "testingPrimaries": 0,
+        "testingEmptyActions": 0
+      }
+    },
+    {
+      "name": "laptop-1280 Add photos opens existing picker",
+      "ok": true,
+      "detail": {
+        "id": "job-gallery-photo-input",
+        "accept": "image/*",
+        "multiple": true
+      }
+    },
+    {
+      "name": "laptop-1280 has no page errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "phone-390 empty helpers and actions",
+      "ok": true,
+      "detail": {
+        "galleryTitle": "Gallery",
+        "galleryEmptyTitle": "No photos on this job yet.",
+        "galleryHelper": "Site evidence before you leave.",
+        "addPhotosVisible": true,
+        "galleryChips": 0,
+        "galleryPrimaries": 0,
+        "testingTitle": "Testing due",
+        "testingEmptyTitle": "Nothing due on this job.",
+        "testingHelper": "Only overdue and due today — start an inspection above.",
+        "testingPrimaries": 0,
+        "testingEmptyActions": 0
+      }
+    },
+    {
+      "name": "phone-390 Add photos opens existing picker",
+      "ok": true,
+      "detail": {
+        "id": "job-gallery-photo-input",
+        "accept": "image/*",
+        "multiple": true
+      }
+    },
+    {
+      "name": "phone-390 has no page errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "populated Gallery restores source chips",
+      "ok": true,
+      "detail": [
+        "All6",
+        "Visit3",
+        "Job1",
+        "Inspection1",
+        "JHA1"
+      ]
+    },
+    {
+      "name": "Testing due rows use existing inspection routes",
+      "ok": true,
+      "detail": [
+        "/inspections/look-testing-overdue",
+        "/inspections/look-testing-today"
+      ]
+    },
+    {
+      "name": "Testing due row navigation reaches inspection route",
+      "ok": true,
+      "detail": {
+        "expected": "/inspections/look-testing-overdue",
+        "actual": "/inspections/look-testing-overdue"
+      }
+    }
+  ]
+}
