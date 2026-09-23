@@ -82,6 +82,8 @@ We do not go looking for extra personal information about your clients. We hold 
 
 Some field paperwork (for example a JHA, incident note, or a photo of an injury) can include health or other sensitive information. We only collect this if you or your crew enter or upload it, so we can provide the service. We do not use it for marketing.
 
+Only enter or upload sensitive information when it is reasonably necessary for your work record and you have the person’s consent or another lawful basis to do so. If we receive sensitive information that we are not permitted to hold, we will delete or de-identify it where lawful and reasonable.
+
 ### What we do not collect on public pages
 
 We do not currently run advertising pixels or third-party analytics on Grafter’s public pages. Signing in uses a session stored in your browser so you stay logged in.
@@ -205,7 +207,9 @@ When we no longer need personal information for the purpose we collected it, and
 
 ---
 
-## 9. Access and correction (APP 12 and APP 13)
+## 9. Data quality, access, and correction (APP 10, APP 12, and APP 13)
+
+We take reasonable steps to make sure personal information is accurate, up to date, complete, and relevant before we use or disclose it. Because most job and client records come from you or your crew, keep those records current and tell us if information we hold is wrong.
 
 You can ask us for access to personal information we hold about you, and ask us to correct it if it is wrong, out of date, incomplete, or misleading.
 
@@ -256,6 +260,7 @@ Grafter holds whatever you put in it. That often includes personal information a
 If you are an APP entity (or you otherwise have privacy duties), you must:
 
 - only put information in Grafter that you are allowed to collect
+- only put sensitive information in Grafter when it is reasonably necessary and you have consent or another lawful basis
 - tell those people how you handle their information, where the law requires a notice
 - not use Grafter to send spam or messages people have not agreed to receive
 - be careful with photos — a site photo can identify a person
