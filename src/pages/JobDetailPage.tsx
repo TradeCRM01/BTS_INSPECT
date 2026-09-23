@@ -3414,23 +3414,28 @@ export function JobDetailPage() {
             />
             <label htmlFor="job-gallery-photo-input" className="job-gallery-add">Add photos</label>
           </div>
-          <div className="job-gallery-filters" role="group" aria-label="Photo source">
-            {JOB_GALLERY_FILTERS.map(filter => (
-              <button
-                key={filter}
-                type="button"
-                className="job-gallery-filter"
-                aria-pressed={galleryFilter === filter}
-                data-gallery-filter={filter}
-                onClick={() => setGalleryFilter(filter)}
-              >
-                {filter === 'all' ? 'All' : JOB_PHOTO_SOURCE_LABEL[filter]}
-                <span className="job-gallery-filter-count">{galleryCounts[filter]}</span>
-              </button>
-            ))}
-          </div>
+          {gallery.length > 0 && (
+            <div className="job-gallery-filters" role="group" aria-label="Photo source">
+              {JOB_GALLERY_FILTERS.map(filter => (
+                <button
+                  key={filter}
+                  type="button"
+                  className="job-gallery-filter"
+                  aria-pressed={galleryFilter === filter}
+                  data-gallery-filter={filter}
+                  onClick={() => setGalleryFilter(filter)}
+                >
+                  {filter === 'all' ? 'All' : JOB_PHOTO_SOURCE_LABEL[filter]}
+                  <span className="job-gallery-filter-count">{galleryCounts[filter]}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {gallery.length === 0 ? (
-            <p className="ops-tray-empty">No photos on this job yet.</p>
+            <p className="ops-tray-empty">
+              No photos on this job yet.
+              <span className="block mt-0.5 text-xs text-muted">Site evidence before you leave.</span>
+            </p>
           ) : (
             <div className="job-gallery-grid">
               {visibleGallery.map(photo => {
@@ -3466,6 +3471,7 @@ export function JobDetailPage() {
             icon={ClipboardList}
             count={dueTests.length}
             emptyTitle={JOB_TESTING_DUE_EMPTY}
+            emptyHelper="Only overdue and due today — start an inspection above."
           >
             {dueTests.map(row => (
               <JobRelatedRow
