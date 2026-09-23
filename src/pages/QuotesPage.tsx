@@ -1228,29 +1228,29 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             </div>
           ) : null}
 
-          <div className="hub-quote-convert">
-            <p className="hub-quote-convert-label">Convert</p>
-            <div className="hub-quote-convert-fields">
-              <Field label="Job date">
-                <input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} className="form-input" />
-              </Field>
-              <Field label="Crew">
-                <select
-                  value={form.assigned_team[0] ?? ''}
-                  onChange={e => setForm(f => ({ ...f, assigned_team: e.target.value ? [e.target.value] : [] }))}
-                  className="form-input cursor-pointer"
-                >
-                  <option value="">No crew yet</option>
-                  {teamMembers.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            {err === CONVERT_QUOTE_NEED_DATE_CREW
-              ? <p className="hub-quote-convert-miss">{CONVERT_QUOTE_NEED_DATE_CREW}</p>
-              : <p className="hub-quote-convert-whisper">Date and crew on this tap.</p>}
-            {next.key === 'convert_job' && (
+          {next.key === 'convert_job' && (
+            <div className="hub-quote-convert">
+              <p className="hub-quote-convert-label">Convert</p>
+              <div className="hub-quote-convert-fields">
+                <Field label="Job date">
+                  <input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} className="form-input" />
+                </Field>
+                <Field label="Crew">
+                  <select
+                    value={form.assigned_team[0] ?? ''}
+                    onChange={e => setForm(f => ({ ...f, assigned_team: e.target.value ? [e.target.value] : [] }))}
+                    className="form-input cursor-pointer"
+                  >
+                    <option value="">No crew yet</option>
+                    {teamMembers.map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              {err === CONVERT_QUOTE_NEED_DATE_CREW
+                ? <p className="hub-quote-convert-miss">{CONVERT_QUOTE_NEED_DATE_CREW}</p>
+                : <p className="hub-quote-convert-whisper">Date and crew on this tap.</p>}
               <button
                 type="button"
                 className="btn-primary"
@@ -1259,8 +1259,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
               >
                 {converting ? 'Converting...' : 'Convert to job'}
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {showEdit ? (
