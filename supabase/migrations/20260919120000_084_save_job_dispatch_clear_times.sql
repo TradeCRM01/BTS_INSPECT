@@ -165,9 +165,9 @@ BEGIN
     RAISE EXCEPTION 'invalid_interval' USING ERRCODE = '22007';
   END IF;
   IF v_start_m IS NOT NULL THEN
+    v_end_m := CASE WHEN v_end_m IS NOT NULL AND v_end_m > v_start_m THEN v_end_m ELSE v_start_m + 60 END;
     v_res_start := v_start_m;
-    v_res_end := CASE WHEN v_end_m IS NOT NULL THEN v_end_m ELSE v_start_m + 60 END;
-    v_end_m := v_res_end;
+    v_res_end := v_end_m;
   ELSIF v_date IS NOT NULL THEN
     v_res_start := 0;
     v_res_end := 24 * 60;

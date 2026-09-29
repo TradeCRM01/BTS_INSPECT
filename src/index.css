@@ -6730,7 +6730,7 @@
     }
 
     .hub-week-grid {
-      grid-template-columns: 58px repeat(7, 156px);
+      grid-template-columns: 58px repeat(7, minmax(0, 1fr));
       grid-template-rows: 40px;
       grid-auto-rows: minmax(64px, 1fr);
       width: max-content;
@@ -6738,6 +6738,10 @@
       flex: 1 1 0;
       height: 100%;
       align-content: stretch;
+    }
+
+    .hub-week-document .hub-week-grid {
+      grid-template-columns: 58px repeat(7, 156px);
     }
 
     .hub-week-corner,

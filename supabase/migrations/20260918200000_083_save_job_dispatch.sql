@@ -1,5 +1,7 @@
 ﻿-- Additive dispatch write path. No Hours table (already live as 068_staff_hours).
--- No demo catalogue. Old clients keep jobs.update until this RPC is used.
+-- No demo catalogue. Client assignment uses this RPC only — no jobs.update fallback.
+-- Clock keys in this file treat empty as keep-stored. 084 dispatch_json_clock
+-- (live): present JSON null clears a clock; omitted key keeps the stored clock.
 
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS dispatch_ready boolean NOT NULL DEFAULT false;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS dispatch_version integer NOT NULL DEFAULT 1;
