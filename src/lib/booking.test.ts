@@ -1,0 +1,184 @@
+import { describe, expect, it } from 'vitest';
+import {
+  bookingIntervalIssue,
+  bookingWarnings,
+  capacityWarnings,
+  clashingJobIds,
+  crewDayLoad,
+  hoursWarnings,
+  jobBookingLabel,
+  jobLoadMinutes,
+  jobsClash,
+  normalizeClock,
+  payloadClock,
+  shouldProceedWithBooking,
+} from './booking';
+
+const names = new Map([
+  ['alice', 'Alice'],
+  ['bob', 'Bob'],
+]);
+
+function job(partial: Partial<Parameters<typeof jobsClash>[0]> & { id: string }) {
+  return {
+    title: 'Job',
+    status: 'scheduled',
+    scheduled_date: '2026-09-11',
+    start_time: null,
+    end_time: null,
+    assigned_team: ['alice'],
+    ...partial,
+  };
+}
+
+describe('jobsClash', () => {
+  it('treats two untimed jobs on the same day as a clash', () => {
+    expect(jobsClash(job({ id: 'a' }), job({ id: 'b' }))).toBe(true);
+  });
+
+  it('ignores a cancelled job', () => {
+    expect(jobsClash(job({ id: 'a' }), job({ id: 'b', status: 'cancelled' }))).toBe(false);
+  });
+
+  it('ignores a different day', () => {
+    expect(jobsClash(job({ id: 'a' }), job({ id: 'b', scheduled_date: '2026-09-12' }))).toBe(false);
+  });
+
+  it('detects overlapping clock times', () => {
+    expect(jobsClash(
+      job({ id: 'a', start_time: '08:00:00', end_time: '10:00:00' }),
+      job({ id: 'b', start_time: '09:30:00', end_time: '11:00:00' }),
+    )).toBe(true);
+  });
+
+  it('allows back-to-back times', () => {
+    expect(jobsClash(
+      job({ id: 'a', start_time: '08:00:00', end_time: '10:00:00' }),
+      job({ id: 'b', start_time: '10:00:00', end_time: '12:00:00' }),
+    )).toBe(false);
+  });
+
+  it('treats an untimed job as occupying the whole day', () => {
+    expect(jobsClash(
+      job({ id: 'a' }),
+      job({ id: 'b', start_time: '09:00:00', end_time: '10:00:00' }),
+    )).toBe(true);
+  });
+});
+
+describe('bookingWarnings', () => {
+  it('names the person and the other job', () => {
+    const warnings = bookingWarnings(
+      job({ id: 'a', job_number: 5, title: 'Switchboard', assigned_team: ['alice'] }),
+      [job({ id: 'b', job_number: 3, title: 'Outlets', assigned_team: ['alice'] })],
+      names,
+    );
+    expect(warnings).toEqual(['Alice is already on #0003 Outlets that day.']);
+  });
+
+  it('stays quiet when the crew does not overlap', () => {
+    expect(bookingWarnings(
+      job({ id: 'a', assigned_team: ['alice'] }),
+      [job({ id: 'b', assigned_team: ['bob'] })],
+      names,
+    )).toEqual([]);
+  });
+
+  it('warns on a recorded day off', () => {
+    expect(hoursWarnings(
+      job({ id: 'a', assigned_team: ['alice'] }),
+      [{ memberId: 'alice', date: '2026-09-11', working: false, reason: 'Annual leave' }],
+      names,
+    )).toEqual(['Alice is marked off on 2026-09-11 (Annual leave).']);
+  });
+
+  it('warns when the job sits outside dated hours', () => {
+    expect(hoursWarnings(
+      job({ id: 'a', assigned_team: ['alice'], start_time: '17:00:00', end_time: '18:00:00' }),
+      [{ memberId: 'alice', date: '2026-09-11', working: true, start: '07:00', end: '16:00', reason: 'Early finish' }],
+      names,
+    )).toEqual(['Alice is only available 07:00–16:00 on 2026-09-11 (Early finish).']);
+  });
+
+  it('does not invent hours when nothing is recorded', () => {
+    expect(hoursWarnings(job({ id: 'a' }), [], names)).toEqual([]);
+  });
+});
+
+describe('clashingJobIds', () => {
+  it('marks both open jobs that share a person', () => {
+    const ids = clashingJobIds([
+      job({ id: 'a', assigned_team: ['alice'] }),
+      job({ id: 'b', assigned_team: ['alice'] }),
+      job({ id: 'c', assigned_team: ['bob'] }),
+    ]);
+    expect([...ids].sort()).toEqual(['a', 'b']);
+  });
+});
+
+describe('shouldProceedWithBooking', () => {
+  it('skips the prompt when there is nothing to warn about', () => {
+    expect(shouldProceedWithBooking([], () => false)).toBe(true);
+  });
+
+  it('asks before booking over a warning', () => {
+    expect(shouldProceedWithBooking(['clash'], () => false)).toBe(false);
+    expect(shouldProceedWithBooking(['clash'], () => true)).toBe(true);
+  });
+});
+
+describe('booking clocks', () => {
+  it('clears a present null and keeps an omitted clock', () => {
+    expect(payloadClock({ start_time: null }, 'start_time', '09:00:00')).toBeNull();
+    expect(payloadClock({ start_time: '' }, 'start_time', '09:00:00')).toBeNull();
+    expect(payloadClock({}, 'start_time', '09:00:00')).toBe('09:00:00');
+    expect(normalizeClock('08:00')).toBe('08:00:00');
+    expect(normalizeClock('')).toBeNull();
+  });
+
+  it('rejects zero and inverted intervals and allows untimed or open-ended start', () => {
+    expect(bookingIntervalIssue('09:00:00', '09:00:00')).toMatch(/End must be after start/);
+    expect(bookingIntervalIssue('10:00:00', '09:00:00')).toMatch(/End must be after start/);
+    expect(bookingIntervalIssue(null, '09:00:00')).toMatch(/clear both/);
+    expect(bookingIntervalIssue(null, null)).toBeNull();
+    expect(bookingIntervalIssue('08:00:00', null)).toBeNull();
+    expect(bookingIntervalIssue('08:00:00', '09:00:00')).toBeNull();
+  });
+});
+
+describe('jobBookingLabel', () => {
+  it('prefers a padded job number', () => {
+    expect(jobBookingLabel({ job_number: 5, title: 'Test' })).toBe('#0005 Test');
+  });
+});
+
+describe('crew day load', () => {
+  it('counts an untimed dated job as one hour', () => {
+    expect(jobLoadMinutes(job({ id: 'a' }))).toBe(60);
+  });
+
+  it('uses timed duration and does not invent weekday hours', () => {
+    const load = crewDayLoad(
+      [job({ id: 'a', start_time: '08:00:00', end_time: '11:00:00' })],
+      'alice',
+      '2026-09-11',
+      [],
+    );
+    expect(load).toEqual({
+      bookedMinutes: 180,
+      availableMinutes: null,
+      overCapacity: false,
+      off: false,
+    });
+  });
+
+  it('flags over recorded hours only when that day has a working window', () => {
+    const jobs = [
+      job({ id: 'a', start_time: '07:00:00', end_time: '12:00:00' }),
+      job({ id: 'b', start_time: '12:00:00', end_time: '16:00:00' }),
+    ];
+    const hours = [{ memberId: 'alice', date: '2026-09-11', working: true, start: '07:00:00', end: '15:00:00' }];
+    expect(crewDayLoad(jobs, 'alice', '2026-09-11', hours).overCapacity).toBe(true);
+    expect(capacityWarnings(jobs[1], [jobs[0]], hours, names)[0]).toMatch(/Alice would be booked/);
+  });
+});
