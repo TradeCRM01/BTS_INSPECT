@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { Download, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { canShowInstallOverlay } from '../../lib/publicAuthPath';
@@ -116,7 +116,9 @@ const INSTALL_LOOK_CSS = `
 export function InstallPrompt() {
   const { user } = useAuth();
   const { pathname } = useLocation();
-  const blockOverlay = !canShowInstallOverlay(pathname, Boolean(user));
+  const [searchParams] = useSearchParams();
+  const lookHarness = Boolean(searchParams.get('look'));
+  const blockOverlay = lookHarness || !canShowInstallOverlay(pathname, Boolean(user));
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [show, setShow] = useState(false);
   const [isIos, setIsIos] = useState(false);

@@ -44,6 +44,7 @@ describe('Install Grafter overlay vs signup', () => {
     expect(prompt).toContain('beforeinstallprompt');
     expect(prompt).toContain('Dismiss install Grafter');
     expect(prompt).toContain('[role="dialog"]');
+    expect(prompt).toContain("searchParams.get('look')");
     expect(src('src/main.tsx')).toContain('<InstallPrompt />');
     expect(src('src/App.tsx')).not.toMatch(/path="\/install"/);
   });
