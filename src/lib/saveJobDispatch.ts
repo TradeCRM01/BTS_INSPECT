@@ -116,7 +116,7 @@ export function parseDispatchBlocked(details?: string | null): {
 
 export function mapDispatchRpcError(error: { message?: string; code?: string; details?: string }): {
   ok: false;
-  code: 'blocked' | 'stale' | 'tenant' | 'error';
+  code: 'blocked' | 'stale' | 'tenant' | 'unavailable' | 'error';
   message: string;
   conflicts?: DispatchConflict[];
 } {
@@ -164,7 +164,7 @@ export async function saveJobDispatch(input: SaveJobDispatchInput): Promise<Save
   };
   const intervalIssue = bookingIntervalIssue(nextSnap.job.start_time, nextSnap.job.end_time);
   if (intervalIssue) {
-    return { ok: false, code: 'blocked', message: intervalIssue };
+    return { ok: false, code: 'blocked', message: intervalIssue, conflicts: [] };
   }
   const conflicts = evaluateDispatch(nextSnap);
   const write = decideDispatchWrite({

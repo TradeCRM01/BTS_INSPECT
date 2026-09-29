@@ -120,7 +120,8 @@ export function qualificationHolds(
 }
 
 /** Legacy `profiles.licence_number` is display-only and never satisfies a skill requirement. */
-export function licenceNumberSatisfiesSkill(_licence: string | null | undefined): false {
+export function licenceNumberSatisfiesSkill(licence: string | null | undefined): false {
+  void licence;
   return false;
 }
 
