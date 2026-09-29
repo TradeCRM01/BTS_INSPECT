@@ -70,6 +70,10 @@ describe('schedule page week/day board', () => {
     const board = src('src/components/crm/BoardViews.tsx');
     expect(board).toContain('export const PhoneWeekList');
     expect(board).toContain('data-schedule-agenda="1"');
+    const css = src('src/index.css');
+    const agendaCss = css.slice(css.indexOf('.dc-phone-agenda {'), css.indexOf('.dc-phone-board > summary'));
+    expect(agendaCss).toContain('min-height: 88px');
+    expect(agendaCss).toContain('overflow: clip');
     expect(board).toContain('weekBoardRows(jobs, teamMembers, currentDate, filteredEmployeeIds)');
     expect(board).toContain('data-schedule-week="1"');
     expect(board).toContain('data-week-board="1"');
