@@ -1,0 +1,130 @@
+{
+  "patches": [
+    {
+      "method": "GET",
+      "path": "/rest/v1/jobs"
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/jobs"
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/jobs"
+    },
+    {
+      "method": "PATCH",
+      "path": "/rest/v1/jobs"
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/jobs"
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/jobs"
+    },
+    {
+      "method": "GET",
+      "path": "/rest/v1/jobs"
+    }
+  ],
+  "chips": [
+    {
+      "id": "ffffffff-0000-4000-8000-000000000006",
+      "text": "#0005LOCAL M6 hold job"
+    },
+    {
+      "id": "11111111-0000-4000-8000-000000000007",
+      "text": "#0006LOCAL M6 race job"
+    },
+    {
+      "id": "dddddddd-0000-4000-8000-000000000004",
+      "text": "#0004LOCAL M6 security job"
+    },
+    {
+      "id": "42795305-924a-4ac4-a8e8-2d32159919b1",
+      "text": "#0002Unassigned dated call-out"
+    },
+    {
+      "id": "22222222-0000-4000-8000-000000000014",
+      "text": "#0011LOCAL M7 unassigned slot"
+    },
+    {
+      "id": "a7c8d630-e6bf-4222-b11d-7a05d9797e0f",
+      "text": "#0001Today boarded switchboard"
+    },
+    {
+      "id": "22222222-0000-4000-8000-000000000010",
+      "text": "#0007LOCAL M7 timed switchboard"
+    },
+    {
+      "id": "22222222-0000-4000-8000-000000000011",
+      "text": "#0008LOCAL M7 overlap callout"
+    },
+    {
+      "id": "22222222-0000-4000-8000-000000000015",
+      "text": "#0012LOCAL M7 no date queue"
+    },
+    {
+      "id": "22222222-0000-4000-8000-000000000012",
+      "text": "#0009LOCAL M7 late over hours"
+    },
+    {
+      "id": "22222222-0000-4000-8000-000000000020",
+      "text": "#0017LOCAL M7 starts before 7am"
+    },
+    {
+      "id": "22222222-0000-4000-8000-000000000018",
+      "text": "#0015LOCAL M7 ends exactly 5pm"
+    },
+    {
+      "id": "22222222-0000-4000-8000-000000000017",
+      "text": "#0014LOCAL M7 override recorded"
+    },
+    {
+      "id": "22222222-0000-4000-8000-000000000016",
+      "text": "#0013LOCAL M7 hard EWP ready"
+    },
+    {
+      "id": "22222222-0000-4000-8000-000000000013",
+      "text": "#0010LOCAL M7 untimed day job"
+    },
+    {
+      "id": "22222222-0000-4000-8000-000000000019",
+      "text": "#0016LOCAL M7 spans 5pm isolated"
+    },
+    {
+      "id": "22222222-0000-4000-8000-000000000021",
+      "text": "#0018LOCAL M7 starts after 8pm"
+    }
+  ],
+  "hold": {
+    "id": "ffffffff-0000-4000-8000-000000000006",
+    "text": "#0005LOCAL M6 hold job"
+  },
+  "jackCellCount": 3,
+  "cellsMon": [
+    "__unassigned__:2026-09-14",
+    "30489446-fc8e-4950-9974-13a0711cbe97:2026-09-14",
+    "aaaaaaaa-0000-4000-8000-000000000001:2026-09-14"
+  ],
+  "targetCell": "30489446-fc8e-4950-9974-13a0711cbe97:2026-09-14",
+  "dragged": true,
+  "afterRefresh": {
+    "text": "#0005LOCAL M6 hold job",
+    "cell": "30489446-fc8e-4950-9974-13a0711cbe97:2026-09-14"
+  },
+  "strip": {
+    "display": "block",
+    "position": "sticky",
+    "bottom": "0px",
+    "visible": true,
+    "top": 456.5,
+    "height": 274,
+    "vh": 844,
+    "navTop": null,
+    "overlapNav": null,
+    "text": "On siteJHATake 5Start a JHA first. Take 5 needs that SWMS. Clock on Photo Note M"
+  }
+}

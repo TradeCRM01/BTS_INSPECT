@@ -1,0 +1,30 @@
+{
+  "origin": "http://127.0.0.1:5175",
+  "patches": [],
+  "steps": [
+    "signedin-day-16-1280.png",
+    "signedin-day-16-workday-1280.png",
+    "signedin-week-after-assign-1280.png",
+    "signedin-week-after-refresh-1280.png",
+    "signedin-week-390-b.png",
+    "signedin-job-onsite-390.png",
+    "signedin-job-1280.png"
+  ],
+  "weekWhisper": "17 on the board � 5 unassigned · week of 14 Sep",
+  "day16Whisper": "8 on the board � 1 unassigned · Wednesday, 16 September 2026",
+  "weekToDay16": [],
+  "hoursBefore": "6am–8pm",
+  "hoursAfter": "7am–5pm · 1",
+  "clippedAfterWorkday": 2,
+  "outsideCountInLabel": "7am–5pm · 1",
+  "picked": "no-search-hit",
+  "afterRefreshHas0005OnJack": 4,
+  "jobHref": "/jobs/ffffffff-0000-4000-8000-000000000006",
+  "rescheduleLock": {
+    "mutates": true,
+    "noRpc": true
+  },
+  "stripVisible390": false,
+  "stripText": "On site\n\nJHA\nTake 5\n\nStart a JHA first. Take 5 needs that SWMS.\n\nClock on\nPhoto\nNote\nMore to do\nAll done",
+  "stripVisible1280": false
+}

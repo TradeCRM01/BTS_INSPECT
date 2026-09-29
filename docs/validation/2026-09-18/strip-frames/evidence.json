@@ -1,0 +1,54 @@
+{
+  "origin": "http://127.0.0.1:5175",
+  "steps": [
+    {
+      "signedIn": true,
+      "path": "/"
+    },
+    {
+      "shot": "signedin-week-1280.png"
+    },
+    {
+      "shot": "signedin-day-1280.png"
+    },
+    {
+      "shot": "signedin-day-7-17-1280.png"
+    },
+    {
+      "shot": "signedin-day-after-refresh-1280.png"
+    },
+    {
+      "signedIn": true,
+      "path": "/"
+    },
+    {
+      "shot": "signedin-day-390.png"
+    },
+    {
+      "shot": "signedin-week-390.png"
+    },
+    {
+      "signedIn": true,
+      "path": "/"
+    }
+  ],
+  "weekWhisper": "17 on the board � 5 unassigned · week of 14 Sep",
+  "dayWhisper": "0 on the board · Friday, 18 September 2026",
+  "weekToDayFlashes": [
+    "Showing last view � loading? � 17 on the board � 5 unassigned · Friday, 18 September 2026",
+    "0 on the board · Friday, 18 September 2026"
+  ],
+  "flashedZeroBoard": true,
+  "hoursToggleCount": 1,
+  "hoursLabelBefore": "6am–8pm",
+  "hoursLabelAfter": "7am–5pm",
+  "clippedMarks": 0,
+  "jobChipVisible": 0,
+  "assignedViaPlace": false,
+  "afterRefreshWhisper": "0 on the board · Friday, 18 September 2026",
+  "rescheduleLock": {
+    "mutates": true,
+    "noRpc": true
+  },
+  "stripVisible390": false
+}
