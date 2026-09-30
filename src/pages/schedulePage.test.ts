@@ -11,7 +11,9 @@ describe('schedule page week/day board', () => {
     const page = src('src/pages/SchedulePage.tsx');
     expect(page).toContain("parseScheduleView(searchParams.get('view'))");
     expect(page).toContain('parseScheduleDateParam');
-    expect(page).toContain("next.set('date'");
+    expect(page).toContain('scheduleSearchFromState');
+    expect(page).toContain('scheduleLocationStep');
+    expect(src('src/lib/scheduleLocation.ts')).toContain("next.set('date'");
     expect(page).not.toContain("next.delete('date')");
     expect(page).toContain('PhoneWeekList');
     expect(page).toContain('PhoneDayList');

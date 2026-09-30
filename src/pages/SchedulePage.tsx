@@ -21,8 +21,17 @@ import { SchedulePlacementSheet, type PlacementDraft } from '../components/jobs/
 import { formatJobRef } from '../lib/jobRef';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
-import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
-import { parseScheduleDateParam, parseScheduleView, scheduleDateKey, scheduleDayKey, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
+import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, peekScheduleJobPatch, restoreScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
+import { parseScheduleDateParam, parseScheduleView, scheduleDayKey, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
+import {
+  SCHEDULE_PLACEMENT_INVALIDATE_KEYS,
+  applyPlacementToJobList,
+  canSubmitPlacement,
+  placementDraftAfterWrite,
+  placementWriteFromDraft,
+  type PlacementWrite,
+} from '../lib/schedulePlacement';
+import { scheduleLocationStep, scheduleSearchFromState, shouldWriteScheduleSearch } from '../lib/scheduleLocation';
 import {
   ChevronLeft, ChevronRight, MoreHorizontal, Plus,
 } from 'lucide-react';
@@ -348,15 +357,13 @@ export function SchedulePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const lookWeekBoard = searchParams.get('look') === WEEK_BOARD_LOOK;
-  const [currentDate, setCurrentDate] = useState(() => {
-    if (lookWeekBoard) {
-      return parseScheduleView(searchParams.get('view')) === 'day'
-        ? WEEK_BOARD_LOOK_DAY_ANCHOR
-        : WEEK_BOARD_LOOK_ANCHOR;
-    }
-    return parseScheduleDateParam(searchParams.get('date')) ?? new Date();
-  });
-  const [viewMode, setViewMode] = useState<ScheduleViewMode>(() => parseScheduleView(searchParams.get('view')));
+  const urlView = parseScheduleView(searchParams.get('view'));
+  const urlDate = parseScheduleDateParam(searchParams.get('date'));
+  const [hydratedDate] = useState(() => urlDate ?? new Date());
+  const viewMode: ScheduleViewMode = urlView;
+  const currentDate = lookWeekBoard
+    ? (viewMode === 'day' ? WEEK_BOARD_LOOK_DAY_ANCHOR : WEEK_BOARD_LOOK_ANCHOR)
+    : (urlDate ?? hydratedDate);
   const [showForm, setShowForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
@@ -376,25 +383,24 @@ export function SchedulePage() {
   }, [navigate]);
 
   const writeScheduleParams = useCallback((mode: ScheduleViewMode, date: Date, opts?: { replace?: boolean }) => {
-    const next = new URLSearchParams(searchParams);
-    next.set('date', scheduleDateKey(date));
-    if (mode === 'week') next.delete('view');
-    else next.set('view', 'day');
-    if (next.toString() !== searchParams.toString()) {
-      setSearchParams(next, { replace: opts?.replace !== false });
-    }
-  }, [searchParams, setSearchParams]);
+    if (lookWeekBoard) return;
+    const next = scheduleSearchFromState(searchParams, mode, date);
+    if (!shouldWriteScheduleSearch(searchParams, next)) return;
+    setSearchParams(next, { replace: opts?.replace !== false });
+  }, [lookWeekBoard, searchParams, setSearchParams]);
 
   const setView = useCallback((mode: ScheduleViewMode) => {
-    setViewMode(mode);
     writeScheduleParams(mode, currentDate, { replace: true });
   }, [currentDate, writeScheduleParams]);
 
   const goToday = useCallback(() => {
-    const today = new Date();
-    setCurrentDate(today);
-    writeScheduleParams(viewMode, today, { replace: false });
+    writeScheduleParams(viewMode, new Date(), { replace: false });
   }, [viewMode, writeScheduleParams]);
+
+  const shiftBoardDate = useCallback((delta: number) => {
+    const next = viewMode === 'day' ? addDays(currentDate, delta) : addWeeks(currentDate, delta);
+    writeScheduleParams(viewMode, next, { replace: false });
+  }, [currentDate, viewMode, writeScheduleParams]);
 
   useEffect(() => {
     if (preselectJob) navigate(scheduleJobHref(preselectJob), { replace: true });
@@ -402,16 +408,16 @@ export function SchedulePage() {
 
   useEffect(() => {
     if (lookWeekBoard) return;
-    const fromUrl = parseScheduleDateParam(preselectDate);
-    if (fromUrl && scheduleDateKey(fromUrl) !== scheduleDateKey(currentDate)) {
-      setCurrentDate(fromUrl);
-    }
-  }, [lookWeekBoard, preselectDate]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (lookWeekBoard) return;
-    writeScheduleParams(viewMode, currentDate, { replace: true });
-  }, [lookWeekBoard, currentDate, viewMode, writeScheduleParams]);
+    const step = scheduleLocationStep({
+      kind: 'hydrate',
+      currentSearch: searchParams.toString(),
+      mode: viewMode,
+      date: currentDate,
+      urlDate: preselectDate,
+      missingDate: !urlDate,
+    });
+    if (step.write) writeScheduleParams(viewMode, currentDate, { replace: true });
+  }, [lookWeekBoard]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: teamMembers } = useQuery<TeamMember[]>({
     queryKey: ['team-members-schedule'],
@@ -522,66 +528,55 @@ export function SchedulePage() {
     }
   }, [preselectClient]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const applyDropToCache = (drop: JobDropPayload) => {
+  const applyWriteToCache = (write: PlacementWrite) => {
     queryClient.setQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd], prev => {
-      const list = prev ?? [];
       const fromAudit = withScheduleJobPatches(attachJobClients(
         (getAuditJobs() as Job[] | null) ?? [],
         getAuditClients() ?? [],
-      )).find(j => j.id === drop.jobId);
-      const current = list.find(j => j.id === drop.jobId)
-        ?? searchHits.find(j => j.id === drop.jobId)
-        ?? (pickedJob?.id === drop.jobId ? pickedJob : undefined)
+      )).find(j => j.id === write.jobId);
+      const current = (prev ?? []).find(j => j.id === write.jobId)
+        ?? searchHits.find(j => j.id === write.jobId)
+        ?? (pickedJob?.id === write.jobId ? pickedJob : undefined)
         ?? fromAudit;
-      if (!current) return list;
-      const patch = rescheduleJobPatch({
-        assigned_team: current.assigned_team,
-        start_time: current.start_time,
-        end_time: current.end_time,
-      }, drop);
-      const next = { ...current, ...patch };
-      mergeScheduleJobPatch(drop.jobId, next);
-      return [...list.filter(j => j.id !== drop.jobId), next];
+      const nextList = applyPlacementToJobList(prev ?? (current ? [current] : []), write);
+      const next = nextList.find(j => j.id === write.jobId) ?? (current ? { ...current, ...write } : null);
+      if (next) mergeScheduleJobPatch(write.jobId, next);
+      return nextList;
     });
   };
 
   const rescheduleJob = useMutation({
-    mutationFn: async (drop: JobDropPayload) => {
-      applyDropToCache(drop);
-      if (isDevFieldAuditAuth()) return;
-
-      const { data: current, error: loadError } = await supabase
-        .from('jobs')
-        .select('assigned_team, start_time, end_time')
-        .eq('id', drop.jobId)
-        .maybeSingle();
-      if (loadError) throw loadError;
-      if (!current) throw new Error('Job not found');
-
-      const updates = {
-        ...rescheduleJobPatch({
-          assigned_team: current.assigned_team,
-          start_time: current.start_time,
-          end_time: current.end_time,
-        }, drop),
+    mutationFn: async (write: PlacementWrite) => {
+      if (isDevFieldAuditAuth()) return write;
+      const { error } = await supabase.from('jobs').update({
+        scheduled_date: write.scheduled_date || null,
+        start_time: write.start_time,
+        end_time: write.end_time,
+        assigned_team: write.assigned_team,
         updated_at: new Date().toISOString(),
-      };
-      const { error } = await supabase.from('jobs').update(updates).eq('id', drop.jobId);
+      }).eq('id', write.jobId);
       if (error) throw error;
-      if (updates.assigned_team) {
-        await persistLivingJobOnBoundJhas(drop.jobId);
-      }
+      await persistLivingJobOnBoundJhas(write.jobId);
+      return write;
+    },
+    onMutate: async (write) => {
+      await queryClient.cancelQueries({ queryKey: ['jobs'] });
+      const previous = queryClient.getQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd]);
+      const previousPatch = peekScheduleJobPatch(write.jobId);
+      applyWriteToCache(write);
+      return { previous, previousPatch, write };
+    },
+    onError: (error, write, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(['jobs', rangeStart, rangeEnd], ctx.previous);
+      restoreScheduleJobPatch(write.jobId, ctx?.previousPatch);
+      showToast(error instanceof Error ? error.message : 'Could not save placement');
     },
     onSuccess: () => {
+      setPlacement(current => current ? placementDraftAfterWrite(true, current) : null);
       if (isDevFieldAuditAuth()) return;
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
-      queryClient.invalidateQueries({ queryKey: ['job'] });
-      queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
-      queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
-      queryClient.invalidateQueries({ queryKey: ['job-take5s'] });
-      queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
-      queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
-      queryClient.invalidateQueries({ queryKey: ['schedule-job-search'] });
+      for (const key of SCHEDULE_PLACEMENT_INVALIDATE_KEYS) {
+        queryClient.invalidateQueries({ queryKey: [...key] });
+      }
     },
   });
 
@@ -680,11 +675,6 @@ export function SchedulePage() {
   );
   const boardCrew = lookWeekBoard ? WEEK_BOARD_LOOK_CREW : (teamMembers ?? []);
 
-  useEffect(() => {
-    if (!lookWeekBoard) return;
-    setCurrentDate(viewMode === 'day' ? WEEK_BOARD_LOOK_DAY_ANCHOR : WEEK_BOARD_LOOK_ANCHOR);
-  }, [lookWeekBoard, viewMode]);
-
   const { needsDate, onBoard } = useMemo(
     () => partitionScheduleJobs(boardJobs),
     [boardJobs],
@@ -737,8 +727,8 @@ export function SchedulePage() {
       viewMode={viewMode}
       setView={setView}
       onToday={goToday}
-      onPrev={() => setCurrentDate(d => (viewMode === 'day' ? addDays(d, -1) : addWeeks(d, -1)))}
-      onNext={() => setCurrentDate(d => (viewMode === 'day' ? addDays(d, 1) : addWeeks(d, 1)))}
+      onPrev={() => shiftBoardDate(-1)}
+      onNext={() => shiftBoardDate(1)}
       rangeLabel={boardRangeLabel}
       filtered={filteredEmployeeIds.size > 0}
       onClearCrew={clearEmployeeFilters}
@@ -771,7 +761,7 @@ export function SchedulePage() {
           type="button"
           className="hub-week-quiet"
           aria-label={viewMode === 'day' ? 'Previous day' : 'Previous week'}
-          onClick={() => setCurrentDate(d => (viewMode === 'day' ? addDays(d, -1) : addWeeks(d, -1)))}
+          onClick={() => shiftBoardDate(-1)}
         >
           <ChevronLeft size={16} />
         </button>
@@ -779,7 +769,7 @@ export function SchedulePage() {
           type="button"
           className="hub-week-quiet"
           aria-label={viewMode === 'day' ? 'Next day' : 'Next week'}
-          onClick={() => setCurrentDate(d => (viewMode === 'day' ? addDays(d, 1) : addWeeks(d, 1)))}
+          onClick={() => shiftBoardDate(1)}
         >
           <ChevronRight size={16} />
         </button>
@@ -900,10 +890,7 @@ export function SchedulePage() {
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
                         onDragStart={handleRailDragStart}
-                        onSelectDay={date => {
-                          setCurrentDate(date);
-                          setView('day');
-                        }}
+                        onSelectDay={date => writeScheduleParams('day', date, { replace: false })}
                         onDayClick={handleDayClick}
                         onJobDrop={placeExisting}
                       />
@@ -915,10 +902,7 @@ export function SchedulePage() {
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
                         onDayClick={handleDayClick}
-                        onSelectDay={date => {
-                          setCurrentDate(date);
-                          setView('day');
-                        }}
+                        onSelectDay={date => writeScheduleParams('day', date, { replace: false })}
                         onJobDrop={placeExisting}
                         filteredEmployeeIds={filteredEmployeeIds}
                       />
@@ -973,43 +957,8 @@ export function SchedulePage() {
           saving={rescheduleJob.isPending}
           onCancel={() => setPlacement(null)}
           onSave={next => {
-            const drop: JobDropPayload = {
-              jobId: next.jobId,
-              date: next.scheduled_date,
-              employeeId: next.assigned_team[0] ?? null,
-              startTime: next.start_time || undefined,
-            };
-            applyDropToCache({
-              ...drop,
-              startTime: next.start_time || undefined,
-            });
-            queryClient.setQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd], prev =>
-              (prev ?? []).map(j => j.id === next.jobId ? {
-                ...j,
-                scheduled_date: next.scheduled_date,
-                start_time: next.start_time || null,
-                end_time: next.end_time || null,
-                assigned_team: next.assigned_team,
-              } : j),
-            );
-            if (isDevFieldAuditAuth()) {
-              setPlacement(null);
-              return;
-            }
-            void supabase.from('jobs').update({
-              scheduled_date: next.scheduled_date || null,
-              start_time: next.start_time || null,
-              end_time: next.end_time || null,
-              assigned_team: next.assigned_team,
-              updated_at: new Date().toISOString(),
-            }).eq('id', next.jobId).then(({ error }) => {
-              if (error) showToast(error.message);
-              else {
-                queryClient.invalidateQueries({ queryKey: ['jobs'] });
-                queryClient.invalidateQueries({ queryKey: ['job'] });
-              }
-              setPlacement(null);
-            });
+            if (!canSubmitPlacement(rescheduleJob.isPending)) return;
+            rescheduleJob.mutate(placementWriteFromDraft(next));
           }}
         />
       )}

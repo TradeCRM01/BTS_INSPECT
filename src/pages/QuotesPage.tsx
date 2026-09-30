@@ -16,7 +16,7 @@ import {
   getAuditTeamMembers,
 } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
+import { PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner, AppDialog } from '../components/ui';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
@@ -372,13 +372,13 @@ export function QuotesPage() {
         ) : (
           <div className="hub-quotes-sheet">
             <div className="hub-quotes-thead">
-              <span>#</span>
-              <span>Customer</span>
-              <span>Job</span>
-              <span>Valid to</span>
-              <span>Status</span>
-              <span>Total inc GST</span>
-              <span />
+              <span className="hub-quotes-cell-ref">#</span>
+              <span className="hub-quotes-cell-customer">Customer</span>
+              <span className="hub-quotes-cell-job">Job</span>
+              <span className="hub-quotes-cell-date">Valid to</span>
+              <span className="hub-quotes-cell-status">Status</span>
+              <span className="hub-quotes-cell-total">Total inc GST</span>
+              <span className="hub-quotes-row-next" />
             </div>
             {filtered.map(q => (
               <QuoteRow key={q.id} quote={q} onOpen={() => openQuote(q)} onSend={setSendingQuoteId} />
@@ -438,14 +438,14 @@ function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () 
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className="hub-quotes-row"
     >
-      <span className="hub-quotes-ref">{quoteRef(quote)}</span>
-      <span className="truncate">{[quote.client_name, suburb].filter(Boolean).join(' · ') || ''}</span>
-      <span className="truncate hub-quotes-muted">{quote.job_title || '—'}</span>
-      <span className="truncate hub-quotes-muted">
+      <span className="hub-quotes-ref hub-quotes-cell-ref">{quoteRef(quote)}</span>
+      <span className="truncate hub-quotes-cell-customer">{[quote.client_name, suburb].filter(Boolean).join(' · ') || ''}</span>
+      <span className="truncate hub-quotes-muted hub-quotes-cell-job">{quote.job_title || '—'}</span>
+      <span className="truncate hub-quotes-muted hub-quotes-cell-date">
         {quote.validity_date ? format(parseISO(`${quote.validity_date.slice(0, 10)}T00:00:00`), 'd MMM yyyy') : '—'}
       </span>
-      <span className={`hub-quotes-pill is-${quote.status}`}>{QUOTE_STATUS_LABELS[quote.status]}</span>
-      <span className="hub-quotes-total">{money ?? ''}</span>
+      <span className={`hub-quotes-pill is-${quote.status} hub-quotes-cell-status`}>{QUOTE_STATUS_LABELS[quote.status]}</span>
+      <span className="hub-quotes-total hub-quotes-cell-total">{money ?? ''}</span>
       <span className="hub-quotes-row-next" onClick={e => e.stopPropagation()}>
         {chase && (
           <button
@@ -968,8 +968,12 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   }, []);
 
   return (
-    <div className="overlay-backdrop">
-      <div className="overlay-panel-xl hub-quote-editor" onClick={e => e.stopPropagation()}>
+    <AppDialog
+      open
+      onClose={onClose}
+      labelledBy="hub-quote-editor-title"
+      panelClassName="overlay-panel-xl hub-quote-editor"
+    >
         <div className="hub-quote-toolbar">
           <div className="hub-quote-editor-act">
             {next.key === 'add_email' && (
@@ -1103,7 +1107,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             </div>
             <div className="hub-quote-banner">
               <p className="hub-quote-kicker">Quotation</p>
-              <h2 className="hub-quote-editor-title">{editorTitle}</h2>
+              <h2 id="hub-quote-editor-title" className="hub-quote-editor-title">{editorTitle}</h2>
               <p className="hub-quote-banner-meta">
                 {QUOTE_STATUS_LABELS[form.status]}
                 {form.validity_date ? ` · Valid ${format(parseISO(form.validity_date), 'd MMM yyyy')}` : ''}
@@ -1383,12 +1387,11 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         </div>
         </div>
         ) : null}
-      </div>
 
       {showPreview && previewData && (
         <CommercialPdfPreviewModal data={previewData} onClose={() => setShowPreview(false)} />
       )}
-    </div>
+    </AppDialog>
   );
 }
 

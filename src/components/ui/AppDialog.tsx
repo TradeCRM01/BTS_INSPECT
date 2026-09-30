@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { dialogFocusPlan, dialogKeyAction } from '../../lib/dialogFocus';
 import { OverlayPortal } from './OverlayPortal';
 
 const FOCUSABLE = [
@@ -37,23 +38,42 @@ export function AppDialog({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  const escapeRef = useRef(escape);
+  const wasOpenRef = useRef(false);
+  onCloseRef.current = onClose;
+  escapeRef.current = escape;
+
+  useEffect(() => {
+    const plan = dialogFocusPlan(open, wasOpenRef.current);
+    wasOpenRef.current = open;
+    if (plan.captureOpener) {
+      openerRef.current = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    }
+    if (plan.focusFirst) {
+      const panel = panelRef.current;
+      const nodes = panel ? focusables(panel) : [];
+      (nodes[0] ?? panel)?.focus();
+    }
+    if (plan.restoreOpener) {
+      openerRef.current?.focus();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
-    openerRef.current = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-    const panel = panelRef.current;
-    const nodes = panel ? focusables(panel) : [];
-    (nodes[0] ?? panel)?.focus();
-
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && escape) {
+      const action = dialogKeyAction(e.key, e.shiftKey);
+      if (action === 'close' && escapeRef.current) {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
-      if (e.key !== 'Tab' || !panel) return;
+      if (action !== 'trap') return;
+      const panel = panelRef.current;
+      if (!panel) return;
       const list = focusables(panel);
       if (list.length === 0) {
         e.preventDefault();
@@ -63,20 +83,18 @@ export function AppDialog({
       const first = list[0];
       const last = list[list.length - 1];
       const active = document.activeElement;
-      if (e.shiftKey && active === first) {
+      const activeIndex = list.findIndex(node => node === active);
+      if (e.shiftKey && (active === first || activeIndex < 0)) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && active === last) {
+      } else if (!e.shiftKey && (active === last || activeIndex < 0)) {
         e.preventDefault();
         first.focus();
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      openerRef.current?.focus();
-    };
-  }, [open, onClose, escape]);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
 
   if (!open) return null;
 

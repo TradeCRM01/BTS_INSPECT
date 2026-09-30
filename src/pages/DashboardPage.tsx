@@ -794,8 +794,10 @@ export function DashboardPage() {
                   >
                     <div
                       ref={canvasRef}
-                      className={`dashboard-home-canvas relative overflow-x-hidden${editMode ? ' is-editing' : ''}`}
+                      className={`dashboard-home-canvas relative overflow-x-auto${editMode ? ' is-editing' : ''}`}
                       style={{ height: canvasHeight, minWidth: '100%' }}
+                      tabIndex={0}
+                      aria-label="Dashboard widgets"
                     >
                       {(widgets ?? []).map(w => (
                         <FreeWidget

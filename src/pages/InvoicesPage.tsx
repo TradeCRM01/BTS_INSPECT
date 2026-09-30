@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
+import { PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner, AppDialog } from '../components/ui';
 import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineItem } from '../components/invoicing/LineItemEditor';
@@ -340,13 +340,13 @@ export function InvoicesPage() {
         ) : (
           <div className="hub-invoices-sheet">
             <div className="hub-invoices-thead">
-              <span>#</span>
-              <span>Customer</span>
-              <span>Job</span>
-              <span>Due</span>
-              <span>Status</span>
-              <span>Total inc GST</span>
-              <span />
+              <span className="hub-invoices-cell-ref">#</span>
+              <span className="hub-invoices-cell-customer">Customer</span>
+              <span className="hub-invoices-cell-job">Job</span>
+              <span className="hub-invoices-cell-date">Due</span>
+              <span className="hub-invoices-cell-status">Status</span>
+              <span className="hub-invoices-cell-total">Total inc GST</span>
+              <span className="hub-invoices-row-next" />
             </div>
             {listInvoices.map(inv => (
               <InvoiceHit
@@ -440,14 +440,14 @@ function InvoiceHit({
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className="hub-invoices-row"
     >
-      <span className="hub-invoices-ref">{invoiceRef(invoice)}</span>
-      <span className="truncate">{[invoice.client_name, suburb].filter(Boolean).join(' · ') || ''}</span>
-      <span className="truncate hub-invoices-muted">{invoice.job_title || '—'}</span>
-      <span className="truncate hub-invoices-muted">
+      <span className="hub-invoices-ref hub-invoices-cell-ref">{invoiceRef(invoice)}</span>
+      <span className="truncate hub-invoices-cell-customer">{[invoice.client_name, suburb].filter(Boolean).join(' · ') || ''}</span>
+      <span className="truncate hub-invoices-muted hub-invoices-cell-job">{invoice.job_title || '—'}</span>
+      <span className="truncate hub-invoices-muted hub-invoices-cell-date">
         {invoice.due_date ? format(parseISO(`${invoice.due_date.slice(0, 10)}T00:00:00`), 'd MMM yyyy') : '—'}
       </span>
-      <span className={`hub-invoices-pill is-${status}`}>{INVOICE_STATUS_LABELS[status]}</span>
-      <span className="hub-invoices-total">{money ?? ''}</span>
+      <span className={`hub-invoices-pill is-${status} hub-invoices-cell-status`}>{INVOICE_STATUS_LABELS[status]}</span>
+      <span className="hub-invoices-total hub-invoices-cell-total">{money ?? ''}</span>
       <span className="hub-invoices-row-next" onClick={e => e.stopPropagation()}>
         <InvoiceNextControl invoice={invoice} smtpReady={smtpReady} onOpen={onOpen} onSend={onSend} />
       </span>
@@ -1075,8 +1075,12 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   }, []);
 
   return (
-    <div className="overlay-backdrop">
-      <div className="overlay-panel-xl hub-invoice-editor" onClick={e => e.stopPropagation()}>
+    <AppDialog
+      open
+      onClose={onClose}
+      labelledBy="hub-invoice-editor-title"
+      panelClassName="overlay-panel-xl hub-invoice-editor"
+    >
         <div className="hub-invoice-toolbar">
           <div className="hub-invoice-editor-act">
             {next.key === 'setup_email' && next.href && (
@@ -1173,7 +1177,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             </div>
             <div className="hub-invoice-banner">
               <p className="hub-invoice-kicker">Tax invoice</p>
-              <h2 className="hub-invoice-editor-title">{editorTitle}</h2>
+              <h2 id="hub-invoice-editor-title" className="hub-invoice-editor-title">{editorTitle}</h2>
               <p className="hub-invoice-banner-meta">
                 {INVOICE_STATUS_LABELS[displayStatus]}
                 {form.due_date ? ` · Due ${format(parseISO(form.due_date), 'd MMM yyyy')}` : ''}
@@ -1452,12 +1456,11 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         </div>
         </div>
         ) : null}
-      </div>
 
       {showPreview && previewData && (
         <CommercialPdfPreviewModal data={previewData} onClose={() => setShowPreview(false)} />
       )}
-    </div>
+    </AppDialog>
   );
 }
 

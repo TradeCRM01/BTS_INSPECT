@@ -48,6 +48,15 @@ export function mergeScheduleJobPatch(jobId: string, patch: Partial<JobWithClien
   scheduleJobPatches.set(jobId, { ...(scheduleJobPatches.get(jobId) ?? {}), ...patch });
 }
 
+export function peekScheduleJobPatch(jobId: string): Partial<JobWithClient> | undefined {
+  return scheduleJobPatches.get(jobId);
+}
+
+export function restoreScheduleJobPatch(jobId: string, patch: Partial<JobWithClient> | undefined) {
+  if (!patch) scheduleJobPatches.delete(jobId);
+  else scheduleJobPatches.set(jobId, patch);
+}
+
 export function withScheduleJobPatches<T extends { id: string }>(jobs: T[]): T[] {
   if (scheduleJobPatches.size === 0) return jobs;
   return jobs.map(j => {

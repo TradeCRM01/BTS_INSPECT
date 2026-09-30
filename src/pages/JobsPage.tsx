@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
-import { getAuditClients, getAuditJobs } from '../lib/devFieldAuditDocs';
+import { getAuditClients, getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, SearchBar } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
@@ -36,6 +36,10 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
 
 /** Signed jobs-list frame seed — list look only, not a live company. */
 const JOBS_LIST_LOOK = 'jobs-list';
+const JOBS_LIST_LOOK_CREW = [
+  { id: 'look-jobs-dave', name: 'Dave Hale' },
+  { id: 'look-jobs-jack', name: 'Jack Wieland' },
+];
 
 function visibleSite(...parts: Array<string | null | undefined>): string {
   for (const part of parts) {
@@ -174,6 +178,21 @@ export function JobsPage() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
+
+  const { data: teamMembers = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['team-members-jobs', profile?.company_id],
+    queryFn: async () => {
+      const mock = getAuditTeamMembers();
+      if (mock) return mock.map(m => ({ id: m.id, name: m.name }));
+      if (!profile?.company_id) return [];
+      const { data, error } = await supabase.rpc('get_company_members', {
+        p_company_id: profile.company_id,
+      });
+      if (error) throw error;
+      return (data ?? []).map((m: { id: string; name: string }) => ({ id: m.id, name: m.name }));
+    },
+    enabled: !!profile,
+  });
 
   const { data: jobs, isLoading, error } = useQuery<JobRowModel[]>({
     queryKey: ['jobs-all', profile?.company_id],
@@ -346,13 +365,13 @@ export function JobsPage() {
             ) : (
               <>
                 <div className="hub-jobs-thead">
-                  <span>Job</span>
-                  <span>When</span>
-                  <span>Status</span>
-                  <span />
+                  <span className="hub-jobs-cell-identity">Job</span>
+                  <span className="hub-jobs-cell-when">When</span>
+                  <span className="hub-jobs-cell-status">Status</span>
+                  <span className="hub-jobs-row-next" />
                 </div>
                 {filtered.map(job => (
-                  <JobRow key={job.id} job={job} />
+                  <JobRow key={job.id} job={job} teamMembers={lookJobsList ? JOBS_LIST_LOOK_CREW : teamMembers} />
                 ))}
               </>
             )}
@@ -451,7 +470,7 @@ function JobsListFind({
   );
 }
 
-function JobRow({ job }: { job: JobRowModel }) {
+function JobRow({ job, teamMembers }: { job: JobRowModel; teamMembers: { id: string; name: string }[] }) {
   const navigate = useNavigate();
   const next = jobOpenNext(job);
   const site = visibleSite(job.address, job.client_address);
@@ -459,7 +478,7 @@ function JobRow({ job }: { job: JobRowModel }) {
   const when = job.scheduled_date
     ? `${format(parseISO(`${job.scheduled_date.slice(0, 10)}T00:00:00`), 'd MMM')} · ${scheduleChipClock(job.start_time, job.end_time)}`
     : 'Unscheduled';
-  const crew = scheduleCrewLabel(job.assigned_team, []);
+  const crew = scheduleCrewLabel(job.assigned_team, teamMembers);
   const jobHref = `/jobs/${job.id}`;
   return (
     <div
@@ -470,9 +489,9 @@ function JobRow({ job }: { job: JobRowModel }) {
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(jobHref); } }}
       className="hub-jobs-row"
     >
-      <RecordIdentity primary={`${formatJobRef(job)} · ${job.title || 'Job'}`} secondary={`${job.client_name || 'No client'} · ${suburb}`} />
-      <span className="truncate hub-jobs-muted">{when} · {crew === 'Crew' ? 'Unassigned' : crew}</span>
-      <span className="hub-jobs-status">{JOB_STATUS_LABELS[job.status]}</span>
+      <RecordIdentity className="hub-jobs-cell-identity" primary={`${formatJobRef(job)} · ${job.title || 'Job'}`} secondary={`${job.client_name || 'No client'} · ${suburb}`} />
+      <span className="truncate hub-jobs-muted hub-jobs-cell-when">{when} · {crew}</span>
+      <span className="hub-jobs-status hub-jobs-cell-status">{JOB_STATUS_LABELS[job.status]}</span>
       <span className="hub-jobs-row-next" onClick={e => e.stopPropagation()}>
         {next.actionable ? (
           <Link

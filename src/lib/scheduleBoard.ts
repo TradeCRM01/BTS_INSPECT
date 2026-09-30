@@ -158,8 +158,17 @@ export function scheduleCrewLabel(
 ): string {
   const names = scheduleCrewNames(assigned, members);
   if (names.length > 0) return names.join(', ');
-  if ((assigned ?? []).filter(Boolean).length > 0) return 'Crew';
+  const assignedCount = (assigned ?? []).filter(Boolean).length;
+  if (assignedCount > 0) return assignedCount === 1 ? '1 assigned' : `${assignedCount} assigned`;
   return 'Unassigned';
+}
+
+export function scheduleJobPartyLine(
+  clientName: string | null | undefined,
+  assigned: string[] | null | undefined,
+  members: ScheduleCrewMember[] | null | undefined,
+): string {
+  return [clientName, scheduleCrewLabel(assigned, members)].filter(Boolean).join(' · ');
 }
 
 export function weekBoardCrewLabel(name: string | null | undefined): string {

@@ -1,17 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
+import {
+  dispatchDraftFromJob,
+  reconcileDispatchDraft,
+} from '../../lib/dispatchDraft';
 import { useToast } from '../ui';
 import type { Job } from '../../types/crm';
 import { bookingIntervalIssue } from '../../lib/booking';
-
-function toTimeInput(t: string | null | undefined): string {
-  return (t ?? '').slice(0, 5);
-}
 
 export function JobDispatchPanel({
   job,
@@ -24,16 +24,43 @@ export function JobDispatchPanel({
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const [date, setDate] = useState(job.scheduled_date ?? '');
-  const [start, setStart] = useState(toTimeInput(job.start_time));
-  const [end, setEnd] = useState(toTimeInput(job.end_time));
-  const [team, setTeam] = useState<string[]>(job.assigned_team ?? []);
+  const live = dispatchDraftFromJob({
+    scheduled_date: job.scheduled_date ?? '',
+    start_time: job.start_time,
+    end_time: job.end_time,
+    assigned_team: job.assigned_team,
+  });
+  const [jobId, setJobId] = useState(job.id);
+  const [baseline, setBaseline] = useState(live);
+  const [date, setDate] = useState(live.date);
+  const [start, setStart] = useState(live.start);
+  const [end, setEnd] = useState(live.end);
+  const [team, setTeam] = useState<string[]>(live.team);
+  const [conflict, setConflict] = useState(false);
   const issue = bookingIntervalIssue(start || null, end || null);
-  const dirty = date !== (job.scheduled_date ?? '')
-    || start !== toTimeInput(job.start_time)
-    || end !== toTimeInput(job.end_time)
-    || team.join() !== (job.assigned_team ?? []).join();
+  const dirty = date !== baseline.date
+    || start !== baseline.start
+    || end !== baseline.end
+    || team.join() !== baseline.team.join();
   const scheduleHref = date ? `/schedule?date=${date}` : '/schedule';
+
+  useEffect(() => {
+    const nextLive = dispatchDraftFromJob(job);
+    const next = reconcileDispatchDraft({
+      jobId: job.id,
+      prevJobId: jobId,
+      live: nextLive,
+      prevLive: baseline,
+      draft: { date, start, end, team },
+    });
+    setJobId(job.id);
+    setBaseline(next.baseline);
+    setDate(next.draft.date);
+    setStart(next.draft.start);
+    setEnd(next.draft.end);
+    setTeam(next.draft.team);
+    setConflict(next.conflict);
+  }, [job]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = useMutation({
     mutationFn: async () => {
@@ -53,16 +80,29 @@ export function JobDispatchPanel({
       queryClient.invalidateQueries({ queryKey: ['job', job.id] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
+      setBaseline({ date, start, end, team: [...team] });
+      setConflict(false);
       showToast('Booking saved');
     },
     onError: (e: Error) => showToast(e.message),
   });
 
   const reset = () => {
-    setDate(job.scheduled_date ?? '');
-    setStart(toTimeInput(job.start_time));
-    setEnd(toTimeInput(job.end_time));
-    setTeam(job.assigned_team ?? []);
+    setDate(baseline.date);
+    setStart(baseline.start);
+    setEnd(baseline.end);
+    setTeam([...baseline.team]);
+    setConflict(false);
+  };
+
+  const loadLatest = () => {
+    const nextLive = dispatchDraftFromJob(job);
+    setBaseline(nextLive);
+    setDate(nextLive.date);
+    setStart(nextLive.start);
+    setEnd(nextLive.end);
+    setTeam(nextLive.team);
+    setConflict(false);
   };
 
   return (
@@ -79,6 +119,12 @@ export function JobDispatchPanel({
       <div className="px-3 pb-3 pt-2">
         {rescheduleBanner && (
           <p className="job-reschedule-banner" role="status">{rescheduleBanner}</p>
+        )}
+        {conflict && (
+          <p className="job-reschedule-banner" role="status">
+            This booking changed elsewhere.{' '}
+            <button type="button" className="ops-link" onClick={loadLatest}>Load latest</button>
+          </p>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <label className="block">

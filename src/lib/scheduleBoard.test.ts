@@ -16,6 +16,7 @@ import {
   schedulePlotTimes,
   scheduleCrewLabel,
   scheduleCrewNames,
+  scheduleJobPartyLine,
   scheduleDateKey,
   scheduleDayKey,
   scheduleJobHref,
@@ -164,7 +165,10 @@ describe('crew filter and labels', () => {
     expect(scheduleCrewNames(['emp-b', 'missing'], members)).toEqual(['Blair Hand']);
     expect(scheduleCrewLabel(['emp-a', 'emp-b'], members)).toBe('Alex Crew, Blair Hand');
     expect(scheduleCrewLabel([], members)).toBe('Unassigned');
-    expect(scheduleCrewLabel(['ghost'], members)).toBe('Crew');
+    expect(scheduleCrewLabel(['ghost'], members)).toBe('1 assigned');
+    expect(scheduleCrewLabel(['ghost', 'other'], [])).toBe('2 assigned');
+    expect(scheduleJobPartyLine('Northside', ['ghost'], [])).toBe('Northside · 1 assigned');
+    expect(scheduleJobPartyLine('Northside', ['emp-a'], members)).toBe('Northside · Alex Crew');
   });
 
   it('keeps the week rail on a first name so phone cells do not crush', () => {

@@ -4,8 +4,8 @@ import {
   TIME_NOT_SET_LABEL,
   jobsOnScheduleDay,
   scheduleChipClock,
-  scheduleCrewLabel,
   scheduleDateKey,
+  scheduleJobPartyLine,
 } from '../../lib/scheduleBoard';
 import { formatJobRef } from '../../lib/jobRef';
 import { RecordIdentity } from '../layout/RecordIdentity';
@@ -41,7 +41,7 @@ export function PhoneDayAgenda({
               <span className="hub-phone-agenda-time">{scheduleChipClock(job.start_time, job.end_time)}</span>
               <RecordIdentity
                 primary={`${formatJobRef(job)} · ${job.title || 'Job'}`}
-                secondary={[job.client_name, scheduleCrewLabel(job.assigned_team, teamMembers)].filter(Boolean).join(' · ')}
+                secondary={scheduleJobPartyLine(job.client_name, job.assigned_team, teamMembers)}
               />
             </button>
           </li>
@@ -56,7 +56,7 @@ export function PhoneDayAgenda({
                 <button type="button" className="hub-phone-agenda-row" onClick={() => onJobClick(job)}>
                   <RecordIdentity
                     primary={`${formatJobRef(job)} · ${job.title || 'Job'}`}
-                    secondary={[job.client_name, scheduleCrewLabel(job.assigned_team, teamMembers)].filter(Boolean).join(' · ')}
+                    secondary={scheduleJobPartyLine(job.client_name, job.assigned_team, teamMembers)}
                   />
                 </button>
               </li>
@@ -106,7 +106,7 @@ export function PhoneWeekAgenda({
                       <span className="hub-phone-agenda-time">{scheduleChipClock(job.start_time, job.end_time)}</span>
                       <RecordIdentity
                         primary={`${formatJobRef(job)} · ${job.title || 'Job'}`}
-                        secondary={job.client_name || scheduleCrewLabel(job.assigned_team, teamMembers)}
+                        secondary={scheduleJobPartyLine(job.client_name, job.assigned_team, teamMembers)}
                       />
                     </button>
                   </li>
