@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   CLIENT_LIST_FLOOR_JOB_COLUMNS,
+  clientInvoiceJobRef,
   clientJobFloorMeta,
   clientJobFloorTitle,
   clientJobOpenHref,
@@ -187,6 +188,29 @@ describe('open the client, see jobs, open a job', () => {
     expect(clientJobsEmptyTitle({ error: false, count: 0 })).toBe('No jobs yet');
     expect(clientJobsEmptyTitle({ error: false, count: 2 })).toBe('');
   });
+
+  it('labels a client invoice with the job number it belongs to', () => {
+    const jobs = [{ id: 'job-42', job_number: 42 }];
+    const quotes = [{ id: 'q-1', job_id: 'job-42' }];
+    expect(clientInvoiceJobRef({
+      jobId: 'job-42',
+      quoteId: 'q-1',
+      jobs,
+      quotes,
+    })).toBe('#0042');
+    expect(clientInvoiceJobRef({
+      jobId: null,
+      quoteId: 'q-1',
+      jobs,
+      quotes,
+    })).toBe('#0042');
+    expect(clientInvoiceJobRef({
+      jobId: null,
+      quoteId: 'q-missing',
+      jobs,
+      quotes,
+    })).toBeNull();
+  });
 });
 
 describe('list job scope stays on existing job fields', () => {
@@ -223,6 +247,8 @@ describe('clients floor wiring', () => {
     expect(list).toContain('Search by name, site, job, phone, or email');
     expect(list).not.toContain("path: '/clients/");
 
+    expect(detail).toContain('clientInvoiceJobRef');
+    expect(detail).toContain('Job ${jobRef}');
     expect(detail).toContain('sortClientJobsForFloor');
     expect(detail).toContain('clientJobFloorTitle');
     expect(detail).toContain('clientJobFloorMeta');

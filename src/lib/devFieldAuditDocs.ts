@@ -194,6 +194,7 @@ export function getAuditClientInvoices() {
     total: 1200,
     due_date: '2026-09-01',
     quote_id: AUDIT_QUOTE_ID,
+    job_id: AUDIT_DOC_JOB_ID,
   }];
 }
 
