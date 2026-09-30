@@ -13,7 +13,7 @@ import {
 } from '../types/fsm';
 import type { QuoteStatus } from '../types/fsm';
 import { Plus, FileText, ShieldCheck, Receipt, ClipboardList, Mail, Phone, CreditCard as Edit3 } from 'lucide-react';
-import { getAuditClient, getAuditEmptyList, getAuditJobs } from '../lib/devFieldAuditDocs';
+import { getAuditClient, getAuditClientInvoices, getAuditClientQuotes, getAuditEmptyList, getAuditJobs } from '../lib/devFieldAuditDocs';
 import {
   jobClientEmailRow,
   jobClientEmailSaveToast,
@@ -47,6 +47,7 @@ import {
   clientMoneySummary,
   invoiceRecordHref,
   quoteRecordHref,
+  quoteTrayActionHref,
 } from '../lib/clientRecords';
 import {
   clientJobFloorMeta,
@@ -174,6 +175,8 @@ export function ClientDetailPage() {
   const { data: quotes } = useQuery<ClientQuote[]>({
     queryKey: ['client-quotes', id, profile?.company_id],
     queryFn: async () => {
+      const auditQuotes = getAuditClientQuotes();
+      if (auditQuotes) return auditQuotes as ClientQuote[];
       const empty = getAuditEmptyList();
       if (empty) return empty as ClientQuote[];
       const { data, error } = await applyHubScope(supabase.from('quotes'), hubScopes!.quotes)
@@ -187,6 +190,8 @@ export function ClientDetailPage() {
   const { data: invoices } = useQuery<ClientInvoice[]>({
     queryKey: ['client-invoices', id, profile?.company_id],
     queryFn: async () => {
+      const auditInvoices = getAuditClientInvoices();
+      if (auditInvoices) return auditInvoices as ClientInvoice[];
       const empty = getAuditEmptyList();
       if (empty) return empty as ClientInvoice[];
       const { data, error } = await applyHubScope(supabase.from('invoices'), hubScopes!.invoices)
@@ -460,6 +465,11 @@ export function ClientDetailPage() {
                 (invoices ?? []).filter(inv => inv.quote_id === quote.id),
               )?.id ?? null;
               const next = recommendQuoteAction(quoteActionContext({ ...quote, invoice_id: invoiceId }));
+              const actionHref = quoteTrayActionHref({
+                key: next.key,
+                quoteId: quote.id,
+                jobId: quote.job_id,
+              });
               return (
                 <JobRelatedRow
                   key={quote.id}
@@ -469,7 +479,13 @@ export function ClientDetailPage() {
                   meta={[quote.description?.trim() || null, formatMoney(Number(quote.total))].filter(Boolean).join(' · ')}
                   action={
                     next.key === 'none' ? null : (
-                      <Link to={quoteRecordHref(quote.id)} className={nextQuiet}>{next.label}</Link>
+                      <Link
+                        to={actionHref}
+                        className={nextQuiet}
+                        data-quote-tray-action={next.key}
+                      >
+                        {next.label}
+                      </Link>
                     )
                   }
                 />
