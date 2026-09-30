@@ -5569,11 +5569,15 @@
   }
 
   @media (min-width: 1024px) {
-    .hub-board-cal.is-week-doc .hub-week-mount {
+    .hub-board-cal.is-week-doc .hub-week-mount.lg\:flex {
       flex: 1 1 0;
       display: flex;
       flex-direction: column;
       min-height: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-mount.lg\:hidden {
+      display: none;
     }
   }
 
