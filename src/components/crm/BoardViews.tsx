@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, memo, useEffect } from 'react';
+import { useState, useMemo, useRef, memo, useEffect, Fragment } from 'react';
 import type { JobWithClient } from '../../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
 import { getReadableText, pickEmployeeColor } from '../../lib/jobColors';
@@ -358,9 +358,11 @@ export const DayBoardView = memo(function DayBoardView({
     const el = scrollRef.current;
     if (!el) return;
     const apply = () => {
-      const next = dayBoardHourWidthPx(el.clientWidth);
+      const crewW = Number.parseFloat(getComputedStyle(el).getPropertyValue('--hub-day-crew')) || 104;
+      const hoursW = Math.max(0, el.clientWidth - crewW);
+      const next = dayBoardHourWidthPx(hoursW);
       setHourWidth(next);
-      el.scrollLeft = dayBoardHoursFit(el.clientWidth) ? 0 : (8 - DAY_START) * next;
+      el.scrollLeft = dayBoardHoursFit(hoursW) ? 0 : (8 - DAY_START) * next;
     };
     apply();
     const ro = new ResizeObserver(apply);
@@ -500,23 +502,38 @@ export const DayBoardView = memo(function DayBoardView({
       </div>
 
       <div
-        className="hub-day-track"
-        style={{ ['--hub-day-rows' as string]: paintedRows.map(p => `minmax(${p.height}px, 1fr)`).join(' ') }}
+        ref={scrollRef}
+        className="hub-day-track hub-day-crew-rail hub-day-hours job-cal-board-scroll"
+        data-day-hours="1"
+        style={{
+          ['--hub-day-rows' as string]: paintedRows.map(p => `${p.height}px`).join(' '),
+          gridTemplateColumns: `var(--hub-day-crew, 104px) ${gridWidth}px`,
+        }}
       >
-        <div className="hub-day-crew-rail">
           <div className="hub-day-crew-lock hub-day-crew-head border-r border-b border-rule">
             <div className="px-3 flex items-center gap-1.5 h-full">
               <Users size={13} />
               <span className="hub-schedule-label">Crew</span>
             </div>
           </div>
+          <div className="hub-day-hours-head flex border-b border-rule">
+            {HOURS.map(h => (
+              <div key={h} className="text-center border-r border-rule last:border-r-0"
+                style={{ width: hourWidth }}>
+                <div className="px-1 flex items-center justify-center h-full">
+                  <span className="hub-schedule-label">{formatHourLabel(h)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
           {paintedRows.map(painted => {
             const row = painted.row;
             return (
+            <Fragment key={row.id}>
             <div
-              key={row.id}
               data-crew-drop={row.id}
-              className={`hub-day-crew-lock border-r border-rule cursor-pointer hover:bg-zebra transition-colors flex items-center gap-2 px-3 ${
+              className={`hub-day-crew-lock border-r border-rule cursor-pointer hover:bg-zebra transition-colors flex items-start gap-2 px-3 ${
                 painted.rowIdx < paintedRows.length - 1 ? 'border-b' : ''
               } ${painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'}`}
               style={{
@@ -542,25 +559,7 @@ export const DayBoardView = memo(function DayBoardView({
                 </p>
               </div>
             </div>
-            );
-          })}
-        </div>
-
-        <div ref={scrollRef} className="hub-day-hours job-cal-board-scroll" data-day-hours="1">
-          <div className="hub-day-hours-head flex border-b border-rule" style={{ minWidth: gridWidth }}>
-            {HOURS.map(h => (
-              <div key={h} className="text-center border-r border-rule last:border-r-0"
-                style={{ width: hourWidth }}>
-                <div className="px-1 flex items-center justify-center h-full">
-                  <span className="hub-schedule-label">{formatHourLabel(h)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {paintedRows.map(painted => (
             <div
-              key={painted.row.id}
               data-crew-lane={painted.row.id}
               className={`${painted.rowIdx < paintedRows.length - 1 ? 'border-b border-rule' : ''} ${
                 painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'
@@ -645,8 +644,9 @@ export const DayBoardView = memo(function DayBoardView({
                 })}
               </div>
             </div>
-          ))}
-        </div>
+            </Fragment>
+            );
+          })}
       </div>
     </div>
   );

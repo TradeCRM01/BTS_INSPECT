@@ -6076,33 +6076,16 @@
   }
 
   .hub-day-track {
+    --hub-day-crew: 104px;
     display: grid;
-    grid-template-columns: 104px minmax(0, 1fr);
-    grid-template-rows: 44px var(--hub-day-rows, minmax(72px, 1fr));
+    grid-template-columns: var(--hub-day-crew) max-content;
+    grid-template-rows: 44px var(--hub-day-rows, 72px);
     align-items: stretch;
     flex: 1 1 auto;
     min-width: 0;
     min-height: 0;
     max-width: 100%;
-  }
-
-  .hub-day-crew-rail,
-  .hub-day-hours {
-    display: grid;
-    grid-template-rows: subgrid;
-    grid-row: 1 / -1;
-    min-height: 0;
-  }
-
-  .hub-day-crew-rail {
-    width: 104px;
-    z-index: 5;
-    background: #FFFDF8;
-  }
-
-  .hub-day-hours {
-    min-width: 0;
-    overflow-x: auto;
+    overflow: auto;
   }
 
   .hub-day-crew-head,
@@ -6111,9 +6094,19 @@
   }
 
   .hub-day-crew-lock {
-    width: 100%;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    width: var(--hub-day-crew);
     min-height: 0;
+    padding-top: 6px;
+    box-sizing: border-box;
     background: #FFFDF8;
+  }
+
+  .hub-day-crew-lock.hub-day-crew-head {
+    padding-top: 0;
+    align-items: center;
   }
 
   .hub-week-board {
@@ -6404,11 +6397,7 @@
     }
 
     .hub-day-track {
-      grid-template-columns: 88px minmax(0, 1fr);
-    }
-
-    .hub-day-crew-rail {
-      width: 88px;
+      --hub-day-crew: 88px;
     }
 
     .hub-week-corner,

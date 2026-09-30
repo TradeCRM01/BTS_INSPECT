@@ -121,7 +121,9 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(board).toContain('hub-day-hours');
     expect(board).toContain('--hub-day-rows');
     expect(board).toContain('hub-day-hours-head');
-    expect(css).toContain('grid-template-rows: subgrid');
+    expect(board).toContain('<Fragment key={row.id}>');
+    expect(css).toContain('grid-template-rows: 44px var(--hub-day-rows, 72px)');
+    expect(css).toContain('position: sticky');
     expect(css).toContain('.hub-board-cal.is-week-doc .hub-week-document {\n    max-width: none');
     expect(lookCss()).not.toContain('.hub-day-crew-lock:not(.hub-day-crew-head)');
     expect(lookCss()).not.toContain('height: auto !important');
