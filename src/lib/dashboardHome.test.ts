@@ -128,6 +128,6 @@ describe('dashboard row fields', () => {
     ];
     expect(dashboardCrewLabel(['emp-a', 'emp-b'], members)).toBe('Alex Crew, Blair Hand');
     expect(dashboardCrewLabel([], members)).toBe('Unassigned');
-    expect(dashboardCrewLabel(['ghost'], members)).toBe('Crew');
+    expect(dashboardCrewLabel(['ghost'], members)).toBe('1 assigned');
   });
 });

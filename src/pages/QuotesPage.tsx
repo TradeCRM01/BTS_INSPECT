@@ -124,7 +124,7 @@ function fieldAuditConvertQuote(): QuoteListItem | null {
     updated_at: '2026-08-24T00:00:00.000Z',
     client_name: 'Northside Electrical',
     client_email: 'accounts@northside.example',
-    job_title: null,
+    job_title: 'Switchboard upgrade and after-hours call-out at the north plant',
     job_address: null,
     invoice_id: null,
   };

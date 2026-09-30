@@ -94,7 +94,7 @@ function jobsListLookRows(): JobRowModel[] {
       ...base,
       id: 'look-job-harbour',
       client_id: 'look-client-harbour',
-      title: 'Warehouse lights',
+      title: 'Switchboard upgrade and after-hours call-out at the north plant',
       status: 'in_progress',
       scheduled_date: '2026-09-03',
       start_time: '09:00',
