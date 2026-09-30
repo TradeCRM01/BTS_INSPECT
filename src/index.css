@@ -7619,6 +7619,21 @@
     cursor: not-allowed;
   }
 
+  .hub-quote-copy-confirm {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 12px;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    color: #0A2540;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
   .hub-quote-err {
     margin: 0 0 16px;
     font-size: 14px;
