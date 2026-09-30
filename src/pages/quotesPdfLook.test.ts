@@ -47,7 +47,7 @@ describe('quote PDF Looplet document look', () => {
     expect(css).not.toContain('width: calc(100% / 0.72) !important');
     expect(preview).toContain('<iframe');
     expect(preview).toContain('hub-quote-pdf-frame');
-    expect(preview).toContain('${url}#view=FitH');
+    expect(preview).toContain('${url}#toolbar=0&navpanes=0&view=FitH');
   });
 
   it('LOOK frames cover quote PDF desktop and phone only', () => {

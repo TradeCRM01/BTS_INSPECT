@@ -98,7 +98,7 @@ export function CommercialPdfPreviewModal({ data, onClose }: CommercialPdfPrevie
             )}
             {url && !loading && (
               <iframe
-                src={quoteLook ? `${url}#view=FitH` : url}
+                src={quoteLook ? `${url}#toolbar=0&navpanes=0&view=FitH` : url}
                 title="Document PDF preview"
                 className="w-full rounded-md bg-white shadow-sm"
                 style={{ height: '75vh' }}
