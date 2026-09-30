@@ -867,7 +867,7 @@ export function SchedulePage() {
                         onJobDrop={placeExisting}
                       />
                     </div>
-                    <div className="hidden lg:block hub-week-mount">
+                    <div className="hidden lg:flex hub-week-mount">
                       <WeekBoardView
                         jobs={onBoard}
                         teamMembers={boardCrew}
@@ -896,7 +896,7 @@ export function SchedulePage() {
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
                       />
                     </div>
-                    <div className="hidden lg:block hub-week-mount">
+                    <div className="hidden lg:flex hub-week-mount">
                       <DayBoardView
                         jobs={onBoard}
                         teamMembers={boardCrew}
