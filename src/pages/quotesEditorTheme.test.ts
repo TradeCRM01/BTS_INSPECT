@@ -39,7 +39,7 @@ describe('quote editor Looplet document look', () => {
     expect(css).toContain('.hub-quote-lines td:nth-child(2)::before { content: \'Qty\'; }');
     expect(css).toContain('.hub-quote-lines td:nth-child(3)::before { content: \'Unit\'; }');
     expect(css).toContain('.hub-quote-lines td:nth-child(4)::before { content: \'Total\'; }');
-    expect(css).toContain('overflow-x: visible');
+    expect(css).toContain('overflow: visible');
     expect(css).not.toContain('.hub-quote-table {\n      margin-left: 16px;\n      margin-right: 16px;\n      overflow-x: auto;');
 
     expect(css).toContain('.hub-quote-sheet');

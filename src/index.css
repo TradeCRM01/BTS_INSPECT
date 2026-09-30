@@ -7764,7 +7764,7 @@
     .hub-quote-table {
       margin-left: 16px;
       margin-right: 16px;
-      overflow-x: visible;
+      overflow: visible;
     }
 
     .hub-quote-lines thead {
