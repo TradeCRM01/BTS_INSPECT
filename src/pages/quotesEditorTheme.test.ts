@@ -35,6 +35,13 @@ describe('quote editor Looplet document look', () => {
     expect(editor).not.toContain('ops-doc-panel');
     expect(editor).not.toMatch(/Grafter|Relovi|Littleloop/);
 
+    expect(editor).toContain('data-quote-lines="1"');
+    expect(css).toContain('.hub-quote-lines td:nth-child(2)::before { content: \'Qty\'; }');
+    expect(css).toContain('.hub-quote-lines td:nth-child(3)::before { content: \'Unit\'; }');
+    expect(css).toContain('.hub-quote-lines td:nth-child(4)::before { content: \'Total\'; }');
+    expect(css).toContain('overflow: visible');
+    expect(css).not.toContain('.hub-quote-table {\n      margin-left: 16px;\n      margin-right: 16px;\n      overflow-x: auto;');
+
     expect(css).toContain('.hub-quote-sheet');
     expect(css).toContain('.hub-quote-totalbar');
     expect(css).toContain('border-radius: 16px');

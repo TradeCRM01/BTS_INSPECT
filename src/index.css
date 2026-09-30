@@ -7764,7 +7764,76 @@
     .hub-quote-table {
       margin-left: 16px;
       margin-right: 16px;
-      overflow-x: auto;
+      overflow: visible;
+    }
+
+    .hub-quote-lines thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .hub-quote-lines,
+    .hub-quote-lines tbody,
+    .hub-quote-lines tr,
+    .hub-quote-lines td {
+      display: block;
+      width: 100%;
+    }
+
+    .hub-quote-lines tr {
+      padding: 4px 0 12px;
+      border-bottom: 1px solid #E2D9CC;
+    }
+
+    .hub-quote-lines tr:last-child {
+      border-bottom: none;
+    }
+
+    .hub-quote-lines td {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, max-content);
+      align-items: baseline;
+      gap: 12px;
+      padding: 6px 0;
+      border-bottom: none;
+      overflow-wrap: anywhere;
+    }
+
+    .hub-quote-lines td:first-child {
+      display: block;
+      padding-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .hub-quote-lines td:nth-child(2)::before { content: 'Qty'; }
+    .hub-quote-lines td:nth-child(3)::before { content: 'Unit'; }
+    .hub-quote-lines td:nth-child(4)::before { content: 'Total'; }
+
+    .hub-quote-lines td:nth-child(2)::before,
+    .hub-quote-lines td:nth-child(3)::before,
+    .hub-quote-lines td:nth-child(4)::before {
+      color: #5B6B7C;
+      font-family: Rajdhani, sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .hub-quote-lines th:nth-child(2),
+    .hub-quote-lines th:nth-child(3),
+    .hub-quote-lines th:nth-child(4),
+    .hub-quote-lines td:nth-child(2),
+    .hub-quote-lines td:nth-child(3),
+    .hub-quote-lines td:nth-child(4) {
+      text-align: left;
     }
 
     .hub-quote-totalbar {
@@ -7782,11 +7851,6 @@
     .hub-quote-editor-title,
     .hub-quote-display-total {
       font-size: 40px;
-    }
-
-    .hub-quote-lines th,
-    .hub-quote-lines td {
-      padding: 12px 0;
     }
   }
 
