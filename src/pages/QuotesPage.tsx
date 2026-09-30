@@ -34,6 +34,8 @@ import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
 import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
 import { quoteSendCompanyFrom } from '../lib/sendQuote';
+import { documentShareOrigin } from '../lib/documentShare';
+import { copyShareText, ensureClientPortalUrl } from '../lib/documentShareDeliver';
 import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
@@ -598,6 +600,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const [savedId, setSavedId] = useState<string | null>(quote?.id ?? null);
   const [invoiceId, setInvoiceId] = useState<string | null>(quote?.invoice_id ?? null);
   const moreRef = useRef<HTMLDetailsElement>(null);
+  const [copyConfirm, setCopyConfirm] = useState(false);
+  const [copyingLink, setCopyingLink] = useState(false);
   const emailInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<EditorState>({
@@ -925,6 +929,31 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
     if (moreRef.current) moreRef.current.open = false;
   };
 
+  const handleCopyLink = async () => {
+    if (!form.client_id || !profile?.company_id) {
+      showToast('Pick a client before you can copy a link.', 'error');
+      return;
+    }
+    setCopyingLink(true);
+    try {
+      const result = await copyShareText(async () => ensureClientPortalUrl({
+        companyId: profile.company_id,
+        clientId: form.client_id,
+        origin: documentShareOrigin(window.location.origin),
+      }));
+      closeMore();
+      setCopyConfirm(true);
+      showToast('Link copied');
+      window.setTimeout(() => setCopyConfirm(false), 2500);
+      if (result.kind === 'manual') setErr(result.text);
+    } catch (e) {
+      closeMore();
+      showToast(e instanceof Error ? e.message : 'Could not copy the link.', 'error');
+    } finally {
+      setCopyingLink(false);
+    }
+  };
+
   useEffect(() => {
     const onPointer = (event: PointerEvent) => {
       if (!moreRef.current?.open) return;
@@ -979,6 +1008,15 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
                     Decline
                   </button>
                 )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-quote-copy-link="1"
+                  onClick={() => { void handleCopyLink(); }}
+                  disabled={!form.client_id || !profile?.company_id || copyingLink}
+                >
+                  {copyingLink ? 'Copying…' : copyConfirm ? 'Copied' : 'Copy link'}
+                </button>
                 <button
                   type="button"
                   role="menuitem"
@@ -1042,6 +1080,9 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
                 )}
               </div>
             </details>
+            {copyConfirm ? (
+              <p className="hub-quote-copy-confirm" role="status">Link copied</p>
+            ) : null}
             <button type="button" onClick={onClose} className="hub-quote-close" aria-label="Close">
               <X size={18} />
             </button>
