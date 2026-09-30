@@ -7975,6 +7975,36 @@
     border-bottom: 1px solid #E2D9CC;
   }
 
+  @media (max-width: 639px) {
+    .overlay-backdrop.hub-quote-pdf-preview {
+      overflow-x: hidden;
+    }
+
+    .hub-quote-pdf-sheet {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: hidden;
+    }
+
+    .hub-quote-pdf-frame {
+      --quote-pdf-page: 794px;
+      container-type: inline-size;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .hub-quote-pdf-sheet iframe[title='Document PDF preview'] {
+      display: block;
+      width: var(--quote-pdf-page) !important;
+      max-width: none;
+      height: calc(75vh * var(--quote-pdf-page) / 100cqi) !important;
+      border: 0;
+      background: #FFFDF8;
+      transform: scale(calc(100cqi / var(--quote-pdf-page)));
+      transform-origin: top left;
+    }
+  }
+
   .overlay-backdrop:has(.hub-quote-send) {
     background: #F5F0E6;
     padding: 16px;
