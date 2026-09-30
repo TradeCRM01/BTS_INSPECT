@@ -1229,7 +1229,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
             <p className="hub-quote-scope">{form.description.trim()}</p>
           ) : null}
 
-          <div className="hub-quote-table">
+          <div className="hub-quote-table" data-quote-lines="1">
             <table className="hub-quote-lines">
               <thead>
                 <tr>
