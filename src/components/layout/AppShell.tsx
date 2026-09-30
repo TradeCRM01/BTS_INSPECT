@@ -292,7 +292,7 @@ export function AppShell({ children }: AppShellProps) {
             <BrandLockup size="header" />
           </Link>
 
-          <nav className="hidden md:flex items-center gap-0.5 flex-1 justify-center h-14">
+          <nav aria-label="Desktop navigation" className="hidden md:flex items-center gap-0.5 flex-1 justify-center h-14">
             {NAV_GROUPS.map((group) => {
               const groupActive = isGroupActive(group, location.pathname);
               const isOpen = openGroup === group.label;

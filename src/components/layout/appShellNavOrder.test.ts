@@ -7,6 +7,18 @@ function src(rel: string): string {
 }
 
 describe('AppShell nav follows the job', () => {
+  it('keeps desktop navigation above the main UI and phone navigation below it', () => {
+    const shell = src('src/components/layout/AppShell.tsx');
+    const desktopNav = '<nav aria-label="Desktop navigation" className="hidden md:flex';
+    const phoneNav = 'className="shell-bottom-nav md:hidden"';
+
+    expect(shell).toContain(desktopNav);
+    expect(shell).toContain(phoneNav);
+    expect(shell.indexOf(desktopNav)).toBeLessThan(shell.indexOf('<main ref={mainRef}'));
+    expect(shell.indexOf(phoneNav)).toBeGreaterThan(shell.indexOf('</main>'));
+    expect(shell).toContain('className="shell-phone-menu md:hidden');
+  });
+
   it('puts Dashboard, CRM, Field Work, Financials, Inventory in that order on desktop and phone', () => {
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).toContain(`const NAV_GROUPS: NavGroup[] = [
