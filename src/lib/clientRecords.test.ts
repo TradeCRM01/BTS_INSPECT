@@ -308,6 +308,7 @@ describe('client hub query scopes', () => {
     expect(isNarrowProjection(detail.quotes)).toBe(true);
     expect(isNarrowProjection(detail.invoices)).toBe(true);
     expect(detail.jobs.columns.split(',').map(col => col.trim())).toContain('assigned_team');
+    expect(detail.invoices.columns.split(',').map(col => col.trim())).toContain('job_id');
     expect(detail.jobs.columns).not.toMatch(/\binspection_id\b/);
     const list = clientListStatsQueries({ companyId: 'co1', clientIds: ['c1'] })!;
     expect(isNarrowProjection(list.jobs)).toBe(true);

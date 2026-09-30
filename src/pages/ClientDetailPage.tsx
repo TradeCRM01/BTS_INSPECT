@@ -52,6 +52,7 @@ import {
 import {
   clientJobFloorMeta,
   clientJobFloorTitle,
+  clientInvoiceJobRef,
   clientJobOpenHref,
   clientJobStatusLabel,
   clientJobsEmptyTitle,
@@ -78,6 +79,7 @@ type ClientInvoice = {
   total: number;
   due_date: string | null;
   quote_id: string | null;
+  job_id: string | null;
 };
 
 type ClientInspection = {
@@ -503,6 +505,12 @@ export function ClientDetailPage() {
           >
             {(invoices ?? []).map(inv => {
               const next = recommendInvoiceAction(inv);
+              const jobRef = clientInvoiceJobRef({
+                jobId: inv.job_id,
+                quoteId: inv.quote_id,
+                jobs: floorJobs,
+                quotes: quotes ?? [],
+              });
               return (
                 <JobRelatedRow
                   key={inv.id}
@@ -510,6 +518,7 @@ export function ClientDetailPage() {
                   icon={Receipt}
                   title={`Invoice #${padNum(inv.invoice_number)}`}
                   meta={[
+                    jobRef ? `Job ${jobRef}` : null,
                     formatMoney(Number(inv.total)),
                     inv.due_date ? `Due ${format(parseISO(inv.due_date), 'd MMM yyyy')}` : null,
                   ].filter(Boolean).join(' · ')}

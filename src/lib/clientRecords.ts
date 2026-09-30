@@ -340,7 +340,7 @@ export function clientHubRecordQueries(args: {
     },
     invoices: {
       table: 'invoices',
-      columns: 'id, invoice_number, status, total, due_date, quote_id, client_id',
+      columns: 'id, invoice_number, status, total, due_date, quote_id, job_id, client_id',
       eq,
       inFilters: {},
     },
