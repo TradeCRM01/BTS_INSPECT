@@ -293,6 +293,26 @@ export function AppShell({ children }: AppShellProps) {
           </Link>
 
           <nav className="hidden md:flex items-center gap-0.5 flex-1 justify-center h-14">
+            {[
+              { to: '/', label: 'Today' },
+              { to: '/schedule', label: 'Schedule' },
+              { to: '/jobs', label: 'Jobs' },
+            ].map(link => {
+              const active = isNavItemActive(link, location.pathname);
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`flex items-center h-full px-3 text-sm font-medium tracking-tight border-b-2 transition-colors ${
+                    active
+                      ? 'text-white border-accent'
+                      : 'text-white/65 border-transparent hover:text-white hover:border-white/25'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
             {NAV_GROUPS.map((group) => {
               const groupActive = isGroupActive(group, location.pathname);
               const isOpen = openGroup === group.label;

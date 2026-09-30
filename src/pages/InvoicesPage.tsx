@@ -342,7 +342,8 @@ export function InvoicesPage() {
             <div className="hub-invoices-thead">
               <span>#</span>
               <span>Customer</span>
-              <span>Suburb</span>
+              <span>Job</span>
+              <span>Due</span>
               <span>Status</span>
               <span>Total inc GST</span>
               <span />
@@ -440,8 +441,11 @@ function InvoiceHit({
       className="hub-invoices-row"
     >
       <span className="hub-invoices-ref">{invoiceRef(invoice)}</span>
-      <span className="truncate">{invoice.client_name || ''}</span>
-      <span className="truncate hub-invoices-muted">{suburb}</span>
+      <span className="truncate">{[invoice.client_name, suburb].filter(Boolean).join(' · ') || ''}</span>
+      <span className="truncate hub-invoices-muted">{invoice.job_title || '—'}</span>
+      <span className="truncate hub-invoices-muted">
+        {invoice.due_date ? format(parseISO(`${invoice.due_date.slice(0, 10)}T00:00:00`), 'd MMM yyyy') : '—'}
+      </span>
       <span className={`hub-invoices-pill is-${status}`}>{INVOICE_STATUS_LABELS[status]}</span>
       <span className="hub-invoices-total">{money ?? ''}</span>
       <span className="hub-invoices-row-next" onClick={e => e.stopPropagation()}>

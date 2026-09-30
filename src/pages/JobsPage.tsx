@@ -12,6 +12,10 @@ import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import { JOB_STATUS_LABELS } from '../types/crm';
 import { jobOpenNext } from '../lib/jobNextAction';
 import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
+import { HubListToolbar } from '../components/layout/HubListToolbar';
+import { RecordIdentity } from '../components/layout/RecordIdentity';
+import { scheduleChipClock, scheduleCrewLabel } from '../lib/scheduleBoard';
+import { format, parseISO } from 'date-fns';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { Plus, Briefcase, MoreHorizontal } from 'lucide-react';
 
@@ -304,23 +308,30 @@ export function JobsPage() {
               >
                 <Plus size={16} /> New job
               </button>
-              <div className="hub-jobs-list-tools-overflow">
-                <JobsListFind search={search} onSearch={setSearch} />
-              </div>
             </div>
-            <div className="hub-jobs-list-filters" role="tablist" aria-label="Job status">
-              {STATUS_FILTERS.map(tab => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={statusFilter === tab.key}
-                  onClick={() => setStatusFilter(tab.key)}
-                  className={`hub-jobs-list-filter ${statusFilter === tab.key ? 'is-on' : ''}`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <HubListToolbar
+              search={search}
+              onSearch={setSearch}
+              placeholder="Search jobs or clients..."
+              filters={(
+                <div className="hub-jobs-list-filters" role="tablist" aria-label="Job status">
+                  {STATUS_FILTERS.map(tab => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={statusFilter === tab.key}
+                      onClick={() => setStatusFilter(tab.key)}
+                      className={`hub-jobs-list-filter ${statusFilter === tab.key ? 'is-on' : ''}`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            />
+            <div className="hub-jobs-list-tools-overflow">
+              <JobsListFind search={search} onSearch={setSearch} />
             </div>
             {isLoading ? (
               <div className="flex justify-center py-20"><LoadingSpinner /></div>
@@ -335,9 +346,8 @@ export function JobsPage() {
             ) : (
               <>
                 <div className="hub-jobs-thead">
-                  <span>#</span>
-                  <span>Customer</span>
-                  <span>Suburb</span>
+                  <span>Job</span>
+                  <span>When</span>
                   <span>Status</span>
                   <span />
                 </div>
@@ -445,7 +455,11 @@ function JobRow({ job }: { job: JobRowModel }) {
   const navigate = useNavigate();
   const next = jobOpenNext(job);
   const site = visibleSite(job.address, job.client_address);
-  const suburb = site ? suburbFromSite(site) : '';
+  const suburb = site ? suburbFromSite(site) : 'No site';
+  const when = job.scheduled_date
+    ? `${format(parseISO(`${job.scheduled_date.slice(0, 10)}T00:00:00`), 'd MMM')} · ${scheduleChipClock(job.start_time, job.end_time)}`
+    : 'Unscheduled';
+  const crew = scheduleCrewLabel(job.assigned_team, []);
   const jobHref = `/jobs/${job.id}`;
   return (
     <div
@@ -456,9 +470,8 @@ function JobRow({ job }: { job: JobRowModel }) {
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(jobHref); } }}
       className="hub-jobs-row"
     >
-      <span className="hub-jobs-ref">{formatJobRef(job)}</span>
-      <span className="truncate hub-jobs-name">{job.client_name || ''}</span>
-      <span className="truncate hub-jobs-muted">{suburb}</span>
+      <RecordIdentity primary={`${formatJobRef(job)} · ${job.title || 'Job'}`} secondary={`${job.client_name || 'No client'} · ${suburb}`} />
+      <span className="truncate hub-jobs-muted">{when} · {crew === 'Crew' ? 'Unassigned' : crew}</span>
       <span className="hub-jobs-status">{JOB_STATUS_LABELS[job.status]}</span>
       <span className="hub-jobs-row-next" onClick={e => e.stopPropagation()}>
         {next.actionable ? (

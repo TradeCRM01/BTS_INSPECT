@@ -23,11 +23,13 @@ import {
 } from '../../lib/dispatch';
 import { format, isToday, parseISO } from 'date-fns';
 import { Users } from 'lucide-react';
+import { PhoneDayAgenda, PhoneWeekAgenda } from './PhoneDayAgenda';
 import { JobCalendarOverflow } from '../jobs/JobCalendarOverflow';
 import { calendarSite } from '../../lib/jobCalendar';
 import { formatJobRef } from '../../lib/jobRef';
 import {
   jobsOnScheduleDay,
+  TIME_NOT_SET_LABEL,
   scheduleChipClock,
   scheduleDateKey,
   scheduleJobHref,
@@ -96,6 +98,7 @@ const JobBlock = memo(function JobBlock({
   const chip = weekBoardChip(job);
   const ink = getReadableText(chip.color);
   const clock = scheduleChipClock(job.start_time, job.end_time);
+  const timed = clock !== TIME_NOT_SET_LABEL;
 
   return (
     <div
@@ -118,8 +121,8 @@ const JobBlock = memo(function JobBlock({
       }`}
       style={{ background: chip.color, color: ink }}
     >
-      <span className="hub-week-chip-ref">{`${clock} · ${chip.ref}`}</span>
-      {chip.description ? <span className="hub-week-chip-desc">{chip.description}</span> : null}
+      <span className="hub-week-chip-ref">{timed ? `${clock} · ${chip.ref}` : chip.ref}</span>
+      <span className="hub-week-chip-desc">{timed ? chip.description : [TIME_NOT_SET_LABEL, chip.description].filter(Boolean).join(' · ')}</span>
     </div>
   );
 });
@@ -259,7 +262,7 @@ function WeekJobChip({
 }
 
 export const PhoneDayList = memo(function PhoneDayList({
-  jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, onJobResize,
+  jobs, teamMembers, currentDate, onJobClick, onDayClick,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
@@ -270,21 +273,18 @@ export const PhoneDayList = memo(function PhoneDayList({
   onJobResize?: (jobId: string, startTime: string, endTime: string) => void;
 }) {
   return (
-    <DayBoardView
+    <PhoneDayAgenda
       jobs={jobs}
       teamMembers={teamMembers ?? []}
       currentDate={currentDate}
       onJobClick={onJobClick}
-      onDayClick={onDayClick}
-      onJobDrop={onJobDrop}
-      onJobResize={onJobResize}
-      filteredEmployeeIds={new Set()}
+      onScheduleTap={dateStr => onDayClick(dateStr)}
     />
   );
 });
 
 export const PhoneWeekList = memo(function PhoneWeekList({
-  jobs, teamMembers, currentDate, onJobClick, onSelectDay, onDayClick, onJobDrop,
+  jobs, teamMembers, currentDate, onJobClick, onSelectDay, onDayClick: _onDayClick, onJobDrop: _onJobDrop,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
@@ -296,15 +296,12 @@ export const PhoneWeekList = memo(function PhoneWeekList({
   onJobDrop?: (drop: JobDropPayload) => void;
 }) {
   return (
-    <WeekBoardView
+    <PhoneWeekAgenda
       jobs={jobs}
       teamMembers={teamMembers ?? []}
-      currentDate={currentDate}
-      onJobClick={onJobClick}
-      onDayClick={onDayClick}
+      days={scheduleWeekDays(currentDate)}
       onSelectDay={onSelectDay}
-      onJobDrop={onJobDrop}
-      filteredEmployeeIds={new Set()}
+      onJobClick={onJobClick}
     />
   );
 });
@@ -353,6 +350,10 @@ export const DayBoardView = memo(function DayBoardView({
   }, [jobs, rows, dateStr]);
 
   const unassignedCount = jobsByRow.get(UNASSIGNED_ROW_ID)?.length ?? 0;
+  const untimedDayJobs = useMemo(
+    () => jobsOnScheduleDay(jobs, dateStr).filter(job => !job.start_time),
+    [jobs, dateStr],
+  );
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -462,10 +463,11 @@ export const DayBoardView = memo(function DayBoardView({
     const isUnassigned = row.id === UNASSIGNED_ROW_ID;
     const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
     const rowJobs = jobsByRow.get(row.id) ?? [];
-    const layout = placeDayRowJobs(rowJobs.map(job => {
-      const plot = schedulePlotTimes(job);
-      return { id: job.id, start_time: plot.start_time, end_time: plot.end_time };
-    }));
+    const layout = placeDayRowJobs(rowJobs.map(job => ({
+      id: job.id,
+      start_time: job.start_time,
+      end_time: job.end_time,
+    })));
     const placementById = new Map(layout.placements.map(p => [p.id, p]));
     const height = dayRowHeightPx(layout.allDayCount, layout.timedLaneCount, {
       min: ROW_MIN, allDayH: ALL_DAY_H, timedH: TIMED_H, pad: ROW_PAD,
@@ -500,6 +502,26 @@ export const DayBoardView = memo(function DayBoardView({
             : 'Search a job, drop it on a person or a time · drag the ends to change duration'}
         </p>
       </div>
+
+      {untimedDayJobs.length > 0 && (
+        <div className="hub-day-untimed" data-untimed-lane="1">
+          <p className="hub-schedule-label">On this day · {TIME_NOT_SET_LABEL}</p>
+          <div className="hub-day-untimed-list">
+            {untimedDayJobs.map(job => (
+              <div key={job.id} className="hub-day-untimed-chip">
+                <JobBlock
+                  job={job}
+                  teamMembers={teamMembers}
+                  compact
+                  dragging={dragJobId === job.id}
+                  onClick={() => onJobClick(job)}
+                  onDragStart={e => handleDragStart(e, job.id)}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div
         ref={scrollRef}
@@ -587,7 +609,7 @@ export const DayBoardView = memo(function DayBoardView({
 
                 {painted.rowJobs.map(job => {
                   const placed = painted.placementById.get(job.id);
-                  if (!placed) return null;
+                  if (!placed || placed.allDay) return null;
                   const plot = schedulePlotTimes(job);
                   const preview = resizePreview?.jobId === job.id ? resizePreview : null;
                   const startM = timeToMinutes(preview?.start_time ?? plot.start_time);

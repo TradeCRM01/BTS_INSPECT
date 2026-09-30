@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Download, Loader2, X, FileText } from 'lucide-react';
-import { OverlayPortal } from '../ui/OverlayPortal';
+import { AppDialog } from '../ui/AppDialog';
 import { generateCommercialPdf } from '../../reports/commercial/generateCommercialPdf';
 import type { CommercialPdfData } from '../../reports/commercial/CommercialDocumentPdf';
 
@@ -50,18 +50,21 @@ export function CommercialPdfPreviewModal({ data, onClose }: CommercialPdfPrevie
   const invoiceLook = data.kind === 'invoice';
   const creamLook = quoteLook || invoiceLook;
 
+  const title = quoteLook ? 'Quote preview' : invoiceLook ? 'Invoice preview' : 'Document preview';
+
   return (
-    <OverlayPortal>
-      <div className={`overlay-backdrop${quoteLook ? ' hub-quote-pdf-preview' : invoiceLook ? ' hub-invoice-pdf-preview' : ''}`}>
-        <div
-          className={`overlay-panel-xl flex flex-col max-h-[92vh] ${quoteLook ? 'hub-quote-pdf-sheet' : invoiceLook ? 'hub-invoice-pdf-sheet' : 'border border-[#E5E7EB]'}`}
-          onClick={e => e.stopPropagation()}
-        >
+    <AppDialog
+      open
+      onClose={onClose}
+      labelledBy="commercial-pdf-preview-title"
+      className={quoteLook ? 'hub-quote-pdf-preview' : invoiceLook ? 'hub-invoice-pdf-preview' : ''}
+      panelClassName={`overlay-panel-xl flex flex-col max-h-[92vh] ${quoteLook ? 'hub-quote-pdf-sheet' : invoiceLook ? 'hub-invoice-pdf-sheet' : 'border border-[#E5E7EB]'}`}
+    >
           <div className={`flex items-center justify-between px-5 py-3 shrink-0 ${quoteLook ? 'hub-quote-pdf-head' : invoiceLook ? 'hub-invoice-pdf-head' : 'border-b border-[#E5E7EB]'}`}>
             <div className="flex items-center gap-2">
               <FileText size={16} className="text-[#2E75B6]" />
-              <h2 className={`text-base font-semibold ${creamLook ? 'text-[#0A2540]' : 'text-[#1A1A1A]'}`}>
-                {quoteLook ? 'Quote preview' : invoiceLook ? 'Invoice preview' : 'Document preview'}
+              <h2 id="commercial-pdf-preview-title" className={`text-base font-semibold ${creamLook ? 'text-[#0A2540]' : 'text-[#1A1A1A]'}`}>
+                {title}
               </h2>
               <span className={`text-xs ${creamLook ? 'text-[#5B6B7C]' : 'text-[#9CA3AF]'}`}>{data.docNumber}</span>
             </div>
@@ -77,7 +80,8 @@ export function CommercialPdfPreviewModal({ data, onClose }: CommercialPdfPrevie
               <button
                 type="button"
                 onClick={onClose}
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400"
+                className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400"
+                aria-label="Close"
               >
                 <X size={18} />
               </button>
@@ -105,8 +109,6 @@ export function CommercialPdfPreviewModal({ data, onClose }: CommercialPdfPrevie
               />
             )}
           </div>
-        </div>
-      </div>
-    </OverlayPortal>
+    </AppDialog>
   );
 }

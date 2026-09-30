@@ -2566,7 +2566,10 @@ export function JobDetailPage() {
             </div>
           </header>
           <div className="hub-jobs-sheet-body">
-            <h1 className="hub-jobs-hero">{job.title}</h1>
+            <h1 className="hub-jobs-hero">{`${jobRef} · ${job.title}`}</h1>
+            <p className="hub-page-whisper">
+              {[client?.name, calendarSite(job.address, client?.address), job.scheduled_date || 'Unscheduled'].filter(Boolean).join(' · ')}
+            </p>
             <select
               value={job.status}
               onChange={e => updateStatus.mutate(e.target.value as JobStatus)}

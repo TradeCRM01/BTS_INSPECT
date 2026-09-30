@@ -8,7 +8,9 @@ import {
   groupJobsByScheduleDay,
   jobMatchesCrewFilter,
   jobsOnScheduleDay,
+  parseScheduleDateParam,
   parseScheduleView,
+  TIME_NOT_SET_LABEL,
   scheduleChipClock,
   scheduleClockLabel,
   schedulePlotTimes,
@@ -55,6 +57,16 @@ function job(over: {
 describe('scheduleJobHref', () => {
   it('opens the existing job page, not a new schedule destination', () => {
     expect(scheduleJobHref('job-42')).toBe('/jobs/job-42');
+  });
+});
+
+describe('parseScheduleDateParam', () => {
+  it('reads a calendar day and rejects junk', () => {
+    expect(parseScheduleDateParam('2026-09-10')?.getFullYear()).toBe(2026);
+    expect(parseScheduleDateParam('2026-09-10')?.getMonth()).toBe(8);
+    expect(parseScheduleDateParam('2026-09-10')?.getDate()).toBe(10);
+    expect(parseScheduleDateParam(null)).toBeNull();
+    expect(parseScheduleDateParam('Tuesday')).toBeNull();
   });
 });
 
@@ -174,17 +186,17 @@ describe('scheduleClockLabel', () => {
 });
 
 describe('scheduleChipClock', () => {
-  it('keeps stored times and gives untimed chips a work-day weight', () => {
+  it('keeps stored times and labels untimed chips honestly', () => {
     expect(scheduleChipClock('09:00:00', '12:00:00')).toBe('09:00 – 12:00');
-    expect(scheduleChipClock(null, null)).toBe('08:00 – 16:00');
+    expect(scheduleChipClock(null, null)).toBe(TIME_NOT_SET_LABEL);
   });
 });
 
 describe('schedulePlotTimes', () => {
-  it('plots untimed jobs as 08:00–16:00 without marking them stored', () => {
+  it('does not invent a stored span for untimed jobs', () => {
     expect(schedulePlotTimes({ start_time: null, end_time: null })).toEqual({
-      start_time: '08:00',
-      end_time: '16:00',
+      start_time: null,
+      end_time: null,
       stored: false,
     });
     expect(schedulePlotTimes({ start_time: '10:00', end_time: '15:00' })).toEqual({

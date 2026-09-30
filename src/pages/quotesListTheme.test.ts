@@ -16,7 +16,7 @@ describe('quote list Looplet document look', () => {
     expect(list).toContain('hub-quotes-row');
     expect(list).toContain('hub-quotes-pill');
     expect(list).toContain('Customer');
-    expect(list).toContain('Suburb');
+    expect(list).toContain('Valid to');
     expect(list).toContain('Total inc GST');
     expect(list).not.toContain('function QuoteCard');
     expect(list).not.toContain('ViewToggle');

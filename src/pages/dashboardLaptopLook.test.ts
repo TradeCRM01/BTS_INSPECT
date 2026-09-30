@@ -28,7 +28,7 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(page).toContain('dashboard-home-row');
     expect(page).toContain('Time');
     expect(page).toContain('Place');
-    expect(page).toContain('ops-page-title dashboard-home-hero">Dashboard');
+    expect(page).toContain('ops-page-title dashboard-home-hero">Today');
     expect(page).toContain('aria-label="Open"');
     expect(page).toContain('className="btn-primary dashboard-home-primary"');
     expect(page).toContain('Week board');
@@ -84,7 +84,7 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(css).toContain('.dashboard-home-more.is-flip');
     expect(css).toContain('.dashboard-home-more.is-shift');
     expect(css).toContain('font-size: 12px');
-    expect(css).toContain('font-size: 56px !important');
+    expect(css).toContain('font-size: 30px !important');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(css).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');

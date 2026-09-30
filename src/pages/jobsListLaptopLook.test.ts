@@ -26,8 +26,8 @@ describe('jobs list laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(page).toContain('hub-jobs-list-tools');
     expect(page).toContain('hub-jobs-sheet');
     expect(page).toContain('hub-jobs-row');
-    expect(page).toContain('Customer');
-    expect(page).toContain('Suburb');
+    expect(page).toContain('Job');
+    expect(page).toContain('When');
     expect(page).toContain('hub-jobs-list-find');
     expect(page).toContain('hub-jobs-list-mark">List');
     expect(page).toContain('ops-page-title">Jobs');
@@ -86,7 +86,7 @@ describe('jobs list laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(css).toContain('.hub-jobs-list-more.is-flip');
     expect(css).toContain('.hub-jobs-list-more.is-shift');
     expect(css).toContain('font-size: 12px');
-    expect(css).toContain('font-size: 56px !important');
+    expect(css).toContain('font-size: 30px !important');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(css).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');

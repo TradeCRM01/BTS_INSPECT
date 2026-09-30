@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import {
   compareScheduleJobs,
+  TIME_NOT_SET_LABEL,
   scheduleClockLabel,
   scheduleCrewLabel,
   scheduleDateKey,
@@ -60,7 +61,7 @@ export function dashboardClockLabel(
   start: string | null | undefined,
   end?: string | null,
 ): string {
-  return scheduleClockLabel(start, end) ?? 'All day';
+  return scheduleClockLabel(start, end) ?? TIME_NOT_SET_LABEL;
 }
 
 export function dashboardJobSite(

@@ -82,8 +82,6 @@ describe('placePickedOnCell', () => {
     )).toEqual({
       scheduled_date: '2026-08-25',
       assigned_team: ['sam'],
-      start_time: '08:00:00',
-      end_time: '09:00:00',
     });
   });
 });
@@ -224,15 +222,13 @@ describe('rescheduleJobPatch', () => {
     });
   });
 
-  it('gives an untimed job a morning slot when dropped on a person', () => {
+  it('does not invent clocks when an untimed job is dropped on a person', () => {
     expect(rescheduleJobPatch(
       { assigned_team: [], start_time: null, end_time: null },
       { date: '2026-08-20', employeeId: 'alice' },
     )).toEqual({
       scheduled_date: '2026-08-20',
       assigned_team: ['alice'],
-      start_time: '08:00:00',
-      end_time: '09:00:00',
     });
   });
 

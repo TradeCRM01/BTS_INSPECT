@@ -374,7 +374,8 @@ export function QuotesPage() {
             <div className="hub-quotes-thead">
               <span>#</span>
               <span>Customer</span>
-              <span>Suburb</span>
+              <span>Job</span>
+              <span>Valid to</span>
               <span>Status</span>
               <span>Total inc GST</span>
               <span />
@@ -438,8 +439,11 @@ function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () 
       className="hub-quotes-row"
     >
       <span className="hub-quotes-ref">{quoteRef(quote)}</span>
-      <span className="truncate">{quote.client_name || ''}</span>
-      <span className="truncate hub-quotes-muted">{suburb}</span>
+      <span className="truncate">{[quote.client_name, suburb].filter(Boolean).join(' · ') || ''}</span>
+      <span className="truncate hub-quotes-muted">{quote.job_title || '—'}</span>
+      <span className="truncate hub-quotes-muted">
+        {quote.validity_date ? format(parseISO(`${quote.validity_date.slice(0, 10)}T00:00:00`), 'd MMM yyyy') : '—'}
+      </span>
       <span className={`hub-quotes-pill is-${quote.status}`}>{QUOTE_STATUS_LABELS[quote.status]}</span>
       <span className="hub-quotes-total">{money ?? ''}</span>
       <span className="hub-quotes-row-next" onClick={e => e.stopPropagation()}>

@@ -298,6 +298,64 @@
     @apply text-xl font-semibold tracking-tight text-navy;
   }
 
+  .hub-page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .hub-record-identity {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 2px;
+  }
+
+  .hub-record-primary {
+    font-weight: 600;
+    color: #0A2540;
+  }
+
+  .hub-record-secondary,
+  .hub-page-whisper {
+    color: #5B6B7C;
+    font-size: 14px;
+  }
+
+  .hub-list-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 16px;
+  }
+
+  .hub-list-toolbar-search {
+    max-width: 20rem;
+    min-width: 12rem;
+    flex: 1;
+  }
+
+  .hub-phone-agenda-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 0;
+    text-align: left;
+    border-bottom: 1px solid #E2D9CC;
+  }
+
+  .hub-phone-agenda-time {
+    flex: 0 0 5.5rem;
+    font-size: 13px;
+    color: #5B6B7C;
+  }
+
   /* Clients look only: signed document sheet on list + open record. Not a global restyle. */
   :is(.hub-clients) {
     --client-page: #F5F0E6;
@@ -336,7 +394,7 @@
   }
 
   .hub-clients .ops-page-title {
-    font-size: 40px !important;
+    font-size: 30px !important;
     margin: 0;
   }
 
@@ -1202,7 +1260,7 @@
   .hub-clients-list-doc .ops-page-title {
     font-family: Rajdhani, sans-serif;
     font-weight: 700;
-    font-size: 56px !important;
+    font-size: 30px !important;
     letter-spacing: 0.02em;
     line-height: 0.96;
     color: #0A2540;
@@ -1440,7 +1498,7 @@
 
   @media (max-width: 639px) {
     .hub-clients-list-doc .ops-page-title {
-      font-size: 40px !important;
+      font-size: 26px !important;
     }
 
     .hub-clients-list-bar {
@@ -5099,7 +5157,7 @@
     line-height: 1.1;
     text-shadow: none;
     color: var(--schedule-ink);
-    font-size: 40px !important;
+    font-size: 30px !important;
     margin: 0;
   }
 
@@ -6041,6 +6099,27 @@
     min-width: 0;
   }
 
+  .hub-day-untimed {
+    margin: 0 0 12px;
+    padding: 12px;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    background: #FFFDF8;
+  }
+
+  .hub-day-untimed-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .hub-day-untimed-chip {
+    min-width: 160px;
+    max-width: 280px;
+    min-height: 44px;
+  }
+
   .hub-week-document .hub-schedule-board-head {
     display: none;
   }
@@ -6324,7 +6403,7 @@
     }
 
     .hub-board-cal .ops-page-title {
-      font-size: 32px !important;
+      font-size: 26px !important;
     }
 
     .hub-board-cal .hub-schedule-range {
@@ -8265,7 +8344,7 @@
   }
 
   .hub-jobs .ops-page-title {
-    font-size: 40px !important;
+    font-size: 30px !important;
     margin: 0;
   }
 
@@ -9428,7 +9507,7 @@
   .hub-jobs-list-doc .ops-page-title {
     font-family: Rajdhani, sans-serif;
     font-weight: 700;
-    font-size: 56px !important;
+    font-size: 30px !important;
     letter-spacing: 0.02em;
     line-height: 0.96;
     color: #0A2540;
@@ -9763,7 +9842,7 @@
 
   @media (max-width: 639px) {
     .hub-jobs-list-doc .ops-page-title {
-      font-size: 40px !important;
+      font-size: 26px !important;
     }
 
     .hub-jobs-list-bar {
@@ -9861,7 +9940,7 @@
     line-height: 0.96;
     text-shadow: none;
     color: #0A2540;
-    font-size: 56px !important;
+    font-size: 30px !important;
     margin: 0;
   }
 
@@ -9954,7 +10033,7 @@
   .dashboard-home-hero {
     font-family: Rajdhani, sans-serif;
     font-weight: 700;
-    font-size: 56px !important;
+    font-size: 30px !important;
     letter-spacing: 0.02em;
     line-height: 0.96;
     color: #0A2540;
@@ -10329,7 +10408,7 @@
 
     .dashboard-home .ops-page-title,
     .dashboard-home-hero {
-      font-size: 40px !important;
+      font-size: 26px !important;
     }
 
     .dashboard-home-sheet-bar {
@@ -14217,6 +14296,18 @@
 .hub-marketing-hero {
   padding-top: 24px;
   padding-bottom: 40px;
+}
+
+.hub-marketing-walk {
+  margin: 16px 0 0;
+  padding-left: 1.25rem;
+  color: #0A2540;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 16px;
+}
+
+.hub-marketing-walk li + li {
+  margin-top: 8px;
 }
 
 .hub-marketing-kicker {

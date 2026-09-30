@@ -75,6 +75,17 @@ export function MarketingPage() {
           </div>
         </section>
 
+        <section className="hub-marketing-band" data-product-walk="1">
+          <p className="hub-marketing-kicker">The working path</p>
+          <h2 className="hub-marketing-subhead">Quote, book, record, invoice.</h2>
+          <ol className="hub-marketing-walk">
+            <li>Write a quote and send the paper.</li>
+            <li>Accept it, put the job on the week, give it a crew.</li>
+            <li>Record notes, photos and safety on the job sheet.</li>
+            <li>Raise a GST invoice and share the PDF.</li>
+          </ol>
+        </section>
+
         <section className="hub-marketing-band">
           <article>
             <h2 className="hub-marketing-subhead">Arriving. Clock in. Hours on the sheet.</h2>

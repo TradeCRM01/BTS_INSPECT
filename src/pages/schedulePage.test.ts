@@ -10,6 +10,9 @@ describe('schedule page week/day board', () => {
   it('defaults to the week, keeps day as a toggle, and stays on /schedule', () => {
     const page = src('src/pages/SchedulePage.tsx');
     expect(page).toContain("parseScheduleView(searchParams.get('view'))");
+    expect(page).toContain('parseScheduleDateParam');
+    expect(page).toContain("next.set('date'");
+    expect(page).not.toContain("next.delete('date')");
     expect(page).toContain('PhoneWeekList');
     expect(page).toContain('PhoneDayList');
     expect(page).toContain('data-schedule-view={viewMode}');
@@ -54,8 +57,7 @@ describe('schedule page week/day board', () => {
       page.indexOf('</PhoneDayList>'),
     );
     expect(phoneDay).toContain('onJobDrop?: (drop: JobDropPayload) => void');
-    expect(phoneDay).toContain('onJobDrop={onJobDrop}');
-    expect(phoneDay).toContain('DayBoardView');
+    expect(phoneDay).toContain('PhoneDayAgenda');
     expect(dayBoard).toContain('data-crew-drop={row.id}');
     expect(dayBoard).toContain('data-crew-lane={painted.row.id}');
     expect(dayBoard).toContain('handleDrop(e, row.id)');

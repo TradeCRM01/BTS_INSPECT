@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { getAuditClients, getAuditJobs } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
+import { HubListToolbar } from '../components/layout/HubListToolbar';
 import { PageError, EmptyState, SearchBar, ConfirmDialog, useToast, LoadingSpinner } from '../components/ui';
 import type { MenuEntry } from '../components/ui';
 import type { Client, ClientWithStats } from '../types/crm';
@@ -278,14 +279,19 @@ export function ClientsPage() {
               >
                 <Plus size={16} /> New client
               </button>
-              <div className="hub-clients-list-tools-overflow">
-                <ClientsListFind
-                  showArchived={showArchived}
-                  onShowArchived={setShowArchived}
-                  search={search}
-                  onSearch={setSearch}
-                />
-              </div>
+            </div>
+            <HubListToolbar
+              search={search}
+              onSearch={setSearch}
+              placeholder="Search clients..."
+            />
+            <div className="hub-clients-list-tools-overflow">
+              <ClientsListFind
+                showArchived={showArchived}
+                onShowArchived={setShowArchived}
+                search={search}
+                onSearch={setSearch}
+              />
             </div>
             {isLoading ? (
               <div className="flex justify-center py-20"><LoadingSpinner /></div>
@@ -299,7 +305,7 @@ export function ClientsPage() {
               <>
                 <div className="hub-clients-thead">
                   <span>Customer</span>
-                  <span>Suburb</span>
+                  <span>Site</span>
                   <span>Jobs</span>
                   <span />
                 </div>
@@ -535,7 +541,7 @@ const ClientRow = memo(function ClientRow({
       className="hub-clients-row"
     >
       <span className="hub-clients-name">{client.name}</span>
-      <span className="truncate hub-clients-muted">{suburb}</span>
+      <span className="truncate hub-clients-muted">{suburb || site || 'No site'}</span>
       <span className="hub-clients-jobs">{jobsLabel ?? ''}</span>
       <span className="hub-clients-row-next" onClick={e => e.stopPropagation()}>
         <ClientRowMore items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} />

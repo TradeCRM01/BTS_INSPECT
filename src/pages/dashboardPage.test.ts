@@ -18,7 +18,7 @@ describe('signed-in dashboard today floor', () => {
     expect(page).toContain('getAuditJobs()');
     expect(page).toContain('attachJobClients');
     expect(page).toContain('data-dashboard-home="1"');
-    expect(page).toContain('ops-page-title dashboard-home-hero">Dashboard');
+    expect(page).toContain('ops-page-title dashboard-home-hero">Today');
     expect(page).not.toContain('Your dashboard is empty');
   });
 
@@ -165,7 +165,7 @@ describe('signed-in dashboard document sheet look', () => {
     expect(homeCss).toContain('#2E75B6');
     expect(homeCss).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(homeCss).toContain('inset 0 1px 0 #fff');
-    expect(homeCss).toContain('font-size: 56px !important');
+    expect(homeCss).toContain('font-size: 30px !important');
     expect(homeCss).toContain("font-family: Rajdhani, sans-serif");
     expect(homeCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(homeCss).toContain('font-variant-numeric: tabular-nums');

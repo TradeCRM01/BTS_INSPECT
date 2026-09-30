@@ -249,10 +249,6 @@ export function rescheduleJobPatch(
     const shifted = applyDropStartTime(current.start_time, current.end_time, drop.startTime);
     updates.start_time = shifted.start_time;
     updates.end_time = shifted.end_time;
-  } else if (drop.employeeId && !current.start_time) {
-    const slot = applyDropStartTime(null, null, DEFAULT_SLOT_START);
-    updates.start_time = slot.start_time;
-    updates.end_time = slot.end_time;
   }
   return updates;
 }

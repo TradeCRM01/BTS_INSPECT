@@ -23,7 +23,7 @@ describe('invoice list cream document look', () => {
     expect(list).toContain('invoiceListEmptyTitle');
     expect(list).toContain('INVOICE_LIST_DEFAULT_FILTER');
     expect(list).toContain('Customer');
-    expect(list).toContain('Suburb');
+    expect(list).toContain('Due');
     expect(list).toContain('Total inc GST');
     expect(list).not.toContain('hub-invoice-kicker');
     expect(list).not.toContain('function InvoiceCard');

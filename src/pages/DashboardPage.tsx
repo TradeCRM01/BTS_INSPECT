@@ -614,7 +614,7 @@ export function DashboardPage() {
             <span className="dashboard-home-mark">Today</span>
           </header>
           <div className="dashboard-home-sheet-body">
-            <h1 className="ops-page-title dashboard-home-hero">Dashboard</h1>
+            <h1 className="ops-page-title dashboard-home-hero">Today</h1>
             <p className="hub-look-eyebrow dashboard-home-label dashboard-home-whisper">{whisper}</p>
 
             <div className="dashboard-home-tools">
@@ -643,6 +643,57 @@ export function DashboardPage() {
                 />
               </div>
             </div>
+
+            <div className="dashboard-home-section-head">
+              <h2 className="ops-section-title">On today</h2>
+              <Link to="/schedule" className="dashboard-home-all">Schedule ›</Link>
+            </div>
+
+            {jobsLoading ? (
+              <div className="flex justify-center py-16"><LoadingSpinner /></div>
+            ) : work.length === 0 ? (
+              <EmptyState
+                icon={Briefcase}
+                title="Nothing on today"
+                message="No jobs are booked for today. The week is on the schedule."
+              />
+            ) : (
+              <div className="dashboard-home-ledger">
+                <div className="dashboard-home-thead">
+                  <span>Time</span>
+                  <span>Job</span>
+                  <span>Place</span>
+                </div>
+                {work.map(job => {
+                  const state = dashboardJobState(job, lookDashboard ? dashboardLookNow() : undefined);
+                  const place = dashboardJobPlace(job);
+                  const meta = [
+                    formatJobRef(job),
+                    dashboardJobMetaLine(job) || place,
+                    dashboardCrewLabel(job.assigned_team, teamMembers),
+                    dashboardJobStateLabel(state),
+                  ].filter(Boolean).join(' · ');
+                  return (
+                    <Link
+                      key={job.id}
+                      to={dashboardJobHref(job.id)}
+                      data-dashboard-job={job.id}
+                      className="dashboard-home-row"
+                      aria-label="Open"
+                    >
+                      <span className="dashboard-home-time">
+                        {dashboardClockLabel(job.start_time, job.end_time)}
+                      </span>
+                      <span className="dashboard-home-job">
+                        <span className="dashboard-home-title">{`${formatJobRef(job)} · ${job.title}`}</span>
+                        <span className="dashboard-home-ref">{meta}</span>
+                      </span>
+                      <span className="dashboard-home-place">{place}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
 
             <section className="dashboard-home-strip" data-dashboard-reminders="1">
               <div className="dashboard-home-section-head">
@@ -704,57 +755,6 @@ export function DashboardPage() {
               )}
             </section>
 
-            <div className="dashboard-home-section-head">
-              <h2 className="ops-section-title">Today's schedule</h2>
-              <Link to="/schedule" className="dashboard-home-all">Schedule ›</Link>
-            </div>
-
-            {jobsLoading ? (
-              <div className="flex justify-center py-16"><LoadingSpinner /></div>
-            ) : work.length === 0 ? (
-              <EmptyState
-                icon={Briefcase}
-                title="Nothing on today"
-                message="No jobs are booked for today. The week is on the schedule."
-              />
-            ) : (
-              <div className="dashboard-home-ledger">
-                <div className="dashboard-home-thead">
-                  <span>Time</span>
-                  <span>Job</span>
-                  <span>Place</span>
-                </div>
-                {work.map(job => {
-                  const state = dashboardJobState(job, lookDashboard ? dashboardLookNow() : undefined);
-                  const place = dashboardJobPlace(job);
-                  const meta = [
-                    formatJobRef(job),
-                    dashboardJobMetaLine(job) || place,
-                    dashboardCrewLabel(job.assigned_team, teamMembers),
-                    dashboardJobStateLabel(state),
-                  ].filter(Boolean).join(' · ');
-                  return (
-                    <Link
-                      key={job.id}
-                      to={dashboardJobHref(job.id)}
-                      data-dashboard-job={job.id}
-                      className="dashboard-home-row"
-                      aria-label="Open"
-                    >
-                      <span className="dashboard-home-time">
-                        {dashboardClockLabel(job.start_time, job.end_time)}
-                      </span>
-                      <span className="dashboard-home-job">
-                        <span className="dashboard-home-title">{job.title}</span>
-                        <span className="dashboard-home-ref">{meta}</span>
-                      </span>
-                      <span className="dashboard-home-place">{place}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-
             {!widgetsLoading && (widgets ?? []).length === 0 && (
               <div className="dashboard-home-tools">
                 <button
@@ -794,7 +794,7 @@ export function DashboardPage() {
                   >
                     <div
                       ref={canvasRef}
-                      className={`dashboard-home-canvas relative overflow-x-auto${editMode ? ' is-editing' : ''}`}
+                      className={`dashboard-home-canvas relative overflow-x-hidden${editMode ? ' is-editing' : ''}`}
                       style={{ height: canvasHeight, minWidth: '100%' }}
                     >
                       {(widgets ?? []).map(w => (

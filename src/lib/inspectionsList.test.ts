@@ -257,6 +257,8 @@ describe('inspections list wiring', () => {
     expect(list).toContain('inspectionListOpenHref');
     expect(list).toContain("useState<InspectionListFilter>('action')");
     expect(list).toContain('Open or due');
+    expect(list).toContain('Loading…');
+    expect(list).toContain('Couldn’t load');
     expect(list).toContain('Search job, site, template, #0042');
     expect(list).toContain('title="Due"');
     expect(list).toContain('title="Open"');

@@ -8,6 +8,8 @@ export type { StatusStyle, StatusMap } from './StatusBadge';
 export { ContextMenu } from './ContextMenu';
 export type { MenuItem, MenuDivider, MenuEntry } from './ContextMenu';
 export { Modal } from './Modal';
+export { AppDialog } from './AppDialog';
+export { QueryState, queryCountWhisper } from './QueryState';
 export { DataTable } from './DataTable';
 export { ViewToggle, useViewMode } from './ViewToggle';
 export type { ViewMode } from './ViewToggle';

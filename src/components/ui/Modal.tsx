@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -23,26 +23,36 @@ const SIZE_CLASSES: Record<string, string> = {
 };
 
 export function Modal({ open, onClose, title, subtitle, children, footer, size = 'lg' }: ModalProps) {
+  const openerRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) return;
-    // Escape closes lightweight dialogs (e.g. confirm). Form editors use their own overlays
-    // and close only via Cancel / X so accidental Esc does not wipe input.
+    openerRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && size === 'sm') onClose();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
     };
     window.addEventListener('keydown', handleEsc);
     document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = '';
+      openerRef.current?.focus();
     };
-  }, [open, onClose, size]);
+  }, [open, onClose]);
 
   if (!open) return null;
 
   return createPortal(
     <div className="overlay-backdrop">
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className={`${SIZE_CLASSES[size]} animate-slide-up`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -54,7 +64,7 @@ export function Modal({ open, onClose, title, subtitle, children, footer, size =
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-md text-[#9CA3AF] hover:bg-[#F3F4F6] hover:text-[#1A1A1A] transition-colors shrink-0 ml-3"
+              className="w-11 h-11 flex items-center justify-center rounded-md text-[#9CA3AF] hover:bg-[#F3F4F6] hover:text-[#1A1A1A] transition-colors shrink-0 ml-3"
               aria-label="Close"
             >
               <X size={16} />

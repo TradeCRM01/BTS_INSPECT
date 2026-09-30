@@ -92,10 +92,10 @@ describe('todaysDashboardJobs', () => {
 });
 
 describe('dashboard row fields', () => {
-  it('prints stored times and All day when the job has no clock', () => {
+  it('prints stored times and Time not set when the job has no clock', () => {
     expect(dashboardClockLabel('07:30:00', '16:00:00')).toBe('07:30 – 16:00');
     expect(dashboardClockLabel('07:30:00', null)).toBe('07:30');
-    expect(dashboardClockLabel(null, '16:00:00')).toBe('All day');
+    expect(dashboardClockLabel(null, '16:00:00')).toBe('Time not set');
   });
 
   it('prefers the job site, then the client site, and reads an AU suburb', () => {

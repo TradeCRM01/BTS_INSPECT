@@ -122,6 +122,8 @@ function inspectionsListWhisper(args: {
   filter: InspectionListFilter;
   archived: boolean;
   count: number;
+  loading?: boolean;
+  error?: boolean;
 }): string {
   const filterLabel = args.archived
     ? 'Archived'
@@ -134,6 +136,8 @@ function inspectionsListWhisper(args: {
           : args.filter === 'completed'
             ? 'Ready'
             : 'Issued';
+  if (args.loading) return `${filterLabel} · Loading…`;
+  if (args.error) return `${filterLabel} · Couldn’t load`;
   const countLabel = args.count === 1 ? '1 inspection' : `${args.count} inspections`;
   return `${filterLabel} · ${countLabel}`;
 }
@@ -341,6 +345,8 @@ export function InspectionsPage() {
     filter: statusFilter,
     archived: showArchived,
     count: floorItems.length,
+    loading,
+    error: pageQueryBlocked(isError),
   });
 
   const toggleSelect = useCallback((id: string) => {
@@ -445,7 +451,9 @@ export function InspectionsPage() {
             {loading && (
               <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
             )}
-            {pageQueryBlocked(isError) && <PageError onRetry={refetch} />}
+            {pageQueryBlocked(isError) && (
+              <PageError message="Couldn’t load these inspections. Try again." onRetry={refetch} />
+            )}
 
             {noneAtAll && (
               <EmptyState

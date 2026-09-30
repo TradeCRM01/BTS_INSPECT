@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Users } from 'lucide-react';
@@ -6,6 +7,7 @@ import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
 import { useToast } from '../ui';
 import type { Job } from '../../types/crm';
+import { bookingIntervalIssue } from '../../lib/booking';
 
 function toTimeInput(t: string | null | undefined): string {
   return (t ?? '').slice(0, 5);
@@ -22,43 +24,45 @@ export function JobDispatchPanel({
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const assigned = job.assigned_team ?? [];
-  const scheduleHref = job.scheduled_date
-    ? `/schedule?date=${job.scheduled_date}`
-    : '/schedule';
+  const [date, setDate] = useState(job.scheduled_date ?? '');
+  const [start, setStart] = useState(toTimeInput(job.start_time));
+  const [end, setEnd] = useState(toTimeInput(job.end_time));
+  const [team, setTeam] = useState<string[]>(job.assigned_team ?? []);
+  const issue = bookingIntervalIssue(start || null, end || null);
+  const dirty = date !== (job.scheduled_date ?? '')
+    || start !== toTimeInput(job.start_time)
+    || end !== toTimeInput(job.end_time)
+    || team.join() !== (job.assigned_team ?? []).join();
+  const scheduleHref = date ? `/schedule?date=${date}` : '/schedule';
 
   const save = useMutation({
-    mutationFn: async (patch: Record<string, unknown>) => {
+    mutationFn: async () => {
       if (isDevFieldAuditAuth()) return;
-      const { error } = await supabase
-        .from('jobs')
-        .update({ ...patch, updated_at: new Date().toISOString() })
-        .eq('id', job.id);
+      const patch = {
+        scheduled_date: date || null,
+        start_time: start || null,
+        end_time: end || null,
+        assigned_team: team,
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await supabase.from('jobs').update(patch).eq('id', job.id);
       if (error) throw error;
-      if ('assigned_team' in patch || 'address' in patch) {
-        await persistLivingJobOnBoundJhas(job.id);
-      }
+      await persistLivingJobOnBoundJhas(job.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job', job.id] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
-      queryClient.invalidateQueries({ queryKey: ['job-jhas', job.id] });
-      queryClient.invalidateQueries({ queryKey: ['job-take5s', job.id] });
-      queryClient.invalidateQueries({ queryKey: ['job-inspections', job.id] });
-      queryClient.invalidateQueries({ queryKey: ['inspections'] });
-      queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
-      queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
-      queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
+      showToast('Booking saved');
     },
     onError: (e: Error) => showToast(e.message),
   });
 
-  const toggleCrew = (memberId: string) => {
-    const next = assigned.includes(memberId)
-      ? assigned.filter(id => id !== memberId)
-      : [...assigned, memberId];
-    save.mutate({ assigned_team: next });
+  const reset = () => {
+    setDate(job.scheduled_date ?? '');
+    setStart(toTimeInput(job.start_time));
+    setEnd(toTimeInput(job.end_time));
+    setTeam(job.assigned_team ?? []);
   };
 
   return (
@@ -79,46 +83,28 @@ export function JobDispatchPanel({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <label className="block">
             <span className="ops-field-label">Date</span>
-            <input
-              type="date"
-              value={job.scheduled_date ?? ''}
-              onChange={e => save.mutate({ scheduled_date: e.target.value || null })}
-              className="form-input"
-            />
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="form-input" />
           </label>
           <label className="block">
             <span className="ops-field-label">Start</span>
-            <input
-              type="time"
-              value={toTimeInput(job.start_time)}
-              onChange={e => save.mutate({ start_time: e.target.value || null })}
-              className="form-input"
-            />
+            <input type="time" value={start} onChange={e => setStart(e.target.value)} className="form-input" />
           </label>
           <label className="block">
             <span className="ops-field-label">End</span>
-            <input
-              type="time"
-              value={toTimeInput(job.end_time)}
-              onChange={e => save.mutate({ end_time: e.target.value || null })}
-              className="form-input"
-            />
+            <input type="time" value={end} onChange={e => setEnd(e.target.value)} className="form-input" />
           </label>
         </div>
+        {issue && <p className="ops-meta text-[#B42318] mb-3">{issue}</p>}
         <p className="ops-meta mb-3">
-          No date → Needs a date on the board. Dated but no crew → Unassigned. Dropping on a person adds them.
+          No date → Needs a date on the board. Dated but no crew → Unassigned. Time not set stays empty until you save clocks.
         </p>
 
         <div className="flex items-center justify-between gap-2 mb-2">
           <span className="ops-field-label mb-0 flex items-center gap-1.5">
             <Users size={13} /> Crew
           </span>
-          {assigned.length > 0 && (
-            <button
-              type="button"
-              onClick={() => save.mutate({ assigned_team: [] })}
-              className="ops-link text-xs"
-            >
+          {team.length > 0 && (
+            <button type="button" onClick={() => setTeam([])} className="ops-link text-xs">
               Clear crew
             </button>
           )}
@@ -128,14 +114,13 @@ export function JobDispatchPanel({
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {teamMembers.map(m => {
-              const selected = assigned.includes(m.id);
+              const selected = team.includes(m.id);
               return (
                 <button
                   key={m.id}
                   type="button"
-                  onClick={() => toggleCrew(m.id)}
-                  disabled={save.isPending}
-                  className={`px-2.5 py-1.5 min-h-[44px] sm:min-h-0 rounded-md text-xs font-medium transition-colors disabled:opacity-50 ${
+                  onClick={() => setTeam(prev => prev.includes(m.id) ? prev.filter(id => id !== m.id) : [...prev, m.id])}
+                  className={`px-2.5 py-1.5 min-h-[44px] sm:min-h-0 rounded-md text-xs font-medium transition-colors ${
                     selected
                       ? 'bg-navy text-white'
                       : 'bg-zebra text-muted border border-rule hover:text-navy'
@@ -147,8 +132,21 @@ export function JobDispatchPanel({
             })}
           </div>
         )}
-        {assigned.length === 0 && (
+        {team.length === 0 && (
           <p className="ops-meta mt-2">Unassigned — still on the board when a date is set.</p>
+        )}
+        {dirty && (
+          <div className="flex gap-2 mt-4">
+            <button type="button" className="btn-secondary min-h-[44px]" onClick={reset}>Cancel</button>
+            <button
+              type="button"
+              className="btn-primary min-h-[44px]"
+              disabled={!!issue || save.isPending}
+              onClick={() => save.mutate()}
+            >
+              {save.isPending ? 'Saving…' : 'Save booking'}
+            </button>
+          </div>
         )}
       </div>
     </div>

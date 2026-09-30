@@ -64,14 +64,14 @@ describe('reminders LOOK — same paper as the signed-in home', () => {
     expect(home).toContain('data-dashboard-reminders');
     expect(home).toContain('className="dashboard-home-strip"');
     expect(home).toContain('className="ops-section-title">Reminders');
-    expect(home).toContain('className="ops-section-title">Today\'s schedule');
+    expect(home).toContain('className="ops-section-title">On today');
     expect(home).toContain('to="/reminders" className="dashboard-home-all"');
     expect(home).toContain('to="/schedule" className="dashboard-home-all"');
     expect(home).toContain('id="dashboard-reminder-capture"');
     expect(home).toContain('className="dashboard-nudge" data-nudge-kind={n.kind}');
     expect(home).toContain('todayReminders(');
     expect(home).toContain('deriveNudges(');
-    expect(home.indexOf('data-dashboard-reminders')).toBeLessThan(home.indexOf('dashboard-home-ledger'));
+    expect(home.indexOf('dashboard-home-ledger')).toBeLessThan(home.indexOf('data-dashboard-reminders'));
   });
 
   it('renders one ReminderRow for both surfaces with tick, body link, chips, visibility, and postpone', () => {
