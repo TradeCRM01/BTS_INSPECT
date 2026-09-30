@@ -39,12 +39,15 @@ describe('quote PDF Looplet document look', () => {
     const preview = src('src/components/invoicing/CommercialPdfPreviewModal.tsx');
 
     expect(css).toContain('@media (max-width: 639px)');
+    expect(css).toContain('.hub-quote-pdf-frame');
+    expect(css).toContain('--quote-pdf-page: 794px');
     expect(css).toContain(".hub-quote-pdf-sheet iframe[title='Document PDF preview']");
-    expect(css).toContain('width: calc(100% / 0.72) !important');
-    expect(css).toContain('transform: scale(0.72)');
+    expect(css).toContain('transform: scale(calc(100cqi / var(--quote-pdf-page)))');
     expect(css).toContain('overflow-x: hidden');
+    expect(css).not.toContain('width: calc(100% / 0.72) !important');
     expect(preview).toContain('<iframe');
-    expect(preview).toContain('src={url}');
+    expect(preview).toContain('hub-quote-pdf-frame');
+    expect(preview).toContain('${url}#view=FitH');
   });
 
   it('LOOK frames cover quote PDF desktop and phone only', () => {
