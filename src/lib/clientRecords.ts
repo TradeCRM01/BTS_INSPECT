@@ -13,6 +13,16 @@ export function quoteRecordHref(quoteId: string): string {
   return `/quotes?id=${encodeURIComponent(quoteId)}`;
 }
 
+/** Quotes tray CTA: Open job goes to the job sheet when recommendQuoteAction says so. */
+export function quoteTrayActionHref(args: {
+  key: string;
+  quoteId: string;
+  jobId?: string | null;
+}): string {
+  if (args.key === 'open_job' && args.jobId) return jobRecordHref(args.jobId);
+  return quoteRecordHref(args.quoteId);
+}
+
 export function invoiceRecordHref(invoiceId: string): string {
   return invoiceHref(invoiceId);
 }

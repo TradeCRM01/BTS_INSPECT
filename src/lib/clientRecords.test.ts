@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   AU_ADDRESS_PLACEHOLDER,
@@ -31,6 +33,7 @@ import {
   newQuoteFromClientHref,
   quoteClientDetailFromClient,
   quoteRecordHref,
+  quoteTrayActionHref,
   telHref,
   visibleClientContacts,
   wouldScanCompanyLedger,
@@ -45,6 +48,31 @@ describe('client record hrefs', () => {
     expect(jobRecordHref('job-1')).toBe('/jobs/job-1');
     expect(quoteRecordHref('q1')).toBe('/quotes?id=q1');
     expect(invoiceRecordHref('inv-1')).toBe('/invoices?id=inv-1');
+  });
+
+  it('sends Quotes tray Open job to the job sheet, not the quote modal', () => {
+    expect(quoteTrayActionHref({
+      key: 'open_job',
+      quoteId: 'q-0001',
+      jobId: '6af0c8c6-2c75-4711-a3ab-7d325bc726b6',
+    })).toBe('/jobs/6af0c8c6-2c75-4711-a3ab-7d325bc726b6');
+    expect(quoteTrayActionHref({
+      key: 'open_job',
+      quoteId: 'q-0001',
+      jobId: null,
+    })).toBe('/quotes?id=q-0001');
+    expect(quoteTrayActionHref({
+      key: 'accept',
+      quoteId: 'q-0001',
+      jobId: 'job-1',
+    })).toBe('/quotes?id=q-0001');
+
+    const tray = readFileSync(resolve(process.cwd(), 'src/pages/ClientDetailPage.tsx'), 'utf8');
+    expect(tray).toContain('quoteTrayActionHref');
+    expect(tray).toContain('jobId: quote.job_id');
+    expect(tray).toContain('className={nextQuiet}');
+    expect(tray).toContain('data-quote-tray-action={next.key}');
+    expect(tray).toContain('{next.label}');
   });
 
   it('starts quote, job, and invoice create with the client preselected', () => {

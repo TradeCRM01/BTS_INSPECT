@@ -170,6 +170,33 @@ export function getAuditClient(id: string) {
   return clients?.find(c => c.id === id) ?? null;
 }
 
+/** Accepted quote with a job + invoice so the Clients Quotes tray can Open job. */
+export function getAuditClientQuotes() {
+  if (!isDevFieldAuditAuth()) return null;
+  return [{
+    id: AUDIT_QUOTE_ID,
+    quote_number: 1,
+    status: 'accepted' as const,
+    total: 1200,
+    description: 'Accepted site works',
+    job_id: AUDIT_DOC_JOB_ID,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    line_items: [{ description: 'Labour', quantity: 1 }],
+  }];
+}
+
+export function getAuditClientInvoices() {
+  if (!isDevFieldAuditAuth()) return null;
+  return [{
+    id: AUDIT_INVOICE_ID,
+    invoice_number: 1,
+    status: 'sent',
+    total: 1200,
+    due_date: '2026-09-01',
+    quote_id: AUDIT_QUOTE_ID,
+  }];
+}
+
 export function getAuditTeamMembers() {
   if (!isDevFieldAuditAuth()) return null;
   return [{
