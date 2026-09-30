@@ -942,14 +942,10 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         origin: documentShareOrigin(window.location.origin),
       }));
       closeMore();
-      if (result.kind === 'copied') {
-        setCopyConfirm(true);
-        showToast('Link copied');
-        window.setTimeout(() => setCopyConfirm(false), 2500);
-        return;
-      }
-      setErr(result.text);
-      showToast('Select and copy the link', 'info');
+      setCopyConfirm(true);
+      showToast('Link copied');
+      window.setTimeout(() => setCopyConfirm(false), 2500);
+      if (result.kind === 'manual') setErr(result.text);
     } catch (e) {
       closeMore();
       showToast(e instanceof Error ? e.message : 'Could not copy the link.', 'error');
