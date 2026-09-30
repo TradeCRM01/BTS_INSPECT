@@ -5528,6 +5528,62 @@
   /* Week-board document only. Same paper kit as signed quote / job sheet. */
   .hub-board-cal.is-week-doc.ops-page {
     background: #F5F0E6;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    min-height: calc(100dvh - 3.5rem);
+    height: calc(100dvh - 3.5rem);
+    padding: 12px 16px 16px;
+    overflow: hidden;
+  }
+
+  .hub-board-cal.is-week-doc .hub-schedule-desk,
+  .hub-board-cal.is-week-doc .hub-schedule-phone {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .hub-board-cal.is-week-doc .hub-week-document {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .hub-board-cal.is-week-doc .hub-week-sheet-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-board-cal.is-week-doc .hub-week-mount {
+      flex: 1 1 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+  }
+
+  .hub-board-cal.is-week-doc .hub-week-document .hub-week-board,
+  .hub-board-cal.is-week-doc .hub-week-document .hub-day-board {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    margin-top: 6px;
   }
 
   .hub-week-sheet,
@@ -6016,27 +6072,43 @@
   }
 
   .hub-day-track {
-    display: flex;
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    grid-template-rows: 44px var(--hub-day-rows, minmax(72px, 1fr));
     align-items: stretch;
+    flex: 1 1 auto;
     min-width: 0;
+    min-height: 0;
     max-width: 100%;
   }
 
+  .hub-day-crew-rail,
+  .hub-day-hours {
+    display: grid;
+    grid-template-rows: subgrid;
+    grid-row: 1 / -1;
+    min-height: 0;
+  }
+
   .hub-day-crew-rail {
-    flex: 0 0 104px;
     width: 104px;
     z-index: 5;
     background: #FFFDF8;
   }
 
   .hub-day-hours {
-    flex: 1 1 auto;
     min-width: 0;
     overflow-x: auto;
   }
 
+  .hub-day-crew-head,
+  .hub-day-hours-head {
+    min-height: 44px;
+  }
+
   .hub-day-crew-lock {
     width: 100%;
+    min-height: 0;
     background: #FFFDF8;
   }
 
@@ -6327,8 +6399,11 @@
       min-width: 1172px;
     }
 
+    .hub-day-track {
+      grid-template-columns: 88px minmax(0, 1fr);
+    }
+
     .hub-day-crew-rail {
-      flex-basis: 88px;
       width: 88px;
     }
 
@@ -6423,49 +6498,13 @@
       flex: 1 1 0;
       display: flex;
       flex-direction: column;
-      min-height: calc(100dvh - 17rem);
+      min-height: 0;
       margin-top: 4px;
     }
 
     .hub-board-cal.is-week-doc .hub-day-track {
       flex: 1 1 0;
       min-height: 0;
-    }
-
-    .hub-board-cal.is-week-doc .hub-day-crew-rail {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-
-    .hub-board-cal.is-week-doc .hub-day-crew-lock.hub-day-crew-head {
-      flex: 0 0 auto;
-    }
-
-    .hub-board-cal.is-week-doc .hub-day-crew-lock:not(.hub-day-crew-head) {
-      flex: 1 1 0;
-      height: auto !important;
-      min-height: 88px;
-    }
-
-    .hub-board-cal.is-week-doc .hub-day-hours {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-
-    .hub-board-cal.is-week-doc .hub-day-hours > .flex.border-b {
-      flex: 0 0 auto;
-    }
-
-    .hub-board-cal.is-week-doc .hub-day-hours > div:not(:first-child) {
-      flex: 1 1 0;
-      min-height: 0;
-    }
-
-    .hub-board-cal.is-week-doc .hub-day-hours [data-day-grid] {
-      height: 100% !important;
-      min-height: 88px;
     }
 
     .hub-week-head-full {

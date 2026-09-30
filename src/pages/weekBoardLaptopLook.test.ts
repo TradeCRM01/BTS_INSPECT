@@ -119,6 +119,12 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(board).toContain('hub-day-track');
     expect(board).toContain('hub-day-crew-rail');
     expect(board).toContain('hub-day-hours');
+    expect(board).toContain('--hub-day-rows');
+    expect(board).toContain('hub-day-hours-head');
+    expect(css).toContain('grid-template-rows: subgrid');
+    expect(css).toContain('.hub-board-cal.is-week-doc .hub-week-document {\n    max-width: none');
+    expect(lookCss()).not.toContain('.hub-day-crew-lock:not(.hub-day-crew-head)');
+    expect(lookCss()).not.toContain('height: auto !important');
     expect(board).toContain('scheduleChipClock');
     expect(board).toContain('schedulePlotTimes');
     expect(board).toContain('dayBoardHourWidthPx');
@@ -130,7 +136,7 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(css).toContain('.hub-week-cell.is-empty');
     expect(css).toContain('.hub-week-chip');
     expect(css).toContain('repeat(7, 156px)');
-    expect(css).toContain('repeat(7, minmax(0, 1fr))');
+    expect(css).toContain('repeat(7, minmax(104px, 1fr))');
     expect(css).toContain('.hub-week-head-short');
     expect(css).toContain('.hub-week-head-dow');
     expect(board).toContain('hub-week-head-dow');

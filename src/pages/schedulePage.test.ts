@@ -112,7 +112,7 @@ describe('schedule board cream paper look', () => {
     expect(css).toContain('.hub-week-sheet');
     expect(css).toContain('.hub-week-head-short');
     expect(css).toContain('.hub-week-head-dow');
-    expect(css).toContain('repeat(7, minmax(0, 1fr))');
+    expect(css).toContain('repeat(7, minmax(104px, 1fr))');
     expect(page).toContain('hub-week-range-short');
     expect(css).toContain('.hub-week-seg');
     expect(css).toContain('.hub-week-quiet');

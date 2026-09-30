@@ -499,10 +499,13 @@ export const DayBoardView = memo(function DayBoardView({
         </p>
       </div>
 
-      <div className="hub-day-track">
+      <div
+        className="hub-day-track"
+        style={{ ['--hub-day-rows' as string]: paintedRows.map(p => `minmax(${p.height}px, 1fr)`).join(' ') }}
+      >
         <div className="hub-day-crew-rail">
           <div className="hub-day-crew-lock hub-day-crew-head border-r border-b border-rule">
-            <div className="px-3 py-2 flex items-center gap-1.5">
+            <div className="px-3 flex items-center gap-1.5 h-full">
               <Users size={13} />
               <span className="hub-schedule-label">Crew</span>
             </div>
@@ -517,7 +520,6 @@ export const DayBoardView = memo(function DayBoardView({
                 painted.rowIdx < paintedRows.length - 1 ? 'border-b' : ''
               } ${painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'}`}
               style={{
-                height: painted.height,
                 borderLeft: painted.isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${painted.color}`,
               }}
               onClick={() => onDayClick(dateStr, painted.isUnassigned ? null : row.id)}
@@ -545,11 +547,11 @@ export const DayBoardView = memo(function DayBoardView({
         </div>
 
         <div ref={scrollRef} className="hub-day-hours job-cal-board-scroll" data-day-hours="1">
-          <div className="flex border-b border-rule" style={{ minWidth: gridWidth }}>
+          <div className="hub-day-hours-head flex border-b border-rule" style={{ minWidth: gridWidth }}>
             {HOURS.map(h => (
               <div key={h} className="text-center border-r border-rule last:border-r-0"
                 style={{ width: hourWidth }}>
-                <div className="px-1 py-2">
+                <div className="px-1 flex items-center justify-center h-full">
                   <span className="hub-schedule-label">{formatHourLabel(h)}</span>
                 </div>
               </div>
@@ -568,8 +570,8 @@ export const DayBoardView = memo(function DayBoardView({
             >
               <div
                 data-day-grid="1"
-                className="relative cursor-pointer"
-                style={{ width: gridWidth, height: painted.height }}
+                className="relative cursor-pointer h-full"
+                style={{ width: gridWidth }}
                 onClick={() => onDayClick(dateStr, painted.isUnassigned ? null : painted.row.id)}
                 onDragOver={e => { e.preventDefault(); setDropHoverId(painted.row.id); }}
                 onDrop={e => handleTimeDrop(e, painted.row.id)}
