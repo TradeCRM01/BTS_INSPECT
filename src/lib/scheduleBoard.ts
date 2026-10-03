@@ -67,6 +67,14 @@ export function parseScheduleView(raw: string | null | undefined): ScheduleViewM
   return raw === 'day' ? 'day' : 'week';
 }
 
+/** Calendar day from a `?date=YYYY-MM-DD` query. Invalid values stay null. */
+export function parseScheduleDateParam(raw: string | null | undefined): Date | null {
+  const key = scheduleDayKey(raw);
+  if (!key) return null;
+  const parsed = new Date(`${key}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 /** Calendar day from `jobs.scheduled_date` (date or ISO timestamp). */
 export function scheduleDayKey(value: string | null | undefined): string | null {
   if (!value) return null;

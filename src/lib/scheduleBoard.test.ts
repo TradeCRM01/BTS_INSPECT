@@ -8,6 +8,7 @@ import {
   groupJobsByScheduleDay,
   jobMatchesCrewFilter,
   jobsOnScheduleDay,
+  parseScheduleDateParam,
   parseScheduleView,
   scheduleChipClock,
   scheduleClockLabel,
@@ -65,6 +66,15 @@ describe('parseScheduleView', () => {
     expect(parseScheduleView('week')).toBe('week');
     expect(parseScheduleView('day')).toBe('day');
     expect(parseScheduleView('month')).toBe('week');
+  });
+});
+
+describe('parseScheduleDateParam', () => {
+  it('reads a calendar day and rejects junk', () => {
+    const parsed = parseScheduleDateParam('2026-09-21');
+    expect(parsed && scheduleDateKey(parsed)).toBe('2026-09-21');
+    expect(parseScheduleDateParam('not-a-date')).toBeNull();
+    expect(parseScheduleDateParam(null)).toBeNull();
   });
 });
 

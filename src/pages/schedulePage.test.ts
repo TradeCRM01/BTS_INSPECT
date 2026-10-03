@@ -63,6 +63,9 @@ describe('schedule page week/day board', () => {
     expect(page).toContain('placePickedHint');
     expect(page).toContain('placePickedOnCell');
     expect(page).not.toContain('today at 8:00');
+    expect(page).toContain('scheduleSearchFromState');
+    expect(page).toContain('scheduleLocationStep');
+    expect(page).not.toContain("next.delete('date')");
   });
 
   it('groups the phone week from existing scheduled_date fields', () => {
