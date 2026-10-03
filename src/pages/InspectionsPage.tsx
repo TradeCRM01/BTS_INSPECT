@@ -34,6 +34,7 @@ import {
   inspectionListEmptyMessage,
   inspectionListEmptyTitle,
   inspectionListOpenHref,
+  inspectionsListWhisper,
   sortInspectionListFloor,
   type InspectionListFilter,
   type InspectionListFloorItem,
@@ -116,26 +117,6 @@ function inspectionsListLookRows(): Inspection[] {
       meta: { siteName: 'Midland Workshops', siteAddress: '44 Helena St, Midland WA 6056' },
     },
   ];
-}
-
-function inspectionsListWhisper(args: {
-  filter: InspectionListFilter;
-  archived: boolean;
-  count: number;
-}): string {
-  const filterLabel = args.archived
-    ? 'Archived'
-    : args.filter === 'action'
-      ? 'Open or due'
-      : args.filter === 'all'
-        ? 'All'
-        : args.filter === 'draft'
-          ? 'Draft'
-          : args.filter === 'completed'
-            ? 'Ready'
-            : 'Issued';
-  const countLabel = args.count === 1 ? '1 inspection' : `${args.count} inspections`;
-  return `${filterLabel} · ${countLabel}`;
 }
 
 function inspectionListStatusText(item: InspectionListFloorItem<Inspection>, displayStatus: string): string {
@@ -341,6 +322,8 @@ export function InspectionsPage() {
     filter: statusFilter,
     archived: showArchived,
     count: floorItems.length,
+    loading,
+    error: !lookInspectionsList && isError && !pageQueryBlocked(isError),
   });
 
   const toggleSelect = useCallback((id: string) => {
