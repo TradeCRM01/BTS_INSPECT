@@ -61,7 +61,7 @@ describe('AppDialog restore and stack', () => {
     expect(dialog).toContain('dialogStackEnter');
     expect(dialog).toContain('dialogStackLeave');
     expect(dialog).toContain('dialogStackIsTop');
-    expect(dialog).toContain('opener?.focus()');
-    expect(dialog).toMatch(/return \(\) => \{[\s\S]*opener\?\.focus\(\)/);
+    expect(dialog).toContain('openerRef.current?.focus()');
+    expect(dialog).toMatch(/return \(\) => \{[\s\S]*openerRef\.current\?\.focus\(\)/);
   });
 });

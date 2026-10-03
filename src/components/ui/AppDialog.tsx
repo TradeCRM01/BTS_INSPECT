@@ -18,9 +18,13 @@ const FOCUSABLE = [
 ].join(',');
 
 function focusables(root: HTMLElement): HTMLElement[] {
-  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-    el => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true',
-  );
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(el => {
+    if (el.hasAttribute('disabled') || el.getAttribute('aria-hidden') === 'true') return false;
+    if (el.getClientRects().length === 0) return false;
+    const details = el.closest('details');
+    if (details && !details.open && el !== details.querySelector('summary')) return false;
+    return true;
+  });
 }
 
 export function AppDialog({
@@ -61,25 +65,41 @@ export function AppDialog({
         ? document.activeElement
         : null;
     }
-    if (plan.focusFirst) {
-      const panel = panelRef.current;
-      const nodes = panel ? focusables(panel) : [];
-      (nodes[0] ?? panel)?.focus();
-    }
     if (plan.restoreOpener) {
       openerRef.current?.focus();
     }
+    if (!plan.focusFirst) return;
+    const moveFocus = () => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const nodes = focusables(panel);
+      (nodes[0] ?? panel).focus();
+    };
+    moveFocus();
+    const rid = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(moveFocus);
+    });
+    const tid = window.setTimeout(moveFocus, 0);
+    return () => {
+      window.cancelAnimationFrame(rid);
+      window.clearTimeout(tid);
+      if (open) wasOpenRef.current = false;
+    };
   }, [open]);
+
+  useEffect(() => {
+    return () => {
+      openerRef.current?.focus();
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     const token = dialogStackEnter();
     stackTokenRef.current = token;
-    const opener = openerRef.current;
     return () => {
       dialogStackLeave(token);
       if (stackTokenRef.current === token) stackTokenRef.current = null;
-      opener?.focus();
     };
   }, [open]);
 
