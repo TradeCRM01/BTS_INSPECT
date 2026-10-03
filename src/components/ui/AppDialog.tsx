@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import {
   dialogFocusPlan,
   dialogKeyAction,
@@ -53,7 +53,7 @@ export function AppDialog({
   onCloseRef.current = onClose;
   escapeRef.current = escape;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const plan = dialogFocusPlan(open, wasOpenRef.current);
     wasOpenRef.current = open;
     if (plan.captureOpener) {
