@@ -16,6 +16,10 @@ describe('quote / invoice Send Next look', () => {
     const quoteCss = css.slice(css.indexOf('/* Quote surfaces only.'), css.indexOf('/* Job list + open job sheet only.'));
     const invoiceCss = css.slice(css.indexOf('/* Invoice surfaces only:'), css.indexOf('/* Job-hub JHA/SWMS') > -1 ? css.indexOf('/* Job-hub JHA/SWMS') : css.length);
 
+    expect(quotes).toContain('<AppDialog');
+    expect(invoices).toContain('<AppDialog');
+    expect(quotes).toContain('panelClassName="overlay-panel-xl hub-quote-editor"');
+    expect(invoices).toContain('panelClassName="overlay-panel-xl hub-invoice-editor"');
     expect(quoteNext).toContain("next.key === 'send' ? 'btn-primary' : 'hub-next'");
     expect(quoteNext).toContain('onSend(quote.id)');
     expect(invoiceNext).toContain('className="btn-primary"');

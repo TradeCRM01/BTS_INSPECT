@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { dialogStackEnter, dialogStackLeave } from '../../lib/dialogFocus';
 
 interface ModalProps {
   open: boolean;
@@ -32,7 +33,9 @@ export function Modal({ open, onClose, title, subtitle, children, footer, size =
     };
     window.addEventListener('keydown', handleEsc);
     document.body.style.overflow = 'hidden';
+    const token = dialogStackEnter();
     return () => {
+      dialogStackLeave(token);
       window.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = '';
     };
