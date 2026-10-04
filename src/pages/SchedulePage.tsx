@@ -44,7 +44,7 @@ import {
   decideExistingJobPlacement,
   draftFromJobDrop,
   isRetryableDispatchFailure,
-  nextPlacementIdempotencyKey,
+  attachPlacementKey,
   placementSummary,
   type PlacementDecision,
   type PlacementDraft,
@@ -856,7 +856,6 @@ export function SchedulePage() {
         names,
       },
     };
-    const key = nextPlacementIdempotencyKey(placementKeyRef.current, draftInput);
     const decision = decideExistingJobPlacement({
       job: current,
       drop,
@@ -867,11 +866,16 @@ export function SchedulePage() {
         ? (liveCrew.find(m => m.id === drop.employeeId)?.name ?? 'Crew')
         : 'Unassigned',
       overrideReason,
-      idempotencyKey: key,
+      idempotencyKey: placementKeyRef.current?.key ?? '',
       times,
     });
+    if (decision.status === 'save' || decision.status === 'need_override') {
+      const keyed = attachPlacementKey(placementKeyRef.current, decision.prepared.input);
+      decision.prepared.input = keyed.input;
+      decision.prepared.fingerprint = keyed.remembered.fingerprint;
+      placementKeyRef.current = keyed.remembered;
+    }
     if (decision.status === 'save') {
-      placementKeyRef.current = { fingerprint: decision.prepared.fingerprint, key };
       void runDispatchSave(decision.prepared.input);
       return;
     }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateDispatch, type DispatchSnapshot } from './dispatchResources';
 import {
+  attachPlacementKey,
   decideExistingJobPlacement,
   draftFromJobDrop,
   isRetryableDispatchFailure,
@@ -212,6 +213,42 @@ describe('existing-job placement decisions', () => {
       { ...a, overrideReason: 'site open', idempotencyKey: 'ignored' },
     );
     expect(changed).not.toBe('keep-me');
+  });
+
+  it('reuses a key for the same final clocks and mints a new one when the end changes', () => {
+    const open = snap({
+      job: {
+        id: 'job-1',
+        status: 'scheduled',
+        scheduled_date: '2026-09-21',
+        start_time: '10:00:00',
+        end_time: '11:00:00',
+        assigned_team: ['alice'],
+      },
+      hours: [{ memberId: 'alice', date: '2026-09-21', working: true, start: '06:00', end: '20:00' }],
+    });
+    const placed = (end: string) => {
+      const decision = decideExistingJobPlacement({
+        job: job({ scheduled_date: '2026-09-21', start_time: '10:00:00', end_time: '11:00:00', assigned_team: ['alice'] }),
+        drop: { jobId: 'job-1', date: '2026-09-21', employeeId: 'alice', startTime: '10:00:00' },
+        role: 'member',
+        packMissing: false,
+        snapshot: open,
+        crewLabel: 'Alice',
+        idempotencyKey: 'placeholder',
+        times: { start_time: '10:00:00', end_time: end },
+      });
+      expect(decision.status).toBe('save');
+      if (decision.status !== 'save') throw new Error(decision.status);
+      expect(decision.prepared.input.snapshot.job.end_time).toBe(end);
+      return decision.prepared.input;
+    };
+    const first = attachPlacementKey(null, placed('11:00:00'));
+    const retry = attachPlacementKey(first.remembered, placed('11:00:00'));
+    const edited = attachPlacementKey(first.remembered, placed('12:00:00'));
+    expect(retry.input.idempotencyKey).toBe(first.input.idempotencyKey);
+    expect(edited.input.idempotencyKey).not.toBe(first.input.idempotencyKey);
+    expect(edited.input.snapshot.job.end_time).toBe('12:00:00');
   });
 
   it('reserves retry for lost, stale, or missing-RPC failures', () => {

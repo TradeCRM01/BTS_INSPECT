@@ -56,6 +56,9 @@ export type PlacementDecision =
   | { status: 'invalid_interval'; message: string; summary: PlacementSummary };
 
 export function placementFingerprint(input: SaveJobDispatchInput): string {
+  const skills = input.skillRequirements
+    .map(s => `${s.skillId}:${s.minHolders ?? 1}`)
+    .sort();
   return [
     input.jobId,
     input.snapshot.job.scheduled_date ?? '',
@@ -63,7 +66,22 @@ export function placementFingerprint(input: SaveJobDispatchInput): string {
     input.snapshot.job.end_time ?? '',
     (input.assignedTeam ?? []).slice().sort().join(','),
     (input.overrideReason ?? '').trim(),
+    input.dispatchReady ? '1' : '0',
+    String(input.requiredCrewCount),
+    skills.join(','),
+    (input.resourceIds ?? []).slice().sort().join(','),
+    input.reschedule ? 'reschedule' : 'assign',
   ].join('|');
+}
+
+/** Key the save that will be sent, after clocks and crew are on that input. */
+export function attachPlacementKey(
+  previous: { fingerprint: string; key: string } | null,
+  input: SaveJobDispatchInput,
+): { input: SaveJobDispatchInput; remembered: { fingerprint: string; key: string } } {
+  const key = nextPlacementIdempotencyKey(previous, input);
+  const next = { ...input, idempotencyKey: key };
+  return { input: next, remembered: { fingerprint: placementFingerprint(next), key } };
 }
 
 export function nextPlacementIdempotencyKey(

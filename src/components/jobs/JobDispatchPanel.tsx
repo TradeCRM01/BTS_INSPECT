@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Users } from 'lucide-react';
@@ -14,13 +14,44 @@ import {
   normalizeClock,
   staffHoursFromRow,
 } from '../../lib/booking';
-import { decideDispatchWrite, evaluateDispatch, isSoftWriteGate, newIdempotencyKey } from '../../lib/dispatchResources';
+import { decideDispatchWrite, evaluateDispatch, isSoftWriteGate } from '../../lib/dispatchResources';
 import { loadDispatchPack, snapshotForJob } from '../../lib/loadDispatchSnapshot';
-import { DISPATCH_UNAVAILABLE, nextIdempotencyKeyAfterResult, saveJobDispatch } from '../../lib/saveJobDispatch';
+import { attachPlacementKey } from '../../lib/schedulePlacement';
+import {
+  DISPATCH_UNAVAILABLE,
+  bookingDraftAfterRefresh,
+  bookingFieldsForWrite,
+  saveJobDispatch,
+  skillRequirementsForWrite,
+} from '../../lib/saveJobDispatch';
 import type { DispatchRole, JobResourceRequirement } from '../../lib/dispatchResources';
 
 function toTimeInput(t: string | null | undefined): string {
   return (t ?? '').slice(0, 5);
+}
+
+async function siblingJobsOn(jobId: string, date: string | null) {
+  if (!date) return [];
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('id, status, scheduled_date, start_time, end_time, assigned_team')
+    .eq('scheduled_date', date)
+    .neq('id', jobId);
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function staffHoursOn(date: string | null) {
+  if (!date) return [];
+  const { data, error } = await supabase
+    .from('staff_hours')
+    .select('member_id, date, working, start_time, end_time, reason')
+    .eq('date', date);
+  if (error) {
+    if (isMissingRelation(error)) return [];
+    throw error;
+  }
+  return (data ?? []).map(staffHoursFromRow);
 }
 
 export function JobDispatchPanel({
@@ -42,24 +73,51 @@ export function JobDispatchPanel({
     : '/schedule';
   const names = memberNameMap(teamMembers);
   const [overrideReason, setOverrideReason] = useState('');
-  const [pendingKey, setPendingKey] = useState(() => newIdempotencyKey());
+  const placementKeyRef = useRef<{ fingerprint: string; key: string } | null>(null);
   const [draftDate, setDraftDate] = useState(job.scheduled_date ?? '');
   const [draftStart, setDraftStart] = useState(toTimeInput(job.start_time));
   const [draftEnd, setDraftEnd] = useState(toTimeInput(job.end_time));
   const [draftCrew, setDraftCrew] = useState<string[]>(assigned);
+  const [bookingConflict, setBookingConflict] = useState<string | null>(null);
+  const bookingDirtyRef = useRef(false);
+
+  const incomingDraft = {
+    date: job.scheduled_date ?? '',
+    start: toTimeInput(job.start_time),
+    end: toTimeInput(job.end_time),
+    crew: job.assigned_team ?? [],
+  };
+  const jobBookingKey = [
+    job.id,
+    job.updated_at,
+    incomingDraft.date,
+    incomingDraft.start,
+    incomingDraft.end,
+    incomingDraft.crew.join(','),
+  ].join('|');
 
   useEffect(() => {
-    setDraftDate(job.scheduled_date ?? '');
-    setDraftStart(toTimeInput(job.start_time));
-    setDraftEnd(toTimeInput(job.end_time));
-    setDraftCrew(job.assigned_team ?? []);
-  }, [job.id, job.updated_at, job.scheduled_date, job.start_time, job.end_time, job.assigned_team]);
+    const next = bookingDraftAfterRefresh(bookingDirtyRef.current, incomingDraft, {
+      date: draftDate,
+      start: draftStart,
+      end: draftEnd,
+      crew: draftCrew,
+    });
+    setDraftDate(next.draft.date);
+    setDraftStart(next.draft.start);
+    setDraftEnd(next.draft.end);
+    setDraftCrew(next.draft.crew);
+    setBookingConflict(next.conflict);
+    // The draft values are the previous edit. The key is the saved job.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobBookingKey]);
 
   const bookingDirty =
     (draftDate || '') !== (job.scheduled_date ?? '')
     || draftStart !== toTimeInput(job.start_time)
     || draftEnd !== toTimeInput(job.end_time)
     || draftCrew.join(',') !== assigned.join(',');
+  bookingDirtyRef.current = bookingDirty;
   const intervalIssue = bookingIntervalIssue(normalizeClock(draftStart), normalizeClock(draftEnd));
 
   const { data: pack } = useQuery({
@@ -67,37 +125,41 @@ export function JobDispatchPanel({
     queryFn: () => loadDispatchPack([job.id]),
   });
 
-  const { data: siblings = [] } = useQuery({
-    queryKey: ['dispatch-siblings', job.scheduled_date],
+  const availabilityDate = draftDate || null;
+  const siblingsQuery = useQuery({
+    queryKey: ['dispatch-siblings', job.id, availabilityDate],
     queryFn: async () => {
-      if (!job.scheduled_date) return [];
+      if (!availabilityDate) return [];
       const { data, error } = await supabase
         .from('jobs')
         .select('id, status, scheduled_date, start_time, end_time, assigned_team')
-        .eq('scheduled_date', job.scheduled_date)
+        .eq('scheduled_date', availabilityDate)
         .neq('id', job.id);
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!job.scheduled_date,
+    enabled: !!availabilityDate,
   });
 
-  const { data: hours = [] } = useQuery({
-    queryKey: ['staff-hours', job.scheduled_date],
+  const hoursQuery = useQuery({
+    queryKey: ['staff-hours', availabilityDate],
     queryFn: async () => {
-      if (!job.scheduled_date) return [];
+      if (!availabilityDate) return [];
       const { data, error } = await supabase
         .from('staff_hours')
         .select('member_id, date, working, start_time, end_time, reason')
-        .eq('date', job.scheduled_date);
+        .eq('date', availabilityDate);
       if (error) {
         if (isMissingRelation(error)) return [];
         throw error;
       }
       return (data ?? []).map(staffHoursFromRow);
     },
-    enabled: !!job.scheduled_date,
+    enabled: !!availabilityDate,
   });
+  const siblings = siblingsQuery.data ?? [];
+  const hours = hoursQuery.data ?? [];
+  const checkingAvailability = !!availabilityDate && (siblingsQuery.isPending || hoursQuery.isPending);
 
   const snapshot = useMemo(() => {
     if (!pack || pack.missing) return null;
@@ -120,7 +182,7 @@ export function JobDispatchPanel({
   }, [pack, job, siblings, hours, names, draftDate, draftStart, draftEnd, draftCrew]);
 
   const dispatchLocked = !pack || pack.missing || !snapshot;
-  const conflicts = snapshot ? evaluateDispatch(snapshot) : [];
+  const conflicts = snapshot && !checkingAvailability ? evaluateDispatch(snapshot) : [];
   const writePreview = snapshot
     ? decideDispatchWrite({ role, conflicts, overrideReason })
     : { ok: true, blocker: null, overridden: false as const };
@@ -142,38 +204,71 @@ export function JobDispatchPanel({
       if (!snapshot || !pack || pack.missing) {
         throw new Error(DISPATCH_UNAVAILABLE);
       }
-      const assignedTeam = patch.assigned_team ?? draftCrew;
+      if (checkingAvailability && (patch.scheduled_date !== undefined ? (patch.scheduled_date || null) : (job.scheduled_date ?? null)) === (draftDate || null)) {
+        throw new Error('Checking availability for that date.');
+      }
+      const booked = bookingFieldsForWrite({
+        scheduled_date: job.scheduled_date ?? null,
+        start_time: job.start_time ?? null,
+        end_time: job.end_time ?? null,
+        assigned_team: job.assigned_team ?? [],
+      }, patch);
+      const assignedTeam = booked.assigned_team;
       const nextJob = {
         ...snapshot.job,
-        scheduled_date: patch.scheduled_date === undefined ? (draftDate || null) : patch.scheduled_date,
-        start_time: patch.start_time === undefined ? normalizeClock(draftStart) : patch.start_time,
-        end_time: patch.end_time === undefined ? normalizeClock(draftEnd) : patch.end_time,
+        scheduled_date: booked.scheduled_date,
+        start_time: booked.start_time,
+        end_time: booked.end_time,
         assigned_team: assignedTeam,
       };
-      const result = await saveJobDispatch({
+      const skills = skillRequirementsForWrite(
+        snapshot.skillRequirements,
+        patch.skillIds,
+      );
+      const sameDay = (booked.scheduled_date ?? null) === (draftDate || null);
+      const writeSnapshot = sameDay
+        ? { ...snapshot, job: nextJob, assignedTeam }
+        : snapshotForJob({
+          job: {
+            id: job.id,
+            status: job.status,
+            scheduled_date: booked.scheduled_date,
+            start_time: booked.start_time,
+            end_time: booked.end_time,
+            assigned_team: assignedTeam,
+            dispatch_ready: job.dispatch_ready,
+            required_crew_count: job.required_crew_count,
+          },
+          pack,
+          siblings: await siblingJobsOn(job.id, booked.scheduled_date),
+          hours: await staffHoursOn(booked.scheduled_date),
+          names,
+        });
+      const keyed = attachPlacementKey(placementKeyRef.current, {
         jobId: job.id,
         expectedUpdatedAt: job.updated_at,
         assignedTeam,
         resourceIds: patch.resourceIds ?? snapshot.allocations.map(a => a.resourceId),
-        skillRequirements: (patch.skillIds ?? snapshot.skillRequirements.map(s => s.skillId))
-          .map(skillId => ({ skillId })),
+        skillRequirements: skills,
         resourceRequirements: patch.resourceRequirements ?? snapshot.resourceRequirements,
         requiredCrewCount: patch.required_crew_count ?? snapshot.requiredCrewCount,
         dispatchReady: patch.dispatch_ready ?? snapshot.dispatchReady,
         role,
         overrideReason,
         reschedule: patch.reschedule,
-        idempotencyKey: pendingKey,
-        snapshot: { ...snapshot, job: nextJob, assignedTeam },
+        snapshot: { ...writeSnapshot, job: nextJob, assignedTeam, skillRequirements: skills },
       });
+      placementKeyRef.current = keyed.remembered;
+      const result = await saveJobDispatch(keyed.input);
       if (!result.ok) throw new Error(result.message);
       if (assignedTeam !== job.assigned_team) {
         await persistLivingJobOnBoundJhas(job.id);
       }
       return result;
     },
-    onSuccess: (result) => {
-      if (result) setPendingKey(key => nextIdempotencyKeyAfterResult(result, key));
+    onSuccess: () => {
+      bookingDirtyRef.current = false;
+      setBookingConflict(null);
       queryClient.invalidateQueries({ queryKey: ['job', job.id] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
@@ -210,10 +305,12 @@ export function JobDispatchPanel({
   };
 
   const resetBooking = () => {
+    bookingDirtyRef.current = false;
     setDraftDate(job.scheduled_date ?? '');
     setDraftStart(toTimeInput(job.start_time));
     setDraftEnd(toTimeInput(job.end_time));
     setDraftCrew(job.assigned_team ?? []);
+    setBookingConflict(null);
   };
 
   const toggleSkill = (skillId: string) => {
@@ -310,7 +407,7 @@ export function JobDispatchPanel({
           <button
             type="button"
             className="btn-primary"
-            disabled={dispatchLocked || persist.isPending || !!intervalIssue || !bookingDirty}
+            disabled={dispatchLocked || persist.isPending || !!intervalIssue || !bookingDirty || checkingAvailability}
             onClick={saveBooking}
           >
             Save booking
@@ -324,6 +421,12 @@ export function JobDispatchPanel({
             Cancel
           </button>
         </div>
+        {checkingAvailability ? (
+          <p className="ops-meta mb-3" role="status" data-testid="dispatch-availability">Checking availability for that date…</p>
+        ) : null}
+        {bookingConflict ? (
+          <p className="ops-meta mb-3" role="status" data-testid="dispatch-booking-conflict">{bookingConflict}</p>
+        ) : null}
         <p className="ops-meta mb-3">
           No date → Needs a date on the board. Dated but no crew → Unassigned. Dropping on a person adds them.
         </p>
@@ -390,6 +493,7 @@ export function JobDispatchPanel({
                 min={0}
                 className="form-input"
                 value={job.required_crew_count ?? 0}
+                disabled={dispatchLocked || checkingAvailability || persist.isPending}
                 onChange={e => persist.mutate({ required_crew_count: Number(e.target.value) || 0 })}
               />
             </label>
@@ -404,6 +508,7 @@ export function JobDispatchPanel({
                         key={skill.id}
                         type="button"
                         className={`px-2.5 min-h-11 rounded-md text-xs ${on ? 'bg-navy text-white' : 'bg-zebra border border-rule'}`}
+                        disabled={checkingAvailability || persist.isPending}
                         onClick={() => toggleSkill(skill.id)}
                       >
                         {skill.name}
@@ -424,6 +529,7 @@ export function JobDispatchPanel({
                         key={res.id}
                         type="button"
                         className={`px-2.5 min-h-11 rounded-md text-xs ${on ? 'bg-navy text-white' : 'bg-zebra border border-rule'}`}
+                        disabled={checkingAvailability || persist.isPending}
                         onClick={() => toggleResource(res.id)}
                       >
                         {res.name}{res.status === 'out_of_service' ? ' (out)' : ''}
@@ -437,6 +543,7 @@ export function JobDispatchPanel({
               <input
                 type="checkbox"
                 checked={!!job.dispatch_ready}
+                disabled={checkingAvailability || persist.isPending}
                 onChange={e => persist.mutate({ dispatch_ready: e.target.checked })}
               />
               <span className="text-sm">Ready for dispatch</span>

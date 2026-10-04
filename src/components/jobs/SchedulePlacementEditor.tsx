@@ -32,6 +32,8 @@ export function SchedulePlacementEditor({
 }) {
   const [reason, setReason] = useState('');
   const dialogRef = useRef<HTMLDivElement>(null);
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
   const start = (draft.startTime ?? '').slice(0, 5);
   const end = (draft.endTime ?? '').slice(0, 5);
   const intervalIssue = bookingIntervalIssue(normalizeClock(start), normalizeClock(end || null));
@@ -45,12 +47,12 @@ export function SchedulePlacementEditor({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onCancel();
+        onCancelRef.current();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+  }, []);
 
   const crewLabel = useMemo(() => {
     if (!draft.employeeId) return 'Unassigned';

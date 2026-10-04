@@ -50,6 +50,57 @@ export function nextIdempotencyKeyAfterResult(
   return currentKey;
 }
 
+/** Requirement edits keep stored holder counts. A new skill starts at one holder. */
+export function skillRequirementsForWrite(
+  stored: Array<{ skillId: string; minHolders?: number }>,
+  skillIds?: string[],
+): Array<{ skillId: string; minHolders?: number }> {
+  if (!skillIds) return stored;
+  return skillIds.map(skillId => {
+    const found = stored.find(s => s.skillId === skillId);
+    return found ? { skillId: found.skillId, minHolders: found.minHolders ?? 1 } : { skillId, minHolders: 1 };
+  });
+}
+
+/** Omitted booking fields stay on the saved job. A draft is not a default. */
+export function bookingFieldsForWrite(
+  committed: {
+    scheduled_date: string | null;
+    start_time: string | null;
+    end_time: string | null;
+    assigned_team: string[];
+  },
+  patch: {
+    scheduled_date?: string | null;
+    start_time?: string | null;
+    end_time?: string | null;
+    assigned_team?: string[];
+  },
+): {
+  scheduled_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  assigned_team: string[];
+} {
+  return {
+    scheduled_date: patch.scheduled_date !== undefined ? patch.scheduled_date : committed.scheduled_date,
+    start_time: patch.start_time !== undefined ? patch.start_time : committed.start_time,
+    end_time: patch.end_time !== undefined ? patch.end_time : committed.end_time,
+    assigned_team: patch.assigned_team !== undefined ? patch.assigned_team : committed.assigned_team,
+  };
+}
+
+export function bookingDraftAfterRefresh<T>(dirty: boolean, incoming: T, draft: T): {
+  draft: T;
+  conflict: string | null;
+} {
+  if (!dirty) return { draft: incoming, conflict: null };
+  return {
+    draft,
+    conflict: 'This job was updated. Your unsaved booking is still here. Cancel to take the saved version.',
+  };
+}
+
 export function buildDispatchPayload(input: SaveJobDispatchInput, write: { overridden: boolean }): Record<string, unknown> {
   const conflicts = evaluateDispatch({
     ...input.snapshot,
@@ -81,6 +132,7 @@ export function buildDispatchPayload(input: SaveJobDispatchInput, write: { overr
     end_time: input.snapshot.job.end_time,
     override_reason: input.overrideReason ?? null,
     overridden: write.overridden,
+    reschedule: !!input.reschedule,
     event_kind: dispatchEventKind(write.overridden, !!input.reschedule),
     idempotency_key: input.idempotencyKey ?? newIdempotencyKey(),
     conflicts: conflicts.map(c => ({ kind: c.kind, severity: c.severity, message: c.message })),

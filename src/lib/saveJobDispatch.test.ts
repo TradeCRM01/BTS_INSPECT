@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { buildDispatchPayload, mapDispatchRpcError, saveJobDispatch } from './saveJobDispatch';
+import { bookingDraftAfterRefresh, bookingFieldsForWrite, buildDispatchPayload, mapDispatchRpcError, saveJobDispatch, skillRequirementsForWrite } from './saveJobDispatch';
 import type { DispatchSnapshot } from './dispatchResources';
 
 const snap: DispatchSnapshot = {
@@ -103,6 +103,68 @@ describe('save_job_dispatch payload', () => {
   });
 });
 
+describe('booking draft stays off requirement writes', () => {
+  const committed = {
+    scheduled_date: '2026-10-04',
+    start_time: '10:00:00',
+    end_time: '11:00:00',
+    assigned_team: ['jack'],
+  };
+
+  it('keeps the saved booking when a requirement patch omits clocks', () => {
+    expect(bookingFieldsForWrite(committed, {})).toEqual(committed);
+    expect(bookingFieldsForWrite(committed, {
+      scheduled_date: '2026-10-05',
+      start_time: null,
+      end_time: null,
+      assigned_team: ['m6'],
+    })).toEqual({
+      scheduled_date: '2026-10-05',
+      start_time: null,
+      end_time: null,
+      assigned_team: ['m6'],
+    });
+  });
+
+  it('keeps min holders on skills the user did not change', () => {
+    const stored = [{ skillId: 'licence', minHolders: 2 }, { skillId: 'height', minHolders: 1 }];
+    expect(skillRequirementsForWrite(stored)).toEqual(stored);
+    expect(skillRequirementsForWrite(stored, ['licence', 'new-skill'])).toEqual([
+      { skillId: 'licence', minHolders: 2 },
+      { skillId: 'new-skill', minHolders: 1 },
+    ]);
+  });
+
+  it('refreshes a clean draft and keeps a dirty one', () => {
+    const incoming = { date: '2026-10-05', start: '08:00', end: '09:00', crew: ['ada'] };
+    const draft = { date: '2026-10-04', start: '10:00', end: '12:00', crew: ['jack'] };
+    expect(bookingDraftAfterRefresh(false, incoming, draft).draft).toEqual(incoming);
+    expect(bookingDraftAfterRefresh(false, incoming, draft).conflict).toBeNull();
+    const kept = bookingDraftAfterRefresh(true, incoming, draft);
+    expect(kept.draft).toEqual(draft);
+    expect(kept.conflict).toMatch(/unsaved booking/);
+  });
+
+  it('sends reschedule so a move is not recorded as an assignment', () => {
+    const payload = buildDispatchPayload({
+      jobId: 'job-1',
+      expectedUpdatedAt: '2026-09-14T00:00:00.000Z',
+      assignedTeam: ['alice'],
+      resourceIds: [],
+      skillRequirements: [{ skillId: 'licence', minHolders: 2 }],
+      resourceRequirements: [],
+      requiredCrewCount: 0,
+      dispatchReady: false,
+      role: 'admin',
+      reschedule: true,
+      snapshot: snap,
+    }, { overridden: false });
+    expect(payload.reschedule).toBe(true);
+    expect(payload.event_kind).toBe('reschedule');
+    expect(payload.skill_requirements).toEqual([{ skill_id: 'licence', min_holders: 2 }]);
+  });
+});
+
 describe('production dispatch SQL is tenant scoped and without anon DML', () => {
   it('ships the reviewed save_job_dispatch migration without a demo catalogue', () => {
     const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260918200000_083_save_job_dispatch.sql'), 'utf8');
@@ -147,6 +209,11 @@ describe('production dispatch SQL is tenant scoped and without anon DML', () => 
     expect(sql).toMatch(/invalid_interval/);
     expect(sql).toMatch(/already received save_job_dispatch_clear_times/);
     expect(sql).not.toMatch(/v_start := coalesce\(nullif\(p->>'start_time'/);
+    const leave = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261004120000_085_save_job_dispatch_leave_date_kind.sql'), 'utf8');
+    expect(leave).toMatch(/NOT \(p \? 'scheduled_date'\)/);
+    expect(leave).toMatch(/hours_unavailable/);
+    expect(leave).toMatch(/h\.working IS NOT TRUE/);
+    expect(leave).toMatch(/p->>'event_kind'/);
     expect(sql).not.toMatch(/CREATE TABLE/);
     expect(mapDispatchRpcError({ message: 'invalid_interval', code: '22007' }).message).toMatch(/End must be after start/);
   });
