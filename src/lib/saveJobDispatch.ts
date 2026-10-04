@@ -90,14 +90,42 @@ export function bookingFieldsForWrite(
   };
 }
 
-export function bookingDraftAfterRefresh<T>(dirty: boolean, incoming: T, draft: T): {
-  draft: T;
-  conflict: string | null;
-} {
-  if (!dirty) return { draft: incoming, conflict: null };
+export type BookingDraftFields = {
+  date: string;
+  start: string;
+  end: string;
+  crew: string[];
+};
+
+export const BOOKING_REFRESH_CONFLICT =
+  'This job was updated. Your unsaved booking is still here. Cancel to take the saved version.';
+
+export function bookingDraftsEqual(a: BookingDraftFields, b: BookingDraftFields): boolean {
+  return a.date === b.date
+    && a.start === b.start
+    && a.end === b.end
+    && a.crew.join(',') === b.crew.join(',');
+}
+
+/** Dirty means the draft differs from the last adopted booking, not from the job that just arrived. */
+export function acceptBookingRefresh(args: {
+  jobId: string;
+  previousJobId: string;
+  accepted: BookingDraftFields;
+  draft: BookingDraftFields;
+  incoming: BookingDraftFields;
+}): { jobId: string; accepted: BookingDraftFields; draft: BookingDraftFields; conflict: string | null } {
+  if (args.jobId !== args.previousJobId) {
+    return { jobId: args.jobId, accepted: args.incoming, draft: args.incoming, conflict: null };
+  }
+  if (bookingDraftsEqual(args.draft, args.accepted) || bookingDraftsEqual(args.draft, args.incoming)) {
+    return { jobId: args.jobId, accepted: args.incoming, draft: args.incoming, conflict: null };
+  }
   return {
-    draft,
-    conflict: 'This job was updated. Your unsaved booking is still here. Cancel to take the saved version.',
+    jobId: args.jobId,
+    accepted: args.accepted,
+    draft: args.draft,
+    conflict: bookingDraftsEqual(args.accepted, args.incoming) ? null : BOOKING_REFRESH_CONFLICT,
   };
 }
 

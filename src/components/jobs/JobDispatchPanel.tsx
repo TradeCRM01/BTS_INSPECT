@@ -19,15 +19,31 @@ import { loadDispatchPack, snapshotForJob } from '../../lib/loadDispatchSnapshot
 import { attachPlacementKey } from '../../lib/schedulePlacement';
 import {
   DISPATCH_UNAVAILABLE,
-  bookingDraftAfterRefresh,
+  acceptBookingRefresh,
+  bookingDraftsEqual,
   bookingFieldsForWrite,
   saveJobDispatch,
   skillRequirementsForWrite,
+  type BookingDraftFields,
 } from '../../lib/saveJobDispatch';
 import type { DispatchRole, JobResourceRequirement } from '../../lib/dispatchResources';
 
 function toTimeInput(t: string | null | undefined): string {
   return (t ?? '').slice(0, 5);
+}
+
+function bookingFromJob(job: {
+  scheduled_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  assigned_team?: string[] | null;
+}): BookingDraftFields {
+  return {
+    date: job.scheduled_date ?? '',
+    start: toTimeInput(job.start_time),
+    end: toTimeInput(job.end_time),
+    crew: job.assigned_team ?? [],
+  };
 }
 
 async function siblingJobsOn(jobId: string, date: string | null) {
@@ -67,57 +83,70 @@ export function JobDispatchPanel({
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const assigned = job.assigned_team ?? [];
   const scheduleHref = job.scheduled_date
     ? `/schedule?date=${job.scheduled_date}&view=day`
     : '/schedule';
   const names = memberNameMap(teamMembers);
   const [overrideReason, setOverrideReason] = useState('');
   const placementKeyRef = useRef<{ fingerprint: string; key: string } | null>(null);
-  const [draftDate, setDraftDate] = useState(job.scheduled_date ?? '');
-  const [draftStart, setDraftStart] = useState(toTimeInput(job.start_time));
-  const [draftEnd, setDraftEnd] = useState(toTimeInput(job.end_time));
-  const [draftCrew, setDraftCrew] = useState<string[]>(assigned);
+  const openedBooking = bookingFromJob(job);
+  const [baseline, setBaseline] = useState(openedBooking);
+  const baselineRef = useRef(baseline);
+  const baselineJobIdRef = useRef(job.id);
+  baselineRef.current = baseline;
+  const [draftDate, setDraftDate] = useState(openedBooking.date);
+  const [draftStart, setDraftStart] = useState(openedBooking.start);
+  const [draftEnd, setDraftEnd] = useState(openedBooking.end);
+  const [draftCrew, setDraftCrew] = useState<string[]>(openedBooking.crew);
   const [bookingConflict, setBookingConflict] = useState<string | null>(null);
-  const bookingDirtyRef = useRef(false);
-
-  const incomingDraft = {
-    date: job.scheduled_date ?? '',
-    start: toTimeInput(job.start_time),
-    end: toTimeInput(job.end_time),
-    crew: job.assigned_team ?? [],
+  const draftFields: BookingDraftFields = {
+    date: draftDate,
+    start: draftStart,
+    end: draftEnd,
+    crew: draftCrew,
   };
+  const draftRef = useRef(draftFields);
+  const conflictRef = useRef(bookingConflict);
+  draftRef.current = draftFields;
+  conflictRef.current = bookingConflict;
   const jobBookingKey = [
     job.id,
     job.updated_at,
-    incomingDraft.date,
-    incomingDraft.start,
-    incomingDraft.end,
-    incomingDraft.crew.join(','),
+    job.scheduled_date ?? '',
+    toTimeInput(job.start_time),
+    toTimeInput(job.end_time),
+    (job.assigned_team ?? []).join(','),
   ].join('|');
 
   useEffect(() => {
-    const next = bookingDraftAfterRefresh(bookingDirtyRef.current, incomingDraft, {
-      date: draftDate,
-      start: draftStart,
-      end: draftEnd,
-      crew: draftCrew,
+    const incoming = bookingFromJob(job);
+    if (job.id !== baselineJobIdRef.current) placementKeyRef.current = null;
+    const next = acceptBookingRefresh({
+      jobId: job.id,
+      previousJobId: baselineJobIdRef.current,
+      accepted: baselineRef.current,
+      draft: draftRef.current,
+      incoming,
     });
-    setDraftDate(next.draft.date);
-    setDraftStart(next.draft.start);
-    setDraftEnd(next.draft.end);
-    setDraftCrew(next.draft.crew);
-    setBookingConflict(next.conflict);
-    // The draft values are the previous edit. The key is the saved job.
+    const unchanged = next.jobId === baselineJobIdRef.current
+      && bookingDraftsEqual(next.accepted, baselineRef.current)
+      && bookingDraftsEqual(next.draft, draftRef.current)
+      && next.conflict === conflictRef.current;
+    baselineJobIdRef.current = next.jobId;
+    baselineRef.current = next.accepted;
+    if (!unchanged) {
+      setBaseline(next.accepted);
+      setDraftDate(next.draft.date);
+      setDraftStart(next.draft.start);
+      setDraftEnd(next.draft.end);
+      setDraftCrew(next.draft.crew);
+      setBookingConflict(next.conflict);
+    }
+    // draftRef is the edit already on screen. The key is the saved job.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobBookingKey]);
 
-  const bookingDirty =
-    (draftDate || '') !== (job.scheduled_date ?? '')
-    || draftStart !== toTimeInput(job.start_time)
-    || draftEnd !== toTimeInput(job.end_time)
-    || draftCrew.join(',') !== assigned.join(',');
-  bookingDirtyRef.current = bookingDirty;
+  const bookingDirty = !bookingDraftsEqual(draftFields, baseline);
   const intervalIssue = bookingIntervalIssue(normalizeClock(draftStart), normalizeClock(draftEnd));
 
   const { data: pack } = useQuery({
@@ -267,8 +296,7 @@ export function JobDispatchPanel({
       return result;
     },
     onSuccess: () => {
-      bookingDirtyRef.current = false;
-      setBookingConflict(null);
+      placementKeyRef.current = null;
       queryClient.invalidateQueries({ queryKey: ['job', job.id] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
@@ -305,11 +333,11 @@ export function JobDispatchPanel({
   };
 
   const resetBooking = () => {
-    bookingDirtyRef.current = false;
-    setDraftDate(job.scheduled_date ?? '');
-    setDraftStart(toTimeInput(job.start_time));
-    setDraftEnd(toTimeInput(job.end_time));
-    setDraftCrew(job.assigned_team ?? []);
+    const baseline = baselineRef.current;
+    setDraftDate(baseline.date);
+    setDraftStart(baseline.start);
+    setDraftEnd(baseline.end);
+    setDraftCrew(baseline.crew);
     setBookingConflict(null);
   };
 

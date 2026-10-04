@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { bookingDraftAfterRefresh, bookingFieldsForWrite, buildDispatchPayload, mapDispatchRpcError, saveJobDispatch, skillRequirementsForWrite } from './saveJobDispatch';
+import { acceptBookingRefresh, bookingFieldsForWrite, buildDispatchPayload, mapDispatchRpcError, saveJobDispatch, skillRequirementsForWrite } from './saveJobDispatch';
 import type { DispatchSnapshot } from './dispatchResources';
 
 const snap: DispatchSnapshot = {
@@ -135,14 +135,33 @@ describe('booking draft stays off requirement writes', () => {
     ]);
   });
 
-  it('refreshes a clean draft and keeps a dirty one', () => {
-    const incoming = { date: '2026-10-05', start: '08:00', end: '09:00', crew: ['ada'] };
-    const draft = { date: '2026-10-04', start: '10:00', end: '12:00', crew: ['jack'] };
-    expect(bookingDraftAfterRefresh(false, incoming, draft).draft).toEqual(incoming);
-    expect(bookingDraftAfterRefresh(false, incoming, draft).conflict).toBeNull();
-    const kept = bookingDraftAfterRefresh(true, incoming, draft);
-    expect(kept.draft).toEqual(draft);
+  it('adopts a clean refresh and a job change, and keeps a real edit', () => {
+    const accepted = { date: '2026-10-04', start: '08:00', end: '09:00', crew: ['jack'] };
+    const incoming = { date: '2026-10-04', start: '10:00', end: '11:00', crew: ['jack'] };
+    expect(acceptBookingRefresh({
+      jobId: 'job-a',
+      previousJobId: 'job-a',
+      accepted,
+      draft: accepted,
+      incoming,
+    }).draft).toEqual(incoming);
+    const edited = { ...accepted, end: '09:30' };
+    const kept = acceptBookingRefresh({
+      jobId: 'job-a',
+      previousJobId: 'job-a',
+      accepted,
+      draft: edited,
+      incoming,
+    });
+    expect(kept.draft).toEqual(edited);
     expect(kept.conflict).toMatch(/unsaved booking/);
+    expect(acceptBookingRefresh({
+      jobId: 'job-b',
+      previousJobId: 'job-a',
+      accepted,
+      draft: edited,
+      incoming: { date: '2026-10-05', start: '14:00', end: '15:00', crew: ['m6'] },
+    }).draft).toEqual({ date: '2026-10-05', start: '14:00', end: '15:00', crew: ['m6'] });
   });
 
   it('sends reschedule so a move is not recorded as an assignment', () => {
