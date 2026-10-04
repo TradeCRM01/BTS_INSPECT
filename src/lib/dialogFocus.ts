@@ -45,3 +45,72 @@ export function dialogStackIsTop(token: symbol): boolean {
 export function dialogStackDepth(): number {
   return dialogStack.length;
 }
+
+const FOCUSABLE = [
+  'a[href]',
+  'button:not([disabled])',
+  'textarea:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'summary',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+export function dialogFocusableControls(root: HTMLElement): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(el => {
+    if (el.hasAttribute('disabled') || el.getAttribute('aria-hidden') === 'true') return false;
+    if (el.getClientRects().length === 0) return false;
+    const details = el.closest('details');
+    if (details && !details.open && el !== details.querySelector('summary')) return false;
+    return true;
+  });
+}
+
+export function applyDialogKey(
+  event: KeyboardEvent,
+  panel: HTMLElement | null,
+  onClose: () => void,
+  escape: boolean,
+): void {
+  const action = dialogKeyAction(event.key, event.shiftKey);
+  if (action === 'close') {
+    if (!escape) return;
+    event.preventDefault();
+    onClose();
+    return;
+  }
+  if (action !== 'trap' || !panel) return;
+  const list = dialogFocusableControls(panel);
+  if (list.length === 0) {
+    event.preventDefault();
+    panel.focus();
+    return;
+  }
+  const first = list[0];
+  const last = list[list.length - 1];
+  const active = document.activeElement;
+  const activeIndex = list.findIndex(node => node === active);
+  if (event.shiftKey && (active === first || activeIndex < 0)) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (active === last || activeIndex < 0)) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+let scrollLocks = 0;
+let scrollOverflow = '';
+
+export function lockDialogScroll(): void {
+  if (typeof document === 'undefined') return;
+  if (scrollLocks === 0) scrollOverflow = document.body.style.overflow;
+  scrollLocks += 1;
+  document.body.style.overflow = 'hidden';
+}
+
+export function unlockDialogScroll(): void {
+  if (typeof document === 'undefined' || scrollLocks === 0) return;
+  scrollLocks -= 1;
+  if (scrollLocks === 0) document.body.style.overflow = scrollOverflow;
+}

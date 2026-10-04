@@ -1,31 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import {
+  applyDialogKey,
+  dialogFocusableControls,
   dialogFocusPlan,
-  dialogKeyAction,
   dialogStackEnter,
   dialogStackIsTop,
   dialogStackLeave,
 } from '../../lib/dialogFocus';
 import { OverlayPortal } from './OverlayPortal';
-
-const FOCUSABLE = [
-  'a[href]',
-  'button:not([disabled])',
-  'textarea:not([disabled])',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  '[tabindex]:not([tabindex="-1"])',
-].join(',');
-
-function focusables(root: HTMLElement): HTMLElement[] {
-  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(el => {
-    if (el.hasAttribute('disabled') || el.getAttribute('aria-hidden') === 'true') return false;
-    if (el.getClientRects().length === 0) return false;
-    const details = el.closest('details');
-    if (details && !details.open && el !== details.querySelector('summary')) return false;
-    return true;
-  });
-}
 
 export function AppDialog({
   open,
@@ -53,26 +35,30 @@ export function AppDialog({
   const onCloseRef = useRef(onClose);
   const escapeRef = useRef(escape);
   const wasOpenRef = useRef(false);
+  const openRef = useRef(open);
+  const mountedRef = useRef(false);
   const stackTokenRef = useRef<symbol | null>(null);
   onCloseRef.current = onClose;
   escapeRef.current = escape;
+  openRef.current = open;
 
   useLayoutEffect(() => {
     const plan = dialogFocusPlan(open, wasOpenRef.current);
     wasOpenRef.current = open;
     if (plan.captureOpener) {
-      openerRef.current = document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
+      const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      if (!panelRef.current?.contains(active)) openerRef.current = active;
     }
     if (plan.restoreOpener) {
-      openerRef.current?.focus();
+      const opener = openerRef.current;
+      openerRef.current = null;
+      opener?.focus();
     }
     if (!plan.focusFirst) return;
     const moveFocus = () => {
       const panel = panelRef.current;
       if (!panel) return;
-      const nodes = focusables(panel);
+      const nodes = dialogFocusableControls(panel);
       (nodes[0] ?? panel).focus();
     };
     moveFocus();
@@ -83,13 +69,22 @@ export function AppDialog({
     return () => {
       window.cancelAnimationFrame(rid);
       window.clearTimeout(tid);
-      if (open) wasOpenRef.current = false;
+      // Render already stored the next open flag. A close must keep wasOpen
+      // so the next run restores focus. A strict-mode rerun while still open
+      // must forget it so focus runs again.
+      if (openRef.current) wasOpenRef.current = false;
     };
   }, [open]);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
-      openerRef.current?.focus();
+      mountedRef.current = false;
+      const opener = openerRef.current;
+      queueMicrotask(() => {
+        if (mountedRef.current) return;
+        opener?.focus();
+      });
     };
   }, []);
 
@@ -108,32 +103,7 @@ export function AppDialog({
     const onKey = (e: KeyboardEvent) => {
       const token = stackTokenRef.current;
       if (token && !dialogStackIsTop(token)) return;
-      const action = dialogKeyAction(e.key, e.shiftKey);
-      if (action === 'close' && escapeRef.current) {
-        e.preventDefault();
-        onCloseRef.current();
-        return;
-      }
-      if (action !== 'trap') return;
-      const panel = panelRef.current;
-      if (!panel) return;
-      const list = focusables(panel);
-      if (list.length === 0) {
-        e.preventDefault();
-        panel.focus();
-        return;
-      }
-      const first = list[0];
-      const last = list[list.length - 1];
-      const active = document.activeElement;
-      const activeIndex = list.findIndex(node => node === active);
-      if (e.shiftKey && (active === first || activeIndex < 0)) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && (active === last || activeIndex < 0)) {
-        e.preventDefault();
-        first.focus();
-      }
+      applyDialogKey(e, panelRef.current, () => onCloseRef.current(), escapeRef.current);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

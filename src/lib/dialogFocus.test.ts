@@ -61,7 +61,7 @@ describe('AppDialog restore and stack', () => {
     expect(dialog).toContain('dialogStackEnter');
     expect(dialog).toContain('dialogStackLeave');
     expect(dialog).toContain('dialogStackIsTop');
-    expect(dialog).toContain('openerRef.current?.focus()');
-    expect(dialog).toMatch(/return \(\) => \{[\s\S]*openerRef\.current\?\.focus\(\)/);
+    expect(dialog).toContain('queueMicrotask');
+    expect(dialog).toMatch(/queueMicrotask\(\(\) => \{[\s\S]*opener\?\.focus\(\)/);
   });
 });

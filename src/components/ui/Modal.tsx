@@ -1,8 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { dialogStackEnter, dialogStackLeave } from '../../lib/dialogFocus';
+import {
+  applyDialogKey,
+  dialogFocusableControls,
+  dialogFocusPlan,
+  dialogStackEnter,
+  dialogStackIsTop,
+  dialogStackLeave,
+  lockDialogScroll,
+  unlockDialogScroll,
+} from '../../lib/dialogFocus';
 
 interface ModalProps {
   open: boolean;
@@ -13,6 +22,11 @@ interface ModalProps {
   footer?: ReactNode;
   /** sm = confirms; md/lg/xl/full = forms (default lg for workspace use) */
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  /**
+   * Escape cancels a confirm. A larger sheet stays open so a draft or a save
+   * in flight is not dropped. Nested quote and invoice Send opt in.
+   */
+  closeOnEscape?: boolean;
 }
 
 const SIZE_CLASSES: Record<string, string> = {
@@ -23,29 +37,90 @@ const SIZE_CLASSES: Record<string, string> = {
   full: 'overlay-panel-xl',
 };
 
-export function Modal({ open, onClose, title, subtitle, children, footer, size = 'lg' }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  subtitle,
+  children,
+  footer,
+  size = 'lg',
+  closeOnEscape,
+}: ModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const wasOpenRef = useRef(false);
+  const openRef = useRef(open);
+  const onCloseRef = useRef(onClose);
+  const escapeRef = useRef(closeOnEscape ?? size === 'sm');
+  const mountedRef = useRef(false);
+  const stackTokenRef = useRef<symbol | null>(null);
+  onCloseRef.current = onClose;
+  escapeRef.current = closeOnEscape ?? size === 'sm';
+  openRef.current = open;
+
+  useLayoutEffect(() => {
+    const plan = dialogFocusPlan(open, wasOpenRef.current);
+    wasOpenRef.current = open;
+    if (plan.captureOpener) {
+      const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      if (!panelRef.current?.contains(active)) openerRef.current = active;
+    }
+    if (plan.restoreOpener) {
+      const opener = openerRef.current;
+      openerRef.current = null;
+      opener?.focus();
+    }
+    if (!plan.focusFirst) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const nodes = dialogFocusableControls(panel);
+    (nodes[0] ?? panel).focus();
+    return () => {
+      if (openRef.current) wasOpenRef.current = false;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const opener = openerRef.current;
+      queueMicrotask(() => {
+        if (mountedRef.current) return;
+        opener?.focus();
+      });
+    };
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-    // Escape closes lightweight dialogs (e.g. confirm). Form editors use their own overlays
-    // and close only via Cancel / X so accidental Esc does not wipe input.
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && size === 'sm') onClose();
-    };
-    window.addEventListener('keydown', handleEsc);
-    document.body.style.overflow = 'hidden';
+    lockDialogScroll();
     const token = dialogStackEnter();
+    stackTokenRef.current = token;
+    const onKey = (event: KeyboardEvent) => {
+      if (!dialogStackIsTop(token)) return;
+      applyDialogKey(event, panelRef.current, () => onCloseRef.current(), escapeRef.current);
+    };
+    window.addEventListener('keydown', onKey);
     return () => {
       dialogStackLeave(token);
-      window.removeEventListener('keydown', handleEsc);
-      document.body.style.overflow = '';
+      if (stackTokenRef.current === token) stackTokenRef.current = null;
+      unlockDialogScroll();
+      window.removeEventListener('keydown', onKey);
     };
-  }, [open, onClose, size]);
+  }, [open]);
 
   if (!open) return null;
 
   return createPortal(
     <div className="overlay-backdrop">
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
         className={`${SIZE_CLASSES[size]} animate-slide-up`}
         onClick={(e) => e.stopPropagation()}
       >

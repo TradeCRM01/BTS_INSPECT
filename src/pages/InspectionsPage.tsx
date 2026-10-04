@@ -323,7 +323,7 @@ export function InspectionsPage() {
     archived: showArchived,
     count: floorItems.length,
     loading,
-    error: !lookInspectionsList && isError && !pageQueryBlocked(isError),
+    error: !lookInspectionsList && isError,
   });
 
   const toggleSelect = useCallback((id: string) => {

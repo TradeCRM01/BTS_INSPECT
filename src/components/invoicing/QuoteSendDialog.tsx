@@ -374,7 +374,7 @@ export function QuoteSendDialog({
   const ready = showShare && !!share && share.canCopyLink && share.canDownloadPdf;
 
   return (
-    <Modal open onClose={onClose} size="md">
+    <Modal open onClose={onClose} size="md" closeOnEscape>
       <div className="hub-invoice-send hub-quote-send">
         <div className="hub-invoice-send-head">
           <div className="min-w-0">
