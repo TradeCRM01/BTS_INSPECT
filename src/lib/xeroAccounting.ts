@@ -31,6 +31,15 @@ export type XeroMissCode =
 
 export const INVOICE_MARKED_PAID_MESSAGE = 'Invoice marked as paid';
 
+/** Raw supabase.functions.invoke misses. Not a payment miss. Do not put these on the paid banner. */
+export function isPaidBannerInvokeNoise(message: string): boolean {
+  const text = message.trim();
+  if (!text) return false;
+  return /edge function/i.test(text)
+    || /failed to send a request/i.test(text)
+    || /non-2xx status/i.test(text);
+}
+
 /** Stored invoice statuses that already left the draft tray — same push as paid. */
 export const XERO_SYNCABLE_INVOICE_STATUSES = ['sent', 'overdue', 'paid'] as const;
 export type XeroSyncableInvoiceStatus = (typeof XERO_SYNCABLE_INVOICE_STATUSES)[number];
@@ -239,6 +248,7 @@ export function invoiceMarkPaidXeroMissLine(xero: XeroAfterPaidResult): string |
     return `${INVOICE_MARKED_PAID_MESSAGE}. Invoice sync is off.`;
   }
   if (/nothing to attach/i.test(xero.message)) return `${INVOICE_MARKED_PAID_MESSAGE}. Nothing to attach in Xero.`;
+  if (isPaidBannerInvokeNoise(xero.message)) return null;
   return `${INVOICE_MARKED_PAID_MESSAGE}. ${xero.message}`;
 }
 

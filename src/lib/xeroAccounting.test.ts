@@ -19,6 +19,7 @@ import {
   decideXeroPushOnSend,
   invoiceMarkPaidToast,
   invoiceMarkPaidXeroMissLine,
+  isPaidBannerInvokeNoise,
   invoiceSendXeroMissLine,
   INVOICE_MARKED_PAID_MESSAGE,
   paidInvoicesAlreadyInXero,
@@ -448,6 +449,15 @@ describe('decideXeroPaymentOnMarkPaid / attach gates', () => {
       .toBe(INVOICE_MARKED_PAID_MESSAGE);
     expect(invoiceMarkPaidToast({ ok: false, message: xeroMissMessage('not_connected') }))
       .toBe('Invoice marked as paid. Xero is not connected.');
+    expect(isPaidBannerInvokeNoise('Failed to send a request to the Edge Function')).toBe(true);
+    expect(invoiceMarkPaidToast({
+      ok: false,
+      message: 'Failed to send a request to the Edge Function',
+    })).toBe(INVOICE_MARKED_PAID_MESSAGE);
+    expect(invoiceMarkPaidXeroMissLine({
+      ok: false,
+      message: 'Edge Function returned a non-2xx status code',
+    })).toBeNull();
     expect(xeroPaymentAttachedMessage()).toBe('Attached payment in Xero.');
     expect(xeroPaymentAttachedMessage({ attached: 2 })).toBe('Attached 2 payments in Xero.');
   });
