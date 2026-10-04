@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
+import { AppDialog, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineItem } from '../components/invoicing/LineItemEditor';
@@ -612,14 +612,15 @@ function InvoicePaymentConfirm({
 }) {
   const payment = fullInvoicePayment(total);
   return (
-    <div className="hub-invoice-payment-backdrop" onClick={onCancel}>
-      <section
-        className="hub-invoice-payment-confirm"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="invoice-payment-title"
-        onClick={event => event.stopPropagation()}
-      >
+    <AppDialog
+      open
+      onClose={onCancel}
+      labelledBy="invoice-payment-title"
+      className="hub-invoice-payment-backdrop"
+      panelClassName="hub-invoice-payment-confirm"
+      backdropClose
+    >
+      <section>
         <p className="hub-invoice-payment-eyebrow">Payment</p>
         <h2 id="invoice-payment-title">Record payment received</h2>
         <p className="hub-invoice-payment-copy">
@@ -638,7 +639,7 @@ function InvoicePaymentConfirm({
           </button>
         </div>
       </section>
-    </div>
+    </AppDialog>
   );
 }
 
@@ -1071,8 +1072,13 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   }, []);
 
   return (
-    <div className="overlay-backdrop">
-      <div className="overlay-panel-xl hub-invoice-editor" onClick={e => e.stopPropagation()}>
+    <>
+    <AppDialog
+      open
+      onClose={onClose}
+      title="Invoice"
+      panelClassName="overlay-panel-xl hub-invoice-editor"
+    >
         <div className="hub-invoice-toolbar">
           <div className="hub-invoice-editor-act">
             {next.key === 'setup_email' && next.href && (
@@ -1448,12 +1454,12 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         </div>
         </div>
         ) : null}
-      </div>
 
+    </AppDialog>
       {showPreview && previewData && (
         <CommercialPdfPreviewModal data={previewData} onClose={() => setShowPreview(false)} />
       )}
-    </div>
+    </>
   );
 }
 

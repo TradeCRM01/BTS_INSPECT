@@ -198,3 +198,19 @@ export function clientJobsEmptyTitle(args: { error?: boolean; count: number }): 
   if (args.count === 0) return 'No jobs yet';
   return '';
 }
+
+/** Clients Invoices tray: show the job number this invoice belongs to. */
+export function clientInvoiceJobRef(args: {
+  jobId?: string | null;
+  quoteId?: string | null;
+  jobs: { id: string; job_number?: number | null }[];
+  quotes?: { id: string; job_id?: string | null }[];
+}): string | null {
+  const jobId = args.jobId
+    || args.quotes?.find(quote => quote.id === args.quoteId)?.job_id
+    || null;
+  if (!jobId) return null;
+  const job = args.jobs.find(row => row.id === jobId);
+  if (job?.job_number == null) return null;
+  return `#${padClientJobNumber(job.job_number)}`;
+}

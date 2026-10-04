@@ -22,10 +22,25 @@ describe('quote editor Looplet document look', () => {
     expect(editor).toContain('className="btn-primary"');
     expect(editor).toContain('Mark accepted');
     expect(editor).toContain('Preview PDF');
+    expect(editor).toContain('Copy link');
+    expect(editor).toContain('data-quote-copy-link="1"');
+    expect(editor).toContain('handleCopyLink');
+    expect(editor).toContain('copyShareText');
+    expect(editor).toContain('documentShareOrigin');
+    expect(editor).toContain('ensureClientPortalUrl');
+    expect(editor).toContain('Link copied');
     expect(editor).toContain('Edit quote');
+    expect(css).toContain('.hub-quote-copy-confirm');
     expect(editor).not.toContain('ActionButton recommended');
     expect(editor).not.toContain('ops-doc-panel');
     expect(editor).not.toMatch(/Grafter|Relovi|Littleloop/);
+
+    expect(editor).toContain('data-quote-lines="1"');
+    expect(css).toContain('.hub-quote-lines td:nth-child(2)::before { content: \'Qty\'; }');
+    expect(css).toContain('.hub-quote-lines td:nth-child(3)::before { content: \'Unit\'; }');
+    expect(css).toContain('.hub-quote-lines td:nth-child(4)::before { content: \'Total\'; }');
+    expect(css).toContain('overflow: visible');
+    expect(css).not.toContain('.hub-quote-table {\n      margin-left: 16px;\n      margin-right: 16px;\n      overflow-x: auto;');
 
     expect(css).toContain('.hub-quote-sheet');
     expect(css).toContain('.hub-quote-totalbar');

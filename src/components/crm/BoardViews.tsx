@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, memo, useEffect } from 'react';
+import { useState, useMemo, useRef, memo, useEffect, Fragment } from 'react';
 import type { JobWithClient } from '../../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
 import { getReadableText, pickEmployeeColor } from '../../lib/jobColors';
@@ -28,6 +28,7 @@ import { calendarSite } from '../../lib/jobCalendar';
 import { formatJobRef } from '../../lib/jobRef';
 import {
   jobsOnScheduleDay,
+  TIME_NOT_SET_LABEL,
   scheduleChipClock,
   scheduleDateKey,
   scheduleJobHref,
@@ -95,6 +96,7 @@ const JobBlock = memo(function JobBlock({
   const chip = weekBoardChip(job);
   const ink = getReadableText(chip.color);
   const clock = scheduleChipClock(job.start_time, job.end_time);
+  const timed = clock !== TIME_NOT_SET_LABEL;
 
   return (
     <div
@@ -117,8 +119,8 @@ const JobBlock = memo(function JobBlock({
       }`}
       style={{ background: chip.color, color: ink }}
     >
-      <span className="hub-week-chip-ref">{`${clock} · ${chip.ref}`}</span>
-      {chip.description ? <span className="hub-week-chip-desc">{chip.description}</span> : null}
+      <span className="hub-week-chip-ref">{timed ? `${clock} · ${chip.ref}` : chip.ref}</span>
+      <span className="hub-week-chip-desc">{timed ? chip.description : [TIME_NOT_SET_LABEL, chip.description].filter(Boolean).join(' · ')}</span>
     </div>
   );
 });
@@ -232,6 +234,8 @@ function WeekJobChip({
 }) {
   const chip = weekBoardChip(job, familyJobs);
   const ink = getReadableText(chip.color);
+  const clock = scheduleChipClock(job.start_time, job.end_time);
+  const timed = clock !== TIME_NOT_SET_LABEL;
   return (
     <div
       role="button"
@@ -248,11 +252,12 @@ function WeekJobChip({
       }}
       data-schedule-job={job.id}
       data-week-chip={job.id}
+      data-chip-clock={clock}
       className={`hub-week-chip ${dragging ? 'is-dragging' : ''}`}
       style={{ background: chip.color, color: ink }}
     >
-      <span className="hub-week-chip-ref">{chip.ref}</span>
-      {chip.description ? <span className="hub-week-chip-desc">{chip.description}</span> : null}
+      <span className="hub-week-chip-ref">{timed ? `${clock} · ${chip.ref}` : chip.ref}</span>
+      <span className="hub-week-chip-desc">{timed ? chip.description : [TIME_NOT_SET_LABEL, chip.description].filter(Boolean).join(' · ')}</span>
     </div>
   );
 }
@@ -441,9 +446,11 @@ export const DayBoardView = memo(function DayBoardView({
     const el = scrollRef.current;
     if (!el) return;
     const apply = () => {
-      const next = dayBoardHourWidthPx(el.clientWidth);
+      const crewW = Number.parseFloat(getComputedStyle(el).getPropertyValue('--hub-day-crew')) || 104;
+      const hoursW = Math.max(0, el.clientWidth - crewW);
+      const next = dayBoardHourWidthPx(hoursW);
       setHourWidth(next);
-      el.scrollLeft = dayBoardHoursFit(el.clientWidth) ? 0 : (8 - DAY_START) * next;
+      el.scrollLeft = dayBoardHoursFit(hoursW) ? 0 : (8 - DAY_START) * next;
     };
     apply();
     const ro = new ResizeObserver(apply);
@@ -543,10 +550,11 @@ export const DayBoardView = memo(function DayBoardView({
     const isUnassigned = row.id === UNASSIGNED_ROW_ID;
     const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
     const rowJobs = jobsByRow.get(row.id) ?? [];
-    const layout = placeDayRowJobs(rowJobs.map(job => {
-      const plot = schedulePlotTimes(job);
-      return { id: job.id, start_time: plot.start_time, end_time: plot.end_time };
-    }));
+    const layout = placeDayRowJobs(rowJobs.map(job => ({
+      id: job.id,
+      start_time: job.start_time,
+      end_time: job.end_time,
+    })));
     const placementById = new Map(layout.placements.map(p => [p.id, p]));
     const height = dayRowHeightPx(layout.allDayCount, layout.timedLaneCount, {
       min: ROW_MIN, allDayH: ALL_DAY_H, timedH: TIMED_H, pad: ROW_PAD,
@@ -582,25 +590,42 @@ export const DayBoardView = memo(function DayBoardView({
         </p>
       </div>
 
-      <div className="hub-day-track">
-        <div className="hub-day-crew-rail">
+      <div
+        ref={scrollRef}
+        className="hub-day-track hub-day-crew-rail hub-day-hours job-cal-board-scroll"
+        data-day-hours="1"
+        style={{
+          ['--hub-day-rows' as string]: paintedRows.map(p => `${p.height}px`).join(' '),
+          gridTemplateColumns: `var(--hub-day-crew, 104px) ${gridWidth}px`,
+        }}
+      >
           <div className="hub-day-crew-lock hub-day-crew-head border-r border-b border-rule">
-            <div className="px-3 py-2 flex items-center gap-1.5">
+            <div className="px-3 flex items-center gap-1.5 h-full">
               <Users size={13} />
               <span className="hub-schedule-label">Crew</span>
             </div>
           </div>
+          <div className="hub-day-hours-head flex border-b border-rule">
+            {HOURS.map(h => (
+              <div key={h} className="text-center border-r border-rule last:border-r-0"
+                style={{ width: hourWidth }}>
+                <div className="px-1 flex items-center justify-center h-full">
+                  <span className="hub-schedule-label">{formatHourLabel(h)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
           {paintedRows.map(painted => {
             const row = painted.row;
             return (
+            <Fragment key={row.id}>
             <div
-              key={row.id}
               data-crew-drop={row.id}
-              className={`hub-day-crew-lock border-r border-rule cursor-pointer hover:bg-zebra transition-colors flex items-center gap-2 px-3 ${
+              className={`hub-day-crew-lock border-r border-rule cursor-pointer hover:bg-zebra transition-colors flex items-start gap-2 px-3 ${
                 painted.rowIdx < paintedRows.length - 1 ? 'border-b' : ''
               } ${painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'}`}
               style={{
-                height: painted.height,
                 borderLeft: painted.isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${painted.color}`,
               }}
               onClick={() => onDayClick(dateStr, painted.isUnassigned ? null : row.id)}
@@ -623,25 +648,7 @@ export const DayBoardView = memo(function DayBoardView({
                 </p>
               </div>
             </div>
-            );
-          })}
-        </div>
-
-        <div ref={scrollRef} className="hub-day-hours job-cal-board-scroll" data-day-hours="1">
-          <div className="flex border-b border-rule" style={{ minWidth: gridWidth }}>
-            {HOURS.map(h => (
-              <div key={h} className="text-center border-r border-rule last:border-r-0"
-                style={{ width: hourWidth }}>
-                <div className="px-1 py-2">
-                  <span className="hub-schedule-label">{formatHourLabel(h)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {paintedRows.map(painted => (
             <div
-              key={painted.row.id}
               data-crew-lane={painted.row.id}
               className={`${painted.rowIdx < paintedRows.length - 1 ? 'border-b border-rule' : ''} ${
                 painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'
@@ -651,8 +658,8 @@ export const DayBoardView = memo(function DayBoardView({
             >
               <div
                 data-day-grid="1"
-                className="relative cursor-pointer"
-                style={{ width: gridWidth, height: painted.height }}
+                className="relative cursor-pointer h-full"
+                style={{ width: gridWidth }}
                 onClick={() => onDayClick(dateStr, painted.isUnassigned ? null : painted.row.id)}
                 onDragOver={e => { e.preventDefault(); setDropHoverId(painted.row.id); }}
                 onDrop={e => handleTimeDrop(e, painted.row.id)}
@@ -675,6 +682,30 @@ export const DayBoardView = memo(function DayBoardView({
                 {painted.rowJobs.map(job => {
                   const placed = painted.placementById.get(job.id);
                   if (!placed) return null;
+                  if (placed.allDay) {
+                    return (
+                      <div
+                        key={job.id}
+                        className="absolute"
+                        data-untimed-chip={job.id}
+                        style={{
+                          left: 2,
+                          width: gridWidth - 4,
+                          top: ROW_PAD + placed.lane * ALL_DAY_H,
+                          height: ALL_DAY_H - 4,
+                        }}
+                      >
+                        <JobBlock
+                          job={job}
+                          teamMembers={teamMembers}
+                          compact
+                          dragging={dragJobId === job.id}
+                          onClick={() => onJobClick(job)}
+                          onDragStart={e => handleDragStart(e, job.id)}
+                        />
+                      </div>
+                    );
+                  }
                   const plot = schedulePlotTimes(job);
                   const preview = resizePreview?.jobId === job.id ? resizePreview : null;
                   const startM = timeToMinutes(preview?.start_time ?? plot.start_time);
@@ -732,8 +763,9 @@ export const DayBoardView = memo(function DayBoardView({
                 })}
               </div>
             </div>
-          ))}
-        </div>
+            </Fragment>
+            );
+          })}
       </div>
     </div>
   );

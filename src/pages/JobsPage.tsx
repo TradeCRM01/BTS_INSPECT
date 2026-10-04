@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
@@ -11,7 +11,6 @@ import { JobFormModal } from '../components/crm/JobFormModal';
 import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import { JOB_STATUS_LABELS } from '../types/crm';
 import { jobOpenNext } from '../lib/jobNextAction';
-import { ARRIVING_NEXT_LABEL, CLOCK_IN_NEXT_LABEL } from '../lib/jobReminder';
 import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { Plus, Briefcase, MoreHorizontal } from 'lucide-react';
@@ -442,72 +441,19 @@ function JobsListFind({
   );
 }
 
-function JobRowMore({
-  label,
-  href,
-}: {
-  label: string;
-  href: string;
-}) {
-  const navigate = useNavigate();
-  const moreRef = useRef<HTMLDetailsElement>(null);
-
-  const closeMore = () => {
-    if (moreRef.current) moreRef.current.open = false;
-  };
-
-  const placeMoreMenu = () => {
-    if (moreRef.current) placeJobsListMore(moreRef.current);
-  };
-
-  useEffect(() => {
-    const more = moreRef.current;
-    const onPointer = (event: PointerEvent) => {
-      if (!moreRef.current?.open) return;
-      if (!moreRef.current.contains(event.target as Node)) closeMore();
-    };
-    more?.addEventListener('toggle', placeMoreMenu);
-    window.addEventListener('resize', placeMoreMenu);
-    document.addEventListener('pointerdown', onPointer);
-    return () => {
-      more?.removeEventListener('toggle', placeMoreMenu);
-      window.removeEventListener('resize', placeMoreMenu);
-      document.removeEventListener('pointerdown', onPointer);
-    };
-  }, []);
-
-  return (
-    <details ref={moreRef} className="hub-jobs-list-more">
-      <summary aria-label="More">
-        <MoreHorizontal size={18} />
-      </summary>
-      <div className="hub-jobs-list-more-menu" role="menu">
-        <button
-          type="button"
-          role="menuitem"
-          onClick={() => { navigate(href); closeMore(); }}
-        >
-          {label}
-        </button>
-      </div>
-    </details>
-  );
-}
-
 function JobRow({ job }: { job: JobRowModel }) {
   const navigate = useNavigate();
   const next = jobOpenNext(job);
   const site = visibleSite(job.address, job.client_address);
   const suburb = site ? suburbFromSite(site) : '';
-  const primaryNext = next.label === ARRIVING_NEXT_LABEL || next.label === CLOCK_IN_NEXT_LABEL;
-  const openHref = next.href;
+  const jobHref = `/jobs/${job.id}`;
   return (
     <div
       role="link"
       tabIndex={0}
       aria-label="Open"
-      onClick={() => navigate(openHref)}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(openHref); } }}
+      onClick={() => navigate(jobHref)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(jobHref); } }}
       className="hub-jobs-row"
     >
       <span className="hub-jobs-ref">{formatJobRef(job)}</span>
@@ -515,7 +461,17 @@ function JobRow({ job }: { job: JobRowModel }) {
       <span className="truncate hub-jobs-muted">{suburb}</span>
       <span className="hub-jobs-status">{JOB_STATUS_LABELS[job.status]}</span>
       <span className="hub-jobs-row-next" onClick={e => e.stopPropagation()}>
-        <JobRowMore label={primaryNext ? next.label : next.label} href={next.href} />
+        {next.actionable ? (
+          <Link
+            to={next.href}
+            className="hub-next shrink-0"
+            data-job-list-next={next.label}
+          >
+            {next.label}
+          </Link>
+        ) : (
+          <span className="hub-jobs-muted">{next.label}</span>
+        )}
       </span>
     </div>
   );

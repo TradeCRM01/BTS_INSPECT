@@ -10,7 +10,6 @@ export const HOUR_WIDTH_PX = 96;
 export const DAY_HOUR_MIN_PX = 56;
 export const SNAP_MINUTES = 15;
 export const DEFAULT_SLOT_MINUTES = 60;
-export const DEFAULT_SLOT_START = '08:00:00';
 export type ResizeEdge = 'start' | 'end';
 
 let draggedJobId: string | null = null;
@@ -35,8 +34,7 @@ export function placePickedHint(
   const when = format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
     ? 'today'
     : format(date, 'EEE d MMM');
-  const slot = startTime ? '' : ' at 8:00';
-  return `${title} — drop it on a crew and day, or tap a person to place it ${when}${slot}`;
+  return `${title} — drop it on a crew and day, or tap a person to place it ${when}`;
 }
 
 export function placePickedOnCell(
@@ -312,10 +310,6 @@ export function rescheduleJobPatch(
     const shifted = applyDropStartTime(current.start_time, current.end_time, drop.startTime);
     updates.start_time = shifted.start_time;
     updates.end_time = shifted.end_time;
-  } else if (drop.employeeId && !current.start_time) {
-    const slot = applyDropStartTime(null, null, DEFAULT_SLOT_START);
-    updates.start_time = slot.start_time;
-    updates.end_time = slot.end_time;
   }
   return updates;
 }

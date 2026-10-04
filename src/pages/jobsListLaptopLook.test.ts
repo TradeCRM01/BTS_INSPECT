@@ -35,6 +35,10 @@ describe('jobs list laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(page).toContain('className="btn-primary"');
     expect(page).toContain('New job');
     expect(page).toContain('placeJobsListMore');
+    expect(page).toContain('hub-next shrink-0');
+    expect(page).toContain('data-job-list-next');
+    expect(page).toContain('to={next.href}');
+    expect(page).not.toContain('function JobRowMore');
     expect(page).toContain('inkFloor');
     expect(page).not.toContain('hub-jobs-pill');
     expect(page).not.toContain('>Open<');
@@ -66,6 +70,8 @@ describe('jobs list laptop LOOK — quote paper, overflow on the sheet', () => {
     expect((page.match(/MoreHorizontal/g) ?? []).length).toBeGreaterThanOrEqual(1);
     expect((page.match(/className="btn-primary"/g) ?? []).length).toBe(1);
 
+    expect(css).toContain('minmax(132px, max-content)');
+    expect(css).not.toContain('.hub-jobs-list-doc .hub-next {\n    display: none');
     expect(css).toContain('.hub-jobs-list-doc');
     expect(css).toContain('.hub-jobs-list-bar');
     expect(css).toContain('.hub-jobs-list-whisper');

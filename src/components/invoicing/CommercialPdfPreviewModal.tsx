@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Download, Loader2, X, FileText } from 'lucide-react';
-import { OverlayPortal } from '../ui/OverlayPortal';
+import { AppDialog } from '../ui/AppDialog';
 import { generateCommercialPdf } from '../../reports/commercial/generateCommercialPdf';
 import type { CommercialPdfData } from '../../reports/commercial/CommercialDocumentPdf';
 
@@ -51,12 +51,13 @@ export function CommercialPdfPreviewModal({ data, onClose }: CommercialPdfPrevie
   const creamLook = quoteLook || invoiceLook;
 
   return (
-    <OverlayPortal>
-      <div className={`overlay-backdrop${quoteLook ? ' hub-quote-pdf-preview' : invoiceLook ? ' hub-invoice-pdf-preview' : ''}`}>
-        <div
-          className={`overlay-panel-xl flex flex-col max-h-[92vh] ${quoteLook ? 'hub-quote-pdf-sheet' : invoiceLook ? 'hub-invoice-pdf-sheet' : 'border border-[#E5E7EB]'}`}
-          onClick={e => e.stopPropagation()}
-        >
+    <AppDialog
+      open
+      onClose={onClose}
+      title={quoteLook ? 'Quote preview' : invoiceLook ? 'Invoice preview' : 'Document preview'}
+      className={quoteLook ? 'hub-quote-pdf-preview' : invoiceLook ? 'hub-invoice-pdf-preview' : ''}
+      panelClassName={`overlay-panel-xl flex flex-col max-h-[92vh] ${quoteLook ? 'hub-quote-pdf-sheet' : invoiceLook ? 'hub-invoice-pdf-sheet' : 'border border-[#E5E7EB]'}`}
+    >
           <div className={`flex items-center justify-between px-5 py-3 shrink-0 ${quoteLook ? 'hub-quote-pdf-head' : invoiceLook ? 'hub-invoice-pdf-head' : 'border-b border-[#E5E7EB]'}`}>
             <div className="flex items-center gap-2">
               <FileText size={16} className="text-[#2E75B6]" />
@@ -84,7 +85,7 @@ export function CommercialPdfPreviewModal({ data, onClose }: CommercialPdfPrevie
             </div>
           </div>
 
-          <div className={`flex-1 min-h-0 p-3 ${creamLook ? 'bg-[#F5F0E6]' : 'bg-[#E5E7EB]'}`}>
+          <div className={`flex-1 min-h-0 p-3 ${creamLook ? 'bg-[#F5F0E6]' : 'bg-[#E5E7EB]'} ${quoteLook ? 'hub-quote-pdf-frame' : ''}`}>
             {loading && (
               <div className="flex flex-col items-center justify-center h-[70vh] text-[#4A5568]">
                 <Loader2 size={28} className="animate-spin mb-2 text-[#2E75B6]" />
@@ -98,15 +99,13 @@ export function CommercialPdfPreviewModal({ data, onClose }: CommercialPdfPrevie
             )}
             {url && !loading && (
               <iframe
-                src={url}
+                src={quoteLook ? `${url}#toolbar=0&navpanes=0&view=FitH` : url}
                 title="Document PDF preview"
                 className="w-full rounded-md bg-white shadow-sm"
                 style={{ height: '75vh' }}
               />
             )}
           </div>
-        </div>
-      </div>
-    </OverlayPortal>
+    </AppDialog>
   );
 }

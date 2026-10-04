@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { lockDialogScroll, unlockDialogScroll } from '../../lib/dialogFocus';
 
 /**
  * Renders overlay UI on document.body so AppShell transforms / overflow
@@ -7,11 +8,8 @@ import { createPortal } from 'react-dom';
  */
 export function OverlayPortal({ children }: { children: ReactNode }) {
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    lockDialogScroll();
+    return () => unlockDialogScroll();
   }, []);
 
   return createPortal(children, document.body);

@@ -13,6 +13,16 @@ export function quoteRecordHref(quoteId: string): string {
   return `/quotes?id=${encodeURIComponent(quoteId)}`;
 }
 
+/** Quotes tray CTA: Open job goes to the job sheet when recommendQuoteAction says so. */
+export function quoteTrayActionHref(args: {
+  key: string;
+  quoteId: string;
+  jobId?: string | null;
+}): string {
+  if (args.key === 'open_job' && args.jobId) return jobRecordHref(args.jobId);
+  return quoteRecordHref(args.quoteId);
+}
+
 export function invoiceRecordHref(invoiceId: string): string {
   return invoiceHref(invoiceId);
 }
@@ -330,7 +340,7 @@ export function clientHubRecordQueries(args: {
     },
     invoices: {
       table: 'invoices',
-      columns: 'id, invoice_number, status, total, due_date, quote_id, client_id',
+      columns: 'id, invoice_number, status, total, due_date, quote_id, job_id, client_id',
       eq,
       inFilters: {},
     },

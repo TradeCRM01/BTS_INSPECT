@@ -257,6 +257,30 @@ export function groupInspectionListFloor<T extends InspectionListRow>(
   };
 }
 
+export function inspectionsListWhisper(args: {
+  filter: InspectionListFilter;
+  archived: boolean;
+  count: number;
+  loading?: boolean;
+  error?: boolean;
+}): string {
+  const filterLabel = args.archived
+    ? 'Archived'
+    : args.filter === 'action'
+      ? 'Open or due'
+      : args.filter === 'all'
+        ? 'All'
+        : args.filter === 'draft'
+          ? 'Draft'
+          : args.filter === 'completed'
+            ? 'Ready'
+            : 'Issued';
+  if (args.error) return `${filterLabel} · Could not load`;
+  if (args.loading) return `${filterLabel} · Loading`;
+  const countLabel = args.count === 1 ? '1 inspection' : `${args.count} inspections`;
+  return `${filterLabel} · ${countLabel}`;
+}
+
 export function inspectionListEmptyTitle(args: {
   filter: InspectionListFilter;
   archived: boolean;

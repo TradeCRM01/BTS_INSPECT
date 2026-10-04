@@ -64,6 +64,12 @@ describe('schedule page week/day board', () => {
     expect(page).toContain('placePickedHint');
     expect(page).toContain('placePickedOnCell');
     expect(page).not.toContain('today at 8:00');
+    expect(board).toContain('TIME_NOT_SET_LABEL');
+    expect(board).toContain('data-untimed-chip');
+    expect(src('src/lib/dispatch.ts')).not.toContain('DEFAULT_SLOT_START');
+    expect(page).toContain('scheduleSearchFromState');
+    expect(page).toContain('scheduleLocationStep');
+    expect(page).not.toContain("next.delete('date')");
   });
 
   it('groups the phone week from existing scheduled_date fields', () => {
@@ -106,7 +112,8 @@ describe('schedule board cream paper look', () => {
     expect(page).toContain('ScheduleJobsTray');
     expect(page).toContain('SchedulePlacementEditor');
     expect(page).toContain('ScheduleOverrideDialog');
-    expect(page).toContain("next.set('date', format(currentDate, 'yyyy-MM-dd'))");
+    expect(page).toContain('scheduleSearchFromState');
+    expect(src('src/lib/scheduleLocation.ts')).toContain("next.set('date', scheduleDateKey(date))");
     expect(page).not.toContain("next.delete('date')");
     expect(page).not.toContain('window.prompt');
     expect(page).not.toContain('New Job');
@@ -129,7 +136,7 @@ describe('schedule board cream paper look', () => {
     expect(css).toContain('.hub-week-sheet');
     expect(css).toContain('.hub-week-head-short');
     expect(css).toContain('.hub-week-head-dow');
-    expect(css).toContain('repeat(7, minmax(0, 1fr))');
+    expect(css).toContain('repeat(7, minmax(104px, 1fr))');
     expect(page).toContain('hub-week-range-short');
     expect(css).toContain('.hub-week-seg');
     expect(css).toContain('.hub-week-quiet');
