@@ -75,6 +75,14 @@ export function parseScheduleDateParam(raw: string | null | undefined): Date | n
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+export function scheduleBoardSearch(date: Date | string, view: ScheduleViewMode): URLSearchParams {
+  const next = new URLSearchParams();
+  next.set('date', typeof date === 'string' ? date : scheduleDateKey(date));
+  if (view === 'day') next.set('view', 'day');
+  return next;
+}
+
+
 /** Calendar day from `jobs.scheduled_date` (date or ISO timestamp). */
 export function scheduleDayKey(value: string | null | undefined): string | null {
   if (!value) return null;
