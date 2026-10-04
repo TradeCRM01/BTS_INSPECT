@@ -19,7 +19,13 @@ import { placePickedHint, placePickedOnCell, rememberDraggedJob, rescheduleJobPa
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
-import { parseScheduleView, scheduleDayKey, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
+import { parseScheduleDateParam, parseScheduleView, scheduleDateKey, scheduleDayKey, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
+import {
+  scheduleLocationStep,
+  scheduleSearchFromState,
+  scheduleStateFromSearch,
+  type ScheduleNavKind,
+} from '../lib/scheduleLocation';
 import {
   ChevronLeft, ChevronRight, MoreHorizontal, Plus,
 } from 'lucide-react';
@@ -345,10 +351,12 @@ export function SchedulePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const lookWeekBoard = searchParams.get('look') === WEEK_BOARD_LOOK;
   const [currentDate, setCurrentDate] = useState(() => {
-    if (!lookWeekBoard) return new Date();
-    return parseScheduleView(searchParams.get('view')) === 'day'
-      ? WEEK_BOARD_LOOK_DAY_ANCHOR
-      : WEEK_BOARD_LOOK_ANCHOR;
+    if (lookWeekBoard) {
+      return parseScheduleView(searchParams.get('view')) === 'day'
+        ? WEEK_BOARD_LOOK_DAY_ANCHOR
+        : WEEK_BOARD_LOOK_ANCHOR;
+    }
+    return parseScheduleDateParam(searchParams.get('date')) ?? new Date();
   });
   const [viewMode, setViewMode] = useState<ScheduleViewMode>(() => parseScheduleView(searchParams.get('view')));
   const [showForm, setShowForm] = useState(false);
@@ -362,35 +370,49 @@ export function SchedulePage() {
 
   const preselectClient = searchParams.get('client');
   const preselectJob = searchParams.get('job');
-  const preselectDate = searchParams.get('date');
 
   const openJob = useCallback((jobId: string) => {
     navigate(scheduleJobHref(jobId));
   }, [navigate]);
 
-  const setView = useCallback((mode: ScheduleViewMode) => {
+  const applySchedule = useCallback((mode: ScheduleViewMode, date: Date, kind: ScheduleNavKind = 'user') => {
     setViewMode(mode);
-    const next = new URLSearchParams(searchParams);
-    if (mode === 'week') next.delete('view');
-    else next.set('view', 'day');
-    setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
+    setCurrentDate(date);
+    if (lookWeekBoard) return;
+    const step = scheduleLocationStep({
+      kind,
+      currentSearch: searchParams.toString(),
+      mode,
+      date,
+      urlDate: searchParams.get('date'),
+      missingDate: !parseScheduleDateParam(searchParams.get('date')),
+    });
+    if (!step.write) return;
+    setSearchParams(scheduleSearchFromState(searchParams, mode, date), { replace: step.replace });
+  }, [lookWeekBoard, searchParams, setSearchParams]);
+
+  const setView = useCallback((mode: ScheduleViewMode) => {
+    applySchedule(mode, currentDate, 'user');
+  }, [applySchedule, currentDate]);
 
   useEffect(() => {
     if (preselectJob) navigate(scheduleJobHref(preselectJob), { replace: true });
   }, [preselectJob, navigate]);
 
   useEffect(() => {
-    if (!preselectDate) return;
-    const parsed = new Date(`${preselectDate}T00:00:00`);
-    if (Number.isNaN(parsed.getTime())) return;
-    setCurrentDate(parsed);
-    setViewMode('day');
-    const next = new URLSearchParams(searchParams);
-    next.delete('date');
-    next.set('view', 'day');
-    setSearchParams(next, { replace: true });
-  }, [preselectDate]); // eslint-disable-line react-hooks/exhaustive-deps
+    applySchedule(viewMode, currentDate, 'hydrate');
+    // First paint only — later user paging writes; Back/Forward only reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (lookWeekBoard) return;
+    const next = scheduleStateFromSearch(searchParams);
+    setViewMode(prev => (prev === next.view ? prev : next.view));
+    if (!next.date) return;
+    const key = scheduleDateKey(next.date);
+    setCurrentDate(prev => (scheduleDateKey(prev) === key ? prev : next.date!));
+  }, [lookWeekBoard, searchParams]);
 
   const { data: teamMembers } = useQuery<TeamMember[]>({
     queryKey: ['team-members-schedule'],
@@ -695,9 +717,9 @@ export function SchedulePage() {
     <WeekBoardMore
       viewMode={viewMode}
       setView={setView}
-      onToday={() => setCurrentDate(new Date())}
-      onPrev={() => setCurrentDate(d => (viewMode === 'day' ? addDays(d, -1) : addWeeks(d, -1)))}
-      onNext={() => setCurrentDate(d => (viewMode === 'day' ? addDays(d, 1) : addWeeks(d, 1)))}
+      onToday={() => applySchedule(viewMode, new Date())}
+      onPrev={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, -1) : addWeeks(currentDate, -1))}
+      onNext={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, 1) : addWeeks(currentDate, 1))}
       rangeLabel={boardRangeLabel}
       filtered={filteredEmployeeIds.size > 0}
       onClearCrew={clearEmployeeFilters}
@@ -723,14 +745,14 @@ export function SchedulePage() {
         </button>
       </div>
       <div className="hub-week-tools">
-        <button type="button" className="hub-week-quiet" onClick={() => setCurrentDate(new Date())}>
+        <button type="button" className="hub-week-quiet" onClick={() => applySchedule(viewMode, new Date())}>
           Today
         </button>
         <button
           type="button"
           className="hub-week-quiet"
           aria-label={viewMode === 'day' ? 'Previous day' : 'Previous week'}
-          onClick={() => setCurrentDate(d => (viewMode === 'day' ? addDays(d, -1) : addWeeks(d, -1)))}
+          onClick={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, -1) : addWeeks(currentDate, -1))}
         >
           <ChevronLeft size={16} />
         </button>
@@ -738,7 +760,7 @@ export function SchedulePage() {
           type="button"
           className="hub-week-quiet"
           aria-label={viewMode === 'day' ? 'Next day' : 'Next week'}
-          onClick={() => setCurrentDate(d => (viewMode === 'day' ? addDays(d, 1) : addWeeks(d, 1)))}
+          onClick={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, 1) : addWeeks(currentDate, 1))}
         >
           <ChevronRight size={16} />
         </button>
@@ -859,10 +881,7 @@ export function SchedulePage() {
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
                         onDragStart={handleRailDragStart}
-                        onSelectDay={date => {
-                          setCurrentDate(date);
-                          setView('day');
-                        }}
+                        onSelectDay={date => applySchedule('day', date)}
                         onDayClick={handleDayClick}
                         onJobDrop={placeExisting}
                       />
@@ -874,10 +893,7 @@ export function SchedulePage() {
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
                         onDayClick={handleDayClick}
-                        onSelectDay={date => {
-                          setCurrentDate(date);
-                          setView('day');
-                        }}
+                        onSelectDay={date => applySchedule('day', date)}
                         onJobDrop={placeExisting}
                         filteredEmployeeIds={filteredEmployeeIds}
                       />

@@ -67,6 +67,14 @@ export function parseScheduleView(raw: string | null | undefined): ScheduleViewM
   return raw === 'day' ? 'day' : 'week';
 }
 
+/** Calendar day from a `?date=YYYY-MM-DD` query. Invalid values stay null. */
+export function parseScheduleDateParam(raw: string | null | undefined): Date | null {
+  const key = scheduleDayKey(raw);
+  if (!key) return null;
+  const parsed = new Date(`${key}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 /** Calendar day from `jobs.scheduled_date` (date or ISO timestamp). */
 export function scheduleDayKey(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -169,11 +177,9 @@ export function weekBoardCrewLabel(name: string | null | undefined): string {
   return trimmed.split(/\s+/)[0] || 'Crew';
 }
 
-/** Display-only day weight for jobs with no stored clock. Not persisted. */
-export const UNTIMED_DISPLAY_START = '08:00';
-export const UNTIMED_DISPLAY_END = '16:00';
+export const TIME_NOT_SET_LABEL = 'Time not set';
 
-/** 24h clock from stored `HH:MM:SS` — all-day jobs stay blank. */
+/** 24h clock from stored `HH:MM:SS` — untimed jobs stay blank. */
 export function scheduleClockLabel(
   start: string | null | undefined,
   end?: string | null,
@@ -185,19 +191,19 @@ export function scheduleClockLabel(
   return to ? `${from} – ${to}` : from;
 }
 
-/** Chip clock: stored times, or the default work-day weight. */
+/** Chip clock: stored times, or an honest untimed label. */
 export function scheduleChipClock(
   start: string | null | undefined,
   end?: string | null,
 ): string {
-  return scheduleClockLabel(start, end) ?? `${UNTIMED_DISPLAY_START} – ${UNTIMED_DISPLAY_END}`;
+  return scheduleClockLabel(start, end) ?? TIME_NOT_SET_LABEL;
 }
 
-/** Day-board plot times. Untimed jobs read as 08:00–16:00 without a write. */
+/** Day-board plot times. Untimed jobs are not drawn as a stored span. */
 export function schedulePlotTimes(job: {
   start_time?: string | null;
   end_time?: string | null;
-}): { start_time: string; end_time: string; stored: boolean } {
+}): { start_time: string | null; end_time: string | null; stored: boolean } {
   if (job.start_time) {
     return {
       start_time: job.start_time,
@@ -206,8 +212,8 @@ export function schedulePlotTimes(job: {
     };
   }
   return {
-    start_time: UNTIMED_DISPLAY_START,
-    end_time: UNTIMED_DISPLAY_END,
+    start_time: null,
+    end_time: null,
     stored: false,
   };
 }

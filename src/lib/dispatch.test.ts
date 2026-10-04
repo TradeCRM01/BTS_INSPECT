@@ -32,13 +32,13 @@ describe('placePickedHint', () => {
 
   it('names today when the board is on today', () => {
     expect(placePickedHint('Switchboard', today, null, today)).toBe(
-      'Switchboard — drop it on a crew and day, or tap a person to place it today at 8:00',
+      'Switchboard — drop it on a crew and day, or tap a person to place it today',
     );
   });
 
   it('names the selected day, not today, when the board moved', () => {
     expect(placePickedHint('Switchboard', new Date(2026, 8, 10), null, today)).toBe(
-      'Switchboard — drop it on a crew and day, or tap a person to place it Thu 10 Sep at 8:00',
+      'Switchboard — drop it on a crew and day, or tap a person to place it Thu 10 Sep',
     );
   });
 
@@ -82,8 +82,6 @@ describe('placePickedOnCell', () => {
     )).toEqual({
       scheduled_date: '2026-08-25',
       assigned_team: ['sam'],
-      start_time: '08:00:00',
-      end_time: '09:00:00',
     });
   });
 });
@@ -224,15 +222,25 @@ describe('rescheduleJobPatch', () => {
     });
   });
 
-  it('gives an untimed job a morning slot when dropped on a person', () => {
+  it('assigns an untimed job without inventing a clock', () => {
     expect(rescheduleJobPatch(
       { assigned_team: [], start_time: null, end_time: null },
       { date: '2026-08-20', employeeId: 'alice' },
     )).toEqual({
       scheduled_date: '2026-08-20',
       assigned_team: ['alice'],
-      start_time: '08:00:00',
-      end_time: '09:00:00',
+    });
+  });
+
+  it('keeps an explicit drop time when placing an untimed job on the hour grid', () => {
+    expect(rescheduleJobPatch(
+      { assigned_team: [], start_time: null, end_time: null },
+      { date: '2026-08-20', employeeId: 'alice', startTime: '13:00:00' },
+    )).toEqual({
+      scheduled_date: '2026-08-20',
+      assigned_team: ['alice'],
+      start_time: '13:00:00',
+      end_time: '14:00:00',
     });
   });
 

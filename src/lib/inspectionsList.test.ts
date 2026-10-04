@@ -16,6 +16,7 @@ import {
   inspectionListEmptyTitle,
   inspectionListFloorBucket,
   inspectionListJob,
+  inspectionsListWhisper,
   inspectionListOpenHref,
   inspectionListSearchHaystack,
   inspectionMatchesListFilter,
@@ -243,6 +244,17 @@ describe('sort and group the open-or-due floor', () => {
     expect(inspectionListEmptyTitle({ filter: 'all', archived: true, noneAtAll: true }))
       .toBe('No archived inspections');
   });
+
+  it('does not report 0 inspections while the list is loading or failed', () => {
+    expect(inspectionsListWhisper({ filter: 'action', archived: false, count: 0, loading: true }))
+      .toBe('Open or due · Loading');
+    expect(inspectionsListWhisper({ filter: 'all', archived: false, count: 0, error: true }))
+      .toBe('All · Could not load');
+    expect(inspectionsListWhisper({ filter: 'action', archived: false, count: 0 }))
+      .toBe('Open or due · 0 inspections');
+    expect(inspectionsListWhisper({ filter: 'draft', archived: false, count: 1 }))
+      .toBe('Draft · 1 inspection');
+  });
 });
 
 describe('inspections list wiring', () => {
@@ -262,6 +274,7 @@ describe('inspections list wiring', () => {
     expect(list).toContain('title="Open"');
     expect(list).toContain('title="Done"');
     expect(list).toContain('dueLabel');
+    expect(list).toContain('inspectionsListWhisper');
     expect(list).not.toContain("path: '/inspections/");
 
     expect(app).toContain('<Route path="/inspections"');
@@ -297,6 +310,8 @@ describe('inspections list wiring', () => {
     }
     expect(floor).toContain('resolveInspectionDueDate');
     expect(floor).toContain('inspectionOpenPath');
+    expect(floor).toContain('Could not load');
+    expect(src('src/pages/InspectionsPage.tsx')).toContain('loading,');
     expect(floor).not.toContain('createPortal');
     expect(src('src/pages/InspectionFillPage.tsx')).not.toContain('inspectionsList');
     expect(src('src/lib/inspectionTemplatePacks.ts')).not.toContain('inspectionsList');

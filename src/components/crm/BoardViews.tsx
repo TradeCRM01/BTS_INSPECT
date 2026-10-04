@@ -28,6 +28,7 @@ import { calendarSite } from '../../lib/jobCalendar';
 import { formatJobRef } from '../../lib/jobRef';
 import {
   jobsOnScheduleDay,
+  TIME_NOT_SET_LABEL,
   scheduleChipClock,
   scheduleDateKey,
   scheduleJobHref,
@@ -96,6 +97,7 @@ const JobBlock = memo(function JobBlock({
   const chip = weekBoardChip(job);
   const ink = getReadableText(chip.color);
   const clock = scheduleChipClock(job.start_time, job.end_time);
+  const timed = clock !== TIME_NOT_SET_LABEL;
 
   return (
     <div
@@ -118,8 +120,8 @@ const JobBlock = memo(function JobBlock({
       }`}
       style={{ background: chip.color, color: ink }}
     >
-      <span className="hub-week-chip-ref">{`${clock} · ${chip.ref}`}</span>
-      {chip.description ? <span className="hub-week-chip-desc">{chip.description}</span> : null}
+      <span className="hub-week-chip-ref">{timed ? `${clock} · ${chip.ref}` : chip.ref}</span>
+      <span className="hub-week-chip-desc">{timed ? chip.description : [TIME_NOT_SET_LABEL, chip.description].filter(Boolean).join(' · ')}</span>
     </div>
   );
 });
@@ -462,10 +464,11 @@ export const DayBoardView = memo(function DayBoardView({
     const isUnassigned = row.id === UNASSIGNED_ROW_ID;
     const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
     const rowJobs = jobsByRow.get(row.id) ?? [];
-    const layout = placeDayRowJobs(rowJobs.map(job => {
-      const plot = schedulePlotTimes(job);
-      return { id: job.id, start_time: plot.start_time, end_time: plot.end_time };
-    }));
+    const layout = placeDayRowJobs(rowJobs.map(job => ({
+      id: job.id,
+      start_time: job.start_time,
+      end_time: job.end_time,
+    })));
     const placementById = new Map(layout.placements.map(p => [p.id, p]));
     const height = dayRowHeightPx(layout.allDayCount, layout.timedLaneCount, {
       min: ROW_MIN, allDayH: ALL_DAY_H, timedH: TIMED_H, pad: ROW_PAD,
@@ -588,6 +591,30 @@ export const DayBoardView = memo(function DayBoardView({
                 {painted.rowJobs.map(job => {
                   const placed = painted.placementById.get(job.id);
                   if (!placed) return null;
+                  if (placed.allDay) {
+                    return (
+                      <div
+                        key={job.id}
+                        className="absolute"
+                        data-untimed-chip={job.id}
+                        style={{
+                          left: 2,
+                          width: gridWidth - 4,
+                          top: ROW_PAD + placed.lane * ALL_DAY_H,
+                          height: ALL_DAY_H - 4,
+                        }}
+                      >
+                        <JobBlock
+                          job={job}
+                          teamMembers={teamMembers}
+                          compact
+                          dragging={dragJobId === job.id}
+                          onClick={() => onJobClick(job)}
+                          onDragStart={e => handleDragStart(e, job.id)}
+                        />
+                      </div>
+                    );
+                  }
                   const plot = schedulePlotTimes(job);
                   const preview = resizePreview?.jobId === job.id ? resizePreview : null;
                   const startM = timeToMinutes(preview?.start_time ?? plot.start_time);

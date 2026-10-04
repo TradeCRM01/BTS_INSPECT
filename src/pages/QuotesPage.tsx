@@ -16,7 +16,7 @@ import {
   getAuditTeamMembers,
 } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
+import { AppDialog, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
@@ -964,8 +964,13 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   }, []);
 
   return (
-    <div className="overlay-backdrop">
-      <div className="overlay-panel-xl hub-quote-editor" onClick={e => e.stopPropagation()}>
+    <>
+    <AppDialog
+      open
+      onClose={onClose}
+      title="Quote"
+      panelClassName="overlay-panel-xl hub-quote-editor"
+    >
         <div className="hub-quote-toolbar">
           <div className="hub-quote-editor-act">
             {next.key === 'add_email' && (
@@ -1379,12 +1384,12 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         </div>
         </div>
         ) : null}
-      </div>
 
+    </AppDialog>
       {showPreview && previewData && (
         <CommercialPdfPreviewModal data={previewData} onClose={() => setShowPreview(false)} />
       )}
-    </div>
+    </>
   );
 }
 
