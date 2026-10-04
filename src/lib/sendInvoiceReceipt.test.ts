@@ -25,7 +25,7 @@ import {
   invoiceMarkPaidReceiptToast,
   invoiceMarkPaidSheetMissLine,
 } from './sendInvoiceDeliver';
-import { INVOICE_MARKED_PAID_MESSAGE } from './xeroAccounting';
+import { INVOICE_MARKED_PAID_MESSAGE, invoiceMarkPaidToast } from './xeroAccounting';
 
 const smtp = {
   smtp_host: 'smtp.resend.com',
@@ -330,6 +330,49 @@ describe('mark paid toast names receipt and Xero misses without unmarking', () =
       xeroLine: null,
       receipt: { ok: false, message: NO_RECEIPT_PDF_MESSAGE },
     })).toBe('Invoice marked as paid. The invoice PDF could not be attached — receipt was not sent.');
+  });
+
+  it('does not surface an Edge Function invoke miss on the no-email paid banner', async () => {
+    const calls: unknown[] = [];
+    const receipt = await deliverInvoiceReceiptAfterMarkPaid(async () => {
+      calls.push('job-reminder');
+      return { data: null, error: { message: 'Failed to send a request to the Edge Function' } };
+    }, {
+      paidSucceeded: true,
+      invoiceId: 'inv-1',
+      status: 'paid',
+      company,
+      loadBundle: async () => bundle({ client: { ...client, email: null } }),
+    });
+    expect(calls).toEqual([]);
+    expect(receipt).toMatchObject({
+      ok: false,
+      reason: 'no_email',
+      markedPaid: true,
+      message: NO_RECEIPT_EMAIL_MESSAGE,
+    });
+
+    const liveFailXeroToast = 'Invoice marked as paid. Failed to send a request to the Edge Function.';
+    const banner = invoiceMarkPaidReceiptToast({
+      xeroToast: invoiceMarkPaidToast({
+        ok: false,
+        message: 'Failed to send a request to the Edge Function',
+      }),
+      receipt,
+    });
+    const composedFromLiveFail = invoiceMarkPaidReceiptToast({
+      xeroToast: liveFailXeroToast,
+      receipt,
+    });
+    expect(banner).toBe('Invoice marked as paid. This client has no email — receipt was not sent.');
+    expect(composedFromLiveFail).toBe('Invoice marked as paid. This client has no email — receipt was not sent.');
+    expect(banner).not.toMatch(/edge function/i);
+    expect(banner).not.toMatch(/failed/i);
+    expect(composedFromLiveFail).not.toMatch(/edge function|failed/i);
+    expect(invoiceMarkPaidSheetMissLine({
+      xeroLine: liveFailXeroToast,
+      receipt,
+    })).toBe('Invoice marked as paid. This client has no email — receipt was not sent.');
   });
 });
 

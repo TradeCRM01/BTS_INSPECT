@@ -26,6 +26,7 @@ import { asStringList } from './asStringList';
 import { formatEmailAndSmsMessage, type SmsSendResult } from './jobReminder';
 import {
   INVOICE_MARKED_PAID_MESSAGE,
+  isPaidBannerInvokeNoise,
   pushInvoiceToXeroAfterSend,
   type XeroAfterSendResult,
 } from './xeroAccounting';
@@ -327,11 +328,12 @@ export async function deliverInvoiceReceiptAfterMarkPaid(
 
     if (error) {
       const fromBody = await readFunctionError(error);
+      const raw = fromBody?.error || fromBody?.message || error.message || missInvoiceReceiptMessage('send_failed');
       return receiptMiss(
         'send_failed',
         true,
         fromBody?.href,
-        fromBody?.error || fromBody?.message || error.message || missInvoiceReceiptMessage('send_failed'),
+        isPaidBannerInvokeNoise(raw) ? missInvoiceReceiptMessage('send_failed') : raw,
       );
     }
     const body = (data ?? {}) as {
@@ -373,13 +375,22 @@ export async function deliverInvoiceReceiptAfterMarkPaid(
       || formatEmailAndSmsMessage(`Receipt sent to ${to}`, sms);
     return { ok: true, to, markedPaid: true, message, sms };
   } catch (err) {
+    const raw = err instanceof Error && err.message.trim() ? err.message : missInvoiceReceiptMessage('send_failed');
     return receiptMiss(
       'send_failed',
       true,
       undefined,
-      err instanceof Error && err.message.trim() ? err.message : missInvoiceReceiptMessage('send_failed'),
+      isPaidBannerInvokeNoise(raw) ? missInvoiceReceiptMessage('send_failed') : raw,
     );
   }
+}
+
+function dropPaidBannerInvokeNoise(text: string): string {
+  return text
+    .split(/(?<=\.)\s+/)
+    .filter((part) => !isPaidBannerInvokeNoise(part))
+    .join(' ')
+    .trim();
 }
 
 /** Paid first. Receipt outcome next. Existing Xero miss last. Never unmarks paid. */
@@ -387,8 +398,8 @@ export function invoiceMarkPaidReceiptToast(args: {
   xeroToast: string;
   receipt: Pick<DeliverInvoiceReceiptResult, 'ok' | 'message'>;
 }): string {
-  const paidAndXero = args.xeroToast.trim().replace(/\.+$/, '');
-  const receipt = args.receipt.message.trim().replace(/\.+$/, '');
+  const paidAndXero = dropPaidBannerInvokeNoise(args.xeroToast).replace(/\.+$/, '');
+  const receipt = dropPaidBannerInvokeNoise(args.receipt.message).replace(/\.+$/, '');
   if (!receipt) return paidAndXero ? `${paidAndXero}.` : INVOICE_MARKED_PAID_MESSAGE;
   if (!paidAndXero) return `${receipt}.`;
   if (paidAndXero.includes(receipt)) return `${paidAndXero}.`;
@@ -400,8 +411,8 @@ export function invoiceMarkPaidSheetMissLine(args: {
   xeroLine: string | null | undefined;
   receipt: Pick<DeliverInvoiceReceiptResult, 'ok' | 'message'>;
 }): string | null {
-  const receiptMissText = args.receipt.ok ? '' : args.receipt.message.trim();
-  const xeroLine = (args.xeroLine ?? '').trim();
+  const receiptMissText = args.receipt.ok ? '' : dropPaidBannerInvokeNoise(args.receipt.message);
+  const xeroLine = dropPaidBannerInvokeNoise(args.xeroLine ?? '');
   if (!receiptMissText && !xeroLine) return null;
   if (xeroLine && receiptMissText) {
     const receiptOnly = receiptMissText.replace(/\.+$/, '');
