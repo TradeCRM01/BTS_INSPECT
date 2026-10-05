@@ -66,6 +66,7 @@ import {
 } from '../lib/attachQuoteClient';
 import {
   quoteActionContext,
+  quoteMarkAcceptedWrite,
   recommendQuoteAction,
   type QuoteActionKey,
 } from '../lib/quoteNextAction';
@@ -1043,6 +1044,20 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
                 <MoreHorizontal size={18} />
               </summary>
               <div className="hub-quote-more-menu" role="menu">
+                {form.status === 'draft' && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      closeMore();
+                      const write = quoteMarkAcceptedWrite();
+                      void persist(write.status, { close: write.close, message: write.message });
+                    }}
+                    disabled={saving}
+                  >
+                    Mark accepted
+                  </button>
+                )}
                 {form.status === 'sent' && (
                   <button
                     type="button"
