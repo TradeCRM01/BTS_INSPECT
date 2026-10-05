@@ -468,7 +468,7 @@ export function QuotesPage() {
               value={quickText}
               onChange={e => setQuickText(e.target.value)}
               className="form-input"
-              placeholder="2x PB-DEL-01 and 1 PB-DEL-09 for a client"
+              placeholder="e.g. 2 hr labour and 1 call-out for Jane Smith"
               disabled={quickBusy}
             />
             {Speech ? (
