@@ -122,4 +122,23 @@ describe('P-307 (iii) — quote Invoice hides or opens once any invoice exists',
     expect(page).not.toContain('!(invoices ?? []).some(inv => inv.quote_id === q.id)');
     expect(src('src/pages/QuotesPage.tsx')).toContain('quoteListInvoiceId');
   });
+
+  it('C1 — Open invoice only on an accepted quote', () => {
+    const invoiced = [{ id: 'job-inv', status: 'draft' as const }];
+    expect(jobQuoteInvoiceButton('accepted', invoiced)).toEqual({
+      kind: 'open',
+      invoiceId: 'job-inv',
+      label: 'Open invoice',
+    });
+    expect(jobQuoteInvoiceButton('draft', invoiced)).toEqual({ kind: 'none' });
+    expect(jobQuoteInvoiceButton('sent', invoiced)).toEqual({ kind: 'none' });
+    expect(jobQuoteInvoiceButton('declined', invoiced)).toEqual({ kind: 'none' });
+
+    const page = src('src/pages/JobDetailPage.tsx');
+    const quoteRow = page.slice(page.indexOf('jobQuoteInvoiceButton'), page.indexOf('title="Invoices"'));
+    expect(quoteRow).toContain('jobQuoteInvoiceButton(q.status, invoices)');
+    expect(quoteRow).toContain("quoteAct.kind === 'invoice'");
+    expect(quoteRow).toContain("quoteAct.kind === 'open'");
+    expect(quoteRow).toContain('return undefined');
+  });
 });

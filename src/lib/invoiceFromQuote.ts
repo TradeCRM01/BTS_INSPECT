@@ -120,15 +120,15 @@ export type JobQuoteInvoiceButton =
   | { kind: 'open'; invoiceId: string; label: 'Open invoice' }
   | { kind: 'none' };
 
-/** Paperwork quote row: hide Invoice once the job has any invoice, any source. */
+/** Paperwork quote row: Open invoice only on an accepted quote. Draft/sent/declined keep their normal row. */
 export function jobQuoteInvoiceButton(
   quoteStatus: string,
   invoices: { id: string; status: string }[] | null | undefined,
 ): JobQuoteInvoiceButton {
+  if (quoteStatus !== 'accepted') return { kind: 'none' };
   const reuse = pickReusableInvoice(invoices ?? []);
   if (reuse) return { kind: 'open', invoiceId: reuse.id, label: 'Open invoice' };
-  if (quoteStatus === 'accepted') return { kind: 'invoice', label: 'Invoice' };
-  return { kind: 'none' };
+  return { kind: 'invoice', label: 'Invoice' };
 }
 
 export function quoteListInvoiceId<T extends { id: string; status: string }>(
