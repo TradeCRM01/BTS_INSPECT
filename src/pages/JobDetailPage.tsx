@@ -290,6 +290,11 @@ function p305LookKind(): 'bill' | 'empty' | null {
   const look = lookSearchParam();
   if (look === P305_LOOK) return 'bill';
   if (look === P305_EMPTY_LOOK) return 'empty';
+  try {
+    if (window.location.pathname.endsWith('/look-job-bayswater')) return 'bill';
+  } catch {
+    return null;
+  }
   return null;
 }
 
