@@ -7,6 +7,7 @@ export const JOB_CLIENT_ATTACH_ALREADY = 'This job already has a client.';
 export const JOB_CLIENT_ATTACH_NO_SELECTION = 'Pick a client.';
 export const JOB_CLIENT_ATTACH_UNKNOWN = 'That client is not on this company.';
 export const JOB_CLIENT_ATTACH_SAVED = 'Client attached';
+export { JOB_CLIENT_ATTACH_PLACEHOLDER } from './jobsListRow';
 
 export type CompanyClientOption = {
   id: string;

@@ -32,6 +32,7 @@ import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { jobInvoiceActionFlags, jobOpenNext, pickJobDraftToSend } from '../lib/jobNextAction';
 import {
   JOB_CLIENT_ATTACH_NO_CLIENTS,
+  JOB_CLIENT_ATTACH_PLACEHOLDER,
   attachJobClient,
   jobClientAttachRow,
   jobClientAttachToast,
@@ -2685,7 +2686,7 @@ export function JobDetailPage() {
                     className="form-input-sm"
                     aria-label="Attach client"
                   >
-                    <option value="">Client</option>
+                    <option value="">{JOB_CLIENT_ATTACH_PLACEHOLDER}</option>
                     {attachRow.clients.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
