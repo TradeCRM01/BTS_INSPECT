@@ -8,7 +8,7 @@ import {
 } from '../shared/styles';
 import { formatMoney } from '../../types/fsm';
 import type { QuoteLineItem, InvoiceLineItem } from '../../types/fsm';
-import { gstLabel } from '../../lib/gst';
+import { gstDocumentLabel, gstLabel, type LineForGst } from '../../lib/gst';
 import { commercialPdfLogoBox, companyDocumentLogoUrl } from '../../lib/companyLogo';
 
 /** Saved companies.report_theme on this document, or the existing commercial default. */
@@ -67,6 +67,13 @@ export interface CommercialPdfData {
 
 export function commercialPdfGstLabel(data: Pick<CommercialPdfData, 'taxRate' | 'taxLabel'>): string {
   return data.taxLabel ?? gstLabel(data.taxRate);
+}
+
+export function commercialPdfPreviewData<T extends Pick<CommercialPdfData, 'taxRate'>>(
+  data: T,
+  lines: LineForGst[],
+): T & { taxLabel: string } {
+  return { ...data, taxLabel: gstDocumentLabel(lines, data.taxRate) };
 }
 
 function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {

@@ -13,7 +13,7 @@ import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariat
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
 import { InvoiceSendDialog } from '../components/invoicing/InvoiceSendDialog';
-import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
+import { commercialPdfPreviewData, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel } from '../lib/gst';
@@ -879,7 +879,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         cost_model_id: li.cost_model_id ?? null,
         gst_rate: li.gst_rate,
       }));
-    return {
+    return commercialPdfPreviewData({
       kind: 'invoice',
       title: 'Invoice charges',
       docNumber: invoice?.invoice_number != null ? `#${padInv(invoice.invoice_number)}` : 'Draft',
@@ -902,7 +902,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       paymentMethods: companyPaymentMethodsForDocument(
         (company as { payment_methods?: unknown } | null)?.payment_methods,
       ),
-    };
+    }, cleanLines);
   }, [company, form, invoice, selectedClient, selectedJob, subtotal, taxAmount, grandTotal]);
 
   const handleImportFromJob = async () => {
