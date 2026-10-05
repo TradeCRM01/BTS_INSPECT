@@ -134,42 +134,81 @@ describe('automatic recovery callers add auto=1', () => {
   });
 });
 
+const NO_CACHE = 'Cache-Control: no-cache, no-store, must-revalidate';
+const IMMUTABLE = 'Cache-Control: public, max-age=31536000, immutable';
+
+/** First-segment paths from <Route path="..."> in App.tsx. Skips the * fallback. */
+function routerTopLevelPaths(appSource: string): string[] {
+  const paths = [...appSource.matchAll(/path=["']([^"']+)["']/g)].map(m => m[1]);
+  const tops = new Set<string>();
+  for (const path of paths) {
+    if (path === '*' || path === '/*') continue;
+    if (path === '/') {
+      tops.add('/');
+      continue;
+    }
+    const segment = path.split('/').filter(Boolean)[0];
+    if (segment) tops.add(`/${segment}`);
+  }
+  return [...tops].sort();
+}
+
+function headerRulePaths(headers: string): string[] {
+  return headers.split('\n').filter(line => /^\/\S*$/.test(line));
+}
+
+function headerCacheControl(headers: string): Map<string, string> {
+  const map = new Map<string, string>();
+  let current: string | null = null;
+  for (const raw of headers.split('\n')) {
+    if (/^\/\S*$/.test(raw)) {
+      current = raw;
+      continue;
+    }
+    const cache = raw.match(/^\s+Cache-Control:\s*(.+)$/);
+    if (current && cache) {
+      map.set(current, `Cache-Control: ${cache[1].trim()}`);
+    }
+    if (raw.trim() === '' || raw.startsWith('#')) {
+      current = null;
+    }
+  }
+  return map;
+}
+
 describe('Pages HTML cache and missing /assets/*', () => {
   function src(rel: string): string {
     return readFileSync(resolve(process.cwd(), rel), 'utf8');
   }
 
-  it('sets no-cache on SPA routes and keeps /assets/* immutable without a blanket /*', () => {
+  it('gives every App.tsx top-level path no-cache (and its /*) without a blanket /*', () => {
     const headers = src('public/_headers');
-    for (const route of [
-      '/',
-      '/index.html',
-      '/login',
-      '/login/*',
-      '/jobs',
-      '/jobs/*',
-      '/dashboard',
-      '/dashboard/*',
-      '/quotes',
-      '/quotes/*',
-      '/invoices',
-      '/invoices/*',
-      '/clients',
-      '/clients/*',
-      '/schedule',
-      '/schedule/*',
-      '/settings',
-      '/settings/*',
-    ]) {
-      const block = headers.slice(headers.indexOf(`\n${route}\n`) >= 0
-        ? headers.indexOf(`\n${route}\n`)
-        : headers.indexOf(`${route}\n`));
-      expect(headers).toContain(`${route}\n`);
-      expect(block).toContain('Cache-Control: no-cache, no-store, must-revalidate');
-    }
-    expect(headers).toContain('/assets/*');
-    expect(headers).toContain('Cache-Control: public, max-age=31536000, immutable');
+    const rules = headerRulePaths(headers);
+    const cache = headerCacheControl(headers);
+    const tops = routerTopLevelPaths(src('src/App.tsx'));
+
+    expect(tops.length).toBeGreaterThan(0);
+    expect(rules).not.toContain('/*');
     expect(headers).not.toMatch(/^\s*\/\*\s*$/m);
+
+    for (const path of tops) {
+      expect(rules, `missing exact ${path} in public/_headers`).toContain(path);
+      if (path === '/') {
+        expect(cache.get('/')).toBe(NO_CACHE);
+        continue;
+      }
+      if (path === '/assets') {
+        expect(cache.get('/assets')).toBe(NO_CACHE);
+        expect(cache.get('/assets/*')).toBe(IMMUTABLE);
+        continue;
+      }
+      expect(rules, `missing ${path}/* in public/_headers`).toContain(`${path}/*`);
+      expect(cache.get(path), path).toBe(NO_CACHE);
+      expect(cache.get(`${path}/*`), `${path}/*`).toBe(NO_CACHE);
+    }
+
+    expect(cache.get('/index.html')).toBe(NO_CACHE);
+    expect(cache.get('/assets/*')).toBe(IMMUTABLE);
     expect(headers).not.toMatch(/Relovi|Littleloop/);
   });
 
