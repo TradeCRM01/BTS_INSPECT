@@ -57,6 +57,13 @@ describe('quote editor Convert LOOK — Job date + Crew on paper', () => {
     const fieldBlock = css.slice(css.indexOf('.hub-quote-convert .form-input {'), css.indexOf('.hub-quote-convert .form-input:focus'));
     expect(fieldBlock).toContain('background: #FFFDF8');
     expect(fieldBlock).not.toContain('#2E75B6');
+
+    expect(css).toContain('#quote-convert-date:focus-visible');
+    expect(css).toContain('#quote-convert-date.is-quote-convert-focus');
+    const ring = css.slice(css.indexOf('#quote-convert-date:focus-visible'), css.indexOf('.hub-quote-convert-whisper'));
+    expect(ring).toContain('outline: 2px solid #0A2540');
+    expect(ring).toContain('border-color: #B54708');
+    expect(src('src/lib/quoteJobFields.ts')).toContain("QUOTE_CONVERT_DATE_FOCUS = 'is-quote-convert-focus'");
   });
 
   it('keeps the Convert gate and does not rewrite accept, portal, or job sheet', () => {

@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { afterDialogInitialFocus } from './dialogFocus';
 import {
   CONVERT_QUOTE_BLOCKED,
+  QUOTE_CONVERT_DATE_FOCUS,
   focusQuoteConvertDate,
   quoteConvertEntry,
   quoteConvertTap,
@@ -51,7 +52,7 @@ describe('quoteConvertEntry', () => {
     expect(handleConvert).toContain('focusQuoteConvertDate');
     expect(handleConvert.indexOf("=== 'focus_convert'")).toBeLessThan(handleConvert.indexOf('await convertQuoteToJob'));
     expect(handleConvert).toContain('takeQuoteConvertLock');
-    expect(editor).toContain('onPointerDown');
+    expect(editor).not.toContain('onPointerDown');
 
     const listNext = quotes.slice(quotes.indexOf('function QuoteNextControl'), quotes.indexOf('interface EditorState'));
     const listConvert = listNext.slice(listNext.indexOf("next.key === 'convert_job'"), listNext.indexOf("next.key === 'invoice'"));
@@ -59,7 +60,8 @@ describe('quoteConvertEntry', () => {
     expect(listConvert).toContain('onOpen({ focusConvert: true })');
     expect(listConvert.indexOf("=== 'focus_convert'")).toBeLessThan(listConvert.indexOf('await convertQuoteToJob'));
     expect(listNext).toContain('takeQuoteConvertLock');
-    expect(listNext).toContain('onPointerDown');
+    expect(listNext).not.toContain('onPointerDown');
+    expect(listNext).toContain('onClick={handle}');
 
     expect(editor).toContain('afterDialogInitialFocus');
     expect(editor).toContain('convertSectionRef');
@@ -109,6 +111,7 @@ describe('quoteConvertEntry', () => {
 
     expect(document.activeElement).toBe(date);
     expect(document.activeElement?.id).toBe('quote-convert-date');
+    expect(date.classList.contains(QUOTE_CONVERT_DATE_FOCUS)).toBe(true);
     expect(scrolled.length).toBeGreaterThan(0);
   });
 

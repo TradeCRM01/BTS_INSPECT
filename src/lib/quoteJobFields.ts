@@ -82,6 +82,8 @@ export function scrollQuoteConvertIntoView(section: HTMLElement): number {
   return 0;
 }
 
+export const QUOTE_CONVERT_DATE_FOCUS = 'is-quote-convert-focus';
+
 export function focusQuoteConvertDate(root: ParentNode): HTMLInputElement | null {
   const section = root instanceof Element && root.classList.contains('hub-quote-convert')
     ? root
@@ -90,6 +92,12 @@ export function focusQuoteConvertDate(root: ParentNode): HTMLInputElement | null
   scrollQuoteConvertIntoView(section);
   const date = section.querySelector<HTMLInputElement>('#quote-convert-date, input[type="date"]');
   if (!date) return null;
+  date.classList.add(QUOTE_CONVERT_DATE_FOCUS);
+  const clear = () => {
+    date.classList.remove(QUOTE_CONVERT_DATE_FOCUS);
+    date.removeEventListener('blur', clear);
+  };
+  date.addEventListener('blur', clear);
   date.focus();
   return date;
 }
