@@ -6,6 +6,7 @@ import {
   JOBS_LIST_NO_CLIENT,
   jobsListCustomer,
   jobsListPhoneDate,
+  jobsListPhoneNextLabel,
   jobsListPhoneRow,
   jobsListTitle,
 } from './jobsListRow';
@@ -71,8 +72,27 @@ describe('jobs list rows use the helpers on desktop and phone', () => {
     expect(css).toContain('.hub-jobs-phone-row');
     expect(css).toContain('overflow-wrap: anywhere');
     expect(css).toContain('white-space: normal');
-    expect(css).toContain('.hub-jobs-phone-next {\n      min-height: 44px;');
+    expect(css).toContain('.hub-jobs-phone-row .hub-jobs-phone-next');
+    expect(css).toContain('display: inline-flex');
+    expect(css).toContain('align-items: center');
+    expect(css).toMatch(/\.hub-jobs-phone-row \.hub-jobs-phone-next \{[\s\S]*min-height: 44px;/);
+    expect(css).toMatch(/\.hub-jobs-phone-row \.hub-jobs-phone-next \{[\s\S]*min-width: 44px;/);
     expect(css).toContain('.hub-jobs-desktop-list {\n      display: none;');
+    const phone = page.slice(page.indexOf('function JobPhoneRow'), page.indexOf('function JobRow'));
+    expect(phone).toContain('jobsListPhoneNextLabel(next)');
+    expect(phone).toContain('aria-label={`Open job ${row.title}`}');
+    expect(phone).toContain('{phoneNext ? (');
+    expect(phone).not.toContain('hub-jobs-muted">{next.label}');
+  });
+});
+
+describe('jobsListPhoneNextLabel', () => {
+  it('hides Next when it is not actionable so the status pill stands alone', () => {
+    expect(jobsListPhoneNextLabel({ actionable: false, label: 'Cancelled' })).toBeNull();
+    expect(jobsListPhoneNextLabel({ actionable: false, label: 'Completed' })).toBeNull();
+    expect(jobsListPhoneNextLabel({ actionable: false, label: 'Invoiced' })).toBeNull();
+    expect(jobsListPhoneNextLabel({ actionable: true, label: 'Invoice' })).toBe('Invoice');
+    expect(jobsListPhoneNextLabel({ actionable: true, label: 'Still open' })).toBe('Still open');
   });
 });
 

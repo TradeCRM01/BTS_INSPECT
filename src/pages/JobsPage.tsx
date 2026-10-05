@@ -12,7 +12,7 @@ import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import { JOB_STATUS_LABELS } from '../types/crm';
 import { jobInvoiceActionFlags, jobOpenNext } from '../lib/jobNextAction';
 import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
-import { jobsListCustomer, jobsListPhoneRow, jobsListTitle } from '../lib/jobsListRow';
+import { jobsListCustomer, jobsListPhoneNextLabel, jobsListPhoneRow, jobsListTitle } from '../lib/jobsListRow';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { listCountWhisper, listQueryBusy } from '../lib/listQueryReady';
 import { Plus, Briefcase, MoreHorizontal } from 'lucide-react';
@@ -528,13 +528,14 @@ function JobPhoneRow({ job }: { job: JobRowModel }) {
   );
   const next = jobOpenNext({ ...job, ...invoiceFlags });
   const row = jobsListPhoneRow(job);
+  const phoneNext = jobsListPhoneNextLabel(next);
   const jobHref = `/jobs/${job.id}`;
   const showRef = row.ref && row.ref !== row.title;
   return (
     <div
       role="link"
       tabIndex={0}
-      aria-label="Open"
+      aria-label={`Open job ${row.title}`}
       data-jobs-phone-row={job.id}
       onClick={() => navigate(jobHref)}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(jobHref); } }}
@@ -551,20 +552,18 @@ function JobPhoneRow({ job }: { job: JobRowModel }) {
           {row.date ? <span className="hub-jobs-phone-date">{row.date}</span> : null}
         </p>
       </div>
-      <span className="hub-jobs-phone-next-wrap" onClick={e => e.stopPropagation()}>
-        {next.actionable ? (
+      {phoneNext ? (
+        <span className="hub-jobs-phone-next-wrap" onClick={e => e.stopPropagation()}>
           <Link
             to={next.href}
             className="hub-next hub-jobs-phone-next"
-            data-job-list-next={next.label}
+            data-job-list-next={phoneNext}
             data-jobs-phone-next="1"
           >
-            {next.label}
+            {phoneNext}
           </Link>
-        ) : (
-          <span className="hub-jobs-muted">{next.label}</span>
-        )}
-      </span>
+        </span>
+      ) : null}
     </div>
   );
 }

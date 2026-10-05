@@ -10334,14 +10334,16 @@
       align-items: center;
     }
 
-    .hub-jobs-phone-next {
-      min-height: 44px;
-      height: 44px;
-      padding: 0 14px;
-      border: 1px solid #2E75B6;
-      border-radius: 12px;
-      white-space: nowrap;
+    .hub-jobs-phone-row .hub-jobs-phone-next {
+      display: inline-flex;
+      align-items: center;
       justify-content: center;
+      min-height: 44px;
+      min-width: 44px;
+      height: 44px;
+      padding: 0 12px;
+      border: none;
+      white-space: nowrap;
     }
   }
 

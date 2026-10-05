@@ -71,3 +71,8 @@ export function jobsListPhoneRow(job: {
     date: jobsListPhoneDate(job.scheduled_date),
   };
 }
+
+/** Phone Next is a control only. Closed / invoiced labels stay on the status pill. */
+export function jobsListPhoneNextLabel(next: { actionable: boolean; label: string }): string | null {
+  return next.actionable ? next.label : null;
+}
