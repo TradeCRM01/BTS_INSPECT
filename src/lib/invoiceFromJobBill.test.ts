@@ -13,6 +13,7 @@ import {
   decideJobBillInvoice,
   invoiceLinesFromJobCosts,
   jobBillDueDate,
+  jobBillInvoiceBlocked,
   jobBillInvoiceNextDetail,
   reuseAfterUniqueConflict,
 } from './invoiceFromJobBill';
@@ -196,7 +197,7 @@ describe('buildInvoiceFromJobBill', () => {
     const issue = new Date('2026-08-20T00:00:00+10:00');
     const due = jobBillDueDate(issue);
     expect(due).toBe('2026-08-27');
-    expect(['all', 'overdue']).toContain(INVOICE_LIST_DEFAULT_FILTER);
+    expect(INVOICE_LIST_DEFAULT_FILTER).toBe('all');
     const past = new Date(2026, 7, 28);
     expect(invoiceMatchesListFilter({ status: 'sent', due_date: due }, 'overdue', past)).toBe(true);
     expect(invoiceMatchesListFilter({ status: 'sent', due_date: due }, INVOICE_LIST_DEFAULT_FILTER, past)).toBe(true);
@@ -299,6 +300,10 @@ describe('named toasts', () => {
     expect(JOB_BILL_INVOICE_NO_CLIENT).toMatch(/client/i);
     expect(JOB_BILL_INVOICE_NO_LINES).toMatch(/bill lines/i);
     expect(JOB_BILL_INVOICE_EMPTY).toBe('Job bill is empty — add lines before invoicing');
+    expect(jobBillInvoiceBlocked(undefined)).toBe(false);
+    expect(jobBillInvoiceBlocked(null)).toBe(false);
+    expect(jobBillInvoiceBlocked({ lines: 0 })).toBe(true);
+    expect(jobBillInvoiceBlocked({ lines: 2 })).toBe(false);
     expect(jobBillInvoiceNextDetail(2, 545)).toBe('Draft invoice from the job bill · 2 lines · $545.00');
     expect(jobBillInvoiceNextDetail(1, 120)).toBe('Draft invoice from the job bill · 1 line · $120.00');
     expect(JOB_BILL_INVOICE_CREATED).toMatch(/draft invoice/i);

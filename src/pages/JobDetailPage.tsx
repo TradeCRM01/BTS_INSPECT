@@ -27,6 +27,7 @@ import {
   JOB_BILL_INVOICE_EMPTY,
   JOB_BILL_INVOICE_EXISTS,
   JOB_BILL_INVOICE_NO_LINES,
+  jobBillInvoiceBlocked,
 } from '../lib/invoiceFromJobBill';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
@@ -2319,7 +2320,7 @@ export function JobDetailPage() {
   };
 
   const handleInvoice = () => {
-    if ((costTotals?.lines ?? 0) === 0) {
+    if (jobBillInvoiceBlocked(costTotals)) {
       showToast(JOB_BILL_INVOICE_EMPTY, 'info');
       setBillOpen(true);
       revealSection('job-bill');

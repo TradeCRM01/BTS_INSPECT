@@ -20,6 +20,13 @@ export function jobBillInvoiceNextDetail(lines: number, total: number): string {
   return `Draft invoice from the job bill · ${lines} ${lines === 1 ? 'line' : 'lines'} · ${formatMoney(total)}`;
 }
 
+/** Empty-bill block only after totals load. Undefined/null must not toast. */
+export function jobBillInvoiceBlocked(
+  costTotals: { lines: number } | null | undefined,
+): boolean {
+  return costTotals != null && costTotals.lines === 0;
+}
+
 export const JOB_COST_INVOICE_SELECT =
   'description, quantity, unit_price, unit_cost, markup_percent, charge_type, stock_item_id, cost_model_id, created_at';
 
