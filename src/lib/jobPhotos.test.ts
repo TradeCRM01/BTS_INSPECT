@@ -446,6 +446,20 @@ describe('job photos live on the existing job sheet', () => {
     expect(mig).not.toMatch(/Relovi|Littleloop/);
     expect(mig).not.toMatch(/\bute\b/i);
   });
+
+  it('does not ask the browser for a location when previewing or adding a photo', () => {
+    const lib = src('src/lib/photoProvenance.ts');
+    const resolve = lib.slice(
+      lib.indexOf('export async function resolvePhotoProvenance'),
+      lib.indexOf('export const DEVICE_FIX_TIMEOUT_MS'),
+    );
+    expect(resolve).not.toMatch(/deps\.locate|getCurrentPosition|watchPosition/);
+    expect(lib).not.toMatch(/locate:\s*deviceLocation/);
+    const page = src('src/pages/JobDetailPage.tsx');
+    expect(page).not.toMatch(/getCurrentPosition|watchPosition|deviceLocation\(/);
+    expect(page).toContain('PHOTO_NO_PLACE');
+    expect(page).toContain('resolvePhotoProvenance(files, BROWSER_PROVENANCE_DEPS)');
+  });
 });
 
 describe('job_photos schema', () => {
