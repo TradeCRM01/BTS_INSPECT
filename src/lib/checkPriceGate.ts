@@ -1,4 +1,11 @@
+import { formatMoney } from '../types/fsm';
+
 export const CHECK_PRICE_BLOCK = 'Price the Check price lines first';
+
+export function quoteListMoney(total: number | string | null | undefined): string | null {
+  const n = Number(total ?? 0);
+  return Number.isFinite(n) ? formatMoney(n) : null;
+}
 
 export type CheckPriceLine = {
   check_price?: boolean | null;

@@ -397,4 +397,29 @@ describe('quick quote parser and matcher', () => {
     expect(src('src/index.css')).toContain('.hub-quick-quote');
     expect(src('src/index.css')).toContain('.hub-quote-check-price');
   });
+
+  it('(v) paints Check price on the quote paper the tradie lands on', () => {
+    const page = src('src/pages/QuotesPage.tsx');
+    const editor = page.slice(page.indexOf('function QuoteEditorModal'));
+    const lines = editor.slice(
+      editor.indexOf('className="hub-quote-lines"'),
+      editor.indexOf('className="hub-quote-gst"'),
+    );
+    expect(lines).toContain('hub-quote-check-price');
+    expect(lines).toContain('QUICK_QUOTE_CHECK_PRICE');
+    expect(lines).toContain('li.check_price');
+    expect(src('src/reports/commercial/CommercialDocumentPdf.tsx')).not.toContain('hub-quote-check-price');
+    expect(src('src/pages/ClientPortalPublicPage.tsx')).not.toContain('hub-quote-check-price');
+  });
+
+  it('(vi) wraps the Quick quote bar at phone width without clipping Make draft', () => {
+    const css = src('src/index.css');
+    expect(css).toContain('.hub-quick-quote {\n    display: flex;\n    flex: 1 1 280px;');
+    expect(css).toContain('.hub-quick-quote {\n      flex: 1 1 100%;\n      width: 100%;\n      max-width: 100%;\n      flex-wrap: wrap;');
+    expect(css).toContain('.hub-quick-quote .form-input {\n      flex: 1 1 100%;\n      width: 100%;');
+    expect(css).toContain('.hub-quick-quote-go {\n      flex: 1 1 auto;\n      min-width: max-content;');
+    const phone = css.slice(css.indexOf('.hub-quotes-thead {\n      display: none;'));
+    expect(phone).toContain('flex-wrap: wrap');
+    expect(phone).toContain('min-width: max-content');
+  });
 });
