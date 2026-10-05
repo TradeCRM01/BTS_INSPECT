@@ -59,6 +59,18 @@ describe('schedule page week/day board', () => {
     expect(dayBoard).toContain('data-crew-drop={row.id}');
     expect(dayBoard).toContain('data-crew-lane={painted.row.id}');
     expect(dayBoard).toContain('handleDrop(e, row.id)');
+    expect(board).toContain('hub-day-chip-pin');
+    expect(dayBoard).toContain('hub-day-drop-hint');
+    expect(dayBoard).toContain('data-unassigned-lock');
+    expect(dayBoard).toContain('Drop here — date stays');
+    expect(src('src/index.css')).toContain('.hub-day-chip-pin');
+    expect(src('src/index.css')).toContain('position: sticky');
+    expect(src('src/index.css')).toContain('.hub-day-drop-hint');
+    expect(src('src/index.css')).toMatch(/\.hub-day-drop-hint[\s\S]{0,40}display: none/);
+    expect(src('src/index.css')).toContain('.hub-day-crew-lock .ops-crew-mark');
+    expect(page).toContain("get('early') === '1'");
+    expect(page).toContain('weekBoardLookEarlyJob');
+    expect(page).toContain('06:30');
     expect(phoneDayMount).toContain('onJobDrop={placeExisting}');
     expect(page).toContain('placePickedHint');
     expect(page).toContain('placePickedOnCell');

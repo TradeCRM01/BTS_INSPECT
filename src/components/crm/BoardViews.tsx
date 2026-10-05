@@ -124,8 +124,10 @@ const JobBlock = memo(function JobBlock({
       }`}
       style={{ background: chip.color, color: ink }}
     >
-      <span className="hub-week-chip-ref">{timed ? `${clock} · ${chip.ref}` : chip.ref}</span>
-      <span className="hub-week-chip-desc">{timed ? chip.description : [TIME_NOT_SET_LABEL, chip.description].filter(Boolean).join(' · ')}</span>
+      <span className="hub-day-chip-pin" data-day-chip-pin="1">
+        <span className="hub-week-chip-ref">{timed ? `${clock} · ${chip.ref}` : chip.ref}</span>
+        <span className="hub-week-chip-desc">{timed ? chip.description : [TIME_NOT_SET_LABEL, chip.description].filter(Boolean).join(' · ')}</span>
+      </span>
     </div>
   );
 });
@@ -581,6 +583,7 @@ export const DayBoardView = memo(function DayBoardView({
             <Fragment key={row.id}>
             <div
               data-crew-drop={row.id}
+              data-unassigned-lock={painted.isUnassigned ? '1' : undefined}
               className={`hub-day-crew-lock border-r border-rule cursor-pointer hover:bg-zebra transition-colors flex items-start gap-2 px-3 ${
                 painted.rowIdx < paintedRows.length - 1 ? 'border-b' : ''
               } ${painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'}`}
@@ -600,7 +603,7 @@ export const DayBoardView = memo(function DayBoardView({
               />
               <div className="min-w-0">
                 <p className="hub-schedule-crew-name">{row.name}</p>
-                <p className="ops-meta">
+                <p className={`ops-meta${painted.isUnassigned && painted.rowJobs.length === 0 ? ' hub-day-drop-hint' : ''}`}>
                   {painted.isUnassigned
                     ? (painted.rowJobs.length === 0 ? 'Drop here — date stays' : `${painted.rowJobs.length} · needs crew`)
                     : `${painted.rowJobs.length} job${painted.rowJobs.length !== 1 ? 's' : ''}`}
