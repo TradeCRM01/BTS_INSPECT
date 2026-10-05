@@ -116,4 +116,29 @@ describe('check price gate', () => {
     expect(src('src/pages/ClientPortalPublicPage.tsx')).not.toContain('hub-quote-check-price');
     expect(src('src/reports/commercial/CommercialDocumentPdf.tsx')).not.toContain('QUICK_QUOTE_CHECK_PRICE');
   });
+
+  it('keeps Description wide and stacks Check price under the input', () => {
+    const editor = src('src/components/invoicing/LineItemEditor.tsx');
+    expect(editor).toContain('hub-line-editor-desc');
+    expect(editor).toContain('hub-line-editor-line');
+    expect(editor).toContain('items-start');
+    expect(editor).not.toContain('lg:grid-cols-[150px_120px');
+    const desc = editor.slice(
+      editor.indexOf('hub-line-editor-desc min-w-0'),
+      editor.indexOf('aria-label="Quantity"'),
+    );
+    expect(desc.indexOf('placeholder="Description"')).toBeLessThan(desc.indexOf('hub-quote-check-price'));
+    expect(desc).toContain('hub-line-editor-desc-row');
+
+    const css = src('src/index.css');
+    expect(css).toContain('container-type: inline-size');
+    expect(css).toContain('@container line-editor (min-width: 560px)');
+    expect(css).toContain('"desc desc desc desc desc desc desc desc"');
+    expect(css).toContain('grid-column: 1 / -1 !important');
+    expect(css).toContain('32px !important');
+    expect(css).toContain('min-width: 240px');
+    expect(css).toContain('flex-direction: column');
+    expect(css).toContain('.hub-line-editor-sheet');
+    expect(css).toContain('overflow-x: hidden');
+  });
 });

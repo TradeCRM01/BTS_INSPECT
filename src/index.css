@@ -7319,6 +7319,96 @@
     white-space: nowrap;
   }
 
+  .hub-line-editor {
+    container-type: inline-size;
+    container-name: line-editor;
+    min-width: 0;
+  }
+
+  .hub-line-editor-sheet {
+    overflow-x: hidden;
+  }
+
+  .hub-line-editor-head,
+  .hub-line-editor-line {
+    min-width: 0;
+  }
+
+  .hub-line-editor-desc {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .hub-line-editor-desc-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .hub-line-editor-desc-row .form-input-sm {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .hub-line-editor-desc .hub-quote-check-price {
+    display: block;
+  }
+
+  @container line-editor (min-width: 560px) {
+    .hub-line-editor-head,
+    .hub-line-editor-line {
+      display: grid !important;
+      grid-template-columns:
+        minmax(0, 1.2fr)
+        minmax(0, 1fr)
+        minmax(48px, 56px)
+        minmax(56px, 72px)
+        minmax(48px, 64px)
+        minmax(56px, 80px)
+        minmax(56px, 88px)
+        32px !important;
+      grid-template-areas:
+        "desc desc desc desc desc desc desc desc"
+        "cost nature qty ucost markup price total del";
+      column-gap: 8px;
+      row-gap: 8px;
+    }
+
+    .hub-line-editor-desc,
+    .hub-line-editor-h-desc {
+      grid-area: desc;
+      grid-column: 1 / -1 !important;
+      width: 100%;
+      min-width: 240px;
+    }
+
+    .hub-line-editor-cost,
+    .hub-line-editor-h-cost { grid-area: cost; }
+    .hub-line-editor-nature,
+    .hub-line-editor-h-nature { grid-area: nature; }
+    .hub-line-editor-qty,
+    .hub-line-editor-h-qty { grid-area: qty; }
+    .hub-line-editor-ucost,
+    .hub-line-editor-h-ucost { grid-area: ucost; }
+    .hub-line-editor-markup,
+    .hub-line-editor-h-markup { grid-area: markup; }
+    .hub-line-editor-price,
+    .hub-line-editor-h-price { grid-area: price; }
+    .hub-line-editor-total,
+    .hub-line-editor-h-total { grid-area: total; }
+    .hub-line-editor-del,
+    .hub-line-editor-h-del { grid-area: del; }
+    .hub-line-editor-total,
+    .hub-line-editor-del {
+      align-self: center;
+    }
+  }
+
   .hub-quote-kicker {
     font-family: Rajdhani, sans-serif;
     font-size: 11px;

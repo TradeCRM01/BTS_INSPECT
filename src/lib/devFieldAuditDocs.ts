@@ -453,6 +453,9 @@ export function getAuditInvoiceEditorRow(invoiceId: string) {
   if (!bundle) return null;
   return {
     ...bundle.invoice,
+    line_items: (bundle.invoice?.line_items ?? []).map((li, i) => (
+      i === 0 ? { ...li, check_price: true } : li
+    )),
     quote_id: null,
     source: null,
     inclusions: bundle.invoice.inclusions ?? [],
