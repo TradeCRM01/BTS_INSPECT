@@ -16,6 +16,8 @@ import {
   dayBoardHoursFit,
   dayBoardOpenScrollLeft,
   dayBoardStartHour,
+  dayChipPinInset,
+  asTeamIds,
   timeToMinutes,
   resizeJobTimes,
   rememberDraggedJob,
@@ -395,7 +397,7 @@ export const DayBoardView = memo(function DayBoardView({
     const map = new Map<string, JobWithClient[]>();
     for (const row of rows) map.set(row.id, []);
     for (const job of jobsOnScheduleDay(jobs, dateStr)) {
-      const assigned = job.assigned_team ?? [];
+      const assigned = asTeamIds(job.assigned_team);
       if (assigned.length === 0) {
         map.get(UNASSIGNED_ROW_ID)?.push(job);
       } else {
@@ -444,7 +446,7 @@ export const DayBoardView = memo(function DayBoardView({
         if (!(bar instanceof HTMLElement)) continue;
         const left = Number.parseFloat(bar.style.left) || 0;
         const width = Number.parseFloat(bar.style.width) || 0;
-        const inset = Math.max(0, Math.min(scrollLeft - left, Math.max(0, width - 56)));
+        const inset = dayChipPinInset(scrollLeft, left, width);
         pinEl.style.transform = inset > 0 ? `translateX(${Math.round(inset)}px)` : '';
       }
     };

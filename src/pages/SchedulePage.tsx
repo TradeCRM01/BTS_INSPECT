@@ -17,7 +17,7 @@ import {
   DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList, PhoneWeekList,
   type TeamMember,
 } from '../components/crm/BoardViews';
-import { placePickedHint, placePickedOnCell, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
+import { asTeamIds, placePickedHint, placePickedOnCell, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, hydrateJobParentNumbers, jobMatchesSearch, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
@@ -170,7 +170,7 @@ function weekBoardLookEarlyJobs(): JobWithClient[] {
   return [
     weekBoardLookJob({
       id: 'look-job-early',
-      title: 'Early call-out',
+      title: '286 prove 2 — delete ok',
       scheduled_date: '2025-04-01',
       assigned_team: [WEEK_LOOK_DAVE],
       job_number: 56,
@@ -180,7 +180,7 @@ function weekBoardLookEarlyJobs(): JobWithClient[] {
     }),
     weekBoardLookJob({
       id: 'look-job-seven',
-      title: 'Morning start',
+      title: '286 prove 3 — delete ok',
       scheduled_date: '2025-04-01',
       assigned_team: [WEEK_LOOK_DAVE],
       job_number: 57,
@@ -774,7 +774,7 @@ export function SchedulePage() {
   const weekRangeShort = `${format(weekStart, 'd MMM')} – ${format(weekEnd, 'd MMM')}`;
   const dayRangeLabel = format(currentDate, 'EEE d MMM yyyy');
   const dayRangeShort = format(currentDate, 'EEE d MMM');
-  const unassignedOnBoard = onBoard.filter(j => !(j.assigned_team ?? []).length).length;
+  const unassignedOnBoard = onBoard.filter(j => asTeamIds(j.assigned_team).length === 0).length;
   const weekWhisper = [
     `${onBoard.length} on the board`,
     unassignedOnBoard > 0 ? `${unassignedOnBoard} unassigned` : '',

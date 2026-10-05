@@ -1,5 +1,5 @@
 import { addDays, format, startOfWeek } from 'date-fns';
-import { UNASSIGNED_ROW_ID } from './dispatch';
+import { UNASSIGNED_ROW_ID, asTeamIds } from './dispatch';
 import { formatJobRef } from './jobRef';
 import { pickJobColor } from './jobColors';
 
@@ -179,11 +179,11 @@ export function scheduleSheetSavePayload(input: ScheduleSheetInput): {
 }
 
 export function jobMatchesCrewFilter(
-  assigned: string[] | null | undefined,
+  assigned: unknown,
   filteredIds: Set<string>,
 ): boolean {
   if (filteredIds.size === 0) return true;
-  return (assigned ?? []).some(id => filteredIds.has(id));
+  return asTeamIds(assigned).some(id => filteredIds.has(id));
 }
 
 export function filterJobsByCrew<T extends ScheduleDayJob>(
@@ -195,22 +195,22 @@ export function filterJobsByCrew<T extends ScheduleDayJob>(
 }
 
 export function scheduleCrewNames(
-  assigned: string[] | null | undefined,
+  assigned: unknown,
   members: ScheduleCrewMember[] | null | undefined,
 ): string[] {
   const list = members ?? [];
-  return (assigned ?? [])
+  return asTeamIds(assigned)
     .map(id => list.find(member => member.id === id)?.name?.trim())
     .filter((name): name is string => !!name);
 }
 
 export function scheduleCrewLabel(
-  assigned: string[] | null | undefined,
+  assigned: unknown,
   members: ScheduleCrewMember[] | null | undefined,
 ): string {
   const names = scheduleCrewNames(assigned, members);
   if (names.length > 0) return names.join(', ');
-  if ((assigned ?? []).filter(Boolean).length > 0) return 'Crew';
+  if (asTeamIds(assigned).length > 0) return 'Crew';
   return 'Unassigned';
 }
 
@@ -310,10 +310,10 @@ export function weekBoardChip(
 }
 
 export function jobOnCrewRow(
-  assigned: string[] | null | undefined,
+  assigned: unknown,
   crewId: string,
 ): boolean {
-  const team = assigned ?? [];
+  const team = asTeamIds(assigned);
   if (crewId === WEEK_UNASSIGNED_CREW_ID) return team.length === 0;
   return team.includes(crewId);
 }

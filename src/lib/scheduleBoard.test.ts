@@ -7,6 +7,7 @@ import {
   filterJobsByCrew,
   groupJobsByScheduleDay,
   jobMatchesCrewFilter,
+  jobOnCrewRow,
   jobsOnScheduleDay,
   parseScheduleDateParam,
   parseScheduleView,
@@ -210,6 +211,28 @@ describe('crew filter and labels', () => {
     expect(scheduleCrewLabel(['emp-a', 'emp-b'], members)).toBe('Alex Crew, Blair Hand');
     expect(scheduleCrewLabel([], members)).toBe('Unassigned');
     expect(scheduleCrewLabel(['ghost'], members)).toBe('Crew');
+  });
+
+  it('treats a non-array assigned_team as empty on week and day', () => {
+    const objectTeam = job({ id: 'bad-object', assigned_team: {} as never });
+    const nullTeam = job({ id: 'bad-null', assigned_team: null });
+    expect(jobOnCrewRow({}, WEEK_UNASSIGNED_CREW_ID)).toBe(true);
+    expect(jobOnCrewRow({}, 'emp-a')).toBe(false);
+    expect(jobOnCrewRow(null, WEEK_UNASSIGNED_CREW_ID)).toBe(true);
+    expect(jobOnCrewRow(null, 'emp-a')).toBe(false);
+    expect(scheduleCrewNames({}, members)).toEqual([]);
+    expect(scheduleCrewNames(null, members)).toEqual([]);
+    expect(scheduleCrewLabel({}, members)).toBe('Unassigned');
+    expect(scheduleCrewLabel(null, members)).toBe('Unassigned');
+    expect(() => scheduleWeekAgenda([objectTeam, nullTeam], new Date(2026, 7, 25))).not.toThrow();
+    expect(() => weekBoardRows([objectTeam, nullTeam], members, new Date(2026, 7, 25))).not.toThrow();
+    const week = scheduleWeekAgenda([objectTeam, nullTeam], new Date(2026, 7, 25));
+    expect(week.some(day => day.jobs.some(row => row.id === 'bad-object'))).toBe(true);
+    const rows = weekBoardRows([objectTeam, nullTeam], members, new Date(2026, 7, 25));
+    const unassigned = rows.find(row => row.crewId === WEEK_UNASSIGNED_CREW_ID);
+    expect(unassigned?.cells.flatMap(cell => cell.jobs.map(j => j.id))).toEqual(
+      expect.arrayContaining(['bad-object', 'bad-null']),
+    );
   });
 
   it('keeps the week rail on a first name so phone cells do not crush', () => {

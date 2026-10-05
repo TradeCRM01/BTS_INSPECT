@@ -6,6 +6,7 @@ import {
   dayBoardHourWidthPx,
   dayBoardOpenScrollLeft,
   dayBoardStartHour,
+  dayChipPinInset,
   dayRowHeightPx,
   nextAssignedTeam,
   placeDayRowJobs,
@@ -91,6 +92,8 @@ describe('placePickedOnCell', () => {
 describe('asTeamIds', () => {
   it('ignores non-arrays and empty ids', () => {
     expect(asTeamIds(undefined)).toEqual([]);
+    expect(asTeamIds(null)).toEqual([]);
+    expect(asTeamIds({})).toEqual([]);
     expect(asTeamIds('alice')).toEqual([]);
     expect(asTeamIds(['alice', '', 1, 'bob'] as unknown[])).toEqual(['alice', 'bob']);
   });
@@ -153,6 +156,15 @@ describe('dayBoardStartHour', () => {
     expect(dayBoardStartHour([{ start_time: '07:00' }])).toBe(6);
     expect(dayBoardStartHour([{ start_time: '05:30' }])).toBe(5);
     expect(dayBoardStartHour([{ start_time: null }, { start_time: '08:00' }])).toBe(6);
+  });
+});
+
+describe('dayChipPinInset', () => {
+  it('pins short bars to the visible left while 24px remains on screen', () => {
+    expect(dayChipPinInset(100, 80, 76)).toBe(20);
+    expect(dayChipPinInset(140, 80, 76)).toBe(52);
+    expect(dayChipPinInset(200, 80, 76)).toBe(52);
+    expect(dayChipPinInset(0, 80, 76)).toBe(0);
   });
 });
 
