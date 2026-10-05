@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { listCountWhisper, listQueryBusy } from '../lib/listQueryReady';
 import { getAuditClients, getAuditJobs } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, ConfirmDialog, useToast, LoadingSpinner } from '../components/ui';
@@ -99,7 +100,7 @@ export function ClientsPage() {
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
 
-  const { data: clients, isLoading, error } = useQuery<ClientListRow[]>({
+  const { data: clients, isLoading, isPending, error } = useQuery<ClientListRow[]>({
     queryKey: ['clients', showArchived, profile?.company_id],
     queryFn: async () => {
       const mock = getAuditClients();
@@ -253,10 +254,14 @@ export function ClientsPage() {
     () => filterClientsForSearch(listRows, search),
     [listRows, search],
   );
-  const whisper = [
-    showArchived ? 'Archived' : 'Active',
-    filtered.length === 1 ? '1 client' : `${filtered.length} clients`,
-  ].join(' · ');
+  const busy = listQueryBusy({ isPending, isLoading, data: clients, seeded: lookClientsList });
+  const whisper = listCountWhisper({
+    busy,
+    filterLabel: showArchived ? 'Archived' : 'Active',
+    count: filtered.length,
+    singular: 'client',
+    plural: 'clients',
+  });
 
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load clients" /></AppShell>;
 
@@ -287,7 +292,7 @@ export function ClientsPage() {
                 />
               </div>
             </div>
-            {isLoading ? (
+            {busy ? (
               <div className="flex justify-center py-20"><LoadingSpinner /></div>
             ) : filtered.length === 0 ? (
               <EmptyState

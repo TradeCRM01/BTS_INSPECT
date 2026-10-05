@@ -16,6 +16,7 @@ import { InvoiceSendDialog } from '../components/invoicing/InvoiceSendDialog';
 import { commercialPdfPreviewData, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
+import { listQueryBusy } from '../lib/listQueryReady';
 import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel } from '../lib/gst';
 import {
   effectiveInvoiceStatus,
@@ -156,7 +157,7 @@ export function InvoicesPage() {
     enabled: !!invoiceIdParam && !!profile?.company_id,
   });
 
-  const { data: invoices, isLoading, error } = useQuery<InvoiceWithDetails[]>({
+  const { data: invoices, isLoading, isPending, error } = useQuery<InvoiceWithDetails[]>({
     queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live', paymentProof],
     queryFn: async () => {
       if (isDevFieldAuditAuth()) {
@@ -289,6 +290,7 @@ export function InvoicesPage() {
 
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load invoices" /></AppShell>;
 
+  const busy = listQueryBusy({ isPending, isLoading, data: invoices });
   const noneYet = invoiceListIsNoneYet({ search, invoiceCount: invoices?.length ?? 0 });
 
   return (
@@ -322,7 +324,7 @@ export function InvoicesPage() {
           <SearchBar value={search} onChange={setSearch} placeholder="Search invoices or clients..." className="max-w-sm" />
         </div>
 
-        {isLoading ? (
+        {busy ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : filtered.length === 0 ? (
           <div className="hub-invoices-sheet">
