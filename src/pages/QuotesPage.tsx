@@ -72,10 +72,13 @@ import {
   quoteClientAttachToast,
 } from '../lib/attachQuoteClient';
 import {
+  QUOTES_LIST_QUERY_KEY,
   quoteActionContext,
   quoteMarkAcceptedWrite,
+  quotesAfterSave,
   recommendQuoteAction,
   type QuoteActionKey,
+  type QuotesListSavePatch,
 } from '../lib/quoteNextAction';
 import { quoteChase, quoteChaseChipLabel, quoteChasePatch } from '../lib/nudges';
 import { QUOTE_STATUS_LABELS, formatMoney } from '../types/fsm';
@@ -436,12 +439,18 @@ export function QuotesPage() {
     rec.start();
   }
 
-  function handleSaved(opts?: { close?: boolean; message?: string }) {
+  function handleSaved(opts?: { close?: boolean; message?: string; listRow?: QuotesListSavePatch }) {
     if (opts?.close !== false) {
       setShowForm(false);
       setPresetClientId(null);
     }
-    queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    const listRow = opts?.listRow;
+    if (listRow) {
+      queryClient.setQueryData<QuoteListItem[]>(QUOTES_LIST_QUERY_KEY, prev =>
+        quotesAfterSave(prev, listRow),
+      );
+    }
+    queryClient.invalidateQueries({ queryKey: QUOTES_LIST_QUERY_KEY });
     queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
     queryClient.invalidateQueries({ queryKey: ['clients'] });
     if (opts?.message !== '') {
@@ -753,7 +762,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   focusConvert?: boolean;
   onFocusedConvert?: () => void;
   onClose: () => void;
-  onSaved: (opts?: { close?: boolean; message?: string }) => void;
+  onSaved: (opts?: { close?: boolean; message?: string; listRow?: QuotesListSavePatch }) => void;
   onRequestSend: (quoteId: string) => void;
 }) {
   const { profile, company: authCompany } = useAuth();
@@ -1062,7 +1071,17 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
       setSaving(false);
       if (error) { setErr(error.message); return null; }
       setForm(f => ({ ...f, status }));
-      onSaved({ close: opts?.close ?? false, message: opts?.message ?? 'Quote updated' });
+      onSaved({
+        close: opts?.close ?? false,
+        message: opts?.message ?? 'Quote updated',
+        listRow: {
+          id,
+          total: grandTotal,
+          status,
+          client_id: payload.client_id,
+          line_items: cleanLines,
+        },
+      });
       return id;
     }
     const { data, error } = await supabase.from('quotes')
@@ -1073,7 +1092,10 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
     if (error) { setErr(error.message); return null; }
     setSavedId(data.id as string);
     setForm(f => ({ ...f, status }));
-    onSaved({ close: opts?.close ?? true, message: opts?.message ?? 'Quote created' });
+    onSaved({
+      close: opts?.close ?? true,
+      message: opts?.message ?? 'Quote created',
+    });
     return data.id as string;
   };
 
