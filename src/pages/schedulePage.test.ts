@@ -60,6 +60,8 @@ describe('schedule page week/day board', () => {
     expect(dayBoard).toContain('data-crew-lane={painted.row.id}');
     expect(dayBoard).toContain('handleDrop(e, row.id)');
     expect(board).toContain('hub-day-chip-pin');
+    expect(board).toContain('translateX');
+    expect(board).toContain('scrollLeft - left');
     expect(dayBoard).toContain('hub-day-drop-hint');
     expect(dayBoard).toContain('data-unassigned-lock');
     expect(dayBoard).toContain('Drop here — date stays');

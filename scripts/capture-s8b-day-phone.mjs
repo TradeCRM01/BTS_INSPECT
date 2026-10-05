@@ -145,7 +145,13 @@ async function measurePhoneDay(page) {
     };
   });
   console.log('s8b-day-early-375', early);
-  if (!early.visible || early.firstWord !== '06:30' || !/Early call-out/.test(early.text)) {
+  if (
+    !early.visible
+    || early.firstWord !== '06:30'
+    || !/Early call-out/.test(early.text)
+    || early.left == null
+    || early.left < early.edge - 4
+  ) {
     throw new Error(`early 375 fail ${JSON.stringify(early)}`);
   }
   await shot(page, 's8b-day-early-375.png');

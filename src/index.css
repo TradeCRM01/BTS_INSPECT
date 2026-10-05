@@ -6697,13 +6697,10 @@
 
     .hub-week-document .hub-day-board .hub-week-chip {
       justify-content: flex-start;
-      overflow: visible;
+      overflow: hidden;
     }
 
     .hub-week-document .hub-day-board .hub-day-chip-pin {
-      position: sticky;
-      left: var(--hub-day-crew);
-      z-index: 1;
       max-width: calc(100vw - var(--hub-day-crew) - 16px);
     }
 

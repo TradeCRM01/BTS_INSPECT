@@ -420,6 +420,25 @@ export const DayBoardView = memo(function DayBoardView({
   }, [currentDate]);
 
   useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const pin = () => {
+      const scrollLeft = el.scrollLeft;
+      for (const pinEl of el.querySelectorAll<HTMLElement>('[data-day-chip-pin="1"]')) {
+        const bar = pinEl.closest('.absolute');
+        if (!(bar instanceof HTMLElement)) continue;
+        const left = Number.parseFloat(bar.style.left) || 0;
+        const width = Number.parseFloat(bar.style.width) || 0;
+        const inset = Math.max(0, Math.min(scrollLeft - left, Math.max(0, width - 56)));
+        pinEl.style.transform = inset > 0 ? `translateX(${Math.round(inset)}px)` : '';
+      }
+    };
+    pin();
+    el.addEventListener('scroll', pin, { passive: true });
+    return () => el.removeEventListener('scroll', pin);
+  }, [hourWidth, jobs, dateStr]);
+
+  useEffect(() => {
     const clear = () => { setDragJobId(null); setDropHoverId(null); };
     window.addEventListener('dragend', clear);
     return () => window.removeEventListener('dragend', clear);
