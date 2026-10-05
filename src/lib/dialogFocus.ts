@@ -12,7 +12,6 @@ export function dialogFocusPlan(open: boolean, wasOpen: boolean): {
   };
 }
 
-/** Same turn order as AppDialog focusFirst: rAF, rAF, then setTimeout(0). */
 export function afterDialogInitialFocus(run: () => boolean): () => void {
   let cancelled = false;
   let tries = 0;
