@@ -7,6 +7,11 @@ import {
   COMPLIANCE_DEADLINES_SELECT,
   complianceDeadlinesCardCopy,
   complianceDeadlinesCardKind,
+  complianceDeadlinesLookItems,
+  complianceDueDayLabel,
+  complianceDueKey,
+  complianceUpcomingHint,
+  perthCalendarDay,
   splitComplianceDeadlines,
 } from '../lib/complianceDeadlinesWidget';
 import { useAuth } from '../contexts/AuthContext';
@@ -253,7 +258,9 @@ export function ComplianceDeadlinesWidget({ config }: WidgetProps) {
     },
     enabled: !lookCompliance,
   });
-  const data = lookCompliance ? { ...lookCompliance, all: [...lookCompliance.overdue, ...lookCompliance.upcoming] } : fetched;
+  const data = lookCompliance
+    ? splitComplianceDeadlines(complianceDeadlinesLookItems())
+    : fetched;
   const loading = lookCompliance ? false : isLoading;
   const failed = lookCompliance ? false : pageQueryBlocked(isError);
   const kind = complianceDeadlinesCardKind({
@@ -282,33 +289,38 @@ export function ComplianceDeadlinesWidget({ config }: WidgetProps) {
           <CheckCircle size={18} className="mb-1" /> {copy}
         </div>
       ) : (
-        <div className="flex-1 overflow-auto -mx-1 px-1 space-y-1 min-h-0">
-          {(data?.overdue ?? []).map((item: Record<string, unknown>) => (
+        <div className="flex-1 overflow-auto -mx-1 px-1 space-y-1 min-h-0" data-compliance-deadlines="1">
+          {(data?.overdue ?? []).map((item: Record<string, unknown>) => {
+            const due = complianceDueKey(item.next_due_date);
+            return (
             <Link key={item.id as string} to="/compliance"
               className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
-              <AlertCircle size={14} className="text-red-500 shrink-0" />
+              <AlertCircle size={14} className="text-[#EF4444] shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-medium text-[#1A1A1A] truncate">{item.title as string}</p>
-                <p className="text-[9px] text-red-500 font-medium">
-                  Overdue · {format(new Date(item.next_due_date as string), 'd MMM')}
+                <p className="text-[9px] text-[#EF4444] font-medium">
+                  Overdue · {due ? complianceDueDayLabel(due) : ''}
                 </p>
               </div>
             </Link>
-          ))}
-          {(data?.upcoming ?? []).map((item: Record<string, unknown>) => (
+            );
+          })}
+          {(data?.upcoming ?? []).map((item: Record<string, unknown>) => {
+            const due = complianceDueKey(item.next_due_date);
+            const hint = due ? complianceUpcomingHint(due, perthCalendarDay()) : '';
+            return (
             <Link key={item.id as string} to="/compliance"
               className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-amber-50 transition-colors">
-              <Clock size={14} className="text-amber-500 shrink-0" />
+              <Clock size={14} className="text-[#D97706] shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-medium text-[#1A1A1A] truncate">{item.title as string}</p>
-                <p className="text-[9px] text-amber-600">
-                  Due {format(new Date(item.next_due_date as string), 'd MMM')}
-                  {' · '}
-                  {formatDistanceToNow(new Date(item.next_due_date as string), { addSuffix: true })}
+                <p className="text-[9px] text-[#D97706]">
+                  Due {due ? complianceDueDayLabel(due) : ''}{hint ? ` · ${hint}` : ''}
                 </p>
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
