@@ -256,24 +256,21 @@ export async function readFileExif(file: Blob): Promise<ExifCapture> {
 
 export interface ProvenanceDeps {
   now: () => Date;
-  locate: () => Promise<PhotoPlace | null>;
 }
 
 /**
- * Reads EXIF from every file first, then asks the device for one fix only if some photo
- * has no GPS of its own. That keeps the permission prompt to one, and only when needed.
+ * Reads EXIF from every file. Photo GPS stays if the file has it. Missing GPS stays
+ * missing — attach and preview never ask the device for a fix on their own.
  */
 export async function resolvePhotoProvenance(
   files: File[],
   deps: ProvenanceDeps,
 ): Promise<AttachedPhoto[]> {
   const exifs = await Promise.all(files.map(readFileExif));
-  const needsFix = exifs.some(exif => exif.lat === null || exif.lng === null);
-  const devicePlace = needsFix ? await deps.locate().catch(() => null) : null;
   const now = deps.now();
   return files.map((file, i) => ({
     file,
-    provenance: provenanceFromExif(exifs[i], { now, place: devicePlace }),
+    provenance: provenanceFromExif(exifs[i], { now, place: null }),
   }));
 }
 
@@ -301,7 +298,6 @@ export function deviceLocation(): Promise<PhotoPlace | null> {
 
 export const BROWSER_PROVENANCE_DEPS: ProvenanceDeps = {
   now: () => new Date(),
-  locate: deviceLocation,
 };
 
 export function describePhotoClock(takenAt: string, source: PhotoClockSource): string {

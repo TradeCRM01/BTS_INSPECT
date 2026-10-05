@@ -2356,7 +2356,7 @@ export function JobDetailPage() {
   const visitLog = sortJobVisitNotesNewestFirst(visitNotes);
   const attachVisitPhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    // A second pick while the first waits on the permission prompt must win.
+    // A second pick while the first is still reading EXIF must win.
     const seq = visitAttachSeq.current + 1;
     visitAttachSeq.current = seq;
     setVisitAttaching(true);

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { withExif } from '../../scripts/lib/exif-jpeg.mjs';
 import {
+  BROWSER_PROVENANCE_DEPS,
   EMPTY_EXIF,
   describePhotoClock,
   describePhotoPlace,
@@ -125,13 +126,11 @@ describe('resolvePhotoProvenance', () => {
     return new File([bytes], name, { type: 'image/jpeg' });
   }
 
-  it('asks the device once for a batch where some photo lacks GPS, and stamps each photo', async () => {
-    let locates = 0;
+  it('keeps photo GPS and never asks the device when a photo has none', async () => {
     const attached = await resolvePhotoProvenance(
       [jpegFile('site.jpg', sitePhoto), jpegFile('plain.jpg', BARE_JPEG)],
-      { now: () => attachClock, locate: async () => { locates += 1; return devicePlace; } },
+      { now: () => attachClock },
     );
-    expect(locates).toBe(1);
     expect(attached.map(photo => photo.file.name)).toEqual(['site.jpg', 'plain.jpg']);
     expect(attached[0].provenance).toEqual({
       takenAt: '2026-09-07T23:15:30.000Z',
@@ -141,36 +140,45 @@ describe('resolvePhotoProvenance', () => {
     expect(attached[1].provenance).toEqual({
       takenAt: '2026-09-11T01:02:03.000Z',
       takenAtSource: 'upload',
-      place: devicePlace,
+      place: null,
     });
   });
 
-  it('skips the device when every photo carries its own fix', async () => {
-    let locates = 0;
+  it('keeps each photo GPS when every file carries its own fix', async () => {
     const attached = await resolvePhotoProvenance(
       [jpegFile('a.jpg', sitePhoto), jpegFile('b.jpg', sitePhoto)],
-      { now: () => attachClock, locate: async () => { locates += 1; return devicePlace; } },
+      { now: () => attachClock },
     );
-    expect(locates).toBe(0);
     expect(attached.map(photo => photo.provenance.place?.source)).toEqual(['exif', 'exif']);
   });
 
-  it('leaves place empty when the device declines or the fix throws', async () => {
-    const expected = {
+  it('leaves place empty when the photo has no GPS of its own', async () => {
+    const attached = await resolvePhotoProvenance(
+      [jpegFile('plain.jpg', BARE_JPEG)],
+      { now: () => attachClock },
+    );
+    expect(attached[0].provenance).toEqual({
       takenAt: '2026-09-11T01:02:03.000Z',
       takenAtSource: 'upload',
       place: null,
-    };
-    const declined = await resolvePhotoProvenance(
+    });
+  });
+
+  it('does not call navigator.geolocation when attaching a photo with no GPS', async () => {
+    const getCurrentPosition = vi.fn();
+    const watchPosition = vi.fn();
+    vi.stubGlobal('navigator', { geolocation: { getCurrentPosition, watchPosition } });
+    const attached = await resolvePhotoProvenance(
       [jpegFile('plain.jpg', BARE_JPEG)],
-      { now: () => attachClock, locate: async () => null },
+      BROWSER_PROVENANCE_DEPS,
     );
-    expect(declined[0].provenance).toEqual(expected);
-    const threw = await resolvePhotoProvenance(
-      [jpegFile('plain.jpg', BARE_JPEG)],
-      { now: () => attachClock, locate: async () => { throw new Error('no geolocation'); } },
-    );
-    expect(threw[0].provenance).toEqual(expected);
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(watchPosition).not.toHaveBeenCalled();
+    expect(attached[0].provenance.place).toBe(null);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 });
 
