@@ -21,6 +21,7 @@ describe('documentShareDeliver', () => {
     expect(deliver).toContain('pickActiveClientPortalToken');
     expect(deliver).toContain('clientPortalTokenInsert');
     expect(deliver).toContain("status: next");
+    expect(deliver).toContain('sent_at: now');
     expect(deliver).toContain(".eq('status', 'draft')");
     expect(deliver).not.toContain('Relovi');
     expect(deliver).not.toContain('Littleloop');

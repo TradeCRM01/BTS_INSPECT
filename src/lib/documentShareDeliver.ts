@@ -80,9 +80,10 @@ export async function markQuoteSentForShare(args: {
   const next = quoteStatusAfterMarkSent(args.status);
   if (!next) return { status: args.status, markedSent: false };
   if (isDevFieldAuditAuth()) return { status: next, markedSent: true };
+  const now = new Date().toISOString();
   const { error } = await supabase
     .from('quotes')
-    .update({ status: next, updated_at: new Date().toISOString() })
+    .update({ status: next, sent_at: now, updated_at: now })
     .eq('id', args.quoteId)
     .eq('status', 'draft');
   if (error) throw error;

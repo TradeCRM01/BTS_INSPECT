@@ -509,7 +509,7 @@ describe('receipt source lock — Mark paid sheet, existing pipe, quotes off', (
   it('does not touch quotes, chase autofire cron, or add a table / route / dialog', () => {
     expect(quotesPage).not.toContain('deliverInvoiceReceiptAfterMarkPaid');
     expect(quotesPage).not.toContain('purpose: \'receipt\'');
-    expect(quotesPage).not.toContain('chased_at');
+    expect(quotesPage).not.toContain('invoiceReceiptHtml');
     expect(quoteNext).not.toContain('receipt');
     expect(quoteNext).not.toContain('deliverInvoiceReceiptAfterMarkPaid');
     expect(hop).toContain('{"due":"overdue","source":"cron"}');

@@ -271,8 +271,14 @@ export function quoteStatusAfterSend(sendSucceeded: boolean, currentStatus: stri
   return currentStatus;
 }
 
-export function quoteStatusPatchAfterSend(sendSucceeded: boolean): { status: 'sent' } | null {
-  return sendSucceeded ? { status: 'sent' } : null;
+export function quoteStatusPatchAfterSend(
+  sendSucceeded: boolean,
+  now = new Date(),
+  existingSentAt?: string | null,
+): { status: 'sent'; sent_at?: string } | null {
+  if (!sendSucceeded) return null;
+  if ((existingSentAt ?? '').trim()) return { status: 'sent' };
+  return { status: 'sent', sent_at: now.toISOString() };
 }
 
 export function shouldRecordQuoteSent(sendOk: boolean, currentStatus: string): boolean {

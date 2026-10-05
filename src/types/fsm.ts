@@ -181,10 +181,15 @@ export interface Quote {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** First time status became sent. Chase age counts from this, never updated_at. */
+  sent_at?: string | null;
+  /** In-app Mark chased. Any value excludes the quote from Step 4 Chase. */
+  chased_at?: string | null;
 }
 
 export interface QuoteWithDetails extends Quote {
   client_name?: string | null;
+  client_contact_person?: string | null;
   job_title?: string | null;
   job_address?: string | null;
 }

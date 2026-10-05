@@ -13,6 +13,8 @@ import {
   invoiceStatusAfterMarkSent,
   quoteNeedsMarkSentForAccept,
   quoteShareAfterPortalUrl,
+  quoteChaseClientName,
+  quoteChaseCopyText,
   quoteShareMailtoBody,
   quoteStatusAfterMarkSent,
 } from './documentShare';
@@ -132,6 +134,47 @@ describe('decideQuoteShare', () => {
     expect(share.canCopyLink).toBe(false);
     expect(share.canMarkSent).toBe(false);
     expect(share.canDownloadPdf).toBe(true);
+  });
+});
+
+describe('quoteChaseCopyText', () => {
+  it('builds the signed all-trades chase with name, number, total, and portal link', () => {
+    expect(quoteChaseClientName({ contactPerson: 'Sarah Lee', clientName: 'Northside Electrical' })).toBe('Sarah');
+    expect(quoteChaseClientName({ clientName: 'Northside Electrical' })).toBe('Northside Electrical');
+    expect(quoteChaseClientName({ contactPerson: 'Harbour', clientName: 'Harbour Trade Co' })).toBe('Harbour');
+    expect(quoteChaseCopyText({
+      clientName: 'Sarah Lee',
+      contactPerson: 'Sarah Lee',
+      companyName: 'Harbour Trade Co',
+      quoteNumber: 12,
+      total: 1320,
+      portalUrl: 'https://grafter.com.au/p?t=abc',
+    })).toBe(
+      'Hi Sarah, just following up on quote #0012 for $1,320.00. You can view and accept it here: https://grafter.com.au/p?t=abc. Happy to answer any questions. Thanks, Harbour Trade Co',
+    );
+    expect(quoteChaseCopyText({
+      clientName: 'Northside Electrical',
+      companyName: 'Harbour Trade Co',
+      quoteNumber: 12,
+      total: 1320,
+      portalUrl: 'https://grafter.com.au/p?t=abc',
+    })).toBe(
+      'Hi Northside Electrical, just following up on quote #0012 for $1,320.00. You can view and accept it here: https://grafter.com.au/p?t=abc. Happy to answer any questions. Thanks, Harbour Trade Co',
+    );
+    expect(quoteChaseCopyText({
+      clientName: 'Sarah Lee',
+      companyName: 'Harbour Trade Co',
+      quoteNumber: 12,
+      total: 1320,
+      portalUrl: 'https://grafter.com.au/p?t=abc',
+    })).toContain('/p?t=');
+    expect(quoteChaseCopyText({
+      clientName: 'Sarah Lee',
+      companyName: 'Harbour Trade Co',
+      quoteNumber: 12,
+      total: 1320,
+      portalUrl: 'https://grafter.com.au/p?t=abc',
+    })).not.toMatch(/Relovi|Littleloop|electrician|BTS-only/i);
   });
 });
 
