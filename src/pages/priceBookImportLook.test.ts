@@ -15,6 +15,8 @@ describe('price book CSV import look', () => {
 
     expect(page).toContain('PriceBookCsvImportModal');
     expect(page).toContain('Import CSV');
+    expect(page).toContain('Import PDF');
+    expect(page).not.toContain('Import from PDF');
     expect(page).not.toMatch(/Relovi|Littleloop/);
     expect(modal).not.toMatch(/Relovi|Littleloop/);
 
