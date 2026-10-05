@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Job, JobStatus, JobPriority, Client } from '../../types/crm';
@@ -41,6 +42,7 @@ export function JobFormModal({
   onSaved,
 }: JobFormModalProps) {
   const { profile } = useAuth();
+  const queryClient = useQueryClient();
   const detailsOnly = fields === 'details' && !!job;
   const [clients, setClients] = useState<Client[]>([]);
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
@@ -175,10 +177,14 @@ export function JobFormModal({
     const { data, error } = await supabase
       .from('jobs')
       .insert({ ...payload, company_id: profile.company_id, created_by: profile.id })
-      .select('id')
+      .select('*')
       .single();
     setSaving(false);
     if (error) { setErr(error.message); return; }
+    queryClient.setQueryData(['job', data.id], data);
+    if (data.client_id && selectedClient?.id === data.client_id) {
+      queryClient.setQueryData(['job-client', data.client_id], selectedClient);
+    }
     onSaved(data.id as string);
   };
 

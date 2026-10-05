@@ -87,6 +87,25 @@ export function jobClientAttachToast(): { message: string; kind: 'success' } {
   return { message: JOB_CLIENT_ATTACH_SAVED, kind: 'success' };
 }
 
+export type JobSheetClientName =
+  | { kind: 'name'; name: string }
+  | { kind: 'pending' }
+  | { kind: 'none' };
+
+/**
+ * Header name after create. Linked + loaded → name. Linked + client query
+ * still empty → pending (never "No client"). No client_id → none.
+ */
+export function jobSheetClientName(input: {
+  jobClientId: string | null | undefined;
+  client: { name?: string | null } | null | undefined;
+}): JobSheetClientName {
+  if (!input.jobClientId) return { kind: 'none' };
+  const name = (input.client?.name ?? '').trim();
+  if (name) return { kind: 'name', name };
+  return { kind: 'pending' };
+}
+
 export type AttachJobClientResult = {
   jobId: string;
   clientId: string;

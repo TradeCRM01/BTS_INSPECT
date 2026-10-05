@@ -34,6 +34,7 @@ import {
   attachJobClient,
   jobClientAttachRow,
   jobClientAttachToast,
+  jobSheetClientName,
 } from '../lib/attachJobClient';
 import {
   jobClientEmailRow,
@@ -2287,6 +2288,10 @@ export function JobDetailPage() {
         ? (attachClientsQuery.data ?? [])
         : null,
   });
+  const headerClient = jobSheetClientName({
+    jobClientId: job.client_id,
+    client: client ?? null,
+  });
 
   const sheetNext = jobOpenNext(job, {
     jhaCount: (jhas ?? []).length,
@@ -2673,10 +2678,14 @@ export function JobDetailPage() {
                 <span className="flex items-center gap-1.5 ops-meta">
                   <User size={13} /> {JOB_CLIENT_ATTACH_NO_CLIENTS}
                 </span>
-              ) : client ? (
-                <Link to={clientRecordHref(client.id)} className="flex items-center gap-1.5 text-accent hover:underline">
-                  <User size={13} /> {client.name}
+              ) : headerClient.kind === 'name' && job.client_id ? (
+                <Link to={clientRecordHref(job.client_id)} className="flex items-center gap-1.5 text-accent hover:underline">
+                  <User size={13} /> {headerClient.name}
                 </Link>
+              ) : headerClient.kind === 'pending' ? (
+                <span className="flex items-center gap-1.5 ops-meta" data-job-client="pending">
+                  <User size={13} />
+                </span>
               ) : (
                 <span className="flex items-center gap-1.5 ops-meta">
                   <User size={13} /> No client
