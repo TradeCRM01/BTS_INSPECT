@@ -169,6 +169,8 @@ describe('form fields fit their type', () => {
     expect(page).toContain('job-client-email-save');
     expect(src('src/components/pricebooks/PriceBookPdfImportModal.tsx')).toContain('grid-cols-1 sm:grid-cols-2');
     expect(src('src/components/pricebooks/PriceBookPdfImportModal.tsx')).not.toContain('<table');
+    expect(src('src/components/pricebooks/PriceBookCsvImportModal.tsx')).toContain('grid-cols-1 sm:grid-cols-2');
+    expect(src('src/components/pricebooks/PriceBookCsvImportModal.tsx')).not.toContain('<table');
     expect(page).toContain('Stop & think');
     expect(page).toContain('to="/settings/team"');
     expect(page).toContain('Price book item (3-up stacks on phones)');

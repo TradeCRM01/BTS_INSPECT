@@ -472,6 +472,7 @@ export interface PriceBookItem {
   unit: string;
   unit_price: number;
   cost_price: number | null;
+  gst_rate?: number | null;
   is_active: boolean;
   created_at: string;
 }
