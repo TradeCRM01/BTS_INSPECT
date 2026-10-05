@@ -42,7 +42,17 @@ describe('EditorStickyFooter', () => {
 
     expect(css).toContain('.hub-editor-sticky-footer');
     expect(css).toContain('.hub-editor-sticky-cancel');
+    expect(css).toContain('.hub-editor-sticky-save');
     expect(css).toContain('min-height: 44px');
+    const saveRule = css.slice(css.indexOf('.hub-editor-sticky-save'));
+    expect(saveRule).toContain('justify-content: center');
+    expect(saveRule).toContain('border-radius: 12px');
+    expect(saveRule).toContain('background: #0A2540');
+    expect(saveRule).toContain('color: #FFFDF8');
+    expect(css).toContain('--hub-editor-footer-h: 64px');
+    expect(css).toContain('padding-bottom: var(--hub-editor-footer-h)');
+    expect(css).toContain('body:has(.hub-editor-sticky-footer) .shell-bottom-nav');
+    expect(css).toContain('.overlay-backdrop:has(.hub-editor-sticky-footer)');
     expect(css).toContain('.overlay-panel-xl.hub-quote-editor:has(.hub-editor-sticky-footer)');
     expect(css).toContain('.overlay-panel-xl.hub-invoice-editor:has(.hub-editor-sticky-footer)');
   });

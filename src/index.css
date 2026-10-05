@@ -3615,7 +3615,16 @@
 
   .overlay-panel-xl.hub-quote-editor:has(.hub-editor-sticky-footer),
   .overlay-panel-xl.hub-invoice-editor:has(.hub-editor-sticky-footer) {
+    --hub-editor-footer-h: 64px;
     overflow: hidden !important;
+  }
+
+  .overlay-backdrop:has(.hub-editor-sticky-footer) {
+    background: #F5F0E6 !important;
+  }
+
+  body:has(.hub-editor-sticky-footer) .shell-bottom-nav {
+    display: none !important;
   }
 
   .hub-editor-dialog-scroll {
@@ -3623,6 +3632,7 @@
     min-height: 0;
     overflow-x: auto;
     overflow-y: auto;
+    padding-bottom: var(--hub-editor-footer-h);
   }
 
   .hub-editor-sticky-footer {
@@ -3655,6 +3665,22 @@
     font-family: 'Source Sans 3', system-ui, sans-serif;
     font-size: 14px;
     font-weight: 600;
+  }
+
+  .hub-quote-editor .btn-primary.hub-editor-sticky-save,
+  .hub-invoice-editor .btn-primary.hub-editor-sticky-save,
+  .hub-editor-sticky-save {
+    justify-content: center;
+    border-radius: 12px;
+    background: #0A2540;
+    color: #FFFDF8;
+  }
+
+  .hub-quote-editor .btn-primary.hub-editor-sticky-save:hover,
+  .hub-invoice-editor .btn-primary.hub-editor-sticky-save:hover,
+  .hub-editor-sticky-save:hover {
+    background: #0A2540;
+    color: #FFFDF8;
   }
 
   .overlay-panel-md:has(.hub-invoice-send) {
