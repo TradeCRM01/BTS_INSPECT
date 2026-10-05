@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -1869,6 +1870,7 @@ export function JobDetailPage() {
   const lightboxPhoto = lightboxKey
     ? gallery.find(photo => photo.key === lightboxKey) ?? null
     : null;
+  const openJobPhotoLightbox = (key: string) => setLightboxKey(key);
 
   useEffect(() => {
     const dialog = lightboxRef.current;
@@ -3336,7 +3338,7 @@ export function JobDetailPage() {
                             type="button"
                             data-visit-photo={photo.key}
                             aria-label={`Open photo, ${describePhotoClock(photo.takenAt, photo.takenAtSource)}`}
-                            onClick={() => setLightboxKey(photo.key)}
+                            onClick={e => { e.stopPropagation(); openJobPhotoLightbox(photo.key); }}
                           >
                             <img src={url} alt="" loading="lazy" />
                           </button>
@@ -3483,7 +3485,7 @@ export function JobDetailPage() {
                     className="job-gallery-item"
                     data-gallery-photo={photo.key}
                     data-gallery-source={photo.source}
-                    onClick={() => setLightboxKey(photo.key)}
+                    onClick={() => openJobPhotoLightbox(photo.key)}
                   >
                     <img src={url} alt={photo.caption ?? ''} loading="lazy" />
                     <span className="job-gallery-meta">
@@ -3740,6 +3742,7 @@ export function JobDetailPage() {
           }}
         />
       )}
+      {createPortal(
       <dialog
         ref={lightboxRef}
         className="job-photo-lightbox"
@@ -3771,7 +3774,9 @@ export function JobDetailPage() {
             </button>
           </div>
         )}
-      </dialog>
+      </dialog>,
+      document.body,
+      )}
     </AppShell>
   );
 }
