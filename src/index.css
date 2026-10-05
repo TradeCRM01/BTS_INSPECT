@@ -8953,7 +8953,8 @@
     display: contents;
   }
 
-  .hub-jobs-document .ops-tray:has(.ops-tray-empty) .ops-tray-head > :not(.ops-section-title),
+  /* Time tray (#job-hours) keeps Clock on + Add hours when empty. Other trays still hide head actions. */
+  .hub-jobs-document :not(#job-hours) > .ops-tray:has(.ops-tray-empty) .ops-tray-head > :not(.ops-section-title),
   .hub-jobs-document :is(#job-swms, #job-insp) .ops-tray:has(.ops-tray-empty) .ops-tray-head > :not(.ops-section-title) {
     display: none;
   }
