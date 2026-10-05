@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
-import { AppDialog, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
+import { AppDialog, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { LineItemEditor, emptyLineItem, toEditLine, type EditLineItem } from '../components/invoicing/LineItemEditor';
@@ -1096,6 +1096,14 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       onClose={onClose}
       title="Invoice"
       panelClassName="overlay-panel-xl hub-invoice-editor"
+      footer={(
+        <EditorStickyFooter
+          onCancel={onClose}
+          onSave={() => { void persist(form.status, { close: true }); }}
+          saveLabel={invoice || savedId ? 'Save' : 'Save draft'}
+          saving={saving}
+        />
+      )}
     >
         <div className="hub-invoice-toolbar">
           <div className="hub-invoice-editor-act">

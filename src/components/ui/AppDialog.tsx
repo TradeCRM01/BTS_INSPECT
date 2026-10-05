@@ -15,6 +15,7 @@ export function AppDialog({
   title,
   labelledBy,
   children,
+  footer,
   className = '',
   panelClassName = '',
   escape = true,
@@ -25,6 +26,7 @@ export function AppDialog({
   title?: string;
   labelledBy?: string;
   children: ReactNode;
+  footer?: ReactNode;
   className?: string;
   panelClassName?: string;
   escape?: boolean;
@@ -127,7 +129,12 @@ export function AppDialog({
           className={panelClassName}
           onClick={e => e.stopPropagation()}
         >
-          {children}
+          {footer ? (
+            <>
+              <div className="hub-editor-dialog-scroll">{children}</div>
+              {footer}
+            </>
+          ) : children}
         </div>
       </div>
     </OverlayPortal>

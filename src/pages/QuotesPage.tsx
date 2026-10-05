@@ -16,7 +16,7 @@ import {
   getAuditTeamMembers,
 } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { AppDialog, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
+import { AppDialog, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
@@ -1356,6 +1356,14 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
       onClose={onClose}
       title="Quote"
       panelClassName="overlay-panel-xl hub-quote-editor"
+      footer={(
+        <EditorStickyFooter
+          onCancel={onClose}
+          onSave={() => { void persist(form.status, { close: true }); }}
+          saveLabel={quote || savedId ? 'Save' : 'Save draft'}
+          saving={saving}
+        />
+      )}
     >
         <div className="hub-quote-toolbar">
           <div className="hub-quote-editor-act">
