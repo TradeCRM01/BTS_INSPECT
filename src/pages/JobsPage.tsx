@@ -14,6 +14,7 @@ import { jobOpenNext } from '../lib/jobNextAction';
 import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
 import { jobsListCustomer, jobsListTitle } from '../lib/jobsListRow';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
+import { listCountWhisper, listQueryBusy } from '../lib/listQueryReady';
 import { Plus, Briefcase, MoreHorizontal } from 'lucide-react';
 
 type JobRowModel = JobWithClient & {
@@ -187,7 +188,7 @@ export function JobsPage() {
   const [showForm, setShowForm] = useState(false);
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
 
-  const { data: jobs, isLoading, error } = useQuery<JobRowModel[]>({
+  const { data: jobs, isLoading, isPending, error } = useQuery<JobRowModel[]>({
     queryKey: ['jobs-all', profile?.company_id],
     queryFn: async () => {
       const mock = getAuditJobs();
@@ -269,10 +270,14 @@ export function JobsPage() {
   }, [listRows, statusFilter, search]);
 
   const filterLabel = STATUS_FILTERS.find(tab => tab.key === statusFilter)?.label ?? 'All';
-  const whisper = [
+  const busy = listQueryBusy({ isPending, isLoading, data: jobs, seeded: lookJobsList });
+  const whisper = listCountWhisper({
+    busy,
     filterLabel,
-    filtered.length === 1 ? '1 job' : `${filtered.length} jobs`,
-  ].join(' · ');
+    count: filtered.length,
+    singular: 'job',
+    plural: 'jobs',
+  });
 
   useEffect(() => {
     const clientId = searchParams.get('client');
@@ -338,7 +343,7 @@ export function JobsPage() {
                 </button>
               ))}
             </div>
-            {isLoading ? (
+            {busy ? (
               <div className="flex justify-center py-20"><LoadingSpinner /></div>
             ) : filtered.length === 0 ? (
               <EmptyState

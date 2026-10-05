@@ -44,6 +44,7 @@ import { copyShareText, ensureClientPortalUrl } from '../lib/documentShareDelive
 import { commercialPdfPreviewData, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
+import { listQueryBusy } from '../lib/listQueryReady';
 import { padQuoteNumber } from '../lib/quoteJobFields';
 import {
   commercialPdfCompanyFrom,
@@ -238,7 +239,7 @@ export function QuotesPage() {
   const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null);
   const sendCompany = quoteSendCompanyFrom(company);
 
-  const { data: quotes, isLoading, error } = useQuery<QuoteListItem[]>({
+  const { data: quotes, isLoading, isPending, error } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes'],
     queryFn: async () => {
       const convertQuote = fieldAuditConvertQuote();
@@ -369,6 +370,7 @@ export function QuotesPage() {
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load quotes" /></AppShell>;
 
   const filteredEmpty = !search && statusFilter === 'all';
+  const busy = listQueryBusy({ isPending, isLoading, data: quotes });
 
   return (
     <AppShell>
@@ -399,7 +401,7 @@ export function QuotesPage() {
           <SearchBar value={search} onChange={setSearch} placeholder="Search quotes or clients..." className="max-w-sm" />
         </div>
 
-        {isLoading ? (
+        {busy ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : filtered.length === 0 ? (
           <EmptyState
