@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -176,7 +176,7 @@ function headerCacheControl(headers: string): Map<string, string> {
   return map;
 }
 
-describe('Pages HTML cache and missing /assets/*', () => {
+describe('Pages HTML cache and SPA fallback', () => {
   function src(rel: string): string {
     return readFileSync(resolve(process.cwd(), rel), 'utf8');
   }
@@ -212,13 +212,13 @@ describe('Pages HTML cache and missing /assets/*', () => {
     expect(headers).not.toMatch(/Relovi|Littleloop/);
   });
 
-  it('404s missing /assets/* before the SPA rewrite', () => {
+  it('uses only the SPA fallback and has no public/404.html', () => {
     const redirects = src('public/_redirects');
-    const notFound = src('public/404.html');
     const rules = redirects.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#'));
-    expect(rules[0]).toMatch(/^\/assets\/\*\s+\/404\.html\s+404$/);
-    expect(rules[1]).toMatch(/^\/\*\s+\/index\.html\s+200$/);
-    expect(notFound).toContain('Not found');
-    expect(notFound).not.toMatch(/Relovi|Littleloop/);
+    expect(rules).toHaveLength(1);
+    expect(rules[0]).toMatch(/^\/\*\s+\/index\.html\s+200$/);
+    expect(existsSync(resolve(process.cwd(), 'public/404.html'))).toBe(false);
+    expect(redirects).not.toMatch(/404\.html/);
+    expect(redirects).not.toMatch(/Relovi|Littleloop/);
   });
 });
