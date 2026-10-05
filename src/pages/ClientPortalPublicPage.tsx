@@ -9,7 +9,7 @@ import { formatMoney, QUOTE_STATUS_LABELS } from '../types/fsm';
 import { usePublicDocumentHead } from '../lib/publicSeo';
 import { companyPaymentMethodsForDocument } from '../lib/companyPaymentMethods';
 import { portalDocumentRef } from '../lib/quoteJobFields';
-import { portalQuoteLapsedCopy, quoteValidityLapsed } from '../lib/sendQuote';
+import { portalQuoteLapsedCopy } from '../lib/sendQuote';
 
 type PortalCompany = {
   name: string;
@@ -26,10 +26,9 @@ export const PORTAL_QUOTE_ACCEPT_ACTION = 'accept_quote';
 export function canAcceptPortalQuote(
   status: string,
   jobId: string | null,
-  validityDate?: string | null,
-  now: Date = new Date(),
+  lapsed?: boolean,
 ): boolean {
-  if (status === 'sent') return !quoteValidityLapsed(validityDate, now);
+  if (status === 'sent') return lapsed !== true;
   return status === 'accepted' && !jobId;
 }
 
@@ -44,6 +43,7 @@ type PortalQuote = {
   job_id: string | null;
   total: number;
   validity_date: string | null;
+  lapsed?: boolean;
   updated_at: string;
   scheduled_date?: string | null;
   assigned_team?: string[];
@@ -132,7 +132,8 @@ export function clientPortalAuditFixture(): PortalAuditPayload {
       status: 'sent',
       job_id: null,
       total: 2860,
-      validity_date: '2026-12-31',
+      validity_date: '2026-09-01',
+      lapsed: false,
       updated_at: '2026-09-20T00:00:00.000Z',
       scheduled_date: '2026-09-24',
       assigned_team: ['audit-crew-7'],
@@ -143,7 +144,8 @@ export function clientPortalAuditFixture(): PortalAuditPayload {
       status: 'sent',
       job_id: null,
       total: 1320,
-      validity_date: '2026-09-01',
+      validity_date: '2026-12-31',
+      lapsed: true,
       updated_at: '2026-08-20T00:00:00.000Z',
     }],
     invoices: [{
@@ -168,7 +170,7 @@ export function acceptClientPortalAuditQuote(
   if (
     !quote
     || quote.status !== 'sent'
-    || quoteValidityLapsed(quote.validity_date)
+    || quote.lapsed === true
     || !quote.scheduled_date
     || !quote.assigned_team?.length
     || !quote.job_title
@@ -386,9 +388,9 @@ export function ClientPortalPublicPage() {
               </div>
               <p className="portal-quote-total">{formatMoney(q.total)}</p>
             </div>
-            {q.status === 'sent' && quoteValidityLapsed(q.validity_date) ? (
+            {q.status === 'sent' && q.lapsed ? (
               <p className="portal-quote-lapsed">{portalQuoteLapsedCopy(data.company?.name)}</p>
-            ) : canAcceptPortalQuote(q.status, q.job_id, q.validity_date) ? (
+            ) : canAcceptPortalQuote(q.status, q.job_id, q.lapsed) ? (
               <button
                 type="button"
                 onClick={() => void acceptQuote(q.id)}

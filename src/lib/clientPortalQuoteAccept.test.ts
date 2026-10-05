@@ -5,11 +5,11 @@ import {
   canClientAcceptQuote,
   clientPortalAcceptBody,
   clientPortalPublicUrl,
+  isQuoteLapsed,
   portalQuoteLapsedCopy,
   quoteSendHtml,
   quoteSmsBody,
   quoteStatusAfterClientAccept,
-  quoteValidityLapsed,
 } from './sendQuote';
 import { portalDocumentRef } from './quoteJobFields';
 import {
@@ -67,15 +67,10 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
     expect(PORTAL_QUOTE_ACCEPT_ACTION).toBe('accept_quote');
   });
 
-  it('hides Accept on a lapsed sent quote and keeps it on a still-valid sent quote', () => {
-    const now = new Date(2026, 9, 5, 9);
-    expect(quoteValidityLapsed('2026-09-01', now)).toBe(true);
-    expect(quoteValidityLapsed('2026-10-05', now)).toBe(false);
-    expect(quoteValidityLapsed(null, now)).toBe(false);
-    expect(canClientAcceptQuote('sent', '2026-09-01', now)).toBe(false);
-    expect(canAcceptPortalQuote('sent', null, '2026-09-01', now)).toBe(false);
-    expect(canAcceptPortalQuote('sent', null, '2026-12-31', now)).toBe(true);
-    expect(canAcceptPortalQuote('accepted', null, '2026-09-01', now)).toBe(true);
+  it('reads quote.lapsed only — browser date does not hide or show Accept', () => {
+    expect(canAcceptPortalQuote('sent', null, true)).toBe(false);
+    expect(canAcceptPortalQuote('sent', null, false)).toBe(true);
+    expect(canAcceptPortalQuote('accepted', null, true)).toBe(true);
     expect(portalQuoteLapsedCopy('Harbour Trade Co')).toBe(
       "This quote's valid-until date has passed. Contact Harbour Trade Co for an updated quote.",
     );
@@ -86,21 +81,48 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
     const fixture = clientPortalAuditFixture();
     const valid = fixture.quotes[0];
     const lapsed = fixture.quotes.find(q => q.id === 'audit-quote-10');
-    expect(canAcceptPortalQuote(valid.status, valid.job_id, valid.validity_date, now)).toBe(true);
-    expect(canAcceptPortalQuote(lapsed!.status, lapsed!.job_id, lapsed!.validity_date, now)).toBe(false);
+    expect(valid.lapsed).toBe(false);
+    expect(lapsed?.lapsed).toBe(true);
+    expect(canAcceptPortalQuote(valid.status, valid.job_id, valid.lapsed)).toBe(true);
+    expect(canAcceptPortalQuote(lapsed!.status, lapsed!.job_id, lapsed!.lapsed)).toBe(false);
     expect(acceptClientPortalAuditQuote(fixture, lapsed!.id)).toBe(fixture);
 
     const page = src('src/pages/ClientPortalPublicPage.tsx');
     const edge = src('supabase/functions/client-portal/index.ts');
+    expect(page).toContain('q.lapsed');
+    expect(page).toContain('canAcceptPortalQuote(q.status, q.job_id, q.lapsed)');
     expect(page).toContain('portalQuoteLapsedCopy');
-    expect(page).toContain('quoteValidityLapsed');
     expect(page).toContain('portalDocumentRef');
+    expect(page).not.toContain('quoteValidityLapsed');
+    expect(page).not.toContain('scheduleDateKey');
+    expect(page).not.toContain('isQuoteLapsed');
     expect(page).not.toMatch(/Relovi|Littleloop/);
-    expect(edge).toContain('quoteValidityLapsed(quote.validity_date');
+    expect(edge).toContain('function isQuoteLapsed');
+    expect(edge).toContain('isQuoteLapsed(quote.validity_date');
+    expect(edge).toContain('lapsed: isQuoteLapsed(q.validity_date');
+    expect(edge).toContain('Australia/Perth');
+    expect(edge).not.toContain('Australia/Sydney');
+    expect(edge).not.toContain('quoteValidityLapsed');
     expect(edge).toContain('portalQuoteLapsedCopy');
-    expect(edge).toContain('validity_date');
     expect(edge).toContain('portalDocumentRef');
     expect(edge).not.toMatch(/Relovi|Littleloop/);
+  });
+
+  it('isQuoteLapsed stays valid through the Perth end of the validity day', () => {
+    const validityToday = '2026-10-05';
+    const perthEndOfDay = new Date('2026-10-05T15:59:59.000Z');
+    const perthNextMidnight = new Date('2026-10-05T16:00:00.000Z');
+    const perthYesterdayEnd = new Date('2026-10-04T15:59:59.000Z');
+    expect(isQuoteLapsed(validityToday, perthEndOfDay)).toBe(false);
+    expect(isQuoteLapsed(validityToday, perthNextMidnight)).toBe(true);
+    expect(isQuoteLapsed('2026-10-04', perthNextMidnight)).toBe(true);
+    expect(isQuoteLapsed('2026-10-04', perthYesterdayEnd)).toBe(false);
+    expect(isQuoteLapsed(null, perthNextMidnight)).toBe(false);
+    const edge = src('supabase/functions/client-portal/index.ts');
+    const helper = edge.slice(edge.indexOf('function isQuoteLapsed'), edge.indexOf('function portalQuoteLapsedCopy'));
+    expect(helper).toContain('Australia/Perth');
+    expect(helper).toContain('perthToday > day');
+    expect(helper).not.toContain('Australia/Sydney');
   });
 
   it('lets an accepted quote with no linked job finish booking, then stops retrying', () => {
@@ -115,7 +137,7 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
 
     expect(page).toContain("functions.invoke('client-portal'");
     expect(page).toContain('portalQuoteAcceptBody(token, quoteId)');
-    expect(page).toContain('canAcceptPortalQuote(q.status, q.job_id, q.validity_date)');
+    expect(page).toContain('canAcceptPortalQuote(q.status, q.job_id, q.lapsed)');
     expect(page).toContain("'Finish booking' : 'Accept and book'");
     expect(page).not.toContain('path=');
     expect(page).not.toContain('/quote-accept');

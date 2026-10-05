@@ -26,24 +26,17 @@ function portalDocumentRef(value: string | number | null | undefined): string {
   return `#${padQuoteNumber(n)}`;
 }
 
-function calendarDayKey(value: string | null | undefined): string | null {
-  const day = String(value ?? "").trim().slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
-}
-
-function todayKeySydney(now = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Australia/Sydney",
+/** Valid through the end of validUntil in Australia/Perth. Missing date is not lapsed. */
+function isQuoteLapsed(validUntil: string | null | undefined, now = new Date()): boolean {
+  const day = String(validUntil ?? "").trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  const perthToday = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Australia/Perth",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   }).format(now);
-}
-
-/** Valid-until calendar day has passed. Missing date is not lapsed. */
-function quoteValidityLapsed(validityDate: string | null | undefined, now = new Date()): boolean {
-  const valid = calendarDayKey(validityDate);
-  return !!valid && valid < todayKeySydney(now);
+  return perthToday > day;
 }
 
 function portalQuoteLapsedCopy(companyName: string | null | undefined): string {
@@ -374,7 +367,7 @@ Deno.serve(async (req) => {
         return json({ error: "Only sent quotes can be accepted" }, 409);
       }
 
-      if (quote.status === "sent" && quoteValidityLapsed(quote.validity_date as string | null)) {
+      if (quote.status === "sent" && isQuoteLapsed(quote.validity_date as string | null)) {
         const { data: company } = await admin
           .from("companies")
           .select("name")
@@ -513,6 +506,7 @@ Deno.serve(async (req) => {
       quotes: (quotes ?? []).map((q) => ({
         ...q,
         quote_number: portalDocumentRef(q.quote_number as string | number | null),
+        lapsed: isQuoteLapsed(q.validity_date as string | null),
       })),
       invoices: (invoices ?? []).map((inv) => ({
         ...inv,

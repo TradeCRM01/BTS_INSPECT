@@ -2,7 +2,6 @@ import { format, parseISO } from 'date-fns';
 import { quoteClientDetailFromClient } from './clientRecords';
 import { asStringList } from './asStringList';
 import { padQuoteNumber } from './quoteJobFields';
-import { scheduleDateKey, scheduleDayKey } from './scheduleBoard';
 import { quoteHasChargeableLines } from './quoteNextAction';
 import { linesFromQuoteItems, type CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { gstDocumentLabel } from './gst';
@@ -195,13 +194,17 @@ export function quoteStatusAfterClientAccept(currentStatus: string): 'accepted' 
   return null;
 }
 
-/** True once the valid-until calendar day has passed. Missing/invalid date is not lapsed. */
-export function quoteValidityLapsed(
-  validityDate: string | null | undefined,
-  now = new Date(),
-): boolean {
-  const validKey = scheduleDayKey(validityDate);
-  return !!validKey && validKey < scheduleDateKey(now);
+/** Same Perth rule as client-portal `isQuoteLapsed`. Tests only — the page reads `quote.lapsed`. */
+export function isQuoteLapsed(validUntil: string | null | undefined, now = new Date()): boolean {
+  const day = String(validUntil ?? '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  const perthToday = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Australia/Perth',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+  return perthToday > day;
 }
 
 export function portalQuoteLapsedCopy(companyName: string | null | undefined): string {
@@ -209,12 +212,8 @@ export function portalQuoteLapsedCopy(companyName: string | null | undefined): s
   return `This quote's valid-until date has passed. Contact ${who} for an updated quote.`;
 }
 
-export function canClientAcceptQuote(
-  status: string,
-  validityDate?: string | null,
-  now = new Date(),
-): boolean {
-  return status === 'sent' && !quoteValidityLapsed(validityDate, now);
+export function canClientAcceptQuote(status: string): boolean {
+  return status === 'sent';
 }
 
 export function quoteSmsBody(opts: {
