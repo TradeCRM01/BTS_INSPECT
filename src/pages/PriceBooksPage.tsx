@@ -18,6 +18,7 @@ import { getAuditPriceBookItems, getAuditPriceBooks } from '../lib/devFieldAudit
 import { priceBookItemGstRate } from '../lib/priceBookImport';
 import { priceBookWritePayload } from '../lib/priceBookWrite';
 import { gstLabel } from '../lib/gst';
+import { LIST_LOADING_LABEL, listQueryBusy } from '../lib/listQueryReady';
 
 export function PriceBooksPage() {
   const { profile, company } = useAuth();
@@ -33,7 +34,7 @@ export function PriceBooksPage() {
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [deleteItemTarget, setDeleteItemTarget] = useState<PriceBookItem | null>(null);
 
-  const { data: priceBooks, isLoading, error } = useQuery({
+  const { data: priceBooks, isLoading, isPending, error } = useQuery({
     queryKey: ['price-books'],
     queryFn: async () => {
       const mock = getAuditPriceBooks();
@@ -53,7 +54,7 @@ export function PriceBooksPage() {
     }
   }, [priceBooks, selectedBookId]);
 
-  const { data: items } = useQuery({
+  const { data: items, isLoading: itemsLoading, isPending: itemsPending } = useQuery({
     queryKey: ['price-book-items', selectedBookId],
     queryFn: async () => {
       if (!selectedBookId) return [];
@@ -89,6 +90,13 @@ export function PriceBooksPage() {
     return all.filter(i => [i.description, i.code, i.category].filter(Boolean).some(v => v!.toLowerCase().includes(q)));
   }, [items, search]);
 
+  const busy = listQueryBusy({ isPending, isLoading, data: priceBooks });
+  const itemsBusy = !!selectedBookId && listQueryBusy({
+    isPending: itemsPending,
+    isLoading: itemsLoading,
+    data: items,
+  });
+
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load price books" /></AppShell>;
 
   return (
@@ -107,7 +115,9 @@ export function PriceBooksPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
           {/* Price book list sidebar */}
           <div className="space-y-2">
-            {(priceBooks ?? []).map(pb => (
+            {busy ? (
+              <div className="flex justify-center py-10"><LoadingSpinner /></div>
+            ) : (priceBooks ?? []).map(pb => (
               <div
                 key={pb.id}
                 className={`w-full p-3 rounded-lg border transition-all flex items-start gap-1 ${
@@ -132,7 +142,7 @@ export function PriceBooksPage() {
                 </button>
               </div>
             ))}
-            {(priceBooks ?? []).length === 0 && (
+            {!busy && (priceBooks ?? []).length === 0 && (
               <div className="text-center py-10">
                 <BookOpen size={32} className="text-gray-300 mx-auto mb-2" />
                 <p className="text-sm text-gray-500">No price books yet</p>
@@ -145,7 +155,9 @@ export function PriceBooksPage() {
             <div className="px-4 py-3 border-b border-[#E5E7EB] flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-semibold text-[#1A1A1A]">{priceBooks?.find(pb => pb.id === selectedBookId)?.name ?? 'Items'}</h2>
-                <span className="text-xs text-[#6B7280] bg-gray-100 px-2 py-0.5 rounded-full">{filteredItems.length} items</span>
+                <span className="text-xs text-[#6B7280] bg-gray-100 px-2 py-0.5 rounded-full">
+                  {busy || itemsBusy ? LIST_LOADING_LABEL : `${filteredItems.length} items`}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative">
@@ -178,7 +190,9 @@ export function PriceBooksPage() {
               </div>
             </div>
 
-            {!selectedBookId ? (
+            {busy || itemsBusy ? (
+              <div className="flex justify-center py-20"><LoadingSpinner /></div>
+            ) : !selectedBookId ? (
               <EmptyState icon={BookOpen} title="Select a price book" message="Choose a price book from the left to view its items." />
             ) : filteredItems.length === 0 ? (
               <EmptyState

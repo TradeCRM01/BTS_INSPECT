@@ -45,12 +45,13 @@ describe('listCountWhisper', () => {
 });
 
 describe('list pages suppress count and empty while busy', () => {
-  it('gates Jobs, Quotes, Invoices, and Clients on listQueryBusy', () => {
+  it('gates Jobs, Quotes, Invoices, Clients, and Price Books on listQueryBusy', () => {
     for (const rel of [
       'src/pages/JobsPage.tsx',
       'src/pages/QuotesPage.tsx',
       'src/pages/InvoicesPage.tsx',
       'src/pages/ClientsPage.tsx',
+      'src/pages/PriceBooksPage.tsx',
     ]) {
       const page = src(rel);
       expect(page, rel).toContain('listQueryBusy');
@@ -65,5 +66,17 @@ describe('list pages suppress count and empty while busy', () => {
     expect(jobs).toContain("singular: 'job'");
     expect(clients).toContain('listCountWhisper');
     expect(clients).toContain("singular: 'client'");
+  });
+
+  it('keeps Price Books empty and 0 items hidden while listQueryBusy', () => {
+    const page = src('src/pages/PriceBooksPage.tsx');
+    expect(page).toContain("listQueryBusy({ isPending, isLoading, data: priceBooks })");
+    expect(page).toContain('LIST_LOADING_LABEL');
+    expect(page).toContain('{busy || itemsBusy ? LIST_LOADING_LABEL : `${filteredItems.length} items`}');
+    expect(page).toContain('{busy ? (');
+    expect(page).toContain('{!busy && (priceBooks ?? []).length === 0 && (');
+    expect(page).toContain('No price books yet');
+    expect(page).toContain('{busy || itemsBusy ? (');
+    expect(page).not.toMatch(/Relovi|Littleloop/);
   });
 });
