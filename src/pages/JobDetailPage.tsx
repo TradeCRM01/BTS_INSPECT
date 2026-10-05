@@ -101,6 +101,8 @@ import {
   parseVisitNoteBody,
   postJobVisitNote,
   sortJobVisitNotesNewestFirst,
+  visitNoteHistoryLabel,
+  visitNoteHistoryText,
   visitAuthorInitials,
   visitPhotoCountLabel,
   visitUpdateSections,
@@ -3281,12 +3283,17 @@ export function JobDetailPage() {
                   </p>
                   {blocks.length > 0 && (
                     <div className="job-visit-body">
-                      {blocks.map((block, index) => (
-                        <p key={block.key ?? `free-${index}`} className={block.label ? 'job-visit-block' : undefined}>
-                          {block.label && <span className="job-visit-section-label">{block.label}</span>}
-                          {block.text}
+                      {blocks.map((block, index) => {
+                        const label = visitNoteHistoryLabel(block);
+                        const text = visitNoteHistoryText(block);
+                        if (!label && !text) return null;
+                        return (
+                        <p key={block.key ?? `free-${index}`} className={label ? 'job-visit-block' : undefined}>
+                          {label && <span className="job-visit-section-label">{label}</span>}
+                          {text}
                         </p>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                   {notePhotos.length > 0 && (

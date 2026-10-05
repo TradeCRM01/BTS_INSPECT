@@ -18,6 +18,8 @@ import {
   jobVisitNotesQuery,
   parseVisitNoteBody,
   sortJobVisitNotesNewestFirst,
+  visitNoteHistoryLabel,
+  visitNoteHistoryText,
   visitAuthorInitials,
   visitPhotoCountLabel,
   visitUpdateSections,
@@ -205,6 +207,31 @@ describe('parseVisitNoteBody', () => {
   });
 });
 
+describe('visitNoteHistoryLabel', () => {
+  const work = { key: 'done' as const, label: 'Done', text: 'Photo location prove — delete ok' };
+  const allDone = { key: 'left' as const, label: 'Left to do', text: 'All done' };
+  const leftover = { key: 'left' as const, label: 'Left to do', text: 'Label the board.' };
+  const parts = { key: 'parts_used' as const, label: 'Parts used', text: '4 saddles.' };
+
+  it('hides DONE when All done was not pressed — the work section is not a status', () => {
+    expect(visitNoteHistoryLabel(work)).toBe(null);
+    expect(visitNoteHistoryText(work)).toBe('Photo location prove — delete ok');
+    expect(visitNoteHistoryLabel({ key: null, label: null, text: 'Free text note.' })).toBe(null);
+  });
+
+  it('shows DONE only when Left to do is the All done press', () => {
+    expect(visitNoteHistoryLabel(allDone)).toBe('Done');
+    expect(visitNoteHistoryText(allDone)).toBe('');
+  });
+
+  it('keeps the Left to do label after More to do, and other section labels', () => {
+    expect(visitNoteHistoryLabel(leftover)).toBe('Left to do');
+    expect(visitNoteHistoryText(leftover)).toBe('Label the board.');
+    expect(visitNoteHistoryLabel(parts)).toBe('Parts used');
+    expect(visitNoteHistoryText(parts)).toBe('4 saddles.');
+  });
+});
+
 describe('decideJobVisitNotePost', () => {
   it('posts the composed sections stamped with the signed-in profile, and leaves created_at to the database clock', () => {
     expect(decideJobVisitNotePost({
@@ -381,6 +408,8 @@ describe('visit notes live on the existing job sheet', () => {
     expect(page).toContain('data-visit-section="parts_needed"');
     expect(page).toContain('data-visit-section="customer_wants"');
     expect(page).toContain('parseVisitNoteBody(note.body)');
+    expect(page).toContain('visitNoteHistoryLabel(block)');
+    expect(page).toContain('visitNoteHistoryText(block)');
     expect(page).not.toContain('What was done, materials, left to do, customer wants');
     expect(page).toContain('Post update');
     expect(page).toContain('No updates on this job yet.');

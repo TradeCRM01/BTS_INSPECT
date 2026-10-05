@@ -127,6 +127,22 @@ const SECTION_BY_HEADING = new Map<string, VisitNoteSection>(
  * Splits a stored body back into labelled blocks. A body with no `Label:` line
  * comes back as one free-text block so older notes render as they always did.
  */
+/**
+ * History status label. The composer always stores a `Done:` work section,
+ * which CSS uppercases to DONE. That is not an All done press.
+ * All done is only `Left to do: All done`. More to do keeps `Left to do`.
+ */
+export function visitNoteHistoryLabel(block: VisitNoteBlock): string | null {
+  if (block.key === 'done') return null;
+  if (block.key === 'left' && block.text === VISIT_NOTE_ALL_DONE) return 'Done';
+  return block.label;
+}
+
+export function visitNoteHistoryText(block: VisitNoteBlock): string {
+  if (block.key === 'left' && block.text === VISIT_NOTE_ALL_DONE) return '';
+  return block.text;
+}
+
 export function parseVisitNoteBody(body: string | null | undefined): VisitNoteBlock[] {
   const blocks: VisitNoteBlock[] = [];
   let current: VisitNoteSection | null = null;
