@@ -8022,6 +8022,14 @@
     outline: none;
   }
 
+  .hub-quote-convert #quote-convert-date:focus-visible,
+  .hub-quote-convert #quote-convert-date.is-quote-convert-focus {
+    outline: 2px solid #0A2540;
+    outline-offset: 3px;
+    border-color: #B54708;
+    box-shadow: none;
+  }
+
   .hub-quote-convert-whisper,
   .hub-quote-convert-miss {
     margin: 8px 0 0;

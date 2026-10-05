@@ -610,10 +610,6 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
   return (
     <button
       type="button"
-      onPointerDown={e => {
-        if (e.button !== 0 || next.key !== 'convert_job') return;
-        handle();
-      }}
       onClick={handle}
       disabled={!!busy}
       className={next.key === 'send' ? 'btn-primary' : 'hub-next'}
@@ -1438,10 +1434,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
               <button
                 type="button"
                 className="btn-primary"
-                onPointerDown={e => {
-                  if (e.button !== 0) return;
-                  void handleConvert();
-                }}
                 onClick={() => void handleConvert()}
                 disabled={converting}
               >
