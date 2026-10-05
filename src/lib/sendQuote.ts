@@ -2,6 +2,7 @@ import { format, parseISO } from 'date-fns';
 import { quoteClientDetailFromClient } from './clientRecords';
 import { asStringList } from './asStringList';
 import { padQuoteNumber } from './quoteJobFields';
+import { scheduleDateKey, scheduleDayKey } from './scheduleBoard';
 import { quoteHasChargeableLines } from './quoteNextAction';
 import { linesFromQuoteItems, type CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { gstDocumentLabel } from './gst';
@@ -194,8 +195,26 @@ export function quoteStatusAfterClientAccept(currentStatus: string): 'accepted' 
   return null;
 }
 
-export function canClientAcceptQuote(status: string): boolean {
-  return status === 'sent';
+/** True once the valid-until calendar day has passed. Missing/invalid date is not lapsed. */
+export function quoteValidityLapsed(
+  validityDate: string | null | undefined,
+  now = new Date(),
+): boolean {
+  const validKey = scheduleDayKey(validityDate);
+  return !!validKey && validKey < scheduleDateKey(now);
+}
+
+export function portalQuoteLapsedCopy(companyName: string | null | undefined): string {
+  const who = (companyName ?? '').trim() || 'your contractor';
+  return `This quote's valid-until date has passed. Contact ${who} for an updated quote.`;
+}
+
+export function canClientAcceptQuote(
+  status: string,
+  validityDate?: string | null,
+  now = new Date(),
+): boolean {
+  return status === 'sent' && !quoteValidityLapsed(validityDate, now);
 }
 
 export function quoteSmsBody(opts: {

@@ -5,10 +5,13 @@ import {
   canClientAcceptQuote,
   clientPortalAcceptBody,
   clientPortalPublicUrl,
+  portalQuoteLapsedCopy,
   quoteSendHtml,
   quoteSmsBody,
   quoteStatusAfterClientAccept,
+  quoteValidityLapsed,
 } from './sendQuote';
+import { portalDocumentRef } from './quoteJobFields';
 import {
   acceptClientPortalAuditQuote,
   canAcceptPortalQuote,
@@ -64,6 +67,42 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
     expect(PORTAL_QUOTE_ACCEPT_ACTION).toBe('accept_quote');
   });
 
+  it('hides Accept on a lapsed sent quote and keeps it on a still-valid sent quote', () => {
+    const now = new Date(2026, 9, 5, 9);
+    expect(quoteValidityLapsed('2026-09-01', now)).toBe(true);
+    expect(quoteValidityLapsed('2026-10-05', now)).toBe(false);
+    expect(quoteValidityLapsed(null, now)).toBe(false);
+    expect(canClientAcceptQuote('sent', '2026-09-01', now)).toBe(false);
+    expect(canAcceptPortalQuote('sent', null, '2026-09-01', now)).toBe(false);
+    expect(canAcceptPortalQuote('sent', null, '2026-12-31', now)).toBe(true);
+    expect(canAcceptPortalQuote('accepted', null, '2026-09-01', now)).toBe(true);
+    expect(portalQuoteLapsedCopy('Harbour Trade Co')).toBe(
+      "This quote's valid-until date has passed. Contact Harbour Trade Co for an updated quote.",
+    );
+    expect(portalDocumentRef(10)).toBe('#0010');
+    expect(portalDocumentRef('10')).toBe('#0010');
+    expect(portalDocumentRef('#0010')).toBe('#0010');
+
+    const fixture = clientPortalAuditFixture();
+    const valid = fixture.quotes[0];
+    const lapsed = fixture.quotes.find(q => q.id === 'audit-quote-10');
+    expect(canAcceptPortalQuote(valid.status, valid.job_id, valid.validity_date, now)).toBe(true);
+    expect(canAcceptPortalQuote(lapsed!.status, lapsed!.job_id, lapsed!.validity_date, now)).toBe(false);
+    expect(acceptClientPortalAuditQuote(fixture, lapsed!.id)).toBe(fixture);
+
+    const page = src('src/pages/ClientPortalPublicPage.tsx');
+    const edge = src('supabase/functions/client-portal/index.ts');
+    expect(page).toContain('portalQuoteLapsedCopy');
+    expect(page).toContain('quoteValidityLapsed');
+    expect(page).toContain('portalDocumentRef');
+    expect(page).not.toMatch(/Relovi|Littleloop/);
+    expect(edge).toContain('quoteValidityLapsed(quote.validity_date');
+    expect(edge).toContain('portalQuoteLapsedCopy');
+    expect(edge).toContain('validity_date');
+    expect(edge).toContain('portalDocumentRef');
+    expect(edge).not.toMatch(/Relovi|Littleloop/);
+  });
+
   it('lets an accepted quote with no linked job finish booking, then stops retrying', () => {
     expect(canAcceptPortalQuote('accepted', null)).toBe(true);
     expect(canAcceptPortalQuote('accepted', 'job-1')).toBe(false);
@@ -76,7 +115,7 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
 
     expect(page).toContain("functions.invoke('client-portal'");
     expect(page).toContain('portalQuoteAcceptBody(token, quoteId)');
-    expect(page).toContain('canAcceptPortalQuote(q.status, q.job_id)');
+    expect(page).toContain('canAcceptPortalQuote(q.status, q.job_id, q.validity_date)');
     expect(page).toContain("'Finish booking' : 'Accept and book'");
     expect(page).not.toContain('path=');
     expect(page).not.toContain('/quote-accept');

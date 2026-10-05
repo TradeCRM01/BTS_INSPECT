@@ -258,6 +258,7 @@ describe('client portal accept helpers', () => {
     ])).toBe('live');
     expect(canClientAcceptQuote('sent')).toBe(true);
     expect(canClientAcceptQuote('draft')).toBe(false);
+    expect(canClientAcceptQuote('sent', '2026-09-01', new Date(2026, 9, 5))).toBe(false);
     expect(quoteStatusAfterClientAccept('sent')).toBe('accepted');
     expect(quoteStatusAfterClientAccept('accepted')).toBe('accepted');
     expect(quoteStatusAfterClientAccept('draft')).toBeNull();

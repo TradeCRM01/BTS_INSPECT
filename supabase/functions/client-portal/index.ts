@@ -17,6 +17,40 @@ function padQuoteNumber(n: number | null | undefined): string {
   return String(n ?? 0).padStart(4, "0");
 }
 
+function portalDocumentRef(value: string | number | null | undefined): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const digits = raw.replace(/^#/, "");
+  const n = Number(digits);
+  if (!Number.isFinite(n)) return raw.startsWith("#") ? raw : `#${raw}`;
+  return `#${padQuoteNumber(n)}`;
+}
+
+function calendarDayKey(value: string | null | undefined): string | null {
+  const day = String(value ?? "").trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
+}
+
+function todayKeySydney(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Australia/Sydney",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/** Valid-until calendar day has passed. Missing date is not lapsed. */
+function quoteValidityLapsed(validityDate: string | null | undefined, now = new Date()): boolean {
+  const valid = calendarDayKey(validityDate);
+  return !!valid && valid < todayKeySydney(now);
+}
+
+function portalQuoteLapsedCopy(companyName: string | null | undefined): string {
+  const who = String(companyName ?? "").trim() || "your contractor";
+  return `This quote's valid-until date has passed. Contact ${who} for an updated quote.`;
+}
+
 function scheduledDateFromQuote(value: string | null | undefined): string | null {
   const raw = String(value ?? "").trim();
   if (!raw) return null;
@@ -329,7 +363,7 @@ Deno.serve(async (req) => {
 
       const { data: quote } = await admin
         .from("quotes")
-        .select("id, status, client_id, company_id, job_id, quote_number, description, scope_of_works, line_items, total, scheduled_date, assigned_team, created_by")
+        .select("id, status, client_id, company_id, job_id, quote_number, description, scope_of_works, line_items, total, validity_date, scheduled_date, assigned_team, created_by")
         .eq("id", acceptQuoteId)
         .eq("client_id", portal.client_id)
         .eq("company_id", portal.company_id)
@@ -338,6 +372,15 @@ Deno.serve(async (req) => {
       if (!quote) return json({ error: "Quote not found" }, 404);
       if (quote.status !== "sent" && quote.status !== "accepted") {
         return json({ error: "Only sent quotes can be accepted" }, 409);
+      }
+
+      if (quote.status === "sent" && quoteValidityLapsed(quote.validity_date as string | null)) {
+        const { data: company } = await admin
+          .from("companies")
+          .select("name")
+          .eq("id", portal.company_id)
+          .maybeSingle();
+        return json({ error: portalQuoteLapsedCopy(company?.name as string | null) }, 409);
       }
 
       if (quote.status === "sent") {
@@ -467,8 +510,14 @@ Deno.serve(async (req) => {
           address: client.address,
         }
         : null,
-      quotes: quotes ?? [],
-      invoices: invoices ?? [],
+      quotes: (quotes ?? []).map((q) => ({
+        ...q,
+        quote_number: portalDocumentRef(q.quote_number as string | number | null),
+      })),
+      invoices: (invoices ?? []).map((inv) => ({
+        ...inv,
+        invoice_number: portalDocumentRef(inv.invoice_number as string | number | null),
+      })),
       jobs: jobs ?? [],
       reports: reportCards.filter((r) => r.pdfUrl || r.reportNumber),
     });

@@ -15510,6 +15510,13 @@
   color: #B42318;
 }
 
+#client-portal .portal-quote-lapsed {
+  margin: 16px 0 0;
+  color: var(--portal-muted, #5B6B7C);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 #client-portal .portal-quiet-link {
   display: inline-flex;
   align-items: center;
