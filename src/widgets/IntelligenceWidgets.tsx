@@ -2,9 +2,16 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import {
+  COMPLIANCE_DEADLINES_SELECT,
+  complianceDeadlinesCardCopy,
+  complianceDeadlinesCardKind,
+  splitComplianceDeadlines,
+} from '../lib/complianceDeadlinesWidget';
 import { useAuth } from '../contexts/AuthContext';
 import { listReminders, setReminderDone } from '../lib/reminders';
-import { format, formatDistanceToNow, isPast, isWithinInterval, addDays, subDays } from 'date-fns';
+import { format, formatDistanceToNow, subDays } from 'date-fns';
 import {
   Bot, Send, User, Sparkles, TrendingUp, AlertTriangle,
   Clock, Activity, Shield, Newspaper, Zap, ArrowUpRight, ArrowDownRight,
@@ -233,31 +240,29 @@ export function ComplianceDeadlinesWidget({ config }: WidgetProps) {
         overdue: Array<Record<string, unknown>>;
       }
     : null;
-  const { data: fetched, isLoading } = useQuery({
+  const { data: fetched, isLoading, isError } = useQuery({
     queryKey: ['widget-compliance-deadlines'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('compliance_items')
-        .select('id, title, type, expiry_date, status, assigned_to')
-        .order('expiry_date', { ascending: true })
+        .select(COMPLIANCE_DEADLINES_SELECT)
+        .order('next_due_date', { ascending: true })
         .limit(20);
       if (error) throw error;
-      const items = (data ?? []) as Array<Record<string, unknown>>;
-      const today = new Date();
-      const upcoming = items.filter(i => {
-        const d = new Date(i.expiry_date as string);
-        return isWithinInterval(d, { start: today, end: addDays(today, 30) });
-      });
-      const overdue = items.filter(i => {
-        const d = new Date(i.expiry_date as string);
-        return isPast(d) && i.status !== 'completed';
-      });
-      return { upcoming, overdue, all: items };
+      return splitComplianceDeadlines((data ?? []) as Array<Record<string, unknown>>);
     },
     enabled: !lookCompliance,
   });
   const data = lookCompliance ? { ...lookCompliance, all: [...lookCompliance.overdue, ...lookCompliance.upcoming] } : fetched;
   const loading = lookCompliance ? false : isLoading;
+  const failed = lookCompliance ? false : pageQueryBlocked(isError);
+  const kind = complianceDeadlinesCardKind({
+    isLoading: loading,
+    isError: failed,
+    overdueCount: data?.overdue.length ?? 0,
+    upcomingCount: data?.upcoming.length ?? 0,
+  });
+  const copy = complianceDeadlinesCardCopy(kind);
 
   return (
     <div className="h-full flex flex-col">
@@ -268,11 +273,13 @@ export function ComplianceDeadlinesWidget({ config }: WidgetProps) {
         </div>
         <Link to="/compliance" className="text-[10px] text-[#2E75B6] hover:underline">View all</Link>
       </div>
-      {loading ? (
-        <div className="flex-1 flex items-center justify-center text-xs text-gray-400">Loading…</div>
-      ) : (data?.overdue.length ?? 0) === 0 && (data?.upcoming.length ?? 0) === 0 ? (
+      {kind === 'error' ? (
+        <div className="flex-1 flex items-center justify-center text-xs text-gray-400">Couldn't load compliance</div>
+      ) : kind === 'loading' ? (
+        <div className="flex-1 flex items-center justify-center text-xs text-gray-400">{copy}</div>
+      ) : kind === 'empty' ? (
         <div className="flex-1 flex flex-col items-center justify-center text-xs text-green-600">
-          <CheckCircle size={18} className="mb-1" /> All compliant
+          <CheckCircle size={18} className="mb-1" /> {copy}
         </div>
       ) : (
         <div className="flex-1 overflow-auto -mx-1 px-1 space-y-1 min-h-0">
