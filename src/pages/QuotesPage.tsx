@@ -44,6 +44,7 @@ import { copyShareText, ensureClientPortalUrl } from '../lib/documentShareDelive
 import { commercialPdfPreviewData, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
+import { checkPriceSendBlock } from '../lib/checkPriceGate';
 import { listQueryBusy } from '../lib/listQueryReady';
 import { padQuoteNumber } from '../lib/quoteJobFields';
 import {
@@ -579,6 +580,15 @@ export function QuotesPage() {
 }
 
 function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: (opts?: { focusConvert?: boolean }) => void; onSend: (quoteId: string) => void }) {
+  const { showToast } = useToast();
+  const requestSend = (quoteId: string) => {
+    const block = checkPriceSendBlock(quote.line_items);
+    if (block) {
+      showToast(block, 'error');
+      return;
+    }
+    onSend(quoteId);
+  };
   const next = recommendQuoteAction(quoteActionContext(quote));
   const chase = quoteChase(quote, new Date());
   const site = visibleSite(quote.job_address);
@@ -603,7 +613,7 @@ function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: (op
             type="button"
             className="hub-quotes-chase"
             data-chase-state={chase.state}
-            onClick={() => { if (chase.state === 'lapsed') onOpen(); else onSend(quote.id); }}
+            onClick={() => { if (chase.state === 'lapsed') onOpen(); else requestSend(quote.id); }}
           >
             {quoteChaseChipLabel(chase)}
           </button>
@@ -611,7 +621,7 @@ function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: (op
         {next.key === 'none' ? (
           <span className="hub-quotes-muted">{next.label}</span>
         ) : (
-          <QuoteNextControl quote={quote} onOpen={onOpen} onSend={onSend} />
+          <QuoteNextControl quote={quote} onOpen={onOpen} onSend={requestSend} />
         )}
       </span>
     </div>
@@ -1068,6 +1078,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   };
 
   const startSend = async () => {
+    const block = checkPriceSendBlock(form.line_items);
+    if (block) { setErr(block); return; }
     const id = await persist('draft', { close: false, message: '' });
     if (id) onRequestSend(id);
   };
@@ -1154,6 +1166,11 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   };
 
   const handleCopyLink = async () => {
+    const block = checkPriceSendBlock(form.line_items);
+    if (block) {
+      showToast(block, 'error');
+      return;
+    }
     if (!form.client_id || !profile?.company_id) {
       showToast('Pick a client before you can copy a link.', 'error');
       return;

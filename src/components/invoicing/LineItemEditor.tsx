@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { asModelLines, modelHourlyCost } from '../expenses/ExpenseModelsModals';
 import { quoteLineFromPriceBookItem } from '../../lib/priceBookImport';
 import { QUICK_QUOTE_CHECK_PRICE } from '../../lib/quickQuote';
+import { checkPriceAfterUnitPrice } from '../../lib/checkPriceGate';
 
 export interface EditLineItem {
   description: string;
@@ -131,16 +132,18 @@ export function LineItemEditor({
     const hourly = modelHourlyCost(model);
     const markup = parseFloat(lines[idx].markup_percent ?? '') || defaultMarkup || 0;
     const sell = hourly > 0 ? Number((hourly * (1 + markup / 100)).toFixed(2)) : 0;
+    const unitPrice = sell > 0 ? sell.toFixed(2) : lines[idx].unit_price;
     updateLine(idx, {
       cost_model_id: modelId,
       unit_cost: hourly > 0 ? hourly.toFixed(2) : '',
       markup_percent: String(markup),
-      unit_price: sell > 0 ? sell.toFixed(2) : lines[idx].unit_price,
+      unit_price: unitPrice,
       charge_type: lines[idx].charge_type.trim() || 'Labour',
       description: lines[idx].description.trim() || model.name,
       stock_item_id: null,
       price_book_item_id: null,
       gst_rate: null,
+      check_price: checkPriceAfterUnitPrice(unitPrice, lines[idx].check_price),
     });
   };
 
@@ -195,9 +198,13 @@ export function LineItemEditor({
     const cost = parseFloat(lines[idx].unit_cost ?? '0') || 0;
     const markup = parseFloat(markupStr) || 0;
     const sellPrice = cost * (1 + markup / 100);
+    const unitPrice = sellPrice.toFixed(2);
     updateLine(idx, {
       markup_percent: markupStr,
-      ...(cost > 0 ? { unit_price: sellPrice.toFixed(2) } : {}),
+      ...(cost > 0 ? {
+        unit_price: unitPrice,
+        check_price: checkPriceAfterUnitPrice(unitPrice, lines[idx].check_price),
+      } : {}),
     });
   };
 
@@ -205,9 +212,13 @@ export function LineItemEditor({
     const cost = parseFloat(costStr) || 0;
     const markup = parseFloat(lines[idx].markup_percent ?? '0') || 0;
     const sellPrice = cost * (1 + markup / 100);
+    const unitPrice = sellPrice.toFixed(2);
     updateLine(idx, {
       unit_cost: costStr,
-      ...(cost > 0 || markup > 0 ? { unit_price: sellPrice.toFixed(2) } : {}),
+      ...(cost > 0 || markup > 0 ? {
+        unit_price: unitPrice,
+        check_price: checkPriceAfterUnitPrice(unitPrice, lines[idx].check_price),
+      } : {}),
     });
   };
 
@@ -450,7 +461,10 @@ export function LineItemEditor({
                 onChange={e => {
                   const raw = e.target.value;
                   if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
-                  updateLine(idx, { unit_price: raw });
+                  updateLine(idx, {
+                    unit_price: raw,
+                    check_price: checkPriceAfterUnitPrice(raw, li.check_price),
+                  });
                 }}
                 className="form-input-sm text-right font-medium min-w-0"
                 placeholder="0.00"

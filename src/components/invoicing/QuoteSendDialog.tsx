@@ -29,6 +29,7 @@ import {
   type QuoteSendCompany,
 } from '../../lib/sendQuote';
 import { loadQuoteSendBundle } from '../../lib/sendQuoteDeliver';
+import { checkPriceSendBlock, throwIfCheckPriceUnpriced } from '../../lib/checkPriceGate';
 import { jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
 import { jobClientPhoneRow, saveJobClientPhone } from '../../lib/saveJobClientPhone';
 import {
@@ -255,6 +256,7 @@ export function QuoteSendDialog({
   );
 
   const prepareShare = async (): Promise<{ url: string; status: string }> => {
+    throwIfCheckPriceUnpriced(bundle?.quote?.line_items);
     if (!bundle?.quote?.client_id) throw new Error('Pick a client before you can copy a portal link.');
     const url = await ensureClientPortalUrl({
       companyId: company.id,
@@ -345,6 +347,7 @@ export function QuoteSendDialog({
     setBusy('sent');
     setErr('');
     try {
+      throwIfCheckPriceUnpriced(bundle.quote.line_items);
       const marked = await markQuoteSentForShare({
         quoteId,
         status: bundle.quote.status,
@@ -362,16 +365,19 @@ export function QuoteSendDialog({
     }
   };
 
-  const blockerMessage = noClientsNamedMiss
-    ? QUOTE_CLIENT_ATTACH_NO_CLIENTS
-    : noClientMiss
-      ? 'Pick a client before you can copy a portal link.'
-      : noEmailMiss
-        ? QUOTE_SEND_NO_EMAIL_FIELD
-        : '';
+  const checkPriceBlock = checkPriceSendBlock(bundle?.quote?.line_items);
+  const blockerMessage = checkPriceBlock
+    ? checkPriceBlock
+    : noClientsNamedMiss
+      ? QUOTE_CLIENT_ATTACH_NO_CLIENTS
+      : noClientMiss
+        ? 'Pick a client before you can copy a portal link.'
+        : noEmailMiss
+          ? QUOTE_SEND_NO_EMAIL_FIELD
+          : '';
   const quoteLabel = bundle?.quote ? `Quote #${padQuoteNumber(bundle.quote.quote_number)}` : '';
   const showShare = !loading && !!share && (share.canDownloadPdf || share.canCopyLink);
-  const ready = showShare && !!share && share.canCopyLink && share.canDownloadPdf;
+  const ready = showShare && !!share && share.canCopyLink && share.canDownloadPdf && !checkPriceBlock;
 
   return (
     <Modal open onClose={onClose} size="md" closeOnEscape>
@@ -615,7 +621,7 @@ export function QuoteSendDialog({
               {busy === 'download' ? 'Downloading…' : 'Download PDF'}
             </button>
           )}
-          {showShare && share?.canCopyLink && (
+          {showShare && !checkPriceBlock && share?.canCopyLink && (
             <button
               type="button"
               onClick={() => void handleCopyLink()}
@@ -625,7 +631,7 @@ export function QuoteSendDialog({
               {busy === 'copy' ? 'Copying…' : copy?.kind === 'copied' ? 'Copied' : 'Copy link'}
             </button>
           )}
-          {showShare && share?.canMarkSent && (
+          {showShare && !checkPriceBlock && share?.canMarkSent && (
             <button
               type="button"
               onClick={() => void handleMarkSent()}
@@ -635,7 +641,7 @@ export function QuoteSendDialog({
               {busy === 'sent' ? 'Marking…' : 'Mark sent'}
             </button>
           )}
-          {showShare && share?.canMailto && (
+          {showShare && !checkPriceBlock && share?.canMailto && (
             <button
               type="button"
               onClick={() => void handleMailto()}

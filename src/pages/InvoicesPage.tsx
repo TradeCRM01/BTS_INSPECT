@@ -16,6 +16,7 @@ import { InvoiceSendDialog } from '../components/invoicing/InvoiceSendDialog';
 import { commercialPdfPreviewData, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
+import { checkPriceSendBlock } from '../lib/checkPriceGate';
 import { listQueryBusy } from '../lib/listQueryReady';
 import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel } from '../lib/gst';
 import {
@@ -470,6 +471,14 @@ function InvoiceNextControl({
   const next = recommendInvoiceAction(ctx);
   const overflowPaid = invoiceOverflowPaidAction(ctx);
   const chase = invoiceChase(invoice, new Date());
+  const requestSend = (invoiceId: string) => {
+    const block = checkPriceSendBlock(invoice.line_items);
+    if (block) {
+      showToast(block, 'error');
+      return;
+    }
+    onSend(invoiceId);
+  };
 
   const patchPaid = async (): Promise<boolean> => {
     setBusy('mark_paid');
@@ -541,7 +550,7 @@ function InvoiceNextControl({
       <button
         type="button"
         onClick={() => {
-          if (next.key === 'send') onSend(invoice.id);
+          if (next.key === 'send') requestSend(invoice.id);
           if (next.key === 'mark_paid') setShowPayment(true);
         }}
         disabled={!!busy}
@@ -564,7 +573,7 @@ function InvoiceNextControl({
           type="button"
           className="hub-invoices-chase"
           data-chase-state={chase.state}
-          onClick={() => onSend(invoice.id)}
+          onClick={() => requestSend(invoice.id)}
         >
           {invoiceChaseChipLabel(chase)}
         </button>
@@ -1054,6 +1063,8 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   };
 
   const startSend = async () => {
+    const block = checkPriceSendBlock(form.line_items);
+    if (block) { setErr(block); return; }
     const keep = form.status === 'paid' ? 'paid' : form.status === 'sent' ? 'sent' : 'draft';
     const id = await persist(keep, { close: false, message: '' });
     if (id) onRequestSend(id);
