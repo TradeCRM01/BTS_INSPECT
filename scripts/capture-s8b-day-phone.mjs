@@ -61,8 +61,23 @@ async function measurePhoneDay(page) {
         visible: box.width > 0 && box.right > edge + 1 && box.left < window.innerWidth,
       };
     });
+    const hoursHead = board?.querySelector('.hub-day-hours-head');
+    const crew = board?.querySelector('.hub-day-crew-lock');
+    const edge = crew ? crew.getBoundingClientRect().right : 0;
+    const firstHour = [...(hoursHead?.querySelectorAll('.hub-schedule-label') ?? [])]
+      .map((el) => {
+        const box = el.getBoundingClientRect();
+        return {
+          text: (el.textContent || '').replace(/\s+/g, ' ').trim(),
+          left: Math.round(box.left),
+          width: Math.round(box.width),
+          whole: box.left >= edge - 2 && box.width > 12,
+        };
+      })
+      .find((label) => label.whole);
     return {
       start: board?.getAttribute('data-day-start'),
+      firstHour,
       lockH: lockBox ? Math.round(lockBox.height) : null,
       gap: markBox && nameBox ? Math.round(nameBox.left - markBox.right) : null,
       hintDisplay: hintStyle?.display ?? null,
@@ -77,6 +92,9 @@ function assertPhoneDayChrome(label, stats) {
   }
   if (!stats.chips.some((chip) => chip.visible && /Switchboard/.test(chip.text))) {
     throw new Error(`${label} missing title ${JSON.stringify(stats.chips)}`);
+  }
+  if (!stats.firstHour || !/^\d{1,2}\s*AM$/i.test(stats.firstHour.text)) {
+    throw new Error(`${label} clipped hour ${JSON.stringify(stats.firstHour)}`);
   }
 }
 
@@ -235,8 +253,21 @@ async function measureEarly(page) {
         barVisible: !!(barBox && barBox.right > edge + 8 && barBox.left < window.innerWidth - 8),
       };
     };
+    const hoursHead = board?.querySelector('.hub-day-hours-head');
+    const firstHour = [...(hoursHead?.querySelectorAll('.hub-schedule-label') ?? [])]
+      .map((el) => {
+        const box = el.getBoundingClientRect();
+        return {
+          text: (el.textContent || '').replace(/\s+/g, ' ').trim(),
+          left: Math.round(box.left),
+          width: Math.round(box.width),
+          whole: box.left >= edge - 2 && box.width > 12,
+        };
+      })
+      .find((label) => label.whole);
     return {
       start: board?.getAttribute('data-day-start'),
+      firstHour,
       early: read('look-job-early'),
       seven: read('look-job-seven'),
     };
@@ -247,6 +278,8 @@ function assertEarly(label, early) {
   console.log(label, early);
   if (
     early.start !== '5'
+    || !early.firstHour
+    || !/^5\s*AM$/i.test(early.firstHour.text)
     || !early.early.visible
     || !early.early.barVisible
     || early.early.firstWord !== '05:30'

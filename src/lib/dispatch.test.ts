@@ -157,7 +157,7 @@ describe('dayBoardStartHour', () => {
 });
 
 describe('dayBoardOpenScrollLeft', () => {
-  it('scrolls the phone board to the first timed job and leaves a fitted desktop at 0', () => {
+  it('scrolls the phone board to the first timed job hour column and leaves a fitted desktop at 0', () => {
     expect(dayBoardOpenScrollLeft({
       hoursFit: true,
       jobs: [{ start_time: '07:00' }],
@@ -178,14 +178,14 @@ describe('dayBoardOpenScrollLeft', () => {
       dayStart: 5,
       hourWidth: 96,
       isToday: false,
-    })).toBe(48);
+    })).toBe(0);
     expect(dayBoardOpenScrollLeft({
       hoursFit: false,
       jobs: [{ start_time: null }],
       dayStart: 6,
       hourWidth: 96,
       isToday: true,
-      now: new Date(2026, 9, 5, 14, 0, 0),
+      now: new Date(2026, 9, 5, 14, 30, 0),
     })).toBe(768);
   });
 });

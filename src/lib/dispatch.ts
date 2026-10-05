@@ -95,7 +95,7 @@ export function earliestTimedMinutes(jobs: { start_time?: string | null }[]): nu
   return earliest;
 }
 
-/** Phone Day opens on the first timed job, or on now when today has none. Desktop fit stays 0. */
+/** Phone Day opens on the first timed job's hour column, or on now's hour when today has none. Desktop fit stays 0. */
 export function dayBoardOpenScrollLeft(opts: {
   hoursFit: boolean;
   jobs: { start_time?: string | null }[];
@@ -110,7 +110,8 @@ export function dayBoardOpenScrollLeft(opts: {
   const minutes = first ?? (opts.isToday
     ? now.getHours() * 60 + now.getMinutes()
     : opts.dayStart * 60);
-  return Math.max(0, (minutes / 60 - opts.dayStart) * opts.hourWidth);
+  const column = Math.floor(minutes / 60);
+  return Math.max(0, (column - opts.dayStart) * opts.hourWidth);
 }
 
 export function timeToMinutes(t: string | null | undefined): number | null {
