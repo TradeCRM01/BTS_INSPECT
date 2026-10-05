@@ -78,6 +78,7 @@ import {
   quotesAfterSave,
   recommendQuoteAction,
   type QuoteActionKey,
+  type QuotesListSavePatch,
 } from '../lib/quoteNextAction';
 import { quoteChase, quoteChaseChipLabel, quoteChasePatch } from '../lib/nudges';
 import { QUOTE_STATUS_LABELS, formatMoney } from '../types/fsm';
@@ -438,7 +439,7 @@ export function QuotesPage() {
     rec.start();
   }
 
-  function handleSaved(opts?: { close?: boolean; message?: string; listRow?: { id: string; total: number } }) {
+  function handleSaved(opts?: { close?: boolean; message?: string; listRow?: QuotesListSavePatch }) {
     if (opts?.close !== false) {
       setShowForm(false);
       setPresetClientId(null);
@@ -761,7 +762,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   focusConvert?: boolean;
   onFocusedConvert?: () => void;
   onClose: () => void;
-  onSaved: (opts?: { close?: boolean; message?: string; listRow?: { id: string; total: number } }) => void;
+  onSaved: (opts?: { close?: boolean; message?: string; listRow?: QuotesListSavePatch }) => void;
   onRequestSend: (quoteId: string) => void;
 }) {
   const { profile, company: authCompany } = useAuth();
@@ -1073,7 +1074,13 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
       onSaved({
         close: opts?.close ?? false,
         message: opts?.message ?? 'Quote updated',
-        listRow: { id, total: grandTotal },
+        listRow: {
+          id,
+          total: grandTotal,
+          status,
+          client_id: payload.client_id,
+          line_items: cleanLines,
+        },
       });
       return id;
     }
@@ -1088,7 +1095,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
     onSaved({
       close: opts?.close ?? true,
       message: opts?.message ?? 'Quote created',
-      listRow: { id: data.id as string, total: grandTotal },
     });
     return data.id as string;
   };

@@ -124,17 +124,34 @@ export function quoteAfterMarkAccepted(ctx: QuoteActionContext): RecommendedQuot
 /** Quotes list query on QuotesPage. */
 export const QUOTES_LIST_QUERY_KEY = ['quotes'] as const;
 
+/** Patch written onto an existing ['quotes'] row after editor save. */
+export type QuotesListSavePatch = {
+  id: string;
+  total?: number;
+  status?: QuoteStatus;
+  client_id?: string | null;
+  line_items?: { description?: string | null; quantity?: number | string | null }[];
+};
+
 /**
  * Same-page list write after editor save — #0016 at $57.00 replaces $24.00
- * without a reload. Existing id keeps its place; a new id goes to the front.
+ * without a reload. Existing id keeps its place. A new id is left alone so
+ * invalidate can refill a complete row (no #undefined stub).
  */
 export function quotesAfterSave<T extends { id: string }>(
   prev: T[] | null | undefined,
-  saved: Partial<T> & Pick<T, 'id'>,
-): T[] {
-  const list = [...(prev ?? [])];
-  const index = list.findIndex(row => row.id === saved.id);
-  if (index < 0) return [{ ...saved } as T, ...list];
-  list[index] = { ...list[index], ...saved };
+  saved: QuotesListSavePatch,
+): T[] | undefined {
+  if (!prev) return undefined;
+  const index = prev.findIndex(row => row.id === saved.id);
+  if (index < 0) return prev;
+  const list = [...prev];
+  list[index] = {
+    ...list[index],
+    ...(saved.total !== undefined ? { total: saved.total } : {}),
+    ...(saved.status !== undefined ? { status: saved.status } : {}),
+    ...(saved.client_id !== undefined ? { client_id: saved.client_id } : {}),
+    ...(saved.line_items !== undefined ? { line_items: saved.line_items } : {}),
+  };
   return list;
 }
