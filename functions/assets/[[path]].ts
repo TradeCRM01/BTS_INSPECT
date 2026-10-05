@@ -1,14 +1,9 @@
-/* eslint-disable react-refresh/only-export-components */
 type AssetFetcher = { fetch: (request: Request) => Promise<Response> };
 
 const HTML_TYPE = /text\/html/i;
 
 /** Missing /assets/* falls through to index.html. Never cache that as a chunk. */
-export async function rejectHtmlAsset(
-  request: Request,
-  assets: AssetFetcher,
-): Promise<Response> {
-  const response = await assets.fetch(request);
+export function rejectHtmlAssetResponse(response: Response): Response {
   const contentType = response.headers.get('content-type') ?? '';
   if (HTML_TYPE.test(contentType)) {
     return new Response('Not found', {
@@ -26,9 +21,17 @@ export async function rejectHtmlAsset(
   });
 }
 
-export function onRequest(context: {
+export async function rejectHtmlAsset(
+  request: Request,
+  assets: AssetFetcher,
+): Promise<Response> {
+  return rejectHtmlAssetResponse(await assets.fetch(request));
+}
+
+export async function onRequest(context: {
   request: Request;
   env: { ASSETS: AssetFetcher };
 }): Promise<Response> {
-  return rejectHtmlAsset(context.request, context.env.ASSETS);
+  const response = await context.env.ASSETS.fetch(context.request);
+  return rejectHtmlAssetResponse(response);
 }

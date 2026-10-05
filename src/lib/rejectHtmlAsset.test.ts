@@ -68,7 +68,7 @@ describe('Pages Function routing and -r2 hashes', () => {
     expect(workflow).toContain('functions/assets/');
     expect(workflow).toContain('dist/_routes.json');
     expect(src('wrangler.toml')).toContain('pages_build_output_dir = "dist"');
-    expect(src('functions/assets/[[path]].ts')).toContain('env.ASSETS.fetch');
+    expect(src('functions/assets/[[path]].ts')).toContain('env.ASSETS.fetch(context.request)');
     expect(src('vite.config.ts')).toContain("chunkFileNames: 'assets/[name]-[hash]-r2.js'");
     expect(src('vite.config.ts')).toContain("entryFileNames: 'assets/[name]-[hash]-r2.js'");
     expect(src('vite.config.ts')).toContain("assetFileNames: 'assets/[name]-[hash]-r2[extname]'");
