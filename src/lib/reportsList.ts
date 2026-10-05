@@ -218,7 +218,7 @@ export function reportsListEmptyTitle(args: {
   filter?: ReportListFilter;
   count: number;
 }): string {
-  if (args.error) return 'Could not load reports';
+  if (args.error) return "Couldn't load reports";
   if (normalizeReportSearch(args.search ?? '')) return 'No reports match your search';
   if (args.filter === 'sent') return 'No sent reports';
   if (args.filter === 'ready') return 'No reports ready';

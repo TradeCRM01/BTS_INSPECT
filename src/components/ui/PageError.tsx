@@ -3,9 +3,10 @@ import { RotateCw, WifiOff } from 'lucide-react';
 interface PageErrorProps {
   message?: string;
   onRetry?: () => void;
+  retryLabel?: string;
 }
 
-export function PageError({ message, onRetry }: PageErrorProps) {
+export function PageError({ message, onRetry, retryLabel = 'Try again' }: PageErrorProps) {
   return (
     <div className="flex flex-col items-center justify-center py-20 px-4">
       <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4">
@@ -21,7 +22,7 @@ export function PageError({ message, onRetry }: PageErrorProps) {
           className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
         >
           <RotateCw size={14} />
-          Try again
+          {retryLabel}
         </button>
       )}
     </div>
