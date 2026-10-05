@@ -1492,6 +1492,7 @@ async function deliverQuoteSend(opts: {
   const quotePatch: Record<string, unknown> = { updated_at: sentAt };
   if (quote.status === "draft") {
     quotePatch.status = "sent";
+    quotePatch.sent_at = sentAt;
   }
   if (quotePatch.status) {
     await opts.admin

@@ -7588,6 +7588,101 @@
     text-decoration: underline;
   }
 
+  .hub-quote-chase {
+    display: grid;
+    gap: 12px;
+    color: var(--quote-ink, #0A2540);
+  }
+
+  .hub-quote-chase-kicker {
+    margin: 0;
+    color: var(--quote-muted, #5B6B7C);
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .hub-quote-chase-preview {
+    margin: 0;
+    padding: 16px;
+    background: var(--quote-sheet, #FFFDF8);
+    border: 1px solid var(--quote-line, #E2D9CC);
+    border-radius: 12px;
+    color: var(--quote-ink, #0A2540);
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+
+  .hub-quote-chase-preview.is-wait,
+  .hub-quote-chase-preview.is-miss,
+  .hub-quote-chase-reason,
+  .hub-quote-chase-meta {
+    color: var(--quote-muted, #5B6B7C);
+  }
+
+  .hub-quote-chase-meta,
+  .hub-quote-chase-ok,
+  .hub-quote-chase-err,
+  .hub-quote-chase-reason {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .hub-quote-chase-ok {
+    color: #2E75B6;
+  }
+
+  .hub-quote-chase-err {
+    color: var(--quote-fail, #B42318);
+  }
+
+  .hub-quote-chase-manual {
+    width: 100%;
+    min-height: 96px;
+    padding: 12px;
+    background: var(--quote-sheet, #FFFDF8);
+    border: 1px solid var(--quote-line, #E2D9CC);
+    border-radius: 12px;
+    color: var(--quote-ink, #0A2540);
+    font-size: 14px;
+  }
+
+  .hub-quote-chase-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .hub-quote-chase .btn-primary,
+  .hub-quote-chase-mark {
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .hub-quote-chase .btn-primary {
+    background: #2E75B6;
+    color: #fff;
+    border: none;
+  }
+
+  .hub-quote-chase .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .hub-quote-chase-mark {
+    background: var(--quote-sheet, #FFFDF8);
+    color: var(--quote-ink, #0A2540);
+    border: 1px solid var(--quote-line, #E2D9CC);
+  }
+
   .hub-quotes .hub-next {
     color: #fff;
     background: #2E75B6;

@@ -1,7 +1,9 @@
 import { GRAFTER_PUBLIC_ORIGIN } from './publicSeo';
 import { prefillSmsTo } from './jobReminder';
+import { padQuoteNumber } from './quoteJobFields';
 import { clientEmailForSend, invoicePdfFilename, invoiceSendSubject } from './sendInvoice';
 import { quotePdfFilename, quoteSendSubject } from './sendQuote';
+import { formatMoney } from '../types/fsm';
 
 export type DocumentShareKind = 'quote' | 'invoice';
 export type InvoiceSharePurpose = 'send' | 'chase';
@@ -52,6 +54,27 @@ export function quoteShareMailtoBody(args: {
   const who = args.companyName.trim() || 'your contractor';
   const number = quotePdfFilename(args.quoteNumber).replace(/\.pdf$/, '');
   return `${who} sent you ${number}. Review and accept here:\n${args.portalUrl}`;
+}
+
+/** First word of the client name, or the name itself. */
+export function quoteChaseClientName(name: string | null | undefined): string {
+  const trimmed = (name ?? '').trim();
+  if (!trimmed) return '';
+  return trimmed.split(/\s+/)[0] || trimmed;
+}
+
+export function quoteChaseCopyText(args: {
+  clientName: string | null | undefined;
+  companyName?: string | null;
+  quoteNumber: number | null | undefined;
+  total: number | null | undefined;
+  portalUrl: string;
+}): string {
+  const who = quoteChaseClientName(args.clientName) || (args.clientName ?? '').trim();
+  const company = (args.companyName ?? '').trim() || 'your contractor';
+  const number = padQuoteNumber(args.quoteNumber);
+  const total = formatMoney(Number(args.total ?? 0));
+  return `Hi ${who}, just following up on quote #${number} for ${total}. You can view and accept it here: ${args.portalUrl}. Happy to answer any questions. Thanks, ${company}`;
 }
 
 export function invoiceShareMailtoBody(args: {

@@ -37,6 +37,7 @@ import { LineItemEditor, emptyLineItem, toEditLine, type EditLineItem } from '..
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
+import { QuoteChaseDialog } from '../components/invoicing/QuoteChaseDialog';
 import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
 import { quoteSendCompanyFrom } from '../lib/sendQuote';
 import { documentShareOrigin } from '../lib/documentShare';
@@ -77,7 +78,14 @@ import {
   recommendQuoteAction,
   type QuoteActionKey,
 } from '../lib/quoteNextAction';
-import { quoteChase, quoteChaseChipLabel, quoteChasePatch } from '../lib/nudges';
+import {
+  QUOTE_CHASE_FILTER,
+  quoteChase,
+  quoteChaseChipLabel,
+  quoteChaseFilterLabel,
+  quoteChasePatch,
+  quoteOnChaseList,
+} from '../lib/nudges';
 import { QUOTE_STATUS_LABELS, formatMoney } from '../types/fsm';
 import { Plus, FileText, Mail, Phone, User, X, MoreHorizontal, Mic } from 'lucide-react';
 import {
@@ -90,7 +98,7 @@ import {
 } from '../lib/quickQuote';
 import { format, parseISO, addDays } from 'date-fns';
 
-type StatusFilter = 'all' | QuoteStatus;
+type StatusFilter = 'all' | typeof QUOTE_CHASE_FILTER | QuoteStatus;
 
 type QuoteListItem = QuoteWithDetails & { invoice_id: string | null; client_email?: string | null };
 
@@ -182,6 +190,62 @@ function fieldAuditGstQuote(): QuoteListItem | null {
   };
 }
 
+function fieldAuditChaseQuotes(): QuoteListItem[] {
+  if (!isDevFieldAuditAuth()) return [];
+  const base = {
+    company_id: DEV_AUDIT_COMPANY.id,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    job_id: null,
+    scope_of_works: 'Complete the agreed site works.',
+    line_items: [{ description: 'Site labour', quantity: 8, unit_price: 95 }],
+    subtotal: 760,
+    tax_rate: 10,
+    tax_amount: 76,
+    total: 836,
+    validity_date: '2026-10-20',
+    notes: null,
+    inclusions: [] as string[],
+    exclusions: [] as string[],
+    scheduled_date: null,
+    assigned_team: [] as string[],
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: '2026-09-28T00:00:00.000Z',
+    updated_at: '2026-10-05T00:00:00.000Z',
+    client_name: 'Northside Electrical',
+    client_email: 'accounts@northside.example',
+    job_title: null,
+    job_address: null,
+    invoice_id: null,
+    chased_at: null as string | null,
+  };
+  return [
+    {
+      ...base,
+      id: 'audit-quote-chase',
+      quote_number: 2004,
+      status: 'sent',
+      description: 'Workshop follow-up',
+      sent_at: '2026-09-28T00:00:00.000Z',
+    },
+    {
+      ...base,
+      id: 'audit-quote-chase-two',
+      quote_number: 2006,
+      status: 'sent',
+      description: 'Second quiet quote',
+      sent_at: '2026-09-30T00:00:00.000Z',
+    },
+    {
+      ...base,
+      id: 'audit-quote-fresh-sent',
+      quote_number: 2005,
+      status: 'sent',
+      description: 'Sent yesterday',
+      sent_at: '2026-10-04T00:00:00.000Z',
+    },
+  ];
+}
+
 function fieldAuditShareQuote(): QuoteListItem | null {
   if (!isDevFieldAuditAuth()) return null;
   return {
@@ -227,6 +291,7 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'draft', label: 'Draft' },
   { key: 'sent', label: 'Sent' },
+  { key: QUOTE_CHASE_FILTER, label: 'Chase' },
   { key: 'accepted', label: 'Accepted' },
   { key: 'declined', label: 'Declined' },
   { key: 'expired', label: 'Expired' },
@@ -245,6 +310,7 @@ export function QuotesPage() {
   const lookLetterhead = searchParams.get('look') === LETTERHEAD_LOOK;
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null);
+  const [chasingQuoteId, setChasingQuoteId] = useState<string | null>(null);
   const [quickText, setQuickText] = useState('');
   const [quickBusy, setQuickBusy] = useState(false);
   const [quickListening, setQuickListening] = useState(false);
@@ -260,11 +326,12 @@ export function QuotesPage() {
         if (lookLetterhead) return [convertQuote];
         const shareQuote = fieldAuditShareQuote();
         const gstQuote = fieldAuditGstQuote();
-        return [convertQuote, shareQuote, gstQuote].filter((row): row is QuoteListItem => !!row);
+        return [convertQuote, shareQuote, gstQuote, ...fieldAuditChaseQuotes()]
+          .filter((row): row is QuoteListItem => !!row);
       }
       const { data, error } = await supabase
         .from('quotes')
-        .select('id, company_id, quote_number, client_id, job_id, status, description, scope_of_works, line_items, subtotal, tax_rate, tax_amount, total, validity_date, notes, inclusions, exclusions, scheduled_date, assigned_team, created_by, created_at, updated_at')
+        .select('id, company_id, quote_number, client_id, job_id, status, description, scope_of_works, line_items, subtotal, tax_rate, tax_amount, total, validity_date, notes, inclusions, exclusions, scheduled_date, assigned_team, created_by, created_at, updated_at, sent_at, chased_at')
         .order('created_at', { ascending: false });
       if (error) throw error;
       const list = (data ?? []) as QuoteWithDetails[];
@@ -303,8 +370,11 @@ export function QuotesPage() {
 
   const filtered = useMemo(() => {
     const list = quotes ?? [];
+    const now = new Date();
     return list.filter(q => {
-      if (statusFilter !== 'all' && q.status !== statusFilter) return false;
+      if (statusFilter === QUOTE_CHASE_FILTER) {
+        if (!quoteOnChaseList(q, now)) return false;
+      } else if (statusFilter !== 'all' && q.status !== statusFilter) return false;
       if (search.trim()) {
         const s = search.toLowerCase();
         return `#${padQuoteNumber(q.quote_number)}`.toLowerCase().includes(s)
@@ -318,7 +388,8 @@ export function QuotesPage() {
   useEffect(() => {
     const status = searchParams.get('status');
     if (status) {
-      if (status in QUOTE_STATUS_LABELS) setStatusFilter(status as QuoteStatus);
+      if (status === QUOTE_CHASE_FILTER) setStatusFilter(QUOTE_CHASE_FILTER);
+      else if (status in QUOTE_STATUS_LABELS) setStatusFilter(status as QuoteStatus);
       const next = new URLSearchParams(searchParams);
       next.delete('status');
       setSearchParams(next, { replace: true });
@@ -330,7 +401,9 @@ export function QuotesPage() {
       if (!quotes) return;
       const q = quotes.find(item => item.id === quoteId);
       if (!q) return;
-      if (searchParams.get('send') === '1') {
+      if (searchParams.get('chase') === '1') {
+        setChasingQuoteId(quoteId);
+      } else if (searchParams.get('send') === '1') {
         setSendingQuoteId(quoteId);
       } else {
         setEditingQuote(q);
@@ -340,6 +413,7 @@ export function QuotesPage() {
       const next = new URLSearchParams(searchParams);
       next.delete('id');
       next.delete('send');
+      next.delete('chase');
       next.delete('client');
       setSearchParams(next, { replace: true });
       return;
@@ -392,7 +466,7 @@ export function QuotesPage() {
         const { data, error } = await supabase
           .from('quotes')
           .insert(draft)
-          .select('id, company_id, quote_number, client_id, job_id, status, description, scope_of_works, line_items, subtotal, tax_rate, tax_amount, total, validity_date, notes, inclusions, exclusions, scheduled_date, assigned_team, created_by, created_at, updated_at')
+          .select('id, company_id, quote_number, client_id, job_id, status, description, scope_of_works, line_items, subtotal, tax_rate, tax_amount, total, validity_date, notes, inclusions, exclusions, scheduled_date, assigned_team, created_by, created_at, updated_at, sent_at, chased_at')
           .single();
         if (error || !data?.id) throw new Error(error?.message || 'Could not save draft quote');
         const clientName = (clientsRes.data ?? []).find(c => c.id === data.client_id)?.name ?? null;
@@ -453,6 +527,8 @@ export function QuotesPage() {
 
   const filteredEmpty = !search && statusFilter === 'all';
   const busy = listQueryBusy({ isPending, isLoading, data: quotes });
+  const chaseCount = (quotes ?? []).filter(q => quoteOnChaseList(q, new Date())).length;
+  const chasingQuote = quotes?.find(q => q.id === chasingQuoteId) ?? null;
 
   return (
     <AppShell>
@@ -501,7 +577,7 @@ export function QuotesPage() {
                 onClick={() => setStatusFilter(tab.key)}
                 className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
               >
-                {tab.label}
+                {tab.key === QUOTE_CHASE_FILTER ? quoteChaseFilterLabel(busy, chaseCount) : tab.label}
               </button>
             ))}
           </div>
@@ -534,7 +610,13 @@ export function QuotesPage() {
               <span />
             </div>
             {filtered.map(q => (
-              <QuoteRow key={q.id} quote={q} onOpen={opts => openQuote(q, opts)} onSend={setSendingQuoteId} />
+              <QuoteRow
+                key={q.id}
+                quote={q}
+                onOpen={opts => openQuote(q, opts)}
+                onSend={setSendingQuoteId}
+                onChase={setChasingQuoteId}
+              />
             ))}
           </div>
         )}
@@ -551,6 +633,21 @@ export function QuotesPage() {
           onClose={() => { setShowForm(false); setPresetClientId(null); setFocusConvert(false); }}
           onSaved={handleSaved}
           onRequestSend={setSendingQuoteId}
+        />
+      )}
+
+      {chasingQuote && company?.id && (
+        <QuoteChaseDialog
+          quote={chasingQuote}
+          company={{ id: company.id, name: company.name ?? sendCompany?.name ?? '' }}
+          onClose={() => setChasingQuoteId(null)}
+          onChased={() => {
+            setChasingQuoteId(null);
+            queryClient.invalidateQueries({ queryKey: ['quotes'] });
+            queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard-nudges'] });
+            showToast('Marked chased');
+          }}
         />
       )}
 
@@ -579,7 +676,7 @@ export function QuotesPage() {
   );
 }
 
-function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: (opts?: { focusConvert?: boolean }) => void; onSend: (quoteId: string) => void }) {
+function QuoteRow({ quote, onOpen, onSend, onChase }: { quote: QuoteListItem; onOpen: (opts?: { focusConvert?: boolean }) => void; onSend: (quoteId: string) => void; onChase: (quoteId: string) => void }) {
   const { showToast } = useToast();
   const requestSend = (quoteId: string) => {
     const block = checkPriceSendBlock(quote.line_items);
@@ -613,7 +710,7 @@ function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: (op
             type="button"
             className="hub-quotes-chase"
             data-chase-state={chase.state}
-            onClick={() => { if (chase.state === 'lapsed') onOpen(); else requestSend(quote.id); }}
+            onClick={() => onChase(quote.id)}
           >
             {quoteChaseChipLabel(chase)}
           </button>

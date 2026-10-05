@@ -177,7 +177,8 @@ describe('quoteStatusAfterSend', () => {
   it('marks sent only when delivery succeeded', () => {
     expect(quoteStatusAfterSend(true, 'draft')).toBe('sent');
     expect(quoteStatusAfterSend(false, 'draft')).toBe('draft');
-    expect(quoteStatusPatchAfterSend(true)).toEqual({ status: 'sent' });
+    const now = new Date('2026-10-05T00:00:00.000Z');
+    expect(quoteStatusPatchAfterSend(true, now)).toEqual({ status: 'sent', sent_at: now.toISOString() });
     expect(quoteStatusPatchAfterSend(false)).toBeNull();
     expect(shouldRecordQuoteSent(true, 'draft')).toBe(true);
     expect(shouldRecordQuoteSent(false, 'draft')).toBe(false);

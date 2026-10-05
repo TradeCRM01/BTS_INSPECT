@@ -28,6 +28,8 @@ export type NudgeQuote = {
   quote_number: number | null;
   status: string;
   updated_at: string;
+  sent_at?: string | null;
+  chased_at?: string | null;
   validity_date?: string | null;
   total: number;
   client_name?: string | null;
@@ -53,7 +55,7 @@ export type NudgeInput = {
 };
 
 export const LEAVE_SOON_MINUTES = 60;
-export const QUOTE_CHASE_AFTER_DAYS = 5;
+export const QUOTE_CHASE_AFTER_DAYS = 3;
 export const INVOICE_CHASE_AFTER_DAYS = 5;
 export const NUDGE_LIMIT = 6;
 export const NUDGE_ROLLUP_AFTER = 3;
@@ -62,7 +64,27 @@ export type QuoteChase =
   | { state: 'quiet'; days: number }
   | { state: 'lapsed'; days: number; daysPast: number };
 
-export type QuoteChaseInput = { status: string; updated_at: string; validity_date?: string | null };
+export type QuoteChaseInput = {
+  status: string;
+  updated_at?: string | null;
+  sent_at?: string | null;
+  chased_at?: string | null;
+  validity_date?: string | null;
+};
+
+export const QUOTE_CHASE_FILTER = 'chase';
+export const QUOTE_CHASE_COPY_DISABLED = 'Add a client to copy a chase';
+
+function quoteSentClock(quote: QuoteChaseInput): Date | null {
+  const raw = (quote.sent_at ?? '').trim();
+  if (!raw) return null;
+  const sent = new Date(raw);
+  return Number.isNaN(sent.getTime()) ? null : sent;
+}
+
+function quoteAlreadyChased(quote: { chased_at?: string | null }): boolean {
+  return String(quote.chased_at ?? '').trim() !== '';
+}
 
 export type InvoiceChase =
   | { state: 'quiet'; days: number }
@@ -96,10 +118,53 @@ function localDay(key: string): Date {
   return new Date(y, m - 1, d);
 }
 
-/** null when the quote is not sent, or sent and fresh. Lapsed wins over quiet. */
+/** Age clock is sent_at only. updated_at (edits) must not reset it. */
+export function quoteChaseDays(quote: QuoteChaseInput, now: Date): number | null {
+  const sent = quoteSentClock(quote);
+  if (!sent) return null;
+  return differenceInCalendarDays(now, sent);
+}
+
+/** Chase list / dashboard: sent, unchased, and older than QUOTE_CHASE_AFTER_DAYS since sent_at. */
+export function quoteOnChaseList(quote: QuoteChaseInput, now: Date): boolean {
+  if (quote.status !== 'sent' || quoteAlreadyChased(quote)) return false;
+  const days = quoteChaseDays(quote, now);
+  return days !== null && days >= QUOTE_CHASE_AFTER_DAYS;
+}
+
+/** Filter chip. Busy hides the count so it never flashes 0. */
+export function quoteChaseFilterLabel(busy: boolean, count: number): string {
+  return busy ? 'Chase' : `Chase · ${count}`;
+}
+
+export function quoteChaseHref(quoteId: string): string {
+  return `/quotes?id=${quoteId}&chase=1`;
+}
+
+/** Patch for Mark chased. Does not touch updated_at or status. */
+export function quoteChaseMarkPatch(
+  quote: { status: string; chased_at?: string | null },
+  now: Date,
+): { chased_at: string } | null {
+  if (quote.status !== 'sent' || quoteAlreadyChased(quote)) return null;
+  return { chased_at: now.toISOString() };
+}
+
+export function quoteChaseCopyDisabledReason(args: {
+  clientId?: string | null;
+  portalUrl?: string | null;
+}): string | null {
+  const hasClient = !!(args.clientId ?? '').trim();
+  const hasPortal = !!(args.portalUrl ?? '').trim();
+  if (!hasClient || !hasPortal) return QUOTE_CHASE_COPY_DISABLED;
+  return null;
+}
+
+/** null when the quote is not sent, already chased, or sent and fresh. Lapsed wins over quiet. */
 export function quoteChase(quote: QuoteChaseInput, now: Date): QuoteChase | null {
-  if (quote.status !== 'sent') return null;
-  const days = differenceInCalendarDays(now, new Date(quote.updated_at));
+  if (quote.status !== 'sent' || quoteAlreadyChased(quote)) return null;
+  const days = quoteChaseDays(quote, now);
+  if (days === null) return null;
   const validKey = scheduleDayKey(quote.validity_date);
   if (validKey && validKey < scheduleDateKey(now)) {
     return { state: 'lapsed', days, daysPast: differenceInCalendarDays(now, localDay(validKey)) };
@@ -233,6 +298,7 @@ const NUDGE_RULES: Record<NudgeKind, NudgeRule> = {
   quote_chase: input => {
     const due = input.quotes
       .flatMap(quote => {
+        if (!quoteOnChaseList(quote, input.now)) return [];
         const chase = quoteChase(quote, input.now);
         return chase ? [{ quote, chase }] : [];
       })
@@ -243,7 +309,7 @@ const NUDGE_RULES: Record<NudgeKind, NudgeRule> = {
         kind: 'quote_chase',
         label: `${due.length} quotes to chase`,
         detail: due.slice(0, NUDGE_ROLLUP_AFTER).map(({ quote }) => quoteRef(quote.quote_number)).join(' · '),
-        href: '/quotes?status=sent',
+        href: `/quotes?status=${QUOTE_CHASE_FILTER}`,
       }];
     }
     return due.map(({ quote, chase }) => {
@@ -257,14 +323,14 @@ const NUDGE_RULES: Record<NudgeKind, NudgeRule> = {
             kind: 'quote_chase' as const,
             label: `Quote ${ref} lapsed`,
             detail: detail(quoteValidTo(quote.validity_date)),
-            href: `/quotes?id=${quote.id}`,
+            href: quoteChaseHref(quote.id),
           }
         : {
             key: `quote_chase:${quote.id}`,
             kind: 'quote_chase' as const,
             label: `Chase quote ${ref}`,
             detail: detail(`Quiet ${plural(chase.days, 'day')}`),
-            href: `/quotes?id=${quote.id}&send=1`,
+            href: quoteChaseHref(quote.id),
           };
     });
   },
