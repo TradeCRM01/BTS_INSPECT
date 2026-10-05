@@ -3613,6 +3613,76 @@
     padding: 16px 16px 24px;
   }
 
+  .overlay-panel-xl.hub-quote-editor:has(.hub-editor-sticky-footer),
+  .overlay-panel-xl.hub-invoice-editor:has(.hub-editor-sticky-footer) {
+    --hub-editor-footer-h: 64px;
+    overflow: hidden !important;
+  }
+
+  .overlay-backdrop:has(.hub-editor-sticky-footer) {
+    background: #F5F0E6 !important;
+  }
+
+  body:has(.hub-editor-sticky-footer) .shell-bottom-nav {
+    display: none !important;
+  }
+
+  .hub-editor-dialog-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+    padding-bottom: var(--hub-editor-footer-h);
+  }
+
+  .hub-editor-sticky-footer {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0 0;
+    margin-top: 8px;
+    border-top: 1px solid #E2D9CC;
+    background: #F5F0E6;
+  }
+
+  .hub-editor-sticky-cancel,
+  .hub-editor-sticky-save {
+    min-height: 44px;
+    height: 44px;
+    flex: 1 1 0;
+  }
+
+  .hub-editor-sticky-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    background: #FFFDF8;
+    color: #0A2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .hub-quote-editor .btn-primary.hub-editor-sticky-save,
+  .hub-invoice-editor .btn-primary.hub-editor-sticky-save,
+  .hub-editor-sticky-save {
+    justify-content: center;
+    border-radius: 12px;
+    background: #0A2540;
+    color: #FFFDF8;
+  }
+
+  .hub-quote-editor .btn-primary.hub-editor-sticky-save:hover,
+  .hub-invoice-editor .btn-primary.hub-editor-sticky-save:hover,
+  .hub-editor-sticky-save:hover {
+    background: #0A2540;
+    color: #FFFDF8;
+  }
+
   .overlay-panel-md:has(.hub-invoice-send) {
     background: #FFFDF8 !important;
     color: #0A2540;
