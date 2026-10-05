@@ -194,6 +194,24 @@ export function quoteStatusAfterClientAccept(currentStatus: string): 'accepted' 
   return null;
 }
 
+/** Same Perth rule as client-portal `isQuoteLapsed`. Tests only — the page reads `quote.lapsed`. */
+export function isQuoteLapsed(validUntil: string | null | undefined, now = new Date()): boolean {
+  const day = String(validUntil ?? '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  const perthToday = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Australia/Perth',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+  return perthToday > day;
+}
+
+export function portalQuoteLapsedCopy(companyName: string | null | undefined): string {
+  const who = (companyName ?? '').trim() || 'your contractor';
+  return `This quote's valid-until date has passed. Contact ${who} for an updated quote.`;
+}
+
 export function canClientAcceptQuote(status: string): boolean {
   return status === 'sent';
 }

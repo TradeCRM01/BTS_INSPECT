@@ -2,6 +2,16 @@ export function padQuoteNumber(n: number | null | undefined): string {
   return String(n ?? 0).padStart(4, '0');
 }
 
+/** Portal quote/invoice ref. `10` and `0010` both become `#0010`. */
+export function portalDocumentRef(value: string | number | null | undefined): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  const digits = raw.replace(/^#/, '');
+  const n = Number(digits);
+  if (!Number.isFinite(n)) return raw.startsWith('#') ? raw : `#${raw}`;
+  return `#${padQuoteNumber(n)}`;
+}
+
 /** YYYY-MM-DD from a quote/convert date. Empty or missing → null (do not invent). */
 export function scheduledDateFromQuote(value: string | null | undefined): string | null {
   const raw = (value ?? '').trim();

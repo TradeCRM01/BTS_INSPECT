@@ -8,6 +8,8 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { formatMoney, QUOTE_STATUS_LABELS } from '../types/fsm';
 import { usePublicDocumentHead } from '../lib/publicSeo';
 import { companyPaymentMethodsForDocument } from '../lib/companyPaymentMethods';
+import { portalDocumentRef } from '../lib/quoteJobFields';
+import { portalQuoteLapsedCopy } from '../lib/sendQuote';
 
 type PortalCompany = {
   name: string;
@@ -21,8 +23,13 @@ type PortalCompany = {
 
 export const PORTAL_QUOTE_ACCEPT_ACTION = 'accept_quote';
 
-export function canAcceptPortalQuote(status: string, jobId: string | null): boolean {
-  return status === 'sent' || (status === 'accepted' && !jobId);
+export function canAcceptPortalQuote(
+  status: string,
+  jobId: string | null,
+  lapsed?: boolean,
+): boolean {
+  if (status === 'sent') return lapsed !== true;
+  return status === 'accepted' && !jobId;
 }
 
 export function portalQuoteAcceptBody(token: string, quoteId: string) {
@@ -36,6 +43,7 @@ type PortalQuote = {
   job_id: string | null;
   total: number;
   validity_date: string | null;
+  lapsed?: boolean;
   updated_at: string;
   scheduled_date?: string | null;
   assigned_team?: string[];
@@ -124,15 +132,25 @@ export function clientPortalAuditFixture(): PortalAuditPayload {
       status: 'sent',
       job_id: null,
       total: 2860,
-      validity_date: '2026-10-01',
+      validity_date: '2026-09-01',
+      lapsed: false,
       updated_at: '2026-09-20T00:00:00.000Z',
       scheduled_date: '2026-09-24',
       assigned_team: ['audit-crew-7'],
       job_title: 'Workshop fit-out',
+    }, {
+      id: 'audit-quote-10',
+      quote_number: '10',
+      status: 'sent',
+      job_id: null,
+      total: 1320,
+      validity_date: '2026-12-31',
+      lapsed: true,
+      updated_at: '2026-08-20T00:00:00.000Z',
     }],
     invoices: [{
-      id: 'audit-invoice-18',
-      invoice_number: '#0018',
+      id: 'audit-invoice-10',
+      invoice_number: '10',
       status: 'sent',
       total: 484,
       due_date: '2026-10-23',
@@ -152,6 +170,7 @@ export function acceptClientPortalAuditQuote(
   if (
     !quote
     || quote.status !== 'sent'
+    || quote.lapsed === true
     || !quote.scheduled_date
     || !quote.assigned_team?.length
     || !quote.job_title
@@ -356,10 +375,10 @@ export function ClientPortalPublicPage() {
           <p className="portal-quote-error">{acceptError}</p>
         )}
         {data.quotes.map(q => (
-          <div key={q.id} className="portal-quote">
+          <div key={q.id} className="portal-quote" data-quote-id={q.id}>
             <div className="portal-quote-meta">
               <div>
-                <p className="portal-row-ref">{q.quote_number}</p>
+                <p className="portal-row-ref">{portalDocumentRef(q.quote_number)}</p>
                 <p className="portal-muted">{portalQuoteStatusLabel(q.status)}</p>
                 {auditPortal && q.scheduled_date && q.assigned_team?.length ? (
                   <p className="portal-muted">
@@ -369,7 +388,9 @@ export function ClientPortalPublicPage() {
               </div>
               <p className="portal-quote-total">{formatMoney(q.total)}</p>
             </div>
-            {canAcceptPortalQuote(q.status, q.job_id) && (
+            {q.status === 'sent' && q.lapsed ? (
+              <p className="portal-quote-lapsed">{portalQuoteLapsedCopy(data.company?.name)}</p>
+            ) : canAcceptPortalQuote(q.status, q.job_id, q.lapsed) ? (
               <button
                 type="button"
                 onClick={() => void acceptQuote(q.id)}
@@ -378,7 +399,7 @@ export function ClientPortalPublicPage() {
               >
                 {acceptingId === q.id ? 'Booking...' : q.status === 'accepted' ? 'Finish booking' : 'Accept and book'}
               </button>
-            )}
+            ) : null}
           </div>
         ))}
       </Section>
@@ -387,7 +408,7 @@ export function ClientPortalPublicPage() {
         {data.invoices.map(inv => (
           <div key={inv.id} className="portal-row portal-row-split">
             <div>
-              <p className="portal-row-ref">{inv.invoice_number}</p>
+              <p className="portal-row-ref">{portalDocumentRef(inv.invoice_number)}</p>
               <p className="portal-muted">{inv.status}</p>
             </div>
             <p className="portal-quote-total">{formatMoney(inv.total)}</p>
