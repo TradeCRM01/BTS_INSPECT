@@ -382,20 +382,24 @@ export function LineItemEditor({
                 fromStock || fromBook || fromModel ? 'bg-[#EFF6FF]/30' : ''
               }`}
             >
-              <select
-                value={li.cost_model_id ?? ''}
-                onChange={e => applyCostModel(idx, e.target.value)}
-                className="hub-line-editor-cost form-input-sm w-full cursor-pointer"
-                title={costModels.length === 0 ? 'Create cost models under Expenses' : 'Labour cost code ($/hr)'}
-              >
-                <option value="">— Manual —</option>
-                {costModels.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({formatMoney(modelHourlyCost(m))}/hr)
-                  </option>
-                ))}
-              </select>
+              <div className="hub-line-editor-cost min-w-0">
+                <span className="hub-line-editor-lab">Cost code</span>
+                <select
+                  value={li.cost_model_id ?? ''}
+                  onChange={e => applyCostModel(idx, e.target.value)}
+                  className="form-input-sm w-full cursor-pointer"
+                  title={costModels.length === 0 ? 'Create cost models under Expenses' : 'Labour cost code ($/hr)'}
+                >
+                  <option value="">— Manual —</option>
+                  {costModels.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({formatMoney(modelHourlyCost(m))}/hr)
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="hub-line-editor-nature min-w-0">
+                <span className="hub-line-editor-lab">Nature</span>
                 <ManagedSelect
                   listKey={LIST_KEYS.chargeTypes}
                   value={li.charge_type}
@@ -406,6 +410,7 @@ export function LineItemEditor({
                 />
               </div>
               <div className="hub-line-editor-desc min-w-0">
+                <span className="hub-line-editor-lab">Description</span>
                 <div className="hub-line-editor-desc-row col-span-1 sm:col-span-2 lg:col-span-1">
                   {fromStock && <Package size={10} className="text-[#2E75B6] shrink-0" aria-label="From stock" />}
                   {fromBook && <BookOpen size={10} className="text-[#2E75B6] shrink-0" aria-label="From price book" />}
@@ -420,66 +425,80 @@ export function LineItemEditor({
                   <span className="hub-quote-check-price">{QUICK_QUOTE_CHECK_PRICE}</span>
                 ) : null}
               </div>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={li.quantity}
-                onChange={e => {
-                  const raw = e.target.value;
-                  if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
-                  updateLine(idx, { quantity: raw });
-                }}
-                className="hub-line-editor-qty form-input-sm text-right min-w-0"
-                aria-label="Quantity"
-              />
-              <input
-                type="text"
-                inputMode="decimal"
-                value={li.unit_cost ?? ''}
-                onChange={e => {
-                  const raw = e.target.value;
-                  if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
-                  handleCostChange(idx, raw);
-                }}
-                className="hub-line-editor-ucost form-input-sm text-right min-w-0"
-                placeholder="0.00"
-                aria-label="Unit cost"
-              />
-              <input
-                type="text"
-                inputMode="decimal"
-                value={li.markup_percent ?? ''}
-                onChange={e => {
-                  const raw = e.target.value;
-                  if (raw !== '' && !/^-?\d*\.?\d*$/.test(raw)) return;
-                  handleMarkupChange(idx, raw);
-                }}
-                className="hub-line-editor-markup form-input-sm text-right min-w-0"
-                placeholder="0"
-                aria-label="Markup percent"
-              />
-              <input
-                type="text"
-                inputMode="decimal"
-                value={li.unit_price}
-                onChange={e => {
-                  const raw = e.target.value;
-                  if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
-                  updateLine(idx, {
-                    unit_price: raw,
-                    check_price: checkPriceAfterUnitPrice(raw, li.check_price),
-                  });
-                }}
-                className="hub-line-editor-price form-input-sm text-right font-medium min-w-0"
-                placeholder="0.00"
-                aria-label="Unit price"
-              />
-              <span className="hub-line-editor-total text-sm text-right font-medium text-[#1A1A1A]">
-                {formatMoney(lineTotal)}
-              </span>
+              <div className="hub-line-editor-qty min-w-0">
+                <span className="hub-line-editor-lab">Qty</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={li.quantity}
+                  onChange={e => {
+                    const raw = e.target.value;
+                    if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                    updateLine(idx, { quantity: raw });
+                  }}
+                  className="form-input-sm text-right min-w-0"
+                  aria-label="Quantity"
+                />
+              </div>
+              <div className="hub-line-editor-ucost min-w-0">
+                <span className="hub-line-editor-lab">Unit cost</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={li.unit_cost ?? ''}
+                  onChange={e => {
+                    const raw = e.target.value;
+                    if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                    handleCostChange(idx, raw);
+                  }}
+                  className="form-input-sm text-right min-w-0"
+                  placeholder="0.00"
+                  aria-label="Unit cost"
+                />
+              </div>
+              <div className="hub-line-editor-markup min-w-0">
+                <span className="hub-line-editor-lab">Markup %</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={li.markup_percent ?? ''}
+                  onChange={e => {
+                    const raw = e.target.value;
+                    if (raw !== '' && !/^-?\d*\.?\d*$/.test(raw)) return;
+                    handleMarkupChange(idx, raw);
+                  }}
+                  className="form-input-sm text-right min-w-0"
+                  placeholder="0"
+                  aria-label="Markup percent"
+                />
+              </div>
+              <div className="hub-line-editor-price min-w-0">
+                <span className="hub-line-editor-lab">Unit price</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={li.unit_price}
+                  onChange={e => {
+                    const raw = e.target.value;
+                    if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                    updateLine(idx, {
+                      unit_price: raw,
+                      check_price: checkPriceAfterUnitPrice(raw, li.check_price),
+                    });
+                  }}
+                  className="form-input-sm text-right font-medium min-w-0"
+                  placeholder="0.00"
+                  aria-label="Unit price"
+                />
+              </div>
+              <div className="hub-line-editor-total text-sm text-right font-medium text-[#1A1A1A]">
+                <span className="hub-line-editor-lab">Line total</span>
+                <span>{formatMoney(lineTotal)}</span>
+              </div>
               <button
                 type="button"
                 onClick={() => removeLine(idx)}
+                aria-label="Remove line"
                 className="hub-line-editor-del w-7 h-7 flex items-center justify-center rounded text-[#9CA3AF] hover:text-red-600 hover:bg-red-50"
               >
                 <Trash2 size={14} />
