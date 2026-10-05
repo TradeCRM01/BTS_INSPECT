@@ -36,7 +36,7 @@ import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
 import { quoteSendCompanyFrom } from '../lib/sendQuote';
 import { documentShareOrigin } from '../lib/documentShare';
 import { copyShareText, ensureClientPortalUrl } from '../lib/documentShareDeliver';
-import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
+import { commercialPdfPreviewData, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { padQuoteNumber } from '../lib/quoteJobFields';
@@ -815,7 +815,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         cost_model_id: li.cost_model_id ?? null,
         gst_rate: li.gst_rate,
       }));
-    return {
+    return commercialPdfPreviewData({
       kind: 'quote',
       title: 'Quoted prices',
       docNumber: quote?.quote_number != null ? `#${padQuoteNumber(quote.quote_number)}` : 'Draft',
@@ -841,7 +841,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
       taxAmount,
       total: grandTotal,
       notes: form.notes.trim() || null,
-    };
+    }, cleanLines);
   }, [company, form, quote, selectedClient, emailClient, phoneClient, selectedJob, subtotal, taxAmount, grandTotal]);
 
   const buildPayload = (status: QuoteStatus) => {
