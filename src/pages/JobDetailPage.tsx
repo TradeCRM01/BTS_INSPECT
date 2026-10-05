@@ -101,6 +101,7 @@ import {
   parseVisitNoteBody,
   postJobVisitNote,
   sortJobVisitNotesNewestFirst,
+  visitNotesAfterPost,
   visitAuthorInitials,
   visitPhotoCountLabel,
   visitUpdateSections,
@@ -2014,7 +2015,7 @@ export function JobDetailPage() {
 
   const postVisitNote = useMutation({
     mutationFn: async () => {
-      const noteId = await postJobVisitNote({
+      const note = await postJobVisitNote({
         jobId: job?.id,
         companyId: profile?.company_id,
         authorId: profile?.id,
@@ -2028,14 +2029,17 @@ export function JobDetailPage() {
           companyId: profile.company_id,
           jobId: job.id,
           userId: profile.id,
-          visitNoteId: noteId,
+          visitNoteId: note.id,
           photos: visitPhotos,
         });
         failed = result.failed;
       }
-      return { failed };
+      return { failed, note };
     },
-    onSuccess: ({ failed }) => {
+    onSuccess: ({ failed, note }) => {
+      queryClient.setQueryData<JobVisitNote[]>(['job-visit-notes', id], prev =>
+        visitNotesAfterPost(prev, note),
+      );
       queryClient.invalidateQueries({ queryKey: ['job-visit-notes', id] });
       queryClient.invalidateQueries({ queryKey: ['job-photos', id] });
       setVisitDraft(emptyVisitUpdateDraft());
