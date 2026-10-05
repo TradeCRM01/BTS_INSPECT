@@ -10248,6 +10248,105 @@
     .hub-jobs-list-doc .hub-jobs-row .hub-jobs-row-next {
       margin-top: -6px;
     }
+
+    .hub-jobs-phone-list {
+      display: block;
+    }
+
+    .hub-jobs-desktop-list {
+      display: none;
+    }
+
+    .hub-jobs-phone-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      width: 100%;
+      padding: 14px 0;
+      border-top: 1px solid #E2D9CC;
+      background: none;
+      box-shadow: none;
+      cursor: pointer;
+      text-align: left;
+      color: #0A2540;
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+    }
+
+    .hub-jobs-phone-row:first-child {
+      border-top: none;
+    }
+
+    .hub-jobs-phone-copy {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .hub-jobs-phone-title {
+      margin: 0;
+      font-weight: 700;
+      font-size: 16px;
+      line-height: 1.35;
+      color: #0A2540;
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
+
+    .hub-jobs-phone-ref {
+      font-weight: 500;
+      color: #5B6B7C;
+    }
+
+    .hub-jobs-phone-meta,
+    .hub-jobs-phone-facts,
+    .hub-jobs-phone-date {
+      margin: 4px 0 0;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.4;
+      color: #5B6B7C;
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
+
+    .hub-jobs-phone-facts {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hub-jobs-phone-status {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: #F5F0E6;
+      color: #0A2540;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .hub-jobs-phone-next-wrap {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+    }
+
+    .hub-jobs-phone-next {
+      min-height: 44px;
+      height: 44px;
+      padding: 0 14px;
+      border: 1px solid #2E75B6;
+      border-radius: 12px;
+      white-space: nowrap;
+      justify-content: center;
+    }
+  }
+
+  .hub-jobs-phone-list {
+    display: none;
   }
 
   /* End jobs list document */

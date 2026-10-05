@@ -12,7 +12,7 @@ import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import { JOB_STATUS_LABELS } from '../types/crm';
 import { jobInvoiceActionFlags, jobOpenNext } from '../lib/jobNextAction';
 import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
-import { jobsListCustomer, jobsListTitle } from '../lib/jobsListRow';
+import { jobsListCustomer, jobsListPhoneRow, jobsListTitle } from '../lib/jobsListRow';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { listCountWhisper, listQueryBusy } from '../lib/listQueryReady';
 import { Plus, Briefcase, MoreHorizontal } from 'lucide-react';
@@ -175,6 +175,21 @@ function jobsListLookRows(): JobRowModel[] {
       job_number: 290,
       client_name: null,
       client_address: null,
+    },
+    {
+      ...base,
+      id: 'look-job-prove-phone',
+      client_id: 'look-client-phone',
+      title: '291 prove switchboard and after-hours commissioning on a live site',
+      status: 'scheduled',
+      scheduled_date: '2026-09-11',
+      start_time: '08:00',
+      end_time: '16:00',
+      address: '18 William St, Perth WA 6000',
+      assigned_team: ['look-jobs-dave'],
+      job_number: 291,
+      client_name: 'Client Services Northside Body Corporate',
+      client_address: '18 William St, Perth WA 6000',
     },
   ];
 }
@@ -390,16 +405,23 @@ export function JobsPage() {
               />
             ) : (
               <>
-                <div className="hub-jobs-thead">
-                  <span>Job</span>
-                  <span>Customer</span>
-                  <span>Suburb</span>
-                  <span>Status</span>
-                  <span />
+                <div className="hub-jobs-phone-list" data-jobs-phone-list="1">
+                  {filtered.map(job => (
+                    <JobPhoneRow key={job.id} job={job} />
+                  ))}
                 </div>
-                {filtered.map(job => (
-                  <JobRow key={job.id} job={job} />
-                ))}
+                <div className="hub-jobs-desktop-list">
+                  <div className="hub-jobs-thead">
+                    <span>Job</span>
+                    <span>Customer</span>
+                    <span>Suburb</span>
+                    <span>Status</span>
+                    <span />
+                  </div>
+                  {filtered.map(job => (
+                    <JobRow key={job.id} job={job} />
+                  ))}
+                </div>
               </>
             )}
           </div>
@@ -494,6 +516,56 @@ function JobsListFind({
         </div>
       </div>
     </details>
+  );
+}
+
+function JobPhoneRow({ job }: { job: JobRowModel }) {
+  const navigate = useNavigate();
+  const invoiceFlags = jobInvoiceActionFlags(
+    job.docs
+      .filter(doc => doc.kind === 'invoice')
+      .map(doc => ({ status: doc.status ?? 'draft', due_date: doc.due_date })),
+  );
+  const next = jobOpenNext({ ...job, ...invoiceFlags });
+  const row = jobsListPhoneRow(job);
+  const jobHref = `/jobs/${job.id}`;
+  const showRef = row.ref && row.ref !== row.title;
+  return (
+    <div
+      role="link"
+      tabIndex={0}
+      aria-label="Open"
+      data-jobs-phone-row={job.id}
+      onClick={() => navigate(jobHref)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(jobHref); } }}
+      className="hub-jobs-phone-row"
+    >
+      <div className="hub-jobs-phone-copy">
+        <p className="hub-jobs-phone-title">
+          {row.title}
+          {showRef ? <span className="hub-jobs-phone-ref"> {row.ref}</span> : null}
+        </p>
+        <p className="hub-jobs-phone-meta">{row.meta}</p>
+        <p className="hub-jobs-phone-facts">
+          <span className="hub-jobs-phone-status">{row.status}</span>
+          {row.date ? <span className="hub-jobs-phone-date">{row.date}</span> : null}
+        </p>
+      </div>
+      <span className="hub-jobs-phone-next-wrap" onClick={e => e.stopPropagation()}>
+        {next.actionable ? (
+          <Link
+            to={next.href}
+            className="hub-next hub-jobs-phone-next"
+            data-job-list-next={next.label}
+            data-jobs-phone-next="1"
+          >
+            {next.label}
+          </Link>
+        ) : (
+          <span className="hub-jobs-muted">{next.label}</span>
+        )}
+      </span>
+    </div>
   );
 }
 

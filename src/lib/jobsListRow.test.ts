@@ -5,6 +5,8 @@ import {
   JOB_CLIENT_ATTACH_PLACEHOLDER,
   JOBS_LIST_NO_CLIENT,
   jobsListCustomer,
+  jobsListPhoneDate,
+  jobsListPhoneRow,
   jobsListTitle,
 } from './jobsListRow';
 
@@ -47,5 +49,50 @@ describe('jobs list rows use the helpers on desktop and phone', () => {
     expect(sheet).toContain('JOB_CLIENT_ATTACH_PLACEHOLDER');
     expect(sheet).toContain('<option value="">{JOB_CLIENT_ATTACH_PLACEHOLDER}</option>');
     expect(sheet).not.toContain('<option value="">Client</option>');
+  });
+
+  it('stacks the phone row: full title, client · suburb, one status, date, and a 44px next', () => {
+    const page = src('src/pages/JobsPage.tsx');
+    const css = src('src/index.css');
+    expect(page).toContain('jobsListPhoneRow(job)');
+    expect(page).toContain('data-jobs-phone-list');
+    expect(page).toContain('data-jobs-phone-row');
+    expect(page).toContain('hub-jobs-phone-row');
+    expect(page).toContain('hub-jobs-phone-title');
+    expect(page).toContain('hub-jobs-phone-meta');
+    expect(page).toContain('hub-jobs-phone-status');
+    expect(page).toContain('hub-jobs-phone-date');
+    expect(page).toContain('hub-jobs-phone-next');
+    expect(page).toContain('hub-jobs-desktop-list');
+    expect(page).toContain('function JobPhoneRow');
+    expect(page).not.toContain('hub-jobs-pill');
+    expect(page).not.toMatch(/data-jobs-phone-row[\s\S]{0,900}ItemMenu/);
+    expect(css).toContain('.hub-jobs-phone-list');
+    expect(css).toContain('.hub-jobs-phone-row');
+    expect(css).toContain('overflow-wrap: anywhere');
+    expect(css).toContain('white-space: normal');
+    expect(css).toContain('.hub-jobs-phone-next {\n      min-height: 44px;');
+    expect(css).toContain('.hub-jobs-desktop-list {\n      display: none;');
+  });
+});
+
+describe('jobsListPhoneRow', () => {
+  it('keeps the full title and client next to suburb, with one status and the date', () => {
+    const row = jobsListPhoneRow({
+      title: '291 prove switchboard and after-hours commissioning on a live site',
+      job_number: 291,
+      client_name: 'Client Services Northside Body Corporate',
+      address: '18 William St, Perth WA 6000',
+      status: 'scheduled',
+      scheduled_date: '2026-09-11',
+    });
+    expect(row.title).toBe('291 prove switchboard and after-hours commissioning on a live site');
+    expect(row.title).not.toContain('…');
+    expect(row.ref).toBe('#0291');
+    expect(row.meta).toBe('Client Services Northside Body Corporate · Perth');
+    expect(row.meta).not.toContain('…');
+    expect(row.status).toBe('Scheduled');
+    expect(row.date).toBe(jobsListPhoneDate('2026-09-11'));
+    expect(row.date).toBe('11 Sep');
   });
 });
