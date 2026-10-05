@@ -9647,9 +9647,31 @@
   /* Customer absorbs the slack like the quote description column. Next sits tight as blue hub-next. */
   .hub-jobs-list-doc .hub-jobs-thead,
   .hub-jobs-list-doc .hub-jobs-row {
-    grid-template-columns: 72px minmax(0, 1fr) 220px 120px minmax(132px, max-content);
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 220px 120px minmax(132px, max-content);
     padding-left: 0;
     padding-right: 0;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-job {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: #0A2540;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-job .hub-jobs-ref {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #5B6B7C;
   }
 
   .hub-jobs-list-doc .hub-jobs-thead {
@@ -9785,10 +9807,10 @@
       padding: 24px 16px 16px;
     }
 
-    /* Phone keeps the table. Four columns: ref, customer over suburb, status, next. */
+    /* Phone keeps the table. Four columns: title, customer over suburb, status, next. */
     .hub-jobs-list-doc .hub-jobs-thead,
     .hub-jobs-list-doc .hub-jobs-row {
-      grid-template-columns: 52px minmax(0, 1fr) 72px minmax(108px, max-content);
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 72px minmax(108px, max-content);
       gap: 2px 8px;
       padding-left: 0;
       padding-right: 0;
@@ -9810,8 +9832,10 @@
       padding: 12px 0;
     }
 
+    .hub-jobs-list-doc .hub-jobs-row .hub-jobs-job,
+    .hub-jobs-list-doc .hub-jobs-row .hub-jobs-title,
     .hub-jobs-list-doc .hub-jobs-row .hub-jobs-ref {
-      line-height: 1.5;
+      line-height: 1.35;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;

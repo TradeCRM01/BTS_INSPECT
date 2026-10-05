@@ -12,6 +12,7 @@ import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import { JOB_STATUS_LABELS } from '../types/crm';
 import { jobOpenNext } from '../lib/jobNextAction';
 import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
+import { jobsListCustomer, jobsListTitle } from '../lib/jobsListRow';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { Plus, Briefcase, MoreHorizontal } from 'lucide-react';
 
@@ -156,6 +157,21 @@ function jobsListLookRows(): JobRowModel[] {
       job_number: 47,
       client_name: 'Osborne Park Medical',
       client_address: '9 Hutton St, Osborne Park WA 6017',
+    },
+    {
+      ...base,
+      id: 'look-job-prove-a',
+      client_id: null,
+      title: '290 data prove A — delete ok',
+      status: 'scheduled',
+      scheduled_date: '2026-09-10',
+      start_time: '08:00',
+      end_time: '12:00',
+      address: '1 Prove St, Perth WA 6000',
+      assigned_team: ['look-jobs-dave'],
+      job_number: 290,
+      client_name: null,
+      client_address: null,
     },
   ];
 }
@@ -335,7 +351,7 @@ export function JobsPage() {
             ) : (
               <>
                 <div className="hub-jobs-thead">
-                  <span>#</span>
+                  <span>Job</span>
                   <span>Customer</span>
                   <span>Suburb</span>
                   <span>Status</span>
@@ -456,8 +472,11 @@ function JobRow({ job }: { job: JobRowModel }) {
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(jobHref); } }}
       className="hub-jobs-row"
     >
-      <span className="hub-jobs-ref">{formatJobRef(job)}</span>
-      <span className="truncate hub-jobs-name">{job.client_name || ''}</span>
+      <span className="hub-jobs-job">
+        <span className="hub-jobs-title">{jobsListTitle(job)}</span>
+        <span className="hub-jobs-ref">{formatJobRef(job)}</span>
+      </span>
+      <span className="truncate hub-jobs-name">{jobsListCustomer(job)}</span>
       <span className="truncate hub-jobs-muted">{suburb}</span>
       <span className="hub-jobs-status">{JOB_STATUS_LABELS[job.status]}</span>
       <span className="hub-jobs-row-next" onClick={e => e.stopPropagation()}>

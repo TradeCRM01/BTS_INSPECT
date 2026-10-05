@@ -9,6 +9,7 @@ import {
   JOB_CLIENT_ATTACH_NO_CLIENTS,
   JOB_CLIENT_ATTACH_NO_JOB,
   JOB_CLIENT_ATTACH_NO_SELECTION,
+  JOB_CLIENT_ATTACH_PLACEHOLDER,
   JOB_CLIENT_ATTACH_SAVED,
   JOB_CLIENT_ATTACH_UNKNOWN,
   companyClientsForAttach,
@@ -269,6 +270,9 @@ describe('job-sheet attach client — wiring', () => {
     expect(page).toContain('job-client-attach');
     expect(page).toContain('job-client-attach-save');
     expect(page).toContain('aria-label="Attach client"');
+    expect(page).toContain('JOB_CLIENT_ATTACH_PLACEHOLDER');
+    expect(JOB_CLIENT_ATTACH_PLACEHOLDER).toBe('Add client…');
+    expect(page).not.toContain('<option value="">Client</option>');
     expect(page).toContain("kind === 'pick'");
     expect(page).toContain("kind === 'miss'");
     expect(page).toContain('JOB_CLIENT_ATTACH_NO_CLIENTS');
