@@ -7403,6 +7403,10 @@
     .hub-line-editor-h-total { grid-area: total; }
     .hub-line-editor-del,
     .hub-line-editor-h-del { grid-area: del; }
+    .hub-line-editor-total,
+    .hub-line-editor-del {
+      align-self: center;
+    }
   }
 
   .hub-quote-kicker {
