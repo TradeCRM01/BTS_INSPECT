@@ -155,6 +155,8 @@ describe('van today — Australia/Brisbane', () => {
     expect(isJobDueToday({ status: 'scheduled', scheduled_date: '2026-09-01' }, brisbaneMorning)).toBe(false);
     expect(isJobArrivingWindow({ status: 'scheduled', scheduled_date: '2026-09-02' }, brisbaneMorning)).toBe(true);
     expect(isJobArrivingWindow({ status: 'scheduled', scheduled_date: '2026-09-01' }, brisbaneMorning)).toBe(false);
+    expect(isJobArrivingWindow({ status: 'in_progress', scheduled_date: '2026-09-02' }, brisbaneMorning)).toBe(false);
+    expect(isJobArrivingWindow({ status: 'completed', scheduled_date: '2026-09-02' }, brisbaneMorning)).toBe(false);
   });
 });
 

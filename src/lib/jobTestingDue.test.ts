@@ -248,7 +248,7 @@ describe('isolation — stay-off surfaces stay off this change', () => {
     expect(src('supabase/functions/job-reminder/index.ts')).toContain('VAN_TZ = "Australia/Brisbane"');
   });
 
-  it('does not regress scheduled job-sheet Next — Arriving shortly, then Clock In', () => {
+  it('does not regress scheduled job-sheet Next — Send on-my-way, then Clock In', () => {
     const page = src('src/pages/JobDetailPage.tsx');
     const next = src('src/lib/jobNextAction.ts');
     expect(page).toContain('jobOpenNext');
@@ -256,6 +256,6 @@ describe('isolation — stay-off surfaces stay off this change', () => {
     expect(next).toContain(ARRIVING_NEXT_LABEL);
     expect(next).toContain(CLOCK_IN_NEXT_LABEL);
     expect(next).toContain('VAN_TIME_ZONE');
-    expect(next).toMatch(/Arriving shortly, then Clock In/);
+    expect(next).toMatch(/Send on-my-way, then Clock In/);
   });
 });

@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { useToast } from '../ui';
 import type { Client, Job } from '../../types/crm';
 import {
+  ARRIVING_NEXT_LABEL,
   decideArrivingSend,
   decideReminderSend,
   isJobArrivingWindow,
@@ -489,7 +490,7 @@ export const JobClientReminder = forwardRef<JobClientReminderHandle, {
               disabled={!arrivingDecision.send || send.isPending}
               onClick={() => send.mutate()}
             >
-              {send.isPending ? 'Sending…' : 'Arriving shortly'}
+              {send.isPending ? 'Sending…' : ARRIVING_NEXT_LABEL}
             </button>
           ) : (
             <button

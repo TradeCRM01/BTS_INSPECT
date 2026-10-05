@@ -79,10 +79,13 @@ describe('jobs list rows use the helpers on desktop and phone', () => {
     expect(css).toMatch(/\.hub-jobs-phone-row \.hub-jobs-phone-next \{[\s\S]*min-width: 44px;/);
     expect(css).toContain('.hub-jobs-desktop-list {\n      display: none;');
     const phone = page.slice(page.indexOf('function JobPhoneRow'), page.indexOf('function JobRow'));
+    const desktop = page.slice(page.indexOf('function JobRow'));
     expect(phone).toContain('jobsListPhoneNextLabel(next)');
     expect(phone).toContain('aria-label={`Open job ${row.title}`}');
     expect(phone).toContain('{phoneNext ? (');
     expect(phone).not.toContain('hub-jobs-muted">{next.label}');
+    expect(desktop).toContain('{next.actionable ? (');
+    expect(desktop).not.toContain('hub-jobs-muted">{next.label}');
   });
 });
 
@@ -92,7 +95,11 @@ describe('jobsListPhoneNextLabel', () => {
     expect(jobsListPhoneNextLabel({ actionable: false, label: 'Completed' })).toBeNull();
     expect(jobsListPhoneNextLabel({ actionable: false, label: 'Invoiced' })).toBeNull();
     expect(jobsListPhoneNextLabel({ actionable: true, label: 'Invoice' })).toBe('Invoice');
-    expect(jobsListPhoneNextLabel({ actionable: true, label: 'Still open' })).toBe('Still open');
+    expect(jobsListPhoneNextLabel({ actionable: true, label: 'Assign crew' })).toBe('Assign crew');
+    expect(jobsListPhoneNextLabel({ actionable: false, label: 'Scheduled' })).toBeNull();
+    expect(jobsListPhoneNextLabel({ actionable: false, label: 'Today' })).toBeNull();
+    expect(jobsListPhoneNextLabel({ actionable: false, label: 'On site' })).toBeNull();
+    expect(jobsListPhoneNextLabel({ actionable: false, label: 'Still open' })).toBeNull();
   });
 });
 

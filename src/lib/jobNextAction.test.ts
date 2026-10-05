@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { boardDispatchHint, jobCardHint, jobInvoiceActionFlags, jobListBucket, jobListNext, jobOpenNext, partitionScheduleJobs, pickJobDraftToSend, recommendArrivingSheetNext, recommendJobAction } from './jobNextAction';
+import { boardDispatchHint, isPlainJobListHref, jobCardHint, jobInvoiceActionFlags, jobListBucket, jobListNext, jobOpenNext, partitionScheduleJobs, pickJobDraftToSend, recommendArrivingSheetNext, recommendJobAction } from './jobNextAction';
 import {
   ARRIVING_NEXT_LABEL,
   CLOCK_IN_NEXT_LABEL,
@@ -60,6 +61,128 @@ describe('jobListNext', () => {
     expect(jobListNext({
       id: 'job-1', status: 'completed', scheduled_date: '2026-08-20', assigned_team: ['a'],
     }, now).actionable).toBe(false);
+  });
+});
+
+describe('list Next after reminder mapping', () => {
+  it('applies the plain /jobs/:id rule after withReminderNext', () => {
+    const src = readFileSync(new URL('./jobNextAction.ts', import.meta.url), 'utf8');
+    expect(src).toContain('markListNextActionable(withReminderNext(job, jobListNext(job, now, invoiceHint), now))');
+  });
+
+  const crew = ['a'] as string[];
+  const card = (
+    job: { status: 'scheduled' | 'in_progress' | 'completed'; scheduled_date: string | null; assigned_team?: string[] },
+    at = now,
+  ) => jobOpenNext({ id: 'job-1', ...job, assigned_team: job.assigned_team ?? crew }, undefined, at);
+
+  it('keeps verb Next that lands on a tray, not plain /jobs/:id', () => {
+    expect(card({ status: 'scheduled', scheduled_date: null })).toMatchObject({
+      href: '/jobs/job-1#job-schedule', label: 'Set a date', actionable: true,
+    });
+    expect(card({ status: 'scheduled', scheduled_date: '2026-08-22', assigned_team: [] })).toMatchObject({
+      href: '/jobs/job-1#job-schedule', label: 'Assign crew', actionable: true,
+    });
+    expect(jobOpenNext({
+      id: 'job-1', status: 'completed', scheduled_date: '2026-08-20', assigned_team: crew, invoiceCount: 0,
+    }, undefined, now)).toMatchObject({
+      href: '/jobs/job-1#job-invoices', label: 'Invoice', actionable: true,
+    });
+    expect(jobOpenNext({
+      id: 'job-1',
+      status: 'completed',
+      scheduled_date: '2026-08-20',
+      assigned_team: crew,
+      invoiceCount: 1,
+      hasDraftInvoice: true,
+      hasIssuedInvoice: false,
+    }, undefined, now)).toMatchObject({
+      href: '/jobs/job-1#job-invoices', label: 'Send', actionable: true,
+    });
+  });
+
+  it('drops Scheduled, Today, On site, and Still open when they only open the job', () => {
+    const scheduled = card({ status: 'scheduled', scheduled_date: '2026-08-25' });
+    expect(scheduled).toMatchObject({ href: '/jobs/job-1', label: 'Scheduled', actionable: false });
+    expect(isPlainJobListHref(scheduled.href)).toBe(true);
+
+    const today = card({ status: 'scheduled', scheduled_date: '2026-08-20' });
+    expect(today).toMatchObject({
+      href: '/jobs/job-1#job-schedule',
+      label: 'Send on-my-way',
+      actionable: true,
+    });
+    expect(today.label).not.toBe('Today');
+    expect(today.label).not.toBe('Arriving shortly');
+
+    const onSiteFuture = card({ status: 'in_progress', scheduled_date: '2026-08-25' });
+    expect(onSiteFuture).toMatchObject({ href: '/jobs/job-1', label: 'On site', actionable: false });
+
+    const stillOpen = card({ status: 'scheduled', scheduled_date: '2026-08-01' });
+    expect(stillOpen).toMatchObject({ href: '/jobs/job-1', label: 'Still open', actionable: false });
+  });
+
+  it('keeps Remind client on a tomorrow job after the plain-href rule', () => {
+    const reminded = card({ status: 'scheduled', scheduled_date: '2026-08-21' });
+    expect(reminded).toMatchObject({
+      href: '/jobs/job-1#job-schedule',
+      label: 'Remind client',
+      actionable: true,
+    });
+    expect(reminded.label).not.toBe('Send on-my-way');
+    expect(reminded.label).not.toBe('Arriving shortly');
+  });
+
+  it('labels scheduled-today Next as Send on-my-way on the schedule tray', () => {
+    const arriving = card({ status: 'scheduled', scheduled_date: '2026-08-20' });
+    expect(arriving).toMatchObject({
+      href: '/jobs/job-1#job-schedule',
+      label: 'Send on-my-way',
+      actionable: true,
+    });
+    expect(arriving.label).toBe(ARRIVING_NEXT_LABEL);
+    expect(arriving.label).not.toBe('Arriving shortly');
+  });
+
+  it('hides Arriving Next on an In Progress job in the arriving window', () => {
+    const onSiteToday = card({ status: 'in_progress', scheduled_date: '2026-08-20' });
+    expect(onSiteToday.label).not.toBe('Send on-my-way');
+    expect(onSiteToday.label).not.toBe('Arriving shortly');
+    expect(onSiteToday.label).not.toBe(ARRIVING_NEXT_LABEL);
+    expect(onSiteToday).toMatchObject({
+      href: '/jobs/job-1',
+      label: 'On site',
+      actionable: false,
+    });
+
+    const onSiteLate = card({ status: 'in_progress', scheduled_date: '2026-08-18' });
+    expect(onSiteLate.label).not.toBe('Send on-my-way');
+    expect(onSiteLate.label).not.toBe('Arriving shortly');
+    expect(onSiteLate).toMatchObject({
+      href: '/jobs/job-1',
+      label: 'On site',
+      actionable: false,
+    });
+
+    const completedToday = card({ status: 'completed', scheduled_date: '2026-08-20' });
+    expect(completedToday.label).not.toBe('Send on-my-way');
+    expect(completedToday.label).not.toBe('Arriving shortly');
+
+    expect(recommendArrivingSheetNext({
+      status: 'in_progress',
+      scheduledDate: '2026-08-20',
+      crewCount: 1,
+      jhaCount: 0,
+      inspectionCount: 0,
+      invoiceCount: 0,
+      hasAcceptedQuote: false,
+      hasBillLines: false,
+      clockedOn: false,
+      arrivingWindow: true,
+      arrivingSent: false,
+      phoneRowKind: 'tel',
+      phoneStored: '0412 345 678',
+    })).toBeNull();
   });
 });
 
@@ -212,7 +335,7 @@ describe('recommendJobAction', () => {
     }).label).toBe('Invoiced');
   });
 
-  it('matches list arriving Next on today — Arriving shortly, not Start JHA / Start inspection', () => {
+  it('matches list arriving Next on today — Send on-my-way, not Start JHA / Start inspection', () => {
     const today = {
       ...base,
       scheduledDate: '2026-08-20',
@@ -438,7 +561,7 @@ describe('jobOpenNext — scheduled today in Australia/Brisbane', () => {
     expect(isJobArrivingWindow(todayJob, brisbaneEarly)).toBe(true);
   });
 
-  it('scheduled today derives Arriving shortly without the caller passing arrivingWindow', () => {
+  it('scheduled today derives Send on-my-way without the caller passing arrivingWindow', () => {
     expect(recommendJobAction({
       status: 'scheduled',
       scheduledDate: '2026-09-02',
@@ -457,7 +580,7 @@ describe('jobOpenNext — scheduled today in Australia/Brisbane', () => {
     });
   });
 
-  it('sheet Next matches card — Arriving shortly, then Clock In; Start JHA is not primary', () => {
+  it('sheet Next matches card — Send on-my-way, then Clock In; Start JHA is not primary', () => {
     const card = jobOpenNext(todayJob, undefined, brisbaneMorning);
     const arriving = jobOpenNext(todayJob, sheet, brisbaneMorning);
     expect(card.label).toBe(ARRIVING_NEXT_LABEL);

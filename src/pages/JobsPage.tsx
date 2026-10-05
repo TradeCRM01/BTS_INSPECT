@@ -604,9 +604,7 @@ function JobRow({ job }: { job: JobRowModel }) {
           >
             {next.label}
           </Link>
-        ) : (
-          <span className="hub-jobs-muted">{next.label}</span>
-        )}
+        ) : null}
       </span>
     </div>
   );
