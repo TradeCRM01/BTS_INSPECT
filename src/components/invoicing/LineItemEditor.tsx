@@ -405,8 +405,8 @@ export function LineItemEditor({
                   className="form-input-sm"
                 />
               </div>
-              <div className="hub-line-editor-desc min-w-0 col-span-1 sm:col-span-2 lg:col-span-1">
-                <div className="hub-line-editor-desc-row">
+              <div className="hub-line-editor-desc min-w-0">
+                <div className="hub-line-editor-desc-row col-span-1 sm:col-span-2 lg:col-span-1">
                   {fromStock && <Package size={10} className="text-[#2E75B6] shrink-0" aria-label="From stock" />}
                   {fromBook && <BookOpen size={10} className="text-[#2E75B6] shrink-0" aria-label="From price book" />}
                   <input

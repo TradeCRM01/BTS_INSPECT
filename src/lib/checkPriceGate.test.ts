@@ -134,6 +134,8 @@ describe('check price gate', () => {
     expect(css).toContain('container-type: inline-size');
     expect(css).toContain('@container line-editor (min-width: 560px)');
     expect(css).toContain('"desc desc desc desc desc desc desc desc"');
+    expect(css).toContain('grid-column: 1 / -1 !important');
+    expect(css).toContain('32px !important');
     expect(css).toContain('min-width: 240px');
     expect(css).toContain('flex-direction: column');
     expect(css).toContain('.hub-line-editor-sheet');

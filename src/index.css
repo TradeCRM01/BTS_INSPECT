@@ -7371,7 +7371,7 @@
         minmax(48px, 64px)
         minmax(56px, 80px)
         minmax(56px, 88px)
-        32px;
+        32px !important;
       grid-template-areas:
         "desc desc desc desc desc desc desc desc"
         "cost nature qty ucost markup price total del";
@@ -7382,6 +7382,8 @@
     .hub-line-editor-desc,
     .hub-line-editor-h-desc {
       grid-area: desc;
+      grid-column: 1 / -1 !important;
+      width: 100%;
       min-width: 240px;
     }
 
