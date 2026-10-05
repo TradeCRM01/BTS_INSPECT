@@ -7359,6 +7359,56 @@
     display: block;
   }
 
+  .hub-line-editor-lab {
+    display: block;
+    margin-bottom: 4px;
+    color: #5B6B7C;
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .hub-line-editor-line {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    grid-template-areas:
+      "desc desc"
+      "qty price"
+      "ucost markup"
+      "total del"
+      "cost cost"
+      "nature nature";
+    column-gap: 8px;
+    row-gap: 10px;
+  }
+
+  .hub-line-editor-desc { grid-area: desc; }
+  .hub-line-editor-qty { grid-area: qty; }
+  .hub-line-editor-price { grid-area: price; }
+  .hub-line-editor-ucost { grid-area: ucost; }
+  .hub-line-editor-markup { grid-area: markup; }
+  .hub-line-editor-total { grid-area: total; }
+  .hub-line-editor-del { grid-area: del; }
+  .hub-line-editor-cost { grid-area: cost; }
+  .hub-line-editor-nature { grid-area: nature; }
+
+  .hub-line-editor-total {
+    justify-self: end;
+    align-self: center;
+    text-align: right;
+  }
+
+  .hub-line-editor-del {
+    justify-self: end;
+    align-self: center;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
   @container line-editor (min-width: 560px) {
     .hub-line-editor-head,
     .hub-line-editor-line {
@@ -7406,6 +7456,22 @@
     .hub-line-editor-total,
     .hub-line-editor-del {
       align-self: center;
+    }
+
+    .hub-line-editor-lab {
+      display: none;
+    }
+
+    .hub-line-editor-del {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      min-height: 28px;
+      justify-self: auto;
+    }
+
+    .hub-line-editor-total {
+      justify-self: auto;
     }
   }
 
