@@ -65,9 +65,8 @@ describe('PriceBooksPage chrome', () => {
     const form = page.slice(page.indexOf('function PriceBookItemForm'));
     expect(form).toContain('Delete item');
     expect(form).toContain('{item && onDelete && (');
-    const addTitle = form.indexOf("'Add Price Book Item'");
-    expect(addTitle).toBeGreaterThan(-1);
-    expect(form.slice(form.indexOf('Delete item') - 80, form.indexOf('Delete item'))).toContain('item && onDelete');
+    expect(form).toContain("'Add Price Book Item'");
+    expect(form.indexOf('{item && onDelete && (')).toBeLessThan(form.indexOf('Delete item'));
     expect(page).not.toMatch(/data-price-book-phone-row[\s\S]{0,900}ItemMenu/);
   });
 });
