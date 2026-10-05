@@ -45,6 +45,7 @@ import {
   type InvoiceSendBundle,
   type InvoiceSendInvoice,
 } from './sendInvoice';
+import { commercialPdfGstLabel } from '../reports/commercial/CommercialDocumentPdf';
 
 const smtp = {
   smtp_host: 'smtp.resend.com',
@@ -491,6 +492,24 @@ describe('commercialPdfDataForInvoice', () => {
     expect(pdf?.clientDetail).toContain('jane@acme.com.au');
     expect(pdf?.lines).toHaveLength(1);
     expect(pdf?.secondaryValue).toBe('19 Sep 2026');
+    expect(commercialPdfGstLabel(pdf!)).toBe('GST (10%)');
+  });
+
+  it('labels mixed 10% and 0% invoice lines GST, not GST (10%)', () => {
+    const pdf = commercialPdfDataForInvoice(bundle({
+      invoice: {
+        ...invoice,
+        line_items: [
+          { description: 'Taxed labour', quantity: 1, unit_price: 100, gst_rate: 10 },
+          { description: 'GST-free fitting', quantity: 1, unit_price: 50, gst_rate: 0 },
+        ],
+        subtotal: 150,
+        tax_amount: 10,
+        total: 160,
+      },
+    }), new Date('2026-08-20T10:00:00'));
+    expect(pdf?.taxLabel).toBe('GST');
+    expect(commercialPdfGstLabel(pdf!)).toBe('GST');
   });
 
   it('prints company payment methods on the invoice PDF data', () => {

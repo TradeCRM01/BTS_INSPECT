@@ -4,6 +4,7 @@ import { asStringList } from './asStringList';
 import { padQuoteNumber } from './quoteJobFields';
 import { quoteHasChargeableLines } from './quoteNextAction';
 import { linesFromQuoteItems, type CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
+import { gstDocumentLabel } from './gst';
 import { companyDocumentLogoUrl, companyReportTheme } from './companyLogo';
 import type { QuoteLineItem } from '../types/fsm';
 import {
@@ -491,6 +492,7 @@ export function commercialPdfDataForQuote(bundle: QuoteSendBundle, now = new Dat
     subtotal: Number(quote.subtotal) || 0,
     taxRate: Number(quote.tax_rate) || 0,
     taxAmount: Number(quote.tax_amount) || 0,
+    taxLabel: gstDocumentLabel(lines, Number(quote.tax_rate) || 0),
     total: Number(quote.total) || 0,
     notes: quote.notes?.trim() || null,
   };

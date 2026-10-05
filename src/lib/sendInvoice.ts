@@ -2,6 +2,7 @@ import { format, parseISO } from 'date-fns';
 import { quoteClientDetailFromClient } from './clientRecords';
 import { asStringList } from './asStringList';
 import { linesFromQuoteItems, type CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
+import { gstDocumentLabel } from './gst';
 import type { InvoiceLineItem, InvoiceStatus } from '../types/fsm';
 import {
   dateOnly,
@@ -1372,6 +1373,7 @@ export function commercialPdfDataForInvoice(bundle: InvoiceSendBundle, now = new
     subtotal: Number(invoice.subtotal) || 0,
     taxRate: Number(invoice.tax_rate) || 0,
     taxAmount: Number(invoice.tax_amount) || 0,
+    taxLabel: gstDocumentLabel(lines, Number(invoice.tax_rate) || 0),
     total: Number(invoice.total) || 0,
     notes: invoice.notes?.trim() || null,
     paymentTerms: invoice.payment_terms?.trim() || null,

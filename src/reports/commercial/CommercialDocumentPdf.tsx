@@ -55,6 +55,7 @@ export interface CommercialPdfData {
   taxRate: number;
   taxAmount: number;
   total: number;
+  taxLabel?: string;
   /** Short quote summary (shown near client). */
   description?: string | null;
   /** Longer client-facing scope narrative. */
@@ -62,6 +63,10 @@ export interface CommercialPdfData {
   notes?: string | null;
   paymentTerms?: string | null;
   paymentMethods?: { label: string; lines: string[] }[];
+}
+
+export function commercialPdfGstLabel(data: Pick<CommercialPdfData, 'taxRate' | 'taxLabel'>): string {
+  return data.taxLabel ?? gstLabel(data.taxRate);
 }
 
 function commercialStyles(colors: PdfColors, kind: CommercialDocKind) {
@@ -368,7 +373,7 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
             <Text style={s.totalValue}>{formatMoney(data.subtotal)}</Text>
           </View>
           <View style={s.totalRow}>
-            <Text style={s.totalLabel}>{gstLabel(data.taxRate)}</Text>
+            <Text style={s.totalLabel}>{commercialPdfGstLabel(data)}</Text>
             <Text style={s.totalValue}>{formatMoney(data.taxAmount)}</Text>
           </View>
           <View style={s.grandRow}>
