@@ -97,6 +97,8 @@ describe('schedule page week/day board', () => {
     expect(search).toContain('onScheduleJob');
     expect(search).toContain('hub-schedule-search-title');
     expect(search).not.toContain('hub-schedule-ref truncate');
+    expect(src('src/index.css')).toContain('.hub-schedule-search-title');
+    expect(src('src/index.css')).not.toMatch(/\.hub-schedule-search-title[\s\S]{0,80}-webkit-line-clamp/);
     expect(search).toContain("max-width: 639px");
     expect(search).toContain('tap to schedule');
     expect(sheet).toContain('Schedule this job');
@@ -104,6 +106,8 @@ describe('schedule page week/day board', () => {
     expect(page).toContain('scheduleSheetSavePayload');
     expect(page).toContain('scheduleFromSheet.mutate');
     expect(page).toContain('<ScheduleJobSheet');
+    expect(page).toContain('withScheduleJobPatches(weekBoardLookJobs())');
+    expect(page).toContain('jobMatchesSearch');
     expect(src('src/components/jobs/JobDispatchPanel.tsx')).toContain("save.mutate({ scheduled_date:");
     expect(src('src/components/jobs/JobDispatchPanel.tsx')).toContain("save.mutate({ start_time:");
     expect(src('src/components/jobs/JobDispatchPanel.tsx')).toContain("save.mutate({ end_time:");

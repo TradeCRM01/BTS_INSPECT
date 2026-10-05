@@ -20,7 +20,7 @@ import {
 import { placePickedHint, placePickedOnCell, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
-import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
+import { attachJobClients, hydrateJobParentNumbers, jobMatchesSearch, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
 import { parseScheduleDateParam, parseScheduleView, scheduleDateKey, scheduleDayKey, scheduleJobHref, scheduleSheetSavePayload, SCHEDULE_WEEK_STARTS_ON, type ScheduleSheetInput, type ScheduleViewMode } from '../lib/scheduleBoard';
 import {
   scheduleLocationStep,
@@ -511,11 +511,18 @@ export function SchedulePage() {
     return () => window.clearTimeout(t);
   }, [jobQuery]);
 
-  const { data: searchHits = [], isFetching: searchLoading } = useQuery({
+  const lookSearchHits = useMemo(() => {
+    if (!lookWeekBoard || !debouncedQuery) return [];
+    return withScheduleJobPatches(weekBoardLookJobs())
+      .filter(job => jobMatchesSearch(job, debouncedQuery));
+  }, [lookWeekBoard, debouncedQuery]);
+
+  const { data: liveSearchHits = [], isFetching: searchLoading } = useQuery({
     queryKey: ['schedule-job-search', debouncedQuery],
     queryFn: () => searchScheduleJobs(debouncedQuery),
-    enabled: !!profile && debouncedQuery.length > 0,
+    enabled: !!profile && !lookWeekBoard && debouncedQuery.length > 0,
   });
+  const searchHits = lookWeekBoard ? lookSearchHits : liveSearchHits;
 
   useEffect(() => {
     if (preselectClient) {
@@ -709,7 +716,7 @@ export function SchedulePage() {
   const clearEmployeeFilters = () => setFilteredEmployeeIds(new Set());
 
   const boardJobs = useMemo(
-    () => (lookWeekBoard ? weekBoardLookJobs() : (jobs ?? [])),
+    () => (lookWeekBoard ? withScheduleJobPatches(weekBoardLookJobs()) : (jobs ?? [])),
     [lookWeekBoard, jobs],
   );
   const boardCrew = lookWeekBoard ? WEEK_BOARD_LOOK_CREW : (teamMembers ?? []);
