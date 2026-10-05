@@ -35,6 +35,31 @@ export function quoteConvertEntry(quote: {
   return convertQuoteHasDateAndCrew(quote) ? 'convert' : 'focus_convert';
 }
 
+export const CONVERT_QUOTE_BLOCKED = 'Could not convert this quote.';
+
+export type QuoteConvertTap =
+  | { action: 'focus_convert' }
+  | { action: 'convert' }
+  | { action: 'blocked'; message: string };
+
+export function quoteConvertTap(input: {
+  id?: string | null;
+  status?: string | null;
+  profileId?: string | null;
+  scheduled_date?: string | null;
+  assigned_team?: unknown;
+}): QuoteConvertTap {
+  if (quoteConvertEntry(input) === 'focus_convert') return { action: 'focus_convert' };
+  if (!input.id || input.status !== 'accepted' || !input.profileId) {
+    return { action: 'blocked', message: CONVERT_QUOTE_BLOCKED };
+  }
+  return { action: 'convert' };
+}
+
+export function quoteConvertTapShowsBusy(tap: QuoteConvertTap): boolean {
+  return tap.action === 'convert' || tap.action === 'blocked';
+}
+
 export function quoteConvertScrollContainer(section: HTMLElement): HTMLElement | null {
   return section.closest('.hub-quote-editor') ?? section.closest('[role="dialog"]');
 }

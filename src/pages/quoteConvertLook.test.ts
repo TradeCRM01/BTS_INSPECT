@@ -61,7 +61,7 @@ describe('quote editor Convert LOOK — Job date + Crew on paper', () => {
 
   it('keeps the Convert gate and does not rewrite accept, portal, or job sheet', () => {
     const editor = src('src/pages/QuotesPage.tsx').split('function QuoteEditorModal')[1] ?? '';
-    expect(editor).toContain('quoteConvertEntry');
+    expect(editor).toContain('quoteConvertTap');
     expect(editor).toContain('CONVERT_QUOTE_NEED_DATE_CREW');
     expect(editor.indexOf("=== 'focus_convert'")).toBeLessThan(editor.indexOf('await convertQuoteToJob'));
     expect(editor).toContain('err !== CONVERT_QUOTE_NEED_DATE_CREW');

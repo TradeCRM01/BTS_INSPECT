@@ -6,8 +6,11 @@ import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { afterDialogInitialFocus } from './dialogFocus';
 import {
+  CONVERT_QUOTE_BLOCKED,
   focusQuoteConvertDate,
   quoteConvertEntry,
+  quoteConvertTap,
+  quoteConvertTapShowsBusy,
   releaseQuoteConvertLock,
   takeQuoteConvertLock,
 } from './quoteJobFields';
@@ -52,7 +55,7 @@ describe('quoteConvertEntry', () => {
 
     const listNext = quotes.slice(quotes.indexOf('function QuoteNextControl'), quotes.indexOf('interface EditorState'));
     const listConvert = listNext.slice(listNext.indexOf("next.key === 'convert_job'"), listNext.indexOf("next.key === 'invoice'"));
-    expect(listConvert).toContain('quoteConvertEntry');
+    expect(listConvert).toContain('quoteConvertTap');
     expect(listConvert).toContain('onOpen({ focusConvert: true })');
     expect(listConvert.indexOf("=== 'focus_convert'")).toBeLessThan(listConvert.indexOf('await convertQuoteToJob'));
     expect(listNext).toContain('takeQuoteConvertLock');
@@ -60,7 +63,8 @@ describe('quoteConvertEntry', () => {
 
     expect(editor).toContain('afterDialogInitialFocus');
     expect(editor).toContain('convertSectionRef');
-    expect(editor).toContain('convertFocusDoneRef');
+    expect(editor).toContain('onFocusedConvert');
+    expect(editor).toContain('startConvertFocus()');
     expect(editor).toContain('id="quote-convert-date"');
   });
 
@@ -122,5 +126,37 @@ describe('quoteConvertEntry', () => {
     releaseQuoteConvertLock(lock);
     tap();
     expect(started).toBe(2);
+  });
+
+  it('never drops a convert-intent tap without a busy state', () => {
+    const ready = {
+      id: 'q-0006',
+      status: 'accepted' as const,
+      profileId: 'p1',
+      scheduled_date: '2026-10-05',
+      assigned_team: ['crew-1'],
+    };
+    const convert = quoteConvertTap(ready);
+    expect(convert).toEqual({ action: 'convert' });
+    expect(quoteConvertTapShowsBusy(convert)).toBe(true);
+
+    const noProfile = quoteConvertTap({ ...ready, profileId: null });
+    expect(noProfile).toEqual({ action: 'blocked', message: CONVERT_QUOTE_BLOCKED });
+    expect(quoteConvertTapShowsBusy(noProfile)).toBe(true);
+
+    const noId = quoteConvertTap({ ...ready, id: null });
+    expect(quoteConvertTapShowsBusy(noId)).toBe(true);
+
+    const miss = quoteConvertTap({ ...ready, scheduled_date: null, assigned_team: [] });
+    expect(miss).toEqual({ action: 'focus_convert' });
+    expect(quoteConvertTapShowsBusy(miss)).toBe(false);
+
+    const editor = src('src/pages/QuotesPage.tsx').split('function QuoteEditorModal')[1] ?? '';
+    const handleConvert = editor.slice(editor.indexOf('const handleConvert'), editor.indexOf('const editorMoney'));
+    expect(handleConvert).toContain('quoteConvertTap');
+    expect(handleConvert).toContain('setConverting(true)');
+    expect(handleConvert.indexOf('setConverting(true)')).toBeLessThan(handleConvert.indexOf('await convertQuoteToJob'));
+    expect(handleConvert.indexOf('tap.action === \'blocked\'')).toBeLessThan(handleConvert.indexOf('await convertQuoteToJob'));
+    expect(handleConvert).toContain('setConverting(true)');
   });
 });
