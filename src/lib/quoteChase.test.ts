@@ -6,12 +6,14 @@ import {
   QUOTE_CHASE_AFTER_DAYS,
   QUOTE_CHASE_COPY_DISABLED,
   QUOTE_CHASE_FILTER,
+  QUOTE_CHASE_PORTAL_FAILED,
   deriveNudges,
   quoteChase,
   quoteChaseCopyDisabledReason,
   quoteChaseFilterLabel,
   quoteChaseHref,
   quoteChaseMarkPatch,
+  quoteLapsedHref,
   quoteOnChaseList,
 } from './nudges';
 import { listQueryBusy } from './listQueryReady';
@@ -73,6 +75,7 @@ describe('Step 4 quote chase done-whens', () => {
     expect(portalUrl).toBe('https://grafter.com.au/p?t=abc');
     expect(quoteChaseCopyText({
       clientName: 'Sarah Lee',
+      contactPerson: 'Sarah Lee',
       companyName: 'Harbour Trade Co',
       quoteNumber: 12,
       total: 1320,
@@ -151,12 +154,16 @@ describe('Step 4 quote chase done-whens', () => {
     expect(page).toContain('setChasingQuoteId');
     expect(page).toContain("searchParams.get('chase') === '1'");
     expect(page).toContain('onChase(quote.id)');
+    expect(page).toContain("chase.state === 'lapsed' ? onOpen() : onChase(quote.id)");
     expect(page).not.toContain("onClick={() => { if (chase.state === 'lapsed') onOpen(); else requestSend(quote.id); }}");
     expect(page).not.toMatch(/Relovi|Littleloop/);
     expect(dialog).not.toMatch(/Relovi|Littleloop/);
     const persist = page.slice(page.indexOf('const persist = async'), page.indexOf('const handleInvoice'));
     expect(persist).not.toContain('sent_at');
     expect(persist).not.toContain('chased_at');
+    expect(src('src/index.css')).toMatch(/\.hub-quote-chase \{[\s\S]*?padding: 24px;/);
+    expect(src('supabase/migrations/20261005130000_quotes_sent_at_trigger.sql'))
+      .toContain('NEW.status = \'sent\' AND NEW.sent_at IS NULL');
   });
 });
 
@@ -166,6 +173,67 @@ describe('quote chase copy gate and filter chip', () => {
     expect(quoteChaseCopyDisabledReason({ clientId: null, portalUrl: null }))
       .toBe(QUOTE_CHASE_COPY_DISABLED);
     expect(quoteChaseMarkPatch(noClient, NOW)).toEqual({ chased_at: NOW.toISOString() });
+  });
+
+  it('does not first-word-split a business client name', () => {
+    expect(quoteChaseCopyText({
+      clientName: 'Northside Electrical',
+      companyName: 'Harbour Trade Co',
+      quoteNumber: 2004,
+      total: 836,
+      portalUrl: 'https://grafter.com.au/p?t=abc',
+    })).toMatch(/^Hi Northside Electrical,/);
+    expect(quoteChaseCopyText({
+      clientName: 'Northside Electrical',
+      contactPerson: 'Pat Counter',
+      companyName: 'Harbour Trade Co',
+      quoteNumber: 2004,
+      total: 836,
+      portalUrl: 'https://grafter.com.au/p?t=abc',
+    })).toMatch(/^Hi Pat,/);
+  });
+
+  it('keeps a lapsed sent quote out of Chase list, count, and dialog', () => {
+    const lapsed = sentQuote({
+      id: 'q-lapsed',
+      sent_at: new Date(2026, 8, 1, 12).toISOString(),
+      validity_date: '2026-09-08',
+    });
+    expect(quoteOnChaseList(lapsed, NOW)).toBe(false);
+    expect(quoteChase(lapsed, NOW)).toEqual({ state: 'lapsed', days: 10, daysPast: 3 });
+    const nudges = deriveNudges({
+      jobs: [],
+      quotes: [lapsed],
+      invoices: [],
+      userId: null,
+      now: NOW,
+    }).filter(n => n.kind === 'quote_chase');
+    expect(nudges).toHaveLength(1);
+    expect(nudges[0].href).toBe(quoteLapsedHref('q-lapsed'));
+    expect(nudges[0].href).not.toContain('chase=1');
+    const page = src('src/pages/QuotesPage.tsx');
+    expect(page).toContain("chase.state === 'lapsed' ? onOpen() : onChase(quote.id)");
+    expect(page).toContain("quoteChase(q, new Date())?.state === 'lapsed'");
+    expect(page).toContain("quoteChase(chasingQuote, new Date())?.state !== 'lapsed'");
+  });
+
+  it('uses the portal-fail reason when the client exists but the portal link throws', () => {
+    expect(quoteChaseCopyDisabledReason({
+      clientId: 'c1',
+      portalUrl: null,
+      portalFailed: true,
+    })).toBe(QUOTE_CHASE_PORTAL_FAILED);
+    expect(quoteChaseCopyDisabledReason({
+      clientId: 'c1',
+      portalUrl: null,
+      portalFailed: false,
+    })).toBeNull();
+    expect(quoteChaseCopyDisabledReason({ clientId: null, portalUrl: null, portalFailed: true }))
+      .toBe(QUOTE_CHASE_COPY_DISABLED);
+    expect(QUOTE_CHASE_PORTAL_FAILED).toBe("Couldn't make the portal link. Close and try again.");
+    const dialog = src('src/components/invoicing/QuoteChaseDialog.tsx');
+    expect(dialog).toContain('QUOTE_CHASE_PORTAL_FAILED');
+    expect(dialog).toContain('portalFailed');
   });
 
   it('gates the Chase · N chip on listQueryBusy so it never flashes 0', () => {

@@ -56,21 +56,28 @@ export function quoteShareMailtoBody(args: {
   return `${who} sent you ${number}. Review and accept here:\n${args.portalUrl}`;
 }
 
-/** First word of the client name, or the name itself. */
-export function quoteChaseClientName(name: string | null | undefined): string {
-  const trimmed = (name ?? '').trim();
-  if (!trimmed) return '';
-  return trimmed.split(/\s+/)[0] || trimmed;
+/** Contact first name when the clients row has a person; otherwise the full client name. Never split a company name. */
+export function quoteChaseClientName(args: {
+  contactPerson?: string | null;
+  clientName?: string | null;
+}): string {
+  const contact = (args.contactPerson ?? '').trim();
+  if (contact) return contact.split(/\s+/)[0] || contact;
+  return (args.clientName ?? '').trim();
 }
 
 export function quoteChaseCopyText(args: {
   clientName: string | null | undefined;
+  contactPerson?: string | null;
   companyName?: string | null;
   quoteNumber: number | null | undefined;
   total: number | null | undefined;
   portalUrl: string;
 }): string {
-  const who = quoteChaseClientName(args.clientName) || (args.clientName ?? '').trim();
+  const who = quoteChaseClientName({
+    contactPerson: args.contactPerson,
+    clientName: args.clientName,
+  });
   const company = (args.companyName ?? '').trim() || 'your contractor';
   const number = padQuoteNumber(args.quoteNumber);
   const total = formatMoney(Number(args.total ?? 0));

@@ -74,6 +74,7 @@ export type QuoteChaseInput = {
 
 export const QUOTE_CHASE_FILTER = 'chase';
 export const QUOTE_CHASE_COPY_DISABLED = 'Add a client to copy a chase';
+export const QUOTE_CHASE_PORTAL_FAILED = "Couldn't make the portal link. Close and try again.";
 
 function quoteSentClock(quote: QuoteChaseInput): Date | null {
   const raw = (quote.sent_at ?? '').trim();
@@ -125,11 +126,9 @@ export function quoteChaseDays(quote: QuoteChaseInput, now: Date): number | null
   return differenceInCalendarDays(now, sent);
 }
 
-/** Chase list / dashboard: sent, unchased, and older than QUOTE_CHASE_AFTER_DAYS since sent_at. */
+/** Chase list / count / dialog: sent, unchased, old enough, and still valid. Lapsed stays out. */
 export function quoteOnChaseList(quote: QuoteChaseInput, now: Date): boolean {
-  if (quote.status !== 'sent' || quoteAlreadyChased(quote)) return false;
-  const days = quoteChaseDays(quote, now);
-  return days !== null && days >= QUOTE_CHASE_AFTER_DAYS;
+  return quoteChase(quote, now)?.state === 'quiet';
 }
 
 /** Filter chip. Busy hides the count so it never flashes 0. */
@@ -139,6 +138,11 @@ export function quoteChaseFilterLabel(busy: boolean, count: number): string {
 
 export function quoteChaseHref(quoteId: string): string {
   return `/quotes?id=${quoteId}&chase=1`;
+}
+
+/** Lapsed chip and lapsed dashboard nudge open the editor so office re-dates first. */
+export function quoteLapsedHref(quoteId: string): string {
+  return `/quotes?id=${quoteId}`;
 }
 
 /** Patch for Mark chased. Does not touch updated_at or status. */
@@ -153,10 +157,11 @@ export function quoteChaseMarkPatch(
 export function quoteChaseCopyDisabledReason(args: {
   clientId?: string | null;
   portalUrl?: string | null;
+  portalFailed?: boolean;
 }): string | null {
   const hasClient = !!(args.clientId ?? '').trim();
-  const hasPortal = !!(args.portalUrl ?? '').trim();
-  if (!hasClient || !hasPortal) return QUOTE_CHASE_COPY_DISABLED;
+  if (!hasClient) return QUOTE_CHASE_COPY_DISABLED;
+  if (args.portalFailed) return QUOTE_CHASE_PORTAL_FAILED;
   return null;
 }
 
@@ -296,43 +301,53 @@ const NUDGE_RULES: Record<NudgeKind, NudgeRule> = {
   },
 
   quote_chase: input => {
-    const due = input.quotes
+    const quiet = input.quotes
       .flatMap(quote => {
-        if (!quoteOnChaseList(quote, input.now)) return [];
         const chase = quoteChase(quote, input.now);
-        return chase ? [{ quote, chase }] : [];
+        return chase?.state === 'quiet' ? [{ quote, chase }] : [];
       })
       .sort((a, b) => b.chase.days - a.chase.days);
-    if (due.length > NUDGE_ROLLUP_AFTER) {
-      return [{
-        key: 'quote_chase:all',
-        kind: 'quote_chase',
-        label: `${due.length} quotes to chase`,
-        detail: due.slice(0, NUDGE_ROLLUP_AFTER).map(({ quote }) => quoteRef(quote.quote_number)).join(' · '),
-        href: `/quotes?status=${QUOTE_CHASE_FILTER}`,
-      }];
-    }
-    return due.map(({ quote, chase }) => {
-      const ref = quoteRef(quote.quote_number);
-      const total = Number(quote.total ?? 0);
-      const detail = (lead: string) =>
-        [lead, total > 0 ? formatMoney(total) : '', quote.client_name?.trim()].filter(Boolean).join(' · ');
-      return chase.state === 'lapsed'
-        ? {
-            key: `quote_chase:${quote.id}`,
-            kind: 'quote_chase' as const,
-            label: `Quote ${ref} lapsed`,
-            detail: detail(quoteValidTo(quote.validity_date)),
-            href: quoteChaseHref(quote.id),
-          }
-        : {
+    const lapsed = input.quotes
+      .flatMap(quote => {
+        const chase = quoteChase(quote, input.now);
+        return chase?.state === 'lapsed' ? [{ quote, chase }] : [];
+      })
+      .sort((a, b) => b.chase.days - a.chase.days);
+    const quietNudges = quiet.length > NUDGE_ROLLUP_AFTER
+      ? [{
+          key: 'quote_chase:all',
+          kind: 'quote_chase' as const,
+          label: `${quiet.length} quotes to chase`,
+          detail: quiet.slice(0, NUDGE_ROLLUP_AFTER).map(({ quote }) => quoteRef(quote.quote_number)).join(' · '),
+          href: `/quotes?status=${QUOTE_CHASE_FILTER}`,
+        }]
+      : quiet.map(({ quote, chase }) => {
+          const ref = quoteRef(quote.quote_number);
+          const total = Number(quote.total ?? 0);
+          return {
             key: `quote_chase:${quote.id}`,
             kind: 'quote_chase' as const,
             label: `Chase quote ${ref}`,
-            detail: detail(`Quiet ${plural(chase.days, 'day')}`),
+            detail: [`Quiet ${plural(chase.days, 'day')}`, total > 0 ? formatMoney(total) : '', quote.client_name?.trim()]
+              .filter(Boolean)
+              .join(' · '),
             href: quoteChaseHref(quote.id),
           };
+        });
+    const lapsedNudges = lapsed.map(({ quote }) => {
+      const ref = quoteRef(quote.quote_number);
+      const total = Number(quote.total ?? 0);
+      return {
+        key: `quote_chase:${quote.id}`,
+        kind: 'quote_chase' as const,
+        label: `Quote ${ref} lapsed`,
+        detail: [quoteValidTo(quote.validity_date), total > 0 ? formatMoney(total) : '', quote.client_name?.trim()]
+          .filter(Boolean)
+          .join(' · '),
+        href: quoteLapsedHref(quote.id),
+      };
     });
+    return [...lapsedNudges, ...quietNudges];
   },
 
   invoice_unpaid: input => {

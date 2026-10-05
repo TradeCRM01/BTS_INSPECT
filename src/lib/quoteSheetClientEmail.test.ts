@@ -209,7 +209,7 @@ describe('quote-sheet client email — wiring', () => {
     expect(listNext).toContain("next.key === 'send'");
     expect(listNext).toContain('onSend(quote.id)');
     expect(listNext).not.toContain('Quote marked as sent');
-    expect(page).toContain("select('id, name, email')");
+    expect(page).toContain("select('id, name, email, contact_person')");
     expect(page).toContain('client_email:');
     expect(editor).toContain('type="email"');
     expect(editor).toContain('job-client-email');

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   QUOTE_CHASE_AFTER_DAYS,
   QUOTE_CHASE_COPY_DISABLED,
+  QUOTE_CHASE_PORTAL_FAILED,
   deriveNudges,
   invoiceChase,
   invoiceChaseChipLabel,
@@ -13,6 +14,7 @@ import {
   quoteChaseCopyDisabledReason,
   quoteChaseFilterLabel,
   quoteChaseHref,
+  quoteLapsedHref,
   quoteChaseMarkPatch,
   quoteChasePatch,
   quoteOnChaseList,
@@ -159,7 +161,7 @@ describe('quoteChase', () => {
     expect(quoteChase({ status: 'sent', sent_at: fresh, validity_date: '2026-09-11' }, now)).toBeNull();
     expect(quoteChase({ status: 'sent', sent_at: new Date(2026, 8, 1, 12).toISOString(), validity_date: '2026-09-08' }, now))
       .toEqual({ state: 'lapsed', days: 10, daysPast: 3 });
-    expect(quoteOnChaseList({ status: 'sent', sent_at: new Date(2026, 8, 1, 12).toISOString(), validity_date: '2026-09-08' }, now)).toBe(true);
+    expect(quoteOnChaseList({ status: 'sent', sent_at: new Date(2026, 8, 1, 12).toISOString(), validity_date: '2026-09-08' }, now)).toBe(false);
     expect(quoteChase({ status: 'sent', sent_at: new Date(2026, 8, 1, 12).toISOString(), validity_date: 'soon' }, now))
       .toEqual({ state: 'quiet', days: 10 });
     expect(quoteChase({ status: 'accepted', sent_at: fresh, validity_date: '2026-09-01' }, now)).toBeNull();
@@ -185,10 +187,13 @@ describe('quoteChase', () => {
     expect(quoteChaseCopyDisabledReason({ clientId: null, portalUrl: 'https://grafter.com.au/p?t=abc' }))
       .toBe(QUOTE_CHASE_COPY_DISABLED);
     expect(quoteChaseCopyDisabledReason({ clientId: 'c1', portalUrl: null }))
-      .toBe(QUOTE_CHASE_COPY_DISABLED);
+      .toBeNull();
+    expect(quoteChaseCopyDisabledReason({ clientId: 'c1', portalUrl: null, portalFailed: true }))
+      .toBe(QUOTE_CHASE_PORTAL_FAILED);
     expect(quoteChaseCopyDisabledReason({ clientId: 'c1', portalUrl: 'https://grafter.com.au/p?t=abc' }))
       .toBeNull();
     expect(QUOTE_CHASE_COPY_DISABLED).toBe('Add a client to copy a chase');
+    expect(QUOTE_CHASE_PORTAL_FAILED).toBe("Couldn't make the portal link. Close and try again.");
   });
 });
 
@@ -208,13 +213,13 @@ describe('quote_chase', () => {
     expect(derive({ quotes: [quote({ id: 'q-chased', chased_at: NOW.toISOString() })] })).toEqual([]);
   });
 
-  it('names a lapsed quote by its validity day and opens the same chase actions', () => {
+  it('names a lapsed quote by its validity day and opens the editor, not Chase', () => {
     expect(derive({ quotes: [quote({ id: 'q-lapsed', validity_date: '2026-09-08', total: 2000 })] })).toEqual([{
       key: 'quote_chase:q-lapsed',
       kind: 'quote_chase',
       label: 'Quote #0012 lapsed',
       detail: 'Valid to 8 Sep · $2,000.00 · Sarah Lee',
-      href: quoteChaseHref('q-lapsed'),
+      href: quoteLapsedHref('q-lapsed'),
     }]);
     expect(derive({ quotes: [quote({ id: 'q-valid', validity_date: '2026-09-11' })] })[0])
       .toMatchObject({ label: 'Chase quote #0012', href: quoteChaseHref('q-valid') });

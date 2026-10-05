@@ -9,6 +9,7 @@ import {
 } from '../../lib/documentShareDeliver';
 import {
   QUOTE_CHASE_COPY_DISABLED,
+  QUOTE_CHASE_PORTAL_FAILED,
   quoteChaseCopyDisabledReason,
   quoteChaseMarkPatch,
 } from '../../lib/nudges';
@@ -22,6 +23,7 @@ export type QuoteChaseTarget = {
   status: string;
   client_id: string | null;
   client_name?: string | null;
+  client_contact_person?: string | null;
   total: number;
   chased_at?: string | null;
 };
@@ -39,6 +41,7 @@ export function QuoteChaseDialog({
 }) {
   const [portalUrl, setPortalUrl] = useState<string | null>(null);
   const [portalBusy, setPortalBusy] = useState(!!quote.client_id);
+  const [portalFailed, setPortalFailed] = useState(false);
   const [copying, setCopying] = useState(false);
   const [marking, setMarking] = useState(false);
   const [copy, setCopy] = useState<ShareCopyResult | null>(null);
@@ -47,6 +50,7 @@ export function QuoteChaseDialog({
   const preview = portalUrl
     ? quoteChaseCopyText({
         clientName: quote.client_name,
+        contactPerson: quote.client_contact_person,
         companyName: company.name,
         quoteNumber: quote.quote_number,
         total: quote.total,
@@ -56,6 +60,7 @@ export function QuoteChaseDialog({
   const copyBlocked = quoteChaseCopyDisabledReason({
     clientId: quote.client_id,
     portalUrl,
+    portalFailed,
   });
   const markPatch = quoteChaseMarkPatch(quote, new Date());
 
@@ -65,9 +70,11 @@ export function QuoteChaseDialog({
     if (!clientId) {
       setPortalUrl(null);
       setPortalBusy(false);
+      setPortalFailed(false);
       return;
     }
     setPortalBusy(true);
+    setPortalFailed(false);
     setErr('');
     (async () => {
       try {
@@ -78,11 +85,15 @@ export function QuoteChaseDialog({
             typeof window !== 'undefined' ? window.location.origin : '',
           ),
         });
-        if (!cancelled) setPortalUrl(url);
-      } catch (e) {
+        if (!cancelled) {
+          setPortalUrl(url);
+          setPortalFailed(false);
+        }
+      } catch {
         if (!cancelled) {
           setPortalUrl(null);
-          setErr(e instanceof Error ? e.message : QUOTE_CHASE_COPY_DISABLED);
+          setPortalFailed(true);
+          setErr(QUOTE_CHASE_PORTAL_FAILED);
         }
       } finally {
         if (!cancelled) setPortalBusy(false);
@@ -143,7 +154,7 @@ export function QuoteChaseDialog({
         ) : preview ? (
           <p className="hub-quote-chase-preview">{preview}</p>
         ) : (
-          <p className="hub-quote-chase-preview is-miss">{QUOTE_CHASE_COPY_DISABLED}</p>
+          <p className="hub-quote-chase-preview is-miss">{copyBlocked ?? QUOTE_CHASE_COPY_DISABLED}</p>
         )}
         <p className="hub-quote-chase-meta">
           {formatMoney(Number(quote.total ?? 0))} inc GST · status stays sent

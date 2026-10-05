@@ -339,7 +339,7 @@ export function QuotesPage() {
       const jobIds = [...new Set(list.map(q => q.job_id).filter(Boolean))] as string[];
       const quoteIds = list.map(q => q.id);
       const [clientsRes, jobsRes, invoicesRes] = await Promise.all([
-        clientIds.length ? supabase.from('clients').select('id, name, email').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string; email: string | null }[] }),
+        clientIds.length ? supabase.from('clients').select('id, name, email, contact_person').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string; email: string | null; contact_person: string | null }[] }),
         jobIds.length ? supabase.from('jobs').select('id, title, address').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string; address: string | null }[] }),
         quoteIds.length
           ? supabase.from('invoices').select('id, quote_id, status').in('quote_id', quoteIds)
@@ -359,6 +359,7 @@ export function QuotesPage() {
         inclusions: asStringList(q.inclusions),
         exclusions: asStringList(q.exclusions),
         client_name: q.client_id ? clientMap.get(q.client_id)?.name ?? null : null,
+        client_contact_person: q.client_id ? clientMap.get(q.client_id)?.contact_person ?? null : null,
         client_email: q.client_id ? clientMap.get(q.client_id)?.email ?? null : null,
         job_title: q.job_id ? jobMap.get(q.job_id)?.title ?? null : null,
         job_address: q.job_id ? jobMap.get(q.job_id)?.address ?? null : null,
@@ -402,7 +403,13 @@ export function QuotesPage() {
       const q = quotes.find(item => item.id === quoteId);
       if (!q) return;
       if (searchParams.get('chase') === '1') {
-        setChasingQuoteId(quoteId);
+        if (quoteChase(q, new Date())?.state === 'lapsed') {
+          setEditingQuote(q);
+          setPresetClientId(null);
+          setShowForm(true);
+        } else {
+          setChasingQuoteId(quoteId);
+        }
       } else if (searchParams.get('send') === '1') {
         setSendingQuoteId(quoteId);
       } else {
@@ -636,7 +643,7 @@ export function QuotesPage() {
         />
       )}
 
-      {chasingQuote && company?.id && (
+      {chasingQuote && company?.id && quoteChase(chasingQuote, new Date())?.state !== 'lapsed' && (
         <QuoteChaseDialog
           quote={chasingQuote}
           company={{ id: company.id, name: company.name ?? sendCompany?.name ?? '' }}
@@ -710,7 +717,7 @@ function QuoteRow({ quote, onOpen, onSend, onChase }: { quote: QuoteListItem; on
             type="button"
             className="hub-quotes-chase"
             data-chase-state={chase.state}
-            onClick={() => onChase(quote.id)}
+            onClick={() => chase.state === 'lapsed' ? onOpen() : onChase(quote.id)}
           >
             {quoteChaseChipLabel(chase)}
           </button>

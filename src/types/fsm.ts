@@ -189,6 +189,7 @@ export interface Quote {
 
 export interface QuoteWithDetails extends Quote {
   client_name?: string | null;
+  client_contact_person?: string | null;
   job_title?: string | null;
   job_address?: string | null;
 }

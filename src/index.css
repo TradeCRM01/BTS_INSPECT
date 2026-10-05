@@ -7591,6 +7591,7 @@
   .hub-quote-chase {
     display: grid;
     gap: 12px;
+    padding: 24px;
     color: var(--quote-ink, #0A2540);
   }
 
