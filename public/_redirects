@@ -1,5 +1,4 @@
 # SPA fallback for client-side routes (Cloudflare Pages).
-# Existing files are served before redirects, so a real /assets/*.js still ships.
-# Missing /assets/* must 404 — the /* HTML rewrite is how stale chunks become text/html.
-/assets/*    /404.html   404
+# Existing files are served before redirects. Do not add a 404.html —
+# Cloudflare Pages treats that as a custom 404 and skips this rewrite.
 /*           /index.html   200
