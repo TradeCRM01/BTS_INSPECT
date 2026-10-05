@@ -37,7 +37,7 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
     expect(page).toContain('queryKey: [\'job-invoices\', id]');
     expect(page).toContain('invalidateQueries({ queryKey: [\'job-invoices\', id] })');
     expect(page).toContain('JOB_BILL_INVOICE_CREATED');
-    expect(page).toContain('JOB_BILL_INVOICE_EXISTS');
+    expect(page).toContain('invoiceReuseOpen');
     expect(page).toContain('JOB_BILL_INVOICE_NO_LINES');
     expect(page).toContain("showToast(e.message, 'info')");
 

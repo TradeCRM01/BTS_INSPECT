@@ -108,6 +108,36 @@ export function invoiceHref(invoiceId: string): string {
   return `/invoices?id=${invoiceId}`;
 }
 
+/** Reuse toast — any source. Never “for this quote” when the row came from the bill. */
+export const JOB_INVOICE_REUSED = 'Opened the invoice already on this job';
+
+export function invoiceReuseOpen(invoiceId: string): { href: string; toast: typeof JOB_INVOICE_REUSED } {
+  return { href: invoiceHref(invoiceId), toast: JOB_INVOICE_REUSED };
+}
+
+export type JobQuoteInvoiceButton =
+  | { kind: 'invoice'; label: 'Invoice' }
+  | { kind: 'open'; invoiceId: string; label: 'Open invoice' }
+  | { kind: 'none' };
+
+/** Paperwork quote row: hide Invoice once the job has any invoice, any source. */
+export function jobQuoteInvoiceButton(
+  quoteStatus: string,
+  invoices: { id: string; status: string }[] | null | undefined,
+): JobQuoteInvoiceButton {
+  const reuse = pickReusableInvoice(invoices ?? []);
+  if (reuse) return { kind: 'open', invoiceId: reuse.id, label: 'Open invoice' };
+  if (quoteStatus === 'accepted') return { kind: 'invoice', label: 'Invoice' };
+  return { kind: 'none' };
+}
+
+export function quoteListInvoiceId<T extends { id: string; status: string }>(
+  quoteInvoices: T[] | null | undefined,
+  jobInvoices: T[] | null | undefined,
+): string | null {
+  return pickReusableInvoice(invoicesForOneJob(quoteInvoices, jobInvoices))?.id ?? null;
+}
+
 /** Job hub when the quote is already linked; otherwise open the invoice editor. */
 export function invoiceLandingPath(jobId: string | null | undefined, invoiceId: string): string {
   return jobId ? `/jobs/${jobId}` : invoiceHref(invoiceId);

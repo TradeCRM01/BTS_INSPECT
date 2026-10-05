@@ -310,11 +310,13 @@ export function recommendJobAction(ctx: JobActionContext, now = new Date()): Rec
   if (ctx.status === 'completed' && ctx.invoiceCount > 0 && !jobHasUnsentDraftOnly(ctx)) {
     return { key: 'none', label: 'Invoiced', detail: 'This job is complete and invoiced.' };
   }
-  if (!ctx.scheduledDate) {
-    return { key: 'schedule', label: 'Set a date', detail: 'Put it on the board so the crew can see it.' };
-  }
-  if (ctx.crewCount === 0) {
-    return { key: 'crew', label: 'Assign crew', detail: 'Who is going to this job?' };
+  if (ctx.status !== 'completed') {
+    if (!ctx.scheduledDate) {
+      return { key: 'schedule', label: 'Set a date', detail: 'Put it on the board so the crew can see it.' };
+    }
+    if (ctx.crewCount === 0) {
+      return { key: 'crew', label: 'Assign crew', detail: 'Who is going to this job?' };
+    }
   }
   const arrivingNext = recommendArrivingSheetNext(ctx, now);
   if (arrivingNext) return arrivingNext;

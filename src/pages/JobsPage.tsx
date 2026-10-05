@@ -34,6 +34,8 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
 
 /** Signed jobs-list frame seed — list look only, not a live company. */
 const JOBS_LIST_LOOK = 'jobs-list';
+/** Playwright: /jobs?look=p307 — completed, no crew, Invoice. */
+const JOBS_P307_LOOK = 'p307';
 
 function visibleSite(...parts: Array<string | null | undefined>): string {
   for (const part of parts) {
@@ -177,12 +179,45 @@ function jobsListLookRows(): JobRowModel[] {
   ];
 }
 
+function jobsP307LookRows(): JobRowModel[] {
+  const stamp = '2026-09-03T00:00:00.000Z';
+  return [{
+    id: 'look-job-p307',
+    company_id: 'look-jobs-list',
+    client_id: 'look-client-p307',
+    title: 'Hot water swap',
+    description: null,
+    status: 'completed',
+    priority: 'medium',
+    scheduled_date: '2026-09-01',
+    start_time: '07:00',
+    end_time: '11:00',
+    address: '3 Guildford Rd, Bayswater WA 6053',
+    assigned_team: [],
+    inspection_id: null,
+    created_by: 'look-jobs-dave',
+    created_at: stamp,
+    updated_at: stamp,
+    color: null,
+    budget: null,
+    parent_job_id: null,
+    cost_code: null,
+    cover_photo_url: null,
+    docs: [],
+    job_number: 45,
+    client_name: 'Bayswater Body Corporate',
+    client_phone: null,
+    client_address: '3 Guildford Rd, Bayswater WA 6053',
+  }];
+}
+
 export function JobsPage() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const lookJobsList = searchParams.get('look') === JOBS_LIST_LOOK;
+  const lookP307 = searchParams.get('look') === JOBS_P307_LOOK;
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -246,10 +281,10 @@ export function JobsPage() {
         docs: docsByJob.get(j.id) ?? [],
       }));
     },
-    enabled: !!profile && !lookJobsList,
+    enabled: !!profile && !lookJobsList && !lookP307,
   });
 
-  const listRows = lookJobsList ? jobsListLookRows() : (jobs ?? []);
+  const listRows = lookP307 ? jobsP307LookRows() : lookJobsList ? jobsListLookRows() : (jobs ?? []);
   const filtered = useMemo(() => {
     let result = listRows;
     if (statusFilter !== 'all') {
@@ -270,7 +305,7 @@ export function JobsPage() {
   }, [listRows, statusFilter, search]);
 
   const filterLabel = STATUS_FILTERS.find(tab => tab.key === statusFilter)?.label ?? 'All';
-  const busy = listQueryBusy({ isPending, isLoading, data: jobs, seeded: lookJobsList });
+  const busy = listQueryBusy({ isPending, isLoading, data: jobs, seeded: lookJobsList || lookP307 });
   const whisper = listCountWhisper({
     busy,
     filterLabel,

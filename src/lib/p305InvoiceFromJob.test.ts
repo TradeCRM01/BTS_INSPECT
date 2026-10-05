@@ -50,7 +50,7 @@ describe('P-305 G1 — jobs list Invoice on a completed job', () => {
     expect(src('src/pages/JobsPage.tsx')).not.toContain('createInvoiceFromJobBill');
     expect(src('src/pages/JobsPage.tsx')).toContain('jobInvoiceActionFlags');
     expect(src('src/lib/jobNextAction.ts')).toContain('#job-invoices');
-    expect(src('src/lib/devFieldAuditDocs.ts')).toContain("id !== 'look-job-bayswater'");
+    expect(src('src/lib/devFieldAuditDocs.ts')).toContain("id === 'look-job-bayswater'");
     expect(src('src/pages/JobDetailPage.tsx')).toContain("endsWith('/look-job-bayswater')");
   });
 
