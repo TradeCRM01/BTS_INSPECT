@@ -120,3 +120,21 @@ export function quoteMarkAcceptedWrite() {
 export function quoteAfterMarkAccepted(ctx: QuoteActionContext): RecommendedQuoteAction {
   return recommendQuoteAction({ ...ctx, status: 'accepted' });
 }
+
+/** Quotes list query on QuotesPage. */
+export const QUOTES_LIST_QUERY_KEY = ['quotes'] as const;
+
+/**
+ * Same-page list write after editor save — #0016 at $57.00 replaces $24.00
+ * without a reload. Existing id keeps its place; a new id goes to the front.
+ */
+export function quotesAfterSave<T extends { id: string }>(
+  prev: T[] | null | undefined,
+  saved: T,
+): T[] {
+  const list = [...(prev ?? [])];
+  const index = list.findIndex(row => row.id === saved.id);
+  if (index < 0) return [saved, ...list];
+  list[index] = { ...list[index], ...saved };
+  return list;
+}

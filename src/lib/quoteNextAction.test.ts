@@ -3,12 +3,14 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { jobClientEmailToStore } from './saveJobClientEmail';
 import {
+  QUOTES_LIST_QUERY_KEY,
   quoteActionContext,
   quoteAfterMarkAccepted,
   quoteCardHint,
   quoteHasChargeableLines,
   quoteListBucket,
   quoteMarkAcceptedWrite,
+  quotesAfterSave,
   recommendQuoteAction,
 } from './quoteNextAction';
 
@@ -158,6 +160,44 @@ describe('quoteMarkAcceptedWrite', () => {
     expect(draftMore).not.toContain('quoteSmsBody');
     expect(editor).toContain("next.key === 'accept'");
     expect(editor).toContain("persist('accepted', { close: false, message: 'Quote accepted' })");
+  });
+});
+
+describe('quotesAfterSave', () => {
+  const listed = { id: 'q-0016', quote_number: 16, total: 24 };
+  const saved = { id: 'q-0016', quote_number: 16, total: 57 };
+
+  it('replaces the list row total after editor save without a reload', () => {
+    expect(quotesAfterSave([listed], saved)).toEqual([saved]);
+    expect(quotesAfterSave([listed], saved)[0]?.total).toBe(57);
+  });
+
+  it('keeps the saved quote in place and prepends a new id', () => {
+    const other = { id: 'q-0015', quote_number: 15, total: 100 };
+    expect(quotesAfterSave([listed, other], saved).map(row => row.id)).toEqual(['q-0016', 'q-0015']);
+    expect(quotesAfterSave([other], { id: 'q-new', total: 57 }).map(row => row.id)).toEqual(['q-new', 'q-0015']);
+    expect(quotesAfterSave(undefined, saved)).toEqual([saved]);
+    expect(quotesAfterSave(null, saved)[0]?.total).toBe(57);
+  });
+});
+
+describe('quote editor save writes quotes list cache', () => {
+  function src(rel: string): string {
+    return readFileSync(resolve(process.cwd(), rel), 'utf8');
+  }
+
+  it('writes the saved total onto [\'quotes\'] after Save, then invalidates', () => {
+    const page = src('src/pages/QuotesPage.tsx');
+    expect(QUOTES_LIST_QUERY_KEY).toEqual(['quotes']);
+    expect(page).toContain('queryKey: [\'quotes\']');
+    expect(page).toContain('quotesAfterSave');
+    expect(page).toContain('QUOTES_LIST_QUERY_KEY');
+    expect(page).toContain("setQueryData<QuoteListItem[]>(QUOTES_LIST_QUERY_KEY");
+    expect(page).toContain('quotesAfterSave(prev, opts.listRow as QuoteListItem)');
+    expect(page).toContain('listRow: { id, total: grandTotal }');
+    expect(page).toContain("invalidateQueries({ queryKey: QUOTES_LIST_QUERY_KEY })");
+    expect(page).toContain('quoteMoney(quote.total)');
+    expect(page).not.toMatch(/Relovi|Littleloop/);
   });
 });
 
