@@ -114,6 +114,17 @@ describe('G6 no second Create job when add-client opened from the job card', () 
   });
 });
 
+describe('G8 created job header has the client without a reload', () => {
+  it('writes the new job and selected client into the job-sheet query cache after insert', () => {
+    expect(jobForm).toContain('useQueryClient');
+    expect(jobForm).toContain('.select(\'*\')');
+    expect(jobForm).toContain("setQueryData(['job', data.id], data)");
+    expect(jobForm).toContain("setQueryData(['job-client', data.client_id], selectedClient)");
+    expect(jobForm).toContain('selectedClient?.id === data.client_id');
+    expect(jobForm).toContain('onSaved(data.id as string)');
+  });
+});
+
 describe('G7 isolation — existing sheets only', () => {
   it('does not invent a module, clients page, combined wizard, or /clients trip', () => {
     expect(jobForm).toContain("from '../../pages/ClientsPage'");

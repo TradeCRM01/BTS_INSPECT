@@ -235,6 +235,17 @@ export function sortJobVisitNotesNewestFirst(
   });
 }
 
+/** History list after a post — no reload. Newest first, posted id wins a duplicate. */
+export function visitNotesAfterPost(
+  prev: JobVisitNote[] | null | undefined,
+  posted: JobVisitNote,
+): JobVisitNote[] {
+  return sortJobVisitNotesNewestFirst([
+    posted,
+    ...(prev ?? []).filter(note => note.id !== posted.id),
+  ]);
+}
+
 export function jobVisitNotesQuery(args: {
   companyId: string;
   jobId: string;
@@ -261,15 +272,15 @@ export async function postJobVisitNote(input: {
   sections: Partial<VisitNoteSections>;
   outcome?: VisitUpdateOutcome | null;
   photoCount?: number;
-}): Promise<string> {
+}): Promise<JobVisitNote> {
   const decision = decideJobVisitNotePost(input);
   if (decision.action === 'miss') throw new Error(decision.message);
   const { data, error } = await supabase
     .from(JOB_VISIT_NOTE_TABLE)
     .insert(decision.row)
-    .select('id')
+    .select(JOB_VISIT_NOTE_COLUMNS)
     .single();
   if (error) throw error;
   if (!data?.id) throw new Error('Visit note was not saved.');
-  return data.id as string;
+  return data as JobVisitNote;
 }

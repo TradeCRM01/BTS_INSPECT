@@ -18,7 +18,7 @@ import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY
 import { formatMoney, INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatDuration } from '../types/fsm';
 import type { InvoiceStatus, Timesheet } from '../types/fsm';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
-import { invoiceHref } from '../lib/invoiceFromQuote';
+import { invoiceHref, jobInvoicesAfterCreate } from '../lib/invoiceFromQuote';
 import { AUDIT_DOC_JOB_ID, getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { createInvoiceFromJobBill } from '../lib/createInvoiceFromJobBill';
 import {
@@ -34,6 +34,7 @@ import {
   attachJobClient,
   jobClientAttachRow,
   jobClientAttachToast,
+  jobSheetClientName,
 } from '../lib/attachJobClient';
 import {
   jobClientEmailRow,
@@ -104,6 +105,7 @@ import {
   sortJobVisitNotesNewestFirst,
   visitNoteHistoryLabel,
   visitNoteHistoryText,
+  visitNotesAfterPost,
   visitAuthorInitials,
   visitPhotoCountLabel,
   visitUpdateSections,
@@ -1921,6 +1923,11 @@ export function JobDetailPage() {
       return convertQuoteToInvoice(quoteId, profile.id, Number(company?.default_tax_rate) || DEFAULT_TAX_RATE);
     },
     onSuccess: (result) => {
+      if (result.invoice) {
+        queryClient.setQueryData<JobInvoice[]>(['job-invoices', id], prev =>
+          jobInvoicesAfterCreate(prev, result.invoice),
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       showToast(result.existing
@@ -1941,6 +1948,11 @@ export function JobDetailPage() {
       });
     },
     onSuccess: (result) => {
+      if (result.invoice) {
+        queryClient.setQueryData<JobInvoice[]>(['job-invoices', id], prev =>
+          jobInvoicesAfterCreate(prev, result.invoice),
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       showToast(result.existing ? JOB_BILL_INVOICE_EXISTS : JOB_BILL_INVOICE_CREATED);
@@ -2010,7 +2022,7 @@ export function JobDetailPage() {
 
   const postVisitNote = useMutation({
     mutationFn: async () => {
-      const noteId = await postJobVisitNote({
+      const note = await postJobVisitNote({
         jobId: job?.id,
         companyId: profile?.company_id,
         authorId: profile?.id,
@@ -2025,14 +2037,17 @@ export function JobDetailPage() {
           companyId: profile.company_id,
           jobId: job.id,
           userId: profile.id,
-          visitNoteId: noteId,
+          visitNoteId: note.id,
           photos: visitPhotos,
         });
         failed = result.failed;
       }
-      return { failed };
+      return { failed, note };
     },
-    onSuccess: ({ failed }) => {
+    onSuccess: ({ failed, note }) => {
+      queryClient.setQueryData<JobVisitNote[]>(['job-visit-notes', id], prev =>
+        visitNotesAfterPost(prev, note),
+      );
       queryClient.invalidateQueries({ queryKey: ['job-visit-notes', id] });
       queryClient.invalidateQueries({ queryKey: ['job-photos', id] });
       setVisitDraft(emptyVisitUpdateDraft());
@@ -2293,6 +2308,10 @@ export function JobDetailPage() {
       : attachClientsQuery.isFetched
         ? (attachClientsQuery.data ?? [])
         : null,
+  });
+  const headerClient = jobSheetClientName({
+    jobClientId: job.client_id,
+    client: client ?? null,
   });
 
   const sheetNext = jobOpenNext(job, {
@@ -2681,10 +2700,14 @@ export function JobDetailPage() {
                 <span className="flex items-center gap-1.5 ops-meta">
                   <User size={13} /> {JOB_CLIENT_ATTACH_NO_CLIENTS}
                 </span>
-              ) : client ? (
-                <Link to={clientRecordHref(client.id)} className="flex items-center gap-1.5 text-accent hover:underline">
-                  <User size={13} /> {client.name}
+              ) : headerClient.kind === 'name' && job.client_id ? (
+                <Link to={clientRecordHref(job.client_id)} className="flex items-center gap-1.5 text-accent hover:underline">
+                  <User size={13} /> {headerClient.name}
                 </Link>
+              ) : headerClient.kind === 'pending' ? (
+                <span className="flex items-center gap-1.5 ops-meta" data-job-client="pending">
+                  <User size={13} />
+                </span>
               ) : (
                 <span className="flex items-center gap-1.5 ops-meta">
                   <User size={13} /> No client

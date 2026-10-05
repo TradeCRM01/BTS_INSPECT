@@ -2,6 +2,9 @@
 # Auto-deploy: every merge to GitHub `main` runs `.github/workflows/deploy-pages.yml`
 # (npm ci, npm run build with production VITE_SUPABASE_*, then
 # wrangler pages deploy dist --project-name bts-inspect --branch main).
+# Functions live in ./functions (repo root). wrangler bundles them from cwd
+# when deploying dist. public/_routes.json (copied to dist) limits Functions
+# to /assets/* so SPA routes stay static.
 name = "bts-inspect"
 compatibility_date = "2025-04-01"
 pages_build_output_dir = "dist"

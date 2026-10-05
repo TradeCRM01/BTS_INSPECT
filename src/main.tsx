@@ -8,6 +8,14 @@ import { InstallPrompt } from './components/ui/InstallPrompt';
 import { SWUpdatePrompt } from './components/ui/SWUpdatePrompt';
 import App from './App';
 import { isDevFieldAuditAuth } from './lib/devFieldAuditAuth';
+import {
+  applyDeployedBuildCache,
+  autoClearLoginHref,
+  beginAutoRecover,
+  clearAppCaches,
+  keepSessionOnClearSearch,
+  releaseRecoveryKeysOnClear,
+} from './lib/clearAppCaches';
 import './index.css';
 
 // Burned invite / reset links land as #error=... and can brick PWA navigations.
@@ -27,33 +35,15 @@ import './index.css';
   }
 })();
 
-async function clearAppCaches() {
-  try {
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k)));
-    }
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((r) => r.unregister()));
-    }
-    const purge = Object.keys(localStorage).filter(
-      (k) => k.startsWith('sb-') || k === 'bts_build_id' || k === 'module_reload'
-    );
-    purge.forEach((k) => localStorage.removeItem(k));
-  } catch {
-    // ignore
-  }
-}
-
-// Explicit recovery: /login?clear=1 or any ?clear=1
+// Recovery: /login?clear=1. auto=1 keeps the session (chunk / hardRecover).
+// Manual "Clear cache & retry" has no auto and wipes sb-*.
 if (new URLSearchParams(window.location.search).has('clear')) {
-  const next = new URLSearchParams(window.location.search).get('next');
-  clearAppCaches().finally(() => {
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get('next');
+  const keepSession = keepSessionOnClearSearch(window.location.search);
+  clearAppCaches({ keepSession }).finally(() => {
     try {
-      sessionStorage.removeItem('chunk_recover');
-      sessionStorage.removeItem('module_reload');
-      sessionStorage.removeItem('chunk_reload');
+      releaseRecoveryKeysOnClear(window.location.search);
     } catch {
       // ignore
     }
@@ -66,18 +56,14 @@ if (new URLSearchParams(window.location.search).has('clear')) {
 }
 
 // Bust stale PWA caches when a new deploy ships (logout does not clear SW).
+// Keep the sb-* session so a deploy does not sign everyone out.
 const BUILD_ID = import.meta.env.VITE_BUILD_ID ?? 'dev';
-const BUILD_KEY = 'bts_build_id';
 (async () => {
   try {
-    const prev = localStorage.getItem(BUILD_KEY);
-    if (prev && prev !== BUILD_ID) {
-      await clearAppCaches();
-      localStorage.setItem(BUILD_KEY, BUILD_ID);
+    const { shouldReload } = await applyDeployedBuildCache(BUILD_ID);
+    if (shouldReload) {
       window.location.reload();
-      return;
     }
-    localStorage.setItem(BUILD_KEY, BUILD_ID);
   } catch {
     // ignore storage / SW errors
   }
@@ -91,10 +77,9 @@ window.addEventListener('error', (event) => {
     msg.includes('Failed to fetch dynamically imported module') ||
     msg.includes('error loading dynamically imported module')
   ) {
-    if (sessionStorage.getItem('module_reload')) return;
-    sessionStorage.setItem('module_reload', '1');
+    if (!beginAutoRecover()) return;
     const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    window.location.replace(`/login?clear=1&next=${encodeURIComponent(next)}`);
+    window.location.replace(autoClearLoginHref(next));
   }
 }, true);
 
@@ -106,15 +91,10 @@ window.addEventListener('unhandledrejection', (event) => {
     msg.includes('error loading dynamically imported module') ||
     msg.includes('Importing a module script failed')
   ) {
-    if (sessionStorage.getItem('module_reload')) return;
-    sessionStorage.setItem('module_reload', '1');
+    if (!beginAutoRecover()) return;
     const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    window.location.replace(`/login?clear=1&next=${encodeURIComponent(next)}`);
+    window.location.replace(autoClearLoginHref(next));
   }
-});
-
-window.addEventListener('load', () => {
-  sessionStorage.removeItem('module_reload');
 });
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {

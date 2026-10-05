@@ -15,6 +15,7 @@ import {
   decideJobClientAttach,
   jobClientAttachRow,
   jobClientAttachToast,
+  jobSheetClientName,
 } from './attachJobClient';
 
 function src(rel: string): string {
@@ -214,6 +215,26 @@ describe('after attach — signed email field / Next unchanged', () => {
   });
 });
 
+describe('jobSheetClientName', () => {
+  it('shows the created job client as soon as the row is linked and named', () => {
+    expect(jobSheetClientName({
+      jobClientId: 'c1',
+      client: { name: 'Acme Plants' },
+    })).toEqual({ kind: 'name', name: 'Acme Plants' });
+  });
+
+  it('does not print No client while the linked client is still loading', () => {
+    expect(jobSheetClientName({ jobClientId: 'c1', client: null })).toEqual({ kind: 'pending' });
+    expect(jobSheetClientName({ jobClientId: 'c1', client: { name: '  ' } })).toEqual({ kind: 'pending' });
+    expect(jobSheetClientName({ jobClientId: 'c1', client: undefined }).kind).toBe('pending');
+  });
+
+  it('keeps No client only when the job has no client_id', () => {
+    expect(jobSheetClientName({ jobClientId: null, client: { name: 'Acme Plants' } })).toEqual({ kind: 'none' });
+    expect(jobSheetClientName({ jobClientId: '', client: null })).toEqual({ kind: 'none' });
+  });
+});
+
 describe('job-sheet attach client — wiring', () => {
   it('writes jobs.client_id on this job and does not invent a client', () => {
     const attach = src('src/lib/attachJobClient.ts');
@@ -256,6 +277,9 @@ describe('job-sheet attach client — wiring', () => {
     expect(page).toContain("eq('company_id', profile.company_id)");
     expect(page).toContain("queryKey: ['job-attach-clients'");
     expect(page).toContain('jobClientAttachRow({');
+    expect(page).toContain('jobSheetClientName');
+    expect(page).toContain('headerClient.name');
+    expect(page).toContain('data-job-client="pending"');
     expect(page).toContain('jobClientId: job.client_id');
     expect(page).not.toContain('ClientAttachDialog');
     expect(page).not.toContain('AttachClientDialog');

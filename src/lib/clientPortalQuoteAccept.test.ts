@@ -256,7 +256,7 @@ describe('G4 G5 — Convert surface sets date and crew on the same tap', () => {
     expect(editor).toContain('Field label="Job date"');
     expect(editor).toContain('Field label="Crew"');
     expect(editor).toContain('form.assigned_team');
-    expect(editor).toContain('quoteConvertEntry');
+    expect(editor).toContain('quoteConvertTap');
     expect(editor).toContain('CONVERT_QUOTE_NEED_DATE_CREW');
     expect(editor).toContain('scheduled_date: form.scheduled_date || null');
     expect(editor).toContain('assigned_team: form.assigned_team');
@@ -295,7 +295,7 @@ describe('isolation — list Next Convert empty date/crew stays on the editor', 
       listNext.indexOf("next.key === 'invoice'"),
     );
 
-    expect(convertBlock).toContain('quoteConvertEntry');
+    expect(convertBlock).toContain('quoteConvertTap');
     expect(convertBlock).toContain('onOpen({ focusConvert: true })');
     expect(convertBlock.indexOf("=== 'focus_convert'")).toBeLessThan(convertBlock.indexOf('await convertQuoteToJob'));
     expect(convertBlock.indexOf('onOpen({ focusConvert: true })')).toBeLessThan(convertBlock.indexOf('await convertQuoteToJob'));

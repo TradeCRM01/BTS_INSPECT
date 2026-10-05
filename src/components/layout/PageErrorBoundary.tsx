@@ -1,6 +1,7 @@
 import { Component } from 'react';
 import type { ReactNode } from 'react';
 import { AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { autoClearLoginHref, beginAutoRecover } from '../../lib/clearAppCaches';
 
 interface State { error: Error | null }
 
@@ -15,6 +16,7 @@ function isStaleChunkError(error: Error | null): boolean {
 }
 
 async function hardRecover() {
+  if (!beginAutoRecover()) return;
   try {
     if ('caches' in window) {
       const keys = await caches.keys();
@@ -28,7 +30,7 @@ async function hardRecover() {
     // ignore
   }
   const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  window.location.replace(`/login?clear=1&next=${encodeURIComponent(next)}`);
+  window.location.replace(autoClearLoginHref(next));
 }
 
 export class PageErrorBoundary extends Component<{ children: ReactNode }, State> {
@@ -40,8 +42,6 @@ export class PageErrorBoundary extends Component<{ children: ReactNode }, State>
 
   componentDidCatch(error: Error) {
     if (!isStaleChunkError(error)) return;
-    if (sessionStorage.getItem('chunk_recover')) return;
-    sessionStorage.setItem('chunk_recover', '1');
     void hardRecover();
   }
 
@@ -83,12 +83,21 @@ export class PageErrorBoundary extends Component<{ children: ReactNode }, State>
                 <ArrowLeft size={14} /> Go back
               </button>
             )}
-            <button
-              onClick={this.retry}
-              className="flex items-center gap-2 px-4 py-2 bg-[#0A2540] text-white rounded-lg text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
-            >
-              <RefreshCw size={14} /> {stale ? 'Refresh app' : 'Try again'}
-            </button>
+            {stale ? (
+              <a
+                href="/login?clear=1"
+                className="flex items-center gap-2 px-4 py-2 bg-[#0A2540] text-white rounded-lg text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
+              >
+                <RefreshCw size={14} /> Clear cache &amp; retry
+              </a>
+            ) : (
+              <button
+                onClick={this.retry}
+                className="flex items-center gap-2 px-4 py-2 bg-[#0A2540] text-white rounded-lg text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
+              >
+                <RefreshCw size={14} /> Try again
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -21,6 +21,7 @@ import {
   visitNoteHistoryLabel,
   visitNoteHistoryText,
   visitAuthorInitials,
+  visitNotesAfterPost,
   visitPhotoCountLabel,
   visitUpdateSections,
 } from './jobVisitNotes';
@@ -428,6 +429,44 @@ describe('sortJobVisitNotesNewestFirst', () => {
   });
 });
 
+describe('visitNotesAfterPost', () => {
+  const posted = {
+    ...newer,
+    id: 'n-posted',
+    created_at: '2026-09-08T11:00:00.000Z',
+    body: 'Photo location prove — delete ok',
+  };
+
+  it('puts the posted note at the front of History with no reload', () => {
+    const history = visitNotesAfterPost([older, newer], posted);
+    expect(history.map(n => n.id)).toEqual(['n-posted', 'n-new', 'n-old']);
+    expect(history).toHaveLength(3);
+    expect(history[0]?.body).toBe('Photo location prove — delete ok');
+  });
+
+  it('grows an empty History list from 0 to 1 after a post', () => {
+    expect(visitNotesAfterPost([], posted)).toEqual([posted]);
+    expect(visitNotesAfterPost(undefined, posted)).toHaveLength(1);
+    expect(visitNotesAfterPost(null, posted)[0]?.id).toBe('n-posted');
+  });
+
+  it('replaces a duplicate id so a refetch cannot double-count the same post', () => {
+    const again = { ...posted, body: 'Same id, newer body' };
+    expect(visitNotesAfterPost([posted, older], again).map(n => n.id)).toEqual(['n-posted', 'n-old']);
+    expect(visitNotesAfterPost([posted, older], again)[0]?.body).toBe('Same id, newer body');
+  });
+
+  it('keeps the posted outcome so History can show DONE on the same paint', () => {
+    const doneNote = { ...posted, outcome: 'all_done' as const, body: composeVisitNoteBody({ done: 'Fitted the unit.', left: 'All done' }) };
+    const history = visitNotesAfterPost([], doneNote);
+    const left = parseVisitNoteBody(history[0]?.body).find(block => block.key === 'left');
+    expect(history[0]?.outcome).toBe('all_done');
+    expect(left).toBeTruthy();
+    expect(visitNoteHistoryLabel(left!, history[0]?.outcome)).toBe('Done');
+    expect(visitNoteHistoryText(left!, history[0]?.outcome)).toBe('');
+  });
+});
+
 describe('jobVisitNotesQuery', () => {
   it('scopes the log to this company and this job', () => {
     expect(jobVisitNotesQuery({ companyId: 'co-1', jobId: 'job-1' })).toEqual({
@@ -451,6 +490,14 @@ describe('visit notes live on the existing job sheet', () => {
     expect(page).toContain('decideJobVisitNotePost');
     expect(page).toContain('postJobVisitNote');
     expect(page).toContain('sortJobVisitNotesNewestFirst');
+    expect(page).toContain('visitNotesAfterPost');
+    expect(page).toContain("setQueryData<JobVisitNote[]>(['job-visit-notes', id]");
+    expect(page).toContain('visitNotesAfterPost(prev, note)');
+    expect(page).toContain('return { failed, note }');
+    expect(src('src/lib/jobVisitNotes.ts')).toContain('.select(JOB_VISIT_NOTE_COLUMNS)');
+    expect(src('src/lib/jobVisitNotes.ts')).toContain('}): Promise<JobVisitNote> {');
+    expect(page).toContain('job-notes-tab-count');
+    expect(page).toContain('{visitLog.length}');
     expect(page).toContain("order('created_at', { ascending: false })");
     expect(page).toContain('note.author_name');
     expect(page).toContain('note.created_at');
