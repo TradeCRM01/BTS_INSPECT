@@ -7319,6 +7319,39 @@
     white-space: nowrap;
   }
 
+  .hub-line-editor {
+    min-width: 0;
+  }
+
+  .hub-line-editor-sheet {
+    overflow-x: hidden;
+  }
+
+  .hub-line-editor-desc {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .hub-line-editor-desc-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .hub-line-editor-desc-row .form-input-sm {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .hub-line-editor-desc .hub-quote-check-price {
+    display: block;
+  }
+
   .hub-quote-kicker {
     font-family: Rajdhani, sans-serif;
     font-size: 11px;

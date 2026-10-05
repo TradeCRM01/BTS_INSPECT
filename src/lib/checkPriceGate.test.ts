@@ -116,4 +116,24 @@ describe('check price gate', () => {
     expect(src('src/pages/ClientPortalPublicPage.tsx')).not.toContain('hub-quote-check-price');
     expect(src('src/reports/commercial/CommercialDocumentPdf.tsx')).not.toContain('QUICK_QUOTE_CHECK_PRICE');
   });
+
+  it('keeps Description wide and stacks Check price under the input', () => {
+    const editor = src('src/components/invoicing/LineItemEditor.tsx');
+    expect(editor).toContain('minmax(240px,1fr)');
+    expect(editor).toContain('hub-line-editor-desc');
+    expect(editor).toContain('items-start');
+    const desc = editor.slice(
+      editor.indexOf('hub-line-editor-desc'),
+      editor.indexOf('aria-label="Quantity"'),
+    );
+    expect(desc.indexOf('placeholder="Description"')).toBeLessThan(desc.indexOf('hub-quote-check-price'));
+    expect(desc).toContain('hub-line-editor-desc-row');
+    expect(desc).not.toContain('flex items-center gap-1 col-span-1 sm:col-span-2');
+
+    const css = src('src/index.css');
+    expect(css).toContain('.hub-line-editor-desc');
+    expect(css).toContain('flex-direction: column');
+    expect(css).toContain('.hub-line-editor-sheet');
+    expect(css).toContain('overflow-x: hidden');
+  });
 });

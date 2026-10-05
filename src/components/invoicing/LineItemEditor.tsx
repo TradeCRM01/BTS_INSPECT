@@ -78,7 +78,7 @@ interface LineItemEditorProps {
 
 type PickerMode = 'stock' | 'pricebook' | null;
 
-const GRID = 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-[150px_120px_1fr_60px_90px_80px_90px_100px_32px]';
+const GRID = 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-[150px_120px_minmax(240px,1fr)_60px_90px_80px_90px_100px_32px]';
 const MIN_W = 'min-w-0';
 
 export function LineItemEditor({
@@ -244,7 +244,7 @@ export function LineItemEditor({
   }, [priceBookItems, search]);
 
   return (
-    <div>
+    <div className="hub-line-editor">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <label className="text-xs font-medium text-[#4A5568]">Line Items</label>
         <div className="flex gap-2 flex-wrap">
@@ -355,7 +355,7 @@ export function LineItemEditor({
         </div>
       )}
 
-      <div className="border border-[#E5E7EB] rounded-lg overflow-hidden overflow-x-auto">
+      <div className="hub-line-editor-sheet border border-[#E5E7EB] rounded-lg overflow-hidden">
         <div className={`hidden lg:grid ${GRID} gap-2 px-3 py-2 bg-[#F9FAFB] text-xs font-medium text-[#4A5568] ${MIN_W}`}>
           <span>Cost code</span>
           <span>Nature</span>
@@ -378,7 +378,7 @@ export function LineItemEditor({
           return (
             <div
               key={idx}
-              className={`grid ${GRID} gap-2 px-3 py-2 items-center border-t border-[#F3F4F6] ${MIN_W} ${
+              className={`grid ${GRID} gap-2 px-3 py-2 items-start border-t border-[#F3F4F6] ${MIN_W} ${
                 fromStock || fromBook || fromModel ? 'bg-[#EFF6FF]/30' : ''
               }`}
             >
@@ -403,15 +403,17 @@ export function LineItemEditor({
                 allowAdd
                 className="form-input-sm"
               />
-              <div className="min-w-0 flex items-center gap-1 col-span-1 sm:col-span-2 lg:col-span-1">
-                {fromStock && <Package size={10} className="text-[#2E75B6] shrink-0" aria-label="From stock" />}
-                {fromBook && <BookOpen size={10} className="text-[#2E75B6] shrink-0" aria-label="From price book" />}
-                <input
-                  value={li.description}
-                  onChange={e => updateLine(idx, { description: e.target.value })}
-                  className="form-input-sm flex-1 min-w-0"
-                  placeholder="Description"
-                />
+              <div className="hub-line-editor-desc min-w-0 col-span-1 sm:col-span-2 lg:col-span-1">
+                <div className="hub-line-editor-desc-row">
+                  {fromStock && <Package size={10} className="text-[#2E75B6] shrink-0" aria-label="From stock" />}
+                  {fromBook && <BookOpen size={10} className="text-[#2E75B6] shrink-0" aria-label="From price book" />}
+                  <input
+                    value={li.description}
+                    onChange={e => updateLine(idx, { description: e.target.value })}
+                    className="form-input-sm min-w-0"
+                    placeholder="Description"
+                  />
+                </div>
                 {li.check_price ? (
                   <span className="hub-quote-check-price">{QUICK_QUOTE_CHECK_PRICE}</span>
                 ) : null}

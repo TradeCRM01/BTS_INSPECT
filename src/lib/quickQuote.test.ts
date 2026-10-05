@@ -394,6 +394,8 @@ describe('quick quote parser and matcher', () => {
     const editor = src('src/components/invoicing/LineItemEditor.tsx');
     expect(editor).toContain('QUICK_QUOTE_CHECK_PRICE');
     expect(editor).toContain('hub-quote-check-price');
+    expect(editor).toContain('hub-line-editor-desc');
+    expect(editor).toContain('minmax(240px,1fr)');
     expect(src('src/index.css')).toContain('.hub-quick-quote');
     expect(src('src/index.css')).toContain('.hub-quote-check-price');
   });
