@@ -163,7 +163,31 @@ export function getAuditClients() {
 
 export function getAuditJob(id: string) {
   const jobs = getAuditJobs();
-  return jobs?.find(j => j.id === id) ?? null;
+  const found = jobs?.find(j => j.id === id) ?? null;
+  if (found || !isDevFieldAuditAuth() || id !== 'look-job-bayswater') return found;
+  return {
+    id: 'look-job-bayswater',
+    company_id: DEV_AUDIT_COMPANY.id,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    title: 'Hot water swap',
+    description: 'Swap the failed unit and leave the old one for collection.',
+    status: 'completed' as const,
+    priority: 'medium' as const,
+    scheduled_date: '2026-09-01',
+    start_time: '07:00',
+    end_time: '11:00',
+    address: '3 Guildford Rd, Bayswater WA 6053',
+    assigned_team: [DEV_AUDIT_PROFILE.id],
+    inspection_id: null,
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: NOW,
+    updated_at: NOW,
+    job_number: 45,
+    color: null,
+    budget: null,
+    parent_job_id: null,
+    cost_code: null,
+  };
 }
 
 export function getAuditClient(id: string) {

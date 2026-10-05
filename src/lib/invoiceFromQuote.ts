@@ -89,6 +89,21 @@ export function pickReusableInvoice<T extends { status: string }>(rows: T[]): T 
   return rows.find(i => i.status === 'draft') ?? rows[0];
 }
 
+/** One invoice per job — quote convert and job-bill share the same rows. */
+export function invoicesForOneJob<T extends { id: string }>(
+  quoteRows: T[] | null | undefined,
+  jobRows: T[] | null | undefined,
+): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const row of [...(quoteRows ?? []), ...(jobRows ?? [])]) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    out.push(row);
+  }
+  return out;
+}
+
 export function invoiceHref(invoiceId: string): string {
   return `/invoices?id=${invoiceId}`;
 }

@@ -3,6 +3,7 @@ import {
   JOB_INVOICE_LIST_COLUMNS,
   asJobInvoiceListRow,
   buildInvoiceFromQuote,
+  invoicesForOneJob,
   isoDatePlusDays,
   pickReusableInvoice,
   type JobInvoiceListRow,
@@ -21,29 +22,31 @@ export type ConvertQuoteToInvoiceResult = {
   invoice: JobInvoiceListRow | null;
 };
 
-/** Creates a draft invoice from an accepted quote, or returns the existing one (quote_id). */
+async function invoicesOnQuoteOrJob(quoteId: string, jobId: string | null) {
+  const { data: quoteRows, error: quoteErr } = await supabase
+    .from('invoices')
+    .select(JOB_INVOICE_LIST_COLUMNS)
+    .eq('quote_id', quoteId)
+    .order('created_at', { ascending: false });
+  if (quoteErr) throw quoteErr;
+
+  if (!jobId) return quoteRows ?? [];
+
+  const { data: jobRows, error: jobErr } = await supabase
+    .from('invoices')
+    .select(JOB_INVOICE_LIST_COLUMNS)
+    .eq('job_id', jobId)
+    .order('created_at', { ascending: false });
+  if (jobErr) throw jobErr;
+  return invoicesForOneJob(quoteRows, jobRows);
+}
+
+/** Creates a draft invoice from an accepted quote, or reuses the job's existing invoice (any source). */
 export async function convertQuoteToInvoice(
   quoteId: string,
   profileId: string,
   taxRate: number,
 ): Promise<ConvertQuoteToInvoiceResult> {
-  const { data: existingRows, error: existingErr } = await supabase
-    .from('invoices')
-    .select(JOB_INVOICE_LIST_COLUMNS)
-    .eq('quote_id', quoteId)
-    .order('created_at', { ascending: false });
-  if (existingErr) throw existingErr;
-  const reuse = pickReusableInvoice(existingRows ?? []);
-  if (reuse) {
-    const { data: quoteJob } = await supabase.from('quotes').select('job_id').eq('id', quoteId).maybeSingle();
-    return {
-      id: reuse.id,
-      existing: true,
-      jobId: (quoteJob?.job_id as string | null) ?? null,
-      invoice: asJobInvoiceListRow(reuse),
-    };
-  }
-
   const { data: quote, error: quoteErr } = await supabase
     .from('quotes')
     .select(QUOTE_SELECT)
@@ -51,6 +54,18 @@ export async function convertQuoteToInvoice(
     .maybeSingle();
   if (quoteErr) throw quoteErr;
   if (!quote) throw new Error('Quote not found');
+
+  const existingRows = await invoicesOnQuoteOrJob(quoteId, (quote.job_id as string | null) ?? null);
+  const reuse = pickReusableInvoice(existingRows);
+  if (reuse) {
+    return {
+      id: reuse.id,
+      existing: true,
+      jobId: (quote.job_id as string | null) ?? null,
+      invoice: asJobInvoiceListRow(reuse),
+    };
+  }
+
   if (quote.status !== 'accepted') throw new Error('Only accepted quotes can be invoiced');
   if (!quote.client_id) throw new Error('Quote has no client');
 
@@ -68,14 +83,11 @@ export async function convertQuoteToInvoice(
     .single();
 
   if (error) {
-    // Unique quote_id — another convert won the race.
+    // Unique quote_id or job_bill-per-job — another convert / Invoice won the race.
     if (error.code === '23505') {
-      const { data: raced } = await supabase
-        .from('invoices')
-        .select(JOB_INVOICE_LIST_COLUMNS)
-        .eq('quote_id', quoteId)
-        .limit(1)
-        .maybeSingle();
+      const raced = pickReusableInvoice(
+        await invoicesOnQuoteOrJob(quoteId, (quote.job_id as string | null) ?? null),
+      );
       if (raced?.id) {
         return {
           id: raced.id as string,

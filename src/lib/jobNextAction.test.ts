@@ -135,7 +135,7 @@ describe('recommendJobAction', () => {
       status: 'completed',
       clockedOn: true,
       hasBillLines: true,
-    })).toMatchObject({ key: 'invoice', label: 'Invoice', detail: 'Invoice from the job bill.' });
+    })).toMatchObject({ key: 'invoice', label: 'Invoice', detail: 'Draft invoice from the job bill.' });
     expect(recommendJobAction({
       ...base,
       hasBillLines: true,

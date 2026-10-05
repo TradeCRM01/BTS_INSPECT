@@ -24,8 +24,10 @@ import { AUDIT_DOC_JOB_ID, getAuditClient, getAuditEmptyList, getAuditJob, getAu
 import { createInvoiceFromJobBill } from '../lib/createInvoiceFromJobBill';
 import {
   JOB_BILL_INVOICE_CREATED,
+  JOB_BILL_INVOICE_EMPTY,
   JOB_BILL_INVOICE_EXISTS,
   JOB_BILL_INVOICE_NO_LINES,
+  jobBillInvoiceBlocked,
 } from '../lib/invoiceFromJobBill';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
@@ -254,6 +256,10 @@ const JOB_PHOTOS_LOOK = 'job-photos';
 /** Playwright job-hours proofs: closed + running, and a running-only truth case. */
 const JOB_HOURS_LOOK = 'job-hours';
 const JOB_HOURS_RUNNING_LOOK = 'job-hours-running';
+/** Playwright: /jobs/audit-doc-job?look=p305 — completed job with bill lines. */
+const P305_LOOK = 'p305';
+/** Playwright: /jobs/audit-doc-job?look=p305-empty — completed job, empty bill. */
+const P305_EMPTY_LOOK = 'p305-empty';
 const LOOK_PHOTO_DIR = '/look/photos';
 
 function lookSearchParam(): string | null {
@@ -279,6 +285,18 @@ function jobPhotosLookOn(): boolean {
 function jobHoursLookOn(): boolean {
   const look = lookSearchParam();
   return look === JOB_HOURS_LOOK || look === JOB_HOURS_RUNNING_LOOK;
+}
+
+function p305LookKind(): 'bill' | 'empty' | null {
+  const look = lookSearchParam();
+  if (look === P305_LOOK) return 'bill';
+  if (look === P305_EMPTY_LOOK) return 'empty';
+  try {
+    if (window.location.pathname.endsWith('/look-job-bayswater')) return 'bill';
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 /** 1h 30m + 0h 45m closed, plus 0h 45m live. The running-only case has zero closed entries. */
@@ -1483,8 +1501,13 @@ export function JobDetailPage() {
     queryFn: async () => {
       const mock = getAuditJob(id!);
       if (mock) {
-        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn()) {
-          return { ...mock, scheduled_date: lookVanTodayYmd() } as Job;
+        const p305 = p305LookKind();
+        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn() || p305) {
+          return {
+            ...mock,
+            scheduled_date: lookVanTodayYmd(),
+            ...(p305 ? { status: 'completed' as const } : {}),
+          } as Job;
         }
         return mock as Job;
       }
@@ -1903,6 +1926,9 @@ export function JobDetailPage() {
   const { data: costTotals } = useQuery<{ cost: number; charge: number; lines: number }>({
     queryKey: ['job-cost-totals', id],
     queryFn: async () => {
+      const p305 = p305LookKind();
+      if (p305 === 'bill') return { cost: 400, charge: 545, lines: 2 };
+      if (p305 === 'empty') return { cost: 0, charge: 0, lines: 0 };
       const empty = getAuditEmptyList();
       if (empty) return { cost: 0, charge: 0, lines: 0 };
       const { data, error } = await supabase
@@ -2294,6 +2320,12 @@ export function JobDetailPage() {
   };
 
   const handleInvoice = () => {
+    if (jobBillInvoiceBlocked(costTotals)) {
+      showToast(JOB_BILL_INVOICE_EMPTY, 'info');
+      setBillOpen(true);
+      revealSection('job-bill');
+      return;
+    }
     invoiceFromJobBill.mutate();
   };
 
@@ -2323,6 +2355,8 @@ export function JobDetailPage() {
     ...jobInvoiceActionFlags(invoices ?? []),
     hasAcceptedQuote: !!acceptedQuote,
     hasBillLines: (costTotals?.lines ?? 0) > 0,
+    billLineCount: costTotals?.lines,
+    billTotal: costTotals?.charge,
     clockedOn: !!runningEntry,
     clockedOff: (timesheets ?? []).some(e => e.end_time != null),
     arrivingSent,
@@ -2610,11 +2644,12 @@ export function JobDetailPage() {
 
             <div className="hub-jobs-tools">
               {next.key === 'inspect' && !arrivingPrimary ? (
-                <Link to={inspectHref} className="btn-primary ops-next-control-block">{nextLabel}</Link>
+                <Link to={inspectHref} className="btn-primary ops-next-control-block" title={next.detail}>{nextLabel}</Link>
               ) : next.key !== 'none' || arrivingPrimary ? (
                 <button
                   type="button"
                   className="btn-primary ops-next-control-block"
+                  title={next.detail}
                   disabled={nextBusy}
                   onClick={runNext}
                 >
@@ -2629,6 +2664,9 @@ export function JobDetailPage() {
                 </>
               )}
             </div>
+            {next.detail ? (
+              <p className="ops-next-detail" data-job-next-detail>{next.detail}</p>
+            ) : null}
 
             <div className="job-sheet-tabs" role="tablist" aria-label="Job sections">
               {JOB_SHEET_TABS.map(t => (

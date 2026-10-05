@@ -4,6 +4,7 @@ import {
   JOB_BILL_DUE_DAYS,
   JOB_BILL_PAYMENT_TERMS,
   JOB_BILL_INVOICE_CREATED,
+  JOB_BILL_INVOICE_EMPTY,
   JOB_BILL_INVOICE_EXISTS,
   JOB_BILL_INVOICE_NO_CLIENT,
   JOB_BILL_INVOICE_NO_LINES,
@@ -12,6 +13,8 @@ import {
   decideJobBillInvoice,
   invoiceLinesFromJobCosts,
   jobBillDueDate,
+  jobBillInvoiceBlocked,
+  jobBillInvoiceNextDetail,
   reuseAfterUniqueConflict,
 } from './invoiceFromJobBill';
 import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
@@ -194,7 +197,7 @@ describe('buildInvoiceFromJobBill', () => {
     const issue = new Date('2026-08-20T00:00:00+10:00');
     const due = jobBillDueDate(issue);
     expect(due).toBe('2026-08-27');
-    expect(INVOICE_LIST_DEFAULT_FILTER).toBe('overdue');
+    expect(INVOICE_LIST_DEFAULT_FILTER).toBe('all');
     const past = new Date(2026, 7, 28);
     expect(invoiceMatchesListFilter({ status: 'sent', due_date: due }, 'overdue', past)).toBe(true);
     expect(invoiceMatchesListFilter({ status: 'sent', due_date: due }, INVOICE_LIST_DEFAULT_FILTER, past)).toBe(true);
@@ -244,6 +247,14 @@ describe('decideJobBillInvoice', () => {
     })).toEqual({ action: 'reuse', invoiceId: 'draft', existing: true });
   });
 
+  it('G3 — reuses a quote-convert invoice on this job — still no second insert', () => {
+    expect(decideJobBillInvoice({
+      clientId: 'client-1',
+      lines,
+      existing: [{ id: 'from-quote', status: 'draft' }],
+    })).toEqual({ action: 'reuse', invoiceId: 'from-quote', existing: true });
+  });
+
   it('reuses a sent invoice when that is the only row — still no second insert', () => {
     expect(decideJobBillInvoice({
       clientId: 'client-1',
@@ -288,6 +299,13 @@ describe('named toasts', () => {
   it('keeps miss and success copy honest and specific', () => {
     expect(JOB_BILL_INVOICE_NO_CLIENT).toMatch(/client/i);
     expect(JOB_BILL_INVOICE_NO_LINES).toMatch(/bill lines/i);
+    expect(JOB_BILL_INVOICE_EMPTY).toBe('Job bill is empty — add lines before invoicing');
+    expect(jobBillInvoiceBlocked(undefined)).toBe(false);
+    expect(jobBillInvoiceBlocked(null)).toBe(false);
+    expect(jobBillInvoiceBlocked({ lines: 0 })).toBe(true);
+    expect(jobBillInvoiceBlocked({ lines: 2 })).toBe(false);
+    expect(jobBillInvoiceNextDetail(2, 545)).toBe('Draft invoice from the job bill · 2 lines · $545.00');
+    expect(jobBillInvoiceNextDetail(1, 120)).toBe('Draft invoice from the job bill · 1 line · $120.00');
     expect(JOB_BILL_INVOICE_CREATED).toMatch(/draft invoice/i);
     expect(JOB_BILL_INVOICE_EXISTS).toMatch(/already exists/i);
     expect(JOB_BILL_INVOICE_NOTES).toMatch(/^From job bill/i);

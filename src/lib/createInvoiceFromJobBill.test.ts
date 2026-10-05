@@ -146,5 +146,7 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
     expect(quotesPage).not.toContain('createInvoiceFromJobBill');
     expect(quoteNext).not.toContain('createInvoiceFromJobBill');
     expect(quoteConvert).toContain('buildInvoiceFromQuote');
+    expect(quoteConvert).toContain('invoicesForOneJob');
+    expect(quoteConvert).toContain('.eq(\'job_id\', jobId)');
   });
 });

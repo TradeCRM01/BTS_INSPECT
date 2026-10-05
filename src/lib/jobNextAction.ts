@@ -1,4 +1,5 @@
 import type { JobStatus } from '../types/crm';
+import { JOB_BILL_INVOICE_EMPTY, jobBillInvoiceNextDetail } from './invoiceFromJobBill';
 import { effectiveInvoiceStatus } from './invoiceStatus';
 import {
   ARRIVING_NEXT_LABEL,
@@ -39,6 +40,10 @@ export type JobActionContext = {
   hasIssuedInvoice?: boolean;
   hasAcceptedQuote: boolean;
   hasBillLines: boolean;
+  /** Known bill line count. Missing = list card does not know the bill yet. */
+  billLineCount?: number;
+  /** Job-bill charge total for Next detail. */
+  billTotal?: number;
   clockedOn: boolean;
   /** Closed timesheet on this job — the van has clocked off. Optional for older callers. */
   clockedOff?: boolean;
@@ -104,12 +109,24 @@ function jobHasClockedOff(ctx: JobActionContext): boolean {
 }
 
 function jobInvoiceNext(ctx: JobActionContext): RecommendedJobAction {
+  if (ctx.billLineCount === 0) {
+    return {
+      key: 'invoice',
+      label: 'Invoice',
+      detail: JOB_BILL_INVOICE_EMPTY,
+    };
+  }
+  if (ctx.billLineCount != null && ctx.billLineCount > 0) {
+    return {
+      key: 'invoice',
+      label: 'Invoice',
+      detail: jobBillInvoiceNextDetail(ctx.billLineCount, ctx.billTotal ?? 0),
+    };
+  }
   return {
     key: 'invoice',
     label: 'Invoice',
-    detail: ctx.hasAcceptedQuote
-      ? 'Accepted quote is ready to invoice.'
-      : 'Invoice from the job bill.',
+    detail: 'Draft invoice from the job bill.',
   };
 }
 
@@ -147,6 +164,19 @@ export function jobListBucket(
   return 'on_board';
 }
 
+export type JobListInvoiceHint = {
+  invoiceCount?: number;
+  hasDraftInvoice?: boolean;
+  hasIssuedInvoice?: boolean;
+};
+
+function completedListHint(invoices?: JobListInvoiceHint): string | null {
+  if (invoices?.invoiceCount == null) return null;
+  if (invoices.invoiceCount === 0) return 'Invoice';
+  if (invoices.hasDraftInvoice === true && invoices.hasIssuedInvoice !== true) return 'Send';
+  return 'Invoiced';
+}
+
 /** Short hint for jobs list cards — uses only fields already on the job row. */
 export function jobCardHint(
   job: {
@@ -155,9 +185,10 @@ export function jobCardHint(
     assigned_team?: string[] | null;
   },
   now = new Date(),
+  invoices?: JobListInvoiceHint,
 ): string {
   if (job.status === 'cancelled') return 'Cancelled';
-  if (job.status === 'completed') return 'Completed';
+  if (job.status === 'completed') return completedListHint(invoices) ?? 'Completed';
   if (!job.scheduled_date) return 'Set a date';
   if (!job.assigned_team?.length) return 'Assign crew';
   if (job.status === 'in_progress') return 'On site';
@@ -184,10 +215,14 @@ export function jobListNext(
     assigned_team?: string[] | null;
   },
   now = new Date(),
+  invoices?: JobListInvoiceHint,
 ): JobListNext {
-  const label = jobCardHint(job, now);
-  if (label === 'Cancelled' || label === 'Completed') {
+  const label = jobCardHint(job, now, invoices);
+  if (label === 'Cancelled' || label === 'Completed' || label === 'Invoiced') {
     return { href: `/jobs/${job.id}`, label, actionable: false };
+  }
+  if (label === 'Invoice' || label === 'Send') {
+    return { href: `/jobs/${job.id}#job-invoices`, label, actionable: true };
   }
   if (label === 'Set a date' || label === 'Assign crew') {
     return { href: `/jobs/${job.id}#job-schedule`, label, actionable: true };
@@ -315,6 +350,9 @@ export type JobOpenNextJob = {
   status: JobStatus;
   scheduled_date: string | null | undefined;
   assigned_team?: string[] | null;
+  invoiceCount?: number;
+  hasDraftInvoice?: boolean;
+  hasIssuedInvoice?: boolean;
 };
 
 export type JobOpenNextSheet = Omit<JobActionContext, 'status' | 'scheduledDate' | 'crewCount'>;
@@ -332,7 +370,12 @@ export function jobOpenNext(
   sheet?: JobOpenNextSheet,
   now = new Date(),
 ): JobOpenNext {
-  const list = withReminderNext(job, jobListNext(job, now), now);
+  const invoiceHint: JobListInvoiceHint = {
+    invoiceCount: sheet?.invoiceCount ?? job.invoiceCount,
+    hasDraftInvoice: sheet?.hasDraftInvoice ?? job.hasDraftInvoice,
+    hasIssuedInvoice: sheet?.hasIssuedInvoice ?? job.hasIssuedInvoice,
+  };
+  const list = withReminderNext(job, jobListNext(job, now, invoiceHint), now);
   const arrivingWindow = sheet?.arrivingWindow ?? isJobArrivingWindow(job, now);
   const action = recommendJobAction({
     status: job.status,
@@ -340,11 +383,13 @@ export function jobOpenNext(
     crewCount: (job.assigned_team ?? []).length,
     jhaCount: sheet?.jhaCount ?? 0,
     inspectionCount: sheet?.inspectionCount ?? 0,
-    invoiceCount: sheet?.invoiceCount ?? 0,
-    hasDraftInvoice: sheet?.hasDraftInvoice,
-    hasIssuedInvoice: sheet?.hasIssuedInvoice,
+    invoiceCount: invoiceHint.invoiceCount ?? 0,
+    hasDraftInvoice: invoiceHint.hasDraftInvoice,
+    hasIssuedInvoice: invoiceHint.hasIssuedInvoice,
     hasAcceptedQuote: sheet?.hasAcceptedQuote ?? false,
     hasBillLines: sheet?.hasBillLines ?? false,
+    billLineCount: sheet?.billLineCount,
+    billTotal: sheet?.billTotal,
     clockedOn: sheet?.clockedOn ?? false,
     clockedOff: sheet?.clockedOff,
     arrivingWindow,
