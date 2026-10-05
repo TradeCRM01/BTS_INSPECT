@@ -212,7 +212,7 @@ describe('find a report on /reports', () => {
   });
 
   it('writes an honest empty vs search vs filter title', () => {
-    expect(reportsListEmptyTitle({ error: true, count: 0 })).toBe('Could not load reports');
+    expect(reportsListEmptyTitle({ error: true, count: 0 })).toBe("Couldn't load reports");
     expect(reportsListEmptyTitle({ search: 'smith', count: 0 })).toBe('No reports match your search');
     expect(reportsListEmptyTitle({ filter: 'sent', count: 0 })).toBe('No sent reports');
     expect(reportsListEmptyTitle({ filter: 'ready', count: 0 })).toBe('No reports ready');

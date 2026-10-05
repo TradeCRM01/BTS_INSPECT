@@ -135,6 +135,7 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 /** Signed reports-list frame seed — list look only, not a live company. */
 const REPORTS_LIST_LOOK = 'reports-list';
+const REPORTS_ERROR_LOOK = 'drive-error';
 
 function reportsListLookRows(): ReportRow[] {
   const stamp = '2026-09-03T00:00:00.000Z';
@@ -211,6 +212,7 @@ export function ReportsListPage() {
   const params = useParams<{ folderId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const lookReportsList = searchParams.get('look') === REPORTS_LIST_LOOK;
+  const lookReportsError = searchParams.get('look') === REPORTS_ERROR_LOOK;
   const openId = parseReportsListOpenId(searchParams.get('id'));
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(params.folderId ?? null);
   const [folderStack, setFolderStack] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'Reports' }]);
@@ -330,9 +332,10 @@ export function ReportsListPage() {
     enabled: !!companyId && !lookReportsList,
   });
 
-  const { data: allReports, error: reportsError, isLoading: reportsLoading } = useQuery<ReportRow[]>({
-    queryKey: ['all-reports'],
+  const { data: allReports, error: reportsError, isLoading: reportsLoading, refetch: refetchReports } = useQuery<ReportRow[]>({
+    queryKey: ['all-reports', lookReportsError ? 'error' : 'live'],
     queryFn: async () => {
+      if (lookReportsError) throw new Error('Could not load reports');
       if (isDevFieldAuditAuth()) {
         const bundle = getAuditReportSendBundle(AUDIT_REPORT_ID, { name: DEV_AUDIT_COMPANY.name });
         if (bundle?.report) {
@@ -401,7 +404,8 @@ export function ReportsListPage() {
         };
       });
     },
-    enabled: !!companyId && !lookReportsList,
+    enabled: lookReportsError || (!!companyId && !lookReportsList),
+    retry: lookReportsError ? false : 1,
   });
 
   const { data: allInspections } = useQuery<InspectionRow[]>({
@@ -909,7 +913,18 @@ export function ReportsListPage() {
     ];
   }, [movePickerFor, allFolders]);
 
-  if (pageQueryBlocked(foldersError) || pageQueryBlocked(uploadsError) || pageQueryBlocked(reportsError)) {
+  if (reportsError) {
+    return (
+      <AppShell>
+        <PageError
+          message="Couldn't load reports"
+          retryLabel="Retry"
+          onRetry={() => { void refetchReports(); }}
+        />
+      </AppShell>
+    );
+  }
+  if (pageQueryBlocked(foldersError) || pageQueryBlocked(uploadsError)) {
     return <AppShell><PageError message="Could not load reports" /></AppShell>;
   }
 
@@ -963,7 +978,7 @@ export function ReportsListPage() {
             <span className="hub-reports-list-mark">List</span>
           </header>
           <div className="hub-reports-list-body">
-            <h1 className="ops-page-title">Reports</h1>
+            <h1 className="ops-page-title">Shared Drive</h1>
             <p className="hub-reports-list-whisper">{whisper}</p>
             <div className="hub-reports-list-tools">
               <button
