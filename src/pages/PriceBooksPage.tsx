@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,9 +20,18 @@ import { priceBookItemGstRate } from '../lib/priceBookImport';
 import { priceBookWritePayload } from '../lib/priceBookWrite';
 import { gstLabel } from '../lib/gst';
 import { LIST_LOADING_LABEL, listQueryBusy } from '../lib/listQueryReady';
+import {
+  PRICE_BOOKS_LOOK,
+  PRICE_BOOKS_SUBTITLE,
+  priceBookItemsChrome,
+  priceBooksLookItems,
+} from '../lib/priceBookToolbar';
 
 export function PriceBooksPage() {
   const { profile, company } = useAuth();
+  const [searchParams] = useSearchParams();
+  const lookPriceBooks = searchParams.get('look') === PRICE_BOOKS_LOOK;
+  const lookEmpty = lookPriceBooks && searchParams.get('empty') === '1';
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
@@ -55,9 +65,12 @@ export function PriceBooksPage() {
   }, [priceBooks, selectedBookId]);
 
   const { data: items, isLoading: itemsLoading, isPending: itemsPending } = useQuery({
-    queryKey: ['price-book-items', selectedBookId],
+    queryKey: ['price-book-items', selectedBookId, lookEmpty],
     queryFn: async () => {
       if (!selectedBookId) return [];
+      if (lookPriceBooks) {
+        return lookEmpty ? [] : priceBooksLookItems(selectedBookId, profile!.company_id);
+      }
       const mock = getAuditPriceBookItems(selectedBookId);
       if (mock) return mock;
       const { data, error } = await supabase.from('price_book_items').select('*').eq('price_book_id', selectedBookId).order('description');
@@ -89,6 +102,7 @@ export function PriceBooksPage() {
     if (!q) return all;
     return all.filter(i => [i.description, i.code, i.category].filter(Boolean).some(v => v!.toLowerCase().includes(q)));
   }, [items, search]);
+  const chrome = priceBookItemsChrome((items ?? []).length);
 
   const busy = listQueryBusy({ isPending, isLoading, data: priceBooks });
   const itemsBusy = !!selectedBookId && listQueryBusy({
@@ -105,7 +119,7 @@ export function PriceBooksPage() {
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-semibold text-[#1A1A1A]">Price Books</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">Standardized pricing catalog for quoting</p>
+            <p className="text-sm text-[#4A5568] mt-0.5">{PRICE_BOOKS_SUBTITLE}</p>
           </div>
           <button onClick={() => { setEditingBook(null); setShowBookForm(true); }} className="btn-primary">
             <Plus size={16} /> New Price Book
@@ -152,42 +166,55 @@ export function PriceBooksPage() {
 
           {/* Items table */}
           <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-[#E5E7EB] flex items-center justify-between gap-2 flex-wrap">
+            <div className="px-4 py-3 border-b border-[#E5E7EB] flex flex-col gap-2 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-semibold text-[#1A1A1A]">{priceBooks?.find(pb => pb.id === selectedBookId)?.name ?? 'Items'}</h2>
                 <span className="text-xs text-[#6B7280] bg-gray-100 px-2 py-0.5 rounded-full">
                   {busy || itemsBusy ? LIST_LOADING_LABEL : `${filteredItems.length} items`}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search items..."
-                    className="min-h-[44px] h-auto py-2 pl-9 pr-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6] w-full sm:w-48" />
+              {(chrome.showSearch || chrome.showToolbarActions) && selectedBookId && (
+                <div
+                  data-price-book-toolbar="1"
+                  className="flex w-full max-[639px]:flex-col max-[639px]:items-stretch gap-2 min-[640px]:w-auto min-[640px]:flex-row min-[640px]:items-center"
+                >
+                  {chrome.showSearch && (
+                    <div className="relative w-full min-[640px]:w-48" data-price-book-search="1">
+                      <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search items..."
+                        className="min-h-[44px] h-auto py-2 pl-9 pr-3 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2E75B6] w-full" />
+                    </div>
+                  )}
+                  {chrome.showToolbarActions && (
+                    <div
+                      data-price-book-toolbar-actions="1"
+                      className="flex w-full max-[639px]:flex-col gap-2 min-[640px]:w-auto min-[640px]:flex-row min-[640px]:items-center"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setShowCsvImport(true)}
+                        className="flex items-center justify-center gap-1.5 min-h-[44px] w-full min-[640px]:w-auto border border-[#2E75B6] text-[#2E75B6] px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-blue-50 whitespace-nowrap"
+                      >
+                        <FileUp size={14} /> Import CSV
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowPdfImport(true)}
+                        className="flex items-center justify-center gap-1.5 min-h-[44px] w-full min-[640px]:w-auto border border-[#2E75B6] text-[#2E75B6] px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-blue-50 whitespace-nowrap"
+                      >
+                        <FileUp size={14} /> Import PDF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setEditingItem(null); setShowItemForm(true); }}
+                        className="flex items-center justify-center gap-1.5 min-h-[44px] w-full min-[640px]:w-auto bg-[#0A2540] text-white px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] whitespace-nowrap transition-all duration-200 active:scale-[0.98]"
+                      >
+                        <Plus size={14} /> Add Item
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {selectedBookId && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setShowCsvImport(true)}
-                      className="flex items-center gap-1.5 min-h-[44px] border border-[#2E75B6] text-[#2E75B6] px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-blue-50 whitespace-nowrap"
-                    >
-                      <FileUp size={14} /> Import CSV
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowPdfImport(true)}
-                      className="flex items-center gap-1.5 min-h-[44px] border border-[#2E75B6] text-[#2E75B6] px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-blue-50 whitespace-nowrap"
-                    >
-                      <FileUp size={14} /> Import PDF
-                    </button>
-                    <button onClick={() => { setEditingItem(null); setShowItemForm(true); }}
-                      className="flex items-center gap-1.5 bg-[#0A2540] text-white px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] whitespace-nowrap transition-all duration-200 active:scale-[0.98]">
-                      <Plus size={14} /> Add Item
-                    </button>
-                  </>
-                )}
-              </div>
+              )}
             </div>
 
             {busy || itemsBusy ? (
@@ -200,14 +227,14 @@ export function PriceBooksPage() {
                 title={search ? 'No items match your search' : 'No items in this price book'}
                 message={search ? 'Try a different search term.' : 'Add your first item to get started.'}
                 action={!search && (
-                  <div className="flex flex-wrap gap-2 justify-center">
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-2 justify-center" data-price-book-empty-actions="1">
                     <button onClick={() => setShowCsvImport(true)} className="btn-secondary min-h-[44px]">
                       <FileUp size={16} /> Import CSV
                     </button>
                     <button onClick={() => setShowPdfImport(true)} className="btn-secondary min-h-[44px]">
                       <FileUp size={16} /> Import from PDF
                     </button>
-                    <button onClick={() => { setEditingItem(null); setShowItemForm(true); }} className="btn-primary">
+                    <button onClick={() => { setEditingItem(null); setShowItemForm(true); }} className="btn-primary min-h-[44px]">
                       <Plus size={16} /> Add first item
                     </button>
                   </div>
