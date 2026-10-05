@@ -5,8 +5,11 @@ import {
   COMPLIANCE_DEADLINES_EMPTY,
   COMPLIANCE_DEADLINES_LOAD_ERROR,
   COMPLIANCE_DEADLINES_SELECT,
+  COMPLIANCE_DEADLINES_TZ,
+  addComplianceDueDays,
   complianceDeadlinesCardCopy,
   complianceDeadlinesCardKind,
+  perthCalendarDay,
   splitComplianceDeadlines,
 } from './complianceDeadlinesWidget';
 
@@ -53,13 +56,48 @@ describe('complianceDeadlinesCardKind', () => {
 
 describe('splitComplianceDeadlines', () => {
   it('splits on next_due_date, not expiry_date', () => {
-    const now = new Date('2026-09-03T00:00:00.000Z');
+    const now = new Date('2026-09-03T08:00:00.000Z');
     const overdue = { id: 'o', title: 'Old ticket', next_due_date: '2026-08-01', status: 'overdue' };
     const upcoming = { id: 'u', title: 'Licence', next_due_date: '2026-09-18', status: 'upcoming' };
     const done = { id: 'd', title: 'Done', next_due_date: '2026-08-01', status: 'completed' };
     const split = splitComplianceDeadlines([overdue, upcoming, done], now);
     expect(split.overdue.map(row => row.id)).toEqual(['o']);
     expect(split.upcoming.map(row => row.id)).toEqual(['u']);
+  });
+
+  it('keeps a Perth due-today row upcoming at 23:59, overdue the next Perth day', () => {
+    expect(COMPLIANCE_DEADLINES_TZ).toBe('Australia/Perth');
+    const dueToday = { id: 'today', title: 'Licence EC-9988', next_due_date: '2026-10-05', status: 'upcoming' };
+    const perth2359 = new Date('2026-10-05T15:59:00.000Z');
+    expect(perthCalendarDay(perth2359)).toBe('2026-10-05');
+    const stillDue = splitComplianceDeadlines([dueToday], perth2359);
+    expect(stillDue.overdue.map(row => row.id)).toEqual([]);
+    expect(stillDue.upcoming.map(row => row.id)).toEqual(['today']);
+
+    const nextPerthMorning = new Date('2026-10-05T16:30:00.000Z');
+    expect(perthCalendarDay(nextPerthMorning)).toBe('2026-10-06');
+    const after = splitComplianceDeadlines([dueToday], nextPerthMorning);
+    expect(after.overdue.map(row => row.id)).toEqual(['today']);
+    expect(after.upcoming.map(row => row.id)).toEqual([]);
+  });
+
+  it('does not treat UTC-midnight today as overdue after 10am Brisbane', () => {
+    const brisbane10am = new Date('2026-10-05T00:00:00.000Z');
+    expect(perthCalendarDay(brisbane10am)).toBe('2026-10-05');
+    const row = { id: 'today', next_due_date: '2026-10-05', status: 'upcoming' };
+    const split = splitComplianceDeadlines([row], brisbane10am);
+    expect(split.overdue).toEqual([]);
+    expect(split.upcoming.map(r => r.id)).toEqual(['today']);
+  });
+
+  it('excludes completed from overdue and upcoming', () => {
+    const now = new Date('2026-10-05T08:00:00.000Z');
+    const today = perthCalendarDay(now);
+    const donePast = { id: 'done-past', next_due_date: addComplianceDueDays(today, -10), status: 'completed' };
+    const doneSoon = { id: 'done-soon', next_due_date: addComplianceDueDays(today, 7), status: 'completed' };
+    const split = splitComplianceDeadlines([donePast, doneSoon], now);
+    expect(split.overdue).toEqual([]);
+    expect(split.upcoming).toEqual([]);
   });
 });
 
@@ -88,6 +126,12 @@ describe('ComplianceDeadlinesWidget query and error copy', () => {
     expect(emptyAt).toBeGreaterThan(errorAt);
     expect(fn).toContain("kind === 'error'");
     expect(pageQueryBlockedSnippet(fn)).toBe(true);
+    expect(fn).toContain('text-[#EF4444]');
+    expect(fn).toContain('text-[#D97706]');
+    expect(fn).not.toContain('text-red-500');
+    expect(fn).not.toContain('text-amber-600');
+    expect(fn).not.toContain('text-amber-500');
+    expect(fn).not.toContain('new Date(item.next_due_date');
     expect(fn).not.toMatch(/Relovi|Littleloop/);
   });
 });
