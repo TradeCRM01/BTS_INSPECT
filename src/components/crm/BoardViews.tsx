@@ -29,16 +29,20 @@ import { formatJobRef } from '../../lib/jobRef';
 import {
   jobsOnScheduleDay,
   TIME_NOT_SET_LABEL,
+  scheduleAgendaClock,
   scheduleChipClock,
+  scheduleCrewLabel,
   scheduleDateKey,
   scheduleJobHref,
   schedulePlotTimes,
+  scheduleWeekAgenda,
   scheduleWeekDays,
   weekBoardChip,
   weekBoardCrewLabel,
   weekBoardRows,
   WEEK_UNASSIGNED_CREW_ID,
 } from '../../lib/scheduleBoard';
+import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
 
 export interface TeamMember {
   id: string;
@@ -286,28 +290,69 @@ export const PhoneDayList = memo(function PhoneDayList({
 });
 
 export const PhoneWeekList = memo(function PhoneWeekList({
-  jobs, teamMembers, currentDate, onJobClick, onSelectDay, onDayClick, onJobDrop,
+  jobs, teamMembers, currentDate, onJobClick,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
   currentDate: Date;
   onJobClick: (job: JobWithClient) => void;
-  onDragStart: (e: React.DragEvent, jobId: string) => void;
-  onSelectDay: (date: Date) => void;
-  onDayClick: (dateStr: string, employeeId?: string | null) => void;
-  onJobDrop?: (drop: JobDropPayload) => void;
 }) {
+  const days = useMemo(
+    () => scheduleWeekAgenda(jobs, currentDate),
+    [jobs, currentDate],
+  );
+
   return (
-    <WeekBoardView
-      jobs={jobs}
-      teamMembers={teamMembers ?? []}
-      currentDate={currentDate}
-      onJobClick={onJobClick}
-      onDayClick={onDayClick}
-      onSelectDay={onSelectDay}
-      onJobDrop={onJobDrop}
-      filteredEmployeeIds={new Set()}
-    />
+    <div className="hub-week-agenda" data-schedule-week="1" data-week-agenda="1">
+      {days.map(day => {
+        const date = parseISO(`${day.date}T00:00:00`);
+        return (
+          <section
+            key={day.date}
+            data-agenda-day={day.date}
+            className={`hub-week-agenda-day${day.isToday ? ' is-today' : ''}`}
+          >
+            <h2 className="hub-week-agenda-head">
+              {format(date, 'EEE d MMM')}
+              {day.isToday ? <span className="hub-week-agenda-today">Today</span> : null}
+            </h2>
+            {day.jobs.length === 0 ? (
+              <p className="hub-week-agenda-empty">Nothing booked</p>
+            ) : (
+              <ul className="hub-week-agenda-list">
+                {day.jobs.map(job => {
+                  const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
+                  return (
+                    <li key={job.id}>
+                      <button
+                        type="button"
+                        data-schedule-job={job.id}
+                        className="hub-week-agenda-row"
+                        onClick={() => onJobClick(job)}
+                      >
+                        <span className="hub-week-agenda-time">
+                          {scheduleAgendaClock(job.start_time, job.end_time)}
+                        </span>
+                        <span className="hub-week-agenda-copy">
+                          <span className="hub-week-agenda-title">{job.title}</span>
+                          <span className="hub-week-agenda-meta">
+                            {[job.client_name, suburb].filter(Boolean).join(' · ')}
+                          </span>
+                          <span className="hub-week-agenda-crew">
+                            {scheduleCrewLabel(job.assigned_team, teamMembers)}
+                          </span>
+                          <span className="hub-jobs-phone-status">{JOB_STATUS_LABELS[job.status]}</span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        );
+      })}
+    </div>
   );
 });
 
