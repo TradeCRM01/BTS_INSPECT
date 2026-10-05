@@ -4,6 +4,8 @@ import {
   asTeamIds,
   dayBoardHoursFit,
   dayBoardHourWidthPx,
+  dayBoardOpenScrollLeft,
+  dayBoardStartHour,
   dayRowHeightPx,
   nextAssignedTeam,
   placeDayRowJobs,
@@ -143,6 +145,48 @@ describe('dayBoardHourWidthPx', () => {
     expect(dayBoardHoursFit(952)).toBe(true);
     expect(dayBoardHourWidthPx(238)).toBe(96);
     expect(dayBoardHoursFit(238)).toBe(false);
+  });
+});
+
+describe('dayBoardStartHour', () => {
+  it('stays at 6 AM unless a job that day starts earlier', () => {
+    expect(dayBoardStartHour([{ start_time: '07:00' }])).toBe(6);
+    expect(dayBoardStartHour([{ start_time: '05:30' }])).toBe(5);
+    expect(dayBoardStartHour([{ start_time: null }, { start_time: '08:00' }])).toBe(6);
+  });
+});
+
+describe('dayBoardOpenScrollLeft', () => {
+  it('scrolls the phone board to the first timed job and leaves a fitted desktop at 0', () => {
+    expect(dayBoardOpenScrollLeft({
+      hoursFit: true,
+      jobs: [{ start_time: '07:00' }],
+      dayStart: 6,
+      hourWidth: 63,
+      isToday: false,
+    })).toBe(0);
+    expect(dayBoardOpenScrollLeft({
+      hoursFit: false,
+      jobs: [{ start_time: '07:00' }],
+      dayStart: 6,
+      hourWidth: 96,
+      isToday: false,
+    })).toBe(96);
+    expect(dayBoardOpenScrollLeft({
+      hoursFit: false,
+      jobs: [{ start_time: '05:30' }, { start_time: '07:00' }],
+      dayStart: 5,
+      hourWidth: 96,
+      isToday: false,
+    })).toBe(48);
+    expect(dayBoardOpenScrollLeft({
+      hoursFit: false,
+      jobs: [{ start_time: null }],
+      dayStart: 6,
+      hourWidth: 96,
+      isToday: true,
+      now: new Date(2026, 9, 5, 14, 0, 0),
+    })).toBe(768);
   });
 });
 
