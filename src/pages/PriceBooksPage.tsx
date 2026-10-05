@@ -16,6 +16,7 @@ import { PriceBookPdfImportModal } from '../components/pricebooks/PriceBookPdfIm
 import { PriceBookCsvImportModal } from '../components/pricebooks/PriceBookCsvImportModal';
 import { getAuditPriceBookItems, getAuditPriceBooks } from '../lib/devFieldAuditDocs';
 import { priceBookItemGstRate } from '../lib/priceBookImport';
+import { priceBookWritePayload } from '../lib/priceBookWrite';
 import { gstLabel } from '../lib/gst';
 
 export function PriceBooksPage() {
@@ -107,19 +108,29 @@ export function PriceBooksPage() {
           {/* Price book list sidebar */}
           <div className="space-y-2">
             {(priceBooks ?? []).map(pb => (
-              <button key={pb.id} onClick={() => setSelectedBookId(pb.id)}
-                className={`w-full text-left p-3 rounded-lg border transition-all ${
+              <div
+                key={pb.id}
+                className={`w-full p-3 rounded-lg border transition-all flex items-start gap-1 ${
                   selectedBookId === pb.id ? 'border-[#2E75B6] bg-blue-50 shadow-sm' : 'border-[#E5E7EB] bg-white hover:border-[#9CA3AF]'
-                }`}>
-                <div className="flex items-center justify-between">
+                }`}
+              >
+                <button type="button" onClick={() => setSelectedBookId(pb.id)} className="min-w-0 flex-1 text-left">
                   <div className="flex items-center gap-2 min-w-0">
                     <BookOpen size={16} className={selectedBookId === pb.id ? 'text-[#2E75B6]' : 'text-[#6B7280]'} />
-                    <span className="text-sm font-medium text-[#1A1A1A] truncate">{pb.name}</span>
+                    <span className="text-sm font-medium text-[#1A1A1A] truncate" title={pb.name}>{pb.name}</span>
+                    {pb.is_default && <Star size={14} className="text-[#D97706] fill-[#D97706] shrink-0" />}
                   </div>
-                  {pb.is_default && <Star size={14} className="text-[#D97706] fill-[#D97706] shrink-0" />}
-                </div>
-                {pb.description && <p className="text-xs text-[#4A5568] mt-1 truncate">{pb.description}</p>}
-              </button>
+                  {pb.description && <p className="text-xs text-[#4A5568] mt-1 truncate">{pb.description}</p>}
+                </button>
+                <button
+                  type="button"
+                  aria-label="Edit price book"
+                  onClick={() => { setEditingBook(pb); setShowBookForm(true); }}
+                  className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md text-[#6B7280] hover:text-[#0A2540] hover:bg-[#F3F4F6] shrink-0"
+                >
+                  <Pencil size={14} />
+                </button>
+              </div>
             ))}
             {(priceBooks ?? []).length === 0 && (
               <div className="text-center py-10">
@@ -318,7 +329,12 @@ function PriceBookForm({ book, onClose, onSaved }: { book: PriceBook | null; onC
       if (form.is_default) {
         await supabase.from('price_books').update({ is_default: false }).eq('company_id', profile!.company_id);
       }
-      const payload = { company_id: profile!.company_id, name: form.name, description: form.description || null, is_default: form.is_default, updated_at: new Date().toISOString() };
+      const payload = priceBookWritePayload({
+        companyId: profile!.company_id,
+        name: form.name,
+        description: form.description,
+        isDefault: form.is_default,
+      });
       if (book) {
         const { error } = await supabase.from('price_books').update(payload).eq('id', book.id).eq('company_id', profile!.company_id);
         if (error) throw error;
