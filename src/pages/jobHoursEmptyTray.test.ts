@@ -13,6 +13,13 @@ function lookCss(): string {
   return css.slice(lookStart, lookEnd);
 }
 
+function jobHoursTray(): string {
+  const page = src('src/pages/JobDetailPage.tsx');
+  const start = page.indexOf('id="job-hours"');
+  const end = page.indexOf('</JobRelatedSection>', start);
+  return page.slice(start, end);
+}
+
 const HIDE_HEAD_ACTIONS =
   '.ops-tray:has(.ops-tray-empty) .ops-tray-head > :not(.ops-section-title)';
 
@@ -57,5 +64,15 @@ describe('empty time tray keeps Add hours', () => {
       expect(page).toContain(marker);
     }
     expect(page.indexOf('id="job-hours"')).toBeGreaterThan(page.indexOf('title="Invoices"'));
+  });
+
+  it('renders exactly one Clock on on the empty time tray — the head control next to Add hours', () => {
+    const tray = jobHoursTray();
+    expect(tray).toContain('Add hours');
+    expect(tray).toContain('Nobody has clocked onto this job yet.');
+    expect(tray.match(/Clock on/g)).toEqual(['Clock on']);
+    expect(tray.indexOf('Clock on')).toBeLessThan(tray.indexOf('Add hours'));
+    expect(tray.indexOf('Clock on')).toBeLessThan(tray.indexOf('Nobody has clocked onto this job yet.'));
+    expect(tray).not.toContain('emptyAction');
   });
 });

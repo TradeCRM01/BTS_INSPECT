@@ -3640,13 +3640,6 @@ export function JobDetailPage() {
             </div>
           }
           emptyTitle="Nobody has clocked onto this job yet."
-          emptyAction={
-            runningEntry ? undefined : (
-              <button type="button" onClick={() => clockOnJob.mutate()} className="ops-link">
-                Clock on
-              </button>
-            )
-          }
         >
           {(timesheets ?? []).map(entry => {
             const duration = entry.end_time
