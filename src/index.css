@@ -3831,6 +3831,7 @@
     border: 1px solid #E2D9CC;
     border-radius: 16px;
     overflow: hidden;
+    flex-shrink: 0;
     box-shadow: none;
   }
 
@@ -7691,6 +7692,7 @@
     border: 1px solid #E2D9CC;
     border-radius: 16px;
     overflow: hidden;
+    flex-shrink: 0;
     box-shadow:
       inset 0 1px 0 #fff,
       0 10px 28px rgba(10, 37, 64, 0.08);
@@ -7962,7 +7964,7 @@
     color: #0A2540;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.02em;
-    line-height: 0.96;
+    line-height: 1.1;
   }
 
   .hub-quote-convert {
