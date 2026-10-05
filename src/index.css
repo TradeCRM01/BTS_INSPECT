@@ -10345,8 +10345,10 @@
     }
   }
 
-  .hub-jobs-phone-list {
-    display: none;
+  @media (min-width: 640px) {
+    .hub-jobs-phone-list {
+      display: none;
+    }
   }
 
   /* End jobs list document */
