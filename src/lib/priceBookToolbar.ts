@@ -1,4 +1,4 @@
-import type { PriceBookItem } from '../types/fsm';
+import { formatMoney, type PriceBookItem } from '../types/fsm';
 
 export const PRICE_BOOKS_SUBTITLE = 'Your prices for quick, consistent quotes.';
 export const PRICE_BOOKS_LOOK = 'price-books';
@@ -46,5 +46,34 @@ export function priceBooksLookItems(bookId: string, companyId: string): PriceBoo
       is_active: true,
       created_at: stamp,
     },
+    {
+      id: 'look-pb-switchboard',
+      price_book_id: bookId,
+      company_id: companyId,
+      code: 'SB-12',
+      description: 'Supply and install a 24-way switchboard with surge, RCD protection, labelled circuits, and after-hours commissioning on a live site',
+      category: 'Labour',
+      unit: 'each',
+      unit_price: 1250,
+      cost_price: 780,
+      gst_rate: 10,
+      is_active: true,
+      created_at: stamp,
+    },
   ];
+}
+
+export function priceBookPhoneRow(item: {
+  description: string;
+  unit_price: number | string;
+  code?: string | null;
+  category?: string | null;
+  unit?: string | null;
+}): { title: string; price: string; meta: string } {
+  const bits = [item.code, item.category, item.unit].map(v => (v ?? '').trim()).filter(Boolean);
+  return {
+    title: item.description,
+    price: formatMoney(Number(item.unit_price)),
+    meta: bits.join(' · '),
+  };
 }

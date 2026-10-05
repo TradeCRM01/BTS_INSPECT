@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { formatMoney } from '../types/fsm';
 import {
   PRICE_BOOKS_SUBTITLE,
   priceBookItemsChrome,
+  priceBookPhoneRow,
+  priceBooksLookItems,
 } from './priceBookToolbar';
 
 function src(rel: string): string {
@@ -40,5 +43,51 @@ describe('PriceBooksPage chrome', () => {
     expect(page).toContain('max-[639px]:flex-col');
     expect(page).toContain('min-h-[44px]');
     expect(page).not.toMatch(/Relovi|Littleloop/);
+    expect(page).toContain('Import PDF');
+    expect(page).not.toContain('Import from PDF');
+    expect(page).toContain('data-price-book-phone-list');
+    expect(page).toContain('data-price-book-phone-row');
+    expect(page).toContain('min-[640px]:hidden');
+    expect(page).toContain('hidden min-[640px]:block');
+    expect(page).toContain('priceBookPhoneRow');
+  });
+});
+
+describe('priceBookPhoneRow', () => {
+  it('contains the description plus the formatted sell price', () => {
+    const row = priceBookPhoneRow({
+      description: 'Site labour',
+      unit_price: 95,
+      code: 'LAB-01',
+      category: 'Labour',
+      unit: 'hr',
+    });
+    expect(row.title).toBe('Site labour');
+    expect(row.price).toBe(formatMoney(95));
+    expect(row.price).toBe('$95.00');
+    expect(row.meta).toBe('LAB-01 · Labour · hr');
+  });
+
+  it('keeps a long description next to a four-digit price', () => {
+    const row = priceBookPhoneRow({
+      description: 'Supply and install a 24-way switchboard with surge, RCD protection, labelled circuits, and after-hours commissioning on a live site',
+      unit_price: 1250,
+      code: 'SB-12',
+      category: 'Labour',
+      unit: 'each',
+    });
+    expect(row.title).toContain('24-way switchboard');
+    expect(row.price).toBe(formatMoney(1250));
+    expect(row.price).toBe('$1,250.00');
+  });
+});
+
+describe('priceBooksLookItems', () => {
+  it('includes three look rows with a four-digit sell price', () => {
+    const items = priceBooksLookItems('book-1', 'co-1');
+    expect(items).toHaveLength(3);
+    expect(items.map(item => item.description)).toContain('Site labour');
+    expect(items.some(item => item.unit_price === 1250)).toBe(true);
+    expect(priceBookPhoneRow(items.find(item => item.unit_price === 1250)!).price).toBe('$1,250.00');
   });
 });

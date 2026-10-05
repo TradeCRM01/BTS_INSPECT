@@ -24,6 +24,7 @@ import {
   PRICE_BOOKS_LOOK,
   PRICE_BOOKS_SUBTITLE,
   priceBookItemsChrome,
+  priceBookPhoneRow,
   priceBooksLookItems,
 } from '../lib/priceBookToolbar';
 
@@ -232,7 +233,7 @@ export function PriceBooksPage() {
                       <FileUp size={16} /> Import CSV
                     </button>
                     <button onClick={() => setShowPdfImport(true)} className="btn-secondary min-h-[44px]">
-                      <FileUp size={16} /> Import from PDF
+                      <FileUp size={16} /> Import PDF
                     </button>
                     <button onClick={() => { setEditingItem(null); setShowItemForm(true); }} className="btn-primary min-h-[44px]">
                       <Plus size={16} /> Add first item
@@ -243,7 +244,30 @@ export function PriceBooksPage() {
             ) : isLoading ? (
               <SkeletonRow />
             ) : (
-              <div className="overflow-x-auto">
+              <>
+              <div className="min-[640px]:hidden divide-y divide-[#F3F4F6]" data-price-book-phone-list="1">
+                {filteredItems.map(item => {
+                  const row = priceBookPhoneRow(item);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      data-price-book-phone-row={item.id}
+                      onClick={() => { setEditingItem(item); setShowItemForm(true); }}
+                      className="w-full min-h-[44px] px-4 py-3 text-left hover:bg-[#F9FAFB] transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <p className="min-w-0 flex-1 font-semibold text-[#1A1A1A] break-words">{row.title}</p>
+                        <p className="shrink-0 whitespace-nowrap tabular-nums font-semibold text-[#0A2540]">{row.price}</p>
+                      </div>
+                      {row.meta && (
+                        <p className="text-xs text-[#6B7280] mt-0.5">{row.meta}</p>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="hidden min-[640px]:block overflow-x-auto" data-price-book-table="1">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[#F9FAFB] text-left text-xs text-[#6B7280] uppercase tracking-wide">
@@ -288,6 +312,7 @@ export function PriceBooksPage() {
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </div>
         </div>
