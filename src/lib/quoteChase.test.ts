@@ -140,6 +140,7 @@ describe('Step 4 quote chase done-whens', () => {
     expect(dialog).toContain('Mark chased');
     expect(dialog).toContain('copyShareText');
     expect(dialog).toContain('ensureClientPortalUrl');
+    expect(dialog).toContain('isDevFieldAuditAuth');
     expect(dialog).not.toContain('deliverQuote');
     expect(dialog).not.toContain('QuoteSendDialog');
     expect(dialog).not.toContain('RESEND_API_KEY');

@@ -12,6 +12,7 @@ import {
   quoteChaseCopyDisabledReason,
   quoteChaseMarkPatch,
 } from '../../lib/nudges';
+import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
 import { supabase } from '../../lib/supabase';
 import { formatMoney } from '../../types/fsm';
 
@@ -110,12 +111,14 @@ export function QuoteChaseDialog({
     setMarking(true);
     setErr('');
     try {
-      const { error } = await supabase
-        .from('quotes')
-        .update(patch)
-        .eq('id', quote.id)
-        .eq('status', 'sent');
-      if (error) throw error;
+      if (!isDevFieldAuditAuth()) {
+        const { error } = await supabase
+          .from('quotes')
+          .update(patch)
+          .eq('id', quote.id)
+          .eq('status', 'sent');
+        if (error) throw error;
+      }
       onChased();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not mark this quote chased.');
