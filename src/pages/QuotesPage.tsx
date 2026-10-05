@@ -44,7 +44,7 @@ import { copyShareText, ensureClientPortalUrl } from '../lib/documentShareDelive
 import { commercialPdfPreviewData, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
-import { checkPriceSendBlock } from '../lib/checkPriceGate';
+import { checkPriceSendBlock, quoteListMoney } from '../lib/checkPriceGate';
 import { listQueryBusy } from '../lib/listQueryReady';
 import { padQuoteNumber } from '../lib/quoteJobFields';
 import {
@@ -83,6 +83,7 @@ import { Plus, FileText, Mail, Phone, User, X, MoreHorizontal, Mic } from 'lucid
 import {
   browserSpeechRecognition,
   insertQuickQuoteDraft,
+  QUICK_QUOTE_CHECK_PRICE,
   quickQuoteInsertRow,
   transcriptFromSpeechEvent,
   type QuickSpeechRecognition,
@@ -219,8 +220,7 @@ function quoteTitle(quote: { quote_number?: number | null } | null): string {
 }
 
 function quoteMoney(total: number | string | null | undefined): string | null {
-  const n = Number(total ?? 0);
-  return n > 0 ? formatMoney(n) : null;
+  return quoteListMoney(total);
 }
 
 const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
@@ -1505,7 +1505,15 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                   const unit = parseFloat(li.unit_price) || 0;
                   return (
                     <tr key={`${li.description}-${idx}`}>
-                      <td>{li.description}</td>
+                      <td>
+                        {li.description}
+                        {li.check_price ? (
+                          <>
+                            {' '}
+                            <span className="hub-quote-check-price">{QUICK_QUOTE_CHECK_PRICE}</span>
+                          </>
+                        ) : null}
+                      </td>
                       <td className="hub-quote-num">{qty}</td>
                       <td className="hub-quote-num">{formatMoney(unit)}</td>
                       <td className="hub-quote-num">{formatMoney(qty * unit)}</td>

@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { formatMoney } from '../types/fsm';
 import {
   CHECK_PRICE_BLOCK,
   checkPriceAfterUnitPrice,
   checkPriceSendBlock,
+  quoteListMoney,
   throwIfCheckPriceUnpriced,
 } from './checkPriceGate';
 
@@ -90,5 +92,28 @@ describe('check price gate', () => {
     expect(invoiceSend).toContain('checkPriceSendBlock(bundle?.invoice?.line_items)');
     expect(invoiceSend).toContain('!checkPriceBlock && share?.canCopyLink');
     expect(invoiceSend).toContain('!checkPriceBlock && canOpenSmsDraft');
+  });
+
+  it('(v) shows Check price on quote paper and $0.00 on the list', () => {
+    expect(quoteListMoney(0)).toBe(formatMoney(0));
+    expect(quoteListMoney(0)).toBe('$0.00');
+    expect(quoteListMoney('0')).toBe('$0.00');
+    expect(quoteListMoney(12.5)).toBe(formatMoney(12.5));
+    expect(quoteListMoney(Number.NaN)).toBeNull();
+
+    const quotes = src('src/pages/QuotesPage.tsx');
+    expect(quotes).toContain('quoteListMoney');
+    expect(quotes).not.toContain('return n > 0 ? formatMoney(n) : null');
+    const paper = quotes.slice(
+      quotes.indexOf('className="hub-quote-lines"'),
+      quotes.indexOf('className="hub-quote-gst"'),
+    );
+    expect(paper).toContain('hub-quote-check-price');
+    expect(paper).toContain('QUICK_QUOTE_CHECK_PRICE');
+    expect(paper).toContain('li.check_price');
+
+    expect(src('src/reports/commercial/CommercialDocumentPdf.tsx')).not.toContain('hub-quote-check-price');
+    expect(src('src/pages/ClientPortalPublicPage.tsx')).not.toContain('hub-quote-check-price');
+    expect(src('src/reports/commercial/CommercialDocumentPdf.tsx')).not.toContain('QUICK_QUOTE_CHECK_PRICE');
   });
 });
