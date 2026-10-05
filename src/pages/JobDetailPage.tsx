@@ -91,6 +91,7 @@ import {
   planTimesheetClockOff,
 } from '../lib/timesheetJob';
 import {
+  JOB_VISIT_NOTE_COLUMNS,
   JOB_VISIT_NOTE_TABLE,
   composeVisitNoteBody,
   decideJobVisitNotePost,
@@ -368,6 +369,7 @@ function lookVisitNotes(jobId: string): JobVisitNote[] {
         customer_wants: 'A quote for the upstairs run.',
       }),
       created_at: '2026-09-08T09:15:00.000Z',
+      outcome: null,
     },
     {
       id: 'look-visit-mid',
@@ -377,6 +379,7 @@ function lookVisitNotes(jobId: string): JobVisitNote[] {
       author_name: 'Sam Cole',
       body: 'Pulled the old unit. Left the isolator tagged.',
       created_at: '2026-09-07T08:00:00.000Z',
+      outcome: null,
     },
     {
       id: 'look-visit-old',
@@ -386,6 +389,7 @@ function lookVisitNotes(jobId: string): JobVisitNote[] {
       author_name: 'Alex Reed',
       body: 'Site walk. Isolated the feed. Booked the return for Tuesday.',
       created_at: '2026-09-06T16:40:00.000Z',
+      outcome: null,
     },
   ];
 }
@@ -1781,7 +1785,7 @@ export function JobDetailPage() {
       if (!scope) return [];
       const { data, error } = await supabase
         .from(JOB_VISIT_NOTE_TABLE)
-        .select('id, company_id, job_id, author_id, author_name, body, created_at')
+        .select(JOB_VISIT_NOTE_COLUMNS)
         .eq('company_id', scope.eq.company_id)
         .eq('job_id', scope.eq.job_id)
         .order('created_at', { ascending: false })
@@ -2012,6 +2016,7 @@ export function JobDetailPage() {
         authorId: profile?.id,
         authorName: profile?.name,
         sections: visitUpdateSections(visitDraft),
+        outcome: visitDraft.outcome,
         photoCount: visitPhotos.length,
       });
       let failed = 0;
@@ -2352,6 +2357,7 @@ export function JobDetailPage() {
     authorId: profile?.id,
     authorName: profile?.name,
     sections: visitUpdateSections(visitDraft),
+    outcome: visitDraft.outcome,
     photoCount: visitPhotos.length,
   });
   const visitReady = visitDecision.action === 'write';
@@ -3284,8 +3290,8 @@ export function JobDetailPage() {
                   {blocks.length > 0 && (
                     <div className="job-visit-body">
                       {blocks.map((block, index) => {
-                        const label = visitNoteHistoryLabel(block);
-                        const text = visitNoteHistoryText(block);
+                        const label = visitNoteHistoryLabel(block, note.outcome);
+                        const text = visitNoteHistoryText(block, note.outcome);
                         if (!label && !text) return null;
                         return (
                         <p key={block.key ?? `free-${index}`} className={label ? 'job-visit-block' : undefined}>

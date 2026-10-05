@@ -37,6 +37,7 @@ const older = {
   author_name: 'Sam Cole',
   body: 'Pulled the old unit. Left the isolator tagged.',
   created_at: '2026-09-07T08:00:00.000Z',
+  outcome: null,
 };
 
 const newer = {
@@ -47,6 +48,7 @@ const newer = {
   author_name: 'Alex Reed',
   body: 'Fitted the new unit. Customer wants a quote for the upstairs run.',
   created_at: '2026-09-08T09:15:00.000Z',
+  outcome: null,
 };
 
 const sameInstantEarlierId = {
@@ -57,6 +59,7 @@ const sameInstantEarlierId = {
   author_name: 'Sam Cole',
   body: 'First of the pair.',
   created_at: '2026-09-08T10:00:00.000Z',
+  outcome: null,
 };
 
 const sameInstantLaterId = {
@@ -67,6 +70,7 @@ const sameInstantLaterId = {
   author_name: 'Alex Reed',
   body: 'Second of the pair.',
   created_at: '2026-09-08T10:00:00.000Z',
+  outcome: null,
 };
 
 const fullSections = {
@@ -213,22 +217,31 @@ describe('visitNoteHistoryLabel', () => {
   const leftover = { key: 'left' as const, label: 'Left to do', text: 'Label the board.' };
   const parts = { key: 'parts_used' as const, label: 'Parts used', text: '4 saddles.' };
 
-  it('hides DONE when All done was not pressed — the work section is not a status', () => {
+  it('shows DONE when All done was pressed', () => {
+    expect(visitNoteHistoryLabel(allDone, 'all_done')).toBe('Done');
+    expect(visitNoteHistoryText(allDone, 'all_done')).toBe('');
+    expect(visitNoteHistoryLabel(work, 'all_done')).toBe(null);
+  });
+
+  it('does not show DONE when All done was typed under More to do', () => {
+    expect(visitNoteHistoryLabel(allDone, 'more_to_do')).toBe('Left to do');
+    expect(visitNoteHistoryText(allDone, 'more_to_do')).toBe('All done');
+    expect(visitNoteHistoryLabel(leftover, 'more_to_do')).toBe('Left to do');
+    expect(visitNoteHistoryText(leftover, 'more_to_do')).toBe('Label the board.');
+  });
+
+  it('renders an old null-outcome note exactly as before', () => {
     expect(visitNoteHistoryLabel(work)).toBe(null);
     expect(visitNoteHistoryText(work)).toBe('Photo location prove — delete ok');
     expect(visitNoteHistoryLabel({ key: null, label: null, text: 'Free text note.' })).toBe(null);
-  });
-
-  it('shows DONE only when Left to do is the All done press', () => {
     expect(visitNoteHistoryLabel(allDone)).toBe('Done');
     expect(visitNoteHistoryText(allDone)).toBe('');
-  });
-
-  it('keeps the Left to do label after More to do, and other section labels', () => {
     expect(visitNoteHistoryLabel(leftover)).toBe('Left to do');
     expect(visitNoteHistoryText(leftover)).toBe('Label the board.');
     expect(visitNoteHistoryLabel(parts)).toBe('Parts used');
     expect(visitNoteHistoryText(parts)).toBe('4 saddles.');
+    expect(visitNoteHistoryLabel(work, null)).toBe(visitNoteHistoryLabel(work));
+    expect(visitNoteHistoryText(allDone, null)).toBe(visitNoteHistoryText(allDone));
   });
 });
 
@@ -252,6 +265,7 @@ describe('decideJobVisitNotePost', () => {
         author_id: 'p-alex',
         author_name: 'Alex Reed',
         body: 'Done:\nRan the pipe, used 3m of 20mm.\n\nLeft to do:\nPressure test.\n\nCustomer wants:\nA quote for the upstairs run.',
+        outcome: null,
       },
     });
   });
@@ -298,6 +312,7 @@ describe('decideJobVisitNotePost', () => {
         author_id: 'p-alex',
         author_name: 'Alex Reed',
         body: '',
+        outcome: null,
       },
     });
   });
@@ -338,6 +353,43 @@ describe('decideJobVisitNotePost', () => {
     });
   });
 
+  it('writes the All done / More to do press onto outcome, not only the body', () => {
+    const allDone = decideJobVisitNotePost({
+      jobId: 'job-1',
+      companyId: 'co-1',
+      authorId: 'p-alex',
+      authorName: 'Alex Reed',
+      sections: visitUpdateSections({
+        ...emptyVisitUpdateDraft(),
+        done: 'Fitted the unit.',
+        outcome: 'all_done',
+      }),
+      outcome: 'all_done',
+    });
+    expect(allDone).toMatchObject({
+      action: 'write',
+      row: { outcome: 'all_done', body: 'Done:\nFitted the unit.\n\nLeft to do:\nAll done' },
+    });
+
+    const typed = decideJobVisitNotePost({
+      jobId: 'job-1',
+      companyId: 'co-1',
+      authorId: 'p-alex',
+      authorName: 'Alex Reed',
+      sections: visitUpdateSections({
+        ...emptyVisitUpdateDraft(),
+        done: 'Fitted the unit.',
+        outcome: 'more_to_do',
+        left: 'All done',
+      }),
+      outcome: 'more_to_do',
+    });
+    expect(typed).toMatchObject({
+      action: 'write',
+      row: { outcome: 'more_to_do', body: 'Done:\nFitted the unit.\n\nLeft to do:\nAll done' },
+    });
+  });
+
   it('stamps a blank profile name as Crew so the next person still sees who posted', () => {
     expect(jobVisitNoteAuthor('  ')).toBe(JOB_VISIT_NOTE_CREW);
     expect(jobVisitNoteAuthor(null)).toBe('Crew');
@@ -355,6 +407,7 @@ describe('decideJobVisitNotePost', () => {
         author_id: 'p-alex',
         author_name: 'Crew',
         body: 'Done:\nOn site.',
+        outcome: null,
       },
     });
   });
@@ -383,6 +436,9 @@ describe('jobVisitNotesQuery', () => {
       eq: { company_id: 'co-1', job_id: 'job-1' },
     });
     expect(JOB_VISIT_NOTE_TABLE).toBe('job_visit_notes');
+    expect(JOB_VISIT_NOTE_COLUMNS).toBe(
+      'id, company_id, job_id, author_id, author_name, body, created_at, outcome',
+    );
     expect(jobVisitNotesQuery({ companyId: '', jobId: 'job-1' })).toBe(null);
   });
 });
@@ -408,8 +464,10 @@ describe('visit notes live on the existing job sheet', () => {
     expect(page).toContain('data-visit-section="parts_needed"');
     expect(page).toContain('data-visit-section="customer_wants"');
     expect(page).toContain('parseVisitNoteBody(note.body)');
-    expect(page).toContain('visitNoteHistoryLabel(block)');
-    expect(page).toContain('visitNoteHistoryText(block)');
+    expect(page).toContain('visitNoteHistoryLabel(block, note.outcome)');
+    expect(page).toContain('visitNoteHistoryText(block, note.outcome)');
+    expect(page).toContain('outcome: visitDraft.outcome');
+    expect(page).toContain('JOB_VISIT_NOTE_COLUMNS');
     expect(page).not.toContain('What was done, materials, left to do, customer wants');
     expect(page).toContain('Post update');
     expect(page).toContain('No updates on this job yet.');
@@ -452,5 +510,15 @@ describe('job_visit_notes schema', () => {
     expect(mig).not.toMatch(/Relovi|Littleloop/);
     expect(mig).toContain('GRANT SELECT, INSERT ON public.job_visit_notes TO authenticated');
     expect(db).toContain('job_visit_notes: AnyTable');
+  });
+
+  it('adds a nullable outcome column for the All done / More to do press', () => {
+    const mig = src('supabase/migrations/20261005070000_job_visit_notes_outcome.sql');
+    expect(mig).toContain('ALTER TABLE public.job_visit_notes');
+    expect(mig).toContain('ADD COLUMN outcome text NULL');
+    expect(mig).toContain("CHECK (outcome IN ('all_done', 'more_to_do'))");
+    expect(mig).not.toContain('NOT NULL');
+    expect(mig).not.toContain('UPDATE public.job_visit_notes');
+    expect(mig).not.toMatch(/Relovi|Littleloop/);
   });
 });
