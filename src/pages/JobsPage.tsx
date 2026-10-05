@@ -10,7 +10,7 @@ import { LoadingSpinner, PageError, EmptyState, SearchBar } from '../components/
 import { JobFormModal } from '../components/crm/JobFormModal';
 import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import { JOB_STATUS_LABELS } from '../types/crm';
-import { jobOpenNext } from '../lib/jobNextAction';
+import { jobInvoiceActionFlags, jobOpenNext } from '../lib/jobNextAction';
 import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
 import { jobsListCustomer, jobsListTitle } from '../lib/jobsListRow';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
@@ -464,7 +464,12 @@ function JobsListFind({
 
 function JobRow({ job }: { job: JobRowModel }) {
   const navigate = useNavigate();
-  const next = jobOpenNext(job);
+  const invoiceFlags = jobInvoiceActionFlags(
+    job.docs
+      .filter(doc => doc.kind === 'invoice')
+      .map(doc => ({ status: doc.status ?? 'draft', due_date: doc.due_date })),
+  );
+  const next = jobOpenNext({ ...job, ...invoiceFlags });
   const site = visibleSite(job.address, job.client_address);
   const suburb = site ? suburbFromSite(site) : '';
   const jobHref = `/jobs/${job.id}`;

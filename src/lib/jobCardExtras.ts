@@ -8,6 +8,8 @@ export type JobDocChip = {
   href: string;
   label: string;
   amount: string;
+  status?: string;
+  due_date?: string | null;
 };
 
 export async function loadJobCardExtras(jobs: { id: string; inspection_id: string | null }[]): Promise<{
@@ -55,7 +57,7 @@ export async function loadJobCardExtras(jobs: { id: string; inspection_id: strin
 
   const [{ data: quotes }, { data: invoices }] = await Promise.all([
     supabase.from('quotes').select('id, job_id, quote_number, status, total').in('job_id', jobIds),
-    supabase.from('invoices').select('id, job_id, invoice_number, status, total').in('job_id', jobIds),
+    supabase.from('invoices').select('id, job_id, invoice_number, status, total, due_date').in('job_id', jobIds),
   ]);
 
   const push = (jobId: string | null, chip: JobDocChip) => {
@@ -82,6 +84,8 @@ export async function loadJobCardExtras(jobs: { id: string; inspection_id: strin
       href: `/invoices?id=${inv.id}`,
       label: `INV #${num} · ${String(inv.status)}`,
       amount: formatMoney(Number(inv.total)),
+      status: String(inv.status),
+      due_date: inv.due_date ?? null,
     });
   }
 

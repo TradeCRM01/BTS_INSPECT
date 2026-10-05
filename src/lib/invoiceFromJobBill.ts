@@ -1,10 +1,12 @@
 import type { InvoiceLineItem } from '../types/fsm';
+import { formatMoney } from '../types/fsm';
 import { calcDocumentTotals } from './gst';
 import { INVOICE_SOURCE_JOB_BILL, pickReusableInvoice } from './invoiceFromQuote';
 import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
 
 export const JOB_BILL_INVOICE_NO_CLIENT = 'Assign a client before invoicing this job';
 export const JOB_BILL_INVOICE_NO_LINES = 'Add bill lines before invoicing this job';
+export const JOB_BILL_INVOICE_EMPTY = 'Job bill is empty — add lines before invoicing';
 export const JOB_BILL_INVOICE_CREATED = 'Draft invoice created from this job bill';
 export const JOB_BILL_INVOICE_EXISTS = 'Invoice already exists for this job';
 export const JOB_BILL_INVOICE_NOTES = 'From job bill';
@@ -12,6 +14,11 @@ export const JOB_BILL_INVOICE_NOTES = 'From job bill';
 export const JOB_BILL_DUE_DAYS = 7;
 /** Existing invoice-face copy — PDF/sheet prints this next to due_date. */
 export const JOB_BILL_PAYMENT_TERMS = '7 days';
+
+/** Sheet Next when Invoice actually runs the job-bill path. */
+export function jobBillInvoiceNextDetail(lines: number, total: number): string {
+  return `Draft invoice from the job bill · ${lines} ${lines === 1 ? 'line' : 'lines'} · ${formatMoney(total)}`;
+}
 
 export const JOB_COST_INVOICE_SELECT =
   'description, quantity, unit_price, unit_cost, markup_percent, charge_type, stock_item_id, cost_model_id, created_at';

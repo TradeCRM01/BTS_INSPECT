@@ -10,6 +10,7 @@ import {
   invoiceHref,
   invoiceLandingPath,
   invoiceLinesFromQuote,
+  invoicesForOneJob,
   isJobBillInvoice,
   isoDatePlusDays,
   jobInvoicesAfterCreate,
@@ -174,6 +175,13 @@ describe('isJobBillInvoice / pickReusableInvoice', () => {
   it('returns null when there is nothing to reuse', () => {
     expect(pickReusableInvoice([])).toBeNull();
   });
+
+  it('G3 — quote convert reuses a job-bill invoice already on that job', () => {
+    const jobBill = { id: 'job-bill', status: 'draft' };
+    const merged = invoicesForOneJob([], [jobBill]);
+    expect(pickReusableInvoice(merged)?.id).toBe('job-bill');
+    expect(invoicesForOneJob([{ id: 'same', status: 'sent' }], [{ id: 'same', status: 'sent' }])).toHaveLength(1);
+  });
 });
 
 describe('isoDatePlusDays / invoiceHref', () => {
@@ -249,6 +257,8 @@ describe('job sheet Invoice from quote writes job-invoices', () => {
     expect(convert).toContain('JOB_INVOICE_LIST_COLUMNS');
     expect(convert).toContain('.select(JOB_INVOICE_LIST_COLUMNS)');
     expect(convert).toContain('invoice: asJobInvoiceListRow');
+    expect(convert).toContain('invoicesForOneJob');
+    expect(convert).toContain('.eq(\'job_id\', jobId)');
     expect(page).not.toMatch(/Relovi|Littleloop/);
   });
 });
