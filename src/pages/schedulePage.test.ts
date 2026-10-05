@@ -77,6 +77,21 @@ describe('schedule page week/day board', () => {
     expect(board).toContain('scheduleWeekAgenda(jobs, currentDate)');
     expect(board).toContain('data-week-agenda="1"');
     expect(board).toContain('Nothing booked');
+    const phoneWeek = board.slice(
+      board.indexOf('export const PhoneWeekList'),
+      board.indexOf('export const DayBoardView'),
+    );
+    expect(phoneWeek).toContain('hub-week-agenda-title');
+    expect(phoneWeek).toContain('hub-week-agenda-meta');
+    expect(phoneWeek).toContain('hub-week-agenda-crew');
+    expect(phoneWeek).toContain('hub-jobs-phone-status');
+    expect(phoneWeek).toContain('scheduleAgendaClock');
+    expect(phoneWeek).not.toContain('OpsStatus');
+    expect(phoneWeek).not.toContain('onDragStart');
+    expect(phoneWeek).not.toContain('onSelectDay');
+    expect(phoneWeek).not.toContain('onDayClick');
+    expect(phoneWeek).not.toContain('onJobDrop');
+    expect(phoneWeek).not.toContain("'—'");
     expect(board).toContain('weekBoardRows(jobs, teamMembers, currentDate, filteredEmployeeIds)');
     expect(board).toContain('data-schedule-week="1"');
     expect(board).toContain('data-week-board="1"');
@@ -103,6 +118,17 @@ describe('schedule page week/day board', () => {
     expect(search).toContain('tap to schedule');
     expect(sheet).toContain('Schedule this job');
     expect(sheet).toContain('Unassigned');
+    expect(sheet).toContain('EditorStickyFooter');
+    expect(sheet).toContain('saveLabel="Save"');
+    expect(sheet).toContain('onCancel={onClose}');
+    expect(sheet).toContain('swipeDownClose');
+    expect(sheet).toContain('hub-schedule-job-sheet-meta');
+    expect(sheet).toContain('jobsListSuburbFromSite');
+    expect(src('src/components/ui/AppDialog.tsx')).toContain('swipeDownClose');
+    expect(src('src/index.css')).toContain('.hub-schedule-job-sheet .btn-primary.hub-editor-sticky-save');
+    expect(src('src/index.css')).toMatch(/\.hub-schedule-job-sheet \.btn-primary\.hub-editor-sticky-save[\s\S]{0,80}#0A2540/);
+    expect(src('src/index.css')).toMatch(/\.hub-schedule-job-sheet \.btn-primary\.hub-editor-sticky-save[\s\S]{0,120}#FFFDF8/);
+    expect(src('src/index.css')).toContain('.hub-week-agenda .hub-jobs-phone-status');
     expect(page).toContain('scheduleSheetSavePayload');
     expect(page).toContain('scheduleFromSheet.mutate');
     expect(page).toContain('<ScheduleJobSheet');

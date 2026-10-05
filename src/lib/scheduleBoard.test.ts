@@ -10,7 +10,9 @@ import {
   jobsOnScheduleDay,
   parseScheduleDateParam,
   parseScheduleView,
+  AGENDA_NO_TIME_LABEL,
   TIME_NOT_SET_LABEL,
+  scheduleAgendaClock,
   scheduleChipClock,
   scheduleClockLabel,
   schedulePlotTimes,
@@ -225,6 +227,16 @@ describe('scheduleClockLabel', () => {
     expect(scheduleClockLabel('08:30:00', '16:00:00')).toBe('08:30 – 16:00');
     expect(scheduleClockLabel('08:30:00', null)).toBe('08:30');
     expect(scheduleClockLabel(null, '16:00:00')).toBeNull();
+  });
+});
+
+describe('scheduleAgendaClock', () => {
+  it('prints stored times and says No time set when the job has none', () => {
+    expect(scheduleAgendaClock('08:30:00', '16:00:00')).toBe('08:30 – 16:00');
+    expect(scheduleAgendaClock(null, null)).toBe('No time set');
+    expect(scheduleAgendaClock(null, null)).toBe(AGENDA_NO_TIME_LABEL);
+    expect(scheduleAgendaClock(null, null)).not.toBe('—');
+    expect(scheduleAgendaClock(null, null)).not.toBe(TIME_NOT_SET_LABEL);
   });
 });
 

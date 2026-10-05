@@ -85,9 +85,25 @@ async function measureWeek(page) {
   const { ctx, page } = await openPage(390, 844, true, WEEK);
   await waitVisibleBoard(page, '[data-week-agenda="1"]');
   const stats = await measureWeek(page);
-  console.log('week-390', stats);
+  const row = await page.evaluate(() => {
+    const hot = [...document.querySelectorAll('.hub-week-agenda-row')]
+      .find((el) => /Hot water/i.test(el.textContent || ''));
+    const pill = hot?.querySelector('.hub-jobs-phone-status');
+    return {
+      time: hot?.querySelector('.hub-week-agenda-time')?.textContent?.trim() ?? null,
+      title: hot?.querySelector('.hub-week-agenda-title')?.textContent?.trim() ?? null,
+      meta: hot?.querySelector('.hub-week-agenda-meta')?.textContent?.trim() ?? null,
+      crew: hot?.querySelector('.hub-week-agenda-crew')?.textContent?.trim() ?? null,
+      pill: pill?.textContent?.trim() ?? null,
+      pillRadius: pill ? getComputedStyle(pill).borderRadius : null,
+    };
+  });
+  console.log('week-390', stats, row);
   if (!stats.agenda || stats.dayCount !== 7 || stats.swipe || stats.scrollX) {
     throw new Error(`week 390 fail ${JSON.stringify(stats)}`);
+  }
+  if (row.time !== 'No time set' || !row.meta?.includes('PWD Group') || row.pill !== 'Scheduled') {
+    throw new Error(`week 390 row fail ${JSON.stringify(row)}`);
   }
   await shot(page, 's8-week-390.png');
   await ctx.close();
@@ -149,16 +165,30 @@ async function daySearchWalk(width, height, suffix) {
   await page.waitForFunction(() => !document.querySelector('[data-schedule-search-hit]'));
   const sheetStats = await page.evaluate(() => {
     const sheet = document.querySelector('.hub-schedule-job-sheet');
-    const save = document.querySelector('.hub-schedule-job-sheet-foot .btn-primary');
+    const save = document.querySelector('[data-editor-sticky-save="1"]');
+    const cancel = document.querySelector('[data-editor-sticky-cancel="1"]');
     const date = document.querySelector('.hub-schedule-job-sheet input[type="date"]');
+    const saveStyle = save ? getComputedStyle(save) : null;
     return {
       title: sheet?.querySelector('h2')?.textContent ?? null,
+      site: sheet?.querySelector('.hub-schedule-job-sheet-meta')?.textContent?.trim() ?? null,
       saveH: save ? Math.round(save.getBoundingClientRect().height) : null,
+      cancelH: cancel ? Math.round(cancel.getBoundingClientRect().height) : null,
+      saveBg: saveStyle?.backgroundColor ?? null,
+      saveFg: saveStyle?.color ?? null,
       date: date instanceof HTMLInputElement ? date.value : null,
+      swipe: sheet?.getAttribute('data-swipe-down') ?? null,
     };
   });
   console.log(`day-sheet-${suffix}`, sheetStats);
-  if (sheetStats.title !== 'Schedule this job' || sheetStats.saveH !== 44) {
+  if (
+    sheetStats.title !== 'Schedule this job'
+    || sheetStats.saveH !== 44
+    || sheetStats.cancelH !== 44
+    || !sheetStats.site?.includes('PWD Group')
+    || sheetStats.saveBg !== 'rgb(10, 37, 64)'
+    || sheetStats.swipe !== '1'
+  ) {
     throw new Error(`day sheet ${suffix} fail ${JSON.stringify(sheetStats)}`);
   }
   await shot(page, `s8-day-sheet-${suffix}.png`);
@@ -166,7 +196,7 @@ async function daySearchWalk(width, height, suffix) {
   await page.locator('.hub-schedule-job-sheet select').selectOption({ label: 'Dave Hale' });
   await page.locator('.hub-schedule-job-sheet input[type="time"]').nth(0).fill('09:00');
   await page.locator('.hub-schedule-job-sheet input[type="time"]').nth(1).fill('12:00');
-  await page.locator('.hub-schedule-job-sheet-foot .btn-primary').click();
+  await page.locator('[data-editor-sticky-save="1"]').click();
   await page.waitForFunction(() => !document.querySelector('.hub-schedule-job-sheet'));
   await page.waitForFunction(() => (
     [...document.querySelectorAll('[data-schedule-job]')].some((el) => /Install 2x new switchboards/i.test(el.textContent || ''))
@@ -182,6 +212,52 @@ async function daySearchWalk(width, height, suffix) {
   await shot(page, `s8-day-saved-${suffix}.png`);
   await ctx.close();
 }
+
+async function weekToday(width, height, file) {
+  const { ctx, page } = await openPage(width, height, true, '/schedule?auditAuth=1');
+  await waitVisibleBoard(page, '[data-week-agenda="1"]');
+  await page.evaluate(() => {
+    const today = document.querySelector('.hub-week-agenda-day.is-today');
+    const empty = [...document.querySelectorAll('.hub-week-agenda-empty')]
+      .find((el) => el.getBoundingClientRect().height > 0);
+    today?.scrollIntoView({ block: 'start' });
+    if (empty && today && !today.contains(empty)) {
+      const agenda = document.querySelector('[data-week-agenda="1"]');
+      if (agenda) {
+        const todayBox = today.getBoundingClientRect();
+        const emptyBox = empty.getBoundingClientRect();
+        if (emptyBox.bottom > window.innerHeight || todayBox.top < 0) {
+          agenda.scrollTop += emptyBox.bottom - window.innerHeight + 16;
+        }
+      }
+    }
+  });
+  await page.waitForTimeout(200);
+  const stats = await page.evaluate(() => {
+    const viewH = window.innerHeight;
+    const today = document.querySelector('.hub-week-agenda-day.is-today');
+    const todayMark = today?.querySelector('.hub-week-agenda-today');
+    const empties = [...document.querySelectorAll('.hub-week-agenda-empty')];
+    const visible = (el) => {
+      const box = el.getBoundingClientRect();
+      return box.height > 0 && box.top < viewH && box.bottom > 0;
+    };
+    return {
+      today: todayMark?.textContent?.trim() ?? null,
+      todayVisible: !!(today && visible(today)),
+      emptyVisible: empties.some((el) => visible(el)),
+    };
+  });
+  console.log(file, stats);
+  if (stats.today !== 'Today' || !stats.todayVisible || !stats.emptyVisible) {
+    throw new Error(`${file} fail ${JSON.stringify(stats)}`);
+  }
+  await shot(page, file);
+  await ctx.close();
+}
+
+await weekToday(375, 812, 's8-week-375-today.png');
+await weekToday(390, 844, 's8-week-390-today.png');
 
 await daySearchWalk(375, 812, '375');
 await daySearchWalk(390, 844, '390');

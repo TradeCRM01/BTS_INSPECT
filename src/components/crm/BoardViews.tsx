@@ -29,8 +29,8 @@ import { formatJobRef } from '../../lib/jobRef';
 import {
   jobsOnScheduleDay,
   TIME_NOT_SET_LABEL,
+  scheduleAgendaClock,
   scheduleChipClock,
-  scheduleClockLabel,
   scheduleCrewLabel,
   scheduleDateKey,
   scheduleJobHref,
@@ -296,10 +296,6 @@ export const PhoneWeekList = memo(function PhoneWeekList({
   teamMembers?: TeamMember[];
   currentDate: Date;
   onJobClick: (job: JobWithClient) => void;
-  onDragStart: (e: React.DragEvent, jobId: string) => void;
-  onSelectDay: (date: Date) => void;
-  onDayClick: (dateStr: string, employeeId?: string | null) => void;
-  onJobDrop?: (drop: JobDropPayload) => void;
 }) {
   const days = useMemo(
     () => scheduleWeekAgenda(jobs, currentDate),
@@ -335,7 +331,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
                         onClick={() => onJobClick(job)}
                       >
                         <span className="hub-week-agenda-time">
-                          {scheduleClockLabel(job.start_time, job.end_time) ?? '—'}
+                          {scheduleAgendaClock(job.start_time, job.end_time)}
                         </span>
                         <span className="hub-week-agenda-copy">
                           <span className="hub-week-agenda-title">{job.title}</span>
@@ -345,9 +341,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
                           <span className="hub-week-agenda-crew">
                             {scheduleCrewLabel(job.assigned_team, teamMembers)}
                           </span>
-                          <OpsStatus className={JOB_STATUS_STYLES[job.status]}>
-                            {JOB_STATUS_LABELS[job.status]}
-                          </OpsStatus>
+                          <span className="hub-jobs-phone-status">{JOB_STATUS_LABELS[job.status]}</span>
                         </span>
                       </button>
                     </li>

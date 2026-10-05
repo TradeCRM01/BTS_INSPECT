@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
-import { AppDialog } from '../ui/AppDialog';
+import { AppDialog, EditorStickyFooter } from '../ui';
 import type { JobWithClient } from '../../types/crm';
 import type { ScheduleSheetInput } from '../../lib/scheduleBoard';
+import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
 
 function timeInput(value: string | null | undefined): string {
   return (value ?? '').slice(0, 5);
+}
+
+function sheetSiteLine(job: JobWithClient | null): string {
+  if (!job) return '';
+  const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
+  return [job.client_name, suburb].filter(Boolean).join(' · ');
 }
 
 export function ScheduleJobSheet({
@@ -26,6 +33,7 @@ export function ScheduleJobSheet({
   const [date, setDate] = useState(viewedDate);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const site = sheetSiteLine(job);
 
   useEffect(() => {
     if (!job) return;
@@ -41,28 +49,29 @@ export function ScheduleJobSheet({
       onClose={onClose}
       title="Schedule this job"
       backdropClose
+      swipeDownClose
       panelClassName="hub-schedule-job-sheet"
       footer={(
-        <div className="hub-schedule-job-sheet-foot">
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={saving || !date}
-            onClick={() => onSave({
+        <EditorStickyFooter
+          onCancel={onClose}
+          onSave={() => {
+            if (!date) return;
+            onSave({
               date,
               startTime,
               endTime,
               crewId: crewId || null,
-            })}
-          >
-            Save
-          </button>
-        </div>
+            });
+          }}
+          saveLabel="Save"
+          saving={saving}
+        />
       )}
     >
       <div className="hub-schedule-job-sheet-body">
         <h2 className="hub-schedule-job-sheet-heading">Schedule this job</h2>
         <p className="hub-schedule-job-sheet-title">{job?.title}</p>
+        {site ? <p className="hub-schedule-job-sheet-meta">{site}</p> : null}
         <label className="block">
           <span className="ops-field-label">Crew</span>
           <select

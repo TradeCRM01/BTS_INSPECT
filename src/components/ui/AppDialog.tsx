@@ -20,6 +20,7 @@ export function AppDialog({
   panelClassName = '',
   escape = true,
   backdropClose = false,
+  swipeDownClose = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -31,6 +32,7 @@ export function AppDialog({
   panelClassName?: string;
   escape?: boolean;
   backdropClose?: boolean;
+  swipeDownClose?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -111,6 +113,34 @@ export function AppDialog({
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !swipeDownClose) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    let startY = 0;
+    let tracking = false;
+    const onDown = (e: PointerEvent) => {
+      const scroll = panel.querySelector('.hub-editor-dialog-scroll') as HTMLElement | null;
+      if (scroll && scroll.scrollTop > 0) return;
+      startY = e.clientY;
+      tracking = true;
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!tracking) return;
+      tracking = false;
+      if (e.clientY - startY >= 72) onCloseRef.current();
+    };
+    const end = () => { tracking = false; };
+    panel.addEventListener('pointerdown', onDown);
+    panel.addEventListener('pointerup', onUp);
+    panel.addEventListener('pointercancel', end);
+    return () => {
+      panel.removeEventListener('pointerdown', onDown);
+      panel.removeEventListener('pointerup', onUp);
+      panel.removeEventListener('pointercancel', end);
+    };
+  }, [open, swipeDownClose]);
+
   if (!open) return null;
 
   return (
@@ -127,6 +157,7 @@ export function AppDialog({
           aria-labelledby={labelledBy}
           tabIndex={-1}
           className={panelClassName}
+          data-swipe-down={swipeDownClose ? '1' : undefined}
           onClick={e => e.stopPropagation()}
         >
           {footer ? (

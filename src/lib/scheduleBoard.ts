@@ -222,6 +222,15 @@ export function weekBoardCrewLabel(name: string | null | undefined): string {
 }
 
 export const TIME_NOT_SET_LABEL = 'Time not set';
+export const AGENDA_NO_TIME_LABEL = 'No time set';
+
+/** Phone week agenda clock. Untimed jobs stay honest, not an em dash. */
+export function scheduleAgendaClock(
+  start: string | null | undefined,
+  end?: string | null,
+): string {
+  return scheduleClockLabel(start, end) ?? AGENDA_NO_TIME_LABEL;
+}
 
 /** 24h clock from stored `HH:MM:SS` — untimed jobs stay blank. */
 export function scheduleClockLabel(

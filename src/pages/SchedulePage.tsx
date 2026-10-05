@@ -68,7 +68,9 @@ function weekBoardLookJob(
     priority: 'medium',
     start_time: '08:00',
     end_time: '16:00',
-    address: null,
+    address: '132 Ryan Road, Perth WA 6000',
+    client_name: 'PWD Group',
+    client_address: '132 Ryan Road, Perth WA 6000',
     inspection_id: null,
     created_by: 'look-week-board',
     created_at: '2025-03-31T00:00:00.000Z',
@@ -941,10 +943,6 @@ export function SchedulePage() {
                         teamMembers={boardCrew}
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
-                        onDragStart={handleRailDragStart}
-                        onSelectDay={date => applySchedule('day', date)}
-                        onDayClick={handleDayClick}
-                        onJobDrop={placeExisting}
                       />
                     </div>
                     <div className="hidden lg:flex hub-week-mount">
