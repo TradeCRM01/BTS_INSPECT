@@ -380,6 +380,7 @@ Deno.serve(async (req) => {
           .from("quotes")
           .select("id, quote_number, status, job_id, total, validity_date, updated_at")
           .eq("client_id", portal.client_id)
+          .neq("status", "draft")
           .order("updated_at", { ascending: false })
           .limit(50),
         admin
