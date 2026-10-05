@@ -134,6 +134,50 @@ export function scheduleWeekColumns<T extends ScheduleDayJob>(
   }));
 }
 
+export type WeekAgendaDay<T extends ScheduleDayJob = ScheduleDayJob> = {
+  date: string;
+  jobs: T[];
+  isToday: boolean;
+};
+
+/** Phone week: one section per day, empty days kept, today marked. */
+export function scheduleWeekAgenda<T extends ScheduleDayJob>(
+  jobs: T[],
+  anchor: Date,
+  today: Date = new Date(),
+): WeekAgendaDay<T>[] {
+  const todayKey = scheduleDateKey(today);
+  return scheduleWeekColumns(jobs, anchor).map(col => ({
+    date: col.date,
+    jobs: col.jobs,
+    isToday: col.date === todayKey,
+  }));
+}
+
+export type ScheduleSheetInput = {
+  date: string;
+  startTime: string;
+  endTime: string;
+  crewId: string | null;
+};
+
+/** Same four job columns the job Schedule tab writes. */
+export function scheduleSheetSavePayload(input: ScheduleSheetInput): {
+  scheduled_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  assigned_team: string[];
+} {
+  const start = input.startTime.trim().slice(0, 5);
+  const end = input.endTime.trim().slice(0, 5);
+  return {
+    scheduled_date: input.date,
+    start_time: start || null,
+    end_time: end || null,
+    assigned_team: input.crewId ? [input.crewId] : [],
+  };
+}
+
 export function jobMatchesCrewFilter(
   assigned: string[] | null | undefined,
   filteredIds: Set<string>,

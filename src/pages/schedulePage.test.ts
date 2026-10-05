@@ -74,6 +74,9 @@ describe('schedule page week/day board', () => {
   it('groups the phone week from existing scheduled_date fields', () => {
     const board = src('src/components/crm/BoardViews.tsx');
     expect(board).toContain('export const PhoneWeekList');
+    expect(board).toContain('scheduleWeekAgenda(jobs, currentDate)');
+    expect(board).toContain('data-week-agenda="1"');
+    expect(board).toContain('Nothing booked');
     expect(board).toContain('weekBoardRows(jobs, teamMembers, currentDate, filteredEmployeeIds)');
     expect(board).toContain('data-schedule-week="1"');
     expect(board).toContain('data-week-board="1"');
@@ -85,6 +88,26 @@ describe('schedule page week/day board', () => {
     expect(board).not.toContain('No jobs on this day');
     expect(board).not.toContain('No jobs this day');
     expect(board).not.toContain('hub-schedule-empty');
+  });
+
+  it('opens a Schedule this job sheet from phone search and saves the Schedule-tab fields', () => {
+    const page = src('src/pages/SchedulePage.tsx');
+    const search = src('src/components/crm/ScheduleJobSearch.tsx');
+    const sheet = src('src/components/crm/ScheduleJobSheet.tsx');
+    expect(search).toContain('onScheduleJob');
+    expect(search).toContain('hub-schedule-search-title');
+    expect(search).not.toContain('hub-schedule-ref truncate');
+    expect(search).toContain("max-width: 639px");
+    expect(search).toContain('tap to schedule');
+    expect(sheet).toContain('Schedule this job');
+    expect(sheet).toContain('Unassigned');
+    expect(page).toContain('scheduleSheetSavePayload');
+    expect(page).toContain('scheduleFromSheet.mutate');
+    expect(page).toContain('<ScheduleJobSheet');
+    expect(src('src/components/jobs/JobDispatchPanel.tsx')).toContain("save.mutate({ scheduled_date:");
+    expect(src('src/components/jobs/JobDispatchPanel.tsx')).toContain("save.mutate({ start_time:");
+    expect(src('src/components/jobs/JobDispatchPanel.tsx')).toContain("save.mutate({ end_time:");
+    expect(src('src/components/jobs/JobDispatchPanel.tsx')).toContain('assigned_team:');
   });
 });
 

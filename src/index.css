@@ -6189,6 +6189,108 @@
     display: none;
   }
 
+  .hub-week-agenda {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 12px 16px;
+  }
+
+  .hub-week-agenda-day + .hub-week-agenda-day {
+    border-top: 1px solid #E2D9CC;
+    padding-top: 8px;
+  }
+
+  .hub-week-agenda-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    margin: 0;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0A2540;
+  }
+
+  .hub-week-agenda-day.is-today .hub-week-agenda-head,
+  .hub-week-agenda-today {
+    color: #2E75B6;
+  }
+
+  .hub-week-agenda-today {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .hub-week-agenda-empty {
+    margin: 0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    color: #5B6B7C;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+  }
+
+  .hub-week-agenda-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .hub-week-agenda-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 0;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #E2D9CC;
+    color: #0A2540;
+    cursor: pointer;
+  }
+
+  .hub-week-agenda-time {
+    flex: 0 0 72px;
+    padding-top: 2px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .hub-week-agenda-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .hub-week-agenda-title {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  .hub-week-agenda-meta,
+  .hub-week-agenda-crew {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    color: #5B6B7C;
+    white-space: normal;
+  }
+
   .hub-week-grid {
     display: grid;
     grid-template-columns: 104px repeat(7, minmax(104px, 1fr));
@@ -6373,9 +6475,102 @@
   .hub-schedule-search-hit {
     width: 100%;
     text-align: left;
+    min-height: 44px;
     padding: 12px 16px;
     cursor: grab;
     background: var(--schedule-sheet);
+  }
+
+  .hub-schedule-search-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: break-word;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0A2540;
+  }
+
+  .hub-schedule-search-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .hub-schedule-search-meta {
+    margin-top: 4px;
+    white-space: normal;
+  }
+
+  .hub-board-cal .hub-schedule-next {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .hub-schedule-job-sheet {
+    background: #FFFDF8;
+    color: #0A2540;
+    width: 100%;
+    max-width: 420px;
+    margin-top: auto;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .hub-schedule-job-sheet-heading {
+    margin: 0;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0A2540;
+  }
+
+  .hub-schedule-job-sheet-title {
+    margin: 0 0 4px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  .hub-schedule-job-sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .hub-schedule-job-sheet .form-input {
+    min-height: 44px;
+  }
+
+  .hub-schedule-job-sheet-foot {
+    padding: 12px 16px 16px;
+  }
+
+  .hub-schedule-job-sheet-foot .btn-primary {
+    width: 100%;
+    min-height: 44px;
+    height: 44px;
+    background: #2E75B6;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+  }
+
+  @media (min-width: 640px) {
+    .hub-schedule-job-sheet {
+      margin: auto;
+      border-radius: 16px;
+    }
   }
 
   .hub-schedule-search-hit:hover,
@@ -6604,14 +6799,16 @@
     }
 
     .hub-week-swipe-helper {
-      display: block;
-      flex: 0 0 auto;
-      margin: 0;
-      padding: 4px 12px 6px;
-      color: #5B6B7C;
-      font-family: 'Source Sans 3', system-ui, sans-serif;
-      font-size: 12px;
-      line-height: 1.25;
+      display: none;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-agenda {
+      flex: 1 1 0;
+      min-height: 0;
+    }
+
+    .hub-schedule-search-hit {
+      cursor: pointer;
     }
 
     .hub-week-grid {

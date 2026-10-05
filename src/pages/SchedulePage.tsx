@@ -8,9 +8,11 @@ import { getAuditClients, getAuditJobs, getAuditTeamMembers } from '../lib/devFi
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
+import { useToast } from '../components/ui';
 import type { Job, JobWithClient, Client } from '../types/crm';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { ScheduleJobSearch } from '../components/crm/ScheduleJobSearch';
+import { ScheduleJobSheet } from '../components/crm/ScheduleJobSheet';
 import {
   DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList, PhoneWeekList,
   type TeamMember,
@@ -19,7 +21,7 @@ import { placePickedHint, placePickedOnCell, rememberDraggedJob, rescheduleJobPa
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, hydrateJobParentNumbers, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
-import { parseScheduleDateParam, parseScheduleView, scheduleDateKey, scheduleDayKey, scheduleJobHref, SCHEDULE_WEEK_STARTS_ON, type ScheduleViewMode } from '../lib/scheduleBoard';
+import { parseScheduleDateParam, parseScheduleView, scheduleDateKey, scheduleDayKey, scheduleJobHref, scheduleSheetSavePayload, SCHEDULE_WEEK_STARTS_ON, type ScheduleSheetInput, type ScheduleViewMode } from '../lib/scheduleBoard';
 import {
   scheduleLocationStep,
   scheduleSearchFromState,
@@ -367,6 +369,8 @@ export function SchedulePage() {
   const [jobQuery, setJobQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [pickedJob, setPickedJob] = useState<JobWithClient | null>(null);
+  const [sheetJob, setSheetJob] = useState<JobWithClient | null>(null);
+  const { showToast } = useToast();
 
   const preselectClient = searchParams.get('client');
   const preselectJob = searchParams.get('job');
@@ -615,6 +619,55 @@ export function SchedulePage() {
     },
   });
 
+  const scheduleFromSheet = useMutation({
+    mutationFn: async ({ jobId, fields }: { jobId: string; fields: ScheduleSheetInput }) => {
+      const patch = scheduleSheetSavePayload(fields);
+      queryClient.setQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd], prev => {
+        const list = prev ?? [];
+        const fromAudit = withScheduleJobPatches(attachJobClients(
+          (getAuditJobs() as Job[] | null) ?? [],
+          getAuditClients() ?? [],
+        )).find(j => j.id === jobId);
+        const current = list.find(j => j.id === jobId)
+          ?? searchHits.find(j => j.id === jobId)
+          ?? (sheetJob?.id === jobId ? sheetJob : undefined)
+          ?? fromAudit;
+        if (!current) return list;
+        const next = { ...current, ...patch };
+        mergeScheduleJobPatch(jobId, next);
+        return [...list.filter(j => j.id !== jobId), next];
+      });
+      if (isDevFieldAuditAuth()) return;
+      const { error } = await supabase.from('jobs').update({
+        ...patch,
+        updated_at: new Date().toISOString(),
+      }).eq('id', jobId);
+      if (error) throw error;
+      if ('assigned_team' in patch) {
+        await persistLivingJobOnBoundJhas(jobId);
+      }
+    },
+    onSuccess: (_data, vars) => {
+      showToast(`${sheetJob?.title || 'Job'} is on the board`);
+      setSheetJob(null);
+      setJobQuery('');
+      setPickedJob(null);
+      if (isDevFieldAuditAuth()) return;
+      queryClient.invalidateQueries({ queryKey: ['job', vars.jobId] });
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
+      queryClient.invalidateQueries({ queryKey: ['job-jhas', vars.jobId] });
+      queryClient.invalidateQueries({ queryKey: ['job-take5s', vars.jobId] });
+      queryClient.invalidateQueries({ queryKey: ['job-inspections', vars.jobId] });
+      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+      queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
+      queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
+      queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule-job-search'] });
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  });
+
   const handlePickJob = useCallback((job: JobWithClient | null) => {
     setPickedJob(job);
   }, []);
@@ -710,6 +763,7 @@ export function SchedulePage() {
       onSelect={handlePickJob}
       onOpenJob={job => openJob(job.id)}
       onDragStart={handleRailDragStart}
+      onScheduleJob={job => setSheetJob(job)}
     />
   );
 
@@ -940,6 +994,18 @@ export function SchedulePage() {
           </>
         )}
       </div>
+
+      <ScheduleJobSheet
+        job={sheetJob}
+        teamMembers={boardCrew}
+        viewedDate={format(currentDate, 'yyyy-MM-dd')}
+        saving={scheduleFromSheet.isPending}
+        onClose={() => setSheetJob(null)}
+        onSave={fields => {
+          if (!sheetJob) return;
+          scheduleFromSheet.mutate({ jobId: sheetJob.id, fields });
+        }}
+      />
 
       {showForm && (
         <JobFormModal

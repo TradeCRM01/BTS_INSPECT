@@ -19,6 +19,8 @@ import {
   scheduleDateKey,
   scheduleDayKey,
   scheduleJobHref,
+  scheduleSheetSavePayload,
+  scheduleWeekAgenda,
   scheduleWeekColumns,
   scheduleWeekDayKeys,
   scheduleWeekDays,
@@ -145,6 +147,48 @@ describe('AU week grouping', () => {
     const grouped = groupJobsByScheduleDay(rows, ['2026-08-26']);
     expect([...grouped.keys()]).toEqual(['2026-08-26']);
     expect(grouped.get('2026-08-26')?.map(j => j.id)).toEqual(['wed']);
+  });
+
+  it('builds a Mon–Sun agenda with empty days and today marked', () => {
+    const today = new Date(2026, 7, 26);
+    const agenda = scheduleWeekAgenda([
+      job({ id: 'tue', scheduled_date: '2026-08-25' }),
+      job({ id: 'thu', scheduled_date: '2026-08-27' }),
+    ], today, today);
+    expect(agenda.map(day => day.date)).toEqual(scheduleWeekDayKeys(today));
+    expect(agenda).toHaveLength(7);
+    expect(agenda.filter(day => day.jobs.length === 0)).toHaveLength(5);
+    expect(agenda.find(day => day.isToday)?.date).toBe('2026-08-26');
+    expect(agenda.find(day => day.date === '2026-08-25')?.jobs.map(j => j.id)).toEqual(['tue']);
+    expect(agenda.find(day => day.date === '2026-08-26')?.jobs).toEqual([]);
+    expect(agenda.filter(day => day.isToday)).toHaveLength(1);
+  });
+});
+
+describe('scheduleSheetSavePayload', () => {
+  it('writes the same job fields the Schedule tab saves', () => {
+    expect(scheduleSheetSavePayload({
+      date: '2026-08-26',
+      startTime: '08:00',
+      endTime: '12:00',
+      crewId: 'emp-a',
+    })).toEqual({
+      scheduled_date: '2026-08-26',
+      start_time: '08:00',
+      end_time: '12:00',
+      assigned_team: ['emp-a'],
+    });
+    expect(scheduleSheetSavePayload({
+      date: '2026-08-26',
+      startTime: ' 09:30:00 ',
+      endTime: '',
+      crewId: null,
+    })).toEqual({
+      scheduled_date: '2026-08-26',
+      start_time: '09:30',
+      end_time: null,
+      assigned_team: [],
+    });
   });
 });
 

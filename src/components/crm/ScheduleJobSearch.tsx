@@ -1,11 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { SearchBar } from '../ui/SearchBar';
-import { OpsStatus, opsSiteLabel } from '../ui/OpsCard';
+import { OpsStatus } from '../ui/OpsCard';
 import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
 import type { JobWithClient } from '../../types/crm';
 import { formatJobRef } from '../../lib/jobRef';
+import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
 import { scheduleJobHref } from '../../lib/scheduleBoard';
 import { format, parseISO } from 'date-fns';
+
+function useSchedulePhone() {
+  const [phone, setPhone] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches
+  ));
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const onChange = () => setPhone(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return phone;
+}
 
 function whenLabel(job: JobWithClient): string | null {
   if (!job.scheduled_date) return 'Unscheduled';
@@ -25,6 +40,7 @@ export function ScheduleJobSearch({
   onSelect,
   onOpenJob,
   onDragStart,
+  onScheduleJob,
 }: {
   query: string;
   onQuery: (value: string) => void;
@@ -34,10 +50,12 @@ export function ScheduleJobSearch({
   onSelect: (job: JobWithClient | null) => void;
   onOpenJob: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
+  onScheduleJob: (job: JobWithClient) => void;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const open = query.trim().length > 0;
   const [dragging, setDragging] = useState(false);
+  const phone = useSchedulePhone();
 
   useEffect(() => {
     const endDrag = () => setDragging(false);
@@ -84,7 +102,11 @@ export function ScheduleJobSearch({
         }`}>
           <div className="hub-schedule-search-head">
             <p className="ops-meta">
-              {loading ? 'Searching…' : `${results.length} match${results.length === 1 ? '' : 'es'} · drag onto a name or a time`}
+              {loading
+                ? 'Searching…'
+                : `${results.length} match${results.length === 1 ? '' : 'es'}${
+                  phone ? ' · tap to schedule' : ' · drag onto a name or a time'
+                }`}
             </p>
           </div>
           {results.length === 0 && !loading ? (
@@ -92,53 +114,65 @@ export function ScheduleJobSearch({
           ) : (
             <ul className="max-h-72 overflow-y-auto">
               {results.map(job => {
-                const site = opsSiteLabel(job.address, job.client_address);
+                const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
                 const selected = selectedId === job.id;
                 return (
                   <li key={job.id}>
                     <div
                       role="button"
                       tabIndex={0}
-                      draggable
+                      draggable={!phone}
                       data-schedule-search-hit={job.id}
-                      onDragStart={e => {
+                      onDragStart={phone ? undefined : e => {
                         setDragging(true);
                         onSelect(job);
                         onDragStart(e, job.id);
                       }}
-                      onClick={() => onSelect(job)}
+                      onClick={() => {
+                        if (phone) {
+                          onQuery('');
+                          onSelect(null);
+                          onScheduleJob(job);
+                          return;
+                        }
+                        onSelect(job);
+                      }}
                       onKeyDown={e => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
+                          if (phone) {
+                            onQuery('');
+                            onSelect(null);
+                            onScheduleJob(job);
+                            return;
+                          }
                           onSelect(job);
                         }
                       }}
                       className={`hub-schedule-search-hit ${selected ? 'is-on' : ''}`}
                       style={{ borderLeft: `3px solid ${JOB_STATUS_RAIL[job.status]}` }}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="hub-schedule-ref truncate">
-                          {formatJobRef(job)} · {job.title}
-                        </p>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
-                          <a
-                            href={scheduleJobHref(job.id)}
-                            data-schedule-open-job={job.id}
-                            className="hub-schedule-next"
-                            onClick={e => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onOpenJob(job);
-                            }}
-                            onPointerDown={e => e.stopPropagation()}
-                          >
-                            Open
-                          </a>
-                        </div>
+                      <p className="hub-schedule-search-title">
+                        {formatJobRef(job)} · {job.title}
+                      </p>
+                      <div className="hub-schedule-search-status">
+                        <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                        <a
+                          href={scheduleJobHref(job.id)}
+                          data-schedule-open-job={job.id}
+                          className="hub-schedule-next"
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onOpenJob(job);
+                          }}
+                          onPointerDown={e => e.stopPropagation()}
+                        >
+                          Open
+                        </a>
                       </div>
-                      <p className="ops-meta mt-0.5 truncate">
-                        {[job.client_name, site, whenLabel(job)].filter(Boolean).join(' · ')}
+                      <p className="ops-meta hub-schedule-search-meta">
+                        {[job.client_name, suburb, whenLabel(job)].filter(Boolean).join(' · ')}
                       </p>
                     </div>
                   </li>
