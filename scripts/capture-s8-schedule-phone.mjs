@@ -33,6 +33,15 @@ async function openPage(width, height, isPhone, path) {
   return { ctx, page };
 }
 
+async function waitVisibleBoard(page, sel) {
+  await page.waitForFunction((boardSel) => (
+    [...document.querySelectorAll(boardSel)].some((el) => {
+      const box = el.getBoundingClientRect();
+      return box.width > 0 && box.height > 0;
+    })
+  ), sel, { timeout: 20000 });
+}
+
 async function shot(page, file) {
   await page.screenshot({ path: `${OUT}/${file}`, type: 'png' });
   console.log('wrote', file);
@@ -62,7 +71,7 @@ async function measureWeek(page) {
 
 {
   const { ctx, page } = await openPage(375, 812, true, WEEK);
-  await page.waitForSelector('[data-week-agenda="1"]', { timeout: 20000 });
+  await waitVisibleBoard(page, '[data-week-agenda="1"]');
   const stats = await measureWeek(page);
   console.log('week-375', stats);
   if (!stats.agenda || stats.dayCount !== 7 || stats.swipe || stats.scrollX) {
@@ -74,7 +83,7 @@ async function measureWeek(page) {
 
 {
   const { ctx, page } = await openPage(390, 844, true, WEEK);
-  await page.waitForSelector('[data-week-agenda="1"]', { timeout: 20000 });
+  await waitVisibleBoard(page, '[data-week-agenda="1"]');
   const stats = await measureWeek(page);
   console.log('week-390', stats);
   if (!stats.agenda || stats.dayCount !== 7 || stats.swipe || stats.scrollX) {
@@ -86,7 +95,7 @@ async function measureWeek(page) {
 
 {
   const { ctx, page } = await openPage(1280, 900, false, WEEK);
-  await page.waitForSelector('[data-week-board="1"]', { timeout: 20000 });
+  await waitVisibleBoard(page, '[data-week-board="1"]');
   const stats = await measureWeek(page);
   console.log('week-1280', stats);
   if (!stats.grid || stats.agenda) {
@@ -98,14 +107,14 @@ async function measureWeek(page) {
 
 {
   const { ctx, page } = await openPage(1280, 900, false, DAY);
-  await page.waitForSelector('[data-day-board="1"]', { timeout: 20000 });
+  await waitVisibleBoard(page, '[data-day-board="1"]');
   await shot(page, 's8-day-1280.png');
   await ctx.close();
 }
 
 async function daySearchWalk(width, height, suffix) {
   const { ctx, page } = await openPage(width, height, true, DAY);
-  await page.waitForSelector('[data-day-board="1"]', { timeout: 20000 });
+  await waitVisibleBoard(page, '[data-day-board="1"]');
   const search = page.locator('[data-schedule-search="1"] input').first();
   await search.click();
   await search.fill('Install');
