@@ -933,6 +933,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           markup_percent: String(markup),
           cost_model_id: c.cost_model_id ?? null,
           gst_rate: null,
+          check_price: false,
         };
       });
       setForm(f => ({ ...f, line_items: [...f.line_items.filter(li => li.description.trim()), ...newLines] }));
