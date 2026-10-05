@@ -447,6 +447,21 @@ describe('job photos live on the existing job sheet', () => {
     expect(mig).not.toMatch(/\bute\b/i);
   });
 
+  it('opens the same Gallery lightbox from a History thumbnail, without a new lightbox or geolocation', () => {
+    const page = src('src/pages/JobDetailPage.tsx');
+    const history = page.slice(page.indexOf('data-visit-photo'), page.indexOf('id="job-insp"'));
+    const gallery = page.slice(page.indexOf('data-gallery-photo'), page.indexOf('id="job-testing-due"'));
+    expect(page).toContain('openJobPhotoLightbox');
+    expect(page).toContain('createPortal');
+    expect(page).toContain('job-photo-lightbox');
+    expect(history).toContain('openJobPhotoLightbox(photo.key)');
+    expect(gallery).toContain('openJobPhotoLightbox(photo.key)');
+    expect(page).toContain('PHOTO_NO_PLACE');
+    expect(page).not.toMatch(/getCurrentPosition|watchPosition|deviceLocation\(/);
+    expect(page).not.toContain('LightboxModal');
+    expect(page).not.toMatch(/function PhotoLightbox|new lightbox/i);
+  });
+
   it('does not ask the browser for a location when previewing or adding a photo', () => {
     const lib = src('src/lib/photoProvenance.ts');
     const resolve = lib.slice(
