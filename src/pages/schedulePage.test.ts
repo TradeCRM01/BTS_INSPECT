@@ -64,7 +64,7 @@ describe('schedule page week/day board', () => {
     expect(board).toContain('dayChipPinInset');
     expect(src('src/lib/dispatch.ts')).toContain('width - remain');
     expect(src('src/index.css')).toContain('-webkit-line-clamp: 2');
-    expect(src('src/index.css')).toContain('calc(var(--shell-bottom-nav-h, 0px) + 8px)');
+    expect(src('src/index.css')).toContain('calc(var(--shell-bottom-nav-h, 0px) + 10px)');
     expect(page).toContain('286 prove 2 — delete ok');
     expect(page).toContain('286 prove 3 — delete ok');
     expect(page).toContain('asTeamIds');
@@ -104,7 +104,7 @@ describe('schedule page week/day board', () => {
     expect(board).toContain('scheduleWeekAgenda(jobs, currentDate)');
     expect(board).toContain('data-week-agenda="1"');
     expect(board).toContain('Nothing booked');
-    expect(src('src/index.css')).toContain('padding-bottom: max(16px, calc(var(--shell-bottom-nav-h, 0px) + 8px))');
+    expect(src('src/index.css')).toContain('padding-bottom: max(16px, calc(var(--shell-bottom-nav-h, 0px) + 10px))');
     const phoneWeek = board.slice(
       board.indexOf('export const PhoneWeekList'),
       board.indexOf('export const DayBoardView'),
