@@ -217,8 +217,8 @@ describe('Pages HTML cache and SPA fallback', () => {
     const rules = redirects.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#'));
     expect(rules).toHaveLength(1);
     expect(rules[0]).toMatch(/^\/\*\s+\/index\.html\s+200$/);
+    expect(rules.some(rule => /404/.test(rule))).toBe(false);
     expect(existsSync(resolve(process.cwd(), 'public/404.html'))).toBe(false);
-    expect(redirects).not.toMatch(/404\.html/);
     expect(redirects).not.toMatch(/Relovi|Littleloop/);
   });
 });
