@@ -7,10 +7,16 @@ import {
   reuseAfterUniqueConflict,
   type JobBillCostLine,
 } from './invoiceFromJobBill';
+import {
+  JOB_INVOICE_LIST_COLUMNS,
+  asJobInvoiceListRow,
+  type JobInvoiceListRow,
+} from './invoiceFromQuote';
 
 export type CreateInvoiceFromJobBillResult = {
   id: string;
   existing: boolean;
+  invoice: JobInvoiceListRow | null;
 };
 
 /**
@@ -43,7 +49,7 @@ export async function createInvoiceFromJobBill(input: {
 
   const { data: existing, error: existingErr } = await supabase
     .from('invoices')
-    .select('id, status, source, notes, quote_id')
+    .select(`${JOB_INVOICE_LIST_COLUMNS}, source, notes`)
     .eq('job_id', input.jobId)
     .order('created_at', { ascending: false });
   if (existingErr) throw existingErr;
@@ -55,7 +61,14 @@ export async function createInvoiceFromJobBill(input: {
     existing: existing ?? [],
   });
   if (decision.action === 'miss') throw new Error(decision.message);
-  if (decision.action === 'reuse') return { id: decision.invoiceId, existing: true };
+  if (decision.action === 'reuse') {
+    const reused = (existing ?? []).find(row => row.id === decision.invoiceId);
+    return {
+      id: decision.invoiceId,
+      existing: true,
+      invoice: asJobInvoiceListRow(reused),
+    };
+  }
 
   const payload = buildInvoiceFromJobBill({
     clientId: job.client_id as string,
@@ -71,21 +84,29 @@ export async function createInvoiceFromJobBill(input: {
       company_id: input.companyId,
       created_by: input.profileId,
     })
-    .select('id')
+    .select(JOB_INVOICE_LIST_COLUMNS)
     .single();
 
   if (error) {
     if (error.code === '23505') {
       const { data: raced } = await supabase
         .from('invoices')
-        .select('id, status')
+        .select(JOB_INVOICE_LIST_COLUMNS)
         .eq('job_id', input.jobId)
         .order('created_at', { ascending: false });
       const reuse = reuseAfterUniqueConflict(error.code, raced ?? []);
-      if (reuse) return { id: reuse.id as string, existing: true };
+      if (reuse) {
+        return {
+          id: reuse.id as string,
+          existing: true,
+          invoice: asJobInvoiceListRow(reuse),
+        };
+      }
     }
     throw error;
   }
 
-  return { id: data.id as string, existing: false };
+  const invoice = asJobInvoiceListRow(data);
+  if (!invoice) throw new Error('Invoice was not saved.');
+  return { id: invoice.id, existing: false, invoice };
 }
