@@ -2,12 +2,15 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  AUTO_RECOVER_DONE_KEY,
   BUILD_STORAGE_KEY,
   applyDeployedBuildCache,
   autoClearLoginHref,
+  beginAutoRecover,
   clearAppCaches,
   keepSessionOnClearSearch,
   localStorageKeysToPurge,
+  releaseRecoveryKeysOnClear,
 } from './clearAppCaches';
 
 const AUTH_TOKEN = 'sb-ezszahvwwmbuekpedumf-auth-token';
@@ -112,6 +115,32 @@ describe('auto vs manual ?clear=1', () => {
   });
 });
 
+describe('auto recover loop guard', () => {
+  it('stops a second auto-redirect', () => {
+    const { storage } = memoryStorage();
+    expect(beginAutoRecover(storage)).toBe(true);
+    expect(storage.getItem(AUTO_RECOVER_DONE_KEY)).toBe('1');
+    expect(beginAutoRecover(storage)).toBe(false);
+    expect(storage.getItem(AUTO_RECOVER_DONE_KEY)).toBe('1');
+  });
+
+  it('keeps the guard on auto ?clear and drops it on a manual clear', () => {
+    const auto = memoryStorage({
+      [AUTO_RECOVER_DONE_KEY]: '1',
+      chunk_recover: '1',
+      module_reload: '1',
+    });
+    releaseRecoveryKeysOnClear('?clear=1&auto=1&next=%2Fjobs', auto.storage);
+    expect(auto.storage.getItem(AUTO_RECOVER_DONE_KEY)).toBe('1');
+    expect(auto.storage.getItem('chunk_recover')).toBe(null);
+    expect(auto.storage.getItem('module_reload')).toBe(null);
+
+    const manual = memoryStorage({ [AUTO_RECOVER_DONE_KEY]: '1' });
+    releaseRecoveryKeysOnClear('?clear=1', manual.storage);
+    expect(manual.storage.getItem(AUTO_RECOVER_DONE_KEY)).toBe(null);
+  });
+});
+
 describe('automatic recovery callers add auto=1', () => {
   function src(rel: string): string {
     return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -123,9 +152,16 @@ describe('automatic recovery callers add auto=1', () => {
     const login = src('src/pages/LoginPage.tsx');
     expect(autoClearLoginHref('/jobs/1')).toBe('/login?clear=1&auto=1&next=%2Fjobs%2F1');
     expect(main).toContain('autoClearLoginHref(next)');
+    expect(main).toContain('beginAutoRecover()');
+    expect(main).toContain('releaseRecoveryKeysOnClear(window.location.search)');
     expect(main).toContain('keepSessionOnClearSearch(window.location.search)');
     expect(main).toContain('clearAppCaches({ keepSession })');
+    expect(main).not.toMatch(/addEventListener\(\s*['"]load['"]/);
+    expect(main).not.toContain("removeItem('auto_recover_done')");
     expect(boundary).toContain('autoClearLoginHref(next)');
+    expect(boundary).toContain('beginAutoRecover()');
+    expect(boundary).toContain('href="/login?clear=1"');
+    expect(boundary).not.toContain('auto=1');
     expect(boundary).toContain("from '../../lib/clearAppCaches'");
     expect(login).toContain('href="/login?clear=1"');
     expect(login).not.toContain('auto=1');

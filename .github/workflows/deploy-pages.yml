@@ -58,6 +58,20 @@ jobs:
       - name: Build
         run: npm run build
 
+      # wrangler pages deploy <dir> uploads <dir> as static assets and bundles
+      # ./functions from the repo root (cwd), not from inside dist. Vite already
+      # copies public/_routes.json into dist so only /assets/* hits the Function.
+      - name: Confirm Pages Functions beside dist
+        run: |
+          test -f functions/assets/\[\[path\]\].ts
+          test -f dist/_routes.json
+          python3 - <<'PY'
+          import json
+          routes = json.load(open("dist/_routes.json"))
+          assert routes.get("include") == ["/assets/*"], routes
+          assert routes.get("exclude") == [], routes
+          PY
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
