@@ -23,7 +23,8 @@ import { convertQuoteToJob } from '../lib/convertQuoteToJob';
 import {
   CONVERT_QUOTE_NEED_DATE_CREW,
   assignedTeamFromQuote,
-  convertQuoteHasDateAndCrew,
+  focusQuoteConvertDate,
+  quoteConvertEntry,
 } from '../lib/quoteJobFields';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
 import { invoiceHref, invoiceLandingPath, pickReusableInvoice } from '../lib/invoiceFromQuote';
@@ -225,6 +226,7 @@ export function QuotesPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [editingQuote, setEditingQuote] = useState<QuoteListItem | null>(null);
+  const [focusConvert, setFocusConvert] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const lookLetterhead = searchParams.get('look') === LETTERHEAD_LOOK;
@@ -340,10 +342,11 @@ export function QuotesPage() {
     setShowForm(true);
   }, [lookLetterhead, quotes, showForm]);
 
-  function openQuote(q: QuoteListItem | null) {
+  function openQuote(q: QuoteListItem | null, opts?: { focusConvert?: boolean }) {
     setEditingQuote(q);
     setPresetClientId(null);
     setShowForm(true);
+    setFocusConvert(!!opts?.focusConvert);
   }
 
   function handleSaved(opts?: { close?: boolean; message?: string }) {
@@ -418,7 +421,7 @@ export function QuotesPage() {
               <span />
             </div>
             {filtered.map(q => (
-              <QuoteRow key={q.id} quote={q} onOpen={() => openQuote(q)} onSend={setSendingQuoteId} />
+              <QuoteRow key={q.id} quote={q} onOpen={opts => openQuote(q, opts)} onSend={setSendingQuoteId} />
             ))}
           </div>
         )}
@@ -430,7 +433,8 @@ export function QuotesPage() {
           quote={editingQuote}
           presetClientId={presetClientId}
           defaultTaxRate={company?.default_tax_rate ?? DEFAULT_TAX_RATE}
-          onClose={() => { setShowForm(false); setPresetClientId(null); }}
+          focusConvert={focusConvert}
+          onClose={() => { setShowForm(false); setPresetClientId(null); setFocusConvert(false); }}
           onSaved={handleSaved}
           onRequestSend={setSendingQuoteId}
         />
@@ -461,7 +465,7 @@ export function QuotesPage() {
   );
 }
 
-function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () => void; onSend: (quoteId: string) => void }) {
+function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: (opts?: { focusConvert?: boolean }) => void; onSend: (quoteId: string) => void }) {
   const next = recommendQuoteAction(quoteActionContext(quote));
   const chase = quoteChase(quote, new Date());
   const site = visibleSite(quote.job_address);
@@ -501,7 +505,7 @@ function QuoteRow({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () 
   );
 }
 
-function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: () => void; onSend: (quoteId: string) => void }) {
+function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onOpen: (opts?: { focusConvert?: boolean }) => void; onSend: (quoteId: string) => void }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { profile, company } = useAuth();
@@ -544,8 +548,8 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
       return;
     }
     if (next.key === 'convert_job') {
-      if (!convertQuoteHasDateAndCrew({ scheduled_date: quote.scheduled_date, assigned_team: quote.assigned_team })) {
-        onOpen();
+      if (quoteConvertEntry({ scheduled_date: quote.scheduled_date, assigned_team: quote.assigned_team }) === 'focus_convert') {
+        onOpen({ focusConvert: true });
         return;
       }
       void run('convert_job', async () => {
@@ -604,10 +608,11 @@ interface EditorState {
   assigned_team: string[];
 }
 
-function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSaved, onRequestSend }: {
+function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert, onClose, onSaved, onRequestSend }: {
   quote: QuoteListItem | null;
   presetClientId?: string | null;
   defaultTaxRate: number;
+  focusConvert?: boolean;
   onClose: () => void;
   onSaved: (opts?: { close?: boolean; message?: string }) => void;
   onRequestSend: (quoteId: string) => void;
@@ -725,6 +730,14 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
     job_id: form.job_id || null,
     invoice_id: invoiceId,
   }));
+
+  useEffect(() => {
+    if (!focusConvert || next.key !== 'convert_job') return;
+    const frame = window.requestAnimationFrame(() => {
+      focusQuoteConvertDate(document);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusConvert, next.key]);
 
   useEffect(() => {
     setClientEmailDraft(emailClient?.email ?? '');
@@ -931,8 +944,9 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
   const handleConvert = async () => {
     const id = savedId ?? quote?.id;
     if (!id || form.status !== 'accepted' || !profile?.id) return;
-    if (!convertQuoteHasDateAndCrew({ scheduled_date: form.scheduled_date, assigned_team: form.assigned_team })) {
+    if (quoteConvertEntry({ scheduled_date: form.scheduled_date, assigned_team: form.assigned_team }) === 'focus_convert') {
       setErr(CONVERT_QUOTE_NEED_DATE_CREW);
+      focusQuoteConvertDate(document);
       return;
     }
     setConverting(true); setErr('');
@@ -1334,7 +1348,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
               <p className="hub-quote-convert-label">Convert</p>
               <div className="hub-quote-convert-fields">
                 <Field label="Job date">
-                  <input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} className="form-input" />
+                  <input id="quote-convert-date" type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} className="form-input" />
                 </Field>
                 <Field label="Crew">
                   <select

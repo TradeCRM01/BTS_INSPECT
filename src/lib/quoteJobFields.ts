@@ -26,6 +26,27 @@ export function convertQuoteHasDateAndCrew(quote: {
 
 export const CONVERT_QUOTE_NEED_DATE_CREW = 'Set a date and crew on this tap before converting.';
 
+export type QuoteConvertEntry = 'convert' | 'focus_convert';
+
+export function quoteConvertEntry(quote: {
+  scheduled_date?: string | null;
+  assigned_team?: unknown;
+}): QuoteConvertEntry {
+  return convertQuoteHasDateAndCrew(quote) ? 'convert' : 'focus_convert';
+}
+
+export function focusQuoteConvertDate(root: ParentNode): HTMLInputElement | null {
+  const section = root.querySelector('.hub-quote-convert');
+  if (!(section instanceof HTMLElement)) return null;
+  if (typeof section.scrollIntoView === 'function') {
+    section.scrollIntoView({ block: 'nearest' });
+  }
+  const date = section.querySelector<HTMLInputElement>('input[type="date"]');
+  if (!date) return null;
+  date.focus();
+  return date;
+}
+
 export function jobFieldsFromQuote(
   quote: {
     quote_number: number | null;
