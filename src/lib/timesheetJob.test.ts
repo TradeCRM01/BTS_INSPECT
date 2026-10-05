@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   TIMESHEET_CLOCK_OFF_STATUS,
@@ -14,6 +16,7 @@ import {
   jobClockedMinutes,
   localDateIso,
   planTimesheetClockOff,
+  timeEntryDefaultsFromBooking,
   timesheetWorkedMinutes,
 } from './timesheetJob';
 
@@ -216,5 +219,43 @@ describe('builders', () => {
     expect(localDateIso(new Date('2026-09-01T14:30:00.000Z'))).toBe('2026-09-02');
     expect(localDateIso(new Date('2026-09-01T14:30:00.000Z'), 'Australia/Perth')).toBe('2026-09-01');
     expect(localDateIso(new Date('2026-09-01T14:30:00.000Z'), 'UTC')).toBe('2026-09-01');
+  });
+});
+
+describe('timeEntryDefaultsFromBooking', () => {
+  /** 4 Oct 2026 morning in Australia/Brisbane — the live Add hours fail day. */
+  const openedOn = new Date('2026-10-03T22:00:00.000Z');
+  const todayDay = {
+    date: localDateIso(openedOn),
+    start_time: '08:00',
+    end_time: '17:00',
+  };
+  const booked = {
+    date: '2026-10-05',
+    start_time: '09:00',
+    end_time: '10:00',
+  };
+  const blank = { date: '', start_time: '', end_time: '' };
+
+  it('opens Add hours as the job booking, not today 08:00–17:00', () => {
+    expect(todayDay.date).toBe('2026-10-04');
+    const opened = timeEntryDefaultsFromBooking({
+      scheduled_date: '2026-10-05',
+      start_time: '09:00:00',
+      end_time: '10:00:00',
+    }, openedOn);
+    expect(opened).not.toEqual(todayDay);
+    expect([booked, blank]).toContainEqual(opened);
+
+    const form = readFileSync(resolve(process.cwd(), 'src/components/timesheets/TimeEntryForm.tsx'), 'utf8');
+    expect(form).toContain('timeEntryDefaultsFromBooking');
+    expect(form).not.toMatch(/date: localDateIso\(\)/);
+    expect(form).not.toMatch(/start_time: '08:00'/);
+    expect(form).not.toMatch(/end_time: '17:00'/);
+
+    const jobSheet = readFileSync(resolve(process.cwd(), 'src/pages/JobDetailPage.tsx'), 'utf8');
+    expect(jobSheet).toContain('presetDate={job.scheduled_date}');
+    expect(jobSheet).toContain('presetStartTime={job.start_time}');
+    expect(jobSheet).toContain('presetEndTime={job.end_time}');
   });
 });

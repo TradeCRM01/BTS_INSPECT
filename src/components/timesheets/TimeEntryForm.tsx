@@ -9,7 +9,7 @@ import {
   buildJobTimeEntry,
   buildOpenTimesheetInsert,
   entryMinutes,
-  localDateIso,
+  timeEntryDefaultsFromBooking,
 } from '../../lib/timesheetJob';
 import type { Timesheet } from '../../types/fsm';
 
@@ -18,6 +18,9 @@ export function TimeEntryForm({
   jobs,
   employeeId,
   presetJobId,
+  presetDate,
+  presetStartTime,
+  presetEndTime,
   lockJob,
   onClose,
   onSaved,
@@ -26,20 +29,25 @@ export function TimeEntryForm({
   jobs: { id: string; title: string; job_number: number | null }[];
   employeeId: string;
   presetJobId?: string;
+  presetDate?: string | null;
+  presetStartTime?: string | null;
+  presetEndTime?: string | null;
   lockJob?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { profile } = useAuth();
-  const [form, setForm] = useState({
-    date: localDateIso(),
-    start_time: '08:00',
-    end_time: '17:00',
+  const [form, setForm] = useState(() => ({
+    ...timeEntryDefaultsFromBooking({
+      scheduled_date: presetDate,
+      start_time: presetStartTime,
+      end_time: presetEndTime,
+    }),
     work_type: '',
     billable: true,
     notes: '',
     job_id: presetJobId ?? '',
-  });
+  }));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 

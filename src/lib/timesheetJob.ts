@@ -53,6 +53,40 @@ export function localDateIso(now = new Date(), timeZone = TIMESHEET_COMPANY_TZ):
   return `${y}-${m}-${d}`;
 }
 
+function bookingDateInput(value?: string | null): string {
+  const trimmed = value?.trim() ?? '';
+  return trimmed ? trimmed.slice(0, 10) : '';
+}
+
+function bookingTimeInput(value?: string | null): string {
+  const trimmed = value?.trim() ?? '';
+  return trimmed ? trimmed.slice(0, 5) : '';
+}
+
+/** Add hours on a booked job opens as that booking, not today 08:00–17:00. */
+export function timeEntryDefaultsFromBooking(
+  booking?: {
+    scheduled_date?: string | null;
+    start_time?: string | null;
+    end_time?: string | null;
+  } | null,
+  now = new Date(),
+): { date: string; start_time: string; end_time: string } {
+  const date = bookingDateInput(booking?.scheduled_date);
+  if (!date) {
+    return {
+      date: localDateIso(now),
+      start_time: '08:00',
+      end_time: '17:00',
+    };
+  }
+  return {
+    date,
+    start_time: bookingTimeInput(booking?.start_time),
+    end_time: bookingTimeInput(booking?.end_time),
+  };
+}
+
 export function buildOpenTimesheetInsert(args: {
   companyId: string;
   employeeId: string;
