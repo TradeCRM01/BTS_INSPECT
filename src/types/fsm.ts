@@ -90,6 +90,8 @@ export interface QuoteLineItem {
   markup_percent?: number | null;
   /** Employee cost model used as cost code (hourly snapshot in unit_cost) */
   cost_model_id?: string | null;
+  /** Item GST percent. Null or missing falls back to the quote tax rate. */
+  gst_rate?: number | null;
 }
 
 export interface InvoiceLineItem {
@@ -102,6 +104,8 @@ export interface InvoiceLineItem {
   unit_cost?: number | null;
   markup_percent?: number | null;
   cost_model_id?: string | null;
+  /** Item GST percent. Null or missing falls back to the invoice tax rate. */
+  gst_rate?: number | null;
 }
 
 // ── Purchase Orders ──────────────────────────────────────────────
@@ -472,6 +476,7 @@ export interface PriceBookItem {
   unit: string;
   unit_price: number;
   cost_price: number | null;
+  gst_rate?: number | null;
   is_active: boolean;
   created_at: string;
 }

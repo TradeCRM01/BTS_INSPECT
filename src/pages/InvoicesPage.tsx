@@ -8,7 +8,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { AppDialog, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
-import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineItem } from '../components/invoicing/LineItemEditor';
+import { LineItemEditor, emptyLineItem, toEditLine, type EditLineItem } from '../components/invoicing/LineItemEditor';
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
@@ -16,7 +16,7 @@ import { InvoiceSendDialog } from '../components/invoicing/InvoiceSendDialog';
 import { linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
-import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
+import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel } from '../lib/gst';
 import {
   effectiveInvoiceStatus,
   fullInvoicePayment,
@@ -848,12 +848,13 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     },
     onError: (e: Error) => showToast(e.message, 'info'),
   });
-  const rawSubtotal = useMemo(() => calcSubtotal(form.line_items), [form.line_items]);
+  const fallbackTaxRate = parseFloat(form.tax_rate) || 0;
   const gst = useMemo(
-    () => calcDocumentTotals(rawSubtotal, parseFloat(form.tax_rate) || 0),
-    [rawSubtotal, form.tax_rate],
+    () => calcLineDocumentTotals(form.line_items, fallbackTaxRate),
+    [form.line_items, fallbackTaxRate],
   );
   const { subtotal, taxAmount, total: grandTotal } = gst;
+  const gstHeading = gstDocumentLabel(form.line_items, fallbackTaxRate);
   const next = recommendInvoiceAction(invoiceActionContext({
     status: form.status,
     due_date: form.due_date,
@@ -876,6 +877,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
         cost_model_id: li.cost_model_id ?? null,
+        gst_rate: li.gst_rate,
       }));
     return {
       kind: 'invoice',
@@ -928,6 +930,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           unit_cost: String(unitCost),
           markup_percent: String(markup),
           cost_model_id: c.cost_model_id ?? null,
+          gst_rate: null,
         };
       });
       setForm(f => ({ ...f, line_items: [...f.line_items.filter(li => li.description.trim()), ...newLines] }));
@@ -957,6 +960,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
         cost_model_id: li.cost_model_id ?? null,
+        gst_rate: li.gst_rate,
       }));
     if (cleanLines.length === 0) { setErr('Add at least one line item'); return null; }
     setSaving(true); setErr(''); setXeroMiss('');
@@ -1331,7 +1335,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           <div className="hub-invoice-gst">
             <span>Subtotal (ex GST)</span>
             <span className="hub-invoice-num">{formatMoney(subtotal)}</span>
-            <span>{gstLabel(parseFloat(form.tax_rate) || 0)}</span>
+            <span>{gstHeading}</span>
             <span className="hub-invoice-num">{formatMoney(taxAmount)}</span>
           </div>
           {editorMoney ? (
@@ -1423,9 +1427,10 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           <div className="hub-invoice-editor-math">
             <DocumentGstTotals
               subtotal={subtotal}
-              taxRate={parseFloat(form.tax_rate) || 0}
+              taxRate={fallbackTaxRate}
               taxAmount={taxAmount}
               total={grandTotal}
+              taxLabel={gstHeading}
             />
           </div>
 

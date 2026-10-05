@@ -6,6 +6,7 @@ import { ManagedSelect } from '../ui/ManagedSelect';
 import { LIST_KEYS } from '../../lib/useManagedList';
 import { supabase } from '../../lib/supabase';
 import { asModelLines, modelHourlyCost } from '../expenses/ExpenseModelsModals';
+import { quoteLineFromPriceBookItem } from '../../lib/priceBookImport';
 
 export interface EditLineItem {
   description: string;
@@ -17,6 +18,7 @@ export interface EditLineItem {
   unit_cost: string | null;
   markup_percent: string | null;
   cost_model_id: string | null;
+  gst_rate: number | null;
 }
 
 export function emptyLineItem(defaultMarkup = 0): EditLineItem {
@@ -30,6 +32,7 @@ export function emptyLineItem(defaultMarkup = 0): EditLineItem {
     unit_cost: '',
     markup_percent: defaultMarkup ? String(defaultMarkup) : '',
     cost_model_id: null,
+    gst_rate: null,
   };
 }
 
@@ -43,6 +46,7 @@ export function toEditLine(li: {
   unit_cost?: number | null;
   markup_percent?: number | null;
   cost_model_id?: string | null;
+  gst_rate?: number | null;
 }): EditLineItem {
   return {
     description: li.description,
@@ -54,6 +58,7 @@ export function toEditLine(li: {
     unit_cost: li.unit_cost != null ? String(li.unit_cost) : '',
     markup_percent: li.markup_percent != null ? String(li.markup_percent) : '',
     cost_model_id: li.cost_model_id ?? null,
+    gst_rate: li.gst_rate == null ? null : Number(li.gst_rate),
   };
 }
 
@@ -130,6 +135,7 @@ export function LineItemEditor({
       description: lines[idx].description.trim() || model.name,
       stock_item_id: null,
       price_book_item_id: null,
+      gst_rate: null,
     });
   };
 
@@ -147,13 +153,15 @@ export function LineItemEditor({
       unit_cost: cost.toFixed(2),
       markup_percent: String(markup),
       cost_model_id: null,
+      gst_rate: null,
     }]);
     closePicker();
   };
 
   const addPriceBookItem = (item: PriceBookItem) => {
-    const cost = Number(item.cost_price) || 0;
-    const sell = Number(item.unit_price) || 0;
+    const pick = quoteLineFromPriceBookItem(item);
+    const cost = pick.unit_cost ?? 0;
+    const sell = pick.unit_price;
     let markup = defaultMarkup;
     if (cost > 0 && sell > 0) {
       markup = Math.round(((sell / cost) - 1) * 1000) / 10;
@@ -162,7 +170,7 @@ export function LineItemEditor({
     }
     const unitCost = cost > 0 ? cost : (sell > 0 && markup === 0 ? sell : cost);
     onChange([...lines, {
-      description: item.code ? `${item.code} — ${item.description}` : item.description,
+      description: pick.description,
       quantity: '1',
       unit_price: sell.toFixed(2),
       stock_item_id: null,
@@ -171,6 +179,7 @@ export function LineItemEditor({
       unit_cost: unitCost ? unitCost.toFixed(2) : '',
       markup_percent: String(markup),
       cost_model_id: null,
+      gst_rate: pick.gst_rate,
     }]);
     closePicker();
   };
@@ -305,7 +314,9 @@ export function LineItemEditor({
                   ? 'No price book items yet — add them under Price Books'
                   : 'No matches found'}
               </p>
-            ) : filteredPriceBook.map(item => (
+            ) : filteredPriceBook.map(item => {
+              const pick = quoteLineFromPriceBookItem(item);
+              return (
               <button key={item.id} type="button" onClick={() => addPriceBookItem(item)}
                 className="w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-white text-left text-sm">
                 <div className="min-w-0">
@@ -313,11 +324,15 @@ export function LineItemEditor({
                   {item.code && <span className="text-xs text-[#9CA3AF] ml-1.5">{item.code}</span>}
                   {item.category && <span className="text-[10px] text-[#9CA3AF] ml-1.5">{item.category}</span>}
                 </div>
-                <span className="text-xs font-medium text-[#1A1A1A] shrink-0 ml-2">
-                  {formatMoney(Number(item.unit_price))}
+                <span className="text-xs font-medium text-[#1A1A1A] shrink-0 ml-2 text-right">
+                  {formatMoney(pick.unit_price)}
+                  <span className="block text-[10px] text-[#6B7280] font-normal">
+                    {pick.gst_label}
+                  </span>
                 </span>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

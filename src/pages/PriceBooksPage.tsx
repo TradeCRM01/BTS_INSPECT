@@ -13,7 +13,10 @@ import { Plus, Search, BookOpen, X, Trash2, Pencil, Star, MoreVertical, DollarSi
 import type { PriceBook, PriceBookItem } from '../types/fsm';
 import { formatMoney } from '../types/fsm';
 import { PriceBookPdfImportModal } from '../components/pricebooks/PriceBookPdfImportModal';
+import { PriceBookCsvImportModal } from '../components/pricebooks/PriceBookCsvImportModal';
 import { getAuditPriceBookItems, getAuditPriceBooks } from '../lib/devFieldAuditDocs';
+import { priceBookItemGstRate } from '../lib/priceBookImport';
+import { gstLabel } from '../lib/gst';
 
 export function PriceBooksPage() {
   const { profile, company } = useAuth();
@@ -26,6 +29,7 @@ export function PriceBooksPage() {
   const [editingItem, setEditingItem] = useState<PriceBookItem | null>(null);
   const [showItemForm, setShowItemForm] = useState(false);
   const [showPdfImport, setShowPdfImport] = useState(false);
+  const [showCsvImport, setShowCsvImport] = useState(false);
   const [deleteItemTarget, setDeleteItemTarget] = useState<PriceBookItem | null>(null);
 
   const { data: priceBooks, isLoading, error } = useQuery({
@@ -142,8 +146,15 @@ export function PriceBooksPage() {
                   <>
                     <button
                       type="button"
+                      onClick={() => setShowCsvImport(true)}
+                      className="flex items-center gap-1.5 min-h-[44px] border border-[#2E75B6] text-[#2E75B6] px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-blue-50 whitespace-nowrap"
+                    >
+                      <FileUp size={14} /> Import CSV
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setShowPdfImport(true)}
-                      className="flex items-center gap-1.5 border border-[#2E75B6] text-[#2E75B6] px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-blue-50 whitespace-nowrap"
+                      className="flex items-center gap-1.5 min-h-[44px] border border-[#2E75B6] text-[#2E75B6] px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-blue-50 whitespace-nowrap"
                     >
                       <FileUp size={14} /> Import PDF
                     </button>
@@ -165,7 +176,10 @@ export function PriceBooksPage() {
                 message={search ? 'Try a different search term.' : 'Add your first item to get started.'}
                 action={!search && (
                   <div className="flex flex-wrap gap-2 justify-center">
-                    <button onClick={() => setShowPdfImport(true)} className="btn-secondary">
+                    <button onClick={() => setShowCsvImport(true)} className="btn-secondary min-h-[44px]">
+                      <FileUp size={16} /> Import CSV
+                    </button>
+                    <button onClick={() => setShowPdfImport(true)} className="btn-secondary min-h-[44px]">
                       <FileUp size={16} /> Import from PDF
                     </button>
                     <button onClick={() => { setEditingItem(null); setShowItemForm(true); }} className="btn-primary">
@@ -187,6 +201,7 @@ export function PriceBooksPage() {
                       <th className="px-4 py-2.5 font-medium">Unit</th>
                       <th className="px-4 py-2.5 font-medium text-right">Price</th>
                       <th className="px-4 py-2.5 font-medium text-right">Cost</th>
+                      <th className="px-4 py-2.5 font-medium text-right">GST</th>
                       <th className="px-4 py-2.5 font-medium text-right">Margin</th>
                       <th className="px-4 py-2.5 w-10"></th>
                     </tr>
@@ -204,6 +219,7 @@ export function PriceBooksPage() {
                           <td className="px-4 py-3 text-[#4A5568]">{item.unit}</td>
                           <td className="px-4 py-3 text-right font-medium text-[#1A1A1A]">{formatMoney(Number(item.unit_price))}</td>
                           <td className="px-4 py-3 text-right text-[#4A5568]">{item.cost_price ? formatMoney(Number(item.cost_price)) : '—'}</td>
+                          <td className="px-4 py-3 text-right text-[#4A5568]">{gstLabel(priceBookItemGstRate(item))}</td>
                           <td className="px-4 py-3 text-right">
                             {margin !== null ? (
                               <span className={`text-xs font-medium ${Number(margin) >= 30 ? 'text-green-600' : Number(margin) >= 15 ? 'text-amber-600' : 'text-red-600'}`}>{margin}%</span>
@@ -232,6 +248,22 @@ export function PriceBooksPage() {
       {showItemForm && selectedBookId && (
         <PriceBookItemForm item={editingItem} priceBookId={selectedBookId} onClose={() => setShowItemForm(false)}
           onSaved={() => { setShowItemForm(false); queryClient.invalidateQueries({ queryKey: ['price-book-items', selectedBookId] }); showToast(editingItem ? 'Item updated' : 'Item added'); }} />
+      )}
+
+      {showCsvImport && selectedBookId && (
+        <PriceBookCsvImportModal
+          priceBookId={selectedBookId}
+          existingItems={items ?? []}
+          onClose={() => setShowCsvImport(false)}
+          onImported={({ inserted, updated }) => {
+            setShowCsvImport(false);
+            queryClient.invalidateQueries({ queryKey: ['price-book-items', selectedBookId] });
+            const parts = [];
+            if (inserted) parts.push(`${inserted} added`);
+            if (updated) parts.push(`${updated} updated`);
+            showToast(parts.length ? `Price book: ${parts.join(', ')}` : 'Import complete');
+          }}
+        />
       )}
 
       {showPdfImport && selectedBookId && (
@@ -328,6 +360,7 @@ function PriceBookItemForm({ item, priceBookId, onClose, onSaved }: { item: Pric
     unit: item?.unit ?? 'each',
     unit_price: String(item?.unit_price ?? 0),
     cost_price: item?.cost_price != null ? String(item.cost_price) : '',
+    gst_rate: String(item?.gst_rate ?? 10),
     is_active: item?.is_active ?? true,
   });
   const [saving, setSaving] = useState(false);
@@ -347,6 +380,7 @@ function PriceBookItemForm({ item, priceBookId, onClose, onSaved }: { item: Pric
         unit: form.unit,
         unit_price: parseFloat(form.unit_price) || 0,
         cost_price: form.cost_price.trim() !== '' ? (parseFloat(form.cost_price) || 0) : null,
+        gst_rate: parseFloat(form.gst_rate) || 0,
         is_active: form.is_active,
       };
       if (item) {
@@ -377,6 +411,7 @@ function PriceBookItemForm({ item, priceBookId, onClose, onSaved }: { item: Pric
             <Field label="Unit"><input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="form-input" placeholder="each" /></Field>
             <Field label="Unit Price"><input type="number" min={0} step="0.01" value={form.unit_price} onChange={e => setForm(f => ({ ...f, unit_price: e.target.value }))} className="form-input" placeholder="0.00" /></Field>
             <Field label="Cost Price"><input type="number" min={0} step="0.01" value={form.cost_price} onChange={e => setForm(f => ({ ...f, cost_price: e.target.value }))} className="form-input" placeholder="0.00" /></Field>
+            <Field label="GST %"><input type="number" min={0} max={100} step="0.01" value={form.gst_rate} onChange={e => setForm(f => ({ ...f, gst_rate: e.target.value }))} className="form-input" placeholder="10" /></Field>
           </div>
           {err && <p className="text-sm text-[#B42318]">{err}</p>}
           <div className="flex justify-end gap-2 pt-2">

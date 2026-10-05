@@ -27,8 +27,8 @@ import {
 } from '../lib/quoteJobFields';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
 import { invoiceHref, invoiceLandingPath, pickReusableInvoice } from '../lib/invoiceFromQuote';
-import { calcDocumentTotals, DEFAULT_TAX_RATE, gstLabel } from '../lib/gst';
-import { LineItemEditor, emptyLineItem, toEditLine, calcSubtotal, type EditLineItem } from '../components/invoicing/LineItemEditor';
+import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel } from '../lib/gst';
+import { LineItemEditor, emptyLineItem, toEditLine, type EditLineItem } from '../components/invoicing/LineItemEditor';
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
@@ -130,6 +130,42 @@ function fieldAuditConvertQuote(): QuoteListItem | null {
   };
 }
 
+function fieldAuditGstQuote(): QuoteListItem | null {
+  if (!isDevFieldAuditAuth()) return null;
+  return {
+    id: 'audit-quote-gst',
+    company_id: DEV_AUDIT_COMPANY.id,
+    quote_number: 2003,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    job_id: null,
+    status: 'draft',
+    description: 'Mixed GST rates',
+    scope_of_works: 'One taxed line and one GST-free line.',
+    line_items: [
+      { description: 'Taxed labour', quantity: 1, unit_price: 100, gst_rate: 10 },
+      { description: 'GST-free fitting delete ok', quantity: 1, unit_price: 50, gst_rate: 0 },
+    ],
+    subtotal: 150,
+    tax_rate: 10,
+    tax_amount: 10,
+    total: 160,
+    validity_date: '2026-09-07',
+    notes: null,
+    inclusions: [],
+    exclusions: [],
+    scheduled_date: null,
+    assigned_team: [],
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: '2026-08-24T00:00:00.000Z',
+    updated_at: '2026-08-24T00:00:00.000Z',
+    client_name: 'Northside Electrical',
+    client_email: 'accounts@northside.example',
+    job_title: null,
+    job_address: null,
+    invoice_id: null,
+  };
+}
+
 function fieldAuditShareQuote(): QuoteListItem | null {
   if (!isDevFieldAuditAuth()) return null;
   return {
@@ -202,7 +238,8 @@ export function QuotesPage() {
       if (convertQuote) {
         if (lookLetterhead) return [convertQuote];
         const shareQuote = fieldAuditShareQuote();
-        return shareQuote ? [convertQuote, shareQuote] : [convertQuote];
+        const gstQuote = fieldAuditGstQuote();
+        return [convertQuote, shareQuote, gstQuote].filter((row): row is QuoteListItem => !!row);
       }
       const { data, error } = await supabase
         .from('quotes')
@@ -671,12 +708,13 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         ? null
         : clients,
   });
-  const rawSubtotal = useMemo(() => calcSubtotal(form.line_items), [form.line_items]);
+  const fallbackTaxRate = parseFloat(form.tax_rate) || 0;
   const gst = useMemo(
-    () => calcDocumentTotals(rawSubtotal, parseFloat(form.tax_rate) || 0),
-    [rawSubtotal, form.tax_rate],
+    () => calcLineDocumentTotals(form.line_items, fallbackTaxRate),
+    [form.line_items, fallbackTaxRate],
   );
   const { subtotal, taxAmount, total: grandTotal } = gst;
+  const gstHeading = gstDocumentLabel(form.line_items, fallbackTaxRate);
 
   const next = recommendQuoteAction(quoteActionContext({
     status: form.status,
@@ -774,6 +812,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
         cost_model_id: li.cost_model_id ?? null,
+        gst_rate: li.gst_rate,
       }));
     return {
       kind: 'quote',
@@ -817,6 +856,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
         unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
         cost_model_id: li.cost_model_id ?? null,
+        gst_rate: li.gst_rate,
       }));
     return {
       cleanLines,
@@ -1264,7 +1304,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           <div className="hub-quote-gst">
             <span>Subtotal (ex GST)</span>
             <span className="hub-quote-num">{formatMoney(subtotal)}</span>
-            <span>{gstLabel(parseFloat(form.tax_rate) || 0)}</span>
+            <span>{gstHeading}</span>
             <span className="hub-quote-num">{formatMoney(taxAmount)}</span>
           </div>
           {editorMoney ? (
@@ -1363,9 +1403,10 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, onClose, onSa
           <div className="hub-quote-editor-math">
             <DocumentGstTotals
               subtotal={subtotal}
-              taxRate={parseFloat(form.tax_rate) || 0}
+              taxRate={fallbackTaxRate}
               taxAmount={taxAmount}
               total={grandTotal}
+              taxLabel={gstHeading}
             />
           </div>
 
