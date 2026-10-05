@@ -25,7 +25,8 @@ describe('P-301 phone line editor', () => {
     expect(css).toContain('"desc desc"');
     expect(css).toContain('"qty price"');
     expect(css).toContain('"ucost markup"');
-    expect(css).toContain('"total del"');
+    expect(css).toContain('"foot foot"');
+    expect(css).toContain('rgba(10, 37, 64, 0.12)');
     expect(css).toContain('"cost cost"');
     expect(css).toContain('"nature nature"');
     expect(css).toContain('.hub-line-editor-lab {\n      display: none;');

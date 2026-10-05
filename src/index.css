@@ -7377,11 +7377,14 @@
       "desc desc"
       "qty price"
       "ucost markup"
-      "total del"
+      "foot foot"
       "cost cost"
       "nature nature";
     column-gap: 8px;
     row-gap: 10px;
+    border-top-color: rgba(10, 37, 64, 0.12) !important;
+    padding-top: 16px !important;
+    padding-bottom: 16px !important;
   }
 
   .hub-line-editor-desc { grid-area: desc; }
@@ -7389,10 +7392,13 @@
   .hub-line-editor-price { grid-area: price; }
   .hub-line-editor-ucost { grid-area: ucost; }
   .hub-line-editor-markup { grid-area: markup; }
-  .hub-line-editor-total { grid-area: total; }
-  .hub-line-editor-del { grid-area: del; }
   .hub-line-editor-cost { grid-area: cost; }
   .hub-line-editor-nature { grid-area: nature; }
+
+  .hub-line-editor-total,
+  .hub-line-editor-del {
+    grid-area: foot;
+  }
 
   .hub-line-editor-total {
     display: flex;
@@ -7400,8 +7406,8 @@
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
-    justify-self: end;
-    align-self: center;
+    width: 100%;
+    padding-right: 52px;
     text-align: right;
   }
 
@@ -7482,6 +7488,14 @@
     .hub-line-editor-total {
       display: block;
       justify-self: auto;
+      width: auto;
+      padding-right: 0;
+    }
+
+    .hub-line-editor-line {
+      border-top-color: #F3F4F6 !important;
+      padding-top: 8px !important;
+      padding-bottom: 8px !important;
     }
   }
 
