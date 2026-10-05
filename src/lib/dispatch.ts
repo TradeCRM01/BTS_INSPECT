@@ -54,6 +54,16 @@ export function asTeamIds(value: unknown): string[] {
   return value.filter((id): id is string => typeof id === 'string' && id.length > 0);
 }
 
+/** Keep chip copy on the visible left while at least `remain` px of the bar is still on screen. */
+export function dayChipPinInset(
+  scrollLeft: number,
+  left: number,
+  width: number,
+  remain = 24,
+): number {
+  return Math.max(0, Math.min(scrollLeft - left, Math.max(0, width - remain)));
+}
+
 export function nextAssignedTeam(drop: AssignmentDrop): string[] {
   if (drop === 'unassigned') return [];
   return [drop.employeeId];
