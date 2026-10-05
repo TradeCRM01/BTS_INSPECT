@@ -1940,6 +1940,11 @@ export function JobDetailPage() {
       });
     },
     onSuccess: (result) => {
+      if (result.invoice) {
+        queryClient.setQueryData<JobInvoice[]>(['job-invoices', id], prev =>
+          jobInvoicesAfterCreate(prev, result.invoice),
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       showToast(result.existing ? JOB_BILL_INVOICE_EXISTS : JOB_BILL_INVOICE_CREATED);

@@ -119,3 +119,29 @@ export function jobInvoicesAfterCreate<T extends { id: string }>(
 ): T[] {
   return [created, ...(prev ?? []).filter(row => row.id !== created.id)];
 }
+
+function asInvoiceStatus(value: string | null | undefined): InvoiceStatus {
+  if (value === 'sent' || value === 'paid' || value === 'overdue') return value;
+  return 'draft';
+}
+
+export function asJobInvoiceListRow(row: {
+  id: string;
+  invoice_number?: number | null;
+  status?: string | null;
+  total?: number | null;
+  due_date?: string | null;
+  created_at?: string | null;
+  quote_id?: string | null;
+} | null | undefined): JobInvoiceListRow | null {
+  if (!row?.id) return null;
+  return {
+    id: row.id,
+    invoice_number: row.invoice_number ?? null,
+    status: asInvoiceStatus(row.status),
+    total: Number(row.total) || 0,
+    due_date: row.due_date ?? null,
+    created_at: row.created_at ?? '',
+    quote_id: row.quote_id ?? null,
+  };
+}

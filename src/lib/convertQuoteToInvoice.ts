@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import {
   JOB_INVOICE_LIST_COLUMNS,
+  asJobInvoiceListRow,
   buildInvoiceFromQuote,
   isoDatePlusDays,
   pickReusableInvoice,
@@ -19,32 +20,6 @@ export type ConvertQuoteToInvoiceResult = {
   jobId: string | null;
   invoice: JobInvoiceListRow | null;
 };
-
-function asInvoiceStatus(value: string | null | undefined): JobInvoiceListRow['status'] {
-  if (value === 'sent' || value === 'paid' || value === 'overdue') return value;
-  return 'draft';
-}
-
-function asJobInvoiceListRow(row: {
-  id: string;
-  invoice_number?: number | null;
-  status?: string | null;
-  total?: number | null;
-  due_date?: string | null;
-  created_at?: string | null;
-  quote_id?: string | null;
-} | null | undefined): JobInvoiceListRow | null {
-  if (!row?.id) return null;
-  return {
-    id: row.id,
-    invoice_number: row.invoice_number ?? null,
-    status: asInvoiceStatus(row.status),
-    total: Number(row.total) || 0,
-    due_date: row.due_date ?? null,
-    created_at: row.created_at ?? '',
-    quote_id: row.quote_id ?? null,
-  };
-}
 
 /** Creates a draft invoice from an accepted quote, or returns the existing one (quote_id). */
 export async function convertQuoteToInvoice(

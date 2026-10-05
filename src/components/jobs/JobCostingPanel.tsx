@@ -19,6 +19,7 @@ import {
   JOB_BILL_INVOICE_EXISTS,
   JOB_BILL_INVOICE_NO_CLIENT,
 } from '../../lib/invoiceFromJobBill';
+import { jobInvoicesAfterCreate, type JobInvoiceListRow } from '../../lib/invoiceFromQuote';
 import {
   Plus, Package, Trash2, DollarSign, Layers, HardHat, Wrench,
   Check, X, AlertCircle, Receipt, Pencil,
@@ -296,6 +297,11 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       });
     },
     onSuccess: (result) => {
+      if (result.invoice) {
+        queryClient.setQueryData<JobInvoiceListRow[]>(['job-invoices', jobId], prev =>
+          jobInvoicesAfterCreate(prev, result.invoice),
+        );
+      }
       setInvoiceMsg(result.existing ? JOB_BILL_INVOICE_EXISTS : JOB_BILL_INVOICE_CREATED);
       onInvoiceCreated?.(result.id);
       queryClient.invalidateQueries({ queryKey: ['invoices'] });

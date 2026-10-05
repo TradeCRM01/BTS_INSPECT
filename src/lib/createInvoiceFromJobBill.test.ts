@@ -44,6 +44,24 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
     expect(panel).toContain('createInvoiceFromJobBill');
   });
 
+  it('writes the created job-bill invoice onto job-invoices after Invoice, then invalidates', () => {
+    const create = src('src/lib/createInvoiceFromJobBill.ts');
+    const page = src('src/pages/JobDetailPage.tsx');
+    const panel = src('src/components/jobs/JobCostingPanel.tsx');
+    const bill = page.slice(page.indexOf('const invoiceFromJobBill'), page.indexOf('const attachClient'));
+
+    expect(create).toContain('JOB_INVOICE_LIST_COLUMNS');
+    expect(create).toContain('.select(JOB_INVOICE_LIST_COLUMNS)');
+    expect(create).toContain('invoice: asJobInvoiceListRow');
+    expect(create).toContain('invoice: JobInvoiceListRow | null');
+    expect(bill).toContain("setQueryData<JobInvoice[]>(['job-invoices', id]");
+    expect(bill).toContain('jobInvoicesAfterCreate(prev, result.invoice)');
+    expect(bill).toContain("invalidateQueries({ queryKey: ['job-invoices', id] }");
+    expect(panel).toContain("setQueryData<JobInvoiceListRow[]>(['job-invoices', jobId]");
+    expect(panel).toContain('jobInvoicesAfterCreate(prev, result.invoice)');
+    expect(page).not.toMatch(/Relovi|Littleloop/);
+  });
+
   it('handleInvoice raises from the job bill — quote convert stays off this control', () => {
     const page = src('src/pages/JobDetailPage.tsx');
     const handleStart = page.indexOf('const handleInvoice');
