@@ -7590,6 +7590,7 @@
 
   .hub-quote-chase {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
     padding: 24px;
     color: var(--quote-ink, #0A2540);
@@ -7608,6 +7609,7 @@
   .hub-quote-chase-preview {
     margin: 0;
     padding: 16px;
+    min-width: 0;
     background: var(--quote-sheet, #FFFDF8);
     border: 1px solid var(--quote-line, #E2D9CC);
     border-radius: 12px;
@@ -7615,6 +7617,7 @@
     font-size: 14px;
     line-height: 1.5;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .hub-quote-chase-preview.is-wait,

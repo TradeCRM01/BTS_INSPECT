@@ -162,6 +162,8 @@ describe('Step 4 quote chase done-whens', () => {
     expect(persist).not.toContain('sent_at');
     expect(persist).not.toContain('chased_at');
     expect(src('src/index.css')).toMatch(/\.hub-quote-chase \{[\s\S]*?padding: 24px;/);
+    expect(src('src/index.css')).toMatch(/\.hub-quote-chase \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\);/);
+    expect(src('src/index.css')).toMatch(/\.hub-quote-chase-preview \{[\s\S]*?min-width: 0;[\s\S]*?overflow-wrap: anywhere;/);
     expect(src('supabase/migrations/20261005130000_quotes_sent_at_trigger.sql'))
       .toContain('NEW.status = \'sent\' AND NEW.sent_at IS NULL');
   });
