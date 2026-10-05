@@ -119,19 +119,22 @@ describe('check price gate', () => {
 
   it('keeps Description wide and stacks Check price under the input', () => {
     const editor = src('src/components/invoicing/LineItemEditor.tsx');
-    expect(editor).toContain('minmax(240px,1fr)');
     expect(editor).toContain('hub-line-editor-desc');
+    expect(editor).toContain('hub-line-editor-line');
     expect(editor).toContain('items-start');
+    expect(editor).not.toContain('lg:grid-cols-[150px_120px');
     const desc = editor.slice(
-      editor.indexOf('hub-line-editor-desc'),
+      editor.indexOf('hub-line-editor-desc min-w-0'),
       editor.indexOf('aria-label="Quantity"'),
     );
     expect(desc.indexOf('placeholder="Description"')).toBeLessThan(desc.indexOf('hub-quote-check-price'));
     expect(desc).toContain('hub-line-editor-desc-row');
-    expect(desc).not.toContain('flex items-center gap-1 col-span-1 sm:col-span-2');
 
     const css = src('src/index.css');
-    expect(css).toContain('.hub-line-editor-desc');
+    expect(css).toContain('container-type: inline-size');
+    expect(css).toContain('@container line-editor (min-width: 560px)');
+    expect(css).toContain('"desc desc desc desc desc desc desc desc"');
+    expect(css).toContain('min-width: 240px');
     expect(css).toContain('flex-direction: column');
     expect(css).toContain('.hub-line-editor-sheet');
     expect(css).toContain('overflow-x: hidden');

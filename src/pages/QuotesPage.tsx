@@ -158,6 +158,7 @@ function fieldAuditGstQuote(): QuoteListItem | null {
     description: 'Mixed GST rates',
     scope_of_works: 'One taxed line and one GST-free line.',
     line_items: [
+      { description: 'mystery widgets', quantity: 2, unit_price: 0, check_price: true },
       { description: 'Taxed labour', quantity: 1, unit_price: 100, gst_rate: 10 },
       { description: 'GST-free fitting delete ok', quantity: 1, unit_price: 50, gst_rate: 0 },
     ],
