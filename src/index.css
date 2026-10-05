@@ -7395,9 +7395,18 @@
   .hub-line-editor-nature { grid-area: nature; }
 
   .hub-line-editor-total {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
     justify-self: end;
     align-self: center;
     text-align: right;
+  }
+
+  .hub-line-editor-total .hub-line-editor-lab {
+    margin-bottom: 0;
   }
 
   .hub-line-editor-del {
@@ -7471,6 +7480,7 @@
     }
 
     .hub-line-editor-total {
+      display: block;
       justify-self: auto;
     }
   }
