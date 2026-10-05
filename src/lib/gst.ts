@@ -40,7 +40,7 @@ export function lineExGstAmount(line: LineForGst): number {
   return (Number(line.quantity) || 0) * (Number(line.unit_price) || 0);
 }
 
-/** Per-line GST. Lines with no rate use the quote tax rate so old quotes match calcDocumentTotals. */
+/** Per-line GST. Lines with no rate use the document tax rate so old quotes and invoices match calcDocumentTotals. */
 export function calcLineDocumentTotals(lines: LineForGst[], fallbackRate: number): DocumentTotals {
   const rawSubtotal = lines.reduce((sum, line) => sum + lineExGstAmount(line), 0);
   if (!lines.some(lineHasOwnGstRate)) {

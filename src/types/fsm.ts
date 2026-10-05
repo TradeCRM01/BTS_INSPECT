@@ -104,6 +104,8 @@ export interface InvoiceLineItem {
   unit_cost?: number | null;
   markup_percent?: number | null;
   cost_model_id?: string | null;
+  /** Item GST percent. Null or missing falls back to the invoice tax rate. */
+  gst_rate?: number | null;
 }
 
 // ── Purchase Orders ──────────────────────────────────────────────

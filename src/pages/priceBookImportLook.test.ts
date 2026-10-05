@@ -28,6 +28,7 @@ describe('price book CSV import look', () => {
     expect(picker).toContain('gst_label');
     expect(picker).toContain('gst_rate: pick.gst_rate');
     expect(src('src/pages/QuotesPage.tsx')).toContain('calcLineDocumentTotals');
-    expect(src('src/lib/invoiceFromQuote.ts')).toContain('calcDocumentTotals(rawSubtotal, taxRate)');
+    expect(src('src/pages/InvoicesPage.tsx')).toContain('calcLineDocumentTotals');
+    expect(src('src/lib/invoiceFromQuote.ts')).toContain('calcLineDocumentTotals(line_items, taxRate)');
   });
 });

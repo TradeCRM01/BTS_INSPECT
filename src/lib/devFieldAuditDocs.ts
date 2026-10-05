@@ -11,6 +11,7 @@ export const AUDIT_INSPECTION_ID = 'audit-inspection-fill';
 export const AUDIT_JHA_DOC_ID = 'audit-jha-fill';
 export const AUDIT_TAKE5_ID = 'audit-take5-fill';
 export const AUDIT_INVOICE_ID = 'audit-invoice-send';
+export const AUDIT_INVOICE_GST_ID = 'audit-invoice-gst';
 export const AUDIT_QUOTE_ID = 'audit-quote-send';
 export const AUDIT_PO_ID = 'audit-po-send';
 export const AUDIT_REPORT_ID = 'audit-report-send';
@@ -409,6 +410,39 @@ export function getAuditTemplates() {
 }
 
 export function getAuditInvoiceEditorRow(invoiceId: string) {
+  if (isDevFieldAuditAuth() && invoiceId === AUDIT_INVOICE_GST_ID) {
+    return {
+      id: AUDIT_INVOICE_GST_ID,
+      company_id: DEV_AUDIT_COMPANY.id,
+      invoice_number: 1003,
+      client_id: AUDIT_DOC_CLIENT_ID,
+      job_id: null,
+      quote_id: 'audit-quote-gst',
+      source: 'quote',
+      status: 'draft' as const,
+      line_items: [
+        { description: 'Taxed labour', quantity: 1, unit_price: 100, gst_rate: 10 },
+        { description: 'GST-free fitting delete ok', quantity: 1, unit_price: 50, gst_rate: 0 },
+      ],
+      subtotal: 150,
+      tax_rate: 10,
+      tax_amount: 10,
+      total: 160,
+      payment_terms: 'Net 30',
+      due_date: '2026-09-07',
+      notes: 'From quote #2003',
+      inclusions: [],
+      exclusions: [],
+      created_by: DEV_AUDIT_PROFILE.id,
+      created_at: NOW,
+      updated_at: NOW,
+      client_name: 'Northside Electrical',
+      client_email: 'accounts@northside.example',
+      client_phone: '0412 000 111',
+      job_title: null,
+      job_address: '12 Workshop Rd, Perth WA 6000',
+    };
+  }
   const bundle = getAuditInvoiceSendBundle(invoiceId, {
     name: DEV_AUDIT_COMPANY.name,
     abn: null,

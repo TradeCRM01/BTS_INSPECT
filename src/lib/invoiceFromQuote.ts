@@ -1,6 +1,6 @@
 import type { InvoiceLineItem, QuoteLineItem } from '../types/fsm';
 import { asStringList } from './asStringList';
-import { calcDocumentTotals } from './gst';
+import { calcLineDocumentTotals } from './gst';
 import { padQuoteNumber } from './quoteJobFields';
 
 export const INVOICE_SOURCE_QUOTE = 'quote';
@@ -31,14 +31,14 @@ export function invoiceLinesFromQuote(lineItems: QuoteLineItem[] | null | undefi
       unit_cost: li.unit_cost != null ? Number(li.unit_cost) : null,
       markup_percent: li.markup_percent != null ? Number(li.markup_percent) : null,
       cost_model_id: li.cost_model_id ?? null,
+      gst_rate: li.gst_rate ?? null,
     }))
     .filter(li => li.description && li.quantity > 0);
 }
 
 export function buildInvoiceFromQuote(quote: QuoteForInvoice, taxRate: number, dueDate: string) {
   const line_items = invoiceLinesFromQuote(quote.line_items);
-  const rawSubtotal = line_items.reduce((s, li) => s + li.quantity * li.unit_price, 0);
-  const { subtotal, taxAmount, total } = calcDocumentTotals(rawSubtotal, taxRate);
+  const { subtotal, taxAmount, total } = calcLineDocumentTotals(line_items, taxRate);
   return {
     client_id: quote.client_id,
     job_id: quote.job_id,
