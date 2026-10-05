@@ -7233,6 +7233,90 @@
     padding-top: 8px;
     align-items: flex-end;
     gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .hub-quick-quote {
+    display: flex;
+    flex: 1 1 280px;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .hub-quick-quote-label {
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #0A2540;
+    white-space: nowrap;
+  }
+
+  .hub-quick-quote .form-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 44px;
+    height: 44px;
+    background: #FFFDF8;
+    color: #0A2540;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    box-shadow: none;
+    padding: 0 12px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+  }
+
+  .hub-quick-quote .form-input:focus {
+    border-color: #B54708;
+    outline: 2px solid #0A2540;
+    outline-offset: 2px;
+  }
+
+  .hub-quick-quote-go {
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    background: #FFFDF8;
+    color: #0A2540;
+    border: 1px solid #0A2540;
+    border-radius: 12px;
+    box-shadow: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .hub-quick-quote-mic {
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #FFFDF8;
+    color: #B54708;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+
+  .hub-quick-quote-mic.is-on {
+    background: #B54708;
+    color: #FFFDF8;
+    border-color: #B54708;
+  }
+
+  .hub-quote-check-price {
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #B54708;
+    white-space: nowrap;
   }
 
   .hub-quote-kicker {

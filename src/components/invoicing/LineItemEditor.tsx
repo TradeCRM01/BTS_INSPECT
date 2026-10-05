@@ -7,6 +7,7 @@ import { LIST_KEYS } from '../../lib/useManagedList';
 import { supabase } from '../../lib/supabase';
 import { asModelLines, modelHourlyCost } from '../expenses/ExpenseModelsModals';
 import { quoteLineFromPriceBookItem } from '../../lib/priceBookImport';
+import { QUICK_QUOTE_CHECK_PRICE } from '../../lib/quickQuote';
 
 export interface EditLineItem {
   description: string;
@@ -19,6 +20,7 @@ export interface EditLineItem {
   markup_percent: string | null;
   cost_model_id: string | null;
   gst_rate: number | null;
+  check_price: boolean;
 }
 
 export function emptyLineItem(defaultMarkup = 0): EditLineItem {
@@ -33,6 +35,7 @@ export function emptyLineItem(defaultMarkup = 0): EditLineItem {
     markup_percent: defaultMarkup ? String(defaultMarkup) : '',
     cost_model_id: null,
     gst_rate: null,
+    check_price: false,
   };
 }
 
@@ -47,6 +50,7 @@ export function toEditLine(li: {
   markup_percent?: number | null;
   cost_model_id?: string | null;
   gst_rate?: number | null;
+  check_price?: boolean;
 }): EditLineItem {
   return {
     description: li.description,
@@ -59,6 +63,7 @@ export function toEditLine(li: {
     markup_percent: li.markup_percent != null ? String(li.markup_percent) : '',
     cost_model_id: li.cost_model_id ?? null,
     gst_rate: li.gst_rate == null ? null : Number(li.gst_rate),
+    check_price: !!li.check_price,
   };
 }
 
@@ -154,6 +159,7 @@ export function LineItemEditor({
       markup_percent: String(markup),
       cost_model_id: null,
       gst_rate: null,
+      check_price: false,
     }]);
     closePicker();
   };
@@ -180,6 +186,7 @@ export function LineItemEditor({
       markup_percent: String(markup),
       cost_model_id: null,
       gst_rate: pick.gst_rate,
+      check_price: false,
     }]);
     closePicker();
   };
@@ -394,6 +401,9 @@ export function LineItemEditor({
                   className="form-input-sm flex-1 min-w-0"
                   placeholder="Description"
                 />
+                {li.check_price ? (
+                  <span className="hub-quote-check-price">{QUICK_QUOTE_CHECK_PRICE}</span>
+                ) : null}
               </div>
               <input
                 type="text"
