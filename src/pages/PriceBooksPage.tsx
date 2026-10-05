@@ -323,8 +323,13 @@ export function PriceBooksPage() {
           onSaved={() => { setShowBookForm(false); queryClient.invalidateQueries({ queryKey: ['price-books'] }); showToast(editingBook ? 'Price book updated' : 'Price book created'); }} />
       )}
       {showItemForm && selectedBookId && (
-        <PriceBookItemForm item={editingItem} priceBookId={selectedBookId} onClose={() => setShowItemForm(false)}
-          onSaved={() => { setShowItemForm(false); queryClient.invalidateQueries({ queryKey: ['price-book-items', selectedBookId] }); showToast(editingItem ? 'Item updated' : 'Item added'); }} />
+        <PriceBookItemForm
+          item={editingItem}
+          priceBookId={selectedBookId}
+          onClose={() => setShowItemForm(false)}
+          onDelete={editingItem ? () => { setShowItemForm(false); setDeleteItemTarget(editingItem); } : undefined}
+          onSaved={() => { setShowItemForm(false); queryClient.invalidateQueries({ queryKey: ['price-book-items', selectedBookId] }); showToast(editingItem ? 'Item updated' : 'Item added'); }}
+        />
       )}
 
       {showCsvImport && selectedBookId && (
@@ -433,7 +438,7 @@ function PriceBookForm({ book, onClose, onSaved }: { book: PriceBook | null; onC
   );
 }
 
-function PriceBookItemForm({ item, priceBookId, onClose, onSaved }: { item: PriceBookItem | null; priceBookId: string; onClose: () => void; onSaved: () => void }) {
+function PriceBookItemForm({ item, priceBookId, onClose, onDelete, onSaved }: { item: PriceBookItem | null; priceBookId: string; onClose: () => void; onDelete?: () => void; onSaved: () => void }) {
   const { profile } = useAuth();
   const [form, setForm] = useState({
     code: item?.code ?? '',
@@ -496,9 +501,21 @@ function PriceBookItemForm({ item, priceBookId, onClose, onSaved }: { item: Pric
             <Field label="GST %"><input type="number" min={0} max={100} step="0.01" value={form.gst_rate} onChange={e => setForm(f => ({ ...f, gst_rate: e.target.value }))} className="form-input" placeholder="10" /></Field>
           </div>
           {err && <p className="text-sm text-[#B42318]">{err}</p>}
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-[#F9FAFB]">Cancel</button>
-            <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
+          <div className="flex items-center gap-2 pt-2">
+            {item && onDelete && (
+              <button
+                type="button"
+                data-price-book-item-delete="1"
+                onClick={onDelete}
+                className="btn-danger min-h-[44px]"
+              >
+                Delete item
+              </button>
+            )}
+            <div className="ml-auto flex gap-2">
+              <button type="button" onClick={onClose} className="min-h-[44px] px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-[#F9FAFB]">Cancel</button>
+              <button type="submit" disabled={saving} className="min-h-[44px] px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
+            </div>
           </div>
         </form>
       </div>

@@ -51,6 +51,25 @@ describe('PriceBooksPage chrome', () => {
     expect(page).toContain('hidden min-[640px]:block');
     expect(page).toContain('priceBookPhoneRow');
   });
+
+  it('puts Delete item on the edit form only, wired to the existing confirm', () => {
+    const page = src('src/pages/PriceBooksPage.tsx');
+    expect(page).toContain("{item && onDelete && (");
+    expect(page).toContain('Delete item');
+    expect(page).toContain('data-price-book-item-delete');
+    expect(page).toContain('onDelete={editingItem ? () => { setShowItemForm(false); setDeleteItemTarget(editingItem); } : undefined}');
+    expect(page).toContain('setDeleteItemTarget(editingItem)');
+    expect(page).toMatch(/data-price-book-item-delete[\s\S]{0,180}className="btn-danger min-h-\[44px\]"/);
+    expect(page).toContain('className="min-h-[44px] px-4 py-2 text-sm font-medium text-[#4A5568]');
+    expect(page).toContain('className="min-h-[44px] px-4 py-2 text-sm font-medium text-white bg-[#0A2540]');
+    const form = page.slice(page.indexOf('function PriceBookItemForm'));
+    expect(form).toContain('Delete item');
+    expect(form).toContain('{item && onDelete && (');
+    const addTitle = form.indexOf("'Add Price Book Item'");
+    expect(addTitle).toBeGreaterThan(-1);
+    expect(form.slice(form.indexOf('Delete item') - 80, form.indexOf('Delete item'))).toContain('item && onDelete');
+    expect(page).not.toMatch(/data-price-book-phone-row[\s\S]{0,900}ItemMenu/);
+  });
 });
 
 describe('priceBookPhoneRow', () => {
