@@ -1,6 +1,7 @@
 import { Component } from 'react';
 import type { ReactNode } from 'react';
 import { AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { autoClearLoginHref } from '../../lib/clearAppCaches';
 
 interface State { error: Error | null }
 
@@ -28,7 +29,7 @@ async function hardRecover() {
     // ignore
   }
   const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  window.location.replace(`/login?clear=1&next=${encodeURIComponent(next)}`);
+  window.location.replace(autoClearLoginHref(next));
 }
 
 export class PageErrorBoundary extends Component<{ children: ReactNode }, State> {

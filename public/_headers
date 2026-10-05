@@ -15,6 +15,162 @@
   Permissions-Policy: geolocation=(self), microphone=(), payment=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
 
-# Hashed assets are immutable; missing ones must not fall through to HTML
+# Hashed assets are immutable. The /assets product page is listed below without /*.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# SPA HTML must revalidate. Named top-level routes only — no bare /*.
+/__field-audit
+  Cache-Control: no-cache, no-store, must-revalidate
+/__field-audit/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/ai-console
+  Cache-Control: no-cache, no-store, must-revalidate
+/ai-console/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/assistant
+  Cache-Control: no-cache, no-store, must-revalidate
+/assistant/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/assets
+  Cache-Control: no-cache, no-store, must-revalidate
+/auth
+  Cache-Control: no-cache, no-store, must-revalidate
+/auth/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/barcode
+  Cache-Control: no-cache, no-store, must-revalidate
+/barcode/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/clients
+  Cache-Control: no-cache, no-store, must-revalidate
+/clients/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/compliance
+  Cache-Control: no-cache, no-store, must-revalidate
+/compliance/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/contracts
+  Cache-Control: no-cache, no-store, must-revalidate
+/contracts/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/dashboard
+  Cache-Control: no-cache, no-store, must-revalidate
+/dashboard/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/drive
+  Cache-Control: no-cache, no-store, must-revalidate
+/drive/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/expenses
+  Cache-Control: no-cache, no-store, must-revalidate
+/expenses/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/forgot-password
+  Cache-Control: no-cache, no-store, must-revalidate
+/forgot-password/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/inspections
+  Cache-Control: no-cache, no-store, must-revalidate
+/inspections/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/invoices
+  Cache-Control: no-cache, no-store, must-revalidate
+/invoices/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/jha
+  Cache-Control: no-cache, no-store, must-revalidate
+/jha/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/jha-templates
+  Cache-Control: no-cache, no-store, must-revalidate
+/jha-templates/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/jobs
+  Cache-Control: no-cache, no-store, must-revalidate
+/jobs/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/login
+  Cache-Control: no-cache, no-store, must-revalidate
+/login/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/operator
+  Cache-Control: no-cache, no-store, must-revalidate
+/operator/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/p
+  Cache-Control: no-cache, no-store, must-revalidate
+/p/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/portal
+  Cache-Control: no-cache, no-store, must-revalidate
+/portal/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/price-books
+  Cache-Control: no-cache, no-store, must-revalidate
+/price-books/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/privacy
+  Cache-Control: no-cache, no-store, must-revalidate
+/privacy/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/purchase-orders
+  Cache-Control: no-cache, no-store, must-revalidate
+/purchase-orders/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/quotes
+  Cache-Control: no-cache, no-store, must-revalidate
+/quotes/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/reminders
+  Cache-Control: no-cache, no-store, must-revalidate
+/reminders/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/reports
+  Cache-Control: no-cache, no-store, must-revalidate
+/reports/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/reports-advanced
+  Cache-Control: no-cache, no-store, must-revalidate
+/reports-advanced/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/reset-password
+  Cache-Control: no-cache, no-store, must-revalidate
+/reset-password/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/schedule
+  Cache-Control: no-cache, no-store, must-revalidate
+/schedule/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/settings
+  Cache-Control: no-cache, no-store, must-revalidate
+/settings/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/signup
+  Cache-Control: no-cache, no-store, must-revalidate
+/signup/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/stock
+  Cache-Control: no-cache, no-store, must-revalidate
+/stock/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/suppliers
+  Cache-Control: no-cache, no-store, must-revalidate
+/suppliers/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/templates
+  Cache-Control: no-cache, no-store, must-revalidate
+/templates/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/terms
+  Cache-Control: no-cache, no-store, must-revalidate
+/terms/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/timesheets
+  Cache-Control: no-cache, no-store, must-revalidate
+/timesheets/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/uploaded-pdfs
+  Cache-Control: no-cache, no-store, must-revalidate
+/uploaded-pdfs/*
+  Cache-Control: no-cache, no-store, must-revalidate
