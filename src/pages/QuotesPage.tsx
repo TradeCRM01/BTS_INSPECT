@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -78,7 +78,14 @@ import {
 } from '../lib/quoteNextAction';
 import { quoteChase, quoteChaseChipLabel, quoteChasePatch } from '../lib/nudges';
 import { QUOTE_STATUS_LABELS, formatMoney } from '../types/fsm';
-import { Plus, FileText, Mail, Phone, User, X, MoreHorizontal } from 'lucide-react';
+import { Plus, FileText, Mail, Phone, User, X, MoreHorizontal, Mic } from 'lucide-react';
+import {
+  browserSpeechRecognition,
+  insertQuickQuoteDraft,
+  quickQuoteInsertRow,
+  transcriptFromSpeechEvent,
+  type QuickSpeechRecognition,
+} from '../lib/quickQuote';
 import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | QuoteStatus;
@@ -237,7 +244,12 @@ export function QuotesPage() {
   const lookLetterhead = searchParams.get('look') === LETTERHEAD_LOOK;
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null);
+  const [quickText, setQuickText] = useState('');
+  const [quickBusy, setQuickBusy] = useState(false);
+  const [quickListening, setQuickListening] = useState(false);
+  const quickSpeechRef = useRef<QuickSpeechRecognition | null>(null);
   const sendCompany = quoteSendCompanyFrom(company);
+  const Speech = browserSpeechRecognition();
 
   const { data: quotes, isLoading, isPending, error } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes'],
@@ -354,6 +366,75 @@ export function QuotesPage() {
     setFocusConvert(!!opts?.focusConvert);
   }
 
+  async function submitQuickQuote(event: FormEvent) {
+    event.preventDefault();
+    if (!profile?.company_id || !profile.id) return;
+    const text = quickText.trim();
+    if (!text || quickBusy) return;
+    setQuickBusy(true);
+    try {
+      const [clientsRes, bookRes] = await Promise.all([
+        supabase.from('clients').select('id, name').eq('archived', false),
+        supabase.from('price_book_items').select('*').eq('is_active', true),
+      ]);
+      if (clientsRes.error) throw clientsRes.error;
+      if (bookRes.error) throw bookRes.error;
+      const row = quickQuoteInsertRow({
+        companyId: profile.company_id,
+        createdBy: profile.id,
+        taxRate: Number(company?.default_tax_rate) || DEFAULT_TAX_RATE,
+        text,
+        items: (bookRes.data ?? []) as { id: string; code: string | null; description: string; unit_price: number; cost_price?: number | null; gst_rate?: number | null }[],
+        clients: clientsRes.data ?? [],
+      });
+      await insertQuickQuoteDraft(async draft => {
+        const { data, error } = await supabase
+          .from('quotes')
+          .insert(draft)
+          .select('id, company_id, quote_number, client_id, job_id, status, description, scope_of_works, line_items, subtotal, tax_rate, tax_amount, total, validity_date, notes, inclusions, exclusions, scheduled_date, assigned_team, created_by, created_at, updated_at')
+          .single();
+        if (error || !data?.id) throw new Error(error?.message || 'Could not save draft quote');
+        const clientName = (clientsRes.data ?? []).find(c => c.id === data.client_id)?.name ?? null;
+        openQuote({
+          ...(data as QuoteWithDetails),
+          inclusions: asStringList(data.inclusions),
+          exclusions: asStringList(data.exclusions),
+          client_name: clientName,
+          client_email: null,
+          job_title: null,
+          job_address: null,
+          invoice_id: null,
+        });
+        return { id: data.id as string };
+      }, row);
+      setQuickText('');
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Could not save draft quote');
+    } finally {
+      setQuickBusy(false);
+    }
+  }
+
+  function startQuickVoice() {
+    if (!Speech) return;
+    quickSpeechRef.current?.stop();
+    const rec = new Speech();
+    rec.lang = 'en-AU';
+    rec.interimResults = false;
+    rec.continuous = false;
+    rec.onresult = ev => {
+      const spoken = transcriptFromSpeechEvent(ev);
+      if (spoken) setQuickText(current => (current.trim() ? `${current.trim()} ${spoken}` : spoken));
+    };
+    rec.onend = () => setQuickListening(false);
+    rec.onerror = () => setQuickListening(false);
+    quickSpeechRef.current = rec;
+    setQuickListening(true);
+    rec.start();
+  }
+
   function handleSaved(opts?: { close?: boolean; message?: string }) {
     if (opts?.close !== false) {
       setShowForm(false);
@@ -380,6 +461,31 @@ export function QuotesPage() {
             <p className="hub-look-eyebrow hub-quote-kicker">Quotations</p>
             <h1 className="ops-page-title">Quotes</h1>
           </div>
+          <form className="hub-quick-quote" onSubmit={event => void submitQuickQuote(event)}>
+            <label className="hub-quick-quote-label" htmlFor="hub-quick-quote-text">Quick quote</label>
+            <input
+              id="hub-quick-quote-text"
+              value={quickText}
+              onChange={e => setQuickText(e.target.value)}
+              className="form-input"
+              placeholder="2x PB-DEL-01 and 1 PB-DEL-09 for a client"
+              disabled={quickBusy}
+            />
+            {Speech ? (
+              <button
+                type="button"
+                className={`hub-quick-quote-mic${quickListening ? ' is-on' : ''}`}
+                aria-label="Voice note"
+                onClick={startQuickVoice}
+                disabled={quickBusy}
+              >
+                <Mic size={16} />
+              </button>
+            ) : null}
+            <button type="submit" className="hub-quick-quote-go" disabled={quickBusy || !quickText.trim()}>
+              {quickBusy ? 'Saving…' : 'Make draft'}
+            </button>
+          </form>
           <button onClick={() => openQuote(null)} className="btn-primary">
             <Plus size={16} /> New quote
           </button>
@@ -872,6 +978,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
         cost_model_id: li.cost_model_id ?? null,
         gst_rate: li.gst_rate,
+        check_price: li.check_price,
       }));
     return commercialPdfPreviewData({
       kind: 'quote',
@@ -916,6 +1023,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
         cost_model_id: li.cost_model_id ?? null,
         gst_rate: li.gst_rate,
+        check_price: li.check_price || undefined,
       }));
     return {
       cleanLines,

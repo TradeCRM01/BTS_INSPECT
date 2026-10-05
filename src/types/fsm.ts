@@ -92,6 +92,7 @@ export interface QuoteLineItem {
   cost_model_id?: string | null;
   /** Item GST percent. Null or missing falls back to the quote tax rate. */
   gst_rate?: number | null;
+  check_price?: boolean;
 }
 
 export interface InvoiceLineItem {
