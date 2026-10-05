@@ -59,7 +59,28 @@ describe('schedule page week/day board', () => {
     expect(dayBoard).toContain('data-crew-drop={row.id}');
     expect(dayBoard).toContain('data-crew-lane={painted.row.id}');
     expect(dayBoard).toContain('handleDrop(e, row.id)');
+    expect(board).toContain('hub-day-chip-pin');
+    expect(board).toContain('translateX');
+    expect(board).toContain('scrollLeft - left');
+    expect(dayBoard).toContain('hub-day-drop-hint');
+    expect(dayBoard).toContain('data-unassigned-lock');
+    expect(dayBoard).toContain('Drop here — date stays');
+    expect(src('src/index.css')).toContain('.hub-day-chip-pin');
+    expect(src('src/index.css')).toContain('position: sticky');
+    expect(src('src/index.css')).toContain('.hub-day-drop-hint');
+    expect(src('src/index.css')).toMatch(/\.hub-day-drop-hint[\s\S]{0,40}display: none/);
+    expect(src('src/index.css')).toContain('.hub-day-crew-lock .ops-crew-mark');
+    expect(page).toContain("get('early') === '1'");
+    expect(page).toContain('weekBoardLookEarlyJobs');
+    expect(page).toContain('05:30');
+    expect(page).toContain('07:00');
+    expect(page).toContain('handlePhoneDayClick');
+    expect(phoneDayMount).toContain('onDayClick={handlePhoneDayClick}');
     expect(phoneDayMount).toContain('onJobDrop={placeExisting}');
+    expect(dayBoard).toContain('data-day-empty="1"');
+    expect(dayBoard).toContain('dayBoardStartHour');
+    expect(dayBoard).toContain('dayBoardOpenScrollLeft');
+    expect(board).toContain('phone');
     expect(page).toContain('placePickedHint');
     expect(page).toContain('placePickedOnCell');
     expect(page).not.toContain('today at 8:00');
@@ -77,6 +98,7 @@ describe('schedule page week/day board', () => {
     expect(board).toContain('scheduleWeekAgenda(jobs, currentDate)');
     expect(board).toContain('data-week-agenda="1"');
     expect(board).toContain('Nothing booked');
+    expect(src('src/index.css')).toContain('padding-bottom: max(16px, var(--shell-bottom-nav-h, 0px))');
     const phoneWeek = board.slice(
       board.indexOf('export const PhoneWeekList'),
       board.indexOf('export const DayBoardView'),

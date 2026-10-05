@@ -14,6 +14,8 @@ import {
   HOUR_WIDTH_PX,
   dayBoardHourWidthPx,
   dayBoardHoursFit,
+  dayBoardOpenScrollLeft,
+  dayBoardStartHour,
   timeToMinutes,
   resizeJobTimes,
   rememberDraggedJob,
@@ -66,7 +68,6 @@ export interface BoardProps {
 
 const DAY_START = DAY_START_HOUR;
 const DAY_END = DAY_END_HOUR;
-const HOURS = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => DAY_START + i);
 const ALL_DAY_H = 56;
 const TIMED_H = 72;
 const ROW_PAD = 6;
@@ -124,8 +125,10 @@ const JobBlock = memo(function JobBlock({
       }`}
       style={{ background: chip.color, color: ink }}
     >
-      <span className="hub-week-chip-ref">{timed ? `${clock} · ${chip.ref}` : chip.ref}</span>
-      <span className="hub-week-chip-desc">{timed ? chip.description : [TIME_NOT_SET_LABEL, chip.description].filter(Boolean).join(' · ')}</span>
+      <span className="hub-day-chip-pin" data-day-chip-pin="1">
+        <span className="hub-week-chip-ref">{timed ? `${clock} · ${chip.ref}` : chip.ref}</span>
+        <span className="hub-week-chip-desc">{timed ? chip.description : [TIME_NOT_SET_LABEL, chip.description].filter(Boolean).join(' · ')}</span>
+      </span>
     </div>
   );
 });
@@ -285,6 +288,7 @@ export const PhoneDayList = memo(function PhoneDayList({
       onJobDrop={onJobDrop}
       onJobResize={onJobResize}
       filteredEmployeeIds={new Set()}
+      phone
     />
   );
 });
@@ -360,13 +364,20 @@ export const PhoneWeekList = memo(function PhoneWeekList({
 
 export const DayBoardView = memo(function DayBoardView({
   jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, onJobResize, filteredEmployeeIds,
-}: BoardProps) {
+  phone = false,
+}: BoardProps & { phone?: boolean }) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverId, setDropHoverId] = useState<string | null>(null);
   const [resizePreview, setResizePreview] = useState<{ jobId: string; start_time: string; end_time: string } | null>(null);
   const [hourWidth, setHourWidth] = useState(HOUR_WIDTH_PX);
   const dateStr = dateKey(currentDate);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dayJobs = useMemo(() => jobsOnScheduleDay(jobs, dateStr), [jobs, dateStr]);
+  const dayStart = phone ? dayBoardStartHour(dayJobs) : DAY_START;
+  const hours = useMemo(
+    () => Array.from({ length: DAY_END - dayStart + 1 }, (_, i) => dayStart + i),
+    [dayStart],
+  );
 
   const rows = useMemo(() => {
     const r: { id: string; name: string; schedule_color?: string | null }[] = [
@@ -409,13 +420,38 @@ export const DayBoardView = memo(function DayBoardView({
       const hoursW = Math.max(0, el.clientWidth - crewW);
       const next = dayBoardHourWidthPx(hoursW);
       setHourWidth(next);
-      el.scrollLeft = dayBoardHoursFit(hoursW) ? 0 : (8 - DAY_START) * next;
+      el.scrollLeft = dayBoardOpenScrollLeft({
+        hoursFit: dayBoardHoursFit(hoursW),
+        jobs: dayJobs,
+        dayStart,
+        hourWidth: next,
+        isToday: isToday(currentDate),
+      });
     };
     apply();
     const ro = new ResizeObserver(apply);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [currentDate]);
+  }, [currentDate, dayJobs, dayStart]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const pin = () => {
+      const scrollLeft = el.scrollLeft;
+      for (const pinEl of el.querySelectorAll<HTMLElement>('[data-day-chip-pin="1"]')) {
+        const bar = pinEl.closest('.absolute');
+        if (!(bar instanceof HTMLElement)) continue;
+        const left = Number.parseFloat(bar.style.left) || 0;
+        const width = Number.parseFloat(bar.style.width) || 0;
+        const inset = Math.max(0, Math.min(scrollLeft - left, Math.max(0, width - 56)));
+        pinEl.style.transform = inset > 0 ? `translateX(${Math.round(inset)}px)` : '';
+      }
+    };
+    pin();
+    el.addEventListener('scroll', pin, { passive: true });
+    return () => el.removeEventListener('scroll', pin);
+  }, [hourWidth, jobs, dateStr, dayStart]);
 
   useEffect(() => {
     const clear = () => { setDragJobId(null); setDropHoverId(null); };
@@ -453,7 +489,7 @@ export const DayBoardView = memo(function DayBoardView({
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const startTime = startTimeFromDropOffset(e.clientX - rect.left, {
       hourWidth,
-      dayStart: DAY_START,
+      dayStart,
       dayEnd: DAY_END,
     });
     handleDrop(e, empId, startTime);
@@ -471,10 +507,10 @@ export const DayBoardView = memo(function DayBoardView({
     const minutesAt = (clientX: number) => {
       const start = startTimeFromDropOffset(clientX - gridLeft, {
         hourWidth,
-        dayStart: DAY_START,
+        dayStart,
         dayEnd: DAY_END,
       });
-      return timeToMinutes(start) ?? DAY_START * 60;
+      return timeToMinutes(start) ?? dayStart * 60;
     };
 
     const applyPreview = (clientX: number) => {
@@ -504,7 +540,7 @@ export const DayBoardView = memo(function DayBoardView({
     window.addEventListener('pointercancel', finish);
   };
 
-  const gridWidth = HOURS.length * hourWidth;
+  const gridWidth = hours.length * hourWidth;
   const paintedRows = rows.map((row, rowIdx) => {
     const isUnassigned = row.id === UNASSIGNED_ROW_ID;
     const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
@@ -532,7 +568,7 @@ export const DayBoardView = memo(function DayBoardView({
   });
 
   return (
-    <div className="ops-board hub-day-board" data-schedule-track="day" data-day-board="1">
+    <div className="ops-board hub-day-board" data-schedule-track="day" data-day-board="1" data-day-start={dayStart} data-day-phone={phone ? '1' : undefined}>
       <div className="hub-schedule-board-head">
         <p className="hub-schedule-range">
           {format(currentDate, 'EEEE, d MMMM yyyy')}
@@ -565,7 +601,7 @@ export const DayBoardView = memo(function DayBoardView({
             </div>
           </div>
           <div className="hub-day-hours-head flex border-b border-rule">
-            {HOURS.map(h => (
+            {hours.map(h => (
               <div key={h} className="text-center border-r border-rule last:border-r-0"
                 style={{ width: hourWidth }}>
                 <div className="px-1 flex items-center justify-center h-full">
@@ -581,6 +617,7 @@ export const DayBoardView = memo(function DayBoardView({
             <Fragment key={row.id}>
             <div
               data-crew-drop={row.id}
+              data-unassigned-lock={painted.isUnassigned ? '1' : undefined}
               className={`hub-day-crew-lock border-r border-rule cursor-pointer hover:bg-zebra transition-colors flex items-start gap-2 px-3 ${
                 painted.rowIdx < paintedRows.length - 1 ? 'border-b' : ''
               } ${painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'}`}
@@ -600,7 +637,7 @@ export const DayBoardView = memo(function DayBoardView({
               />
               <div className="min-w-0">
                 <p className="hub-schedule-crew-name">{row.name}</p>
-                <p className="ops-meta">
+                <p className={`ops-meta${painted.isUnassigned && painted.rowJobs.length === 0 ? ' hub-day-drop-hint' : ''}`}>
                   {painted.isUnassigned
                     ? (painted.rowJobs.length === 0 ? 'Drop here — date stays' : `${painted.rowJobs.length} · needs crew`)
                     : `${painted.rowJobs.length} job${painted.rowJobs.length !== 1 ? 's' : ''}`}
@@ -617,21 +654,22 @@ export const DayBoardView = memo(function DayBoardView({
             >
               <div
                 data-day-grid="1"
+                data-day-empty="1"
                 className="relative cursor-pointer h-full"
                 style={{ width: gridWidth }}
                 onClick={() => onDayClick(dateStr, painted.isUnassigned ? null : painted.row.id)}
                 onDragOver={e => { e.preventDefault(); setDropHoverId(painted.row.id); }}
                 onDrop={e => handleTimeDrop(e, painted.row.id)}
               >
-                {HOURS.map(h => (
+                {hours.map(h => (
                   <div
                     key={h}
                     className="absolute top-0 bottom-0 border-r border-rule last:border-r-0"
-                    style={{ left: (h - DAY_START) * hourWidth, width: hourWidth }}
+                    style={{ left: (h - dayStart) * hourWidth, width: hourWidth }}
                   />
                 ))}
 
-                {isToday(currentDate) && <CurrentTimeVerticalIndicator hourWidth={hourWidth} />}
+                {isToday(currentDate) && <CurrentTimeVerticalIndicator hourWidth={hourWidth} dayStart={dayStart} />}
 
                 {painted.rowJobs.map(job => {
                   const placed = painted.placementById.get(job.id);
@@ -663,9 +701,9 @@ export const DayBoardView = memo(function DayBoardView({
                   const plot = schedulePlotTimes(job);
                   const preview = resizePreview?.jobId === job.id ? resizePreview : null;
                   const startM = timeToMinutes(preview?.start_time ?? plot.start_time);
-                  const endM = timeToMinutes(preview?.end_time ?? plot.end_time) ?? (startM ?? DAY_START * 60) + 60;
+                  const endM = timeToMinutes(preview?.end_time ?? plot.end_time) ?? (startM ?? dayStart * 60) + 60;
                   if (startM == null) return null;
-                  const left = Math.max(0, (startM / 60 - DAY_START) * hourWidth + 2);
+                  const left = Math.max(0, (startM / 60 - dayStart) * hourWidth + 2);
                   const width = Math.max(60, ((endM - startM) / 60) * hourWidth - 4);
                   const top = ROW_PAD + painted.layout.allDayCount * ALL_DAY_H + placed.lane * TIMED_H;
                   const displayJob = preview
@@ -724,11 +762,11 @@ export const DayBoardView = memo(function DayBoardView({
   );
 });
 
-function CurrentTimeVerticalIndicator({ hourWidth }: { hourWidth: number }) {
+function CurrentTimeVerticalIndicator({ hourWidth, dayStart }: { hourWidth: number; dayStart: number }) {
   const now = new Date();
   const h = now.getHours() + now.getMinutes() / 60;
-  if (h < DAY_START || h > DAY_END) return null;
-  const left = (h - DAY_START) * hourWidth;
+  if (h < dayStart || h > DAY_END) return null;
+  const left = (h - dayStart) * hourWidth;
   return (
     <div className="absolute top-0 bottom-0 z-20 pointer-events-none" style={{ left }}>
       <div className="flex flex-col items-center h-full">

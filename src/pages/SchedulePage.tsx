@@ -166,6 +166,31 @@ function weekBoardLookJobs(): JobWithClient[] {
   ];
 }
 
+function weekBoardLookEarlyJobs(): JobWithClient[] {
+  return [
+    weekBoardLookJob({
+      id: 'look-job-early',
+      title: 'Early call-out',
+      scheduled_date: '2025-04-01',
+      assigned_team: [WEEK_LOOK_DAVE],
+      job_number: 56,
+      start_time: '05:30',
+      end_time: '06:30',
+      color: WEEK_LOOK_CALLBACK,
+    }),
+    weekBoardLookJob({
+      id: 'look-job-seven',
+      title: 'Morning start',
+      scheduled_date: '2025-04-01',
+      assigned_team: [WEEK_LOOK_DAVE],
+      job_number: 57,
+      start_time: '07:00',
+      end_time: '08:00',
+      color: WEEK_LOOK_CALLBACK,
+    }),
+  ];
+}
+
 function WeekBoardMore({
   viewMode,
   setView,
@@ -354,6 +379,7 @@ export function SchedulePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const lookWeekBoard = searchParams.get('look') === WEEK_BOARD_LOOK;
+  const lookEarlyBar = lookWeekBoard && searchParams.get('early') === '1';
   const [currentDate, setCurrentDate] = useState(() => {
     if (lookWeekBoard) {
       return parseScheduleView(searchParams.get('view')) === 'day'
@@ -708,6 +734,11 @@ export function SchedulePage() {
     setShowForm(true);
   };
 
+  const handlePhoneDayClick = (dateStr: string, employeeId?: string | null) => {
+    if (!pickedJob) return;
+    placeExisting(placePickedOnCell(pickedJob, dateStr, employeeId ?? null));
+  };
+
   const handleCloseForm = () => {
     setShowForm(false);
     setSelectedDate(null);
@@ -718,8 +749,12 @@ export function SchedulePage() {
   const clearEmployeeFilters = () => setFilteredEmployeeIds(new Set());
 
   const boardJobs = useMemo(
-    () => (lookWeekBoard ? withScheduleJobPatches(weekBoardLookJobs()) : (jobs ?? [])),
-    [lookWeekBoard, jobs],
+    () => {
+      if (!lookWeekBoard) return jobs ?? [];
+      const seed = withScheduleJobPatches(weekBoardLookJobs());
+      return lookEarlyBar ? [...seed, ...weekBoardLookEarlyJobs()] : seed;
+    },
+    [lookWeekBoard, lookEarlyBar, jobs],
   );
   const boardCrew = lookWeekBoard ? WEEK_BOARD_LOOK_CREW : (teamMembers ?? []);
 
@@ -966,7 +1001,7 @@ export function SchedulePage() {
                         teamMembers={boardCrew}
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
-                        onDayClick={handleDayClick}
+                        onDayClick={handlePhoneDayClick}
                         onJobDrop={placeExisting}
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
                       />

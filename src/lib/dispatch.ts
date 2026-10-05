@@ -71,6 +71,49 @@ export function dayBoardHoursFit(clientWidth: number): boolean {
   return clientWidth > 0 && Math.floor(clientWidth / DAY_HOUR_COUNT) >= DAY_HOUR_MIN_PX;
 }
 
+/** Phone Day grid starts at 6 AM, or earlier when a timed job that day starts earlier. */
+export function dayBoardStartHour(
+  jobs: { start_time?: string | null }[],
+  fallback = DAY_START_HOUR,
+): number {
+  let start = fallback;
+  for (const job of jobs) {
+    const minutes = timeToMinutes(job.start_time);
+    if (minutes == null) continue;
+    start = Math.min(start, Math.floor(minutes / 60));
+  }
+  return Math.max(0, start);
+}
+
+export function earliestTimedMinutes(jobs: { start_time?: string | null }[]): number | null {
+  let earliest: number | null = null;
+  for (const job of jobs) {
+    const minutes = timeToMinutes(job.start_time);
+    if (minutes == null) continue;
+    if (earliest == null || minutes < earliest) earliest = minutes;
+  }
+  return earliest;
+}
+
+/** Phone Day opens on the first timed job's hour column, or on now's hour when today has none. Desktop fit stays 0. */
+export function dayBoardOpenScrollLeft(opts: {
+  hoursFit: boolean;
+  jobs: { start_time?: string | null }[];
+  dayStart: number;
+  hourWidth: number;
+  isToday: boolean;
+  now?: Date;
+}): number {
+  if (opts.hoursFit || opts.hourWidth <= 0) return 0;
+  const first = earliestTimedMinutes(opts.jobs);
+  const now = opts.now ?? new Date();
+  const minutes = first ?? (opts.isToday
+    ? now.getHours() * 60 + now.getMinutes()
+    : opts.dayStart * 60);
+  const column = Math.floor(minutes / 60);
+  return Math.max(0, (column - opts.dayStart) * opts.hourWidth);
+}
+
 export function timeToMinutes(t: string | null | undefined): number | null {
   if (!t) return null;
   const [h, m] = t.split(':').map(Number);
