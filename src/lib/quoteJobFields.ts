@@ -35,16 +35,73 @@ export function quoteConvertEntry(quote: {
   return convertQuoteHasDateAndCrew(quote) ? 'convert' : 'focus_convert';
 }
 
-export function focusQuoteConvertDate(root: ParentNode): HTMLInputElement | null {
-  const section = root.querySelector('.hub-quote-convert');
-  if (!(section instanceof HTMLElement)) return null;
-  if (typeof section.scrollIntoView === 'function') {
-    section.scrollIntoView({ block: 'nearest' });
+export const CONVERT_QUOTE_BLOCKED = 'Could not convert this quote.';
+
+export type QuoteConvertTap =
+  | { action: 'focus_convert' }
+  | { action: 'convert' }
+  | { action: 'blocked'; message: string };
+
+export function quoteConvertTap(input: {
+  id?: string | null;
+  status?: string | null;
+  profileId?: string | null;
+  scheduled_date?: string | null;
+  assigned_team?: unknown;
+}): QuoteConvertTap {
+  if (quoteConvertEntry(input) === 'focus_convert') return { action: 'focus_convert' };
+  if (!input.id || input.status !== 'accepted' || !input.profileId) {
+    return { action: 'blocked', message: CONVERT_QUOTE_BLOCKED };
   }
-  const date = section.querySelector<HTMLInputElement>('input[type="date"]');
+  return { action: 'convert' };
+}
+
+export function quoteConvertTapShowsBusy(tap: QuoteConvertTap): boolean {
+  return tap.action === 'convert' || tap.action === 'blocked';
+}
+
+export function quoteConvertScrollContainer(section: HTMLElement): HTMLElement | null {
+  return section.closest('.hub-quote-editor') ?? section.closest('[role="dialog"]');
+}
+
+export function scrollQuoteConvertIntoView(section: HTMLElement): number {
+  const container = quoteConvertScrollContainer(section);
+  if (container) {
+    const top = (container.scrollTop || 0)
+      + (section.getBoundingClientRect().top - container.getBoundingClientRect().top);
+    if (typeof container.scrollTo === 'function') {
+      container.scrollTo({ top, behavior: 'auto' });
+    } else {
+      container.scrollTop = top;
+    }
+    return top;
+  }
+  if (typeof section.scrollIntoView === 'function') {
+    section.scrollIntoView({ block: 'start' });
+  }
+  return 0;
+}
+
+export function focusQuoteConvertDate(root: ParentNode): HTMLInputElement | null {
+  const section = root instanceof Element && root.classList.contains('hub-quote-convert')
+    ? root
+    : root.querySelector('.hub-quote-convert');
+  if (!(section instanceof HTMLElement)) return null;
+  scrollQuoteConvertIntoView(section);
+  const date = section.querySelector<HTMLInputElement>('#quote-convert-date, input[type="date"]');
   if (!date) return null;
   date.focus();
   return date;
+}
+
+export function takeQuoteConvertLock(lock: { current: boolean }): boolean {
+  if (lock.current) return false;
+  lock.current = true;
+  return true;
+}
+
+export function releaseQuoteConvertLock(lock: { current: boolean }): void {
+  lock.current = false;
 }
 
 export function jobFieldsFromQuote(
