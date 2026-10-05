@@ -112,3 +112,11 @@ export function recommendQuoteAction(ctx: QuoteActionContext): RecommendedQuoteA
 export function quoteCardHint(ctx: QuoteActionContext): string {
   return recommendQuoteAction(ctx).label;
 }
+
+export function quoteMarkAcceptedWrite() {
+  return { status: 'accepted' as const, close: false as const, message: 'Quote accepted' };
+}
+
+export function quoteAfterMarkAccepted(ctx: QuoteActionContext): RecommendedQuoteAction {
+  return recommendQuoteAction({ ...ctx, status: 'accepted' });
+}

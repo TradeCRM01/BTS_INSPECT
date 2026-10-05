@@ -1,10 +1,14 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { jobClientEmailToStore } from './saveJobClientEmail';
 import {
   quoteActionContext,
+  quoteAfterMarkAccepted,
   quoteCardHint,
   quoteHasChargeableLines,
   quoteListBucket,
+  quoteMarkAcceptedWrite,
   recommendQuoteAction,
 } from './quoteNextAction';
 
@@ -117,6 +121,43 @@ describe('recommendQuoteAction', () => {
     expect(recommendQuoteAction({
       status: 'sent', hasClient: true, hasLines: true, jobId: null, invoiceId: null,
     }).label).toBe('Mark accepted');
+  });
+});
+
+describe('quoteMarkAcceptedWrite', () => {
+  it('marks a draft accepted, then Convert is next, and does not send', () => {
+    const draft = {
+      status: 'draft' as const,
+      hasClient: true,
+      hasLines: true,
+      jobId: null as string | null,
+      invoiceId: null as string | null,
+    };
+    const write = quoteMarkAcceptedWrite();
+    expect(write).toEqual({ status: 'accepted', close: false, message: 'Quote accepted' });
+    expect(write).not.toHaveProperty('sendQuote');
+    expect(write).not.toHaveProperty('email');
+    expect(write).not.toHaveProperty('sms');
+    expect(recommendQuoteAction(draft).key).toBe('send');
+    expect(quoteAfterMarkAccepted(draft)).toEqual({
+      key: 'convert_job',
+      label: 'Convert to job',
+      detail: 'Create the job from this quote. You can invoice it next.',
+    });
+
+    const editor = readFileSync(resolve(process.cwd(), 'src/pages/QuotesPage.tsx'), 'utf8')
+      .split('function QuoteEditorModal')[1] ?? '';
+    const more = editor.slice(editor.indexOf('hub-quote-more-menu'), editor.indexOf('</details>'));
+    const draftMore = more.slice(more.indexOf("form.status === 'draft'"), more.indexOf("form.status === 'sent'"));
+    expect(draftMore).toContain('quoteMarkAcceptedWrite');
+    expect(draftMore).toContain('Mark accepted');
+    expect(draftMore).toContain('persist(write.status');
+    expect(draftMore).not.toContain('startSend');
+    expect(draftMore).not.toContain('onRequestSend');
+    expect(draftMore).not.toContain('sendQuote');
+    expect(draftMore).not.toContain('quoteSmsBody');
+    expect(editor).toContain("next.key === 'accept'");
+    expect(editor).toContain("persist('accepted', { close: false, message: 'Quote accepted' })");
   });
 });
 
