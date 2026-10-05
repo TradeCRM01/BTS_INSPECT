@@ -12,7 +12,10 @@ ALTER TABLE public.price_book_items
   CHECK (gst_rate >= 0 AND gst_rate <= 100);
 
 COMMENT ON COLUMN public.price_book_items.gst_rate IS
-  'GST percent for this rate. Sell is exclusive. Quote pick uses unit_price plus this rate.';
+  'GST percent for this rate. Sell is exclusive. Quote pick copies this onto the quote line.';
+
+-- Quote line_items are jsonb. Per-line gst_rate is an optional field on that
+-- object. Null or omitted falls back to quotes.tax_rate. No new quotes column.
 
 CREATE UNIQUE INDEX IF NOT EXISTS price_book_items_book_code_uidx
   ON public.price_book_items (price_book_id, lower(btrim(code)))

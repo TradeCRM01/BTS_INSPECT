@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_TAX_RATE, calcDocumentTotals, gstLabel, moneyRound } from './gst';
+import {
+  DEFAULT_TAX_RATE,
+  calcDocumentTotals,
+  calcLineDocumentTotals,
+  gstDocumentLabel,
+  gstLabel,
+  moneyRound,
+} from './gst';
 
 describe('calcDocumentTotals', () => {
   it('applies 10% GST on a clean subtotal', () => {
@@ -29,6 +36,43 @@ describe('calcDocumentTotals', () => {
       taxAmount: 0,
       total: 50,
     });
+  });
+});
+
+describe('calcLineDocumentTotals', () => {
+  it('charges GST on a 10% line only when the other line is GST-free', () => {
+    expect(calcLineDocumentTotals([
+      { quantity: 1, unit_price: 100, gst_rate: 10 },
+      { quantity: 1, unit_price: 50, gst_rate: 0 },
+    ], 10)).toEqual({
+      subtotal: 150,
+      taxAmount: 10,
+      total: 160,
+    });
+  });
+
+  it('uses the quote rate when lines have no gst_rate and matches the old document total', () => {
+    const lines = [
+      { quantity: 8, unit_price: 95 },
+      { quantity: 2, unit_price: 12.5, gst_rate: null },
+    ];
+    const fallback = calcDocumentTotals(8 * 95 + 2 * 12.5, 10);
+    expect(calcLineDocumentTotals(lines, 10)).toEqual(fallback);
+    expect(calcLineDocumentTotals(lines, 10)).toEqual({
+      subtotal: 785,
+      taxAmount: 78.5,
+      total: 863.5,
+    });
+  });
+});
+
+describe('gstDocumentLabel', () => {
+  it('keeps the quote rate label when every line falls back', () => {
+    expect(gstDocumentLabel([{ unit_price: 95, quantity: 8 }], 10)).toBe('GST (10%)');
+  });
+
+  it('drops the single-rate label when a line carries its own GST', () => {
+    expect(gstDocumentLabel([{ unit_price: 100, quantity: 1, gst_rate: 0 }], 10)).toBe('GST');
   });
 });
 

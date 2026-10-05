@@ -18,6 +18,7 @@ export interface EditLineItem {
   unit_cost: string | null;
   markup_percent: string | null;
   cost_model_id: string | null;
+  gst_rate: number | null;
 }
 
 export function emptyLineItem(defaultMarkup = 0): EditLineItem {
@@ -31,6 +32,7 @@ export function emptyLineItem(defaultMarkup = 0): EditLineItem {
     unit_cost: '',
     markup_percent: defaultMarkup ? String(defaultMarkup) : '',
     cost_model_id: null,
+    gst_rate: null,
   };
 }
 
@@ -44,6 +46,7 @@ export function toEditLine(li: {
   unit_cost?: number | null;
   markup_percent?: number | null;
   cost_model_id?: string | null;
+  gst_rate?: number | null;
 }): EditLineItem {
   return {
     description: li.description,
@@ -55,6 +58,7 @@ export function toEditLine(li: {
     unit_cost: li.unit_cost != null ? String(li.unit_cost) : '',
     markup_percent: li.markup_percent != null ? String(li.markup_percent) : '',
     cost_model_id: li.cost_model_id ?? null,
+    gst_rate: li.gst_rate == null ? null : Number(li.gst_rate),
   };
 }
 
@@ -131,6 +135,7 @@ export function LineItemEditor({
       description: lines[idx].description.trim() || model.name,
       stock_item_id: null,
       price_book_item_id: null,
+      gst_rate: null,
     });
   };
 
@@ -148,6 +153,7 @@ export function LineItemEditor({
       unit_cost: cost.toFixed(2),
       markup_percent: String(markup),
       cost_model_id: null,
+      gst_rate: null,
     }]);
     closePicker();
   };
@@ -173,6 +179,7 @@ export function LineItemEditor({
       unit_cost: unitCost ? unitCost.toFixed(2) : '',
       markup_percent: String(markup),
       cost_model_id: null,
+      gst_rate: pick.gst_rate,
     }]);
     closePicker();
   };

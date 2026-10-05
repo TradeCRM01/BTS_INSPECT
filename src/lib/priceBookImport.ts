@@ -58,6 +58,7 @@ export const PRICE_BOOK_IMPORT_SAMPLE_CSV = [
   'PB-DEL-05,LED batten 36W delete ok,each,22.00,42.00,10',
   'PB-DEL-06,Circuit labour hour delete ok,hr,0,95.00,10',
   'PB-DEL-07,Switchboard isolator delete ok,each,28.00,54.00,10',
+  'PB-DEL-09,GST-free fitting delete ok,each,12.00,24.00,0',
   'PB-DEL-01,20mm conduit revised delete ok,length,5.10,9.20,10',
   ',Missing code delete ok,each,10,20,10',
   'PB-DEL-08,Bad sell delete ok,each,10,twenty,10',

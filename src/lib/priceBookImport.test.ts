@@ -12,14 +12,14 @@ import {
 } from './priceBookImport';
 
 describe('PRICE_BOOK_IMPORT_SAMPLE_CSV', () => {
-  it('previews 7 new, 2 rejected with reasons, and 1 update', () => {
+  it('previews 8 new, 2 rejected with reasons, and 1 update', () => {
     const sheet = parsePriceBookSheet(PRICE_BOOK_IMPORT_SAMPLE_CSV);
-    expect(sheet.rows).toHaveLength(10);
+    expect(sheet.rows).toHaveLength(11);
     const mapping = suggestPriceBookMapping(sheet.headers);
     expect(mapping).toEqual({ code: 0, name: 1, unit: 2, cost: 3, sell: 4, gst: 5 });
 
     const preview = previewPriceBookImport(sheet, mapping);
-    expect(preview.newCount).toBe(7);
+    expect(preview.newCount).toBe(8);
     expect(preview.updateCount).toBe(1);
     expect(preview.rejectCount).toBe(2);
 
@@ -38,7 +38,12 @@ describe('PRICE_BOOK_IMPORT_SAMPLE_CSV', () => {
     });
 
     const saved = saveItemsFromPreview(preview);
-    expect(saved).toHaveLength(7);
+    expect(saved).toHaveLength(8);
+    expect(saved.find(item => item.code === 'PB-DEL-09')).toMatchObject({
+      name: 'GST-free fitting delete ok',
+      sell: 24,
+      gst: 0,
+    });
     expect(saved.find(item => item.code === 'PB-DEL-01')).toMatchObject({
       name: '20mm conduit revised delete ok',
       cost: 5.1,

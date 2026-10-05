@@ -6,11 +6,13 @@ export function DocumentGstTotals({
   taxRate,
   taxAmount,
   total,
+  taxLabel,
 }: {
   subtotal: number;
   taxRate: number;
   taxAmount: number;
   total: number;
+  taxLabel?: string;
 }) {
   return (
     <div className="flex justify-end">
@@ -20,7 +22,7 @@ export function DocumentGstTotals({
           <span>{formatMoney(subtotal)}</span>
         </div>
         <div className="flex justify-between text-[#4A5568]">
-          <span>{gstLabel(taxRate)}</span>
+          <span>{taxLabel ?? gstLabel(taxRate)}</span>
           <span>{formatMoney(taxAmount)}</span>
         </div>
         <div className="flex justify-between font-semibold text-[#1A1A1A] border-t border-[#E5E7EB] pt-1.5">

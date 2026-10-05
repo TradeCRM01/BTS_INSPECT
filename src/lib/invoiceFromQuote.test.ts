@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   INVOICE_SOURCE_JOB_BILL,
@@ -57,6 +58,12 @@ describe('buildInvoiceFromQuote', () => {
     expect(inv.inclusions).toEqual(['Materials']);
     expect(inv.exclusions).toEqual(['After-hours callouts']);
     expect(inv.due_date).toBe('2026-09-19');
+  });
+
+  it('keeps invoice GST on the document helper, not per-line quote GST', () => {
+    const helper = readFileSync(new URL('./invoiceFromQuote.ts', import.meta.url), 'utf8');
+    expect(helper).toContain('calcDocumentTotals(rawSubtotal, taxRate)');
+    expect(helper).not.toContain('calcLineDocumentTotals');
   });
 
   it('recalculates GST from company default even if the quote was stored at another rate', () => {
