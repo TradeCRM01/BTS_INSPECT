@@ -74,6 +74,13 @@ describe('gstDocumentLabel', () => {
   it('drops the single-rate label when a line carries its own GST', () => {
     expect(gstDocumentLabel([{ unit_price: 100, quantity: 1, gst_rate: 0 }], 10)).toBe('GST');
   });
+
+  it('uses plain GST when lines mix 10% and 0%', () => {
+    expect(gstDocumentLabel([
+      { unit_price: 100, quantity: 1, gst_rate: 10 },
+      { unit_price: 50, quantity: 1, gst_rate: 0 },
+    ], 10)).toBe('GST');
+  });
 });
 
 describe('gstLabel', () => {
