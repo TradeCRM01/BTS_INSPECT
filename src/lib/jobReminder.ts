@@ -174,24 +174,19 @@ export function isJobDueToday(
 }
 
 /**
- * Same-day arriving Next: booked today in Australia/Brisbane, or already
- * in_progress (not tomorrow — that stays Remind client, not upcoming).
+ * Same-day arriving Next: still scheduled and booked today in
+ * Australia/Brisbane. In Progress and later are already on site.
+ * Tomorrow stays Remind client.
  */
 export function isJobArrivingWindow(
   job: Pick<ReminderJob, 'scheduled_date' | 'status'>,
   now = new Date(),
 ): boolean {
-  if (!isOpenJobStatus(job.status)) return false;
-  if (isJobDueTomorrow(job, now)) return false;
-  if (isJobDueToday(job, now)) return true;
-  if (job.status !== 'in_progress') return false;
-  const day = dateOnly(job.scheduled_date);
-  if (!day) return false;
-  return day < todayYmd(now, VAN_TIME_ZONE);
+  return job.status === 'scheduled' && isJobDueToday(job, now);
 }
 
 export const ARRIVING_PURPOSE = 'arriving';
-export const ARRIVING_NEXT_LABEL = 'Arriving shortly';
+export const ARRIVING_NEXT_LABEL = 'Send on-my-way';
 /** Sheet primary after arriving is sent, or when there is no sendable phone left to write. */
 export const CLOCK_IN_NEXT_LABEL = 'Clock In';
 /** Sheet primary in the arriving window when jobClientPhoneRow still needs a number. */
@@ -1035,10 +1030,11 @@ export function selectTomorrowReminderJobs(
 }
 
 /**
- * Keep date/crew Next first. Today (or in_progress) takes Arriving shortly.
+ * Keep date/crew Next first. Scheduled today takes Send on-my-way.
  * Clock In / Add phone / Invoice / Send from the sheet recommendation stay —
  * arriving already sent, the number still has to be written, or the van has
  * clocked off and Next is the bill. Tomorrow stays Remind client.
+ * In Progress never upgrades to arriving.
  */
 export function withReminderNext<T extends {
   id: string;

@@ -47,7 +47,7 @@ export type JobActionContext = {
   clockedOn: boolean;
   /** Closed timesheet on this job — the van has clocked off. Optional for older callers. */
   clockedOff?: boolean;
-  /** Same-day / in_progress arriving window. Optional — derived from Australia/Brisbane today. */
+  /** Same-day scheduled arriving window. Optional — derived from Australia/Brisbane today. */
   arrivingWindow?: boolean;
   /** Session: arriving tap already sent on this sheet. Optional. */
   arrivingSent?: boolean;
@@ -270,10 +270,11 @@ export function partitionScheduleJobs<T extends {
 }
 
 /**
- * Van Next in the arriving window: Arriving shortly when the number is
+ * Van Next in the arriving window: Send on-my-way when the number is
  * sendable; write the number via jobClientPhoneRow when it is empty;
  * Clock In after send or when there is no sendable phone left to write.
- * Date / crew stay first. Does not invent a second Next stack.
+ * Date / crew stay first. In Progress is not arriving. Does not invent
+ * a second Next stack.
  */
 export function recommendArrivingSheetNext(
   ctx: JobActionContext,
@@ -285,7 +286,7 @@ export function recommendArrivingSheetNext(
   }, now);
   if (jobHasClockedOff(ctx)) return null;
   if (!arrivingWindow) return null;
-  if (ctx.status !== 'scheduled' && ctx.status !== 'in_progress') return null;
+  if (ctx.status !== 'scheduled') return null;
   const kind = ctx.phoneRowKind;
   const stored = (ctx.phoneStored ?? '').trim();
   if (!ctx.arrivingSent) {
@@ -293,7 +294,7 @@ export function recommendArrivingSheetNext(
       return {
         key: 'phone',
         label: PHONE_NEXT_LABEL,
-        detail: 'Write the client number so Arriving shortly can send.',
+        detail: 'Write the client number so Send on-my-way can send.',
       };
     }
     if (kind === 'tel') {
@@ -375,7 +376,7 @@ export type JobOpenNext = JobListNext & { action: RecommendedJobAction };
 /**
  * One Next for the jobs list card and the open job sheet.
  * Card is the source of truth. Scheduled today (Australia/Brisbane) is
- * Arriving shortly, then Clock In. After the van clocked off, Next is Invoice
+ * Send on-my-way, then Clock In. After the van clocked off, Next is Invoice
  * (or Send if a draft exists) — JHA / Take 5 stay on the job.
  */
 export function jobOpenNext(

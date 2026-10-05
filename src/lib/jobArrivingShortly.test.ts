@@ -94,8 +94,8 @@ function listNext(over: {
   return withReminderNext(row, jobListNext(row, now), now);
 }
 
-describe('Arriving shortly Next — today / in_progress only', () => {
-  it('sheet recommendation matches list Arriving shortly, then Clock In / Add phone', () => {
+describe('Send on-my-way Next — scheduled today only', () => {
+  it('sheet recommendation matches list Send on-my-way, then Clock In / Add phone', () => {
     const van = {
       status: 'scheduled' as JobStatus,
       scheduledDate: today,
@@ -119,23 +119,27 @@ describe('Arriving shortly Next — today / in_progress only', () => {
     }).label).toBe(CLOCK_IN_NEXT_LABEL);
   });
 
-  it('labels Next Arriving shortly for today and in_progress, and lands on the existing tray', () => {
+  it('labels Next Send on-my-way for scheduled today, and lands on the existing tray', () => {
     const todayNext = listNext();
     expect(todayNext).toEqual({
       href: '/jobs/job-1#job-schedule',
-      label: ARRIVING_NEXT_LABEL,
+      label: 'Send on-my-way',
       actionable: true,
     });
-    expect(todayNext.label).toBe('Arriving shortly');
+    expect(todayNext.label).toBe(ARRIVING_NEXT_LABEL);
+    expect(todayNext.label).not.toBe('Arriving shortly');
     expect(isExistingScheduleSurface(todayNext.href)).toBe(true);
 
     const onSite = listNext({ status: 'in_progress', scheduled_date: today });
-    expect(onSite.label).toBe('Arriving shortly');
-    expect(onSite.href).toBe('/jobs/job-1#job-schedule');
+    expect(onSite.label).not.toBe('Send on-my-way');
+    expect(onSite.label).not.toBe('Arriving shortly');
+    expect(onSite.label).not.toBe(ARRIVING_NEXT_LABEL);
+    expect(isJobArrivingWindow(job({ status: 'in_progress', scheduled_date: today }), now)).toBe(false);
 
     const lateOpen = listNext({ status: 'in_progress', scheduled_date: '2026-08-20' });
-    expect(lateOpen.label).toBe('Arriving shortly');
-    expect(isJobArrivingWindow(job({ status: 'in_progress', scheduled_date: '2026-08-20' }), now)).toBe(true);
+    expect(lateOpen.label).not.toBe('Send on-my-way');
+    expect(lateOpen.label).not.toBe('Arriving shortly');
+    expect(isJobArrivingWindow(job({ status: 'in_progress', scheduled_date: '2026-08-20' }), now)).toBe(false);
   });
 
   it('keeps tomorrow as Remind client — arriving does not take that Next', () => {
@@ -172,6 +176,7 @@ describe('Arriving shortly Next — today / in_progress only', () => {
   });
 
   it('does not rewrite upcoming, completed, or cancelled', () => {
+    expect(listNext({ scheduled_date: '2026-08-24' }).label).not.toBe('Send on-my-way');
     expect(listNext({ scheduled_date: '2026-08-24' }).label).not.toBe('Arriving shortly');
     expect(listNext({ scheduled_date: '2026-08-24' }).label).not.toBe('Remind client');
     expect(listNext({ status: 'completed', scheduled_date: today }).actionable).toBe(false);
