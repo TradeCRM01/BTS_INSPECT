@@ -1,15 +1,18 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { calcLineDocumentTotals } from './gst';
 import {
   INVOICE_SOURCE_JOB_BILL,
   INVOICE_SOURCE_QUOTE,
+  JOB_INVOICE_LIST_COLUMNS,
   buildInvoiceFromQuote,
   invoiceHref,
   invoiceLandingPath,
   invoiceLinesFromQuote,
   isJobBillInvoice,
   isoDatePlusDays,
+  jobInvoicesAfterCreate,
   pickReusableInvoice,
 } from './invoiceFromQuote';
 import { PRICE_BOOK_IMPORT_SAMPLE_CSV, previewPriceBookImport, parsePriceBookSheet, saveItemsFromPreview, suggestPriceBookMapping } from './priceBookImport';
@@ -188,5 +191,64 @@ describe('isoDatePlusDays / invoiceHref', () => {
 
   it('opens the invoice when there is no job', () => {
     expect(invoiceLandingPath(null, 'inv-1')).toBe('/invoices?id=inv-1');
+  });
+});
+
+const createdInvoice = {
+  id: 'inv-new',
+  invoice_number: 41,
+  status: 'draft' as const,
+  total: 528,
+  due_date: '2026-10-19',
+  created_at: '2026-10-05T04:00:00.000Z',
+  quote_id: 'quote-1',
+};
+
+describe('jobInvoicesAfterCreate', () => {
+  it('grows an empty Invoices list from 0 to 1 after create', () => {
+    expect(jobInvoicesAfterCreate([], createdInvoice)).toEqual([createdInvoice]);
+    expect(jobInvoicesAfterCreate(undefined, createdInvoice)).toHaveLength(1);
+    expect(jobInvoicesAfterCreate(null, createdInvoice)[0]?.id).toBe('inv-new');
+  });
+
+  it('puts the new invoice at the front without a reload', () => {
+    const older = {
+      ...createdInvoice,
+      id: 'inv-old',
+      invoice_number: 40,
+      created_at: '2026-09-01T00:00:00.000Z',
+    };
+    expect(jobInvoicesAfterCreate([older], createdInvoice).map(row => row.id)).toEqual(['inv-new', 'inv-old']);
+  });
+
+  it('replaces a duplicate id so a refetch cannot double-count the same invoice', () => {
+    const again = { ...createdInvoice, total: 600 };
+    expect(jobInvoicesAfterCreate([createdInvoice], again).map(row => row.id)).toEqual(['inv-new']);
+    expect(jobInvoicesAfterCreate([createdInvoice], again)[0]?.total).toBe(600);
+  });
+});
+
+describe('job sheet Invoice from quote writes job-invoices', () => {
+  function src(rel: string): string {
+    return readFileSync(resolve(process.cwd(), rel), 'utf8');
+  }
+
+  it('writes the created invoice onto job-invoices after Invoice, then invalidates', () => {
+    const page = src('src/pages/JobDetailPage.tsx');
+    const convert = src('src/lib/convertQuoteToInvoice.ts');
+    expect(JOB_INVOICE_LIST_COLUMNS).toBe(
+      'id, invoice_number, status, total, due_date, created_at, quote_id',
+    );
+    expect(page).toContain('jobInvoicesAfterCreate');
+    expect(page).toContain("setQueryData<JobInvoice[]>(['job-invoices', id]");
+    expect(page).toContain('jobInvoicesAfterCreate(prev, result.invoice)');
+    expect(page).toContain("invalidateQueries({ queryKey: ['job-invoices', id] }");
+    expect(page).toContain('invoiceFromQuote.mutate(q.id)');
+    expect(page).toContain('Nothing invoiced yet. Invoice an accepted quote, or from the job bill.');
+    expect(page).toContain('Draft invoice created from quote');
+    expect(convert).toContain('JOB_INVOICE_LIST_COLUMNS');
+    expect(convert).toContain('.select(JOB_INVOICE_LIST_COLUMNS)');
+    expect(convert).toContain('invoice: asJobInvoiceListRow');
+    expect(page).not.toMatch(/Relovi|Littleloop/);
   });
 });

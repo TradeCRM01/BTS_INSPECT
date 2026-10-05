@@ -1,4 +1,4 @@
-import type { InvoiceLineItem, QuoteLineItem } from '../types/fsm';
+import type { InvoiceLineItem, InvoiceStatus, QuoteLineItem } from '../types/fsm';
 import { asStringList } from './asStringList';
 import { calcLineDocumentTotals } from './gst';
 import { padQuoteNumber } from './quoteJobFields';
@@ -96,4 +96,26 @@ export function invoiceHref(invoiceId: string): string {
 /** Job hub when the quote is already linked; otherwise open the invoice editor. */
 export function invoiceLandingPath(jobId: string | null | undefined, invoiceId: string): string {
   return jobId ? `/jobs/${jobId}` : invoiceHref(invoiceId);
+}
+
+/** Columns the job Paperwork invoices query reads. Convert selects these so the list can update in place. */
+export const JOB_INVOICE_LIST_COLUMNS =
+  'id, invoice_number, status, total, due_date, created_at, quote_id';
+
+export type JobInvoiceListRow = {
+  id: string;
+  invoice_number: number | null;
+  status: InvoiceStatus;
+  total: number;
+  due_date: string | null;
+  created_at: string;
+  quote_id: string | null;
+};
+
+/** Same-page list write after Invoice from quote — empty tray becomes the new draft without a reload. */
+export function jobInvoicesAfterCreate<T extends { id: string }>(
+  prev: T[] | null | undefined,
+  created: T,
+): T[] {
+  return [created, ...(prev ?? []).filter(row => row.id !== created.id)];
 }

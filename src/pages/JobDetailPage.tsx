@@ -18,7 +18,7 @@ import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY
 import { formatMoney, INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatDuration } from '../types/fsm';
 import type { InvoiceStatus, Timesheet } from '../types/fsm';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
-import { invoiceHref } from '../lib/invoiceFromQuote';
+import { invoiceHref, jobInvoicesAfterCreate } from '../lib/invoiceFromQuote';
 import { AUDIT_DOC_JOB_ID, getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { createInvoiceFromJobBill } from '../lib/createInvoiceFromJobBill';
 import {
@@ -1915,6 +1915,11 @@ export function JobDetailPage() {
       return convertQuoteToInvoice(quoteId, profile.id, Number(company?.default_tax_rate) || DEFAULT_TAX_RATE);
     },
     onSuccess: (result) => {
+      if (result.invoice) {
+        queryClient.setQueryData<JobInvoice[]>(['job-invoices', id], prev =>
+          jobInvoicesAfterCreate(prev, result.invoice),
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       showToast(result.existing
