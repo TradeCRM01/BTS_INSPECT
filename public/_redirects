@@ -1,4 +1,5 @@
 # SPA fallback for client-side routes (Cloudflare Pages).
-# Do not add a top-level 404.html — it disables Pages' SPA behavior.
-# Do not use status-404 rewrites here — they are unsupported and can invalidate this file.
-/*    /index.html   200
+# Existing files are served before redirects, so a real /assets/*.js still ships.
+# Missing /assets/* must 404 — the /* HTML rewrite is how stale chunks become text/html.
+/assets/*    /404.html   404
+/*           /index.html   200

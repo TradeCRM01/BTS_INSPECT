@@ -18,3 +18,37 @@
 # Hashed assets are immutable; missing ones must not fall through to HTML
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# SPA HTML must revalidate. Named routes only — a /* rule would merge onto /assets/*.
+/login
+  Cache-Control: no-cache, no-store, must-revalidate
+/login/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/jobs
+  Cache-Control: no-cache, no-store, must-revalidate
+/jobs/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/dashboard
+  Cache-Control: no-cache, no-store, must-revalidate
+/dashboard/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/quotes
+  Cache-Control: no-cache, no-store, must-revalidate
+/quotes/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/invoices
+  Cache-Control: no-cache, no-store, must-revalidate
+/invoices/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/clients
+  Cache-Control: no-cache, no-store, must-revalidate
+/clients/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/schedule
+  Cache-Control: no-cache, no-store, must-revalidate
+/schedule/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/settings
+  Cache-Control: no-cache, no-store, must-revalidate
+/settings/*
+  Cache-Control: no-cache, no-store, must-revalidate

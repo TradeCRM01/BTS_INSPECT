@@ -8,7 +8,7 @@ import { InstallPrompt } from './components/ui/InstallPrompt';
 import { SWUpdatePrompt } from './components/ui/SWUpdatePrompt';
 import App from './App';
 import { isDevFieldAuditAuth } from './lib/devFieldAuditAuth';
-import { applyDeployedBuildCache, clearAppCaches } from './lib/clearAppCaches';
+import { applyDeployedBuildCache, autoClearLoginHref, clearAppCaches, keepSessionOnClearSearch } from './lib/clearAppCaches';
 import './index.css';
 
 // Burned invite / reset links land as #error=... and can brick PWA navigations.
@@ -28,10 +28,13 @@ import './index.css';
   }
 })();
 
-// Explicit recovery: /login?clear=1 or any ?clear=1
+// Recovery: /login?clear=1. auto=1 keeps the session (chunk / hardRecover).
+// Manual "Clear cache & retry" has no auto and wipes sb-*.
 if (new URLSearchParams(window.location.search).has('clear')) {
-  const next = new URLSearchParams(window.location.search).get('next');
-  clearAppCaches().finally(() => {
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get('next');
+  const keepSession = keepSessionOnClearSearch(window.location.search);
+  clearAppCaches({ keepSession }).finally(() => {
     try {
       sessionStorage.removeItem('chunk_recover');
       sessionStorage.removeItem('module_reload');
@@ -72,7 +75,7 @@ window.addEventListener('error', (event) => {
     if (sessionStorage.getItem('module_reload')) return;
     sessionStorage.setItem('module_reload', '1');
     const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    window.location.replace(`/login?clear=1&next=${encodeURIComponent(next)}`);
+    window.location.replace(autoClearLoginHref(next));
   }
 }, true);
 
@@ -87,7 +90,7 @@ window.addEventListener('unhandledrejection', (event) => {
     if (sessionStorage.getItem('module_reload')) return;
     sessionStorage.setItem('module_reload', '1');
     const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    window.location.replace(`/login?clear=1&next=${encodeURIComponent(next)}`);
+    window.location.replace(autoClearLoginHref(next));
   }
 });
 

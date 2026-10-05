@@ -52,6 +52,16 @@ function resolveStorage(storage?: AppCacheStorage): AppCacheStorage | null {
   return localStorage;
 }
 
+/** Automatic chunk recovery adds auto=1 so the session is not wiped. */
+export function keepSessionOnClearSearch(search: string): boolean {
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  return params.get('auto') === '1';
+}
+
+export function autoClearLoginHref(next: string): string {
+  return `/login?clear=1&auto=1&next=${encodeURIComponent(next)}`;
+}
+
 /** Clears Cache API, service workers, and selected localStorage keys. */
 export async function clearAppCaches(options: ClearAppCachesOptions = {}): Promise<void> {
   try {
