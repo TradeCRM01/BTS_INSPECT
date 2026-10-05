@@ -206,6 +206,17 @@ export type JobListNext = {
   actionable: boolean;
 };
 
+/** List Next that only opens `/jobs/:id` is a status, not a verb. */
+export function isPlainJobListHref(href: string): boolean {
+  return /^\/jobs\/[^/?#]+$/.test(href);
+}
+
+/** After reminder mapping: keep verbs that land on a tray; drop plain job opens. */
+export function markListNextActionable<T extends { href: string; actionable: boolean }>(next: T): T {
+  if (!isPlainJobListHref(next.href)) return next;
+  return { ...next, actionable: false };
+}
+
 /** Where list Next (and the row) should land for this job. */
 export function jobListNext(
   job: {
@@ -377,7 +388,7 @@ export function jobOpenNext(
     hasDraftInvoice: sheet?.hasDraftInvoice ?? job.hasDraftInvoice,
     hasIssuedInvoice: sheet?.hasIssuedInvoice ?? job.hasIssuedInvoice,
   };
-  const list = withReminderNext(job, jobListNext(job, now, invoiceHint), now);
+  const list = markListNextActionable(withReminderNext(job, jobListNext(job, now, invoiceHint), now));
   const arrivingWindow = sheet?.arrivingWindow ?? isJobArrivingWindow(job, now);
   const action = recommendJobAction({
     status: job.status,

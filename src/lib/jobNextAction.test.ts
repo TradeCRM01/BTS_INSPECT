@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { boardDispatchHint, jobCardHint, jobInvoiceActionFlags, jobListBucket, jobListNext, jobOpenNext, partitionScheduleJobs, pickJobDraftToSend, recommendArrivingSheetNext, recommendJobAction } from './jobNextAction';
+import { boardDispatchHint, isPlainJobListHref, jobCardHint, jobInvoiceActionFlags, jobListBucket, jobListNext, jobOpenNext, partitionScheduleJobs, pickJobDraftToSend, recommendArrivingSheetNext, recommendJobAction } from './jobNextAction';
 import {
   ARRIVING_NEXT_LABEL,
   CLOCK_IN_NEXT_LABEL,
@@ -60,6 +61,78 @@ describe('jobListNext', () => {
     expect(jobListNext({
       id: 'job-1', status: 'completed', scheduled_date: '2026-08-20', assigned_team: ['a'],
     }, now).actionable).toBe(false);
+  });
+});
+
+describe('list Next after reminder mapping', () => {
+  it('applies the plain /jobs/:id rule after withReminderNext', () => {
+    const src = readFileSync(new URL('./jobNextAction.ts', import.meta.url), 'utf8');
+    expect(src).toContain('markListNextActionable(withReminderNext(job, jobListNext(job, now, invoiceHint), now))');
+  });
+
+  const crew = ['a'] as string[];
+  const card = (
+    job: { status: 'scheduled' | 'in_progress' | 'completed'; scheduled_date: string | null; assigned_team?: string[] },
+    at = now,
+  ) => jobOpenNext({ id: 'job-1', ...job, assigned_team: job.assigned_team ?? crew }, undefined, at);
+
+  it('keeps verb Next that lands on a tray, not plain /jobs/:id', () => {
+    expect(card({ status: 'scheduled', scheduled_date: null })).toMatchObject({
+      href: '/jobs/job-1#job-schedule', label: 'Set a date', actionable: true,
+    });
+    expect(card({ status: 'scheduled', scheduled_date: '2026-08-22', assigned_team: [] })).toMatchObject({
+      href: '/jobs/job-1#job-schedule', label: 'Assign crew', actionable: true,
+    });
+    expect(jobOpenNext({
+      id: 'job-1', status: 'completed', scheduled_date: '2026-08-20', assigned_team: crew, invoiceCount: 0,
+    }, undefined, now)).toMatchObject({
+      href: '/jobs/job-1#job-invoices', label: 'Invoice', actionable: true,
+    });
+    expect(jobOpenNext({
+      id: 'job-1',
+      status: 'completed',
+      scheduled_date: '2026-08-20',
+      assigned_team: crew,
+      invoiceCount: 1,
+      hasDraftInvoice: true,
+      hasIssuedInvoice: false,
+    }, undefined, now)).toMatchObject({
+      href: '/jobs/job-1#job-invoices', label: 'Send', actionable: true,
+    });
+  });
+
+  it('drops Scheduled, Today, On site, and Still open when they only open the job', () => {
+    const scheduled = card({ status: 'scheduled', scheduled_date: '2026-08-25' });
+    expect(scheduled).toMatchObject({ href: '/jobs/job-1', label: 'Scheduled', actionable: false });
+    expect(isPlainJobListHref(scheduled.href)).toBe(true);
+
+    const today = card({ status: 'scheduled', scheduled_date: '2026-08-20' });
+    // Today in the arriving window upgrades to Arriving shortly on #job-schedule.
+    expect(today.label).not.toBe('Today');
+
+    const onSiteFuture = card({ status: 'in_progress', scheduled_date: '2026-08-25' });
+    expect(onSiteFuture).toMatchObject({ href: '/jobs/job-1', label: 'On site', actionable: false });
+
+    const stillOpen = card({ status: 'scheduled', scheduled_date: '2026-08-01' });
+    expect(stillOpen).toMatchObject({ href: '/jobs/job-1', label: 'Still open', actionable: false });
+  });
+
+  it('keeps Remind client on a tomorrow job after the plain-href rule', () => {
+    const reminded = card({ status: 'scheduled', scheduled_date: '2026-08-21' });
+    expect(reminded).toMatchObject({
+      href: '/jobs/job-1#job-schedule',
+      label: 'Remind client',
+      actionable: true,
+    });
+  });
+
+  it('keeps Arriving shortly on an arriving-window job after the plain-href rule', () => {
+    const arriving = card({ status: 'scheduled', scheduled_date: '2026-08-20' });
+    expect(arriving).toMatchObject({
+      href: '/jobs/job-1#job-schedule',
+      label: ARRIVING_NEXT_LABEL,
+      actionable: true,
+    });
   });
 });
 
