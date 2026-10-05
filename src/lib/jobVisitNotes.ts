@@ -3,13 +3,16 @@ import { supabase } from './supabase';
 export const JOB_VISIT_NOTE_TABLE = 'job_visit_notes';
 
 export const JOB_VISIT_NOTE_COLUMNS =
-  'id, company_id, job_id, author_id, author_name, body, created_at';
+  'id, company_id, job_id, author_id, author_name, body, created_at, outcome';
 
 export const JOB_VISIT_NOTE_EMPTY = 'Write what was done.';
 export const JOB_VISIT_NOTE_NO_JOB = 'This job is missing.';
 export const JOB_VISIT_NOTE_NOT_SIGNED_IN = 'Not signed in';
 export const JOB_VISIT_NOTE_POSTED = 'Visit note posted';
 export const JOB_VISIT_NOTE_CREW = 'Crew';
+
+export type VisitUpdateOutcome = 'all_done' | 'more_to_do';
+export const VISIT_NOTE_ALL_DONE = 'All done';
 
 export type JobVisitNote = {
   id: string;
@@ -19,6 +22,7 @@ export type JobVisitNote = {
   author_name: string;
   body: string;
   created_at: string;
+  outcome: VisitUpdateOutcome | null;
 };
 
 export type JobVisitNoteWrite = {
@@ -27,6 +31,7 @@ export type JobVisitNoteWrite = {
   author_id: string;
   author_name: string;
   body: string;
+  outcome: VisitUpdateOutcome | null;
 };
 
 export type DecideJobVisitNote =
@@ -60,9 +65,6 @@ export type VisitNoteBlock = {
 export function emptyVisitNoteSections(): VisitNoteSections {
   return { done: '', left: '', parts_used: '', parts_needed: '', customer_wants: '' };
 }
-
-export type VisitUpdateOutcome = 'all_done' | 'more_to_do';
-export const VISIT_NOTE_ALL_DONE = 'All done';
 
 /** What the field flow collects before it composes into one stored note body. */
 export type VisitUpdateDraft = {
@@ -127,6 +129,38 @@ const SECTION_BY_HEADING = new Map<string, VisitNoteSection>(
  * Splits a stored body back into labelled blocks. A body with no `Label:` line
  * comes back as one free-text block so older notes render as they always did.
  */
+export function storedVisitOutcome(
+  outcome: VisitUpdateOutcome | null | undefined,
+): VisitUpdateOutcome | null {
+  return outcome === 'all_done' || outcome === 'more_to_do' ? outcome : null;
+}
+
+/**
+ * History status label. DONE comes from the All done button (`outcome`).
+ * More to do never shows DONE, even if the body says All done.
+ * A null outcome (older notes) keeps the body-text guess so existing History stays put.
+ */
+export function visitNoteHistoryLabel(
+  block: VisitNoteBlock,
+  outcome: VisitUpdateOutcome | null | undefined = null,
+): string | null {
+  if (block.key === 'done') return null;
+  if (outcome === 'more_to_do') return block.label;
+  if (outcome === 'all_done' && block.key === 'left') return 'Done';
+  if (outcome == null && block.key === 'left' && block.text === VISIT_NOTE_ALL_DONE) return 'Done';
+  return block.label;
+}
+
+export function visitNoteHistoryText(
+  block: VisitNoteBlock,
+  outcome: VisitUpdateOutcome | null | undefined = null,
+): string {
+  if (outcome === 'more_to_do') return block.text;
+  if (outcome === 'all_done' && block.key === 'left') return '';
+  if (outcome == null && block.key === 'left' && block.text === VISIT_NOTE_ALL_DONE) return '';
+  return block.text;
+}
+
 export function parseVisitNoteBody(body: string | null | undefined): VisitNoteBlock[] {
   const blocks: VisitNoteBlock[] = [];
   let current: VisitNoteSection | null = null;
@@ -159,6 +193,7 @@ export function decideJobVisitNotePost(input: {
   authorId: string | null | undefined;
   authorName: string | null | undefined;
   sections: Partial<VisitNoteSections>;
+  outcome?: VisitUpdateOutcome | null;
   photoCount?: number;
 }): DecideJobVisitNote {
   const jobId = trimVisitNote(input.jobId);
@@ -183,6 +218,7 @@ export function decideJobVisitNotePost(input: {
       author_id: authorId,
       author_name: jobVisitNoteAuthor(input.authorName),
       body,
+      outcome: storedVisitOutcome(input.outcome),
     },
   };
 }
@@ -234,6 +270,7 @@ export async function postJobVisitNote(input: {
   authorId: string | null | undefined;
   authorName: string | null | undefined;
   sections: Partial<VisitNoteSections>;
+  outcome?: VisitUpdateOutcome | null;
   photoCount?: number;
 }): Promise<JobVisitNote> {
   const decision = decideJobVisitNotePost(input);
