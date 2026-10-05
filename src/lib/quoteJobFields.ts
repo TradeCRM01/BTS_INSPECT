@@ -35,16 +35,48 @@ export function quoteConvertEntry(quote: {
   return convertQuoteHasDateAndCrew(quote) ? 'convert' : 'focus_convert';
 }
 
-export function focusQuoteConvertDate(root: ParentNode): HTMLInputElement | null {
-  const section = root.querySelector('.hub-quote-convert');
-  if (!(section instanceof HTMLElement)) return null;
-  if (typeof section.scrollIntoView === 'function') {
-    section.scrollIntoView({ block: 'nearest' });
+export function quoteConvertScrollContainer(section: HTMLElement): HTMLElement | null {
+  return section.closest('.hub-quote-editor') ?? section.closest('[role="dialog"]');
+}
+
+export function scrollQuoteConvertIntoView(section: HTMLElement): number {
+  const container = quoteConvertScrollContainer(section);
+  if (container) {
+    const top = (container.scrollTop || 0)
+      + (section.getBoundingClientRect().top - container.getBoundingClientRect().top);
+    if (typeof container.scrollTo === 'function') {
+      container.scrollTo({ top, behavior: 'auto' });
+    } else {
+      container.scrollTop = top;
+    }
+    return top;
   }
-  const date = section.querySelector<HTMLInputElement>('input[type="date"]');
+  if (typeof section.scrollIntoView === 'function') {
+    section.scrollIntoView({ block: 'start' });
+  }
+  return 0;
+}
+
+export function focusQuoteConvertDate(root: ParentNode): HTMLInputElement | null {
+  const section = root instanceof Element && root.classList.contains('hub-quote-convert')
+    ? root
+    : root.querySelector('.hub-quote-convert');
+  if (!(section instanceof HTMLElement)) return null;
+  scrollQuoteConvertIntoView(section);
+  const date = section.querySelector<HTMLInputElement>('#quote-convert-date, input[type="date"]');
   if (!date) return null;
   date.focus();
   return date;
+}
+
+export function takeQuoteConvertLock(lock: { current: boolean }): boolean {
+  if (lock.current) return false;
+  lock.current = true;
+  return true;
+}
+
+export function releaseQuoteConvertLock(lock: { current: boolean }): void {
+  lock.current = false;
 }
 
 export function jobFieldsFromQuote(

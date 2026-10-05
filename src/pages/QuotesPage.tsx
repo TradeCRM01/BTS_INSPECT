@@ -20,11 +20,14 @@ import { AppDialog, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, Load
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
+import { afterDialogInitialFocus } from '../lib/dialogFocus';
 import {
   CONVERT_QUOTE_NEED_DATE_CREW,
   assignedTeamFromQuote,
   focusQuoteConvertDate,
   quoteConvertEntry,
+  releaseQuoteConvertLock,
+  takeQuoteConvertLock,
 } from '../lib/quoteJobFields';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
 import { invoiceHref, invoiceLandingPath, pickReusableInvoice } from '../lib/invoiceFromQuote';
@@ -511,11 +514,13 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
   const { profile, company } = useAuth();
   const { showToast } = useToast();
   const [busy, setBusy] = useState<QuoteActionKey | null>(null);
+  const convertLock = useRef(false);
   const next = recommendQuoteAction(quoteActionContext(quote));
   if (next.key === 'none') return null;
 
   const run = async (key: QuoteActionKey, fn: () => Promise<void>) => {
     if (!profile?.id) return;
+    if (key === 'convert_job' && !takeQuoteConvertLock(convertLock)) return;
     setBusy(key);
     try {
       await fn();
@@ -524,6 +529,7 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
       showToast(message);
     } finally {
       setBusy(null);
+      if (key === 'convert_job') releaseQuoteConvertLock(convertLock);
     }
   };
 
@@ -590,6 +596,10 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
   return (
     <button
       type="button"
+      onPointerDown={e => {
+        if (e.button !== 0 || next.key !== 'convert_job') return;
+        handle();
+      }}
       onClick={handle}
       disabled={!!busy}
       className={next.key === 'send' ? 'btn-primary' : 'hub-next'}
@@ -731,13 +741,21 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
     invoice_id: invoiceId,
   }));
 
+  const convertSectionRef = useRef<HTMLDivElement | null>(null);
+  const convertFocusDoneRef = useRef(false);
+  const convertingLock = useRef(false);
+
   useEffect(() => {
     if (!focusConvert || next.key !== 'convert_job') return;
-    const frame = window.requestAnimationFrame(() => {
-      focusQuoteConvertDate(document);
+    convertFocusDoneRef.current = false;
+    return afterDialogInitialFocus(() => {
+      if (convertFocusDoneRef.current) return true;
+      const date = focusQuoteConvertDate(convertSectionRef.current ?? document);
+      if (!date) return false;
+      convertFocusDoneRef.current = true;
+      return true;
     });
-    return () => window.cancelAnimationFrame(frame);
-  }, [focusConvert, next.key]);
+  }, [focusConvert, next.key, quote?.id]);
 
   useEffect(() => {
     setClientEmailDraft(emailClient?.email ?? '');
@@ -942,11 +960,16 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   };
 
   const handleConvert = async () => {
+    if (!takeQuoteConvertLock(convertingLock)) return;
     const id = savedId ?? quote?.id;
-    if (!id || form.status !== 'accepted' || !profile?.id) return;
+    if (!id || form.status !== 'accepted' || !profile?.id) {
+      releaseQuoteConvertLock(convertingLock);
+      return;
+    }
     if (quoteConvertEntry({ scheduled_date: form.scheduled_date, assigned_team: form.assigned_team }) === 'focus_convert') {
       setErr(CONVERT_QUOTE_NEED_DATE_CREW);
-      focusQuoteConvertDate(document);
+      focusQuoteConvertDate(convertSectionRef.current ?? document);
+      releaseQuoteConvertLock(convertingLock);
       return;
     }
     setConverting(true); setErr('');
@@ -971,6 +994,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
       setErr(e instanceof Error ? e.message : 'Conversion failed');
     } finally {
       setConverting(false);
+      releaseQuoteConvertLock(convertingLock);
     }
   };
 
@@ -1344,7 +1368,12 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
           ) : null}
 
           {next.key === 'convert_job' && (
-            <div className="hub-quote-convert">
+            <div
+              className="hub-quote-convert"
+              ref={node => {
+                convertSectionRef.current = node;
+              }}
+            >
               <p className="hub-quote-convert-label">Convert</p>
               <div className="hub-quote-convert-fields">
                 <Field label="Job date">
@@ -1369,6 +1398,10 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
               <button
                 type="button"
                 className="btn-primary"
+                onPointerDown={e => {
+                  if (e.button !== 0) return;
+                  void handleConvert();
+                }}
                 onClick={() => void handleConvert()}
                 disabled={converting}
               >

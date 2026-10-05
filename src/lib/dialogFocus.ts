@@ -12,6 +12,28 @@ export function dialogFocusPlan(open: boolean, wasOpen: boolean): {
   };
 }
 
+/** Same turn order as AppDialog focusFirst: rAF, rAF, then setTimeout(0). */
+export function afterDialogInitialFocus(run: () => boolean): () => void {
+  let cancelled = false;
+  let tries = 0;
+  const attempt = () => {
+    if (cancelled) return;
+    if (run()) return;
+    if (tries >= 6) return;
+    tries += 1;
+    window.requestAnimationFrame(attempt);
+  };
+  const rid = window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(attempt, 0);
+    });
+  });
+  return () => {
+    cancelled = true;
+    window.cancelAnimationFrame(rid);
+  };
+}
+
 export function nextFocusIndex(count: number, active: number, shiftKey: boolean): number {
   if (count <= 0) return -1;
   if (shiftKey) return active <= 0 ? count - 1 : active - 1;
