@@ -443,9 +443,10 @@ export function QuotesPage() {
       setShowForm(false);
       setPresetClientId(null);
     }
-    if (opts?.listRow) {
+    const listRow = opts?.listRow;
+    if (listRow) {
       queryClient.setQueryData<QuoteListItem[]>(QUOTES_LIST_QUERY_KEY, prev =>
-        quotesAfterSave(prev, opts.listRow as QuoteListItem),
+        quotesAfterSave(prev, listRow),
       );
     }
     queryClient.invalidateQueries({ queryKey: QUOTES_LIST_QUERY_KEY });

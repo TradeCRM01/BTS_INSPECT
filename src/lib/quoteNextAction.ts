@@ -130,11 +130,11 @@ export const QUOTES_LIST_QUERY_KEY = ['quotes'] as const;
  */
 export function quotesAfterSave<T extends { id: string }>(
   prev: T[] | null | undefined,
-  saved: T,
+  saved: Partial<T> & Pick<T, 'id'>,
 ): T[] {
   const list = [...(prev ?? [])];
   const index = list.findIndex(row => row.id === saved.id);
-  if (index < 0) return [saved, ...list];
+  if (index < 0) return [{ ...saved } as T, ...list];
   list[index] = { ...list[index], ...saved };
   return list;
 }

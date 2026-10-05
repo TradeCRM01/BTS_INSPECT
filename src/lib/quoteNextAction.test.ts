@@ -193,7 +193,7 @@ describe('quote editor save writes quotes list cache', () => {
     expect(page).toContain('quotesAfterSave');
     expect(page).toContain('QUOTES_LIST_QUERY_KEY');
     expect(page).toContain("setQueryData<QuoteListItem[]>(QUOTES_LIST_QUERY_KEY");
-    expect(page).toContain('quotesAfterSave(prev, opts.listRow as QuoteListItem)');
+    expect(page).toContain('quotesAfterSave(prev, listRow)');
     expect(page).toContain('listRow: { id, total: grandTotal }');
     expect(page).toContain("invalidateQueries({ queryKey: QUOTES_LIST_QUERY_KEY })");
     expect(page).toContain('quoteMoney(quote.total)');
