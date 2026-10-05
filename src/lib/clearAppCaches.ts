@@ -1,5 +1,6 @@
 export const BUILD_STORAGE_KEY = 'bts_build_id';
 export const MODULE_RELOAD_KEY = 'module_reload';
+export const AUTO_RECOVER_DONE_KEY = 'auto_recover_done';
 
 export type AppCacheStorage = {
   getItem(key: string): string | null;
@@ -60,6 +61,46 @@ export function keepSessionOnClearSearch(search: string): boolean {
 
 export function autoClearLoginHref(next: string): string {
   return `/login?clear=1&auto=1&next=${encodeURIComponent(next)}`;
+}
+
+function resolveSession(session?: AppCacheStorage): AppCacheStorage | null {
+  if (session) return session;
+  if (typeof sessionStorage === 'undefined') return null;
+  return sessionStorage;
+}
+
+/**
+ * One automatic /login?clear=1&auto=1 per tab. Set the key before redirecting.
+ * Returns false when the guard is already set — show the manual retry card.
+ */
+export function beginAutoRecover(session?: AppCacheStorage): boolean {
+  const store = resolveSession(session);
+  if (!store) return false;
+  try {
+    if (store.getItem(AUTO_RECOVER_DONE_KEY)) return false;
+    store.setItem(AUTO_RECOVER_DONE_KEY, '1');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Drops leftover reload flags. auto=1 must not clear auto_recover_done. */
+export function releaseRecoveryKeysOnClear(
+  search: string,
+  session?: AppCacheStorage,
+): void {
+  const store = resolveSession(session);
+  if (!store) return;
+  try {
+    store.removeItem('chunk_recover');
+    store.removeItem(MODULE_RELOAD_KEY);
+    store.removeItem('chunk_reload');
+    if (keepSessionOnClearSearch(search)) return;
+    store.removeItem(AUTO_RECOVER_DONE_KEY);
+  } catch {
+    // ignore
+  }
 }
 
 /** Clears Cache API, service workers, and selected localStorage keys. */

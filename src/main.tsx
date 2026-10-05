@@ -8,7 +8,14 @@ import { InstallPrompt } from './components/ui/InstallPrompt';
 import { SWUpdatePrompt } from './components/ui/SWUpdatePrompt';
 import App from './App';
 import { isDevFieldAuditAuth } from './lib/devFieldAuditAuth';
-import { applyDeployedBuildCache, autoClearLoginHref, clearAppCaches, keepSessionOnClearSearch } from './lib/clearAppCaches';
+import {
+  applyDeployedBuildCache,
+  autoClearLoginHref,
+  beginAutoRecover,
+  clearAppCaches,
+  keepSessionOnClearSearch,
+  releaseRecoveryKeysOnClear,
+} from './lib/clearAppCaches';
 import './index.css';
 
 // Burned invite / reset links land as #error=... and can brick PWA navigations.
@@ -36,9 +43,7 @@ if (new URLSearchParams(window.location.search).has('clear')) {
   const keepSession = keepSessionOnClearSearch(window.location.search);
   clearAppCaches({ keepSession }).finally(() => {
     try {
-      sessionStorage.removeItem('chunk_recover');
-      sessionStorage.removeItem('module_reload');
-      sessionStorage.removeItem('chunk_reload');
+      releaseRecoveryKeysOnClear(window.location.search);
     } catch {
       // ignore
     }
@@ -72,8 +77,7 @@ window.addEventListener('error', (event) => {
     msg.includes('Failed to fetch dynamically imported module') ||
     msg.includes('error loading dynamically imported module')
   ) {
-    if (sessionStorage.getItem('module_reload')) return;
-    sessionStorage.setItem('module_reload', '1');
+    if (!beginAutoRecover()) return;
     const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     window.location.replace(autoClearLoginHref(next));
   }
@@ -87,15 +91,10 @@ window.addEventListener('unhandledrejection', (event) => {
     msg.includes('error loading dynamically imported module') ||
     msg.includes('Importing a module script failed')
   ) {
-    if (sessionStorage.getItem('module_reload')) return;
-    sessionStorage.setItem('module_reload', '1');
+    if (!beginAutoRecover()) return;
     const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     window.location.replace(autoClearLoginHref(next));
   }
-});
-
-window.addEventListener('load', () => {
-  sessionStorage.removeItem('module_reload');
 });
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
