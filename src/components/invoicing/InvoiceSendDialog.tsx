@@ -31,6 +31,7 @@ import {
   type InvoiceSendCompany,
 } from '../../lib/sendInvoice';
 import { loadInvoiceSendBundle } from '../../lib/sendInvoiceDeliver';
+import { checkPriceSendBlock, throwIfCheckPriceUnpriced } from '../../lib/checkPriceGate';
 import { jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
 import { jobClientPhoneRow, saveJobClientPhone } from '../../lib/saveJobClientPhone';
 import {
@@ -263,6 +264,7 @@ export function InvoiceSendDialog({
   );
 
   const prepareShare = async (): Promise<{ url: string; share: DocumentShareExport }> => {
+    throwIfCheckPriceUnpriced(bundle?.invoice?.line_items);
     if (!bundle?.invoice?.client_id) throw new Error('Pick a client before you can copy a portal link.');
     const url = await ensureClientPortalUrl({
       companyId: company.id,
@@ -376,6 +378,7 @@ export function InvoiceSendDialog({
     setBusy('sent');
     setErr('');
     try {
+      throwIfCheckPriceUnpriced(bundle.invoice.line_items);
       const marked = await markInvoiceSentForShare({
         invoiceId,
         status: bundle.invoice.status,
@@ -393,13 +396,16 @@ export function InvoiceSendDialog({
     }
   };
 
-  const blockerMessage = noClientsNamedMiss
-    ? INVOICE_CLIENT_ATTACH_NO_CLIENTS
-    : noClientMiss
-      ? 'Pick a client before you can copy a portal link.'
-      : noEmailMiss
-        ? INVOICE_SEND_NO_EMAIL_FIELD
-        : '';
+  const checkPriceBlock = checkPriceSendBlock(bundle?.invoice?.line_items);
+  const blockerMessage = checkPriceBlock
+    ? checkPriceBlock
+    : noClientsNamedMiss
+      ? INVOICE_CLIENT_ATTACH_NO_CLIENTS
+      : noClientMiss
+        ? 'Pick a client before you can copy a portal link.'
+        : noEmailMiss
+          ? INVOICE_SEND_NO_EMAIL_FIELD
+          : '';
   const invoiceLabel = bundle?.invoice
     ? `Invoice #${padInvoiceNumber(bundle.invoice.invoice_number)}`
     : '';
@@ -409,7 +415,7 @@ export function InvoiceSendDialog({
     : '';
   const canOpenSmsDraft = isChase && phoneRow.kind === 'tel';
   const showShare = !loading && !!share && (share.canDownloadPdf || share.canCopyLink);
-  const ready = showShare && !!share && share.canCopyLink && share.canDownloadPdf;
+  const ready = showShare && !!share && share.canCopyLink && share.canDownloadPdf && !checkPriceBlock;
 
   return (
     <Modal open onClose={onClose} size="md" closeOnEscape>
@@ -654,7 +660,7 @@ export function InvoiceSendDialog({
               {busy === 'download' ? 'Downloading…' : 'Download PDF'}
             </button>
           )}
-          {showShare && share?.canCopyLink && (
+          {showShare && !checkPriceBlock && share?.canCopyLink && (
             <button
               type="button"
               onClick={() => void handleCopyLink()}
@@ -664,7 +670,7 @@ export function InvoiceSendDialog({
               {busy === 'copy' ? 'Copying…' : copy?.kind === 'copied' ? 'Copied' : isChase ? 'Copy reminder' : 'Copy link'}
             </button>
           )}
-          {showShare && share?.canMarkSent && (
+          {showShare && !checkPriceBlock && share?.canMarkSent && (
             <button
               type="button"
               onClick={() => void handleMarkSent()}
@@ -674,7 +680,7 @@ export function InvoiceSendDialog({
               {busy === 'sent' ? 'Marking…' : 'Mark sent'}
             </button>
           )}
-          {showShare && share?.canMailto && (
+          {showShare && !checkPriceBlock && share?.canMailto && (
             <button
               type="button"
               onClick={() => void handleMailto()}
@@ -684,7 +690,7 @@ export function InvoiceSendDialog({
               {busy === 'mailto' ? 'Opening…' : 'Open mail draft'}
             </button>
           )}
-          {showShare && canOpenSmsDraft && (
+          {showShare && !checkPriceBlock && canOpenSmsDraft && (
             <button
               type="button"
               onClick={() => void handleSms()}

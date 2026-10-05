@@ -276,6 +276,47 @@ describe('quick quote parser and matcher', () => {
     expect(row.total).toBe(10.12);
   });
 
+  it('(iii) drops the quantity words from an unmatched line description', () => {
+    const row = quickQuoteInsertRow({
+      companyId: 'co-1',
+      createdBy: 'prof-1',
+      taxRate: 10,
+      text: 'two mystery widgets',
+      items: book,
+      clients,
+    });
+    expect(parseQuickQuoteFragment('two mystery widgets')).toMatchObject({
+      quantity: 2,
+      key: 'mystery widgets',
+    });
+    expect(row.line_items).toHaveLength(1);
+    expect(row.line_items[0]).toMatchObject({
+      description: 'mystery widgets',
+      quantity: 2,
+      unit_price: 0,
+      check_price: true,
+    });
+    expect(row.line_items[0]?.description).not.toBe('two mystery widgets');
+  });
+
+  it('(iv) word matching ignores a trailing s', () => {
+    expect(matchPriceBookItem('double power point', book)?.id).toBe('item-gpo-double');
+    expect(matchPriceBookItem('double power points', book)?.id).toBe('item-gpo-double');
+    const row = quickQuoteInsertRow({
+      companyId: 'co-1',
+      createdBy: 'prof-1',
+      text: 'double power point',
+      items: book,
+      clients,
+    });
+    expect(row.line_items[0]).toMatchObject({
+      unit_price: 35,
+      price_book_item_id: 'item-gpo-double',
+      check_price: false,
+    });
+    expect(row.line_items[0]?.description).toMatch(/Double power points/);
+  });
+
   it('flags an ambiguous name as Check price', () => {
     const row = quickQuoteInsertRow({
       companyId: 'co-1',

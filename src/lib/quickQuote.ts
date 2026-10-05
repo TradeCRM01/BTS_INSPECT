@@ -207,14 +207,18 @@ export function matchPriceBookItemByCode(
   return hits.length === 1 ? hits[0] : null;
 }
 
+export function stemQuickQuoteWord(word: string): string {
+  return word.length > 1 && word.endsWith('s') ? word.slice(0, -1) : word;
+}
+
 export function matchPriceBookItemByWords(
   key: string,
   items: QuickQuoteBookItem[],
 ): QuickQuoteBookItem | null {
-  const words = quickQuoteWords(key);
+  const words = quickQuoteWords(key).map(stemQuickQuoteWord);
   if (words.length === 0) return null;
   const hits = items.filter(item => {
-    const hay = new Set(quickQuoteWords(item.description));
+    const hay = new Set(quickQuoteWords(item.description).map(stemQuickQuoteWord));
     return words.every(word => hay.has(word));
   });
   return hits.length === 1 ? hits[0] : null;
@@ -246,7 +250,7 @@ export function quickQuoteLineFromFragment(
   const item = matchPriceBookItem(fragment.key, items);
   if (!item) {
     return {
-      description: fragment.raw.trim() || fragment.key,
+      description: fragment.key.trim() || fragment.raw.trim(),
       quantity: fragment.quantity,
       unit_price: 0,
       gst_rate: Number(taxRate) || DEFAULT_TAX_RATE,
