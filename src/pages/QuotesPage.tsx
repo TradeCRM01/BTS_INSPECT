@@ -31,7 +31,12 @@ import {
   takeQuoteConvertLock,
 } from '../lib/quoteJobFields';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
-import { invoiceHref, invoiceLandingPath, pickReusableInvoice } from '../lib/invoiceFromQuote';
+import {
+  invoiceHref,
+  invoiceLandingPath,
+  invoiceReuseOpen,
+  quoteListInvoiceId,
+} from '../lib/invoiceFromQuote';
 import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel } from '../lib/gst';
 import { LineItemEditor, emptyLineItem, toEditLine, type EditLineItem } from '../components/invoicing/LineItemEditor';
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
@@ -342,22 +347,20 @@ export function QuotesPage() {
       const clientIds = [...new Set(list.map(q => q.client_id).filter(Boolean))] as string[];
       const jobIds = [...new Set(list.map(q => q.job_id).filter(Boolean))] as string[];
       const quoteIds = list.map(q => q.id);
-      const [clientsRes, jobsRes, invoicesRes] = await Promise.all([
+      const [clientsRes, jobsRes, quoteInvoicesRes, jobInvoicesRes] = await Promise.all([
         clientIds.length ? supabase.from('clients').select('id, name, email, contact_person').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string; email: string | null; contact_person: string | null }[] }),
         jobIds.length ? supabase.from('jobs').select('id, title, address').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string; address: string | null }[] }),
         quoteIds.length
-          ? supabase.from('invoices').select('id, quote_id, status').in('quote_id', quoteIds)
-          : Promise.resolve({ data: [] as { id: string; quote_id: string; status: string }[] }),
+          ? supabase.from('invoices').select('id, quote_id, job_id, status').in('quote_id', quoteIds)
+          : Promise.resolve({ data: [] as { id: string; quote_id: string | null; job_id: string | null; status: string }[] }),
+        jobIds.length
+          ? supabase.from('invoices').select('id, quote_id, job_id, status').in('job_id', jobIds)
+          : Promise.resolve({ data: [] as { id: string; quote_id: string | null; job_id: string | null; status: string }[] }),
       ]);
       const clientMap = new Map((clientsRes.data ?? []).map(c => [c.id, c]));
       const jobMap = new Map((jobsRes.data ?? []).map(j => [j.id, j]));
-      const invoicesByQuote = new Map<string, { id: string; status: string }[]>();
-      for (const inv of invoicesRes.data ?? []) {
-        if (!inv.quote_id) continue;
-        const rows = invoicesByQuote.get(inv.quote_id) ?? [];
-        rows.push({ id: inv.id, status: inv.status });
-        invoicesByQuote.set(inv.quote_id, rows);
-      }
+      const quoteInvoices = quoteInvoicesRes.data ?? [];
+      const jobInvoices = jobInvoicesRes.data ?? [];
       return list.map(q => ({
         ...q,
         inclusions: asStringList(q.inclusions),
@@ -367,7 +370,10 @@ export function QuotesPage() {
         client_email: q.client_id ? clientMap.get(q.client_id)?.email ?? null : null,
         job_title: q.job_id ? jobMap.get(q.job_id)?.title ?? null : null,
         job_address: q.job_id ? jobMap.get(q.job_id)?.address ?? null : null,
-        invoice_id: pickReusableInvoice(invoicesByQuote.get(q.id) ?? [])?.id ?? null,
+        invoice_id: quoteListInvoiceId(
+          quoteInvoices.filter(inv => inv.quote_id === q.id),
+          q.job_id ? jobInvoices.filter(inv => inv.job_id === q.job_id) : [],
+        ),
       }));
     },
     enabled: !!profile,
@@ -826,6 +832,12 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
         queryClient.invalidateQueries({ queryKey: ['quotes'] });
         queryClient.invalidateQueries({ queryKey: ['invoices'] });
         queryClient.invalidateQueries({ queryKey: ['job-invoices'] });
+        if (result.existing) {
+          const reuse = invoiceReuseOpen(result.id);
+          showToast(reuse.toast);
+          navigate(reuse.href);
+          return;
+        }
         navigate(invoiceLandingPath(quote.job_id, result.id));
       });
       return;
@@ -1225,6 +1237,12 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['job-invoices'] });
+      if (result.existing) {
+        const reuse = invoiceReuseOpen(result.id);
+        showToast(reuse.toast);
+        navigate(reuse.href);
+        return;
+      }
       navigate(invoiceLandingPath(form.job_id || quote?.job_id, result.id));
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Could not create invoice');

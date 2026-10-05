@@ -19,13 +19,17 @@ import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY
 import { formatMoney, INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatDuration } from '../types/fsm';
 import type { InvoiceStatus, Timesheet } from '../types/fsm';
 import { convertQuoteToInvoice } from '../lib/convertQuoteToInvoice';
-import { invoiceHref, jobInvoicesAfterCreate } from '../lib/invoiceFromQuote';
-import { AUDIT_DOC_JOB_ID, getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import {
+  invoiceHref,
+  invoiceReuseOpen,
+  jobInvoicesAfterCreate,
+  jobQuoteInvoiceButton,
+} from '../lib/invoiceFromQuote';
+import { AUDIT_DOC_JOB_ID, AUDIT_INVOICE_ID, getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { createInvoiceFromJobBill } from '../lib/createInvoiceFromJobBill';
 import {
   JOB_BILL_INVOICE_CREATED,
   JOB_BILL_INVOICE_EMPTY,
-  JOB_BILL_INVOICE_EXISTS,
   JOB_BILL_INVOICE_NO_LINES,
   jobBillInvoiceBlocked,
 } from '../lib/invoiceFromJobBill';
@@ -260,6 +264,12 @@ const JOB_HOURS_RUNNING_LOOK = 'job-hours-running';
 const P305_LOOK = 'p305';
 /** Playwright: /jobs/audit-doc-job?look=p305-empty — completed job, empty bill. */
 const P305_EMPTY_LOOK = 'p305-empty';
+/** Playwright: completed + no crew — list and sheet Invoice. */
+const P307_LOOK = 'p307';
+/** Playwright: Invoice reuse toast + open. */
+const P307_REUSE_LOOK = 'p307-reuse';
+/** Playwright: quote Invoice becomes Open invoice after any-source invoice. */
+const P307_QUOTED_LOOK = 'p307-quoted';
 const LOOK_PHOTO_DIR = '/look/photos';
 
 function lookSearchParam(): string | null {
@@ -293,6 +303,20 @@ function p305LookKind(): 'bill' | 'empty' | null {
   if (look === P305_EMPTY_LOOK) return 'empty';
   try {
     if (window.location.pathname.endsWith('/look-job-bayswater')) return 'bill';
+    if (window.location.pathname.endsWith('/look-job-p307')) return 'bill';
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function p307LookKind(): 'agree' | 'reuse' | 'quoted' | null {
+  const look = lookSearchParam();
+  if (look === P307_LOOK) return 'agree';
+  if (look === P307_REUSE_LOOK) return 'reuse';
+  if (look === P307_QUOTED_LOOK) return 'quoted';
+  try {
+    if (window.location.pathname.endsWith('/look-job-p307')) return 'agree';
   } catch {
     return null;
   }
@@ -1502,11 +1526,13 @@ export function JobDetailPage() {
       const mock = getAuditJob(id!);
       if (mock) {
         const p305 = p305LookKind();
-        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn() || p305) {
+        const p307 = p307LookKind();
+        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn() || p305 || p307) {
           return {
             ...mock,
             scheduled_date: lookVanTodayYmd(),
-            ...(p305 ? { status: 'completed' as const } : {}),
+            ...(p305 || p307 ? { status: 'completed' as const } : {}),
+            ...(p307 === 'agree' || p307 === 'reuse' ? { assigned_team: [] } : {}),
           } as Job;
         }
         return mock as Job;
@@ -1753,6 +1779,15 @@ export function JobDetailPage() {
   const { data: quotes } = useQuery<JobQuote[]>({
     queryKey: ['job-quotes', id],
     queryFn: async () => {
+      if (p307LookKind() === 'quoted') {
+        return [{
+          id: 'look-quote-0002',
+          quote_number: 2,
+          status: 'accepted',
+          total: 880,
+          created_at: '2026-09-01T00:00:00.000Z',
+        }] as JobQuote[];
+      }
       const empty = getAuditEmptyList();
       if (empty) return empty as JobQuote[];
       const { data, error } = await supabase
@@ -1769,6 +1804,18 @@ export function JobDetailPage() {
   const { data: invoices } = useQuery<JobInvoice[]>({
     queryKey: ['job-invoices', id],
     queryFn: async () => {
+      const p307 = p307LookKind();
+      if (p307 === 'quoted') {
+        return [{
+          id: AUDIT_INVOICE_ID,
+          invoice_number: 1001,
+          status: 'draft' as const,
+          total: 545,
+          due_date: '2026-09-08',
+          created_at: '2026-09-01T00:00:00.000Z',
+          quote_id: null,
+        }] as JobInvoice[];
+      }
       const empty = getAuditEmptyList();
       if (empty) return empty as JobInvoice[];
       const { data, error } = await supabase
@@ -1927,7 +1974,10 @@ export function JobDetailPage() {
     queryKey: ['job-cost-totals', id],
     queryFn: async () => {
       const p305 = p305LookKind();
-      if (p305 === 'bill') return { cost: 400, charge: 545, lines: 2 };
+      const p307 = p307LookKind();
+      if (p305 === 'bill' || p307 === 'agree' || p307 === 'reuse' || p307 === 'quoted') {
+        return { cost: 400, charge: 545, lines: 2 };
+      }
       if (p305 === 'empty') return { cost: 0, charge: 0, lines: 0 };
       const empty = getAuditEmptyList();
       if (empty) return { cost: 0, charge: 0, lines: 0 };
@@ -1960,8 +2010,9 @@ export function JobDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       showToast(result.existing
-        ? 'Invoice already exists for this quote'
+        ? invoiceReuseOpen(result.id).toast
         : 'Draft invoice created from quote');
+      if (result.existing) navigate(invoiceReuseOpen(result.id).href);
     },
     onError: (e: Error) => showToast(e.message),
   });
@@ -1984,8 +2035,9 @@ export function JobDetailPage() {
       }
       queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      showToast(result.existing ? JOB_BILL_INVOICE_EXISTS : JOB_BILL_INVOICE_CREATED);
-      navigate(invoiceHref(result.id));
+      const reuse = result.existing ? invoiceReuseOpen(result.id) : null;
+      showToast(reuse ? reuse.toast : JOB_BILL_INVOICE_CREATED);
+      navigate(reuse ? reuse.href : invoiceHref(result.id));
     },
     onError: (e: Error) => {
       showToast(e.message, 'info');
@@ -2320,6 +2372,12 @@ export function JobDetailPage() {
   };
 
   const handleInvoice = () => {
+    if (p307LookKind() === 'reuse') {
+      const reuse = invoiceReuseOpen(AUDIT_INVOICE_ID);
+      showToast(reuse.toast);
+      navigate(reuse.href);
+      return;
+    }
     if (jobBillInvoiceBlocked(costTotals)) {
       showToast(JOB_BILL_INVOICE_EMPTY, 'info');
       setBillOpen(true);
@@ -2950,9 +3008,15 @@ export function JobDetailPage() {
               <JobCostingPanel
                 jobId={job.id}
                 clientId={job.client_id}
-                onInvoiceCreated={() => {
+                onInvoiceCreated={(result) => {
                   queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
                   queryClient.invalidateQueries({ queryKey: ['job-cost-totals', id] });
+                  if (result.existing) {
+                    const reuse = invoiceReuseOpen(result.id);
+                    showToast(reuse.toast);
+                    navigate(reuse.href);
+                    return;
+                  }
                   showToast('Invoice ready — see Invoices on this job');
                 }}
               />
@@ -3586,18 +3650,32 @@ export function JobDetailPage() {
                     {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}
                   </OpsStatus>
                 }
-                action={
-                  q.status === 'accepted' && !(invoices ?? []).some(inv => inv.quote_id === q.id) ? (
-                    <button
-                      type="button"
-                      onClick={() => invoiceFromQuote.mutate(q.id)}
-                      disabled={invoiceFromQuote.isPending}
-                      className="ops-next-control-sm w-auto px-3 shrink-0"
-                    >
-                      Invoice
-                    </button>
-                  ) : undefined
-                }
+                action={(() => {
+                  const quoteAct = jobQuoteInvoiceButton(q.status, invoices);
+                  if (quoteAct.kind === 'invoice') {
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => invoiceFromQuote.mutate(q.id)}
+                        disabled={invoiceFromQuote.isPending}
+                        className="ops-next-control-sm w-auto px-3 shrink-0"
+                      >
+                        {quoteAct.label}
+                      </button>
+                    );
+                  }
+                  if (quoteAct.kind === 'open') {
+                    return (
+                      <Link
+                        to={invoiceHref(quoteAct.invoiceId)}
+                        className="ops-next-control-sm w-auto px-3 shrink-0"
+                      >
+                        {quoteAct.label}
+                      </Link>
+                    );
+                  }
+                  return undefined;
+                })()}
               />
             ))}
           </JobRelatedSection>

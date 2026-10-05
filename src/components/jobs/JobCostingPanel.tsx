@@ -16,10 +16,9 @@ import { DEFAULT_TAX_RATE } from '../../lib/gst';
 import { createInvoiceFromJobBill } from '../../lib/createInvoiceFromJobBill';
 import {
   JOB_BILL_INVOICE_CREATED,
-  JOB_BILL_INVOICE_EXISTS,
   JOB_BILL_INVOICE_NO_CLIENT,
 } from '../../lib/invoiceFromJobBill';
-import { jobInvoicesAfterCreate, type JobInvoiceListRow } from '../../lib/invoiceFromQuote';
+import { JOB_INVOICE_REUSED, jobInvoicesAfterCreate, type JobInvoiceListRow } from '../../lib/invoiceFromQuote';
 import {
   Plus, Package, Trash2, DollarSign, Layers, HardHat, Wrench,
   Check, X, AlertCircle, Receipt, Pencil,
@@ -29,7 +28,7 @@ import { format } from 'date-fns';
 interface JobCostingPanelProps {
   jobId: string;
   clientId?: string | null;
-  onInvoiceCreated?: (invoiceId: string) => void;
+  onInvoiceCreated?: (result: { id: string; existing: boolean }) => void;
 }
 
 const COST_TYPES: CostType[] = ['materials', 'labor', 'other'];
@@ -302,8 +301,8 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
           jobInvoicesAfterCreate(prev, result.invoice),
         );
       }
-      setInvoiceMsg(result.existing ? JOB_BILL_INVOICE_EXISTS : JOB_BILL_INVOICE_CREATED);
-      onInvoiceCreated?.(result.id);
+      setInvoiceMsg(result.existing ? JOB_INVOICE_REUSED : JOB_BILL_INVOICE_CREATED);
+      onInvoiceCreated?.(result);
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['job-invoices', jobId] });
     },

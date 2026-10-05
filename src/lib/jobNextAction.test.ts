@@ -119,6 +119,25 @@ describe('recommendJobAction', () => {
     expect(recommendJobAction({ ...base, crewCount: 0 }).key).toBe('crew');
   });
 
+  it('P-307 — completed skips date and crew so list and sheet agree on Invoice', () => {
+    const finished = {
+      ...base,
+      status: 'completed' as const,
+      scheduledDate: null,
+      crewCount: 0,
+      hasBillLines: true,
+      billLineCount: 2,
+      billTotal: 545,
+    };
+    expect(recommendJobAction(finished)).toMatchObject({
+      key: 'invoice',
+      label: 'Invoice',
+      detail: 'Draft invoice from the job bill · 2 lines · $545.00',
+    });
+    expect(recommendJobAction(finished).label).not.toBe('Assign crew');
+    expect(recommendJobAction(finished).label).not.toBe('Set a date');
+  });
+
   it('starts JHA before inspection when both are missing', () => {
     expect(recommendJobAction({ ...base, jhaCount: 0, inspectionCount: 0 }).key).toBe('jha');
   });
