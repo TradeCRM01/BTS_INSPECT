@@ -6,6 +6,7 @@ import {
   assumedTradeTag,
   browserSpeechRecognition,
   checkDateTag,
+  fromBookingTag,
   instantInBrisbane,
   matchNamed,
   matchQuickBookCrew,
@@ -526,5 +527,40 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(src('src/lib/quickBook.ts')).toContain('Closest match for');
     expect(src('src/index.css')).toMatch(/\.hub-schedule-voice-form \{[\s\S]{0,80}flex-direction: row/);
     expect(src('src/index.css')).toMatch(/flex-direction: column/);
+  });
+
+  it('drops From your booking on the edited field, same as Assumed pm and Check date', () => {
+    expect(fromBookingTag(true, false)).toBe(true);
+    expect(fromBookingTag(true, true)).toBe(false);
+    expect(fromBookingTag(false, false)).toBe(false);
+    expect(fromBookingTag(undefined, false)).toBe(false);
+    expect(checkDateTag(true, false)).toBe('Check date');
+    expect(checkDateTag(true, true)).toBeNull();
+    expect(assumedTradeTag(true, '15:00', false)).toBe('Assumed 3 pm — check');
+    expect(assumedTradeTag(true, '15:00', true)).toBeNull();
+
+    const sheet = src('src/components/crm/ScheduleJobSheet.tsx');
+    const form = src('src/components/crm/JobFormModal.tsx');
+    expect(sheet).toContain('fromBookingTag(fromBooking?.job, jobEdited)');
+    expect(sheet).toContain('fromBookingTag(fromBooking?.crew, crewEdited)');
+    expect(sheet).toContain('fromBookingTag(fromBooking?.date, dateEdited)');
+    expect(sheet).toContain('fromBookingTag(fromBooking?.start, startEdited)');
+    expect(sheet).toContain('setCrewEdited(true)');
+    expect(sheet).toContain('setDateEdited(true)');
+    expect(sheet).toContain('setStartEdited(true)');
+    expect(sheet).toContain('setJobEdited(jobChanged && !bookingChanged)');
+    expect(form).toContain('fromBookingTag(fromBooking?.title, titleEdited)');
+    expect(form).toContain('fromBookingTag(fromBooking?.client, clientEdited)');
+    expect(form).toContain('fromBookingTag(fromBooking?.address, addressEdited)');
+    expect(form).toContain('fromBookingTag(fromBooking?.date, dateEdited)');
+    expect(form).toContain('fromBookingTag(fromBooking?.start, startEdited)');
+    expect(form).toContain('fromBookingTag(fromBooking?.crew, crewEdited)');
+    expect(form).toContain('setTitleEdited(true)');
+    expect(form).toContain('setClientEdited(true)');
+    expect(form).toContain('setAddressEdited(true)');
+    expect(form).toContain('setCrewEdited(true)');
+    expect(form).toContain('setDateEdited(true)');
+    expect(form).toContain('setStartEdited(true)');
+    expect(src('src/components/crm/FromBooking.tsx')).toContain('if (!show) return null');
   });
 });

@@ -750,6 +750,10 @@ export function checkDateTag(dateCheck: boolean | undefined, edited: boolean): s
   return 'Check date';
 }
 
+export function fromBookingTag(show: boolean | undefined, edited: boolean): boolean {
+  return !!show && !edited;
+}
+
 export function spokenSheetFields<
   TJob extends QuickBookJob,
   TCrew extends QuickBookNamed,

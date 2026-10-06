@@ -14,7 +14,7 @@ import { jobFormSelectNewClient, jobSiteAddressFromClient, visibleClientContacts
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { formatJobRef, nextCostCode, normalizeCostCode } from '../../lib/jobRef';
 import { JOB_COLORS, jobColorToStore } from '../../lib/jobColors';
-import { assumedTradeTag, checkDateTag } from '../../lib/quickBook';
+import { assumedTradeTag, checkDateTag, fromBookingTag } from '../../lib/quickBook';
 import { FromBooking } from './FromBooking';
 
 export type JobFormFromBooking = {
@@ -77,6 +77,10 @@ export function JobFormModal({
 
   const [dateEdited, setDateEdited] = useState(false);
   const [startEdited, setStartEdited] = useState(false);
+  const [titleEdited, setTitleEdited] = useState(false);
+  const [clientEdited, setClientEdited] = useState(false);
+  const [addressEdited, setAddressEdited] = useState(false);
+  const [crewEdited, setCrewEdited] = useState(false);
   const [pendingClientName, setPendingClientName] = useState(presetClientName ?? '');
   const startCheck = assumedTradeTag(fromBooking?.startTrade, presetStartTime, startEdited);
   const dateCheck = checkDateTag(fromBooking?.dateCheck, dateEdited);
@@ -144,6 +148,7 @@ export function JobFormModal({
       }
     }
     const created = nextClients.find(c => c.id === clientId);
+    setClientEdited(true);
     setForm(f => jobFormSelectNewClient(f, clientId, created?.address));
   };
 
@@ -157,6 +162,7 @@ export function JobFormModal({
   }, [job, selectedClient]);
 
   const toggleTeamMember = (id: string) => {
+    setCrewEdited(true);
     setForm(f => ({
       ...f,
       assigned_team: f.assigned_team.includes(id)
@@ -259,26 +265,35 @@ export function JobFormModal({
           <div className="overlay-form-span-all">
             <label className="ops-field-label">
               Job Title <span className="text-fail">*</span>
-              <FromBooking show={!!fromBooking?.title} />
+              <FromBooking show={fromBookingTag(fromBooking?.title, titleEdited)} />
             </label>
-            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            <input value={form.title} onChange={e => {
+              setTitleEdited(true);
+              setForm(f => ({ ...f, title: e.target.value }));
+            }}
               className="form-input" placeholder="e.g. Annual safety inspection" autoFocus />
           </div>
 
           <div>
             <label className="ops-field-label">
               Client
-              <FromBooking show={!!fromBooking?.client} />
+              <FromBooking show={fromBookingTag(fromBooking?.client, clientEdited)} />
             </label>
             {pendingClientName && !form.client_id ? (
               <input
                 value={pendingClientName}
-                onChange={e => setPendingClientName(e.target.value)}
+                onChange={e => {
+                  setClientEdited(true);
+                  setPendingClientName(e.target.value);
+                }}
                 className="form-input"
                 aria-label="Client name from booking"
               />
             ) : (
-            <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))}
+            <select value={form.client_id} onChange={e => {
+              setClientEdited(true);
+              setForm(f => ({ ...f, client_id: e.target.value }));
+            }}
               className="form-input cursor-pointer">
               <option value="">No client (walk-up)</option>
               {clients.map(c => (
@@ -302,7 +317,10 @@ export function JobFormModal({
               </div>
             )}
             {selectedClient?.address && !form.address && (
-              <button type="button" onClick={() => setForm(f => ({ ...f, address: selectedClient.address ?? '' }))}
+              <button type="button" onClick={() => {
+                setAddressEdited(true);
+                setForm(f => ({ ...f, address: selectedClient.address ?? '' }));
+              }}
                 className="ops-link text-xs mt-1">
                 Use client address: {selectedClient.address}
               </button>
@@ -326,9 +344,12 @@ export function JobFormModal({
           <div className="overlay-form-span-2">
             <label className="ops-field-label">
               Job Site Address
-              <FromBooking show={!!fromBooking?.address} />
+              <FromBooking show={fromBookingTag(fromBooking?.address, addressEdited)} />
             </label>
-            <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+            <input value={form.address} onChange={e => {
+              setAddressEdited(true);
+              setForm(f => ({ ...f, address: e.target.value }));
+            }}
               className="form-input" placeholder="Where the work is happening" />
           </div>
 
@@ -370,7 +391,7 @@ export function JobFormModal({
               <div>
                 <label className="ops-field-label">
                   Date
-                  <FromBooking show={!!fromBooking?.date} />
+                  <FromBooking show={fromBookingTag(fromBooking?.date, dateEdited)} />
                   {dateCheck ? (
                     <span className="hub-schedule-from-booking">{dateCheck}</span>
                   ) : null}
@@ -384,7 +405,7 @@ export function JobFormModal({
               <div>
                 <label className="ops-field-label">
                   Start
-                  <FromBooking show={!!fromBooking?.start} />
+                  <FromBooking show={fromBookingTag(fromBooking?.start, startEdited)} />
                   {startCheck ? (
                     <span className="hub-schedule-from-booking">{startCheck}</span>
                   ) : null}
@@ -413,7 +434,7 @@ export function JobFormModal({
             <div className="overlay-form-span-all">
               <label className="ops-field-label">
                 Assign Crew
-                <FromBooking show={!!fromBooking?.crew} />
+                <FromBooking show={fromBookingTag(fromBooking?.crew, crewEdited)} />
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {teamMembers.map(m => {

@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppDialog, EditorStickyFooter } from '../ui';
 import type { JobWithClient } from '../../types/crm';
 import { scheduleDayKey, type ScheduleSheetInput } from '../../lib/scheduleBoard';
 import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
-import { assumedTradeTag, checkDateTag } from '../../lib/quickBook';
+import { assumedTradeTag, checkDateTag, fromBookingTag } from '../../lib/quickBook';
 import { FromBooking } from './FromBooking';
 
 function timeInput(value: string | null | undefined): string {
@@ -50,12 +50,24 @@ export function ScheduleJobSheet({
   const [endTime, setEndTime] = useState('');
   const [dateEdited, setDateEdited] = useState(false);
   const [startEdited, setStartEdited] = useState(false);
+  const [crewEdited, setCrewEdited] = useState(false);
+  const [jobEdited, setJobEdited] = useState(false);
+  const appliedJobId = useRef<string | null>(null);
+  const appliedBooking = useRef(fromBooking);
   const site = sheetSiteLine(job);
   const startCheck = assumedTradeTag(fromBooking?.startTrade, prefill?.startTime, startEdited);
   const dateCheck = checkDateTag(fromBooking?.dateCheck, dateEdited);
 
   useEffect(() => {
-    if (!job) return;
+    if (!job) {
+      appliedJobId.current = null;
+      appliedBooking.current = fromBooking;
+      return;
+    }
+    const bookingChanged = appliedBooking.current !== fromBooking;
+    const jobChanged = appliedJobId.current != null && appliedJobId.current !== job.id;
+    appliedJobId.current = job.id;
+    appliedBooking.current = fromBooking;
     const voiceCrew = !!prefill && 'crewId' in prefill && prefill.crewId;
     setCrewId(voiceCrew ? (prefill?.crewId ?? '') : (job.assigned_team?.[0] ?? ''));
     setDate(prefill?.date || scheduleDayKey(job.scheduled_date) || viewedDate);
@@ -63,7 +75,9 @@ export function ScheduleJobSheet({
     setEndTime(prefill?.endTime ? timeInput(prefill.endTime) : timeInput(job.end_time));
     setDateEdited(false);
     setStartEdited(false);
-  }, [job, viewedDate, prefill]);
+    setCrewEdited(false);
+    setJobEdited(jobChanged && !bookingChanged);
+  }, [job, viewedDate, prefill, fromBooking]);
 
   return (
     <AppDialog
@@ -94,13 +108,13 @@ export function ScheduleJobSheet({
         <h2 className="hub-schedule-job-sheet-heading">Schedule this job</h2>
         <p className="hub-schedule-job-sheet-title">
           {job?.title}
-          <FromBooking show={!!fromBooking?.job} />
+          <FromBooking show={fromBookingTag(fromBooking?.job, jobEdited)} />
         </p>
         {site ? <p className="hub-schedule-job-sheet-meta">{site}</p> : null}
         <label className="block">
           <span className="ops-field-label">
             Crew
-            <FromBooking show={!!fromBooking?.crew} />
+            <FromBooking show={fromBookingTag(fromBooking?.crew, crewEdited)} />
           </span>
           {matchHints?.crew ? (
             <p className="hub-schedule-job-sheet-hint">{matchHints.crew}</p>
@@ -108,7 +122,10 @@ export function ScheduleJobSheet({
           <select
             className="form-input"
             value={crewId}
-            onChange={e => setCrewId(e.target.value)}
+            onChange={e => {
+              setCrewId(e.target.value);
+              setCrewEdited(true);
+            }}
           >
             <option value="">Unassigned</option>
             {teamMembers.map(member => (
@@ -119,7 +136,7 @@ export function ScheduleJobSheet({
         <label className="block">
           <span className="ops-field-label">
             Date
-            <FromBooking show={!!fromBooking?.date} />
+            <FromBooking show={fromBookingTag(fromBooking?.date, dateEdited)} />
             {dateCheck ? (
               <span className="hub-schedule-from-booking">{dateCheck}</span>
             ) : null}
@@ -137,7 +154,7 @@ export function ScheduleJobSheet({
         <label className="block">
           <span className="ops-field-label">
             Start
-            <FromBooking show={!!fromBooking?.start} />
+            <FromBooking show={fromBookingTag(fromBooking?.start, startEdited)} />
             {startCheck ? (
               <span className="hub-schedule-from-booking">{startCheck}</span>
             ) : null}
