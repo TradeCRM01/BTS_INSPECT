@@ -234,7 +234,7 @@ async function executeTool(
       const [companyRes, profilesRes, templatesRes] = await Promise.all([
         supabase.from("companies").select("*").eq("id", companyId).maybeSingle(),
         supabase.from("profiles").select("id, name, email, role").eq("company_id", companyId),
-        supabase.from("templates").select("id, name, is_archived").eq("company_id", companyId),
+        supabase.from("templates").select("id, name, archived").eq("company_id", companyId),
       ]);
       const inspectorIds = inspectorIdsFromProfiles(profilesRes.data);
       const inspectionsRes = inspectorIds.length === 0
