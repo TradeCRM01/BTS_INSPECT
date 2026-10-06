@@ -4725,7 +4725,13 @@
     margin: 0;
   }
 
-  .hub-invoice-send-company-nudge a {
+  .hub-invoice-send-company-nudge-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 4px;
+    margin: 0 -4px;
+    white-space: nowrap;
     color: #2E75B6;
     font-weight: 600;
     text-decoration: underline;

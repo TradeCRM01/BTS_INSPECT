@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  COMPANY_INVOICE_SHARE_SETUP_NUDGE,
   COMPANY_SETTINGS_HREF,
   companyInvoiceShareSetupIncomplete,
   companyHasPrintablePaymentMethod,
@@ -12,6 +11,8 @@ import { commercialPdfDataForInvoice } from './sendInvoice';
 function src(path: string): string {
   return readFileSync(join(process.cwd(), path), 'utf8');
 }
+
+const abn = '12 345 678 901';
 
 describe('MONEY-1 company share setup nudge', () => {
   const bank = [{
@@ -27,18 +28,57 @@ describe('MONEY-1 company share setup nudge', () => {
 
   it('flags missing ABN or bank/PayID without blocking share', () => {
     expect(companyInvoiceShareSetupIncomplete(null, bank)).toBe(true);
-    expect(companyInvoiceShareSetupIncomplete('12 345 678 901', bank)).toBe(false);
-    expect(companyInvoiceShareSetupIncomplete('12 345 678 901', [])).toBe(true);
+    expect(companyInvoiceShareSetupIncomplete(abn, bank)).toBe(false);
+    expect(companyInvoiceShareSetupIncomplete(abn, [])).toBe(true);
     expect(companyInvoiceShareSetupIncomplete('', bank)).toBe(true);
+  });
+
+  it('still nudges when bank row is only name, only BSB, or other+notes', () => {
+    const nameOnly = [{
+      id: 'pm-name',
+      kind: 'bank_transfer' as const,
+      label: 'Bank transfer',
+      account_name: 'Acme Trade Co',
+      bsb: '',
+      account_number: '',
+      payid: '',
+      notes: '',
+    }];
+    const bsbOnly = [{
+      id: 'pm-bsb',
+      kind: 'bank_transfer' as const,
+      label: 'Bank transfer',
+      account_name: '',
+      bsb: '066-000',
+      account_number: '',
+      payid: '',
+      notes: '',
+    }];
+    const notesOnly = [{
+      id: 'pm-other',
+      kind: 'other' as const,
+      label: 'Cash',
+      account_name: '',
+      bsb: '',
+      account_number: '',
+      payid: '',
+      notes: 'Pay on site before we leave.',
+    }];
+    expect(companyInvoiceShareSetupIncomplete(abn, nameOnly)).toBe(true);
+    expect(companyInvoiceShareSetupIncomplete(abn, bsbOnly)).toBe(true);
+    expect(companyInvoiceShareSetupIncomplete(abn, notesOnly)).toBe(true);
+    expect(companyHasPrintablePaymentMethod(nameOnly)).toBe(true);
+    expect(companyHasPrintablePaymentMethod(bsbOnly)).toBe(true);
+    expect(companyHasPrintablePaymentMethod(notesOnly)).toBe(true);
   });
 
   it('surfaces nudge copy on invoice Send / Copy link', () => {
     const invoiceSend = src('src/components/invoicing/InvoiceSendDialog.tsx');
     const nudge = src('src/components/invoicing/DocumentShareCompanySetupNudge.tsx');
-    expect(COMPANY_INVOICE_SHARE_SETUP_NUDGE).toBe(
-      'Add your ABN and bank details in Company Settings first',
-    );
-    expect(nudge).toContain('COMPANY_INVOICE_SHARE_SETUP_NUDGE');
+    expect(nudge).toContain('Add your ABN and bank details in');
+    expect(nudge).toContain('Company Settings');
+    expect(nudge).toContain('first.');
+    expect(nudge).toContain('hub-invoice-send-company-nudge-link');
     expect(nudge).toContain('COMPANY_SETTINGS_HREF');
     expect(COMPANY_SETTINGS_HREF).toBe('/settings/company');
     expect(invoiceSend).toContain('DocumentShareCompanySetupNudge');
@@ -48,18 +88,19 @@ describe('MONEY-1 company share setup nudge', () => {
 });
 
 describe('MONEY-1 portal invoice due date', () => {
-  it('renders due date on each portal invoice row', () => {
+  it('renders due date on each portal invoice row except paid', () => {
     const portal = src('src/pages/ClientPortalPublicPage.tsx');
     expect(portal).toContain('inv.due_date');
+    expect(portal).toContain("portalStatusKey(inv.status) !== 'paid'");
     expect(portal).toContain("Due {format(parseISO(inv.due_date), 'd MMM yyyy')}");
   });
 });
 
 describe('MONEY-1 invoice PDF how-to-pay', () => {
-  it('includes printable payment methods and due in PDF data / renderer', () => {
+  it('includes printable payment methods without duplicating Due in How to pay', () => {
     const pdf = src('src/reports/commercial/CommercialDocumentPdf.tsx');
     expect(pdf).toContain('How to pay');
-    expect(pdf).toContain('Due {data.secondaryValue}');
+    expect(pdf).not.toContain('Due {data.secondaryValue}');
 
     const otherOnly = [{
       id: 'pm-other',

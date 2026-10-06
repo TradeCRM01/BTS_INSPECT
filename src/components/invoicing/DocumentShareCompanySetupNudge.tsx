@@ -1,14 +1,14 @@
 import { Link } from 'react-router-dom';
-import {
-  COMPANY_INVOICE_SHARE_SETUP_NUDGE,
-  COMPANY_SETTINGS_HREF,
-} from '../../lib/companyPaymentMethods';
+import { COMPANY_SETTINGS_HREF } from '../../lib/companyPaymentMethods';
 
 export function DocumentShareCompanySetupNudge() {
   return (
     <p className="hub-invoice-send-company-nudge" role="status">
-      {COMPANY_INVOICE_SHARE_SETUP_NUDGE}{' '}
-      <Link to={COMPANY_SETTINGS_HREF}>Company Settings</Link>
+      Add your ABN and bank details in{' '}
+      <Link to={COMPANY_SETTINGS_HREF} className="hub-invoice-send-company-nudge-link">
+        Company Settings
+      </Link>{' '}
+      first.
     </p>
   );
 }

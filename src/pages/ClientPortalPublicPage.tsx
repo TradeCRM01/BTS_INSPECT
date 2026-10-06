@@ -418,7 +418,7 @@ export function ClientPortalPublicPage() {
             <div>
               <p className="portal-row-ref">{portalDocumentRef(inv.invoice_number)}</p>
               <p className="portal-muted">{portalInvoiceStatusLabel(inv.status)}</p>
-              {inv.due_date ? (
+              {inv.due_date && portalStatusKey(inv.status) !== 'paid' ? (
                 <p className="portal-muted">Due {format(parseISO(inv.due_date), 'd MMM yyyy')}</p>
               ) : null}
             </div>

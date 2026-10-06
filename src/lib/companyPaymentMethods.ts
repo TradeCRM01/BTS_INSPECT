@@ -93,9 +93,19 @@ export function printableCompanyPaymentMethods(raw: unknown): CompanyPaymentMeth
   return parseCompanyPaymentMethods(raw).filter(companyPaymentMethodIsPrintable);
 }
 
+export function companyPaymentMethodIsCompleteForInvoice(method: CompanyPaymentMethod): boolean {
+  if (method.kind === 'bank_transfer') {
+    return Boolean(method.bsb.trim() && method.account_number.trim());
+  }
+  if (method.kind === 'payid') {
+    return Boolean(method.payid.trim());
+  }
+  return false;
+}
+
+/** Bank needs BSB + account number, or a PayID — used for Settings + share nudge, not PDF print. */
 export function companyHasInvoicePaymentMethod(raw: unknown): boolean {
-  return printableCompanyPaymentMethods(raw)
-    .some(method => method.kind === 'bank_transfer' || method.kind === 'payid');
+  return parseCompanyPaymentMethods(raw).some(companyPaymentMethodIsCompleteForInvoice);
 }
 
 export function companyHasPrintablePaymentMethod(raw: unknown): boolean {
@@ -110,9 +120,6 @@ export function companyInvoiceShareSetupIncomplete(
   const abnOk = typeof abn === 'string' && abn.trim().length > 0;
   return !abnOk || !companyHasInvoicePaymentMethod(paymentMethods);
 }
-
-export const COMPANY_INVOICE_SHARE_SETUP_NUDGE =
-  'Add your ABN and bank details in Company Settings first';
 
 export const COMPANY_SETTINGS_HREF = '/settings/company';
 

@@ -399,13 +399,6 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
         {data.kind === 'invoice' && (data.paymentMethods?.length ?? 0) > 0 ? (
           <View style={s.notes}>
             <Text style={s.sectionTitle}>How to pay</Text>
-            {data.secondaryLabel === 'Due'
-              && data.secondaryValue
-              && data.secondaryValue !== '—' ? (
-              <Text style={[s.notesBody, { marginBottom: 6, fontWeight: 700, color: colors.navy }]}>
-                Due {data.secondaryValue}
-              </Text>
-            ) : null}
             {data.paymentMethods!.map((method, i) => (
               <View key={`pay-${i}`} style={{ marginBottom: 8 }} wrap={false}>
                 <Text style={s.partyValue}>{method.label}</Text>
