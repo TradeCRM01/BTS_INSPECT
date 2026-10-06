@@ -49,7 +49,7 @@ import {
   type InvoicePaymentRow,
   type InvoiceRecordPaymentInput,
 } from '../lib/invoicePayments';
-import { invoiceListStatusLabel, invoiceBalanceOwed } from '../lib/invoiceOpenBalance';
+import { invoiceListStatusLabel, invoiceBalanceOwed, invoiceSheetStatusChip } from '../lib/invoiceOpenBalance';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
@@ -788,7 +788,7 @@ function InvoiceRecordPaymentSheet({
           <button type="button" className="ops-link" onClick={onCancel} disabled={busy}>Cancel</button>
           <button
             type="button"
-            className="btn-primary"
+            className="btn-primary hub-invoice-payment-confirm"
             disabled={busy || !amountNum || !!overpayMsg}
             onClick={() => {
               const amount = parseRecordPaymentAmount(draft.amount);
@@ -1040,6 +1040,12 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   }, { smtpReady }));
   const displayStatus = next.status;
   const sheetBalanceDue = invoiceBalanceOwed({ status: form.status, total: grandTotal, amount_paid: recordedPaid });
+  const sheetStatusChip = invoiceSheetStatusChip({
+    status: form.status,
+    total: grandTotal,
+    amount_paid: recordedPaid,
+    due_date: form.due_date,
+  });
   const sheetLogo = companyDocumentLogoUrl(company);
   const editorInvoiceId = savedId ?? invoice?.id ?? null;
   const { data: paymentRows = [] } = useQuery<InvoicePaymentRow[]>({
@@ -1425,8 +1431,10 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                 {invoiceListStatusLabel({ status: form.status, total: grandTotal, amount_paid: recordedPaid, due_date: form.due_date })}
                 {form.due_date ? ` · Due ${format(parseISO(form.due_date), 'd MMM yyyy')}` : ''}
               </p>
-              {displayStatus === 'part_paid' || recordedPaid > 0 ? (
-                <span className="hub-invoices-pill is-part_paid hub-invoice-sheet-chip">Part paid</span>
+              {sheetStatusChip ? (
+                <span className={`hub-invoices-pill ${sheetStatusChip.pillClass} hub-invoice-sheet-chip`}>
+                  {sheetStatusChip.label}
+                </span>
               ) : null}
             </div>
           </header>

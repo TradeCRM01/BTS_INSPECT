@@ -4,6 +4,7 @@ import {
   invoiceCountsAsOutstandingMoney,
   invoiceCountsAsOverdueMoney,
   invoiceListStatusLabel,
+  invoiceSheetStatusChip,
   invoiceStatusIsOpenForOwing,
 } from './invoiceOpenBalance';
 
@@ -26,5 +27,20 @@ describe('invoiceOpenBalance', () => {
   it('paid and draft owe zero', () => {
     expect(invoiceBalanceOwed({ status: 'paid', total: 100, amount_paid: 100 })).toBe(0);
     expect(invoiceBalanceOwed({ status: 'draft', total: 100 })).toBe(0);
+  });
+
+  it('sheet chip shows Paid when fully paid, not Part paid', () => {
+    expect(invoiceSheetStatusChip({ status: 'paid', total: 836, amount_paid: 836 })).toEqual({
+      label: 'Paid',
+      pillClass: 'is-paid',
+    });
+    expect(invoiceSheetStatusChip({ status: 'part_paid', total: 836, amount_paid: 836 })).toEqual({
+      label: 'Paid',
+      pillClass: 'is-paid',
+    });
+    expect(invoiceSheetStatusChip({ status: 'part_paid', total: 836, amount_paid: 200 })).toEqual({
+      label: 'Part paid',
+      pillClass: 'is-part_paid',
+    });
   });
 });

@@ -58,6 +58,24 @@ export function invoiceCountsAsOutstandingMoney(inv: InvoiceBalanceRow, now = ne
   return false;
 }
 
+export type InvoiceSheetStatusChip = {
+  label: 'Paid' | 'Part paid';
+  pillClass: 'is-paid' | 'is-part_paid';
+};
+
+/** Invoice editor masthead chip — follows status + balance, not amount_paid alone. */
+export function invoiceSheetStatusChip(inv: InvoiceBalanceRow): InvoiceSheetStatusChip | null {
+  const paid = Number(inv.amount_paid ?? 0) || 0;
+  const owed = invoiceBalanceOwed(inv);
+  if (inv.status === 'paid' || (paid > 0 && owed <= 0)) {
+    return { label: 'Paid', pillClass: 'is-paid' };
+  }
+  if (inv.status === 'part_paid' || (paid > 0 && owed > 0)) {
+    return { label: 'Part paid', pillClass: 'is-part_paid' };
+  }
+  return null;
+}
+
 export function invoiceListStatusLabel(inv: InvoiceBalanceRow, now = new Date()): string {
   if (inv.status === 'part_paid' && invoiceCountsAsOverdueMoney(inv, now)) {
     return 'Part paid · Overdue';
