@@ -210,7 +210,7 @@ describe('P-TRUTH — share marks sent, portal hides drafts', () => {
 
     const css = src('src/index.css');
     const manual = css.slice(css.indexOf('.hub-share-manual-link'), css.indexOf('.hub-quote-err'));
-    expect(manual).toContain('max-width: 390px');
+    expect(manual).toContain('max-width: min(100%, 390px)');
     expect(manual).toContain('min-height: 96px');
     expect(manual).toContain('overflow: hidden');
     expect(manual).toContain('word-break: break-all');

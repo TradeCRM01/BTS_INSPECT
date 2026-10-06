@@ -8,7 +8,7 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { formatMoney, INVOICE_STATUS_LABELS, QUOTE_STATUS_LABELS, type InvoiceStatus } from '../types/fsm';
 import { portalStatusKey } from '../lib/portalClientQuotes';
 import { usePublicDocumentHead } from '../lib/publicSeo';
-import { companyPaymentMethodsForDocument } from '../lib/companyPaymentMethods';
+import { companyPaymentMethodsCompleteForDocument } from '../lib/companyPaymentMethods';
 import { portalDocumentRef } from '../lib/quoteJobFields';
 import { portalQuoteLapsedCopy } from '../lib/sendQuote';
 
@@ -216,6 +216,11 @@ function portalInvoiceStatusLabel(status: string): string {
   return INVOICE_STATUS_LABELS[key as InvoiceStatus] ?? status;
 }
 
+function portalInvoiceShowsHowToPay(status: string): boolean {
+  const key = portalStatusKey(status);
+  return key !== 'paid';
+}
+
 function PortalFrame({ children }: { children: React.ReactNode }) {
   return (
     <div id="client-portal">
@@ -368,7 +373,7 @@ export function ClientPortalPublicPage() {
     );
   }
 
-  const invoicePaymentMethods = companyPaymentMethodsForDocument(data.company?.paymentMethods);
+  const invoicePaymentMethods = companyPaymentMethodsCompleteForDocument(data.company?.paymentMethods);
 
   return (
     <PortalFrame>
@@ -413,15 +418,38 @@ export function ClientPortalPublicPage() {
       </Section>
 
       <Section title="Invoices" icon={<Receipt size={16} />} empty="No invoices" count={data.invoices.length}>
-        {data.invoices.map(inv => (
-          <div key={inv.id} className="portal-row portal-row-split">
-            <div>
-              <p className="portal-row-ref">{portalDocumentRef(inv.invoice_number)}</p>
-              <p className="portal-muted">{portalInvoiceStatusLabel(inv.status)}</p>
+        {data.invoices.map(inv => {
+          const showHowToPay = portalInvoiceShowsHowToPay(inv.status) && invoicePaymentMethods.length > 0;
+          const invoiceRef = portalDocumentRef(inv.invoice_number);
+          return (
+            <div key={inv.id} className="portal-invoice-block">
+              <div className="portal-row portal-row-split">
+                <div>
+                  <p className="portal-row-ref">{invoiceRef}</p>
+                  <p className="portal-muted">{portalInvoiceStatusLabel(inv.status)}</p>
+                  {inv.due_date && portalStatusKey(inv.status) !== 'paid' ? (
+                    <p className="portal-muted">Due {format(parseISO(inv.due_date), 'd MMM yyyy')}</p>
+                  ) : null}
+                </div>
+                <p className="portal-quote-total">{formatMoney(inv.total)}</p>
+              </div>
+              {showHowToPay ? (
+                <div className="portal-invoice-pay">
+                  <p className="portal-kicker">How to pay</p>
+                  {invoicePaymentMethods.map(method => (
+                    <div key={method.label + method.lines.join()} className="portal-invoice-payment-method">
+                      <p className="portal-row-ref">{method.label}</p>
+                      {method.lines.map(line => <p key={line} className="portal-muted">{line}</p>)}
+                    </div>
+                  ))}
+                  <p className="portal-muted">
+                    Use {invoiceRef} as the payment reference.
+                  </p>
+                </div>
+              ) : null}
             </div>
-            <p className="portal-quote-total">{formatMoney(inv.total)}</p>
-          </div>
-        ))}
+          );
+        })}
         {data.company ? (
           <div className="portal-invoice-payment">
             <div>
@@ -429,17 +457,6 @@ export function ClientPortalPublicPage() {
               <p className="portal-row-ref">{data.company.name}</p>
               {data.company.abn ? <p className="portal-muted">ABN {data.company.abn}</p> : null}
             </div>
-            {invoicePaymentMethods.length > 0 ? (
-              <div>
-                <p className="portal-kicker">How to pay</p>
-                {invoicePaymentMethods.map(method => (
-                  <div key={method.label + method.lines.join()} className="portal-invoice-payment-method">
-                    <p className="portal-row-ref">{method.label}</p>
-                    {method.lines.map(line => <p key={line} className="portal-muted">{line}</p>)}
-                  </div>
-                ))}
-              </div>
-            ) : null}
           </div>
         ) : null}
       </Section>

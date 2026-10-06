@@ -122,7 +122,7 @@ describe('company payment methods', () => {
     expect(edge).toContain('payment_methods');
     expect(edge).toContain('How to pay');
     expect(edge).toContain('companyAbn');
-    expect(portal).toContain('companyPaymentMethodsForDocument(data.company?.paymentMethods)');
+    expect(portal).toContain('companyPaymentMethodsCompleteForDocument(data.company?.paymentMethods)');
     expect(portal).toContain('ABN {data.company.abn}');
     expect(portal).toContain('How to pay');
     expect(portalEdge).toContain('abn, logo_url, phone, email, website, payment_methods');

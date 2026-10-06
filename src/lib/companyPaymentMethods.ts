@@ -93,9 +93,75 @@ export function printableCompanyPaymentMethods(raw: unknown): CompanyPaymentMeth
   return parseCompanyPaymentMethods(raw).filter(companyPaymentMethodIsPrintable);
 }
 
+export function companyPaymentMethodIsCompleteForInvoice(method: CompanyPaymentMethod): boolean {
+  if (method.kind === 'bank_transfer') {
+    return Boolean(method.bsb.trim() && method.account_number.trim());
+  }
+  if (method.kind === 'payid') {
+    return Boolean(method.payid.trim());
+  }
+  return false;
+}
+
+/** Bank needs BSB + account number, or a PayID — used for Settings + share nudge, not PDF print. */
 export function companyHasInvoicePaymentMethod(raw: unknown): boolean {
-  return printableCompanyPaymentMethods(raw)
-    .some(method => method.kind === 'bank_transfer' || method.kind === 'payid');
+  return parseCompanyPaymentMethods(raw).some(companyPaymentMethodIsCompleteForInvoice);
+}
+
+export function companyHasPrintablePaymentMethod(raw: unknown): boolean {
+  return printableCompanyPaymentMethods(raw).length > 0;
+}
+
+export type CompanyInvoiceShareSetupMiss = 'abn' | 'bank' | 'both';
+
+export function companyInvoiceShareSetupMiss(
+  abn: string | null | undefined,
+  paymentMethods: unknown,
+): CompanyInvoiceShareSetupMiss | null {
+  const abnOk = typeof abn === 'string' && abn.trim().length > 0;
+  const bankOk = companyHasInvoicePaymentMethod(paymentMethods);
+  if (abnOk && bankOk) return null;
+  if (!abnOk && !bankOk) return 'both';
+  if (!abnOk) return 'abn';
+  return 'bank';
+}
+
+/** Non-blocking nudge on invoice Share / Copy link when ABN or bank/PayID is missing. */
+export function companyInvoiceShareSetupIncomplete(
+  abn: string | null | undefined,
+  paymentMethods: unknown,
+): boolean {
+  return companyInvoiceShareSetupMiss(abn, paymentMethods) !== null;
+}
+
+export const COMPANY_INVOICE_SHARE_NUDGE_BOTH =
+  "Your ABN and bank details aren't set, so they won't print on this invoice.";
+
+export const COMPANY_INVOICE_SHARE_NUDGE_ABN =
+  "Your ABN isn't set, so it won't print on this invoice.";
+
+export const COMPANY_INVOICE_SHARE_NUDGE_BANK =
+  "Your bank details aren't set, so they won't print on this invoice.";
+
+export function companyInvoiceShareNudgeMessage(
+  miss: CompanyInvoiceShareSetupMiss | null,
+): string | null {
+  if (miss === 'both') return COMPANY_INVOICE_SHARE_NUDGE_BOTH;
+  if (miss === 'abn') return COMPANY_INVOICE_SHARE_NUDGE_ABN;
+  if (miss === 'bank') return COMPANY_INVOICE_SHARE_NUDGE_BANK;
+  return null;
+}
+
+export const COMPANY_SETTINGS_HREF = '/settings/company';
+
+/** Complete bank / PayID rows for client-facing pay instructions (portal, not PDF print-all). */
+export function companyPaymentMethodsCompleteForDocument(raw: unknown): CompanyPaymentMethodPrint[] {
+  return parseCompanyPaymentMethods(raw)
+    .filter(companyPaymentMethodIsCompleteForInvoice)
+    .map(method => ({
+      label: method.label,
+      lines: formatCompanyPaymentMethodLines(method),
+    }));
 }
 
 export function formatCompanyPaymentMethodLines(method: CompanyPaymentMethod): string[] {
