@@ -51,4 +51,24 @@ for (const state of states) {
   }
 }
 
+async function captureDashboard(width, tag) {
+  const context = await browser.newContext({
+    viewport: { width, height: width < 500 ? 844 : 900 },
+    deviceScaleFactor: 1,
+    locale: 'en-AU',
+  });
+  const page = await context.newPage();
+  await page.goto(`${BASE}/?auditAuth=1&look=crew-s8d-dashboard-needs`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('[data-crew-schedule="needs_crew"]', { timeout: 20000 });
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(350);
+  const path = `${OUT}/crew-s8d-dashboard-needs-crew-${tag}.png`;
+  await page.screenshot({ path, type: 'png' });
+  await context.close();
+  return path;
+}
+
+const dashPath = await captureDashboard(1280, '1280');
+console.log('wrote', dashPath);
+
 await browser.close();

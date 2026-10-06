@@ -75,6 +75,8 @@ const CANVAS_PAD = 16;
 
 /** Signed dashboard frame seed — home look only, not a live company. */
 const DASHBOARD_LOOK = 'dashboard';
+/** Playwright: /?auditAuth=1&look=crew-s8d-dashboard-needs — Today row Needs crew */
+const CREW_S8D_DASHBOARD_NEEDS = 'crew-s8d-dashboard-needs';
 const DASHBOARD_LOOK_DAVE = 'look-dash-dave';
 const DASHBOARD_LOOK_JACK = 'look-dash-jack';
 
@@ -171,7 +173,7 @@ function dashboardLookWidgets(): DashboardWidget[] {
   ];
 }
 
-function dashboardLookJobs(): JobWithClient[] {
+function dashboardLookJobs(needsCrewOnly = false): JobWithClient[] {
   const day = DASHBOARD_LOOK_DAY;
   const stamp = '2026-09-03T00:00:00.000Z';
   const base = {
@@ -188,6 +190,21 @@ function dashboardLookJobs(): JobWithClient[] {
     parent_job_id: null as string | null,
     cost_code: null as string | null,
   };
+  if (needsCrewOnly) {
+    return [{
+      ...base,
+      id: 'look-dash-needs-crew',
+      title: 'Crew status frame',
+      status: 'scheduled',
+      scheduled_date: day,
+      start_time: '08:00',
+      end_time: '12:00',
+      address: '12 Workshop Rd, Perth WA 6000',
+      assigned_team: [],
+      job_number: 88,
+      client_name: 'Northside Electrical',
+    }];
+  }
   return [
     {
       ...base,
@@ -272,7 +289,9 @@ export function DashboardPage() {
   const { profile, company } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const lookDashboard = searchParams.get('look') === DASHBOARD_LOOK;
+  const lookParam = searchParams.get('look');
+  const lookCrewS8dDashboard = lookParam === CREW_S8D_DASHBOARD_NEEDS;
+  const lookDashboard = lookParam === DASHBOARD_LOOK || lookCrewS8dDashboard;
   const [editMode, setEditMode] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -376,7 +395,7 @@ export function DashboardPage() {
   const { data: todayJobs, isLoading: jobsLoading, error: jobsError } = useQuery<JobWithClient[]>({
     queryKey: ['dashboard-today-jobs', todayKey, lookDashboard],
     queryFn: async () => {
-      if (lookDashboard) return dashboardLookJobs();
+      if (lookDashboard) return dashboardLookJobs(lookCrewS8dDashboard);
       const mock = getAuditJobs();
       if (mock) {
         return todaysDashboardJobs(attachJobClients(mock as Job[], getAuditClients() ?? []));

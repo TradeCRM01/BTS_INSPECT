@@ -11123,6 +11123,13 @@
     color: #5B6B7C;
   }
 
+  .hub-jobs-list-doc .hub-jobs-status.hub-crew-schedule-needs,
+  .hub-jobs-phone-status.hub-crew-schedule-needs {
+    background: color-mix(in srgb, var(--invoice-warn, #B54708) 12%, #fff);
+    color: var(--invoice-warn, #B54708);
+    border: 1px solid color-mix(in srgb, var(--invoice-warn, #B54708) 35%, #e2d9cc);
+  }
+
   .hub-jobs-list-doc .hub-jobs-pill {
     display: none;
   }
@@ -11348,33 +11355,6 @@
       white-space: nowrap;
     }
 
-    .hub-jobs-list-doc .hub-jobs-status.hub-crew-schedule-needs,
-    .hub-jobs-phone-status.hub-crew-schedule-needs {
-      background: color-mix(in srgb, var(--invoice-warn, #B54708) 12%, #fff);
-      color: var(--invoice-warn, #B54708);
-      border: 1px solid color-mix(in srgb, var(--invoice-warn, #B54708) 35%, #e2d9cc);
-    }
-
-    .dashboard-home-crew-schedule {
-      display: inline-flex;
-      align-items: center;
-      margin-top: 4px;
-      min-height: 22px;
-      padding: 0 8px;
-      border-radius: 999px;
-      background: #f5f0e6;
-      color: #0a2540;
-      font-family: 'Source Sans 3', system-ui, sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .dashboard-home-crew-schedule.hub-crew-schedule-needs {
-      background: color-mix(in srgb, var(--invoice-warn, #B54708) 12%, #fff);
-      color: var(--invoice-warn, #B54708);
-      border: 1px solid color-mix(in srgb, var(--invoice-warn, #B54708) 35%, #e2d9cc);
-    }
-
     .hub-jobs-phone-next-wrap {
       flex: 0 0 auto;
       display: flex;
@@ -11595,6 +11575,26 @@
     box-shadow: none;
     cursor: pointer;
     text-decoration: none;
+  }
+
+  .dashboard-home-crew-schedule {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 4px;
+    min-height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: #f5f0e6;
+    color: #0a2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .dashboard-home-crew-schedule.hub-crew-schedule-needs {
+    background: color-mix(in srgb, var(--invoice-warn, #B54708) 12%, #fff);
+    color: var(--invoice-warn, #B54708);
+    border: 1px solid color-mix(in srgb, var(--invoice-warn, #B54708) 35%, #e2d9cc);
   }
 
   .dashboard-home-ledger {
