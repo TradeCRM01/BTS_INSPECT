@@ -7776,14 +7776,49 @@
   @media (min-width: 1024px) {
     .hub-quick-quote-block {
       position: relative;
+      min-height: 44px;
     }
 
+    /* In-row overlay: no extra block height, no overlap with filters below */
     .hub-quick-quote-speech-status:not(:empty) {
       position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      margin-top: 8px;
+      top: 0;
+      left: 8.75rem;
+      right: 11.25rem;
+      margin: 0;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      font-size: 12px;
+      line-height: 1.15;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .hub-schedule-voice {
+      position: relative;
+    }
+
+    .hub-schedule-speech-status:not(:empty) {
+      position: absolute;
+      top: 8px;
+      left: 7.25rem;
+      right: 10.5rem;
+      margin: 0;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      font-size: 12px;
+      line-height: 1.15;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .hub-week-document .hub-schedule-speech-status:not(:empty) {
+      left: calc(16px + 7.25rem);
+      right: calc(16px + 10.5rem);
     }
   }
 
@@ -7793,8 +7828,10 @@
     }
   }
 
-  .hub-schedule-speech-status:not(:empty) {
-    margin-top: 8px;
+  @media (max-width: 1023px) {
+    .hub-schedule-speech-status:not(:empty) {
+      margin-top: 8px;
+    }
   }
 
   .hub-quick-quote {

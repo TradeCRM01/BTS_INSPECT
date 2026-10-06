@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   isActiveSpeechRecognition,
   isSpeechPermissionDenied,
+  SPEECH_MIC_BLOCKED_HINT,
   speechRecognitionErrorHint,
   stopSpeechRecognitionByUser,
 } from './speechHints';
@@ -22,16 +23,13 @@ function applyRecognitionError(
 }
 
 describe('speechRecognitionErrorHint', () => {
-  it('maps speech recognition errors to honest mic hints for booking and job copy', () => {
-    expect(speechRecognitionErrorHint('not-allowed', 'booking')).toBe(
-      'Microphone is blocked. Type the booking instead.',
+  it('maps speech recognition errors to honest mic hints (Coach C1 blocked copy)', () => {
+    expect(SPEECH_MIC_BLOCKED_HINT).toBe(
+      'Microphone is blocked. Allow it for grafter.com.au in your browser settings, or type instead.',
     );
-    expect(speechRecognitionErrorHint('service-not-allowed', 'booking')).toBe(
-      'Microphone is blocked. Type the booking instead.',
-    );
-    expect(speechRecognitionErrorHint('not-allowed', 'job')).toBe(
-      'Microphone is blocked. Type the job instead.',
-    );
+    expect(speechRecognitionErrorHint('not-allowed', 'booking')).toBe(SPEECH_MIC_BLOCKED_HINT);
+    expect(speechRecognitionErrorHint('service-not-allowed', 'booking')).toBe(SPEECH_MIC_BLOCKED_HINT);
+    expect(speechRecognitionErrorHint('not-allowed', 'job')).toBe(SPEECH_MIC_BLOCKED_HINT);
     expect(speechRecognitionErrorHint('audio-capture', 'job')).toBe('No microphone found. Type instead.');
     expect(speechRecognitionErrorHint('no-speech', 'booking')).toBe(
       'Didn\'t catch that. Try again or type it.',
@@ -113,12 +111,14 @@ describe('speech mic UI wiring', () => {
     expect(quotes).toContain('aria-pressed={quickListening}');
   });
 
-  it('keeps quick-quote mic at 44px and positions desktop hints out of flow', () => {
+  it('keeps quick-quote mic at 44px and anchors desktop hints in the control row', () => {
     const css = src('src/index.css');
     expect(css).toContain('.hub-quick-quote-mic {\n    flex: 0 0 44px;');
     expect(css).toContain('@media (min-width: 1024px)');
     expect(css).toContain('.hub-quick-quote-speech-status:not(:empty)');
-    expect(css).toContain('position: absolute');
+    expect(css).toContain('top: 0');
+    expect(css).not.toContain('top: 100%');
+    expect(css).toContain('.hub-schedule-speech-status:not(:empty)');
     expect(css).not.toContain('.hub-quick-quote-hint-slot');
   });
 });

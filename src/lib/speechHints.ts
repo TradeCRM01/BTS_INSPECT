@@ -1,5 +1,8 @@
 export type SpeechRecognitionCopy = 'booking' | 'job';
 
+export const SPEECH_MIC_BLOCKED_HINT =
+  'Microphone is blocked. Allow it for grafter.com.au in your browser settings, or type instead.';
+
 export function isSpeechPermissionDenied(error: string | undefined): boolean {
   return error === 'not-allowed' || error === 'service-not-allowed';
 }
@@ -7,14 +10,10 @@ export function isSpeechPermissionDenied(error: string | undefined): boolean {
 /** Returns null when the error should not surface a hint (e.g. deliberate stop). */
 export function speechRecognitionErrorHint(
   error: string | undefined,
-  copy: SpeechRecognitionCopy = 'job',
+  _copy: SpeechRecognitionCopy = 'job',
 ): string | null {
   if (error === 'aborted') return null;
-  if (isSpeechPermissionDenied(error)) {
-    return copy === 'booking'
-      ? 'Microphone is blocked. Type the booking instead.'
-      : 'Microphone is blocked. Type the job instead.';
-  }
+  if (isSpeechPermissionDenied(error)) return SPEECH_MIC_BLOCKED_HINT;
   if (error === 'audio-capture') return 'No microphone found. Type instead.';
   return 'Didn\'t catch that. Try again or type it.';
 }
