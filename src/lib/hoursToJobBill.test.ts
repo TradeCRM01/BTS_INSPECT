@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   PROFILE_STAFF_LABOUR_RATE_KEYS,
@@ -14,6 +16,14 @@ import {
   staffLabourSellFromProfile,
   unbilledHoursSummary,
 } from './hoursToJobBill';
+
+describe('price_book_items select columns', () => {
+  it('pullUnbilledHoursToJobBill selects description (live column), not name', () => {
+    const bill = readFileSync(resolve(process.cwd(), 'src/lib/hoursToJobBill.ts'), 'utf8');
+    expect(bill).toContain(".select('id, category, description, unit_price, is_active')");
+    expect(bill).not.toMatch(/price_book_items[\s\S]{0,120}\.select\([^)]*\bname\b/);
+  });
+});
 
 const labour = { id: 'pb-1', category: 'Labour', unit_price: 95, is_active: true };
 const labourB = { id: 'pb-2', category: 'Labour', unit_price: 110, is_active: true };

@@ -18,7 +18,7 @@ export type TimesheetEntryForBill = {
 export type PriceBookItemForLabour = {
   id: string;
   category: string | null;
-  name?: string | null;
+  description?: string | null;
   unit_price: number | string;
   is_active: boolean;
 };
@@ -483,7 +483,7 @@ export async function pullUnbilledHoursToJobBill(client: SupabaseClient, input: 
 
   const { data: pbItems, error: pbErr } = await client
     .from('price_book_items')
-    .select('id, category, name, unit_price, is_active')
+    .select('id, category, description, unit_price, is_active')
     .eq('company_id', input.companyId)
     .eq('is_active', true);
   if (pbErr) throw pbErr;

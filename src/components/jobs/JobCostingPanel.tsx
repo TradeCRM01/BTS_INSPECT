@@ -508,7 +508,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                   className="w-full min-h-[44px] rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-left text-sm font-medium text-[#0A2540] hover:bg-[#F9FAFB]"
                   onClick={() => { void runPullLabourHours(item.id); }}
                 >
-                  {(item.name ?? 'Labour').trim()} · {formatMoney(Number(item.unit_price) || 0)}/h
+                  {(item.description ?? 'Labour').trim()} · {formatMoney(Number(item.unit_price) || 0)}/h
                 </button>
               ))}
             </div>
