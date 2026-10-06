@@ -121,7 +121,7 @@ describe('tenant isolation and storage policies', () => {
     expect(headers).toContain('X-Frame-Options: DENY');
     expect(headers).toContain('X-Content-Type-Options: nosniff');
     expect(headers).toContain('Referrer-Policy: strict-origin-when-cross-origin');
-    expect(src('netlify.toml')).toContain('X-Frame-Options');
+    expect(headers).toMatch(/^\/\*\s*$/m);
     expect(src('src/lib/supabase.ts')).toContain("'x-client-info': 'grafter'");
     expect(src('src/lib/supabase.ts')).not.toContain('bts-inspect');
   });

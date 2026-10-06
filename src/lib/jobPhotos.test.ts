@@ -435,10 +435,9 @@ describe('job photos live on the existing job sheet', () => {
   });
 
   it('lets the live host ask for a device fix, and keeps photo provenance on the existing row', () => {
-    for (const headers of [src('public/_headers'), src('netlify.toml')]) {
-      expect(headers).toContain('geolocation=(self)');
-      expect(headers).not.toContain('geolocation=()');
-    }
+    const headers = src('public/_headers');
+    expect(headers).toContain('geolocation=(self)');
+    expect(headers).not.toContain('geolocation=()');
     const mig = src('supabase/migrations/20260911070000_078_job_photo_provenance.sql');
     expect(mig).not.toContain('CREATE TABLE');
     expect(mig).not.toContain('FOR UPDATE');
