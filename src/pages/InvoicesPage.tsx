@@ -1038,7 +1038,6 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     client_email: emailClient?.email,
     line_items: form.line_items,
   }, { smtpReady }));
-  const displayStatus = next.status;
   const sheetBalanceDue = invoiceBalanceOwed({ status: form.status, total: grandTotal, amount_paid: recordedPaid });
   const sheetStatusChip = invoiceSheetStatusChip({
     status: form.status,
