@@ -101,6 +101,7 @@ export interface JobSheetOverviewRow {
   meta: string;
   status: string;
   tone: JobSheetOverviewTone;
+  retry?: boolean;
 }
 
 function count(n: number, one: string, many = `${one}s`): string {
@@ -142,6 +143,7 @@ export function jobSheetOverviewRows(facts: JobSheetOverviewFacts): JobSheetOver
           : `${facts.jhaCount} JHA / SWMS · ${facts.take5Count} Take 5`,
       status: safetyError || safetyBusy ? '' : (facts.jhaCount > 0 ? 'JHA on file' : 'No JHA'),
       tone: safetyError || safetyBusy ? 'wait' : (facts.jhaCount > 0 ? 'ok' : 'wait'),
+      ...(safetyError ? { retry: true } : {}),
     },
     {
       section: 'job-visit-notes',
@@ -149,6 +151,7 @@ export function jobSheetOverviewRows(facts: JobSheetOverviewFacts): JobSheetOver
       meta: fieldMeta.join(' · '),
       status: facts.noteCount > 0 ? count(facts.noteCount, 'note') : 'Nothing posted',
       tone: facts.noteCount > 0 ? 'info' : 'wait',
+      ...(inspectionsError ? { retry: true } : {}),
     },
     {
       section: 'job-quotes',

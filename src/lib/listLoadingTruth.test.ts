@@ -45,8 +45,13 @@ describe('list loading truth', () => {
     expect(page).toContain('showContractsEmpty = listShowEmpty(busy, filtered.length, isError)');
     expect(page).toContain('listPendingNounCount(countsHeld, totals.total, \'total contracts\')');
     expect(page).toContain('listPendingCount(countsHeld, count)');
-    expect(page).toContain('retryLabel="Retry"');
     expect(page).toContain("listSectionLoadError('contracts')");
+    expect(page).toContain('data-list-load-error="contracts"');
+    expect(page).toContain('isError ?');
+    expect(page).toContain('Retry');
+    expect(page).not.toContain('retryLabel="Retry"');
+    expect(page).not.toContain('PageError');
+    expect(page).not.toContain('pageQueryBlocked');
     expect(page).not.toContain('Could not load contracts');
     expect(page.indexOf('<SkeletonRow />')).toBeLessThan(page.indexOf('showContractsEmpty ?'));
     expect(page.indexOf('showContractsEmpty ?')).toBeLessThan(page.indexOf('No contracts yet'));
@@ -100,6 +105,11 @@ describe('list loading truth', () => {
     expect(job).toContain('inspectionsPending');
     expect(job).toContain('jhasError');
     expect(job).toContain('inspectionsError');
+    expect(job).toContain('data-overview-retry={row.section}');
+    expect(job).toContain('row.retry');
+    expect(job).toContain('void refetchJhas()');
+    expect(job).toContain('void refetchTake5s()');
+    expect(job).toContain('void refetchInspections()');
     expect(job).not.toMatch(/Relovi|Littleloop/);
     expect(client).not.toMatch(/Relovi|Littleloop/);
   });
@@ -127,6 +137,15 @@ describe('list loading truth', () => {
     const contracts = src('src/pages/ContractsPage.tsx');
     expect(contracts).toContain("listSectionLoadError('contracts')");
     expect(contracts).toContain('data-list-load-error="contracts"');
+    expect(contracts).toContain('isError ?');
+    expect(contracts).toContain('Retry');
+    expect(contracts).not.toContain('PageError');
+    expect(contracts).not.toContain('pageQueryBlocked');
+
+    const job = src('src/pages/JobDetailPage.tsx');
+    expect(job).toContain('data-overview-retry={row.section}');
+    expect(job).toContain('row.retry');
+    expect(job).toContain('Retry');
 
     const drive = src('src/pages/ReportsListPage.tsx');
     expect(drive).toContain('isError: Boolean(foldersError)');

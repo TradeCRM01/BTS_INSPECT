@@ -2986,6 +2986,22 @@ export function JobDetailPage() {
                     title={row.label}
                     meta={row.meta || undefined}
                     trailing={row.status ? <OpsStatus className={`ops-status-${row.tone}`}>{row.status}</OpsStatus> : undefined}
+                    action={row.retry ? (
+                      <button
+                        type="button"
+                        className="ops-link"
+                        data-overview-retry={row.section}
+                        onClick={() => {
+                          if (row.section === 'job-swms') {
+                            if (jhasError) void refetchJhas();
+                            void refetchTake5s();
+                          }
+                          if (row.section === 'job-visit-notes') void refetchInspections();
+                        }}
+                      >
+                        Retry
+                      </button>
+                    ) : undefined}
                   />
                 ))}
               </div>

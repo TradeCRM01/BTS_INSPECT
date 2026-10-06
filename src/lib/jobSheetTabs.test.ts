@@ -169,8 +169,10 @@ describe('jobSheetOverviewRows', () => {
     });
     expect(busy[1].status).not.toBe('No JHA');
     expect(busy[1].meta).not.toContain('0 JHA');
+    expect(busy[1].retry).toBeFalsy();
     expect(busy[2].meta).toBe('…');
     expect(busy[2].meta).not.toContain('0 inspections');
+    expect(busy[2].retry).toBeFalsy();
 
     const failed = jobSheetOverviewRows({
       ...base,
@@ -182,8 +184,10 @@ describe('jobSheetOverviewRows', () => {
     expect(failed[1].status).toBe('');
     expect(failed[1].status).not.toBe('No JHA');
     expect(failed[1].meta).not.toMatch(/0 /);
+    expect(failed[1].retry).toBe(true);
     expect(failed[2].meta).toBe("Couldn't load inspections.");
     expect(failed[2].meta).not.toMatch(/0 /);
+    expect(failed[2].retry).toBe(true);
   });
 
   it('sends every lane to a section on a tab other than Overview', () => {

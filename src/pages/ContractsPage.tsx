@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { listPendingCount, listPendingNounCount, listQueryBusy, listSectionLoadError, listShowEmpty } from '../lib/listQueryReady';
 import { getAuditContracts } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
+import { EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
@@ -60,7 +59,7 @@ export function ContractsPage() {
   const [remindContractId, setRemindContractId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useViewMode('contracts', 'list');
 
-  const { data: contracts, isPending, isLoading, error, isError, refetch } = useQuery({
+  const { data: contracts, isPending, isLoading, isError, refetch } = useQuery({
     queryKey: ['service-contracts'],
     queryFn: async () => {
       const mock = getAuditContracts();
@@ -179,18 +178,6 @@ export function ContractsPage() {
   const showContractsEmpty = listShowEmpty(busy, filtered.length, isError);
 
   const countsHeld = busy || isError;
-
-  if (pageQueryBlocked(error)) {
-    return (
-      <AppShell>
-        <PageError
-          message={listSectionLoadError('contracts')}
-          retryLabel="Retry"
-          onRetry={() => { void refetch(); }}
-        />
-      </AppShell>
-    );
-  }
 
   return (
     <AppShell>
