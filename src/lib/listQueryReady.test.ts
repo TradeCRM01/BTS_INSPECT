@@ -57,6 +57,22 @@ describe('jobSheetHeaderPrimaryHeld', () => {
       jhasError: true,
     })).toBe(false);
   });
+
+  it('holds Clock In / Add phone until timesheets and client settle', () => {
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'clock', timesheetsPending: true })).toBe(true);
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'phone', clientPending: true })).toBe(true);
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'clock', timesheetsPending: false, clientPending: false })).toBe(false);
+    expect(jobSheetHeaderPrimaryHeld({
+      nextKey: 'clock',
+      timesheetsPending: true,
+      timesheetsError: true,
+    })).toBe(false);
+    expect(jobSheetHeaderPrimaryHeld({
+      nextKey: 'phone',
+      clientPending: true,
+      clientError: true,
+    })).toBe(false);
+  });
 });
 
 describe('listPendingCount', () => {

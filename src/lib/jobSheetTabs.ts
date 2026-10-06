@@ -93,6 +93,18 @@ export interface JobSheetOverviewFacts {
   take5Error?: boolean;
   inspectionsBusy?: boolean;
   inspectionsError?: boolean;
+  crewBusy?: boolean;
+  crewError?: boolean;
+  quotesBusy?: boolean;
+  quotesError?: boolean;
+  invoicesBusy?: boolean;
+  invoicesError?: boolean;
+  billBusy?: boolean;
+  billError?: boolean;
+  notesBusy?: boolean;
+  notesError?: boolean;
+  photosBusy?: boolean;
+  photosError?: boolean;
 }
 
 export interface JobSheetOverviewRow {
@@ -113,25 +125,45 @@ export function jobSheetOverviewRows(facts: JobSheetOverviewFacts): JobSheetOver
   const when = facts.scheduledDate
     ? [format(parseISO(facts.scheduledDate), 'EEE d MMM'), facts.startTime?.slice(0, 5)].filter(Boolean).join(' ')
     : null;
+  const crewBusy = Boolean(facts.crewBusy);
+  const crewError = Boolean(facts.crewError);
   const safetyBusy = Boolean(facts.jhaBusy || facts.take5Busy);
   const safetyError = Boolean(facts.jhaError || facts.take5Error);
-  const inspectionsBusy = Boolean(facts.inspectionsBusy);
-  const inspectionsError = Boolean(facts.inspectionsError);
-  const fieldMeta = inspectionsError
-    ? [listSectionLoadError('inspections')]
-    : inspectionsBusy
+  const fieldBusy = Boolean(facts.inspectionsBusy || facts.notesBusy || facts.photosBusy);
+  const fieldError = Boolean(facts.inspectionsError || facts.notesError || facts.photosError);
+  const fieldThing = facts.inspectionsError
+    ? 'inspections'
+    : facts.notesError
+      ? 'notes'
+      : facts.photosError
+        ? 'photos'
+        : 'inspections';
+  const quotesBusy = Boolean(facts.quotesBusy || facts.invoicesBusy);
+  const quotesError = Boolean(facts.quotesError || facts.invoicesError);
+  const quotesThing = facts.quotesError ? 'quotes' : 'invoices';
+  const billBusy = Boolean(facts.billBusy);
+  const billError = Boolean(facts.billError);
+  const fieldMeta = fieldError
+    ? [listSectionLoadError(fieldThing)]
+    : fieldBusy
       ? ['…']
       : [count(facts.inspectionCount, 'inspection'), count(facts.photoCount, 'photo')];
-  if (!inspectionsBusy && !inspectionsError && facts.testingDueCount > 0) {
+  if (!fieldBusy && !fieldError && facts.testingDueCount > 0) {
     fieldMeta.push(`${count(facts.testingDueCount, 'test')} due`);
   }
+  const crewMeta = crewError
+    ? [when, listSectionLoadError('crew')].filter(Boolean).join(' · ')
+    : crewBusy
+      ? [when, '…'].filter(Boolean).join(' · ')
+      : [when, facts.crewNames.length > 0 ? facts.crewNames.join(', ') : 'Unassigned'].filter(Boolean).join(' · ');
   return [
     {
       section: 'job-schedule',
       label: 'Schedule & people',
-      meta: [when, facts.crewNames.length > 0 ? facts.crewNames.join(', ') : 'Unassigned'].filter(Boolean).join(' · '),
-      status: facts.scheduledDate ? 'Booked' : 'Not booked',
-      tone: facts.scheduledDate ? 'ok' : 'wait',
+      meta: crewMeta,
+      status: crewError || crewBusy ? '' : (facts.scheduledDate ? 'Booked' : 'Not booked'),
+      tone: crewError || crewBusy ? 'wait' : (facts.scheduledDate ? 'ok' : 'wait'),
+      ...(crewError ? { retry: true } : {}),
     },
     {
       section: 'job-swms',
@@ -149,25 +181,37 @@ export function jobSheetOverviewRows(facts: JobSheetOverviewFacts): JobSheetOver
       section: 'job-visit-notes',
       label: 'Field records',
       meta: fieldMeta.join(' · '),
-      status: facts.noteCount > 0 ? count(facts.noteCount, 'note') : 'Nothing posted',
-      tone: facts.noteCount > 0 ? 'info' : 'wait',
-      ...(inspectionsError ? { retry: true } : {}),
+      status: fieldError || fieldBusy ? '' : (facts.noteCount > 0 ? count(facts.noteCount, 'note') : 'Nothing posted'),
+      tone: fieldError || fieldBusy ? 'wait' : (facts.noteCount > 0 ? 'info' : 'wait'),
+      ...(fieldError ? { retry: true } : {}),
     },
     {
       section: 'job-quotes',
       label: 'Quotes & invoices',
-      meta: '',
-      status: facts.quoteCount + facts.invoiceCount > 0
-        ? `${count(facts.quoteCount, 'quote')} · ${count(facts.invoiceCount, 'invoice')}`
-        : 'None yet',
-      tone: facts.quoteCount + facts.invoiceCount > 0 ? 'info' : 'wait',
+      meta: quotesError
+        ? listSectionLoadError(quotesThing)
+        : quotesBusy
+          ? '…'
+          : '',
+      status: quotesError || quotesBusy
+        ? ''
+        : facts.quoteCount + facts.invoiceCount > 0
+          ? `${count(facts.quoteCount, 'quote')} · ${count(facts.invoiceCount, 'invoice')}`
+          : 'None yet',
+      tone: quotesError || quotesBusy ? 'wait' : (facts.quoteCount + facts.invoiceCount > 0 ? 'info' : 'wait'),
+      ...(quotesError ? { retry: true } : {}),
     },
     {
       section: 'job-bill',
       label: 'Materials',
-      meta: `Cost ${formatMoney(facts.billCost)} · Charge ${formatMoney(facts.billCharge)}`,
-      status: facts.billLines > 0 ? count(facts.billLines, 'line') : 'No materials',
-      tone: facts.billLines > 0 ? 'info' : 'wait',
+      meta: billError
+        ? listSectionLoadError('materials')
+        : billBusy
+          ? '…'
+          : `Cost ${formatMoney(facts.billCost)} · Charge ${formatMoney(facts.billCharge)}`,
+      status: billError || billBusy ? '' : (facts.billLines > 0 ? count(facts.billLines, 'line') : 'No materials'),
+      tone: billError || billBusy ? 'wait' : (facts.billLines > 0 ? 'info' : 'wait'),
+      ...(billError ? { retry: true } : {}),
     },
   ];
 }

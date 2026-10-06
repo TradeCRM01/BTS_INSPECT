@@ -172,6 +172,8 @@ describe('jobSheetOverviewRows', () => {
     expect(busy[1].retry).toBeFalsy();
     expect(busy[2].meta).toBe('…');
     expect(busy[2].meta).not.toContain('0 inspections');
+    expect(busy[2].status).toBe('');
+    expect(busy[2].status).not.toBe('Nothing posted');
     expect(busy[2].retry).toBeFalsy();
 
     const failed = jobSheetOverviewRows({
@@ -186,8 +188,72 @@ describe('jobSheetOverviewRows', () => {
     expect(failed[1].meta).not.toMatch(/0 /);
     expect(failed[1].retry).toBe(true);
     expect(failed[2].meta).toBe("Couldn't load inspections.");
+    expect(failed[2].status).toBe('');
+    expect(failed[2].status).not.toBe('Nothing posted');
     expect(failed[2].meta).not.toMatch(/0 /);
     expect(failed[2].retry).toBe(true);
+  });
+
+  it('holds every Overview row until that row settles, and retries on that row\'s error', () => {
+    const base = {
+      scheduledDate: '2026-10-06' as string | null,
+      startTime: null as string | null,
+      crewNames: [] as string[],
+      jhaCount: 0,
+      take5Count: 0,
+      inspectionCount: 0,
+      testingDueCount: 0,
+      noteCount: 0,
+      photoCount: 0,
+      quoteCount: 0,
+      invoiceCount: 0,
+      billLines: 1,
+      billCost: 0,
+      billCharge: 0,
+    };
+    const busy = jobSheetOverviewRows({
+      ...base,
+      crewBusy: true,
+      quotesBusy: true,
+      invoicesBusy: true,
+      notesBusy: true,
+      photosBusy: true,
+      billBusy: true,
+    });
+    expect(busy[0].meta).toBe('Tue 6 Oct · …');
+    expect(busy[0].meta).not.toContain('Unassigned');
+    expect(busy[0].status).toBe('');
+    expect(busy[0].retry).toBeFalsy();
+    expect(busy[2].meta).toBe('…');
+    expect(busy[2].status).not.toBe('Nothing posted');
+    expect(busy[3].meta).toBe('…');
+    expect(busy[3].status).toBe('');
+    expect(busy[3].status).not.toBe('None yet');
+    expect(busy[4].meta).toBe('…');
+    expect(busy[4].status).toBe('');
+    expect(busy[4].status).not.toBe('1 line');
+    expect(busy[4].status).not.toBe('No materials');
+
+    const failed = jobSheetOverviewRows({
+      ...base,
+      crewError: true,
+      quotesError: true,
+      invoicesError: true,
+      notesError: true,
+      billError: true,
+    });
+    expect(failed[0].meta).toBe("Tue 6 Oct · Couldn't load crew.");
+    expect(failed[0].meta).not.toContain('Unassigned');
+    expect(failed[0].retry).toBe(true);
+    expect(failed[2].meta).toBe("Couldn't load notes.");
+    expect(failed[2].status).not.toBe('Nothing posted');
+    expect(failed[2].retry).toBe(true);
+    expect(failed[3].meta).toBe("Couldn't load quotes.");
+    expect(failed[3].status).not.toBe('None yet');
+    expect(failed[3].retry).toBe(true);
+    expect(failed[4].meta).toBe("Couldn't load materials.");
+    expect(failed[4].status).not.toBe('1 line');
+    expect(failed[4].retry).toBe(true);
   });
 
   it('sends every lane to a section on a tab other than Overview', () => {

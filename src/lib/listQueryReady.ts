@@ -30,14 +30,20 @@ export function listSectionLoadError(thing: string): string {
   return `Couldn't load ${thing}.`;
 }
 
-/** Hold Start JHA / Start inspection only while that query is pending. */
+/** Hold the job-sheet primary until the queries that pick it have settled. */
 export function jobSheetHeaderPrimaryHeld(input: {
   nextKey: string;
   jhasPending?: boolean;
   jhasError?: boolean;
   inspectionsPending?: boolean;
   inspectionsError?: boolean;
+  timesheetsPending?: boolean;
+  timesheetsError?: boolean;
+  clientPending?: boolean;
+  clientError?: boolean;
 }): boolean {
+  if (Boolean(input.timesheetsPending) && !input.timesheetsError) return true;
+  if (Boolean(input.clientPending) && !input.clientError) return true;
   if (input.nextKey === 'jha') return Boolean(input.jhasPending) && !input.jhasError;
   if (input.nextKey === 'inspect') {
     return Boolean(input.inspectionsPending) && !input.inspectionsError;

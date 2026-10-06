@@ -1546,7 +1546,7 @@ export function JobDetailPage() {
     enabled: !!id && !!profile,
   });
 
-  const { data: client } = useQuery<Client | null>({
+  const { data: client, isPending: clientPending, isError: clientError } = useQuery<Client | null>({
     queryKey: ['job-client', job?.client_id],
     queryFn: async () => {
       if (!job?.client_id) return null;
@@ -1657,7 +1657,7 @@ export function JobDetailPage() {
     enabled: !!id && !!profile,
   });
 
-  const { data: teamMembers } = useQuery<TeamMember[]>({
+  const { data: teamMembers, isPending: teamMembersPending, isError: teamMembersError, refetch: refetchTeamMembers } = useQuery<TeamMember[]>({
     queryKey: ['team-members-job-detail'],
     queryFn: async () => {
       if (!profile?.company_id) return [];
@@ -1857,9 +1857,10 @@ export function JobDetailPage() {
   const quotesBusy = listQueryBusy({ isPending: quotesPending, isError: quotesError, data: quotes });
   const invoicesBusy = listQueryBusy({ isPending: invoicesPending, isError: invoicesError, data: invoices });
   const timesheetsBusy = listQueryBusy({ isPending: timesheetsPending, isError: timesheetsError, data: timesheets });
+  const crewBusy = listQueryBusy({ isPending: teamMembersPending, isError: teamMembersError, data: teamMembers });
   const take5sFailed = take5sError || jhasError;
 
-  const { data: visitNotes } = useQuery<JobVisitNote[]>({
+  const { data: visitNotes, isPending: visitNotesPending, isError: visitNotesError, refetch: refetchVisitNotes } = useQuery<JobVisitNote[]>({
     queryKey: ['job-visit-notes', id],
     queryFn: async () => {
       if (visitNotesLookOn()) return lookVisitNotes(id!);
@@ -1883,7 +1884,7 @@ export function JobDetailPage() {
     enabled: !!id && !!profile?.company_id,
   });
 
-  const { data: jobPhotos } = useQuery<JobPhotoRow[]>({
+  const { data: jobPhotos, isPending: jobPhotosPending, isError: jobPhotosError, refetch: refetchJobPhotos } = useQuery<JobPhotoRow[]>({
     queryKey: ['job-photos', id],
     queryFn: async () => {
       if (visitNotesLookOn()) return [];
@@ -1983,7 +1984,7 @@ export function JobDetailPage() {
     enabled: !!profile,
   });
 
-  const { data: costTotals } = useQuery<{ cost: number; charge: number; lines: number }>({
+  const { data: costTotals, isPending: costTotalsPending, isError: costTotalsError, refetch: refetchCostTotals } = useQuery<{ cost: number; charge: number; lines: number }>({
     queryKey: ['job-cost-totals', id],
     queryFn: async () => {
       const p305 = p305LookKind();
@@ -2007,6 +2008,20 @@ export function JobDetailPage() {
       };
     },
     enabled: !!id && !!profile,
+  });
+
+  const billBusy = listQueryBusy({ isPending: costTotalsPending, isError: costTotalsError, data: costTotals });
+  const notesBusy = listQueryBusy({
+    isPending: visitNotesPending,
+    isError: visitNotesError,
+    data: visitNotes,
+    seeded: !profile?.company_id,
+  });
+  const photosBusy = listQueryBusy({
+    isPending: jobPhotosPending,
+    isError: jobPhotosError,
+    data: jobPhotos,
+    seeded: !profile?.company_id,
   });
 
   const invoiceFromQuote = useMutation({
@@ -2437,12 +2452,22 @@ export function JobDetailPage() {
   const next = sheetNext.action;
   const nextLabel = next.key === 'send' ? 'Share' : sheetNext.label;
   const arrivingPrimary = sheetNext.label === ARRIVING_NEXT_LABEL;
+  const clientBusy = Boolean(job.client_id) && listQueryBusy({
+    isPending: clientPending,
+    isError: clientError,
+    data: client,
+  });
+  const contactHeld = clientBusy || timesheetsBusy;
   const headerPrimaryHeld = jobSheetHeaderPrimaryHeld({
     nextKey: next.key,
     jhasPending,
     jhasError,
     inspectionsPending,
     inspectionsError,
+    timesheetsPending,
+    timesheetsError,
+    clientPending: Boolean(job.client_id) && clientPending,
+    clientError,
   });
 
   const nextBusy =
@@ -2547,6 +2572,18 @@ export function JobDetailPage() {
     take5Error: take5sFailed,
     inspectionsBusy,
     inspectionsError,
+    crewBusy,
+    crewError: teamMembersError,
+    quotesBusy,
+    quotesError,
+    invoicesBusy,
+    invoicesError,
+    billBusy,
+    billError: costTotalsError,
+    notesBusy,
+    notesError: visitNotesError,
+    photosBusy,
+    photosError: jobPhotosError,
     testingDueCount: dueTests.length,
     noteCount: visitLog.length,
     photoCount: gallery.length,
@@ -2803,7 +2840,12 @@ export function JobDetailPage() {
               </div>
               <div className="hub-jobs-identity-col hub-jobs-contact">
               <div className="hub-jobs-contact-row">
-              {attachRow.kind === 'pick' ? (
+              {contactHeld ? (
+                <span className="flex items-center gap-1.5 ops-meta" data-job-client="pending" data-job-contact-held="1">
+                  <User size={13} />
+                  <span className="skeleton inline-block h-4 w-28 rounded" />
+                </span>
+              ) : attachRow.kind === 'pick' ? (
                 <form
                   className="job-client-attach"
                   onSubmit={e => {
@@ -2848,12 +2890,12 @@ export function JobDetailPage() {
                   <User size={13} /> No client
                 </span>
               )}
-              {phoneRow.kind === 'tel' && (
+              {!contactHeld && phoneRow.kind === 'tel' && (
                 <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num">
                   <Phone size={13} /> {phoneRow.phone}
                 </a>
               )}
-              {phoneRow.kind === 'edit' && (
+              {!contactHeld && phoneRow.kind === 'edit' && (
                 <form
                   className="job-client-phone"
                   onSubmit={e => {
@@ -2882,12 +2924,12 @@ export function JobDetailPage() {
                   </button>
                 </form>
               )}
-              {emailRow.kind === 'mailto' && (
+              {!contactHeld && emailRow.kind === 'mailto' && (
                 <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
                   <Mail size={13} /> {emailRow.email}
                 </a>
               )}
-              {emailRow.kind === 'edit' && (
+              {!contactHeld && emailRow.kind === 'edit' && (
                 <form
                   className="job-client-email"
                   onSubmit={e => {
@@ -2993,11 +3035,21 @@ export function JobDetailPage() {
                         data-overview-retry={row.section}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (row.section === 'job-schedule' && teamMembersError) void refetchTeamMembers();
                           if (row.section === 'job-swms') {
                             if (jhasError) void refetchJhas();
                             void refetchTake5s();
                           }
-                          if (row.section === 'job-visit-notes') void refetchInspections();
+                          if (row.section === 'job-visit-notes') {
+                            if (inspectionsError) void refetchInspections();
+                            if (visitNotesError) void refetchVisitNotes();
+                            if (jobPhotosError) void refetchJobPhotos();
+                          }
+                          if (row.section === 'job-quotes') {
+                            if (quotesError) void refetchQuotes();
+                            if (invoicesError) void refetchInvoices();
+                          }
+                          if (row.section === 'job-bill' && costTotalsError) void refetchCostTotals();
                         }}
                       >
                         Retry
