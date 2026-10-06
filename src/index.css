@@ -7248,6 +7248,25 @@
     list-style: none;
   }
 
+  .hub-schedule-voice-new {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    height: 44px;
+    margin: 8px 0 0;
+    padding: 0 16px;
+    background: #FFFDF8;
+    color: #0A2540;
+    border: 1px solid #0A2540;
+    border-radius: 12px;
+    box-shadow: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
   .hub-schedule-voice-pick {
     padding: 0 12px;
     background: #FFFDF8;

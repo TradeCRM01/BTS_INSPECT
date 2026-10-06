@@ -14,6 +14,19 @@ import { jobFormSelectNewClient, jobSiteAddressFromClient, visibleClientContacts
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { formatJobRef, nextCostCode, normalizeCostCode } from '../../lib/jobRef';
 import { JOB_COLORS, jobColorToStore } from '../../lib/jobColors';
+import { assumedTradeTag, checkDateTag } from '../../lib/quickBook';
+import { FromBooking } from './FromBooking';
+
+export type JobFormFromBooking = {
+  title?: boolean;
+  client?: boolean;
+  date?: boolean;
+  dateCheck?: boolean;
+  start?: boolean;
+  startTrade?: boolean;
+  crew?: boolean;
+  address?: boolean;
+};
 
 interface JobFormModalProps {
   job: Job | null;
@@ -22,6 +35,11 @@ interface JobFormModalProps {
   presetEmployeeId?: string | undefined;
   presetParentJobId?: string | null;
   presetAddress?: string | null;
+  presetTitle?: string | null;
+  presetStartTime?: string | null;
+  presetClientName?: string | null;
+  presetTeam?: { id: string; name: string }[];
+  fromBooking?: JobFormFromBooking | null;
   /** `details` = identity only; schedule/crew/status live on the job page. */
   fields?: 'all' | 'details';
   onAddStage?: () => void;
@@ -36,6 +54,11 @@ export function JobFormModal({
   presetEmployeeId,
   presetParentJobId,
   presetAddress,
+  presetTitle,
+  presetStartTime,
+  presetClientName,
+  presetTeam,
+  fromBooking = null,
   fields = 'all',
   onAddStage,
   onClose,
@@ -45,21 +68,27 @@ export function JobFormModal({
   const queryClient = useQueryClient();
   const detailsOnly = fields === 'details' && !!job;
   const [clients, setClients] = useState<Client[]>([]);
-  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>(presetTeam ?? []);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addingClient, setAddingClient] = useState(false);
   const [parentJobs, setParentJobs] = useState<{ id: string; title: string; job_number: number | null }[]>([]);
 
+  const [dateEdited, setDateEdited] = useState(false);
+  const [startEdited, setStartEdited] = useState(false);
+  const [pendingClientName, setPendingClientName] = useState(presetClientName ?? '');
+  const startCheck = assumedTradeTag(fromBooking?.startTrade, presetStartTime, startEdited);
+  const dateCheck = checkDateTag(fromBooking?.dateCheck, dateEdited);
+
   const [form, setForm] = useState({
-    title: job?.title ?? '',
+    title: job?.title ?? presetTitle ?? '',
     client_id: job?.client_id ?? presetClientId ?? '',
     description: job?.description ?? '',
     status: job?.status ?? 'scheduled' as JobStatus,
     priority: job?.priority ?? 'medium' as JobPriority,
     scheduled_date: job?.scheduled_date ?? presetDate ?? format(new Date(), 'yyyy-MM-dd'),
-    start_time: job?.start_time ?? '',
+    start_time: job?.start_time ?? presetStartTime ?? '',
     end_time: job?.end_time ?? '',
     address: job?.address ?? presetAddress ?? '',
     assigned_team: job?.assigned_team ?? (presetEmployeeId ? [presetEmployeeId] : []),
@@ -77,7 +106,11 @@ export function JobFormModal({
         supabase.rpc('get_company_members', { p_company_id: profile.company_id }),
       ]);
       if (clientsRes.data) setClients(clientsRes.data as Client[]);
-      if (teamRes.data) setTeamMembers((teamRes.data as { id: string; name: string }[]).map(m => ({ id: m.id, name: m.name })));
+      if (teamRes.data) {
+        setTeamMembers((teamRes.data as { id: string; name: string }[]).map(m => ({ id: m.id, name: m.name })));
+      } else if (presetTeam?.length) {
+        setTeamMembers(presetTeam);
+      }
     }
     loadOptions();
   }, [profile?.company_id]);
@@ -224,13 +257,27 @@ export function JobFormModal({
         <div className="overlay-body">
           <div className="overlay-form-grid">
           <div className="overlay-form-span-all">
-            <label className="ops-field-label">Job Title <span className="text-fail">*</span></label>
+            <label className="ops-field-label">
+              Job Title <span className="text-fail">*</span>
+              <FromBooking show={!!fromBooking?.title} />
+            </label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               className="form-input" placeholder="e.g. Annual safety inspection" autoFocus />
           </div>
 
           <div>
-            <label className="ops-field-label">Client</label>
+            <label className="ops-field-label">
+              Client
+              <FromBooking show={!!fromBooking?.client} />
+            </label>
+            {pendingClientName && !form.client_id ? (
+              <input
+                value={pendingClientName}
+                onChange={e => setPendingClientName(e.target.value)}
+                className="form-input"
+                aria-label="Client name from booking"
+              />
+            ) : (
             <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))}
               className="form-input cursor-pointer">
               <option value="">No client (walk-up)</option>
@@ -238,6 +285,7 @@ export function JobFormModal({
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+            )}
             {selectedClient && (
               <div className="mt-2 flex flex-col gap-1">
                 {visibleClientContacts(selectedClient).map(line => (
@@ -259,14 +307,27 @@ export function JobFormModal({
                 Use client address: {selectedClient.address}
               </button>
             )}
+            {pendingClientName && !form.client_id ? (
+              <button
+                type="button"
+                onClick={() => setAddingClient(true)}
+                className="ops-link text-xs mt-1"
+              >
+                {`Create client “${pendingClientName}”`}
+              </button>
+            ) : (
             <button type="button" onClick={() => setAddingClient(true)}
               className="ops-link text-xs mt-1">
               Add new client
             </button>
+            )}
           </div>
 
           <div className="overlay-form-span-2">
-            <label className="ops-field-label">Job Site Address</label>
+            <label className="ops-field-label">
+              Job Site Address
+              <FromBooking show={!!fromBooking?.address} />
+            </label>
             <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
               className="form-input" placeholder="Where the work is happening" />
           </div>
@@ -307,13 +368,31 @@ export function JobFormModal({
           {!detailsOnly && (
             <>
               <div>
-                <label className="ops-field-label">Date</label>
-                <input type="date" value={form.scheduled_date ?? ''} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
+                <label className="ops-field-label">
+                  Date
+                  <FromBooking show={!!fromBooking?.date} />
+                  {dateCheck ? (
+                    <span className="hub-schedule-from-booking">{dateCheck}</span>
+                  ) : null}
+                </label>
+                <input type="date" value={form.scheduled_date ?? ''} onChange={e => {
+                  setForm(f => ({ ...f, scheduled_date: e.target.value }));
+                  setDateEdited(true);
+                }}
                   className="form-input" />
               </div>
               <div>
-                <label className="ops-field-label">Start</label>
-                <input type="time" value={form.start_time ?? ''} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
+                <label className="ops-field-label">
+                  Start
+                  <FromBooking show={!!fromBooking?.start} />
+                  {startCheck ? (
+                    <span className="hub-schedule-from-booking">{startCheck}</span>
+                  ) : null}
+                </label>
+                <input type="time" value={form.start_time ?? ''} onChange={e => {
+                  setForm(f => ({ ...f, start_time: e.target.value }));
+                  setStartEdited(true);
+                }}
                   className="form-input" />
               </div>
               <div>
@@ -332,7 +411,10 @@ export function JobFormModal({
 
           {!detailsOnly && teamMembers.length > 0 && (
             <div className="overlay-form-span-all">
-              <label className="ops-field-label">Assign Crew</label>
+              <label className="ops-field-label">
+                Assign Crew
+                <FromBooking show={!!fromBooking?.crew} />
+              </label>
               <div className="flex flex-wrap gap-1.5">
                 {teamMembers.map(m => {
                   const selected = form.assigned_team.includes(m.id);
@@ -462,6 +544,7 @@ export function JobFormModal({
       <ClientForm
         client={null}
         openedFromJob
+        presetName={pendingClientName || undefined}
         onClose={() => setAddingClient(false)}
         onSaved={clientId => { void applyNewClient(clientId); }}
       />

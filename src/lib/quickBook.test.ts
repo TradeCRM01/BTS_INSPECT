@@ -338,6 +338,11 @@ describe('quickBook parser', () => {
     expect(parseQuickBookDate('next Friday', NOW)).toBe('2026-10-16');
     expect(parseQuickBook('next Friday 7am', NOW).date).toBe('2026-10-16');
     expect(parseQuickBook('next Friday 7am', NOW).dateSource).toBe('next');
+    expect(parseQuickBookDate('next Sunday', NOW)).toBe('2026-10-18');
+    expect(parseQuickBook('next Sunday 7am', NOW).date).toBe('2026-10-18');
+    expect(parseQuickBook('next week Thursday', NOW).date).toBe('2026-10-15');
+    expect(parseQuickBook('next week Thursday 7am', NOW).dateSource).toBe('next');
+    expect(parseQuickBook('Hot water next week Thursday 7am', NOW).subjectToken).toBe('Hot water');
     expect(parseQuickBookDate('this Friday', NOW)).toBe('2026-10-09');
     expect(parseQuickBook('Friday 7am', NOW).date).toBe('2026-10-09');
     expect(parseQuickBook('Friday 7am', NOW).dateSource).toBe('spoken');
@@ -377,6 +382,65 @@ describe('quickBook parser', () => {
     expect(leak.jobs.items[0]?.id).toBe('fix-tap');
     expect(leak.parse.crewToken).toBeNull();
     expect(leak.prefill.crewId).toBeUndefined();
+  });
+
+  it('prefills a new job from ten unmatched all-trades phrases, including new clients and an address', () => {
+    const namedClients = [
+      { id: 'cli-river', name: 'River House' },
+      { id: 'cli-harbour', name: 'Harbour Trade' },
+      { id: 'cli-oak', name: 'Oak Street' },
+      { id: 'cli-breeze', name: 'Breeze Co' },
+      { id: 'cli-tile', name: 'Tile House' },
+      { id: 'cli-green', name: 'Green Edge' },
+      { id: 'cli-ash', name: 'Ash Grove' },
+    ];
+    const phrases = [
+      { text: 'Blocked drain, River House, Thursday 7am, Dave', title: 'Blocked drain', date: '2026-10-08', time: '07:00', crew: 'crew-dave', client: 'cli-river', create: false },
+      { text: 'Switchboard, Harbour Trade, tomorrow 7.30am, Sam', title: 'Switchboard', date: '2026-10-07', time: '07:30', crew: 'crew-sam', client: 'cli-harbour', create: false },
+      { text: 'Kitchen fit, Oak Street, Friday half past 7, Dave', title: 'Kitchen fit', date: '2026-10-09', time: '07:30', crew: 'crew-dave', client: 'cli-oak', create: false },
+      { text: 'Split system, Breeze Co, Saturday midday', title: 'Split system', date: '2026-10-10', time: '12:00', create: false, client: 'cli-breeze' },
+      { text: 'Bathroom tile, Tile House, Thursday 7am, Sam', title: 'Bathroom tile', date: '2026-10-08', time: '07:00', crew: 'crew-sam', client: 'cli-tile', create: false },
+      { text: 'Garden beds, Green Edge, Wednesday 7am, Dave', title: 'Garden beds', date: '2026-10-07', time: '07:00', crew: 'crew-dave', client: 'cli-green', create: false },
+      { text: 'Hall paint, Ash Grove, on the 9th at 7, Sam', title: 'Hall paint', date: '2026-10-09', time: '07:00', crew: 'crew-sam', client: 'cli-ash', create: false },
+      { text: 'Hot water, Smith, Thursday 7am, Dave', title: 'Hot water', date: '2026-10-08', time: '07:00', crew: 'crew-dave', clientToken: 'Smith', create: true },
+      { text: 'Roof leak, Nguyen, today noon', title: 'Roof leak', date: '2026-10-06', time: '12:00', clientToken: 'Nguyen', create: true },
+      { text: 'Door latch, Patel, Thursday 7am at 12 Smith St with Dave', title: 'Door latch', date: '2026-10-08', time: '07:00', crew: 'crew-dave', clientToken: 'Patel', create: true, address: '12 Smith St' },
+    ];
+    for (const row of phrases) {
+      const resolved = resolveQuickBook(row.text, { jobs: [], crew, clients: namedClients }, NOW);
+      expect(resolved.jobs.kind, row.text).toBe('none');
+      expect(resolved.newJob, row.text).toBeTruthy();
+      expect(resolved.newJob?.title, row.text).toBe(row.title);
+      expect(resolved.prefill.date, row.text).toBe(row.date);
+      expect(resolved.prefill.startTime, row.text).toBe(row.time);
+      if (row.crew) expect(resolved.prefill.crewId, row.text).toBe(row.crew);
+      else expect(resolved.prefill.crewId, row.text).toBeUndefined();
+      expect(resolved.newJob?.createClient, row.text).toBe(row.create);
+      if (row.client) expect(resolved.newJob?.clientId, row.text).toBe(row.client);
+      else expect(resolved.newJob?.clientId, row.text).toBeUndefined();
+      if (row.clientToken) expect(resolved.newJob?.clientToken, row.text).toBe(row.clientToken);
+      if (row.address) expect(resolved.parse.address, row.text).toBe(row.address);
+    }
+    expect(parseQuickBook('Door latch Thursday 7am at 12 Smith St with Dave', NOW).address).toBe('12 Smith St');
+    const matched = resolveQuickBook('Hot water, Smith, Thursday 7am, Dave', {
+      jobs,
+      crew,
+      clients: namedClients,
+    }, NOW);
+    expect(matched.jobs.kind).toBe('one');
+    expect(matched.jobs.items[0]?.id).toBe('job-hot');
+    expect(matched.newJob).toBeNull();
+    const page = src('src/pages/SchedulePage.tsx');
+    const voice = src('src/components/crm/ScheduleBookByVoice.tsx');
+    const form = src('src/components/crm/JobFormModal.tsx');
+    expect(voice).toContain('New job from this');
+    expect(voice).toContain('onNewJob');
+    expect(page).toContain('voiceNewJob');
+    expect(page).not.toMatch(/applyQuickBook[\s\S]{0,400}from\('jobs'\)\.insert/);
+    expect(form).toContain('Create client');
+    expect(form).toContain('presetName');
+    expect(form).toContain('FromBooking');
+    expect(`${page}\n${voice}\n${form}`).not.toMatch(/electrician-only|sparky only|BTS-only/i);
   });
 });
 
@@ -428,7 +492,8 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(voice).toContain('Job, day, time, crew');
     expect(voice).not.toContain('Smith job Thursday 7am with Dave');
     expect(voice).not.toContain('hints?.crew');
-    expect(sheet).toContain('From your booking');
+    expect(sheet).toContain('FromBooking');
+    expect(src('src/components/crm/FromBooking.tsx')).toContain('From your booking');
     expect(sheet).toContain("'crewId' in prefill && prefill.crewId");
     expect(sheet).toContain('EditorStickyFooter');
     expect(sheet).toContain('saveLabel="Save"');
@@ -454,6 +519,10 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(page).toContain('setVoiceHints(null)');
     expect(page).toContain('setVoiceJobPicks([])');
     expect(page).not.toContain('setJobQuery(parsed.subjectToken)');
+    expect(voice).toContain('New job from this');
+    expect(voice).toContain('hub-schedule-voice-new');
+    expect(src('src/index.css')).toContain('.hub-schedule-voice-new');
+    expect(src('src/index.css')).toContain('hub-schedule-voice-new');
     expect(src('src/lib/quickBook.ts')).toContain('Closest match for');
     expect(src('src/index.css')).toMatch(/\.hub-schedule-voice-form \{[\s\S]{0,80}flex-direction: row/);
     expect(src('src/index.css')).toMatch(/flex-direction: column/);

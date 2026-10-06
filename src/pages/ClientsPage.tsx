@@ -549,11 +549,12 @@ const ClientRow = memo(function ClientRow({
   );
 });
 
-export function ClientForm({ client, onClose, onSaved, openedFromJob = false }: {
+export function ClientForm({ client, onClose, onSaved, openedFromJob = false, presetName }: {
   client: Client | null;
   onClose: () => void;
   onSaved: (clientId: string) => void;
   openedFromJob?: boolean;
+  presetName?: string;
 }) {
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -562,7 +563,7 @@ export function ClientForm({ client, onClose, onSaved, openedFromJob = false }: 
     openedFromJob,
   });
   const [form, setForm] = useState({
-    name: client?.name ?? '',
+    name: client?.name ?? presetName ?? '',
     contact_person: client?.contact_person ?? '',
     phone: client?.phone ?? '',
     email: client?.email ?? '',

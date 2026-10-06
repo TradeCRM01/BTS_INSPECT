@@ -25,8 +25,12 @@ export type QuickBookDateSource = 'spoken' | 'next';
 export type QuickBookParse = {
   raw: string;
   subjectToken: string | null;
+  titleToken: string | null;
+  clientToken: string | null;
+  extraTokens: string[];
   crewToken: string | null;
   crewTokens: string[];
+  address: string | null;
   date: string | null;
   dateSource: QuickBookDateSource | null;
   startTime: string | null;
@@ -47,6 +51,14 @@ export type SpokenSheetFields = {
   crewId?: string;
 };
 
+export type QuickBookNewJobDraft = {
+  title: string;
+  clientToken: string | null;
+  clientId?: string;
+  createClient: boolean;
+  address: string | null;
+};
+
 export type QuickBookResolved<
   TJob extends QuickBookJob = QuickBookJob,
   TCrew extends QuickBookNamed = QuickBookNamed,
@@ -58,6 +70,7 @@ export type QuickBookResolved<
   crew: NamedMatch<TCrew>;
   prefill: SpokenSheetFields;
   hints: QuickBookHints;
+  newJob: QuickBookNewJobDraft | null;
 };
 
 export type QuickBookSpeech = {
@@ -122,8 +135,10 @@ const WEEKDAY_TYPOS: Record<string, string> = {
 };
 
 const WEEKDAY_ALT = 'sunday|sun|monday|mon|tuesday|tue|tues|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat';
+const NEXT_WEEK_WEEKDAY_RE = new RegExp(`\\bnext\\s+week\\s+(${WEEKDAY_ALT})\\b`, 'i');
 const NEXT_WEEKDAY_RE = new RegExp(`\\bnext\\s+(${WEEKDAY_ALT})\\b`, 'i');
 const THIS_WEEKDAY_RE = new RegExp(`\\bthis\\s+(${WEEKDAY_ALT})\\b`, 'i');
+const ADDRESS_STOP = /^(today|tomorrow|next|this|with|on)$/i;
 const MONTH_DAY_RE = /\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/i;
 const FILLER_WORD = /^(the|on|at|for|to|job|jobs|book|booking|schedule|this|please)$/i;
 const LEAD_ARTICLE = /^(a|an)$/i;
@@ -335,7 +350,10 @@ function collectTimeHits(phrase: string): TimeHit[] {
     push(m, formatHm(meridiemHour(hour, m[2]), 0), 'spoken');
   }
 
-  const atHour = new RegExp(`\\bat\\s+(${NUMBER_WORD_ALT}|\\d{1,2})\\b`, 'gi');
+  const atHour = new RegExp(
+    `\\bat\\s+(${NUMBER_WORD_ALT}|\\d{1,2})\\b(?!\\s+(?!today|tomorrow|next|this|with|on\\b)[A-Za-z])`,
+    'gi',
+  );
   for (let m = atHour.exec(phrase); m; m = atHour.exec(phrase)) {
     const hour = hourFromWordOrNumber(m[1]);
     if (hour == null || hour < 1 || hour > 12) continue;
@@ -379,22 +397,33 @@ function ymdForMonthDay(clock: BrisbaneClock, day: number, startTime: string | n
   return `${year}-${String(month).padStart(2, '0')}-${String(useDay).padStart(2, '0')}`;
 }
 
+function mondayBasedNextWeekday(clock: BrisbaneClock, dow: number): string {
+  const daysSinceMonday = (clock.weekday + 6) % 7;
+  const nextMonday = addBrisbaneDays(clock.date, 7 - daysSinceMonday);
+  const fromMonday = (dow + 6) % 7;
+  return addBrisbaneDays(nextMonday, fromMonday);
+}
+
 function weekdayDate(
   clock: BrisbaneClock,
   dow: number,
   forceNext: boolean,
   startTime: string | null,
 ): string {
+  if (forceNext) return mondayBasedNextWeekday(clock, dow);
   let delta = (dow - clock.weekday + 7) % 7;
-  if (forceNext) {
-    delta = (dow - clock.weekday) + 7;
-  } else if (delta === 0 && timeAlreadyPassed(clock, startTime)) {
+  if (delta === 0 && timeAlreadyPassed(clock, startTime)) {
     delta = 7;
   }
   return addBrisbaneDays(clock.date, delta);
 }
 
 function weekdayHitInPhrase(phrase: string): { name: string; index: number; length: number; forceNext: boolean } | null {
+  const nextWeek = phrase.match(NEXT_WEEK_WEEKDAY_RE);
+  if (nextWeek && nextWeek.index != null) {
+    const name = asWeekdayName(nextWeek[1]);
+    if (name) return { name, index: nextWeek.index, length: nextWeek[0].length, forceNext: true };
+  }
   const next = phrase.match(NEXT_WEEKDAY_RE);
   if (next && next.index != null) {
     const name = asWeekdayName(next[1]);
@@ -409,7 +438,7 @@ function weekdayHitInPhrase(phrase: string): { name: string; index: number; leng
   let match: RegExpExecArray | null = re.exec(phrase);
   while (match) {
     const prev = phrase.slice(0, match.index).trim().split(/\s+/).pop()?.toLowerCase() ?? '';
-    if (prev === 'next' || prev === 'this') {
+    if (prev === 'next' || prev === 'this' || prev === 'week') {
       match = re.exec(phrase);
       continue;
     }
@@ -433,6 +462,34 @@ export function parseQuickBookDate(raw: string, now: Date = new Date(), startTim
   const weekday = weekdayHitInPhrase(phrase);
   if (!weekday) return null;
   return weekdayDate(clock, WEEKDAY_INDEX[weekday.name], weekday.forceNext, startTime);
+}
+
+function addressHit(phrase: string): { address: string; index: number; length: number } | null {
+  const starter = /\bat\s+(\d+[a-zA-Z]?)\s+/gi;
+  const head = starter.exec(phrase);
+  if (!head || head.index == null) return null;
+  const after = phrase.slice(head.index + head[0].length);
+  const words: string[] = [];
+  let consumed = head[0].length;
+  const tokens = after.split(/(\s+)/);
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    if (!token) continue;
+    if (/^\s+$/.test(token)) {
+      if (words.length) consumed += token.length;
+      continue;
+    }
+    const trimmed = token.replace(/[,.]+$/, '');
+    if (!trimmed || ADDRESS_STOP.test(trimmed) || asWeekdayName(trimmed, false)) break;
+    words.push(trimmed);
+    consumed += token.length;
+  }
+  if (words.length === 0) return null;
+  return {
+    address: `${head[1]} ${words.join(' ')}`.replace(/\s+/g, ' ').trim(),
+    index: head.index,
+    length: consumed,
+  };
 }
 
 function leftoverSubject(rest: string): string | null {
@@ -487,6 +544,9 @@ export function parseQuickBook(phrase: string, now: Date = new Date()): QuickBoo
     : null;
   work = stripHits(work, dateHits);
 
+  const placeBefore = addressHit(work);
+  if (placeBefore) work = stripHits(work, [placeBefore]);
+
   let crewTokens: string[] = [];
   const lastWith = work.toLowerCase().lastIndexOf(' with ');
   const withAtStart = work.toLowerCase().startsWith('with ') ? 0 : -1;
@@ -497,11 +557,30 @@ export function parseQuickBook(phrase: string, now: Date = new Date()): QuickBoo
     work = work.slice(0, withAt).trim();
   }
 
+  const placeAfter = addressHit(work);
+  if (placeAfter) work = stripHits(work, [placeAfter]);
+  const address = placeBefore?.address ?? placeAfter?.address ?? null;
+
+  let titleToken: string | null = null;
+  let clientToken: string | null = null;
+  let extraTokens: string[] = [];
+  const commaParts = work.split(/\s*,\s*/).map(part => leftoverSubject(part)).filter((part): part is string => !!part);
+  if (commaParts.length > 1) {
+    titleToken = commaParts[0];
+    extraTokens = commaParts.slice(1);
+  } else {
+    titleToken = leftoverSubject(work);
+  }
+
   return {
     raw,
-    subjectToken: leftoverSubject(work),
+    subjectToken: titleToken,
+    titleToken,
+    clientToken,
+    extraTokens,
     crewToken: crewTokens.length ? crewTokens.join(' and ') : null,
     crewTokens,
+    address,
     date,
     dateSource,
     startTime,
@@ -701,6 +780,26 @@ export function resolveQuickBook<
   now: Date = new Date(),
 ): QuickBookResolved<TJob, TCrew, TClient> {
   let parsed = parseQuickBook(phrase, now);
+  const extras = [...parsed.extraTokens];
+  if (parsed.crewTokens.length === 0 && extras.length > 0) {
+    const last = extras[extras.length - 1];
+    const asCrew = matchNamed(last, lists.crew);
+    const asClient = matchNamed(last, lists.clients ?? []);
+    const takeCrew = (asCrew.kind === 'one' && asClient.kind !== 'one')
+      || (extras.length >= 2 && asClient.kind !== 'one');
+    if (takeCrew) {
+      extras.pop();
+      parsed = {
+        ...parsed,
+        crewTokens: [last],
+        crewToken: last,
+        extraTokens: extras,
+      };
+    }
+  }
+  if (!parsed.clientToken && extras.length > 0) {
+    parsed = { ...parsed, clientToken: extras.join(' '), extraTokens: extras };
+  }
   let crew = matchQuickBookCrew(parsed.crewTokens, lists.crew);
   if (parsed.subjectToken && parsed.crewToken && crew.kind === 'none') {
     const whole = `${parsed.subjectToken} with ${parsed.crewToken}`;
@@ -709,6 +808,9 @@ export function resolveQuickBook<
       parsed = {
         ...parsed,
         subjectToken: whole,
+        titleToken: whole,
+        clientToken: null,
+        extraTokens: [],
         crewToken: null,
         crewTokens: [],
       };
@@ -716,13 +818,27 @@ export function resolveQuickBook<
     }
   }
   const jobs = matchQuickBookJobs(parsed.subjectToken, lists.jobs);
-  const clients = matchNamed(parsed.subjectToken, lists.clients ?? []);
+  const namedClients = lists.clients ?? [];
+  const clientLookup = parsed.clientToken && jobs.kind === 'none'
+    ? parsed.clientToken
+    : parsed.subjectToken;
+  const clients = matchNamed(clientLookup, namedClients);
+  const clientForNew = parsed.clientToken ? matchNamed(parsed.clientToken, namedClients) : clients;
   const resolved = {
     parse: parsed,
     jobs,
     clients,
     crew,
     prefill: {} as SpokenSheetFields,
+    newJob: jobs.kind === 'none' && parsed.titleToken
+      ? {
+          title: parsed.titleToken,
+          clientToken: parsed.clientToken,
+          clientId: clientForNew.kind === 'one' ? clientForNew.items[0].id : undefined,
+          createClient: !!parsed.clientToken && clientForNew.kind !== 'one',
+          address: parsed.address,
+        }
+      : null,
     hints: {
       job: parsed.subjectToken
         ? jobs.kind === 'none'

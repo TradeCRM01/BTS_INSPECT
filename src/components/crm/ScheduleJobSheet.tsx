@@ -4,6 +4,7 @@ import type { JobWithClient } from '../../types/crm';
 import { scheduleDayKey, type ScheduleSheetInput } from '../../lib/scheduleBoard';
 import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
 import { assumedTradeTag, checkDateTag } from '../../lib/quickBook';
+import { FromBooking } from './FromBooking';
 
 function timeInput(value: string | null | undefined): string {
   return (value ?? '').slice(0, 5);
@@ -13,11 +14,6 @@ function sheetSiteLine(job: JobWithClient | null): string {
   if (!job) return '';
   const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
   return [job.client_name, suburb].filter(Boolean).join(' · ');
-}
-
-function FromBooking({ show }: { show: boolean }) {
-  if (!show) return null;
-  return <span className="hub-schedule-from-booking">From your booking</span>;
 }
 
 export function ScheduleJobSheet({

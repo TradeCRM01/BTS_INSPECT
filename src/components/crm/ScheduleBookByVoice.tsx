@@ -23,12 +23,14 @@ export function ScheduleBookByVoice({
   hints,
   jobPicks = [],
   onPickJob,
+  onNewJob,
 }: {
   onApply: (phrase: string) => void;
   applying?: boolean;
   hints?: { job?: string | null; client?: string | null; crew?: string | null };
   jobPicks?: ScheduleVoiceJobPick[];
   onPickJob?: (jobId: string) => void;
+  onNewJob?: () => void;
 }) {
   const [phrase, setPhrase] = useState('');
   const [listening, setListening] = useState(false);
@@ -148,6 +150,15 @@ export function ScheduleBookByVoice({
             </li>
           ))}
         </ul>
+      ) : null}
+      {onNewJob ? (
+        <button
+          type="button"
+          className="hub-schedule-voice-new"
+          onClick={onNewJob}
+        >
+          New job from this
+        </button>
       ) : null}
     </div>
   );
