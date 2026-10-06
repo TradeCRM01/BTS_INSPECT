@@ -172,6 +172,123 @@ export function reportPdfFilename(opts: { siteName: string; reportNumber: string
   return `${site} - ${number}.pdf`;
 }
 
+/** Storage object name — ASCII only. Download name stays on reportPdfFilename. */
+export function reportPdfAsciiSlug(value: string, fallback = 'Site'): string {
+  const ascii = (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\u2010-\u2015\u2212]/g, '-')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[.-]+|[.-]+$/g, '');
+  return ascii || fallback;
+}
+
+export function reportPdfStorageKey(opts: { siteName: string; reportNumber: string }): string {
+  const site = reportPdfAsciiSlug(opts.siteName.trim() || 'Site', 'Site');
+  const number = reportPdfAsciiSlug(opts.reportNumber.trim() || 'report', 'report');
+  return `${site}-${number}.pdf`;
+}
+
+export const REPORT_PDF_UPLOAD_FAIL_MESSAGE = 'Could not save the report PDF. Try again.';
+
+export function reportPdfPersistPath(opts: {
+  inspectionId: string;
+  siteName: string;
+  reportNumber: string;
+  existingPath?: string | null;
+}): string {
+  const existing = (opts.existingPath ?? '').trim();
+  if (existing) return existing;
+  return `${opts.inspectionId}/${reportPdfStorageKey({
+    siteName: opts.siteName,
+    reportNumber: opts.reportNumber,
+  })}`;
+}
+
+export function shouldMarkInspectionIssued(status: string | null | undefined): boolean {
+  return status !== 'issued' && status !== 'sent';
+}
+
+export type ReportPdfStore = {
+  upload: (path: string, blob: Blob) => Promise<{ error: { message?: string } | null }>;
+  insertReport: (row: {
+    company_id: string;
+    inspection_id: string;
+    report_number: string;
+    pdf_storage_path: string;
+  }) => Promise<{ error: { message?: string } | null }>;
+  updateReportPath: (reportId: string, path: string) => Promise<{ error: { message?: string } | null }>;
+  markIssued: (inspectionId: string) => Promise<{ error: { message?: string } | null }>;
+  remove: (path: string) => Promise<unknown>;
+};
+
+export async function persistGeneratedReportPdf(
+  input: {
+    inspectionId: string;
+    companyId: string;
+    reportNumber: string;
+    siteName: string;
+    blob: Blob;
+    existingReportId?: string | null;
+    existingPath?: string | null;
+    inspectionStatus?: string | null;
+  },
+  store: ReportPdfStore,
+  log: Pick<Console, 'error'> = console,
+): Promise<{ ok: true; storagePath: string } | { ok: false; error: string }> {
+  const existingPath = (input.existingPath ?? '').trim();
+  const storagePath = reportPdfPersistPath({
+    inspectionId: input.inspectionId,
+    siteName: input.siteName,
+    reportNumber: input.reportNumber,
+    existingPath,
+  });
+
+  const { error: upErr } = await store.upload(storagePath, input.blob);
+  if (upErr) {
+    log.error(upErr);
+    return { ok: false, error: REPORT_PDF_UPLOAD_FAIL_MESSAGE };
+  }
+
+  if (!input.existingReportId) {
+    const { error: insErr } = await store.insertReport({
+      company_id: input.companyId,
+      inspection_id: input.inspectionId,
+      report_number: input.reportNumber,
+      pdf_storage_path: storagePath,
+    });
+    if (insErr) {
+      log.error(insErr);
+      try {
+        const removed = await store.remove(storagePath);
+        if (removed && typeof removed === 'object' && 'error' in removed && (removed as { error?: unknown }).error) {
+          log.error((removed as { error: unknown }).error);
+        }
+      } catch (err) {
+        log.error(err);
+      }
+      return { ok: false, error: REPORT_PDF_UPLOAD_FAIL_MESSAGE };
+    }
+  } else if (!existingPath) {
+    const { error: pathErr } = await store.updateReportPath(input.existingReportId, storagePath);
+    if (pathErr) {
+      log.error(pathErr);
+      return { ok: false, error: REPORT_PDF_UPLOAD_FAIL_MESSAGE };
+    }
+  }
+
+  if (shouldMarkInspectionIssued(input.inspectionStatus)) {
+    const { error: issueErr } = await store.markIssued(input.inspectionId);
+    if (issueErr) {
+      log.error(issueErr);
+      return { ok: false, error: REPORT_PDF_UPLOAD_FAIL_MESSAGE };
+    }
+  }
+
+  return { ok: true, storagePath };
+}
+
 export function reportSmsBody(opts: {
   companyName: string;
   reportNumber: string;

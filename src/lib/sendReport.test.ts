@@ -16,6 +16,8 @@ import {
   reportByIdQuery,
   reportIsSent,
   reportPdfFilename,
+  reportPdfStorageKey,
+  REPORT_PDF_UPLOAD_FAIL_MESSAGE,
   reportSendClientQuery,
   reportSendHtml,
   reportSendInspectionQuery,
@@ -268,11 +270,27 @@ describe('report send copy / document name', () => {
   it('names the PDF and subject from the site and report number', () => {
     expect(reportPdfFilename({ siteName: 'Plant A', reportNumber: 'BTS-260821-1234' }))
       .toBe('Plant A - BTS-260821-1234.pdf');
+    expect(reportPdfFilename({ siteName: 'Plant — Café / North', reportNumber: 'BTS-260821-1234' }))
+      .toBe('Plant — Café _ North - BTS-260821-1234.pdf');
     expect(reportSendSubject({
       siteName: 'Plant A',
       reportNumber: 'BTS-260821-1234',
       companyName: 'BTS Electrical',
     })).toBe('Inspection Report — Plant A — BTS-260821-1234 from BTS Electrical');
+  });
+
+  it('keeps the storage key ASCII-safe for em-dash, accents, slashes, and spaces', () => {
+    expect(reportPdfStorageKey({ siteName: 'Plant — A', reportNumber: 'BTS-260821-1234' }))
+      .toBe('Plant-A-BTS-260821-1234.pdf');
+    expect(reportPdfStorageKey({ siteName: 'Café / North', reportNumber: 'BTS-260821-1234' }))
+      .toBe('Cafe-North-BTS-260821-1234.pdf');
+    expect(reportPdfStorageKey({ siteName: 'Site  one', reportNumber: 'BTS-260821-1234' }))
+      .toBe('Site-one-BTS-260821-1234.pdf');
+    expect(reportPdfStorageKey({ siteName: 'Plant — Café / North', reportNumber: 'BTS-260821-1234' }))
+      .toMatch(/^[A-Za-z0-9._-]+\.pdf$/);
+    expect(reportPdfFilename({ siteName: 'Plant — Café / North', reportNumber: 'BTS-260821-1234' }))
+      .toMatch(/Plant — Café/);
+    expect(REPORT_PDF_UPLOAD_FAIL_MESSAGE).toBe('Could not save the report PDF. Try again.');
   });
 
   it('mentions the attached PDF and does not invent a portal', () => {
