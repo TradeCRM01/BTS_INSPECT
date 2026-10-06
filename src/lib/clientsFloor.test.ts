@@ -184,7 +184,7 @@ describe('open the client, see jobs, open a job', () => {
   });
 
   it('does not dress a jobs load miss as an empty tray', () => {
-    expect(clientJobsEmptyTitle({ error: true, count: 0 })).toBe('Could not load jobs');
+    expect(clientJobsEmptyTitle({ error: true, count: 0 })).toBe("Couldn't load jobs.");
     expect(clientJobsEmptyTitle({ error: false, count: 0 })).toBe('No jobs yet');
     expect(clientJobsEmptyTitle({ error: false, count: 2 })).toBe('');
   });

@@ -13,6 +13,7 @@ import { JobClientReminder, type JobClientReminderHandle } from '../components/j
 import { buildJobCalendar, calendarSite, downloadJobCalendar } from '../lib/jobCalendar';
 import { formatJobRef } from '../lib/jobRef';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
+import { jobSheetHeaderPrimaryHeld, listQueryBusy } from '../lib/listQueryReady';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import type { Client, Job, JobStatus } from '../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY_DOT } from '../types/crm';
@@ -1682,7 +1683,7 @@ export function JobDetailPage() {
     enabled: !!profile,
   });
 
-  const { data: inspections } = useQuery<JobInspection[]>({
+  const { data: inspections, isPending: inspectionsPending, isError: inspectionsError, refetch: refetchInspections } = useQuery<JobInspection[]>({
     queryKey: ['job-inspections', id, job?.inspection_id],
     queryFn: async () => {
       const empty = getAuditEmptyList();
@@ -1744,7 +1745,7 @@ export function JobDetailPage() {
     enabled: !!id && !!inspections,
   });
 
-  const { data: jhas } = useQuery<JobJha[]>({
+  const { data: jhas, isPending: jhasPending, isError: jhasError, refetch: refetchJhas } = useQuery<JobJha[]>({
     queryKey: ['job-jhas', id],
     queryFn: async () => {
       const empty = getAuditEmptyList();
@@ -1760,7 +1761,7 @@ export function JobDetailPage() {
     enabled: !!id && !!profile,
   });
 
-  const { data: take5s } = useQuery<JobTake5[]>({
+  const { data: take5s, isPending: take5sPending, isError: take5sError, refetch: refetchTake5s } = useQuery<JobTake5[]>({
     queryKey: ['job-take5s', id, (jhas ?? []).map(doc => doc.id).join(',')],
     queryFn: async () => {
       const jhaIds = (jhas ?? []).map(doc => doc.id);
@@ -1776,7 +1777,7 @@ export function JobDetailPage() {
     enabled: !!id && !!profile && !!jhas,
   });
 
-  const { data: quotes } = useQuery<JobQuote[]>({
+  const { data: quotes, isPending: quotesPending, isError: quotesError, refetch: refetchQuotes } = useQuery<JobQuote[]>({
     queryKey: ['job-quotes', id],
     queryFn: async () => {
       if (p307LookKind() === 'quoted') {
@@ -1801,7 +1802,7 @@ export function JobDetailPage() {
     enabled: !!id && !!profile,
   });
 
-  const { data: invoices } = useQuery<JobInvoice[]>({
+  const { data: invoices, isPending: invoicesPending, isError: invoicesError, refetch: refetchInvoices } = useQuery<JobInvoice[]>({
     queryKey: ['job-invoices', id],
     queryFn: async () => {
       const p307 = p307LookKind();
@@ -1829,7 +1830,7 @@ export function JobDetailPage() {
     enabled: !!id && !!profile,
   });
 
-  const { data: timesheets } = useQuery<JobTimesheet[]>({
+  const { data: timesheets, isPending: timesheetsPending, isError: timesheetsError, refetch: refetchTimesheets } = useQuery<JobTimesheet[]>({
     queryKey: ['job-timesheets', id],
     queryFn: async () => {
       if (jobHoursLookOn()) return lookJobTimesheets(id!);
@@ -1845,6 +1846,18 @@ export function JobDetailPage() {
     },
     enabled: !!id && !!profile,
   });
+
+  const jhasBusy = listQueryBusy({ isPending: jhasPending, isError: jhasError, data: jhas });
+  const take5sBusy = listQueryBusy({
+    isPending: take5sPending,
+    isError: take5sError || jhasError,
+    data: take5s,
+  });
+  const inspectionsBusy = listQueryBusy({ isPending: inspectionsPending, isError: inspectionsError, data: inspections });
+  const quotesBusy = listQueryBusy({ isPending: quotesPending, isError: quotesError, data: quotes });
+  const invoicesBusy = listQueryBusy({ isPending: invoicesPending, isError: invoicesError, data: invoices });
+  const timesheetsBusy = listQueryBusy({ isPending: timesheetsPending, isError: timesheetsError, data: timesheets });
+  const take5sFailed = take5sError || jhasError;
 
   const { data: visitNotes } = useQuery<JobVisitNote[]>({
     queryKey: ['job-visit-notes', id],
@@ -2424,6 +2437,13 @@ export function JobDetailPage() {
   const next = sheetNext.action;
   const nextLabel = next.key === 'send' ? 'Share' : sheetNext.label;
   const arrivingPrimary = sheetNext.label === ARRIVING_NEXT_LABEL;
+  const headerPrimaryHeld = jobSheetHeaderPrimaryHeld({
+    nextKey: next.key,
+    jhasPending,
+    jhasError,
+    inspectionsPending,
+    inspectionsError,
+  });
 
   const nextBusy =
     (next.key === 'invoice' && invoiceFromJobBill.isPending) ||
@@ -2521,6 +2541,12 @@ export function JobDetailPage() {
     jhaCount: (jhas ?? []).length,
     take5Count: (take5s ?? []).length,
     inspectionCount: (inspections ?? []).length,
+    jhaBusy: jhasBusy,
+    jhaError: jhasError,
+    take5Busy: take5sBusy,
+    take5Error: take5sFailed,
+    inspectionsBusy,
+    inspectionsError,
     testingDueCount: dueTests.length,
     noteCount: visitLog.length,
     photoCount: gallery.length,
@@ -2701,7 +2727,17 @@ export function JobDetailPage() {
             </select>
 
             <div className="hub-jobs-tools">
-              {next.key === 'inspect' && !arrivingPrimary ? (
+              {headerPrimaryHeld ? (
+                <button
+                  type="button"
+                  className="btn-primary ops-next-control-block"
+                  disabled
+                  aria-busy="true"
+                  data-job-next-held="1"
+                >
+                  <span className="skeleton inline-block h-4 w-24 rounded bg-white/30" />
+                </button>
+              ) : next.key === 'inspect' && !arrivingPrimary ? (
                 <Link to={inspectHref} className="btn-primary ops-next-control-block" title={next.detail}>{nextLabel}</Link>
               ) : next.key !== 'none' || arrivingPrimary ? (
                 <button
@@ -2949,7 +2985,24 @@ export function JobDetailPage() {
                     icon={LANE_ICONS[row.section] ?? FileText}
                     title={row.label}
                     meta={row.meta || undefined}
-                    trailing={<OpsStatus className={`ops-status-${row.tone}`}>{row.status}</OpsStatus>}
+                    trailing={row.status ? <OpsStatus className={`ops-status-${row.tone}`}>{row.status}</OpsStatus> : undefined}
+                    action={row.retry ? (
+                      <button
+                        type="button"
+                        className="ops-link inline-flex items-center min-h-[44px] px-2"
+                        data-overview-retry={row.section}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (row.section === 'job-swms') {
+                            if (jhasError) void refetchJhas();
+                            void refetchTake5s();
+                          }
+                          if (row.section === 'job-visit-notes') void refetchInspections();
+                        }}
+                      >
+                        Retry
+                      </button>
+                    ) : undefined}
                   />
                 ))}
               </div>
@@ -3030,6 +3083,10 @@ export function JobDetailPage() {
             title="JHA / SWMS"
             icon={ShieldCheck}
             count={(jhas ?? []).length}
+            loading={jhasBusy}
+            error={jhasError}
+            errorThing="JHA"
+            onRetry={() => { void refetchJhas(); }}
             action={(jhas ?? []).length > 0 ? (
               <details className="job-swms-more">
                 <summary aria-label="More">
@@ -3128,6 +3185,13 @@ export function JobDetailPage() {
             title="Take 5"
             icon={ShieldAlert}
             count={(take5s ?? []).length}
+            loading={take5sBusy}
+            error={take5sFailed}
+            errorThing="Take 5"
+            onRetry={() => {
+              if (jhasError) void refetchJhas();
+              void refetchTake5s();
+            }}
             action={(take5s ?? []).length > 0 ? (
               <button type="button" onClick={startTake5} className="ops-link">
                 Another Take 5
@@ -3463,6 +3527,10 @@ export function JobDetailPage() {
             title="Inspections"
             icon={ClipboardList}
             count={(inspections ?? []).length}
+            loading={inspectionsBusy}
+            error={inspectionsError}
+            errorThing="inspections"
+            onRetry={() => { void refetchInspections(); }}
             action={
               <Link to={inspectHref} className="ops-link text-xs">
                 <Plus size={12} className="inline" /> Add inspection
@@ -3636,6 +3704,10 @@ export function JobDetailPage() {
             title="Quotes"
             icon={FileText}
             count={(quotes ?? []).length}
+            loading={quotesBusy}
+            error={quotesError}
+            errorThing="quotes"
+            onRetry={() => { void refetchQuotes(); }}
             emptyTitle="No quote on this job. That’s fine for do-and-charge — invoice from the bill."
           >
             {(quotes ?? []).map(q => (
@@ -3686,6 +3758,10 @@ export function JobDetailPage() {
             title="Invoices"
             icon={Receipt}
             count={(invoices ?? []).length}
+            loading={invoicesBusy}
+            error={invoicesError}
+            errorThing="invoices"
+            onRetry={() => { void refetchInvoices(); }}
             emptyTitle="Nothing invoiced yet. Invoice an accepted quote, or from the job bill."
             emptyAction={
               <button type="button" onClick={handleInvoice} disabled={invoiceFromJobBill.isPending} className="ops-link">
@@ -3736,6 +3812,10 @@ export function JobDetailPage() {
           title="Time on this job"
           icon={Clock}
           count={(timesheets ?? []).length}
+          loading={timesheetsBusy}
+          error={timesheetsError}
+          errorThing="time"
+          onRetry={() => { void refetchTimesheets(); }}
           summary={formatJobHoursTotal(jobClockedMinutes(timesheets ?? [], jobHoursNow))}
           action={
             <div className="flex items-center gap-3">

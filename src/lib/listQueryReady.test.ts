@@ -1,20 +1,71 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { LIST_LOADING_LABEL, listCountWhisper, listQueryBusy } from './listQueryReady';
+import {
+  LIST_LOADING_LABEL,
+  jobSheetHeaderPrimaryHeld,
+  listCountWhisper,
+  listPendingCount,
+  listPendingNounCount,
+  listQueryBusy,
+  listSectionLoadError,
+  listShowEmpty,
+  jobRelatedShowEmpty,
+} from './listQueryReady';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
 describe('listQueryBusy', () => {
-  it('stays busy while pending or loading so 0 / empty UI stays hidden', () => {
+  it('stays busy while pending so 0 / empty UI stays hidden', () => {
     expect(listQueryBusy({ isPending: true, data: undefined })).toBe(true);
-    expect(listQueryBusy({ isLoading: true, data: undefined })).toBe(true);
-    expect(listQueryBusy({ isPending: false, isLoading: false, data: undefined })).toBe(true);
     expect(listQueryBusy({ isPending: false, isLoading: false, data: [] })).toBe(false);
     expect(listQueryBusy({ isPending: false, isLoading: false, data: [{ id: '1' }] })).toBe(false);
     expect(listQueryBusy({ isPending: true, data: undefined, seeded: true })).toBe(false);
+    expect(listShowEmpty(true, 0)).toBe(false);
+    expect(listShowEmpty(false, 0)).toBe(true);
+  });
+
+  it('error is not busy and not empty', () => {
+    expect(listQueryBusy({ isPending: false, isError: true, data: undefined })).toBe(false);
+    expect(listQueryBusy({ isPending: true, isError: true, data: undefined })).toBe(false);
+    expect(listShowEmpty(false, 0, true)).toBe(false);
+    expect(jobRelatedShowEmpty(false, 0, true)).toBe(false);
+    expect(listSectionLoadError('quotes')).toBe("Couldn't load quotes.");
+  });
+});
+
+describe('jobSheetHeaderPrimaryHeld', () => {
+  it('holds Start JHA / Start inspection until those queries resolve', () => {
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'jha', jhasPending: true })).toBe(true);
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'inspect', inspectionsPending: true })).toBe(true);
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'jha', jhasPending: false })).toBe(false);
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'inspect', inspectionsPending: false })).toBe(false);
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'schedule', jhasPending: true, inspectionsPending: true })).toBe(false);
+  });
+
+  it('jha errored, so not held', () => {
+    expect(jobSheetHeaderPrimaryHeld({
+      nextKey: 'jha',
+      jhasPending: false,
+      jhasError: true,
+    })).toBe(false);
+    expect(jobSheetHeaderPrimaryHeld({
+      nextKey: 'jha',
+      jhasPending: true,
+      jhasError: true,
+    })).toBe(false);
+  });
+});
+
+describe('listPendingCount', () => {
+  it('hides contract totals and tab counts while busy', () => {
+    expect(listPendingCount(true, 0)).toBe('…');
+    expect(listPendingCount(false, 0)).toBe('0');
+    expect(listPendingCount(false, 4)).toBe('4');
+    expect(listPendingNounCount(true, 0, 'total contracts')).toBe('…');
+    expect(listPendingNounCount(false, 3, 'total contracts')).toBe('3 total contracts');
   });
 });
 

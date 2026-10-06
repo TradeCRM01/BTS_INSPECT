@@ -137,6 +137,59 @@ describe('jobSheetOverviewRows', () => {
     ]);
   });
 
+  it('holds Safety and Field records while busy and drops zeros on error', () => {
+    const base = {
+      scheduledDate: '2026-08-25' as string | null,
+      startTime: '07:30:00' as string | null,
+      crewNames: ['Field Audit'],
+      jhaCount: 0,
+      take5Count: 0,
+      inspectionCount: 0,
+      testingDueCount: 0,
+      noteCount: 0,
+      photoCount: 0,
+      quoteCount: 0,
+      invoiceCount: 0,
+      billLines: 0,
+      billCost: 0,
+      billCharge: 0,
+    };
+    const busy = jobSheetOverviewRows({
+      ...base,
+      jhaBusy: true,
+      take5Busy: true,
+      inspectionsBusy: true,
+    });
+    expect(busy[1]).toEqual({
+      section: 'job-swms',
+      label: 'Safety',
+      meta: '…',
+      status: '',
+      tone: 'wait',
+    });
+    expect(busy[1].status).not.toBe('No JHA');
+    expect(busy[1].meta).not.toContain('0 JHA');
+    expect(busy[1].retry).toBeFalsy();
+    expect(busy[2].meta).toBe('…');
+    expect(busy[2].meta).not.toContain('0 inspections');
+    expect(busy[2].retry).toBeFalsy();
+
+    const failed = jobSheetOverviewRows({
+      ...base,
+      jhaError: true,
+      take5Error: true,
+      inspectionsError: true,
+    });
+    expect(failed[1].meta).toBe("Couldn't load JHA.");
+    expect(failed[1].status).toBe('');
+    expect(failed[1].status).not.toBe('No JHA');
+    expect(failed[1].meta).not.toMatch(/0 /);
+    expect(failed[1].retry).toBe(true);
+    expect(failed[2].meta).toBe("Couldn't load inspections.");
+    expect(failed[2].meta).not.toMatch(/0 /);
+    expect(failed[2].retry).toBe(true);
+  });
+
   it('sends every lane to a section on a tab other than Overview', () => {
     const rows = jobSheetOverviewRows({
       scheduledDate: '2026-09-12',

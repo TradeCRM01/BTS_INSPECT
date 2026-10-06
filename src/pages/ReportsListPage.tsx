@@ -48,11 +48,13 @@ import {
   reportsListEmptyTitle,
   reportsListJobLine,
   reportsListOpened,
+  reportsListShowEmpty,
   sortReportsForList,
   uploadedPdfOpenHref,
   type ReportListFilter,
   type ReportListStatus,
 } from '../lib/reportsList';
+import { listCountWhisper, listQueryBusy, listSectionLoadError } from '../lib/listQueryReady';
 
 interface FolderRow {
   id: string;
@@ -264,7 +266,7 @@ export function ReportsListPage() {
     hasStoredBackupDir().then(setBackupConnected);
   }, []);
 
-  const { data: allFolders, error: foldersError, isLoading: foldersLoading } = useQuery<FolderRow[]>({
+  const { data: allFolders, error: foldersError, isPending: foldersPending, isLoading: foldersLoading, refetch: refetchFolders } = useQuery<FolderRow[]>({
     queryKey: ['drive-folders'],
     queryFn: async () => {
       const empty = getAuditEmptyList();
@@ -315,7 +317,7 @@ export function ReportsListPage() {
     }
   }, [params.folderId, allFolders, currentFolderId, navigate]);
 
-  const { data: allUploads, error: uploadsError, isLoading: uploadsLoading } = useQuery<UploadedPdfRow[]>({
+  const { data: allUploads, error: uploadsError, isPending: uploadsPending, isLoading: uploadsLoading, refetch: refetchUploads } = useQuery<UploadedPdfRow[]>({
     queryKey: ['uploaded-pdfs'],
     queryFn: async () => {
       const mockUploads = getAuditDriveUploads();
@@ -332,7 +334,7 @@ export function ReportsListPage() {
     enabled: !!companyId && !lookReportsList,
   });
 
-  const { data: allReports, error: reportsError, isLoading: reportsLoading, refetch: refetchReports } = useQuery<ReportRow[]>({
+  const { data: allReports, error: reportsError, isPending: reportsPending, isLoading: reportsLoading, refetch: refetchReports } = useQuery<ReportRow[]>({
     queryKey: ['all-reports', lookReportsError ? 'error' : 'live'],
     queryFn: async () => {
       if (lookReportsError) throw new Error('Could not load reports');
@@ -928,18 +930,45 @@ export function ReportsListPage() {
     return <AppShell><PageError message="Could not load reports" /></AppShell>;
   }
 
-  const loading = !lookReportsList && !!companyId && (reportsLoading || foldersLoading || uploadsLoading) && !allReports && !allUploads;
+  const reportsBusy = listQueryBusy({
+    isPending: reportsPending,
+    isLoading: reportsLoading,
+    data: allReports,
+    seeded: lookReportsList,
+  });
+  const foldersBusy = listQueryBusy({
+    isPending: foldersPending,
+    isLoading: foldersLoading,
+    isError: Boolean(foldersError),
+    data: allFolders,
+    seeded: lookReportsList,
+  });
+  const uploadsBusy = listQueryBusy({
+    isPending: uploadsPending,
+    isLoading: uploadsLoading,
+    isError: Boolean(uploadsError),
+    data: allUploads,
+    seeded: lookReportsList,
+  });
+  const loading = !!companyId && (reportsBusy || foldersBusy || uploadsBusy);
   const filterLabel = statusFilter === 'ready' ? 'Ready' : statusFilter === 'sent' ? 'Sent' : 'All';
-  const whisper = [
+  const whisper = listCountWhisper({
+    busy: reportsBusy,
     filterLabel,
-    reportItems.length === 1 ? '1 report' : `${reportItems.length} reports`,
-  ].join(' · ');
+    count: reportItems.length,
+    singular: 'report',
+    plural: 'reports',
+  });
   const emptyTitle = reportsListEmptyTitle({
     search,
     filter: statusFilter,
     count: reportItems.length,
   });
-  const showReportsEmpty = !loading && reportItems.length === 0;
+  const showReportsEmpty = reportsListShowEmpty({
+    seeded: lookReportsList,
+    allReports,
+    itemCount: reportItems.length,
+  });
   const showFiles = fileItems.length > 0;
 
   const openedTitle = openedReport
@@ -1088,7 +1117,21 @@ export function ReportsListPage() {
                 />
               ))}
 
-            {showFiles && (
+            {foldersError ? (
+              <p className="ops-meta" data-list-load-error="folders">
+                {listSectionLoadError('folders')}
+                {' '}
+                <button type="button" className="ops-link" onClick={() => { void refetchFolders(); }}>Retry</button>
+              </p>
+            ) : null}
+            {uploadsError ? (
+              <p className="ops-meta" data-list-load-error="uploads">
+                {listSectionLoadError('uploads')}
+                {' '}
+                <button type="button" className="ops-link" onClick={() => { void refetchUploads(); }}>Retry</button>
+              </p>
+            ) : null}
+            {!foldersError && !uploadsError && showFiles && (
               <div className="hub-reports-files">
                 <h2 className="hub-reports-files-title">Files on this list</h2>
                 {fileItems.map(item => (

@@ -194,7 +194,7 @@ export function sortClientJobsForFloor<T extends {
 }
 
 export function clientJobsEmptyTitle(args: { error?: boolean; count: number }): string {
-  if (args.error) return 'Could not load jobs';
+  if (args.error) return "Couldn't load jobs.";
   if (args.count === 0) return 'No jobs yet';
   return '';
 }
