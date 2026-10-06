@@ -300,7 +300,11 @@ export function ReportPage() {
           return { error };
         },
         markIssued: async inspectionId => {
-          const { error } = await supabase.from('inspections').update({ status: 'issued' }).eq('id', inspectionId);
+          const { error } = await supabase
+            .from('inspections')
+            .update({ status: 'issued' })
+            .eq('id', inspectionId)
+            .not('status', 'in', '(issued,sent)');
           return { error };
         },
         remove: path => supabase.storage.from('reports').remove([path]),
@@ -310,6 +314,7 @@ export function ReportPage() {
         return;
       }
       queryClient.invalidateQueries({ queryKey: ['report', id] });
+      queryClient.invalidateQueries({ queryKey: ['inspection', id] });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'PDF generation failed');
     } finally {

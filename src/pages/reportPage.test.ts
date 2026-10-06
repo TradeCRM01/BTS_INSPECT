@@ -68,6 +68,8 @@ describe('report PDF storage key', () => {
     expect(page).not.toContain('setError(insErr.message');
     expect(page).toContain('reportPdfFilename');
     expect(page).toContain('a.download = filename');
+    expect(page).toContain(".not('status', 'in', '(issued,sent)')");
+    expect(page).toContain("queryKey: ['inspection', id]");
   });
 });
 
@@ -132,5 +134,32 @@ describe('persistGeneratedReportPdf', () => {
     expect(result.ok).toBe(true);
     expect(db.inserts).toEqual([]);
     expect(db.issued).toEqual(['insp-1']);
+  });
+
+  it('does not mark issued when the inspection is already sent', async () => {
+    const db = store();
+    const result = await persistGeneratedReportPdf({
+      ...base,
+      existingReportId: 'rep-1',
+      existingPath: 'insp-1/Plant A - BTS-260821-1234.pdf',
+      inspectionStatus: 'sent',
+    }, db);
+    expect(result.ok).toBe(true);
+    expect(db.issued).toEqual([]);
+  });
+
+  it('logs remove errors without changing the insert-fail banner', async () => {
+    const log = { error: vi.fn() };
+    const db = store({
+      insertReport: async (row) => {
+        db.inserts.push(row);
+        return { error: { message: 'duplicate key value' } };
+      },
+      remove: async () => ({ error: { message: 'storage remove denied' } }),
+    });
+    const result = await persistGeneratedReportPdf(base, db, log);
+    expect(result).toEqual({ ok: false, error: REPORT_PDF_UPLOAD_FAIL_MESSAGE });
+    expect(log.error).toHaveBeenCalledWith({ message: 'duplicate key value' });
+    expect(log.error).toHaveBeenCalledWith({ message: 'storage remove denied' });
   });
 });

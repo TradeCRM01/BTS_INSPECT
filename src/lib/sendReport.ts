@@ -260,7 +260,14 @@ export async function persistGeneratedReportPdf(
     });
     if (insErr) {
       log.error(insErr);
-      try { await store.remove(storagePath); } catch { /* orphan file is better than a silent fail */ }
+      try {
+        const removed = await store.remove(storagePath);
+        if (removed && typeof removed === 'object' && 'error' in removed && (removed as { error?: unknown }).error) {
+          log.error((removed as { error: unknown }).error);
+        }
+      } catch (err) {
+        log.error(err);
+      }
       return { ok: false, error: REPORT_PDF_UPLOAD_FAIL_MESSAGE };
     }
   } else if (!existingPath) {
