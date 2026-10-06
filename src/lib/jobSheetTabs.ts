@@ -1,4 +1,8 @@
 import { format, parseISO } from 'date-fns';
+import {
+  jobCrewScheduleOverviewTone,
+  jobCrewScheduleStatus,
+} from './jobCrewScheduleStatus';
 import { formatMoney } from '../types/fsm';
 import { listSectionLoadError } from './listQueryReady';
 
@@ -70,7 +74,7 @@ export function writeJobSheetTab(params: URLSearchParams, tab: JobSheetTab): URL
   return params;
 }
 
-export type JobSheetOverviewTone = 'ok' | 'wait' | 'progress' | 'bad' | 'info';
+export type JobSheetOverviewTone = 'ok' | 'wait' | 'progress' | 'bad' | 'info' | 'warn';
 
 export interface JobSheetOverviewFacts {
   scheduledDate: string | null;
@@ -156,13 +160,14 @@ export function jobSheetOverviewRows(facts: JobSheetOverviewFacts): JobSheetOver
     : crewBusy
       ? [when, '…'].filter(Boolean).join(' · ')
       : [when, facts.crewNames.length > 0 ? facts.crewNames.join(', ') : 'Unassigned'].filter(Boolean).join(' · ');
+  const crewSchedule = jobCrewScheduleStatus(facts.scheduledDate, facts.crewNames);
   return [
     {
       section: 'job-schedule',
       label: 'Schedule & people',
       meta: crewMeta,
-      status: crewError || crewBusy ? '' : (facts.scheduledDate ? 'Booked' : 'Not booked'),
-      tone: crewError || crewBusy ? 'wait' : (facts.scheduledDate ? 'ok' : 'wait'),
+      status: crewError || crewBusy ? '' : crewSchedule.label,
+      tone: crewError || crewBusy ? 'wait' : jobCrewScheduleOverviewTone(crewSchedule.kind),
       ...(crewError ? { retry: true } : {}),
     },
     {
