@@ -209,10 +209,10 @@ export function ContractsPage() {
             <SkeletonSummaryCards count={4} />
           ) : (
             <>
-              <SummaryCard label="Total" value={totals.total} accentColor="#0A2540" />
-              <SummaryCard label="Active Value" value={formatMoney(totals.activeValue)} accentColor="#16A34A" />
-              <SummaryCard label="Due Soon" value={totals.dueSoon} accentColor="#2E75B6" />
-              <SummaryCard label="Overdue" value={totals.overdue} accentColor="#DC2626" />
+              <SummaryCard label="Total" value={listPendingCount(countsHeld, totals.total)} accentColor="#0A2540" />
+              <SummaryCard label="Active Value" value={countsHeld ? '…' : formatMoney(totals.activeValue)} accentColor="#16A34A" />
+              <SummaryCard label="Due Soon" value={listPendingCount(countsHeld, totals.dueSoon)} accentColor="#2E75B6" />
+              <SummaryCard label="Overdue" value={listPendingCount(countsHeld, totals.overdue)} accentColor="#DC2626" />
             </>
           )}
         </div>

@@ -3,7 +3,9 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   LIST_LOADING_LABEL,
+  jobSheetHeaderPrimaryDetail,
   jobSheetHeaderPrimaryHeld,
+  jobSheetIdentityCrewLabel,
   listCountWhisper,
   listPendingCount,
   listPendingNounCount,
@@ -56,6 +58,40 @@ describe('jobSheetHeaderPrimaryHeld', () => {
       jhasPending: true,
       jhasError: true,
     })).toBe(false);
+  });
+
+  it('holds Clock In / Add phone until timesheets and client settle', () => {
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'clock', timesheetsPending: true })).toBe(true);
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'phone', clientPending: true })).toBe(true);
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'clock', timesheetsPending: false, clientPending: false })).toBe(false);
+    expect(jobSheetHeaderPrimaryHeld({
+      nextKey: 'clock',
+      timesheetsPending: true,
+      timesheetsError: true,
+    })).toBe(false);
+    expect(jobSheetHeaderPrimaryHeld({
+      nextKey: 'phone',
+      clientPending: true,
+      clientError: true,
+    })).toBe(false);
+  });
+
+  it('holds the CTA helper so Clock In copy cannot flash under the skeleton', () => {
+    expect(jobSheetHeaderPrimaryDetail(true, 'Clock in when you start work.')).toBe('');
+    expect(jobSheetHeaderPrimaryDetail(true, 'Write the client number so Send on-my-way can send.')).toBe('');
+    expect(jobSheetHeaderPrimaryDetail(false, 'Clock in when you start work.')).toBe('Clock in when you start work.');
+    expect(jobSheetHeaderPrimaryDetail(false, '')).toBe('');
+  });
+});
+
+describe('jobSheetIdentityCrewLabel', () => {
+  it('holds Unassigned until crew settles and names the miss on error', () => {
+    expect(jobSheetIdentityCrewLabel({ busy: true, names: [] })).toBe('…');
+    expect(jobSheetIdentityCrewLabel({ busy: true, names: [] })).not.toBe('Unassigned');
+    expect(jobSheetIdentityCrewLabel({ busy: true, names: ['Grafter CoS Test'] })).toBe('…');
+    expect(jobSheetIdentityCrewLabel({ error: true, names: [] })).toBe("Couldn't load crew.");
+    expect(jobSheetIdentityCrewLabel({ names: [] })).toBe('Unassigned');
+    expect(jobSheetIdentityCrewLabel({ names: ['Grafter CoS Test'] })).toBe('Grafter CoS Test');
   });
 });
 
