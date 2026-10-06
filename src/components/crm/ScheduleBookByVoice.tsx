@@ -67,54 +67,58 @@ export function ScheduleBookByVoice({
     applyPhrase(phrase);
   }
 
-  const hint = [hints?.job, hints?.client, hints?.crew].filter(Boolean).join(' ');
+  const hintLines = [hints?.job, hints?.client, hints?.crew].filter((line): line is string => !!line);
 
   return (
     <div className="hub-schedule-voice" data-schedule-voice="1">
       <form className="hub-schedule-voice-form" onSubmit={onSubmit}>
         <label className="hub-schedule-voice-label" htmlFor="hub-schedule-voice-text">
-          Book by voice
+          Quick book
         </label>
-        <input
-          id="hub-schedule-voice-text"
-          className="form-input"
-          value={phrase}
-          onChange={e => setPhrase(e.target.value)}
-          placeholder="Smith job Thursday 7am with Dave"
-          aria-label="Type a booking"
-          disabled={applying}
-        />
-        {Speech ? (
-          <button
-            type="button"
-            className={`hub-schedule-voice-mic${listening ? ' is-on' : ''}`}
-            aria-label={listening ? 'Stop voice' : 'Speak a booking'}
-            onClick={() => {
-              if (listening) {
-                speechRef.current?.stop();
-                return;
-              }
-              startVoice();
-            }}
+        <div className="hub-schedule-voice-row">
+          <input
+            id="hub-schedule-voice-text"
+            className="form-input"
+            value={phrase}
+            onChange={e => setPhrase(e.target.value)}
+            placeholder="Smith job Thursday 7am with Dave"
+            aria-label="Type a booking"
             disabled={applying}
+          />
+          {Speech ? (
+            <button
+              type="button"
+              className={`hub-schedule-voice-mic${listening ? ' is-on' : ''}`}
+              aria-label={listening ? 'Stop voice' : 'Speak a booking'}
+              onClick={() => {
+                if (listening) {
+                  speechRef.current?.stop();
+                  return;
+                }
+                startVoice();
+              }}
+              disabled={applying}
+            >
+              <Mic size={16} />
+            </button>
+          ) : null}
+          <button
+            type="submit"
+            className="hub-schedule-voice-go"
+            disabled={applying || !phrase.trim()}
           >
-            <Mic size={16} />
+            Prefill
           </button>
-        ) : null}
-        <button
-          type="submit"
-          className="hub-schedule-voice-go"
-          disabled={applying || !phrase.trim()}
-        >
-          Prefill
-        </button>
+        </div>
       </form>
       {micDenied ? (
         <p className="hub-schedule-voice-hint">Microphone is blocked. Type the booking instead.</p>
       ) : !Speech ? (
         <p className="hub-schedule-voice-hint">Type a booking — this browser has no voice.</p>
       ) : null}
-      {hint ? <p className="hub-schedule-voice-hint">{hint}</p> : null}
+      {hintLines.map(line => (
+        <p key={line} className="hub-schedule-voice-hint">{line}</p>
+      ))}
       {jobPicks.length > 0 ? (
         <ul className="hub-schedule-voice-picks">
           {jobPicks.map(job => (

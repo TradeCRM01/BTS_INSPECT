@@ -3,6 +3,7 @@ import { AppDialog, EditorStickyFooter } from '../ui';
 import type { JobWithClient } from '../../types/crm';
 import { scheduleDayKey, type ScheduleSheetInput } from '../../lib/scheduleBoard';
 import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
+import { assumedTradeClockLabel } from '../../lib/quickBook';
 
 function timeInput(value: string | null | undefined): string {
   return (value ?? '').slice(0, 5);
@@ -123,7 +124,7 @@ export function ScheduleJobSheet({
             Start
             <FromBooking show={!!fromBooking?.start} />
             {fromBooking?.startTrade ? (
-              <span className="hub-schedule-from-booking">Trade hours</span>
+              <span className="hub-schedule-from-booking">{assumedTradeClockLabel(startTime)}</span>
             ) : null}
           </span>
           <input

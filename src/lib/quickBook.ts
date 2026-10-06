@@ -520,6 +520,7 @@ export function nameMatchStrength(name: string | null | undefined, token: string
   if (!hay || needle.length < 2) return null;
   if (hay === needle) return 'strong';
   if (hay.startsWith(`${needle} `)) return 'strong';
+  if (` ${hay} `.includes(` ${needle} `)) return 'strong';
   const words = hay.split(' ');
   const needleWords = needle.split(' ');
   if (needleWords.length === 1 && words.some(word => word === needle)) return 'strong';
@@ -528,16 +529,26 @@ export function nameMatchStrength(name: string | null | undefined, token: string
   return null;
 }
 
-export function jobPhraseMatches(job: QuickBookJob, token: string): boolean {
+export function jobMatchStrength(job: QuickBookJob, token: string): NameMatchStrength {
   const q = normalizeMatchToken(token);
-  if (!q) return false;
-  const title = normalizeMatchToken(job.title ?? '');
-  const client = normalizeMatchToken(job.client_name ?? '');
+  if (!q) return null;
   const number = job.job_number != null ? String(job.job_number) : '';
   const padded = number ? number.padStart(4, '0') : '';
-  if (title.includes(q) || client.includes(q)) return true;
-  if (number && (q === number || q === padded || q === `#${padded}`)) return true;
-  return false;
+  if (number && (q === number || q === padded || q === `#${number}` || q === `#${padded}`)) {
+    return 'strong';
+  }
+  const title = nameMatchStrength(job.title, token);
+  const client = nameMatchStrength(job.client_name, token);
+  if (title === 'strong' || client === 'strong') return 'strong';
+  if (title === 'weak' || client === 'weak') return 'weak';
+  const titleHay = normalizeMatchToken(job.title ?? '');
+  const clientHay = normalizeMatchToken(job.client_name ?? '');
+  if (q.length >= 3 && (titleHay.includes(q) || clientHay.includes(q))) return 'weak';
+  return null;
+}
+
+export function jobPhraseMatches(job: QuickBookJob, token: string): boolean {
+  return jobMatchStrength(job, token) != null;
 }
 
 export function namedTokenMatches(name: string | null | undefined, token: string): boolean {
@@ -575,10 +586,11 @@ export function matchQuickBookJobs<T extends QuickBookJob>(
 ): NamedMatch<T> {
   const trimmed = (token ?? '').trim();
   if (!trimmed) return { token: '', kind: 'none', items: [] };
-  const hits = jobs.filter(job => jobPhraseMatches(job, trimmed));
-  if (hits.length === 1) return { token: trimmed, kind: 'one', items: hits };
-  if (hits.length > 1) return { token: trimmed, kind: 'many', items: hits };
-  return { token: trimmed, kind: 'none', items: [] };
+  const scored = jobs.flatMap(job => {
+    const strength = jobMatchStrength(job, trimmed);
+    return strength ? [{ item: job, strength }] : [];
+  });
+  return classifyHits(trimmed, scored);
 }
 
 export function matchQuickBookCrew<T extends QuickBookNamed>(
@@ -615,11 +627,26 @@ export function unmatchedHint(
 ): string {
   if (kind === 'job') return `No job matches “${token}”. Search above or start a New job.`;
   if (kind === 'client') return `No client matches “${token}”. Search above or start a New job.`;
-  return `No crew matches “${token}”. Pick one above.`;
+  return `No crew matches “${token}”. Pick one below.`;
 }
 
 export function manyHint(kind: 'job' | 'client' | 'crew', token: string): string {
-  return `A few ${kind === 'crew' ? 'crew' : `${kind}s`} match “${token}”. Pick one.`;
+  if (kind === 'crew') return `Several crew match “${token}”. Change crew below if needed.`;
+  if (kind === 'job') return `Several jobs match “${token}”.`;
+  return `Several clients match “${token}”.`;
+}
+
+export function assumedTradeClockLabel(startTime: string | null | undefined): string {
+  const [hourRaw, minuteRaw] = (startTime ?? '').split(':');
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return 'Assumed pm';
+  const hour12 = hour % 12 || 12;
+  const mer = hour < 12 ? 'am' : 'pm';
+  const clock = Number.isFinite(minute) && minute > 0
+    ? `${hour12}:${String(minute).padStart(2, '0')} ${mer}`
+    : `${hour12} ${mer}`;
+  return `Assumed ${clock} — check`;
 }
 
 export function spokenSheetFields<
