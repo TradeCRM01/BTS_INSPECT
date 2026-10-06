@@ -170,6 +170,7 @@ describe('quickBook parser', () => {
     expect(spokenSheetFields(resolved)).toEqual({
       date: '2026-10-08',
       startTime: '07:00',
+      startTimeSource: 'spoken',
       crewId: 'crew-dave',
     });
     expect(resolved.hints.job).toContain('A few jobs match');
@@ -181,6 +182,7 @@ describe('quickBook parser', () => {
     expect(noCrew.prefill).toEqual({
       date: '2026-10-08',
       startTime: '07:00',
+      startTimeSource: 'spoken',
     });
     expect('crewId' in noCrew.prefill).toBe(false);
   });
@@ -224,6 +226,87 @@ describe('quickBook parser', () => {
     const voice = src('src/components/crm/ScheduleBookByVoice.tsx');
     const sheet = src('src/components/crm/ScheduleJobSheet.tsx');
     expect(`${page}\n${voice}\n${sheet}`).not.toMatch(/electrician-only|sparky only|BTS-only/i);
+  });
+
+  it('matches real company titles without the suffix, plus client and crew prefixes', () => {
+    const G = '8fac7109-aafa-4edb-afed-563db6553bfa';
+    const row = (
+      n: number,
+      id: string,
+      title: string,
+      client: string | null,
+      assigned: string[],
+    ) => ({ id, job_number: n, title, client_name: client, assigned_team: assigned });
+    const realJobs = [
+      row(1, 'f41afe9a', '290 data prove A — delete ok', null, []),
+      row(2, '1f7dc3b5', '290 data prove B — delete ok', null, []),
+      row(3, '88960c3b', '286 prove 2 — delete ok', 'CoS 286 Client — delete ok', [G]),
+      row(4, 'd49a3427', '286 prove 3 — delete ok', 'CoS 286 Client — delete ok', [G]),
+      row(5, 'e64e0a97', '286 prove 5 — delete ok', 'CoS 286 Client — delete ok', [G]),
+      row(6, '25eec76d', '286 prove 4 — delete ok', 'CoS 286 Client — delete ok', [G]),
+      row(7, '08e6e714', '291 prove 6 — delete ok', 'CoS 286 Client — delete ok', [G]),
+      row(11, 'c09c49d4', '274 client 1280 — delete ok', 'CoS 286 Client — delete ok', []),
+      row(12, '5d012de9', '274 client 390 — delete ok', 'CoS 286 Client — delete ok', []),
+      row(13, 'de4bad8e', '27', null, []),
+      row(14, '30d71e4f', '274 no client — delete ok', null, []),
+      row(20, 'fix-tap', 'Fix tap with leak', 'River House', []),
+    ];
+    const realCrew = [
+      { id: G, name: 'Grafter CoS Test' },
+      { id: 'ada57004', name: 'CoS Invitee Test' },
+      { id: 'crew-jordan', name: 'Jordan Lee' },
+    ];
+    const realClients = [{ id: 'c286', name: 'CoS 286 Client — delete ok' }];
+    const phrases = [
+      { text: '291 prove 6 Friday 7am with Invitee', job: 7, date: '2026-10-09', time: '07:00', crew: 'ada57004' },
+      { text: '286 prove 2 tomorrow half past 7 with Grafter', job: 3, date: '2026-10-07', time: '07:30', crew: G },
+      { text: '286 prove 3 Thursday 7.30am', job: 4, date: '2026-10-08', time: '07:30' },
+      { text: '286 prove 4 this Saturday midday with Invitee', job: 6, date: '2026-10-10', time: '12:00', crew: 'ada57004' },
+      { text: '286 prove 5 Wednesday 2pm with Grafter', job: 5, date: '2026-10-07', time: '14:00', crew: G },
+      { text: '274 client 390 thurday 3pm', job: 12, date: '2026-10-08', time: '15:00' },
+      { text: '274 no client today 4pm with Invitee', job: 14, date: '2026-10-06', time: '16:00', crew: 'ada57004' },
+      { text: '290 data prove A Sunday seven am', job: 1, date: '2026-10-11', time: '07:00' },
+      { text: '290 data prove B on the 9th 8am with Grafter', job: 2, date: '2026-10-09', time: '08:00', crew: G },
+      { text: "291 prove 6 Friday 7 o'clock with CoS Invitee", job: 7, date: '2026-10-09', time: '07:00', crew: 'ada57004' },
+    ];
+    for (const item of phrases) {
+      const resolved = resolveQuickBook(item.text, {
+        jobs: realJobs,
+        crew: realCrew,
+        clients: realClients,
+      }, NOW);
+      expect(resolved.jobs.kind, item.text).toBe('one');
+      expect(resolved.jobs.items[0]?.job_number, item.text).toBe(item.job);
+      expect(resolved.prefill.date, item.text).toBe(item.date);
+      expect(resolved.prefill.startTime, item.text).toBe(item.time);
+      if (item.crew) expect(resolved.prefill.crewId, item.text).toBe(item.crew);
+      else expect(resolved.prefill.crewId, item.text).toBeUndefined();
+    }
+    expect(matchQuickBookJobs('291 prove 6', realJobs).kind).toBe('one');
+    expect(matchNamed('CoS Invitee', realCrew)).toMatchObject({ kind: 'one', items: [{ id: 'ada57004' }] });
+    expect(matchNamed('Dan', realCrew).kind).toBe('none');
+    expect(parseQuickBook('290 data prove A Sunday seven am', NOW).subjectToken).toBe('290 data prove A');
+  });
+
+  it('parses at 7 pm, tags bare 3 as trade hours, and does not rewrite Munday', () => {
+    expect(parseQuickBookTime('at 7 pm')).toBe('19:00');
+    expect(parseQuickBookTime('at 7 p.m.')).toBe('19:00');
+    expect(parseQuickBook('job at 7 pm', NOW).startTimeSource).toBe('spoken');
+    expect(parseQuickBookTime('at 3')).toBe('15:00');
+    expect(parseQuickBookTime('half past 3')).toBe('15:30');
+    expect(parseQuickBook('job at 3', NOW).startTimeSource).toBe('trade');
+    expect(parseQuickBookTime('at 3')).not.toBe('03:00');
+    const munday = parseQuickBook('Munday job Thursday 7am', NOW);
+    expect(munday.subjectToken).toContain('Munday');
+    expect(munday.date).toBe('2026-10-08');
+    const leak = resolveQuickBook('Fix tap with leak tomorrow 7am', {
+      jobs: [{ id: 'fix-tap', title: 'Fix tap with leak', client_name: 'River House', job_number: 20 }],
+      crew,
+    }, NOW);
+    expect(leak.jobs.kind).toBe('one');
+    expect(leak.jobs.items[0]?.id).toBe('fix-tap');
+    expect(leak.parse.crewToken).toBeNull();
+    expect(leak.prefill.crewId).toBeUndefined();
   });
 });
 
@@ -275,7 +358,12 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(sheet).toContain('EditorStickyFooter');
     expect(sheet).toContain('saveLabel="Save"');
     expect(src('src/lib/quickBook.ts')).toContain('No job matches');
+    expect(src('src/lib/quickBook.ts')).toContain('Pick one above');
     expect(src('src/index.css')).toContain('.hub-week-document .hub-schedule-voice');
+    expect(src('src/index.css')).toContain('flex: 0 0 auto');
     expect(src('src/index.css')).toContain('padding: 8px 16px 12px');
+    expect(sheet).toContain('scheduleDayKey(job.scheduled_date)');
+    expect(sheet).toContain('Trade hours');
+    expect(page).not.toContain('setJobQuery(parsed.subjectToken)');
   });
 });

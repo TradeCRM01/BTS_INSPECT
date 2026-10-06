@@ -417,6 +417,7 @@ export function SchedulePage() {
     job?: boolean;
     date?: boolean;
     start?: boolean;
+    startTrade?: boolean;
     crew?: boolean;
   } | null>(null);
   const lastVoicePrefill = useRef<{
@@ -424,7 +425,7 @@ export function SchedulePage() {
     startTime?: string;
     crewId?: string;
     hints: { job: string | null; client: string | null; crew: string | null };
-    fromBooking: { job?: boolean; date?: boolean; start?: boolean; crew?: boolean };
+    fromBooking: { job?: boolean; date?: boolean; start?: boolean; startTrade?: boolean; crew?: boolean };
   } | null>(null);
   const { showToast } = useToast();
 
@@ -790,7 +791,7 @@ export function SchedulePage() {
     job: JobWithClient,
     prefill?: Partial<ScheduleSheetInput> | null,
     hints?: { job?: string | null; client?: string | null; crew?: string | null } | null,
-    fromBooking?: { job?: boolean; date?: boolean; start?: boolean; crew?: boolean } | null,
+    fromBooking?: { job?: boolean; date?: boolean; start?: boolean; startTrade?: boolean; crew?: boolean } | null,
   ) => {
     setSheetPrefill(prefill ?? null);
     setSheetHints(hints ?? null);
@@ -841,6 +842,7 @@ export function SchedulePage() {
         job: resolved.jobs.kind === 'one',
         date: !!spoken.date,
         start: !!spoken.startTime,
+        startTrade: spoken.startTimeSource === 'trade',
         crew: !!spoken.crewId,
       };
       lastVoicePrefill.current = {
@@ -853,9 +855,6 @@ export function SchedulePage() {
       if (resolved.jobs.kind === 'one') {
         openScheduleSheet(resolved.jobs.items[0], spoken, resolved.hints, fromBooking);
         return;
-      }
-      if (resolved.jobs.kind === 'none' && parsed.subjectToken) {
-        setJobQuery(parsed.subjectToken);
       }
     } finally {
       setVoiceApplying(false);
@@ -881,6 +880,7 @@ export function SchedulePage() {
       job: true,
       date: !!spoken.date,
       start: !!spoken.startTime,
+      startTrade: voice?.fromBooking.startTrade,
       crew: !!spoken.crewId,
     });
   }, [openScheduleSheet, voiceHints, voiceJobPicks]);

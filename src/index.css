@@ -6585,7 +6585,7 @@
 
   .hub-week-document .hub-schedule-voice,
   .hub-schedule-voice {
-    flex: 1 1 100%;
+    flex: 0 0 auto;
     width: 100%;
     min-width: 0;
     max-width: 100%;
