@@ -42,6 +42,7 @@ describe('portalClientQuotes', () => {
     expect(portalVisibleStatus('paid')).toBe('Paid');
     expect(portalVisibleStatus('accepted')).toBe('Accepted');
     expect(portalVisibleStatus('overdue')).toBe('Overdue');
+    expect(portalVisibleStatus('part_paid')).toBe('Part paid');
 
     const edge = src('supabase/functions/client-portal/index.ts');
     const invoiceSelect = '.select("id, invoice_number, status, total, due_date, updated_at")';

@@ -90,6 +90,7 @@ export type InvoiceSendInvoice = {
   tax_rate: number;
   tax_amount: number;
   total: number;
+  amount_paid?: number | null;
   payment_terms: string | null;
   due_date: string | null;
   notes: string | null;
@@ -125,7 +126,7 @@ export type InvoicePdfAttachment = {
 };
 
 export const INVOICE_SEND_INVOICE_COLUMNS =
-  'id, company_id, invoice_number, client_id, job_id, quote_id, source, status, line_items, subtotal, tax_rate, tax_amount, total, payment_terms, due_date, notes, inclusions, exclusions, chased_at, created_by, created_at, updated_at';
+  'id, company_id, invoice_number, client_id, job_id, quote_id, source, status, line_items, subtotal, tax_rate, tax_amount, total, amount_paid, payment_terms, due_date, notes, inclusions, exclusions, chased_at, created_by, created_at, updated_at';
 
 export const INVOICE_SEND_CLIENT_COLUMNS = 'id, name, email, phone, address';
 export const INVOICE_SEND_SMTP_COLUMNS = 'smtp_host, smtp_pass, from_name, from_email';
@@ -1378,6 +1379,10 @@ export function commercialPdfDataForInvoice(bundle: InvoiceSendBundle, now = new
     notes: invoice.notes?.trim() || null,
     paymentTerms: invoice.payment_terms?.trim() || null,
     paymentMethods: companyPaymentMethodsForDocument(bundle.company.payment_methods),
+    paymentsToDate: Number(invoice.amount_paid) > 0 ? Number(invoice.amount_paid) : null,
+    balanceDue: Number(invoice.amount_paid) > 0
+      ? Math.max(0, (Number(invoice.total) || 0) - (Number(invoice.amount_paid) || 0))
+      : null,
   };
 }
 

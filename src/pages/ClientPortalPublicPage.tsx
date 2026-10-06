@@ -88,7 +88,7 @@ export type PortalPayload =
       company: PortalCompany | null;
       client: { name: string; email?: string | null; phone?: string | null; address?: string | null } | null;
       quotes: PortalQuote[];
-      invoices: Array<{ id: string; invoice_number: string; status: string; total: number; due_date: string | null; updated_at: string }>;
+      invoices: Array<{ id: string; invoice_number: string; status: string; total: number; amount_paid?: number | null; due_date: string | null; updated_at: string }>;
       jobs: PortalJob[];
       reports: Array<{
         inspectionId: string;
@@ -429,6 +429,11 @@ export function ClientPortalPublicPage() {
                   <p className="portal-muted">{portalInvoiceStatusLabel(inv.status)}</p>
                   {inv.due_date && portalStatusKey(inv.status) !== 'paid' ? (
                     <p className="portal-muted">Due {format(parseISO(inv.due_date), 'd MMM yyyy')}</p>
+                  ) : null}
+                  {Number(inv.amount_paid ?? 0) > 0 && portalStatusKey(inv.status) !== 'paid' ? (
+                    <p className="portal-muted">
+                      Paid {formatMoney(Number(inv.amount_paid))} · Balance {formatMoney(Math.max(0, Number(inv.total) - Number(inv.amount_paid)))}
+                    </p>
                   ) : null}
                 </div>
                 <p className="portal-quote-total">{formatMoney(inv.total)}</p>

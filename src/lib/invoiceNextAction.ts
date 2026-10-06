@@ -30,6 +30,7 @@ export type RecommendedInvoiceAction = {
 export function invoiceListBucket(inv: InvoiceActionContext, now = new Date()): InvoiceListBucket {
   const status = effectiveInvoiceStatus(inv, now);
   if (status === 'paid') return 'paid';
+  if (status === 'part_paid') return 'awaiting';
   if (status === 'overdue') return 'overdue';
   if (status === 'draft') return 'draft';
   return 'awaiting';
@@ -76,6 +77,14 @@ export function recommendInvoiceAction(inv: InvoiceActionContext, now = new Date
   const status = effectiveInvoiceStatus(inv, now);
   if (status === 'paid') {
     return { key: 'none', label: 'Paid', detail: 'This invoice is paid.', status };
+  }
+  if (status === 'part_paid') {
+    return {
+      key: 'mark_paid',
+      label: INVOICE_RECORD_PAYMENT_LABEL,
+      detail: 'Part paid — record another payment when more comes in.',
+      status,
+    };
   }
   if (status === 'draft') {
     const blocked = invoiceSendBlocker(inv, status);

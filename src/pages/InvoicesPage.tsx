@@ -22,7 +22,6 @@ import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel } from '../l
 import { lineNeedsLabourRate } from '../lib/hoursToJobBill';
 import {
   effectiveInvoiceStatus,
-  fullInvoicePayment,
   invoiceListEmptyMessage,
   invoiceListEmptyTitle,
   invoiceListIsNoneYet,
@@ -32,6 +31,18 @@ import {
   type InvoiceListStatusFilter,
 } from '../lib/invoiceStatus';
 import { INVOICE_RECORD_PAYMENT_LABEL, invoiceActionContext, invoiceListBucket, invoiceOverflowPaidAction, recommendInvoiceAction, type InvoiceActionKey } from '../lib/invoiceNextAction';
+import {
+  defaultRecordPaymentDraft,
+  invoicePaidBalanceLabel,
+  INVOICE_PAYMENT_METHODS,
+  INVOICE_PAYMENT_METHOD_LABELS,
+  parseRecordPaymentAmount,
+  persistInvoicePayment,
+  previewInvoicePayment,
+  mergeAuditInvoicePaymentRow,
+  type InvoicePaymentMethod,
+  type InvoiceRecordPaymentInput,
+} from '../lib/invoicePayments';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
@@ -131,6 +142,7 @@ export function InvoicesPage() {
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
   const invoiceIdParam = searchParams.get('id');
   const paymentProof = isDevFieldAuditAuth() && searchParams.get('payment') === '1';
+  const money4PartPaidLook = isDevFieldAuditAuth() && searchParams.get('look') === 'money-4-part-paid';
 
   const { data: smtpSettings } = useQuery<SmtpSettingsRow | null>({
     queryKey: ['email-settings', profile?.company_id],
@@ -148,33 +160,54 @@ export function InvoicesPage() {
   const smtpReady = smtpSettings === undefined ? null : isSmtpReady(smtpSettings);
 
   const { data: openedInvoice } = useQuery<InvoiceWithDetails | null>({
-    queryKey: ['invoice', invoiceIdParam, profile?.company_id, paymentProof],
+    queryKey: ['invoice', invoiceIdParam, profile?.company_id, paymentProof, money4PartPaidLook],
     queryFn: async () => {
       if (!invoiceIdParam || !profile?.company_id) return null;
       const row = await loadInvoiceEditorRow(invoiceIdParam, profile.company_id);
-      return row && paymentProof
-        ? { ...row, status: 'sent' as const, due_date: '2099-12-31' }
-        : row;
+      const merged = row ? mergeAuditInvoicePaymentRow(row) : row;
+      if (!merged) return null;
+      if (money4PartPaidLook) {
+        const total = Number(merged.total) || 0;
+        return {
+          ...merged,
+          status: 'part_paid' as const,
+          amount_paid: total / 2,
+          due_date: '2099-12-31',
+        };
+      }
+      return paymentProof
+        ? { ...merged, status: 'sent' as const, due_date: '2099-12-31' }
+        : merged;
     },
     enabled: !!invoiceIdParam && !!profile?.company_id,
   });
 
   const { data: invoices, isLoading, isPending, error } = useQuery<InvoiceWithDetails[]>({
-    queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live', paymentProof],
+    queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live', paymentProof, money4PartPaidLook],
     queryFn: async () => {
       if (isDevFieldAuditAuth()) {
         const row = getAuditInvoiceEditorRow(AUDIT_INVOICE_ID);
         if (row) {
+          const merged = mergeAuditInvoicePaymentRow(row);
+          if (money4PartPaidLook) {
+            const total = Number(merged.total) || 0;
+            return [{
+              ...merged,
+              status: 'part_paid' as const,
+              amount_paid: total / 2,
+              due_date: '2099-12-31',
+            } as InvoiceWithDetails];
+          }
           return [{
-            ...row,
-            status: paymentProof ? 'sent' : row.status,
-            due_date: paymentProof ? '2099-12-31' : row.due_date,
+            ...merged,
+            status: paymentProof ? 'sent' : merged.status,
+            due_date: paymentProof ? '2099-12-31' : merged.due_date,
           } as InvoiceWithDetails];
         }
       }
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, company_id, invoice_number, client_id, job_id, quote_id, source, status, line_items, subtotal, tax_rate, tax_amount, total, payment_terms, due_date, notes, inclusions, exclusions, created_by, created_at, updated_at')
+        .select('id, company_id, invoice_number, client_id, job_id, quote_id, source, status, line_items, subtotal, tax_rate, tax_amount, total, amount_paid, payment_terms, due_date, notes, inclusions, exclusions, created_by, created_at, updated_at')
         .order('created_at', { ascending: false });
       if (error) throw error;
       const list = (data ?? []) as InvoiceWithDetails[];
@@ -439,6 +472,9 @@ function InvoiceHit({
   const site = visibleSite(invoice.job_address);
   const suburb = site ? suburbFromSite(site) : '';
   const money = invoiceMoney(invoice.total);
+  const paidMeta = status === 'part_paid'
+    ? invoicePaidBalanceLabel(invoice.total, invoice.amount_paid)
+    : null;
   return (
     <div
       role="button"
@@ -450,7 +486,10 @@ function InvoiceHit({
       <span className="hub-invoices-ref">{invoiceRef(invoice)}</span>
       <span className="truncate">{invoice.client_name || ''}</span>
       <span className="truncate hub-invoices-muted">{suburb}</span>
-      <span className={`hub-invoices-pill is-${status}`}>{INVOICE_STATUS_LABELS[status]}</span>
+      <span className={`hub-invoices-pill is-${status}`}>
+        {INVOICE_STATUS_LABELS[status]}
+        {paidMeta ? <span className="hub-invoices-paid-meta">{paidMeta}</span> : null}
+      </span>
       <span className="hub-invoices-total">{money ?? ''}</span>
       <span className="hub-invoices-row-next" onClick={e => e.stopPropagation()}>
         <InvoiceNextControl invoice={invoice} smtpReady={smtpReady} onOpen={onOpen} onSend={onSend} />
@@ -485,47 +524,55 @@ function InvoiceNextControl({
     onSend(invoiceId);
   };
 
-  const patchPaid = async (): Promise<boolean> => {
+  const submitPayment = async (payment: InvoiceRecordPaymentInput): Promise<boolean> => {
     setBusy('mark_paid');
-    let paid = false;
+    let recorded = false;
     try {
       if (!company?.id) throw new Error('No company selected');
-      if (!isDevFieldAuditAuth()) {
-        const { error } = await supabase.from('invoices')
-          .update({ status: persistableInvoiceStatus('paid'), updated_at: new Date().toISOString() })
-          .eq('id', invoice.id)
-          .eq('company_id', company.id);
-        if (error) throw error;
+      const result = await persistInvoicePayment({
+        companyId: company.id,
+        invoiceId: invoice.id,
+        invoiceTotal: Number(invoice.total) || 0,
+        amountPaidBefore: invoice.amount_paid ?? 0,
+        payment,
+      });
+      if (!result.ok) {
+        showToast(result.message, 'error');
+        return false;
       }
-      paid = true;
+      recorded = true;
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-nudges'] });
-      if (isDevFieldAuditAuth()) {
-        showToast(INVOICE_MARKED_PAID_MESSAGE);
-        return true;
+      if (result.preview.statusAfter === 'paid' && !isDevFieldAuditAuth()) {
+        const xero = await attachXeroPaymentAfterMarkPaid(
+          (name, opts) => supabase.functions.invoke(name, opts),
+          { paidSucceeded: true, invoiceId: invoice.id, status: 'paid' },
+        );
+        const receipt = await deliverInvoiceReceiptAfterMarkPaid(
+          (name, opts) => supabase.functions.invoke(name, opts),
+          {
+            paidSucceeded: true,
+            invoiceId: invoice.id,
+            status: 'paid',
+            company: invoiceSendCompanyFrom(company),
+          },
+        );
+        showToast(invoiceMarkPaidReceiptToast({ xeroToast: invoiceMarkPaidToast(xero), receipt }));
+      } else {
+        showToast(result.preview.statusAfter === 'paid'
+          ? INVOICE_MARKED_PAID_MESSAGE
+          : 'Payment recorded');
       }
-      const xero = await attachXeroPaymentAfterMarkPaid(
-        (name, opts) => supabase.functions.invoke(name, opts),
-        { paidSucceeded: true, invoiceId: invoice.id, status: 'paid' },
-      );
-      const receipt = await deliverInvoiceReceiptAfterMarkPaid(
-        (name, opts) => supabase.functions.invoke(name, opts),
-        {
-          paidSucceeded: true,
-          invoiceId: invoice.id,
-          status: 'paid',
-          company: invoiceSendCompanyFrom(company),
-        },
-      );
-      showToast(invoiceMarkPaidReceiptToast({ xeroToast: invoiceMarkPaidToast(xero), receipt }));
+      return true;
     } catch (err: unknown) {
-      showToast(paid
+      showToast(recorded
         ? INVOICE_MARKED_PAID_MESSAGE
-        : (err instanceof Error ? err.message : 'Could not update invoice'));
+        : (err instanceof Error ? err.message : 'Could not record payment'));
     } finally {
       setBusy(null);
     }
-    return paid;
+    return recorded;
   };
 
   let primary: ReactNode = null;
@@ -602,12 +649,13 @@ function InvoiceNextControl({
         </details>
       ) : null}
       {showPayment ? (
-        <InvoicePaymentConfirm
+        <InvoiceRecordPaymentSheet
           total={invoice.total}
+          amountPaid={invoice.amount_paid ?? 0}
           busy={busy === 'mark_paid'}
           onCancel={() => setShowPayment(false)}
-          onConfirm={async () => {
-            if (await patchPaid()) setShowPayment(false);
+          onConfirm={async (payment) => {
+            if (await submitPayment(payment)) setShowPayment(false);
           }}
         />
       ) : null}
@@ -615,18 +663,23 @@ function InvoiceNextControl({
   );
 }
 
-function InvoicePaymentConfirm({
+function InvoiceRecordPaymentSheet({
   total,
+  amountPaid,
   busy,
   onCancel,
   onConfirm,
 }: {
   total: number | string | null | undefined;
+  amountPaid: number | string | null | undefined;
   busy: boolean;
   onCancel: () => void;
-  onConfirm: () => void | Promise<void>;
+  onConfirm: (payment: InvoiceRecordPaymentInput) => void | Promise<void>;
 }) {
-  const payment = fullInvoicePayment(total);
+  const [draft, setDraft] = useState(() => defaultRecordPaymentDraft(total, amountPaid));
+  const amountNum = parseRecordPaymentAmount(draft.amount);
+  const preview = previewInvoicePayment(total, amountPaid, amountNum ?? 0);
+  const statusLabel = INVOICE_STATUS_LABELS[preview.statusAfter];
   return (
     <AppDialog
       open
@@ -639,18 +692,89 @@ function InvoicePaymentConfirm({
       <section>
         <p className="hub-invoice-payment-eyebrow">Payment</p>
         <h2 id="invoice-payment-title">Record payment received</h2>
-        <p className="hub-invoice-payment-copy">
-          This records the full GST invoice as paid. Partial payments are not available.
-        </p>
+        <form
+          className="hub-invoice-payment-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const amount = parseRecordPaymentAmount(draft.amount);
+            if (!amount) return;
+            void onConfirm({
+              amount,
+              paid_at: draft.paid_at,
+              method: draft.method,
+              reference: draft.reference.trim() || null,
+            });
+          }}
+        >
+          <label>
+            Amount (inc GST)
+            <input
+              className="form-input"
+              inputMode="decimal"
+              value={draft.amount}
+              onChange={e => setDraft(d => ({ ...d, amount: e.target.value }))}
+              aria-label="Payment amount"
+            />
+          </label>
+          <label>
+            Date received
+            <input
+              type="date"
+              className="form-input"
+              value={draft.paid_at}
+              onChange={e => setDraft(d => ({ ...d, paid_at: e.target.value }))}
+              aria-label="Payment date"
+            />
+          </label>
+          <label>
+            Method
+            <select
+              className="form-input"
+              value={draft.method}
+              onChange={e => setDraft(d => ({ ...d, method: e.target.value as InvoicePaymentMethod }))}
+              aria-label="Payment method"
+            >
+              {INVOICE_PAYMENT_METHODS.map(method => (
+                <option key={method} value={method}>{INVOICE_PAYMENT_METHOD_LABELS[method]}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Reference <span className="hub-invoices-muted">(optional)</span>
+            <input
+              className="form-input"
+              value={draft.reference}
+              onChange={e => setDraft(d => ({ ...d, reference: e.target.value }))}
+              aria-label="Payment reference"
+            />
+          </label>
+        </form>
         <dl className="hub-invoice-payment-totals">
-          <div><dt>Invoice total</dt><dd>{formatMoney(payment.invoiceTotal)}</dd></div>
-          <div><dt>Payment received</dt><dd>{formatMoney(payment.paymentReceived)}</dd></div>
-          <div><dt>Balance after</dt><dd>{formatMoney(payment.balanceAfter)}</dd></div>
-          <div><dt>Status after</dt><dd>Paid</dd></div>
+          <div><dt>Invoice total</dt><dd>{formatMoney(preview.invoiceTotal)}</dd></div>
+          {preview.amountPaidBefore > 0 ? (
+            <div><dt>Paid to date</dt><dd>{formatMoney(preview.amountPaidBefore)}</dd></div>
+          ) : null}
+          <div><dt>This payment</dt><dd>{formatMoney(preview.paymentReceived)}</dd></div>
+          <div><dt>Balance after</dt><dd>{formatMoney(preview.balanceAfter)}</dd></div>
+          <div><dt>Status after</dt><dd>{statusLabel}</dd></div>
         </dl>
         <div className="hub-invoice-payment-actions">
           <button type="button" className="ops-link" onClick={onCancel} disabled={busy}>Cancel</button>
-          <button type="button" className="btn-primary" onClick={() => void onConfirm()} disabled={busy}>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={busy || !amountNum}
+            onClick={() => {
+              const amount = parseRecordPaymentAmount(draft.amount);
+              if (!amount) return;
+              void onConfirm({
+                amount,
+                paid_at: draft.paid_at,
+                method: draft.method,
+                reference: draft.reference.trim() || null,
+              });
+            }}
+          >
             {busy ? 'Recording...' : 'Confirm payment received'}
           </button>
         </div>
@@ -697,6 +821,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const [showPreview, setShowPreview] = useState(searchParams.get('print') === '1');
   const [showEdit, setShowEdit] = useState(!invoice);
   const [showPayment, setShowPayment] = useState(false);
+  const [recordedPaid, setRecordedPaid] = useState(Number(invoice?.amount_paid ?? 0));
   const moreRef = useRef<HTMLDetailsElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState('');
@@ -729,6 +854,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     if (!invoice) return;
     const stored = invoice.status === 'overdue' ? 'sent' : invoice.status;
     setForm(f => (f.status === stored ? f : { ...f, status: stored }));
+    setRecordedPaid(Number(invoice.amount_paid ?? 0));
   }, [invoice]);
 
   useEffect(() => {
@@ -879,6 +1005,9 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     line_items: form.line_items,
   }, { smtpReady }));
   const displayStatus = next.status;
+  const sheetPaidMeta = displayStatus === 'part_paid'
+    ? invoicePaidBalanceLabel(grandTotal, recordedPaid)
+    : null;
   const sheetLogo = companyDocumentLogoUrl(company);
 
   const previewData = useMemo((): CommercialPdfData | null => {
@@ -896,7 +1025,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         gst_rate: li.gst_rate,
       }));
     return commercialPdfPreviewData({
-      kind: 'invoice',
+      kind: 'invoice' as const,
       title: 'Invoice charges',
       docNumber: invoice?.invoice_number != null ? `#${padInv(invoice.invoice_number)}` : 'Draft',
       dateLabel: 'Date',
@@ -918,8 +1047,10 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       paymentMethods: companyPaymentMethodsForDocument(
         (company as { payment_methods?: unknown } | null)?.payment_methods,
       ),
+      paymentsToDate: recordedPaid > 0 ? recordedPaid : null,
+      balanceDue: recordedPaid > 0 ? Math.max(0, grandTotal - recordedPaid) : null,
     }, cleanLines);
-  }, [company, form, invoice, selectedClient, selectedJob, subtotal, taxAmount, grandTotal]);
+  }, [company, form, invoice, selectedClient, selectedJob, subtotal, taxAmount, grandTotal, recordedPaid]);
 
   const handleImportFromJob = async () => {
     if (!form.job_id) { setErr('Select a job first'); return; }
@@ -1183,17 +1314,56 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         {err ? <p className="hub-invoice-err">{err}</p> : null}
         {xeroMiss ? <p className="hub-invoice-send-xero-miss">{xeroMiss}</p> : null}
         {showPayment ? (
-          <InvoicePaymentConfirm
+          <InvoiceRecordPaymentSheet
             total={grandTotal}
+            amountPaid={recordedPaid}
             busy={saving}
             onCancel={() => setShowPayment(false)}
-            onConfirm={async () => {
-              const id = await persist('paid', {
-                close: false,
-                message: INVOICE_MARKED_PAID_MESSAGE,
-                markPaid: true,
+            onConfirm={async (payment) => {
+              if (!profile?.company_id) return;
+              setSaving(true);
+              const id = await persist(form.status, { close: false });
+              if (!id) {
+                setSaving(false);
+                return;
+              }
+              const result = await persistInvoicePayment({
+                companyId: profile.company_id,
+                invoiceId: id,
+                invoiceTotal: grandTotal,
+                amountPaidBefore: recordedPaid,
+                payment,
               });
-              if (id) setShowPayment(false);
+              setSaving(false);
+              if (!result.ok) {
+                showToast(result.message, 'error');
+                return;
+              }
+              setRecordedPaid(result.preview.amountPaidAfter);
+              setForm(f => ({ ...f, status: result.preview.statusAfter }));
+              queryClient.invalidateQueries({ queryKey: ['invoices'] });
+              queryClient.invalidateQueries({ queryKey: ['invoice'] });
+              if (result.preview.statusAfter === 'paid' && !isDevFieldAuditAuth()) {
+                const xero = await attachXeroPaymentAfterMarkPaid(
+                  (name, invokeOpts) => supabase.functions.invoke(name, invokeOpts),
+                  { paidSucceeded: true, invoiceId: id, status: 'paid' },
+                );
+                const receipt = await deliverInvoiceReceiptAfterMarkPaid(
+                  (name, invokeOpts) => supabase.functions.invoke(name, invokeOpts),
+                  {
+                    paidSucceeded: true,
+                    invoiceId: id,
+                    status: 'paid',
+                    company: invoiceSendCompanyFrom(company),
+                  },
+                );
+                showToast(invoiceMarkPaidReceiptToast({ xeroToast: invoiceMarkPaidToast(xero), receipt }));
+              } else {
+                showToast(result.preview.statusAfter === 'paid'
+                  ? INVOICE_MARKED_PAID_MESSAGE
+                  : 'Payment recorded');
+              }
+              setShowPayment(false);
             }}
           />
         ) : null}
@@ -1210,6 +1380,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
               <h2 className="hub-invoice-editor-title">{editorTitle}</h2>
               <p className="hub-invoice-banner-meta">
                 {INVOICE_STATUS_LABELS[displayStatus]}
+                {sheetPaidMeta ? ` · ${sheetPaidMeta}` : ''}
                 {form.due_date ? ` · Due ${format(parseISO(form.due_date), 'd MMM yyyy')}` : ''}
               </p>
             </div>

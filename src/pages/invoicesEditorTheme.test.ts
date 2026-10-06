@@ -38,7 +38,7 @@ describe('invoice editor cream document look', () => {
     const invoices = src('src/pages/InvoicesPage.tsx');
     const editor = invoices.split('function InvoiceEditorModal')[1] ?? '';
     expect(editor).toContain('startSend');
-    expect(editor).toContain("persist('paid'");
+    expect(editor).toContain('persistInvoicePayment');
     expect(editor).not.toContain('sendQuoteDeliver');
   });
 

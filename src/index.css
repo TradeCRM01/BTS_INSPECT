@@ -3450,6 +3450,20 @@
     background: color-mix(in srgb, #B42318 12%, #fff);
   }
 
+  .hub-invoices-pill.is-part_paid {
+    color: var(--invoice-warn);
+    background: color-mix(in srgb, var(--invoice-warn) 12%, #fff);
+  }
+
+  .hub-invoices-paid-meta {
+    display: block;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    color: #5B6B7C;
+    margin-top: 2px;
+  }
+
   .hub-invoices-total,
   .hub-invoice-num {
     font-family: Rajdhani, sans-serif;
@@ -3800,6 +3814,24 @@
   }
 
   .hub-invoice-payment-actions .btn-primary {
+    min-height: 44px;
+  }
+
+  .hub-invoice-payment-form {
+    display: grid;
+    gap: 12px;
+    margin: 12px 0 16px;
+  }
+
+  .hub-invoice-payment-form label {
+    display: grid;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #0A2540;
+  }
+
+  .hub-invoice-payment-form .form-input {
     min-height: 44px;
   }
 

@@ -7,13 +7,13 @@ export function todayIsoDate(now = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Schema is draft / sent / paid / overdue (no partial). Sent past due_date displays as overdue. */
+/** Schema is draft / sent / paid / overdue / part_paid. Sent past due_date displays as overdue. */
 export function effectiveInvoiceStatus(
   inv: { status: InvoiceStatus | string; due_date?: string | null },
   now = new Date(),
 ): InvoiceStatus {
   const status = inv.status as InvoiceStatus;
-  if (status === 'paid' || status === 'draft') return status;
+  if (status === 'paid' || status === 'draft' || status === 'part_paid') return status;
   if (status === 'overdue') return 'overdue';
   const due = (inv.due_date ?? '').slice(0, 10);
   if (status === 'sent' && due && due < todayIsoDate(now)) return 'overdue';
@@ -25,25 +25,8 @@ export function effectiveInvoiceStatus(
  * The Perth hop stamps sent + past-due onto invoices.status separately.
  */
 export function persistableInvoiceStatus(status: InvoiceStatus): InvoiceStatus {
-  return status === 'overdue' ? 'sent' : status;
-}
-
-export type FullInvoicePayment = {
-  invoiceTotal: number;
-  paymentReceived: number;
-  balanceAfter: 0;
-  statusAfter: 'paid';
-};
-
-export function fullInvoicePayment(total: number | string | null | undefined): FullInvoicePayment {
-  const invoiceTotal = Number(total);
-  const honestTotal = Number.isFinite(invoiceTotal) && invoiceTotal > 0 ? invoiceTotal : 0;
-  return {
-    invoiceTotal: honestTotal,
-    paymentReceived: honestTotal,
-    balanceAfter: 0,
-    statusAfter: 'paid',
-  };
+  if (status === 'overdue') return 'sent';
+  return status;
 }
 
 export type InvoiceListStatusFilter = 'all' | InvoiceStatus;

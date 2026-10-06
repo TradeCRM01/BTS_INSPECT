@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { fullInvoicePayment } from './invoicePayments';
 import {
   effectiveInvoiceStatus,
-  fullInvoicePayment,
   invoiceListEmptyMessage,
   invoiceListEmptyTitle,
   invoiceListIsNoneYet,
@@ -51,7 +51,7 @@ describe('persistableInvoiceStatus', () => {
 
 describe('fullInvoicePayment', () => {
   it('records the full invoice total and leaves no balance', () => {
-    expect(fullInvoicePayment(836)).toEqual({
+    expect(fullInvoicePayment(836)).toMatchObject({
       invoiceTotal: 836,
       paymentReceived: 836,
       balanceAfter: 0,

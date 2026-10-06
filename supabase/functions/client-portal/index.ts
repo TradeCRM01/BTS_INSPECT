@@ -59,6 +59,7 @@ function portalVisibleStatus(status: string): string | null {
     paid: "Paid",
     accepted: "Accepted",
     overdue: "Overdue",
+    part_paid: "Part paid",
   };
   return labels[key] ?? `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
 }
@@ -433,7 +434,7 @@ Deno.serve(async (req) => {
           .limit(50),
         admin
           .from("invoices")
-          .select("id, invoice_number, status, total, due_date, updated_at")
+          .select("id, invoice_number, status, total, amount_paid, due_date, updated_at")
           .eq("client_id", portal.client_id)
           .neq("status", "draft")
           .order("updated_at", { ascending: false })
