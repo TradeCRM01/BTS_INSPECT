@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
-import { listQueryBusy, listShowEmpty } from '../lib/listQueryReady';
+import { listQueryBusy, listSectionLoadError, listShowEmpty } from '../lib/listQueryReady';
 import { getAuditContracts } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
@@ -60,7 +60,7 @@ export function ContractsPage() {
   const [remindContractId, setRemindContractId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useViewMode('contracts', 'list');
 
-  const { data: contracts, isPending, isLoading, error } = useQuery({
+  const { data: contracts, isPending, isLoading, error, isError, refetch } = useQuery({
     queryKey: ['service-contracts'],
     queryFn: async () => {
       const mock = getAuditContracts();
@@ -175,8 +175,8 @@ export function ContractsPage() {
   }, [contracts, profile?.company_id]);
 
   const creating = createJobMutation.isPending || createDueMutation.isPending;
-  const busy = listQueryBusy({ isPending, isLoading, data: contracts });
-  const showContractsEmpty = listShowEmpty(busy, filtered.length);
+  const busy = listQueryBusy({ isPending, isLoading, isError, data: contracts });
+  const showContractsEmpty = listShowEmpty(busy, filtered.length, isError);
 
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load contracts" /></AppShell>;
 
@@ -238,7 +238,13 @@ export function ContractsPage() {
           })}
         </div>
 
-        {busy ? (
+        {isError ? (
+          <p className="text-sm text-[#4A5568] py-6" data-list-load-error="contracts">
+            {listSectionLoadError('contracts')}
+            {' '}
+            <button type="button" className="ops-link" onClick={() => { void refetch(); }}>Retry</button>
+          </p>
+        ) : busy ? (
           <SkeletonRow />
         ) : showContractsEmpty ? (
           <EmptyState

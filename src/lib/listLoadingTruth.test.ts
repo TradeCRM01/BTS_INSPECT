@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { jobRelatedShowEmpty, listQueryBusy, listShowEmpty } from './listQueryReady';
+import {
+  jobRelatedShowEmpty,
+  jobSheetHeaderPrimaryHeld,
+  listQueryBusy,
+  listSectionLoadError,
+  listShowEmpty,
+} from './listQueryReady';
 import { reportsListShowEmpty } from './reportsList';
 
 function src(rel: string): string {
@@ -35,8 +41,8 @@ describe('list loading truth', () => {
 
     const page = src('src/pages/ContractsPage.tsx');
     expect(page).toContain('isPending');
-    expect(page).toContain('listQueryBusy({ isPending, isLoading, data: contracts })');
-    expect(page).toContain('showContractsEmpty = listShowEmpty(busy, filtered.length)');
+    expect(page).toContain('listQueryBusy({ isPending, isLoading, isError, data: contracts })');
+    expect(page).toContain('showContractsEmpty = listShowEmpty(busy, filtered.length, isError)');
     expect(page.indexOf('<SkeletonRow />')).toBeLessThan(page.indexOf('showContractsEmpty ?'));
     expect(page.indexOf('showContractsEmpty ?')).toBeLessThan(page.indexOf('No contracts yet'));
     expect(page.indexOf('showContractsEmpty ?')).toBeLessThan(page.indexOf('Create your first contract'));
@@ -50,6 +56,7 @@ describe('list loading truth', () => {
     expect(jobRelatedShowEmpty(false, 0)).toBe(true);
     expect(jobRelatedShowEmpty(undefined, 0)).toBe(true);
     expect(jobRelatedShowEmpty(true, 3)).toBe(false);
+    expect(jobRelatedShowEmpty(false, 0, true)).toBe(false);
 
     const tray = src('src/components/jobs/JobRelatedSection.tsx');
     expect(tray).toContain('loading?: boolean');
@@ -78,7 +85,43 @@ describe('list loading truth', () => {
     expect(client).toContain("enabled: !!id && !!profile && jobs !== undefined");
     expect(client).toContain('No jobs yet');
     expect(client.indexOf('jobsBusy')).toBeLessThan(client.indexOf('No jobs yet'));
+    expect(client).toContain('isError: jobsError || inspectionsError');
+    expect(job).toContain('isError: take5sError || jhasError');
+    expect(job).toContain('data-job-next-held');
+    expect(job).toContain('jobSheetHeaderPrimaryHeld');
     expect(job).not.toMatch(/Relovi|Littleloop/);
     expect(client).not.toMatch(/Relovi|Littleloop/);
+  });
+
+  it('error is not busy, not empty, and the job header holds Start inspection', () => {
+    expect(listQueryBusy({ isPending: true, isError: true, data: undefined })).toBe(false);
+    expect(listShowEmpty(false, 0, true)).toBe(false);
+    expect(listSectionLoadError('invoices')).toBe("Couldn't load invoices.");
+    expect(jobSheetHeaderPrimaryHeld({
+      jhas: [],
+      inspections: undefined,
+      nextKey: 'inspect',
+    })).toBe(true);
+    expect(jobSheetHeaderPrimaryHeld({
+      jhas: [],
+      inspections: [],
+      nextKey: 'inspect',
+    })).toBe(false);
+
+    const tray = src('src/components/jobs/JobRelatedSection.tsx');
+    expect(tray).toContain('error ?');
+    expect(tray).toContain('ListSectionLoadError');
+    expect(tray.indexOf('{loading ?')).toBeLessThan(tray.indexOf('error ?'));
+    expect(tray.indexOf('error ?')).toBeLessThan(tray.indexOf('showEmpty ?'));
+
+    const contracts = src('src/pages/ContractsPage.tsx');
+    expect(contracts).toContain("listSectionLoadError('contracts')");
+    expect(contracts).toContain('data-list-load-error="contracts"');
+
+    const drive = src('src/pages/ReportsListPage.tsx');
+    expect(drive).toContain('isError: Boolean(foldersError)');
+    expect(drive).toContain('isError: Boolean(uploadsError)');
+    expect(drive).toContain("listSectionLoadError('folders')");
+    expect(drive).toContain("listSectionLoadError('uploads')");
   });
 });

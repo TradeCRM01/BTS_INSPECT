@@ -1,24 +1,44 @@
 export const LIST_LOADING_LABEL = 'Loading…';
 
-/** True until a successful result exists. Look seeds skip the wait. */
+/** True while v5 isPending and not in error. Look seeds skip the wait. */
 export function listQueryBusy(input: {
   isPending?: boolean;
   isLoading?: boolean;
+  isError?: boolean;
   data: unknown;
   seeded?: boolean;
 }): boolean {
   if (input.seeded) return false;
-  return Boolean(input.isPending || input.isLoading || input.data === undefined);
+  return Boolean(input.isPending) && !input.isError;
 }
 
-/** Real empty only after the query is not busy. */
-export function listShowEmpty(busy: boolean, count: number): boolean {
-  return !busy && count === 0;
+/** Real empty only after the query is not busy and not in error. */
+export function listShowEmpty(busy: boolean, count: number, isError = false): boolean {
+  return !busy && !isError && count === 0;
 }
 
-/** Empty job/client tray copy only after the related query resolves. */
-export function jobRelatedShowEmpty(loading: boolean | undefined, itemCount: number): boolean {
-  return !loading && itemCount === 0;
+/** Empty job/client tray copy only after the related query resolves without error. */
+export function jobRelatedShowEmpty(
+  loading: boolean | undefined,
+  itemCount: number,
+  isError = false,
+): boolean {
+  return !loading && !isError && itemCount === 0;
+}
+
+export function listSectionLoadError(thing: string): string {
+  return `Couldn't load ${thing}.`;
+}
+
+/** Hold Start JHA / Start inspection until those counts are known. */
+export function jobSheetHeaderPrimaryHeld(input: {
+  jhas: unknown;
+  inspections: unknown;
+  nextKey: string;
+}): boolean {
+  if (input.nextKey === 'jha' && input.jhas === undefined) return true;
+  if (input.nextKey === 'inspect' && input.inspections === undefined) return true;
+  return false;
 }
 
 export function listCountWhisper(input: {

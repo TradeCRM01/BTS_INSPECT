@@ -54,7 +54,7 @@ import {
   type ReportListFilter,
   type ReportListStatus,
 } from '../lib/reportsList';
-import { listCountWhisper, listQueryBusy } from '../lib/listQueryReady';
+import { listCountWhisper, listQueryBusy, listSectionLoadError } from '../lib/listQueryReady';
 
 interface FolderRow {
   id: string;
@@ -266,7 +266,7 @@ export function ReportsListPage() {
     hasStoredBackupDir().then(setBackupConnected);
   }, []);
 
-  const { data: allFolders, error: foldersError, isPending: foldersPending, isLoading: foldersLoading } = useQuery<FolderRow[]>({
+  const { data: allFolders, error: foldersError, isPending: foldersPending, isLoading: foldersLoading, refetch: refetchFolders } = useQuery<FolderRow[]>({
     queryKey: ['drive-folders'],
     queryFn: async () => {
       const empty = getAuditEmptyList();
@@ -317,7 +317,7 @@ export function ReportsListPage() {
     }
   }, [params.folderId, allFolders, currentFolderId, navigate]);
 
-  const { data: allUploads, error: uploadsError, isPending: uploadsPending, isLoading: uploadsLoading } = useQuery<UploadedPdfRow[]>({
+  const { data: allUploads, error: uploadsError, isPending: uploadsPending, isLoading: uploadsLoading, refetch: refetchUploads } = useQuery<UploadedPdfRow[]>({
     queryKey: ['uploaded-pdfs'],
     queryFn: async () => {
       const mockUploads = getAuditDriveUploads();
@@ -939,12 +939,14 @@ export function ReportsListPage() {
   const foldersBusy = listQueryBusy({
     isPending: foldersPending,
     isLoading: foldersLoading,
+    isError: Boolean(foldersError),
     data: allFolders,
     seeded: lookReportsList,
   });
   const uploadsBusy = listQueryBusy({
     isPending: uploadsPending,
     isLoading: uploadsLoading,
+    isError: Boolean(uploadsError),
     data: allUploads,
     seeded: lookReportsList,
   });
@@ -1115,7 +1117,21 @@ export function ReportsListPage() {
                 />
               ))}
 
-            {showFiles && (
+            {foldersError ? (
+              <p className="ops-meta" data-list-load-error="folders">
+                {listSectionLoadError('folders')}
+                {' '}
+                <button type="button" className="ops-link" onClick={() => { void refetchFolders(); }}>Retry</button>
+              </p>
+            ) : null}
+            {uploadsError ? (
+              <p className="ops-meta" data-list-load-error="uploads">
+                {listSectionLoadError('uploads')}
+                {' '}
+                <button type="button" className="ops-link" onClick={() => { void refetchUploads(); }}>Retry</button>
+              </p>
+            ) : null}
+            {!foldersError && !uploadsError && showFiles && (
               <div className="hub-reports-files">
                 <h2 className="hub-reports-files-title">Files on this list</h2>
                 {fileItems.map(item => (

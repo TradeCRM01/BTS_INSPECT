@@ -1,7 +1,27 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
-import { jobRelatedShowEmpty } from '../../lib/listQueryReady';
+import { jobRelatedShowEmpty, listSectionLoadError } from '../../lib/listQueryReady';
+
+export function ListSectionLoadError({
+  thing,
+  onRetry,
+}: {
+  thing: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <p className="ops-meta px-3 py-2" data-list-load-error={thing}>
+      {listSectionLoadError(thing)}
+      {onRetry ? (
+        <>
+          {' '}
+          <button type="button" className="ops-link" onClick={onRetry}>Retry</button>
+        </>
+      ) : null}
+    </p>
+  );
+}
 
 export function JobRelatedSection({
   title,
@@ -13,6 +33,9 @@ export function JobRelatedSection({
   emptyHelper,
   emptyAction,
   loading,
+  error,
+  errorThing,
+  onRetry,
   children,
 }: {
   title: string;
@@ -28,11 +51,14 @@ export function JobRelatedSection({
   emptyHelper?: string;
   emptyAction?: ReactNode;
   loading?: boolean;
+  error?: boolean;
+  errorThing?: string;
+  onRetry?: () => void;
   children: ReactNode;
 }) {
   const items = Array.isArray(children) ? children : children ? [children] : [];
   const visible = items.filter(Boolean);
-  const showEmpty = jobRelatedShowEmpty(loading, visible.length);
+  const showEmpty = jobRelatedShowEmpty(loading, visible.length, error);
 
   return (
     <section className="ops-tray">
@@ -50,6 +76,8 @@ export function JobRelatedSection({
           <div className="skeleton h-4 w-2/3 rounded mx-3 my-2.5" />
           <div className="skeleton h-3 w-1/2 rounded mx-3 mb-2.5" />
         </div>
+      ) : error ? (
+        <ListSectionLoadError thing={errorThing ?? title.toLowerCase()} onRetry={onRetry} />
       ) : showEmpty ? (
         <div className="ops-tray-empty">
           <p className="text-sm text-navy">

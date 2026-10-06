@@ -1,22 +1,46 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { LIST_LOADING_LABEL, listCountWhisper, listQueryBusy, listShowEmpty } from './listQueryReady';
+import {
+  LIST_LOADING_LABEL,
+  jobSheetHeaderPrimaryHeld,
+  listCountWhisper,
+  listQueryBusy,
+  listSectionLoadError,
+  listShowEmpty,
+  jobRelatedShowEmpty,
+} from './listQueryReady';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
 describe('listQueryBusy', () => {
-  it('stays busy while pending or loading so 0 / empty UI stays hidden', () => {
+  it('stays busy while pending so 0 / empty UI stays hidden', () => {
     expect(listQueryBusy({ isPending: true, data: undefined })).toBe(true);
-    expect(listQueryBusy({ isLoading: true, data: undefined })).toBe(true);
-    expect(listQueryBusy({ isPending: false, isLoading: false, data: undefined })).toBe(true);
     expect(listQueryBusy({ isPending: false, isLoading: false, data: [] })).toBe(false);
     expect(listQueryBusy({ isPending: false, isLoading: false, data: [{ id: '1' }] })).toBe(false);
     expect(listQueryBusy({ isPending: true, data: undefined, seeded: true })).toBe(false);
     expect(listShowEmpty(true, 0)).toBe(false);
     expect(listShowEmpty(false, 0)).toBe(true);
+  });
+
+  it('error is not busy and not empty', () => {
+    expect(listQueryBusy({ isPending: false, isError: true, data: undefined })).toBe(false);
+    expect(listQueryBusy({ isPending: true, isError: true, data: undefined })).toBe(false);
+    expect(listShowEmpty(false, 0, true)).toBe(false);
+    expect(jobRelatedShowEmpty(false, 0, true)).toBe(false);
+    expect(listSectionLoadError('quotes')).toBe("Couldn't load quotes.");
+  });
+});
+
+describe('jobSheetHeaderPrimaryHeld', () => {
+  it('holds Start JHA / Start inspection until those queries resolve', () => {
+    expect(jobSheetHeaderPrimaryHeld({ jhas: undefined, inspections: undefined, nextKey: 'jha' })).toBe(true);
+    expect(jobSheetHeaderPrimaryHeld({ jhas: [], inspections: undefined, nextKey: 'inspect' })).toBe(true);
+    expect(jobSheetHeaderPrimaryHeld({ jhas: [], inspections: [], nextKey: 'jha' })).toBe(false);
+    expect(jobSheetHeaderPrimaryHeld({ jhas: [], inspections: [], nextKey: 'inspect' })).toBe(false);
+    expect(jobSheetHeaderPrimaryHeld({ jhas: undefined, inspections: undefined, nextKey: 'schedule' })).toBe(false);
   });
 });
 
