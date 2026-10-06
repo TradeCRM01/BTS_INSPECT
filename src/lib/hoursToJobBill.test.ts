@@ -3,6 +3,12 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   PROFILE_STAFF_LABOUR_RATE_KEYS,
+  PROFILES_LABOUR_UNIT_COST_COLUMN,
+  hourlyUnitCostForEmployee,
+  isSchemaColumnMissingError,
+  loadProfilesForLabourBill,
+  profilesSelectForLabourBill,
+  resetProfilesLabourUnitCostColumnCache,
   buildJobCostFromTimesheetEntry,
   closedBillableEntries,
   formatUnbilledCueButtonLabel,
@@ -24,6 +30,87 @@ describe('price_book_items select columns', () => {
     const bill = readFileSync(resolve(process.cwd(), 'src/lib/hoursToJobBill.ts'), 'utf8');
     expect(bill).toContain(".select('id, category, description, unit_price, is_active')");
     expect(bill).not.toMatch(/price_book_items[\s\S]{0,120}\.select\([^)]*\bname\b/);
+  });
+});
+
+describe('profiles labour unit cost select', () => {
+  it('uses migration 084 column name in the full profiles select', () => {
+    expect(PROFILES_LABOUR_UNIT_COST_COLUMN).toBe('expense_cost_model_id');
+    expect(profilesSelectForLabourBill(true)).toBe('id, expense_cost_model_id');
+    expect(profilesSelectForLabourBill(false)).toBe('id');
+    const bill = readFileSync(resolve(process.cwd(), 'src/lib/hoursToJobBill.ts'), 'utf8');
+    expect(bill).toContain('loadProfilesForLabourBill');
+    expect(bill).not.toMatch(
+      /\.from\('profiles'\)[\s\S]{0,80}\.select\('id, expense_cost_model_id'\)/,
+    );
+  });
+
+  it('treats PostgREST PGRST204 as a missing column', () => {
+    expect(isSchemaColumnMissingError(
+      { code: 'PGRST204', message: "Could not find the 'expense_cost_model_id' column of 'profiles' in the schema cache" },
+      'expense_cost_model_id',
+    )).toBe(true);
+  });
+
+  it('loadProfilesForLabourBill falls back to id-only without throwing', async () => {
+    resetProfilesLabourUnitCostColumnCache();
+    const calls: string[] = [];
+    const client = {
+      from: () => ({
+        select: (cols: string) => ({
+          eq: async () => {
+            calls.push(cols);
+            if (cols.includes('expense_cost_model_id')) {
+              return {
+                data: null,
+                error: {
+                  code: 'PGRST204',
+                  message: "Could not find the 'expense_cost_model_id' column of 'profiles' in the schema cache",
+                },
+              };
+            }
+            return { data: [{ id: 'p1' }], error: null };
+          },
+        }),
+      }),
+    };
+    const rows = await loadProfilesForLabourBill(client as never, 'co-1');
+    expect(rows).toEqual([{ id: 'p1' }]);
+    expect(calls).toEqual(['id, expense_cost_model_id', 'id']);
+    const again = await loadProfilesForLabourBill(client as never, 'co-1');
+    expect(again).toEqual([{ id: 'p1' }]);
+    expect(calls).toEqual(['id, expense_cost_model_id', 'id', 'id']);
+  });
+});
+
+describe('hourlyUnitCostForEmployee', () => {
+  const models = [{
+    id: 'm1',
+    company_id: 'co',
+    name: 'Tech',
+    notes: null,
+    billing_period: 'monthly' as const,
+    lines: [{
+      employee_cost_type: 'wages' as const,
+      category: 'Wages',
+      description: 'Wages',
+      amount: 50,
+      amount_mode: 'hours_x_rate' as const,
+      tax_rate: 0,
+      time_unit: 'hourly' as const,
+    }],
+    created_at: '',
+    updated_at: '',
+  }] as import('../types/fsm').ExpenseCostModel[];
+
+  it('resolves hourly cost from profile expense_cost_model_id', () => {
+    expect(hourlyUnitCostForEmployee('p1', models, [
+      { id: 'p1', expense_cost_model_id: 'm1' },
+    ])).toMatchObject({ unitCost: 50, costModelId: 'm1' });
+    expect(hourlyUnitCostForEmployee('p1', models, [{ id: 'p1' }])).toMatchObject({
+      unitCost: 0,
+      costModelId: null,
+    });
   });
 });
 
