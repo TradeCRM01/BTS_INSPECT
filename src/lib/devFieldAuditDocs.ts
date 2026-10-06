@@ -86,6 +86,11 @@ function auditLookTag(): string | null {
   }
 }
 
+/** Playwright: /jobs/audit-doc-job?auditAuth=1&look=crew2#job-schedule */
+export function crew2LookOn(): boolean {
+  return auditLookTag() === 'crew2';
+}
+
 function auditJobBillCostBase(): Omit<JobCost, 'id' | 'cost_type' | 'description' | 'quantity' | 'unit_cost' | 'total_cost' | 'markup_percent' | 'unit_price' | 'total_price' | 'charge_type' | 'cost_model_id'> {
   return {
     company_id: DEV_AUDIT_COMPANY.id,
@@ -315,6 +320,19 @@ export function getAuditClientInvoices() {
 
 export function getAuditTeamMembers() {
   if (!isDevFieldAuditAuth()) return null;
+  if (crew2LookOn()) {
+    return [{
+      id: 'crew2-cos',
+      name: 'Grafter CoS Test',
+      email: 'cos@look.example',
+      role: 'member' as const,
+    }, {
+      id: 'crew2-invitee',
+      name: 'CoS Invitee Test',
+      email: 'invitee@look.example',
+      role: 'member' as const,
+    }];
+  }
   return [{
     id: DEV_AUDIT_PROFILE.id,
     name: DEV_AUDIT_PROFILE.name,
