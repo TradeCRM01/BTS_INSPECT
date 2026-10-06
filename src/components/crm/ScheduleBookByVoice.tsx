@@ -81,13 +81,14 @@ export function ScheduleBookByVoice({
           value={phrase}
           onChange={e => setPhrase(e.target.value)}
           placeholder="Smith job Thursday 7am with Dave"
+          aria-label="Type a booking"
           disabled={applying}
         />
         {Speech ? (
           <button
             type="button"
             className={`hub-schedule-voice-mic${listening ? ' is-on' : ''}`}
-            aria-label={listening ? 'Stop voice' : 'Book by voice'}
+            aria-label={listening ? 'Stop voice' : 'Speak a booking'}
             onClick={() => {
               if (listening) {
                 speechRef.current?.stop();

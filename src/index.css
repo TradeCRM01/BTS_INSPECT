@@ -6583,12 +6583,19 @@
     overflow-wrap: break-word;
   }
 
+  .hub-week-document .hub-schedule-voice,
   .hub-schedule-voice {
     flex: 1 1 100%;
     width: 100%;
     min-width: 0;
     max-width: 100%;
     overflow-x: hidden;
+    box-sizing: border-box;
+  }
+
+  .hub-week-document .hub-schedule-voice {
+    padding: 8px 16px 12px;
+    margin: 0;
   }
 
   .hub-schedule-voice-form {
@@ -6672,6 +6679,18 @@
     color: #5B6B7C;
     white-space: normal;
     overflow-wrap: break-word;
+  }
+
+  .hub-schedule-from-booking {
+    display: inline-block;
+    margin-left: 8px;
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #2E75B6;
+    vertical-align: middle;
   }
 
   .hub-schedule-voice-picks {
@@ -6760,6 +6779,10 @@
     .hub-schedule-voice-form {
       width: 100%;
       max-width: 100%;
+    }
+
+    .hub-week-document .hub-schedule-voice {
+      padding: 8px 16px 12px;
     }
 
     .hub-schedule-voice .form-input {

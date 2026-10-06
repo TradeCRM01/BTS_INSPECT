@@ -166,7 +166,11 @@ describe('schedule page week/day board', () => {
     expect(sheet).toContain('prefill');
     expect(sheet).toContain('matchHints');
     expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain('Book by voice');
+    expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain('Type a booking');
+    expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain('Speak a booking');
     expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain('Microphone is blocked. Type the booking instead.');
+    expect(page.lastIndexOf('<ScheduleBookByVoice')).toBeGreaterThan(page.indexOf('data-schedule-search="1"'));
+    expect(sheet).toContain('From your booking');
     expect(page).toContain('withScheduleJobPatches(weekBoardLookJobs())');
     expect(page).toContain('jobMatchesSearch');
     expect(src('src/components/jobs/JobDispatchPanel.tsx')).toContain("save.mutate({ scheduled_date:");

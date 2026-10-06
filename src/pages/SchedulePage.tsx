@@ -23,7 +23,7 @@ import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, hydrateJobParentNumbers, jobMatchesSearch, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
 import { parseScheduleDateParam, parseScheduleView, scheduleDateKey, scheduleDayKey, scheduleJobHref, scheduleSheetSavePayload, SCHEDULE_WEEK_STARTS_ON, type ScheduleSheetInput, type ScheduleViewMode } from '../lib/scheduleBoard';
-import { matchQuickBookJobs, parseQuickBook, resolveQuickBook } from '../lib/quickBook';
+import { matchQuickBookJobs, parseQuickBook, resolveQuickBook, spokenSheetFields } from '../lib/quickBook';
 import {
   scheduleLocationStep,
   scheduleSearchFromState,
@@ -413,11 +413,18 @@ export function SchedulePage() {
   } | null>(null);
   const [voiceJobPicks, setVoiceJobPicks] = useState<JobWithClient[]>([]);
   const [voiceApplying, setVoiceApplying] = useState(false);
+  const [sheetFromBooking, setSheetFromBooking] = useState<{
+    job?: boolean;
+    date?: boolean;
+    start?: boolean;
+    crew?: boolean;
+  } | null>(null);
   const lastVoicePrefill = useRef<{
-    date: string | null;
-    startTime: string | null;
-    crewId: string | null;
+    date?: string;
+    startTime?: string;
+    crewId?: string;
     hints: { job: string | null; client: string | null; crew: string | null };
+    fromBooking: { job?: boolean; date?: boolean; start?: boolean; crew?: boolean };
   } | null>(null);
   const { showToast } = useToast();
 
@@ -783,9 +790,11 @@ export function SchedulePage() {
     job: JobWithClient,
     prefill?: Partial<ScheduleSheetInput> | null,
     hints?: { job?: string | null; client?: string | null; crew?: string | null } | null,
+    fromBooking?: { job?: boolean; date?: boolean; start?: boolean; crew?: boolean } | null,
   ) => {
     setSheetPrefill(prefill ?? null);
     setSheetHints(hints ?? null);
+    setSheetFromBooking(fromBooking ?? null);
     setSheetJob(job);
   }, []);
 
@@ -827,21 +836,22 @@ export function SchedulePage() {
         crew: boardCrew,
         clients: [...clients.values()],
       });
+      const spoken = spokenSheetFields(resolved);
+      const fromBooking = {
+        job: resolved.jobs.kind === 'one',
+        date: !!spoken.date,
+        start: !!spoken.startTime,
+        crew: !!spoken.crewId,
+      };
       lastVoicePrefill.current = {
-        date: resolved.prefill.date,
-        startTime: resolved.prefill.startTime,
-        crewId: resolved.prefill.crewId,
+        ...spoken,
         hints: resolved.hints,
+        fromBooking,
       };
       setVoiceHints(resolved.hints);
       setVoiceJobPicks(resolved.jobs.kind === 'many' ? resolved.jobs.items : []);
       if (resolved.jobs.kind === 'one') {
-        openScheduleSheet(resolved.jobs.items[0], {
-          date: resolved.prefill.date ?? format(currentDate, 'yyyy-MM-dd'),
-          startTime: resolved.prefill.startTime ?? '',
-          endTime: '',
-          crewId: resolved.prefill.crewId,
-        }, resolved.hints);
+        openScheduleSheet(resolved.jobs.items[0], spoken, resolved.hints, fromBooking);
         return;
       }
       if (resolved.jobs.kind === 'none' && parsed.subjectToken) {
@@ -850,20 +860,30 @@ export function SchedulePage() {
     } finally {
       setVoiceApplying(false);
     }
-  }, [boardCrew, boardJobs, currentDate, lookWeekBoard, openScheduleSheet]);
+  }, [boardCrew, boardJobs, lookWeekBoard, openScheduleSheet]);
 
   const pickVoiceJob = useCallback((jobId: string) => {
     const job = voiceJobPicks.find(item => item.id === jobId);
     if (!job) return;
     const voice = lastVoicePrefill.current;
-    openScheduleSheet(job, {
-      date: voice?.date ?? format(currentDate, 'yyyy-MM-dd'),
-      startTime: voice?.startTime ?? '',
-      endTime: '',
-      crewId: voice?.crewId ?? null,
-    }, voice?.hints ?? voiceHints);
+    const spoken: Partial<ScheduleSheetInput> = {};
+    if (voice?.date) spoken.date = voice.date;
+    if (voice?.startTime) spoken.startTime = voice.startTime;
+    if (voice?.crewId) spoken.crewId = voice.crewId;
+    const hints = {
+      ...(voice?.hints ?? voiceHints ?? { job: null, client: null, crew: null }),
+      job: null,
+      client: null,
+    };
+    setVoiceHints(hints);
     setVoiceJobPicks([]);
-  }, [currentDate, openScheduleSheet, voiceHints, voiceJobPicks]);
+    openScheduleSheet(job, spoken, hints, {
+      job: true,
+      date: !!spoken.date,
+      start: !!spoken.startTime,
+      crew: !!spoken.crewId,
+    });
+  }, [openScheduleSheet, voiceHints, voiceJobPicks]);
 
   useEffect(() => {
     if (!lookWeekBoard) return;
@@ -917,6 +937,7 @@ export function SchedulePage() {
       onScheduleJob={job => {
         setSheetPrefill(null);
         setSheetHints(null);
+        setSheetFromBooking(null);
         setSheetJob(job);
       }}
     />
@@ -1024,13 +1045,6 @@ export function SchedulePage() {
               ))}
             </div>
           )}
-          <ScheduleBookByVoice
-            onApply={phrase => { void applyQuickBook(phrase); }}
-            applying={voiceApplying}
-            hints={voiceHints ?? undefined}
-            jobPicks={voiceJobPicks}
-            onPickJob={pickVoiceJob}
-          />
         </div>
 
         {pickedJob && boardCrew.length > 0 && (
@@ -1069,6 +1083,13 @@ export function SchedulePage() {
                 <div className="hub-week-search" data-schedule-search="1">
                   {weekSearch}
                 </div>
+                <ScheduleBookByVoice
+                  onApply={phrase => { void applyQuickBook(phrase); }}
+                  applying={voiceApplying}
+                  hints={voiceHints ?? undefined}
+                  jobPicks={voiceJobPicks}
+                  onPickJob={pickVoiceJob}
+                />
                 {pickedJob && boardCrew.length > 0 && (
                   <div className="hub-week-place hub-schedule-place" data-schedule-place="1">
                     <p>
@@ -1159,11 +1180,13 @@ export function SchedulePage() {
         viewedDate={format(currentDate, 'yyyy-MM-dd')}
         prefill={sheetPrefill}
         matchHints={sheetHints}
+        fromBooking={sheetFromBooking}
         saving={scheduleFromSheet.isPending}
         onClose={() => {
           setSheetJob(null);
           setSheetPrefill(null);
           setSheetHints(null);
+          setSheetFromBooking(null);
         }}
         onSave={fields => {
           if (!sheetJob) return;
