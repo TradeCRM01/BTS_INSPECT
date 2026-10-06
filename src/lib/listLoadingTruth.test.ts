@@ -65,8 +65,9 @@ describe('list loading truth', () => {
     expect(job).toContain('loading={quotesBusy}');
     expect(job).toContain('loading={invoicesBusy}');
     expect(job).toContain('loading={timesheetsBusy}');
-    expect(job).toContain('Start inspection');
-    expect(job.indexOf('loading={inspectionsBusy}')).toBeLessThan(job.indexOf('Start inspection'));
+    const inspTray = job.slice(job.indexOf('id="job-insp"'));
+    expect(inspTray).toContain('Start inspection');
+    expect(inspTray.indexOf('loading={inspectionsBusy}')).toBeLessThan(inspTray.indexOf('Start inspection'));
 
     const client = src('src/pages/ClientDetailPage.tsx');
     expect(client).toContain('jobsBusy');
