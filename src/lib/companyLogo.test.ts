@@ -35,6 +35,7 @@ import {
   persistCompanyLogo,
   persistCompanyLogoLetterhead,
   removeCompanyLogo,
+  versionedLogoUrl,
   type CompanyLogoClient,
   type CompanyLogoFileIn,
   type CompanyLogoLetterheadClient,
@@ -45,6 +46,8 @@ function src(rel: string): string {
 }
 
 const LOGO = 'https://cdn.example.com/co1/logo.png';
+const LOGO_NOW = 1_700_000_000_000;
+const VERSIONED_LOGO = `${LOGO}?v=${LOGO_NOW}`;
 
 const emptySchema: TemplateSchema = {
   meta: {
@@ -192,17 +195,32 @@ describe('decideCompanyLogoUpload', () => {
   });
 });
 
+describe('versionedLogoUrl', () => {
+  it('adds v, replaces an existing v, and does not stack a second ?', () => {
+    expect(versionedLogoUrl('https://cdn.example.com/co1/logo.png', LOGO_NOW)).toBe(VERSIONED_LOGO);
+    expect(versionedLogoUrl('https://cdn.example.com/co1/logo.png?v=1', 2))
+      .toBe('https://cdn.example.com/co1/logo.png?v=2');
+    expect(versionedLogoUrl('https://cdn.example.com/co1/logo.png?download=1&v=1', 9))
+      .toBe('https://cdn.example.com/co1/logo.png?download=1&v=9');
+    const replaced = versionedLogoUrl('https://cdn.example.com/co1/logo.png?v=1', 2);
+    expect(replaced.split('?')).toHaveLength(2);
+    expect(replaced).not.toContain('?v=1');
+    expect(replaced.match(/\?/g)).toHaveLength(1);
+    expect(versionedLogoUrl('  ', 1)).toBe('');
+  });
+});
+
 describe('persistCompanyLogo', () => {
-  it('upload persists logo_url on this company only', async () => {
+  it('upload persists a versioned logo_url on this company only', async () => {
     const client = memoryLogoClient({ co1: null, co2: null });
     const file = fakeLogoFile('image/png', 12, 'mark.png');
-    const result = await persistCompanyLogo(client, { companyId: 'co1', file });
+    const result = await persistCompanyLogo(client, { companyId: 'co1', file, now: LOGO_NOW });
     expect(result).toEqual({
       ok: true,
       companyId: 'co1',
-      logo_url: 'https://cdn.example.com/co1/logo.png',
+      logo_url: VERSIONED_LOGO,
     });
-    expect(client.companies.co1).toBe('https://cdn.example.com/co1/logo.png');
+    expect(client.companies.co1).toBe(VERSIONED_LOGO);
     expect(client.companies.co2).toBeNull();
     expect(client.objects['co1/logo.png']?.contentType).toBe('image/png');
   });
@@ -223,10 +241,19 @@ describe('persistCompanyLogo', () => {
     expect(client.companies.co1).toBeNull();
 
     const file = fakeLogoFile('image/png', 12, 'new.png');
-    const replaced = await persistCompanyLogo(client, { companyId: 'co1', file });
+    const replaced = await persistCompanyLogo(client, { companyId: 'co1', file, now: LOGO_NOW });
     expect(replaced.ok).toBe(true);
-    if (replaced.ok) expect(replaced.logo_url).toBe('https://cdn.example.com/co1/logo.png');
-    expect(client.companies.co1).toBe('https://cdn.example.com/co1/logo.png');
+    if (replaced.ok) expect(replaced.logo_url).toBe(VERSIONED_LOGO);
+    expect(client.companies.co1).toBe(VERSIONED_LOGO);
+
+    client.publicUrl = () => 'https://cdn.example.com/co1/logo.png?v=old';
+    const again = await persistCompanyLogo(client, {
+      companyId: 'co1',
+      file: fakeLogoFile('image/png', 12, 'again.png'),
+      now: 99,
+    });
+    expect(again).toMatchObject({ ok: true, logo_url: 'https://cdn.example.com/co1/logo.png?v=99' });
+    expect(client.companies.co1).toBe('https://cdn.example.com/co1/logo.png?v=99');
   });
 });
 
@@ -234,6 +261,13 @@ describe('company logo on documents', () => {
   it('includes the company logo URL on invoice, quote, and report when set', () => {
     const stamped = companyLogoOnDocuments({ logo_url: LOGO });
     expect(stamped).toEqual({ invoice: LOGO, quote: LOGO, report: LOGO });
+    expect(companyLogoOnDocuments({ logo_url: VERSIONED_LOGO })).toEqual({
+      invoice: VERSIONED_LOGO,
+      quote: VERSIONED_LOGO,
+      report: VERSIONED_LOGO,
+    });
+    expect(commercialPdfCompanyFrom({ name: 'Acme Electrical', logo_url: VERSIONED_LOGO }).logo_url)
+      .toBe(VERSIONED_LOGO);
 
     const invoicePdf = commercialPdfDataForInvoice(invoiceBundle(LOGO), new Date('2026-08-20T10:00:00'));
     expect(invoicePdf?.company.logo_url).toBe(LOGO);
@@ -249,6 +283,7 @@ describe('company logo on documents', () => {
 
   it('omits the mark on invoice, quote, and report when blank', () => {
     expect(companyDocumentLogoUrl(null)).toBeNull();
+    expect(companyDocumentLogoUrl({ logo_url: VERSIONED_LOGO })).toBe(VERSIONED_LOGO);
     expect(companyDocumentLogoUrl({ logo_url: '' })).toBeNull();
     expect(companyDocumentLogoUrl({ logo_url: '   ' })).toBeNull();
     expect(companyDocumentLogoUrl({ logo_url: null })).toBeNull();
@@ -295,6 +330,10 @@ describe('company logo on documents', () => {
     expect(settings).toContain('persistCompanyLogo');
     expect(settings).toContain('removeCompanyLogo');
     expect(settings).toContain('decideCompanyLogoUpload');
+    expect(settings).toContain("invalidateQueries({ queryKey: ['company'] })");
+    expect(settings).toContain('refreshProfile()');
+    expect(settings).toContain('setLogoUrl(result.logo_url)');
+    expect(settings).not.toContain('?t=');
     expect(settings).not.toContain('BtsMark');
     expect(settings).not.toContain('BrandLockup');
   });
@@ -356,10 +395,14 @@ describe('companyLogoClientFromSupabase', () => {
       },
     });
     const file = fakeLogoFile('image/png', 12, 'mark.png');
-    const result = await persistCompanyLogo(client, { companyId: 'co1', file });
-    expect(result).toMatchObject({ ok: true, logo_url: 'https://files.test/co1/logo.png' });
+    const result = await persistCompanyLogo(client, { companyId: 'co1', file, now: LOGO_NOW });
+    expect(result).toMatchObject({ ok: true, logo_url: `https://files.test/co1/logo.png?v=${LOGO_NOW}` });
     expect(uploads).toEqual([{ bucket: 'logos', path: 'co1/logo.png' }]);
-    expect(writes).toEqual([{ table: 'companies', row: { logo_url: 'https://files.test/co1/logo.png' }, id: 'co1' }]);
+    expect(writes).toEqual([{
+      table: 'companies',
+      row: { logo_url: `https://files.test/co1/logo.png?v=${LOGO_NOW}` },
+      id: 'co1',
+    }]);
   });
 });
 

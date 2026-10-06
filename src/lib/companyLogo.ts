@@ -98,6 +98,25 @@ export function companyLogoStoragePath(companyId: string): string {
 }
 
 /**
+ * Cache-bust a public logo URL after upsert to the same storage path.
+ * Replaces an existing v=; never stacks a second ?.
+ */
+export function versionedLogoUrl(publicUrl: string, now: number): string {
+  const trimmed = publicUrl.trim();
+  if (!trimmed) return trimmed;
+  const v = String(now);
+  const hashAt = trimmed.indexOf('#');
+  const hash = hashAt >= 0 ? trimmed.slice(hashAt) : '';
+  const beforeHash = hashAt >= 0 ? trimmed.slice(0, hashAt) : trimmed;
+  const qAt = beforeHash.indexOf('?');
+  if (qAt < 0) return `${beforeHash}?v=${v}${hash}`;
+  const base = beforeHash.slice(0, qAt);
+  const params = new URLSearchParams(beforeHash.slice(qAt + 1));
+  params.set('v', v);
+  return `${base}?${params.toString()}${hash}`;
+}
+
+/**
  * The customer's mark on documents. Blank / whitespace stays empty.
  * Never invents a Grafter G, BtsMark, or BrandLockup fallback.
  */
@@ -469,7 +488,7 @@ export function companyLogoClientFromSupabase(
 
 export async function persistCompanyLogo(
   client: CompanyLogoClient,
-  args: { companyId: string; file: Blob & CompanyLogoFileIn },
+  args: { companyId: string; file: Blob & CompanyLogoFileIn; now?: number },
 ): Promise<{ ok: true; logo_url: string; companyId: string } | CompanyLogoMiss> {
   const decision = decideCompanyLogoUpload({ companyId: args.companyId, file: args.file });
   if (!decision.ok) return decision;
@@ -480,10 +499,11 @@ export async function persistCompanyLogo(
   if (upErr) {
     return { ok: false, reason: 'upload_failed', message: upErr.message || COMPANY_LOGO_UPLOAD_FAILED };
   }
-  const logo_url = (client.publicUrl(decision.path) ?? '').trim();
-  if (!logo_url) {
+  const publicUrl = (client.publicUrl(decision.path) ?? '').trim();
+  if (!publicUrl) {
     return { ok: false, reason: 'upload_failed', message: COMPANY_LOGO_UPLOAD_FAILED };
   }
+  const logo_url = versionedLogoUrl(publicUrl, args.now ?? Date.now());
   const { error: saveErr } = await client.saveLogoUrl(decision.companyId, logo_url);
   if (saveErr) {
     return { ok: false, reason: 'upload_failed', message: saveErr.message || COMPANY_LOGO_UPLOAD_FAILED };
