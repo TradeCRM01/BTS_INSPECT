@@ -44,6 +44,8 @@ import {
   invoiceClientAttachRow,
 } from '../../lib/attachInvoiceClient';
 import { invoiceChase } from '../../lib/nudges';
+import { companyInvoiceShareSetupIncomplete } from '../../lib/companyPaymentMethods';
+import { DocumentShareCompanySetupNudge } from './DocumentShareCompanySetupNudge';
 
 /** Honest no_email miss — write the address on this dialog for mailto. */
 export const INVOICE_SEND_NO_EMAIL_FIELD =
@@ -438,6 +440,7 @@ export function InvoiceSendDialog({
   const canOpenSmsDraft = isChase && phoneRow.kind === 'tel';
   const showShare = !loading && !!share && (share.canDownloadPdf || share.canCopyLink);
   const ready = showShare && !!share && share.canCopyLink && share.canDownloadPdf && !checkPriceBlock;
+  const companySetupNudge = companyInvoiceShareSetupIncomplete(company.abn, company.payment_methods);
 
   return (
     <Modal open onClose={onClose} size="md" closeOnEscape>
@@ -655,6 +658,7 @@ export function InvoiceSendDialog({
           {err && !ready && blockerMessage && err !== blockerMessage && (
             <p className="hub-invoice-err">{err}</p>
           )}
+          {showShare && companySetupNudge ? <DocumentShareCompanySetupNudge /> : null}
         </div>
 
         <div className="hub-invoice-send-foot">

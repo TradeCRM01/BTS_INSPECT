@@ -98,6 +98,24 @@ export function companyHasInvoicePaymentMethod(raw: unknown): boolean {
     .some(method => method.kind === 'bank_transfer' || method.kind === 'payid');
 }
 
+export function companyHasPrintablePaymentMethod(raw: unknown): boolean {
+  return printableCompanyPaymentMethods(raw).length > 0;
+}
+
+/** Non-blocking nudge on invoice Share / Copy link when ABN or bank/PayID is missing. */
+export function companyInvoiceShareSetupIncomplete(
+  abn: string | null | undefined,
+  paymentMethods: unknown,
+): boolean {
+  const abnOk = typeof abn === 'string' && abn.trim().length > 0;
+  return !abnOk || !companyHasInvoicePaymentMethod(paymentMethods);
+}
+
+export const COMPANY_INVOICE_SHARE_SETUP_NUDGE =
+  'Add your ABN and bank details in Company Settings first';
+
+export const COMPANY_SETTINGS_HREF = '/settings/company';
+
 export function formatCompanyPaymentMethodLines(method: CompanyPaymentMethod): string[] {
   const lines: string[] = [];
   if (method.kind === 'bank_transfer') {

@@ -4718,6 +4718,20 @@
     margin: 0;
   }
 
+  .hub-invoice-send-company-nudge {
+    font-size: 14px;
+    font-weight: 500;
+    color: #5B6B7C;
+    margin: 0;
+  }
+
+  .hub-invoice-send-company-nudge a {
+    color: #2E75B6;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   .hub-invoice-editor .hub-invoice-send-xero-miss {
     margin: 0 0 16px;
   }
