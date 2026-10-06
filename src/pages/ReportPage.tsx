@@ -10,7 +10,7 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { FileText, ChevronLeft, CreditCard as Edit2, PenLine, MoreHorizontal } from 'lucide-react';
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
-import { reportIsSent, reportPdfFilename, reportPdfStorageKey, REPORT_PDF_UPLOAD_FAIL_MESSAGE, reportSiteName } from '../lib/sendReport';
+import { persistGeneratedReportPdf, reportIsSent, reportPdfFilename, reportSiteName } from '../lib/sendReport';
 import { applyLivingJobToInspection } from '../lib/livingJha';
 import { format } from 'date-fns';
 import { PdfViewer } from '../components/pdf/PdfViewer';
@@ -274,36 +274,42 @@ export function ReportPage() {
       setPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url; });
 
       const siteName = reportSiteName(livingMeta, boundJob);
-      const storagePath = `${inspection.id}/${reportPdfStorageKey({
-        siteName,
+      const saved = await persistGeneratedReportPdf({
+        inspectionId: inspection.id,
+        companyId: profile.company_id,
         reportNumber: rn,
-      })}`;
-      const { error: upErr } = await supabase.storage
-        .from('reports')
-        .upload(storagePath, blob, { contentType: 'application/pdf', upsert: true });
-
-      if (upErr) {
-        setError(upErr.message?.trim() || REPORT_PDF_UPLOAD_FAIL_MESSAGE);
+        siteName,
+        blob,
+        existingReportId: existingReport?.id ?? null,
+        existingPath: existingReport?.pdf_storage_path ?? null,
+        inspectionStatus: inspection.status,
+      }, {
+        upload: async (path, file) => {
+          const { error } = await supabase.storage.from('reports').upload(path, file, {
+            contentType: 'application/pdf',
+            upsert: true,
+          });
+          return { error };
+        },
+        insertReport: async row => {
+          const { error } = await supabase.from('reports').insert(row);
+          return { error };
+        },
+        updateReportPath: async (reportId, path) => {
+          const { error } = await supabase.from('reports').update({ pdf_storage_path: path }).eq('id', reportId);
+          return { error };
+        },
+        markIssued: async inspectionId => {
+          const { error } = await supabase.from('inspections').update({ status: 'issued' }).eq('id', inspectionId);
+          return { error };
+        },
+        remove: path => supabase.storage.from('reports').remove([path]),
+      });
+      if (!saved.ok) {
+        setError(saved.error);
         return;
       }
-      if (!existingReport) {
-        const { error: insErr } = await supabase.from('reports').insert({
-          company_id: profile.company_id,
-          inspection_id: inspection.id,
-          report_number: rn,
-          pdf_storage_path: storagePath,
-        });
-        if (insErr) {
-          setError(insErr.message?.trim() || REPORT_PDF_UPLOAD_FAIL_MESSAGE);
-          return;
-        }
-        const { error: issueErr } = await supabase.from('inspections').update({ status: 'issued' }).eq('id', inspection.id);
-        if (issueErr) {
-          setError(issueErr.message?.trim() || REPORT_PDF_UPLOAD_FAIL_MESSAGE);
-          return;
-        }
-        queryClient.invalidateQueries({ queryKey: ['report', id] });
-      }
+      queryClient.invalidateQueries({ queryKey: ['report', id] });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'PDF generation failed');
     } finally {
