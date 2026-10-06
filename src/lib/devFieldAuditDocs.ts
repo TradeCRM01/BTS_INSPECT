@@ -1,4 +1,5 @@
 import { DEV_AUDIT_COMPANY, DEV_AUDIT_PROFILE, isDevFieldAuditAuth } from './devFieldAuditAuth';
+import type { ExpenseCostModel, JobCost } from '../types/fsm';
 import type { InvoiceSendBundle, InvoiceSendCompany } from './sendInvoice';
 import type { QuoteSendBundle, QuoteSendCompany } from './sendQuote';
 import type { PurchaseOrderSendBundle, PurchaseOrderSendCompany } from './sendPurchaseOrder';
@@ -72,6 +73,92 @@ const AUDIT_JHA_STEP: JhaStep = {
 
 export function getAuditEmptyList() {
   return isDevFieldAuditAuth() ? [] : null;
+}
+
+const AUDIT_P331_COST_MODEL_ID = 'audit-p331-loaded-hourly';
+
+function auditLookTag(): string | null {
+  if (!isDevFieldAuditAuth()) return null;
+  try {
+    return new URLSearchParams(window.location.search).get('look');
+  } catch {
+    return null;
+  }
+}
+
+function auditJobBillCostBase(): Omit<JobCost, 'id' | 'cost_type' | 'description' | 'quantity' | 'unit_cost' | 'total_cost' | 'markup_percent' | 'unit_price' | 'total_price' | 'charge_type' | 'cost_model_id'> {
+  return {
+    company_id: DEV_AUDIT_COMPANY.id,
+    job_id: AUDIT_DOC_JOB_ID,
+    stock_item_id: null,
+    purchase_order_id: null,
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: '2026-10-06T08:00:00.000Z',
+  };
+}
+
+/** Playwright: /jobs/audit-doc-job?auditAuth=1&look=p331-nocost|p331-cost-filled|p331-bill */
+export function getAuditJobBillCosts(): JobCost[] | null {
+  const look = auditLookTag();
+  if (!look || !isDevFieldAuditAuth()) return null;
+  if (look !== 'p331-nocost' && look !== 'p331-cost-filled' && look !== 'p331-bill') return null;
+  const base = auditJobBillCostBase();
+  const labour: JobCost = {
+    ...base,
+    id: 'audit-p331-labour-line',
+    cost_type: 'labor',
+    description: 'Labour 2.0 h @ $95',
+    quantity: 2,
+    unit_cost: 0,
+    total_cost: 0,
+    markup_percent: 0,
+    unit_price: 95,
+    total_price: 190,
+    charge_type: 'Labour',
+    cost_model_id: null,
+  };
+  if (look === 'p331-cost-filled') {
+    return [{
+      ...labour,
+      unit_cost: 52,
+      total_cost: 104,
+      cost_model_id: AUDIT_P331_COST_MODEL_ID,
+    }];
+  }
+  return [labour];
+}
+
+/** Playwright: team look=p331-team-select | p331-team-empty */
+export function getAuditExpenseCostModels(): ExpenseCostModel[] | null {
+  const look = auditLookTag();
+  if (!isDevFieldAuditAuth() || !look?.startsWith('p331-team')) return null;
+  if (look === 'p331-team-empty') return [];
+  return [{
+    id: AUDIT_P331_COST_MODEL_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    name: 'Loaded crew hourly',
+    notes: null,
+    billing_period: 'monthly',
+    lines: [{
+      employee_cost_type: 'wages',
+      category: 'Wages',
+      description: 'Base wages',
+      amount: 52,
+      amount_mode: 'hours_x_rate',
+      tax_rate: 0,
+      time_unit: 'hourly',
+    }],
+    created_at: '2026-10-06T00:00:00.000Z',
+    updated_at: '2026-10-06T00:00:00.000Z',
+  }];
+}
+
+export function getAuditMemberExpenseCostModelId(memberId: string): string | null | undefined {
+  const look = auditLookTag();
+  if (!isDevFieldAuditAuth() || !look?.startsWith('p331-team')) return undefined;
+  if (memberId !== 'audit-member-alex' && memberId !== 'look-team-alex') return null;
+  if (look === 'p331-team-select') return AUDIT_P331_COST_MODEL_ID;
+  return null;
 }
 
 export function getAuditJobs() {

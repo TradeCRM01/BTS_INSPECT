@@ -5019,6 +5019,37 @@
     line-height: 1.2;
   }
 
+  .job-bill-no-cost-flag {
+    margin-left: auto;
+  }
+
+  .job-bill-incomplete-flag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #fffdf8;
+    color: var(--invoice-warn, #b54708);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-transform: lowercase;
+    letter-spacing: 0;
+    border: 1px solid color-mix(in srgb, var(--invoice-warn, #b54708) 28%, #e2d9cc);
+  }
+
+  .job-bill-labour-cost-caveat {
+    display: block;
+    margin-top: 4px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--invoice-warn, #b54708);
+  }
+
   .job-bill-add-rate-link,
   .job-bill-add-rate,
   .hub-invoice-labour-add-rate {
