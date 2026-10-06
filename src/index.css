@@ -7778,7 +7778,7 @@
     margin-top: 8px;
   }
 
-  @media (min-width: 1024px) {
+  @media (min-width: 640px) {
     /* Row 1: title | quick quote | New quote (flex-end idle geometry). Row 2: hint under controls only. */
     .hub-quotes .ops-page-head {
       display: grid;

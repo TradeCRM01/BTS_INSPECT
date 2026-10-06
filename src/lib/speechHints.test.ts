@@ -126,7 +126,7 @@ describe('speech mic UI wiring', () => {
     expect(css).not.toMatch(/hub-schedule-speech-status[\s\S]{0,200}position:\s*absolute/);
   });
 
-  it('puts quotes desktop hints in head row 2 via grid without margin calc', () => {
+  it('puts quotes tablet+ hints in head row 2 via grid from 640px without margin calc', () => {
     const css = src('src/index.css');
     expect(css).toContain('.hub-quotes .ops-page-head');
     expect(css).toContain('display: grid');
@@ -134,6 +134,9 @@ describe('speech mic UI wiring', () => {
     expect(css).toContain('grid-column: 2');
     expect(css).toContain('grid-row: 2');
     expect(css).not.toContain('margin-top: calc(13px * 1.5');
+    expect(css).toMatch(
+      /@media \(min-width: 640px\) \{[\s\S]*?Row 1: title \| quick quote[\s\S]*?display: contents/,
+    );
   });
 });
 
