@@ -829,7 +829,7 @@ export function CompanySettingsPage() {
     if (!result.ok) {
       setLogoError(result.message);
     } else {
-      setLogoUrl(`${result.logo_url}?t=${Date.now()}`);
+      setLogoUrl(result.logo_url);
       setLogoCrop(null);
       await persistCompanyLogoLetterhead(companyLogoLetterheadClientFromSupabase(supabase), {
         companyId: company.id,
