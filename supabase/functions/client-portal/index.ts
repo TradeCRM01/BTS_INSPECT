@@ -59,8 +59,6 @@ function portalVisibleStatus(status: string): string | null {
     paid: "Paid",
     accepted: "Accepted",
     overdue: "Overdue",
-    declined: "Declined",
-    expired: "Expired",
   };
   return labels[key] ?? `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
 }
