@@ -13,6 +13,7 @@ import { JOB_STATUS_LABELS } from '../types/crm';
 import { jobInvoiceActionFlags, jobOpenNext } from '../lib/jobNextAction';
 import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
 import { jobsListCustomer, jobsListPhoneNextLabel, jobsListPhoneRow, jobsListTitle } from '../lib/jobsListRow';
+import { jobCrewScheduleNeedsCrewClass, jobCrewScheduleStatus } from '../lib/jobCrewScheduleStatus';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { listCountWhisper, listQueryBusy } from '../lib/listQueryReady';
 import { Plus, Briefcase, MoreHorizontal } from 'lucide-react';
@@ -36,6 +37,46 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
 const JOBS_LIST_LOOK = 'jobs-list';
 /** Playwright: /jobs?look=p307 — completed, no crew, Invoice. */
 const JOBS_P307_LOOK = 'p307';
+/** Playwright: /jobs?look=crew-s8d-needs-crew | crew-s8d-booked | crew-s8d-not-scheduled */
+const CREW_S8D_LOOK_NEEDS = 'crew-s8d-needs-crew';
+const CREW_S8D_LOOK_BOOKED = 'crew-s8d-booked';
+const CREW_S8D_LOOK_NOT = 'crew-s8d-not-scheduled';
+
+function crewS8dLookRows(look: string): JobRowModel[] {
+  const stamp = '2026-09-03T00:00:00.000Z';
+  const base = {
+    company_id: 'look-jobs-list',
+    client_id: 'look-client-northside',
+    title: 'Crew status frame',
+    description: null as string | null,
+    priority: 'medium' as const,
+    status: 'scheduled' as const,
+    start_time: '08:00',
+    end_time: '12:00',
+    address: '12 Workshop Rd, Perth WA 6000',
+    inspection_id: null as string | null,
+    created_by: 'look-jobs-dave',
+    created_at: stamp,
+    updated_at: stamp,
+    color: null as string | null,
+    budget: null as number | null,
+    parent_job_id: null as string | null,
+    cost_code: null as string | null,
+    cover_photo_url: null as string | null,
+    docs: [] as JobDocChip[],
+    job_number: 88,
+    client_name: 'Northside Electrical',
+    client_address: '12 Workshop Rd, Perth WA 6000',
+    client_phone: null as string | null,
+  };
+  if (look === CREW_S8D_LOOK_BOOKED) {
+    return [{ ...base, id: 'crew-s8d-booked', scheduled_date: '2026-09-03', assigned_team: ['look-jobs-dave'] }];
+  }
+  if (look === CREW_S8D_LOOK_NOT) {
+    return [{ ...base, id: 'crew-s8d-not', scheduled_date: null, assigned_team: [] }];
+  }
+  return [{ ...base, id: 'crew-s8d-needs', scheduled_date: '2026-09-03', assigned_team: [] }];
+}
 
 function visibleSite(...parts: Array<string | null | undefined>): string {
   for (const part of parts) {
@@ -233,6 +274,10 @@ export function JobsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const lookJobsList = searchParams.get('look') === JOBS_LIST_LOOK;
   const lookP307 = searchParams.get('look') === JOBS_P307_LOOK;
+  const lookCrewS8d = searchParams.get('look');
+  const lookCrewS8dSeed = lookCrewS8d === CREW_S8D_LOOK_NEEDS
+    || lookCrewS8d === CREW_S8D_LOOK_BOOKED
+    || lookCrewS8d === CREW_S8D_LOOK_NOT;
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -296,10 +341,16 @@ export function JobsPage() {
         docs: docsByJob.get(j.id) ?? [],
       }));
     },
-    enabled: !!profile && !lookJobsList && !lookP307,
+    enabled: !!profile && !lookJobsList && !lookP307 && !lookCrewS8dSeed,
   });
 
-  const listRows = lookP307 ? jobsP307LookRows() : lookJobsList ? jobsListLookRows() : (jobs ?? []);
+  const listRows = lookCrewS8dSeed && lookCrewS8d
+    ? crewS8dLookRows(lookCrewS8d)
+    : lookP307
+      ? jobsP307LookRows()
+      : lookJobsList
+        ? jobsListLookRows()
+        : (jobs ?? []);
   const filtered = useMemo(() => {
     let result = listRows;
     if (statusFilter !== 'all') {
@@ -320,7 +371,7 @@ export function JobsPage() {
   }, [listRows, statusFilter, search]);
 
   const filterLabel = STATUS_FILTERS.find(tab => tab.key === statusFilter)?.label ?? 'All';
-  const busy = listQueryBusy({ isPending, isLoading, data: jobs, seeded: lookJobsList || lookP307 });
+  const busy = listQueryBusy({ isPending, isLoading, data: jobs, seeded: lookJobsList || lookP307 || lookCrewS8dSeed });
   const whisper = listCountWhisper({
     busy,
     filterLabel,
@@ -548,7 +599,7 @@ function JobPhoneRow({ job }: { job: JobRowModel }) {
         </p>
         <p className="hub-jobs-phone-meta">{row.meta}</p>
         <p className="hub-jobs-phone-facts">
-          <span className="hub-jobs-phone-status">{row.status}</span>
+          <span className={row.statusClass}>{row.status}</span>
           {row.date ? <span className="hub-jobs-phone-date">{row.date}</span> : null}
         </p>
       </div>
@@ -579,6 +630,8 @@ function JobRow({ job }: { job: JobRowModel }) {
   const site = visibleSite(job.address, job.client_address);
   const suburb = site ? suburbFromSite(site) : '';
   const jobHref = `/jobs/${job.id}`;
+  const crewSchedule = jobCrewScheduleStatus(job.scheduled_date, job.assigned_team);
+  const crewScheduleClass = jobCrewScheduleNeedsCrewClass(crewSchedule.kind);
   return (
     <div
       role="link"
@@ -594,7 +647,9 @@ function JobRow({ job }: { job: JobRowModel }) {
       </span>
       <span className="truncate hub-jobs-name">{jobsListCustomer(job)}</span>
       <span className="truncate hub-jobs-muted">{suburb}</span>
-      <span className="hub-jobs-status">{JOB_STATUS_LABELS[job.status]}</span>
+      <span className={['hub-jobs-status', crewScheduleClass].filter(Boolean).join(' ')}>
+        {crewSchedule.label}
+      </span>
       <span className="hub-jobs-row-next" onClick={e => e.stopPropagation()}>
         {next.actionable ? (
           <Link

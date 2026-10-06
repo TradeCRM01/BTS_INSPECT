@@ -1,5 +1,6 @@
-import { JOB_STATUS_LABELS, type JobStatus } from '../types/crm';
+import type { JobStatus } from '../types/crm';
 import { formatJobRef } from './jobRef';
+import { jobCrewScheduleNeedsCrewClass, jobCrewScheduleStatus } from './jobCrewScheduleStatus';
 
 export const JOBS_LIST_NO_CLIENT = 'No client';
 export const JOB_CLIENT_ATTACH_PLACEHOLDER = 'Add client…';
@@ -54,20 +55,25 @@ export function jobsListPhoneRow(job: {
   client_address?: string | null;
   status: JobStatus;
   scheduled_date?: string | null;
+  assigned_team?: string[] | null;
 }): {
   title: string;
   ref: string;
   meta: string;
   status: string;
+  statusClass: string;
   date: string;
 } {
   const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
   const bits = [jobsListCustomer(job), suburb].filter(Boolean);
+  const crewSchedule = jobCrewScheduleStatus(job.scheduled_date, job.assigned_team);
+  const needsClass = jobCrewScheduleNeedsCrewClass(crewSchedule.kind);
   return {
     title: jobsListTitle(job),
     ref: formatJobRef(job),
     meta: bits.join(' · '),
-    status: JOB_STATUS_LABELS[job.status],
+    status: crewSchedule.label,
+    statusClass: needsClass ? `hub-jobs-phone-status ${needsClass}` : 'hub-jobs-phone-status',
     date: jobsListPhoneDate(job.scheduled_date),
   };
 }

@@ -43,8 +43,6 @@ import {
   dashboardJobHref,
   dashboardJobMetaLine,
   dashboardJobPlace,
-  dashboardJobState,
-  dashboardJobStateLabel,
   dashboardTodayKey,
   todaysDashboardJobs,
 } from '../lib/dashboardHome';
@@ -54,6 +52,10 @@ import {
   resolveDashboardWidgets,
 } from '../lib/dashboardWidgets';
 import type { ScheduleCrewMember } from '../lib/scheduleBoard';
+import {
+  jobCrewScheduleNeedsCrewClass,
+  jobCrewScheduleStatus,
+} from '../lib/jobCrewScheduleStatus';
 
 interface DashboardWidget {
   id: string;
@@ -725,13 +727,13 @@ export function DashboardPage() {
                   <span>Place</span>
                 </div>
                 {work.map(job => {
-                  const state = dashboardJobState(job, lookDashboard ? dashboardLookNow() : undefined);
                   const place = dashboardJobPlace(job);
+                  const crewSchedule = jobCrewScheduleStatus(job.scheduled_date, job.assigned_team);
+                  const crewScheduleClass = jobCrewScheduleNeedsCrewClass(crewSchedule.kind);
                   const meta = [
                     formatJobRef(job),
                     dashboardJobMetaLine(job) || place,
                     dashboardCrewLabel(job.assigned_team, teamMembers),
-                    dashboardJobStateLabel(state),
                   ].filter(Boolean).join(' · ');
                   return (
                     <Link
@@ -747,6 +749,15 @@ export function DashboardPage() {
                       <span className="dashboard-home-job">
                         <span className="dashboard-home-title">{job.title}</span>
                         <span className="dashboard-home-ref">{meta}</span>
+                        <span
+                          className={[
+                            'dashboard-home-crew-schedule',
+                            crewScheduleClass,
+                          ].filter(Boolean).join(' ')}
+                          data-crew-schedule={crewSchedule.kind}
+                        >
+                          {crewSchedule.label}
+                        </span>
                       </span>
                       <span className="dashboard-home-place">{place}</span>
                     </Link>

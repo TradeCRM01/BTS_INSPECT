@@ -112,6 +112,30 @@ describe('jobSheetOverviewRows', () => {
     ]);
   });
 
+  it('reads dated job with no crew as Needs crew', () => {
+    const rows = jobSheetOverviewRows({
+      scheduledDate: '2026-08-25',
+      startTime: '07:30:00',
+      crewNames: [],
+      jhaCount: 0,
+      take5Count: 0,
+      inspectionCount: 0,
+      testingDueCount: 0,
+      noteCount: 0,
+      photoCount: 0,
+      quoteCount: 0,
+      invoiceCount: 0,
+      billLines: 0,
+      billCost: 0,
+      billCharge: 0,
+    });
+    expect(rows[0]).toMatchObject({
+      section: 'job-schedule',
+      status: 'Needs crew',
+      tone: 'warn',
+    });
+  });
+
   it('reads a worked, unbooked job with singular and plural counts', () => {
     expect(jobSheetOverviewRows({
       scheduledDate: null,
@@ -129,7 +153,7 @@ describe('jobSheetOverviewRows', () => {
       billCost: 1250.5,
       billCharge: 1800,
     })).toEqual([
-      { section: 'job-schedule', label: 'Schedule & people', meta: 'Unassigned', status: 'Not booked', tone: 'wait' },
+      { section: 'job-schedule', label: 'Schedule & people', meta: 'Unassigned', status: 'Not scheduled', tone: 'wait' },
       { section: 'job-swms', label: 'Safety', meta: '1 JHA / SWMS · 2 Take 5', status: 'JHA on file', tone: 'ok' },
       { section: 'job-visit-notes', label: 'Field records', meta: '1 inspection · 6 photos · 1 test due', status: '1 note', tone: 'info' },
       { section: 'job-quotes', label: 'Quotes & invoices', meta: '', status: '1 quote · 2 invoices', tone: 'info' },

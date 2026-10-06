@@ -61,7 +61,8 @@ describe('jobs list rows use the helpers on desktop and phone', () => {
     expect(page).toContain('hub-jobs-phone-row');
     expect(page).toContain('hub-jobs-phone-title');
     expect(page).toContain('hub-jobs-phone-meta');
-    expect(page).toContain('hub-jobs-phone-status');
+    expect(page).toContain('row.statusClass');
+    expect(src('src/lib/jobsListRow.ts')).toContain('jobCrewScheduleStatus');
     expect(page).toContain('hub-jobs-phone-date');
     expect(page).toContain('hub-jobs-phone-next');
     expect(page).toContain('hub-jobs-desktop-list');
@@ -112,13 +113,14 @@ describe('jobsListPhoneRow', () => {
       address: '18 William St, Perth WA 6000',
       status: 'scheduled',
       scheduled_date: '2026-09-11',
+      assigned_team: ['look-jobs-dave'],
     });
     expect(row.title).toBe('291 prove switchboard and after-hours commissioning on a live site');
     expect(row.title).not.toContain('…');
     expect(row.ref).toBe('#0291');
     expect(row.meta).toBe('Client Services Northside Body Corporate · Perth');
     expect(row.meta).not.toContain('…');
-    expect(row.status).toBe('Scheduled');
+    expect(row.status).toBe('Booked');
     expect(row.date).toBe(jobsListPhoneDate('2026-09-11'));
     expect(row.date).toBe('11 Sep');
   });
