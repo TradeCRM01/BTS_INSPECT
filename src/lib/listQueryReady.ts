@@ -16,6 +16,11 @@ export function listShowEmpty(busy: boolean, count: number): boolean {
   return !busy && count === 0;
 }
 
+/** Empty job/client tray copy only after the related query resolves. */
+export function jobRelatedShowEmpty(loading: boolean | undefined, itemCount: number): boolean {
+  return !loading && itemCount === 0;
+}
+
 export function listCountWhisper(input: {
   busy: boolean;
   filterLabel: string;

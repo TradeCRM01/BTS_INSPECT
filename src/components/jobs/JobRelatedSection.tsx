@@ -1,11 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
-
-/** Empty tray copy only after the related query resolves. */
-export function jobRelatedShowEmpty(loading: boolean | undefined, itemCount: number): boolean {
-  return !loading && itemCount === 0;
-}
+import { jobRelatedShowEmpty } from '../../lib/listQueryReady';
 
 export function JobRelatedSection({
   title,

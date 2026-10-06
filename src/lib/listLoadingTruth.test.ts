@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { jobRelatedShowEmpty } from '../components/jobs/JobRelatedSection';
-import { listQueryBusy, listShowEmpty } from './listQueryReady';
+import { jobRelatedShowEmpty, listQueryBusy, listShowEmpty } from './listQueryReady';
 import { reportsListShowEmpty } from './reportsList';
 
 function src(rel: string): string {
