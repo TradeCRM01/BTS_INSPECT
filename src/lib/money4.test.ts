@@ -49,6 +49,7 @@ describe('MONEY-4 invoice part payments', () => {
     expect(page).toContain('hub-invoices-paid-meta');
     expect(page).toContain('invoiceListStatusLabel');
     expect(page).toContain('hub-invoice-balance-due');
+    expect(page).toContain('invoiceSheetStatusChip');
   });
 
   it('M4 — customer PDF and portal surface payments to date', () => {
@@ -61,6 +62,13 @@ describe('MONEY-4 invoice part payments', () => {
     expect(portal).toContain('Paid {formatMoney(Number(inv.amount_paid))}');
     const edge = src('supabase/functions/client-portal/index.ts');
     expect(edge).toContain('amount_paid');
+  });
+
+  it('087 adds UPDATE RLS for remove_invoice_payment FOR UPDATE', () => {
+    const mig = src('supabase/migrations/20261006230000_087_invoice_payments_update_rls.sql');
+    expect(mig).toContain('FOR UPDATE');
+    expect(mig).toContain('Company members can update invoice payments');
+    expect(mig).toContain('remove_invoice_payment');
   });
 
   it('keeps migration 086 and does not add send/email/SMS paths', () => {
