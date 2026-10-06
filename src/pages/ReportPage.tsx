@@ -10,7 +10,7 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { FileText, ChevronLeft, CreditCard as Edit2, PenLine, MoreHorizontal } from 'lucide-react';
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
-import { reportIsSent, reportPdfFilename, reportSiteName } from '../lib/sendReport';
+import { reportIsSent, reportPdfFilename, reportPdfStorageKey, REPORT_PDF_UPLOAD_FAIL_MESSAGE, reportSiteName } from '../lib/sendReport';
 import { applyLivingJobToInspection } from '../lib/livingJha';
 import { format } from 'date-fns';
 import { PdfViewer } from '../components/pdf/PdfViewer';
@@ -273,23 +273,35 @@ export function ReportPage() {
       setPdfBlob(blob);
       setPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url; });
 
-      const filename = reportPdfFilename({
-        siteName: reportSiteName(livingMeta, boundJob),
+      const siteName = reportSiteName(livingMeta, boundJob);
+      const storagePath = `${inspection.id}/${reportPdfStorageKey({
+        siteName,
         reportNumber: rn,
-      });
-      const storagePath = `${inspection.id}/${filename}`;
+      })}`;
       const { error: upErr } = await supabase.storage
         .from('reports')
         .upload(storagePath, blob, { contentType: 'application/pdf', upsert: true });
 
-      if (!upErr && !existingReport) {
-        await supabase.from('reports').insert({
+      if (upErr) {
+        setError(upErr.message?.trim() || REPORT_PDF_UPLOAD_FAIL_MESSAGE);
+        return;
+      }
+      if (!existingReport) {
+        const { error: insErr } = await supabase.from('reports').insert({
           company_id: profile.company_id,
           inspection_id: inspection.id,
           report_number: rn,
           pdf_storage_path: storagePath,
         });
-        await supabase.from('inspections').update({ status: 'issued' }).eq('id', inspection.id);
+        if (insErr) {
+          setError(insErr.message?.trim() || REPORT_PDF_UPLOAD_FAIL_MESSAGE);
+          return;
+        }
+        const { error: issueErr } = await supabase.from('inspections').update({ status: 'issued' }).eq('id', inspection.id);
+        if (issueErr) {
+          setError(issueErr.message?.trim() || REPORT_PDF_UPLOAD_FAIL_MESSAGE);
+          return;
+        }
         queryClient.invalidateQueries({ queryKey: ['report', id] });
       }
     } catch (err) {

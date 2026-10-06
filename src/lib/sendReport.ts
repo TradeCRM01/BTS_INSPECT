@@ -172,6 +172,26 @@ export function reportPdfFilename(opts: { siteName: string; reportNumber: string
   return `${site} - ${number}.pdf`;
 }
 
+/** Storage object name — ASCII only. Download name stays on reportPdfFilename. */
+export function reportPdfAsciiSlug(value: string, fallback = 'Site'): string {
+  const ascii = (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\u2010-\u2015\u2212]/g, '-')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[.-]+|[.-]+$/g, '');
+  return ascii || fallback;
+}
+
+export function reportPdfStorageKey(opts: { siteName: string; reportNumber: string }): string {
+  const site = reportPdfAsciiSlug(opts.siteName.trim() || 'Site', 'Site');
+  const number = reportPdfAsciiSlug(opts.reportNumber.trim() || 'report', 'report');
+  return `${site}-${number}.pdf`;
+}
+
+export const REPORT_PDF_UPLOAD_FAIL_MESSAGE = 'Could not save the report PDF. Try again.';
+
 export function reportSmsBody(opts: {
   companyName: string;
   reportNumber: string;
