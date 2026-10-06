@@ -45,7 +45,7 @@ describe('portalClientQuotes', () => {
     expect(portalVisibleStatus('part_paid')).toBe('Part paid');
 
     const edge = src('supabase/functions/client-portal/index.ts');
-    const invoiceSelect = '.select("id, invoice_number, status, total, due_date, updated_at")';
+    const invoiceSelect = '.select("id, invoice_number, status, total, amount_paid, due_date, updated_at")';
     const start = edge.indexOf(invoiceSelect);
     expect(start).toBeGreaterThan(-1);
     const query = edge.slice(start, edge.indexOf('.limit(50)', start));
@@ -55,5 +55,6 @@ describe('portalClientQuotes', () => {
     expect(edge).toContain('paid: "Paid"');
     expect(edge).toContain('accepted: "Accepted"');
     expect(edge).toContain('overdue: "Overdue"');
+    expect(edge).toContain('part_paid: "Part paid"');
   });
 });

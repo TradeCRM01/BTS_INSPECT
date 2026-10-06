@@ -53,7 +53,10 @@ describe('MONEY-4 invoice part payments', () => {
   });
 
   it('keeps migration 086 and does not add send/email/SMS paths', () => {
-    expect(src('supabase/migrations/20261006170000_086_invoice_part_payments.sql')).toContain('part_paid');
+    const mig = src('supabase/migrations/20261006170000_086_invoice_part_payments.sql');
+    expect(mig).toContain('part_paid');
+    expect(mig).toContain("'void'");
+    expect(mig).toContain('invoice_payments_legacy_pre_money4');
     const page = src('src/pages/InvoicesPage.tsx');
     expect(page).not.toContain('Partial payments are not available');
     expect(page).not.toMatch(/deposit-as-quote|invite client/i);
