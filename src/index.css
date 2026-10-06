@@ -7779,10 +7779,40 @@
   }
 
   @media (min-width: 1024px) {
-    /* Top-anchor quick quote so flex-end on the head does not pull the row up when the hint grows */
+    /* Row 1: title | quick quote | New quote (flex-end idle geometry). Row 2: hint under controls only. */
+    .hub-quotes .ops-page-head {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-rows: auto auto;
+      column-gap: 16px;
+      row-gap: 0;
+      align-items: end;
+    }
+
+    .hub-quotes .ops-page-head > div:first-child {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .hub-quotes .ops-page-head > .btn-primary {
+      grid-column: 3;
+      grid-row: 1;
+    }
+
     .hub-quotes .hub-quick-quote-block {
-      align-self: flex-start;
-      margin-top: calc(13px * 1.5 + 8px + 40px * 1.1 - 44px);
+      display: contents;
+    }
+
+    .hub-quotes .hub-quick-quote {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .hub-quotes .hub-quick-quote-speech-status:not(:empty) {
+      grid-column: 2;
+      grid-row: 2;
+      margin-top: 8px;
+      align-self: start;
     }
   }
 

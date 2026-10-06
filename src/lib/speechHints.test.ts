@@ -126,11 +126,14 @@ describe('speech mic UI wiring', () => {
     expect(css).not.toMatch(/hub-schedule-speech-status[\s\S]{0,200}position:\s*absolute/);
   });
 
-  it('top-anchors quotes quick-quote at desktop so hints grow downward', () => {
+  it('puts quotes desktop hints in head row 2 via grid without margin calc', () => {
     const css = src('src/index.css');
-    expect(css).toContain('.hub-quotes .hub-quick-quote-block');
-    expect(css).toContain('align-self: flex-start');
-    expect(css).toContain('margin-top: calc(13px * 1.5 + 8px + 40px * 1.1 - 44px)');
+    expect(css).toContain('.hub-quotes .ops-page-head');
+    expect(css).toContain('display: grid');
+    expect(css).toContain('display: contents');
+    expect(css).toContain('grid-column: 2');
+    expect(css).toContain('grid-row: 2');
+    expect(css).not.toContain('margin-top: calc(13px * 1.5');
   });
 });
 
