@@ -63,6 +63,8 @@ export interface CommercialPdfData {
   notes?: string | null;
   paymentTerms?: string | null;
   paymentMethods?: { label: string; lines: string[] }[];
+  paymentsToDate?: number | null;
+  balanceDue?: number | null;
 }
 
 export function commercialPdfGstLabel(data: Pick<CommercialPdfData, 'taxRate' | 'taxLabel'>): string {
@@ -387,6 +389,18 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
             <Text style={s.grandLabel}>Total (inc GST)</Text>
             <Text style={s.grandValue}>{formatMoney(data.total)}</Text>
           </View>
+          {data.kind === 'invoice' && (data.paymentsToDate ?? 0) > 0 ? (
+            <>
+              <View style={s.totalRow}>
+                <Text style={s.totalLabel}>Payments to date</Text>
+                <Text style={s.totalValue}>{formatMoney(data.paymentsToDate ?? 0)}</Text>
+              </View>
+              <View style={s.totalRow}>
+                <Text style={s.totalLabel}>Balance due</Text>
+                <Text style={s.totalValue}>{formatMoney(data.balanceDue ?? 0)}</Text>
+              </View>
+            </>
+          ) : null}
         </View>
 
         {data.notes?.trim() ? (

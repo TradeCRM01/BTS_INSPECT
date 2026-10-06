@@ -3364,13 +3364,20 @@
   .hub-invoices-thead,
   .hub-invoices-row {
     display: grid;
-    grid-template-columns: 72px minmax(0, 1.4fr) minmax(0, 1fr) 104px 140px minmax(188px, max-content);
+    grid-template-columns:
+      72px
+      minmax(0, 1.25fr)
+      minmax(0, 0.85fr)
+      minmax(168px, 1.05fr)
+      96px
+      minmax(200px, max-content);
     gap: 16px;
-    align-items: center;
+    align-items: start;
     padding: 16px 24px;
   }
 
   .hub-invoices-thead {
+    align-items: center;
     background: transparent;
     color: var(--invoice-muted);
     font-family: Rajdhani, sans-serif;
@@ -3379,6 +3386,10 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     border-bottom: 1px solid var(--invoice-line);
+  }
+
+  .hub-invoices-row > :nth-child(5) {
+    align-self: center;
   }
 
   .hub-invoices-thead > :nth-child(5),
@@ -3394,6 +3405,20 @@
     color: var(--invoice-ink);
     font-size: 14px;
     font-weight: 500;
+  }
+
+  .hub-invoices-row > :nth-child(4),
+  .hub-invoices-row > :nth-child(5),
+  .hub-invoices-row > :nth-child(6) {
+    min-width: 0;
+  }
+
+  .hub-invoices-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    max-width: 100%;
   }
 
   .hub-invoices-row:first-of-type {
@@ -3450,6 +3475,22 @@
     background: color-mix(in srgb, #B42318 12%, #fff);
   }
 
+  .hub-invoices-pill.is-part_paid {
+    color: var(--invoice-warn);
+    background: color-mix(in srgb, var(--invoice-warn) 12%, #fff);
+  }
+
+  .hub-invoices-paid-meta {
+    display: block;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.35;
+    color: #5B6B7C;
+    max-width: 100%;
+    white-space: normal;
+  }
+
   .hub-invoices-total,
   .hub-invoice-num {
     font-family: Rajdhani, sans-serif;
@@ -3460,10 +3501,27 @@
 
   .hub-invoices-row-next {
     text-align: right;
+    align-self: stretch;
+    display: flex;
+    justify-content: flex-end;
   }
 
   .hub-invoices-row-next .hub-invoice-editor-act {
-    justify-content: flex-end;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 4px;
+    max-width: 100%;
+  }
+
+  .hub-invoices-row-next .hub-invoices-chase {
+    margin-right: 0;
+    min-height: auto;
+    padding: 0;
+    line-height: 1.25;
+    text-align: right;
+    white-space: normal;
+    max-width: 100%;
   }
 
   .hub-invoices-row-next .btn-primary {
@@ -3801,6 +3859,77 @@
 
   .hub-invoice-payment-actions .btn-primary {
     min-height: 44px;
+  }
+
+  .hub-invoice-payment-form {
+    display: grid;
+    gap: 12px;
+    margin: 12px 0 16px;
+  }
+
+  .hub-invoice-payment-form label {
+    display: grid;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #0A2540;
+  }
+
+  .hub-invoice-payment-form .form-input {
+    min-height: 44px;
+  }
+
+  .hub-invoice-payment-overpay {
+    color: var(--invoice-fail);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .hub-invoice-paid-summary {
+    margin-top: 12px;
+    display: grid;
+    gap: 6px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    color: #5B6B7C;
+  }
+
+  .hub-invoice-paid-summary > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .hub-invoice-balance-due span:last-child {
+    color: var(--invoice-warn, #B54708);
+    font-weight: 700;
+  }
+
+  .hub-invoice-sheet-chip {
+    display: inline-flex;
+    margin-top: 8px;
+  }
+
+  .hub-invoice-payments-list {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--invoice-line, #E2D9CC);
+  }
+
+  .hub-invoice-payments-list ul {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+
+  .hub-invoice-payments-list li {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+    font-size: 13px;
   }
 
   .hub-invoice-more {

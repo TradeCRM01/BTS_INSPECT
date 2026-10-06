@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { formatMoney, getStockLevel, STOCK_LEVEL_STYLES, STOCK_LEVEL_LABELS } from '../types/fsm';
+import { invoiceBalanceOwed, invoiceCountsAsOverdueMoney } from '../lib/invoiceOpenBalance';
 import {
   AiAgentWidget,
   IndustryNewsWidget,
@@ -1133,13 +1134,16 @@ export function OutstandingInvoicesWidget({ config }: WidgetProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, invoice_number, status, total, due_date')
-        .in('status', ['sent', 'overdue'])
+        .select('id, invoice_number, status, total, amount_paid, due_date')
+        .in('status', ['sent', 'overdue', 'part_paid'])
         .order('created_at', { ascending: false });
       if (error) throw error;
       const invs = (data ?? []) as any[];
-      const outstanding = invs.reduce((s, i) => s + Number(i.total ?? 0), 0);
-      const overdue = invs.filter(i => i.status === 'overdue').reduce((s, i) => s + Number(i.total ?? 0), 0);
+      const now = new Date();
+      const outstanding = invs.reduce((s, i) => s + invoiceBalanceOwed(i), 0);
+      const overdue = invs
+        .filter(i => invoiceCountsAsOverdueMoney(i, now))
+        .reduce((s, i) => s + invoiceBalanceOwed(i), 0);
       return { count: invs.length, outstanding, overdue, recent: invs.slice(0, 5) };
     },
     enabled: !lookInvoices,
@@ -1176,7 +1180,7 @@ export function OutstandingInvoicesWidget({ config }: WidgetProps) {
                     INV #{String(i.invoice_number).padStart(4, '0')}
                     {i.due_date && ` · due ${format(new Date(i.due_date), 'd MMM')}`}
                   </span>
-                  <span className="font-medium text-[#1A1A1A]">{formatMoney(i.total)}</span>
+                  <span className="font-medium text-[#1A1A1A]">{formatMoney(invoiceBalanceOwed(i) || Number(i.total ?? 0))}</span>
                 </div>
               ))}
             </div>

@@ -220,7 +220,7 @@ export const QUOTE_STATUS_RAIL: Record<QuoteStatus, string> = {
 
 // ── Invoices ─────────────────────────────────────────────────────
 
-export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue';
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'part_paid';
 export type InvoiceSource = 'quote' | 'job_bill' | null;
 
 export interface Invoice {
@@ -238,6 +238,7 @@ export interface Invoice {
   tax_rate: number;
   tax_amount: number;
   total: number;
+  amount_paid?: number;
   payment_terms: string | null;
   due_date: string | null;
   notes: string | null;
@@ -262,6 +263,7 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   sent: 'Sent',
   paid: 'Paid',
   overdue: 'Overdue',
+  part_paid: 'Part paid',
 };
 
 export const INVOICE_STATUS_STYLES: Record<InvoiceStatus, string> = {
@@ -269,6 +271,7 @@ export const INVOICE_STATUS_STYLES: Record<InvoiceStatus, string> = {
   sent: 'ops-status-info',
   paid: 'ops-status-ok',
   overdue: 'ops-status-bad',
+  part_paid: 'ops-status-warn',
 };
 
 export const INVOICE_STATUS_RAIL: Record<InvoiceStatus, string> = {
@@ -276,6 +279,7 @@ export const INVOICE_STATUS_RAIL: Record<InvoiceStatus, string> = {
   sent: colors.accent,
   paid: colors.pass,
   overdue: colors.fail,
+  part_paid: colors.warning,
 };
 
 // ── Job Costs ────────────────────────────────────────────────────

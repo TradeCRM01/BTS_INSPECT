@@ -416,7 +416,7 @@ describe('receipt source lock — Mark paid sheet, existing pipe, quotes off', (
     expect(page).toContain('invoiceMarkPaidReceiptToast');
     expect(page).toContain('invoiceMarkPaidXeroMissLine');
     expect(page).toContain('invoiceMarkPaidSheetMissLine');
-    expect(page).toContain('markPaid: true');
+    expect(page).toContain('persistInvoicePayment');
     expect(page).toContain('className="btn-primary"');
     expect(page).toContain('Share');
     expect(page).toContain('hub-invoice-more');
@@ -430,14 +430,14 @@ describe('receipt source lock — Mark paid sheet, existing pipe, quotes off', (
     expect(nextAction).not.toContain('Send receipt');
     expect(nextAction).not.toContain('receipt');
 
-    const listFn = page.indexOf('const patchPaid');
-    const listPaid = page.indexOf("persistableInvoiceStatus('paid')", listFn);
+    const listFn = page.indexOf('const submitPayment');
+    const listPaid = page.indexOf('persistInvoicePayment', listFn);
     const listAttach = page.indexOf('attachXeroPaymentAfterMarkPaid', listFn);
     const listReceipt = page.indexOf('deliverInvoiceReceiptAfterMarkPaid', listFn);
     expect(listPaid).toBeGreaterThan(listFn);
     expect(listAttach).toBeGreaterThan(listPaid);
     expect(listReceipt).toBeGreaterThan(listAttach);
-    const listAfterPaid = page.slice(listPaid, page.indexOf('const persist'));
+    const listAfterPaid = page.slice(listPaid, page.indexOf('let primary'));
     expect(listAfterPaid).not.toMatch(/status:\s*'sent'/);
     expect(listAfterPaid).not.toContain("persistableInvoiceStatus('sent')");
 

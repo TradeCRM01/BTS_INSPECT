@@ -23,6 +23,7 @@ import {
   Download,
 } from 'lucide-react';
 import { format, parseISO, subDays, startOfMonth, endOfMonth, format as fmt } from 'date-fns';
+import { invoiceBalanceOwed, invoiceCountsAsOutstandingMoney, invoiceCountsAsOverdueMoney } from '../lib/invoiceOpenBalance';
 import { formatMoney, formatDuration } from '../types/fsm';
 
 // ── Date range presets ────────────────────────────────────────────
@@ -281,14 +282,14 @@ export function AdvancedReportsPage() {
       .filter((i) => i.status === 'paid')
       .reduce((s, i) => s + Number(i.total || 0), 0);
 
+    const reportNow = new Date();
     const outstanding = filtered.invoices
-      .filter((i) => i.status === 'sent' || i.status === 'overdue')
-      .reduce((s, i) => s + Number(i.total || 0), 0);
+      .filter((i) => invoiceCountsAsOutstandingMoney(i, reportNow))
+      .reduce((s, i) => s + invoiceBalanceOwed(i), 0);
 
-    const now = Date.now();
     const overdue = filtered.invoices
-      .filter((i) => i.status === 'overdue' || (i.status === 'sent' && i.due_date && new Date(i.due_date).getTime() < now))
-      .reduce((s, i) => s + Number(i.total || 0), 0);
+      .filter((i) => invoiceCountsAsOverdueMoney(i, reportNow))
+      .reduce((s, i) => s + invoiceBalanceOwed(i), 0);
 
     const acceptedQuotes = filtered.quotes.filter((q) => q.status === 'accepted').length;
     const totalQuotes = filtered.quotes.length;

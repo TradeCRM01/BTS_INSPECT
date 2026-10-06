@@ -769,22 +769,22 @@ describe('invoice sheet Mark paid stays the one surface', () => {
     expect(invoicesPage).toContain('attachXeroPaymentAfterMarkPaid');
     expect(invoicesPage).toContain('invoiceMarkPaidXeroMissLine');
     expect(invoicesPage).toContain('invoiceMarkPaidToast');
-    expect(invoicesPage).toContain('markPaid: true');
+    expect(invoicesPage).toContain('persistInvoicePayment');
     expect(invoicesPage).toContain('hub-invoice-send-xero-miss');
-    expect(invoicesPage).toContain("status: persistableInvoiceStatus('paid')");
+    expect(invoicesPage).toContain("status: 'paid'");
     expect(invoicesPage).not.toContain('MarkPaidDialog');
     expect(invoicesPage).not.toContain('XeroPaymentDialog');
     expect(invoicesPage).not.toContain('Connect Xero');
     expect(invoicesPage).not.toMatch(/myob/i);
     expect(invoicesPage).not.toContain('create table');
 
-    const listFn = invoicesPage.indexOf('const patchPaid');
-    const listPaid = invoicesPage.indexOf("persistableInvoiceStatus('paid')", listFn);
+    const listFn = invoicesPage.indexOf('const submitPayment');
+    const listPaid = invoicesPage.indexOf('persistInvoicePayment', listFn);
     const listAttach = invoicesPage.indexOf('attachXeroPaymentAfterMarkPaid', listFn);
     expect(listFn).toBeGreaterThan(-1);
     expect(listPaid).toBeGreaterThan(listFn);
     expect(listAttach).toBeGreaterThan(listPaid);
-    const listAfterAttach = invoicesPage.slice(listAttach, invoicesPage.indexOf('const persist'));
+    const listAfterAttach = invoicesPage.slice(listAttach, invoicesPage.indexOf('let primary'));
     expect(listAfterAttach).not.toMatch(/status:\s*'sent'/);
     expect(listAfterAttach).not.toContain("persistableInvoiceStatus('sent')");
     expect(listAfterAttach).toContain('invoiceMarkPaidToast');

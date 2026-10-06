@@ -11,6 +11,7 @@ const PORTAL_STATUS_LABELS: Record<string, string> = {
   paid: 'Paid',
   accepted: 'Accepted',
   overdue: 'Overdue',
+  part_paid: 'Part paid',
   declined: 'Declined',
   expired: 'Expired',
 };

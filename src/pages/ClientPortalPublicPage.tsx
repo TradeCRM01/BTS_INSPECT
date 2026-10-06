@@ -88,7 +88,7 @@ export type PortalPayload =
       company: PortalCompany | null;
       client: { name: string; email?: string | null; phone?: string | null; address?: string | null } | null;
       quotes: PortalQuote[];
-      invoices: Array<{ id: string; invoice_number: string; status: string; total: number; due_date: string | null; updated_at: string }>;
+      invoices: Array<{ id: string; invoice_number: string; status: string; total: number; amount_paid?: number | null; due_date: string | null; updated_at: string }>;
       jobs: PortalJob[];
       reports: Array<{
         inspectionId: string;
@@ -109,8 +109,40 @@ export function isDevClientPortalAudit(params: URLSearchParams): boolean {
   return import.meta.env.DEV && params.get('auditAuth') === '1';
 }
 
-export function clientPortalAuditFixture(): PortalAuditPayload {
+export function clientPortalAuditFixture(look?: string | null): PortalAuditPayload {
   if (!import.meta.env.DEV) throw new Error('Client portal audit is DEV only');
+  if (look === 'money-4-portal-part-paid') {
+    return {
+      kind: 'portal',
+      company: {
+        name: 'Harbour Trade Co',
+        abn: '12 345 678 901',
+        paymentMethods: [{
+          id: 'audit-bank',
+          kind: 'bank_transfer',
+          label: 'Bank transfer',
+          account_name: 'Harbour Trade Co',
+          bsb: '062-000',
+          account_number: '12345678',
+          payid: '',
+          notes: 'Use the invoice number as the reference.',
+        }],
+      },
+      client: { name: 'Smith Street Workshop' },
+      quotes: [],
+      invoices: [{
+        id: 'audit-invoice-1001',
+        invoice_number: '1001',
+        status: 'part_paid',
+        total: 836,
+        amount_paid: 200,
+        due_date: '2026-10-23',
+        updated_at: '2026-09-20T00:00:00.000Z',
+      }],
+      jobs: [],
+      reports: [],
+    };
+  }
   return {
     kind: 'portal',
     company: {
@@ -257,8 +289,9 @@ export function ClientPortalPublicPage() {
   const [params] = useSearchParams();
   const token = useMemo(() => (params.get('t') || params.get('token') || '').trim(), [params]);
   const auditPortal = isDevClientPortalAudit(params);
+  const portalLook = params.get('look');
   const [auditData, setAuditData] = useState<PortalAuditPayload | null>(
-    () => auditPortal ? clientPortalAuditFixture() : null,
+    () => auditPortal ? clientPortalAuditFixture(portalLook) : null,
   );
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [acceptError, setAcceptError] = useState<string | null>(null);
@@ -429,6 +462,11 @@ export function ClientPortalPublicPage() {
                   <p className="portal-muted">{portalInvoiceStatusLabel(inv.status)}</p>
                   {inv.due_date && portalStatusKey(inv.status) !== 'paid' ? (
                     <p className="portal-muted">Due {format(parseISO(inv.due_date), 'd MMM yyyy')}</p>
+                  ) : null}
+                  {Number(inv.amount_paid ?? 0) > 0 && portalStatusKey(inv.status) !== 'paid' ? (
+                    <p className="portal-muted">
+                      Paid {formatMoney(Number(inv.amount_paid))} · Balance {formatMoney(Math.max(0, Number(inv.total) - Number(inv.amount_paid)))}
+                    </p>
                   ) : null}
                 </div>
                 <p className="portal-quote-total">{formatMoney(inv.total)}</p>

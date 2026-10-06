@@ -1,5 +1,5 @@
 import { invoiceHref } from './invoiceFromQuote';
-import { effectiveInvoiceStatus } from './invoiceStatus';
+import { invoiceBalanceOwed, invoiceCountsAsOverdueMoney, invoiceCountsAsOutstandingMoney } from './invoiceOpenBalance';
 
 export function clientRecordHref(clientId: string): string {
   return `/clients/${clientId}`;
@@ -102,6 +102,7 @@ export type QuoteMoneyRow = {
 export type InvoiceMoneyRow = {
   status: string;
   total?: number | string | null;
+  amount_paid?: number | string | null;
   due_date?: string | null;
 };
 
@@ -134,14 +135,10 @@ export function clientInvoiceMoney(
   let outstanding = 0;
   let overdue = 0;
   for (const inv of invoices) {
-    const status = effectiveInvoiceStatus(inv, now);
-    const amount = sumMoney(inv.total);
-    if (status === 'overdue') {
-      overdue += amount;
-      outstanding += amount;
-    } else if (status === 'sent') {
-      outstanding += amount;
-    }
+    const owed = invoiceBalanceOwed(inv);
+    if (owed <= 0) continue;
+    if (invoiceCountsAsOutstandingMoney(inv, now)) outstanding += owed;
+    if (invoiceCountsAsOverdueMoney(inv, now)) overdue += owed;
   }
   return { outstanding, overdue };
 }

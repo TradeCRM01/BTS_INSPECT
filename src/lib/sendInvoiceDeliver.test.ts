@@ -105,7 +105,7 @@ describe('invoice send deliver path', () => {
     expect(page).toContain('keepOpen');
     expect(page).toContain('attachXeroPaymentAfterMarkPaid');
     expect(page).toContain('deliverInvoiceReceiptAfterMarkPaid');
-    expect(page).toContain('markPaid: true');
+    expect(page).toContain('persistInvoicePayment');
     expect(page).not.toContain('Send receipt');
     expect(page).not.toContain('Connect Xero');
     expect(invoiceCss).toContain('--invoice-page: #F5F0E6');
