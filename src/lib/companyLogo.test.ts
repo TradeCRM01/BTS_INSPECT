@@ -330,7 +330,6 @@ describe('company logo on documents', () => {
     expect(settings).toContain('persistCompanyLogo');
     expect(settings).toContain('removeCompanyLogo');
     expect(settings).toContain('decideCompanyLogoUpload');
-    expect(settings).toContain("invalidateQueries({ queryKey: ['company'] })");
     expect(settings).toContain('refreshProfile()');
     expect(settings).toContain('setLogoUrl(result.logo_url)');
     expect(settings).not.toContain('?t=');

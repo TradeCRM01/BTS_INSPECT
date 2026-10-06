@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
@@ -473,7 +473,6 @@ const defaultReportTheme: ReportTheme = {
 
 export function CompanySettingsPage() {
   const { company: authCompany, profile, refreshProfile } = useAuth();
-  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const company = companyWithLetterheadLookMark(authCompany, searchParams.get('look')) ?? authCompany;
   const isAdmin = profile?.role === 'admin';
@@ -838,7 +837,6 @@ export function CompanySettingsPage() {
         sizePx: logoSizePx,
       });
       await refreshProfile();
-      await queryClient.invalidateQueries({ queryKey: ['company'] });
     }
     setUploadingLogo(false);
   }
@@ -859,7 +857,6 @@ export function CompanySettingsPage() {
         sizePx: logoSizePx,
       });
       await refreshProfile();
-      await queryClient.invalidateQueries({ queryKey: ['company'] });
     }
     setRemovingLogo(false);
   }
