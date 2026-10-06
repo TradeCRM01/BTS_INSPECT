@@ -4782,23 +4782,48 @@
     .overlay-backdrop.hub-labour-rate-backdrop {
       align-items: flex-end !important;
       justify-content: center;
+      overflow: hidden;
     }
 
     .overlay-backdrop.hub-labour-rate-backdrop .hub-labour-rate-sheet {
+      align-self: flex-end;
       flex: 0 0 auto;
       width: 100% !important;
       max-width: 100% !important;
       height: auto !important;
-      max-height: min(92vh, 640px) !important;
+      max-height: 70vh !important;
       min-height: 0 !important;
+      margin-top: auto;
       border-radius: 16px 16px 0 0;
+    }
+
+    .hub-labour-rate-sheet-list {
+      max-height: calc(70vh - 4.5rem);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
   }
 
   .hub-labour-rate-sheet {
+    display: flex;
+    flex-direction: column;
     background: var(--ops-cream, #f5f0e6) !important;
     color: var(--ops-navy, #0a2540);
     max-height: min(92vh, 640px) !important;
+  }
+
+  .hub-job-bill-zero-labour-sheet {
+    max-height: 70vh !important;
+  }
+
+  @media (min-width: 640px) {
+    .hub-labour-rate-sheet {
+      max-height: min(90vh, 640px) !important;
+    }
+
+    .hub-job-bill-zero-labour-sheet {
+      max-height: min(90vh, 640px) !important;
+    }
   }
 
   .hub-labour-rate-sheet-head {
@@ -4812,9 +4837,10 @@
 
   .hub-labour-rate-sheet-title {
     margin: 0;
-    font-family: 'Source Serif 4', 'Georgia', serif;
-    font-size: 1.125rem;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 16px;
     font-weight: 600;
+    letter-spacing: 0;
     line-height: 1.35;
     color: var(--ops-navy, #0a2540);
   }
@@ -15463,8 +15489,39 @@
   }
 
   @media (max-width: 767px) {
+    :root,
     .shell-root {
       --shell-bottom-nav-h: calc(56px + env(safe-area-inset-bottom));
+    }
+  }
+
+  .ops-toast-host {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-end;
+    pointer-events: none;
+  }
+
+  .ops-toast-host > * {
+    pointer-events: auto;
+  }
+
+  @media (max-width: 767px) {
+    .ops-toast-host {
+      left: 1rem;
+      right: 1rem;
+      bottom: calc(var(--shell-bottom-nav-h, 0px) + 12px);
+      align-items: stretch;
+    }
+
+    .ops-toast-host > div {
+      max-width: none;
+      width: 100%;
     }
   }
 

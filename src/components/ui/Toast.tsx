@@ -50,7 +50,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
       {createPortal(
-        <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 items-end">
+        <div className="ops-toast-host">
           {toasts.map(toast => {
             const s = TOAST_STYLES[toast.type];
             const Icon = s.icon;
