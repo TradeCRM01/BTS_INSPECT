@@ -1,19 +1,17 @@
-# Always revalidate HTML so deploys don't leave clients on stale chunk maps
-/
-  Cache-Control: no-cache, no-store, must-revalidate
+# Security on every route. Cloudflare Pages merges these with per-path Cache-Control below.
+/*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(self), microphone=(self), payment=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
 
+# Always revalidate HTML so deploys don't leave clients on stale chunk maps
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+
 /index.html
   Cache-Control: no-cache, no-store, must-revalidate
-  X-Frame-Options: DENY
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: geolocation=(self), microphone=(self), payment=()
-  Strict-Transport-Security: max-age=31536000; includeSubDomains
 
 # Hashed assets are immutable. The /assets product page is listed below without /*.
 /assets/*

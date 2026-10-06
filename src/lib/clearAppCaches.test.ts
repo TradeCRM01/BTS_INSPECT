@@ -217,15 +217,16 @@ describe('Pages HTML cache and SPA fallback', () => {
     return readFileSync(resolve(process.cwd(), rel), 'utf8');
   }
 
-  it('gives every App.tsx top-level path no-cache (and its /*) without a blanket /*', () => {
+  it('gives every App.tsx top-level path no-cache (and its /*) with security-only /*', () => {
     const headers = src('public/_headers');
     const rules = headerRulePaths(headers);
     const cache = headerCacheControl(headers);
     const tops = routerTopLevelPaths(src('src/App.tsx'));
 
     expect(tops.length).toBeGreaterThan(0);
-    expect(rules).not.toContain('/*');
-    expect(headers).not.toMatch(/^\s*\/\*\s*$/m);
+    expect(rules).toContain('/*');
+    expect(cache.get('/*')).toBeUndefined();
+    expect(headers).toContain('Permissions-Policy: geolocation=(self), microphone=(self), payment=()');
 
     for (const path of tops) {
       expect(rules, `missing exact ${path} in public/_headers`).toContain(path);
