@@ -3364,13 +3364,20 @@
   .hub-invoices-thead,
   .hub-invoices-row {
     display: grid;
-    grid-template-columns: 72px minmax(0, 1.4fr) minmax(0, 1fr) 104px 140px minmax(188px, max-content);
+    grid-template-columns:
+      72px
+      minmax(0, 1.25fr)
+      minmax(0, 0.85fr)
+      minmax(168px, 1.05fr)
+      96px
+      minmax(200px, max-content);
     gap: 16px;
-    align-items: center;
+    align-items: start;
     padding: 16px 24px;
   }
 
   .hub-invoices-thead {
+    align-items: center;
     background: transparent;
     color: var(--invoice-muted);
     font-family: Rajdhani, sans-serif;
@@ -3379,6 +3386,10 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     border-bottom: 1px solid var(--invoice-line);
+  }
+
+  .hub-invoices-row > :nth-child(5) {
+    align-self: center;
   }
 
   .hub-invoices-thead > :nth-child(5),
@@ -3394,6 +3405,20 @@
     color: var(--invoice-ink);
     font-size: 14px;
     font-weight: 500;
+  }
+
+  .hub-invoices-row > :nth-child(4),
+  .hub-invoices-row > :nth-child(5),
+  .hub-invoices-row > :nth-child(6) {
+    min-width: 0;
+  }
+
+  .hub-invoices-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    max-width: 100%;
   }
 
   .hub-invoices-row:first-of-type {
@@ -3460,8 +3485,10 @@
     font-family: 'Source Sans 3', system-ui, sans-serif;
     font-size: 11px;
     font-weight: 500;
+    line-height: 1.35;
     color: #5B6B7C;
-    margin-top: 2px;
+    max-width: 100%;
+    white-space: normal;
   }
 
   .hub-invoices-total,
@@ -3474,10 +3501,27 @@
 
   .hub-invoices-row-next {
     text-align: right;
+    align-self: stretch;
+    display: flex;
+    justify-content: flex-end;
   }
 
   .hub-invoices-row-next .hub-invoice-editor-act {
-    justify-content: flex-end;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 4px;
+    max-width: 100%;
+  }
+
+  .hub-invoices-row-next .hub-invoices-chase {
+    margin-right: 0;
+    min-height: auto;
+    padding: 0;
+    line-height: 1.25;
+    text-align: right;
+    white-space: normal;
+    max-width: 100%;
   }
 
   .hub-invoices-row-next .btn-primary {

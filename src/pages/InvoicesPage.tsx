@@ -496,8 +496,10 @@ function InvoiceHit({
       <span className="hub-invoices-ref">{invoiceRef(invoice)}</span>
       <span className="truncate">{invoice.client_name || ''}</span>
       <span className="truncate hub-invoices-muted">{suburb}</span>
-      <span className={`hub-invoices-pill is-${invoice.status === 'part_paid' ? 'part_paid' : status}`}>
-        {statusLabel}
+      <span className="hub-invoices-status">
+        <span className={`hub-invoices-pill is-${invoice.status === 'part_paid' ? 'part_paid' : status}`}>
+          {statusLabel}
+        </span>
         {paidMeta ? <span className="hub-invoices-paid-meta">{paidMeta}</span> : null}
       </span>
       <span className="hub-invoices-total">{money ?? ''}</span>

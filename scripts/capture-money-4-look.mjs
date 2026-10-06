@@ -27,6 +27,32 @@ async function shot(page, path) {
   console.log('wrote', path);
 }
 
+async function scrollInvoicePaidLookFrame(page) {
+  await page.waitForSelector('.hub-invoice-paid-summary', { timeout: 20000 });
+  await page.evaluate(() => {
+    const chip = document.querySelector('.hub-invoice-sheet-chip');
+    const balance = document.querySelector('.hub-invoice-balance-due');
+    const scrollEl = document.querySelector('.hub-editor-dialog-scroll')
+      ?? document.querySelector('.overlay-panel-xl.hub-invoice-editor');
+    if (!chip || !balance || !scrollEl) return;
+    const rootRect = scrollEl.getBoundingClientRect();
+    const chipTop = chip.getBoundingClientRect().top - rootRect.top + scrollEl.scrollTop;
+    const balBottom = balance.getBoundingClientRect().bottom - rootRect.top + scrollEl.scrollTop;
+    const blockHeight = balBottom - chipTop;
+    const target = chipTop - Math.max(8, (scrollEl.clientHeight - blockHeight) / 2);
+    scrollEl.scrollTop = Math.max(0, target);
+  });
+  await page.waitForFunction(() => {
+    const chip = document.querySelector('.hub-invoice-sheet-chip');
+    const balance = document.querySelector('.hub-invoice-balance-due');
+    if (!chip || !balance) return false;
+    const pad = 12;
+    const r1 = chip.getBoundingClientRect();
+    const r2 = balance.getBoundingClientRect();
+    return r1.top >= pad && r2.bottom <= window.innerHeight - pad;
+  });
+}
+
 async function waitInvoiceListPartPaid(page) {
   await page.waitForSelector('.hub-invoices-row .hub-invoices-pill.is-part_paid', { timeout: 20000 });
   await page.waitForSelector('.hub-invoices-row .hub-invoices-paid-meta', { timeout: 20000 });
@@ -54,18 +80,7 @@ for (const { w, tag } of [{ w: 375, tag: '375' }, { w: 390, tag: '390' }]) {
   const page = await ctx.newPage();
   await page.goto(`${BASE}/invoices?auditAuth=1&look=money-4-part-paid&id=audit-invoice-send`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.hub-invoice-sheet', { timeout: 20000 });
-  await page.waitForSelector('.hub-invoice-paid-summary', { timeout: 20000 });
-  await page.locator('.hub-invoice-sheet-chip').scrollIntoViewIfNeeded();
-  await page.locator('.hub-invoice-balance-due').scrollIntoViewIfNeeded();
-  await page.waitForFunction(() => {
-    const chip = document.querySelector('.hub-invoice-sheet-chip');
-    const balance = document.querySelector('.hub-invoice-balance-due');
-    if (!chip || !balance) return false;
-    const r1 = chip.getBoundingClientRect();
-    const r2 = balance.getBoundingClientRect();
-    const h = window.innerHeight;
-    return r1.top >= 0 && r1.bottom <= h && r2.top >= 0 && r2.bottom <= h;
-  });
+  await scrollInvoicePaidLookFrame(page);
   await shot(page, `${OUT}/money-4-part-paid-${tag}.png`);
   await ctx.close();
 }
