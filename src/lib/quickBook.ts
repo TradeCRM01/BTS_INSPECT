@@ -20,6 +20,7 @@ export type NamedMatch<T> = {
 };
 
 export type QuickBookTimeSource = 'spoken' | 'trade';
+export type QuickBookDateSource = 'spoken' | 'next';
 
 export type QuickBookParse = {
   raw: string;
@@ -27,6 +28,7 @@ export type QuickBookParse = {
   crewToken: string | null;
   crewTokens: string[];
   date: string | null;
+  dateSource: QuickBookDateSource | null;
   startTime: string | null;
   startTimeSource: QuickBookTimeSource | null;
 };
@@ -39,6 +41,7 @@ export type QuickBookHints = {
 
 export type SpokenSheetFields = {
   date?: string;
+  dateSource?: QuickBookDateSource;
   startTime?: string;
   startTimeSource?: QuickBookTimeSource;
   crewId?: string;
@@ -384,7 +387,7 @@ function weekdayDate(
 ): string {
   let delta = (dow - clock.weekday + 7) % 7;
   if (forceNext) {
-    delta = delta === 0 ? 7 : delta;
+    delta = (dow - clock.weekday) + 7;
   } else if (delta === 0 && timeAlreadyPassed(clock, startTime)) {
     delta = 7;
   }
@@ -479,6 +482,9 @@ export function parseQuickBook(phrase: string, now: Date = new Date()): QuickBoo
   const weekday = weekdayHitInPhrase(work);
   if (weekday) dateHits.push({ index: weekday.index, length: weekday.length });
   const date = parseQuickBookDate(work, now, startTime);
+  const dateSource: QuickBookDateSource | null = date
+    ? (weekday?.forceNext ? 'next' : 'spoken')
+    : null;
   work = stripHits(work, dateHits);
 
   let crewTokens: string[] = [];
@@ -497,6 +503,7 @@ export function parseQuickBook(phrase: string, now: Date = new Date()): QuickBoo
     crewToken: crewTokens.length ? crewTokens.join(' and ') : null,
     crewTokens,
     date,
+    dateSource,
     startTime,
     startTimeSource,
   };
@@ -630,7 +637,8 @@ export function unmatchedHint(
   return `No crew matches “${token}”. Pick one below.`;
 }
 
-export function manyHint(kind: 'job' | 'client' | 'crew', token: string): string {
+export function manyHint(kind: 'job' | 'client' | 'crew', token: string, count = 2): string {
+  if (kind === 'job' && count === 1) return `Closest match for “${token}”. Tap to use it.`;
   if (kind === 'crew') return `Several crew match “${token}”. Change crew below if needed.`;
   if (kind === 'job') return `Several jobs match “${token}”.`;
   return `Several clients match “${token}”.`;
@@ -649,6 +657,20 @@ export function assumedTradeClockLabel(startTime: string | null | undefined): st
   return `Assumed ${clock} — check`;
 }
 
+export function assumedTradeTag(
+  startTrade: boolean | undefined,
+  originalStart: string | null | undefined,
+  edited: boolean,
+): string | null {
+  if (!startTrade || edited) return null;
+  return assumedTradeClockLabel(originalStart);
+}
+
+export function checkDateTag(dateCheck: boolean | undefined, edited: boolean): string | null {
+  if (!dateCheck || edited) return null;
+  return 'Check date';
+}
+
 export function spokenSheetFields<
   TJob extends QuickBookJob,
   TCrew extends QuickBookNamed,
@@ -656,6 +678,7 @@ export function spokenSheetFields<
 >(resolved: QuickBookResolved<TJob, TCrew, TClient>): SpokenSheetFields {
   const out: SpokenSheetFields = {};
   if (resolved.parse.date) out.date = resolved.parse.date;
+  if (resolved.parse.dateSource) out.dateSource = resolved.parse.dateSource;
   if (resolved.parse.startTime) out.startTime = resolved.parse.startTime;
   if (resolved.parse.startTimeSource) out.startTimeSource = resolved.parse.startTimeSource;
   if (resolved.crew.kind === 'one' && resolved.parse.crewTokens.length <= 1 && resolved.crew.items[0]) {
@@ -705,7 +728,7 @@ export function resolveQuickBook<
         ? jobs.kind === 'none'
           ? unmatchedHint('job', parsed.subjectToken)
           : jobs.kind === 'many'
-            ? manyHint('job', parsed.subjectToken)
+            ? manyHint('job', parsed.subjectToken, jobs.items.length)
             : null
         : null,
       client: parsed.subjectToken && jobs.kind === 'none'

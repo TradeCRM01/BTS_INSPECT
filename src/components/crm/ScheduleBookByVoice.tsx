@@ -67,7 +67,7 @@ export function ScheduleBookByVoice({
     applyPhrase(phrase);
   }
 
-  const hintLines = [hints?.job, hints?.client, hints?.crew].filter((line): line is string => !!line);
+  const hintLines = [hints?.job, hints?.client].filter((line): line is string => !!line);
 
   return (
     <div className="hub-schedule-voice" data-schedule-voice="1">
@@ -81,7 +81,7 @@ export function ScheduleBookByVoice({
             className="form-input"
             value={phrase}
             onChange={e => setPhrase(e.target.value)}
-            placeholder="Smith job Thursday 7am with Dave"
+            placeholder="Job, day, time, crew"
             aria-label="Type a booking"
             disabled={applying}
           />
@@ -114,7 +114,7 @@ export function ScheduleBookByVoice({
       {micDenied ? (
         <p className="hub-schedule-voice-hint">Microphone is blocked. Type the booking instead.</p>
       ) : !Speech ? (
-        <p className="hub-schedule-voice-hint">Type a booking — this browser has no voice.</p>
+        <p className="hub-schedule-voice-hint">Voice isn't available here. Type instead.</p>
       ) : null}
       {hintLines.map(line => (
         <p key={line} className="hub-schedule-voice-hint">{line}</p>

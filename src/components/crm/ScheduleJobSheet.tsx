@@ -3,7 +3,7 @@ import { AppDialog, EditorStickyFooter } from '../ui';
 import type { JobWithClient } from '../../types/crm';
 import { scheduleDayKey, type ScheduleSheetInput } from '../../lib/scheduleBoard';
 import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
-import { assumedTradeClockLabel } from '../../lib/quickBook';
+import { assumedTradeTag, checkDateTag } from '../../lib/quickBook';
 
 function timeInput(value: string | null | undefined): string {
   return (value ?? '').slice(0, 5);
@@ -36,7 +36,14 @@ export function ScheduleJobSheet({
   viewedDate: string;
   prefill?: Partial<ScheduleSheetInput> | null;
   matchHints?: { job?: string | null; client?: string | null; crew?: string | null } | null;
-  fromBooking?: { job?: boolean; date?: boolean; start?: boolean; startTrade?: boolean; crew?: boolean } | null;
+  fromBooking?: {
+    job?: boolean;
+    date?: boolean;
+    dateCheck?: boolean;
+    start?: boolean;
+    startTrade?: boolean;
+    crew?: boolean;
+  } | null;
   saving?: boolean;
   onClose: () => void;
   onSave: (fields: ScheduleSheetInput) => void;
@@ -45,7 +52,11 @@ export function ScheduleJobSheet({
   const [date, setDate] = useState(viewedDate);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [dateEdited, setDateEdited] = useState(false);
+  const [startEdited, setStartEdited] = useState(false);
   const site = sheetSiteLine(job);
+  const startCheck = assumedTradeTag(fromBooking?.startTrade, prefill?.startTime, startEdited);
+  const dateCheck = checkDateTag(fromBooking?.dateCheck, dateEdited);
 
   useEffect(() => {
     if (!job) return;
@@ -54,6 +65,8 @@ export function ScheduleJobSheet({
     setDate(prefill?.date || scheduleDayKey(job.scheduled_date) || viewedDate);
     setStartTime(prefill?.startTime ? timeInput(prefill.startTime) : timeInput(job.start_time));
     setEndTime(prefill?.endTime ? timeInput(prefill.endTime) : timeInput(job.end_time));
+    setDateEdited(false);
+    setStartEdited(false);
   }, [job, viewedDate, prefill]);
 
   return (
@@ -111,27 +124,36 @@ export function ScheduleJobSheet({
           <span className="ops-field-label">
             Date
             <FromBooking show={!!fromBooking?.date} />
+            {dateCheck ? (
+              <span className="hub-schedule-from-booking">{dateCheck}</span>
+            ) : null}
           </span>
           <input
             type="date"
             className="form-input"
             value={date}
-            onChange={e => setDate(e.target.value)}
+            onChange={e => {
+              setDate(e.target.value);
+              setDateEdited(true);
+            }}
           />
         </label>
         <label className="block">
           <span className="ops-field-label">
             Start
             <FromBooking show={!!fromBooking?.start} />
-            {fromBooking?.startTrade ? (
-              <span className="hub-schedule-from-booking">{assumedTradeClockLabel(startTime)}</span>
+            {startCheck ? (
+              <span className="hub-schedule-from-booking">{startCheck}</span>
             ) : null}
           </span>
           <input
             type="time"
             className="form-input"
             value={startTime}
-            onChange={e => setStartTime(e.target.value)}
+            onChange={e => {
+              setStartTime(e.target.value);
+              setStartEdited(true);
+            }}
           />
         </label>
         <label className="block">

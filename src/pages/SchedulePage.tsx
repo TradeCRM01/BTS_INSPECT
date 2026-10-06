@@ -416,6 +416,7 @@ export function SchedulePage() {
   const [sheetFromBooking, setSheetFromBooking] = useState<{
     job?: boolean;
     date?: boolean;
+    dateCheck?: boolean;
     start?: boolean;
     startTrade?: boolean;
     crew?: boolean;
@@ -425,7 +426,14 @@ export function SchedulePage() {
     startTime?: string;
     crewId?: string;
     hints: { job: string | null; client: string | null; crew: string | null };
-    fromBooking: { job?: boolean; date?: boolean; start?: boolean; startTrade?: boolean; crew?: boolean };
+    fromBooking: {
+      job?: boolean;
+      date?: boolean;
+      dateCheck?: boolean;
+      start?: boolean;
+      startTrade?: boolean;
+      crew?: boolean;
+    };
   } | null>(null);
   const { showToast } = useToast();
 
@@ -791,7 +799,14 @@ export function SchedulePage() {
     job: JobWithClient,
     prefill?: Partial<ScheduleSheetInput> | null,
     hints?: { job?: string | null; client?: string | null; crew?: string | null } | null,
-    fromBooking?: { job?: boolean; date?: boolean; start?: boolean; startTrade?: boolean; crew?: boolean } | null,
+    fromBooking?: {
+      job?: boolean;
+      date?: boolean;
+      dateCheck?: boolean;
+      start?: boolean;
+      startTrade?: boolean;
+      crew?: boolean;
+    } | null,
   ) => {
     setSheetPrefill(prefill ?? null);
     setSheetHints(hints ?? null);
@@ -841,6 +856,7 @@ export function SchedulePage() {
       const fromBooking = {
         job: resolved.jobs.kind === 'one',
         date: !!spoken.date,
+        dateCheck: spoken.dateSource === 'next',
         start: !!spoken.startTime,
         startTrade: spoken.startTimeSource === 'trade',
         crew: !!spoken.crewId,
@@ -879,6 +895,7 @@ export function SchedulePage() {
     openScheduleSheet(job, spoken, hints, {
       job: true,
       date: !!spoken.date,
+      dateCheck: voice?.fromBooking.dateCheck,
       start: !!spoken.startTime,
       startTrade: voice?.fromBooking.startTrade,
       crew: !!spoken.crewId,
@@ -1187,6 +1204,8 @@ export function SchedulePage() {
           setSheetPrefill(null);
           setSheetHints(null);
           setSheetFromBooking(null);
+          setVoiceHints(null);
+          setVoiceJobPicks([]);
         }}
         onSave={fields => {
           if (!sheetJob) return;

@@ -3,7 +3,9 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   assumedTradeClockLabel,
+  assumedTradeTag,
   browserSpeechRecognition,
+  checkDateTag,
   instantInBrisbane,
   isSpeechPermissionDenied,
   matchNamed,
@@ -170,6 +172,7 @@ describe('quickBook parser', () => {
     expect(resolved.jobs.kind).toBe('many');
     expect(spokenSheetFields(resolved)).toEqual({
       date: '2026-10-08',
+      dateSource: 'spoken',
       startTime: '07:00',
       startTimeSource: 'spoken',
       crewId: 'crew-dave',
@@ -182,6 +185,7 @@ describe('quickBook parser', () => {
     }, NOW);
     expect(noCrew.prefill).toEqual({
       date: '2026-10-08',
+      dateSource: 'spoken',
       startTime: '07:00',
       startTimeSource: 'spoken',
     });
@@ -307,6 +311,48 @@ describe('quickBook parser', () => {
     expect(resolved.hints.job).not.toMatch(/Pick one\. Pick one/);
   });
 
+  it('asks to tap a single closest job match and keeps Several for two or more', () => {
+    const one = {
+      id: 'job-1280',
+      title: '274 client 1280 — delete ok',
+      client_name: 'CoS 286 Client — delete ok',
+      job_number: 12,
+    };
+    const other = {
+      id: 'job-280b',
+      title: 'Store 280b — delete ok',
+      client_name: null,
+      job_number: 21,
+    };
+    expect(matchQuickBookJobs('280', [one]).kind).toBe('many');
+    expect(matchQuickBookJobs('280', [one]).items).toHaveLength(1);
+    const closest = resolveQuickBook('280 tomorrow 7am', { jobs: [one], crew }, NOW);
+    expect(closest.jobs.kind).not.toBe('one');
+    expect(closest.hints.job).toBe('Closest match for “280”. Tap to use it.');
+    expect(closest.hints.job).not.toContain('Several');
+    const several = resolveQuickBook('280 tomorrow 7am', { jobs: [one, other], crew }, NOW);
+    expect(several.jobs.items.length).toBeGreaterThan(1);
+    expect(several.hints.job).toBe('Several jobs match “280”.');
+  });
+
+  it('resolves next Friday from Tuesday to next week and tags Check date until Date is edited', () => {
+    expect(parseQuickBookDate('next Friday', NOW)).toBe('2026-10-16');
+    expect(parseQuickBook('next Friday 7am', NOW).date).toBe('2026-10-16');
+    expect(parseQuickBook('next Friday 7am', NOW).dateSource).toBe('next');
+    expect(parseQuickBookDate('this Friday', NOW)).toBe('2026-10-09');
+    expect(parseQuickBook('Friday 7am', NOW).date).toBe('2026-10-09');
+    expect(parseQuickBook('Friday 7am', NOW).dateSource).toBe('spoken');
+    const resolved = resolveQuickBook('Hot water next Friday 7am', {
+      jobs: [jobs[0]],
+      crew,
+    }, NOW);
+    expect(resolved.prefill.date).toBe('2026-10-16');
+    expect(resolved.prefill.dateSource).toBe('next');
+    expect(checkDateTag(true, false)).toBe('Check date');
+    expect(checkDateTag(true, true)).toBeNull();
+    expect(checkDateTag(false, false)).toBeNull();
+  });
+
   it('parses at 7 pm, tags bare 3 as trade hours, and does not rewrite Munday', () => {
     expect(parseQuickBookTime('at 7 pm')).toBe('19:00');
     expect(parseQuickBookTime('at 7 p.m.')).toBe('19:00');
@@ -317,6 +363,10 @@ describe('quickBook parser', () => {
     expect(parseQuickBookTime('at 3')).not.toBe('03:00');
     expect(assumedTradeClockLabel('15:00')).toBe('Assumed 3 pm — check');
     expect(assumedTradeClockLabel('07:00')).toBe('Assumed 7 am — check');
+    expect(assumedTradeTag(true, '15:00', false)).toBe('Assumed 3 pm — check');
+    expect(assumedTradeTag(true, '15:00', true)).toBeNull();
+    expect(assumedTradeTag(true, '15:00', true)).not.toBe(assumedTradeClockLabel('09:00'));
+    expect(assumedTradeTag(false, '15:00', false)).toBeNull();
     const munday = parseQuickBook('Munday job Thursday 7am', NOW);
     expect(munday.subjectToken).toContain('Munday');
     expect(munday.date).toBe('2026-10-08');
@@ -376,6 +426,10 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(voice).toContain('hub-schedule-voice-row');
     expect(voice).toContain("lang = 'en-AU'");
     expect(voice).toContain('Microphone is blocked. Type the booking instead.');
+    expect(voice).toContain("Voice isn't available here. Type instead.");
+    expect(voice).toContain('Job, day, time, crew');
+    expect(voice).not.toContain('Smith job Thursday 7am with Dave');
+    expect(voice).not.toContain('hints?.crew');
     expect(sheet).toContain('From your booking');
     expect(sheet).toContain("'crewId' in prefill && prefill.crewId");
     expect(sheet).toContain('EditorStickyFooter');
@@ -393,8 +447,17 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(src('src/index.css')).not.toMatch(/\.hub-schedule-job-sheet-hint \{\s*margin: -4px/);
     expect(src('src/index.css')).not.toMatch(/\.hub-schedule-voice \.form-input \{[\s\S]{0,80}flex: 1 1 100%/);
     expect(sheet).toContain('scheduleDayKey(job.scheduled_date)');
-    expect(sheet).toContain('assumedTradeClockLabel');
+    expect(sheet).toContain('assumedTradeTag');
+    expect(sheet).toContain('checkDateTag');
+    expect(sheet).toContain('setStartEdited(true)');
+    expect(sheet).toContain('setDateEdited(true)');
     expect(sheet).not.toContain('Trade hours');
+    expect(page).toContain('dateCheck: spoken.dateSource === \'next\'');
+    expect(page).toContain('setVoiceHints(null)');
+    expect(page).toContain('setVoiceJobPicks([])');
     expect(page).not.toContain('setJobQuery(parsed.subjectToken)');
+    expect(src('src/lib/quickBook.ts')).toContain('Closest match for');
+    expect(src('src/index.css')).toMatch(/\.hub-schedule-voice-form \{[\s\S]{0,80}flex-direction: row/);
+    expect(src('src/index.css')).toMatch(/flex-direction: column/);
   });
 });

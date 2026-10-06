@@ -6600,8 +6600,9 @@
 
   .hub-schedule-voice-form {
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
     gap: 8px;
     width: 100%;
     min-width: 0;
@@ -6609,7 +6610,8 @@
 
   .hub-schedule-voice-label {
     display: block;
-    width: 100%;
+    flex: 0 0 auto;
+    width: auto;
     font-family: Rajdhani, sans-serif;
     font-size: 11px;
     font-weight: 700;
@@ -6621,10 +6623,10 @@
 
   .hub-schedule-voice-row {
     display: flex;
+    flex: 1 1 auto;
     flex-wrap: nowrap;
     align-items: center;
     gap: 8px;
-    width: 100%;
     min-width: 0;
   }
 
@@ -6793,6 +6795,15 @@
     .hub-schedule-voice-form {
       width: 100%;
       max-width: 100%;
+    }
+
+    .hub-schedule-voice-form {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .hub-schedule-voice-label {
+      width: 100%;
     }
 
     .hub-week-document .hub-schedule-voice {
