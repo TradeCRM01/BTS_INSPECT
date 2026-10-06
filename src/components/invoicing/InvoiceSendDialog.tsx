@@ -2,22 +2,26 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Mail, Phone, User } from 'lucide-react';
 import { Modal } from '../ui/Modal';
+import { useToast } from '../ui';
 import { generateCommercialPdf } from '../../reports/commercial/generateCommercialPdf';
 import { supabase } from '../../lib/supabase';
 import {
   decideInvoiceShare,
+  documentShareCopyErrorToast,
+  documentShareManualCopyToast,
   documentShareOrigin,
   invoiceChaseSummary,
   invoiceShareAfterPortalUrl,
   type DocumentShareExport,
 } from '../../lib/documentShare';
+import { DocumentShareManualLink } from './DocumentShareManualLink';
 import {
   copyShareText,
-  ensureClientPortalUrl,
   loadActiveClientPortalUrl,
   markInvoiceSentForShare,
   openDocumentShareMailto,
   openDocumentShareSms,
+  prepareDocumentShareLink,
   triggerBrowserDownload,
   type ShareCopyResult,
 } from '../../lib/documentShareDeliver';
@@ -78,6 +82,7 @@ export function InvoiceSendDialog({
   onSent: (to: string, message?: string, opts?: { keepOpen?: boolean }) => void;
 }) {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
@@ -263,18 +268,19 @@ export function InvoiceSendDialog({
     typeof window !== 'undefined' ? window.location.origin : '',
   );
 
-  const prepareShare = async (): Promise<{ url: string; share: DocumentShareExport }> => {
+  const prepareShare = async (): Promise<{ url: string; share: DocumentShareExport; toast: string; markedSent: boolean }> => {
     throwIfCheckPriceUnpriced(bundle?.invoice?.line_items);
     if (!bundle?.invoice?.client_id) throw new Error('Pick a client before you can copy a portal link.');
-    const url = await ensureClientPortalUrl({
+    const prepared = await prepareDocumentShareLink({
+      kind: 'invoice',
+      documentId: invoiceId,
+      status: bundle.invoice.status,
       companyId: company.id,
       clientId: bundle.invoice.client_id,
       origin,
     });
-    const marked = await markInvoiceSentForShare({
-      invoiceId,
-      status: bundle.invoice.status,
-    });
+    const url = prepared.url;
+    const marked = { status: prepared.status, markedSent: prepared.markedSent };
     const nextInvoice = { ...bundle.invoice, status: marked.status };
     const nextBundle = { ...bundle, invoice: nextInvoice };
     setPortalUrl(url);
@@ -294,8 +300,11 @@ export function InvoiceSendDialog({
     setShare(nextShare);
     if (marked.markedSent) {
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      void queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+      void queryClient.invalidateQueries({ queryKey: ['client-invoices'] });
+      void queryClient.invalidateQueries({ queryKey: ['job-invoices'] });
     }
-    return { url, share: nextShare };
+    return { url, share: nextShare, toast: prepared.toast, markedSent: prepared.markedSent };
   };
 
   const handleDownload = async () => {
@@ -320,16 +329,29 @@ export function InvoiceSendDialog({
     setErr('');
     setCopy(null);
     try {
+      let toast = '';
+      let markedSent = false;
       const result = await copyShareText(async () => {
         const prepared = await prepareShare();
+        toast = prepared.toast;
+        markedSent = prepared.markedSent;
         return prepared.share.copyText ?? prepared.url;
       });
       setCopy(result);
-      if (result.kind === 'copied' && share.purpose === 'chase') {
+      if (result.kind === 'manual') {
+        const manualToast = documentShareManualCopyToast('invoice', markedSent);
+        if (manualToast) {
+          onSent(bundle?.client?.email || 'client', manualToast, { keepOpen: true });
+        }
+      } else if (result.kind === 'copied' && markedSent) {
+        onSent(bundle?.client?.email || 'client', toast, { keepOpen: true });
+      } else if (result.kind === 'copied' && share.purpose === 'chase') {
         onSent(bundle?.client?.email || 'client', 'Payment reminder copied.', { keepOpen: true });
+      } else if (result.kind === 'copied' && toast) {
+        showToast(toast);
       }
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Could not copy the portal link.');
+      showToast(documentShareCopyErrorToast(e), 'error');
     } finally {
       setBusy('');
     }
@@ -521,18 +543,7 @@ export function InvoiceSendDialog({
               <div className="hub-invoice-send-field">
                 <p className="hub-invoice-kicker">Portal link</p>
                 {copy?.kind === 'manual' ? (
-                  <>
-                    <input
-                      type="text"
-                      readOnly
-                      value={copy.text}
-                      onFocus={e => e.currentTarget.select()}
-                      onClick={e => e.currentTarget.select()}
-                      className="form-input-sm"
-                      aria-label="Portal link"
-                    />
-                    <p className="hub-invoice-send-value">Hold the link to copy it.</p>
-                  </>
+                  <DocumentShareManualLink url={copy.text} />
                 ) : (
                   <p className="hub-invoice-send-value">
                     {copy?.kind === 'copied'

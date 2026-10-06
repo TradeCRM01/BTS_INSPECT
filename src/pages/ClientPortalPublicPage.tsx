@@ -5,7 +5,8 @@ import { format, parseISO } from 'date-fns';
 import { Download, FileText, Receipt, Wrench, Building2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { formatMoney, QUOTE_STATUS_LABELS } from '../types/fsm';
+import { formatMoney, INVOICE_STATUS_LABELS, QUOTE_STATUS_LABELS, type InvoiceStatus } from '../types/fsm';
+import { portalStatusKey } from '../lib/portalClientQuotes';
 import { usePublicDocumentHead } from '../lib/publicSeo';
 import { companyPaymentMethodsForDocument } from '../lib/companyPaymentMethods';
 import { portalDocumentRef } from '../lib/quoteJobFields';
@@ -28,8 +29,9 @@ export function canAcceptPortalQuote(
   jobId: string | null,
   lapsed?: boolean,
 ): boolean {
-  if (status === 'sent') return lapsed !== true;
-  return status === 'accepted' && !jobId;
+  const key = portalStatusKey(status);
+  if (key === 'sent') return lapsed !== true;
+  return key === 'accepted' && !jobId;
 }
 
 export function portalQuoteAcceptBody(token: string, quoteId: string) {
@@ -205,7 +207,13 @@ async function fetchPortal(token: string): Promise<PortalPayload> {
 }
 
 function portalQuoteStatusLabel(status: string): string {
-  return QUOTE_STATUS_LABELS[status as keyof typeof QUOTE_STATUS_LABELS] ?? status;
+  const key = portalStatusKey(status);
+  return QUOTE_STATUS_LABELS[key as keyof typeof QUOTE_STATUS_LABELS] ?? status;
+}
+
+function portalInvoiceStatusLabel(status: string): string {
+  const key = portalStatusKey(status);
+  return INVOICE_STATUS_LABELS[key as InvoiceStatus] ?? status;
 }
 
 function PortalFrame({ children }: { children: React.ReactNode }) {
@@ -388,7 +396,7 @@ export function ClientPortalPublicPage() {
               </div>
               <p className="portal-quote-total">{formatMoney(q.total)}</p>
             </div>
-            {q.status === 'sent' && q.lapsed ? (
+            {portalStatusKey(q.status) === 'sent' && q.lapsed ? (
               <p className="portal-quote-lapsed">{portalQuoteLapsedCopy(data.company?.name)}</p>
             ) : canAcceptPortalQuote(q.status, q.job_id, q.lapsed) ? (
               <button
@@ -397,7 +405,7 @@ export function ClientPortalPublicPage() {
                 disabled={acceptingId === q.id}
                 className="portal-quote-accept"
               >
-                {acceptingId === q.id ? 'Booking...' : q.status === 'accepted' ? 'Finish booking' : 'Accept and book'}
+                {acceptingId === q.id ? 'Booking...' : portalStatusKey(q.status) === 'accepted' ? 'Finish booking' : 'Accept and book'}
               </button>
             ) : null}
           </div>
@@ -409,7 +417,7 @@ export function ClientPortalPublicPage() {
           <div key={inv.id} className="portal-row portal-row-split">
             <div>
               <p className="portal-row-ref">{portalDocumentRef(inv.invoice_number)}</p>
-              <p className="portal-muted">{inv.status}</p>
+              <p className="portal-muted">{portalInvoiceStatusLabel(inv.status)}</p>
             </div>
             <p className="portal-quote-total">{formatMoney(inv.total)}</p>
           </div>

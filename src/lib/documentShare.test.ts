@@ -17,6 +17,17 @@ import {
   quoteChaseCopyText,
   quoteShareMailtoBody,
   quoteStatusAfterMarkSent,
+  documentShareCopyToast,
+  DOCUMENT_SHARE_COPY_TOAST,
+  QUOTE_SHARE_MARKED_SENT_TOAST,
+  INVOICE_SHARE_MARKED_SENT_TOAST,
+  interpretMarkSentWrite,
+  isMarkSentWriteFailed,
+  documentShareCopyErrorToast,
+  documentShareManualCopyToast,
+  MARK_SENT_COPY_BLOCKED_TOAST,
+  QUOTE_MANUAL_COPY_TOAST,
+  INVOICE_MANUAL_COPY_TOAST,
 } from './documentShare';
 
 describe('documentShareOrigin', () => {
@@ -78,6 +89,28 @@ describe('decideQuoteShare', () => {
     expect(quoteStatusAfterMarkSent('draft')).toBe('sent');
     expect(quoteStatusAfterMarkSent('sent')).toBeNull();
     expect(quoteStatusAfterMarkSent('accepted')).toBeNull();
+    expect(documentShareCopyToast('quote', true)).toBe(QUOTE_SHARE_MARKED_SENT_TOAST);
+    expect(documentShareCopyToast('quote', false)).toBe(DOCUMENT_SHARE_COPY_TOAST);
+    expect(documentShareCopyToast('invoice', true)).toBe(INVOICE_SHARE_MARKED_SENT_TOAST);
+    expect(documentShareCopyToast('invoice', false)).toBe(DOCUMENT_SHARE_COPY_TOAST);
+    expect(interpretMarkSentWrite({ updatedId: 'q1', liveStatus: 'draft', next: 'sent' }))
+      .toEqual({ status: 'sent', markedSent: true });
+    expect(interpretMarkSentWrite({ updatedId: null, liveStatus: 'sent', next: 'sent' }))
+      .toEqual({ status: 'sent', markedSent: false });
+    try {
+      interpretMarkSentWrite({ updatedId: null, liveStatus: 'draft', next: 'sent' });
+      throw new Error('expected mark-sent failure');
+    } catch (error) {
+      expect(isMarkSentWriteFailed(error)).toBe(true);
+      expect(error instanceof Error).toBe(false);
+      expect(documentShareCopyErrorToast(error)).toBe(MARK_SENT_COPY_BLOCKED_TOAST);
+    }
+    expect(documentShareManualCopyToast('quote', true)).toBe(QUOTE_MANUAL_COPY_TOAST);
+    expect(documentShareManualCopyToast('quote', false)).toBeNull();
+    expect(documentShareManualCopyToast('invoice', true)).toBe(INVOICE_MANUAL_COPY_TOAST);
+    expect(documentShareCopyErrorToast(new Error('Pick a client before you can copy a portal link.')))
+      .toBe('Pick a client before you can copy a portal link.');
+    expect(documentShareCopyErrorToast({ message: 'JWT expired' })).toBe('Could not copy the link.');
   });
 
   it('builds mailto once the portal URL and client email exist', () => {

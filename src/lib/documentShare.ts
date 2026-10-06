@@ -150,6 +150,64 @@ function invoiceDisplayName(invoiceNumber: number | null | undefined): string {
   return `Invoice #${String(invoiceNumber ?? 0).padStart(4, '0')}`;
 }
 
+export const DOCUMENT_SHARE_COPY_TOAST = 'Link copied';
+export const QUOTE_SHARE_MARKED_SENT_TOAST = 'Link copied, quote marked as sent';
+export const INVOICE_SHARE_MARKED_SENT_TOAST = 'Link copied, invoice marked as sent';
+
+export const QUOTE_MARKED_SENT_TOAST = 'Quote marked as sent';
+export const MARK_SENT_COPY_BLOCKED_TOAST = "Couldn't mark as sent, so the link wasn't copied. Try again.";
+export const QUOTE_MANUAL_COPY_TOAST = 'Quote marked as sent. Copy the link below.';
+export const INVOICE_MANUAL_COPY_TOAST = 'Invoice marked as sent. Copy the link below.';
+export const DOCUMENT_SHARE_MANUAL_LABEL = 'Copy this link:';
+export const MARK_SENT_WRITE_FAILED_KIND = 'mark_sent_write_failed';
+
+export type MarkSentWriteFailed = { kind: typeof MARK_SENT_WRITE_FAILED_KIND };
+
+/** Own marker — supabase-js errors are not Error instances, so never match on message. */
+export function markSentWriteFailed(): never {
+  throw { kind: MARK_SENT_WRITE_FAILED_KIND } satisfies MarkSentWriteFailed;
+}
+
+export function isMarkSentWriteFailed(error: unknown): boolean {
+  return Boolean(
+    error
+    && typeof error === 'object'
+    && (error as { kind?: unknown }).kind === MARK_SENT_WRITE_FAILED_KIND,
+  );
+}
+
+export function documentShareCopyErrorToast(error: unknown): string {
+  if (isMarkSentWriteFailed(error)) return MARK_SENT_COPY_BLOCKED_TOAST;
+  if (error instanceof Error) {
+    const message = error.message.trim();
+    if (message) return message;
+  }
+  return 'Could not copy the link.';
+}
+
+export function documentShareCopyToast(kind: DocumentShareKind, markedSent: boolean): string {
+  if (!markedSent) return DOCUMENT_SHARE_COPY_TOAST;
+  return kind === 'quote' ? QUOTE_SHARE_MARKED_SENT_TOAST : INVOICE_SHARE_MARKED_SENT_TOAST;
+}
+
+export function documentShareManualCopyToast(kind: DocumentShareKind, markedSent: boolean): string | null {
+  if (!markedSent) return null;
+  return kind === 'quote' ? QUOTE_MANUAL_COPY_TOAST : INVOICE_MANUAL_COPY_TOAST;
+}
+
+/** Update with 0 rows is not success. Still-draft after a no-op is a hard failure. */
+export function interpretMarkSentWrite(args: {
+  updatedId: string | null | undefined;
+  liveStatus: string | null | undefined;
+  next: string;
+}): { status: string; markedSent: boolean } {
+  if (args.updatedId) return { status: args.next, markedSent: true };
+  if ((args.liveStatus ?? '') === 'draft') {
+    markSentWriteFailed();
+  }
+  return { status: args.liveStatus || args.next, markedSent: false };
+}
+
 export function quoteNeedsMarkSentForAccept(status: string): boolean {
   return status === 'draft';
 }

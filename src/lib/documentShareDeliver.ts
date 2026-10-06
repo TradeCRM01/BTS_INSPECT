@@ -6,8 +6,12 @@ import {
   pickActiveClientPortalToken,
 } from './sendQuote';
 import {
+  documentShareCopyToast,
+  interpretMarkSentWrite,
   invoiceStatusAfterMarkSent,
+  markSentWriteFailed,
   quoteStatusAfterMarkSent,
+  type DocumentShareKind,
 } from './documentShare';
 
 export const AUDIT_SHARE_PORTAL_TOKEN = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -81,13 +85,26 @@ export async function markQuoteSentForShare(args: {
   if (!next) return { status: args.status, markedSent: false };
   if (isDevFieldAuditAuth()) return { status: next, markedSent: true };
   const now = new Date().toISOString();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('quotes')
     .update({ status: next, sent_at: now, updated_at: now })
     .eq('id', args.quoteId)
-    .eq('status', 'draft');
-  if (error) throw error;
-  return { status: next, markedSent: true };
+    .eq('status', 'draft')
+    .select('id');
+  if (error) markSentWriteFailed();
+  const updated = (Array.isArray(data) ? data[0] : data) as { id?: string } | null;
+  if (updated?.id) return { status: next, markedSent: true };
+  const { data: live, error: liveError } = await supabase
+    .from('quotes')
+    .select('status')
+    .eq('id', args.quoteId)
+    .maybeSingle();
+  if (liveError) markSentWriteFailed();
+  return interpretMarkSentWrite({
+    updatedId: null,
+    liveStatus: live?.status as string | undefined,
+    next,
+  });
 }
 
 export async function markInvoiceSentForShare(args: {
@@ -97,13 +114,51 @@ export async function markInvoiceSentForShare(args: {
   const next = invoiceStatusAfterMarkSent(args.status);
   if (!next) return { status: args.status, markedSent: false };
   if (isDevFieldAuditAuth()) return { status: next, markedSent: true };
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('invoices')
     .update({ status: next, updated_at: new Date().toISOString() })
     .eq('id', args.invoiceId)
-    .eq('status', 'draft');
-  if (error) throw error;
-  return { status: next, markedSent: true };
+    .eq('status', 'draft')
+    .select('id');
+  if (error) markSentWriteFailed();
+  const updated = (Array.isArray(data) ? data[0] : data) as { id?: string } | null;
+  if (updated?.id) return { status: next, markedSent: true };
+  const { data: live, error: liveError } = await supabase
+    .from('invoices')
+    .select('status')
+    .eq('id', args.invoiceId)
+    .maybeSingle();
+  if (liveError) markSentWriteFailed();
+  return interpretMarkSentWrite({
+    updatedId: null,
+    liveStatus: live?.status as string | undefined,
+    next,
+  });
+}
+
+/** Copy/share a portal link and flip a draft to sent. Already-sent stays put. */
+export async function prepareDocumentShareLink(args: {
+  kind: DocumentShareKind;
+  documentId: string;
+  status: string;
+  companyId: string;
+  clientId: string;
+  origin: string;
+}): Promise<{ url: string; status: string; markedSent: boolean; toast: string }> {
+  const url = await ensureClientPortalUrl({
+    companyId: args.companyId,
+    clientId: args.clientId,
+    origin: args.origin,
+  });
+  const marked = args.kind === 'quote'
+    ? await markQuoteSentForShare({ quoteId: args.documentId, status: args.status })
+    : await markInvoiceSentForShare({ invoiceId: args.documentId, status: args.status });
+  return {
+    url,
+    status: marked.status,
+    markedSent: marked.markedSent,
+    toast: documentShareCopyToast(args.kind, marked.markedSent),
+  };
 }
 
 export function triggerBrowserDownload(blob: Blob, filename: string): void {

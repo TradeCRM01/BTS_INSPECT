@@ -45,8 +45,13 @@ import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdf
 import { QuoteChaseDialog } from '../components/invoicing/QuoteChaseDialog';
 import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
 import { quoteSendCompanyFrom } from '../lib/sendQuote';
-import { documentShareOrigin } from '../lib/documentShare';
-import { copyShareText, ensureClientPortalUrl } from '../lib/documentShareDeliver';
+import {
+  documentShareCopyErrorToast,
+  documentShareOrigin,
+  documentShareManualCopyToast,
+} from '../lib/documentShare';
+import { DocumentShareManualLink } from '../components/invoicing/DocumentShareManualLink';
+import { copyShareText, prepareDocumentShareLink } from '../lib/documentShareDeliver';
 import { commercialPdfPreviewData, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
@@ -909,6 +914,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   const [invoiceId, setInvoiceId] = useState<string | null>(quote?.invoice_id ?? null);
   const moreRef = useRef<HTMLDetailsElement>(null);
   const [copyConfirm, setCopyConfirm] = useState(false);
+  const [manualCopyUrl, setManualCopyUrl] = useState('');
   const [copyingLink, setCopyingLink] = useState(false);
   const emailInputRef = useRef<HTMLInputElement>(null);
 
@@ -1322,19 +1328,43 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
     }
     setCopyingLink(true);
     try {
-      const result = await copyShareText(async () => ensureClientPortalUrl({
-        companyId: profile.company_id,
-        clientId: form.client_id,
-        origin: documentShareOrigin(window.location.origin),
-      }));
+      let toast = '';
+      let markedSent = false;
+      const result = await copyShareText(async () => {
+        const id = savedId ?? quote?.id ?? await persist('draft', { close: false, message: '' });
+        if (!id) throw new Error('Save the quote before you copy a link.');
+        const prepared = await prepareDocumentShareLink({
+          kind: 'quote',
+          documentId: id,
+          status: form.status,
+          companyId: profile.company_id,
+          clientId: form.client_id,
+          origin: documentShareOrigin(window.location.origin),
+        });
+        toast = prepared.toast;
+        markedSent = prepared.markedSent;
+        if (prepared.markedSent) {
+          setForm(f => ({ ...f, status: 'sent' }));
+          void queryClient.invalidateQueries({ queryKey: ['quotes'] });
+          void queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
+          void queryClient.invalidateQueries({ queryKey: ['job-quotes'] });
+        }
+        return prepared.url;
+      });
       closeMore();
-      setCopyConfirm(true);
-      showToast('Link copied');
-      window.setTimeout(() => setCopyConfirm(false), 2500);
-      if (result.kind === 'manual') setErr(result.text);
+      if (result.kind === 'manual') {
+        setManualCopyUrl(result.text);
+        const manualToast = documentShareManualCopyToast('quote', markedSent);
+        if (manualToast) showToast(manualToast);
+      } else {
+        setManualCopyUrl('');
+        setCopyConfirm(true);
+        showToast(toast || 'Link copied');
+        window.setTimeout(() => setCopyConfirm(false), 2500);
+      }
     } catch (e) {
       closeMore();
-      showToast(e instanceof Error ? e.message : 'Could not copy the link.', 'error');
+      showToast(documentShareCopyErrorToast(e), 'error');
     } finally {
       setCopyingLink(false);
     }
@@ -1501,6 +1531,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
             </button>
           </div>
         </div>
+        {manualCopyUrl ? <DocumentShareManualLink url={manualCopyUrl} /> : null}
         {err && err !== CONVERT_QUOTE_NEED_DATE_CREW ? <p className="hub-quote-err">{err}</p> : null}
 
         <div className="hub-quote-sheet">

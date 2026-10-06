@@ -8385,6 +8385,39 @@
     white-space: nowrap;
   }
 
+  .hub-share-manual {
+    margin: 0 0 16px;
+    max-width: 390px;
+  }
+
+  .hub-share-manual-label {
+    margin: 0 0 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #0A2540;
+  }
+
+  .hub-share-manual-link {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 390px;
+    min-height: 96px;
+    height: auto;
+    field-sizing: content;
+    padding: 12px;
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    color: #0A2540;
+    font-size: 14px;
+    line-height: 1.4;
+    resize: none;
+    overflow: hidden;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+  }
+
   .hub-quote-err {
     margin: 0 0 16px;
     font-size: 14px;

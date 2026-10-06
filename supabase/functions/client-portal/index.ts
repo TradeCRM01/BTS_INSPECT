@@ -51,6 +51,18 @@ function scheduledDateFromQuote(value: string | null | undefined): string | null
   return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
 }
 
+function portalVisibleStatus(status: string): string | null {
+  const key = String(status ?? "").trim().toLowerCase();
+  if (!key || key === "draft") return null;
+  const labels: Record<string, string> = {
+    sent: "Sent",
+    paid: "Paid",
+    accepted: "Accepted",
+    overdue: "Overdue",
+  };
+  return labels[key] ?? `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+}
+
 function assignedTeamFromQuote(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((id): id is string => typeof id === "string" && id.trim().length > 0);
@@ -423,6 +435,7 @@ Deno.serve(async (req) => {
           .from("invoices")
           .select("id, invoice_number, status, total, due_date, updated_at")
           .eq("client_id", portal.client_id)
+          .neq("status", "draft")
           .order("updated_at", { ascending: false })
           .limit(50),
         admin
@@ -503,15 +516,25 @@ Deno.serve(async (req) => {
           address: client.address,
         }
         : null,
-      quotes: (quotes ?? []).map((q) => ({
-        ...q,
-        quote_number: portalDocumentRef(q.quote_number as string | number | null),
-        lapsed: isQuoteLapsed(q.validity_date as string | null),
-      })),
-      invoices: (invoices ?? []).map((inv) => ({
-        ...inv,
-        invoice_number: portalDocumentRef(inv.invoice_number as string | number | null),
-      })),
+      quotes: (quotes ?? []).flatMap((q) => {
+        const status = portalVisibleStatus(String(q.status ?? ""));
+        if (!status) return [];
+        return [{
+          ...q,
+          quote_number: portalDocumentRef(q.quote_number as string | number | null),
+          status,
+          lapsed: isQuoteLapsed(q.validity_date as string | null),
+        }];
+      }),
+      invoices: (invoices ?? []).flatMap((inv) => {
+        const status = portalVisibleStatus(String(inv.status ?? ""));
+        if (!status) return [];
+        return [{
+          ...inv,
+          invoice_number: portalDocumentRef(inv.invoice_number as string | number | null),
+          status,
+        }];
+      }),
       jobs: jobs ?? [],
       reports: reportCards.filter((r) => r.pdfUrl || r.reportNumber),
     });
