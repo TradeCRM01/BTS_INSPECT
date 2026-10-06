@@ -150,6 +150,15 @@ function invoiceDisplayName(invoiceNumber: number | null | undefined): string {
   return `Invoice #${String(invoiceNumber ?? 0).padStart(4, '0')}`;
 }
 
+export const DOCUMENT_SHARE_COPY_TOAST = 'Link copied';
+export const QUOTE_SHARE_MARKED_SENT_TOAST = 'Link copied, quote marked as sent';
+export const INVOICE_SHARE_MARKED_SENT_TOAST = 'Link copied, invoice marked as sent';
+
+export function documentShareCopyToast(kind: DocumentShareKind, markedSent: boolean): string {
+  if (!markedSent) return DOCUMENT_SHARE_COPY_TOAST;
+  return kind === 'quote' ? QUOTE_SHARE_MARKED_SENT_TOAST : INVOICE_SHARE_MARKED_SENT_TOAST;
+}
+
 export function quoteNeedsMarkSentForAccept(status: string): boolean {
   return status === 'draft';
 }

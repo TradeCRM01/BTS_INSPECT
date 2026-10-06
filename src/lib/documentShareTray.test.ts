@@ -18,7 +18,7 @@ describe('quote / invoice share tray — no Grafter SMTP', () => {
     expect(quote).toContain('Copy link');
     expect(quote).toContain('Open mail draft');
     expect(quote).toContain('Mark sent');
-    expect(quote).toContain('ensureClientPortalUrl');
+    expect(quote).toContain('prepareDocumentShareLink');
     expect(quote).toContain('markQuoteSentForShare');
     expect(quote).toContain('openDocumentShareMailto(next.mailtoHref)');
     expect(quote).toContain('copyShareText');
@@ -35,7 +35,7 @@ describe('quote / invoice share tray — no Grafter SMTP', () => {
     expect(invoice).toContain('Copy link');
     expect(invoice).toContain('Open mail draft');
     expect(invoice).toContain('Mark sent');
-    expect(invoice).toContain('ensureClientPortalUrl');
+    expect(invoice).toContain('prepareDocumentShareLink');
     expect(invoice).toContain('markInvoiceSentForShare');
     expect(invoice).toContain('openDocumentShareMailto(next.mailtoHref)');
     expect(invoice).toContain('copyShareText');

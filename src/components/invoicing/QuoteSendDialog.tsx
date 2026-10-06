@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Mail, Phone, User } from 'lucide-react';
 import { Modal } from '../ui/Modal';
+import { useToast } from '../ui';
 import { generateCommercialPdf } from '../../reports/commercial/generateCommercialPdf';
 import { padQuoteNumber } from '../../lib/quoteJobFields';
 import { quoteHasChargeableLines } from '../../lib/quoteNextAction';
@@ -14,10 +15,10 @@ import {
 } from '../../lib/documentShare';
 import {
   copyShareText,
-  ensureClientPortalUrl,
   loadActiveClientPortalUrl,
   markQuoteSentForShare,
   openDocumentShareMailto,
+  prepareDocumentShareLink,
   triggerBrowserDownload,
   type ShareCopyResult,
 } from '../../lib/documentShareDeliver';
@@ -70,6 +71,7 @@ export function QuoteSendDialog({
   onSent: (to: string, message?: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
@@ -255,18 +257,19 @@ export function QuoteSendDialog({
     typeof window !== 'undefined' ? window.location.origin : '',
   );
 
-  const prepareShare = async (): Promise<{ url: string; status: string }> => {
+  const prepareShare = async (): Promise<{ url: string; status: string; toast: string }> => {
     throwIfCheckPriceUnpriced(bundle?.quote?.line_items);
     if (!bundle?.quote?.client_id) throw new Error('Pick a client before you can copy a portal link.');
-    const url = await ensureClientPortalUrl({
+    const prepared = await prepareDocumentShareLink({
+      kind: 'quote',
+      documentId: quoteId,
+      status: bundle.quote.status,
       companyId: company.id,
       clientId: bundle.quote.client_id,
       origin,
     });
-    const marked = await markQuoteSentForShare({
-      quoteId,
-      status: bundle.quote.status,
-    });
+    const url = prepared.url;
+    const marked = { status: prepared.status, markedSent: prepared.markedSent };
     const nextQuote = { ...bundle.quote, status: marked.status };
     const nextBundle = { ...bundle, quote: nextQuote };
     setPortalUrl(url);
@@ -280,7 +283,7 @@ export function QuoteSendDialog({
     if (marked.markedSent) {
       void queryClient.invalidateQueries({ queryKey: ['quotes'] });
     }
-    return { url, status: marked.status };
+    return { url, status: marked.status, toast: prepared.toast };
   };
 
   const handleDownload = async () => {
@@ -305,8 +308,14 @@ export function QuoteSendDialog({
     setErr('');
     setCopy(null);
     try {
-      const result = await copyShareText(async () => (await prepareShare()).url);
+      let toast = '';
+      const result = await copyShareText(async () => {
+        const prepared = await prepareShare();
+        toast = prepared.toast;
+        return prepared.url;
+      });
       setCopy(result);
+      if (result.kind === 'copied' && toast) showToast(toast);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not copy the portal link.');
     } finally {

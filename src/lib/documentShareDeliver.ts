@@ -6,8 +6,10 @@ import {
   pickActiveClientPortalToken,
 } from './sendQuote';
 import {
+  documentShareCopyToast,
   invoiceStatusAfterMarkSent,
   quoteStatusAfterMarkSent,
+  type DocumentShareKind,
 } from './documentShare';
 
 export const AUDIT_SHARE_PORTAL_TOKEN = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -104,6 +106,31 @@ export async function markInvoiceSentForShare(args: {
     .eq('status', 'draft');
   if (error) throw error;
   return { status: next, markedSent: true };
+}
+
+/** Copy/share a portal link and flip a draft to sent. Already-sent stays put. */
+export async function prepareDocumentShareLink(args: {
+  kind: DocumentShareKind;
+  documentId: string;
+  status: string;
+  companyId: string;
+  clientId: string;
+  origin: string;
+}): Promise<{ url: string; status: string; markedSent: boolean; toast: string }> {
+  const url = await ensureClientPortalUrl({
+    companyId: args.companyId,
+    clientId: args.clientId,
+    origin: args.origin,
+  });
+  const marked = args.kind === 'quote'
+    ? await markQuoteSentForShare({ quoteId: args.documentId, status: args.status })
+    : await markInvoiceSentForShare({ invoiceId: args.documentId, status: args.status });
+  return {
+    url,
+    status: marked.status,
+    markedSent: marked.markedSent,
+    toast: documentShareCopyToast(args.kind, marked.markedSent),
+  };
 }
 
 export function triggerBrowserDownload(blob: Blob, filename: string): void {

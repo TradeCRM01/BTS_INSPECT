@@ -27,7 +27,7 @@ describe('quote editor Looplet document look', () => {
     expect(editor).toContain('handleCopyLink');
     expect(editor).toContain('copyShareText');
     expect(editor).toContain('documentShareOrigin');
-    expect(editor).toContain('ensureClientPortalUrl');
+    expect(editor).toContain('prepareDocumentShareLink');
     expect(editor).toContain('Link copied');
     expect(editor).toContain('Edit quote');
     expect(css).toContain('.hub-quote-copy-confirm');

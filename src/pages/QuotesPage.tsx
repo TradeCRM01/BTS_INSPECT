@@ -46,7 +46,7 @@ import { QuoteChaseDialog } from '../components/invoicing/QuoteChaseDialog';
 import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
 import { quoteSendCompanyFrom } from '../lib/sendQuote';
 import { documentShareOrigin } from '../lib/documentShare';
-import { copyShareText, ensureClientPortalUrl } from '../lib/documentShareDeliver';
+import { copyShareText, prepareDocumentShareLink } from '../lib/documentShareDeliver';
 import { commercialPdfPreviewData, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
@@ -1322,14 +1322,28 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
     }
     setCopyingLink(true);
     try {
-      const result = await copyShareText(async () => ensureClientPortalUrl({
-        companyId: profile.company_id,
-        clientId: form.client_id,
-        origin: documentShareOrigin(window.location.origin),
-      }));
+      let toast = '';
+      const result = await copyShareText(async () => {
+        const id = savedId ?? quote?.id ?? await persist('draft', { close: false, message: '' });
+        if (!id) throw new Error('Save the quote before you copy a link.');
+        const prepared = await prepareDocumentShareLink({
+          kind: 'quote',
+          documentId: id,
+          status: form.status,
+          companyId: profile.company_id,
+          clientId: form.client_id,
+          origin: documentShareOrigin(window.location.origin),
+        });
+        toast = prepared.toast;
+        if (prepared.markedSent) {
+          setForm(f => ({ ...f, status: 'sent' }));
+          void queryClient.invalidateQueries({ queryKey: ['quotes'] });
+        }
+        return prepared.url;
+      });
       closeMore();
       setCopyConfirm(true);
-      showToast('Link copied');
+      showToast(toast || 'Link copied');
       window.setTimeout(() => setCopyConfirm(false), 2500);
       if (result.kind === 'manual') setErr(result.text);
     } catch (e) {

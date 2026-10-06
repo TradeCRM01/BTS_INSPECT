@@ -17,6 +17,10 @@ import {
   quoteChaseCopyText,
   quoteShareMailtoBody,
   quoteStatusAfterMarkSent,
+  documentShareCopyToast,
+  DOCUMENT_SHARE_COPY_TOAST,
+  QUOTE_SHARE_MARKED_SENT_TOAST,
+  INVOICE_SHARE_MARKED_SENT_TOAST,
 } from './documentShare';
 
 describe('documentShareOrigin', () => {
@@ -78,6 +82,10 @@ describe('decideQuoteShare', () => {
     expect(quoteStatusAfterMarkSent('draft')).toBe('sent');
     expect(quoteStatusAfterMarkSent('sent')).toBeNull();
     expect(quoteStatusAfterMarkSent('accepted')).toBeNull();
+    expect(documentShareCopyToast('quote', true)).toBe(QUOTE_SHARE_MARKED_SENT_TOAST);
+    expect(documentShareCopyToast('quote', false)).toBe(DOCUMENT_SHARE_COPY_TOAST);
+    expect(documentShareCopyToast('invoice', true)).toBe(INVOICE_SHARE_MARKED_SENT_TOAST);
+    expect(documentShareCopyToast('invoice', false)).toBe(DOCUMENT_SHARE_COPY_TOAST);
   });
 
   it('builds mailto once the portal URL and client email exist', () => {

@@ -23,6 +23,19 @@ describe('documentShareDeliver', () => {
     expect(deliver).toContain("status: next");
     expect(deliver).toContain('sent_at: now');
     expect(deliver).toContain(".eq('status', 'draft')");
+    expect(deliver).toContain('export async function prepareDocumentShareLink');
+    expect(deliver).toContain("kind === 'quote'");
+    expect(deliver).toContain('markQuoteSentForShare');
+    expect(deliver).toContain('markInvoiceSentForShare');
+    const invoiceMark = deliver.slice(
+      deliver.indexOf('export async function markInvoiceSentForShare'),
+      deliver.indexOf('export async function prepareDocumentShareLink'),
+    );
+    expect(invoiceMark).not.toContain('sent_at');
+    expect(src('src/pages/QuotesPage.tsx')).toContain('prepareDocumentShareLink');
+    expect(src('src/pages/QuotesPage.tsx')).toContain("kind: 'quote'");
+    expect(src('src/components/invoicing/QuoteSendDialog.tsx')).toContain('prepareDocumentShareLink');
+    expect(src('src/components/invoicing/InvoiceSendDialog.tsx')).toContain('prepareDocumentShareLink');
     expect(deliver).not.toContain('Relovi');
     expect(deliver).not.toContain('Littleloop');
     expect(deliver).not.toContain('RESEND_API_KEY');
