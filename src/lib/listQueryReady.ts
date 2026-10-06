@@ -11,6 +11,11 @@ export function listQueryBusy(input: {
   return Boolean(input.isPending || input.isLoading || input.data === undefined);
 }
 
+/** Real empty only after the query is not busy. */
+export function listShowEmpty(busy: boolean, count: number): boolean {
+  return !busy && count === 0;
+}
+
 export function listCountWhisper(input: {
   busy: boolean;
   filterLabel: string;

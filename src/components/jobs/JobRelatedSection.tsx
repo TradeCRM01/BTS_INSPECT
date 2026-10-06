@@ -2,6 +2,11 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 
+/** Empty tray copy only after the related query resolves. */
+export function jobRelatedShowEmpty(loading: boolean | undefined, itemCount: number): boolean {
+  return !loading && itemCount === 0;
+}
+
 export function JobRelatedSection({
   title,
   icon: Icon,
@@ -11,6 +16,7 @@ export function JobRelatedSection({
   emptyTitle,
   emptyHelper,
   emptyAction,
+  loading,
   children,
 }: {
   title: string;
@@ -25,10 +31,12 @@ export function JobRelatedSection({
   emptyTitle: string;
   emptyHelper?: string;
   emptyAction?: ReactNode;
+  loading?: boolean;
   children: ReactNode;
 }) {
   const items = Array.isArray(children) ? children : children ? [children] : [];
   const visible = items.filter(Boolean);
+  const showEmpty = jobRelatedShowEmpty(loading, visible.length);
 
   return (
     <section className="ops-tray">
@@ -41,7 +49,12 @@ export function JobRelatedSection({
         </h2>
         {action}
       </div>
-      {visible.length === 0 ? (
+      {loading ? (
+        <div className="ops-related-list" aria-busy="true" data-related-loading="1">
+          <div className="skeleton h-4 w-2/3 rounded mx-3 my-2.5" />
+          <div className="skeleton h-3 w-1/2 rounded mx-3 mb-2.5" />
+        </div>
+      ) : showEmpty ? (
         <div className="ops-tray-empty">
           <p className="text-sm text-navy">
             {emptyTitle}

@@ -60,6 +60,7 @@ import {
   padClientJobNumber,
   sortClientJobsForFloor,
 } from '../lib/clientsFloor';
+import { listQueryBusy } from '../lib/listQueryReady';
 
 type ClientQuote = {
   id: string;
@@ -159,7 +160,7 @@ export function ClientDetailPage() {
     ? clientHubRecordQueries({ companyId: profile.company_id, clientId: id })
     : null;
 
-  const { data: jobs, isError: jobsError } = useQuery<JobWithClient[]>({
+  const { data: jobs, isPending: jobsPending, isError: jobsError } = useQuery<JobWithClient[]>({
     queryKey: ['client-jobs', id, profile?.company_id],
     queryFn: async () => {
       const mock = getAuditJobs();
@@ -174,7 +175,7 @@ export function ClientDetailPage() {
     enabled: !!hubScopes,
   });
 
-  const { data: quotes } = useQuery<ClientQuote[]>({
+  const { data: quotes, isPending: quotesPending } = useQuery<ClientQuote[]>({
     queryKey: ['client-quotes', id, profile?.company_id],
     queryFn: async () => {
       const auditQuotes = getAuditClientQuotes();
@@ -189,7 +190,7 @@ export function ClientDetailPage() {
     enabled: !!hubScopes,
   });
 
-  const { data: invoices } = useQuery<ClientInvoice[]>({
+  const { data: invoices, isPending: invoicesPending } = useQuery<ClientInvoice[]>({
     queryKey: ['client-invoices', id, profile?.company_id],
     queryFn: async () => {
       const auditInvoices = getAuditClientInvoices();
@@ -204,7 +205,7 @@ export function ClientDetailPage() {
     enabled: !!hubScopes,
   });
 
-  const { data: complianceItems } = useQuery<ComplianceItem[]>({
+  const { data: complianceItems, isPending: compliancePending } = useQuery<ComplianceItem[]>({
     queryKey: ['client-compliance', id],
     queryFn: async () => {
       const empty = getAuditEmptyList();
@@ -223,7 +224,7 @@ export function ClientDetailPage() {
   const jobIds = (jobs ?? []).map(job => job.id);
   const inspectionScope = clientInspectionQuery(jobIds);
 
-  const { data: inspections } = useQuery<ClientInspection[]>({
+  const { data: inspections, isPending: inspectionsPending } = useQuery<ClientInspection[]>({
     queryKey: ['client-inspections', id, jobIds.join(',')],
     queryFn: async () => {
       const empty = getAuditEmptyList();
@@ -289,6 +290,11 @@ export function ClientDetailPage() {
   const newInvoiceHref = clientHubStartAction('invoice', client.id).href;
   const moneyReady = quotes !== undefined && invoices !== undefined;
   const money = clientMoneySummary(quotes ?? [], invoices ?? []);
+  const jobsBusy = listQueryBusy({ isPending: jobsPending, data: jobs });
+  const quotesBusy = listQueryBusy({ isPending: quotesPending, data: quotes });
+  const invoicesBusy = listQueryBusy({ isPending: invoicesPending, data: invoices });
+  const complianceBusy = listQueryBusy({ isPending: compliancePending, data: complianceItems });
+  const inspectionsBusy = listQueryBusy({ isPending: inspectionsPending, data: inspections });
   const floorJobs = sortClientJobsForFloor(jobs ?? []);
   const jobById = new Map(floorJobs.map(job => [job.id, job]));
   const emailRow = jobClientEmailRow({ clientId: client.id, client });
@@ -414,7 +420,11 @@ export function ClientDetailPage() {
                 </p>
               ) : null}
               <HubMoney ready={moneyReady} overdue={money.overdue} outstanding={money.outstanding} />
-              {floorJobs.length === 0 ? (
+              {jobsBusy ? (
+                <div className="hub-clients-ledger-row" aria-busy="true" data-jobs-loading="1">
+                  <div className="skeleton h-4 w-2/3 rounded" />
+                </div>
+              ) : floorJobs.length === 0 ? (
                 <div className="hub-clients-ledger-row hub-clients-jobs-empty">
                   <p>{clientJobsEmptyTitle({ error: jobsError, count: floorJobs.length }) || 'No jobs yet'}</p>
                   {jobsError ? null : <Link to={newJobHref} className="hub-clients-next">New job</Link>}
@@ -458,6 +468,7 @@ export function ClientDetailPage() {
             title="Quotes"
             icon={FileText}
             count={(quotes ?? []).length}
+            loading={quotesBusy}
             action={<Link to={newQuoteHref} className="ops-link">New quote</Link>}
             emptyTitle="No quotes yet"
             emptyAction={<Link to={newQuoteHref} className="ops-link">New quote</Link>}
@@ -499,6 +510,7 @@ export function ClientDetailPage() {
             title="Invoices"
             icon={Receipt}
             count={(invoices ?? []).length}
+            loading={invoicesBusy}
             action={<Link to={newInvoiceHref} className="ops-link">New invoice</Link>}
             emptyTitle="No invoices yet"
             emptyAction={<Link to={newInvoiceHref} className="ops-link">New invoice</Link>}
@@ -536,6 +548,7 @@ export function ClientDetailPage() {
             title="Inspections"
             icon={ClipboardList}
             count={(inspections ?? []).length}
+            loading={inspectionsBusy}
             emptyTitle={jobIds.length === 0
               ? 'Inspections attach to jobs. Add a job first.'
               : 'No inspections on this client\'s jobs yet.'}
@@ -590,6 +603,7 @@ export function ClientDetailPage() {
             title="Compliance"
             icon={ShieldCheck}
             count={(complianceItems ?? []).length}
+            loading={complianceBusy}
             action={<Link to="/compliance" className="ops-link">View all</Link>}
             emptyTitle="No compliance items on this client yet."
             emptyAction={<Link to="/compliance" className="ops-link">View all</Link>}

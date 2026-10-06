@@ -26,6 +26,7 @@ import {
   reportSearchHaystack,
   reportsListEmptyMessage,
   reportsListEmptyTitle,
+  reportsListShowEmpty,
   reportsListJobLine,
   reportsListOpenHref,
   reportsListOpened,
@@ -217,6 +218,9 @@ describe('find a report on /reports', () => {
     expect(reportsListEmptyTitle({ filter: 'sent', count: 0 })).toBe('No sent reports');
     expect(reportsListEmptyTitle({ filter: 'ready', count: 0 })).toBe('No reports ready');
     expect(reportsListEmptyTitle({ count: 0 })).toBe('No reports yet');
+    expect(reportsListShowEmpty({ allReports: undefined, itemCount: 0 })).toBe(false);
+    expect(reportsListShowEmpty({ allReports: [], itemCount: 0 })).toBe(true);
+    expect(reportsListShowEmpty({ seeded: true, allReports: undefined, itemCount: 0 })).toBe(true);
     expect(reportsListEmptyMessage({ count: 0 }))
       .toBe('Generate a PDF on an inspection and it will show here.');
     expect(reportSearchHaystack(workshop)).toContain('#0042');

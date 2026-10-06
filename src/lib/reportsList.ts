@@ -212,6 +212,16 @@ export function sortReportsForList<T extends {
   });
 }
 
+/** Empty Drive copy only after reports resolve. Look fixtures skip the wait. */
+export function reportsListShowEmpty(args: {
+  seeded?: boolean;
+  allReports: unknown[] | undefined;
+  itemCount: number;
+}): boolean {
+  if (args.seeded) return args.itemCount === 0;
+  return args.allReports !== undefined && args.itemCount === 0;
+}
+
 export function reportsListEmptyTitle(args: {
   error?: boolean;
   search?: string;
