@@ -13,7 +13,12 @@ import { JobClientReminder, type JobClientReminderHandle } from '../components/j
 import { buildJobCalendar, calendarSite, downloadJobCalendar } from '../lib/jobCalendar';
 import { formatJobRef } from '../lib/jobRef';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
-import { jobSheetHeaderPrimaryHeld, listQueryBusy } from '../lib/listQueryReady';
+import {
+  jobSheetHeaderPrimaryDetail,
+  jobSheetHeaderPrimaryHeld,
+  jobSheetIdentityCrewLabel,
+  listQueryBusy,
+} from '../lib/listQueryReady';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
 import type { Client, Job, JobStatus } from '../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY_DOT } from '../types/crm';
@@ -2795,7 +2800,11 @@ export function JobDetailPage() {
                 </>
               )}
             </div>
-            {next.detail ? (
+            {headerPrimaryHeld ? (
+              <p className="ops-next-detail" data-job-next-detail data-job-next-detail-held="1">
+                <span className="skeleton inline-block h-4 w-40 rounded" />
+              </p>
+            ) : jobSheetHeaderPrimaryDetail(false, next.detail) ? (
               <p className="ops-next-detail" data-job-next-detail>{next.detail}</p>
             ) : null}
 
@@ -2960,9 +2969,13 @@ export function JobDetailPage() {
               </div>
               <div className="hub-jobs-identity-col is-ops">
               <p className="hub-jobs-ledger-row">
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5" data-job-crew={crewBusy ? 'held' : teamMembersError ? 'error' : 'ready'}>
                   <Users size={13} />
-                  {assigned.length > 0 ? assigned.join(', ') : 'Unassigned'}
+                  {jobSheetIdentityCrewLabel({
+                    busy: crewBusy,
+                    error: teamMembersError,
+                    names: assigned,
+                  })}
                 </span>
               </p>
             {job.scheduled_date && (

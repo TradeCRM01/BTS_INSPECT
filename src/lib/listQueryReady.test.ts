@@ -3,7 +3,9 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   LIST_LOADING_LABEL,
+  jobSheetHeaderPrimaryDetail,
   jobSheetHeaderPrimaryHeld,
+  jobSheetIdentityCrewLabel,
   listCountWhisper,
   listPendingCount,
   listPendingNounCount,
@@ -72,6 +74,24 @@ describe('jobSheetHeaderPrimaryHeld', () => {
       clientPending: true,
       clientError: true,
     })).toBe(false);
+  });
+
+  it('holds the CTA helper so Clock In copy cannot flash under the skeleton', () => {
+    expect(jobSheetHeaderPrimaryDetail(true, 'Clock in when you start work.')).toBe('');
+    expect(jobSheetHeaderPrimaryDetail(true, 'Write the client number so Send on-my-way can send.')).toBe('');
+    expect(jobSheetHeaderPrimaryDetail(false, 'Clock in when you start work.')).toBe('Clock in when you start work.');
+    expect(jobSheetHeaderPrimaryDetail(false, '')).toBe('');
+  });
+});
+
+describe('jobSheetIdentityCrewLabel', () => {
+  it('holds Unassigned until crew settles and names the miss on error', () => {
+    expect(jobSheetIdentityCrewLabel({ busy: true, names: [] })).toBe('…');
+    expect(jobSheetIdentityCrewLabel({ busy: true, names: [] })).not.toBe('Unassigned');
+    expect(jobSheetIdentityCrewLabel({ busy: true, names: ['Grafter CoS Test'] })).toBe('…');
+    expect(jobSheetIdentityCrewLabel({ error: true, names: [] })).toBe("Couldn't load crew.");
+    expect(jobSheetIdentityCrewLabel({ names: [] })).toBe('Unassigned');
+    expect(jobSheetIdentityCrewLabel({ names: ['Grafter CoS Test'] })).toBe('Grafter CoS Test');
   });
 });
 

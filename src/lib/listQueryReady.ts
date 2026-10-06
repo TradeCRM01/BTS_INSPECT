@@ -51,6 +51,25 @@ export function jobSheetHeaderPrimaryHeld(input: {
   return false;
 }
 
+/** Hold the Next helper so it cannot flash Clock In while Add phone is still loading. */
+export function jobSheetHeaderPrimaryDetail(
+  held: boolean,
+  detail: string | null | undefined,
+): string {
+  return held ? '' : (detail ?? '');
+}
+
+/** Identity crew: never Unassigned before team members settle. Date stays on its own row. */
+export function jobSheetIdentityCrewLabel(input: {
+  busy?: boolean;
+  error?: boolean;
+  names: string[];
+}): string {
+  if (input.error) return listSectionLoadError('crew');
+  if (input.busy) return '…';
+  return input.names.length > 0 ? input.names.join(', ') : 'Unassigned';
+}
+
 /** Hide a count while the query is still busy so 0 never flashes. */
 export function listPendingCount(busy: boolean, count: number): string {
   return busy ? '…' : String(count);

@@ -129,6 +129,10 @@ describe('list loading truth', () => {
     expect(job).toContain('clientPending');
     expect(job).toContain('data-job-contact-held');
     expect(job).toContain('contactHeld');
+    expect(job).toContain('jobSheetIdentityCrewLabel');
+    expect(job).toContain('data-job-crew');
+    expect(job).toContain('jobSheetHeaderPrimaryDetail');
+    expect(job).toContain('data-job-next-detail-held');
     expect(job).not.toMatch(/Relovi|Littleloop/);
     expect(client).not.toMatch(/Relovi|Littleloop/);
   });
