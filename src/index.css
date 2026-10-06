@@ -4774,6 +4774,11 @@
     white-space: nowrap;
   }
 
+  .job-bill-hours-cue-btn--full {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
   .job-bill-hours-cue-btn:disabled {
     opacity: 0.6;
   }

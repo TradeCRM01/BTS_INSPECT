@@ -18,6 +18,7 @@ export type TimesheetEntryForBill = {
 export type PriceBookItemForLabour = {
   id: string;
   category: string | null;
+  name?: string | null;
   unit_price: number | string;
   is_active: boolean;
 };
@@ -26,6 +27,15 @@ export type LabourSellResolution = {
   unitPrice: number;
   priceBookItemId: string | null;
   needsRate: boolean;
+  needsPicker: boolean;
+  pickerItems: PriceBookItemForLabour[];
+};
+
+export type LabourBillContext = {
+  staffRatesByProfileId: Record<string, number>;
+  companyDefaultLabourRate: number | null;
+  labourPriceBookItems: PriceBookItemForLabour[];
+  pickedPriceBookItemId: string | null;
 };
 
 export type JobCostFromHoursInsert = {
@@ -47,7 +57,14 @@ export type JobCostFromHoursInsert = {
   timesheet_entry_id?: string;
 };
 
+/**
+ * Profile columns that carry a staff labour sell rate (ex GST).
+ * Add keys here when migrations land — do not invent columns in SQL.
+ */
+export const PROFILE_STAFF_LABOUR_RATE_KEYS: readonly string[] = [];
+
 let warnedTimesheetColumnMissing = false;
+let warnedCompanyLabourRateColumnMissing = false;
 
 export function isSchemaColumnMissingError(error: unknown, column: string): boolean {
   const msg = error && typeof error === 'object' && 'message' in error
@@ -62,21 +79,132 @@ export function isLabourCategory(category: string | null | undefined): boolean {
   return cat === 'labour' || cat === 'labor';
 }
 
-/** Sell from price book category Labour/Labor only — never cost × markup. */
-export function resolveLabourSellFromPriceBook(
+export function activeLabourPriceBookItems(
   items: PriceBookItemForLabour[] | null | undefined,
-): LabourSellResolution {
-  const active = (items ?? []).filter(i => i.is_active !== false);
-  const labour = active.filter(i => isLabourCategory(i.category));
+): PriceBookItemForLabour[] {
+  return (items ?? []).filter(i => i.is_active !== false && isLabourCategory(i.category));
+}
+
+export function staffLabourSellFromProfile(
+  profile: Record<string, unknown> | null | undefined,
+  keys: readonly string[] = PROFILE_STAFF_LABOUR_RATE_KEYS,
+): number | null {
+  if (!profile) return null;
+  for (const key of keys) {
+    const raw = profile[key];
+    if (raw == null || raw === '') continue;
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
+export function buildStaffLabourRatesByProfileId(
+  rows: Array<Record<string, unknown>>,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const row of rows) {
+    const rate = staffLabourSellFromProfile(row);
+    if (rate != null) out[String(row.id)] = rate;
+  }
+  return out;
+}
+
+/** Coach ruling: staff rate → company default → price book (picker if 2+) → $0 amber. */
+export function resolveLabourSell(args: {
+  staffRate: number | null;
+  companyDefaultLabourRate: number | null;
+  labourItems: PriceBookItemForLabour[] | null | undefined;
+  pickedPriceBookItemId: string | null;
+}): LabourSellResolution {
+  const staff = Number(args.staffRate);
+  if (Number.isFinite(staff) && staff > 0) {
+    return {
+      unitPrice: staff,
+      priceBookItemId: null,
+      needsRate: false,
+      needsPicker: false,
+      pickerItems: [],
+    };
+  }
+
+  const companyDefault = Number(args.companyDefaultLabourRate);
+  if (Number.isFinite(companyDefault) && companyDefault > 0) {
+    return {
+      unitPrice: companyDefault,
+      priceBookItemId: null,
+      needsRate: false,
+      needsPicker: false,
+      pickerItems: [],
+    };
+  }
+
+  const labour = activeLabourPriceBookItems(args.labourItems);
+  if (labour.length === 0) {
+    return {
+      unitPrice: 0,
+      priceBookItemId: null,
+      needsRate: true,
+      needsPicker: false,
+      pickerItems: [],
+    };
+  }
   if (labour.length === 1) {
     const unitPrice = Number(labour[0].unit_price) || 0;
     return {
       unitPrice,
       priceBookItemId: labour[0].id,
-      needsRate: false,
+      needsRate: unitPrice <= 0,
+      needsPicker: false,
+      pickerItems: [],
     };
   }
-  return { unitPrice: 0, priceBookItemId: null, needsRate: true };
+
+  const picked = args.pickedPriceBookItemId?.trim();
+  const chosen = picked ? labour.find(i => i.id === picked) : undefined;
+  if (chosen) {
+    const unitPrice = Number(chosen.unit_price) || 0;
+    return {
+      unitPrice,
+      priceBookItemId: chosen.id,
+      needsRate: unitPrice <= 0,
+      needsPicker: false,
+      pickerItems: labour,
+    };
+  }
+
+  return {
+    unitPrice: 0,
+    priceBookItemId: null,
+    needsRate: false,
+    needsPicker: true,
+    pickerItems: labour,
+  };
+}
+
+/** @deprecated Use resolveLabourSell — kept for narrow price-book-only callers. */
+export function resolveLabourSellFromPriceBook(
+  items: PriceBookItemForLabour[] | null | undefined,
+): LabourSellResolution {
+  return resolveLabourSell({
+    staffRate: null,
+    companyDefaultLabourRate: null,
+    labourItems: items,
+    pickedPriceBookItemId: null,
+  });
+}
+
+export function resolveLabourSellForEmployee(
+  employeeId: string | null | undefined,
+  ctx: LabourBillContext,
+): LabourSellResolution {
+  const staffRate = employeeId ? ctx.staffRatesByProfileId[employeeId] ?? null : null;
+  return resolveLabourSell({
+    staffRate,
+    companyDefaultLabourRate: ctx.companyDefaultLabourRate,
+    labourItems: ctx.labourPriceBookItems,
+    pickedPriceBookItemId: ctx.pickedPriceBookItemId,
+  });
 }
 
 export function lineNeedsLabourRate(line: {
@@ -116,22 +244,42 @@ export function unbilledHoursSummary(
   let entryCount = 0;
   for (const e of closedBillableEntries(entries)) {
     if (billedEntryIds.has(e.id)) continue;
-    minutes += entryMinutes(e.start_time, e.end_time);
+    const mins = entryMinutes(e.start_time, e.end_time);
+    if (mins <= 0) continue;
+    minutes += mins;
     entryCount += 1;
   }
   return { hours: minutes / 60, entryCount };
 }
 
-export function formatUnbilledHoursLabel(hours: number): string {
+export function formatLabourHoursOneDecimal(hours: number): string {
   const rounded = Math.round(hours * 10) / 10;
-  const text = rounded % 1 === 0 ? String(rounded) : rounded.toFixed(1);
-  return `${text} h logged not on the bill`;
+  return rounded.toFixed(1);
+}
+
+export function formatUnbilledHoursLabel(hours: number): string {
+  return `${formatLabourHoursOneDecimal(hours)} h logged not on the bill`;
+}
+
+export function formatUnbilledCueButtonLabel(hours: number): string {
+  return `${formatLabourHoursOneDecimal(hours)} unbilled hours · Add as labour`;
 }
 
 export function labourPullToastMessage(hours: number): string {
-  const rounded = Math.round(hours * 10) / 10;
-  const text = rounded % 1 === 0 ? String(rounded) : rounded.toFixed(1);
-  return `Added ${text} h labour from logged time`;
+  return `Added ${formatLabourHoursOneDecimal(hours)} h labour from logged time`;
+}
+
+function formatLabourUnitPriceForDescription(unitPrice: number): string {
+  const n = Number(unitPrice) || 0;
+  return n % 1 === 0 ? String(n) : n.toFixed(2);
+}
+
+export function labourLineDescription(hours: number, unitPrice: number, notes?: string | null): string {
+  const h = formatLabourHoursOneDecimal(hours);
+  const price = formatLabourUnitPriceForDescription(unitPrice);
+  const base = `Labour ${h} h @ $${price}`;
+  const note = notes?.trim();
+  return note ? `${base} — ${note}` : base;
 }
 
 export function buildJobCostFromTimesheetEntry(args: {
@@ -143,15 +291,14 @@ export function buildJobCostFromTimesheetEntry(args: {
   costModelId: string | null;
   sell: LabourSellResolution;
   includeTimesheetLink: boolean;
-}): JobCostFromHoursInsert {
-  const hours = entryMinutes(args.entry.start_time, args.entry.end_time) / 60;
+}): JobCostFromHoursInsert | null {
+  const minutes = entryMinutes(args.entry.start_time, args.entry.end_time);
+  if (minutes <= 0) return null;
+  const hours = minutes / 60;
   const qty = Math.round(hours * 1000) / 1000;
   const unitCost = Number(args.unitCost) || 0;
-  const unitPrice = args.sell.needsRate ? 0 : args.sell.unitPrice;
-  const work = (args.entry.work_type ?? '').trim() || 'Labour';
-  const description = args.entry.notes?.trim()
-    ? `${work} — ${args.entry.notes.trim()}`
-    : work;
+  const unitPrice = args.sell.needsRate || args.sell.needsPicker ? 0 : args.sell.unitPrice;
+  const description = labourLineDescription(hours, unitPrice, args.entry.notes);
   const row: JobCostFromHoursInsert = {
     company_id: args.companyId,
     job_id: args.jobId,
@@ -184,7 +331,7 @@ export function planJobCostsFromTimesheetEntries(args: {
   employeeIdByTimesheetId: Record<string, string>;
   profileRows: Array<{ id: string; expense_cost_model_id?: string | null }>;
   costModels: ExpenseCostModel[];
-  sell: LabourSellResolution;
+  labourContext: LabourBillContext;
   includeTimesheetLink: boolean;
 }): JobCostFromHoursInsert[] {
   const out: JobCostFromHoursInsert[] = [];
@@ -195,18 +342,40 @@ export function planJobCostsFromTimesheetEntries(args: {
     const { unitCost, costModelId } = employeeId
       ? hourlyUnitCostForEmployee(employeeId, args.costModels, args.profileRows)
       : { unitCost: 0, costModelId: null };
-    out.push(buildJobCostFromTimesheetEntry({
+    const sell = resolveLabourSellForEmployee(employeeId, args.labourContext);
+    const row = buildJobCostFromTimesheetEntry({
       entry,
       companyId: args.companyId,
       jobId: args.jobId,
       createdBy: args.createdBy,
       unitCost,
       costModelId,
-      sell: args.sell,
+      sell,
       includeTimesheetLink: args.includeTimesheetLink,
-    }));
+    });
+    if (row) out.push(row);
   }
   return out;
+}
+
+export function pullWouldNeedLabourPicker(
+  entries: TimesheetEntryForBill[],
+  billedEntryIds: ReadonlySet<string>,
+  jobId: string,
+  employeeIdByTimesheetId: Record<string, string>,
+  labourContext: LabourBillContext,
+): { needsPicker: boolean; pickerItems: PriceBookItemForLabour[] } {
+  for (const entry of closedBillableEntries(entries)) {
+    if (entry.job_id !== jobId) continue;
+    if (billedEntryIds.has(entry.id)) continue;
+    if (entryMinutes(entry.start_time, entry.end_time) <= 0) continue;
+    const employeeId = employeeIdByTimesheetId[entry.timesheet_id];
+    const sell = resolveLabourSellForEmployee(employeeId, labourContext);
+    if (sell.needsPicker) {
+      return { needsPicker: true, pickerItems: sell.pickerItems };
+    }
+  }
+  return { needsPicker: false, pickerItems: [] };
 }
 
 export function invoiceLinesWithLabourPriceBook(
@@ -215,13 +384,38 @@ export function invoiceLinesWithLabourPriceBook(
 ): InvoiceLineItem[] {
   return lines.map(li => {
     if (!lineNeedsLabourRate(li)) return li;
-    if (sell.needsRate || !sell.priceBookItemId) return li;
+    if (sell.needsRate || sell.needsPicker || !sell.priceBookItemId) return li;
     return {
       ...li,
       unit_price: sell.unitPrice,
       price_book_item_id: sell.priceBookItemId,
     };
   });
+}
+
+export async function loadCompanyDefaultLabourRate(
+  client: SupabaseClient,
+  companyId: string,
+): Promise<{ rate: number | null; columnMissing: boolean }> {
+  const { data, error } = await client
+    .from('companies')
+    .select('default_labour_rate')
+    .eq('id', companyId)
+    .maybeSingle();
+  if (error) {
+    if (isSchemaColumnMissingError(error, 'default_labour_rate')) {
+      if (!warnedCompanyLabourRateColumnMissing) {
+        console.warn('[hoursToJobBill] companies.default_labour_rate missing — run migration 083');
+        warnedCompanyLabourRateColumnMissing = true;
+      }
+      return { rate: null, columnMissing: true };
+    }
+    throw error;
+  }
+  const raw = data?.default_labour_rate;
+  if (raw == null || raw === '') return { rate: null, columnMissing: false };
+  const n = Number(raw);
+  return { rate: Number.isFinite(n) ? n : null, columnMissing: false };
 }
 
 export async function loadBilledTimesheetEntryIds(
@@ -251,11 +445,21 @@ export async function loadBilledTimesheetEntryIds(
   return { ids, columnMissing: false };
 }
 
+export type PullUnbilledHoursResult = {
+  inserted: number;
+  hours: number;
+  columnMissing: boolean;
+  toast: string | null;
+  needsPicker: boolean;
+  pickerItems: PriceBookItemForLabour[];
+};
+
 export async function pullUnbilledHoursToJobBill(client: SupabaseClient, input: {
   jobId: string;
   companyId: string;
   profileId: string;
-}): Promise<{ inserted: number; hours: number; columnMissing: boolean; toast: string | null }> {
+  pickedPriceBookItemId?: string | null;
+}): Promise<PullUnbilledHoursResult> {
   const { data: entries, error: entErr } = await client
     .from('timesheet_entries')
     .select('id, job_id, timesheet_id, start_time, end_time, billable, work_type, notes')
@@ -279,17 +483,18 @@ export async function pullUnbilledHoursToJobBill(client: SupabaseClient, input: 
 
   const { data: pbItems, error: pbErr } = await client
     .from('price_book_items')
-    .select('id, category, unit_price, is_active')
+    .select('id, category, name, unit_price, is_active')
     .eq('company_id', input.companyId)
     .eq('is_active', true);
   if (pbErr) throw pbErr;
-  const sell = resolveLabourSellFromPriceBook((pbItems ?? []) as PriceBookItemForLabour[]);
+
+  const { rate: companyDefaultLabourRate } = await loadCompanyDefaultLabourRate(client, input.companyId);
 
   const { data: modelsRaw, error: modelErr } = await client.from('expense_cost_models').select('*');
   if (modelErr) throw modelErr;
   const costModels = (modelsRaw ?? []).map(m => normalizeCostModel(m as Record<string, unknown>));
 
-  let profileRows: Array<{ id: string; expense_cost_model_id?: string | null }> = [];
+  let profileRows: Array<Record<string, unknown>> = [];
   const profWithModel = await client
     .from('profiles')
     .select('id, expense_cost_model_id')
@@ -297,11 +502,36 @@ export async function pullUnbilledHoursToJobBill(client: SupabaseClient, input: 
   if (profWithModel.error && isSchemaColumnMissingError(profWithModel.error, 'expense_cost_model_id')) {
     const profBasic = await client.from('profiles').select('id').eq('company_id', input.companyId);
     if (profBasic.error) throw profBasic.error;
-    profileRows = (profBasic.data ?? []).map(r => ({ id: r.id as string }));
+    profileRows = (profBasic.data ?? []) as Array<Record<string, unknown>>;
   } else if (profWithModel.error) {
     throw profWithModel.error;
   } else {
-    profileRows = (profWithModel.data ?? []) as Array<{ id: string; expense_cost_model_id?: string | null }>;
+    profileRows = (profWithModel.data ?? []) as Array<Record<string, unknown>>;
+  }
+
+  const labourContext: LabourBillContext = {
+    staffRatesByProfileId: buildStaffLabourRatesByProfileId(profileRows),
+    companyDefaultLabourRate,
+    labourPriceBookItems: (pbItems ?? []) as PriceBookItemForLabour[],
+    pickedPriceBookItemId: input.pickedPriceBookItemId ?? null,
+  };
+
+  const pickerCheck = pullWouldNeedLabourPicker(
+    (entries ?? []) as TimesheetEntryForBill[],
+    billedEntryIds,
+    input.jobId,
+    employeeIdByTimesheetId,
+    labourContext,
+  );
+  if (pickerCheck.needsPicker && !input.pickedPriceBookItemId) {
+    return {
+      inserted: 0,
+      hours: 0,
+      columnMissing,
+      toast: null,
+      needsPicker: true,
+      pickerItems: pickerCheck.pickerItems,
+    };
   }
 
   const planned = planJobCostsFromTimesheetEntries({
@@ -311,14 +541,21 @@ export async function pullUnbilledHoursToJobBill(client: SupabaseClient, input: 
     jobId: input.jobId,
     createdBy: input.profileId,
     employeeIdByTimesheetId,
-    profileRows,
+    profileRows: profileRows as Array<{ id: string; expense_cost_model_id?: string | null }>,
     costModels,
-    sell,
+    labourContext,
     includeTimesheetLink: !columnMissing,
   });
 
   if (planned.length === 0) {
-    return { inserted: 0, hours: 0, columnMissing, toast: null };
+    return {
+      inserted: 0,
+      hours: 0,
+      columnMissing,
+      toast: null,
+      needsPicker: false,
+      pickerItems: [],
+    };
   }
 
   let inserted = 0;
@@ -343,14 +580,16 @@ export async function pullUnbilledHoursToJobBill(client: SupabaseClient, input: 
     hours: totalHours,
     columnMissing,
     toast: inserted > 0 ? labourPullToastMessage(totalHours) : null,
+    needsPicker: false,
+    pickerItems: [],
   };
 }
 
 export function summarizeUnbilledForJob(
   entries: TimesheetEntryForBill[],
   billedEntryIds: ReadonlySet<string>,
-): { hours: number; entryCount: number; label: string } | null {
+): { hours: number; entryCount: number; buttonLabel: string } | null {
   const { hours, entryCount } = unbilledHoursSummary(entries, billedEntryIds);
-  if (entryCount === 0) return null;
-  return { hours, entryCount, label: formatUnbilledHoursLabel(hours) };
+  if (entryCount === 0 || hours <= 0) return null;
+  return { hours, entryCount, buttonLabel: formatUnbilledCueButtonLabel(hours) };
 }

@@ -16,10 +16,15 @@ import { DEFAULT_TAX_RATE } from '../../lib/gst';
 import { Link } from 'react-router-dom';
 import { createInvoiceFromJobBill } from '../../lib/createInvoiceFromJobBill';
 import {
+  readPickedLabourPriceBookId,
+  writePickedLabourPriceBookId,
+} from '../../lib/labourPriceBookPick';
+import {
   lineNeedsLabourRate,
   loadBilledTimesheetEntryIds,
   pullUnbilledHoursToJobBill,
   summarizeUnbilledForJob,
+  type PriceBookItemForLabour,
   type TimesheetEntryForBill,
 } from '../../lib/hoursToJobBill';
 import {
@@ -152,6 +157,33 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const [formErr, setFormErr] = useState('');
   const [invoiceMsg, setInvoiceMsg] = useState('');
   const [pullingHours, setPullingHours] = useState(false);
+  const [labourPickerItems, setLabourPickerItems] = useState<PriceBookItemForLabour[] | null>(null);
+
+  async function runPullLabourHours(pickedPriceBookItemId?: string | null) {
+    if (!profile?.company_id || !profile.id) return;
+    setPullingHours(true);
+    try {
+      const result = await pullUnbilledHoursToJobBill(supabase, {
+        jobId,
+        companyId: profile.company_id,
+        profileId: profile.id,
+        pickedPriceBookItemId: pickedPriceBookItemId ?? readPickedLabourPriceBookId(profile.company_id),
+      });
+      if (result.needsPicker && result.pickerItems.length > 0) {
+        setLabourPickerItems(result.pickerItems);
+        return;
+      }
+      if (pickedPriceBookItemId && profile.company_id) {
+        writePickedLabourPriceBookId(profile.company_id, pickedPriceBookItemId);
+      }
+      setLabourPickerItems(null);
+      await queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
+      await queryClient.invalidateQueries({ queryKey: ['job-billed-timesheet-ids', jobId] });
+      await queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+    } finally {
+      setPullingHours(false);
+    }
+  }
 
   const { data: costModels = [] } = useQuery<ExpenseCostModel[]>({
     queryKey: ['expense-cost-models'],
@@ -447,29 +479,40 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
 
       {unbilledCue ? (
         <div className="job-bill-hours-cue" role="status">
-          <p className="job-bill-hours-cue-text">{unbilledCue.label}</p>
           <button
             type="button"
-            className="job-bill-hours-cue-btn"
+            className="job-bill-hours-cue-btn job-bill-hours-cue-btn--full"
             disabled={pullingHours || !profile?.company_id}
-            onClick={() => {
-              if (!profile?.company_id || !profile.id) return;
-              setPullingHours(true);
-              void pullUnbilledHoursToJobBill(supabase, {
-                jobId,
-                companyId: profile.company_id,
-                profileId: profile.id,
-              })
-                .then(() => {
-                  void queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
-                  void queryClient.invalidateQueries({ queryKey: ['job-billed-timesheet-ids', jobId] });
-                  void queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
-                })
-                .finally(() => setPullingHours(false));
-            }}
+            onClick={() => { void runPullLabourHours(); }}
           >
-            {pullingHours ? 'Adding…' : 'Add as labour'}
+            {pullingHours ? 'Adding…' : unbilledCue.buttonLabel}
           </button>
+        </div>
+      ) : null}
+
+      {labourPickerItems && labourPickerItems.length > 0 ? (
+        <div className="overlay-backdrop" role="dialog" aria-modal="true" aria-labelledby="labour-pb-pick-title">
+          <div className="overlay-panel" style={{ maxWidth: 420 }}>
+            <div className="overlay-header">
+              <h2 id="labour-pb-pick-title" className="overlay-title">Choose labour rate</h2>
+              <button type="button" className="overlay-close" onClick={() => setLabourPickerItems(null)} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="overlay-body space-y-2">
+              <p className="text-sm text-[#4A5568]">Pick which price-book labour rate to use for this pull.</p>
+              {labourPickerItems.map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="w-full min-h-[44px] rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-left text-sm font-medium text-[#0A2540] hover:bg-[#F9FAFB]"
+                  onClick={() => { void runPullLabourHours(item.id); }}
+                >
+                  {(item.name ?? 'Labour').trim()} · {formatMoney(Number(item.unit_price) || 0)}/h
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -506,7 +549,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                 <td className="px-3 py-2 text-right text-[#4A5568]">
                   {formatMoney(c.unit_price || c.unit_cost)}
                   {lineNeedsLabourRate(c) ? (
-                    <Link to="/price-books" className="job-bill-add-rate">Add a rate</Link>
+                    <Link to="/settings/company" className="job-bill-add-rate">Add a rate</Link>
                   ) : null}
                 </td>
                 <td className="px-3 py-2 text-right font-semibold text-[#0A2540]">{formatMoney(c.total_price || c.total_cost)}</td>

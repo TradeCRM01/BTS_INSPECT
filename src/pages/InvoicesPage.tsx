@@ -19,6 +19,7 @@ import { asStringList } from '../lib/asStringList';
 import { checkPriceSendBlock } from '../lib/checkPriceGate';
 import { listQueryBusy } from '../lib/listQueryReady';
 import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel } from '../lib/gst';
+import { lineNeedsLabourRate } from '../lib/hoursToJobBill';
 import {
   effectiveInvoiceStatus,
   fullInvoicePayment,
@@ -1348,7 +1349,12 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                   const unit = parseFloat(li.unit_price) || 0;
                   return (
                     <tr key={`${li.description}-${idx}`}>
-                      <td>{li.description}</td>
+                      <td>
+                        {li.description}
+                        {lineNeedsLabourRate({ charge_type: li.charge_type, unit_price: unit }) ? (
+                          <Link to="/settings/company" className="hub-invoice-labour-add-rate">Add a rate</Link>
+                        ) : null}
+                      </td>
                       <td className="hub-invoice-num">{qty}</td>
                       <td className="hub-invoice-num">{formatMoney(unit)}</td>
                       <td className="hub-invoice-num">{formatMoney(qty * unit)}</td>

@@ -69,7 +69,10 @@ export function TimeEntryForm({
     setErr(null);
     try {
       const startDateTime = new Date(`${form.date}T${form.start_time}`);
-      const endDateTime = form.end_time ? new Date(`${form.date}T${form.end_time}`) : null;
+      let endDateTime = form.end_time ? new Date(`${form.date}T${form.end_time}`) : null;
+      if (endDateTime && endDateTime <= startDateTime) {
+        endDateTime = new Date(endDateTime.getTime() + 86400000);
+      }
 
       const existing = timesheets.find(t => t.date === form.date);
       let tsId = existing?.id;

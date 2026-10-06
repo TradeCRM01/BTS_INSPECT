@@ -1,8 +1,10 @@
 import { supabase } from './supabase';
+import { readPickedLabourPriceBookId } from './labourPriceBookPick';
 import {
   invoiceLinesWithLabourPriceBook,
+  loadCompanyDefaultLabourRate,
   pullUnbilledHoursToJobBill,
-  resolveLabourSellFromPriceBook,
+  resolveLabourSell,
 } from './hoursToJobBill';
 import {
   JOB_COST_INVOICE_SELECT,
@@ -46,10 +48,12 @@ export async function createInvoiceFromJobBill(input: {
   if (jobErr) throw jobErr;
   if (!job) throw new Error('Job not found');
 
+  const pickedPb = readPickedLabourPriceBookId(input.companyId);
   const pull = await pullUnbilledHoursToJobBill(supabase, {
     jobId: input.jobId,
     companyId: input.companyId,
     profileId: input.profileId,
+    pickedPriceBookItemId: pickedPb,
   });
 
   const { data: costs, error: costErr } = await supabase
@@ -65,7 +69,13 @@ export async function createInvoiceFromJobBill(input: {
     .eq('company_id', input.companyId)
     .eq('is_active', true);
   if (pbErr) throw pbErr;
-  const labourSell = resolveLabourSellFromPriceBook(pbItems ?? []);
+  const { rate: companyDefaultLabourRate } = await loadCompanyDefaultLabourRate(supabase, input.companyId);
+  const labourSell = resolveLabourSell({
+    staffRate: null,
+    companyDefaultLabourRate,
+    labourItems: pbItems ?? [],
+    pickedPriceBookItemId: pickedPb,
+  });
 
   const { data: existing, error: existingErr } = await supabase
     .from('invoices')

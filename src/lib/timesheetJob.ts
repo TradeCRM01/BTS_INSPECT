@@ -16,7 +16,9 @@ export function entryMinutes(startIso?: string | null, endIso?: string | null): 
   const start = new Date(startIso).getTime();
   const end = new Date(endIso).getTime();
   if (!Number.isFinite(start) || !Number.isFinite(end)) return 0;
-  return Math.max(0, Math.round((end - start) / 60000));
+  let diff = end - start;
+  if (diff < 0) diff += 86400000;
+  return Math.max(0, Math.round(diff / 60000));
 }
 
 /** Clocked time on a job: closed intervals plus live elapsed time for every running entry. */
