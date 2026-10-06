@@ -1,5 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  aiSettingsAdminToolsEnabled,
+  fetchCompanyDashboardSummary,
+  type DashboardSummaryClient,
+} from "./aiConsoleAdmin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,7 +25,7 @@ async function getAiSettings(companyId: string): Promise<{ apiKey: string; model
   return {
     apiKey: data?.anthropic_api_key ?? Deno.env.get("ANTHROPIC_API_KEY") ?? "",
     model: data?.model ?? "claude-opus-4-7",
-    adminToolsEnabled: data?.admin_tools_enabled ?? true,
+    adminToolsEnabled: aiSettingsAdminToolsEnabled(data),
   };
 }
 
@@ -42,7 +47,9 @@ Be helpful, concise, and friendly. If a user asks you to make a change to the sy
 
 const ADMIN_SYSTEM_PROMPT = `You are an expert AI console embedded inside Grafter — a field inspection and reporting platform.
 
-You have access to database tools. Only use them when the user is asking about specific data, diagnosing a real issue, or requesting a change — NOT for general how-to questions about the app. If someone asks "how do I do X", answer from your knowledge without touching the database.
+You have a small set of company-scoped tools (company context, dashboard summary, jobs, reminders, compliance items, and optional web search). Only use them when the user is asking about specific data or requesting a change — NOT for general how-to questions about the app. If someone asks "how do I do X", answer from your knowledge without touching tools.
+
+Do not invent SQL access or send email. Those tools are not available.
 
 When you do use tools, use the minimum number needed. Do not chain multiple tool calls just to gather context for a simple question.
 
@@ -75,11 +82,9 @@ Response style:
 - Only show technical details if the user is clearly a developer asking a technical question.
 
 When using tools:
-1. Always confirm what you are about to do before making destructive changes
-2. Show the results of queries clearly
-3. If a query returns no data, say so clearly
-4. When making changes, describe exactly what was changed
-5. Be careful with UPDATE/DELETE — always include a WHERE clause
+1. Always confirm what you are about to do before making a change
+2. If a tool returns no data, say so clearly
+3. When making changes, describe exactly what was changed
 
 Design conventions (when suggesting frontend code):
 - Primary color: #0A2540 (dark navy)
@@ -94,38 +99,6 @@ You are talking directly to the admin of this platform. Be direct and technical.
 
 const ADMIN_TOOLS = [
   {
-    name: "query_database",
-    description: "Execute a read-only SQL SELECT query against the database. Use this to inspect data, count records, check settings, diagnose issues. Only SELECT statements are allowed.",
-    input_schema: {
-      type: "object",
-      properties: {
-        sql: {
-          type: "string",
-          description: "A valid PostgreSQL SELECT statement. Must start with SELECT. No INSERT, UPDATE, DELETE, DROP, or DDL allowed here — use execute_sql for writes.",
-        },
-      },
-      required: ["sql"],
-    },
-  },
-  {
-    name: "execute_sql",
-    description: "Execute a data modification SQL statement (INSERT, UPDATE, DELETE) against the database. Use this carefully to fix data issues, update records, or correct configuration. Always include a WHERE clause for UPDATE/DELETE.",
-    input_schema: {
-      type: "object",
-      properties: {
-        sql: {
-          type: "string",
-          description: "A valid PostgreSQL statement. Can be INSERT, UPDATE, or DELETE. No DROP, TRUNCATE, or DDL. Always include WHERE for UPDATE/DELETE.",
-        },
-        confirm_intent: {
-          type: "string",
-          description: "A brief description of what this change does and why it is safe, e.g. 'Updating company name from old to new for company_id X'",
-        },
-      },
-      required: ["sql", "confirm_intent"],
-    },
-  },
-  {
     name: "list_tables",
     description: "List all tables in the public schema with their column names and types. Useful for exploring the database structure.",
     input_schema: { type: "object", properties: {} },
@@ -136,20 +109,6 @@ const ADMIN_TOOLS = [
     input_schema: { type: "object", properties: {} },
   },
   // ── Real-world agent tools ───────────────────────────────────────
-  {
-    name: "send_email",
-    description: "Send an email on behalf of the user's company. Requires the company to have email/SMTP settings configured (Resend). Use this to send client follow-ups, compliance reminders, invoice chasing, or any business email. Always confirm with the user before sending.",
-    input_schema: {
-      type: "object",
-      properties: {
-        to: { type: "array", items: { type: "string" }, description: "Recipient email addresses" },
-        subject: { type: "string", description: "Email subject line" },
-        body: { type: "string", description: "Email body as plain text. The system wraps it in a branded HTML template." },
-        cc: { type: "array", items: { type: "string" }, description: "Optional CC recipients" },
-      },
-      required: ["to", "subject", "body"],
-    },
-  },
   {
     name: "create_job",
     description: "Create a new scheduled job in the system. Use this when the user asks to book, schedule, or create a job. Requires a title. Optionally link to a client by client_id, set priority, scheduled date, start/end time, and address.",
@@ -283,80 +242,12 @@ async function executeTool(
       }, null, 2);
     }
 
-    if (toolName === "query_database") {
-      const sql = (toolInput.sql ?? "").trim();
-      if (!/^SELECT/i.test(sql)) {
-        return "Error: Only SELECT statements are allowed in query_database. Use execute_sql for modifications.";
-      }
-      // Inject company filter hint as a comment for safety
-      const { data, error } = await supabase.rpc("admin_query" as never, { query_sql: sql } as never);
-      if (error) {
-        // Fallback: run via pg_query if available, else return error
-        return `Query error: ${error.message}`;
-      }
-      return JSON.stringify(data, null, 2);
-    }
-
-    if (toolName === "execute_sql") {
-      const sql = (toolInput.sql ?? "").trim();
-      if (/^(DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE)/i.test(sql)) {
-        return "Error: DDL statements (DROP, TRUNCATE, ALTER, CREATE, GRANT, REVOKE) are not allowed for safety.";
-      }
-      const { data, error } = await supabase.rpc("admin_execute" as never, { exec_sql: sql } as never);
-      if (error) {
-        return `Execution error: ${error.message}`;
-      }
-      return JSON.stringify({ success: true, result: data, intent: toolInput.confirm_intent }, null, 2);
-    }
-
     if (toolName === "get_dashboard_summary") {
-      const today = new Date().toISOString().slice(0, 10);
-      const in30 = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
-      const [jobs, inspToday, overdueInv, compliance, lowStock, recentActions] = await Promise.all([
-        supabase.from("jobs").select("id,title,status,priority,scheduled_date", { count: "exact", head: true }).in("status", ["scheduled", "in_progress"]),
-        supabase.from("inspections").select("*", { count: "exact", head: true }).gte("created_at", today),
-        supabase.from("invoices").select("*", { count: "exact", head: true }).eq("status", "overdue"),
-        supabase.from("compliance_items").select("id,title,next_due_date,status").gte("next_due_date", today).lte("next_due_date", in30).order("next_due_date", { ascending: true }).limit(10),
-        supabase.from("stock_items").select("id,name,quantity,reorder_level").eq("archived", false).limit(10),
-        supabase.from("agent_actions").select("action_type,summary,status,created_at").eq("company_id", companyId).order("created_at", { ascending: false }).limit(5),
-      ]);
-      const overdue = (lowStock.data ?? []).filter((r: Record<string, number>) => Number(r.quantity ?? 0) <= Number(r.reorder_level ?? 0));
-      return JSON.stringify({
-        active_jobs: jobs.count ?? 0,
-        inspections_today: inspToday.count ?? 0,
-        overdue_invoices: overdueInv.count ?? 0,
-        upcoming_compliance: compliance.data ?? [],
-        low_stock_items: overdue,
-        recent_agent_actions: recentActions.data ?? [],
-      }, null, 2);
-    }
-
-    if (toolName === "send_email") {
-      const to = Array.isArray(toolInput.to) ? toolInput.to as string[] : [String(toolInput.to ?? "")];
-      const subject = String(toolInput.subject ?? "").trim();
-      const body = String(toolInput.body ?? "").trim();
-      if (!to.length || !subject || !body) return "Error: to, subject, and body are all required.";
-      const { data: settings } = await supabase.from("email_settings").select("smtp_host,smtp_pass,from_name,from_email").eq("company_id", companyId).maybeSingle();
-      if (!settings || !String(settings.smtp_host).includes("resend")) {
-        return "Error: Email sending requires Resend to be configured in Settings → Email Settings. Please set up email before I can send on your behalf.";
-      }
-      const fromHeader = `${settings.from_name} <${settings.from_email}>`;
-      const html = `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;"><p style="color:#4A5568;font-size:15px;line-height:1.6;white-space:pre-wrap;">${body.replace(/</g, "&lt;")}</p><p style="color:#9CA3AF;font-size:12px;margin-top:24px;">Sent via Grafter AI Agent</p></div>`;
-      const cc = Array.isArray(toolInput.cc) ? toolInput.cc as string[] : [];
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${settings.smtp_pass}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from: fromHeader, to, cc: cc.length ? cc : undefined, subject, html }),
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        let msg = `Resend API error (${res.status})`;
-        try { const j = JSON.parse(errText); msg = j.message ?? j.error ?? msg; } catch { if (errText) msg = errText.slice(0, 200); }
-        await logAction(supabase, companyId, userId, "send_email", "send_email", `Failed to send email "${subject}"`, { to, subject, error: msg }, "failed");
-        return `Error sending email: ${msg}`;
-      }
-      await logAction(supabase, companyId, userId, "send_email", "send_email", `Sent email "${subject}" to ${to.join(", ")}`, { to, cc, subject, body }, "success");
-      return `Email sent successfully to ${to.join(", ")}. Subject: "${subject}".`;
+      const summary = await fetchCompanyDashboardSummary(
+        supabase as unknown as DashboardSummaryClient,
+        companyId,
+      );
+      return JSON.stringify(summary, null, 2);
     }
 
     if (toolName === "create_job") {
