@@ -3,6 +3,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   aiSettingsAdminToolsEnabled,
   fetchCompanyDashboardSummary,
+  inspectorIdsFromProfiles,
+  rejectIfForeignOwned,
+  type CompanyOwnedRowClient,
   type DashboardSummaryClient,
 } from "./aiConsoleAdmin.ts";
 
@@ -228,12 +231,20 @@ async function executeTool(
     }
 
     if (toolName === "get_company_context") {
-      const [companyRes, profilesRes, templatesRes, inspectionsRes] = await Promise.all([
+      const [companyRes, profilesRes, templatesRes] = await Promise.all([
         supabase.from("companies").select("*").eq("id", companyId).maybeSingle(),
         supabase.from("profiles").select("id, name, email, role").eq("company_id", companyId),
         supabase.from("templates").select("id, name, is_archived").eq("company_id", companyId),
-        supabase.from("inspections").select("id, status, is_archived, created_at").eq("company_id", companyId).order("created_at", { ascending: false }).limit(10),
       ]);
+      const inspectorIds = inspectorIdsFromProfiles(profilesRes.data);
+      const inspectionsRes = inspectorIds.length === 0
+        ? { data: [] }
+        : await supabase
+          .from("inspections")
+          .select("id, status, archived, started_at")
+          .in("inspector_id", inspectorIds)
+          .order("started_at", { ascending: false })
+          .limit(10);
       return JSON.stringify({
         company: companyRes.data,
         team: profilesRes.data,
@@ -253,8 +264,13 @@ async function executeTool(
     if (toolName === "create_job") {
       const title = String(toolInput.title ?? "").trim();
       if (!title) return "Error: title is required to create a job.";
+      const ownedClient = supabase as unknown as CompanyOwnedRowClient;
       const insert: Record<string, unknown> = { company_id: companyId, title, created_by: userId };
-      if (toolInput.client_id) insert.client_id = toolInput.client_id;
+      if (toolInput.client_id) {
+        const foreign = await rejectIfForeignOwned(ownedClient, "client", String(toolInput.client_id), companyId);
+        if (foreign) return foreign;
+        insert.client_id = toolInput.client_id;
+      }
       if (toolInput.description) insert.description = toolInput.description;
       if (toolInput.priority) insert.priority = toolInput.priority;
       if (toolInput.scheduled_date) insert.scheduled_date = toolInput.scheduled_date;
@@ -273,6 +289,17 @@ async function executeTool(
     if (toolName === "create_reminder") {
       const title = String(toolInput.title ?? "").trim();
       if (!title) return "Error: title is required for a reminder.";
+      const relatedType = String(toolInput.related_type ?? "").trim();
+      const relatedId = String(toolInput.related_id ?? "").trim();
+      if (relatedId && (relatedType === "client" || relatedType === "job")) {
+        const foreign = await rejectIfForeignOwned(
+          supabase as unknown as CompanyOwnedRowClient,
+          relatedType,
+          relatedId,
+          companyId,
+        );
+        if (foreign) return foreign;
+      }
       const insert: Record<string, unknown> = { company_id: companyId, user_id: userId, title };
       if (toolInput.due_date) insert.due_date = toolInput.due_date;
       if (toolInput.related_type) insert.related_type = toolInput.related_type;
@@ -291,6 +318,13 @@ async function executeTool(
       const title = String(toolInput.title ?? "").trim();
       const firstDue = String(toolInput.first_due_date ?? "").trim();
       if (!clientId || !title || !firstDue) return "Error: client_id, title, and first_due_date are required.";
+      const foreign = await rejectIfForeignOwned(
+        supabase as unknown as CompanyOwnedRowClient,
+        "client",
+        clientId,
+        companyId,
+      );
+      if (foreign) return foreign;
       const interval = Number(toolInput.recurrence_interval ?? 12);
       const unit = String(toolInput.recurrence_unit ?? "months");
       const insert: Record<string, unknown> = {
