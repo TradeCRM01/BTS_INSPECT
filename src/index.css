@@ -7751,12 +7751,20 @@
     flex-wrap: wrap;
   }
 
-  .hub-quick-quote {
+  .hub-quick-quote-block {
     display: flex;
     flex: 1 1 280px;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .hub-quick-quote {
+    display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
+    width: 100%;
   }
 
   .hub-quick-quote-label {
@@ -8442,10 +8450,13 @@
       align-items: stretch;
     }
 
-    .hub-quick-quote {
+    .hub-quick-quote-block {
       flex: 1 1 100%;
       width: 100%;
       max-width: 100%;
+    }
+
+    .hub-quick-quote {
       flex-wrap: wrap;
     }
 

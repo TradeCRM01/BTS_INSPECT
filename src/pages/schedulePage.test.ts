@@ -168,7 +168,8 @@ describe('schedule page week/day board', () => {
     expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain('Quick book');
     expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain('Type a booking');
     expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain('Speak a booking');
-    expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain('Microphone is blocked. Type the booking instead.');
+    expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain('speechRecognitionErrorHint');
+    expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain("'booking'");
     expect(page.lastIndexOf('<ScheduleBookByVoice')).toBeGreaterThan(page.indexOf('data-schedule-search="1"'));
     expect(sheet).toContain('From your booking');
     expect(page).toContain('withScheduleJobPatches(weekBoardLookJobs())');

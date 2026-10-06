@@ -774,3 +774,21 @@ export function transcriptFromSpeechEvent(
 export function isSpeechPermissionDenied(error: string | undefined): boolean {
   return error === 'not-allowed' || error === 'service-not-allowed';
 }
+
+export type SpeechRecognitionCopy = 'booking' | 'job';
+
+export function speechRecognitionErrorHint(
+  error: string | undefined,
+  copy: SpeechRecognitionCopy = 'job',
+): string {
+  if (isSpeechPermissionDenied(error)) {
+    return copy === 'booking'
+      ? 'Microphone is blocked. Type the booking instead.'
+      : 'Microphone is blocked. Type the job instead.';
+  }
+  if (error === 'audio-capture') return 'No microphone found. Type instead.';
+  if (error === 'no-speech' || error === 'network') {
+    return 'Didn\'t catch that. Try again or type it.';
+  }
+  return 'Didn\'t catch that. Try again or type it.';
+}

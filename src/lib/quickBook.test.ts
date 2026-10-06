@@ -8,6 +8,7 @@ import {
   checkDateTag,
   instantInBrisbane,
   isSpeechPermissionDenied,
+  speechRecognitionErrorHint,
   matchNamed,
   matchQuickBookCrew,
   matchQuickBookJobs,
@@ -404,6 +405,36 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(browserSpeechRecognition()).toBeNull();
   });
 
+  it('maps speech recognition errors to honest mic hints for booking and job copy', () => {
+    expect(speechRecognitionErrorHint('not-allowed', 'booking')).toBe(
+      'Microphone is blocked. Type the booking instead.',
+    );
+    expect(speechRecognitionErrorHint('service-not-allowed', 'booking')).toBe(
+      'Microphone is blocked. Type the booking instead.',
+    );
+    expect(speechRecognitionErrorHint('not-allowed', 'job')).toBe(
+      'Microphone is blocked. Type the job instead.',
+    );
+    expect(speechRecognitionErrorHint('audio-capture', 'job')).toBe('No microphone found. Type instead.');
+    expect(speechRecognitionErrorHint('no-speech', 'booking')).toBe(
+      'Didn\'t catch that. Try again or type it.',
+    );
+    expect(speechRecognitionErrorHint('network', 'job')).toBe(
+      'Didn\'t catch that. Try again or type it.',
+    );
+    expect(speechRecognitionErrorHint('aborted', 'job')).toBe(
+      'Didn\'t catch that. Try again or type it.',
+    );
+    expect(speechRecognitionErrorHint(undefined, 'job')).toBe(
+      'Didn\'t catch that. Try again or type it.',
+    );
+    expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain('speechRecognitionErrorHint');
+    expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain("'booking'");
+    expect(src('src/pages/QuotesPage.tsx')).toContain('speechRecognitionErrorHint');
+    expect(src('src/pages/QuotesPage.tsx')).toContain("'job'");
+    expect(src('src/pages/QuotesPage.tsx')).toContain('hub-schedule-voice-hint');
+  });
+
   it('wires Quick book under search, keeps blanks, and only saves from the sheet', () => {
     const page = src('src/pages/SchedulePage.tsx');
     const sheet = src('src/components/crm/ScheduleJobSheet.tsx');
@@ -425,7 +456,8 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(voice).toContain('Speak a booking');
     expect(voice).toContain('hub-schedule-voice-row');
     expect(voice).toContain("lang = 'en-AU'");
-    expect(voice).toContain('Microphone is blocked. Type the booking instead.');
+    expect(voice).toContain('speechRecognitionErrorHint');
+    expect(voice).toContain("'booking'");
     expect(voice).toContain("Voice isn't available here. Type instead.");
     expect(voice).toContain('Job, day, time, crew');
     expect(voice).not.toContain('Smith job Thursday 7am with Dave');

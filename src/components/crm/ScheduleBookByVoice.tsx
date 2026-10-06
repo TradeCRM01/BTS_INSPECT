@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent } from 'react';
 import { Mic } from 'lucide-react';
 import {
   browserSpeechRecognition,
-  isSpeechPermissionDenied,
+  speechRecognitionErrorHint,
   transcriptFromSpeechEvent,
   type QuickBookSpeech,
 } from '../../lib/quickBook';
@@ -28,7 +28,7 @@ export function ScheduleBookByVoice({
 }) {
   const [phrase, setPhrase] = useState('');
   const [listening, setListening] = useState(false);
-  const [micDenied, setMicDenied] = useState(false);
+  const [micHint, setMicHint] = useState<string | null>(null);
   const speechRef = useRef<QuickBookSpeech | null>(null);
   const Speech = browserSpeechRecognition();
 
@@ -54,11 +54,11 @@ export function ScheduleBookByVoice({
     rec.onend = () => setListening(false);
     rec.onerror = ev => {
       setListening(false);
-      if (isSpeechPermissionDenied(ev?.error)) setMicDenied(true);
+      setMicHint(speechRecognitionErrorHint(ev?.error, 'booking'));
     };
     speechRef.current = rec;
     setListening(true);
-    setMicDenied(false);
+    setMicHint(null);
     rec.start();
   }
 
@@ -111,8 +111,8 @@ export function ScheduleBookByVoice({
           </button>
         </div>
       </form>
-      {micDenied ? (
-        <p className="hub-schedule-voice-hint">Microphone is blocked. Type the booking instead.</p>
+      {micHint ? (
+        <p className="hub-schedule-voice-hint">{micHint}</p>
       ) : !Speech ? (
         <p className="hub-schedule-voice-hint">Voice isn't available here. Type instead.</p>
       ) : null}

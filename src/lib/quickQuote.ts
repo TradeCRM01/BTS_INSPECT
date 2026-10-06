@@ -79,7 +79,7 @@ export type QuickSpeechRecognition = {
   continuous: boolean;
   onresult: ((ev: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((ev?: { error?: string }) => void) | null;
   start: () => void;
   stop: () => void;
 };

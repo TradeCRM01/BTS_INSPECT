@@ -416,8 +416,9 @@ describe('quick quote parser and matcher', () => {
 
   it('(vi) wraps the Quick quote bar at phone width without clipping Make draft', () => {
     const css = src('src/index.css');
-    expect(css).toContain('.hub-quick-quote {\n    display: flex;\n    flex: 1 1 280px;');
-    expect(css).toContain('.hub-quick-quote {\n      flex: 1 1 100%;\n      width: 100%;\n      max-width: 100%;\n      flex-wrap: wrap;');
+    expect(css).toContain('.hub-quick-quote-block {\n    display: flex;\n    flex: 1 1 280px;');
+    expect(css).toContain('.hub-quick-quote-block {\n      flex: 1 1 100%;\n      width: 100%;\n      max-width: 100%;');
+    expect(css).toContain('.hub-quick-quote {\n      flex-wrap: wrap;');
     expect(css).toContain('.hub-quick-quote .form-input {\n      flex: 1 1 100%;\n      width: 100%;');
     expect(css).toContain('.hub-quick-quote-go {\n      flex: 1 1 auto;\n      min-width: max-content;');
     const phone = css.slice(css.indexOf('.hub-quotes-thead {\n      display: none;'));
