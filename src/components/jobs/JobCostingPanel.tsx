@@ -2,7 +2,14 @@ import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAuditEmptyList } from '../../lib/devFieldAuditDocs';
+import { getAuditEmptyList, getAuditJobBillCosts } from '../../lib/devFieldAuditDocs';
+import {
+  JOB_BILL_INCOMPLETE_MARGIN_LABEL,
+  JOB_BILL_NO_COST_RATE_LABEL,
+  jobBillCostCellDisplay,
+  jobBillGrossProfit,
+  jobBillHasIncompleteLabourCost,
+} from '../../lib/jobBillLabourCost';
 import { ManagedSelect } from '../ui/ManagedSelect';
 import { LIST_KEYS } from '../../lib/useManagedList';
 import {
@@ -96,6 +103,8 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const { data: costs = [] } = useQuery<JobCost[]>({
     queryKey: ['job-costs', jobId],
     queryFn: async () => {
+      const auditCosts = getAuditJobBillCosts();
+      if (auditCosts) return auditCosts;
       const empty = getAuditEmptyList();
       if (empty) return empty as JobCost[];
       const { data, error } = await supabase
@@ -137,6 +146,8 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     () => costs.reduce((s, c) => s + Number(c.total_price || c.total_cost), 0),
     [costs],
   );
+  const grossProfit = useMemo(() => jobBillGrossProfit(chargeTotal, costTotal), [chargeTotal, costTotal]);
+  const incompleteLabourMargin = useMemo(() => jobBillHasIncompleteLabourCost(costs), [costs]);
   const sumCost = (t: CostType) => costs.filter(c => c.cost_type === t).reduce((s, c) => s + Number(c.total_cost), 0);
   const totals = { materials: sumCost('materials'), labor: sumCost('labor'), other: sumCost('other') };
 
@@ -493,7 +504,12 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
               <DollarSign size={14} /><span className="text-xs font-medium">Charge total</span>
             </div>
             <p className="mt-1 text-lg font-bold text-white">{formatMoney(chargeTotal)}</p>
-            <p className="text-[10px] text-white/60 mt-0.5">Supply cost {formatMoney(costTotal)}</p>
+            <p className="text-[10px] text-white/60 mt-0.5 flex flex-wrap items-center justify-end gap-1">
+              <span>Supply cost {formatMoney(costTotal)} · Profit {formatMoney(grossProfit)}</span>
+              {incompleteLabourMargin ? (
+                <span className="job-bill-incomplete-flag">{JOB_BILL_INCOMPLETE_MARGIN_LABEL}</span>
+              ) : null}
+            </p>
           </div>
         </div>
       )}
@@ -566,7 +582,19 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                   ) : null}
                 </td>
                 <td className="px-3 py-2 text-right text-[#4A5568]">{c.quantity}</td>
-                <td className="px-3 py-2 text-right text-[#4A5568]">{formatMoney(c.unit_cost)}</td>
+                <td className="px-3 py-2 text-right">
+                  {(() => {
+                    const cell = jobBillCostCellDisplay(c);
+                    if (cell.kind === 'no_cost_rate') {
+                      return (
+                        <span className="job-bill-no-rate-flag job-bill-no-cost-flag">
+                          {JOB_BILL_NO_COST_RATE_LABEL}
+                        </span>
+                      );
+                    }
+                    return <span className="text-[#4A5568]">{formatMoney(cell.value)}</span>;
+                  })()}
+                </td>
                 <td className="px-3 py-2 text-right text-[#4A5568]">{Number(c.markup_percent) || 0}%</td>
                 <td className="px-3 py-2 text-right text-[#4A5568]">
                   {formatMoney(c.unit_price || c.unit_cost)}

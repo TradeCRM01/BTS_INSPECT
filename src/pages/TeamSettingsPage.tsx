@@ -36,7 +36,16 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { OverlayPortal } from '../components/ui/OverlayPortal';
 import { SearchBar } from '../components/ui/SearchBar';
-import { getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import {
+  getAuditExpenseCostModels,
+  getAuditMemberExpenseCostModelId,
+  getAuditTeamMembers,
+} from '../lib/devFieldAuditDocs';
+import {
+  canEditTeamMemberExpenseCostModel,
+  profileExpenseCostModelUpdatePayload,
+} from '../lib/teamMemberCostModel';
+import type { ExpenseCostModel } from '../types/fsm';
 import { DEV_AUDIT_PROFILE } from '../lib/devFieldAuditAuth';
 import { UserPlus, Mail, Eye, CreditCard as Edit2, EyeOff, Trash2, Crown, X, Check, AlertCircle, Send, Copy, MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
@@ -221,6 +230,24 @@ const TEAM_LOOK_CSS = `
 .hub-team-select:focus {
   outline: none;
   border-color: #2E75B6;
+}
+.hub-team-select--touch {
+  min-height: 44px;
+  height: auto;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+.hub-team-muted-hint {
+  color: var(--team-look-muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: right;
+  line-height: 1.35;
+  max-width: 11rem;
+}
+.hub-team-ledger-row--field {
+  align-items: center;
+  gap: 12px;
 }
 .hub-team-ledger { margin-top: 16px; }
 .hub-team-ledger-row {
@@ -677,9 +704,11 @@ export function TeamSettingsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const lookTeamList = searchParams.get('look') === TEAM_LIST_LOOK;
-  const lookPersonTickets = searchParams.get('look') === PERSON_TICKETS_LOOK;
-  const lookTeamSeed = lookTeamList || lookPersonTickets;
+  const lookParam = searchParams.get('look');
+  const lookTeamList = lookParam === TEAM_LIST_LOOK;
+  const lookPersonTickets = lookParam === PERSON_TICKETS_LOOK;
+  const lookP331Team = lookParam === 'p331-team-select' || lookParam === 'p331-team-empty';
+  const lookTeamSeed = lookTeamList || lookPersonTickets || lookP331Team;
   const [search, setSearch] = useState('');
   const [listFilter, setListFilter] = useState<TeamListFilter>('all');
   const [showInvite, setShowInvite] = useState(false);
@@ -747,6 +776,7 @@ export function TeamSettingsPage() {
     return filterTeamSettingsList(byFilter, search);
   }, [listRows, listFilter, search]);
   const openedMember = teamSettingsOpenedMember(listRows, openedId);
+  const openedPending = openedMember ? teamSettingsIsPending(openedMember) : false;
   const emptyTitle = teamSettingsEmptyTitle({
     error: !lookTeamSeed && isError,
     total: listRows.length,
@@ -768,6 +798,57 @@ export function TeamSettingsPage() {
   });
 
   const ownerId = (company as { created_by?: string | null } | null)?.created_by ?? null;
+  const canEditExpenseCostModel = canEditTeamMemberExpenseCostModel({
+    actorId: profile?.id,
+    actorRole: profile?.role,
+    ownerId,
+  });
+
+  const { data: expenseCostModels = [] } = useQuery<ExpenseCostModel[]>({
+    queryKey: ['expense-cost-models-team', company?.id, lookParam],
+    queryFn: async () => {
+      const audit = getAuditExpenseCostModels();
+      if (audit) return audit;
+      const { data, error } = await supabase
+        .from('expense_cost_models')
+        .select('*')
+        .eq('company_id', company!.id)
+        .order('name');
+      if (error) throw error;
+      return (data ?? []) as ExpenseCostModel[];
+    },
+    enabled: !!company?.id && !!openedMember && !openedPending,
+  });
+
+  const { data: memberExpenseCostModelId = null } = useQuery<string | null>({
+    queryKey: ['profile-expense-cost-model', openedMember?.id, lookParam],
+    queryFn: async () => {
+      if (!openedMember) return null;
+      const audit = getAuditMemberExpenseCostModelId(openedMember.id);
+      if (audit !== undefined) return audit;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('expense_cost_model_id')
+        .eq('id', openedMember.id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data?.expense_cost_model_id as string | null) ?? null;
+    },
+    enabled: !!openedMember && !openedPending,
+  });
+
+  const updateExpenseCostModelMutation = useMutation({
+    mutationFn: async ({ memberId, modelId }: { memberId: string; modelId: string }) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update(profileExpenseCostModelUpdatePayload(modelId))
+        .eq('id', memberId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['profile-expense-cost-model', vars.memberId] });
+    },
+  });
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ memberId, role }: { memberId: string; role: 'admin' | 'member' }) => {
@@ -866,7 +947,6 @@ export function TeamSettingsPage() {
   }
 
   const personOpen = !!openedMember;
-  const openedPending = openedMember ? teamSettingsIsPending(openedMember) : false;
   const openedIsMe = openedMember?.id === profile?.id;
   const openedIsAdmin = openedMember?.role === 'admin';
   const openedLicence = openedMember ? teamSettingsLicenceLabel(openedMember.licence_number) : null;
@@ -994,6 +1074,38 @@ export function TeamSettingsPage() {
                     <span className="hub-team-hours">
                       {format(new Date(openedMember.created_at), 'd MMM yyyy')}
                     </span>
+                  </div>
+                  <div className="hub-team-ledger-row hub-team-ledger-row--field">
+                    <span>Cost model</span>
+                    {canEditExpenseCostModel && !openedPending ? (
+                      expenseCostModels.length === 0 ? (
+                        <span className="hub-team-muted-hint">Add a cost model in Expenses</span>
+                      ) : (
+                        <select
+                          className="hub-team-select hub-team-select--touch"
+                          value={memberExpenseCostModelId ?? ''}
+                          disabled={updateExpenseCostModelMutation.isPending}
+                          aria-label="Cost model"
+                          onChange={e => {
+                            updateExpenseCostModelMutation.mutate({
+                              memberId: openedMember.id,
+                              modelId: e.target.value,
+                            });
+                          }}
+                        >
+                          <option value="">None</option>
+                          {expenseCostModels.map(m => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </select>
+                      )
+                    ) : (
+                      <span className="hub-team-hours">
+                        {memberExpenseCostModelId
+                          ? (expenseCostModels.find(m => m.id === memberExpenseCostModelId)?.name ?? 'Assigned')
+                          : 'None'}
+                      </span>
+                    )}
                   </div>
                   <div className="hub-team-ledger-row">
                     <span>Templates</span>
