@@ -16,7 +16,7 @@ export function ListSectionLoadError({
       {onRetry ? (
         <>
           {' '}
-          <button type="button" className="ops-link" onClick={onRetry}>Retry</button>
+          <button type="button" className="ops-link inline-flex items-center min-h-[44px] px-2" onClick={onRetry}>Retry</button>
         </>
       ) : null}
     </p>

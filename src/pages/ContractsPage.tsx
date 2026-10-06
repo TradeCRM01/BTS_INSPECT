@@ -241,7 +241,7 @@ export function ContractsPage() {
           <p className="text-sm text-[#4A5568] py-6" data-list-load-error="contracts">
             {listSectionLoadError('contracts')}
             {' '}
-            <button type="button" className="ops-link" onClick={() => { void refetch(); }}>Retry</button>
+            <button type="button" className="ops-link inline-flex items-center min-h-[44px] px-2" onClick={() => { void refetch(); }}>Retry</button>
           </p>
         ) : busy ? (
           <SkeletonRow />

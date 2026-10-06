@@ -2989,9 +2989,10 @@ export function JobDetailPage() {
                     action={row.retry ? (
                       <button
                         type="button"
-                        className="ops-link"
+                        className="ops-link inline-flex items-center min-h-[44px] px-2"
                         data-overview-retry={row.section}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (row.section === 'job-swms') {
                             if (jhasError) void refetchJhas();
                             void refetchTake5s();

@@ -153,4 +153,35 @@ describe('list loading truth', () => {
     expect(drive).toContain("listSectionLoadError('folders')");
     expect(drive).toContain("listSectionLoadError('uploads')");
   });
+
+  it('inline Retry hit areas are 44px without changing global ops-link', () => {
+    const hit = 'inline-flex items-center min-h-[44px] px-2';
+    const overview = src('src/pages/JobDetailPage.tsx');
+    const overviewRetry = overview.slice(
+      overview.indexOf('action={row.retry'),
+      overview.indexOf('</button>', overview.indexOf('action={row.retry')),
+    );
+    expect(overviewRetry).toContain(hit);
+    expect(overviewRetry).toContain('data-overview-retry');
+    expect(overviewRetry).toContain('stopPropagation');
+
+    const contracts = src('src/pages/ContractsPage.tsx');
+    const contractsRetry = contracts.slice(
+      contracts.indexOf('data-list-load-error="contracts"'),
+      contracts.indexOf('</button>', contracts.indexOf('data-list-load-error="contracts"')),
+    );
+    expect(contractsRetry).toContain(hit);
+
+    const tray = src('src/components/jobs/JobRelatedSection.tsx');
+    const trayRetry = tray.slice(
+      tray.indexOf('export function ListSectionLoadError'),
+      tray.indexOf('export function JobRelatedSection'),
+    );
+    expect(trayRetry).toContain(hit);
+    expect(trayRetry).toContain('onClick={onRetry}');
+
+    const css = src('src/index.css');
+    const opsLink = css.slice(css.indexOf('  .ops-link {'), css.indexOf('}', css.indexOf('  .ops-link {')));
+    expect(opsLink).not.toContain('min-h-[44px]');
+  });
 });
