@@ -5,14 +5,20 @@ import type { ReactNode } from 'react';
 
 type ToastType = 'success' | 'error' | 'info';
 
+export type ToastAction = {
+  label: string;
+  onClick: () => void;
+};
+
 interface Toast {
   id: number;
   type: ToastType;
   message: string;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  showToast: (message: string, type?: ToastType) => void;
+  showToast: (message: string, type?: ToastType, action?: ToastAction) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -32,12 +38,12 @@ const TOAST_STYLES: Record<ToastType, { bg: string; icon: typeof CheckCircle2; i
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const showToast = useCallback((message: string, type: ToastType = 'success') => {
+  const showToast = useCallback((message: string, type: ToastType = 'success', action?: ToastAction) => {
     const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, type, message }]);
+    setToasts(prev => [...prev, { id, type, message, action }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3500);
+    }, action ? 8000 : 3500);
   }, []);
 
   return (
@@ -55,6 +61,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               >
                 <Icon size={18} className={s.iconColor} shrink-0 />
                 <p className="text-sm text-[#1A1A1A] flex-1">{toast.message}</p>
+                {toast.action ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toast.action?.onClick();
+                      setToasts(prev => prev.filter(t => t.id !== toast.id));
+                    }}
+                    className="text-sm font-semibold text-[#2E75B6] hover:text-[#0A2540] shrink-0 min-h-[44px] px-2"
+                  >
+                    {toast.action.label}
+                  </button>
+                ) : null}
                 <button
                   onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
                   className="text-[#9CA3AF] hover:text-[#1A1A1A] transition-colors shrink-0"

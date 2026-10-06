@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { entryMinutes } from './timesheetJob';
 import type { ExpenseCostModel } from '../types/fsm';
@@ -265,6 +266,47 @@ export function formatUnbilledCueButtonLabel(hours: number): string {
   return `${formatLabourHoursOneDecimal(hours)} unbilled hours · Add as labour`;
 }
 
+export function formatLabourPickerTitle(hours: number): string {
+  return `Which rate for these ${formatLabourHoursOneDecimal(hours)} hours?`;
+}
+
+export const jobBillHoursQueryKeys = {
+  entries: (jobId: string) => ['job-timesheet-entries-bill', jobId] as const,
+  billed: (jobId: string) => ['job-billed-timesheet-ids', jobId] as const,
+};
+
+export function invalidateJobBillHoursQueries(queryClient: QueryClient, jobId: string): void {
+  void queryClient.invalidateQueries({ queryKey: jobBillHoursQueryKeys.billed(jobId) });
+  void queryClient.invalidateQueries({ queryKey: jobBillHoursQueryKeys.entries(jobId) });
+}
+
+export function zeroLabourInvoiceConfirmMessage(count: number): string {
+  if (count <= 0) return '';
+  if (count === 1) return '1 labour line has no rate and will show $0.';
+  return `${count} labour lines have no rate and will show $0.`;
+}
+
+export function countZeroLabourExposure(args: {
+  jobId: string;
+  costs: Array<{ charge_type?: string | null; unit_price?: number | string | null }>;
+  entries: TimesheetEntryForBill[];
+  billedEntryIds: ReadonlySet<string>;
+  labourContext: LabourBillContext;
+  employeeIdByTimesheetId: Record<string, string>;
+}): number {
+  let count = args.costs.filter(c => lineNeedsLabourRate(c)).length;
+  for (const entry of closedBillableEntries(args.entries)) {
+    if (entry.job_id !== args.jobId) continue;
+    if (args.billedEntryIds.has(entry.id)) continue;
+    if (entryMinutes(entry.start_time, entry.end_time) <= 0) continue;
+    const employeeId = args.employeeIdByTimesheetId[entry.timesheet_id];
+    const sell = resolveLabourSellForEmployee(employeeId, args.labourContext);
+    const unitPrice = sell.needsRate || sell.needsPicker ? 0 : sell.unitPrice;
+    if (unitPrice <= 0) count += 1;
+  }
+  return count;
+}
+
 export function labourPullToastMessage(hours: number): string {
   return `Added ${formatLabourHoursOneDecimal(hours)} h labour from logged time`;
 }
@@ -454,12 +496,27 @@ export type PullUnbilledHoursResult = {
   pickerItems: PriceBookItemForLabour[];
 };
 
-export async function pullUnbilledHoursToJobBill(client: SupabaseClient, input: {
-  jobId: string;
-  companyId: string;
-  profileId: string;
-  pickedPriceBookItemId?: string | null;
-}): Promise<PullUnbilledHoursResult> {
+export type UnbilledLabourPullPlan = {
+  entries: TimesheetEntryForBill[];
+  billedEntryIds: Set<string>;
+  columnMissing: boolean;
+  employeeIdByTimesheetId: Record<string, string>;
+  labourContext: LabourBillContext;
+  costModels: ExpenseCostModel[];
+  profileRows: Array<{ id: string; expense_cost_model_id?: string | null }>;
+  planned: JobCostFromHoursInsert[];
+  pickerCheck: { needsPicker: boolean; pickerItems: PriceBookItemForLabour[] };
+};
+
+export async function loadUnbilledLabourPullPlan(
+  client: SupabaseClient,
+  input: {
+    jobId: string;
+    companyId: string;
+    profileId: string;
+    pickedPriceBookItemId?: string | null;
+  },
+): Promise<UnbilledLabourPullPlan> {
   const { data: entries, error: entErr } = await client
     .from('timesheet_entries')
     .select('id, job_id, timesheet_id, start_time, end_time, billable, work_type, notes')
@@ -516,26 +573,17 @@ export async function pullUnbilledHoursToJobBill(client: SupabaseClient, input: 
     pickedPriceBookItemId: input.pickedPriceBookItemId ?? null,
   };
 
+  const entryRows = (entries ?? []) as TimesheetEntryForBill[];
   const pickerCheck = pullWouldNeedLabourPicker(
-    (entries ?? []) as TimesheetEntryForBill[],
+    entryRows,
     billedEntryIds,
     input.jobId,
     employeeIdByTimesheetId,
     labourContext,
   );
-  if (pickerCheck.needsPicker && !input.pickedPriceBookItemId) {
-    return {
-      inserted: 0,
-      hours: 0,
-      columnMissing,
-      toast: null,
-      needsPicker: true,
-      pickerItems: pickerCheck.pickerItems,
-    };
-  }
 
   const planned = planJobCostsFromTimesheetEntries({
-    entries: (entries ?? []) as TimesheetEntryForBill[],
+    entries: entryRows,
     billedEntryIds,
     companyId: input.companyId,
     jobId: input.jobId,
@@ -546,6 +594,67 @@ export async function pullUnbilledHoursToJobBill(client: SupabaseClient, input: 
     labourContext,
     includeTimesheetLink: !columnMissing,
   });
+
+  return {
+    entries: entryRows,
+    billedEntryIds,
+    columnMissing,
+    employeeIdByTimesheetId,
+    labourContext,
+    costModels,
+    profileRows: profileRows as Array<{ id: string; expense_cost_model_id?: string | null }>,
+    planned,
+    pickerCheck,
+  };
+}
+
+export async function countZeroLabourLinesForJobBillInvoice(
+  client: SupabaseClient,
+  input: {
+    jobId: string;
+    companyId: string;
+    profileId: string;
+    pickedPriceBookItemId?: string | null;
+  },
+): Promise<number> {
+  const plan = await loadUnbilledLabourPullPlan(client, input);
+  const { data: costs, error } = await client
+    .from('job_costs')
+    .select('charge_type, unit_price')
+    .eq('job_id', input.jobId);
+  if (error) throw error;
+  return countZeroLabourExposure({
+    jobId: input.jobId,
+    costs: costs ?? [],
+    entries: plan.entries,
+    billedEntryIds: plan.billedEntryIds,
+    labourContext: plan.labourContext,
+    employeeIdByTimesheetId: plan.employeeIdByTimesheetId,
+  });
+}
+
+export async function pullUnbilledHoursToJobBill(client: SupabaseClient, input: {
+  jobId: string;
+  companyId: string;
+  profileId: string;
+  pickedPriceBookItemId?: string | null;
+}): Promise<PullUnbilledHoursResult> {
+  const {
+    columnMissing,
+    planned,
+    pickerCheck,
+  } = await loadUnbilledLabourPullPlan(client, input);
+
+  if (pickerCheck.needsPicker && !input.pickedPriceBookItemId) {
+    return {
+      inserted: 0,
+      hours: 0,
+      columnMissing,
+      toast: null,
+      needsPicker: true,
+      pickerItems: pickerCheck.pickerItems,
+    };
+  }
 
   if (planned.length === 0) {
     return {

@@ -427,7 +427,7 @@ export function LineItemEditor({
                   <span className="hub-quote-check-price">{QUICK_QUOTE_CHECK_PRICE}</span>
                 ) : null}
                 {lineNeedsLabourRate(li) ? (
-                  <Link to="/settings/company" className="hub-invoice-labour-add-rate">Add a rate</Link>
+                  <Link to="/settings/company" className="hub-invoice-labour-add-rate">No rate · Add a rate</Link>
                 ) : null}
               </div>
               <div className="hub-line-editor-qty min-w-0">

@@ -8,6 +8,7 @@ export const JOB_BILL_INVOICE_NO_CLIENT = 'Assign a client before invoicing this
 export const JOB_BILL_INVOICE_NO_LINES = 'Add bill lines before invoicing this job';
 export const JOB_BILL_INVOICE_EMPTY = 'Job bill is empty — add lines before invoicing';
 export const JOB_BILL_INVOICE_CREATED = 'Draft invoice created from this job bill';
+export const JOB_BILL_INVOICE_READY_TOAST = 'Invoice ready — see Invoices on this job';
 export const JOB_BILL_INVOICE_EXISTS = 'Invoice already exists for this job';
 export const JOB_BILL_INVOICE_NOTES = 'From job bill';
 /** Job-bill due is issue date + 7 days so unpaid hit the existing Overdue tab. */

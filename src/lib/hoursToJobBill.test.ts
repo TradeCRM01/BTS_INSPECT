@@ -7,7 +7,9 @@ import {
   closedBillableEntries,
   formatUnbilledCueButtonLabel,
   formatUnbilledHoursLabel,
+  formatLabourPickerTitle,
   labourLineDescription,
+  zeroLabourInvoiceConfirmMessage,
   lineNeedsLabourRate,
   planJobCostsFromTimesheetEntries,
   pullWouldNeedLabourPicker,
@@ -28,6 +30,19 @@ describe('price_book_items select columns', () => {
 const labour = { id: 'pb-1', category: 'Labour', unit_price: 95, is_active: true };
 const labourB = { id: 'pb-2', category: 'Labour', unit_price: 110, is_active: true };
 const labourUs = { id: 'pb-3', category: 'Labor', unit_price: 88, is_active: true };
+
+describe('zero labour confirm copy', () => {
+  it('pluralises for 2+ lines', () => {
+    expect(zeroLabourInvoiceConfirmMessage(1)).toBe('1 labour line has no rate and will show $0.');
+    expect(zeroLabourInvoiceConfirmMessage(2)).toBe('2 labour lines have no rate and will show $0.');
+  });
+});
+
+describe('labour picker title', () => {
+  it('uses one decimal hours', () => {
+    expect(formatLabourPickerTitle(2)).toBe('Which rate for these 2.0 hours?');
+  });
+});
 
 describe('resolveLabourSell', () => {
   it('uses staff rate when profile field exists', () => {
@@ -250,6 +265,54 @@ describe('job cost from timesheet', () => {
       labourContext,
       includeTimesheetLink: true,
     })).toHaveLength(0);
+  });
+
+  it('order (a): after bill pull links entry, unbilled cue drops to zero', () => {
+    const entry = {
+      id: 'e1',
+      job_id: 'j1',
+      timesheet_id: 't1',
+      start_time: '2026-10-06T00:00:00.000Z',
+      end_time: '2026-10-06T01:00:00.000Z',
+      billable: true,
+      work_type: 'Labour',
+      notes: null,
+    };
+    expect(unbilledHoursSummary([entry], new Set())).toMatchObject({ hours: 1, entryCount: 1 });
+    expect(unbilledHoursSummary([entry], new Set(['e1']))).toEqual({ hours: 0, entryCount: 0 });
+  });
+
+  it('order (b): invoice auto-pull then manual pull cannot re-bill the same entry', () => {
+    const labourContext = {
+      staffRatesByProfileId: {},
+      companyDefaultLabourRate: 95,
+      labourPriceBookItems: [],
+      pickedPriceBookItemId: null,
+    };
+    const entry = {
+      id: 'e1',
+      job_id: 'j1',
+      timesheet_id: 't1',
+      start_time: '2026-10-06T00:00:00.000Z',
+      end_time: '2026-10-06T02:00:00.000Z',
+      billable: true,
+      work_type: 'Labour',
+      notes: null,
+    };
+    const billedAfterInvoicePull = new Set(['e1']);
+    expect(planJobCostsFromTimesheetEntries({
+      entries: [entry],
+      billedEntryIds: billedAfterInvoicePull,
+      companyId: 'co',
+      jobId: 'j1',
+      createdBy: 'u1',
+      employeeIdByTimesheetId: { t1: 'emp1' },
+      profileRows: [{ id: 'emp1' }],
+      costModels: [],
+      labourContext,
+      includeTimesheetLink: true,
+    })).toHaveLength(0);
+    expect(unbilledHoursSummary([entry], billedAfterInvoicePull)).toEqual({ hours: 0, entryCount: 0 });
   });
 
   it('pullWouldNeedLabourPicker when two labour items and no pick', () => {

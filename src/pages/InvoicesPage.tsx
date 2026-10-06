@@ -1352,7 +1352,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                       <td>
                         {li.description}
                         {lineNeedsLabourRate({ charge_type: li.charge_type, unit_price: unit }) ? (
-                          <Link to="/settings/company" className="hub-invoice-labour-add-rate">Add a rate</Link>
+                          <Link to="/settings/company" className="hub-invoice-labour-add-rate">No rate · Add a rate</Link>
                         ) : null}
                       </td>
                       <td className="hub-invoice-num">{qty}</td>
