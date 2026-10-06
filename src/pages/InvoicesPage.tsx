@@ -694,7 +694,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const [importing, setImporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(searchParams.get('print') === '1');
-  const [showEdit, setShowEdit] = useState(false);
+  const [showEdit, setShowEdit] = useState(!invoice);
   const [showPayment, setShowPayment] = useState(false);
   const moreRef = useRef<HTMLDetailsElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -1062,7 +1062,8 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     setSavedId(data.id as string);
     const paidToast = await finishPaid(data.id as string);
     setSaving(false);
-    onSaved({ close: opts?.close ?? true, message: paidToast ?? opts?.message ?? 'Invoice created' });
+    setShowEdit(false);
+    onSaved({ close: false, message: paidToast ?? opts?.message ?? 'Invoice created' });
     return data.id as string;
   };
 
