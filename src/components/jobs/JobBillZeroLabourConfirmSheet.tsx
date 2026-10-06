@@ -21,6 +21,7 @@ export function JobBillZeroLabourConfirmSheet({
     <AppDialog
       open={open}
       onClose={onClose}
+      className="hub-labour-rate-backdrop"
       panelClassName="overlay-panel-sm hub-labour-rate-sheet hub-job-bill-zero-labour-sheet"
       backdropClose
       swipeDownClose
@@ -32,10 +33,10 @@ export function JobBillZeroLabourConfirmSheet({
         </button>
       </div>
       <div className="hub-job-bill-zero-labour-body">
-        <div className="hub-invoice-send-company-nudge hub-job-bill-zero-labour-nudge" role="status">
+        <div className="hub-job-bill-zero-labour-nudge" role="status">
           <div className="hub-job-bill-zero-labour-nudge-row">
             <AlertTriangle size={20} className="hub-job-bill-zero-labour-icon" aria-hidden />
-            <p className="hub-invoice-send-company-nudge-text">{message}</p>
+            <p className="hub-job-bill-zero-labour-message">{message}</p>
           </div>
           <div className="hub-job-bill-zero-labour-actions">
             <Link

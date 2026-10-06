@@ -21,6 +21,7 @@ export function LabourRatePickerSheet({
       open={open}
       onClose={onClose}
       title={formatLabourPickerTitle(hours)}
+      className="hub-labour-rate-backdrop"
       panelClassName="overlay-panel-sm hub-labour-rate-sheet"
       backdropClose
       swipeDownClose

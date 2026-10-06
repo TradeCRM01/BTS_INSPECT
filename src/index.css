@@ -4772,6 +4772,23 @@
     opacity: 0.6;
   }
 
+  @media (max-width: 639px) {
+    .overlay-backdrop.hub-labour-rate-backdrop {
+      align-items: flex-end !important;
+      justify-content: center;
+    }
+
+    .overlay-backdrop.hub-labour-rate-backdrop .hub-labour-rate-sheet {
+      flex: 0 0 auto;
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      max-height: min(92vh, 640px) !important;
+      min-height: 0 !important;
+      border-radius: 16px 16px 0 0;
+    }
+  }
+
   .hub-labour-rate-sheet {
     background: var(--ops-cream, #f5f0e6) !important;
     color: var(--ops-navy, #0a2540);
@@ -4852,8 +4869,16 @@
   }
 
   .hub-job-bill-zero-labour-nudge {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
     width: 100%;
     gap: 12px;
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--invoice-warn) 35%, #e2d9cc);
+    background: color-mix(in srgb, var(--invoice-warn) 12%, #fff);
   }
 
   .hub-job-bill-zero-labour-nudge-row {
@@ -4866,6 +4891,16 @@
     flex-shrink: 0;
     margin-top: 2px;
     color: var(--invoice-warn);
+  }
+
+  .hub-job-bill-zero-labour-message {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.45;
+    color: var(--ops-navy, #0a2540);
   }
 
   .hub-job-bill-zero-labour-actions {
@@ -4911,41 +4946,64 @@
     font-weight: 600;
   }
 
+  #job-bill .job-bill-line-desc,
   .job-bill-line-desc {
-    min-width: 0;
-    max-width: 12rem;
+    min-width: 9.25rem;
+    max-width: 11rem;
+    vertical-align: top;
+  }
+
+  @media (max-width: 639px) {
+    #job-bill .job-bill-line-desc {
+      min-width: 9.75rem;
+      max-width: 10.75rem;
+    }
   }
 
   .job-bill-line-desc-text {
     display: block;
+    line-height: 1.35;
   }
 
+  .job-bill-no-rate-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin-top: 6px;
+  }
+
+  .job-bill-no-rate-flag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--invoice-warn) 35%, #e2d9cc);
+    background: color-mix(in srgb, var(--invoice-warn) 12%, #fff);
+    color: var(--invoice-warn);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .job-bill-add-rate-link,
   .job-bill-add-rate,
   .hub-invoice-labour-add-rate {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
-    margin-left: 8px;
-    padding: 0 4px;
+    margin-left: 0;
+    padding: 0 2px;
     font-weight: 600;
     color: var(--invoice-warn);
-    font-size: 12px;
+    font-size: 14px;
     text-decoration: underline;
-    text-underline-offset: 2px;
-    white-space: nowrap;
-  }
-
-  .job-bill-add-rate--stacked,
-  .hub-invoice-labour-add-rate--stacked {
-    display: flex;
-    margin: 4px 0 0;
-    padding: 0;
-    white-space: normal;
-    text-align: left;
-    line-height: 1.35;
+    text-underline-offset: 3px;
   }
 
   .hub-invoice-lines .job-bill-line-desc {
+    min-width: 9rem;
     max-width: none;
   }
 

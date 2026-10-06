@@ -559,7 +559,10 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                 <td className="px-3 py-2 text-[#1A1A1A] job-bill-line-desc">
                   <span className="job-bill-line-desc-text">{c.description || c.charge_type || '—'}</span>
                   {lineNeedsLabourRate(c) ? (
-                    <Link to="/settings/company" className="job-bill-add-rate job-bill-add-rate--stacked">No rate · Add a rate</Link>
+                    <span className="job-bill-no-rate-stack">
+                      <span className="job-bill-no-rate-flag">No rate</span>
+                      <Link to="/settings/company" className="job-bill-add-rate-link">Add a rate</Link>
+                    </span>
                   ) : null}
                 </td>
                 <td className="px-3 py-2 text-right text-[#4A5568]">{c.quantity}</td>
