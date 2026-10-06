@@ -304,7 +304,7 @@ export interface JobCost {
 
 export const COST_TYPE_LABELS: Record<CostType, string> = {
   materials: 'Materials',
-  labor: 'Labor',
+  labor: 'Labour',
   other: 'Other',
 };
 

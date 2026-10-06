@@ -1349,10 +1349,10 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                   const unit = parseFloat(li.unit_price) || 0;
                   return (
                     <tr key={`${li.description}-${idx}`}>
-                      <td>
-                        {li.description}
+                      <td className="job-bill-line-desc">
+                        <span className="job-bill-line-desc-text">{li.description}</span>
                         {lineNeedsLabourRate({ charge_type: li.charge_type, unit_price: unit }) ? (
-                          <Link to="/settings/company" className="hub-invoice-labour-add-rate">No rate · Add a rate</Link>
+                          <Link to="/settings/company" className="hub-invoice-labour-add-rate hub-invoice-labour-add-rate--stacked">No rate · Add a rate</Link>
                         ) : null}
                       </td>
                       <td className="hub-invoice-num">{qty}</td>

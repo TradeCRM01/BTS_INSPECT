@@ -4847,26 +4847,77 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .job-bill-zero-labour-confirm {
-    padding: 16px;
-    border-radius: 12px;
-    border: 1px solid color-mix(in srgb, var(--invoice-warn) 35%, #e2d9cc);
-    background: color-mix(in srgb, var(--invoice-warn) 10%, #fffdf8);
+  .hub-job-bill-zero-labour-body {
+    padding: 8px 12px 16px;
+  }
+
+  .hub-job-bill-zero-labour-nudge {
+    width: 100%;
+    gap: 12px;
+  }
+
+  .hub-job-bill-zero-labour-nudge-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .hub-job-bill-zero-labour-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
     color: var(--invoice-warn);
   }
 
-  .job-bill-zero-labour-confirm p {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 500;
+  .hub-job-bill-zero-labour-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
   }
 
-  .job-bill-zero-labour-confirm-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 12px;
-    justify-content: flex-end;
+  @media (min-width: 480px) {
+    .hub-job-bill-zero-labour-actions {
+      flex-direction: row;
+      justify-content: flex-end;
+    }
+  }
+
+  .hub-job-bill-zero-labour-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 12px;
+    border: none;
+    background: var(--ops-navy, #0a2540);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .hub-job-bill-zero-labour-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 12px;
+    border: 1px solid var(--ops-navy, #0a2540);
+    background: var(--mkt-sheet, #fffdf8);
+    color: var(--ops-navy, #0a2540);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .job-bill-line-desc {
+    min-width: 0;
+    max-width: 12rem;
+  }
+
+  .job-bill-line-desc-text {
+    display: block;
   }
 
   .job-bill-add-rate,
@@ -4879,10 +4930,23 @@
     font-weight: 600;
     color: var(--invoice-warn);
     font-size: 12px;
-    font-weight: 600;
     text-decoration: underline;
     text-underline-offset: 2px;
     white-space: nowrap;
+  }
+
+  .job-bill-add-rate--stacked,
+  .hub-invoice-labour-add-rate--stacked {
+    display: flex;
+    margin: 4px 0 0;
+    padding: 0;
+    white-space: normal;
+    text-align: left;
+    line-height: 1.35;
+  }
+
+  .hub-invoice-lines .job-bill-line-desc {
+    max-width: none;
   }
 
   .job-time-chip {
