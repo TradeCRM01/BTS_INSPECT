@@ -33,6 +33,14 @@ describe('Timesheets page floor wiring', () => {
     expect(list).not.toContain('status: \'open\' }).eq(\'id\', existing.id)');
   });
 
+  it('keeps /timesheets routable but hides Timesheets from AppShell nav until v2', () => {
+    const shell = src('src/components/layout/AppShell.tsx');
+    const financials = shell.slice(shell.indexOf("label: 'Financials'"), shell.indexOf("label: 'Inventory'"));
+    expect(financials).not.toContain("/timesheets");
+    expect(financials).not.toContain("label: 'Timesheets'");
+    expect(app).toContain('<Route path="/timesheets"');
+  });
+
   it('does not add a timesheet route, payroll product, or spreadsheet export', () => {
     expect(app).toContain('<Route path="/timesheets"');
     expect(app).not.toContain('path="/timesheets/:');
