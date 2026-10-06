@@ -2,8 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  COMPANY_INVOICE_SHARE_NUDGE_ABN,
+  COMPANY_INVOICE_SHARE_NUDGE_BANK,
+  COMPANY_INVOICE_SHARE_NUDGE_BOTH,
   COMPANY_SETTINGS_HREF,
+  companyInvoiceShareNudgeMessage,
   companyInvoiceShareSetupIncomplete,
+  companyInvoiceShareSetupMiss,
   companyHasPrintablePaymentMethod,
 } from './companyPaymentMethods';
 import { commercialPdfDataForInvoice } from './sendInvoice';
@@ -72,18 +77,26 @@ describe('MONEY-1 company share setup nudge', () => {
     expect(companyHasPrintablePaymentMethod(notesOnly)).toBe(true);
   });
 
-  it('surfaces nudge copy on invoice Send / Copy link', () => {
-    const invoiceSend = src('src/components/invoicing/InvoiceSendDialog.tsx');
+  it('uses amber nudge copy for both, ABN-only, and bank-only misses', () => {
+    expect(companyInvoiceShareSetupMiss(null, [])).toBe('both');
+    expect(companyInvoiceShareNudgeMessage('both')).toBe(COMPANY_INVOICE_SHARE_NUDGE_BOTH);
+    expect(companyInvoiceShareSetupMiss(abn, [])).toBe('bank');
+    expect(companyInvoiceShareNudgeMessage('bank')).toBe(COMPANY_INVOICE_SHARE_NUDGE_BANK);
+    expect(companyInvoiceShareSetupMiss(null, bank)).toBe('abn');
+    expect(companyInvoiceShareNudgeMessage('abn')).toBe(COMPANY_INVOICE_SHARE_NUDGE_ABN);
+    expect(companyInvoiceShareSetupMiss(abn, bank)).toBeNull();
+    expect(companyInvoiceShareNudgeMessage(null)).toBeNull();
+
     const nudge = src('src/components/invoicing/DocumentShareCompanySetupNudge.tsx');
-    expect(nudge).toContain('Add your ABN and bank details in');
-    expect(nudge).toContain('Company Settings');
-    expect(nudge).toContain('first.');
-    expect(nudge).toContain('hub-invoice-send-company-nudge-link');
-    expect(nudge).toContain('COMPANY_SETTINGS_HREF');
+    expect(nudge).toContain('hub-invoice-send-company-nudge');
+    expect(nudge).toContain('hub-invoice-send-company-nudge-action');
+    expect(nudge).toContain('Add in Settings');
+    expect(nudge).toContain('companyInvoiceShareNudgeMessage');
     expect(COMPANY_SETTINGS_HREF).toBe('/settings/company');
+
+    const invoiceSend = src('src/components/invoicing/InvoiceSendDialog.tsx');
     expect(invoiceSend).toContain('DocumentShareCompanySetupNudge');
-    expect(invoiceSend).toContain('companyInvoiceShareSetupIncomplete');
-    expect(invoiceSend).toContain('showShare && companySetupNudge');
+    expect(invoiceSend).toContain('hub-invoice-send-portal-url');
   });
 });
 
@@ -93,6 +106,17 @@ describe('MONEY-1 portal invoice due date', () => {
     expect(portal).toContain('inv.due_date');
     expect(portal).toContain("portalStatusKey(inv.status) !== 'paid'");
     expect(portal).toContain("Due {format(parseISO(inv.due_date), 'd MMM yyyy')}");
+  });
+});
+
+describe('MONEY-1 portal how to pay', () => {
+  it('shows How to pay per unpaid invoice and hides on paid', () => {
+    const portal = src('src/pages/ClientPortalPublicPage.tsx');
+    expect(portal).toContain('companyPaymentMethodsCompleteForDocument');
+    expect(portal).toContain('portalInvoiceShowsHowToPay');
+    expect(portal).toContain('portal-invoice-pay');
+    expect(portal).toContain('as the payment reference');
+    expect(portal).toContain("return key !== 'paid'");
   });
 });
 

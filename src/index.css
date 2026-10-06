@@ -4443,6 +4443,7 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    min-width: 0;
   }
 
   .hub-invoice-send-body > .hub-invoice-err {
@@ -4719,13 +4720,27 @@
   }
 
   .hub-invoice-send-company-nudge {
-    font-size: 14px;
-    font-weight: 500;
-    color: #5B6B7C;
     margin: 0;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--invoice-warn) 35%, #E2D9CC);
+    background: color-mix(in srgb, var(--invoice-warn) 12%, #fff);
+    color: var(--invoice-warn);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
   }
 
-  .hub-invoice-send-company-nudge-link {
+  .hub-invoice-send-company-nudge-text {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.45;
+    color: var(--invoice-warn);
+  }
+
+  .hub-invoice-send-company-nudge-action {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
@@ -4733,9 +4748,23 @@
     margin: 0 -4px;
     white-space: nowrap;
     color: #2E75B6;
+    font-size: 14px;
     font-weight: 600;
     text-decoration: underline;
     text-underline-offset: 2px;
+  }
+
+  .hub-invoice-send-field {
+    min-width: 0;
+  }
+
+  .hub-invoice-send-portal-url {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-all;
+    overflow-wrap: anywhere;
   }
 
   .hub-invoice-editor .hub-invoice-send-xero-miss {
@@ -8662,7 +8691,8 @@
 
   .hub-share-manual {
     margin: 0 0 16px;
-    max-width: 390px;
+    max-width: min(100%, 390px);
+    min-width: 0;
   }
 
   .hub-share-manual-label {
@@ -8676,7 +8706,7 @@
     display: block;
     box-sizing: border-box;
     width: 100%;
-    max-width: 390px;
+    max-width: min(100%, 390px);
     min-height: 96px;
     height: auto;
     field-sizing: content;
@@ -16258,6 +16288,22 @@
 #client-portal .portal-row:last-child,
 #client-portal .portal-quote:last-child {
   border-bottom: none;
+}
+
+#client-portal .portal-invoice-block {
+  border-bottom: 1px solid var(--portal-line);
+}
+
+#client-portal .portal-invoice-block:last-of-type {
+  border-bottom: none;
+}
+
+#client-portal .portal-invoice-pay {
+  padding: 0 0 16px;
+}
+
+#client-portal .portal-invoice-pay .portal-kicker {
+  margin: 0 0 6px;
 }
 
 #client-portal .portal-invoice-payment {

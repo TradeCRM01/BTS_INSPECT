@@ -548,7 +548,7 @@ export function InvoiceSendDialog({
                 {copy?.kind === 'manual' ? (
                   <DocumentShareManualLink url={copy.text} />
                 ) : (
-                  <p className="hub-invoice-send-value">
+                  <p className="hub-invoice-send-value hub-invoice-send-portal-url">
                     {copy?.kind === 'copied'
                       ? isChase ? 'Payment reminder copied.' : 'Portal link copied.'
                       : share.portalUrl || 'Copy link creates one the client can open.'}
@@ -658,7 +658,12 @@ export function InvoiceSendDialog({
           {err && !ready && blockerMessage && err !== blockerMessage && (
             <p className="hub-invoice-err">{err}</p>
           )}
-          {showShare && companySetupNudge ? <DocumentShareCompanySetupNudge /> : null}
+          {showShare && companySetupNudge ? (
+            <DocumentShareCompanySetupNudge
+              abn={company.abn}
+              paymentMethods={company.payment_methods}
+            />
+          ) : null}
         </div>
 
         <div className="hub-invoice-send-foot">
