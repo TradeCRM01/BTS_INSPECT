@@ -8399,9 +8399,12 @@
 
   .hub-share-manual-link {
     display: block;
+    box-sizing: border-box;
     width: 100%;
     max-width: 390px;
-    min-height: 72px;
+    min-height: 96px;
+    height: auto;
+    field-sizing: content;
     padding: 12px;
     background: #FFFDF8;
     border: 1px solid #E2D9CC;
@@ -8410,6 +8413,7 @@
     font-size: 14px;
     line-height: 1.4;
     resize: none;
+    overflow: hidden;
     word-break: break-all;
     overflow-wrap: anywhere;
   }

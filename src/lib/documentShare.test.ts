@@ -108,6 +108,9 @@ describe('decideQuoteShare', () => {
     expect(documentShareManualCopyToast('quote', true)).toBe(QUOTE_MANUAL_COPY_TOAST);
     expect(documentShareManualCopyToast('quote', false)).toBeNull();
     expect(documentShareManualCopyToast('invoice', true)).toBe(INVOICE_MANUAL_COPY_TOAST);
+    expect(documentShareCopyErrorToast(new Error('Pick a client before you can copy a portal link.')))
+      .toBe('Pick a client before you can copy a portal link.');
+    expect(documentShareCopyErrorToast({ message: 'JWT expired' })).toBe('Could not copy the link.');
   });
 
   it('builds mailto once the portal URL and client email exist', () => {

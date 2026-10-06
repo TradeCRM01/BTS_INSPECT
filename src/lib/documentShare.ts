@@ -155,7 +155,6 @@ export const QUOTE_SHARE_MARKED_SENT_TOAST = 'Link copied, quote marked as sent'
 export const INVOICE_SHARE_MARKED_SENT_TOAST = 'Link copied, invoice marked as sent';
 
 export const QUOTE_MARKED_SENT_TOAST = 'Quote marked as sent';
-export const MARK_SENT_WRITE_FAILED = 'Could not mark this as sent.';
 export const MARK_SENT_COPY_BLOCKED_TOAST = "Couldn't mark as sent, so the link wasn't copied. Try again.";
 export const QUOTE_MANUAL_COPY_TOAST = 'Quote marked as sent. Copy the link below.';
 export const INVOICE_MANUAL_COPY_TOAST = 'Invoice marked as sent. Copy the link below.';
@@ -178,9 +177,12 @@ export function isMarkSentWriteFailed(error: unknown): boolean {
 }
 
 export function documentShareCopyErrorToast(error: unknown): string {
-  return isMarkSentWriteFailed(error)
-    ? MARK_SENT_COPY_BLOCKED_TOAST
-    : 'Could not copy the link.';
+  if (isMarkSentWriteFailed(error)) return MARK_SENT_COPY_BLOCKED_TOAST;
+  if (error instanceof Error) {
+    const message = error.message.trim();
+    if (message) return message;
+  }
+  return 'Could not copy the link.';
 }
 
 export function documentShareCopyToast(kind: DocumentShareKind, markedSent: boolean): string {

@@ -149,6 +149,12 @@ describe('P-TRUTH — share marks sent, portal hides drafts', () => {
     expect(supabaseShaped instanceof Error).toBe(false);
     expect(isMarkSentWriteFailed(supabaseShaped)).toBe(false);
     expect(documentShareCopyErrorToast(supabaseShaped)).toBe('Could not copy the link.');
+    expect(documentShareCopyErrorToast(new Error('Pick a client before you can copy a portal link.')))
+      .toBe('Pick a client before you can copy a portal link.');
+    expect(documentShareCopyErrorToast(new Error('Save the quote before you copy a link.')))
+      .toBe('Save the quote before you copy a link.');
+    expect(documentShareCopyErrorToast(new Error('Could not build the portal link.')))
+      .toBe('Could not build the portal link.');
     expect(documentShareCopyErrorToast({ kind: 'mark_sent_write_failed' }))
       .toBe("Couldn't mark as sent, so the link wasn't copied. Try again.");
     expect(MARK_SENT_COPY_BLOCKED_TOAST).toBe(
@@ -192,16 +198,21 @@ describe('P-TRUTH — share marks sent, portal hides drafts', () => {
     expect(INVOICE_MANUAL_COPY_TOAST).toBe('Invoice marked as sent. Copy the link below.');
 
     expect(src('src/lib/documentShare.ts')).toContain("export const DOCUMENT_SHARE_MANUAL_LABEL = 'Copy this link:';");
+    expect(src('src/lib/documentShare.ts')).not.toContain('export const MARK_SENT_WRITE_FAILED =');
     const box = src('src/components/invoicing/DocumentShareManualLink.tsx');
     expect(box).toContain('DOCUMENT_SHARE_MANUAL_LABEL');
     expect(box).toContain('hub-share-manual-link');
     expect(box).toContain('readOnly');
+    expect(box).toContain('rows={4}');
+    expect(box).toContain('scrollHeight');
     expect(box).toContain('currentTarget.select()');
     expect(box).not.toContain('hub-quote-err');
 
     const css = src('src/index.css');
     const manual = css.slice(css.indexOf('.hub-share-manual-link'), css.indexOf('.hub-quote-err'));
     expect(manual).toContain('max-width: 390px');
+    expect(manual).toContain('min-height: 96px');
+    expect(manual).toContain('overflow: hidden');
     expect(manual).toContain('word-break: break-all');
     expect(manual).toContain('overflow-wrap: anywhere');
     expect(manual).toContain('#FFFDF8');
