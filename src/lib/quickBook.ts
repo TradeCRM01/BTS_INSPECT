@@ -771,6 +771,3 @@ export function transcriptFromSpeechEvent(
   return (last?.[0]?.transcript ?? '').trim();
 }
 
-export function isSpeechPermissionDenied(error: string | undefined): boolean {
-  return error === 'not-allowed' || error === 'service-not-allowed';
-}

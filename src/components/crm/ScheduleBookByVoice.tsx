@@ -2,10 +2,14 @@ import { useRef, useState, type FormEvent } from 'react';
 import { Mic } from 'lucide-react';
 import {
   browserSpeechRecognition,
-  isSpeechPermissionDenied,
   transcriptFromSpeechEvent,
   type QuickBookSpeech,
 } from '../../lib/quickBook';
+import {
+  isActiveSpeechRecognition,
+  speechRecognitionErrorHint,
+  stopSpeechRecognitionByUser,
+} from '../../lib/speechHints';
 
 export type ScheduleVoiceJobPick = {
   id: string;
@@ -28,9 +32,11 @@ export function ScheduleBookByVoice({
 }) {
   const [phrase, setPhrase] = useState('');
   const [listening, setListening] = useState(false);
-  const [micDenied, setMicDenied] = useState(false);
+  const [micHint, setMicHint] = useState<string | null>(null);
   const speechRef = useRef<QuickBookSpeech | null>(null);
   const Speech = browserSpeechRecognition();
+
+  const speechStatus = micHint ?? '';
 
   function applyPhrase(raw: string) {
     const next = raw.trim();
@@ -46,19 +52,25 @@ export function ScheduleBookByVoice({
     rec.interimResults = false;
     rec.continuous = false;
     rec.onresult = ev => {
+      if (!isActiveSpeechRecognition(rec, speechRef)) return;
       const spoken = transcriptFromSpeechEvent(ev);
       if (!spoken) return;
       setPhrase(spoken);
       applyPhrase(spoken);
     };
-    rec.onend = () => setListening(false);
-    rec.onerror = ev => {
+    rec.onend = () => {
+      if (!isActiveSpeechRecognition(rec, speechRef)) return;
       setListening(false);
-      if (isSpeechPermissionDenied(ev?.error)) setMicDenied(true);
+    };
+    rec.onerror = ev => {
+      if (!isActiveSpeechRecognition(rec, speechRef)) return;
+      setListening(false);
+      const hint = speechRecognitionErrorHint(ev?.error);
+      setMicHint(hint);
     };
     speechRef.current = rec;
     setListening(true);
-    setMicDenied(false);
+    setMicHint(null);
     rec.start();
   }
 
@@ -80,7 +92,10 @@ export function ScheduleBookByVoice({
             id="hub-schedule-voice-text"
             className="form-input"
             value={phrase}
-            onChange={e => setPhrase(e.target.value)}
+            onChange={e => {
+              setPhrase(e.target.value);
+              setMicHint(null);
+            }}
             placeholder="Job, day, time, crew"
             aria-label="Type a booking"
             disabled={applying}
@@ -90,9 +105,11 @@ export function ScheduleBookByVoice({
               type="button"
               className={`hub-schedule-voice-mic${listening ? ' is-on' : ''}`}
               aria-label={listening ? 'Stop voice' : 'Speak a booking'}
+              aria-pressed={listening}
               onClick={() => {
                 if (listening) {
-                  speechRef.current?.stop();
+                  setListening(false);
+                  stopSpeechRecognitionByUser(speechRef);
                   return;
                 }
                 startVoice();
@@ -111,11 +128,9 @@ export function ScheduleBookByVoice({
           </button>
         </div>
       </form>
-      {micDenied ? (
-        <p className="hub-schedule-voice-hint">Microphone is blocked. Type the booking instead.</p>
-      ) : !Speech ? (
-        <p className="hub-schedule-voice-hint">Voice isn't available here. Type instead.</p>
-      ) : null}
+      <p className="hub-speech-status hub-schedule-speech-status" role="status">
+        {speechStatus}
+      </p>
       {hintLines.map(line => (
         <p key={line} className="hub-schedule-voice-hint">{line}</p>
       ))}

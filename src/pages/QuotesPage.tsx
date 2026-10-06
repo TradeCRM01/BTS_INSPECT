@@ -102,6 +102,11 @@ import {
 import { QUOTE_STATUS_LABELS, formatMoney } from '../types/fsm';
 import { Plus, FileText, Mail, Phone, User, X, MoreHorizontal, Mic } from 'lucide-react';
 import {
+  isActiveSpeechRecognition,
+  speechRecognitionErrorHint,
+  stopSpeechRecognitionByUser,
+} from '../lib/speechHints';
+import {
   browserSpeechRecognition,
   insertQuickQuoteDraft,
   QUICK_QUOTE_CHECK_PRICE,
@@ -328,6 +333,7 @@ export function QuotesPage() {
   const [quickText, setQuickText] = useState('');
   const [quickBusy, setQuickBusy] = useState(false);
   const [quickListening, setQuickListening] = useState(false);
+  const [quickMicHint, setQuickMicHint] = useState<string | null>(null);
   const quickSpeechRef = useRef<QuickSpeechRecognition | null>(null);
   const sendCompany = quoteSendCompanyFrom(company);
   const Speech = browserSpeechRecognition();
@@ -522,13 +528,22 @@ export function QuotesPage() {
     rec.interimResults = false;
     rec.continuous = false;
     rec.onresult = ev => {
+      if (!isActiveSpeechRecognition(rec, quickSpeechRef)) return;
       const spoken = transcriptFromSpeechEvent(ev);
       if (spoken) setQuickText(current => (current.trim() ? `${current.trim()} ${spoken}` : spoken));
     };
-    rec.onend = () => setQuickListening(false);
-    rec.onerror = () => setQuickListening(false);
+    rec.onend = () => {
+      if (!isActiveSpeechRecognition(rec, quickSpeechRef)) return;
+      setQuickListening(false);
+    };
+    rec.onerror = ev => {
+      if (!isActiveSpeechRecognition(rec, quickSpeechRef)) return;
+      setQuickListening(false);
+      setQuickMicHint(speechRecognitionErrorHint(ev?.error));
+    };
     quickSpeechRef.current = rec;
     setQuickListening(true);
+    setQuickMicHint(null);
     rec.start();
   }
 
@@ -566,31 +581,47 @@ export function QuotesPage() {
             <p className="hub-look-eyebrow hub-quote-kicker">Quotations</p>
             <h1 className="ops-page-title">Quotes</h1>
           </div>
-          <form className="hub-quick-quote" onSubmit={event => void submitQuickQuote(event)}>
-            <label className="hub-quick-quote-label" htmlFor="hub-quick-quote-text">Quick quote</label>
-            <input
-              id="hub-quick-quote-text"
-              value={quickText}
-              onChange={e => setQuickText(e.target.value)}
-              className="form-input"
-              placeholder="e.g. 2 hr labour and 1 call-out for Jane Smith"
-              disabled={quickBusy}
-            />
-            {Speech ? (
-              <button
-                type="button"
-                className={`hub-quick-quote-mic${quickListening ? ' is-on' : ''}`}
-                aria-label="Voice note"
-                onClick={startQuickVoice}
+          <div className="hub-quick-quote-block">
+            <form className="hub-quick-quote" onSubmit={event => void submitQuickQuote(event)}>
+              <label className="hub-quick-quote-label" htmlFor="hub-quick-quote-text">Quick quote</label>
+              <input
+                id="hub-quick-quote-text"
+                value={quickText}
+                onChange={e => {
+                  setQuickText(e.target.value);
+                  setQuickMicHint(null);
+                }}
+                className="form-input"
+                placeholder="e.g. 2 hr labour and 1 call-out for Jane Smith"
                 disabled={quickBusy}
-              >
-                <Mic size={16} />
+              />
+              {Speech ? (
+                <button
+                  type="button"
+                  className={`hub-quick-quote-mic${quickListening ? ' is-on' : ''}`}
+                  aria-label={quickListening ? 'Stop voice' : 'Voice note'}
+                  aria-pressed={quickListening}
+                  onClick={() => {
+                    if (quickListening) {
+                      setQuickListening(false);
+                      stopSpeechRecognitionByUser(quickSpeechRef);
+                      return;
+                    }
+                    startQuickVoice();
+                  }}
+                  disabled={quickBusy}
+                >
+                  <Mic size={16} />
+                </button>
+              ) : null}
+              <button type="submit" className="hub-quick-quote-go" disabled={quickBusy || !quickText.trim()}>
+                {quickBusy ? 'Saving…' : 'Make draft'}
               </button>
-            ) : null}
-            <button type="submit" className="hub-quick-quote-go" disabled={quickBusy || !quickText.trim()}>
-              {quickBusy ? 'Saving…' : 'Make draft'}
-            </button>
-          </form>
+            </form>
+            <p className="hub-speech-status hub-quick-quote-speech-status" role="status">
+              {quickMicHint ?? ''}
+            </p>
+          </div>
           <button onClick={() => openQuote(null)} className="btn-primary">
             <Plus size={16} /> New quote
           </button>

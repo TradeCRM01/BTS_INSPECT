@@ -7,7 +7,6 @@ import {
   browserSpeechRecognition,
   checkDateTag,
   instantInBrisbane,
-  isSpeechPermissionDenied,
   matchNamed,
   matchQuickBookCrew,
   matchQuickBookJobs,
@@ -398,9 +397,6 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(transcriptFromSpeechEvent({
       results: [[{ transcript: '  Smith job Thursday 7am with Dave  ' }]],
     })).toBe('Smith job Thursday 7am with Dave');
-    expect(isSpeechPermissionDenied('not-allowed')).toBe(true);
-    expect(isSpeechPermissionDenied('service-not-allowed')).toBe(true);
-    expect(isSpeechPermissionDenied('no-speech')).toBe(false);
     expect(browserSpeechRecognition()).toBeNull();
   });
 
@@ -425,8 +421,10 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(voice).toContain('Speak a booking');
     expect(voice).toContain('hub-schedule-voice-row');
     expect(voice).toContain("lang = 'en-AU'");
-    expect(voice).toContain('Microphone is blocked. Type the booking instead.');
-    expect(voice).toContain("Voice isn't available here. Type instead.");
+    expect(voice).toContain('speechRecognitionErrorHint');
+    expect(voice).toContain('isActiveSpeechRecognition');
+    expect(voice).toContain('hub-schedule-speech-status');
+    expect(voice).toContain('speechStatus');
     expect(voice).toContain('Job, day, time, crew');
     expect(voice).not.toContain('Smith job Thursday 7am with Dave');
     expect(voice).not.toContain('hints?.crew');

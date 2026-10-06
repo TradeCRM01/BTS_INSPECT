@@ -6688,6 +6688,7 @@
     white-space: nowrap;
   }
 
+  .hub-speech-hint,
   .hub-schedule-voice-hint {
     margin: 8px 0 0;
     font-family: 'Source Sans 3', system-ui, sans-serif;
@@ -7751,12 +7752,76 @@
     flex-wrap: wrap;
   }
 
-  .hub-quick-quote {
+  .hub-quick-quote-block {
     display: flex;
     flex: 1 1 280px;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .hub-speech-status {
+    margin: 0;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+    color: #5B6B7C;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  .hub-speech-status:empty {
+    display: none;
+  }
+
+  .hub-quick-quote-speech-status:not(:empty),
+  .hub-schedule-speech-status:not(:empty) {
+    margin-top: 8px;
+  }
+
+  @media (min-width: 640px) {
+    /* Row 1: title | quick quote | New quote (flex-end idle geometry). Row 2: hint under controls only. */
+    .hub-quotes .ops-page-head {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-rows: auto auto;
+      column-gap: 16px;
+      row-gap: 0;
+      align-items: end;
+    }
+
+    .hub-quotes .ops-page-head > div:first-child {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .hub-quotes .ops-page-head > .btn-primary {
+      grid-column: 3;
+      grid-row: 1;
+    }
+
+    .hub-quotes .hub-quick-quote-block {
+      display: contents;
+    }
+
+    .hub-quotes .hub-quick-quote {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .hub-quotes .hub-quick-quote-speech-status:not(:empty) {
+      grid-column: 2;
+      grid-row: 2;
+      margin-top: 8px;
+      align-self: start;
+    }
+  }
+
+  .hub-quick-quote {
+    display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
+    width: 100%;
   }
 
   .hub-quick-quote-label {
@@ -7806,7 +7871,9 @@
   }
 
   .hub-quick-quote-mic {
+    flex: 0 0 44px;
     width: 44px;
+    min-width: 44px;
     height: 44px;
     display: inline-flex;
     align-items: center;
@@ -8442,10 +8509,13 @@
       align-items: stretch;
     }
 
-    .hub-quick-quote {
+    .hub-quick-quote-block {
       flex: 1 1 100%;
       width: 100%;
       max-width: 100%;
+    }
+
+    .hub-quick-quote {
       flex-wrap: wrap;
     }
 
