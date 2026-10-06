@@ -418,7 +418,9 @@ export function SchedulePage() {
     draft: QuickBookNewJobDraft;
     prefill: SpokenSheetFields;
     fromBooking: JobFormFromBooking;
+    hints: { job: string | null; client: string | null; crew: string | null };
   } | null>(null);
+  const [voiceClearNonce, setVoiceClearNonce] = useState(0);
   const [sheetFromBooking, setSheetFromBooking] = useState<{
     job?: boolean;
     date?: boolean;
@@ -787,7 +789,13 @@ export function SchedulePage() {
     setSelectedDate(null);
     setPresetClientId(null);
     setPresetEmployeeId(undefined);
+  };
+
+  const clearVoiceNewJobPanel = () => {
     setVoiceNewJob(null);
+    setVoiceHints(null);
+    setVoiceJobPicks([]);
+    setVoiceClearNonce(n => n + 1);
   };
 
   const clearEmployeeFilters = () => setFilteredEmployeeIds(new Set());
@@ -849,8 +857,18 @@ export function SchedulePage() {
         }
       }
       const clients = new Map<string, { id: string; name: string }>();
+      if (!lookWeekBoard) {
+        const { data: companyClients } = await supabase
+          .from('clients')
+          .select('id, name')
+          .eq('archived', false)
+          .order('name');
+        for (const row of companyClients ?? []) {
+          if (row.id && row.name) clients.set(row.id, { id: row.id, name: row.name });
+        }
+      }
       for (const job of pool) {
-        if (job.client_id && job.client_name) {
+        if (job.client_id && job.client_name && !clients.has(job.client_id)) {
           clients.set(job.client_id, { id: job.client_id, name: job.client_name });
         }
       }
@@ -878,6 +896,7 @@ export function SchedulePage() {
       setVoiceNewJob(resolved.jobs.kind === 'none' && resolved.newJob ? {
         draft: resolved.newJob,
         prefill: spoken,
+        hints: resolved.hints,
         fromBooking: {
           title: true,
           client: !!resolved.newJob.clientToken,
@@ -1124,6 +1143,7 @@ export function SchedulePage() {
                   {weekSearch}
                 </div>
                 <ScheduleBookByVoice
+                  key={voiceClearNonce}
                   onApply={phrase => { void applyQuickBook(phrase); }}
                   applying={voiceApplying}
                   hints={voiceHints ?? undefined}
@@ -1255,11 +1275,13 @@ export function SchedulePage() {
           presetClientName={voiceNewJob && !voiceNewJob.draft.clientId ? voiceNewJob.draft.clientToken : null}
           presetTeam={lookWeekBoard ? boardCrew : undefined}
           fromBooking={voiceNewJob?.fromBooking ?? null}
+          matchHints={voiceNewJob?.hints ?? null}
           onClose={handleCloseForm}
           onSaved={(jobId) => {
             const fromVoice = !!voiceNewJob;
             const bookedDate = selectedDate;
             handleCloseForm();
+            if (fromVoice) clearVoiceNewJobPanel();
             queryClient.invalidateQueries({ queryKey: ['jobs'] });
             queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
             if (fromVoice) {

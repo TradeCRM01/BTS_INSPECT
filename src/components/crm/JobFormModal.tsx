@@ -40,6 +40,7 @@ interface JobFormModalProps {
   presetClientName?: string | null;
   presetTeam?: { id: string; name: string }[];
   fromBooking?: JobFormFromBooking | null;
+  matchHints?: { job?: string | null; client?: string | null; crew?: string | null } | null;
   /** `details` = identity only; schedule/crew/status live on the job page. */
   fields?: 'all' | 'details';
   onAddStage?: () => void;
@@ -59,6 +60,7 @@ export function JobFormModal({
   presetClientName,
   presetTeam,
   fromBooking = null,
+  matchHints = null,
   fields = 'all',
   onAddStage,
   onClose,
@@ -136,6 +138,11 @@ export function JobFormModal({
   }, [job, form.parent_job_id, form.cost_code]);
 
   const selectedClient = useMemo(() => clients.find(c => c.id === form.client_id), [clients, form.client_id]);
+  const clientNeedle = pendingClientName.trim().toLowerCase();
+  const clientChoices = useMemo(() => {
+    if (!clientNeedle) return clients;
+    return clients.filter(c => c.name.toLowerCase().includes(clientNeedle));
+  }, [clients, clientNeedle]);
 
   const applyNewClient = async (clientId: string) => {
     setAddingClient(false);
@@ -149,6 +156,7 @@ export function JobFormModal({
     }
     const created = nextClients.find(c => c.id === clientId);
     setClientEdited(true);
+    setPendingClientName('');
     setForm(f => jobFormSelectNewClient(f, clientId, created?.address));
   };
 
@@ -173,6 +181,11 @@ export function JobFormModal({
 
   const handleSave = async () => {
     if (!form.title.trim()) { setErr('Title is required'); return; }
+    const typedClient = pendingClientName.trim();
+    if (typedClient && !form.client_id) {
+      setErr(`Create client “${typedClient}” or pick one`);
+      return;
+    }
     if (!profile?.company_id) return;
     setSaving(true);
     setErr('');
@@ -279,28 +292,30 @@ export function JobFormModal({
               Client
               <FromBooking show={fromBookingTag(fromBooking?.client, clientEdited)} />
             </label>
-            {pendingClientName && !form.client_id ? (
+            {pendingClientName || fromBooking?.client ? (
               <input
                 value={pendingClientName}
                 onChange={e => {
                   setClientEdited(true);
+                  if (form.client_id) setForm(f => ({ ...f, client_id: '' }));
                   setPendingClientName(e.target.value);
                 }}
                 className="form-input"
                 aria-label="Client name from booking"
               />
-            ) : (
+            ) : null}
             <select value={form.client_id} onChange={e => {
               setClientEdited(true);
               setForm(f => ({ ...f, client_id: e.target.value }));
+              if (e.target.value) setPendingClientName('');
             }}
-              className="form-input cursor-pointer">
+              className="form-input cursor-pointer"
+              aria-label="Existing client">
               <option value="">No client (walk-up)</option>
-              {clients.map(c => (
+              {clientChoices.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
-            )}
             {selectedClient && (
               <div className="mt-2 flex flex-col gap-1">
                 {visibleClientContacts(selectedClient).map(line => (
@@ -329,7 +344,7 @@ export function JobFormModal({
               <button
                 type="button"
                 onClick={() => setAddingClient(true)}
-                className="ops-link text-xs mt-1"
+                className="hub-job-create-client mt-1"
               >
                 {`Create client “${pendingClientName}”`}
               </button>
@@ -430,12 +445,15 @@ export function JobFormModal({
               className="form-input min-h-[88px] resize-y" placeholder="Job details, scope of work, special instructions..." />
           </div>
 
-          {!detailsOnly && teamMembers.length > 0 && (
+          {!detailsOnly && (teamMembers.length > 0 || matchHints?.crew) && (
             <div className="overlay-form-span-all">
               <label className="ops-field-label">
                 Assign Crew
                 <FromBooking show={fromBookingTag(fromBooking?.crew, crewEdited)} />
               </label>
+              {matchHints?.crew ? (
+                <p className="hub-schedule-job-sheet-hint">{matchHints.crew}</p>
+              ) : null}
               <div className="flex flex-wrap gap-1.5">
                 {teamMembers.map(m => {
                   const selected = form.assigned_team.includes(m.id);

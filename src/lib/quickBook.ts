@@ -479,6 +479,15 @@ function addressHit(phrase: string): { address: string; index: number; length: n
       if (words.length) consumed += token.length;
       continue;
     }
+    const commaAt = token.search(/,/);
+    if (commaAt >= 0) {
+      const before = token.slice(0, commaAt).replace(/[,.]+$/, '').trim();
+      if (before && !ADDRESS_STOP.test(before) && !asWeekdayName(before, false)) {
+        words.push(before);
+        consumed += commaAt;
+      }
+      break;
+    }
     const trimmed = token.replace(/[,.]+$/, '');
     if (!trimmed || ADDRESS_STOP.test(trimmed) || asWeekdayName(trimmed, false)) break;
     words.push(trimmed);
@@ -564,6 +573,11 @@ export function parseQuickBook(phrase: string, now: Date = new Date()): QuickBoo
   let titleToken: string | null = null;
   let clientToken: string | null = null;
   let extraTokens: string[] = [];
+  const forMatch = work.match(/\bfor\s+(.+)$/i);
+  if (forMatch && forMatch.index != null) {
+    clientToken = leftoverSubject(forMatch[1]);
+    work = work.slice(0, forMatch.index).trim();
+  }
   const commaParts = work.split(/\s*,\s*/).map(part => leftoverSubject(part)).filter((part): part is string => !!part);
   if (commaParts.length > 1) {
     titleToken = commaParts[0];
@@ -713,7 +727,7 @@ export function unmatchedHint(
 ): string {
   if (kind === 'job') return `No job matches “${token}”. Search above or start a New job.`;
   if (kind === 'client') return `No client matches “${token}”. Search above or start a New job.`;
-  return `No crew matches “${token}”. Pick one below.`;
+  return `No crew matches “${token}”. Pick crew below.`;
 }
 
 export function manyHint(kind: 'job' | 'client' | 'crew', token: string, count = 2): string {
@@ -770,6 +784,21 @@ export function spokenSheetFields<
   return out;
 }
 
+function peelTrailingKnownClient<T extends QuickBookNamed>(
+  title: string,
+  clients: T[],
+): { title: string; clientToken: string | null } {
+  const words = title.split(/\s+/).filter(Boolean);
+  if (words.length < 2 || clients.length === 0) return { title, clientToken: null };
+  for (let i = 1; i < words.length; i += 1) {
+    const suffix = words.slice(i).join(' ');
+    if (matchNamed(suffix, clients).kind === 'one') {
+      return { title: words.slice(0, i).join(' '), clientToken: suffix };
+    }
+  }
+  return { title, clientToken: null };
+}
+
 export function resolveQuickBook<
   TJob extends QuickBookJob,
   TCrew extends QuickBookNamed,
@@ -784,6 +813,7 @@ export function resolveQuickBook<
   now: Date = new Date(),
 ): QuickBookResolved<TJob, TCrew, TClient> {
   let parsed = parseQuickBook(phrase, now);
+  const namedClients = lists.clients ?? [];
   const extras = [...parsed.extraTokens];
   if (parsed.crewTokens.length === 0 && extras.length > 0) {
     const last = extras[extras.length - 1];
@@ -804,6 +834,17 @@ export function resolveQuickBook<
   if (!parsed.clientToken && extras.length > 0) {
     parsed = { ...parsed, clientToken: extras.join(' '), extraTokens: extras };
   }
+  if (!parsed.clientToken && parsed.titleToken) {
+    const peeled = peelTrailingKnownClient(parsed.titleToken, namedClients);
+    if (peeled.clientToken) {
+      parsed = {
+        ...parsed,
+        titleToken: peeled.title,
+        subjectToken: peeled.title,
+        clientToken: peeled.clientToken,
+      };
+    }
+  }
   let crew = matchQuickBookCrew(parsed.crewTokens, lists.crew);
   if (parsed.subjectToken && parsed.crewToken && crew.kind === 'none') {
     const whole = `${parsed.subjectToken} with ${parsed.crewToken}`;
@@ -822,7 +863,6 @@ export function resolveQuickBook<
     }
   }
   const jobs = matchQuickBookJobs(parsed.subjectToken, lists.jobs);
-  const namedClients = lists.clients ?? [];
   const clientLookup = parsed.clientToken && jobs.kind === 'none'
     ? parsed.clientToken
     : parsed.subjectToken;

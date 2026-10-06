@@ -2277,6 +2277,23 @@
     @apply md:col-span-2 xl:col-span-3;
   }
 
+  .hub-job-create-client {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 12px;
+    margin-top: 4px;
+    border: 0;
+    background: transparent;
+    color: #2E75B6;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+
   /* Overlays: two-up / three-up / four-up field grids clip native date/time and 16px type. */
   @media (max-width: 768px) {
     .overlay-panel .grid.grid-cols-2,
