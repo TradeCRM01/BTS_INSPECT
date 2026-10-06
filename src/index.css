@@ -10,6 +10,7 @@
     --ops-pass: #1B7F3A;
     --ops-fail: #B42318;
     --ops-warning: #B54708;
+    --invoice-warn: #B54708;
     --ops-ink: #1A1A1A;
     --ops-muted: #4A5568;
     --ops-rule: #E5E7EB;
@@ -4772,6 +4773,11 @@
     opacity: 0.6;
   }
 
+  .overlay-backdrop.hub-labour-rate-backdrop,
+  #job-bill {
+    --invoice-warn: #B54708;
+  }
+
   @media (max-width: 639px) {
     .overlay-backdrop.hub-labour-rate-backdrop {
       align-items: flex-end !important;
@@ -4877,8 +4883,8 @@
     margin: 0;
     padding: 12px 14px;
     border-radius: 12px;
-    border: 1px solid color-mix(in srgb, var(--invoice-warn) 35%, #e2d9cc);
-    background: color-mix(in srgb, var(--invoice-warn) 12%, #fff);
+    border: 1px solid color-mix(in srgb, var(--invoice-warn, #B54708) 35%, #e2d9cc);
+    background: color-mix(in srgb, var(--invoice-warn, #B54708) 12%, #fff);
   }
 
   .hub-job-bill-zero-labour-nudge-row {
@@ -4890,7 +4896,7 @@
   .hub-job-bill-zero-labour-icon {
     flex-shrink: 0;
     margin-top: 2px;
-    color: var(--invoice-warn);
+    color: var(--invoice-warn, #B54708);
   }
 
   .hub-job-bill-zero-labour-message {
@@ -4979,9 +4985,9 @@
     min-height: 22px;
     padding: 0 8px;
     border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--invoice-warn) 35%, #e2d9cc);
-    background: color-mix(in srgb, var(--invoice-warn) 12%, #fff);
-    color: var(--invoice-warn);
+    border: 1px solid color-mix(in srgb, var(--invoice-warn, #B54708) 35%, #e2d9cc);
+    background: color-mix(in srgb, var(--invoice-warn, #B54708) 12%, #fff);
+    color: var(--invoice-warn, #B54708);
     font-size: 12px;
     font-weight: 600;
     line-height: 1.2;
@@ -4996,7 +5002,7 @@
     margin-left: 0;
     padding: 0 2px;
     font-weight: 600;
-    color: var(--invoice-warn);
+    color: var(--invoice-warn, #B54708);
     font-size: 14px;
     text-decoration: underline;
     text-underline-offset: 3px;
