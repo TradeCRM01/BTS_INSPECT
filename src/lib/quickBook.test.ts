@@ -603,12 +603,16 @@ describe('quickBook speech helper and Schedule wire', () => {
   it('D3 keeps the existing-client picker and blocks save of an uncreated name', () => {
     const form = src('src/components/crm/JobFormModal.tsx');
     expect(form).toContain('aria-label="Client name from booking"');
-    expect(form).toContain('aria-label="Existing client"');
-    expect(form).toContain('clientChoices');
+    expect(form).toContain('Or pick an existing client');
+    expect(form).not.toContain('clientChoices');
     expect(form).toContain('Create client “${typedClient}” or pick one');
-    expect(form).not.toMatch(/pendingClientName && !form.client_id \?\s*\(\s*<input/);
+    expect(form).toContain('setClientErr');
+    expect(form).toContain('clientErrRef');
+    expect(form).toContain('scrollIntoView');
+    expect(form).toContain('pendingUnmatched');
     expect(form).toContain('if (typedClient && !form.client_id)');
     expect(form).toContain('hub-job-create-client');
+    expect(form).toContain('Add new client');
     expect(src('src/index.css')).toMatch(/\.hub-job-create-client[\s\S]{0,160}min-height: 44px/);
     const page = src('src/pages/SchedulePage.tsx');
     const close = page.slice(page.indexOf('const handleCloseForm'), page.indexOf('const clearVoiceNewJobPanel'));
@@ -618,7 +622,7 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(page).toContain('onNewJob={voiceNewJob ?');
   });
 
-  it('D4 splits for <name> and a trailing known client without commas', () => {
+  it('D4 peels a trailing known client without commas only after no job matches', () => {
     const known = [{ id: 'cli-smith', name: 'Smith' }];
     const spoken = resolveQuickBook('Hot water Smith Thursday 7am with Dave', {
       jobs: [],
@@ -629,14 +633,6 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(spoken.newJob?.title).toBe('Hot water');
     expect(spoken.newJob?.clientId).toBe('cli-smith');
     expect(spoken.newJob?.createClient).toBe(false);
-    const forName = resolveQuickBook('Hot water for Smith Thursday 7am', {
-      jobs: [],
-      crew,
-      clients: [],
-    }, NOW);
-    expect(forName.parse.clientToken).toBe('Smith');
-    expect(forName.newJob?.title).toBe('Hot water');
-    expect(forName.newJob?.createClient).toBe(true);
     const leftover = resolveQuickBook('Hot water Widget Thursday 7am', {
       jobs: [],
       crew,
@@ -645,6 +641,71 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(leftover.newJob?.title).toBe('Hot water Widget');
     expect(leftover.newJob?.clientToken).toBeNull();
     expect(leftover.newJob?.createClient).toBe(false);
+  });
+
+  it('N1 peels for <name> only when that name is a strong existing client', () => {
+    const known = [{ id: 'cli-286', name: 'CoS 286 Client' }];
+    const quote = resolveQuickBook('Quote for kitchen fit Thursday 7am', {
+      jobs: [],
+      crew,
+      clients: known,
+    }, NOW);
+    expect(quote.newJob?.title).toBe('Quote for kitchen fit');
+    expect(quote.newJob?.clientToken).toBeNull();
+    expect(quote.newJob?.createClient).toBe(false);
+    const leaks = resolveQuickBook('Test for leaks', {
+      jobs: [],
+      crew,
+      clients: known,
+    }, NOW);
+    expect(leaks.newJob?.title).toBe('Test for leaks');
+    expect(leaks.newJob?.clientToken).toBeNull();
+    expect(leaks.newJob?.createClient).toBe(false);
+    const knownFor = resolveQuickBook('Hot water for CoS 286 Client Thursday 7am', {
+      jobs: [],
+      crew,
+      clients: known,
+    }, NOW);
+    expect(knownFor.newJob?.title).toBe('Hot water');
+    expect(knownFor.newJob?.clientToken).toBe('CoS 286 Client');
+    expect(knownFor.newJob?.clientId).toBe('cli-286');
+    expect(knownFor.newJob?.createClient).toBe(false);
+  });
+
+  it('N3 matches the full leftover phrase before peeling a trailing client or a lone number', () => {
+    const pair = [
+      { id: 'j-smith', title: 'Hot water Smith', client_name: 'Smith Plumbing', job_number: 10 },
+      { id: 'j-heater', title: 'Hot water heater', client_name: 'Oak Street', job_number: 11 },
+    ];
+    const resolved = resolveQuickBook('Hot water Smith Thursday 7am', {
+      jobs: pair,
+      crew,
+      clients: [{ id: 'cli-sp', name: 'Smith Plumbing' }],
+    }, NOW);
+    expect(resolved.jobs.kind).toBe('one');
+    expect(resolved.jobs.items[0]?.id).toBe('j-smith');
+    expect(resolved.newJob).toBeNull();
+    const numbered = resolveQuickBook('Hot water 286 Thursday 7am', {
+      jobs: [],
+      crew,
+      clients: [{ id: 'cli-286', name: 'CoS 286 Client' }],
+    }, NOW);
+    expect(numbered.newJob?.title).toBe('Hot water 286');
+    expect(numbered.newJob?.clientToken).toBeNull();
+    expect(numbered.newJob?.clientId).toBeUndefined();
+    expect(numbered.newJob?.createClient).toBe(false);
+  });
+
+  it('N5 trims leftover commas from the title and unmatched-job hint', () => {
+    const resolved = resolveQuickBook('Deck repair, at 3 Smith St, Friday 7am', {
+      jobs: [],
+      crew,
+    }, NOW);
+    expect(resolved.parse.address).toBe('3 Smith St');
+    expect(resolved.newJob?.title).toBe('Deck repair');
+    expect(resolved.newJob?.title).not.toMatch(/,/);
+    expect(resolved.hints.job).toContain('Deck repair');
+    expect(resolved.hints.job).not.toMatch(/,/);
   });
 
   it('D5 ends the address at a comma and keeps the following client', () => {

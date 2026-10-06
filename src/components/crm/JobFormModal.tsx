@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -84,6 +84,9 @@ export function JobFormModal({
   const [addressEdited, setAddressEdited] = useState(false);
   const [crewEdited, setCrewEdited] = useState(false);
   const [pendingClientName, setPendingClientName] = useState(presetClientName ?? '');
+  const [clientErr, setClientErr] = useState('');
+  const clientNameRef = useRef<HTMLInputElement>(null);
+  const clientErrRef = useRef<HTMLParagraphElement>(null);
   const startCheck = assumedTradeTag(fromBooking?.startTrade, presetStartTime, startEdited);
   const dateCheck = checkDateTag(fromBooking?.dateCheck, dateEdited);
 
@@ -138,11 +141,7 @@ export function JobFormModal({
   }, [job, form.parent_job_id, form.cost_code]);
 
   const selectedClient = useMemo(() => clients.find(c => c.id === form.client_id), [clients, form.client_id]);
-  const clientNeedle = pendingClientName.trim().toLowerCase();
-  const clientChoices = useMemo(() => {
-    if (!clientNeedle) return clients;
-    return clients.filter(c => c.name.toLowerCase().includes(clientNeedle));
-  }, [clients, clientNeedle]);
+  const pendingUnmatched = !!pendingClientName.trim() && !form.client_id;
 
   const applyNewClient = async (clientId: string) => {
     setAddingClient(false);
@@ -157,6 +156,7 @@ export function JobFormModal({
     const created = nextClients.find(c => c.id === clientId);
     setClientEdited(true);
     setPendingClientName('');
+    setClientErr('');
     setForm(f => jobFormSelectNewClient(f, clientId, created?.address));
   };
 
@@ -183,9 +183,14 @@ export function JobFormModal({
     if (!form.title.trim()) { setErr('Title is required'); return; }
     const typedClient = pendingClientName.trim();
     if (typedClient && !form.client_id) {
-      setErr(`Create client “${typedClient}” or pick one`);
+      setClientErr(`Create client “${typedClient}” or pick one`);
+      requestAnimationFrame(() => {
+        clientErrRef.current?.scrollIntoView({ block: 'center' });
+        clientNameRef.current?.focus();
+      });
       return;
     }
+    setClientErr('');
     if (!profile?.company_id) return;
     setSaving(true);
     setErr('');
@@ -292,27 +297,52 @@ export function JobFormModal({
               Client
               <FromBooking show={fromBookingTag(fromBooking?.client, clientEdited)} />
             </label>
-            {pendingClientName || fromBooking?.client ? (
+            {pendingUnmatched ? (
               <input
+                ref={clientNameRef}
                 value={pendingClientName}
                 onChange={e => {
                   setClientEdited(true);
-                  if (form.client_id) setForm(f => ({ ...f, client_id: '' }));
                   setPendingClientName(e.target.value);
+                  if (!e.target.value.trim()) setClientErr('');
                 }}
                 className="form-input"
                 aria-label="Client name from booking"
               />
             ) : null}
-            <select value={form.client_id} onChange={e => {
-              setClientEdited(true);
-              setForm(f => ({ ...f, client_id: e.target.value }));
-              if (e.target.value) setPendingClientName('');
-            }}
+            {pendingUnmatched ? (
+              <button
+                type="button"
+                onClick={() => setAddingClient(true)}
+                className="hub-job-create-client"
+              >
+                {`Create client “${pendingClientName.trim()}”`}
+              </button>
+            ) : null}
+            {clientErr ? (
+              <p ref={clientErrRef} className="text-sm text-fail">{clientErr}</p>
+            ) : null}
+            {pendingUnmatched ? (
+              <label className="ops-field-label" htmlFor="hub-job-existing-client">
+                Or pick an existing client
+              </label>
+            ) : null}
+            <select
+              id="hub-job-existing-client"
+              value={form.client_id}
+              onChange={e => {
+                setClientEdited(true);
+                setForm(f => ({ ...f, client_id: e.target.value }));
+                if (e.target.value) {
+                  setPendingClientName('');
+                  setClientErr('');
+                }
+              }}
               className="form-input cursor-pointer"
-              aria-label="Existing client">
+              aria-label={pendingUnmatched ? 'Or pick an existing client' : 'Existing client'}
+            >
               <option value="">No client (walk-up)</option>
-              {clientChoices.map(c => (
+              {clients.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
@@ -340,17 +370,9 @@ export function JobFormModal({
                 Use client address: {selectedClient.address}
               </button>
             )}
-            {pendingClientName && !form.client_id ? (
-              <button
-                type="button"
-                onClick={() => setAddingClient(true)}
-                className="hub-job-create-client mt-1"
-              >
-                {`Create client “${pendingClientName}”`}
-              </button>
-            ) : (
+            {pendingUnmatched ? null : (
             <button type="button" onClick={() => setAddingClient(true)}
-              className="ops-link text-xs mt-1">
+              className="hub-job-create-client">
               Add new client
             </button>
             )}

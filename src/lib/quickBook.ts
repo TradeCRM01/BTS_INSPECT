@@ -140,7 +140,7 @@ const NEXT_WEEKDAY_RE = new RegExp(`\\bnext\\s+(${WEEKDAY_ALT})\\b`, 'i');
 const THIS_WEEKDAY_RE = new RegExp(`\\bthis\\s+(${WEEKDAY_ALT})\\b`, 'i');
 const ADDRESS_STOP = /^(today|tomorrow|next|this|with|on)$/i;
 const MONTH_DAY_RE = /\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/i;
-const FILLER_WORD = /^(the|on|at|for|to|job|jobs|book|booking|schedule|this|please)$/i;
+const FILLER_WORD = /^(the|on|at|to|job|jobs|book|booking|schedule|this|please)$/i;
 const LEAD_ARTICLE = /^(a|an)$/i;
 
 const NUMBER_WORDS: Record<string, number> = {
@@ -504,11 +504,21 @@ function addressHit(phrase: string): { address: string; index: number; length: n
 function leftoverSubject(rest: string): string | null {
   const words = rest
     .replace(/['’]s\b/gi, '')
+    .replace(/,/g, ' ')
     .split(/\s+/)
     .filter(Boolean);
   while (words.length && LEAD_ARTICLE.test(words[0])) words.shift();
   const token = words.filter(word => !FILLER_WORD.test(word)).join(' ').trim();
   return token || null;
+}
+
+function tidyQuickBookLabel(value: string | null | undefined): string | null {
+  const next = (value ?? '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+  return next || null;
+}
+
+function isLoneNumberToken(token: string | null | undefined): boolean {
+  return /^\d+$/.test((token ?? '').trim());
 }
 
 function splitCrewTokens(raw: string): string[] {
@@ -573,18 +583,9 @@ export function parseQuickBook(phrase: string, now: Date = new Date()): QuickBoo
   let titleToken: string | null = null;
   let clientToken: string | null = null;
   let extraTokens: string[] = [];
-  const forMatch = work.match(/\bfor\s+(.+)$/i);
-  if (forMatch && forMatch.index != null) {
-    clientToken = leftoverSubject(forMatch[1]);
-    work = work.slice(0, forMatch.index).trim();
-  }
   const commaParts = work.split(/\s*,\s*/).map(part => leftoverSubject(part)).filter((part): part is string => !!part);
-  if (commaParts.length > 1) {
-    titleToken = commaParts[0];
-    extraTokens = commaParts.slice(1);
-  } else {
-    titleToken = leftoverSubject(work);
-  }
+  titleToken = commaParts[0] ?? leftoverSubject(work);
+  extraTokens = commaParts.slice(1);
 
   return {
     raw,
@@ -784,6 +785,27 @@ export function spokenSheetFields<
   return out;
 }
 
+function matchNamedClient<T extends QuickBookNamed>(
+  token: string | null | undefined,
+  clients: T[],
+): NamedMatch<T> {
+  if (isLoneNumberToken(token)) return { token: (token ?? '').trim(), kind: 'none', items: [] };
+  return matchNamed(token, clients);
+}
+
+function peelKnownForClient<T extends QuickBookNamed>(
+  title: string,
+  clients: T[],
+): { title: string; clientToken: string | null } {
+  const match = title.match(/\bfor\s+(.+)$/i);
+  if (!match || match.index == null) return { title, clientToken: null };
+  const name = leftoverSubject(match[1]);
+  if (!name || isLoneNumberToken(name) || matchNamedClient(name, clients).kind !== 'one') {
+    return { title, clientToken: null };
+  }
+  return { title: tidyQuickBookLabel(title.slice(0, match.index)) || title, clientToken: name };
+}
+
 function peelTrailingKnownClient<T extends QuickBookNamed>(
   title: string,
   clients: T[],
@@ -792,7 +814,8 @@ function peelTrailingKnownClient<T extends QuickBookNamed>(
   if (words.length < 2 || clients.length === 0) return { title, clientToken: null };
   for (let i = 1; i < words.length; i += 1) {
     const suffix = words.slice(i).join(' ');
-    if (matchNamed(suffix, clients).kind === 'one') {
+    if (isLoneNumberToken(suffix)) continue;
+    if (matchNamedClient(suffix, clients).kind === 'one') {
       return { title: words.slice(0, i).join(' '), clientToken: suffix };
     }
   }
@@ -818,7 +841,7 @@ export function resolveQuickBook<
   if (parsed.crewTokens.length === 0 && extras.length > 0) {
     const last = extras[extras.length - 1];
     const asCrew = matchNamed(last, lists.crew);
-    const asClient = matchNamed(last, lists.clients ?? []);
+    const asClient = matchNamedClient(last, lists.clients ?? []);
     const takeCrew = (asCrew.kind === 'one' && asClient.kind !== 'one')
       || (extras.length >= 2 && asClient.kind !== 'one');
     if (takeCrew) {
@@ -831,19 +854,8 @@ export function resolveQuickBook<
       };
     }
   }
-  if (!parsed.clientToken && extras.length > 0) {
+  if (!parsed.clientToken && extras.length > 0 && !isLoneNumberToken(extras.join(' '))) {
     parsed = { ...parsed, clientToken: extras.join(' '), extraTokens: extras };
-  }
-  if (!parsed.clientToken && parsed.titleToken) {
-    const peeled = peelTrailingKnownClient(parsed.titleToken, namedClients);
-    if (peeled.clientToken) {
-      parsed = {
-        ...parsed,
-        titleToken: peeled.title,
-        subjectToken: peeled.title,
-        clientToken: peeled.clientToken,
-      };
-    }
   }
   let crew = matchQuickBookCrew(parsed.crewTokens, lists.crew);
   if (parsed.subjectToken && parsed.crewToken && crew.kind === 'none') {
@@ -863,11 +875,25 @@ export function resolveQuickBook<
     }
   }
   const jobs = matchQuickBookJobs(parsed.subjectToken, lists.jobs);
+  if (jobs.kind === 'none' && !parsed.clientToken && parsed.titleToken) {
+    const fromFor = peelKnownForClient(parsed.titleToken, namedClients);
+    const peeled = fromFor.clientToken
+      ? fromFor
+      : peelTrailingKnownClient(parsed.titleToken, namedClients);
+    if (peeled.clientToken) {
+      parsed = {
+        ...parsed,
+        titleToken: peeled.title,
+        subjectToken: peeled.title,
+        clientToken: peeled.clientToken,
+      };
+    }
+  }
   const clientLookup = parsed.clientToken && jobs.kind === 'none'
     ? parsed.clientToken
     : parsed.subjectToken;
-  const clients = matchNamed(clientLookup, namedClients);
-  const clientForNew = parsed.clientToken ? matchNamed(parsed.clientToken, namedClients) : clients;
+  const clients = matchNamedClient(clientLookup, namedClients);
+  const clientForNew = parsed.clientToken ? matchNamedClient(parsed.clientToken, namedClients) : clients;
   const resolved = {
     parse: parsed,
     jobs,
