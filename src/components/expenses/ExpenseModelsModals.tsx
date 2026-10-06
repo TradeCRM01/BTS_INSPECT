@@ -122,7 +122,7 @@ export function asModelLines(raw: unknown, fallbackUnit: ExpenseModelTimeUnit = 
   });
 }
 
-function normalizeCostModel(m: Record<string, unknown>): ExpenseCostModel {
+export function normalizeCostModel(m: Record<string, unknown>): ExpenseCostModel {
   const legacyUnit = parseTimeUnit(m.time_unit);
   return {
     ...(m as unknown as ExpenseCostModel),

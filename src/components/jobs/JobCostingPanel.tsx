@@ -13,7 +13,15 @@ import {
 } from '../../types/fsm';
 import { asModelLines, modelHourlyCost } from '../expenses/ExpenseModelsModals';
 import { DEFAULT_TAX_RATE } from '../../lib/gst';
+import { Link } from 'react-router-dom';
 import { createInvoiceFromJobBill } from '../../lib/createInvoiceFromJobBill';
+import {
+  lineNeedsLabourRate,
+  loadBilledTimesheetEntryIds,
+  pullUnbilledHoursToJobBill,
+  summarizeUnbilledForJob,
+  type TimesheetEntryForBill,
+} from '../../lib/hoursToJobBill';
 import {
   JOB_BILL_INVOICE_CREATED,
   JOB_BILL_INVOICE_NO_CLIENT,
@@ -53,6 +61,33 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const { profile, company } = useAuth();
   const queryClient = useQueryClient();
   const defaultMarkup = Number(company?.default_material_markup) || 0;
+
+  const { data: timesheetEntries = [] } = useQuery<TimesheetEntryForBill[]>({
+    queryKey: ['job-timesheet-entries-bill', jobId],
+    queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as TimesheetEntryForBill[];
+      const { data, error } = await supabase
+        .from('timesheet_entries')
+        .select('id, job_id, timesheet_id, start_time, end_time, billable, work_type, notes')
+        .eq('job_id', jobId);
+      if (error) throw error;
+      return (data ?? []) as TimesheetEntryForBill[];
+    },
+  });
+
+  const { data: billedEntryIds = new Set<string>() } = useQuery({
+    queryKey: ['job-billed-timesheet-ids', jobId],
+    queryFn: async () => {
+      const { ids } = await loadBilledTimesheetEntryIds(supabase, jobId);
+      return ids;
+    },
+  });
+
+  const unbilledCue = useMemo(
+    () => summarizeUnbilledForJob(timesheetEntries, billedEntryIds),
+    [timesheetEntries, billedEntryIds],
+  );
 
   const { data: costs = [] } = useQuery<JobCost[]>({
     queryKey: ['job-costs', jobId],
@@ -116,6 +151,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formErr, setFormErr] = useState('');
   const [invoiceMsg, setInvoiceMsg] = useState('');
+  const [pullingHours, setPullingHours] = useState(false);
 
   const { data: costModels = [] } = useQuery<ExpenseCostModel[]>({
     queryKey: ['expense-cost-models'],
@@ -301,7 +337,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
           jobInvoicesAfterCreate(prev, result.invoice),
         );
       }
-      setInvoiceMsg(result.existing ? JOB_INVOICE_REUSED : JOB_BILL_INVOICE_CREATED);
+      setInvoiceMsg(result.labourToast ?? (result.existing ? JOB_INVOICE_REUSED : JOB_BILL_INVOICE_CREATED));
       onInvoiceCreated?.(result);
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['job-invoices', jobId] });
@@ -409,6 +445,34 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         </div>
       )}
 
+      {unbilledCue ? (
+        <div className="job-bill-hours-cue" role="status">
+          <p className="job-bill-hours-cue-text">{unbilledCue.label}</p>
+          <button
+            type="button"
+            className="job-bill-hours-cue-btn"
+            disabled={pullingHours || !profile?.company_id}
+            onClick={() => {
+              if (!profile?.company_id || !profile.id) return;
+              setPullingHours(true);
+              void pullUnbilledHoursToJobBill(supabase, {
+                jobId,
+                companyId: profile.company_id,
+                profileId: profile.id,
+              })
+                .then(() => {
+                  void queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
+                  void queryClient.invalidateQueries({ queryKey: ['job-billed-timesheet-ids', jobId] });
+                  void queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+                })
+                .finally(() => setPullingHours(false));
+            }}
+          >
+            {pullingHours ? 'Adding…' : 'Add as labour'}
+          </button>
+        </div>
+      ) : null}
+
       <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-[#F9FAFB] text-[#4A5568] text-xs">
@@ -439,7 +503,12 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                 <td className="px-3 py-2 text-right text-[#4A5568]">{c.quantity}</td>
                 <td className="px-3 py-2 text-right text-[#4A5568]">{formatMoney(c.unit_cost)}</td>
                 <td className="px-3 py-2 text-right text-[#4A5568]">{Number(c.markup_percent) || 0}%</td>
-                <td className="px-3 py-2 text-right text-[#4A5568]">{formatMoney(c.unit_price || c.unit_cost)}</td>
+                <td className="px-3 py-2 text-right text-[#4A5568]">
+                  {formatMoney(c.unit_price || c.unit_cost)}
+                  {lineNeedsLabourRate(c) ? (
+                    <Link to="/price-books" className="job-bill-add-rate">Add a rate</Link>
+                  ) : null}
+                </td>
                 <td className="px-3 py-2 text-right font-semibold text-[#0A2540]">{formatMoney(c.total_price || c.total_cost)}</td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-0.5">

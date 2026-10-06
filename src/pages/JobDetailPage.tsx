@@ -3970,9 +3970,7 @@ export function JobDetailPage() {
           jobs={[{ id: job.id, title: job.title, job_number: job.job_number }]}
           employeeId={profile.id}
           presetJobId={job.id}
-          presetDate={job.scheduled_date}
-          presetStartTime={job.start_time}
-          presetEndTime={job.end_time}
+          blankTimesOnOpen
           lockJob
           onClose={() => setShowTimeEntry(false)}
           onSaved={() => {

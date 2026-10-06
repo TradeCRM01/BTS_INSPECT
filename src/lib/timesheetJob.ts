@@ -63,6 +63,55 @@ function bookingTimeInput(value?: string | null): string {
   return trimmed ? trimmed.slice(0, 5) : '';
 }
 
+/** Add hours from the job page: today in company TZ, blank start/end, Labour work type. */
+export function timeEntryDefaultsForAddHours(now = new Date()): {
+  date: string;
+  start_time: string;
+  end_time: string;
+} {
+  return {
+    date: localDateIso(now),
+    start_time: '',
+    end_time: '',
+  };
+}
+
+export const TIME_ENTRY_DURATION_CHIP_HOURS = [1, 2, 4, 8] as const;
+
+function localTimeHm(now: Date, timeZone = TIMESHEET_COMPANY_TZ): string {
+  const parts = new Intl.DateTimeFormat('en-AU', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+  const h = parts.find(p => p.type === 'hour')?.value ?? '00';
+  const m = parts.find(p => p.type === 'minute')?.value ?? '00';
+  return `${h}:${m}`;
+}
+
+function addHoursToHm(startHm: string, hours: number): string {
+  const [hStr, mStr] = startHm.split(':');
+  const base = (Number(hStr) || 0) * 60 + (Number(mStr) || 0);
+  const end = base + Math.round(hours * 60);
+  const h = Math.floor(end / 60) % 24;
+  const m = end % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+/** 1/2/4/8h chips: blank start → round now + duration; else extend end from start. */
+export function applyTimeEntryDurationChip(
+  form: { start_time: string; end_time: string },
+  hours: number,
+  now = new Date(),
+): { start_time: string; end_time: string } {
+  if (!form.start_time.trim()) {
+    const start = localTimeHm(now);
+    return { start_time: start, end_time: addHoursToHm(start, hours) };
+  }
+  return { start_time: form.start_time, end_time: addHoursToHm(form.start_time, hours) };
+}
+
 /** Add hours on a booked job opens as that booking, not today 08:00–17:00. */
 export function timeEntryDefaultsFromBooking(
   booking?: {

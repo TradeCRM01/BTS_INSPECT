@@ -4740,6 +4740,74 @@
     color: var(--invoice-warn);
   }
 
+  .job-bill-hours-cue {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--invoice-warn) 35%, #E2D9CC);
+    background: color-mix(in srgb, var(--invoice-warn) 12%, #fff);
+    color: var(--invoice-warn);
+  }
+
+  .job-bill-hours-cue-text {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .job-bill-hours-cue-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--invoice-warn) 45%, #E2D9CC);
+    background: #fff;
+    color: var(--invoice-warn);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .job-bill-hours-cue-btn:disabled {
+    opacity: 0.6;
+  }
+
+  .job-bill-add-rate,
+  .hub-invoice-labour-add-rate {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-left: 8px;
+    padding: 0 4px;
+    color: var(--invoice-warn);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    white-space: nowrap;
+  }
+
+  .job-time-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px solid #E2D9CC;
+    background: #FFFDF8;
+    color: #0A2540;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
   .hub-invoice-send-company-nudge-action {
     display: inline-flex;
     align-items: center;

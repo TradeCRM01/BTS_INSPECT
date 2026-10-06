@@ -16,6 +16,8 @@ import {
   jobClockedMinutes,
   localDateIso,
   planTimesheetClockOff,
+  applyTimeEntryDurationChip,
+  timeEntryDefaultsForAddHours,
   timeEntryDefaultsFromBooking,
   timesheetWorkedMinutes,
 } from './timesheetJob';
@@ -254,8 +256,25 @@ describe('timeEntryDefaultsFromBooking', () => {
     expect(form).not.toMatch(/end_time: '17:00'/);
 
     const jobSheet = readFileSync(resolve(process.cwd(), 'src/pages/JobDetailPage.tsx'), 'utf8');
-    expect(jobSheet).toContain('presetDate={job.scheduled_date}');
-    expect(jobSheet).toContain('presetStartTime={job.start_time}');
-    expect(jobSheet).toContain('presetEndTime={job.end_time}');
+    expect(jobSheet).toContain('blankTimesOnOpen');
+    expect(jobSheet).not.toContain('presetStartTime={job.start_time}');
+    expect(jobSheet).not.toContain('presetEndTime={job.end_time}');
+  });
+});
+
+describe('timeEntryDefaultsForAddHours', () => {
+  it('defaults to today with blank times and supports duration chips', () => {
+    const now = new Date('2026-10-06T02:00:00.000Z');
+    expect(timeEntryDefaultsForAddHours(now)).toEqual({
+      date: localDateIso(now),
+      start_time: '',
+      end_time: '',
+    });
+    const chipped = applyTimeEntryDurationChip({ start_time: '', end_time: '' }, 2, now);
+    expect(chipped.start_time).toMatch(/^\d{2}:\d{2}$/);
+    expect(chipped.end_time).toMatch(/^\d{2}:\d{2}$/);
+    const form = readFileSync(resolve(process.cwd(), 'src/components/timesheets/TimeEntryForm.tsx'), 'utf8');
+    expect(form).toContain('TIME_ENTRY_DURATION_CHIP_HOURS');
+    expect(form).toContain("work_type: blankTimesOnOpen ? 'Labour' : ''");
   });
 });

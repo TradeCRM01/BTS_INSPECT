@@ -1,5 +1,10 @@
 import { supabase } from './supabase';
 import {
+  invoiceLinesWithLabourPriceBook,
+  pullUnbilledHoursToJobBill,
+  resolveLabourSellFromPriceBook,
+} from './hoursToJobBill';
+import {
   JOB_COST_INVOICE_SELECT,
   buildInvoiceFromJobBill,
   decideJobBillInvoice,
@@ -17,6 +22,7 @@ export type CreateInvoiceFromJobBillResult = {
   id: string;
   existing: boolean;
   invoice: JobInvoiceListRow | null;
+  labourToast?: string | null;
 };
 
 /**
@@ -40,12 +46,26 @@ export async function createInvoiceFromJobBill(input: {
   if (jobErr) throw jobErr;
   if (!job) throw new Error('Job not found');
 
+  const pull = await pullUnbilledHoursToJobBill(supabase, {
+    jobId: input.jobId,
+    companyId: input.companyId,
+    profileId: input.profileId,
+  });
+
   const { data: costs, error: costErr } = await supabase
     .from('job_costs')
     .select(JOB_COST_INVOICE_SELECT)
     .eq('job_id', input.jobId)
     .order('created_at', { ascending: true });
   if (costErr) throw costErr;
+
+  const { data: pbItems, error: pbErr } = await supabase
+    .from('price_book_items')
+    .select('id, category, unit_price, is_active')
+    .eq('company_id', input.companyId)
+    .eq('is_active', true);
+  if (pbErr) throw pbErr;
+  const labourSell = resolveLabourSellFromPriceBook(pbItems ?? []);
 
   const { data: existing, error: existingErr } = await supabase
     .from('invoices')
@@ -54,7 +74,10 @@ export async function createInvoiceFromJobBill(input: {
     .order('created_at', { ascending: false });
   if (existingErr) throw existingErr;
 
-  const lines = invoiceLinesFromJobCosts((costs ?? []) as JobBillCostLine[]);
+  const lines = invoiceLinesWithLabourPriceBook(
+    invoiceLinesFromJobCosts((costs ?? []) as JobBillCostLine[]),
+    labourSell,
+  );
   const decision = decideJobBillInvoice({
     clientId: job.client_id as string | null,
     lines,
@@ -67,6 +90,7 @@ export async function createInvoiceFromJobBill(input: {
       id: decision.invoiceId,
       existing: true,
       invoice: asJobInvoiceListRow(reused),
+      labourToast: pull.toast,
     };
   }
 
@@ -100,6 +124,7 @@ export async function createInvoiceFromJobBill(input: {
           id: reuse.id as string,
           existing: true,
           invoice: asJobInvoiceListRow(reuse),
+          labourToast: pull.toast,
         };
       }
     }
@@ -108,5 +133,5 @@ export async function createInvoiceFromJobBill(input: {
 
   const invoice = asJobInvoiceListRow(data);
   if (!invoice) throw new Error('Invoice was not saved.');
-  return { id: invoice.id, existing: false, invoice };
+  return { id: invoice.id, existing: false, invoice, labourToast: pull.toast };
 }

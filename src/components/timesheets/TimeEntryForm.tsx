@@ -6,9 +6,12 @@ import { OverlayPortal } from '../ui/OverlayPortal';
 import { ManagedSelect } from '../ui/ManagedSelect';
 import { LIST_KEYS } from '../../lib/useManagedList';
 import {
+  applyTimeEntryDurationChip,
   buildJobTimeEntry,
   buildOpenTimesheetInsert,
   entryMinutes,
+  TIME_ENTRY_DURATION_CHIP_HOURS,
+  timeEntryDefaultsForAddHours,
   timeEntryDefaultsFromBooking,
 } from '../../lib/timesheetJob';
 import type { Timesheet } from '../../types/fsm';
@@ -22,6 +25,7 @@ export function TimeEntryForm({
   presetStartTime,
   presetEndTime,
   lockJob,
+  blankTimesOnOpen,
   onClose,
   onSaved,
 }: {
@@ -33,17 +37,20 @@ export function TimeEntryForm({
   presetStartTime?: string | null;
   presetEndTime?: string | null;
   lockJob?: boolean;
+  blankTimesOnOpen?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { profile } = useAuth();
   const [form, setForm] = useState(() => ({
-    ...timeEntryDefaultsFromBooking({
-      scheduled_date: presetDate,
-      start_time: presetStartTime,
-      end_time: presetEndTime,
-    }),
-    work_type: '',
+    ...(blankTimesOnOpen
+      ? timeEntryDefaultsForAddHours()
+      : timeEntryDefaultsFromBooking({
+        scheduled_date: presetDate,
+        start_time: presetStartTime,
+        end_time: presetEndTime,
+      })),
+    work_type: blankTimesOnOpen ? 'Labour' : '',
     billable: true,
     notes: '',
     job_id: presetJobId ?? '',
@@ -54,6 +61,10 @@ export function TimeEntryForm({
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!profile?.company_id) return;
+    if (!form.start_time || !form.end_time) {
+      setErr('Enter start and end times, or tap a duration chip.');
+      return;
+    }
     setSaving(true);
     setErr(null);
     try {
@@ -112,6 +123,20 @@ export function TimeEntryForm({
               <Field label="Start Time"><input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} className="form-input" /></Field>
               <Field label="End Time"><input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} className="form-input" /></Field>
             </div>
+            {blankTimesOnOpen ? (
+              <div className="flex flex-wrap gap-2">
+                {TIME_ENTRY_DURATION_CHIP_HOURS.map(h => (
+                  <button
+                    key={h}
+                    type="button"
+                    className="job-time-chip"
+                    onClick={() => setForm(f => ({ ...f, ...applyTimeEntryDurationChip(f, h) }))}
+                  >
+                    {h}h
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <Field label="Job">
               <select
                 value={form.job_id}
