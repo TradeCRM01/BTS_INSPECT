@@ -45,7 +45,12 @@ import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdf
 import { QuoteChaseDialog } from '../components/invoicing/QuoteChaseDialog';
 import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
 import { quoteSendCompanyFrom } from '../lib/sendQuote';
-import { documentShareOrigin, QUOTE_MARKED_SENT_TOAST } from '../lib/documentShare';
+import {
+  documentShareCopyErrorToast,
+  documentShareOrigin,
+  documentShareManualCopyToast,
+} from '../lib/documentShare';
+import { DocumentShareManualLink } from '../components/invoicing/DocumentShareManualLink';
 import { copyShareText, prepareDocumentShareLink } from '../lib/documentShareDeliver';
 import { commercialPdfPreviewData, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
@@ -909,6 +914,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   const [invoiceId, setInvoiceId] = useState<string | null>(quote?.invoice_id ?? null);
   const moreRef = useRef<HTMLDetailsElement>(null);
   const [copyConfirm, setCopyConfirm] = useState(false);
+  const [manualCopyUrl, setManualCopyUrl] = useState('');
   const [copyingLink, setCopyingLink] = useState(false);
   const emailInputRef = useRef<HTMLInputElement>(null);
 
@@ -1347,16 +1353,18 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
       });
       closeMore();
       if (result.kind === 'manual') {
-        setErr(result.text);
-        if (markedSent) showToast(QUOTE_MARKED_SENT_TOAST);
+        setManualCopyUrl(result.text);
+        const manualToast = documentShareManualCopyToast('quote', markedSent);
+        if (manualToast) showToast(manualToast);
       } else {
+        setManualCopyUrl('');
         setCopyConfirm(true);
         showToast(toast || 'Link copied');
         window.setTimeout(() => setCopyConfirm(false), 2500);
       }
     } catch (e) {
       closeMore();
-      showToast(e instanceof Error ? e.message : 'Could not copy the link.', 'error');
+      showToast(documentShareCopyErrorToast(e), 'error');
     } finally {
       setCopyingLink(false);
     }
@@ -1523,6 +1531,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
             </button>
           </div>
         </div>
+        {manualCopyUrl ? <DocumentShareManualLink url={manualCopyUrl} /> : null}
         {err && err !== CONVERT_QUOTE_NEED_DATE_CREW ? <p className="hub-quote-err">{err}</p> : null}
 
         <div className="hub-quote-sheet">

@@ -22,7 +22,12 @@ import {
   QUOTE_SHARE_MARKED_SENT_TOAST,
   INVOICE_SHARE_MARKED_SENT_TOAST,
   interpretMarkSentWrite,
-  MARK_SENT_WRITE_FAILED,
+  isMarkSentWriteFailed,
+  documentShareCopyErrorToast,
+  documentShareManualCopyToast,
+  MARK_SENT_COPY_BLOCKED_TOAST,
+  QUOTE_MANUAL_COPY_TOAST,
+  INVOICE_MANUAL_COPY_TOAST,
 } from './documentShare';
 
 describe('documentShareOrigin', () => {
@@ -92,8 +97,17 @@ describe('decideQuoteShare', () => {
       .toEqual({ status: 'sent', markedSent: true });
     expect(interpretMarkSentWrite({ updatedId: null, liveStatus: 'sent', next: 'sent' }))
       .toEqual({ status: 'sent', markedSent: false });
-    expect(() => interpretMarkSentWrite({ updatedId: null, liveStatus: 'draft', next: 'sent' }))
-      .toThrow(MARK_SENT_WRITE_FAILED);
+    try {
+      interpretMarkSentWrite({ updatedId: null, liveStatus: 'draft', next: 'sent' });
+      throw new Error('expected mark-sent failure');
+    } catch (error) {
+      expect(isMarkSentWriteFailed(error)).toBe(true);
+      expect(error instanceof Error).toBe(false);
+      expect(documentShareCopyErrorToast(error)).toBe(MARK_SENT_COPY_BLOCKED_TOAST);
+    }
+    expect(documentShareManualCopyToast('quote', true)).toBe(QUOTE_MANUAL_COPY_TOAST);
+    expect(documentShareManualCopyToast('quote', false)).toBeNull();
+    expect(documentShareManualCopyToast('invoice', true)).toBe(INVOICE_MANUAL_COPY_TOAST);
   });
 
   it('builds mailto once the portal URL and client email exist', () => {

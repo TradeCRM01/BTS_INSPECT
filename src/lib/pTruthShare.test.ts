@@ -2,11 +2,15 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  documentShareCopyErrorToast,
   documentShareCopyToast,
+  documentShareManualCopyToast,
   interpretMarkSentWrite,
   invoiceStatusAfterMarkSent,
-  MARK_SENT_WRITE_FAILED,
-  QUOTE_MARKED_SENT_TOAST,
+  isMarkSentWriteFailed,
+  MARK_SENT_COPY_BLOCKED_TOAST,
+  QUOTE_MANUAL_COPY_TOAST,
+  INVOICE_MANUAL_COPY_TOAST,
   quoteStatusAfterMarkSent,
 } from './documentShare';
 import {
@@ -36,12 +40,13 @@ describe('P-TRUTH — share marks sent, portal hides drafts', () => {
     expect(editor).toContain('prepareDocumentShareLink');
     expect(editor).toContain("kind: 'quote'");
     expect(editor).toContain('result.kind === \'manual\'');
-    expect(editor).toContain('QUOTE_MARKED_SENT_TOAST');
+    expect(editor).toContain('documentShareManualCopyToast');
     expect(editor).not.toContain('if (result.kind === \'manual\') setErr(result.text);');
+    expect(editor).not.toContain('setErr(result.text)');
     expect(editor.indexOf('if (result.kind === \'manual\')')).toBeLessThan(editor.indexOf('showToast(toast || \'Link copied\')'));
     expect(editor).toContain("queryKey: ['client-quotes']");
     expect(editor).toContain("queryKey: ['job-quotes']");
-    expect(QUOTE_MARKED_SENT_TOAST).toBe('Quote marked as sent');
+    expect(QUOTE_MANUAL_COPY_TOAST).toBe('Quote marked as sent. Copy the link below.');
 
     const quoteSend = src('src/components/invoicing/QuoteSendDialog.tsx');
     const invoiceSend = src('src/components/invoicing/InvoiceSendDialog.tsx');
@@ -96,8 +101,14 @@ describe('P-TRUTH — share marks sent, portal hides drafts', () => {
       .toEqual({ status: 'sent', markedSent: true });
     expect(interpretMarkSentWrite({ updatedId: undefined, liveStatus: 'sent', next: 'sent' }))
       .toEqual({ status: 'sent', markedSent: false });
-    expect(() => interpretMarkSentWrite({ updatedId: null, liveStatus: 'draft', next: 'sent' }))
-      .toThrow(MARK_SENT_WRITE_FAILED);
+    try {
+      interpretMarkSentWrite({ updatedId: null, liveStatus: 'draft', next: 'sent' });
+      throw new Error('expected mark-sent failure');
+    } catch (error) {
+      expect(isMarkSentWriteFailed(error)).toBe(true);
+      expect(error instanceof Error).toBe(false);
+      expect(documentShareCopyErrorToast(error)).toBe(MARK_SENT_COPY_BLOCKED_TOAST);
+    }
 
     const deliver = src('src/lib/documentShareDeliver.ts');
     expect(deliver).toContain(".select('id')");
@@ -111,7 +122,8 @@ describe('P-TRUTH — share marks sent, portal hides drafts', () => {
     expect(quoteMark.indexOf("select('status')")).toBeGreaterThan(quoteMark.indexOf(".select('id')"));
 
     const editor = src('src/pages/QuotesPage.tsx');
-    expect(editor).toContain("showToast(e instanceof Error ? e.message : 'Could not copy the link.', 'error')");
+    expect(editor).toContain('documentShareCopyErrorToast');
+    expect(editor).not.toContain("e instanceof Error ? e.message : 'Could not copy the link.'");
     expect(editor.indexOf('copyShareText')).toBeLessThan(editor.indexOf('} catch (e) {'));
 
     const invoiceSend = src('src/components/invoicing/InvoiceSendDialog.tsx');
@@ -130,5 +142,84 @@ describe('P-TRUTH — share marks sent, portal hides drafts', () => {
     const quoteSend = src('src/components/invoicing/QuoteSendDialog.tsx');
     expect(quoteSend).toContain("queryKey: ['client-quotes']");
     expect(quoteSend).toContain("queryKey: ['job-quotes']");
+  });
+
+  it('C2 — flip failure toast matches the marker, not supabase error.message', () => {
+    const supabaseShaped = { message: 'JWT expired', code: 'PGRST301' };
+    expect(supabaseShaped instanceof Error).toBe(false);
+    expect(isMarkSentWriteFailed(supabaseShaped)).toBe(false);
+    expect(documentShareCopyErrorToast(supabaseShaped)).toBe('Could not copy the link.');
+    expect(documentShareCopyErrorToast({ kind: 'mark_sent_write_failed' }))
+      .toBe("Couldn't mark as sent, so the link wasn't copied. Try again.");
+    expect(MARK_SENT_COPY_BLOCKED_TOAST).toBe(
+      "Couldn't mark as sent, so the link wasn't copied. Try again.",
+    );
+
+    const deliver = src('src/lib/documentShareDeliver.ts');
+    const quoteMark = deliver.slice(
+      deliver.indexOf('export async function markQuoteSentForShare'),
+      deliver.indexOf('export async function markInvoiceSentForShare'),
+    );
+    const invoiceMark = deliver.slice(
+      deliver.indexOf('export async function markInvoiceSentForShare'),
+      deliver.indexOf('export async function prepareDocumentShareLink'),
+    );
+    expect(quoteMark).toContain('markSentWriteFailed()');
+    expect(quoteMark).not.toContain('throw error');
+    expect(quoteMark).not.toContain('throw liveError');
+    expect(invoiceMark).toContain('markSentWriteFailed()');
+    expect(invoiceMark).not.toContain('throw error');
+
+    for (const rel of [
+      'src/pages/QuotesPage.tsx',
+      'src/components/invoicing/QuoteSendDialog.tsx',
+      'src/components/invoicing/InvoiceSendDialog.tsx',
+    ]) {
+      const page = src(rel);
+      const start = page.indexOf('const handleCopyLink');
+      const toastAt = page.indexOf('documentShareCopyErrorToast', start);
+      expect(toastAt, rel).toBeGreaterThan(start);
+      expect(page.slice(start, toastAt), rel).not.toContain('e instanceof Error ? e.message');
+    }
+  });
+
+  it('C2 — manual clipboard shows a 390 wrap box and flip-only toast', () => {
+    expect(documentShareManualCopyToast('quote', true)).toBe(QUOTE_MANUAL_COPY_TOAST);
+    expect(documentShareManualCopyToast('quote', false)).toBeNull();
+    expect(documentShareManualCopyToast('invoice', true)).toBe(INVOICE_MANUAL_COPY_TOAST);
+    expect(documentShareManualCopyToast('invoice', false)).toBeNull();
+    expect(QUOTE_MANUAL_COPY_TOAST).toBe('Quote marked as sent. Copy the link below.');
+    expect(INVOICE_MANUAL_COPY_TOAST).toBe('Invoice marked as sent. Copy the link below.');
+
+    expect(src('src/lib/documentShare.ts')).toContain("export const DOCUMENT_SHARE_MANUAL_LABEL = 'Copy this link:';");
+    const box = src('src/components/invoicing/DocumentShareManualLink.tsx');
+    expect(box).toContain('DOCUMENT_SHARE_MANUAL_LABEL');
+    expect(box).toContain('hub-share-manual-link');
+    expect(box).toContain('readOnly');
+    expect(box).toContain('currentTarget.select()');
+    expect(box).not.toContain('hub-quote-err');
+
+    const css = src('src/index.css');
+    const manual = css.slice(css.indexOf('.hub-share-manual-link'), css.indexOf('.hub-quote-err'));
+    expect(manual).toContain('max-width: 390px');
+    expect(manual).toContain('word-break: break-all');
+    expect(manual).toContain('overflow-wrap: anywhere');
+    expect(manual).toContain('#FFFDF8');
+    expect(manual).toContain('#0A2540');
+    expect(manual).not.toContain('#B42318');
+
+    const quotes = src('src/pages/QuotesPage.tsx');
+    const quoteSend = src('src/components/invoicing/QuoteSendDialog.tsx');
+    const invoiceSend = src('src/components/invoicing/InvoiceSendDialog.tsx');
+    expect(quotes).toContain('DocumentShareManualLink');
+    expect(quotes).toContain('documentShareManualCopyToast');
+    expect(quotes).not.toContain('setErr(result.text)');
+    expect(quoteSend).toContain('DocumentShareManualLink');
+    expect(quoteSend).toContain("documentShareManualCopyToast('quote', markedSent)");
+    expect(invoiceSend).toContain('DocumentShareManualLink');
+    expect(invoiceSend).toContain("documentShareManualCopyToast('invoice', markedSent)");
+    expect(invoiceSend).toContain('onSent(bundle?.client?.email || \'client\', manualToast, { keepOpen: true })');
+    expect(invoiceSend).toContain('Payment reminder copied.');
+    expect(src('src/pages/InvoicesPage.tsx')).toContain("status: 'sent'");
   });
 });

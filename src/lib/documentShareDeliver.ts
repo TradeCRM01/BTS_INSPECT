@@ -9,6 +9,7 @@ import {
   documentShareCopyToast,
   interpretMarkSentWrite,
   invoiceStatusAfterMarkSent,
+  markSentWriteFailed,
   quoteStatusAfterMarkSent,
   type DocumentShareKind,
 } from './documentShare';
@@ -90,7 +91,7 @@ export async function markQuoteSentForShare(args: {
     .eq('id', args.quoteId)
     .eq('status', 'draft')
     .select('id');
-  if (error) throw error;
+  if (error) markSentWriteFailed();
   const updated = (Array.isArray(data) ? data[0] : data) as { id?: string } | null;
   if (updated?.id) return { status: next, markedSent: true };
   const { data: live, error: liveError } = await supabase
@@ -98,7 +99,7 @@ export async function markQuoteSentForShare(args: {
     .select('status')
     .eq('id', args.quoteId)
     .maybeSingle();
-  if (liveError) throw liveError;
+  if (liveError) markSentWriteFailed();
   return interpretMarkSentWrite({
     updatedId: null,
     liveStatus: live?.status as string | undefined,
@@ -119,7 +120,7 @@ export async function markInvoiceSentForShare(args: {
     .eq('id', args.invoiceId)
     .eq('status', 'draft')
     .select('id');
-  if (error) throw error;
+  if (error) markSentWriteFailed();
   const updated = (Array.isArray(data) ? data[0] : data) as { id?: string } | null;
   if (updated?.id) return { status: next, markedSent: true };
   const { data: live, error: liveError } = await supabase
@@ -127,7 +128,7 @@ export async function markInvoiceSentForShare(args: {
     .select('status')
     .eq('id', args.invoiceId)
     .maybeSingle();
-  if (liveError) throw liveError;
+  if (liveError) markSentWriteFailed();
   return interpretMarkSentWrite({
     updatedId: null,
     liveStatus: live?.status as string | undefined,

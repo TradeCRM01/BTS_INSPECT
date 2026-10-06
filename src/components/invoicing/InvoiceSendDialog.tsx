@@ -7,11 +7,14 @@ import { generateCommercialPdf } from '../../reports/commercial/generateCommerci
 import { supabase } from '../../lib/supabase';
 import {
   decideInvoiceShare,
+  documentShareCopyErrorToast,
+  documentShareManualCopyToast,
   documentShareOrigin,
   invoiceChaseSummary,
   invoiceShareAfterPortalUrl,
   type DocumentShareExport,
 } from '../../lib/documentShare';
+import { DocumentShareManualLink } from './DocumentShareManualLink';
 import {
   copyShareText,
   loadActiveClientPortalUrl,
@@ -335,7 +338,12 @@ export function InvoiceSendDialog({
         return prepared.share.copyText ?? prepared.url;
       });
       setCopy(result);
-      if (result.kind === 'copied' && markedSent) {
+      if (result.kind === 'manual') {
+        const manualToast = documentShareManualCopyToast('invoice', markedSent);
+        if (manualToast) {
+          onSent(bundle?.client?.email || 'client', manualToast, { keepOpen: true });
+        }
+      } else if (result.kind === 'copied' && markedSent) {
         onSent(bundle?.client?.email || 'client', toast, { keepOpen: true });
       } else if (result.kind === 'copied' && share.purpose === 'chase') {
         onSent(bundle?.client?.email || 'client', 'Payment reminder copied.', { keepOpen: true });
@@ -343,7 +351,7 @@ export function InvoiceSendDialog({
         showToast(toast);
       }
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Could not copy the portal link.');
+      showToast(documentShareCopyErrorToast(e), 'error');
     } finally {
       setBusy('');
     }
@@ -535,18 +543,7 @@ export function InvoiceSendDialog({
               <div className="hub-invoice-send-field">
                 <p className="hub-invoice-kicker">Portal link</p>
                 {copy?.kind === 'manual' ? (
-                  <>
-                    <input
-                      type="text"
-                      readOnly
-                      value={copy.text}
-                      onFocus={e => e.currentTarget.select()}
-                      onClick={e => e.currentTarget.select()}
-                      className="form-input-sm"
-                      aria-label="Portal link"
-                    />
-                    <p className="hub-invoice-send-value">Hold the link to copy it.</p>
-                  </>
+                  <DocumentShareManualLink url={copy.text} />
                 ) : (
                   <p className="hub-invoice-send-value">
                     {copy?.kind === 'copied'
