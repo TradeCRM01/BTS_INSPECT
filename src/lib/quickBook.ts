@@ -900,7 +900,7 @@ export function resolveQuickBook<
     clients,
     crew,
     prefill: {} as SpokenSheetFields,
-    newJob: jobs.kind === 'none' && parsed.titleToken
+    newJob: parsed.titleToken
       ? {
           title: parsed.titleToken,
           clientToken: parsed.clientToken,

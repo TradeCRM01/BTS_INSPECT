@@ -24,6 +24,7 @@ export function ScheduleJobSheet({
   matchHints = null,
   fromBooking = null,
   saving = false,
+  onNewJobInstead,
   onClose,
   onSave,
 }: {
@@ -41,6 +42,7 @@ export function ScheduleJobSheet({
     crew?: boolean;
   } | null;
   saving?: boolean;
+  onNewJobInstead?: () => void;
   onClose: () => void;
   onSave: (fields: ScheduleSheetInput) => void;
 }) {
@@ -178,6 +180,15 @@ export function ScheduleJobSheet({
             onChange={e => setEndTime(e.target.value)}
           />
         </label>
+        {onNewJobInstead ? (
+          <button
+            type="button"
+            className="hub-schedule-voice-new hub-schedule-sheet-new-instead"
+            onClick={onNewJobInstead}
+          >
+            New job instead
+          </button>
+        ) : null}
       </div>
     </AppDialog>
   );

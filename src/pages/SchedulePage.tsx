@@ -893,7 +893,7 @@ export function SchedulePage() {
       };
       setVoiceHints(resolved.hints);
       setVoiceJobPicks(resolved.jobs.kind === 'many' ? resolved.jobs.items : []);
-      setVoiceNewJob(resolved.jobs.kind === 'none' && resolved.newJob ? {
+      setVoiceNewJob(resolved.newJob ? {
         draft: resolved.newJob,
         prefill: spoken,
         hints: resolved.hints,
@@ -975,6 +975,23 @@ export function SchedulePage() {
   ].join(' · ');
   const boardWhisper = viewMode === 'day' ? dayWhisper : weekWhisper;
   const boardRangeLabel = viewMode === 'day' ? dayRangeLabel : weekRangeLabel;
+
+  const openVoiceNewJobForm = useCallback(() => {
+    if (!voiceNewJob) return;
+    setSelectedDate(voiceNewJob.prefill.date ?? null);
+    setPresetClientId(voiceNewJob.draft.clientId ?? null);
+    setPresetEmployeeId(voiceNewJob.prefill.crewId);
+    setShowForm(true);
+  }, [voiceNewJob]);
+
+  const openNewJobInstead = useCallback(() => {
+    if (!voiceNewJob) return;
+    setSheetJob(null);
+    setSheetPrefill(null);
+    setSheetHints(null);
+    setSheetFromBooking(null);
+    openVoiceNewJobForm();
+  }, [voiceNewJob, openVoiceNewJobForm]);
 
   const openNewJob = () => {
     setVoiceNewJob(null);
@@ -1149,12 +1166,7 @@ export function SchedulePage() {
                   hints={voiceHints ?? undefined}
                   jobPicks={voiceJobPicks}
                   onPickJob={pickVoiceJob}
-                  onNewJob={voiceNewJob ? () => {
-                    setSelectedDate(voiceNewJob.prefill.date ?? null);
-                    setPresetClientId(voiceNewJob.draft.clientId ?? null);
-                    setPresetEmployeeId(voiceNewJob.prefill.crewId);
-                    setShowForm(true);
-                  } : undefined}
+                  onNewJob={voiceNewJob ? openVoiceNewJobForm : undefined}
                 />
                 {pickedJob && boardCrew.length > 0 && (
                   <div className="hub-week-place hub-schedule-place" data-schedule-place="1">
@@ -1248,6 +1260,7 @@ export function SchedulePage() {
         matchHints={sheetHints}
         fromBooking={sheetFromBooking}
         saving={scheduleFromSheet.isPending}
+        onNewJobInstead={voiceNewJob && sheetJob ? openNewJobInstead : undefined}
         onClose={() => {
           setSheetJob(null);
           setSheetPrefill(null);

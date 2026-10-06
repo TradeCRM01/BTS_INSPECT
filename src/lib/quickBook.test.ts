@@ -430,13 +430,15 @@ describe('quickBook parser', () => {
     }, NOW);
     expect(matched.jobs.kind).toBe('one');
     expect(matched.jobs.items[0]?.id).toBe('job-hot');
-    expect(matched.newJob).toBeNull();
+    expect(matched.newJob?.title).toBe('Hot water');
     const page = src('src/pages/SchedulePage.tsx');
     const voice = src('src/components/crm/ScheduleBookByVoice.tsx');
     const form = src('src/components/crm/JobFormModal.tsx');
     expect(voice).toContain('New job from this');
     expect(voice).toContain('onNewJob');
     expect(page).toContain('voiceNewJob');
+    expect(page).toContain('openNewJobInstead');
+    expect(src('src/components/crm/ScheduleJobSheet.tsx')).toContain('New job instead');
     expect(page).not.toMatch(/applyQuickBook[\s\S]{0,400}from\('jobs'\)\.insert/);
     expect(form).toContain('Create client');
     expect(form).toContain('presetName');
@@ -684,7 +686,7 @@ describe('quickBook speech helper and Schedule wire', () => {
     }, NOW);
     expect(resolved.jobs.kind).toBe('one');
     expect(resolved.jobs.items[0]?.id).toBe('j-smith');
-    expect(resolved.newJob).toBeNull();
+    expect(resolved.newJob?.title).toBe('Hot water Smith');
     const numbered = resolveQuickBook('Hot water 286 Thursday 7am', {
       jobs: [],
       crew,
