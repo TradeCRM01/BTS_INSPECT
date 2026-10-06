@@ -64,15 +64,65 @@ export type JobCostFromHoursInsert = {
  */
 export const PROFILE_STAFF_LABOUR_RATE_KEYS: readonly string[] = [];
 
+/** Migration 084 — per-employee default cost model for job-bill labour unit_cost. */
+export const PROFILES_LABOUR_UNIT_COST_COLUMN = 'expense_cost_model_id';
+
 let warnedTimesheetColumnMissing = false;
 let warnedCompanyLabourRateColumnMissing = false;
+let warnedProfileExpenseCostModelColumnMissing = false;
+/** When false, skip selecting expense_cost_model_id to avoid repeated PostgREST 400s. */
+let profilesLabourUnitCostColumnAvailable: boolean | null = null;
+
+export function resetProfilesLabourUnitCostColumnCache(): void {
+  profilesLabourUnitCostColumnAvailable = null;
+}
+
+export function profilesSelectForLabourBill(includeExpenseCostModelId: boolean): string {
+  return includeExpenseCostModelId
+    ? `id, ${PROFILES_LABOUR_UNIT_COST_COLUMN}`
+    : 'id';
+}
 
 export function isSchemaColumnMissingError(error: unknown, column: string): boolean {
-  const msg = error && typeof error === 'object' && 'message' in error
-    ? String((error as { message: string }).message)
-    : String(error ?? '');
-  return new RegExp(column, 'i').test(msg)
-    && /(schema cache|column|does not exist|Could not find)/i.test(msg);
+  if (!error || typeof error !== 'object') return false;
+  const e = error as { message?: string; code?: string; details?: string; hint?: string };
+  const text = [e.message, e.details, e.hint].filter(Boolean).join(' ');
+  const colMatch = new RegExp(column, 'i').test(text);
+  if (!colMatch) return false;
+  if (e.code === 'PGRST204') return true;
+  return /(schema cache|column|does not exist|Could not find)/i.test(text);
+}
+
+export async function loadProfilesForLabourBill(
+  client: SupabaseClient,
+  companyId: string,
+): Promise<Array<{ id: string; expense_cost_model_id?: string | null }>> {
+  const tryFullSelect = profilesLabourUnitCostColumnAvailable !== false;
+  const select = profilesSelectForLabourBill(tryFullSelect);
+  const { data, error } = await client
+    .from('profiles')
+    .select(select)
+    .eq('company_id', companyId);
+
+  if (!error) {
+    if (tryFullSelect) profilesLabourUnitCostColumnAvailable = true;
+    return (data ?? []) as unknown as Array<{ id: string; expense_cost_model_id?: string | null }>;
+  }
+
+  if (tryFullSelect && isSchemaColumnMissingError(error, PROFILES_LABOUR_UNIT_COST_COLUMN)) {
+    profilesLabourUnitCostColumnAvailable = false;
+    if (!warnedProfileExpenseCostModelColumnMissing) {
+      console.warn(
+        '[hoursToJobBill] profiles.expense_cost_model_id missing — run migration 084',
+      );
+      warnedProfileExpenseCostModelColumnMissing = true;
+    }
+    const retry = await client.from('profiles').select('id').eq('company_id', companyId);
+    if (retry.error) throw retry.error;
+    return (retry.data ?? []) as unknown as Array<{ id: string; expense_cost_model_id?: string | null }>;
+  }
+
+  throw error;
 }
 
 export function isLabourCategory(category: string | null | undefined): boolean {
@@ -551,20 +601,8 @@ export async function loadUnbilledLabourPullPlan(
   if (modelErr) throw modelErr;
   const costModels = (modelsRaw ?? []).map(m => normalizeCostModel(m as Record<string, unknown>));
 
-  let profileRows: Array<Record<string, unknown>> = [];
-  const profWithModel = await client
-    .from('profiles')
-    .select('id, expense_cost_model_id')
-    .eq('company_id', input.companyId);
-  if (profWithModel.error && isSchemaColumnMissingError(profWithModel.error, 'expense_cost_model_id')) {
-    const profBasic = await client.from('profiles').select('id').eq('company_id', input.companyId);
-    if (profBasic.error) throw profBasic.error;
-    profileRows = (profBasic.data ?? []) as Array<Record<string, unknown>>;
-  } else if (profWithModel.error) {
-    throw profWithModel.error;
-  } else {
-    profileRows = (profWithModel.data ?? []) as Array<Record<string, unknown>>;
-  }
+  const profileRowsLoaded = await loadProfilesForLabourBill(client, input.companyId);
+  const profileRows = profileRowsLoaded as Array<Record<string, unknown>>;
 
   const labourContext: LabourBillContext = {
     staffRatesByProfileId: buildStaffLabourRatesByProfileId(profileRows),
