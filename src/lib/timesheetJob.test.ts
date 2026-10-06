@@ -16,6 +16,8 @@ import {
   jobClockedMinutes,
   localDateIso,
   planTimesheetClockOff,
+  applyTimeEntryDurationChip,
+  timeEntryDefaultsForAddHours,
   timeEntryDefaultsFromBooking,
   timesheetWorkedMinutes,
 } from './timesheetJob';
@@ -41,8 +43,8 @@ describe('entryMinutes', () => {
     expect(entryMinutes('2026-08-20T08:00:00.000Z', '2026-08-20T09:30:00.000Z')).toBe(90);
   });
 
-  it('does not go negative', () => {
-    expect(entryMinutes('2026-08-20T10:00:00.000Z', '2026-08-20T09:00:00.000Z')).toBe(0);
+  it('counts overnight when end is earlier on the same calendar day (chip wrap)', () => {
+    expect(entryMinutes('2026-10-06T23:00:00.000Z', '2026-10-06T01:00:00.000Z')).toBe(120);
   });
 
   it('treats missing or equal timestamps as 0', () => {
@@ -254,8 +256,28 @@ describe('timeEntryDefaultsFromBooking', () => {
     expect(form).not.toMatch(/end_time: '17:00'/);
 
     const jobSheet = readFileSync(resolve(process.cwd(), 'src/pages/JobDetailPage.tsx'), 'utf8');
-    expect(jobSheet).toContain('presetDate={job.scheduled_date}');
-    expect(jobSheet).toContain('presetStartTime={job.start_time}');
-    expect(jobSheet).toContain('presetEndTime={job.end_time}');
+    expect(jobSheet).toContain('blankTimesOnOpen');
+    expect(jobSheet).not.toContain('presetStartTime={job.start_time}');
+    expect(jobSheet).not.toContain('presetEndTime={job.end_time}');
+  });
+});
+
+describe('timeEntryDefaultsForAddHours', () => {
+  it('defaults to today with blank times and supports duration chips', () => {
+    const now = new Date('2026-10-06T02:00:00.000Z');
+    expect(timeEntryDefaultsForAddHours(now)).toEqual({
+      date: localDateIso(now),
+      start_time: '',
+      end_time: '',
+    });
+    const chipped = applyTimeEntryDurationChip({ start_time: '', end_time: '' }, 2, now);
+    expect(chipped.start_time).toMatch(/^\d{2}:\d{2}$/);
+    expect(chipped.end_time).toMatch(/^\d{2}:\d{2}$/);
+    const overnight = applyTimeEntryDurationChip({ start_time: '23:00', end_time: '' }, 2);
+    expect(overnight.end_time).toBe('01:00');
+    expect(entryMinutes('2026-10-06T23:00:00.000Z', '2026-10-06T01:00:00.000Z')).toBe(120);
+    const form = readFileSync(resolve(process.cwd(), 'src/components/timesheets/TimeEntryForm.tsx'), 'utf8');
+    expect(form).toContain('TIME_ENTRY_DURATION_CHIP_HOURS');
+    expect(form).toContain("work_type: blankTimesOnOpen ? 'Labour' : ''");
   });
 });

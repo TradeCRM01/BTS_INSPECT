@@ -13,15 +13,27 @@ import {
 } from '../../types/fsm';
 import { asModelLines, modelHourlyCost } from '../expenses/ExpenseModelsModals';
 import { DEFAULT_TAX_RATE } from '../../lib/gst';
+import { Link } from 'react-router-dom';
 import { createInvoiceFromJobBill } from '../../lib/createInvoiceFromJobBill';
+import { readPickedLabourPriceBookId, writePickedLabourPriceBookId } from '../../lib/labourPriceBookPick';
 import {
-  JOB_BILL_INVOICE_CREATED,
-  JOB_BILL_INVOICE_NO_CLIENT,
-} from '../../lib/invoiceFromJobBill';
-import { JOB_INVOICE_REUSED, jobInvoicesAfterCreate, type JobInvoiceListRow } from '../../lib/invoiceFromQuote';
+  countZeroLabourLinesForJobBillInvoice,
+  invalidateJobBillHoursQueries,
+  jobBillHoursQueryKeys,
+  lineNeedsLabourRate,
+  loadBilledTimesheetEntryIds,
+  pullUnbilledHoursToJobBill,
+  summarizeUnbilledForJob,
+  type PriceBookItemForLabour,
+  type TimesheetEntryForBill,
+} from '../../lib/hoursToJobBill';
+import { LabourRatePickerSheet } from './LabourRatePickerSheet';
+import { JobBillZeroLabourConfirmSheet } from './JobBillZeroLabourConfirmSheet';
+import { JOB_BILL_INVOICE_NO_CLIENT } from '../../lib/invoiceFromJobBill';
+import { jobInvoicesAfterCreate, type JobInvoiceListRow } from '../../lib/invoiceFromQuote';
 import {
   Plus, Package, Trash2, DollarSign, Layers, HardHat, Wrench,
-  Check, X, AlertCircle, Receipt, Pencil,
+  Check, X, AlertCircle, Receipt, Pencil, Clock,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -53,6 +65,33 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const { profile, company } = useAuth();
   const queryClient = useQueryClient();
   const defaultMarkup = Number(company?.default_material_markup) || 0;
+
+  const { data: timesheetEntries = [] } = useQuery<TimesheetEntryForBill[]>({
+    queryKey: jobBillHoursQueryKeys.entries(jobId),
+    queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as TimesheetEntryForBill[];
+      const { data, error } = await supabase
+        .from('timesheet_entries')
+        .select('id, job_id, timesheet_id, start_time, end_time, billable, work_type, notes')
+        .eq('job_id', jobId);
+      if (error) throw error;
+      return (data ?? []) as TimesheetEntryForBill[];
+    },
+  });
+
+  const { data: billedEntryIds = new Set<string>() } = useQuery({
+    queryKey: jobBillHoursQueryKeys.billed(jobId),
+    queryFn: async () => {
+      const { ids } = await loadBilledTimesheetEntryIds(supabase, jobId);
+      return ids;
+    },
+  });
+
+  const unbilledCue = useMemo(
+    () => summarizeUnbilledForJob(timesheetEntries, billedEntryIds),
+    [timesheetEntries, billedEntryIds],
+  );
 
   const { data: costs = [] } = useQuery<JobCost[]>({
     queryKey: ['job-costs', jobId],
@@ -116,6 +155,37 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formErr, setFormErr] = useState('');
   const [invoiceMsg, setInvoiceMsg] = useState('');
+  const [pullingHours, setPullingHours] = useState(false);
+  const [labourPickerItems, setLabourPickerItems] = useState<PriceBookItemForLabour[] | null>(null);
+  const [labourPickerHours, setLabourPickerHours] = useState(0);
+  const [zeroLabourConfirmCount, setZeroLabourConfirmCount] = useState(0);
+
+  async function runPullLabourHours(pickedPriceBookItemId?: string | null) {
+    if (!profile?.company_id || !profile.id) return;
+    setPullingHours(true);
+    try {
+      const result = await pullUnbilledHoursToJobBill(supabase, {
+        jobId,
+        companyId: profile.company_id,
+        profileId: profile.id,
+        pickedPriceBookItemId: pickedPriceBookItemId ?? readPickedLabourPriceBookId(profile.company_id),
+      });
+      if (result.needsPicker && result.pickerItems.length > 0) {
+        setLabourPickerHours(unbilledCue?.hours ?? result.hours);
+        setLabourPickerItems(result.pickerItems);
+        return;
+      }
+      if (pickedPriceBookItemId && profile.company_id) {
+        writePickedLabourPriceBookId(profile.company_id, pickedPriceBookItemId);
+      }
+      setLabourPickerItems(null);
+      await queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
+      invalidateJobBillHoursQueries(queryClient, jobId);
+      await queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+    } finally {
+      setPullingHours(false);
+    }
+  }
 
   const { data: costModels = [] } = useQuery<ExpenseCostModel[]>({
     queryKey: ['expense-cost-models'],
@@ -301,13 +371,32 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
           jobInvoicesAfterCreate(prev, result.invoice),
         );
       }
-      setInvoiceMsg(result.existing ? JOB_INVOICE_REUSED : JOB_BILL_INVOICE_CREATED);
+      invalidateJobBillHoursQueries(queryClient, jobId);
+      void queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
+      void queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
       onInvoiceCreated?.(result);
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['job-invoices', jobId] });
+      void queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      void queryClient.invalidateQueries({ queryKey: ['job-invoices', jobId] });
     },
     onError: (e: Error) => setInvoiceMsg(e.message),
   });
+
+  async function requestCreateInvoiceFromBill() {
+    if (!profile?.company_id || !profile.id) return;
+    setInvoiceMsg('');
+    const picked = readPickedLabourPriceBookId(profile.company_id);
+    const zeroCount = await countZeroLabourLinesForJobBillInvoice(supabase, {
+      jobId,
+      companyId: profile.company_id,
+      profileId: profile.id,
+      pickedPriceBookItemId: picked,
+    });
+    if (zeroCount > 0) {
+      setZeroLabourConfirmCount(zeroCount);
+      return;
+    }
+    createInvoice.mutate();
+  }
 
   // Stock allocation
   const [showPicker, setShowPicker] = useState(false);
@@ -409,6 +498,38 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         </div>
       )}
 
+      {unbilledCue ? (
+        <div className="job-bill-hours-cue" role="status">
+          <button
+            type="button"
+            className="job-bill-hours-cue-btn job-bill-hours-cue-btn--full"
+            disabled={pullingHours || !profile?.company_id}
+            onClick={() => { void runPullLabourHours(); }}
+          >
+            <Clock size={16} aria-hidden />
+            {pullingHours ? 'Adding…' : unbilledCue.buttonLabel}
+          </button>
+        </div>
+      ) : null}
+
+      <LabourRatePickerSheet
+        open={Boolean(labourPickerItems?.length)}
+        hours={labourPickerHours}
+        items={labourPickerItems ?? []}
+        onClose={() => setLabourPickerItems(null)}
+        onPick={(itemId) => { void runPullLabourHours(itemId); }}
+      />
+
+      <JobBillZeroLabourConfirmSheet
+        open={zeroLabourConfirmCount > 0}
+        count={zeroLabourConfirmCount}
+        onClose={() => setZeroLabourConfirmCount(0)}
+        onCreateAnyway={() => {
+          setZeroLabourConfirmCount(0);
+          createInvoice.mutate();
+        }}
+      />
+
       <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-[#F9FAFB] text-[#4A5568] text-xs">
@@ -435,11 +556,21 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                   </span>
                 </td>
                 <td className="px-3 py-2 text-[#4A5568] text-xs">{c.charge_type || '—'}</td>
-                <td className="px-3 py-2 text-[#1A1A1A]">{c.description || c.charge_type || '—'}</td>
+                <td className="px-3 py-2 text-[#1A1A1A] job-bill-line-desc">
+                  <span className="job-bill-line-desc-text">{c.description || c.charge_type || '—'}</span>
+                  {lineNeedsLabourRate(c) ? (
+                    <span className="job-bill-no-rate-stack">
+                      <span className="job-bill-no-rate-flag">No rate</span>
+                      <Link to="/settings/company" className="job-bill-add-rate-link">Add a rate</Link>
+                    </span>
+                  ) : null}
+                </td>
                 <td className="px-3 py-2 text-right text-[#4A5568]">{c.quantity}</td>
                 <td className="px-3 py-2 text-right text-[#4A5568]">{formatMoney(c.unit_cost)}</td>
                 <td className="px-3 py-2 text-right text-[#4A5568]">{Number(c.markup_percent) || 0}%</td>
-                <td className="px-3 py-2 text-right text-[#4A5568]">{formatMoney(c.unit_price || c.unit_cost)}</td>
+                <td className="px-3 py-2 text-right text-[#4A5568]">
+                  {formatMoney(c.unit_price || c.unit_cost)}
+                </td>
                 <td className="px-3 py-2 text-right font-semibold text-[#0A2540]">{formatMoney(c.total_price || c.total_cost)}</td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-0.5">
@@ -470,10 +601,10 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         <p className="text-xs text-[#6B7280]">
           Bill = supply cost + markup. Use this for do &amp; charge or to invoice a finished job.
         </p>
-        {costs.length > 0 && (
+        {(costs.length > 0 || unbilledCue) && (
           <button
             type="button"
-            onClick={() => { setInvoiceMsg(''); createInvoice.mutate(); }}
+            onClick={() => { void requestCreateInvoiceFromBill(); }}
             disabled={createInvoice.isPending}
             className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium bg-[#F7931A] text-white hover:bg-[#e08415] disabled:opacity-50"
           >
@@ -482,9 +613,9 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
           </button>
         )}
       </div>
-      {invoiceMsg && (
-        <p className={`text-xs ${createInvoice.isError ? 'text-red-600' : 'text-green-700'}`}>{invoiceMsg}</p>
-      )}
+      {invoiceMsg ? (
+        <p className="text-xs text-red-600">{invoiceMsg}</p>
+      ) : null}
 
       <div id="job-bill-line-form" className={`bg-white rounded-xl border p-4 space-y-4 ${
         editingId ? 'border-[#2E75B6] ring-1 ring-[#2E75B6]/30' : 'border-[#E5E7EB]'

@@ -488,6 +488,10 @@ export function CompanySettingsPage() {
   const [website, setWebsite] = useState(company?.website ?? '');
   const [taxRate, setTaxRate] = useState(company?.default_tax_rate?.toString() ?? '10');
   const [materialMarkup, setMaterialMarkup] = useState(company?.default_material_markup?.toString() ?? '0');
+  const [defaultLabourRate, setDefaultLabourRate] = useState(() => {
+    const raw = (company as { default_labour_rate?: number | null } | null)?.default_labour_rate;
+    return raw != null ? String(raw) : '';
+  });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
@@ -572,6 +576,8 @@ export function CompanySettingsPage() {
       setLogoCrop(companyLogoCropFrom(company));
       setLogoSizePx(companyLogoLetterheadSizePx(company));
       setPaymentMethods(parseCompanyPaymentMethods((company as { payment_methods?: unknown }).payment_methods));
+      const labourRate = (company as { default_labour_rate?: number | null }).default_labour_rate;
+      setDefaultLabourRate(labourRate != null ? String(labourRate) : '');
       setTrades(parseCompanyTrades(company.trades));
       loadRenderers();
       if (isAdmin) {
@@ -786,21 +792,30 @@ export function CompanySettingsPage() {
     if (!company) return;
     setSaving(true);
     setError('');
-    const { error } = await supabase
-      .from('companies')
-      .update({
-        name,
-        abn,
-        licence_number: licenceNumber,
-        phone,
-        email,
-        website,
-        default_tax_rate: Number(taxRate),
-        default_material_markup: Number(materialMarkup) || 0,
-        // Before migration 080 the column is missing; only send it once an admin has touched the chips.
-        ...(tradesTouched || Array.isArray(company.trades) ? { trades } : {}),
-      })
-      .eq('id', company.id);
+    const labourRatePayload = defaultLabourRate.trim() === ''
+      ? null
+      : Number(defaultLabourRate);
+    const baseUpdate = {
+      name,
+      abn,
+      licence_number: licenceNumber,
+      phone,
+      email,
+      website,
+      default_tax_rate: Number(taxRate),
+      default_material_markup: Number(materialMarkup) || 0,
+      default_labour_rate: labourRatePayload,
+      // Before migration 080 the column is missing; only send it once an admin has touched the chips.
+      ...(tradesTouched || Array.isArray(company.trades) ? { trades } : {}),
+    };
+    let { error } = await supabase.from('companies').update(baseUpdate).eq('id', company.id);
+    if (error && /default_labour_rate/i.test(error.message) && /(column|schema cache|does not exist)/i.test(error.message)) {
+      const { default_labour_rate: _drop, ...withoutLabour } = baseUpdate;
+      ({ error } = await supabase.from('companies').update(withoutLabour).eq('id', company.id));
+      if (!error) {
+        console.warn('[CompanySettings] companies.default_labour_rate missing — run migration 083');
+      }
+    }
     if (error) {
       setError(error.message);
     } else {
@@ -1584,6 +1599,27 @@ export function CompanySettingsPage() {
             {saved ? <><Check size={15} /> Saved</> : saving ? 'Saving...' : 'Save Changes'}
           </button>
         </form>
+
+        <div className="hub-company-row">
+          <label className="hub-company-row-label">Default labour rate (ex GST)</label>
+          <div className="hub-company-field" style={{ maxWidth: 240 }}>
+            <div className="flex items-center gap-2">
+              <span className="hub-company-row-meta">$</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={defaultLabourRate}
+                onChange={e => setDefaultLabourRate(e.target.value)}
+                className={inputClass}
+                placeholder="e.g. 95"
+                aria-label="Default labour rate ex GST"
+              />
+              <span className="hub-company-row-meta">/h</span>
+            </div>
+            <p className="hub-company-row-meta">Used when pulling logged hours to the job bill. Save company details above.</p>
+          </div>
+        </div>
 
         <p id="company-payment-methods" className="hub-company-kicker">How clients pay</p>
         <p className="hub-company-lede">Printed on invoices as the way to pay. Leave empty if you do not want bank details on the invoice.</p>

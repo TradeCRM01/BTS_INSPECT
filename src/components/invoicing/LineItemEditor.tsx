@@ -5,7 +5,9 @@ import { formatMoney, type ExpenseCostModel, type StockItem, type PriceBookItem,
 import { ManagedSelect } from '../ui/ManagedSelect';
 import { LIST_KEYS } from '../../lib/useManagedList';
 import { supabase } from '../../lib/supabase';
+import { Link } from 'react-router-dom';
 import { asModelLines, modelHourlyCost } from '../expenses/ExpenseModelsModals';
+import { lineNeedsLabourRate } from '../../lib/hoursToJobBill';
 import { quoteLineFromPriceBookItem } from '../../lib/priceBookImport';
 import { QUICK_QUOTE_CHECK_PRICE } from '../../lib/quickQuote';
 import { checkPriceAfterUnitPrice } from '../../lib/checkPriceGate';
@@ -423,6 +425,12 @@ export function LineItemEditor({
                 </div>
                 {li.check_price ? (
                   <span className="hub-quote-check-price">{QUICK_QUOTE_CHECK_PRICE}</span>
+                ) : null}
+                {lineNeedsLabourRate(li) ? (
+                  <span className="job-bill-no-rate-stack">
+                    <span className="job-bill-no-rate-flag">No rate</span>
+                    <Link to="/settings/company" className="job-bill-add-rate-link">Add a rate</Link>
+                  </span>
                 ) : null}
               </div>
               <div className="hub-line-editor-qty min-w-0">

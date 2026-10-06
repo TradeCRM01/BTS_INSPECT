@@ -33,8 +33,9 @@ import {
 } from '../lib/invoiceFromQuote';
 import { AUDIT_DOC_JOB_ID, AUDIT_INVOICE_ID, getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { createInvoiceFromJobBill } from '../lib/createInvoiceFromJobBill';
+import { invalidateJobBillHoursQueries } from '../lib/hoursToJobBill';
 import {
-  JOB_BILL_INVOICE_CREATED,
+  JOB_BILL_INVOICE_READY_TOAST,
   JOB_BILL_INVOICE_EMPTY,
   JOB_BILL_INVOICE_NO_LINES,
   jobBillInvoiceBlocked,
@@ -2068,9 +2069,16 @@ export function JobDetailPage() {
       }
       queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      if (id) invalidateJobBillHoursQueries(queryClient, id);
       const reuse = result.existing ? invoiceReuseOpen(result.id) : null;
-      showToast(reuse ? reuse.toast : JOB_BILL_INVOICE_CREATED);
-      navigate(reuse ? reuse.href : invoiceHref(result.id));
+      if (reuse) {
+        showToast(reuse.toast, 'success', { label: 'Open', onClick: () => navigate(reuse.href) });
+        return;
+      }
+      showToast(JOB_BILL_INVOICE_READY_TOAST, 'success', {
+        label: 'Open',
+        onClick: () => navigate(invoiceHref(result.id)),
+      });
     },
     onError: (e: Error) => {
       showToast(e.message, 'info');
@@ -3129,13 +3137,16 @@ export function JobDetailPage() {
                 onInvoiceCreated={(result) => {
                   queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
                   queryClient.invalidateQueries({ queryKey: ['job-cost-totals', id] });
+                  if (id) invalidateJobBillHoursQueries(queryClient, id);
                   if (result.existing) {
                     const reuse = invoiceReuseOpen(result.id);
-                    showToast(reuse.toast);
-                    navigate(reuse.href);
+                    showToast(reuse.toast, 'success', { label: 'Open', onClick: () => navigate(reuse.href) });
                     return;
                   }
-                  showToast('Invoice ready — see Invoices on this job');
+                  showToast(JOB_BILL_INVOICE_READY_TOAST, 'success', {
+                    label: 'Open',
+                    onClick: () => navigate(invoiceHref(result.id)),
+                  });
                 }}
               />
             </div>
@@ -3970,9 +3981,7 @@ export function JobDetailPage() {
           jobs={[{ id: job.id, title: job.title, job_number: job.job_number }]}
           employeeId={profile.id}
           presetJobId={job.id}
-          presetDate={job.scheduled_date}
-          presetStartTime={job.start_time}
-          presetEndTime={job.end_time}
+          blankTimesOnOpen
           lockJob
           onClose={() => setShowTimeEntry(false)}
           onSaved={() => {
