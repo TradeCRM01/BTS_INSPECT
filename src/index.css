@@ -7778,6 +7778,14 @@
     margin-top: 8px;
   }
 
+  @media (min-width: 1024px) {
+    /* Top-anchor quick quote so flex-end on the head does not pull the row up when the hint grows */
+    .hub-quotes .hub-quick-quote-block {
+      align-self: flex-start;
+      margin-top: calc(13px * 1.5 + 8px + 40px * 1.1 - 44px);
+    }
+  }
+
   .hub-quick-quote {
     display: flex;
     align-items: center;

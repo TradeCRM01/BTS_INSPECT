@@ -125,6 +125,13 @@ describe('speech mic UI wiring', () => {
     expect(css).not.toMatch(/hub-quick-quote-speech-status[\s\S]{0,200}position:\s*absolute/);
     expect(css).not.toMatch(/hub-schedule-speech-status[\s\S]{0,200}position:\s*absolute/);
   });
+
+  it('top-anchors quotes quick-quote at desktop so hints grow downward', () => {
+    const css = src('src/index.css');
+    expect(css).toContain('.hub-quotes .hub-quick-quote-block');
+    expect(css).toContain('align-self: flex-start');
+    expect(css).toContain('margin-top: calc(13px * 1.5 + 8px + 40px * 1.1 - 44px)');
+  });
 });
 
 describe('isActiveSpeechRecognition', () => {
