@@ -5,7 +5,11 @@ import {
   transcriptFromSpeechEvent,
   type QuickBookSpeech,
 } from '../../lib/quickBook';
-import { isActiveSpeechRecognition, speechRecognitionErrorHint } from '../../lib/speechHints';
+import {
+  isActiveSpeechRecognition,
+  speechRecognitionErrorHint,
+  stopSpeechRecognitionByUser,
+} from '../../lib/speechHints';
 
 export type ScheduleVoiceJobPick = {
   id: string;
@@ -31,6 +35,9 @@ export function ScheduleBookByVoice({
   const [micHint, setMicHint] = useState<string | null>(null);
   const speechRef = useRef<QuickBookSpeech | null>(null);
   const Speech = browserSpeechRecognition();
+
+  const speechStatus =
+    micHint ?? (!Speech ? 'Voice isn\'t available here. Type instead.' : '');
 
   function applyPhrase(raw: string) {
     const next = raw.trim();
@@ -99,9 +106,11 @@ export function ScheduleBookByVoice({
               type="button"
               className={`hub-schedule-voice-mic${listening ? ' is-on' : ''}`}
               aria-label={listening ? 'Stop voice' : 'Speak a booking'}
+              aria-pressed={listening}
               onClick={() => {
                 if (listening) {
-                  speechRef.current?.stop();
+                  setListening(false);
+                  stopSpeechRecognitionByUser(speechRef);
                   return;
                 }
                 startVoice();
@@ -120,11 +129,9 @@ export function ScheduleBookByVoice({
           </button>
         </div>
       </form>
-      {micHint ? (
-        <p className="hub-speech-hint" role="status">{micHint}</p>
-      ) : !Speech ? (
-        <p className="hub-speech-hint" role="status">Voice isn't available here. Type instead.</p>
-      ) : null}
+      <p className="hub-speech-status hub-schedule-speech-status" role="status">
+        {speechStatus}
+      </p>
       {hintLines.map(line => (
         <p key={line} className="hub-schedule-voice-hint">{line}</p>
       ))}

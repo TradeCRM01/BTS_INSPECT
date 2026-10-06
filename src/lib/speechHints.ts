@@ -25,3 +25,13 @@ export function isActiveSpeechRecognition(
 ): boolean {
   return rec === activeRef.current;
 }
+
+/** User-initiated stop: detach before `stop()` so late errors from that session are ignored. */
+export function stopSpeechRecognitionByUser(
+  activeRef: { current: { stop(): void } | null },
+): void {
+  const rec = activeRef.current;
+  if (!rec) return;
+  activeRef.current = null;
+  rec.stop();
+}

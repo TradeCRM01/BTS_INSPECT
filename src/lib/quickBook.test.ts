@@ -424,7 +424,8 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(voice).toContain('speechRecognitionErrorHint');
     expect(voice).toContain('isActiveSpeechRecognition');
     expect(voice).toContain("'booking'");
-    expect(voice).toContain("Voice isn't available here. Type instead.");
+    expect(voice).toContain('hub-schedule-speech-status');
+    expect(voice).toContain('speechStatus');
     expect(voice).toContain('Job, day, time, crew');
     expect(voice).not.toContain('Smith job Thursday 7am with Dave');
     expect(voice).not.toContain('hints?.crew');

@@ -101,7 +101,11 @@ import {
 } from '../lib/nudges';
 import { QUOTE_STATUS_LABELS, formatMoney } from '../types/fsm';
 import { Plus, FileText, Mail, Phone, User, X, MoreHorizontal, Mic } from 'lucide-react';
-import { isActiveSpeechRecognition, speechRecognitionErrorHint } from '../lib/speechHints';
+import {
+  isActiveSpeechRecognition,
+  speechRecognitionErrorHint,
+  stopSpeechRecognitionByUser,
+} from '../lib/speechHints';
 import {
   browserSpeechRecognition,
   insertQuickQuoteDraft,
@@ -595,10 +599,12 @@ export function QuotesPage() {
                 <button
                   type="button"
                   className={`hub-quick-quote-mic${quickListening ? ' is-on' : ''}`}
-                  aria-label="Voice note"
+                  aria-label={quickListening ? 'Stop voice' : 'Voice note'}
+                  aria-pressed={quickListening}
                   onClick={() => {
                     if (quickListening) {
-                      quickSpeechRef.current?.stop();
+                      setQuickListening(false);
+                      stopSpeechRecognitionByUser(quickSpeechRef);
                       return;
                     }
                     startQuickVoice();
@@ -612,11 +618,9 @@ export function QuotesPage() {
                 {quickBusy ? 'Saving…' : 'Make draft'}
               </button>
             </form>
-            <div className="hub-quick-quote-hint-slot" aria-live="polite">
-              {quickMicHint ? (
-                <p className="hub-speech-hint" role="status">{quickMicHint}</p>
-              ) : null}
-            </div>
+            <p className="hub-speech-status hub-quick-quote-speech-status" role="status">
+              {quickMicHint ?? ''}
+            </p>
           </div>
           <button onClick={() => openQuote(null)} className="btn-primary">
             <Plus size={16} /> New quote

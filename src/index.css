@@ -7760,13 +7760,41 @@
     min-width: 0;
   }
 
-  .hub-quick-quote-hint-slot {
-    flex: 0 0 auto;
-    min-height: 28px;
+  .hub-speech-status {
+    margin: 0;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+    color: #5B6B7C;
+    white-space: normal;
+    overflow-wrap: break-word;
   }
 
-  .hub-quick-quote-hint-slot .hub-speech-hint {
-    margin: 8px 0 0;
+  .hub-speech-status:empty {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-quick-quote-block {
+      position: relative;
+    }
+
+    .hub-quick-quote-speech-status:not(:empty) {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      margin-top: 8px;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    .hub-quick-quote-speech-status:not(:empty) {
+      margin-top: 8px;
+    }
+  }
+
+  .hub-schedule-speech-status:not(:empty) {
+    margin-top: 8px;
   }
 
   .hub-quick-quote {

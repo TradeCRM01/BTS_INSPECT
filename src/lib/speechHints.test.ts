@@ -1,14 +1,24 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   isActiveSpeechRecognition,
   isSpeechPermissionDenied,
   speechRecognitionErrorHint,
+  stopSpeechRecognitionByUser,
 } from './speechHints';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
+}
+
+function applyRecognitionError(
+  rec: object,
+  activeRef: { current: object | null },
+  error: string | undefined,
+): string | null {
+  if (!isActiveSpeechRecognition(rec, activeRef)) return null;
+  return speechRecognitionErrorHint(error, 'job');
 }
 
 describe('speechRecognitionErrorHint', () => {
@@ -46,6 +56,18 @@ describe('speechRecognitionErrorHint', () => {
   });
 });
 
+describe('stopSpeechRecognitionByUser', () => {
+  it('detaches before stop so late no-speech does not surface a hint', () => {
+    const rec = { stop: vi.fn() };
+    const activeRef: { current: object | null } = { current: rec };
+    stopSpeechRecognitionByUser(activeRef as { current: { stop(): void } | null });
+    expect(activeRef.current).toBeNull();
+    expect(rec.stop).toHaveBeenCalledOnce();
+    expect(applyRecognitionError(rec, activeRef, 'no-speech')).toBeNull();
+    expect(applyRecognitionError(rec, activeRef, 'aborted')).toBeNull();
+  });
+});
+
 describe('speech mic UI wiring', () => {
   it('clears hints when the user types', () => {
     const voice = src('src/components/crm/ScheduleBookByVoice.tsx');
@@ -65,17 +87,39 @@ describe('speech mic UI wiring', () => {
     expect(quotes).toContain('rec.onerror');
   });
 
-  it('exposes mic hints as status for screen readers', () => {
-    expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain('role="status"');
-    expect(src('src/pages/QuotesPage.tsx')).toContain('role="status"');
-    expect(src('src/pages/QuotesPage.tsx')).toContain('hub-speech-hint');
-    expect(src('src/pages/QuotesPage.tsx')).not.toContain('hub-schedule-voice-hint');
+  it('nulls the ref before stop on deliberate user stop', () => {
+    const voice = src('src/components/crm/ScheduleBookByVoice.tsx');
+    const quotes = src('src/pages/QuotesPage.tsx');
+    expect(voice).toContain('stopSpeechRecognitionByUser(speechRef)');
+    expect(quotes).toContain('stopSpeechRecognitionByUser(quickSpeechRef)');
+    expect(voice).toMatch(/setListening\(false\);[\s\S]*stopSpeechRecognitionByUser/);
+    expect(quotes).toMatch(/setQuickListening\(false\);[\s\S]*stopSpeechRecognitionByUser/);
   });
 
-  it('keeps quick-quote mic at 44px and reserves hint space below the row', () => {
+  it('uses one always-mounted status region per surface', () => {
+    const voice = src('src/components/crm/ScheduleBookByVoice.tsx');
+    const quotes = src('src/pages/QuotesPage.tsx');
+    expect(voice).toContain('hub-schedule-speech-status');
+    expect(voice).toContain('role="status"');
+    expect(voice).not.toMatch(/micHint \? \([\s\S]*role="status"/);
+    expect(quotes).toContain('hub-quick-quote-speech-status');
+    expect(quotes).not.toContain('aria-live');
+    expect(quotes).not.toContain('hub-quick-quote-hint-slot');
+  });
+
+  it('quotes mic exposes Stop voice and aria-pressed while listening', () => {
+    const quotes = src('src/pages/QuotesPage.tsx');
+    expect(quotes).toContain("aria-label={quickListening ? 'Stop voice' : 'Voice note'}");
+    expect(quotes).toContain('aria-pressed={quickListening}');
+  });
+
+  it('keeps quick-quote mic at 44px and positions desktop hints out of flow', () => {
     const css = src('src/index.css');
     expect(css).toContain('.hub-quick-quote-mic {\n    flex: 0 0 44px;');
-    expect(css).toContain('.hub-quick-quote-hint-slot');
+    expect(css).toContain('@media (min-width: 1024px)');
+    expect(css).toContain('.hub-quick-quote-speech-status:not(:empty)');
+    expect(css).toContain('position: absolute');
+    expect(css).not.toContain('.hub-quick-quote-hint-slot');
   });
 });
 
