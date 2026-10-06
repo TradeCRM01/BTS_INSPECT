@@ -6574,6 +6574,127 @@
     white-space: normal;
   }
 
+  .hub-schedule-job-sheet-hint {
+    margin: -4px 0 0;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+    color: #5B6B7C;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  .hub-schedule-voice {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .hub-schedule-voice-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .hub-schedule-voice-label {
+    font-family: Rajdhani, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #0A2540;
+    white-space: nowrap;
+  }
+
+  .hub-schedule-voice .form-input {
+    flex: 1 1 160px;
+    min-width: 0;
+    min-height: 44px;
+    height: 44px;
+    background: #FFFDF8;
+    color: #0A2540;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    box-shadow: none;
+    padding: 0 12px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+  }
+
+  .hub-schedule-voice-mic,
+  .hub-schedule-voice-go,
+  .hub-schedule-voice-pick {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .hub-schedule-voice-mic {
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #FFFDF8;
+    color: #2E75B6;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+
+  .hub-schedule-voice-mic.is-on {
+    background: #2E75B6;
+    color: #FFFDF8;
+    border-color: #2E75B6;
+  }
+
+  .hub-schedule-voice-go {
+    height: 44px;
+    padding: 0 16px;
+    background: #FFFDF8;
+    color: #0A2540;
+    border: 1px solid #0A2540;
+    border-radius: 12px;
+    box-shadow: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .hub-schedule-voice-hint {
+    margin: 8px 0 0;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 13px;
+    color: #5B6B7C;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  .hub-schedule-voice-picks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .hub-schedule-voice-pick {
+    padding: 0 12px;
+    background: #FFFDF8;
+    color: #0A2540;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    overflow-wrap: break-word;
+    max-width: 100%;
+  }
+
   .hub-schedule-job-sheet-body {
     display: flex;
     flex-direction: column;
@@ -6633,6 +6754,17 @@
 
     .hub-schedule-chrome .relative.flex-1 {
       min-width: 100%;
+    }
+
+    .hub-schedule-voice,
+    .hub-schedule-voice-form {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    .hub-schedule-voice .form-input {
+      flex: 1 1 100%;
+      width: 100%;
     }
 
     .hub-week-sheet-bar {

@@ -18,6 +18,8 @@ export function ScheduleJobSheet({
   job,
   teamMembers,
   viewedDate,
+  prefill = null,
+  matchHints = null,
   saving = false,
   onClose,
   onSave,
@@ -25,6 +27,8 @@ export function ScheduleJobSheet({
   job: JobWithClient | null;
   teamMembers: { id: string; name: string }[];
   viewedDate: string;
+  prefill?: Partial<ScheduleSheetInput> | null;
+  matchHints?: { job?: string | null; client?: string | null; crew?: string | null } | null;
   saving?: boolean;
   onClose: () => void;
   onSave: (fields: ScheduleSheetInput) => void;
@@ -37,11 +41,12 @@ export function ScheduleJobSheet({
 
   useEffect(() => {
     if (!job) return;
-    setCrewId(job.assigned_team?.[0] ?? '');
-    setDate(viewedDate);
-    setStartTime(timeInput(job.start_time));
-    setEndTime(timeInput(job.end_time));
-  }, [job, viewedDate]);
+    const voiceCrew = !!prefill && 'crewId' in prefill;
+    setCrewId(voiceCrew ? (prefill?.crewId ?? '') : (job.assigned_team?.[0] ?? ''));
+    setDate(prefill?.date || viewedDate);
+    setStartTime(prefill?.startTime ? timeInput(prefill.startTime) : timeInput(job.start_time));
+    setEndTime(prefill?.endTime ? timeInput(prefill.endTime) : timeInput(job.end_time));
+  }, [job, viewedDate, prefill]);
 
   return (
     <AppDialog
@@ -85,6 +90,12 @@ export function ScheduleJobSheet({
             ))}
           </select>
         </label>
+        {matchHints?.crew ? (
+          <p className="hub-schedule-job-sheet-hint">{matchHints.crew}</p>
+        ) : null}
+        {matchHints?.job ? (
+          <p className="hub-schedule-job-sheet-hint">{matchHints.job}</p>
+        ) : null}
         <label className="block">
           <span className="ops-field-label">Date</span>
           <input
