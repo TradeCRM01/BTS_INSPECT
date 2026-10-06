@@ -31,7 +31,7 @@ import {
   jobInvoicesAfterCreate,
   jobQuoteInvoiceButton,
 } from '../lib/invoiceFromQuote';
-import { AUDIT_DOC_JOB_ID, AUDIT_INVOICE_ID, getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import { AUDIT_DOC_JOB_ID, AUDIT_INVOICE_ID, crew2LookOn, getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { createInvoiceFromJobBill } from '../lib/createInvoiceFromJobBill';
 import { invalidateJobBillHoursQueries } from '../lib/hoursToJobBill';
 import {
@@ -1534,10 +1534,18 @@ export function JobDetailPage() {
       if (mock) {
         const p305 = p305LookKind();
         const p307 = p307LookKind();
-        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn() || p305 || p307) {
+        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn() || p305 || p307 || crew2LookOn()) {
           return {
             ...mock,
-            scheduled_date: lookVanTodayYmd(),
+            scheduled_date: crew2LookOn() ? '2026-10-08' : lookVanTodayYmd(),
+            ...(crew2LookOn() ? {
+              assigned_team: [],
+              start_time: '09:00',
+              end_time: '11:00',
+              status: 'completed' as const,
+              job_number: 18,
+              title: 'Board leak p2b-ch9t — delete ok',
+            } : {}),
             ...(p305 || p307 ? { status: 'completed' as const } : {}),
             ...(p307 === 'agree' || p307 === 'reuse' ? { assigned_team: [] } : {}),
           } as Job;

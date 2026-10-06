@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
+import { crewAssignmentHelper, nextAssignedTeam } from '../../lib/jobDispatchCrew';
 import { useToast } from '../ui';
 import type { Job } from '../../types/crm';
 
@@ -22,14 +24,19 @@ export function JobDispatchPanel({
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const assigned = job.assigned_team ?? [];
+  const serverTeamKey = (job.assigned_team ?? []).join(',');
+  const [crewDraft, setCrewDraft] = useState<string[]>(() => job.assigned_team ?? []);
+  const assigned = crewDraft;
   const scheduleHref = job.scheduled_date
     ? `/schedule?date=${job.scheduled_date}`
     : '/schedule';
 
   const save = useMutation({
     mutationFn: async (patch: Record<string, unknown>) => {
-      if (isDevFieldAuditAuth()) return;
+      if (isDevFieldAuditAuth()) {
+        queryClient.setQueryData<Job>(['job', job.id], old => (old ? { ...old, ...patch } as Job : old));
+        return;
+      }
       const { error } = await supabase
         .from('jobs')
         .update({ ...patch, updated_at: new Date().toISOString() })
@@ -40,6 +47,7 @@ export function JobDispatchPanel({
       }
     },
     onSuccess: () => {
+      if (isDevFieldAuditAuth()) return;
       queryClient.invalidateQueries({ queryKey: ['job', job.id] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
@@ -54,12 +62,28 @@ export function JobDispatchPanel({
     onError: (e: Error) => showToast(e.message),
   });
 
-  const toggleCrew = (memberId: string) => {
-    const next = assigned.includes(memberId)
-      ? assigned.filter(id => id !== memberId)
-      : [...assigned, memberId];
-    save.mutate({ assigned_team: next });
+  useEffect(() => {
+    setCrewDraft(job.assigned_team ?? []);
+  }, [job.id]);
+
+  useEffect(() => {
+    if (save.isPending) return;
+    setCrewDraft(job.assigned_team ?? []);
+  }, [serverTeamKey, save.isPending, job.assigned_team]);
+
+  const persistCrew = (next: string[], rollback: string[]) => {
+    setCrewDraft(next);
+    save.mutate({ assigned_team: next }, {
+      onError: () => setCrewDraft(rollback),
+    });
   };
+
+  const toggleCrew = (memberId: string) => {
+    const rollback = crewDraft;
+    persistCrew(nextAssignedTeam(crewDraft, memberId), rollback);
+  };
+
+  const crewHelper = crewAssignmentHelper(assigned, teamMembers);
 
   return (
     <div className="ops-tray mb-5">
@@ -116,7 +140,10 @@ export function JobDispatchPanel({
           {assigned.length > 0 && (
             <button
               type="button"
-              onClick={() => save.mutate({ assigned_team: [] })}
+              onClick={() => {
+                const rollback = crewDraft;
+                persistCrew([], rollback);
+              }}
               className="ops-link text-xs"
             >
               Clear crew
@@ -134,8 +161,7 @@ export function JobDispatchPanel({
                   key={m.id}
                   type="button"
                   onClick={() => toggleCrew(m.id)}
-                  disabled={save.isPending}
-                  className={`px-2.5 py-1.5 min-h-[44px] sm:min-h-0 rounded-md text-xs font-medium transition-colors disabled:opacity-50 ${
+                  className={`px-2.5 py-1.5 min-h-[44px] sm:min-h-0 rounded-md text-xs font-medium transition-colors ${
                     selected
                       ? 'bg-navy text-white'
                       : 'bg-zebra text-muted border border-rule hover:text-navy'
@@ -147,9 +173,7 @@ export function JobDispatchPanel({
             })}
           </div>
         )}
-        {assigned.length === 0 && (
-          <p className="ops-meta mt-2">Unassigned — still on the board when a date is set.</p>
-        )}
+        <p className="ops-meta mt-2" data-crew-assignment-helper="1">{crewHelper}</p>
       </div>
     </div>
   );
