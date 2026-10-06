@@ -423,7 +423,6 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(voice).toContain("lang = 'en-AU'");
     expect(voice).toContain('speechRecognitionErrorHint');
     expect(voice).toContain('isActiveSpeechRecognition');
-    expect(voice).toContain("'booking'");
     expect(voice).toContain('hub-schedule-speech-status');
     expect(voice).toContain('speechStatus');
     expect(voice).toContain('Job, day, time, crew');

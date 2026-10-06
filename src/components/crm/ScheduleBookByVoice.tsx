@@ -36,8 +36,7 @@ export function ScheduleBookByVoice({
   const speechRef = useRef<QuickBookSpeech | null>(null);
   const Speech = browserSpeechRecognition();
 
-  const speechStatus =
-    micHint ?? (!Speech ? 'Voice isn\'t available here. Type instead.' : '');
+  const speechStatus = micHint ?? '';
 
   function applyPhrase(raw: string) {
     const next = raw.trim();
@@ -66,7 +65,7 @@ export function ScheduleBookByVoice({
     rec.onerror = ev => {
       if (!isActiveSpeechRecognition(rec, speechRef)) return;
       setListening(false);
-      const hint = speechRecognitionErrorHint(ev?.error, 'booking');
+      const hint = speechRecognitionErrorHint(ev?.error);
       setMicHint(hint);
     };
     speechRef.current = rec;

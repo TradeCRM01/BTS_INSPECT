@@ -19,7 +19,7 @@ function applyRecognitionError(
   error: string | undefined,
 ): string | null {
   if (!isActiveSpeechRecognition(rec, activeRef)) return null;
-  return speechRecognitionErrorHint(error, 'job');
+  return speechRecognitionErrorHint(error);
 }
 
 describe('speechRecognitionErrorHint', () => {
@@ -27,24 +27,22 @@ describe('speechRecognitionErrorHint', () => {
     expect(SPEECH_MIC_BLOCKED_HINT).toBe(
       'Microphone is blocked. Allow it for grafter.com.au in your browser settings, or type instead.',
     );
-    expect(speechRecognitionErrorHint('not-allowed', 'booking')).toBe(SPEECH_MIC_BLOCKED_HINT);
-    expect(speechRecognitionErrorHint('service-not-allowed', 'booking')).toBe(SPEECH_MIC_BLOCKED_HINT);
-    expect(speechRecognitionErrorHint('not-allowed', 'job')).toBe(SPEECH_MIC_BLOCKED_HINT);
-    expect(speechRecognitionErrorHint('audio-capture', 'job')).toBe('No microphone found. Type instead.');
-    expect(speechRecognitionErrorHint('no-speech', 'booking')).toBe(
+    expect(speechRecognitionErrorHint('not-allowed')).toBe(SPEECH_MIC_BLOCKED_HINT);
+    expect(speechRecognitionErrorHint('service-not-allowed')).toBe(SPEECH_MIC_BLOCKED_HINT);
+    expect(speechRecognitionErrorHint('audio-capture')).toBe('No microphone found. Type instead.');
+    expect(speechRecognitionErrorHint('no-speech')).toBe(
       'Didn\'t catch that. Try again or type it.',
     );
-    expect(speechRecognitionErrorHint('network', 'job')).toBe(
+    expect(speechRecognitionErrorHint('network')).toBe(
       'Didn\'t catch that. Try again or type it.',
     );
-    expect(speechRecognitionErrorHint(undefined, 'job')).toBe(
+    expect(speechRecognitionErrorHint(undefined)).toBe(
       'Didn\'t catch that. Try again or type it.',
     );
   });
 
   it('returns no hint for deliberate stop (aborted)', () => {
-    expect(speechRecognitionErrorHint('aborted', 'job')).toBeNull();
-    expect(speechRecognitionErrorHint('aborted', 'booking')).toBeNull();
+    expect(speechRecognitionErrorHint('aborted')).toBeNull();
   });
 
   it('detects permission denial', () => {
@@ -105,21 +103,27 @@ describe('speech mic UI wiring', () => {
     expect(quotes).not.toContain('hub-quick-quote-hint-slot');
   });
 
+  it('hides the mic when speech recognition is unavailable', () => {
+    const voice = src('src/components/crm/ScheduleBookByVoice.tsx');
+    const quotes = src('src/pages/QuotesPage.tsx');
+    expect(voice).toContain('{Speech ? (');
+    expect(voice).not.toContain('Voice isn');
+    expect(quotes).toContain('{Speech ? (');
+  });
+
   it('quotes mic exposes Stop voice and aria-pressed while listening', () => {
     const quotes = src('src/pages/QuotesPage.tsx');
     expect(quotes).toContain("aria-label={quickListening ? 'Stop voice' : 'Voice note'}");
     expect(quotes).toContain('aria-pressed={quickListening}');
   });
 
-  it('keeps quick-quote mic at 44px and anchors desktop hints in the control row', () => {
+  it('renders speech hints in normal flow under the control row', () => {
     const css = src('src/index.css');
     expect(css).toContain('.hub-quick-quote-mic {\n    flex: 0 0 44px;');
-    expect(css).toContain('@media (min-width: 1024px)');
     expect(css).toContain('.hub-quick-quote-speech-status:not(:empty)');
-    expect(css).toContain('top: 0');
-    expect(css).not.toContain('top: 100%');
     expect(css).toContain('.hub-schedule-speech-status:not(:empty)');
-    expect(css).not.toContain('.hub-quick-quote-hint-slot');
+    expect(css).not.toMatch(/hub-quick-quote-speech-status[\s\S]{0,200}position:\s*absolute/);
+    expect(css).not.toMatch(/hub-schedule-speech-status[\s\S]{0,200}position:\s*absolute/);
   });
 });
 

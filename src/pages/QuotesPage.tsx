@@ -539,7 +539,7 @@ export function QuotesPage() {
     rec.onerror = ev => {
       if (!isActiveSpeechRecognition(rec, quickSpeechRef)) return;
       setQuickListening(false);
-      setQuickMicHint(speechRecognitionErrorHint(ev?.error, 'job'));
+      setQuickMicHint(speechRecognitionErrorHint(ev?.error));
     };
     quickSpeechRef.current = rec;
     setQuickListening(true);
