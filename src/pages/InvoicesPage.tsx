@@ -408,13 +408,17 @@ export function InvoicesPage() {
             if (!opts?.keepOpen) setSendingInvoiceId(null);
             queryClient.invalidateQueries({ queryKey: ['invoices'] });
             queryClient.invalidateQueries({ queryKey: ['invoice'] });
+            queryClient.invalidateQueries({ queryKey: ['invoice', sendingInvoiceId] });
             queryClient.invalidateQueries({ queryKey: ['client-invoices'] });
+            queryClient.invalidateQueries({ queryKey: ['job-invoices'] });
             queryClient.invalidateQueries({ queryKey: ['dashboard-nudges'] });
-            const sharedStatus = activeInvoice?.status === 'draft' ? 'sent' : activeInvoice?.status;
-            if (editingInvoice?.id === sendingInvoiceId && sharedStatus) {
-              setEditingInvoice(inv => inv ? { ...inv, status: sharedStatus } : inv);
-            }
-            if (!opts?.keepOpen) showToast(message ?? `Invoice sent to ${to}`);
+            setEditingInvoice(inv => {
+              if (!inv || inv.id !== sendingInvoiceId) return inv;
+              if (inv.status !== 'draft') return inv;
+              return { ...inv, status: 'sent' };
+            });
+            if (message) showToast(message);
+            else if (!opts?.keepOpen) showToast(`Invoice sent to ${to}`);
           }}
         />
       )}

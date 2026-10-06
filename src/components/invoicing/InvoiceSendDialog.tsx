@@ -297,6 +297,9 @@ export function InvoiceSendDialog({
     setShare(nextShare);
     if (marked.markedSent) {
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      void queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+      void queryClient.invalidateQueries({ queryKey: ['client-invoices'] });
+      void queryClient.invalidateQueries({ queryKey: ['job-invoices'] });
     }
     return { url, share: nextShare, toast: prepared.toast, markedSent: prepared.markedSent };
   };
@@ -333,7 +336,7 @@ export function InvoiceSendDialog({
       });
       setCopy(result);
       if (result.kind === 'copied' && markedSent) {
-        showToast(toast);
+        onSent(bundle?.client?.email || 'client', toast, { keepOpen: true });
       } else if (result.kind === 'copied' && share.purpose === 'chase') {
         onSent(bundle?.client?.email || 'client', 'Payment reminder copied.', { keepOpen: true });
       } else if (result.kind === 'copied' && toast) {

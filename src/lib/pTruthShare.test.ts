@@ -3,7 +3,10 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   documentShareCopyToast,
+  interpretMarkSentWrite,
   invoiceStatusAfterMarkSent,
+  MARK_SENT_WRITE_FAILED,
+  QUOTE_MARKED_SENT_TOAST,
   quoteStatusAfterMarkSent,
 } from './documentShare';
 import {
@@ -32,7 +35,13 @@ describe('P-TRUTH — share marks sent, portal hides drafts', () => {
     const editor = src('src/pages/QuotesPage.tsx');
     expect(editor).toContain('prepareDocumentShareLink');
     expect(editor).toContain("kind: 'quote'");
-    expect(editor).toContain('showToast(toast || \'Link copied\')');
+    expect(editor).toContain('result.kind === \'manual\'');
+    expect(editor).toContain('QUOTE_MARKED_SENT_TOAST');
+    expect(editor).not.toContain('if (result.kind === \'manual\') setErr(result.text);');
+    expect(editor.indexOf('if (result.kind === \'manual\')')).toBeLessThan(editor.indexOf('showToast(toast || \'Link copied\')'));
+    expect(editor).toContain("queryKey: ['client-quotes']");
+    expect(editor).toContain("queryKey: ['job-quotes']");
+    expect(QUOTE_MARKED_SENT_TOAST).toBe('Quote marked as sent');
 
     const quoteSend = src('src/components/invoicing/QuoteSendDialog.tsx');
     const invoiceSend = src('src/components/invoicing/InvoiceSendDialog.tsx');
@@ -80,5 +89,46 @@ describe('P-TRUTH — share marks sent, portal hides drafts', () => {
     expect(edge).toContain('sent: "Sent"');
     expect(src('src/pages/ClientPortalPublicPage.tsx')).toContain('portalInvoiceStatusLabel');
     expect(src('src/pages/ClientPortalPublicPage.tsx')).not.toMatch(/Relovi|Littleloop/);
+  });
+
+  it('treats a silent 0-row mark as failure so a still-draft link is not copied', () => {
+    expect(interpretMarkSentWrite({ updatedId: 'row-1', liveStatus: 'draft', next: 'sent' }))
+      .toEqual({ status: 'sent', markedSent: true });
+    expect(interpretMarkSentWrite({ updatedId: undefined, liveStatus: 'sent', next: 'sent' }))
+      .toEqual({ status: 'sent', markedSent: false });
+    expect(() => interpretMarkSentWrite({ updatedId: null, liveStatus: 'draft', next: 'sent' }))
+      .toThrow(MARK_SENT_WRITE_FAILED);
+
+    const deliver = src('src/lib/documentShareDeliver.ts');
+    expect(deliver).toContain(".select('id')");
+    expect(deliver).toContain('interpretMarkSentWrite');
+    expect(deliver).toContain("select('status')");
+    const quoteMark = deliver.slice(
+      deliver.indexOf('export async function markQuoteSentForShare'),
+      deliver.indexOf('export async function markInvoiceSentForShare'),
+    );
+    expect(quoteMark.indexOf(".select('id')")).toBeGreaterThan(quoteMark.indexOf('.eq(\'status\', \'draft\')'));
+    expect(quoteMark.indexOf("select('status')")).toBeGreaterThan(quoteMark.indexOf(".select('id')"));
+
+    const editor = src('src/pages/QuotesPage.tsx');
+    expect(editor).toContain("showToast(e instanceof Error ? e.message : 'Could not copy the link.', 'error')");
+    expect(editor.indexOf('copyShareText')).toBeLessThan(editor.indexOf('} catch (e) {'));
+
+    const invoiceSend = src('src/components/invoicing/InvoiceSendDialog.tsx');
+    expect(invoiceSend).toContain('onSent(bundle?.client?.email || \'client\', toast, { keepOpen: true })');
+    expect(invoiceSend).toContain("queryKey: ['invoice', invoiceId]");
+    expect(invoiceSend).toContain("queryKey: ['client-invoices']");
+    expect(invoiceSend).toContain("queryKey: ['job-invoices']");
+
+    const invoices = src('src/pages/InvoicesPage.tsx');
+    expect(invoices).toContain("queryKey: ['invoice', sendingInvoiceId]");
+    expect(invoices).toContain("queryKey: ['job-invoices']");
+    expect(invoices).toContain("inv.status !== 'draft'");
+    expect(invoices).toContain("status: 'sent'");
+    expect(invoices).toContain('if (message) showToast(message)');
+
+    const quoteSend = src('src/components/invoicing/QuoteSendDialog.tsx');
+    expect(quoteSend).toContain("queryKey: ['client-quotes']");
+    expect(quoteSend).toContain("queryKey: ['job-quotes']");
   });
 });

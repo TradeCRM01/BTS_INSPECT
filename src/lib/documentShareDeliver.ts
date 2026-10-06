@@ -7,6 +7,7 @@ import {
 } from './sendQuote';
 import {
   documentShareCopyToast,
+  interpretMarkSentWrite,
   invoiceStatusAfterMarkSent,
   quoteStatusAfterMarkSent,
   type DocumentShareKind,
@@ -83,13 +84,26 @@ export async function markQuoteSentForShare(args: {
   if (!next) return { status: args.status, markedSent: false };
   if (isDevFieldAuditAuth()) return { status: next, markedSent: true };
   const now = new Date().toISOString();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('quotes')
     .update({ status: next, sent_at: now, updated_at: now })
     .eq('id', args.quoteId)
-    .eq('status', 'draft');
+    .eq('status', 'draft')
+    .select('id');
   if (error) throw error;
-  return { status: next, markedSent: true };
+  const updated = (Array.isArray(data) ? data[0] : data) as { id?: string } | null;
+  if (updated?.id) return { status: next, markedSent: true };
+  const { data: live, error: liveError } = await supabase
+    .from('quotes')
+    .select('status')
+    .eq('id', args.quoteId)
+    .maybeSingle();
+  if (liveError) throw liveError;
+  return interpretMarkSentWrite({
+    updatedId: null,
+    liveStatus: live?.status as string | undefined,
+    next,
+  });
 }
 
 export async function markInvoiceSentForShare(args: {
@@ -99,13 +113,26 @@ export async function markInvoiceSentForShare(args: {
   const next = invoiceStatusAfterMarkSent(args.status);
   if (!next) return { status: args.status, markedSent: false };
   if (isDevFieldAuditAuth()) return { status: next, markedSent: true };
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('invoices')
     .update({ status: next, updated_at: new Date().toISOString() })
     .eq('id', args.invoiceId)
-    .eq('status', 'draft');
+    .eq('status', 'draft')
+    .select('id');
   if (error) throw error;
-  return { status: next, markedSent: true };
+  const updated = (Array.isArray(data) ? data[0] : data) as { id?: string } | null;
+  if (updated?.id) return { status: next, markedSent: true };
+  const { data: live, error: liveError } = await supabase
+    .from('invoices')
+    .select('status')
+    .eq('id', args.invoiceId)
+    .maybeSingle();
+  if (liveError) throw liveError;
+  return interpretMarkSentWrite({
+    updatedId: null,
+    liveStatus: live?.status as string | undefined,
+    next,
+  });
 }
 
 /** Copy/share a portal link and flip a draft to sent. Already-sent stays put. */

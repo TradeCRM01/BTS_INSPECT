@@ -45,7 +45,7 @@ import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdf
 import { QuoteChaseDialog } from '../components/invoicing/QuoteChaseDialog';
 import { QuoteSendDialog } from '../components/invoicing/QuoteSendDialog';
 import { quoteSendCompanyFrom } from '../lib/sendQuote';
-import { documentShareOrigin } from '../lib/documentShare';
+import { documentShareOrigin, QUOTE_MARKED_SENT_TOAST } from '../lib/documentShare';
 import { copyShareText, prepareDocumentShareLink } from '../lib/documentShareDeliver';
 import { commercialPdfPreviewData, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
@@ -1323,6 +1323,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
     setCopyingLink(true);
     try {
       let toast = '';
+      let markedSent = false;
       const result = await copyShareText(async () => {
         const id = savedId ?? quote?.id ?? await persist('draft', { close: false, message: '' });
         if (!id) throw new Error('Save the quote before you copy a link.');
@@ -1335,17 +1336,24 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
           origin: documentShareOrigin(window.location.origin),
         });
         toast = prepared.toast;
+        markedSent = prepared.markedSent;
         if (prepared.markedSent) {
           setForm(f => ({ ...f, status: 'sent' }));
           void queryClient.invalidateQueries({ queryKey: ['quotes'] });
+          void queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
+          void queryClient.invalidateQueries({ queryKey: ['job-quotes'] });
         }
         return prepared.url;
       });
       closeMore();
-      setCopyConfirm(true);
-      showToast(toast || 'Link copied');
-      window.setTimeout(() => setCopyConfirm(false), 2500);
-      if (result.kind === 'manual') setErr(result.text);
+      if (result.kind === 'manual') {
+        setErr(result.text);
+        if (markedSent) showToast(QUOTE_MARKED_SENT_TOAST);
+      } else {
+        setCopyConfirm(true);
+        showToast(toast || 'Link copied');
+        window.setTimeout(() => setCopyConfirm(false), 2500);
+      }
     } catch (e) {
       closeMore();
       showToast(e instanceof Error ? e.message : 'Could not copy the link.', 'error');

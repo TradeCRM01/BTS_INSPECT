@@ -23,6 +23,9 @@ describe('documentShareDeliver', () => {
     expect(deliver).toContain("status: next");
     expect(deliver).toContain('sent_at: now');
     expect(deliver).toContain(".eq('status', 'draft')");
+    expect(deliver).toContain(".select('id')");
+    expect(deliver).toContain("select('status')");
+    expect(deliver).toContain('interpretMarkSentWrite');
     expect(deliver).toContain('export async function prepareDocumentShareLink');
     expect(deliver).toContain("kind === 'quote'");
     expect(deliver).toContain('markQuoteSentForShare');

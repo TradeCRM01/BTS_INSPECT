@@ -21,6 +21,8 @@ import {
   DOCUMENT_SHARE_COPY_TOAST,
   QUOTE_SHARE_MARKED_SENT_TOAST,
   INVOICE_SHARE_MARKED_SENT_TOAST,
+  interpretMarkSentWrite,
+  MARK_SENT_WRITE_FAILED,
 } from './documentShare';
 
 describe('documentShareOrigin', () => {
@@ -86,6 +88,12 @@ describe('decideQuoteShare', () => {
     expect(documentShareCopyToast('quote', false)).toBe(DOCUMENT_SHARE_COPY_TOAST);
     expect(documentShareCopyToast('invoice', true)).toBe(INVOICE_SHARE_MARKED_SENT_TOAST);
     expect(documentShareCopyToast('invoice', false)).toBe(DOCUMENT_SHARE_COPY_TOAST);
+    expect(interpretMarkSentWrite({ updatedId: 'q1', liveStatus: 'draft', next: 'sent' }))
+      .toEqual({ status: 'sent', markedSent: true });
+    expect(interpretMarkSentWrite({ updatedId: null, liveStatus: 'sent', next: 'sent' }))
+      .toEqual({ status: 'sent', markedSent: false });
+    expect(() => interpretMarkSentWrite({ updatedId: null, liveStatus: 'draft', next: 'sent' }))
+      .toThrow(MARK_SENT_WRITE_FAILED);
   });
 
   it('builds mailto once the portal URL and client email exist', () => {

@@ -154,9 +154,25 @@ export const DOCUMENT_SHARE_COPY_TOAST = 'Link copied';
 export const QUOTE_SHARE_MARKED_SENT_TOAST = 'Link copied, quote marked as sent';
 export const INVOICE_SHARE_MARKED_SENT_TOAST = 'Link copied, invoice marked as sent';
 
+export const QUOTE_MARKED_SENT_TOAST = 'Quote marked as sent';
+export const MARK_SENT_WRITE_FAILED = 'Could not mark this as sent.';
+
 export function documentShareCopyToast(kind: DocumentShareKind, markedSent: boolean): string {
   if (!markedSent) return DOCUMENT_SHARE_COPY_TOAST;
   return kind === 'quote' ? QUOTE_SHARE_MARKED_SENT_TOAST : INVOICE_SHARE_MARKED_SENT_TOAST;
+}
+
+/** Update with 0 rows is not success. Still-draft after a no-op is a hard failure. */
+export function interpretMarkSentWrite(args: {
+  updatedId: string | null | undefined;
+  liveStatus: string | null | undefined;
+  next: string;
+}): { status: string; markedSent: boolean } {
+  if (args.updatedId) return { status: args.next, markedSent: true };
+  if ((args.liveStatus ?? '') === 'draft') {
+    throw new Error(MARK_SENT_WRITE_FAILED);
+  }
+  return { status: args.liveStatus || args.next, markedSent: false };
 }
 
 export function quoteNeedsMarkSentForAccept(status: string): boolean {

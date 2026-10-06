@@ -282,6 +282,8 @@ export function QuoteSendDialog({
     ));
     if (marked.markedSent) {
       void queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      void queryClient.invalidateQueries({ queryKey: ['client-quotes'] });
+      void queryClient.invalidateQueries({ queryKey: ['job-quotes'] });
     }
     return { url, status: marked.status, toast: prepared.toast };
   };
