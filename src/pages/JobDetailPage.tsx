@@ -2438,9 +2438,11 @@ export function JobDetailPage() {
   const nextLabel = next.key === 'send' ? 'Share' : sheetNext.label;
   const arrivingPrimary = sheetNext.label === ARRIVING_NEXT_LABEL;
   const headerPrimaryHeld = jobSheetHeaderPrimaryHeld({
-    jhas,
-    inspections,
     nextKey: next.key,
+    jhasPending,
+    jhasError,
+    inspectionsPending,
+    inspectionsError,
   });
 
   const nextBusy =

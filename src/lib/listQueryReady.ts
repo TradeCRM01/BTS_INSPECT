@@ -30,14 +30,18 @@ export function listSectionLoadError(thing: string): string {
   return `Couldn't load ${thing}.`;
 }
 
-/** Hold Start JHA / Start inspection until those counts are known. */
+/** Hold Start JHA / Start inspection only while that query is pending. */
 export function jobSheetHeaderPrimaryHeld(input: {
-  jhas: unknown;
-  inspections: unknown;
   nextKey: string;
+  jhasPending?: boolean;
+  jhasError?: boolean;
+  inspectionsPending?: boolean;
+  inspectionsError?: boolean;
 }): boolean {
-  if (input.nextKey === 'jha' && input.jhas === undefined) return true;
-  if (input.nextKey === 'inspect' && input.inspections === undefined) return true;
+  if (input.nextKey === 'jha') return Boolean(input.jhasPending) && !input.jhasError;
+  if (input.nextKey === 'inspect') {
+    return Boolean(input.inspectionsPending) && !input.inspectionsError;
+  }
   return false;
 }
 

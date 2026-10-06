@@ -89,6 +89,10 @@ describe('list loading truth', () => {
     expect(job).toContain('isError: take5sError || jhasError');
     expect(job).toContain('data-job-next-held');
     expect(job).toContain('jobSheetHeaderPrimaryHeld');
+    expect(job).toContain('jhasPending');
+    expect(job).toContain('inspectionsPending');
+    expect(job).toContain('jhasError');
+    expect(job).toContain('inspectionsError');
     expect(job).not.toMatch(/Relovi|Littleloop/);
     expect(client).not.toMatch(/Relovi|Littleloop/);
   });
@@ -98,14 +102,13 @@ describe('list loading truth', () => {
     expect(listShowEmpty(false, 0, true)).toBe(false);
     expect(listSectionLoadError('invoices')).toBe("Couldn't load invoices.");
     expect(jobSheetHeaderPrimaryHeld({
-      jhas: [],
-      inspections: undefined,
       nextKey: 'inspect',
+      inspectionsPending: true,
     })).toBe(true);
     expect(jobSheetHeaderPrimaryHeld({
-      jhas: [],
-      inspections: [],
       nextKey: 'inspect',
+      inspectionsPending: false,
+      inspectionsError: true,
     })).toBe(false);
 
     const tray = src('src/components/jobs/JobRelatedSection.tsx');

@@ -36,11 +36,24 @@ describe('listQueryBusy', () => {
 
 describe('jobSheetHeaderPrimaryHeld', () => {
   it('holds Start JHA / Start inspection until those queries resolve', () => {
-    expect(jobSheetHeaderPrimaryHeld({ jhas: undefined, inspections: undefined, nextKey: 'jha' })).toBe(true);
-    expect(jobSheetHeaderPrimaryHeld({ jhas: [], inspections: undefined, nextKey: 'inspect' })).toBe(true);
-    expect(jobSheetHeaderPrimaryHeld({ jhas: [], inspections: [], nextKey: 'jha' })).toBe(false);
-    expect(jobSheetHeaderPrimaryHeld({ jhas: [], inspections: [], nextKey: 'inspect' })).toBe(false);
-    expect(jobSheetHeaderPrimaryHeld({ jhas: undefined, inspections: undefined, nextKey: 'schedule' })).toBe(false);
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'jha', jhasPending: true })).toBe(true);
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'inspect', inspectionsPending: true })).toBe(true);
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'jha', jhasPending: false })).toBe(false);
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'inspect', inspectionsPending: false })).toBe(false);
+    expect(jobSheetHeaderPrimaryHeld({ nextKey: 'schedule', jhasPending: true, inspectionsPending: true })).toBe(false);
+  });
+
+  it('jha errored, so not held', () => {
+    expect(jobSheetHeaderPrimaryHeld({
+      nextKey: 'jha',
+      jhasPending: false,
+      jhasError: true,
+    })).toBe(false);
+    expect(jobSheetHeaderPrimaryHeld({
+      nextKey: 'jha',
+      jhasPending: true,
+      jhasError: true,
+    })).toBe(false);
   });
 });
 
