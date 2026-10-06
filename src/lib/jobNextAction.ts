@@ -80,7 +80,9 @@ export function jobInvoiceActionFlags(
   for (const inv of rows) {
     const status = effectiveInvoiceStatus(inv, now);
     if (status === 'draft') hasDraftInvoice = true;
-    else if (status === 'sent' || status === 'paid' || status === 'overdue') hasIssuedInvoice = true;
+    else if (status === 'sent' || status === 'paid' || status === 'overdue' || status === 'part_paid') {
+      hasIssuedInvoice = true;
+    }
   }
   return { invoiceCount: rows.length, hasDraftInvoice, hasIssuedInvoice };
 }

@@ -217,7 +217,7 @@ export function invoiceSendCopyKind(
 ): InvoiceSendCopyKind {
   if (inv.status === 'paid') return 'receipt';
   if (inv.status === 'draft') return 'first';
-  if (inv.status === 'sent' || inv.status === 'overdue') return 'chase';
+  if (inv.status === 'sent' || inv.status === 'overdue' || inv.status === 'part_paid') return 'chase';
   return effectiveInvoiceStatus(inv, now) === 'overdue' ? 'chase' : 'first';
 }
 

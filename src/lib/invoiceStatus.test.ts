@@ -100,7 +100,7 @@ describe('invoice list default filter', () => {
   it('G4 — unpaid job-bill past due_date hits the existing Overdue tab', () => {
     const due = jobBillDueDate(new Date('2026-08-20T00:00:00+10:00'));
     expect(due).toBe('2026-08-27');
-    expect(invoiceMatchesListFilter({ status: 'sent', due_date: due }, 'overdue', new Date(2026, 7, 28))).toBe(true);
+    expect(invoiceMatchesListFilter({ status: 'sent', due_date: due, total: 500 }, 'overdue', new Date(2026, 7, 28))).toBe(true);
     expect(invoiceMatchesListFilter({ status: 'sent', due_date: null }, 'overdue', new Date(2026, 7, 28))).toBe(false);
   });
 

@@ -26,6 +26,16 @@ describe('MONEY-4 invoice part payments', () => {
     expect(page).toContain('INVOICE_PAYMENT_METHOD_LABELS');
   });
 
+  it('R1 — part_paid stays in chase and send copy paths', () => {
+    const send = src('src/lib/sendInvoice.ts');
+    expect(send).toContain("inv.status === 'part_paid'");
+    const nudges = src('src/lib/nudges.ts');
+    expect(nudges).toContain("invoice.status !== 'part_paid'");
+    expect(nudges).toContain('Part paid · Overdue');
+    const job = src('src/lib/jobNextAction.ts');
+    expect(job).toContain("'part_paid'");
+  });
+
   it('M2 — full payment marks paid; partial marks part paid', () => {
     expect(applyInvoicePayment(0, 836, 836).statusAfter).toBe('paid');
     expect(applyInvoicePayment(0, 836, 400).statusAfter).toBe('part_paid');
@@ -37,7 +47,8 @@ describe('MONEY-4 invoice part payments', () => {
     const page = src('src/pages/InvoicesPage.tsx');
     expect(page).toContain('invoicePaidBalanceLabel');
     expect(page).toContain('hub-invoices-paid-meta');
-    expect(page).toContain('`hub-invoices-pill is-${status}`');
+    expect(page).toContain('invoiceListStatusLabel');
+    expect(page).toContain('hub-invoice-balance-due');
   });
 
   it('M4 — customer PDF and portal surface payments to date', () => {
@@ -57,6 +68,8 @@ describe('MONEY-4 invoice part payments', () => {
     expect(mig).toContain('part_paid');
     expect(mig).toContain("'void'");
     expect(mig).toContain('invoice_payments_legacy_pre_money4');
+    expect(mig).toContain('record_invoice_payment');
+    expect(mig).toContain('remove_invoice_payment');
     const page = src('src/pages/InvoicesPage.tsx');
     expect(page).not.toContain('Partial payments are not available');
     expect(page).not.toMatch(/deposit-as-quote|invite client/i);

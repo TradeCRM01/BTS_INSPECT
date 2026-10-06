@@ -199,8 +199,8 @@ describe('buildInvoiceFromJobBill', () => {
     expect(due).toBe('2026-08-27');
     expect(INVOICE_LIST_DEFAULT_FILTER).toBe('all');
     const past = new Date(2026, 7, 28);
-    expect(invoiceMatchesListFilter({ status: 'sent', due_date: due }, 'overdue', past)).toBe(true);
-    expect(invoiceMatchesListFilter({ status: 'sent', due_date: due }, INVOICE_LIST_DEFAULT_FILTER, past)).toBe(true);
+    expect(invoiceMatchesListFilter({ status: 'sent', due_date: due, total: 500 }, 'overdue', past)).toBe(true);
+    expect(invoiceMatchesListFilter({ status: 'sent', due_date: due, total: 500 }, INVOICE_LIST_DEFAULT_FILTER, past)).toBe(true);
     expect(invoiceMatchesListFilter({ status: 'sent', due_date: null }, 'overdue', past)).toBe(false);
     expect(invoiceMatchesListFilter({ status: 'paid', due_date: due }, 'overdue', past)).toBe(false);
     expect(invoiceMatchesListFilter({ status: 'sent', due_date: due }, 'overdue', new Date(2026, 7, 20))).toBe(false);

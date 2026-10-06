@@ -1,4 +1,5 @@
 import type { InvoiceStatus } from '../types/fsm';
+import { invoiceCountsAsOverdueMoney, invoiceMatchesOverdueFilter } from './invoiceOpenBalance';
 
 export function todayIsoDate(now = new Date()): string {
   const y = now.getFullYear();
@@ -34,11 +35,21 @@ export type InvoiceListStatusFilter = 'all' | InvoiceStatus;
 export const INVOICE_LIST_DEFAULT_FILTER: InvoiceListStatusFilter = 'all';
 
 export function invoiceMatchesListFilter(
-  inv: { status: InvoiceStatus | string; due_date?: string | null },
+  inv: {
+    status: InvoiceStatus | string;
+    due_date?: string | null;
+    total?: number | string | null;
+    amount_paid?: number | string | null;
+  },
   filter: InvoiceListStatusFilter,
   now = new Date(),
 ): boolean {
   if (filter === 'all') return true;
+  if (filter === 'overdue') return invoiceMatchesOverdueFilter(inv, now);
+  if (filter === 'paid') return inv.status === 'paid';
+  if (filter === 'sent') {
+    return effectiveInvoiceStatus(inv, now) === 'sent' && !invoiceCountsAsOverdueMoney(inv, now);
+  }
   return effectiveInvoiceStatus(inv, now) === filter;
 }
 

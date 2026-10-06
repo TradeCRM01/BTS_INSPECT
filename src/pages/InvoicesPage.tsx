@@ -40,9 +40,16 @@ import {
   persistInvoicePayment,
   previewInvoicePayment,
   mergeAuditInvoicePaymentRow,
+  seedAuditInvoicePaymentsList,
+  fetchInvoicePayments,
+  removeInvoicePayment,
+  recordPaymentOverpayMessage,
+  invoiceBalanceRemaining,
   type InvoicePaymentMethod,
+  type InvoicePaymentRow,
   type InvoiceRecordPaymentInput,
 } from '../lib/invoicePayments';
+import { invoiceListStatusLabel, invoiceBalanceOwed } from '../lib/invoiceOpenBalance';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
@@ -143,6 +150,7 @@ export function InvoicesPage() {
   const invoiceIdParam = searchParams.get('id');
   const paymentProof = isDevFieldAuditAuth() && searchParams.get('payment') === '1';
   const money4PartPaidLook = isDevFieldAuditAuth() && searchParams.get('look') === 'money-4-part-paid';
+  const money4PartPaidOverdueLook = isDevFieldAuditAuth() && searchParams.get('look') === 'money-4-part-paid-overdue';
 
   const { data: smtpSettings } = useQuery<SmtpSettingsRow | null>({
     queryKey: ['email-settings', profile?.company_id],
@@ -166,13 +174,14 @@ export function InvoicesPage() {
       const row = await loadInvoiceEditorRow(invoiceIdParam, profile.company_id);
       const merged = row ? mergeAuditInvoicePaymentRow(row) : row;
       if (!merged) return null;
-      if (money4PartPaidLook) {
+      if (money4PartPaidLook || money4PartPaidOverdueLook) {
         const total = Number(merged.total) || 0;
         return {
           ...merged,
           status: 'part_paid' as const,
           amount_paid: total / 2,
-          due_date: '2099-12-31',
+          due_date: money4PartPaidOverdueLook ? '2026-09-01' : '2099-12-31',
+          updated_at: '2026-09-01T00:00:00.000Z',
         };
       }
       return paymentProof
@@ -183,19 +192,19 @@ export function InvoicesPage() {
   });
 
   const { data: invoices, isLoading, isPending, error } = useQuery<InvoiceWithDetails[]>({
-    queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live', paymentProof, money4PartPaidLook],
+    queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live', paymentProof, money4PartPaidLook, money4PartPaidOverdueLook],
     queryFn: async () => {
       if (isDevFieldAuditAuth()) {
         const row = getAuditInvoiceEditorRow(AUDIT_INVOICE_ID);
         if (row) {
           const merged = mergeAuditInvoicePaymentRow(row);
-          if (money4PartPaidLook) {
+          if (money4PartPaidLook || money4PartPaidOverdueLook) {
             const total = Number(merged.total) || 0;
             return [{
               ...merged,
               status: 'part_paid' as const,
               amount_paid: total / 2,
-              due_date: '2099-12-31',
+              due_date: money4PartPaidOverdueLook ? '2026-09-01' : '2099-12-31',
             } as InvoiceWithDetails];
           }
           return [{
@@ -469,6 +478,7 @@ function InvoiceHit({
   onSend: (invoiceId: string) => void;
 }) {
   const status = effectiveInvoiceStatus(invoice);
+  const statusLabel = invoiceListStatusLabel(invoice);
   const site = visibleSite(invoice.job_address);
   const suburb = site ? suburbFromSite(site) : '';
   const money = invoiceMoney(invoice.total);
@@ -486,8 +496,8 @@ function InvoiceHit({
       <span className="hub-invoices-ref">{invoiceRef(invoice)}</span>
       <span className="truncate">{invoice.client_name || ''}</span>
       <span className="truncate hub-invoices-muted">{suburb}</span>
-      <span className={`hub-invoices-pill is-${status}`}>
-        {INVOICE_STATUS_LABELS[status]}
+      <span className={`hub-invoices-pill is-${invoice.status === 'part_paid' ? 'part_paid' : status}`}>
+        {statusLabel}
         {paidMeta ? <span className="hub-invoices-paid-meta">{paidMeta}</span> : null}
       </span>
       <span className="hub-invoices-total">{money ?? ''}</span>
@@ -627,7 +637,7 @@ function InvoiceNextControl({
           data-chase-state={chase.state}
           onClick={() => requestSend(invoice.id)}
         >
-          {invoiceChaseChipLabel(chase)}
+          {invoiceChaseChipLabel(chase, invoice)}
         </button>
       ) : null}
       {primary}
@@ -678,8 +688,12 @@ function InvoiceRecordPaymentSheet({
 }) {
   const [draft, setDraft] = useState(() => defaultRecordPaymentDraft(total, amountPaid));
   const amountNum = parseRecordPaymentAmount(draft.amount);
+  const overpayMsg = amountNum
+    ? recordPaymentOverpayMessage(amountNum, total, amountPaid)
+    : null;
   const preview = previewInvoicePayment(total, amountPaid, amountNum ?? 0);
   const statusLabel = INVOICE_STATUS_LABELS[preview.statusAfter];
+  const balance = invoiceBalanceRemaining(total, amountPaid);
   return (
     <AppDialog
       open
@@ -715,6 +729,16 @@ function InvoiceRecordPaymentSheet({
               onChange={e => setDraft(d => ({ ...d, amount: e.target.value }))}
               aria-label="Payment amount"
             />
+            {overpayMsg ? <span className="hub-invoice-payment-overpay">{overpayMsg}</span> : null}
+            {balance > 0 ? (
+              <button
+                type="button"
+                className="ops-link text-left"
+                onClick={() => setDraft(d => ({ ...d, amount: String(balance) }))}
+              >
+                Use balance ({formatMoney(balance)})
+              </button>
+            ) : null}
           </label>
           <label>
             Date received
@@ -763,7 +787,7 @@ function InvoiceRecordPaymentSheet({
           <button
             type="button"
             className="btn-primary"
-            disabled={busy || !amountNum}
+            disabled={busy || !amountNum || !!overpayMsg}
             onClick={() => {
               const amount = parseRecordPaymentAmount(draft.amount);
               if (!amount) return;
@@ -808,6 +832,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
 }) {
   const { profile, company: authCompany } = useAuth();
   const [searchParams] = useSearchParams();
+  const money4PaymentsListLook = isDevFieldAuditAuth() && searchParams.get('look') === 'money-4-payments-list';
   const company = companyWithLetterheadLookMark(authCompany, searchParams.get('look')) ?? authCompany;
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -822,6 +847,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const [showEdit, setShowEdit] = useState(!invoice);
   const [showPayment, setShowPayment] = useState(false);
   const [recordedPaid, setRecordedPaid] = useState(Number(invoice?.amount_paid ?? 0));
+  const [paymentsTick, setPaymentsTick] = useState(0);
   const moreRef = useRef<HTMLDetailsElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState('');
@@ -855,7 +881,13 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     const stored = invoice.status === 'overdue' ? 'sent' : invoice.status;
     setForm(f => (f.status === stored ? f : { ...f, status: stored }));
     setRecordedPaid(Number(invoice.amount_paid ?? 0));
-  }, [invoice]);
+    if (money4PaymentsListLook && invoice.id) {
+      seedAuditInvoicePaymentsList(invoice.id, Number(invoice.total) || 836);
+      setRecordedPaid(200);
+      setForm(f => ({ ...f, status: 'part_paid' }));
+      setPaymentsTick(t => t + 1);
+    }
+  }, [invoice, money4PaymentsListLook]);
 
   useEffect(() => {
     if (!profile?.company_id) return;
@@ -1005,10 +1037,17 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     line_items: form.line_items,
   }, { smtpReady }));
   const displayStatus = next.status;
-  const sheetPaidMeta = displayStatus === 'part_paid'
-    ? invoicePaidBalanceLabel(grandTotal, recordedPaid)
-    : null;
+  const sheetBalanceDue = invoiceBalanceOwed({ status: form.status, total: grandTotal, amount_paid: recordedPaid });
   const sheetLogo = companyDocumentLogoUrl(company);
+  const editorInvoiceId = savedId ?? invoice?.id ?? null;
+  const { data: paymentRows = [] } = useQuery<InvoicePaymentRow[]>({
+    queryKey: ['invoice-payments', editorInvoiceId, profile?.company_id, paymentsTick],
+    queryFn: async () => {
+      if (!editorInvoiceId || !profile?.company_id) return [];
+      return fetchInvoicePayments(editorInvoiceId, profile.company_id);
+    },
+    enabled: !!editorInvoiceId && !!profile?.company_id,
+  });
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
@@ -1363,6 +1402,8 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                   ? INVOICE_MARKED_PAID_MESSAGE
                   : 'Payment recorded');
               }
+              setPaymentsTick(t => t + 1);
+              queryClient.invalidateQueries({ queryKey: ['invoice-payments'] });
               setShowPayment(false);
             }}
           />
@@ -1379,10 +1420,12 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
               <p className="hub-invoice-kicker">Tax invoice</p>
               <h2 className="hub-invoice-editor-title">{editorTitle}</h2>
               <p className="hub-invoice-banner-meta">
-                {INVOICE_STATUS_LABELS[displayStatus]}
-                {sheetPaidMeta ? ` · ${sheetPaidMeta}` : ''}
+                {invoiceListStatusLabel({ status: form.status, total: grandTotal, amount_paid: recordedPaid, due_date: form.due_date })}
                 {form.due_date ? ` · Due ${format(parseISO(form.due_date), 'd MMM yyyy')}` : ''}
               </p>
+              {displayStatus === 'part_paid' || recordedPaid > 0 ? (
+                <span className="hub-invoices-pill is-part_paid hub-invoice-sheet-chip">Part paid</span>
+              ) : null}
             </div>
           </header>
 
@@ -1549,6 +1592,56 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             <div className="hub-invoice-totalbar">
               <span>Total (inc GST)</span>
               <span className="hub-invoice-display-total">{editorMoney}</span>
+            </div>
+          ) : null}
+          {recordedPaid > 0 ? (
+            <div className="hub-invoice-paid-summary">
+              <div><span>Paid to date</span><span>{formatMoney(recordedPaid)}</span></div>
+              <div className="hub-invoice-balance-due">
+                <span>Balance due</span>
+                <span>{formatMoney(sheetBalanceDue)}</span>
+              </div>
+            </div>
+          ) : null}
+          {paymentRows.length > 0 ? (
+            <div className="hub-invoice-payments-list">
+              <p className="hub-invoice-kicker">Payments</p>
+              <ul>
+                {paymentRows.map(row => (
+                  <li key={row.id}>
+                    <span>{format(parseISO(row.paid_at), 'dd/MM/yyyy')}</span>
+                    <span>{INVOICE_PAYMENT_METHOD_LABELS[row.method]}</span>
+                    <span>{row.reference || '—'}</span>
+                    <span className="hub-invoice-num">{formatMoney(row.amount)}</span>
+                    <button
+                      type="button"
+                      className="ops-link"
+                      onClick={() => {
+                        if (!profile?.company_id || !editorInvoiceId) return;
+                        if (!window.confirm('Remove this payment and recalculate the balance?')) return;
+                        void removeInvoicePayment({
+                          companyId: profile.company_id,
+                          invoiceId: editorInvoiceId,
+                          paymentId: row.id,
+                          invoiceTotal: grandTotal,
+                        }).then(result => {
+                          if (!result.ok) {
+                            showToast(result.message, 'error');
+                            return;
+                          }
+                          setRecordedPaid(result.amount_paid);
+                          setForm(f => ({ ...f, status: result.status }));
+                          setPaymentsTick(t => t + 1);
+                          queryClient.invalidateQueries({ queryKey: ['invoices'] });
+                          showToast('Payment removed');
+                        });
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : null}
           {companyPaymentMethodsForDocument(

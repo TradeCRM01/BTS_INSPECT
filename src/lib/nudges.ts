@@ -189,7 +189,7 @@ export function quoteChasePatch(quote: { status: string }, now: Date): { updated
 }
 
 export function invoiceChase(invoice: InvoiceChaseInput, now: Date): InvoiceChase | null {
-  if (invoice.status !== 'sent' && invoice.status !== 'overdue') return null;
+  if (invoice.status !== 'sent' && invoice.status !== 'overdue' && invoice.status !== 'part_paid') return null;
   const updatedAt = new Date(invoice.updated_at ?? '').getTime();
   const chasedAt = new Date(invoice.chased_at ?? '').getTime();
   const touchedAt = Math.max(
@@ -201,21 +201,27 @@ export function invoiceChase(invoice: InvoiceChaseInput, now: Date): InvoiceChas
   if (days < INVOICE_CHASE_AFTER_DAYS) return null;
   const dueKey = scheduleDayKey(invoice.due_date);
   const pastDue = !!dueKey && dueKey < scheduleDateKey(now);
-  if (invoice.status === 'overdue' || pastDue) {
+  if (invoice.status === 'overdue' || pastDue || (invoice.status === 'part_paid' && pastDue)) {
     const daysPast = dueKey ? differenceInCalendarDays(now, localDay(dueKey)) : 0;
     return { state: 'overdue', days, daysPast };
   }
   return { state: 'quiet', days };
 }
 
-export function invoiceChaseChipLabel(chase: InvoiceChase): string {
-  return chase.state === 'overdue'
-    ? `Overdue · ${plural(chase.daysPast, 'day')}`
-    : `Chase · ${plural(chase.days, 'day')}`;
+export function invoiceChaseChipLabel(
+  chase: InvoiceChase,
+  invoice?: { status?: string },
+): string {
+  const partPaid = invoice?.status === 'part_paid';
+  if (chase.state === 'overdue') {
+    const tail = plural(chase.daysPast, 'day');
+    return partPaid ? `Part paid · Overdue · ${tail}` : `Overdue · ${tail}`;
+  }
+  return partPaid ? `Part paid · Chase · ${plural(chase.days, 'day')}` : `Chase · ${plural(chase.days, 'day')}`;
 }
 
 export function invoiceChasePatch(invoice: { status: string }, now: Date): { updated_at: string } | null {
-  return invoice.status === 'sent' || invoice.status === 'overdue'
+  return invoice.status === 'sent' || invoice.status === 'overdue' || invoice.status === 'part_paid'
     ? { updated_at: now.toISOString() }
     : null;
 }

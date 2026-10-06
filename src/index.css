@@ -3835,6 +3835,59 @@
     min-height: 44px;
   }
 
+  .hub-invoice-payment-overpay {
+    color: var(--invoice-fail);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .hub-invoice-paid-summary {
+    margin-top: 12px;
+    display: grid;
+    gap: 6px;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    color: #5B6B7C;
+  }
+
+  .hub-invoice-paid-summary > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .hub-invoice-balance-due span:last-child {
+    color: var(--invoice-warn, #B54708);
+    font-weight: 700;
+  }
+
+  .hub-invoice-sheet-chip {
+    display: inline-flex;
+    margin-top: 8px;
+  }
+
+  .hub-invoice-payments-list {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--invoice-line, #E2D9CC);
+  }
+
+  .hub-invoice-payments-list ul {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+
+  .hub-invoice-payments-list li {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+    font-size: 13px;
+  }
+
   .hub-invoice-more {
     position: relative;
   }
