@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,6 +14,19 @@ import { jobFormSelectNewClient, jobSiteAddressFromClient, visibleClientContacts
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { formatJobRef, nextCostCode, normalizeCostCode } from '../../lib/jobRef';
 import { JOB_COLORS, jobColorToStore } from '../../lib/jobColors';
+import { assumedTradeTag, checkDateTag, fromBookingTag } from '../../lib/quickBook';
+import { FromBooking } from './FromBooking';
+
+export type JobFormFromBooking = {
+  title?: boolean;
+  client?: boolean;
+  date?: boolean;
+  dateCheck?: boolean;
+  start?: boolean;
+  startTrade?: boolean;
+  crew?: boolean;
+  address?: boolean;
+};
 
 interface JobFormModalProps {
   job: Job | null;
@@ -22,6 +35,12 @@ interface JobFormModalProps {
   presetEmployeeId?: string | undefined;
   presetParentJobId?: string | null;
   presetAddress?: string | null;
+  presetTitle?: string | null;
+  presetStartTime?: string | null;
+  presetClientName?: string | null;
+  presetTeam?: { id: string; name: string }[];
+  fromBooking?: JobFormFromBooking | null;
+  matchHints?: { job?: string | null; client?: string | null; crew?: string | null } | null;
   /** `details` = identity only; schedule/crew/status live on the job page. */
   fields?: 'all' | 'details';
   onAddStage?: () => void;
@@ -36,6 +55,12 @@ export function JobFormModal({
   presetEmployeeId,
   presetParentJobId,
   presetAddress,
+  presetTitle,
+  presetStartTime,
+  presetClientName,
+  presetTeam,
+  fromBooking = null,
+  matchHints = null,
   fields = 'all',
   onAddStage,
   onClose,
@@ -45,21 +70,34 @@ export function JobFormModal({
   const queryClient = useQueryClient();
   const detailsOnly = fields === 'details' && !!job;
   const [clients, setClients] = useState<Client[]>([]);
-  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>(presetTeam ?? []);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addingClient, setAddingClient] = useState(false);
   const [parentJobs, setParentJobs] = useState<{ id: string; title: string; job_number: number | null }[]>([]);
 
+  const [dateEdited, setDateEdited] = useState(false);
+  const [startEdited, setStartEdited] = useState(false);
+  const [titleEdited, setTitleEdited] = useState(false);
+  const [clientEdited, setClientEdited] = useState(false);
+  const [addressEdited, setAddressEdited] = useState(false);
+  const [crewEdited, setCrewEdited] = useState(false);
+  const [pendingClientName, setPendingClientName] = useState(presetClientName ?? '');
+  const [clientErr, setClientErr] = useState('');
+  const clientNameRef = useRef<HTMLInputElement>(null);
+  const clientErrRef = useRef<HTMLParagraphElement>(null);
+  const startCheck = assumedTradeTag(fromBooking?.startTrade, presetStartTime, startEdited);
+  const dateCheck = checkDateTag(fromBooking?.dateCheck, dateEdited);
+
   const [form, setForm] = useState({
-    title: job?.title ?? '',
+    title: job?.title ?? presetTitle ?? '',
     client_id: job?.client_id ?? presetClientId ?? '',
     description: job?.description ?? '',
     status: job?.status ?? 'scheduled' as JobStatus,
     priority: job?.priority ?? 'medium' as JobPriority,
     scheduled_date: job?.scheduled_date ?? presetDate ?? format(new Date(), 'yyyy-MM-dd'),
-    start_time: job?.start_time ?? '',
+    start_time: job?.start_time ?? presetStartTime ?? '',
     end_time: job?.end_time ?? '',
     address: job?.address ?? presetAddress ?? '',
     assigned_team: job?.assigned_team ?? (presetEmployeeId ? [presetEmployeeId] : []),
@@ -77,7 +115,11 @@ export function JobFormModal({
         supabase.rpc('get_company_members', { p_company_id: profile.company_id }),
       ]);
       if (clientsRes.data) setClients(clientsRes.data as Client[]);
-      if (teamRes.data) setTeamMembers((teamRes.data as { id: string; name: string }[]).map(m => ({ id: m.id, name: m.name })));
+      if (teamRes.data) {
+        setTeamMembers((teamRes.data as { id: string; name: string }[]).map(m => ({ id: m.id, name: m.name })));
+      } else if (presetTeam?.length) {
+        setTeamMembers(presetTeam);
+      }
     }
     loadOptions();
   }, [profile?.company_id]);
@@ -99,6 +141,7 @@ export function JobFormModal({
   }, [job, form.parent_job_id, form.cost_code]);
 
   const selectedClient = useMemo(() => clients.find(c => c.id === form.client_id), [clients, form.client_id]);
+  const pendingUnmatched = !!pendingClientName.trim() && !form.client_id;
 
   const applyNewClient = async (clientId: string) => {
     setAddingClient(false);
@@ -111,6 +154,9 @@ export function JobFormModal({
       }
     }
     const created = nextClients.find(c => c.id === clientId);
+    setClientEdited(true);
+    setPendingClientName('');
+    setClientErr('');
     setForm(f => jobFormSelectNewClient(f, clientId, created?.address));
   };
 
@@ -124,6 +170,7 @@ export function JobFormModal({
   }, [job, selectedClient]);
 
   const toggleTeamMember = (id: string) => {
+    setCrewEdited(true);
     setForm(f => ({
       ...f,
       assigned_team: f.assigned_team.includes(id)
@@ -134,6 +181,16 @@ export function JobFormModal({
 
   const handleSave = async () => {
     if (!form.title.trim()) { setErr('Title is required'); return; }
+    const typedClient = pendingClientName.trim();
+    if (typedClient && !form.client_id) {
+      setClientErr(`Create client “${typedClient}” or pick one`);
+      requestAnimationFrame(() => {
+        clientErrRef.current?.scrollIntoView({ block: 'center' });
+        clientNameRef.current?.focus();
+      });
+      return;
+    }
+    setClientErr('');
     if (!profile?.company_id) return;
     setSaving(true);
     setErr('');
@@ -224,15 +281,66 @@ export function JobFormModal({
         <div className="overlay-body">
           <div className="overlay-form-grid">
           <div className="overlay-form-span-all">
-            <label className="ops-field-label">Job Title <span className="text-fail">*</span></label>
-            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            <label className="ops-field-label">
+              Job Title <span className="text-fail">*</span>
+              <FromBooking show={fromBookingTag(fromBooking?.title, titleEdited)} />
+            </label>
+            <input value={form.title} onChange={e => {
+              setTitleEdited(true);
+              setForm(f => ({ ...f, title: e.target.value }));
+            }}
               className="form-input" placeholder="e.g. Annual safety inspection" autoFocus />
           </div>
 
           <div>
-            <label className="ops-field-label">Client</label>
-            <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))}
-              className="form-input cursor-pointer">
+            <label className="ops-field-label">
+              Client
+              <FromBooking show={fromBookingTag(fromBooking?.client, clientEdited)} />
+            </label>
+            {pendingUnmatched ? (
+              <input
+                ref={clientNameRef}
+                value={pendingClientName}
+                onChange={e => {
+                  setClientEdited(true);
+                  setPendingClientName(e.target.value);
+                  if (!e.target.value.trim()) setClientErr('');
+                }}
+                className="form-input"
+                aria-label="Client name from booking"
+              />
+            ) : null}
+            {pendingUnmatched ? (
+              <button
+                type="button"
+                onClick={() => setAddingClient(true)}
+                className="hub-job-create-client"
+              >
+                {`Create client “${pendingClientName.trim()}”`}
+              </button>
+            ) : null}
+            {clientErr ? (
+              <p ref={clientErrRef} className="text-sm text-fail">{clientErr}</p>
+            ) : null}
+            {pendingUnmatched ? (
+              <label className="ops-field-label" htmlFor="hub-job-existing-client">
+                Or pick an existing client
+              </label>
+            ) : null}
+            <select
+              id="hub-job-existing-client"
+              value={form.client_id}
+              onChange={e => {
+                setClientEdited(true);
+                setForm(f => ({ ...f, client_id: e.target.value }));
+                if (e.target.value) {
+                  setPendingClientName('');
+                  setClientErr('');
+                }
+              }}
+              className="form-input cursor-pointer"
+              aria-label={pendingUnmatched ? 'Or pick an existing client' : 'Existing client'}
+            >
               <option value="">No client (walk-up)</option>
               {clients.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -254,20 +362,31 @@ export function JobFormModal({
               </div>
             )}
             {selectedClient?.address && !form.address && (
-              <button type="button" onClick={() => setForm(f => ({ ...f, address: selectedClient.address ?? '' }))}
+              <button type="button" onClick={() => {
+                setAddressEdited(true);
+                setForm(f => ({ ...f, address: selectedClient.address ?? '' }));
+              }}
                 className="ops-link text-xs mt-1">
                 Use client address: {selectedClient.address}
               </button>
             )}
+            {pendingUnmatched ? null : (
             <button type="button" onClick={() => setAddingClient(true)}
-              className="ops-link text-xs mt-1">
+              className="hub-job-create-client">
               Add new client
             </button>
+            )}
           </div>
 
           <div className="overlay-form-span-2">
-            <label className="ops-field-label">Job Site Address</label>
-            <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+            <label className="ops-field-label">
+              Job Site Address
+              <FromBooking show={fromBookingTag(fromBooking?.address, addressEdited)} />
+            </label>
+            <input value={form.address} onChange={e => {
+              setAddressEdited(true);
+              setForm(f => ({ ...f, address: e.target.value }));
+            }}
               className="form-input" placeholder="Where the work is happening" />
           </div>
 
@@ -307,13 +426,31 @@ export function JobFormModal({
           {!detailsOnly && (
             <>
               <div>
-                <label className="ops-field-label">Date</label>
-                <input type="date" value={form.scheduled_date ?? ''} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
+                <label className="ops-field-label">
+                  Date
+                  <FromBooking show={fromBookingTag(fromBooking?.date, dateEdited)} />
+                  {dateCheck ? (
+                    <span className="hub-schedule-from-booking">{dateCheck}</span>
+                  ) : null}
+                </label>
+                <input type="date" value={form.scheduled_date ?? ''} onChange={e => {
+                  setForm(f => ({ ...f, scheduled_date: e.target.value }));
+                  setDateEdited(true);
+                }}
                   className="form-input" />
               </div>
               <div>
-                <label className="ops-field-label">Start</label>
-                <input type="time" value={form.start_time ?? ''} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
+                <label className="ops-field-label">
+                  Start
+                  <FromBooking show={fromBookingTag(fromBooking?.start, startEdited)} />
+                  {startCheck ? (
+                    <span className="hub-schedule-from-booking">{startCheck}</span>
+                  ) : null}
+                </label>
+                <input type="time" value={form.start_time ?? ''} onChange={e => {
+                  setForm(f => ({ ...f, start_time: e.target.value }));
+                  setStartEdited(true);
+                }}
                   className="form-input" />
               </div>
               <div>
@@ -330,9 +467,15 @@ export function JobFormModal({
               className="form-input min-h-[88px] resize-y" placeholder="Job details, scope of work, special instructions..." />
           </div>
 
-          {!detailsOnly && teamMembers.length > 0 && (
+          {!detailsOnly && (teamMembers.length > 0 || matchHints?.crew) && (
             <div className="overlay-form-span-all">
-              <label className="ops-field-label">Assign Crew</label>
+              <label className="ops-field-label">
+                Assign Crew
+                <FromBooking show={fromBookingTag(fromBooking?.crew, crewEdited)} />
+              </label>
+              {matchHints?.crew ? (
+                <p className="hub-schedule-job-sheet-hint">{matchHints.crew}</p>
+              ) : null}
               <div className="flex flex-wrap gap-1.5">
                 {teamMembers.map(m => {
                   const selected = form.assigned_team.includes(m.id);
@@ -462,6 +605,7 @@ export function JobFormModal({
       <ClientForm
         client={null}
         openedFromJob
+        presetName={pendingClientName || undefined}
         onClose={() => setAddingClient(false)}
         onSaved={clientId => { void applyNewClient(clientId); }}
       />

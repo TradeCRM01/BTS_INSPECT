@@ -2277,6 +2277,23 @@
     @apply md:col-span-2 xl:col-span-3;
   }
 
+  .hub-job-create-client {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 12px;
+    margin-top: 4px;
+    border: 0;
+    background: transparent;
+    color: #2E75B6;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+
   /* Overlays: two-up / three-up / four-up field grids clip native date/time and 16px type. */
   @media (max-width: 768px) {
     .overlay-panel .grid.grid-cols-2,
@@ -7246,6 +7263,25 @@
     margin: 8px 0 0;
     padding: 0;
     list-style: none;
+  }
+
+  .hub-schedule-voice-new {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    height: 44px;
+    margin: 8px 0 0;
+    padding: 0 16px;
+    background: #FFFDF8;
+    color: #0A2540;
+    border: 1px solid #0A2540;
+    border-radius: 12px;
+    box-shadow: none;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
   .hub-schedule-voice-pick {

@@ -23,7 +23,8 @@ import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, hydrateJobParentNumbers, jobMatchesSearch, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
 import { parseScheduleDateParam, parseScheduleView, scheduleDateKey, scheduleDayKey, scheduleJobHref, scheduleSheetSavePayload, SCHEDULE_WEEK_STARTS_ON, type ScheduleSheetInput, type ScheduleViewMode } from '../lib/scheduleBoard';
-import { matchQuickBookJobs, parseQuickBook, resolveQuickBook, spokenSheetFields } from '../lib/quickBook';
+import { matchQuickBookJobs, parseQuickBook, resolveQuickBook, spokenSheetFields, type QuickBookNewJobDraft, type SpokenSheetFields } from '../lib/quickBook';
+import type { JobFormFromBooking } from '../components/crm/JobFormModal';
 import {
   scheduleLocationStep,
   scheduleSearchFromState,
@@ -413,6 +414,13 @@ export function SchedulePage() {
   } | null>(null);
   const [voiceJobPicks, setVoiceJobPicks] = useState<JobWithClient[]>([]);
   const [voiceApplying, setVoiceApplying] = useState(false);
+  const [voiceNewJob, setVoiceNewJob] = useState<{
+    draft: QuickBookNewJobDraft;
+    prefill: SpokenSheetFields;
+    fromBooking: JobFormFromBooking;
+    hints: { job: string | null; client: string | null; crew: string | null };
+  } | null>(null);
+  const [voiceClearNonce, setVoiceClearNonce] = useState(0);
   const [sheetFromBooking, setSheetFromBooking] = useState<{
     job?: boolean;
     date?: boolean;
@@ -783,6 +791,13 @@ export function SchedulePage() {
     setPresetEmployeeId(undefined);
   };
 
+  const clearVoiceNewJobPanel = () => {
+    setVoiceNewJob(null);
+    setVoiceHints(null);
+    setVoiceJobPicks([]);
+    setVoiceClearNonce(n => n + 1);
+  };
+
   const clearEmployeeFilters = () => setFilteredEmployeeIds(new Set());
 
   const boardJobs = useMemo(
@@ -842,8 +857,18 @@ export function SchedulePage() {
         }
       }
       const clients = new Map<string, { id: string; name: string }>();
+      if (!lookWeekBoard) {
+        const { data: companyClients } = await supabase
+          .from('clients')
+          .select('id, name')
+          .eq('archived', false)
+          .order('name');
+        for (const row of companyClients ?? []) {
+          if (row.id && row.name) clients.set(row.id, { id: row.id, name: row.name });
+        }
+      }
       for (const job of pool) {
-        if (job.client_id && job.client_name) {
+        if (job.client_id && job.client_name && !clients.has(job.client_id)) {
           clients.set(job.client_id, { id: job.client_id, name: job.client_name });
         }
       }
@@ -868,6 +893,21 @@ export function SchedulePage() {
       };
       setVoiceHints(resolved.hints);
       setVoiceJobPicks(resolved.jobs.kind === 'many' ? resolved.jobs.items : []);
+      setVoiceNewJob(resolved.newJob ? {
+        draft: resolved.newJob,
+        prefill: spoken,
+        hints: resolved.hints,
+        fromBooking: {
+          title: true,
+          client: !!resolved.newJob.clientToken,
+          date: !!spoken.date,
+          dateCheck: spoken.dateSource === 'next',
+          start: !!spoken.startTime,
+          startTrade: spoken.startTimeSource === 'trade',
+          crew: !!spoken.crewId,
+          address: !!resolved.newJob.address,
+        },
+      } : null);
       if (resolved.jobs.kind === 'one') {
         openScheduleSheet(resolved.jobs.items[0], spoken, resolved.hints, fromBooking);
         return;
@@ -892,6 +932,7 @@ export function SchedulePage() {
     };
     setVoiceHints(hints);
     setVoiceJobPicks([]);
+    setVoiceNewJob(null);
     openScheduleSheet(job, spoken, hints, {
       job: true,
       date: !!spoken.date,
@@ -935,7 +976,25 @@ export function SchedulePage() {
   const boardWhisper = viewMode === 'day' ? dayWhisper : weekWhisper;
   const boardRangeLabel = viewMode === 'day' ? dayRangeLabel : weekRangeLabel;
 
+  const openVoiceNewJobForm = useCallback(() => {
+    if (!voiceNewJob) return;
+    setSelectedDate(voiceNewJob.prefill.date ?? null);
+    setPresetClientId(voiceNewJob.draft.clientId ?? null);
+    setPresetEmployeeId(voiceNewJob.prefill.crewId);
+    setShowForm(true);
+  }, [voiceNewJob]);
+
+  const openNewJobInstead = useCallback(() => {
+    if (!voiceNewJob) return;
+    setSheetJob(null);
+    setSheetPrefill(null);
+    setSheetHints(null);
+    setSheetFromBooking(null);
+    openVoiceNewJobForm();
+  }, [voiceNewJob, openVoiceNewJobForm]);
+
   const openNewJob = () => {
+    setVoiceNewJob(null);
     setSelectedDate(format(currentDate, 'yyyy-MM-dd'));
     setPresetEmployeeId(undefined);
     setShowForm(true);
@@ -1101,11 +1160,13 @@ export function SchedulePage() {
                   {weekSearch}
                 </div>
                 <ScheduleBookByVoice
+                  key={voiceClearNonce}
                   onApply={phrase => { void applyQuickBook(phrase); }}
                   applying={voiceApplying}
                   hints={voiceHints ?? undefined}
                   jobPicks={voiceJobPicks}
                   onPickJob={pickVoiceJob}
+                  onNewJob={voiceNewJob ? openVoiceNewJobForm : undefined}
                 />
                 {pickedJob && boardCrew.length > 0 && (
                   <div className="hub-week-place hub-schedule-place" data-schedule-place="1">
@@ -1199,6 +1260,7 @@ export function SchedulePage() {
         matchHints={sheetHints}
         fromBooking={sheetFromBooking}
         saving={scheduleFromSheet.isPending}
+        onNewJobInstead={voiceNewJob && sheetJob ? openNewJobInstead : undefined}
         onClose={() => {
           setSheetJob(null);
           setSheetPrefill(null);
@@ -1215,15 +1277,33 @@ export function SchedulePage() {
 
       {showForm && (
         <JobFormModal
+          key={voiceNewJob ? `voice-${voiceNewJob.draft.title}` : (presetClientId ?? 'new')}
           job={null}
           presetDate={selectedDate}
           presetClientId={presetClientId}
           presetEmployeeId={presetEmployeeId}
+          presetTitle={voiceNewJob?.draft.title ?? null}
+          presetStartTime={voiceNewJob?.prefill.startTime ?? null}
+          presetAddress={voiceNewJob?.draft.address ?? null}
+          presetClientName={voiceNewJob && !voiceNewJob.draft.clientId ? voiceNewJob.draft.clientToken : null}
+          presetTeam={lookWeekBoard ? boardCrew : undefined}
+          fromBooking={voiceNewJob?.fromBooking ?? null}
+          matchHints={voiceNewJob?.hints ?? null}
           onClose={handleCloseForm}
           onSaved={(jobId) => {
+            const fromVoice = !!voiceNewJob;
+            const bookedDate = selectedDate;
             handleCloseForm();
+            if (fromVoice) clearVoiceNewJobPanel();
             queryClient.invalidateQueries({ queryKey: ['jobs'] });
             queryClient.invalidateQueries({ queryKey: ['jobs-all'] });
+            if (fromVoice) {
+              if (bookedDate) {
+                const [year, month, day] = bookedDate.split('-').map(Number);
+                applySchedule('week', new Date(year, month - 1, day));
+              }
+              return;
+            }
             navigate(scheduleJobHref(jobId));
           }}
         />

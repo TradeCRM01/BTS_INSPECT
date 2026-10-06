@@ -170,7 +170,8 @@ describe('schedule page week/day board', () => {
     expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain('Speak a booking');
     expect(src('src/components/crm/ScheduleBookByVoice.tsx')).toContain('speechRecognitionErrorHint');
     expect(page.lastIndexOf('<ScheduleBookByVoice')).toBeGreaterThan(page.indexOf('data-schedule-search="1"'));
-    expect(sheet).toContain('From your booking');
+    expect(sheet).toContain('FromBooking');
+    expect(src('src/components/crm/FromBooking.tsx')).toContain('From your booking');
     expect(page).toContain('withScheduleJobPatches(weekBoardLookJobs())');
     expect(page).toContain('jobMatchesSearch');
     expect(src('src/components/jobs/JobDispatchPanel.tsx')).toContain("save.mutate({ scheduled_date:");
