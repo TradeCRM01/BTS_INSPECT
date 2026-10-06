@@ -2,10 +2,10 @@ import { useRef, useState, type FormEvent } from 'react';
 import { Mic } from 'lucide-react';
 import {
   browserSpeechRecognition,
-  speechRecognitionErrorHint,
   transcriptFromSpeechEvent,
   type QuickBookSpeech,
 } from '../../lib/quickBook';
+import { isActiveSpeechRecognition, speechRecognitionErrorHint } from '../../lib/speechHints';
 
 export type ScheduleVoiceJobPick = {
   id: string;
@@ -46,15 +46,21 @@ export function ScheduleBookByVoice({
     rec.interimResults = false;
     rec.continuous = false;
     rec.onresult = ev => {
+      if (!isActiveSpeechRecognition(rec, speechRef)) return;
       const spoken = transcriptFromSpeechEvent(ev);
       if (!spoken) return;
       setPhrase(spoken);
       applyPhrase(spoken);
     };
-    rec.onend = () => setListening(false);
-    rec.onerror = ev => {
+    rec.onend = () => {
+      if (!isActiveSpeechRecognition(rec, speechRef)) return;
       setListening(false);
-      setMicHint(speechRecognitionErrorHint(ev?.error, 'booking'));
+    };
+    rec.onerror = ev => {
+      if (!isActiveSpeechRecognition(rec, speechRef)) return;
+      setListening(false);
+      const hint = speechRecognitionErrorHint(ev?.error, 'booking');
+      setMicHint(hint);
     };
     speechRef.current = rec;
     setListening(true);
@@ -80,7 +86,10 @@ export function ScheduleBookByVoice({
             id="hub-schedule-voice-text"
             className="form-input"
             value={phrase}
-            onChange={e => setPhrase(e.target.value)}
+            onChange={e => {
+              setPhrase(e.target.value);
+              setMicHint(null);
+            }}
             placeholder="Job, day, time, crew"
             aria-label="Type a booking"
             disabled={applying}
@@ -112,9 +121,9 @@ export function ScheduleBookByVoice({
         </div>
       </form>
       {micHint ? (
-        <p className="hub-schedule-voice-hint">{micHint}</p>
+        <p className="hub-speech-hint" role="status">{micHint}</p>
       ) : !Speech ? (
-        <p className="hub-schedule-voice-hint">Voice isn't available here. Type instead.</p>
+        <p className="hub-speech-hint" role="status">Voice isn't available here. Type instead.</p>
       ) : null}
       {hintLines.map(line => (
         <p key={line} className="hub-schedule-voice-hint">{line}</p>

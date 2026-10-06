@@ -6688,6 +6688,7 @@
     white-space: nowrap;
   }
 
+  .hub-speech-hint,
   .hub-schedule-voice-hint {
     margin: 8px 0 0;
     font-family: 'Source Sans 3', system-ui, sans-serif;
@@ -7759,6 +7760,15 @@
     min-width: 0;
   }
 
+  .hub-quick-quote-hint-slot {
+    flex: 0 0 auto;
+    min-height: 28px;
+  }
+
+  .hub-quick-quote-hint-slot .hub-speech-hint {
+    margin: 8px 0 0;
+  }
+
   .hub-quick-quote {
     display: flex;
     align-items: center;
@@ -7814,7 +7824,9 @@
   }
 
   .hub-quick-quote-mic {
+    flex: 0 0 44px;
     width: 44px;
+    min-width: 44px;
     height: 44px;
     display: inline-flex;
     align-items: center;

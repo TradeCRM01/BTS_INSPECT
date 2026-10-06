@@ -101,7 +101,7 @@ import {
 } from '../lib/nudges';
 import { QUOTE_STATUS_LABELS, formatMoney } from '../types/fsm';
 import { Plus, FileText, Mail, Phone, User, X, MoreHorizontal, Mic } from 'lucide-react';
-import { speechRecognitionErrorHint } from '../lib/quickBook';
+import { isActiveSpeechRecognition, speechRecognitionErrorHint } from '../lib/speechHints';
 import {
   browserSpeechRecognition,
   insertQuickQuoteDraft,
@@ -524,11 +524,16 @@ export function QuotesPage() {
     rec.interimResults = false;
     rec.continuous = false;
     rec.onresult = ev => {
+      if (!isActiveSpeechRecognition(rec, quickSpeechRef)) return;
       const spoken = transcriptFromSpeechEvent(ev);
       if (spoken) setQuickText(current => (current.trim() ? `${current.trim()} ${spoken}` : spoken));
     };
-    rec.onend = () => setQuickListening(false);
+    rec.onend = () => {
+      if (!isActiveSpeechRecognition(rec, quickSpeechRef)) return;
+      setQuickListening(false);
+    };
     rec.onerror = ev => {
+      if (!isActiveSpeechRecognition(rec, quickSpeechRef)) return;
       setQuickListening(false);
       setQuickMicHint(speechRecognitionErrorHint(ev?.error, 'job'));
     };
@@ -578,7 +583,10 @@ export function QuotesPage() {
               <input
                 id="hub-quick-quote-text"
                 value={quickText}
-                onChange={e => setQuickText(e.target.value)}
+                onChange={e => {
+                  setQuickText(e.target.value);
+                  setQuickMicHint(null);
+                }}
                 className="form-input"
                 placeholder="e.g. 2 hr labour and 1 call-out for Jane Smith"
                 disabled={quickBusy}
@@ -588,7 +596,13 @@ export function QuotesPage() {
                   type="button"
                   className={`hub-quick-quote-mic${quickListening ? ' is-on' : ''}`}
                   aria-label="Voice note"
-                  onClick={startQuickVoice}
+                  onClick={() => {
+                    if (quickListening) {
+                      quickSpeechRef.current?.stop();
+                      return;
+                    }
+                    startQuickVoice();
+                  }}
                   disabled={quickBusy}
                 >
                   <Mic size={16} />
@@ -598,9 +612,11 @@ export function QuotesPage() {
                 {quickBusy ? 'Saving…' : 'Make draft'}
               </button>
             </form>
-            {quickMicHint ? (
-              <p className="hub-schedule-voice-hint">{quickMicHint}</p>
-            ) : null}
+            <div className="hub-quick-quote-hint-slot" aria-live="polite">
+              {quickMicHint ? (
+                <p className="hub-speech-hint" role="status">{quickMicHint}</p>
+              ) : null}
+            </div>
           </div>
           <button onClick={() => openQuote(null)} className="btn-primary">
             <Plus size={16} /> New quote
