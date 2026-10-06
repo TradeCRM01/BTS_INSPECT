@@ -1,4 +1,5 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { chromium } from 'playwright';
 
 const BASE = process.env.LOOK_BASE_URL || 'http://127.0.0.1:5173';
@@ -76,5 +77,43 @@ await portalPage.goto(`${BASE}/portal/audit-token?auditAuth=1&look=money-4-porta
 await portalPage.waitForSelector('#client-portal', { timeout: 20000 }).catch(() => null);
 await shot(portalPage, `${OUT}/money-4-portal-part-paid-390.png`);
 await portal.close();
+
+const pdfCtx = await contextFor(1280);
+const pdfPage = await pdfCtx.newPage();
+await pdfPage.goto(
+  `${BASE}/invoices?auditAuth=1&look=money-4-payments-list&id=audit-invoice-send&print=1`,
+  { waitUntil: 'domcontentloaded' },
+);
+await pdfPage.waitForSelector('iframe[title="Document PDF preview"]', { timeout: 45000 });
+const pdfSrc = await pdfPage.locator('iframe[title="Document PDF preview"]').getAttribute('src');
+const pdfBytes = await pdfPage.evaluate(async (src) => {
+  const buf = await (await fetch(src)).arrayBuffer();
+  return Array.from(new Uint8Array(buf));
+}, pdfSrc);
+const pdfPath = '/tmp/money-4-invoice-payments.pdf';
+writeFileSync(pdfPath, Buffer.from(pdfBytes));
+const outPdfPng = `${OUT}/money-4-pdf-payments-1280.png`;
+const raster = spawnSync(
+  'python3',
+  [
+    '-c',
+    `
+import pymupdf
+doc = pymupdf.open(${JSON.stringify(pdfPath)})
+page = doc[0]
+# Fit ~1280 CSS px width (794pt page × ~1.61)
+pix = page.get_pixmap(matrix=pymupdf.Matrix(1.61, 1.61), alpha=False)
+pix.save(${JSON.stringify(outPdfPng)})
+print('pdf page', page.rect)
+`,
+  ],
+  { encoding: 'utf8' },
+);
+if (raster.status !== 0) {
+  console.error(raster.stdout, raster.stderr);
+  throw new Error('money-4 PDF raster failed');
+}
+console.log('wrote', outPdfPng, raster.stdout.trim());
+await pdfCtx.close();
 
 await browser.close();
