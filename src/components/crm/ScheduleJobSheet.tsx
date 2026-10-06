@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { AppDialog, EditorStickyFooter } from '../ui';
 import type { JobWithClient } from '../../types/crm';
-import type { ScheduleSheetInput } from '../../lib/scheduleBoard';
+import { scheduleDayKey, type ScheduleSheetInput } from '../../lib/scheduleBoard';
 import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
+import { assumedTradeTag, checkDateTag } from '../../lib/quickBook';
 
 function timeInput(value: string | null | undefined): string {
   return (value ?? '').slice(0, 5);
@@ -14,10 +15,18 @@ function sheetSiteLine(job: JobWithClient | null): string {
   return [job.client_name, suburb].filter(Boolean).join(' · ');
 }
 
+function FromBooking({ show }: { show: boolean }) {
+  if (!show) return null;
+  return <span className="hub-schedule-from-booking">From your booking</span>;
+}
+
 export function ScheduleJobSheet({
   job,
   teamMembers,
   viewedDate,
+  prefill = null,
+  matchHints = null,
+  fromBooking = null,
   saving = false,
   onClose,
   onSave,
@@ -25,6 +34,16 @@ export function ScheduleJobSheet({
   job: JobWithClient | null;
   teamMembers: { id: string; name: string }[];
   viewedDate: string;
+  prefill?: Partial<ScheduleSheetInput> | null;
+  matchHints?: { job?: string | null; client?: string | null; crew?: string | null } | null;
+  fromBooking?: {
+    job?: boolean;
+    date?: boolean;
+    dateCheck?: boolean;
+    start?: boolean;
+    startTrade?: boolean;
+    crew?: boolean;
+  } | null;
   saving?: boolean;
   onClose: () => void;
   onSave: (fields: ScheduleSheetInput) => void;
@@ -33,15 +52,22 @@ export function ScheduleJobSheet({
   const [date, setDate] = useState(viewedDate);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [dateEdited, setDateEdited] = useState(false);
+  const [startEdited, setStartEdited] = useState(false);
   const site = sheetSiteLine(job);
+  const startCheck = assumedTradeTag(fromBooking?.startTrade, prefill?.startTime, startEdited);
+  const dateCheck = checkDateTag(fromBooking?.dateCheck, dateEdited);
 
   useEffect(() => {
     if (!job) return;
-    setCrewId(job.assigned_team?.[0] ?? '');
-    setDate(viewedDate);
-    setStartTime(timeInput(job.start_time));
-    setEndTime(timeInput(job.end_time));
-  }, [job, viewedDate]);
+    const voiceCrew = !!prefill && 'crewId' in prefill && prefill.crewId;
+    setCrewId(voiceCrew ? (prefill?.crewId ?? '') : (job.assigned_team?.[0] ?? ''));
+    setDate(prefill?.date || scheduleDayKey(job.scheduled_date) || viewedDate);
+    setStartTime(prefill?.startTime ? timeInput(prefill.startTime) : timeInput(job.start_time));
+    setEndTime(prefill?.endTime ? timeInput(prefill.endTime) : timeInput(job.end_time));
+    setDateEdited(false);
+    setStartEdited(false);
+  }, [job, viewedDate, prefill]);
 
   return (
     <AppDialog
@@ -70,10 +96,19 @@ export function ScheduleJobSheet({
     >
       <div className="hub-schedule-job-sheet-body">
         <h2 className="hub-schedule-job-sheet-heading">Schedule this job</h2>
-        <p className="hub-schedule-job-sheet-title">{job?.title}</p>
+        <p className="hub-schedule-job-sheet-title">
+          {job?.title}
+          <FromBooking show={!!fromBooking?.job} />
+        </p>
         {site ? <p className="hub-schedule-job-sheet-meta">{site}</p> : null}
         <label className="block">
-          <span className="ops-field-label">Crew</span>
+          <span className="ops-field-label">
+            Crew
+            <FromBooking show={!!fromBooking?.crew} />
+          </span>
+          {matchHints?.crew ? (
+            <p className="hub-schedule-job-sheet-hint">{matchHints.crew}</p>
+          ) : null}
           <select
             className="form-input"
             value={crewId}
@@ -86,21 +121,39 @@ export function ScheduleJobSheet({
           </select>
         </label>
         <label className="block">
-          <span className="ops-field-label">Date</span>
+          <span className="ops-field-label">
+            Date
+            <FromBooking show={!!fromBooking?.date} />
+            {dateCheck ? (
+              <span className="hub-schedule-from-booking">{dateCheck}</span>
+            ) : null}
+          </span>
           <input
             type="date"
             className="form-input"
             value={date}
-            onChange={e => setDate(e.target.value)}
+            onChange={e => {
+              setDate(e.target.value);
+              setDateEdited(true);
+            }}
           />
         </label>
         <label className="block">
-          <span className="ops-field-label">Start</span>
+          <span className="ops-field-label">
+            Start
+            <FromBooking show={!!fromBooking?.start} />
+            {startCheck ? (
+              <span className="hub-schedule-from-booking">{startCheck}</span>
+            ) : null}
+          </span>
           <input
             type="time"
             className="form-input"
             value={startTime}
-            onChange={e => setStartTime(e.target.value)}
+            onChange={e => {
+              setStartTime(e.target.value);
+              setStartEdited(true);
+            }}
           />
         </label>
         <label className="block">
