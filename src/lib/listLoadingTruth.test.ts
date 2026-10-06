@@ -43,6 +43,11 @@ describe('list loading truth', () => {
     expect(page).toContain('isPending');
     expect(page).toContain('listQueryBusy({ isPending, isLoading, isError, data: contracts })');
     expect(page).toContain('showContractsEmpty = listShowEmpty(busy, filtered.length, isError)');
+    expect(page).toContain('listPendingNounCount(countsHeld, totals.total, \'total contracts\')');
+    expect(page).toContain('listPendingCount(countsHeld, count)');
+    expect(page).toContain('retryLabel="Retry"');
+    expect(page).toContain("listSectionLoadError('contracts')");
+    expect(page).not.toContain('Could not load contracts');
     expect(page.indexOf('<SkeletonRow />')).toBeLessThan(page.indexOf('showContractsEmpty ?'));
     expect(page.indexOf('showContractsEmpty ?')).toBeLessThan(page.indexOf('No contracts yet'));
     expect(page.indexOf('showContractsEmpty ?')).toBeLessThan(page.indexOf('Create your first contract'));
@@ -89,6 +94,8 @@ describe('list loading truth', () => {
     expect(job).toContain('isError: take5sError || jhasError');
     expect(job).toContain('data-job-next-held');
     expect(job).toContain('jobSheetHeaderPrimaryHeld');
+    expect(job).toContain('jhaBusy: jhasBusy');
+    expect(job).toContain('inspectionsBusy');
     expect(job).toContain('jhasPending');
     expect(job).toContain('inspectionsPending');
     expect(job).toContain('jhasError');

@@ -2541,6 +2541,12 @@ export function JobDetailPage() {
     jhaCount: (jhas ?? []).length,
     take5Count: (take5s ?? []).length,
     inspectionCount: (inspections ?? []).length,
+    jhaBusy: jhasBusy,
+    jhaError: jhasError,
+    take5Busy: take5sBusy,
+    take5Error: take5sFailed,
+    inspectionsBusy,
+    inspectionsError,
     testingDueCount: dueTests.length,
     noteCount: visitLog.length,
     photoCount: gallery.length,
@@ -2979,7 +2985,7 @@ export function JobDetailPage() {
                     icon={LANE_ICONS[row.section] ?? FileText}
                     title={row.label}
                     meta={row.meta || undefined}
-                    trailing={<OpsStatus className={`ops-status-${row.tone}`}>{row.status}</OpsStatus>}
+                    trailing={row.status ? <OpsStatus className={`ops-status-${row.tone}`}>{row.status}</OpsStatus> : undefined}
                   />
                 ))}
               </div>

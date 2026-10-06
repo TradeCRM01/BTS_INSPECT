@@ -45,6 +45,16 @@ export function jobSheetHeaderPrimaryHeld(input: {
   return false;
 }
 
+/** Hide a count while the query is still busy so 0 never flashes. */
+export function listPendingCount(busy: boolean, count: number): string {
+  return busy ? '…' : String(count);
+}
+
+/** e.g. "3 total contracts" — placeholder while busy. */
+export function listPendingNounCount(busy: boolean, count: number, noun: string): string {
+  return busy ? '…' : `${count} ${noun}`;
+}
+
 export function listCountWhisper(input: {
   busy: boolean;
   filterLabel: string;

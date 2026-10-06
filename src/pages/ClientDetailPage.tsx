@@ -432,7 +432,7 @@ export function ClientDetailPage() {
               ) : jobsError ? (
                 <div className="hub-clients-ledger-row hub-clients-jobs-empty">
                   <p className="hub-clients-muted">
-                    {clientJobsEmptyTitle({ error: jobsError, count: floorJobs.length }) || 'Could not load jobs'}
+                    {clientJobsEmptyTitle({ error: jobsError, count: floorJobs.length }) || "Couldn't load jobs."}
                     {' '}
                     <button type="button" className="hub-clients-next" onClick={() => { void refetchJobs(); }}>Retry</button>
                   </p>

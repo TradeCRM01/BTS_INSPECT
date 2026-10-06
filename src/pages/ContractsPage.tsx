@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
-import { listQueryBusy, listSectionLoadError, listShowEmpty } from '../lib/listQueryReady';
+import { listPendingCount, listPendingNounCount, listQueryBusy, listSectionLoadError, listShowEmpty } from '../lib/listQueryReady';
 import { getAuditContracts } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
@@ -178,7 +178,19 @@ export function ContractsPage() {
   const busy = listQueryBusy({ isPending, isLoading, isError, data: contracts });
   const showContractsEmpty = listShowEmpty(busy, filtered.length, isError);
 
-  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load contracts" /></AppShell>;
+  const countsHeld = busy || isError;
+
+  if (pageQueryBlocked(error)) {
+    return (
+      <AppShell>
+        <PageError
+          message={listSectionLoadError('contracts')}
+          retryLabel="Retry"
+          onRetry={() => { void refetch(); }}
+        />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -186,7 +198,7 @@ export function ContractsPage() {
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-semibold text-[#1A1A1A]">Service Contracts</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">{totals.total} total contracts</p>
+            <p className="text-sm text-[#4A5568] mt-0.5">{listPendingNounCount(countsHeld, totals.total, 'total contracts')}</p>
           </div>
           <div className="flex items-center gap-2">
             {dueAutoRows.length > 0 && (
@@ -232,7 +244,7 @@ export function ContractsPage() {
                 className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
                   active ? 'border-[#0A2540] text-[#0A2540]' : 'border-transparent text-[#4A5568] hover:text-[#1A1A1A]'}`}>
                 {tab.label}
-                <span className={`text-xs px-1.5 py-0.5 rounded-full ${active ? 'bg-[#0A2540] text-white' : 'bg-gray-100 text-[#6B7280]'}`}>{count}</span>
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${active ? 'bg-[#0A2540] text-white' : 'bg-gray-100 text-[#6B7280]'}`}>{listPendingCount(countsHeld, count)}</span>
               </button>
             );
           })}

@@ -1,5 +1,6 @@
 import { format, parseISO } from 'date-fns';
 import { formatMoney } from '../types/fsm';
+import { listSectionLoadError } from './listQueryReady';
 
 export const JOB_SHEET_TABS = [
   { id: 'overview', label: 'Overview' },
@@ -86,6 +87,12 @@ export interface JobSheetOverviewFacts {
   billLines: number;
   billCost: number;
   billCharge: number;
+  jhaBusy?: boolean;
+  jhaError?: boolean;
+  take5Busy?: boolean;
+  take5Error?: boolean;
+  inspectionsBusy?: boolean;
+  inspectionsError?: boolean;
 }
 
 export interface JobSheetOverviewRow {
@@ -105,8 +112,18 @@ export function jobSheetOverviewRows(facts: JobSheetOverviewFacts): JobSheetOver
   const when = facts.scheduledDate
     ? [format(parseISO(facts.scheduledDate), 'EEE d MMM'), facts.startTime?.slice(0, 5)].filter(Boolean).join(' ')
     : null;
-  const fieldMeta = [count(facts.inspectionCount, 'inspection'), count(facts.photoCount, 'photo')];
-  if (facts.testingDueCount > 0) fieldMeta.push(`${count(facts.testingDueCount, 'test')} due`);
+  const safetyBusy = Boolean(facts.jhaBusy || facts.take5Busy);
+  const safetyError = Boolean(facts.jhaError || facts.take5Error);
+  const inspectionsBusy = Boolean(facts.inspectionsBusy);
+  const inspectionsError = Boolean(facts.inspectionsError);
+  const fieldMeta = inspectionsError
+    ? [listSectionLoadError('inspections')]
+    : inspectionsBusy
+      ? ['…']
+      : [count(facts.inspectionCount, 'inspection'), count(facts.photoCount, 'photo')];
+  if (!inspectionsBusy && !inspectionsError && facts.testingDueCount > 0) {
+    fieldMeta.push(`${count(facts.testingDueCount, 'test')} due`);
+  }
   return [
     {
       section: 'job-schedule',
@@ -118,9 +135,13 @@ export function jobSheetOverviewRows(facts: JobSheetOverviewFacts): JobSheetOver
     {
       section: 'job-swms',
       label: 'Safety',
-      meta: `${facts.jhaCount} JHA / SWMS · ${facts.take5Count} Take 5`,
-      status: facts.jhaCount > 0 ? 'JHA on file' : 'No JHA',
-      tone: facts.jhaCount > 0 ? 'ok' : 'wait',
+      meta: safetyError
+        ? listSectionLoadError('JHA')
+        : safetyBusy
+          ? '…'
+          : `${facts.jhaCount} JHA / SWMS · ${facts.take5Count} Take 5`,
+      status: safetyError || safetyBusy ? '' : (facts.jhaCount > 0 ? 'JHA on file' : 'No JHA'),
+      tone: safetyError || safetyBusy ? 'wait' : (facts.jhaCount > 0 ? 'ok' : 'wait'),
     },
     {
       section: 'job-visit-notes',
