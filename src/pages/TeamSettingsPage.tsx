@@ -704,9 +704,9 @@ export function TeamSettingsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const lookTeamList = searchParams.get('look') === TEAM_LIST_LOOK;
+  const lookPersonTickets = searchParams.get('look') === PERSON_TICKETS_LOOK;
   const lookParam = searchParams.get('look');
-  const lookTeamList = lookParam === TEAM_LIST_LOOK;
-  const lookPersonTickets = lookParam === PERSON_TICKETS_LOOK;
   const lookP331Team = lookParam === 'p331-team-select' || lookParam === 'p331-team-empty';
   const lookTeamSeed = lookTeamList || lookPersonTickets || lookP331Team;
   const [search, setSearch] = useState('');

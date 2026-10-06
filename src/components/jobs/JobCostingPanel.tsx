@@ -490,12 +490,16 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {COST_TYPES.map(type => {
             const Icon = COST_ICON[type];
+            const labourCostGap = type === 'labor' && incompleteLabourMargin;
             return (
               <div key={type} className={`bg-white rounded-xl border border-[#E5E7EB] border-l-4 ${STAT_BORDER[type]} p-3`}>
                 <div className="flex items-center gap-1.5 text-[#4A5568]">
                   <Icon size={14} /><span className="text-xs font-medium">{COST_TYPE_LABELS[type]} cost</span>
                 </div>
                 <p className="mt-1 text-lg font-bold text-[#0A2540]">{formatMoney(totals[type])}</p>
+                {labourCostGap ? (
+                  <span className="job-bill-labour-cost-caveat">{JOB_BILL_NO_COST_RATE_LABEL}</span>
+                ) : null}
               </div>
             );
           })}
