@@ -1370,7 +1370,7 @@ export function commercialPdfDataForInvoice(bundle: InvoiceSendBundle, now = new
     },
     inclusions: asStringList(invoice.inclusions),
     exclusions: asStringList(invoice.exclusions),
-    lines: linesFromQuoteItems(lines),
+    lines: linesFromQuoteItems(lines, 'invoice'),
     subtotal: Number(invoice.subtotal) || 0,
     taxRate: Number(invoice.tax_rate) || 0,
     taxAmount: Number(invoice.tax_amount) || 0,

@@ -4334,6 +4334,29 @@
     line-height: 1.35;
   }
 
+  .hub-invoice-editor .hub-invoice-to-contact {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  @media (min-width: 1280px) {
+    .hub-invoice-editor .hub-invoice-to-contact {
+      gap: 10px;
+    }
+
+    .hub-invoice-editor .hub-invoice-to-contact .job-client-phone,
+    .hub-invoice-editor .hub-invoice-to-contact .job-client-email,
+    .hub-invoice-editor .hub-invoice-to-contact .job-client-phone-num,
+    .hub-invoice-editor .hub-invoice-to-contact .job-client-email-addr {
+      margin-top: 0;
+      max-width: 100%;
+    }
+  }
+
   .hub-invoice-editor .ops-hub-site {
     color: #5B6B7C;
     font-size: 14px;

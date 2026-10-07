@@ -2,11 +2,13 @@ export function EditorStickyFooter({
   onCancel,
   onSave,
   saveLabel = 'Save draft',
+  cancelLabel = 'Cancel',
   saving = false,
 }: {
   onCancel: () => void;
   onSave: () => void;
   saveLabel?: string;
+  cancelLabel?: string;
   saving?: boolean;
 }) {
   return (
@@ -17,7 +19,7 @@ export function EditorStickyFooter({
         onClick={onCancel}
         className="hub-editor-sticky-cancel"
       >
-        Cancel
+        {cancelLabel}
       </button>
       <button
         type="button"

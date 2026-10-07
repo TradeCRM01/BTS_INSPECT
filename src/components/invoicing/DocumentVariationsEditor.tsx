@@ -20,6 +20,8 @@ interface DocumentVariationsEditorProps {
   inclusions: string[];
   exclusions: string[];
   onChange: (next: { inclusions: string[]; exclusions: string[] }) => void;
+  /** Quote-only saved packages UI is hidden on invoices. */
+  documentMode?: 'quote' | 'invoice';
 }
 
 function addUnique(list: string[], value: string): string[] {
@@ -39,7 +41,9 @@ export function DocumentVariationsEditor({
   inclusions,
   exclusions,
   onChange,
+  documentMode = 'quote',
 }: DocumentVariationsEditorProps) {
+  const isInvoice = documentMode === 'invoice';
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const { data: inclusionTemplates = [] } = useManagedList(LIST_KEYS.documentInclusions);
@@ -199,7 +203,7 @@ export function DocumentVariationsEditor({
         </div>
       </div>
 
-      {/* Saved packages */}
+      {!isInvoice && (
       <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-3 space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-[#4A5568]">
@@ -285,6 +289,7 @@ export function DocumentVariationsEditor({
         )}
         {pkgMsg && <p className="text-xs text-[#2E75B6]">{pkgMsg}</p>}
       </div>
+      )}
 
       {(showIncluded || showExcluded) ? (
         <div className={`grid gap-4 ${showIncluded && showExcluded ? 'md:grid-cols-2' : ''}`}>
@@ -327,7 +332,9 @@ export function DocumentVariationsEditor({
         </div>
       ) : (
         <p className="text-xs text-[#9CA3AF] border border-dashed border-[#E5E7EB] rounded-lg px-3 py-4 text-center">
-          No variation sections on this quote. Add Included / Not included, or use a saved package above.
+          {isInvoice
+            ? 'No variation sections on this invoice. Add Included / Not included below.'
+            : 'No variation sections on this quote. Add Included / Not included, or use a saved package above.'}
         </p>
       )}
 
@@ -338,7 +345,9 @@ export function DocumentVariationsEditor({
           onChange={e => setSaveToLibrary(e.target.checked)}
           className="rounded border-gray-300"
         />
-        Also save new items to the company library for future quotes
+        {isInvoice
+          ? 'Also save new items to the company library for future documents'
+          : 'Also save new items to the company library for future quotes'}
       </label>
 
       {picker && (

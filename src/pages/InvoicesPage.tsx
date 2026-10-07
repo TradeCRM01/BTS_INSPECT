@@ -1083,7 +1083,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       company: commercialPdfCompanyFrom(company),
       inclusions: form.inclusions,
       exclusions: form.exclusions,
-      lines: linesFromQuoteItems(cleanLines),
+      lines: linesFromQuoteItems(cleanLines, 'invoice'),
       subtotal,
       taxRate: parseFloat(form.tax_rate) || 0,
       taxAmount,
@@ -1258,6 +1258,24 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const editorTitle = invoice?.invoice_number != null ? invoiceTitle(invoice) : 'New invoice';
   const docLines = form.line_items.filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0);
   const showInvoiceActions = next.key === 'send' || next.key === 'mark_paid';
+  const effectiveStatus = effectiveInvoiceStatus({ status: form.status, due_date: form.due_date });
+  const paidReadPath = effectiveStatus === 'paid';
+  const showSaveFooter = showEdit && !paidReadPath;
+
+  useEffect(() => {
+    const look = searchParams.get('look');
+    if (look === 'invoice-edit-paid') {
+      setShowEdit(false);
+      setRecordedPaid(grandTotal);
+      setForm(f => ({ ...f, status: 'paid' }));
+    }
+    if (look === 'invoice-edit-edit') {
+      setShowEdit(true);
+    }
+    if (look === 'invoice-edit-pdf') {
+      setShowPreview(true);
+    }
+  }, [searchParams]);
 
   const closeMore = () => {
     if (moreRef.current) moreRef.current.open = false;
@@ -1279,13 +1297,59 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       onClose={onClose}
       title="Invoice"
       panelClassName="overlay-panel-xl hub-invoice-editor"
-      footer={(
+      footer={showSaveFooter ? (
         <EditorStickyFooter
           onCancel={onClose}
           onSave={() => { void persist(form.status, { close: true }); }}
           saveLabel={invoice || savedId ? 'Save' : 'Save draft'}
+          cancelLabel="Close"
           saving={saving}
         />
+      ) : (
+        <div className="hub-editor-sticky-footer" data-invoice-view-footer="1">
+          <button
+            type="button"
+            data-editor-sticky-cancel="1"
+            onClick={onClose}
+            className="hub-editor-sticky-cancel"
+          >
+            Close
+          </button>
+          {next.key === 'setup_email' && next.href ? (
+            <Link to={next.href} className="btn-primary hub-editor-sticky-save">
+              {next.label}
+            </Link>
+          ) : null}
+          {next.key === 'add_email' ? (
+            <button
+              type="button"
+              className="btn-primary hub-editor-sticky-save"
+              onClick={() => emailInputRef.current?.focus()}
+            >
+              {next.label}
+            </button>
+          ) : null}
+          {next.key === 'send' ? (
+            <button
+              type="button"
+              className="btn-primary hub-editor-sticky-save"
+              onClick={() => void startSend()}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Share'}
+            </button>
+          ) : null}
+          {next.key === 'mark_paid' ? (
+            <button
+              type="button"
+              className="btn-primary hub-editor-sticky-save"
+              onClick={() => setShowPayment(true)}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : next.label}
+            </button>
+          ) : null}
+        </div>
       )}
     >
         <div className="hub-invoice-toolbar">
@@ -1335,21 +1399,25 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                 >
                   Preview PDF
                 </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => { closeMore(); void persist(form.status, { close: true }); }}
-                  disabled={saving}
-                >
-                  {saving ? 'Saving...' : invoice || savedId ? 'Save' : 'Save draft'}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => { closeMore(); setShowEdit(true); }}
-                >
-                  Edit invoice
-                </button>
+                {showSaveFooter && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); void persist(form.status, { close: true }); }}
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving...' : invoice || savedId ? 'Save' : 'Save draft'}
+                  </button>
+                )}
+                {!paidReadPath && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); setShowEdit(true); }}
+                  >
+                    Edit invoice
+                  </button>
+                )}
               </div>
             </details>
             <button type="button" onClick={onClose} className="hub-invoice-close" aria-label="Close">
@@ -1480,72 +1548,74 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
               ) : (
                 <>
                   {selectedClient?.name ? <p className="hub-invoice-to-name">{selectedClient.name}</p> : null}
-                  {phoneRow.kind === 'tel' && (
-                    <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num">
-                      <Phone size={13} /> {phoneRow.phone}
-                    </a>
-                  )}
-                  {phoneRow.kind === 'edit' && (
-                    <form
-                      className="job-client-phone"
-                      onSubmit={e => {
-                        e.preventDefault();
-                        saveClientPhone.mutate();
-                      }}
-                    >
-                      <Phone size={13} />
-                      <input
-                        type="tel"
-                        value={clientPhoneDraft}
-                        onChange={e => setClientPhoneDraft(e.target.value)}
-                        placeholder="Phone"
-                        className="form-input-sm"
-                        aria-label="Client phone"
-                        autoComplete="tel"
-                        inputMode="tel"
-                      />
-                      <button
-                        type="submit"
-                        className="job-client-phone-save"
-                        disabled={saveClientPhone.isPending}
+                  <div className="hub-invoice-to-contact" data-invoice-to-contact="1">
+                    {phoneRow.kind === 'tel' && (
+                      <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num">
+                        <Phone size={13} /> {phoneRow.phone}
+                      </a>
+                    )}
+                    {phoneRow.kind === 'edit' && (
+                      <form
+                        className="job-client-phone"
+                        onSubmit={e => {
+                          e.preventDefault();
+                          saveClientPhone.mutate();
+                        }}
                       >
-                        Save
-                      </button>
-                    </form>
-                  )}
-                  {emailRow.kind === 'mailto' && (
-                    <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
-                      <Mail size={13} /> {emailRow.email}
-                    </a>
-                  )}
-                  {emailRow.kind === 'edit' && (
-                    <form
-                      className="job-client-email"
-                      onSubmit={e => {
-                        e.preventDefault();
-                        saveClientEmail.mutate();
-                      }}
-                    >
-                      <Mail size={13} />
-                      <input
-                        ref={emailInputRef}
-                        type="email"
-                        value={clientEmailDraft}
-                        onChange={e => setClientEmailDraft(e.target.value)}
-                        placeholder="Email"
-                        className="form-input-sm"
-                        aria-label="Client email"
-                        autoComplete="email"
-                      />
-                      <button
-                        type="submit"
-                        className="job-client-email-save"
-                        disabled={saveClientEmail.isPending}
+                        <Phone size={13} />
+                        <input
+                          type="tel"
+                          value={clientPhoneDraft}
+                          onChange={e => setClientPhoneDraft(e.target.value)}
+                          placeholder="Phone"
+                          className="form-input-sm"
+                          aria-label="Client phone"
+                          autoComplete="tel"
+                          inputMode="tel"
+                        />
+                        <button
+                          type="submit"
+                          className="job-client-phone-save"
+                          disabled={saveClientPhone.isPending}
+                        >
+                          Save
+                        </button>
+                      </form>
+                    )}
+                    {emailRow.kind === 'mailto' && (
+                      <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
+                        <Mail size={13} /> {emailRow.email}
+                      </a>
+                    )}
+                    {emailRow.kind === 'edit' && (
+                      <form
+                        className="job-client-email"
+                        onSubmit={e => {
+                          e.preventDefault();
+                          saveClientEmail.mutate();
+                        }}
                       >
-                        Save
-                      </button>
-                    </form>
-                  )}
+                        <Mail size={13} />
+                        <input
+                          ref={emailInputRef}
+                          type="email"
+                          value={clientEmailDraft}
+                          onChange={e => setClientEmailDraft(e.target.value)}
+                          placeholder="Email"
+                          className="form-input-sm"
+                          aria-label="Client email"
+                          autoComplete="email"
+                        />
+                        <button
+                          type="submit"
+                          className="job-client-email-save"
+                          disabled={saveClientEmail.isPending}
+                        >
+                          Save
+                        </button>
+                      </form>
+                    )}
+                  </div>
                 </>
               )}
               <OpsSiteRow
@@ -1720,6 +1790,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           )}
 
           <DocumentVariationsEditor
+            documentMode="invoice"
             inclusions={form.inclusions}
             exclusions={form.exclusions}
             onChange={({ inclusions, exclusions }) => setForm(f => ({ ...f, inclusions, exclusions }))}
