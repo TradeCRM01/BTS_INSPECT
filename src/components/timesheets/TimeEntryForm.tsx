@@ -126,10 +126,12 @@ export function TimeEntryForm({
             <Field label="Date">
               <input
                 type="date"
+                lang="en-AU"
                 value={form.date}
                 onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                className="form-input"
+                className="form-input hub-date-input-en-au"
               />
+              <p className="ops-meta mt-1">dd/mm/yyyy</p>
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Start Time">

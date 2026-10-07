@@ -17,6 +17,9 @@ describe('JobFormModal schedule status (A1)', () => {
     expect(form).not.toMatch(/<select[^>]*value=\{form\.status\}/);
     expect(form).toContain("payload.status = job?.status ?? 'scheduled'");
     expect(form).toContain("scheduled_date: job?.scheduled_date ?? presetDate ?? ''");
+    expect(form).toContain('getAuditTeamMembers');
+    expect(form).toContain('hub-job-form-crew');
+    expect(form).toContain('hub-job-form-crew-chip');
   });
 
   it('orders client before title and keeps schedule before budget fields', () => {

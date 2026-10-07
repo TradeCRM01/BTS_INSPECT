@@ -16,6 +16,8 @@ import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { formatJobRef, nextCostCode, normalizeCostCode } from '../../lib/jobRef';
 import { JOB_COLORS, jobColorToStore } from '../../lib/jobColors';
 import { assumedTradeTag, checkDateTag, fromBookingTag } from '../../lib/quickBook';
+import { getAuditTeamMembers } from '../../lib/devFieldAuditDocs';
+import { crewAssignmentHelper } from '../../lib/jobDispatchCrew';
 import { FromBooking } from './FromBooking';
 
 export type JobFormFromBooking = {
@@ -109,20 +111,28 @@ export function JobFormModal({
 
   useEffect(() => {
     async function loadOptions() {
+      const auditTeam = getAuditTeamMembers();
+      if (auditTeam) {
+        setTeamMembers(auditTeam.map(m => ({ id: m.id, name: m.name })));
+      } else if (presetTeam?.length) {
+        setTeamMembers(presetTeam);
+      }
       if (!profile?.company_id) return;
       const [clientsRes, teamRes] = await Promise.all([
         supabase.from('clients').select('*').eq('archived', false).order('name'),
-        supabase.rpc('get_company_members', { p_company_id: profile.company_id }),
+        auditTeam
+          ? Promise.resolve({ data: null as null, error: null })
+          : supabase.rpc('get_company_members', { p_company_id: profile.company_id }),
       ]);
       if (clientsRes.data) setClients(clientsRes.data as Client[]);
-      if (teamRes.data) {
+      if (!auditTeam && teamRes.data) {
         setTeamMembers((teamRes.data as { id: string; name: string }[]).map(m => ({ id: m.id, name: m.name })));
-      } else if (presetTeam?.length) {
+      } else if (!auditTeam && presetTeam?.length) {
         setTeamMembers(presetTeam);
       }
     }
     loadOptions();
-  }, [profile?.company_id]);
+  }, [profile?.company_id, presetTeam]);
 
   useEffect(() => {
     if (!profile?.company_id) return;
@@ -417,11 +427,17 @@ export function JobFormModal({
                     <span className="hub-schedule-from-booking">{dateCheck}</span>
                   ) : null}
                 </label>
-                <input type="date" value={form.scheduled_date ?? ''} onChange={e => {
-                  setForm(f => ({ ...f, scheduled_date: e.target.value }));
-                  setDateEdited(true);
-                }}
-                  className="form-input" />
+                <input
+                  type="date"
+                  lang="en-AU"
+                  value={form.scheduled_date ?? ''}
+                  onChange={e => {
+                    setForm(f => ({ ...f, scheduled_date: e.target.value }));
+                    setDateEdited(true);
+                  }}
+                  className="form-input hub-date-input-en-au"
+                />
+                <p className="ops-meta mt-1">dd/mm/yyyy</p>
               </div>
               <div>
                 <label className="ops-field-label">
@@ -442,15 +458,17 @@ export function JobFormModal({
                 <input type="time" value={form.end_time ?? ''} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
                   className="form-input" />
               </div>
-              {(teamMembers.length > 0 || matchHints?.crew) && (
-                <div className="overlay-form-span-all">
-                  <label className="ops-field-label">
-                    Crew
-                    <FromBooking show={fromBookingTag(fromBooking?.crew, crewEdited)} />
-                  </label>
-                  {matchHints?.crew ? (
-                    <p className="hub-schedule-job-sheet-hint">{matchHints.crew}</p>
-                  ) : null}
+              <div className="overlay-form-span-all hub-job-form-crew">
+                <label className="ops-field-label">
+                  Crew
+                  <FromBooking show={fromBookingTag(fromBooking?.crew, crewEdited)} />
+                </label>
+                {matchHints?.crew ? (
+                  <p className="hub-schedule-job-sheet-hint">{matchHints.crew}</p>
+                ) : null}
+                {teamMembers.length === 0 ? (
+                  <p className="ops-meta">No team members to assign yet.</p>
+                ) : (
                   <div className="flex flex-wrap gap-2">
                     {teamMembers.map(m => {
                       const selected = form.assigned_team.includes(m.id);
@@ -466,8 +484,9 @@ export function JobFormModal({
                       );
                     })}
                   </div>
-                </div>
-              )}
+                )}
+                <p className="ops-meta mt-2">{crewAssignmentHelper(form.assigned_team, teamMembers)}</p>
+              </div>
             </>
           )}
 

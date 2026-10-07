@@ -50,10 +50,10 @@ async function captureJobForm(width, tag) {
   await shotJob(page, `forms-new-job-${tag}-needs-crew.png`);
 
   const crewChip = page.locator('.hub-job-form-crew-chip').first();
-  if (await crewChip.count()) {
-    await crewChip.click();
-    await shotJob(page, `forms-new-job-${tag}-booked.png`);
-  }
+  await crewChip.waitFor({ state: 'visible', timeout: 10000 });
+  await crewChip.click();
+  await page.waitForSelector('[data-job-form-schedule-status="booked"]', { timeout: 5000 });
+  await shotJob(page, `forms-new-job-${tag}-booked.png`);
 
   await ctx.close();
 }
