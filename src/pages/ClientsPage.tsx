@@ -350,20 +350,28 @@ export function ClientsPage() {
   );
 }
 
-function placeClientsListMore(more: HTMLDetailsElement) {
+function clientsListMoreIsOpen(more: HTMLElement): boolean {
+  if (more instanceof HTMLDetailsElement) return more.open;
+  return more.classList.contains('is-open');
+}
+
+function placeClientsListMore(more: HTMLElement) {
   const menu = more.querySelector('.hub-clients-list-more-menu') as HTMLElement | null;
   const paper = more.closest('.hub-clients-sheet') as HTMLElement | null;
   if (!menu || !paper) return;
   more.classList.remove('is-flip', 'is-shift');
   menu.style.removeProperty('--hub-clients-list-more-shift');
-  if (!more.open) return;
+  if (!clientsListMoreIsOpen(more)) return;
   const pad = 8;
   const paperRect = paper.getBoundingClientRect();
   const bar = paper.querySelector('.hub-clients-list-bar');
   const inkFloor = (bar?.getBoundingClientRect().bottom ?? paperRect.top) + pad;
   const viewBottom = window.innerHeight - pad;
   const menuRect = menu.getBoundingClientRect();
-  const trigger = more.querySelector('summary') as HTMLElement | null;
+  const trigger = (
+    more.querySelector('.hub-clients-list-more-trigger')
+    ?? more.querySelector('summary')
+  ) as HTMLElement | null;
   const triggerRect = trigger?.getBoundingClientRect() ?? menuRect;
   const flippedTop = triggerRect.top - pad - menuRect.height;
   const overflowsBottom = menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom);
@@ -463,56 +471,75 @@ function clientMenuItems(client: ClientWithStats, navigate: ReturnType<typeof us
 }
 
 function ClientRowMore({ items }: { items: MenuEntry[] }) {
-  const moreRef = useRef<HTMLDetailsElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
 
-  const closeMore = () => {
-    if (moreRef.current) moreRef.current.open = false;
-  };
+  const closeMore = () => setOpen(false);
 
   const placeMoreMenu = () => {
     if (moreRef.current) placeClientsListMore(moreRef.current);
   };
 
   useEffect(() => {
-    const more = moreRef.current;
     const onPointer = (event: PointerEvent) => {
-      if (!moreRef.current?.open) return;
-      if (!moreRef.current.contains(event.target as Node)) closeMore();
+      if (!open) return;
+      if (!moreRef.current?.contains(event.target as Node)) closeMore();
     };
-    more?.addEventListener('toggle', placeMoreMenu);
     window.addEventListener('resize', placeMoreMenu);
     document.addEventListener('pointerdown', onPointer);
     return () => {
-      more?.removeEventListener('toggle', placeMoreMenu);
       window.removeEventListener('resize', placeMoreMenu);
       document.removeEventListener('pointerdown', onPointer);
     };
-  }, []);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    placeMoreMenu();
+    const id = requestAnimationFrame(placeMoreMenu);
+    return () => cancelAnimationFrame(id);
+  }, [open]);
 
   return (
-    <details ref={moreRef} className="hub-clients-list-more">
-      <summary aria-label="More">
+    <div ref={moreRef} className={`hub-clients-list-more${open ? ' is-open' : ''}`}>
+      <button
+        type="button"
+        className="hub-clients-list-more-trigger"
+        aria-label="More"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(value => !value);
+        }}
+      >
         <MoreHorizontal size={18} />
-      </summary>
-      <div className="hub-clients-list-more-menu" role="menu">
-        {items.map((entry, i) => {
-          if ('divider' in entry) {
-            return <div key={`d-${i}`} className="hub-clients-list-more-rule" />;
-          }
-          return (
-            <button
-              key={entry.label}
-              type="button"
-              role="menuitem"
-              className={entry.variant === 'danger' ? 'is-danger' : undefined}
-              onClick={() => { entry.onClick(); closeMore(); }}
-            >
-              {entry.label}
-            </button>
-          );
-        })}
-      </div>
-    </details>
+      </button>
+      {open ? (
+        <div className="hub-clients-list-more-menu" role="menu">
+          {items.map((entry, i) => {
+            if ('divider' in entry) {
+              return <div key={`d-${i}`} className="hub-clients-list-more-rule" />;
+            }
+            return (
+              <button
+                key={entry.label}
+                type="button"
+                role="menuitem"
+                className={entry.variant === 'danger' ? 'is-danger' : undefined}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  entry.onClick();
+                  closeMore();
+                }}
+              >
+                {entry.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -542,7 +569,7 @@ const ClientRow = memo(function ClientRow({
       <span className="hub-clients-name">{client.name}</span>
       <span className="truncate hub-clients-muted">{suburb}</span>
       <span className="hub-clients-jobs">{jobsLabel ?? ''}</span>
-      <span className="hub-clients-row-next" onClick={e => e.stopPropagation()}>
+      <span className="hub-clients-row-next">
         <ClientRowMore items={clientMenuItems(client, navigate, onEdit, onArchive, onDelete)} />
       </span>
     </div>
