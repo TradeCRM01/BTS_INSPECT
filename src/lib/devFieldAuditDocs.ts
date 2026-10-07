@@ -553,7 +553,7 @@ export function getAuditInvoiceEditorRow(invoiceId: string) {
       source: 'quote',
       status: 'draft' as const,
       line_items: [
-        { description: 'Taxed labour', quantity: 1, unit_price: 100, gst_rate: 10 },
+        { description: 'PB-DEL-01 — Taxed labour', quantity: 1, unit_price: 100, gst_rate: 10 },
         { description: 'GST-free fitting delete ok', quantity: 1, unit_price: 50, gst_rate: 0 },
       ],
       subtotal: 150,

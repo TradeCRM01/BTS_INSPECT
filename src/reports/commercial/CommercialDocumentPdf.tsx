@@ -10,6 +10,7 @@ import { formatMoney } from '../../types/fsm';
 import type { QuoteLineItem, InvoiceLineItem } from '../../types/fsm';
 import { gstDocumentLabel, gstLabel, type LineForGst } from '../../lib/gst';
 import { commercialPdfLogoBox, companyDocumentLogoUrl } from '../../lib/companyLogo';
+import { customerFacingLineDescription } from '../../lib/customerFacingLineDescription';
 
 /** Saved companies.report_theme on this document, or the existing commercial default. */
 export function commercialDocumentColors(theme?: unknown): PdfColors {
@@ -316,7 +317,7 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
           ) : null}
         </View>
 
-        {data.scopeOfWorks?.trim() ? (
+        {data.kind === 'quote' && data.scopeOfWorks?.trim() ? (
           <View style={{ marginBottom: 14 }}>
             <Text style={s.sectionTitle}>Scope of works</Text>
             <Text style={s.notesBody}>{data.scopeOfWorks.trim()}</Text>
@@ -436,9 +437,14 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
   );
 }
 
-export function linesFromQuoteItems(items: QuoteLineItem[] | InvoiceLineItem[]): CommercialLine[] {
+export function linesFromQuoteItems(
+  items: QuoteLineItem[] | InvoiceLineItem[],
+  kind?: CommercialDocKind,
+): CommercialLine[] {
   return (items ?? []).map(li => ({
-    description: li.description,
+    description: kind === 'invoice'
+      ? customerFacingLineDescription(li.description)
+      : li.description,
     quantity: li.quantity,
     unit_price: li.unit_price,
     charge_type: li.charge_type ?? null,
