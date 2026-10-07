@@ -20,6 +20,7 @@ import { priceBookItemGstRate } from '../lib/priceBookImport';
 import { priceBookWritePayload } from '../lib/priceBookWrite';
 import { gstLabel } from '../lib/gst';
 import { LIST_LOADING_LABEL, listQueryBusy } from '../lib/listQueryReady';
+import { useCompanyAiKey } from '../lib/useCompanyAiKey';
 import {
   PRICE_BOOKS_LOOK,
   PRICE_BOOKS_SUBTITLE,
@@ -30,6 +31,7 @@ import {
 
 export function PriceBooksPage() {
   const { profile, company } = useAuth();
+  const { hasKey: companyAiKey } = useCompanyAiKey();
   const [searchParams] = useSearchParams();
   const lookPriceBooks = searchParams.get('look') === PRICE_BOOKS_LOOK;
   const lookEmpty = lookPriceBooks && searchParams.get('empty') === '1';
@@ -198,13 +200,16 @@ export function PriceBooksPage() {
                       >
                         <FileUp size={14} /> Import CSV
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowPdfImport(true)}
-                        className="flex items-center justify-center gap-1.5 min-h-[44px] w-full min-[640px]:w-auto border border-[#2E75B6] text-[#2E75B6] px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-blue-50 whitespace-nowrap"
-                      >
-                        <FileUp size={14} /> Import PDF
-                      </button>
+                      {companyAiKey && (
+                        <button
+                          type="button"
+                          onClick={() => setShowPdfImport(true)}
+                          className="flex items-center justify-center gap-1.5 min-h-[44px] w-full min-[640px]:w-auto border border-[#2E75B6] text-[#2E75B6] px-2.5 py-1.5 rounded-md text-sm font-medium hover:bg-blue-50 whitespace-nowrap"
+                          data-price-book-ai-import="1"
+                        >
+                          <FileUp size={14} /> Import PDF
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => { setEditingItem(null); setShowItemForm(true); }}
@@ -232,9 +237,11 @@ export function PriceBooksPage() {
                     <button onClick={() => setShowCsvImport(true)} className="btn-secondary min-h-[44px]">
                       <FileUp size={16} /> Import CSV
                     </button>
-                    <button onClick={() => setShowPdfImport(true)} className="btn-secondary min-h-[44px]">
-                      <FileUp size={16} /> Import PDF
-                    </button>
+                    {companyAiKey && (
+                      <button onClick={() => setShowPdfImport(true)} className="btn-secondary min-h-[44px]" data-price-book-ai-import="1">
+                        <FileUp size={16} /> Import PDF
+                      </button>
+                    )}
                     <button onClick={() => { setEditingItem(null); setShowItemForm(true); }} className="btn-primary min-h-[44px]">
                       <Plus size={16} /> Add first item
                     </button>

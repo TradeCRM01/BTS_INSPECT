@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { expenseCategoryFallbackItems } from './expenseCategoryDefaults';
 
 export interface ListItem {
   id: string;
@@ -47,7 +48,11 @@ export function useManagedList(listKey: string) {
         .order('sort_order', { ascending: true })
         .order('value', { ascending: true });
       if (error) throw error;
-      return (data ?? []) as ListItem[];
+      const rows = (data ?? []) as ListItem[];
+      if (listKey === LIST_KEYS.expenseCategories && rows.length === 0) {
+        return expenseCategoryFallbackItems();
+      }
+      return rows;
     },
     enabled: !!profile?.company_id,
     staleTime: 60_000,

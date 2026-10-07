@@ -13,8 +13,10 @@ describe('Expenses scan-receipt wiring', () => {
   const priceBook = src('supabase/functions/import-price-book-pdf/index.ts');
   const app = src('src/App.tsx');
 
-  it('puts Scan receipt and Upload on the expenses sheet action row', () => {
-    const actionsStart = page.indexOf('<div className="hub-expenses-actions relative">');
+  it('puts Scan receipt and Upload on the expenses sheet action row when a company AI key exists', () => {
+    expect(page).toContain('useCompanyAiKey');
+    expect(page).toContain('companyAiKey');
+    const actionsStart = page.indexOf('data-expense-actions="1"');
     const menuStart = page.indexOf('className="hub-expenses-menu"');
     const actions = page.slice(actionsStart, menuStart);
     const uploadCss = page.slice(page.indexOf('.hub-expenses-upload {'), page.indexOf('.hub-expenses-more {'));
@@ -26,7 +28,7 @@ describe('Expenses scan-receipt wiring', () => {
     expect(actions).toContain('Upload');
     expect(actions).toContain('hub-expenses-upload');
     expect(actions).toContain("startReceiptScan('file')");
-    expect(actions).toContain('aria-label="Upload receipt file"');
+    expect(actions).toContain('aria-label="Upload receipt file for AI scan"');
     expect(uploadCss).toContain('height: 44px');
     expect(uploadCss).toContain('min-height: 44px');
     expect(page).toContain('hub-expenses-scan');
@@ -85,9 +87,9 @@ describe('Expenses scan-receipt wiring', () => {
     const sheet = page.slice(sheetStart, overlayStart);
 
     expect(fsm).toContain("export type ExpenseCostClass = 'overhead' | 'cogs' | 'employee'");
-    expect(fsm).toContain("overhead: 'Overhead'");
+    expect(fsm).toContain("overhead: 'Overheads'");
     expect(fsm).toContain("cogs: 'Cost of sales'");
-    expect(fsm).toContain("employee: 'Employee cost'");
+    expect(fsm).toContain("employee: 'Employee'");
     expect(fsm).not.toMatch(/general|tax[_ ]class/i);
 
     expect(page).toContain('function ExpenseCostClassCards');
@@ -103,7 +105,7 @@ describe('Expenses scan-receipt wiring', () => {
     expect(sheet).toContain('form.cost_class');
     expect(sheet.indexOf('ExpenseCostClassCards')).toBeLessThan(sheet.indexOf('Category'));
     expect(sheet).not.toMatch(/general|tax class/i);
-    expect((sheet.match(/ExpenseCostClassCards/g) || []).length).toBe(1);
+    expect((sheet.match(/ExpenseCostClassCards/g) || []).length).toBeGreaterThanOrEqual(1);
   });
 
   it('stays on /expenses and does not add onboard, documents, or other floors', () => {

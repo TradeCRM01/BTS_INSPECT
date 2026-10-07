@@ -15,6 +15,7 @@ import {
   splitComplianceDeadlines,
 } from '../lib/complianceDeadlinesWidget';
 import { useAuth } from '../contexts/AuthContext';
+import { useCompanyAiKey } from '../lib/useCompanyAiKey';
 import { listReminders, setReminderDone } from '../lib/reminders';
 import { format, formatDistanceToNow, subDays } from 'date-fns';
 import {
@@ -42,6 +43,7 @@ const AGENT_SUGGESTIONS = [
 
 export function AiAgentWidget({}: WidgetProps) {
   const { session } = useAuth();
+  const { ready: aiKeyReady, hasKey: companyAiKey } = useCompanyAiKey();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<AgentMessage[]>([]);
@@ -107,6 +109,19 @@ export function AiAgentWidget({}: WidgetProps) {
       });
     } finally { setBusy(false); }
   }, [input, busy, messages, session, queryClient]);
+
+  if (aiKeyReady && !companyAiKey) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-center px-3">
+        <p className="text-[11px] text-[#5B6B7C] leading-snug">
+          Add a company AI key in AI Settings to use the agent.
+        </p>
+        <Link to="/settings/ai" className="text-[10px] font-medium text-[#2E75B6] hover:underline mt-2">
+          AI Settings
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -606,6 +621,7 @@ const ACTION_ICONS: Record<string, { icon: typeof Bot; color: string; bg: string
 
 export function AgentActivityWidget() {
   const { session } = useAuth();
+  const { ready: aiKeyReady, hasKey: companyAiKey } = useCompanyAiKey();
   const { data, isLoading } = useQuery({
     queryKey: ['widget-agent-activity'],
     queryFn: async () => {
@@ -619,8 +635,17 @@ export function AgentActivityWidget() {
         summary: string; status: string; created_at: string;
       }>;
     },
-    refetchInterval: 15000,
+    enabled: !!session && companyAiKey,
+    refetchInterval: companyAiKey ? 15000 : false,
   });
+
+  if (aiKeyReady && !companyAiKey) {
+    return (
+      <div className="h-full flex items-center justify-center text-center px-3 text-[11px] text-[#5B6B7C]">
+        Agent activity appears after a company AI key is set.
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
