@@ -35,6 +35,9 @@ describe('clients list laptop LOOK — quote paper, overflow on the sheet', () =
     expect(page).toContain('className="btn-primary"');
     expect(page).toContain('New client');
     expect(page).toContain('placeClientsListMore');
+    expect(page).toContain('hub-clients-list-more-trigger');
+    expect(page).toContain('clientsListMoreIsOpen');
+    expect(page).not.toMatch(/hub-clients-row-next" onClick=\{e => e\.stopPropagation\(\)\}/);
     expect(page).toContain('inkFloor');
     expect(page).not.toContain('hub-clients-next');
     expect(page).not.toContain('>Open<');

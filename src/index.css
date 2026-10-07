@@ -1312,7 +1312,7 @@
 
   .hub-clients-list-doc .hub-clients-thead,
   .hub-clients-list-doc .hub-clients-row {
-    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 88px 32px;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 88px 44px;
   }
 
   .hub-clients-list-doc .hub-clients-thead {
@@ -1357,19 +1357,30 @@
   .hub-clients-list-more {
     position: relative;
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
   }
 
+  .hub-clients-list-more-trigger,
   .hub-clients-list-more > summary {
     list-style: none;
-    width: 32px;
-    height: 32px;
-    min-height: 32px;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    min-width: 44px;
     padding: 0;
     border: none;
     border-radius: 12px;
     background: none;
     color: #5B6B7C;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
 
   .hub-clients-list-more > summary::-webkit-details-marker,
