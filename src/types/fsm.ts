@@ -593,9 +593,9 @@ export interface ExpenseWithDetails extends Expense {
 }
 
 export const EXPENSE_COST_CLASS_LABELS: Record<ExpenseCostClass, string> = {
-  overhead: 'Overhead',
+  overhead: 'Overheads',
   cogs: 'Cost of sales',
-  employee: 'Employee cost',
+  employee: 'Employee',
 };
 
 export const EXPENSE_COST_CLASS_HELP: Record<ExpenseCostClass, string> = {

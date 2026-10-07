@@ -5,7 +5,7 @@ import {
 } from 'date-fns';
 import {
   Plus, Wallet, X, Trash2, TrendingUp, TrendingDown, DollarSign, Users, Building2, Briefcase,
-  Bookmark, Camera, FileUp, Loader2, MoreHorizontal, Calendar,
+  Bookmark, Camera, FileUp, Loader2, MoreHorizontal, Calendar, Paperclip,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +21,14 @@ import { PageError, EmptyState, SearchBar, useToast } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS } from '../lib/useManagedList';
+import { useCompanyAiKey } from '../lib/useCompanyAiKey';
+import {
+  assertExpenseReceiptFile,
+  expenseReceiptNoteLine,
+  expenseReceiptStoragePath,
+  EXPENSE_RECEIPT_BUCKET,
+  mergeExpenseNotes,
+} from '../lib/expenseReceiptAttach';
 import {
   ApplyEmployeeCostModelModal,
   ApplyExpenseTemplateModal,
@@ -644,6 +652,7 @@ function moneyTax(amount: number, taxRate: number) {
 
 export function ExpensesPage() {
   const { profile, company, session } = useAuth();
+  const { hasKey: companyAiKey } = useCompanyAiKey();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [rangeKey, setRangeKey] = useState<RangeKey>('this_month');
@@ -656,6 +665,8 @@ export function ExpensesPage() {
   const [showTemplate, setShowTemplate] = useState(false);
   const [receiptPrefill, setReceiptPrefill] = useState<ExpenseEditorPrefill | null>(null);
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
+  const [scanReceiptFile, setScanReceiptFile] = useState<File | null>(null);
+  const [formLookSeed, setFormLookSeed] = useState<Partial<FormState> | null>(null);
   const [scanning, setScanning] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -664,11 +675,14 @@ export function ExpensesPage() {
     setEditing(null);
     setReceiptPrefill(null);
     setReceiptPreviewUrl(null);
+    setScanReceiptFile(null);
+    setFormLookSeed(null);
     setShowForm(true);
     setShowAddMenu(false);
   };
 
   const startReceiptScan = (kind: 'camera' | 'file') => {
+    if (!companyAiKey) return;
     setShowAddMenu(false);
     if (isDevFieldAuditAuth()) {
       setReceiptPrefill(auditExpenseReceiptSeed());
@@ -682,7 +696,9 @@ export function ExpensesPage() {
   };
 
   const handleReceiptFile = async (file: File) => {
+    if (!companyAiKey) return;
     setShowAddMenu(false);
+    setScanReceiptFile(file);
     setScanning(true);
     if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
     const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
@@ -731,6 +747,33 @@ export function ExpensesPage() {
         setReceiptPrefill(lookOverheadReceiptSeed());
         setReceiptPreviewUrl(OVERHEAD_RECEIPT_PREVIEW);
         setEditing(null);
+        setShowForm(true);
+        return;
+      }
+      if (look === 'expense1-empty') {
+        setEditing(null);
+        setReceiptPrefill(null);
+        setReceiptPreviewUrl(null);
+        setFormLookSeed(null);
+        setScanReceiptFile(null);
+        setShowForm(true);
+        return;
+      }
+      if (look === 'expense1-filled') {
+        setEditing(null);
+        setReceiptPrefill(null);
+        setReceiptPreviewUrl(null);
+        setScanReceiptFile(null);
+        setFormLookSeed({
+          cost_class: 'cogs',
+          category: 'Materials (job)',
+          description: '— delete ok',
+          amount: '45.45',
+          tax_rate: '10',
+          vendor_name: 'Bunnings',
+          expense_date: format(new Date(), 'yyyy-MM-dd'),
+          reference: '',
+        });
         setShowForm(true);
         return;
       }
@@ -869,6 +912,8 @@ export function ExpensesPage() {
   const editorClose = () => {
     setShowForm(false);
     setReceiptPrefill(null);
+    setScanReceiptFile(null);
+    setFormLookSeed(null);
     if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
     setReceiptPreviewUrl(null);
   };
@@ -880,23 +925,39 @@ export function ExpensesPage() {
         <h1 className="hub-expenses-hero">Expenses</h1>
         <article className="hub-expenses-sheet">
           <div className="hub-expenses-sheet-body">
-            <div className="hub-expenses-actions relative">
-              <button
-                type="button"
-                onClick={() => startReceiptScan('camera')}
-                className="hub-expenses-scan"
-                aria-label="Scan receipt with camera"
-              >
-                <Camera size={16} /> Scan receipt
-              </button>
-              <button
-                type="button"
-                onClick={() => startReceiptScan('file')}
-                className="hub-expenses-upload"
-                aria-label="Upload receipt file"
-              >
-                <FileUp size={16} /> Upload
-              </button>
+            <div className="hub-expenses-actions relative" data-expense-actions="1">
+              {companyAiKey ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => startReceiptScan('camera')}
+                    className="hub-expenses-scan"
+                    aria-label="Scan receipt with camera"
+                    data-expense-ai-scan="1"
+                  >
+                    <Camera size={16} /> Scan receipt
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => startReceiptScan('file')}
+                    className="hub-expenses-upload"
+                    aria-label="Upload receipt file for AI scan"
+                    data-expense-ai-upload="1"
+                  >
+                    <FileUp size={16} /> Upload
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openBlankEditor}
+                  className="hub-expenses-scan"
+                  aria-label="Add expense"
+                  data-expense-add="1"
+                >
+                  <Plus size={16} /> Add expense
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowAddMenu(v => !v)}
@@ -916,29 +977,33 @@ export function ExpensesPage() {
                         <span className="hub-expenses-menu-meta">One-off cost entry</span>
                       </span>
                     </button>
-                    <div className="hub-expenses-menu-kicker">Scan receipt</div>
-                    <button
-                      type="button"
-                      onClick={() => startReceiptScan('camera')}
-                      aria-label="Scan receipt with camera"
-                    >
-                      <Camera size={15} />
-                      <span>
-                        Take photo
-                        <span className="hub-expenses-menu-meta">Camera scan of a paper receipt</span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => startReceiptScan('file')}
-                      aria-label="Upload receipt file"
-                    >
-                      <FileUp size={15} />
-                      <span>
-                        Choose file
-                        <span className="hub-expenses-menu-meta">Photo or PDF from this device</span>
-                      </span>
-                    </button>
+                    {companyAiKey && (
+                      <>
+                        <div className="hub-expenses-menu-kicker">Scan receipt</div>
+                        <button
+                          type="button"
+                          onClick={() => startReceiptScan('camera')}
+                          aria-label="Scan receipt with camera"
+                        >
+                          <Camera size={15} />
+                          <span>
+                            Take photo
+                            <span className="hub-expenses-menu-meta">Camera scan of a paper receipt</span>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => startReceiptScan('file')}
+                          aria-label="Upload receipt file"
+                        >
+                          <FileUp size={15} />
+                          <span>
+                            Choose file
+                            <span className="hub-expenses-menu-meta">Photo or PDF from this device</span>
+                          </span>
+                        </button>
+                      </>
+                    )}
                     <button type="button" onClick={() => { setShowAddMenu(false); setShowEmployeeModel(true); }}>
                       <Users size={15} />
                       <span>
@@ -963,6 +1028,7 @@ export function ExpensesPage() {
                 expense={null}
                 prefill={receiptPrefill}
                 receiptPreviewUrl={receiptPreviewUrl}
+                receiptFile={scanReceiptFile}
                 defaultTaxRate={company?.default_tax_rate ?? 10}
                 layout="sheet"
                 onClose={editorClose}
@@ -1167,29 +1233,33 @@ export function ExpensesPage() {
         </article>
       </div>
 
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="sr-only"
-        onChange={e => {
-          const f = e.target.files?.[0];
-          if (f) void handleReceiptFile(f);
-          e.target.value = '';
-        }}
-      />
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,application/pdf,.pdf"
-        className="sr-only"
-        onChange={e => {
-          const f = e.target.files?.[0];
-          if (f) void handleReceiptFile(f);
-          e.target.value = '';
-        }}
-      />
+      {companyAiKey && (
+        <>
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            onChange={e => {
+              const f = e.target.files?.[0];
+              if (f) void handleReceiptFile(f);
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,application/pdf,.pdf"
+            className="sr-only"
+            onChange={e => {
+              const f = e.target.files?.[0];
+              if (f) void handleReceiptFile(f);
+              e.target.value = '';
+            }}
+          />
+        </>
+      )}
 
       {scanning && (
         <div className="overlay-backdrop" aria-live="polite">
@@ -1208,6 +1278,8 @@ export function ExpensesPage() {
           expense={editing}
           prefill={editing ? undefined : receiptPrefill}
           receiptPreviewUrl={editing ? null : receiptPreviewUrl}
+          receiptFile={editing ? null : scanReceiptFile}
+          formLookSeed={editing ? null : formLookSeed}
           defaultTaxRate={company?.default_tax_rate ?? 10}
           layout="overlay"
           onClose={editorClose}
@@ -1333,11 +1405,13 @@ interface FormState {
 }
 
 function ExpenseEditorModal({
-  expense, prefill, receiptPreviewUrl, defaultTaxRate, layout = 'overlay', onClose, onSaved, onDeleted,
+  expense, prefill, receiptPreviewUrl, receiptFile, formLookSeed, defaultTaxRate, layout = 'overlay', onClose, onSaved, onDeleted,
 }: {
   expense: ExpenseWithDetails | null;
   prefill?: ExpenseEditorPrefill | null;
   receiptPreviewUrl?: string | null;
+  receiptFile?: File | null;
+  formLookSeed?: Partial<FormState> | null;
   defaultTaxRate: number;
   layout?: 'overlay' | 'sheet';
   onClose: () => void;
@@ -1345,6 +1419,9 @@ function ExpenseEditorModal({
   onDeleted: () => void;
 }) {
   const { profile } = useAuth();
+  const attachInputRef = useRef<HTMLInputElement>(null);
+  const [attachFile, setAttachFile] = useState<File | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [err, setErr] = useState('');
@@ -1352,27 +1429,30 @@ function ExpenseEditorModal({
   const [jobs, setJobs] = useState<{ id: string; title: string }[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
 
-  const [form, setForm] = useState<FormState>({
-    cost_class: expense?.cost_class ?? prefill?.cost_class ?? 'overhead',
-    category: expense?.category ?? prefill?.category ?? '',
-    employee_cost_type: expense?.employee_cost_type ?? '',
-    description: expense?.description ?? prefill?.description ?? '',
-    amount: expense ? String(expense.amount) : (prefill?.amount ?? ''),
-    tax_rate: expense ? String(expense.tax_rate) : (prefill?.tax_rate ?? String(defaultTaxRate)),
-    expense_date: expense?.expense_date ?? prefill?.expense_date ?? format(new Date(), 'yyyy-MM-dd'),
-    period_start: expense?.period_start ?? '',
-    period_end: expense?.period_end ?? '',
-    vendor_name: expense?.vendor_name ?? prefill?.vendor_name ?? '',
-    supplier_id: expense?.supplier_id ?? '',
-    employee_id: expense?.employee_id ?? '',
-    job_id: expense?.job_id ?? '',
-    payment_method: expense?.payment_method ?? '',
-    reference: expense?.reference ?? prefill?.reference ?? '',
-    is_reimbursable: expense?.is_reimbursable ?? false,
-    reimbursed: expense?.reimbursed ?? false,
-    recurrence: expense?.recurrence ?? 'one_off',
-    status: expense?.status ?? 'recorded',
-    notes: expense?.notes ?? '',
+  const [form, setForm] = useState<FormState>(() => {
+    const seed = formLookSeed ?? {};
+    return {
+      cost_class: expense?.cost_class ?? prefill?.cost_class ?? seed.cost_class ?? 'overhead',
+      category: expense?.category ?? prefill?.category ?? seed.category ?? '',
+      employee_cost_type: expense?.employee_cost_type ?? seed.employee_cost_type ?? '',
+      description: expense?.description ?? prefill?.description ?? seed.description ?? '',
+      amount: expense ? String(expense.amount) : (prefill?.amount ?? seed.amount ?? ''),
+      tax_rate: expense ? String(expense.tax_rate) : (prefill?.tax_rate ?? seed.tax_rate ?? String(defaultTaxRate)),
+      expense_date: expense?.expense_date ?? prefill?.expense_date ?? seed.expense_date ?? format(new Date(), 'yyyy-MM-dd'),
+      period_start: expense?.period_start ?? seed.period_start ?? '',
+      period_end: expense?.period_end ?? seed.period_end ?? '',
+      vendor_name: expense?.vendor_name ?? prefill?.vendor_name ?? seed.vendor_name ?? '',
+      supplier_id: expense?.supplier_id ?? seed.supplier_id ?? '',
+      employee_id: expense?.employee_id ?? seed.employee_id ?? '',
+      job_id: expense?.job_id ?? seed.job_id ?? '',
+      payment_method: expense?.payment_method ?? seed.payment_method ?? '',
+      reference: expense?.reference ?? prefill?.reference ?? seed.reference ?? '',
+      is_reimbursable: expense?.is_reimbursable ?? seed.is_reimbursable ?? false,
+      reimbursed: expense?.reimbursed ?? seed.reimbursed ?? false,
+      recurrence: expense?.recurrence ?? seed.recurrence ?? 'one_off',
+      status: expense?.status ?? seed.status ?? 'recorded',
+      notes: expense?.notes ?? seed.notes ?? '',
+    };
   });
 
   useEffect(() => {
@@ -1389,6 +1469,13 @@ function ExpenseEditorModal({
     })();
   }, [profile?.company_id]);
 
+  useEffect(() => () => {
+    if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+  }, [localPreviewUrl]);
+
+  const previewUrl = receiptPreviewUrl ?? localPreviewUrl;
+  const attachedName = attachFile?.name ?? receiptFile?.name ?? null;
+
   const amountNum = parseFloat(form.amount) || 0;
   const taxRateNum = parseFloat(form.tax_rate) || 0;
   const { tax_amount, total } = moneyTax(amountNum, taxRateNum);
@@ -1396,7 +1483,7 @@ function ExpenseEditorModal({
   const suggestCategory = (costClass: ExpenseCostClass) => {
     if (form.category) return;
     if (costClass === 'employee') setForm(f => ({ ...f, category: 'Wages & Salaries' }));
-    if (costClass === 'cogs') setForm(f => ({ ...f, category: 'Subcontractors' }));
+    if (costClass === 'cogs') setForm(f => ({ ...f, category: 'Materials (job)' }));
   };
 
   const selectCostClass = (key: ExpenseCostClass) => {
@@ -1418,6 +1505,33 @@ function ExpenseEditorModal({
       return;
     }
     setSaving(true); setErr('');
+    const expenseId = expense?.id ?? crypto.randomUUID();
+    const receiptToUpload = attachFile ?? receiptFile ?? null;
+    let notes = form.notes.trim() || null;
+
+    if (receiptToUpload) {
+      try {
+        assertExpenseReceiptFile(receiptToUpload);
+        const path = expenseReceiptStoragePath({
+          companyId: profile.company_id,
+          expenseId,
+          fileName: receiptToUpload.name,
+        });
+        const { error: upErr } = await supabase.storage
+          .from(EXPENSE_RECEIPT_BUCKET)
+          .upload(path, receiptToUpload, {
+            contentType: receiptToUpload.type || 'application/octet-stream',
+            upsert: false,
+          });
+        if (upErr) throw upErr;
+        notes = mergeExpenseNotes(notes, expenseReceiptNoteLine(path, receiptToUpload.name));
+      } catch (e) {
+        setSaving(false);
+        setErr(e instanceof Error ? e.message : 'Could not attach receipt');
+        return;
+      }
+    }
+
     const payload = {
       cost_class: form.cost_class,
       category: form.category.trim(),
@@ -1442,19 +1556,37 @@ function ExpenseEditorModal({
       reimbursed: form.reimbursed,
       recurrence: form.recurrence,
       status: form.status,
-      notes: form.notes.trim() || null,
+      notes,
       updated_at: new Date().toISOString(),
     };
     const { error } = expense
       ? await supabase.from('expenses').update(payload).eq('id', expense.id)
       : await supabase.from('expenses').insert({
           ...payload,
+          id: expenseId,
           company_id: profile.company_id,
           created_by: profile.id,
         });
     setSaving(false);
     if (error) { setErr(error.message); return; }
     onSaved();
+  };
+
+  const pickAttachFile = (file: File) => {
+    try {
+      assertExpenseReceiptFile(file);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Invalid file');
+      return;
+    }
+    setErr('');
+    if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    setAttachFile(file);
+    if (file.type.startsWith('image/')) {
+      setLocalPreviewUrl(URL.createObjectURL(file));
+    } else {
+      setLocalPreviewUrl(null);
+    }
   };
 
   const handleDelete = async () => {
@@ -1486,8 +1618,8 @@ function ExpenseEditorModal({
   if (layout === 'sheet') {
     return (
       <div className="hub-expenses-review">
-        {receiptPreviewUrl ? (
-          <img src={receiptPreviewUrl} alt="Scanned receipt" className="hub-expenses-preview" />
+        {previewUrl ? (
+          <img src={previewUrl} alt="Receipt attachment" className="hub-expenses-preview" />
         ) : null}
         <div className="hub-expenses-row">
           <span className="hub-expenses-row-label">Vendor</span>
@@ -1498,7 +1630,7 @@ function ExpenseEditorModal({
           />
         </div>
         <div className="hub-expenses-row">
-          <span className="hub-expenses-row-label">Amount</span>
+          <span className="hub-expenses-row-label">Amount (inc GST)</span>
           <input
             className="hub-expenses-row-value"
             inputMode="decimal"
@@ -1558,7 +1690,7 @@ function ExpenseEditorModal({
   }
 
   return (
-    <div className="overlay-backdrop">
+    <div className="overlay-backdrop" data-expense-editor-overlay="1">
       <div className="hub-expenses-overlay" onClick={e => e.stopPropagation()}>
         <div className="hub-expenses-overlay-head">
           <div>
@@ -1575,10 +1707,10 @@ function ExpenseEditorModal({
         </div>
 
         <div className="hub-expenses-overlay-body space-y-4">
-          {receiptPreviewUrl && (
+          {previewUrl && (
             <img
-              src={receiptPreviewUrl}
-              alt="Scanned receipt"
+              src={previewUrl}
+              alt="Receipt attachment"
               className="hub-expenses-preview"
             />
           )}
@@ -1610,6 +1742,31 @@ function ExpenseEditorModal({
               placeholder="e.g. March warehouse rent, weekly wages for Sam…"
             />
           </Field>
+
+          <div data-expense-attach="1">
+            <input
+              ref={attachInputRef}
+              type="file"
+              accept="image/*,application/pdf,.pdf"
+              className="sr-only"
+              onChange={e => {
+                const f = e.target.files?.[0];
+                if (f) pickAttachFile(f);
+                e.target.value = '';
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => attachInputRef.current?.click()}
+              className="flex items-center gap-2 min-h-[44px] px-3 rounded-md border border-[#E2D9CC] text-sm font-medium text-[#0A2540] bg-white hover:bg-[#FFFDF8]"
+            >
+              <Paperclip size={16} className="text-[#2E75B6]" />
+              {attachedName ? `Attached: ${attachedName}` : 'Attach receipt or photo'}
+            </button>
+            <p className="text-[11px] mt-1" style={{ color: '#5B6B7C' }}>
+              PDF or image — stored with this expense (no AI scan required).
+            </p>
+          </div>
 
           {form.cost_class === 'employee' && (
             <div className="space-y-3" style={{ borderTop: '1px solid #E2D9CC', paddingTop: 12 }}>
@@ -1650,23 +1807,33 @@ function ExpenseEditorModal({
             </div>
           )}
 
-          <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-3">
+          <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-3" data-expense-gst="1">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <Field label="Amount (ex GST)">
-                <input type="number" min="0" step="0.01" value={form.amount}
-                  onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                  className="form-input" placeholder="0.00" />
+              <Field label="Amount (inc GST)">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.amount === '' ? '' : total.toFixed(2)}
+                  onChange={e => setReceiptTotal(e.target.value)}
+                  className="form-input font-semibold text-[#0A2540]"
+                  placeholder="0.00"
+                />
               </Field>
-              <Field label="Tax %">
+              <Field label="Amount (ex GST)">
+                <input
+                  value={form.amount === '' ? '' : formatMoney(amountNum)}
+                  readOnly
+                  className="form-input bg-white text-[#4A5568]"
+                />
+              </Field>
+              <Field label="Tax % (GST)">
                 <input type="number" min="0" step="0.01" value={form.tax_rate}
                   onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))}
                   className="form-input" />
               </Field>
-              <Field label="Tax amount">
-                <input value={formatMoney(tax_amount)} readOnly className="form-input bg-white text-[#4A5568]" />
-              </Field>
-              <Field label="Total paid">
-                <input value={formatMoney(total)} readOnly className="form-input bg-white font-semibold text-[#0A2540]" />
+              <Field label="GST amount">
+                <input value={form.amount === '' ? '' : formatMoney(tax_amount)} readOnly className="form-input bg-white text-[#4A5568]" />
               </Field>
             </div>
           </div>

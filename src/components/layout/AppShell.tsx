@@ -13,6 +13,7 @@ import {
   Briefcase, Wrench, Home, HardDrive, BookOpen, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, ShieldAlert, Wallet, Search, Shield, type LucideIcon,
 } from 'lucide-react';
 import { GlobalSearch } from '../search/GlobalSearch';
+import { useCompanyAiKey } from '../../lib/useCompanyAiKey';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -134,6 +135,7 @@ function fieldWorkNavAttrs(to: string) {
 
 export function AppShell({ children }: AppShellProps) {
   const { profile, company, signOut, isPlatformOperator } = useAuth();
+  const { hasKey: companyAiKey } = useCompanyAiKey();
   const isAdmin = profile?.role === 'admin';
   const navigate = useNavigate();
   const location = useLocation();
@@ -384,10 +386,12 @@ export function AppShell({ children }: AppShellProps) {
                       className="shell-menu-item">
                       <ListChecks size={15} className="text-white/45" /> Managed Lists
                     </Link>
-                    <Link to="/assistant" onClick={() => setAvatarOpen(false)}
-                      className="shell-menu-item">
-                      <Sparkles size={15} className="text-white/45" /> AI Assistant
-                    </Link>
+                    {companyAiKey && (
+                      <Link to="/assistant" onClick={() => setAvatarOpen(false)}
+                        className="shell-menu-item">
+                        <Sparkles size={15} className="text-white/45" /> AI Assistant
+                      </Link>
+                    )}
                     {isAdmin && (
                       <>
                         <div className="border-t border-white/10 my-1" />
@@ -408,10 +412,12 @@ export function AppShell({ children }: AppShellProps) {
                           className="shell-menu-item">
                           <BrainCircuit size={15} className="text-white/45" /> AI Settings
                         </Link>
-                        <Link to="/ai-console" onClick={() => setAvatarOpen(false)}
-                          className="shell-menu-item">
-                          <Sparkles size={15} className="text-white/45" /> AI Console
-                        </Link>
+                        {companyAiKey && (
+                          <Link to="/ai-console" onClick={() => setAvatarOpen(false)}
+                            className="shell-menu-item">
+                            <Sparkles size={15} className="text-white/45" /> AI Console
+                          </Link>
+                        )}
                       </>
                     )}
                     {isPlatformOperator && (
@@ -495,9 +501,11 @@ export function AppShell({ children }: AppShellProps) {
             <Link to="/settings/lists" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
               <ListChecks size={16} /> Managed Lists
             </Link>
-            <Link to="/assistant" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
-              <Sparkles size={16} /> AI Assistant
-            </Link>
+            {companyAiKey && (
+              <Link to="/assistant" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+                <Sparkles size={16} /> AI Assistant
+              </Link>
+            )}
             {isAdmin && (
               <>
                 <Link to="/settings/team" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
@@ -512,9 +520,11 @@ export function AppShell({ children }: AppShellProps) {
                 <Link to="/settings/ai" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
                   <BrainCircuit size={16} /> AI Settings
                 </Link>
-                <Link to="/ai-console" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/80 font-medium">
-                  <Sparkles size={16} /> AI Console
-                </Link>
+                {companyAiKey && (
+                  <Link to="/ai-console" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/80 font-medium">
+                    <Sparkles size={16} /> AI Console
+                  </Link>
+                )}
               </>
             )}
             {isPlatformOperator && (

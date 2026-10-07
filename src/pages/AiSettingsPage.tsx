@@ -7,7 +7,7 @@ import {
   Key, Check, AlertCircle, Eye, EyeOff, Cpu, Wrench,
   CheckCircle2, XCircle, Loader2, Save,
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { postAiSettings, fetchAiSettings } from '../lib/aiSettingsClient';
 
 const MODELS = [
   { id: 'claude-opus-4-7', label: 'Claude Opus 4.7', description: 'Most capable — best for complex analysis and admin console' },
@@ -16,20 +16,6 @@ const MODELS = [
 ];
 
 type TestState = 'idle' | 'testing' | 'ok' | 'fail';
-
-async function callAiSettings(method: 'GET' | 'POST', body?: object) {
-  const { data: { session } } = await supabase.auth.getSession();
-  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-settings`;
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${session?.access_token ?? ''}`,
-      'Content-Type': 'application/json',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  return res.json();
-}
 
 export function AiSettingsPage() {
   const { profile } = useAuth();
@@ -55,7 +41,7 @@ export function AiSettingsPage() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    callAiSettings('GET').then(data => {
+    fetchAiSettings().then(data => {
       setKeySet(data.keySet ?? false);
       setMaskedKey(data.maskedKey ?? '');
       setModel(data.model ?? 'claude-opus-4-7');
@@ -72,7 +58,7 @@ export function AiSettingsPage() {
     setTestState('testing');
     setTestError('');
     try {
-      const res = await callAiSettings('POST', { anthropic_api_key: key, model, test_only: true });
+      const res = await postAiSettings({ anthropic_api_key: key, model, test_only: true });
       if (res.ok) {
         setTestState('ok');
       } else {
@@ -90,7 +76,7 @@ export function AiSettingsPage() {
     if (!key) return;
     setSaving(true);
     setSaveError('');
-    const res = await callAiSettings('POST', { anthropic_api_key: key });
+    const res = await postAiSettings({ anthropic_api_key: key });
     if (res.ok) {
       setKeySet(true);
       setMaskedKey(`sk-ant-${'•'.repeat(20)}${key.slice(-4)}`);
@@ -108,7 +94,7 @@ export function AiSettingsPage() {
   async function handleSaveSettings() {
     setSaving(true);
     setSaveError('');
-    const res = await callAiSettings('POST', { model, admin_tools_enabled: adminToolsEnabled });
+    const res = await postAiSettings({ model, admin_tools_enabled: adminToolsEnabled });
     if (res.ok) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
