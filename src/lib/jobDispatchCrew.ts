@@ -9,7 +9,7 @@ export function crewAssignmentHelper(
   teamMembers: { id: string; name: string }[],
 ): string {
   if (assignedIds.length === 0) {
-    return 'Unassigned — still on the board when a date is set.';
+    return 'Tap a name to put them on this job.';
   }
   const names = assignedIds
     .map(id => teamMembers.find(m => m.id === id)?.name)

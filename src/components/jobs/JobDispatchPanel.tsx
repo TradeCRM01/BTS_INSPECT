@@ -130,7 +130,7 @@ export function JobDispatchPanel({
           </label>
         </div>
         <p className="ops-meta mb-3">
-          No date → Needs a date on the board. Dated but no crew → Unassigned. Dropping on a person adds them.
+          Set a date to book this job on the board. Tap a name below to assign crew.
         </p>
 
         <div className="flex items-center justify-between gap-2 mb-2">

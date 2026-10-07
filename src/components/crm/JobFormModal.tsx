@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import type { Job, JobStatus, JobPriority, Client } from '../../types/crm';
+import type { Job, JobPriority, Client } from '../../types/crm';
+import { JOB_PRIORITY_LABELS } from '../../types/crm';
 import {
-  JOB_STATUS_LABELS, JOB_PRIORITY_LABELS,
-} from '../../types/crm';
+  jobCrewScheduleNeedsCrewClass,
+  jobCrewScheduleStatus,
+} from '../../lib/jobCrewScheduleStatus';
 import { X, Trash2, GitBranch } from 'lucide-react';
-import { format } from 'date-fns';
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { ClientForm } from '../../pages/ClientsPage';
 import { jobFormSelectNewClient, jobSiteAddressFromClient, visibleClientContacts } from '../../lib/clientRecords';
@@ -94,9 +95,8 @@ export function JobFormModal({
     title: job?.title ?? presetTitle ?? '',
     client_id: job?.client_id ?? presetClientId ?? '',
     description: job?.description ?? '',
-    status: job?.status ?? 'scheduled' as JobStatus,
     priority: job?.priority ?? 'medium' as JobPriority,
-    scheduled_date: job?.scheduled_date ?? presetDate ?? format(new Date(), 'yyyy-MM-dd'),
+    scheduled_date: job?.scheduled_date ?? presetDate ?? '',
     start_time: job?.start_time ?? presetStartTime ?? '',
     end_time: job?.end_time ?? '',
     address: job?.address ?? presetAddress ?? '',
@@ -142,6 +142,14 @@ export function JobFormModal({
 
   const selectedClient = useMemo(() => clients.find(c => c.id === form.client_id), [clients, form.client_id]);
   const pendingUnmatched = !!pendingClientName.trim() && !form.client_id;
+  const scheduleStatus = useMemo(
+    () => jobCrewScheduleStatus(form.scheduled_date, form.assigned_team),
+    [form.scheduled_date, form.assigned_team],
+  );
+  const scheduleStatusClass = [
+    jobCrewScheduleNeedsCrewClass(scheduleStatus.kind),
+    scheduleStatus.kind === 'booked' ? 'is-booked' : '',
+  ].filter(Boolean).join(' ');
 
   const applyNewClient = async (clientId: string) => {
     setAddingClient(false);
@@ -208,7 +216,7 @@ export function JobFormModal({
     };
 
     if (!detailsOnly) {
-      payload.status = form.status;
+      payload.status = job?.status ?? 'scheduled';
       payload.scheduled_date = form.scheduled_date || null;
       payload.start_time = form.start_time || null;
       payload.end_time = form.end_time || null;
@@ -256,9 +264,9 @@ export function JobFormModal({
 
   return (
     <OverlayPortal>
-    <div className="overlay-backdrop">
-      <div className="overlay-panel-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-rule">
+    <div className="overlay-backdrop hub-ops-form-backdrop">
+      <div className="overlay-panel-xl hub-ops-form-sheet" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2D9CC]">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold text-navy">
               {job ? (detailsOnly ? 'Job details' : 'Edit Job') : presetParentJobId ? 'New stage' : 'New Job'}
@@ -273,7 +281,7 @@ export function JobFormModal({
               </span>
             )}
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-zebra text-muted">
+          <button type="button" onClick={onClose} className="hub-ops-form-close flex items-center justify-center hover:bg-[#F5F0E6]">
             <X size={18} />
           </button>
         </div>
@@ -281,18 +289,6 @@ export function JobFormModal({
         <div className="overlay-body">
           <div className="overlay-form-grid">
           <div className="overlay-form-span-all">
-            <label className="ops-field-label">
-              Job Title <span className="text-fail">*</span>
-              <FromBooking show={fromBookingTag(fromBooking?.title, titleEdited)} />
-            </label>
-            <input value={form.title} onChange={e => {
-              setTitleEdited(true);
-              setForm(f => ({ ...f, title: e.target.value }));
-            }}
-              className="form-input" placeholder="e.g. Annual safety inspection" autoFocus />
-          </div>
-
-          <div>
             <label className="ops-field-label">
               Client
               <FromBooking show={fromBookingTag(fromBooking?.client, clientEdited)} />
@@ -378,6 +374,18 @@ export function JobFormModal({
             )}
           </div>
 
+          <div className="overlay-form-span-all">
+            <label className="ops-field-label">
+              Job Title <span className="text-fail">*</span>
+              <FromBooking show={fromBookingTag(fromBooking?.title, titleEdited)} />
+            </label>
+            <input value={form.title} onChange={e => {
+              setTitleEdited(true);
+              setForm(f => ({ ...f, title: e.target.value }));
+            }}
+              className="form-input" placeholder="e.g. Annual safety inspection" autoFocus />
+          </div>
+
           <div className="overlay-form-span-2">
             <label className="ops-field-label">
               Job Site Address
@@ -391,40 +399,16 @@ export function JobFormModal({
           </div>
 
           {!detailsOnly && (
-            <div>
-              <label className="ops-field-label">Status</label>
-              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as JobStatus }))}
-                className="form-input cursor-pointer">
-                {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
-                  <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div>
-            <label className="ops-field-label">Priority</label>
-            <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value as JobPriority }))}
-              className="form-input cursor-pointer">
-              {(Object.keys(JOB_PRIORITY_LABELS) as JobPriority[]).map(p => (
-                <option key={p} value={p}>{JOB_PRIORITY_LABELS[p]}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="ops-field-label">Job Budget (AUD)</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.budget ?? ''}
-              onChange={e => setForm(f => ({ ...f, budget: e.target.value }))}
-              className="form-input"
-              placeholder="0.00"
-            />
-          </div>
-
-          {!detailsOnly && (
             <>
+              <div className="overlay-form-span-all hub-job-form-schedule-status">
+                <span className="ops-field-label">Status</span>
+                <span
+                  className={`hub-job-form-status-pill ${scheduleStatusClass}`}
+                  data-job-form-schedule-status={scheduleStatus.kind}
+                >
+                  {scheduleStatus.label}
+                </span>
+              </div>
               <div>
                 <label className="ops-field-label">
                   Date
@@ -458,41 +442,62 @@ export function JobFormModal({
                 <input type="time" value={form.end_time ?? ''} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
                   className="form-input" />
               </div>
+              {(teamMembers.length > 0 || matchHints?.crew) && (
+                <div className="overlay-form-span-all">
+                  <label className="ops-field-label">
+                    Crew
+                    <FromBooking show={fromBookingTag(fromBooking?.crew, crewEdited)} />
+                  </label>
+                  {matchHints?.crew ? (
+                    <p className="hub-schedule-job-sheet-hint">{matchHints.crew}</p>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    {teamMembers.map(m => {
+                      const selected = form.assigned_team.includes(m.id);
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => toggleTeamMember(m.id)}
+                          className={`hub-job-form-crew-chip ${selected ? 'is-on' : ''}`}
+                        >
+                          {m.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
+
+          <div>
+            <label className="ops-field-label">Priority</label>
+            <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value as JobPriority }))}
+              className="form-input cursor-pointer">
+              {(Object.keys(JOB_PRIORITY_LABELS) as JobPriority[]).map(p => (
+                <option key={p} value={p}>{JOB_PRIORITY_LABELS[p]}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="ops-field-label">Job Budget (AUD)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.budget ?? ''}
+              onChange={e => setForm(f => ({ ...f, budget: e.target.value }))}
+              className="form-input"
+              placeholder="0.00"
+            />
+          </div>
 
           <div className="overlay-form-span-all">
             <label className="ops-field-label">Description</label>
             <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               className="form-input min-h-[88px] resize-y" placeholder="Job details, scope of work, special instructions..." />
           </div>
-
-          {!detailsOnly && (teamMembers.length > 0 || matchHints?.crew) && (
-            <div className="overlay-form-span-all">
-              <label className="ops-field-label">
-                Assign Crew
-                <FromBooking show={fromBookingTag(fromBooking?.crew, crewEdited)} />
-              </label>
-              {matchHints?.crew ? (
-                <p className="hub-schedule-job-sheet-hint">{matchHints.crew}</p>
-              ) : null}
-              <div className="flex flex-wrap gap-1.5">
-                {teamMembers.map(m => {
-                  const selected = form.assigned_team.includes(m.id);
-                  return (
-                    <button key={m.id} type="button" onClick={() => toggleTeamMember(m.id)}
-                      className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
-                        selected
-                          ? 'bg-navy text-white border-navy'
-                          : 'bg-white text-muted border-rule hover:text-navy'
-                      }`}>
-                      {m.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           <div>
             <label className="ops-field-label">Parent project</label>
@@ -574,7 +579,7 @@ export function JobFormModal({
           </div>
         </div>
 
-        <div className="flex items-center justify-between px-5 py-4 border-t border-rule">
+        <div className="flex items-center justify-between px-5 py-4 border-t border-[#E2D9CC]">
           <div>
             {job && !confirmDelete ? (
               <button onClick={() => setConfirmDelete(true)}

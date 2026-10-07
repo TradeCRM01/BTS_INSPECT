@@ -114,20 +114,43 @@ export function TimeEntryForm({
 
   return (
     <OverlayPortal>
-      <div className="overlay-backdrop">
-        <div className="overlay-panel-lg" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] shrink-0">
-            <h2 className="text-lg font-semibold text-[#1A1A1A]">Add Time Entry</h2>
-            <button type="button" onClick={onClose}><X size={20} className="text-[#6B7280]" /></button>
+      <div className="overlay-backdrop hub-ops-form-backdrop">
+        <div className="overlay-panel-lg hub-ops-form-sheet" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2D9CC] shrink-0">
+            <h2 className="text-lg font-semibold text-navy">Add Time Entry</h2>
+            <button type="button" onClick={onClose} className="hub-ops-form-close flex items-center justify-center hover:bg-[#F5F0E6]">
+              <X size={20} />
+            </button>
           </div>
-          <form onSubmit={handleSave} className="overlay-body">
-            <Field label="Date"><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="form-input" /></Field>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Start Time"><input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} className="form-input" /></Field>
-              <Field label="End Time"><input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} className="form-input" /></Field>
+          <form onSubmit={handleSave} className="overlay-body flex flex-col gap-4">
+            <Field label="Date">
+              <input
+                type="date"
+                value={form.date}
+                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                className="form-input"
+              />
+            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Start Time">
+                <input
+                  type="time"
+                  value={form.start_time}
+                  onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
+                  className="form-input"
+                />
+              </Field>
+              <Field label="End Time">
+                <input
+                  type="time"
+                  value={form.end_time}
+                  onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
+                  className="form-input"
+                />
+              </Field>
             </div>
             {blankTimesOnOpen ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="hub-time-entry-chips">
                 {TIME_ENTRY_DURATION_CHIP_HOURS.map(h => (
                   <button
                     key={h}
@@ -158,14 +181,37 @@ export function TimeEntryForm({
                 ))}
               </select>
             </Field>
-            <Field label="Work Type"><ManagedSelect listKey={LIST_KEYS.workTypes} value={form.work_type}
-              onChange={v => setForm(f => ({ ...f, work_type: v }))} placeholder="Select work type..." /></Field>
-            <Field label="Notes"><textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="form-input min-h-[50px] resize-y" placeholder="What did you work on?" /></Field>
-            <label className="flex items-center gap-2 text-sm text-[#1A1A1A]"><input type="checkbox" checked={form.billable} onChange={e => setForm(f => ({ ...f, billable: e.target.checked }))} className="rounded" /> Billable time</label>
-            {err && <p className="text-sm text-[#B42318]">{err}</p>}
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-[#F9FAFB]">Cancel</button>
-              <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
+            <Field label="Work Type">
+              <ManagedSelect
+                listKey={LIST_KEYS.workTypes}
+                value={form.work_type}
+                onChange={v => setForm(f => ({ ...f, work_type: v }))}
+                placeholder="Select work type..."
+              />
+            </Field>
+            <Field label="Notes">
+              <textarea
+                value={form.notes}
+                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                rows={2}
+                className="form-input min-h-[50px] resize-y"
+                placeholder="What did you work on?"
+              />
+            </Field>
+            <label className="hub-ops-form-check">
+              <input
+                type="checkbox"
+                checked={form.billable}
+                onChange={e => setForm(f => ({ ...f, billable: e.target.checked }))}
+              />
+              Billable time
+            </label>
+            {err && <p className="text-sm text-fail">{err}</p>}
+            <div className="flex justify-end gap-2 pt-2 border-t border-[#E2D9CC]">
+              <button type="button" onClick={onClose} className="btn-secondary min-h-[44px]">Cancel</button>
+              <button type="submit" disabled={saving} className="btn-primary min-h-[44px] disabled:opacity-50">
+                {saving ? 'Saving...' : 'Save'}
+              </button>
             </div>
           </form>
         </div>
@@ -175,5 +221,10 @@ export function TimeEntryForm({
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="block"><span className="text-sm font-medium text-[#4A5568] mb-1 block">{label}</span>{children}</label>;
+  return (
+    <label className="block">
+      <span className="ops-field-label">{label}</span>
+      {children}
+    </label>
+  );
 }
