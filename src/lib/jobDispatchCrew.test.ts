@@ -29,7 +29,7 @@ describe('jobDispatchCrew optimistic helpers', () => {
   });
 
   it('syncs helper copy with assigned crew names', () => {
-    expect(crewAssignmentHelper([], team)).toContain('Unassigned');
+    expect(crewAssignmentHelper([], team)).toContain('Tap a name');
     expect(crewAssignmentHelper(['crew2-cos'], team)).toBe('Grafter CoS Test');
     expect(crewAssignmentHelper(['crew2-cos', 'crew2-invitee'], team)).toBe(
       'Grafter CoS Test · CoS Invitee Test',

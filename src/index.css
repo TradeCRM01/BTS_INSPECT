@@ -2288,6 +2288,125 @@
     @apply md:col-span-2 xl:col-span-3;
   }
 
+  .overlay-backdrop.hub-ops-form-backdrop {
+    background: color-mix(in srgb, #0A2540 45%, transparent);
+  }
+
+  @media (max-width: 639px) {
+    .overlay-backdrop.hub-ops-form-backdrop {
+      align-items: flex-end;
+      padding: 0;
+    }
+
+    .overlay-backdrop.hub-ops-form-backdrop .hub-ops-form-sheet {
+      width: 100% !important;
+      max-width: 100% !important;
+      max-height: min(92vh, 100%) !important;
+      border-radius: 16px 16px 0 0;
+    }
+  }
+
+  .hub-ops-form-sheet.overlay-panel,
+  .hub-ops-form-sheet.overlay-panel-lg,
+  .hub-ops-form-sheet.overlay-panel-xl {
+    background: #FFFDF8;
+    border: 1px solid #E2D9CC;
+    box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .hub-ops-form-sheet .overlay-body {
+    background: #FFFDF8;
+  }
+
+  .hub-ops-form-sheet h2 {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-weight: 600;
+    color: #0A2540;
+    letter-spacing: 0;
+  }
+
+  .hub-ops-form-close {
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 12px;
+    color: #5B6B7C;
+  }
+
+  .hub-ops-form-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #0A2540;
+  }
+
+  .hub-ops-form-check input[type='checkbox'] {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: #2E75B6;
+    flex-shrink: 0;
+  }
+
+  .hub-time-entry-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 4px 0 16px;
+  }
+
+  .hub-job-form-status-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px solid #E2D9CC;
+    background: #F5F0E6;
+    color: #0A2540;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .hub-job-form-status-pill.hub-crew-schedule-needs {
+    background: color-mix(in srgb, var(--invoice-warn, #B54708) 12%, #fff);
+    color: var(--invoice-warn, #B54708);
+    border-color: color-mix(in srgb, var(--invoice-warn, #B54708) 35%, #e2d9cc);
+  }
+
+  .hub-job-form-status-pill.is-booked {
+    background: color-mix(in srgb, #2E75B6 10%, #fff);
+    color: #0A2540;
+    border-color: color-mix(in srgb, #2E75B6 25%, #e2d9cc);
+  }
+
+  .hub-job-form-crew-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid #E2D9CC;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .hub-job-form-crew-chip.is-on {
+    background: #0A2540;
+    color: #FFFDF8;
+    border-color: #0A2540;
+  }
+
+  .hub-job-form-crew-chip:not(.is-on) {
+    background: #F5F0E6;
+    color: #5B6B7C;
+  }
+
   .hub-job-create-client {
     display: inline-flex;
     align-items: center;
