@@ -30,6 +30,7 @@ import {
 import {
   Plus, X, GripVertical, Trash2, Sparkles, Briefcase, MoreHorizontal,
 } from 'lucide-react';
+import { sortDashboardWidgetsForView } from '../lib/dashboardWidgetView';
 import { WIDGET_REGISTRY, WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
 import { WidgetRenderer } from '../widgets/WidgetComponents';
 import type { Json } from '../types/database';
@@ -75,6 +76,8 @@ const CANVAS_PAD = 16;
 
 /** Signed dashboard frame seed — home look only, not a live company. */
 const DASHBOARD_LOOK = 'dashboard';
+/** Playwright: /?auditAuth=1&look=dashboard-jack — seven-widget money-first view grid */
+const DASHBOARD_LOOK_JACK_LAYOUT = 'dashboard-jack';
 /** Playwright: /?auditAuth=1&look=crew-s8d-dashboard-needs — Today row Needs crew */
 const CREW_S8D_DASHBOARD_NEEDS = 'crew-s8d-dashboard-needs';
 const DASHBOARD_LOOK_DAVE = 'look-dash-dave';
@@ -170,6 +173,52 @@ function dashboardLookWidgets(): DashboardWidget[] {
         },
       },
     },
+  ];
+}
+
+function dashboardJackLookWidgets(): DashboardWidget[] {
+  const seed = dashboardLookWidgets();
+  const upcomingCfg = seed.find(w => w.widget_type === 'upcoming_jobs')?.config ?? {};
+  const complianceCfg = seed.find(w => w.widget_type === 'compliance_deadlines')?.config ?? {};
+  const place = (id: string, widget_type: string, config: Record<string, unknown> = {}): DashboardWidget => ({
+    id,
+    widget_type,
+    grid_x: 0,
+    grid_y: 0,
+    grid_w: 300,
+    grid_h: 200,
+    config: config as Json,
+  });
+  return [
+    place('look-jack-outstanding', 'outstanding_invoices', {
+      lookInvoices: {
+        count: 2,
+        outstanding: 1840,
+        overdue: 420,
+        recent: [
+          {
+            id: 'look-jack-inv-sent',
+            invoice_number: 2002,
+            status: 'sent',
+            total: 836,
+            due_date: '2026-09-07',
+          },
+          {
+            id: 'look-jack-inv-overdue',
+            invoice_number: 2003,
+            status: 'overdue',
+            total: 1004,
+            due_date: '2026-08-28',
+          },
+        ],
+      },
+    }),
+    place('look-jack-cash', 'cash_flow'),
+    place('look-jack-revenue', 'revenue_overview'),
+    place('look-jack-upcoming', 'upcoming_jobs', upcomingCfg as Record<string, unknown>),
+    place('look-jack-compliance', 'compliance_deadlines', complianceCfg as Record<string, unknown>),
+    place('look-jack-kpi', 'kpi_scorecard'),
+    place('look-jack-team', 'team_activity'),
   ];
 }
 
@@ -291,7 +340,8 @@ export function DashboardPage() {
   const [searchParams] = useSearchParams();
   const lookParam = searchParams.get('look');
   const lookCrewS8dDashboard = lookParam === CREW_S8D_DASHBOARD_NEEDS;
-  const lookDashboard = lookParam === DASHBOARD_LOOK || lookCrewS8dDashboard;
+  const lookDashboardJack = lookParam === DASHBOARD_LOOK_JACK_LAYOUT;
+  const lookDashboard = lookParam === DASHBOARD_LOOK || lookCrewS8dDashboard || lookDashboardJack;
   const [editMode, setEditMode] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -308,6 +358,7 @@ export function DashboardPage() {
   const { data: widgets, isLoading: widgetsLoading, error } = useQuery<DashboardWidget[]>({
     queryKey: ['dashboard-widgets'],
     queryFn: async () => {
+      if (lookDashboardJack) return dashboardJackLookWidgets();
       if (lookDashboard) return dashboardLookWidgets();
       const mock = getAuditDashboardWidgets();
       if (mock) return mock;
@@ -615,6 +666,11 @@ export function DashboardPage() {
     return Math.max(floor, maxBottom + CANVAS_PAD);
   }, [widgets, editMode]);
 
+  const viewWidgets = useMemo(
+    () => sortDashboardWidgetsForView(widgets ?? []),
+    [widgets],
+  );
+
   if (pageQueryBlocked(error) || pageQueryBlocked(jobsError)) {
     return <AppShell><PageError message="Could not load dashboard" /></AppShell>;
   }
@@ -802,45 +858,63 @@ export function DashboardPage() {
               <div className="dashboard-home-widgets flex justify-center py-12"><LoadingSpinner /></div>
             ) : (widgets ?? []).length === 0 ? null : (
               <div className="dashboard-home-widgets" data-dashboard-widgets="1">
-                <div className="md:hidden dashboard-home-widget-stack">
-                  {(widgets ?? []).map(w => (
-                    <div key={w.id} className="dashboard-home-widget">
-                      <div className="dashboard-home-widget-ink">
-                        <WidgetRenderer
-                          type={w.widget_type}
-                          config={(w.config as Record<string, unknown>) ?? {}}
-                          onConfigChange={(c) => updateWidgetConfig(w.id, c)}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="hidden md:block">
-                  <DndContext
-                    sensors={sensors}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <div
-                      ref={canvasRef}
-                      className={`dashboard-home-canvas relative overflow-x-auto${editMode ? ' is-editing' : ''}`}
-                      style={{ height: canvasHeight, minWidth: '100%' }}
-                    >
+                {editMode ? (
+                  <>
+                    <div className="md:hidden dashboard-home-widget-stack">
                       {(widgets ?? []).map(w => (
-                        <FreeWidget
-                          key={w.id}
-                          widget={w}
-                          editMode={editMode}
-                          onRemove={() => removeWidget(w.id)}
-                          onResizeStart={(e) => startResize(e, w)}
-                          onConfigChange={(c) => updateWidgetConfig(w.id, c)}
-                          isDragging={activeId === w.id}
-                        />
+                        <div key={w.id} className="dashboard-home-widget">
+                          <div className="dashboard-home-widget-ink">
+                            <WidgetRenderer
+                              type={w.widget_type}
+                              config={(w.config as Record<string, unknown>) ?? {}}
+                              onConfigChange={(c) => updateWidgetConfig(w.id, c)}
+                            />
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  </DndContext>
-                </div>
+
+                    <div className="hidden md:block">
+                      <DndContext
+                        sensors={sensors}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <div
+                          ref={canvasRef}
+                          className={`dashboard-home-canvas relative overflow-x-auto is-editing`}
+                          style={{ height: canvasHeight, minWidth: '100%' }}
+                        >
+                          {(widgets ?? []).map(w => (
+                            <FreeWidget
+                              key={w.id}
+                              widget={w}
+                              editMode={editMode}
+                              onRemove={() => removeWidget(w.id)}
+                              onResizeStart={(e) => startResize(e, w)}
+                              onConfigChange={(c) => updateWidgetConfig(w.id, c)}
+                              isDragging={activeId === w.id}
+                            />
+                          ))}
+                        </div>
+                      </DndContext>
+                    </div>
+                  </>
+                ) : (
+                  <div className="dashboard-home-view-grid" data-dashboard-view-grid="1">
+                    {viewWidgets.map(w => (
+                      <div key={w.id} className="dashboard-home-widget dashboard-home-widget-card">
+                        <div className="dashboard-home-widget-ink">
+                          <WidgetRenderer
+                            type={w.widget_type}
+                            config={(w.config as Record<string, unknown>) ?? {}}
+                            onConfigChange={(c) => updateWidgetConfig(w.id, c)}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

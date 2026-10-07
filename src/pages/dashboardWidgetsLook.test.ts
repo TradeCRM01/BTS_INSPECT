@@ -19,7 +19,8 @@ describe('dashboard widgets LOOK — ink on the signed paper', () => {
     const css = lookCss();
     const auth = src('src/lib/devFieldAuditAuth.ts');
 
-    expect(page).toContain("look') === DASHBOARD_LOOK");
+    expect(page).toContain('DASHBOARD_LOOK');
+    expect(page).toContain('lookDashboard =');
     expect(page).toContain('dashboardLookWidgets');
     expect(page).toContain('look-widget-upcoming-jobs');
     expect(page).toContain('look-widget-outstanding-invoices');
@@ -30,6 +31,10 @@ describe('dashboard widgets LOOK — ink on the signed paper', () => {
     expect(page).toContain('data-dashboard-widgets="1"');
     expect(page).toContain('dashboard-home-widget-ink');
     expect(page).toContain('dashboard-home-widget-stack');
+    expect(page).toContain('dashboard-home-view-grid');
+    expect(page).toContain('dashboard-home-widget-card');
+    expect(page).toContain('sortDashboardWidgetsForView');
+    expect(page).toContain('dashboard-jack');
     expect(page).toContain('dashboard-home-canvas');
     expect(page).toContain('overflow-x-auto');
     expect(page.indexOf('data-dashboard-widgets="1"')).toBeGreaterThan(page.indexOf('dashboard-home-sheet-body'));
