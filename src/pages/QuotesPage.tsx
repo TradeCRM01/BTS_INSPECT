@@ -53,6 +53,10 @@ import {
 import { DocumentShareManualLink } from '../components/invoicing/DocumentShareManualLink';
 import { copyShareText, prepareDocumentShareLink } from '../lib/documentShareDeliver';
 import { commercialPdfPreviewData, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
+import {
+  fetchPriceBookItemCodes,
+  priceBookItemIdsFromLines,
+} from '../lib/priceBookItemCodesForLines';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { checkPriceSendBlock, quoteListMoney } from '../lib/checkPriceGate';
@@ -1138,6 +1142,17 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
     onError: (e: Error) => showToast(e.message, 'info'),
   });
 
+  const previewPriceBookIds = useMemo(
+    () => priceBookItemIdsFromLines(form.line_items),
+    [form.line_items],
+  );
+  const { data: previewPriceBookCodes } = useQuery({
+    queryKey: ['price-book-item-codes', profile?.company_id, previewPriceBookIds],
+    queryFn: () => fetchPriceBookItemCodes(supabase, previewPriceBookIds),
+    enabled: !!profile?.company_id && previewPriceBookIds.length > 0,
+    staleTime: 60_000,
+  });
+
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
     const cleanLines: QuoteLineItem[] = form.line_items
@@ -1152,6 +1167,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
         cost_model_id: li.cost_model_id ?? null,
         gst_rate: li.gst_rate,
         check_price: li.check_price,
+        price_book_item_id: li.price_book_item_id ?? null,
       }));
     return commercialPdfPreviewData({
       kind: 'quote',
@@ -1173,14 +1189,14 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
       exclusions: form.exclusions,
       description: form.description.trim() || null,
       scopeOfWorks: form.scope_of_works.trim() || null,
-      lines: linesFromQuoteItems(cleanLines, 'quote'),
+      lines: linesFromQuoteItems(cleanLines, 'quote', previewPriceBookCodes),
       subtotal,
       taxRate: parseFloat(form.tax_rate) || 0,
       taxAmount,
       total: grandTotal,
       notes: form.notes.trim() || null,
     }, cleanLines);
-  }, [company, form, quote, selectedClient, emailClient, phoneClient, selectedJob, subtotal, taxAmount, grandTotal]);
+  }, [company, form, quote, selectedClient, emailClient, phoneClient, selectedJob, subtotal, taxAmount, grandTotal, previewPriceBookCodes]);
 
   const buildPayload = (status: QuoteStatus) => {
     const cleanLines: QuoteLineItem[] = form.line_items

@@ -11,6 +11,10 @@ import type { QuoteLineItem, InvoiceLineItem } from '../../types/fsm';
 import { gstDocumentLabel, gstLabel, type LineForGst } from '../../lib/gst';
 import { commercialPdfLogoBox, companyDocumentLogoUrl } from '../../lib/companyLogo';
 import { customerFacingLineDescription } from '../../lib/customerFacingLineDescription';
+import {
+  priceBookCodeFromLookup,
+  type PriceBookCodeLookup,
+} from '../../lib/priceBookItemCodesForLines';
 
 /** Saved companies.report_theme on this document, or the existing commercial default. */
 export function commercialDocumentColors(theme?: unknown): PdfColors {
@@ -440,13 +444,14 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
 export function linesFromQuoteItems(
   items: QuoteLineItem[] | InvoiceLineItem[],
   kind?: CommercialDocKind,
+  priceBookCodesByItemId?: PriceBookCodeLookup,
 ): CommercialLine[] {
   const customerFacing = kind === 'invoice' || kind === 'quote';
   return (items ?? []).map(li => ({
     description: customerFacing
       ? customerFacingLineDescription(
         li.description,
-        (li as { price_book_code?: string | null }).price_book_code ?? null,
+        priceBookCodeFromLookup(priceBookCodesByItemId, li.price_book_item_id ?? null),
       )
       : li.description,
     quantity: li.quantity,

@@ -11,12 +11,15 @@ function stripSpacedDashPrefix(trimmed: string, prefix: string): string | null {
   return null;
 }
 
+/** Single code-like token (no spaces), must include a digit. */
+const HEURISTIC_CODE_PREFIX = /^[A-Za-z0-9._/-]*\d[A-Za-z0-9._/-]*$/;
+
 function stripHeuristicCodePrefix(trimmed: string): string {
   for (const sep of SPACED_DASH_SEPARATORS) {
     const idx = trimmed.indexOf(sep);
     if (idx <= 0) continue;
     const prefix = trimmed.slice(0, idx);
-    if (!/\d/.test(prefix)) continue;
+    if (!HEURISTIC_CODE_PREFIX.test(prefix)) continue;
     return trimmed.slice(idx + sep.length).trim();
   }
   return trimmed;

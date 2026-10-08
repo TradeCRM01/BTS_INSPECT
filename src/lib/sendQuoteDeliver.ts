@@ -17,6 +17,10 @@ import {
 import { type SmtpSettingsRow } from './sendInvoice';
 import { formatEmailAndSmsMessage, type SmsSendResult } from './jobReminder';
 import { generateCommercialPdf } from '../reports/commercial/generateCommercialPdf';
+import {
+  fetchPriceBookItemCodes,
+  priceBookItemIdsFromLines,
+} from './priceBookItemCodesForLines';
 import { getAuditQuoteSendBundle } from './devFieldAuditDocs';
 
 export type DeliverQuoteResult =
@@ -59,12 +63,18 @@ export async function loadQuoteSendBundle(
   if (jobRes.error) throw jobRes.error;
   if (smtpRes.error) throw smtpRes.error;
 
+  const priceBookCodesByItemId = await fetchPriceBookItemCodes(
+    supabase,
+    priceBookItemIdsFromLines(quote?.line_items ?? []),
+  );
+
   return {
     quote,
     client: (clientRes.data ?? null) as QuoteSendBundle['client'],
     jobAddress: (jobRes.data as { address?: string | null } | null)?.address ?? null,
     smtp: (smtpRes.data ?? null) as SmtpSettingsRow | null,
     company,
+    priceBookCodesByItemId,
   };
 }
 

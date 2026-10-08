@@ -14,6 +14,10 @@ import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
 import { CommercialPdfPreviewModal } from '../components/invoicing/CommercialPdfPreviewModal';
 import { InvoiceSendDialog } from '../components/invoicing/InvoiceSendDialog';
 import { commercialPdfPreviewData, linesFromQuoteItems } from '../reports/commercial/CommercialDocumentPdf';
+import {
+  fetchPriceBookItemCodes,
+  priceBookItemIdsFromLines,
+} from '../lib/priceBookItemCodesForLines';
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { checkPriceSendBlock } from '../lib/checkPriceGate';
@@ -1056,6 +1060,17 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     enabled: !!editorInvoiceId && !!profile?.company_id,
   });
 
+  const previewPriceBookIds = useMemo(
+    () => priceBookItemIdsFromLines(form.line_items),
+    [form.line_items],
+  );
+  const { data: previewPriceBookCodes } = useQuery({
+    queryKey: ['price-book-item-codes', profile?.company_id, previewPriceBookIds],
+    queryFn: () => fetchPriceBookItemCodes(supabase, previewPriceBookIds),
+    enabled: !!profile?.company_id && previewPriceBookIds.length > 0,
+    staleTime: 60_000,
+  });
+
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
     const cleanLines: InvoiceLineItem[] = form.line_items
@@ -1069,6 +1084,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
         cost_model_id: li.cost_model_id ?? null,
         gst_rate: li.gst_rate,
+        price_book_item_id: li.price_book_item_id ?? null,
       }));
     return commercialPdfPreviewData({
       kind: 'invoice' as const,
@@ -1083,7 +1099,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       company: commercialPdfCompanyFrom(company),
       inclusions: form.inclusions,
       exclusions: form.exclusions,
-      lines: linesFromQuoteItems(cleanLines, 'invoice'),
+      lines: linesFromQuoteItems(cleanLines, 'invoice', previewPriceBookCodes),
       subtotal,
       taxRate: parseFloat(form.tax_rate) || 0,
       taxAmount,
@@ -1096,7 +1112,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       paymentsToDate: recordedPaid > 0 ? recordedPaid : null,
       balanceDue: recordedPaid > 0 ? Math.max(0, grandTotal - recordedPaid) : null,
     }, cleanLines);
-  }, [company, form, invoice, selectedClient, selectedJob, subtotal, taxAmount, grandTotal, recordedPaid]);
+  }, [company, form, invoice, selectedClient, selectedJob, subtotal, taxAmount, grandTotal, recordedPaid, previewPriceBookCodes]);
 
   const handleImportFromJob = async () => {
     if (!form.job_id) { setErr('Select a job first'); return; }

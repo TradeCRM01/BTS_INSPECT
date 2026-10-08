@@ -117,6 +117,7 @@ export type InvoiceSendBundle = {
   sharedSmtp?: SmtpSettingsRow | null;
   company: InvoiceSendCompany;
   existingPdf?: InvoicePdfAttachment | null;
+  priceBookCodesByItemId?: Map<string, string>;
 };
 
 export type InvoicePdfAttachment = {
@@ -1370,7 +1371,7 @@ export function commercialPdfDataForInvoice(bundle: InvoiceSendBundle, now = new
     },
     inclusions: asStringList(invoice.inclusions),
     exclusions: asStringList(invoice.exclusions),
-    lines: linesFromQuoteItems(lines, 'invoice'),
+    lines: linesFromQuoteItems(lines, 'invoice', bundle.priceBookCodesByItemId),
     subtotal: Number(invoice.subtotal) || 0,
     taxRate: Number(invoice.tax_rate) || 0,
     taxAmount: Number(invoice.tax_amount) || 0,
