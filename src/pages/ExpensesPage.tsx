@@ -645,9 +645,171 @@ function inRange(isoDate: string, start: Date | null, end: Date | null): boolean
   return true;
 }
 
-function moneyTax(amount: number, taxRate: number) {
+export function moneyTax(amount: number, taxRate: number) {
   const tax = Number(((amount * taxRate) / 100).toFixed(2));
   return { tax_amount: tax, total: Number((amount + tax).toFixed(2)) };
+}
+
+/** Allow partial decimal entry; strip currency noise. Returns null when invalid. */
+export function sanitizeExpenseDecimalDraft(raw: string): string | null {
+  const s = raw.trim().replace(/^\$/, '').replace(/,/g, '');
+  if (s === '') return '';
+  if (!/^\d*(\.\d*)?$/.test(s)) return null;
+  return s;
+}
+
+export function formatExpenseDecimalBlur(raw: string): string {
+  if (raw === '') return '';
+  const n = parseFloat(raw);
+  if (!Number.isFinite(n)) return raw;
+  return n.toFixed(2);
+}
+
+export function incGstToExAmount(incGst: number, taxRate: number): number {
+  if (taxRate <= 0) return Number(incGst.toFixed(2));
+  return Number((incGst / (1 + taxRate / 100)).toFixed(2));
+}
+
+export function taxRateFromExAndGst(ex: number, gst: number): number {
+  if (ex <= 0) return 0;
+  return Number(((gst / ex) * 100).toFixed(2));
+}
+
+export function initialExpenseAmountFieldDrafts(opts: {
+  exAmount: string;
+  taxRate: string;
+  savedTotal?: number | null;
+}): { incDraft: string; gstDraft: string } {
+  const rate = parseFloat(opts.taxRate) || 0;
+  const ex = parseFloat(opts.exAmount) || 0;
+  if (opts.savedTotal != null && Number.isFinite(opts.savedTotal)) {
+    const gst = moneyTax(ex, rate).tax_amount;
+    return {
+      incDraft: Number(opts.savedTotal).toFixed(2),
+      gstDraft: formatExpenseDecimalBlur(String(gst)),
+    };
+  }
+  if (opts.exAmount === '' || ex === 0) return { incDraft: '', gstDraft: '' };
+  const { tax_amount, total } = moneyTax(ex, rate);
+  return {
+    incDraft: formatExpenseDecimalBlur(String(total)),
+    gstDraft: formatExpenseDecimalBlur(String(tax_amount)),
+  };
+}
+
+export type ExpenseAmountTypingState = {
+  incDraft: string;
+  gstDraft: string;
+  exAmount: string;
+  taxRate: string;
+};
+
+export function expenseAmountTypingFromEx(exAmount: string, taxRate: string, savedTotal?: number | null): ExpenseAmountTypingState {
+  const drafts = initialExpenseAmountFieldDrafts({ exAmount, taxRate, savedTotal });
+  return {
+    incDraft: drafts.incDraft,
+    gstDraft: drafts.gstDraft,
+    exAmount,
+    taxRate,
+  };
+}
+
+export function expenseIncGstInputStep(state: ExpenseAmountTypingState, raw: string): ExpenseAmountTypingState {
+  const sanitized = sanitizeExpenseDecimalDraft(raw);
+  if (sanitized === null) return state;
+  if (sanitized === '') {
+    return { ...state, incDraft: '', exAmount: '', gstDraft: '' };
+  }
+  const inc = parseFloat(sanitized);
+  if (!Number.isFinite(inc)) return { ...state, incDraft: sanitized };
+  const rate = parseFloat(state.taxRate) || 0;
+  const ex = incGstToExAmount(inc, rate);
+  const { tax_amount } = moneyTax(ex, rate);
+  return {
+    ...state,
+    incDraft: sanitized,
+    exAmount: String(ex),
+    gstDraft: String(tax_amount),
+  };
+}
+
+export function expenseIncGstBlurStep(state: ExpenseAmountTypingState): ExpenseAmountTypingState {
+  if (state.incDraft === '') return state;
+  const incDraft = formatExpenseDecimalBlur(state.incDraft);
+  const inc = parseFloat(incDraft);
+  const rate = parseFloat(state.taxRate) || 0;
+  const ex = incGstToExAmount(inc, rate);
+  const { tax_amount } = moneyTax(ex, rate);
+  return {
+    ...state,
+    incDraft,
+    exAmount: String(ex),
+    gstDraft: formatExpenseDecimalBlur(String(tax_amount)),
+  };
+}
+
+export function expenseGstInputStep(state: ExpenseAmountTypingState, raw: string): ExpenseAmountTypingState {
+  const sanitized = sanitizeExpenseDecimalDraft(raw);
+  if (sanitized === null) return state;
+  const ex = parseFloat(state.exAmount) || 0;
+  if (sanitized === '' || ex <= 0) {
+    return { ...state, gstDraft: sanitized };
+  }
+  const gst = parseFloat(sanitized);
+  if (!Number.isFinite(gst)) return { ...state, gstDraft: sanitized };
+  const taxRate = String(taxRateFromExAndGst(ex, gst));
+  return { ...state, gstDraft: sanitized, taxRate };
+}
+
+export function expenseGstBlurStep(state: ExpenseAmountTypingState): ExpenseAmountTypingState {
+  if (state.gstDraft === '') return state;
+  const gstDraft = formatExpenseDecimalBlur(state.gstDraft);
+  const ex = parseFloat(state.exAmount) || 0;
+  const gst = parseFloat(gstDraft);
+  if (ex <= 0 || !Number.isFinite(gst)) return { ...state, gstDraft };
+  return {
+    ...state,
+    gstDraft,
+    taxRate: String(taxRateFromExAndGst(ex, gst)),
+  };
+}
+
+export function expenseTaxRateStep(state: ExpenseAmountTypingState, taxRate: string): ExpenseAmountTypingState {
+  const rate = parseFloat(taxRate) || 0;
+  const inc = parseFloat(state.incDraft);
+  if (state.incDraft !== '' && Number.isFinite(inc)) {
+    const ex = incGstToExAmount(inc, rate);
+    const { tax_amount } = moneyTax(ex, rate);
+    return {
+      ...state,
+      taxRate,
+      exAmount: String(ex),
+      gstDraft: formatExpenseDecimalBlur(String(tax_amount)),
+    };
+  }
+  const ex = parseFloat(state.exAmount) || 0;
+  if (ex > 0) {
+    const { tax_amount, total } = moneyTax(ex, rate);
+    return {
+      ...state,
+      taxRate,
+      incDraft: formatExpenseDecimalBlur(String(total)),
+      gstDraft: formatExpenseDecimalBlur(String(tax_amount)),
+    };
+  }
+  return { ...state, taxRate };
+}
+
+/** Type a string keystroke-by-keystroke into the inc-GST field. */
+export function typeExpenseIncGstKeystrokes(
+  start: ExpenseAmountTypingState,
+  text: string,
+): ExpenseAmountTypingState {
+  let state = start;
+  for (let i = 1; i <= text.length; i += 1) {
+    state = expenseIncGstInputStep(state, text.slice(0, i));
+  }
+  return state;
 }
 
 export function ExpensesPage() {
@@ -1455,6 +1617,66 @@ function ExpenseEditorModal({
     };
   });
 
+  const [incGstDraft, setIncGstDraft] = useState(() => {
+    const seed = formLookSeed ?? {};
+    const exAmount = expense ? String(expense.amount) : (prefill?.amount ?? seed.amount ?? '');
+    const taxRate = expense ? String(expense.tax_rate) : (prefill?.tax_rate ?? seed.tax_rate ?? String(defaultTaxRate));
+    return initialExpenseAmountFieldDrafts({
+      exAmount,
+      taxRate,
+      savedTotal: expense?.total ?? null,
+    }).incDraft;
+  });
+  const [gstDraft, setGstDraft] = useState(() => {
+    const seed = formLookSeed ?? {};
+    const exAmount = expense ? String(expense.amount) : (prefill?.amount ?? seed.amount ?? '');
+    const taxRate = expense ? String(expense.tax_rate) : (prefill?.tax_rate ?? seed.tax_rate ?? String(defaultTaxRate));
+    return initialExpenseAmountFieldDrafts({
+      exAmount,
+      taxRate,
+      savedTotal: expense?.total ?? null,
+    }).gstDraft;
+  });
+
+  const amountTypingState = (): ExpenseAmountTypingState => ({
+    incDraft: incGstDraft,
+    gstDraft,
+    exAmount: form.amount,
+    taxRate: form.tax_rate,
+  });
+
+  const applyAmountTyping = (next: ExpenseAmountTypingState) => {
+    setIncGstDraft(next.incDraft);
+    setGstDraft(next.gstDraft);
+    setForm(f => ({ ...f, amount: next.exAmount, tax_rate: next.taxRate }));
+  };
+
+  const handleIncGstInput = (raw: string) => {
+    const next = expenseIncGstInputStep(amountTypingState(), raw);
+    setIncGstDraft(next.incDraft);
+    setGstDraft(next.gstDraft);
+    setForm(f => ({ ...f, amount: next.exAmount }));
+  };
+
+  const handleIncGstBlur = () => {
+    const next = expenseIncGstBlurStep(amountTypingState());
+    applyAmountTyping(next);
+  };
+
+  const handleGstInput = (raw: string) => {
+    const next = expenseGstInputStep(amountTypingState(), raw);
+    applyAmountTyping(next);
+  };
+
+  const handleGstBlur = () => {
+    const next = expenseGstBlurStep(amountTypingState());
+    applyAmountTyping(next);
+  };
+
+  const handleTaxRateChange = (raw: string) => {
+    applyAmountTyping(expenseTaxRateStep(amountTypingState(), raw));
+  };
+
   useEffect(() => {
     if (!profile?.company_id) return;
     (async () => {
@@ -1599,22 +1821,6 @@ function ExpenseEditorModal({
     onDeleted();
   };
 
-  const setReceiptTotal = (raw: string) => {
-    if (raw === '') { setForm(f => ({ ...f, amount: '' })); return; }
-    const newTotal = parseFloat(raw);
-    if (!Number.isFinite(newTotal)) return;
-    const rate = parseFloat(form.tax_rate) || 0;
-    const ex = rate > 0 ? Number((newTotal / (1 + rate / 100)).toFixed(2)) : newTotal;
-    setForm(f => ({ ...f, amount: String(ex) }));
-  };
-
-  const setReceiptGst = (raw: string) => {
-    const gst = parseFloat(raw);
-    const amt = parseFloat(form.amount) || 0;
-    if (!Number.isFinite(gst) || amt <= 0) return;
-    setForm(f => ({ ...f, tax_rate: Number(((gst / amt) * 100).toFixed(2)).toString() }));
-  };
-
   if (layout === 'sheet') {
     return (
       <div className="hub-expenses-review">
@@ -1633,18 +1839,22 @@ function ExpenseEditorModal({
           <span className="hub-expenses-row-label">Amount (inc GST)</span>
           <input
             className="hub-expenses-row-value"
+            type="text"
             inputMode="decimal"
-            value={form.amount === '' ? '' : total.toFixed(2)}
-            onChange={e => setReceiptTotal(e.target.value)}
+            value={incGstDraft}
+            onChange={e => handleIncGstInput(e.target.value)}
+            onBlur={handleIncGstBlur}
           />
         </div>
         <div className="hub-expenses-row">
           <span className="hub-expenses-row-label">GST</span>
           <input
             className="hub-expenses-row-value"
+            type="text"
             inputMode="decimal"
-            value={form.amount === '' ? '' : tax_amount.toFixed(2)}
-            onChange={e => setReceiptGst(e.target.value)}
+            value={gstDraft}
+            onChange={e => handleGstInput(e.target.value)}
+            onBlur={handleGstBlur}
           />
         </div>
         <div className="hub-expenses-row">
@@ -1811,11 +2021,11 @@ function ExpenseEditorModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <Field label="Amount (inc GST)">
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.amount === '' ? '' : total.toFixed(2)}
-                  onChange={e => setReceiptTotal(e.target.value)}
+                  type="text"
+                  inputMode="decimal"
+                  value={incGstDraft}
+                  onChange={e => handleIncGstInput(e.target.value)}
+                  onBlur={handleIncGstBlur}
                   className="form-input font-semibold text-[#0A2540]"
                   placeholder="0.00"
                 />
@@ -1829,7 +2039,7 @@ function ExpenseEditorModal({
               </Field>
               <Field label="Tax % (GST)">
                 <input type="number" min="0" step="0.01" value={form.tax_rate}
-                  onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))}
+                  onChange={e => handleTaxRateChange(e.target.value)}
                   className="form-input" />
               </Field>
               <Field label="GST amount">
