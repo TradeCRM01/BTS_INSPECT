@@ -106,6 +106,23 @@ function auditJobBillCostBase(): Omit<JobCost, 'id' | 'cost_type' | 'description
 export function getAuditJobBillCosts(): JobCost[] | null {
   const look = auditLookTag();
   if (!look || !isDevFieldAuditAuth()) return null;
+  if (look === 'fix2-quoted') {
+    const base = auditJobBillCostBase();
+    return [{
+      ...base,
+      id: 'audit-fix2-quoted-labour',
+      cost_type: 'labor',
+      description: 'Labour 3.5 h @ $95',
+      quantity: 3.5,
+      unit_cost: 45,
+      total_cost: 157.5,
+      markup_percent: 0,
+      unit_price: 95,
+      total_price: 332.5,
+      charge_type: 'Labour',
+      cost_model_id: null,
+    }];
+  }
   if (look === 'fix2-zero-header') {
     const base = auditJobBillCostBase();
     return [{

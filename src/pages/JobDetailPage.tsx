@@ -31,13 +31,14 @@ import {
   jobInvoicesAfterCreate,
   jobQuoteInvoiceButton,
 } from '../lib/invoiceFromQuote';
-import { AUDIT_DOC_JOB_ID, AUDIT_INVOICE_ID, crew2LookOn, getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import { AUDIT_DOC_JOB_ID, AUDIT_INVOICE_ID, crew2LookOn, getAuditClient, getAuditEmptyList, getAuditJob, getAuditJobBillCosts, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { createInvoiceFromJobBill, loadJobBillInvoicePreview } from '../lib/createInvoiceFromJobBill';
 import { invalidateJobBillHoursQueries } from '../lib/hoursToJobBill';
 import { countZeroLabourBeforeJobBillInvoice } from '../lib/requestJobBillInvoice';
 import {
   jobBillInvoicePreviewFromLines,
   jobBillLoggedHoursNotBilledNote,
+  jobBillQuotedInvoiceSheetMoneyLine,
   planJobBillInvoiceLinesFromCosts,
   totalLoggedBillableHoursOnJob,
 } from '../lib/jobBillInvoicePlan';
@@ -1571,6 +1572,10 @@ export function JobDetailPage() {
               title: 'Board leak p2b-ch9t — delete ok',
             } : {}),
             ...(p305 || p307 || fix2 ? { status: 'completed' as const } : {}),
+            ...(fix2 ? {
+              title: 'Hot water replacement',
+              description: 'Replace the failed hot water unit and test the system.',
+            } : {}),
             ...(p307 === 'agree' || p307 === 'reuse' ? { assigned_team: [] } : {}),
           } as Job;
         }
@@ -2452,23 +2457,54 @@ export function JobDetailPage() {
     },
     enabled: !!id && !!profile?.company_id && !!job && !quotedLookOn,
   });
+  const quotedLookLabourSell = useMemo(() => ({
+    unitPrice: 95,
+    priceBookItemId: 'look-pb',
+    needsRate: false,
+    needsPicker: false,
+    pickerItems: [],
+  }), []);
+  const quotedLookBillCosts = useMemo((): import('../lib/invoiceFromJobBill').JobBillCostLine[] => {
+    if (fix2LookKind() !== 'quoted') return [];
+    return (getAuditJobBillCosts() ?? []) as import('../lib/invoiceFromJobBill').JobBillCostLine[];
+  }, []);
   const quotedLookPreview = useMemo(() => {
     if (!quotedLookOn || !acceptedQuoteEarly?.line_items) return null;
     const lines = planJobBillInvoiceLinesFromCosts({
       quoteLineItems: acceptedQuoteEarly.line_items,
-      costs: [],
+      costs: quotedLookBillCosts,
       includeLoggedHoursExtra: addLoggedHoursExtra,
-      labourSell: {
-        unitPrice: 95,
-        priceBookItemId: 'look-pb',
-        needsRate: false,
-        needsPicker: false,
-        pickerItems: [],
-      },
+      labourSell: quotedLookLabourSell,
     });
     return jobBillInvoicePreviewFromLines(lines);
-  }, [quotedLookOn, acceptedQuoteEarly?.line_items, addLoggedHoursExtra]);
+  }, [quotedLookOn, acceptedQuoteEarly?.line_items, addLoggedHoursExtra, quotedLookBillCosts, quotedLookLabourSell]);
   const invoicePreviewForNext = quotedLookPreview ?? jobBillInvoicePreview;
+  const quotedInvoiceSheetMoneyLine = useMemo(() => {
+    if (!hasAcceptedQuoteLines || !acceptedQuoteEarly?.line_items) return '';
+    if (quotedLookOn) {
+      return jobBillQuotedInvoiceSheetMoneyLine({
+        quoteLineItems: acceptedQuoteEarly.line_items,
+        costs: quotedLookBillCosts,
+        includeLoggedHoursExtra: addLoggedHoursExtra,
+        labourSell: quotedLookLabourSell,
+      });
+    }
+    if (addLoggedHoursExtra && invoicePreviewForNext?.detail) return invoicePreviewForNext.detail;
+    return jobBillQuotedInvoiceSheetMoneyLine({
+      quoteLineItems: acceptedQuoteEarly.line_items,
+      costs: [],
+      includeLoggedHoursExtra: false,
+      labourSell: quotedLookLabourSell,
+    });
+  }, [
+    hasAcceptedQuoteLines,
+    acceptedQuoteEarly?.line_items,
+    quotedLookOn,
+    quotedLookBillCosts,
+    addLoggedHoursExtra,
+    quotedLookLabourSell,
+    invoicePreviewForNext?.detail,
+  ]);
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !job) return <AppShell><PageError message="Could not load this job" /></AppShell>;
@@ -4068,6 +4104,7 @@ export function JobDetailPage() {
       <JobBillQuotedInvoiceSheet
         open={quotedInvoiceSheetOpen}
         loggedHoursNote={loggedHoursNotBilledNote}
+        moneyLine={quotedInvoiceSheetMoneyLine}
         addLoggedHoursExtra={addLoggedHoursExtra}
         onAddLoggedHoursExtraChange={setAddLoggedHoursExtra}
         onClose={() => setQuotedInvoiceSheetOpen(false)}

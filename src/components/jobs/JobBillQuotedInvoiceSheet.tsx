@@ -5,6 +5,7 @@ import { JOB_BILL_ADD_LOGGED_HOURS_EXTRA_LABEL } from '../../lib/jobBillInvoiceP
 export function JobBillQuotedInvoiceSheet({
   open,
   loggedHoursNote,
+  moneyLine,
   addLoggedHoursExtra,
   onAddLoggedHoursExtraChange,
   onClose,
@@ -13,6 +14,7 @@ export function JobBillQuotedInvoiceSheet({
 }: {
   open: boolean;
   loggedHoursNote: string | null;
+  moneyLine: string;
   addLoggedHoursExtra: boolean;
   onAddLoggedHoursExtraChange: (checked: boolean) => void;
   onClose: () => void;
@@ -26,7 +28,7 @@ export function JobBillQuotedInvoiceSheet({
       open={open}
       onClose={onClose}
       className="hub-labour-rate-backdrop"
-      panelClassName="overlay-panel-sm hub-labour-rate-sheet hub-job-bill-quoted-invoice-sheet"
+      panelClassName="overlay-panel-sm hub-labour-rate-sheet hub-job-bill-zero-labour-sheet"
       backdropClose
       swipeDownClose
     >
@@ -36,11 +38,16 @@ export function JobBillQuotedInvoiceSheet({
           <X size={20} />
         </button>
       </div>
-      <div className="hub-job-bill-quoted-invoice-body">
-        {loggedHoursNote ? (
-          <p className="hub-job-bill-quoted-invoice-note" role="status">{loggedHoursNote}</p>
-        ) : null}
-        <label className="hub-job-bill-quoted-invoice-opt">
+      <div className="hub-job-bill-zero-labour-body">
+        <div className="hub-job-bill-zero-labour-nudge">
+          {loggedHoursNote ? (
+            <p className="hub-job-bill-zero-labour-message" role="status">{loggedHoursNote}</p>
+          ) : null}
+          {moneyLine ? (
+            <p className="hub-labour-rate-sheet-rate" data-job-bill-quoted-invoice-money>{moneyLine}</p>
+          ) : null}
+        </div>
+        <label className="hub-ops-form-check">
           <input
             type="checkbox"
             checked={addLoggedHoursExtra}
@@ -48,14 +55,16 @@ export function JobBillQuotedInvoiceSheet({
           />
           <span>{JOB_BILL_ADD_LOGGED_HOURS_EXTRA_LABEL}</span>
         </label>
-        <button
-          type="button"
-          className="hub-job-bill-zero-labour-primary hub-job-bill-quoted-invoice-create"
-          disabled={pending}
-          onClick={onCreate}
-        >
-          {pending ? 'Creating…' : 'Create draft invoice'}
-        </button>
+        <div className="hub-job-bill-zero-labour-actions">
+          <button
+            type="button"
+            className="hub-job-bill-zero-labour-primary"
+            disabled={pending}
+            onClick={onCreate}
+          >
+            {pending ? 'Creating…' : 'Create draft invoice'}
+          </button>
+        </div>
       </div>
     </AppDialog>
   );

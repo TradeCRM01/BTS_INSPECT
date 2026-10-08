@@ -3,10 +3,11 @@ import {
   JOB_BILL_ADD_LOGGED_HOURS_EXTRA_LABEL,
   jobBillInvoicePreviewFromLines,
   jobBillLoggedHoursNotBilledNote,
+  jobBillQuotedInvoiceSheetMoneyLine,
   planJobBillInvoiceLinesFromCosts,
   zeroLabourLineCountForInvoicePlan,
 } from './jobBillInvoicePlan';
-import { jobBillInvoiceNextDetail } from './invoiceFromJobBill';
+import { buildInvoiceFromJobBill, jobBillInvoiceNextDetail } from './invoiceFromJobBill';
 import type { LabourSellResolution } from './hoursToJobBill';
 
 const labourSell: LabourSellResolution = {
@@ -48,6 +49,27 @@ describe('quoted job invoice lines', () => {
     expect(jobBillLoggedHoursNotBilledNote(0)).toBeNull();
     expect(jobBillLoggedHoursNotBilledNote(3.5))
       .toBe('3.5 h logged on this job, not billed (quote covers labour)');
+  });
+
+  it('sheet money line with opt-in matches invoice subtotal and preview detail', () => {
+    const planInput = {
+      quoteLineItems: quoteLines,
+      costs: [labourCost],
+      includeLoggedHoursExtra: true,
+      labourSell,
+    };
+    const lines = planJobBillInvoiceLinesFromCosts(planInput);
+    const preview = jobBillInvoicePreviewFromLines(lines);
+    const moneyLine = jobBillQuotedInvoiceSheetMoneyLine(planInput);
+    expect(moneyLine).toBe(preview.detail);
+    const inv = buildInvoiceFromJobBill({
+      clientId: 'client-1',
+      jobId: 'job-1',
+      taxRate: 10,
+      lines,
+    });
+    expect(inv.subtotal).toBe(preview.subtotal);
+    expect(inv.subtotal).toBe(880 + 3.5 * 95);
   });
 
   it('opt-in adds labour lines on top of quote lines', () => {

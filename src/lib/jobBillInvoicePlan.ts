@@ -1,4 +1,5 @@
 import type { InvoiceLineItem, QuoteLineItem } from '../types/fsm';
+import { formatMoney } from '../types/fsm';
 import type { TimesheetEntryForBill } from './hoursToJobBill';
 import {
   closedBillableEntries,
@@ -82,6 +83,23 @@ export function jobBillInvoicePreviewFromLines(lines: InvoiceLineItem[]): {
     subtotal,
     detail: jobBillInvoiceNextDetail(lineCount, subtotal),
   };
+}
+
+/** Quoted-job invoice sheet — quote-only wording, or full plan detail when extra hours are on. */
+export function jobBillQuotedInvoiceSheetMoneyLine(input: {
+  quoteLineItems: QuoteLineItem[] | null | undefined;
+  costs: JobBillCostLine[];
+  includeLoggedHoursExtra: boolean;
+  labourSell: LabourSellResolution;
+}): string {
+  const quoteLines = invoiceLinesFromQuote(input.quoteLineItems);
+  const quoteCount = quoteLines.length;
+  const quoteSubtotal = jobBillInvoiceLineSubtotal(quoteLines);
+  if (!input.includeLoggedHoursExtra) {
+    return `${quoteCount} quote ${quoteCount === 1 ? 'line' : 'lines'} · ${formatMoney(quoteSubtotal)}`;
+  }
+  const lines = planJobBillInvoiceLinesFromCosts(input);
+  return jobBillInvoicePreviewFromLines(lines).detail;
 }
 
 export function quotedJobBillInvoiceHasLines(

@@ -25,6 +25,7 @@ import { createInvoiceFromJobBill, loadJobBillInvoicePreview } from '../../lib/c
 import { countZeroLabourBeforeJobBillInvoice } from '../../lib/requestJobBillInvoice';
 import {
   jobBillLoggedHoursNotBilledNote,
+  jobBillQuotedInvoiceSheetMoneyLine,
   totalLoggedBillableHoursOnJob,
 } from '../../lib/jobBillInvoicePlan';
 import { JobBillQuotedInvoiceSheet } from './JobBillQuotedInvoiceSheet';
@@ -41,7 +42,7 @@ import {
 } from '../../lib/hoursToJobBill';
 import { LabourRatePickerSheet } from './LabourRatePickerSheet';
 import { JobBillZeroLabourConfirmSheet } from './JobBillZeroLabourConfirmSheet';
-import { JOB_BILL_INVOICE_NO_CLIENT } from '../../lib/invoiceFromJobBill';
+import { JOB_BILL_INVOICE_NO_CLIENT, type JobBillCostLine } from '../../lib/invoiceFromJobBill';
 import { jobInvoicesAfterCreate, type JobInvoiceListRow } from '../../lib/invoiceFromQuote';
 import {
   Plus, Package, Trash2, DollarSign, Layers, HardHat, Wrench,
@@ -155,7 +156,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const [quotedInvoiceSheetOpen, setQuotedInvoiceSheetOpen] = useState(false);
   const [pendingInvoiceExtra, setPendingInvoiceExtra] = useState(false);
 
-  useQuery({
+  const { data: jobBillInvoicePreview } = useQuery({
     queryKey: ['job-bill-invoice-preview', jobId, addLoggedHoursExtra, hasAcceptedQuoteLines],
     queryFn: async () => {
       if (!profile?.company_id) throw new Error('No company');
@@ -167,6 +168,36 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     },
     enabled: !!profile?.company_id,
   });
+
+  const billCostsForPlan = useMemo((): JobBillCostLine[] => costs.map(c => ({
+    description: c.description,
+    quantity: c.quantity,
+    unit_price: c.unit_price,
+    unit_cost: c.unit_cost,
+    markup_percent: c.markup_percent,
+    charge_type: c.charge_type,
+    stock_item_id: c.stock_item_id,
+    cost_model_id: c.cost_model_id,
+    cost_type: c.cost_type,
+    timesheet_entry_id: (c as { timesheet_entry_id?: string | null }).timesheet_entry_id ?? null,
+  })), [costs]);
+
+  const quotedInvoiceMoneyLine = useMemo(() => {
+    if (!acceptedQuote?.line_items?.length) return '';
+    if (addLoggedHoursExtra && jobBillInvoicePreview?.detail) return jobBillInvoicePreview.detail;
+    return jobBillQuotedInvoiceSheetMoneyLine({
+      quoteLineItems: acceptedQuote.line_items,
+      costs: billCostsForPlan,
+      includeLoggedHoursExtra: false,
+      labourSell: {
+        unitPrice: 0,
+        priceBookItemId: null,
+        needsRate: false,
+        needsPicker: false,
+        pickerItems: [],
+      },
+    });
+  }, [acceptedQuote?.line_items, addLoggedHoursExtra, jobBillInvoicePreview, billCostsForPlan]);
 
   const costTotal = useMemo(
     () => costs.reduce((s, c) => s + Number(c.total_cost), 0),
@@ -584,6 +615,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       <JobBillQuotedInvoiceSheet
         open={quotedInvoiceSheetOpen}
         loggedHoursNote={loggedHoursNotBilledNote}
+        moneyLine={quotedInvoiceMoneyLine}
         addLoggedHoursExtra={addLoggedHoursExtra}
         onAddLoggedHoursExtraChange={setAddLoggedHoursExtra}
         onClose={() => setQuotedInvoiceSheetOpen(false)}

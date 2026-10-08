@@ -13,18 +13,22 @@ const browser = await chromium.launch({
   ...(process.env.LOOK_BROWSER_CHANNEL ? { channel: process.env.LOOK_BROWSER_CHANNEL } : {}),
 });
 
-async function shot(contextOptions, filename, href, wait) {
+async function shot(viewportWidth, filename, href, wait) {
+  const mobile = viewportWidth === 390;
   const context = await browser.newContext({
+    viewport: { width: viewportWidth, height: mobile ? 844 : 900 },
     deviceScaleFactor: 1,
     locale: 'en-AU',
-    ...contextOptions,
+    isMobile: mobile,
+    hasTouch: mobile,
   });
   const page = await context.newPage();
   await page.goto(`${BASE}${href}`, { waitUntil: 'domcontentloaded' });
+  await page.setViewportSize({ width: viewportWidth, height: mobile ? 844 : 900 });
   await wait(page);
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${OUT}/${filename}`, type: 'png' });
+  await page.screenshot({ path: `${OUT}/${filename}`, type: 'png', fullPage: false });
   await context.close();
 }
 
@@ -39,7 +43,7 @@ async function waitInvoiceNext(page, detailPart) {
 async function openQuotedSheet(page) {
   await waitInvoiceNext(page, '$880.00');
   await page.locator('.hub-jobs-tools .btn-primary').click();
-  await page.waitForSelector('.hub-job-bill-quoted-invoice-note', { timeout: 15000 });
+  await page.waitForSelector('[data-job-bill-quoted-invoice-money]', { timeout: 15000 });
 }
 
 async function openZeroSheet(page) {
@@ -52,9 +56,8 @@ const quotedHref = '/jobs/audit-doc-job?auditAuth=1&look=fix2-quoted&tab=paperwo
 const zeroHref = '/jobs/audit-doc-job?auditAuth=1&look=fix2-zero-header&tab=paperwork';
 
 for (const width of [390, 1280]) {
-  const mobile = width === 390;
   await shot(
-    { viewport: { width, height: mobile ? 844 : 900 }, isMobile: mobile, hasTouch: mobile },
+    width,
     `fix2-quoted-note-${width}.png`,
     quotedHref,
     async (page) => {
@@ -62,22 +65,26 @@ for (const width of [390, 1280]) {
     },
   );
   await shot(
-    { viewport: { width, height: mobile ? 844 : 900 }, isMobile: mobile, hasTouch: mobile },
+    width,
     `fix2-opt-in-${width}.png`,
     quotedHref,
     async (page) => {
       await openQuotedSheet(page);
-      await page.locator('.hub-job-bill-quoted-invoice-opt input').check();
+      await page.locator('.hub-ops-form-check input').check();
+      await page.waitForFunction(() => {
+        const el = document.querySelector('[data-job-bill-quoted-invoice-money]');
+        return el?.textContent?.includes('$1,212.50');
+      });
     },
   );
   await shot(
-    { viewport: { width, height: mobile ? 844 : 900 }, isMobile: mobile, hasTouch: mobile },
+    width,
     `fix2-zero-sheet-${width}.png`,
     zeroHref,
     openZeroSheet,
   );
   await shot(
-    { viewport: { width, height: mobile ? 844 : 900 }, isMobile: mobile, hasTouch: mobile },
+    width,
     `fix2-subtitle-${width}.png`,
     quotedHref,
     (page) => waitInvoiceNext(page, '$880.00'),
