@@ -10,7 +10,6 @@ import {
   jobQuoteInvoiceButton,
   quoteListInvoiceId,
 } from './invoiceFromQuote';
-import { jobBillInvoiceNextDetail } from './invoiceFromJobBill';
 import { jobOpenNext, recommendJobAction } from './jobNextAction';
 
 function src(rel: string): string {
@@ -38,14 +37,15 @@ describe('P-307 (i) — completed job list and sheet agree', () => {
       hasBillLines: true,
       billLineCount: 2,
       billTotal: 545,
+      billInvoiceMoneyLine: 'From job · 2 lines · $599.50 inc GST',
+      billInvoicePreviewState: 'ready',
       clockedOn: false,
     });
     expect(action).toMatchObject({
       key: 'invoice',
       label: 'Invoice',
-      detail: jobBillInvoiceNextDetail(2, 545),
+      detail: 'From job · 2 lines · $599.50 inc GST',
     });
-    expect(action.detail).toBe('Draft invoice from the job bill · 2 lines · $545.00');
     expect(action.label).not.toBe('Assign crew');
 
     const list = jobOpenNext({ ...completedNoCrew, invoiceCount: 0 }, undefined, now);
@@ -57,6 +57,8 @@ describe('P-307 (i) — completed job list and sheet agree', () => {
       hasBillLines: true,
       billLineCount: 2,
       billTotal: 545,
+      billInvoiceMoneyLine: 'From job · 2 lines · $599.50 inc GST',
+      billInvoicePreviewState: 'ready',
       clockedOn: false,
     }, now);
     expect(list.label).toBe('Invoice');

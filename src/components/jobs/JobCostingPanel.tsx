@@ -31,6 +31,7 @@ import {
 import { JobBillQuotedInvoiceSheet } from './JobBillQuotedInvoiceSheet';
 import { readPickedLabourPriceBookId, writePickedLabourPriceBookId } from '../../lib/labourPriceBookPick';
 import {
+  invalidateJobBillAfterHoursChange,
   invalidateJobBillHoursQueries,
   jobBillHoursQueryKeys,
   lineNeedsLabourRate,
@@ -43,6 +44,7 @@ import {
 import { LabourRatePickerSheet } from './LabourRatePickerSheet';
 import { JobBillZeroLabourConfirmSheet } from './JobBillZeroLabourConfirmSheet';
 import { JOB_BILL_INVOICE_NO_CLIENT } from '../../lib/invoiceFromJobBill';
+import { invalidateJobBillInvoicePreview } from '../../lib/jobBillInvoicePreviewQuery';
 import { jobInvoicesAfterCreate, type JobInvoiceListRow } from '../../lib/invoiceFromQuote';
 import {
   Plus, Package, Trash2, DollarSign, Layers, HardHat, Wrench,
@@ -233,7 +235,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       }
       setLabourPickerItems(null);
       await queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
-      invalidateJobBillHoursQueries(queryClient, jobId);
+      invalidateJobBillAfterHoursChange(queryClient, jobId);
       await queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
     } finally {
       setPullingHours(false);
@@ -324,6 +326,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
       queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+      invalidateJobBillInvoicePreview(queryClient, jobId);
       resetForm();
     },
     onError: (e: Error) => setFormErr(e.message),
@@ -351,6 +354,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
       queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+      invalidateJobBillInvoicePreview(queryClient, jobId);
       resetForm();
     },
     onError: (e: Error) => setFormErr(e.message),
@@ -404,6 +408,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
       queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+      invalidateJobBillInvoicePreview(queryClient, jobId);
     },
   });
 
@@ -428,6 +433,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       invalidateJobBillHoursQueries(queryClient, jobId);
       void queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
       void queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+      invalidateJobBillInvoicePreview(queryClient, jobId);
       onInvoiceCreated?.(result);
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
       void queryClient.invalidateQueries({ queryKey: ['job-invoices', jobId] });
@@ -512,6 +518,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
       queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+      invalidateJobBillInvoicePreview(queryClient, jobId);
       queryClient.invalidateQueries({ queryKey: ['stock-items'] });
       setSelectedItem(null); setAllocQty('1'); setAllocErr(''); setShowPicker(false);
     },

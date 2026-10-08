@@ -14,7 +14,6 @@ import {
   invoiceLinesFromJobCosts,
   jobBillDueDate,
   jobBillInvoiceBlocked,
-  jobBillInvoiceNextDetail,
   reuseAfterUniqueConflict,
 } from './invoiceFromJobBill';
 import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
@@ -316,10 +315,10 @@ describe('named toasts', () => {
     expect(JOB_BILL_INVOICE_EMPTY).toBe('Job bill is empty — add lines before invoicing');
     expect(jobBillInvoiceBlocked(undefined)).toBe(false);
     expect(jobBillInvoiceBlocked(null)).toBe(false);
-    expect(jobBillInvoiceBlocked({ lines: 0 })).toBe(true);
+    expect(jobBillInvoiceBlocked({ lines: 0 }, null, 'ready')).toBe(true);
     expect(jobBillInvoiceBlocked({ lines: 2 })).toBe(false);
-    expect(jobBillInvoiceNextDetail(2, 545)).toBe('Draft invoice from the job bill · 2 lines · $545.00');
-    expect(jobBillInvoiceNextDetail(1, 120)).toBe('Draft invoice from the job bill · 1 line · $120.00');
+    expect(jobBillInvoiceBlocked({ lines: 0 }, null, 'loading')).toBe(false);
+    expect(jobBillInvoiceBlocked({ lines: 0 }, { lineCount: 0 }, 'ready')).toBe(true);
     expect(JOB_BILL_INVOICE_CREATED).toMatch(/draft invoice/i);
     expect(JOB_BILL_INVOICE_EXISTS).toMatch(/already exists/i);
     expect(JOB_BILL_INVOICE_NOTES).toMatch(/^From job bill/i);

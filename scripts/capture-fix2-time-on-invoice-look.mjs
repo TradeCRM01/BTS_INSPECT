@@ -26,13 +26,14 @@ async function compositePair(browser, leftPng, rightPng, outPath, paneWidth, pan
   const page = await browser.newPage();
   const totalWidth = paneWidth * 2;
   const rightFit = paneWidth >= 1280 ? 'contain' : 'cover';
+  const leftMax = paneWidth >= 1280 ? Math.min(paneWidth - 48, 1180) : Math.min(paneWidth - 32, 520);
   await page.setViewportSize({ width: totalWidth, height: paneHeight });
   await page.setContent(`<!DOCTYPE html><html><head><style>
 html,body{margin:0;padding:0;width:${totalWidth}px;height:${paneHeight}px;overflow:hidden;background:#F5F0E6;}
 .wrap{display:flex;width:${totalWidth}px;height:${paneHeight}px;}
 .pane{width:${paneWidth}px;height:${paneHeight}px;box-sizing:border-box;background:#F5F0E6;}
-.pane-left{display:flex;justify-content:center;align-items:flex-start;padding:20px 24px;overflow:hidden;}
-.pane-left img{max-width:min(100%,520px);max-height:calc(100% - 8px);width:auto;height:auto;object-fit:contain;object-position:top center;box-shadow:0 2px 12px rgba(10,37,64,.08);}
+.pane-left{display:flex;justify-content:${paneWidth >= 1280 ? 'flex-start' : 'center'};align-items:flex-start;padding:20px 24px;overflow:hidden;}
+.pane-left img{max-width:min(100%,${leftMax}px);max-height:calc(100% - 8px);width:auto;height:auto;object-fit:contain;object-position:top ${paneWidth >= 1280 ? 'left' : 'center'};box-shadow:0 2px 12px rgba(10,37,64,.08);}
 .pane-right{display:flex;justify-content:center;align-items:flex-start;padding:12px 16px 16px;box-sizing:border-box;overflow:hidden;}
 .pane-right img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:${rightFit};object-position:top center;}
 </style></head><body><div class="wrap">
@@ -43,10 +44,10 @@ html,body{margin:0;padding:0;width:${totalWidth}px;height:${paneHeight}px;overfl
   await page.close();
 }
 
-/** Scroll invoice dialog so Total (inc GST) is fully in view; keep TO when it still fits. */
-async function scrollInvoiceEditorForCapture(editor) {
+/** Scroll invoice dialog so Total (inc GST) is fully in view; on 390 also try to show Invoice # heading. */
+async function scrollInvoiceEditorForCapture(editor, width) {
   await editor.locator('.hub-invoice-totalbar').waitFor({ state: 'visible' });
-  await editor.evaluate((root) => {
+  await editor.evaluate((root, w) => {
     const scroll =
       root.querySelector('.hub-editor-dialog-scroll') ??
       root.querySelector('.hub-invoice-editor-body') ??
@@ -63,8 +64,9 @@ async function scrollInvoiceEditorForCapture(editor) {
       scroll.scrollTop + (totalRect.bottom - scrollRect.bottom) + pad;
 
     const toName = root.querySelector('.hub-invoice-to-name');
+    const title = root.querySelector('.hub-invoice-editor-title');
     const fromBlock = root.querySelector('.hub-invoice-from');
-    const topEl = toName ?? fromBlock;
+    const topEl = w === 390 && title ? title : (toName ?? fromBlock);
     if (topEl && viewH > 0) {
       const topRect = topEl.getBoundingClientRect();
       const blockH = totalRect.bottom - topRect.top + pad * 2;
@@ -75,7 +77,7 @@ async function scrollInvoiceEditorForCapture(editor) {
 
     const maxScroll = Math.max(0, scroll.scrollHeight - scroll.clientHeight);
     scroll.scrollTop = Math.min(maxScroll, Math.max(0, target));
-  });
+  }, width);
   await editor.locator('[data-invoice-total-inc-gst]').scrollIntoViewIfNeeded();
 }
 
@@ -164,7 +166,7 @@ async function captureState({ state, width, optIn, zeroConfirm }) {
   const createdTotalText = await page.locator('[data-invoice-total-inc-gst]').innerText();
   const invoicePath = `${OUT}/.tmp-${state}-invoice-${width}.png`;
   const editor = page.locator('.hub-invoice-editor');
-  await scrollInvoiceEditorForCapture(editor);
+  await scrollInvoiceEditorForCapture(editor, width);
   await page.waitForTimeout(250);
   await editor.screenshot({ path: invoicePath });
 
@@ -200,6 +202,68 @@ async function captureState({ state, width, optIn, zeroConfirm }) {
   };
 }
 
+async function captureClockoffInvoice390() {
+  const width = 390;
+  const paneHeight = 844;
+  const state = 'fix2-clockoff-invoice';
+  const context = await browser.newContext({
+    viewport: { width, height: paneHeight },
+    deviceScaleFactor: 1,
+    locale: 'en-AU',
+    isMobile: true,
+    hasTouch: true,
+  });
+  const page = await context.newPage();
+  const href = `/jobs/audit-doc-job?auditAuth=1&look=${state}&tab=paperwork`;
+  await page.goto(`${BASE}${href}`, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => {
+    sessionStorage.removeItem('audit-fix2-invoice-row');
+    sessionStorage.removeItem('fix2-clockoff-closed');
+  });
+  await page.setViewportSize({ width, height: paneHeight });
+  await page.locator('.hub-job-more summary').click();
+  await page.locator('.hub-job-more-menu button', { hasText: 'Clock off' }).click();
+  await page.waitForFunction(() => sessionStorage.getItem('fix2-clockoff-closed') === '1', { timeout: 10000 });
+  await page.waitForFunction(() => {
+    const el = document.querySelector('[data-job-next-detail]');
+    const text = el?.textContent ?? '';
+    return text.includes('inc GST') && /\$[\d,]+\.\d{2}/.test(text);
+  }, { timeout: 30000 });
+  const previewString = await page.locator('[data-job-next-detail]').innerText();
+  const previewPath = `${OUT}/.tmp-${state}-preview-${width}.png`;
+  await page.locator('[data-job-invoice-preview]').screenshot({ path: previewPath });
+  await page.locator('.hub-jobs-tools .btn-primary').click();
+  await page.waitForFunction(() => sessionStorage.getItem('audit-fix2-invoice-row'), { timeout: 15000 });
+  const stored = await page.evaluate(() => sessionStorage.getItem('audit-fix2-invoice-row'));
+  const row = JSON.parse(stored);
+  const expectedTotal = Number(row.total);
+  const invoiceNumber = row.invoice_number;
+  await page.goto(`${BASE}/invoices?id=audit-fix2-invoice`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.hub-invoice-editor', { timeout: 20000 });
+  await page.waitForSelector('[data-invoice-total-inc-gst]', { timeout: 15000 });
+  const createdTotalText = await page.locator('[data-invoice-total-inc-gst]').innerText();
+  const invoicePath = `${OUT}/.tmp-${state}-invoice-${width}.png`;
+  const editor = page.locator('.hub-invoice-editor');
+  await scrollInvoiceEditorForCapture(editor, width);
+  await editor.screenshot({ path: invoicePath });
+  const finalPath = `${OUT}/${state}-${width}.png`;
+  await compositePair(browser, previewPath, invoicePath, finalPath, width, paneHeight);
+  const previewTotal = parseIncGstTotal(previewString);
+  const createdTotal = parseIncGstTotal(`${createdTotalText} inc GST`) ?? Number(createdTotalText.replace(/[^0-9.-]/g, ''));
+  if (previewTotal != null && Math.abs(previewTotal - createdTotal) > 0.01) {
+    throw new Error(`[${state}] preview ${previewTotal} != created ${createdTotal}`);
+  }
+  await context.close();
+  return {
+    state,
+    width,
+    finalPath,
+    previewString: previewString.trim(),
+    invoiceNumber,
+    createdTotalIncGst: createdTotal,
+  };
+}
+
 const states = [
   { state: 'fix2-quoted', optIn: false, zeroConfirm: false },
   { state: 'fix2-quoted-optin', optIn: true, zeroConfirm: false },
@@ -213,6 +277,7 @@ for (const width of [390, 1280]) {
     report.push(await captureState({ ...cfg, width }));
   }
 }
+report.push(await captureClockoffInvoice390());
 
 writeFileSync(`${OUT}/fix2-look-report.json`, JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));

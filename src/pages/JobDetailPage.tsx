@@ -45,9 +45,12 @@ import {
   getAuditJobBillCosts,
   getAuditTeamMembers,
 } from '../lib/devFieldAuditDocs';
+import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { isJobBillQuoted, pickMostRecentlyAcceptedQuote } from '../lib/acceptedQuotePick';
 import { createInvoiceFromJobBill, loadJobBillInvoicePreview } from '../lib/createInvoiceFromJobBill';
-import { invalidateJobBillHoursQueries } from '../lib/hoursToJobBill';
+import { invalidateJobBillAfterHoursChange, invalidateJobBillHoursQueries } from '../lib/hoursToJobBill';
+import { invalidateJobBillInvoicePreview } from '../lib/jobBillInvoicePreviewQuery';
+import type { JobBillInvoicePreviewState } from '../lib/invoiceFromJobBill';
 import { countZeroLabourBeforeJobBillInvoice } from '../lib/requestJobBillInvoice';
 import {
   jobBillInvoicePreviewFromLines,
@@ -306,6 +309,7 @@ const FIX2_QUOTED_OPTIN_LOOK = 'fix2-quoted-optin';
 const FIX2_UNQUOTED_RATE_LOOK = 'fix2-unquoted-rate';
 const FIX2_UNQUOTED_ZERO_LOOK = 'fix2-unquoted-zero';
 const FIX2_ZERO_HEADER_LOOK = 'fix2-zero-header';
+const FIX2_CLOCKOFF_INVOICE_LOOK = 'fix2-clockoff-invoice';
 const LOOK_PHOTO_DIR = '/look/photos';
 
 function lookSearchParam(): string | null {
@@ -352,6 +356,10 @@ function fix2LookKind(): 'quoted' | 'unquoted-rate' | 'unquoted-zero' | 'zero-he
   if (look === FIX2_UNQUOTED_RATE_LOOK) return 'unquoted-rate';
   if (look === FIX2_UNQUOTED_ZERO_LOOK || look === FIX2_ZERO_HEADER_LOOK) return 'unquoted-zero';
   return null;
+}
+
+function fix2ClockoffInvoiceLook(): boolean {
+  return lookSearchParam() === FIX2_CLOCKOFF_INVOICE_LOOK;
 }
 
 function p307LookKind(): 'agree' | 'reuse' | 'quoted' | null {
@@ -1578,7 +1586,8 @@ export function JobDetailPage() {
         const p305 = p305LookKind();
         const p307 = p307LookKind();
         const fix2 = fix2LookKind();
-        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn() || p305 || p307 || fix2 || crew2LookOn()) {
+        const fix2On = fix2LookActive();
+        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn() || p305 || p307 || fix2On || crew2LookOn()) {
           return {
             ...mock,
             scheduled_date: crew2LookOn() ? '2026-10-08' : lookVanTodayYmd(),
@@ -1590,8 +1599,8 @@ export function JobDetailPage() {
               job_number: 18,
               title: 'Board leak p2b-ch9t — delete ok',
             } : {}),
-            ...(p305 || p307 || fix2 ? { status: 'completed' as const } : {}),
-            ...(fix2 ? {
+            ...(p305 || p307 || fix2On ? { status: 'completed' as const } : {}),
+            ...(fix2On ? {
               title: 'Hot water replacement',
               description: 'Replace the failed hot water unit and test the system.',
               client_id: AUDIT_FIX2_CLIENT_ID,
@@ -1905,6 +1914,18 @@ export function JobDetailPage() {
       if (fix2LookActive()) {
         const hours = 3.5;
         const start = new Date('2026-10-06T08:00:00.000Z');
+        if (fix2ClockoffInvoiceLook()) {
+          return [{
+            id: 'fix2-ts-running',
+            timesheet_id: 'fix2-ts-sheet',
+            job_id: id!,
+            start_time: start.toISOString(),
+            end_time: null,
+            work_type: 'Plumbing',
+            billable: true,
+            notes: null,
+          }] as JobTimesheet[];
+        }
         const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
         return [{
           id: fix2LookKind() === 'unquoted-rate' || fix2LookKind() === 'unquoted-zero'
@@ -2053,6 +2074,18 @@ export function JobDetailPage() {
   const { data: myTimesheets } = useQuery<Timesheet[]>({
     queryKey: ['timesheets-job-clock', profile?.id],
     queryFn: async () => {
+      if (fix2ClockoffInvoiceLook() && profile) {
+        return [{
+          id: 'fix2-ts-sheet',
+          company_id: profile.company_id,
+          employee_id: profile.id,
+          date: localDateIso(new Date()),
+          clock_in: '08:00',
+          clock_out: null,
+          total_minutes: 0,
+          status: 'open',
+        }] as Timesheet[];
+      }
       const empty = getAuditEmptyList();
       if (empty) return empty as Timesheet[];
       const from = localDateIso(addDays(new Date(), -14));
@@ -2075,7 +2108,7 @@ export function JobDetailPage() {
     queryFn: async () => {
       const p305 = p305LookKind();
       const p307 = p307LookKind();
-      if (fix2LookActive()) {
+      if (fix2LookActive() && !fix2ClockoffInvoiceLook()) {
         return { cost: 0, charge: 0, lines: 0 };
       }
       if (p305 === 'bill' || p307 === 'agree' || p307 === 'reuse' || p307 === 'quoted') {
@@ -2153,7 +2186,7 @@ export function JobDetailPage() {
       }
       queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['job-bill-invoice-preview', id] });
+      if (id) invalidateJobBillInvoicePreview(queryClient, id);
       if (id) invalidateJobBillHoursQueries(queryClient, id);
       const reuse = result.existing ? invoiceReuseOpen(result.id) : null;
       if (reuse) {
@@ -2323,6 +2356,7 @@ export function JobDetailPage() {
     queryClient.invalidateQueries({ queryKey: ['timesheets-job-clock', profile?.id] });
     queryClient.invalidateQueries({ queryKey: ['timesheets'] });
     queryClient.invalidateQueries({ queryKey: ['timesheet-entries'] });
+    if (id) invalidateJobBillAfterHoursChange(queryClient, id);
   };
 
   const myTimesheetIds = new Set((myTimesheets ?? []).map(t => t.id));
@@ -2406,6 +2440,9 @@ export function JobDetailPage() {
   const clockOffJob = useMutation({
     mutationFn: async () => {
       if (!id) throw new Error('Missing job');
+      if (fix2ClockoffInvoiceLook() && isDevFieldAuditAuth()) {
+        return { auditClockOff: true as const };
+      }
       const running = (timesheets ?? []).find(e => e.end_time == null && myTimesheetIds.has(e.timesheet_id));
       if (!running) throw new Error('No running time on this job');
       const ts = (myTimesheets ?? []).find(t => t.id === running.timesheet_id);
@@ -2424,7 +2461,25 @@ export function JobDetailPage() {
         .eq('id', running.timesheet_id);
       if (tsErr) throw tsErr;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result && typeof result === 'object' && 'auditClockOff' in result && id) {
+        try {
+          sessionStorage.setItem('fix2-clockoff-closed', '1');
+        } catch {
+          /* ignore */
+        }
+        const end = new Date().toISOString();
+        queryClient.setQueryData<JobTimesheet[]>(['job-timesheets', id], prev =>
+          (prev ?? []).map(entry => (
+            entry.end_time == null
+              ? { ...entry, end_time: end }
+              : entry
+          )),
+        );
+        invalidateTime();
+        showToast('Clocked off');
+        return;
+      }
       invalidateTime();
       showToast('Clocked off');
     },
@@ -2461,8 +2516,15 @@ export function JobDetailPage() {
     ? jobBillLoggedHoursNotBilledNote(loggedHoursOnJob, addLoggedHoursExtra)
     : null;
   const quotedLookOn = p307LookKind() === 'quoted' || fix2LookKind() === 'quoted';
-  const fix2LookOn = fix2LookActive();
-  const { data: jobBillInvoicePreview } = useQuery({
+  const fix2MemoPreviewOn = fix2LookActive() && !fix2ClockoffInvoiceLook();
+  const fix2LookOn = fix2MemoPreviewOn;
+  const jobBillPreviewQueryEnabled = !!id && !!profile?.company_id && !!profile.id && !!job
+    && !quotedLookOn && !fix2MemoPreviewOn;
+  const {
+    data: jobBillInvoicePreview,
+    isPending: jobBillPreviewPending,
+    isError: jobBillPreviewError,
+  } = useQuery({
     queryKey: ['job-bill-invoice-preview', id, addLoggedHoursExtra, hasAcceptedQuoteLines, jobBillTaxRate],
     queryFn: async () => {
       if (!profile?.company_id || !profile.id || !id) throw new Error('No company');
@@ -2474,8 +2536,17 @@ export function JobDetailPage() {
         includeLoggedHoursExtra: addLoggedHoursExtra,
       });
     },
-    enabled: !!id && !!profile?.company_id && !!profile.id && !!job && !quotedLookOn && !fix2LookOn,
+    enabled: jobBillPreviewQueryEnabled,
   });
+  const jobBillPreviewState: JobBillInvoicePreviewState = quotedLookOn || fix2MemoPreviewOn
+    ? 'ready'
+    : !jobBillPreviewQueryEnabled
+      ? 'ready'
+      : jobBillPreviewPending
+        ? 'loading'
+        : jobBillPreviewError
+          ? 'error'
+          : 'ready';
   const quotedLookLabourSell = useMemo(
     () => (fix2LookOn ? getAuditFix2LabourSell() : {
       unitPrice: 95,
@@ -2603,7 +2674,7 @@ export function JobDetailPage() {
       navigate(reuse.href);
       return;
     }
-    if (jobBillInvoiceBlocked(costTotals, invoicePreviewForNext)) {
+    if (jobBillInvoiceBlocked(costTotals, invoicePreviewForNext, jobBillPreviewState)) {
       showToast(JOB_BILL_INVOICE_EMPTY, 'info');
       setBillOpen(true);
       revealSection('job-bill');
@@ -2641,11 +2712,18 @@ export function JobDetailPage() {
     inspectionCount: (inspections ?? []).length,
     ...jobInvoiceActionFlags(invoices ?? []),
     hasAcceptedQuote: hasAcceptedQuoteLines,
-    hasBillLines: (costTotals?.lines ?? 0) > 0 || hasAcceptedQuoteLines
+    hasBillLines: jobBillPreviewState !== 'ready'
+      || (costTotals?.lines ?? 0) > 0
+      || hasAcceptedQuoteLines
       || (invoicePreviewForNext?.lineCount ?? 0) > 0,
-    billLineCount: invoicePreviewForNext?.lineCount ?? costTotals?.lines,
-    billTotal: invoicePreviewForNext?.totalIncGst ?? costTotals?.charge,
-    billInvoiceMoneyLine: invoicePreviewForNext?.moneyLine,
+    billLineCount: jobBillPreviewState === 'ready'
+      ? (invoicePreviewForNext?.lineCount ?? costTotals?.lines)
+      : undefined,
+    billTotal: jobBillPreviewState === 'ready'
+      ? (invoicePreviewForNext?.totalIncGst ?? costTotals?.charge)
+      : undefined,
+    billInvoiceMoneyLine: jobBillPreviewState === 'ready' ? invoicePreviewForNext?.moneyLine : undefined,
+    billInvoicePreviewState: jobBillPreviewState,
     clockedOn: !!runningEntry,
     clockedOff: (timesheets ?? []).some(e => e.end_time != null),
     arrivingSent,
@@ -2966,47 +3044,63 @@ export function JobDetailPage() {
               ))}
             </select>
 
-            <div className="hub-job-invoice-next-preview" data-job-invoice-preview>
-            <div className="hub-jobs-tools">
-              {headerPrimaryHeld ? (
-                <button
-                  type="button"
-                  className="btn-primary ops-next-control-block"
-                  disabled
-                  aria-busy="true"
-                  data-job-next-held="1"
-                >
-                  <span className="skeleton inline-block h-4 w-24 rounded bg-white/30" />
-                </button>
-              ) : next.key === 'inspect' && !arrivingPrimary ? (
-                <Link to={inspectHref} className="btn-primary ops-next-control-block" title={next.detail}>{nextLabel}</Link>
-              ) : next.key !== 'none' || arrivingPrimary ? (
-                <button
-                  type="button"
-                  className="btn-primary ops-next-control-block"
-                  title={next.detail}
-                  disabled={nextBusy}
-                  onClick={runNext}
-                >
-                  {nextLabel}
-                </button>
-              ) : (
+            {(() => {
+              const nextTools = (
+                <div className="hub-jobs-tools">
+                  {headerPrimaryHeld ? (
+                    <button
+                      type="button"
+                      className="btn-primary ops-next-control-block"
+                      disabled
+                      aria-busy="true"
+                      data-job-next-held="1"
+                    >
+                      <span className="skeleton inline-block h-4 w-24 rounded bg-white/30" />
+                    </button>
+                  ) : next.key === 'inspect' && !arrivingPrimary ? (
+                    <Link to={inspectHref} className="btn-primary ops-next-control-block" title={next.detail}>{nextLabel}</Link>
+                  ) : next.key !== 'none' || arrivingPrimary ? (
+                    <button
+                      type="button"
+                      className="btn-primary ops-next-control-block"
+                      title={next.detail}
+                      disabled={nextBusy}
+                      onClick={runNext}
+                    >
+                      {nextLabel}
+                    </button>
+                  ) : (
+                    <>
+                      <button type="button" className="btn-primary ops-next-control-block" onClick={openPostUpdate}>
+                        Post update
+                      </button>
+                      <span className="ops-next-control-done">{nextLabel}</span>
+                    </>
+                  )}
+                </div>
+              );
+              const nextDetail = headerPrimaryHeld ? (
+                <p className="ops-next-detail" data-job-next-detail data-job-next-detail-held="1">
+                  <span className="skeleton inline-block h-4 w-40 rounded" />
+                </p>
+              ) : jobSheetHeaderPrimaryDetail(false, next.detail) ? (
+                <p className="ops-next-detail" data-job-next-detail>{next.detail}</p>
+              ) : null;
+              if (next.key === 'invoice') {
+                return (
+                  <div className="hub-job-invoice-next-preview" data-job-invoice-preview>
+                    {nextTools}
+                    {nextDetail}
+                  </div>
+                );
+              }
+              return (
                 <>
-                  <button type="button" className="btn-primary ops-next-control-block" onClick={openPostUpdate}>
-                    Post update
-                  </button>
-                  <span className="ops-next-control-done">{nextLabel}</span>
+                  {nextTools}
+                  {nextDetail}
                 </>
-              )}
-            </div>
-            {headerPrimaryHeld ? (
-              <p className="ops-next-detail" data-job-next-detail data-job-next-detail-held="1">
-                <span className="skeleton inline-block h-4 w-40 rounded" />
-              </p>
-            ) : jobSheetHeaderPrimaryDetail(false, next.detail) ? (
-              <p className="ops-next-detail" data-job-next-detail>{next.detail}</p>
-            ) : null}
-            </div>
+              );
+            })()}
 
             <div className="job-sheet-tabs" role="tablist" aria-label="Job sections">
               {JOB_SHEET_TABS.map(t => (

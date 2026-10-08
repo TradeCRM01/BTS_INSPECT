@@ -111,8 +111,9 @@ export function getAuditJobBillCosts(): JobCost[] | null {
   if (
     look === 'fix2-quoted'
     || look === 'fix2-quoted-optin'
-    || look === 'fix2-unquoted-rate'
+    ||     look === 'fix2-unquoted-rate'
     || look === 'fix2-unquoted-zero'
+    || look === 'fix2-clockoff-invoice'
   ) {
     return [];
   }
@@ -200,6 +201,13 @@ export function getAuditFix2Client() {
 export function getAuditFix2PlannedLabourPull(): import('./hoursToJobBill').JobCostFromHoursInsert[] | null {
   const look = auditLookTag();
   if (!isDevFieldAuditAuth() || !look?.startsWith('fix2-')) return null;
+  if (look === 'fix2-clockoff-invoice') {
+    try {
+      if (sessionStorage.getItem('fix2-clockoff-closed') !== '1') return [];
+    } catch {
+      return [];
+    }
+  }
   if (look === 'fix2-zero-header') {
     return [{
       company_id: DEV_AUDIT_COMPANY.id,
@@ -238,9 +246,11 @@ export function getAuditFix2PlannedLabourPull(): import('./hoursToJobBill').JobC
     purchase_order_id: null,
     cost_model_id: null,
     created_by: DEV_AUDIT_PROFILE.id,
-    timesheet_entry_id: look === 'fix2-unquoted-rate' || look === 'fix2-unquoted-zero'
-      ? 'fix2-ts-unquoted'
-      : 'fix2-ts-quoted',
+    timesheet_entry_id: look === 'fix2-clockoff-invoice'
+      ? 'fix2-ts-running'
+      : look === 'fix2-unquoted-rate' || look === 'fix2-unquoted-zero'
+        ? 'fix2-ts-unquoted'
+        : 'fix2-ts-quoted',
   }];
 }
 
@@ -257,7 +267,12 @@ export function getAuditFix2AcceptedQuote(): {
 } | null {
   const look = auditLookTag();
   if (!isDevFieldAuditAuth() || !look?.startsWith('fix2-')) return null;
-  if (look === 'fix2-unquoted-rate' || look === 'fix2-unquoted-zero' || look === 'fix2-zero-header') {
+  if (
+    look === 'fix2-unquoted-rate'
+    || look === 'fix2-unquoted-zero'
+    || look === 'fix2-zero-header'
+    || look === 'fix2-clockoff-invoice'
+  ) {
     return {
       quoteId: 'look-quote-stale',
       quoteNumber: 1,

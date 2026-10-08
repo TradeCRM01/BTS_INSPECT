@@ -1,5 +1,4 @@
 import type { InvoiceLineItem } from '../types/fsm';
-import { formatMoney } from '../types/fsm';
 import { calcLineDocumentTotals } from './gst';
 import { INVOICE_SOURCE_JOB_BILL, pickReusableInvoice } from './invoiceFromQuote';
 import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
@@ -7,6 +6,9 @@ import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
 export const JOB_BILL_INVOICE_NO_CLIENT = 'Assign a client before invoicing this job';
 export const JOB_BILL_INVOICE_NO_LINES = 'Add bill lines before invoicing this job';
 export const JOB_BILL_INVOICE_EMPTY = 'Job bill is empty — add lines before invoicing';
+export const JOB_BILL_INVOICE_PREVIEW_LOADING_DETAIL = '';
+export const JOB_BILL_INVOICE_PREVIEW_ERROR_DETAIL =
+  'Could not load the invoice preview. Tap Invoice to continue.';
 export const JOB_BILL_INVOICE_CREATED = 'Draft invoice created from this job bill';
 export const JOB_BILL_INVOICE_READY_TOAST = 'Invoice ready — see Invoices on this job';
 export const JOB_BILL_INVOICE_EXISTS = 'Invoice already exists for this job';
@@ -16,17 +18,16 @@ export const JOB_BILL_DUE_DAYS = 7;
 /** Existing invoice-face copy — PDF/sheet prints this next to due_date. */
 export const JOB_BILL_PAYMENT_TERMS = '7 days';
 
-/** Sheet Next when Invoice actually runs the job-bill path. */
-export function jobBillInvoiceNextDetail(lines: number, total: number): string {
-  return `Draft invoice from the job bill · ${lines} ${lines === 1 ? 'line' : 'lines'} · ${formatMoney(total)}`;
-}
+export type JobBillInvoicePreviewState = 'loading' | 'error' | 'ready';
 
-/** Empty-bill block only after totals load. Undefined/null must not toast. */
+/** Empty-bill block only after the invoice plan has resolved. Loading/error must not block. */
 export function jobBillInvoiceBlocked(
   costTotals: { lines: number } | null | undefined,
   invoicePreview?: { lineCount: number } | null,
+  previewState: JobBillInvoicePreviewState = 'ready',
 ): boolean {
-  if (invoicePreview != null && invoicePreview.lineCount > 0) return false;
+  if (previewState === 'loading' || previewState === 'error') return false;
+  if (invoicePreview != null) return invoicePreview.lineCount === 0;
   return costTotals != null && costTotals.lines === 0;
 }
 

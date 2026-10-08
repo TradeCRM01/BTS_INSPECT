@@ -251,11 +251,13 @@ describe('recommendJobAction', () => {
       hasBillLines: true,
       billLineCount: 2,
       billTotal: 545,
+      billInvoiceMoneyLine: 'From job · 2 lines · $599.50 inc GST',
+      billInvoicePreviewState: 'ready' as const,
     };
     expect(recommendJobAction(finished)).toMatchObject({
       key: 'invoice',
       label: 'Invoice',
-      detail: 'Draft invoice from the job bill · 2 lines · $545.00',
+      detail: 'From job · 2 lines · $599.50 inc GST',
     });
     expect(recommendJobAction(finished).label).not.toBe('Assign crew');
     expect(recommendJobAction(finished).label).not.toBe('Set a date');
@@ -277,7 +279,14 @@ describe('recommendJobAction', () => {
       status: 'completed',
       clockedOn: true,
       hasBillLines: true,
-    })).toMatchObject({ key: 'invoice', label: 'Invoice', detail: 'Draft invoice from the job bill.' });
+      billLineCount: 2,
+      billInvoiceMoneyLine: 'From job · 2 lines · $599.50 inc GST',
+      billInvoicePreviewState: 'ready',
+    })).toMatchObject({
+      key: 'invoice',
+      label: 'Invoice',
+      detail: 'From job · 2 lines · $599.50 inc GST',
+    });
     expect(recommendJobAction({
       ...base,
       hasBillLines: true,
