@@ -114,7 +114,8 @@ describe('P-305 G2 — sheet Next names the job bill', () => {
     const sheet = jobOpenNext(completed, sheetBase, now);
     expect(sheet.action.detail).toBe('Draft invoice from the job bill · 2 lines · $545.00');
     expect(src('src/pages/JobDetailPage.tsx')).toContain('createInvoiceFromJobBill');
-    expect(src('src/pages/JobDetailPage.tsx')).toContain('billLineCount: costTotals?.lines');
+    expect(src('src/pages/JobDetailPage.tsx')).toContain('billLineCount: invoicePreviewForNext?.lineCount');
+    expect(src('src/pages/JobDetailPage.tsx')).toContain('loadJobBillInvoicePreview');
     expect(src('src/pages/JobDetailPage.tsx')).toContain('data-job-next-detail');
   });
 });
@@ -197,11 +198,11 @@ describe('P-305 G4 — empty bill does not create a $0 draft', () => {
     const start = handle.indexOf('const handleInvoice');
     const end = handle.indexOf('const handleSend');
     const body = handle.slice(start, end);
-    expect(body).toContain('jobBillInvoiceBlocked(costTotals)');
+    expect(body).toContain('jobBillInvoiceBlocked(costTotals, invoicePreviewForNext)');
     expect(body).toContain('JOB_BILL_INVOICE_EMPTY');
     expect(body).not.toContain('costTotals?.lines ?? 0');
     expect(body).toContain('return;');
-    expect(body).toContain('invoiceFromJobBill.mutate()');
+    expect(body).toContain('runInvoiceFromJobBill(false)');
   });
 
   it('does not toast or block Invoice while costTotals is still undefined', () => {
@@ -210,8 +211,8 @@ describe('P-305 G4 — empty bill does not create a $0 draft', () => {
     expect(jobBillInvoiceBlocked({ lines: 0 })).toBe(true);
     const handle = src('src/pages/JobDetailPage.tsx');
     const body = handle.slice(handle.indexOf('const handleInvoice'), handle.indexOf('const handleSend'));
-    expect(body).toContain('jobBillInvoiceBlocked(costTotals)');
-    expect(body).toContain('invoiceFromJobBill.mutate()');
+    expect(body).toContain('jobBillInvoiceBlocked(costTotals, invoicePreviewForNext)');
+    expect(body).toContain('runInvoiceFromJobBill(false)');
     expect(body).not.toContain('(costTotals?.lines ?? 0) === 0');
   });
 });

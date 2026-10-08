@@ -75,7 +75,8 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
     expect(handleStart).toBeGreaterThan(-1);
     expect(handleEnd).toBeGreaterThan(handleStart);
     const handle = page.slice(handleStart, handleEnd);
-    expect(handle).toContain('invoiceFromJobBill.mutate()');
+    expect(handle).toContain('runInvoiceFromJobBill');
+    expect(page).toContain('countZeroLabourBeforeJobBillInvoice');
     expect(handle).not.toContain('invoiceFromQuote');
     expect(handle).not.toContain('convertQuoteToInvoice');
     expect(handle).not.toContain('acceptedQuote');

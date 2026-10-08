@@ -1,7 +1,6 @@
 import { supabase } from './supabase';
 import { readPickedLabourPriceBookId } from './labourPriceBookPick';
 import {
-  invoiceLinesWithLabourPriceBook,
   loadCompanyDefaultLabourRate,
   pullUnbilledHoursToJobBill,
   resolveLabourSell,
@@ -10,15 +9,92 @@ import {
   JOB_COST_INVOICE_SELECT,
   buildInvoiceFromJobBill,
   decideJobBillInvoice,
-  invoiceLinesFromJobCosts,
   reuseAfterUniqueConflict,
   type JobBillCostLine,
 } from './invoiceFromJobBill';
+import { jobBillInvoicePreviewFromLines, planJobBillInvoiceLinesFromCosts } from './jobBillInvoicePlan';
 import {
   JOB_INVOICE_LIST_COLUMNS,
   asJobInvoiceListRow,
+  invoiceLinesFromQuote,
   type JobInvoiceListRow,
 } from './invoiceFromQuote';
+import type { QuoteLineItem } from '../types/fsm';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+async function loadAcceptedQuoteLineItems(
+  client: SupabaseClient,
+  jobId: string,
+): Promise<{ quoteId: string | null; quoteLineItems: QuoteLineItem[] | null }> {
+  const { data: acceptedQuote, error: quoteErr } = await client
+    .from('quotes')
+    .select('id, line_items, status')
+    .eq('job_id', jobId)
+    .eq('status', 'accepted')
+    .maybeSingle();
+  if (quoteErr) throw quoteErr;
+  const quoteLineItems = (acceptedQuote?.line_items ?? null) as QuoteLineItem[] | null;
+  const hasLines = invoiceLinesFromQuote(quoteLineItems).length > 0;
+  return {
+    quoteId: hasLines ? acceptedQuote?.id ?? null : null,
+    quoteLineItems: hasLines ? quoteLineItems : null,
+  };
+}
+
+async function loadJobBillInvoiceLines(
+  client: SupabaseClient,
+  input: {
+    jobId: string;
+    companyId: string;
+    quoteLineItems: QuoteLineItem[] | null;
+    includeLoggedHoursExtra: boolean;
+  },
+) {
+  const { data: costs, error: costErr } = await client
+    .from('job_costs')
+    .select(JOB_COST_INVOICE_SELECT)
+    .eq('job_id', input.jobId)
+    .order('created_at', { ascending: true });
+  if (costErr) throw costErr;
+
+  const pickedPb = readPickedLabourPriceBookId(input.companyId);
+  const { data: pbItems, error: pbErr } = await client
+    .from('price_book_items')
+    .select('id, category, unit_price, is_active')
+    .eq('company_id', input.companyId)
+    .eq('is_active', true);
+  if (pbErr) throw pbErr;
+  const { rate: companyDefaultLabourRate } = await loadCompanyDefaultLabourRate(client, input.companyId);
+  const labourSell = resolveLabourSell({
+    staffRate: null,
+    companyDefaultLabourRate,
+    labourItems: pbItems ?? [],
+    pickedPriceBookItemId: pickedPb,
+  });
+
+  const lines = planJobBillInvoiceLinesFromCosts({
+    quoteLineItems: input.quoteLineItems,
+    costs: (costs ?? []) as JobBillCostLine[],
+    includeLoggedHoursExtra: input.includeLoggedHoursExtra,
+    labourSell,
+  });
+  return { lines, labourSell };
+}
+
+export async function loadJobBillInvoicePreview(input: {
+  jobId: string;
+  companyId: string;
+  includeLoggedHoursExtra?: boolean;
+}) {
+  const { quoteLineItems } = await loadAcceptedQuoteLineItems(supabase, input.jobId);
+  const { lines } = await loadJobBillInvoiceLines(supabase, {
+    jobId: input.jobId,
+    companyId: input.companyId,
+    quoteLineItems,
+    includeLoggedHoursExtra: input.includeLoggedHoursExtra === true,
+  });
+  return jobBillInvoicePreviewFromLines(lines);
+}
 
 export type CreateInvoiceFromJobBillResult = {
   id: string;
@@ -36,6 +112,7 @@ export async function createInvoiceFromJobBill(input: {
   companyId: string;
   profileId: string;
   taxRate: number;
+  includeLoggedHoursExtra?: boolean;
 }): Promise<CreateInvoiceFromJobBillResult> {
   if (!input.companyId || !input.profileId) throw new Error('No company context');
   if (!input.jobId) throw new Error('Missing job');
@@ -48,33 +125,33 @@ export async function createInvoiceFromJobBill(input: {
   if (jobErr) throw jobErr;
   if (!job) throw new Error('Job not found');
 
+  const { quoteId, quoteLineItems } = await loadAcceptedQuoteLineItems(supabase, input.jobId);
+  const hasAcceptedQuote = quoteId != null;
+  const includeLoggedHoursExtra = input.includeLoggedHoursExtra === true;
+
   const pickedPb = readPickedLabourPriceBookId(input.companyId);
-  const pull = await pullUnbilledHoursToJobBill(supabase, {
+  let pull: Awaited<ReturnType<typeof pullUnbilledHoursToJobBill>> = {
+    inserted: 0,
+    hours: 0,
+    columnMissing: false,
+    toast: null,
+    needsPicker: false,
+    pickerItems: [],
+  };
+  if (!hasAcceptedQuote || includeLoggedHoursExtra) {
+    pull = await pullUnbilledHoursToJobBill(supabase, {
+      jobId: input.jobId,
+      companyId: input.companyId,
+      profileId: input.profileId,
+      pickedPriceBookItemId: pickedPb,
+    });
+  }
+
+  const { lines } = await loadJobBillInvoiceLines(supabase, {
     jobId: input.jobId,
     companyId: input.companyId,
-    profileId: input.profileId,
-    pickedPriceBookItemId: pickedPb,
-  });
-
-  const { data: costs, error: costErr } = await supabase
-    .from('job_costs')
-    .select(JOB_COST_INVOICE_SELECT)
-    .eq('job_id', input.jobId)
-    .order('created_at', { ascending: true });
-  if (costErr) throw costErr;
-
-  const { data: pbItems, error: pbErr } = await supabase
-    .from('price_book_items')
-    .select('id, category, unit_price, is_active')
-    .eq('company_id', input.companyId)
-    .eq('is_active', true);
-  if (pbErr) throw pbErr;
-  const { rate: companyDefaultLabourRate } = await loadCompanyDefaultLabourRate(supabase, input.companyId);
-  const labourSell = resolveLabourSell({
-    staffRate: null,
-    companyDefaultLabourRate,
-    labourItems: pbItems ?? [],
-    pickedPriceBookItemId: pickedPb,
+    quoteLineItems,
+    includeLoggedHoursExtra,
   });
 
   const { data: existing, error: existingErr } = await supabase
@@ -84,10 +161,6 @@ export async function createInvoiceFromJobBill(input: {
     .order('created_at', { ascending: false });
   if (existingErr) throw existingErr;
 
-  const lines = invoiceLinesWithLabourPriceBook(
-    invoiceLinesFromJobCosts((costs ?? []) as JobBillCostLine[]),
-    labourSell,
-  );
   const decision = decideJobBillInvoice({
     clientId: job.client_id as string | null,
     lines,
@@ -109,6 +182,7 @@ export async function createInvoiceFromJobBill(input: {
     jobId: input.jobId,
     taxRate: input.taxRate,
     lines,
+    quoteId: hasAcceptedQuote ? quoteId : null,
   });
 
   const { data, error } = await supabase

@@ -24,12 +24,14 @@ export function jobBillInvoiceNextDetail(lines: number, total: number): string {
 /** Empty-bill block only after totals load. Undefined/null must not toast. */
 export function jobBillInvoiceBlocked(
   costTotals: { lines: number } | null | undefined,
+  invoicePreview?: { lineCount: number } | null,
 ): boolean {
+  if (invoicePreview != null && invoicePreview.lineCount > 0) return false;
   return costTotals != null && costTotals.lines === 0;
 }
 
 export const JOB_COST_INVOICE_SELECT =
-  'description, quantity, unit_price, unit_cost, markup_percent, charge_type, stock_item_id, cost_model_id, created_at';
+  'description, quantity, unit_price, unit_cost, markup_percent, charge_type, stock_item_id, cost_model_id, created_at, cost_type, timesheet_entry_id';
 
 export type JobBillCostLine = {
   description?: string | null;
@@ -40,6 +42,8 @@ export type JobBillCostLine = {
   charge_type?: string | null;
   stock_item_id?: string | null;
   cost_model_id?: string | null;
+  cost_type?: string | null;
+  timesheet_entry_id?: string | null;
 };
 
 export type JobBillInvoiceDecision =
@@ -86,6 +90,7 @@ export function buildInvoiceFromJobBill(input: {
   jobId: string;
   taxRate: number;
   lines: InvoiceLineItem[];
+  quoteId?: string | null;
   now?: Date;
 }) {
   const rawSubtotal = input.lines.reduce((s, li) => s + li.quantity * li.unit_price, 0);
@@ -93,7 +98,7 @@ export function buildInvoiceFromJobBill(input: {
   return {
     client_id: input.clientId,
     job_id: input.jobId,
-    quote_id: null,
+    quote_id: input.quoteId ?? null,
     source: INVOICE_SOURCE_JOB_BILL,
     status: 'draft' as const,
     line_items: input.lines,

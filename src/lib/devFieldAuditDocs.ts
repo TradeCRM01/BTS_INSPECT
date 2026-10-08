@@ -77,7 +77,7 @@ export function getAuditEmptyList() {
 
 const AUDIT_P331_COST_MODEL_ID = 'audit-p331-loaded-hourly';
 
-function auditLookTag(): string | null {
+export function auditLookTag(): string | null {
   if (!isDevFieldAuditAuth()) return null;
   try {
     return new URLSearchParams(window.location.search).get('look');
@@ -106,6 +106,23 @@ function auditJobBillCostBase(): Omit<JobCost, 'id' | 'cost_type' | 'description
 export function getAuditJobBillCosts(): JobCost[] | null {
   const look = auditLookTag();
   if (!look || !isDevFieldAuditAuth()) return null;
+  if (look === 'fix2-zero-header') {
+    const base = auditJobBillCostBase();
+    return [{
+      ...base,
+      id: 'audit-fix2-zero-labour',
+      cost_type: 'labor',
+      description: 'Labour 2.0 h',
+      quantity: 2,
+      unit_cost: 0,
+      total_cost: 0,
+      markup_percent: 0,
+      unit_price: 0,
+      total_price: 0,
+      charge_type: 'Labour',
+      cost_model_id: null,
+    }];
+  }
   if (look !== 'p331-nocost' && look !== 'p331-cost-filled' && look !== 'p331-bill') return null;
   const base = auditJobBillCostBase();
   const labour: JobCost = {

@@ -172,7 +172,7 @@ describe('job-sheet Send next — wiring', () => {
       page.indexOf('const handleSend'),
     );
 
-    expect(handleInvoice).toContain('invoiceFromJobBill.mutate()');
+    expect(handleInvoice).toContain('runInvoiceFromJobBill');
     expect(handleInvoice).not.toContain('sendJobDraftInvoice');
     expect(handleInvoice).not.toContain('deliverInvoice');
     expect(page).toContain("next.key === 'invoice'");
