@@ -441,9 +441,13 @@ export function linesFromQuoteItems(
   items: QuoteLineItem[] | InvoiceLineItem[],
   kind?: CommercialDocKind,
 ): CommercialLine[] {
+  const customerFacing = kind === 'invoice' || kind === 'quote';
   return (items ?? []).map(li => ({
-    description: kind === 'invoice'
-      ? customerFacingLineDescription(li.description)
+    description: customerFacing
+      ? customerFacingLineDescription(
+        li.description,
+        (li as { price_book_code?: string | null }).price_book_code ?? null,
+      )
       : li.description,
     quantity: li.quantity,
     unit_price: li.unit_price,

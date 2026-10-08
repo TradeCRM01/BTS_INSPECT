@@ -512,7 +512,7 @@ export function commercialPdfDataForQuote(bundle: QuoteSendBundle, now = new Dat
     exclusions: asStringList(quote.exclusions),
     description: quote.description?.trim() || null,
     scopeOfWorks: quote.scope_of_works?.trim() || null,
-    lines: linesFromQuoteItems(lines),
+    lines: linesFromQuoteItems(lines, 'quote'),
     subtotal: Number(quote.subtotal) || 0,
     taxRate: Number(quote.tax_rate) || 0,
     taxAmount: Number(quote.tax_amount) || 0,
