@@ -326,6 +326,18 @@ export function fix2LookActive(): boolean {
   return Boolean(look?.startsWith('fix2-') || look?.startsWith('fix2b-'));
 }
 
+/** Playwright FIX-2b (a): keep memo preview pending until `fix2b-release-preview` event. */
+export function isFix2bHoldMemoPreview(): boolean {
+  if (!import.meta.env.DEV || !fix2LookActive()) return false;
+  try {
+    return sessionStorage.getItem('fix2b-hold-preview') === '1';
+  } catch {
+    return false;
+  }
+}
+
+export const FIX2B_RELEASE_PREVIEW_EVENT = 'fix2b-release-preview';
+
 export function getAuditFix2AcceptedQuote(): {
   quoteId: string;
   quoteNumber: number;

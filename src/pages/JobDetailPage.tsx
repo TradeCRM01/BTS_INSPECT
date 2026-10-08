@@ -36,6 +36,8 @@ import {
   AUDIT_INVOICE_ID,
   crew2LookOn,
   fix2LookActive,
+  isFix2bHoldMemoPreview,
+  FIX2B_RELEASE_PREVIEW_EVENT,
   getAuditClient,
   getAuditEmptyList,
   getAuditFix2LabourSell,
@@ -1576,9 +1578,18 @@ export function JobDetailPage() {
   const [arrivingSent, setArrivingSent] = useState(false);
   const [arrivingBusy, setArrivingBusy] = useState(false);
   const [quotedInvoiceSheetOpen, setQuotedInvoiceSheetOpen] = useState(false);
-  const [addLoggedHoursExtra, setAddLoggedHoursExtra] = useState(
-    () => lookSearchParam() === FIX2_QUOTED_OPTIN_LOOK || lookSearchParam() === FIX2B_D_NORATE_LOOK,
-  );
+  const [addLoggedHoursExtra, setAddLoggedHoursExtra] = useState(() => {
+    if (lookSearchParam() === FIX2_QUOTED_OPTIN_LOOK) return true;
+    if (lookSearchParam() === FIX2B_D_NORATE_LOOK) {
+      try {
+        if (sessionStorage.getItem('fix2b-d-optin-start') === '0') return false;
+      } catch {
+        /* ignore */
+      }
+      return true;
+    }
+    return false;
+  });
   const [zeroLabourConfirmCount, setZeroLabourConfirmCount] = useState(0);
   const [pendingInvoiceExtra, setPendingInvoiceExtra] = useState(false);
   const visitPhotoRef = useRef<HTMLInputElement>(null);
@@ -2525,6 +2536,14 @@ export function JobDetailPage() {
   const quotedLookOn = p307LookKind() === 'quoted' || fix2LookKind() === 'quoted';
   const fix2MemoPreviewOn = fix2LookActive() && !fix2ClockoffInvoiceLook();
   const fix2LookOn = fix2MemoPreviewOn;
+  const [fix2bHoldMemoPreview, setFix2bHoldMemoPreview] = useState(() => isFix2bHoldMemoPreview());
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const sync = () => setFix2bHoldMemoPreview(isFix2bHoldMemoPreview());
+    window.addEventListener(FIX2B_RELEASE_PREVIEW_EVENT, sync);
+    return () => window.removeEventListener(FIX2B_RELEASE_PREVIEW_EVENT, sync);
+  }, []);
+  const fix2bHoldPreview = fix2MemoPreviewOn && fix2bHoldMemoPreview;
   const jobBillPreviewQueryEnabled = !!id && !!profile?.company_id && !!profile.id && !!job
     && !quotedLookOn && !fix2MemoPreviewOn;
   const {
@@ -2550,15 +2569,17 @@ export function JobDetailPage() {
     enabled: jobBillPreviewQueryEnabled,
     staleTime: 0,
   });
-  const jobBillPreviewState: JobBillInvoicePreviewState = quotedLookOn || fix2MemoPreviewOn
-    ? 'ready'
-    : !jobBillPreviewQueryEnabled
+  const jobBillPreviewState: JobBillInvoicePreviewState = fix2bHoldPreview
+    ? 'loading'
+    : quotedLookOn || fix2MemoPreviewOn
       ? 'ready'
-      : jobBillPreviewPending
-        ? 'loading'
-        : jobBillPreviewError
-          ? 'error'
-          : 'ready';
+      : !jobBillPreviewQueryEnabled
+        ? 'ready'
+        : jobBillPreviewPending
+          ? 'loading'
+          : jobBillPreviewError
+            ? 'error'
+            : 'ready';
   const quotedLookLabourSell = useMemo(
     () => (fix2LookOn ? getAuditFix2LabourSell() : {
       unitPrice: 95,
@@ -2609,7 +2630,7 @@ export function JobDetailPage() {
     jobBillTaxRate,
     profile,
   ]);
-  const invoicePreviewForNext = auditLookPreview ?? jobBillInvoicePreview;
+  const invoicePreviewForNext = fix2bHoldPreview ? null : (auditLookPreview ?? jobBillInvoicePreview);
   const quotedInvoiceSheetMoneyLine = invoicePreviewForNext?.moneyLine ?? '';
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
