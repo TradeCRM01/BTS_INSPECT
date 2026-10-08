@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -39,6 +39,8 @@ import {
   isFix2bHoldMemoPreview,
   FIX2B_RELEASE_PREVIEW_EVENT,
   FIX2B_INVALIDATE_PREVIEW_EVENT,
+  isFix2bHoldOptinPreview,
+  FIX2B_RELEASE_OPTIN_PREVIEW_EVENT,
   getAuditClient,
   getAuditEmptyList,
   getAuditFix2LabourSell,
@@ -56,7 +58,10 @@ import { createInvoiceFromJobBill, loadJobBillInvoicePreview } from '../lib/crea
 import { invalidateJobBillAfterHoursChange, invalidateJobBillHoursQueries } from '../lib/hoursToJobBill';
 import {
   invalidateJobBillInvoicePreview,
+  jobBillInvoicePreviewPlaceholderData,
+  jobBillInvoicePreviewQueryLoading,
   jobBillInvoicePreviewQueryKeyWithDims,
+  resolveJobBillInvoicePreviewState,
 } from '../lib/jobBillInvoicePreviewQuery';
 import type { JobBillInvoicePreviewState } from '../lib/invoiceFromJobBill';
 import { countZeroLabourBeforeJobBillInvoice } from '../lib/requestJobBillInvoice';
@@ -2531,11 +2536,18 @@ export function JobDetailPage() {
   const fix2MemoPreviewOn = fix2LookActive() && !fix2ClockoffInvoiceLook();
   const fix2LookOn = fix2MemoPreviewOn;
   const [fix2bHoldMemoPreview, setFix2bHoldMemoPreview] = useState(() => isFix2bHoldMemoPreview());
+  const [fix2bHoldOptinPreview, setFix2bHoldOptinPreview] = useState(() => isFix2bHoldOptinPreview());
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     const sync = () => setFix2bHoldMemoPreview(isFix2bHoldMemoPreview());
     window.addEventListener(FIX2B_RELEASE_PREVIEW_EVENT, sync);
     return () => window.removeEventListener(FIX2B_RELEASE_PREVIEW_EVENT, sync);
+  }, []);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const sync = () => setFix2bHoldOptinPreview(isFix2bHoldOptinPreview());
+    window.addEventListener(FIX2B_RELEASE_OPTIN_PREVIEW_EVENT, sync);
+    return () => window.removeEventListener(FIX2B_RELEASE_OPTIN_PREVIEW_EVENT, sync);
   }, []);
   useEffect(() => {
     if (!import.meta.env.DEV || !id) return;
@@ -2546,12 +2558,14 @@ export function JobDetailPage() {
     return () => window.removeEventListener(FIX2B_INVALIDATE_PREVIEW_EVENT, invalidate);
   }, [id, queryClient]);
   const fix2bHoldPreview = fix2MemoPreviewOn && fix2bHoldMemoPreview;
+  const fix2bHoldOptin = fix2MemoPreviewOn && fix2bHoldOptinPreview && addLoggedHoursExtra;
   const jobBillPreviewQueryEnabled = !!id && !!profile?.company_id && !!profile.id && !!job
     && !quotedLookOn && !fix2MemoPreviewOn;
   const {
     data: jobBillInvoicePreview,
     isPending: jobBillPreviewPending,
     isError: jobBillPreviewError,
+    isPlaceholderData: jobBillPreviewIsPlaceholder,
   } = useQuery({
     queryKey: jobBillInvoicePreviewQueryKeyWithDims(id ?? '', {
       addLoggedHoursExtra,
@@ -2570,19 +2584,24 @@ export function JobDetailPage() {
     },
     enabled: jobBillPreviewQueryEnabled,
     staleTime: 0,
-    placeholderData: keepPreviousData,
+    placeholderData: (prev, prevQuery) => jobBillInvoicePreviewPlaceholderData(id ?? '', prev, prevQuery),
   });
-  const jobBillPreviewState: JobBillInvoicePreviewState = fix2bHoldPreview
-    ? 'loading'
-    : quotedLookOn || fix2MemoPreviewOn
-      ? 'ready'
-      : !jobBillPreviewQueryEnabled
-        ? 'ready'
-        : jobBillPreviewPending
-          ? 'loading'
-          : jobBillPreviewError
-            ? 'error'
-            : 'ready';
+  const jobBillPreviewDevHold = fix2bHoldPreview || fix2bHoldOptin;
+  const previewQueryLoading = jobBillInvoicePreviewQueryLoading({
+    queryEnabled: jobBillPreviewQueryEnabled,
+    isPending: jobBillPreviewPending,
+    isPlaceholderData: jobBillPreviewIsPlaceholder,
+    devHoldPreview: jobBillPreviewDevHold,
+  });
+  const jobBillPreviewState: JobBillInvoicePreviewState = resolveJobBillInvoicePreviewState({
+    devHoldPreview: jobBillPreviewDevHold,
+    quotedLookOn,
+    fix2MemoPreviewOn,
+    queryEnabled: jobBillPreviewQueryEnabled,
+    isPending: jobBillPreviewPending,
+    isPlaceholderData: jobBillPreviewIsPlaceholder,
+    isError: jobBillPreviewError,
+  });
   const quotedLookLabourSell = useMemo(
     () => (fix2LookOn ? getAuditFix2LabourSell() : {
       unitPrice: 95,
@@ -2633,7 +2652,9 @@ export function JobDetailPage() {
     jobBillTaxRate,
     profile,
   ]);
-  const invoicePreviewForNext = fix2bHoldPreview ? null : (auditLookPreview ?? jobBillInvoicePreview);
+  const invoicePreviewForNext = previewQueryLoading
+    ? null
+    : (auditLookPreview ?? jobBillInvoicePreview);
   const quotedInvoiceSheetMoneyLine = invoicePreviewForNext?.moneyLine ?? '';
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
@@ -4308,6 +4329,7 @@ export function JobDetailPage() {
           });
         }}
         pending={invoiceNextBusy}
+        previewUpdating={quotedInvoiceSheetOpen && (jobBillPreviewDevHold || previewQueryLoading)}
         unpricedExtraLabour={
           addLoggedHoursExtra && Boolean(invoicePreviewForNext?.unpricedExtraLabour)
         }

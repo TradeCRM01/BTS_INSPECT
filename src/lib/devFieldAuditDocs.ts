@@ -339,6 +339,18 @@ export function isFix2bHoldMemoPreview(): boolean {
 export const FIX2B_RELEASE_PREVIEW_EVENT = 'fix2b-release-preview';
 export const FIX2B_INVALIDATE_PREVIEW_EVENT = 'fix2b-invalidate-preview';
 
+/** Playwright: hold quoted opt-in sheet in Updating… after toggling opt-in. */
+export function isFix2bHoldOptinPreview(): boolean {
+  if (!import.meta.env.DEV || !fix2LookActive()) return false;
+  try {
+    return sessionStorage.getItem('fix2b-hold-optin-preview') === '1';
+  } catch {
+    return false;
+  }
+}
+
+export const FIX2B_RELEASE_OPTIN_PREVIEW_EVENT = 'fix2b-release-optin-preview';
+
 export function getAuditFix2AcceptedQuote(): {
   quoteId: string;
   quoteNumber: number;

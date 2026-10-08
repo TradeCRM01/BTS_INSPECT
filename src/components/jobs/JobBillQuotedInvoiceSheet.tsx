@@ -13,6 +13,7 @@ export function JobBillQuotedInvoiceSheet({
   onClose,
   onCreate,
   pending,
+  previewUpdating,
   unpricedExtraLabour,
   unpricedExtraLabourLineCount = 1,
 }: {
@@ -24,6 +25,7 @@ export function JobBillQuotedInvoiceSheet({
   onClose: () => void;
   onCreate: () => void;
   pending?: boolean;
+  previewUpdating?: boolean;
   unpricedExtraLabour?: boolean;
   unpricedExtraLabourLineCount?: number;
 }) {
@@ -50,7 +52,11 @@ export function JobBillQuotedInvoiceSheet({
             <p className="hub-job-bill-quoted-invoice-note">{loggedHoursNote}</p>
           </div>
         ) : null}
-        {moneyLine ? (
+        {previewUpdating ? (
+          <p className="hub-labour-rate-sheet-rate" data-job-bill-quoted-invoice-updating role="status">
+            Updating…
+          </p>
+        ) : moneyLine ? (
           <p className="hub-labour-rate-sheet-rate" data-job-bill-quoted-invoice-money>{moneyLine}</p>
         ) : null}
         {unpricedExtraLabour ? (
@@ -85,7 +91,7 @@ export function JobBillQuotedInvoiceSheet({
           <button
             type="button"
             className="hub-job-bill-zero-labour-primary"
-            disabled={pending}
+            disabled={pending || previewUpdating}
             onClick={onCreate}
             data-job-bill-quoted-create
           >

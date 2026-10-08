@@ -470,6 +470,43 @@ async function captureErrorToast390() {
   return { outPath };
 }
 
+async function captureOptinUpdating390() {
+  const width = 390;
+  const height = 844;
+  const context = await browser.newContext({
+    viewport: { width, height },
+    deviceScaleFactor: 1,
+    locale: 'en-AU',
+    timezoneId: 'Australia/Brisbane',
+    isMobile: true,
+    hasTouch: true,
+  });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    sessionStorage.setItem('fix2b-hold-optin-preview', '1');
+  });
+  const href = `/jobs/audit-doc-job?auditAuth=1&look=fix2b-d-norate&tab=paperwork`;
+  await page.goto(`${BASE}${href}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('[data-job-invoice-preview]', { timeout: 30000 });
+  await page.locator('.hub-job-invoice-next-preview .btn-primary').click();
+  await page.waitForSelector('.hub-job-bill-zero-labour-sheet', { timeout: 30000 });
+  const optIn = page.locator('.hub-job-bill-zero-labour-sheet .hub-ops-form-check input');
+  if (!(await optIn.isChecked())) await optIn.check();
+  await page.waitForSelector('[data-job-bill-quoted-invoice-updating]', { timeout: 30000 });
+  const money = page.locator('[data-job-bill-quoted-invoice-money]');
+  if (await money.count()) {
+    throw new Error('[fix2b-optin-updating@390] stale money line visible during hold');
+  }
+  const createBtn = page.locator('[data-job-bill-quoted-create]');
+  if (!(await createBtn.isDisabled())) {
+    throw new Error('[fix2b-optin-updating@390] Create must be disabled while updating');
+  }
+  const outPath = `${OUT}/fix2b-optin-updating-390.png`;
+  await page.locator('.hub-job-bill-zero-labour-sheet').screenshot({ path: outPath });
+  await context.close();
+  return { outPath };
+}
+
 async function captureTimeSaved390() {
   const width = 390;
   const height = 844;
@@ -553,6 +590,11 @@ for (const width of [390, 1280]) {
 {
   const row = await captureTimeSaved390();
   row.md5 = trackMd5(row.outPath, 'fix2b-d-time-saved-390');
+  report.push(row);
+}
+{
+  const row = await captureOptinUpdating390();
+  row.md5 = trackMd5(row.outPath, 'fix2b-optin-updating-390');
   report.push(row);
 }
 
