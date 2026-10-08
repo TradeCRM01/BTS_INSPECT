@@ -380,6 +380,15 @@ export function getAuditJobs() {
   }];
 }
 
+/** Invoice editor client list in field-audit — includes fix2-only client when absent from Northside seed. */
+export function getAuditClientsForInvoiceEditor() {
+  const base = getAuditClients();
+  if (!base) return null;
+  const fix2 = getAuditFix2Client();
+  if (base.some(c => c.id === fix2.id)) return base;
+  return [...base, fix2];
+}
+
 export function getAuditClients() {
   if (!isDevFieldAuditAuth()) return null;
   return [{

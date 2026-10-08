@@ -64,7 +64,13 @@ import {
   LETTERHEAD_LOOK,
 } from '../lib/companyLogo';
 import { CompanyLetterheadMark } from '../lib/CompanyLetterheadMark';
-import { AUDIT_INVOICE_ID, getAuditClients, getAuditInvoiceEditorRow } from '../lib/devFieldAuditDocs';
+import {
+  AUDIT_DOC_JOB_ID,
+  AUDIT_FIX2_CLIENT_ID,
+  AUDIT_INVOICE_ID,
+  getAuditClientsForInvoiceEditor,
+  getAuditInvoiceEditorRow,
+} from '../lib/devFieldAuditDocs';
 import { companyPaymentMethodsForDocument } from '../lib/companyPaymentMethods';
 import {
   jobClientEmailRow,
@@ -909,9 +915,16 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
 
   useEffect(() => {
     if (!profile?.company_id) return;
-    const auditClients = getAuditClients();
+    const auditClients = getAuditClientsForInvoiceEditor();
     if (auditClients) {
       setClients(auditClients as Client[]);
+      setJobs([{
+        id: AUDIT_DOC_JOB_ID,
+        company_id: auditClients[0]?.company_id ?? '',
+        client_id: AUDIT_FIX2_CLIENT_ID,
+        title: 'Hot water replacement',
+        address: '42 Harbour Esplanade, Brisbane QLD 4000',
+      }] as Job[]);
       setClientsLoaded(true);
       return;
     }

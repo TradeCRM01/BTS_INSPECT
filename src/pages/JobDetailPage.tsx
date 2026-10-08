@@ -2966,6 +2966,7 @@ export function JobDetailPage() {
               ))}
             </select>
 
+            <div className="hub-job-invoice-next-preview" data-job-invoice-preview>
             <div className="hub-jobs-tools">
               {headerPrimaryHeld ? (
                 <button
@@ -3005,6 +3006,7 @@ export function JobDetailPage() {
             ) : jobSheetHeaderPrimaryDetail(false, next.detail) ? (
               <p className="ops-next-detail" data-job-next-detail>{next.detail}</p>
             ) : null}
+            </div>
 
             <div className="job-sheet-tabs" role="tablist" aria-label="Job sections">
               {JOB_SHEET_TABS.map(t => (

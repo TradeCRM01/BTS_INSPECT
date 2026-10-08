@@ -2351,6 +2351,20 @@
     flex-shrink: 0;
   }
 
+  .hub-job-bill-zero-labour-body .hub-ops-form-check input[type='checkbox'] {
+    width: 22px;
+    height: 22px;
+    accent-color: #0A2540;
+  }
+
+  .hub-job-invoice-next-preview {
+    margin: 0 0 12px;
+    padding: 12px 14px 10px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--ops-navy, #0a2540) 12%, #e2d9cc);
+    background: var(--quote-sheet, #fffdf8);
+  }
+
   .hub-time-entry-chips {
     display: flex;
     flex-wrap: wrap;

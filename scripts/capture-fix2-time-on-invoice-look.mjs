@@ -29,10 +29,13 @@ async function compositePair(browser, leftPng, rightPng, outPath, paneWidth, pan
   await page.setContent(`<!DOCTYPE html><html><head><style>
 html,body{margin:0;padding:0;width:${totalWidth}px;height:${paneHeight}px;overflow:hidden;background:#F5F0E6;}
 .wrap{display:flex;width:${totalWidth}px;height:${paneHeight}px;}
-.wrap img{display:block;width:${paneWidth}px;height:${paneHeight}px;object-fit:none;object-position:top left;}
+.pane{width:${paneWidth}px;height:${paneHeight}px;box-sizing:border-box;background:#F5F0E6;}
+.pane-left{display:flex;justify-content:center;align-items:flex-start;padding:20px 24px;overflow:hidden;}
+.pane-left img{max-width:min(100%,520px);max-height:calc(100% - 8px);width:auto;height:auto;object-fit:contain;object-position:top center;box-shadow:0 2px 12px rgba(10,37,64,.08);}
+.pane-right img{display:block;width:100%;height:100%;object-fit:cover;object-position:top left;}
 </style></head><body><div class="wrap">
-<img src="data:image/png;base64,${leftB64}" alt="preview"/>
-<img src="data:image/png;base64,${rightB64}" alt="invoice"/>
+<div class="pane pane-left"><img src="data:image/png;base64,${leftB64}" alt="preview"/></div>
+<div class="pane pane-right"><img src="data:image/png;base64,${rightB64}" alt="invoice"/></div>
 </div></body></html>`);
   await page.screenshot({ path: outPath, type: 'png', clip: { x: 0, y: 0, width: totalWidth, height: paneHeight } });
   await page.close();
@@ -57,7 +60,7 @@ async function captureState({ state, width, optIn, zeroConfirm }) {
   const quoted = state.startsWith('fix2-quoted');
 
   if (quoted) {
-    await page.waitForSelector('[data-job-next-detail]', { timeout: 25000 });
+    await page.waitForSelector('[data-job-invoice-preview], [data-job-next-detail]', { timeout: 25000 });
     await page.locator('.hub-jobs-tools .btn-primary').click();
     await page.waitForSelector('[data-job-bill-quoted-invoice-money]', { timeout: 15000 });
     if (optIn) {
@@ -69,7 +72,7 @@ async function captureState({ state, width, optIn, zeroConfirm }) {
     await page.locator('.hub-jobs-tools .btn-primary').click();
     await page.waitForSelector('.hub-job-bill-zero-labour-sheet', { timeout: 15000 });
   } else {
-    await page.waitForSelector('[data-job-next-detail]', { timeout: 25000 });
+    await page.waitForSelector('[data-job-invoice-preview]', { timeout: 25000 });
     await page.waitForFunction(() => {
       const el = document.querySelector('[data-job-next-detail]');
       return el?.textContent?.includes('inc GST');
@@ -90,12 +93,10 @@ async function captureState({ state, width, optIn, zeroConfirm }) {
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(300);
   const previewPath = `${OUT}/.tmp-${state}-preview-${width}.png`;
-  if (quoted) {
-    await page.locator('.hub-job-bill-zero-labour-sheet').screenshot({ path: previewPath });
-  } else if (zeroConfirm) {
+  if (quoted || zeroConfirm) {
     await page.locator('.hub-job-bill-zero-labour-sheet').screenshot({ path: previewPath });
   } else {
-    await page.locator('[data-job-next-detail]').screenshot({ path: previewPath });
+    await page.locator('[data-job-invoice-preview]').screenshot({ path: previewPath });
   }
 
   if (quoted) {
