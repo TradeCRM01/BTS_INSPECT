@@ -55,15 +55,18 @@ async function captureJobHeaderArea(page, outPath, width, height) {
   const hero = page.locator('h1.hub-jobs-hero').first();
   const status = page.locator('.hub-jobs-status-whisper').first();
   const tools = page.locator('.hub-jobs-sheet-body .hub-jobs-tools').first();
+  const detail = page.locator('.hub-jobs-sheet-body .ops-next-detail').first();
   await hero.waitFor({ state: 'visible', timeout: 30000 });
   await status.waitFor({ state: 'visible', timeout: 30000 });
   await tools.waitFor({ state: 'visible', timeout: 30000 });
+  await detail.waitFor({ state: 'visible', timeout: 30000 });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(200);
   const boxes = await Promise.all([
     hero.boundingBox(),
     status.boundingBox(),
     tools.boundingBox(),
+    detail.boundingBox(),
   ]);
   if (boxes.some(b => !b)) throw new Error('job header area missing layout');
   const pad = 8;
@@ -112,6 +115,103 @@ html,body{margin:0;padding:0;width:${totalWidth}px;height:${paneHeight}px;overfl
   }
   await page.screenshot({ path: outPath, type: 'png', clip: { x: 0, y: 0, width: totalWidth, height: paneHeight } });
   await page.close();
+}
+
+async function scrollInvoiceEditorForCapture(editor, width, { requireInvoiceHeading = false } = {}) {
+  await editor.locator('.hub-invoice-totalbar').waitFor({ state: 'visible' });
+  await editor.evaluate((root, { w, requireInvoiceHeading }) => {
+    const scroll =
+      root.querySelector('.hub-editor-dialog-scroll') ??
+      root.querySelector('.hub-invoice-editor-body') ??
+      root;
+    const totalBar = root.querySelector('.hub-invoice-totalbar');
+    if (!scroll || !totalBar) return;
+    const pad = 12;
+    const scrollRect = scroll.getBoundingClientRect();
+    const totalRect = totalBar.getBoundingClientRect();
+    let target = scroll.scrollTop + (totalRect.bottom - scrollRect.bottom) + pad;
+    const title = root.querySelector('.hub-invoice-editor-title');
+    const topEl = (w === 390 || requireInvoiceHeading) ? title : null;
+    if (topEl && scrollRect.height > 0) {
+      const topRect = topEl.getBoundingClientRect();
+      const blockH = totalRect.bottom - topRect.top + pad * 2;
+      if (blockH <= scrollRect.height || requireInvoiceHeading) {
+        target = scroll.scrollTop + (topRect.top - scrollRect.top) - pad;
+      }
+    }
+    const maxScroll = Math.max(0, scroll.scrollHeight - scroll.clientHeight);
+    scroll.scrollTop = Math.min(maxScroll, Math.max(0, target));
+  }, { w: width, requireInvoiceHeading });
+}
+
+async function expandInvoiceEditorForCapture(page, editor) {
+  await editor.evaluate((root) => {
+    const scroll =
+      root.querySelector('.hub-editor-dialog-scroll') ??
+      root.querySelector('.hub-invoice-editor-body');
+    if (scroll) {
+      scroll.style.overflow = 'visible';
+      scroll.style.maxHeight = 'none';
+      scroll.style.height = 'auto';
+    }
+    root.style.maxHeight = 'none';
+    root.style.overflow = 'visible';
+    root.style.height = 'auto';
+    const footer = root.querySelector('.hub-editor-sticky-footer');
+    if (footer) footer.style.display = 'none';
+  });
+  await page.waitForTimeout(100);
+}
+
+async function captureInvoiceHeadingThroughTotal(page, editor, width, invoicePath, basePaneHeight) {
+  const title = editor.locator('.hub-invoice-editor-title');
+  await title.waitFor({ state: 'visible', timeout: 15000 });
+  let viewportH = basePaneHeight;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await page.setViewportSize({ width, height: viewportH });
+    await scrollInvoiceEditorForCapture(editor, width, { requireInvoiceHeading: true });
+    await page.waitForTimeout(200);
+    const metrics = await editor.evaluate((root) => {
+      const scroll =
+        root.querySelector('.hub-editor-dialog-scroll') ??
+        root.querySelector('.hub-invoice-editor-body') ??
+        root;
+      const titleEl = root.querySelector('.hub-invoice-editor-title');
+      const totalBar = root.querySelector('.hub-invoice-totalbar');
+      if (!titleEl || !totalBar) return null;
+      const er = root.getBoundingClientRect();
+      const tr = titleEl.getBoundingClientRect();
+      const br = totalBar.getBoundingClientRect();
+      return {
+        titleInEditor: tr.top >= er.top - 2 && tr.bottom <= er.bottom + 2,
+        totalInEditor: br.top >= er.top - 2 && br.bottom <= er.bottom + 2,
+        span: br.bottom - tr.top,
+        scrollViewH: scroll?.clientHeight ?? 0,
+        editorH: er.height,
+      };
+    });
+    if (metrics?.titleInEditor && metrics?.totalInEditor) break;
+    viewportH += Math.max(120, Math.ceil((metrics?.span ?? 0) - (metrics?.scrollViewH ?? 0)) + 48);
+  }
+  await expandInvoiceEditorForCapture(page, editor);
+  await scrollInvoiceEditorForCapture(editor, width, { requireInvoiceHeading: true });
+  const headingText = (await title.innerText()).trim();
+  if (!/9102/.test(headingText)) {
+    throw new Error(`[fix2b-d@${width}] expected Invoice #9102 heading, got: ${headingText}`);
+  }
+  const titleBox = await editor.locator('.hub-invoice-editor-title').boundingBox();
+  const totalBox = await editor.locator('.hub-invoice-totalbar').boundingBox();
+  if (!titleBox || !totalBox) {
+    throw new Error(`[fix2b-d@${width}] could not measure invoice heading/total`);
+  }
+  const pad = 12;
+  const clip = {
+    x: Math.max(0, Math.min(titleBox.x, totalBox.x) - pad),
+    y: Math.max(0, titleBox.y - pad),
+    width: Math.max(titleBox.width, totalBox.width) + pad * 2,
+    height: totalBox.y + totalBox.height + 28 - titleBox.y + pad,
+  };
+  await page.screenshot({ path: invoicePath, clip });
 }
 
 async function captureAStable(width) {
@@ -237,15 +337,13 @@ async function captureNoRate(width) {
     hasTouch: width === 390,
   });
   const page = await context.newPage();
-  await page.addInitScript(() => {
-    sessionStorage.setItem('fix2b-d-optin-start', '0');
-  });
   const href = `/jobs/audit-doc-job?auditAuth=1&look=fix2b-d-norate&tab=paperwork`;
   await page.goto(`${BASE}${href}`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('[data-job-invoice-preview]', { timeout: 30000 });
   await page.waitForFunction(() => {
     const el = document.querySelector('[data-job-next-detail]');
-    return el?.textContent?.includes('inc GST');
+    const text = el?.textContent ?? '';
+    return text.includes('no rate set') && text.includes('inc GST');
   }, { timeout: 30000 });
   const headerPreviewMoney = (await page.locator('[data-job-next-detail]').innerText()).trim();
   const headerTotalMatch = headerPreviewMoney.match(/\$([\d,]+\.\d{2})/);
@@ -258,38 +356,20 @@ async function captureNoRate(width) {
   const optIn = page.locator('.hub-job-bill-zero-labour-sheet .hub-ops-form-check input');
   if (!(await optIn.isChecked())) await optIn.check();
   await page.waitForSelector('[data-job-bill-quoted-unpriced-warning]', { timeout: 30000 });
+  await page.waitForSelector('[data-job-bill-quoted-add-rate]', { timeout: 30000 });
   await page.waitForFunction(() => {
     const money = document.querySelector('[data-job-bill-quoted-invoice-money]')?.textContent ?? '';
-    return money.includes('no rate set');
+    return money.includes('no rate set') && money.includes('inc GST');
   });
   const previewMoney = (await page.locator('[data-job-bill-quoted-invoice-money]').innerText()).trim();
   const sheetPath = `${OUT}/.tmp-fix2b-d-sheet-${width}.png`;
-  await page.setViewportSize({ width, height });
-  const hero = page.locator('h1.hub-jobs-hero');
-  const card = page.locator('[data-job-invoice-preview]');
-  const sheetEl = page.locator('.hub-job-bill-zero-labour-sheet');
-  await page.evaluate(() => document.fonts.ready);
-  const boxes = await Promise.all([
-    hero.boundingBox(),
-    card.boundingBox(),
-    sheetEl.boundingBox(),
-  ]);
-  if (boxes.some(b => !b)) throw new Error(`[fix2b-d@${width}] before-create layout missing`);
-  const pad = 8;
-  const x = Math.max(0, Math.min(...boxes.map(b => b.x)) - pad);
-  const y = Math.max(0, Math.min(...boxes.map(b => b.y)) - pad);
-  const right = Math.min(width, Math.max(...boxes.map(b => b.x + b.width)) + pad);
-  const bottom = Math.min(height, Math.max(...boxes.map(b => b.y + b.height)) + pad);
-  await page.screenshot({
-    path: sheetPath,
-    clip: { x, y, width: right - x, height: bottom - y },
-  });
-  await page.locator('.hub-job-bill-zero-labour-primary').click();
+  await page.locator('.hub-job-bill-zero-labour-sheet').screenshot({ path: sheetPath });
+  await page.locator('[data-job-bill-quoted-create]').click();
   await page.waitForFunction(() => sessionStorage.getItem('audit-fix2-invoice-row'), { timeout: 20000 });
   const row = JSON.parse(await page.evaluate(() => sessionStorage.getItem('audit-fix2-invoice-row')));
   const createdTotal = Number(row.total);
-  if (!previewMoney.includes('no rate set')) {
-    throw new Error(`[fix2b-d@${width}] sheet money line missing no rate set: ${previewMoney}`);
+  if (!previewMoney.includes('no rate set') || !previewMoney.includes('$898.00 inc GST')) {
+    throw new Error(`[fix2b-d@${width}] sheet money line invalid: ${previewMoney}`);
   }
   if (Math.abs(createdTotal - 898) > 0.01) {
     throw new Error(`[fix2b-d@${width}] expected created total 898, got ${createdTotal}`);
@@ -308,22 +388,8 @@ async function captureNoRate(width) {
   }
   const invoicePath = `${OUT}/.tmp-fix2b-d-invoice-${width}.png`;
   const editor = page.locator('.hub-invoice-editor');
-  await editor.locator('.hub-invoice-editor-title').waitFor({ state: 'visible' });
-  await editor.locator('.hub-invoice-totalbar').waitFor({ state: 'visible' });
-  await editor.evaluate((root) => {
-    const scroll =
-      root.querySelector('.hub-editor-dialog-scroll') ??
-      root.querySelector('.hub-invoice-editor-body') ??
-      root;
-    const title = root.querySelector('.hub-invoice-editor-title');
-    const totalBar = root.querySelector('.hub-invoice-totalbar');
-    if (scroll && title && totalBar) {
-      const tr = title.getBoundingClientRect();
-      scroll.scrollTop = Math.max(0, scroll.scrollTop + tr.top - scroll.getBoundingClientRect().top - 8);
-    }
-  });
-  await page.waitForTimeout(150);
-  await editor.screenshot({ path: invoicePath });
+  await editor.waitFor({ state: 'visible', timeout: 20000 });
+  await captureInvoiceHeadingThroughTotal(page, editor, width, invoicePath, height);
   const finalPath = `${OUT}/fix2b-d-norate-${width}.png`;
   const paneHeight = height;
   await compositeNoRate(
@@ -333,8 +399,8 @@ async function captureNoRate(width) {
     finalPath,
     width,
     paneHeight,
-    `Opt-in · no rate set (preview $${previewTotal.toFixed(2)} on job card)`,
-    `Created invoice · $${createdTotal.toFixed(2)} inc GST`,
+    'Quoted opt-in sheet · no rate warning · $898.00 inc GST on money line',
+    'Invoice #9102 heading through total (inc GST) pill',
   );
   await context.close();
   return {
@@ -342,7 +408,7 @@ async function captureNoRate(width) {
     finalPath,
     previewMoney,
     previewTotal,
-    previewTotalLocation: '[data-job-next-detail] on job card (visible behind sheet)',
+    previewTotalLocation: '[data-job-bill-quoted-invoice-money] and [data-job-next-detail]',
     createdTotal,
     md5: md5File(finalPath),
   };

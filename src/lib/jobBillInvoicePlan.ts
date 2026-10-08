@@ -190,7 +190,7 @@ export function jobBillInvoiceMoneyLineIncGst(input: {
         extraTimesheetHoursForQuotedOptIn(input.costs, input.plannedLabourPull),
       );
       if (input.hasUnpricedExtraLabour) {
-        return `Quote #${quoteNo} + ${extraH} h extra · no rate set`;
+        return `Quote #${quoteNo} + ${extraH} h extra · no rate set · ${lineLabel} · ${money}`;
       }
       return `Quote #${quoteNo} + ${extraH} h extra · ${lineLabel} · ${money}`;
     }

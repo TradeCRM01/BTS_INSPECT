@@ -150,7 +150,8 @@ describe('quoted job invoice lines', () => {
     });
     expect(preview.unpricedExtraLabour).toBe(true);
     expect(preview.moneyLine).toContain('no rate set');
-    expect(preview.moneyLine).not.toContain('inc GST');
+    expect(preview.moneyLine).toContain('$898.00 inc GST');
+    expect(preview.moneyLine).toBe('Quote #0002 + 3.5 h extra · no rate set · 3 lines · $898.00 inc GST');
     const inv = buildInvoiceFromJobBill({
       clientId: 'c',
       jobId: 'j',
@@ -158,6 +159,7 @@ describe('quoted job invoice lines', () => {
       lines,
     });
     expect(preview.totalIncGst).toBe(inv.total);
+    expect(preview.totalIncGst).toBe(898);
   });
 
   it('quoted + opt-in preview total matches create total', () => {

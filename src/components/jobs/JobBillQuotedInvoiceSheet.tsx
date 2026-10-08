@@ -1,4 +1,5 @@
 import { AlertTriangle, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { AppDialog } from '../ui/AppDialog';
 import { JOB_BILL_ADD_LOGGED_HOURS_EXTRA_LABEL } from '../../lib/jobBillInvoicePlan';
 import { zeroLabourInvoiceConfirmMessage } from '../../lib/hoursToJobBill';
@@ -56,6 +57,16 @@ export function JobBillQuotedInvoiceSheet({
               <AlertTriangle size={20} className="hub-job-bill-zero-labour-icon" aria-hidden />
               <p className="hub-job-bill-zero-labour-message">{zeroLabourInvoiceConfirmMessage(1)}</p>
             </div>
+            <div className="hub-job-bill-zero-labour-actions">
+              <Link
+                to="/settings/company"
+                className="hub-job-bill-zero-labour-primary"
+                onClick={onClose}
+                data-job-bill-quoted-add-rate
+              >
+                Add a rate
+              </Link>
+            </div>
           </div>
         ) : null}
         <label className="hub-ops-form-check">
@@ -72,6 +83,7 @@ export function JobBillQuotedInvoiceSheet({
             className="hub-job-bill-zero-labour-primary"
             disabled={pending}
             onClick={onCreate}
+            data-job-bill-quoted-create
           >
             {pending ? 'Creating…' : 'Create draft invoice'}
           </button>

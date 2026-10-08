@@ -1578,18 +1578,9 @@ export function JobDetailPage() {
   const [arrivingSent, setArrivingSent] = useState(false);
   const [arrivingBusy, setArrivingBusy] = useState(false);
   const [quotedInvoiceSheetOpen, setQuotedInvoiceSheetOpen] = useState(false);
-  const [addLoggedHoursExtra, setAddLoggedHoursExtra] = useState(() => {
-    if (lookSearchParam() === FIX2_QUOTED_OPTIN_LOOK) return true;
-    if (lookSearchParam() === FIX2B_D_NORATE_LOOK) {
-      try {
-        if (sessionStorage.getItem('fix2b-d-optin-start') === '0') return false;
-      } catch {
-        /* ignore */
-      }
-      return true;
-    }
-    return false;
-  });
+  const [addLoggedHoursExtra, setAddLoggedHoursExtra] = useState(
+    () => lookSearchParam() === FIX2_QUOTED_OPTIN_LOOK || lookSearchParam() === FIX2B_D_NORATE_LOOK,
+  );
   const [zeroLabourConfirmCount, setZeroLabourConfirmCount] = useState(0);
   const [pendingInvoiceExtra, setPendingInvoiceExtra] = useState(false);
   const visitPhotoRef = useRef<HTMLInputElement>(null);
