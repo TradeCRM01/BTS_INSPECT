@@ -4,6 +4,7 @@ import {
   invalidateJobBillInvoicePreview,
   JOB_BILL_INVOICE_PREVIEW_QUERY_PREFIX,
   jobBillInvoicePreviewQueryKey,
+  jobBillInvoicePreviewQueryKeyWithDims,
 } from './jobBillInvoicePreviewQuery';
 import { invalidateJobBillAfterHoursChange } from './hoursToJobBill';
 
@@ -12,6 +13,20 @@ describe('jobBillInvoicePreviewQuery', () => {
     expect(jobBillInvoicePreviewQueryKey('job-abc')).toEqual([
       JOB_BILL_INVOICE_PREVIEW_QUERY_PREFIX,
       'job-abc',
+    ]);
+  });
+
+  it('builds the full preview query key with bill dimensions', () => {
+    expect(jobBillInvoicePreviewQueryKeyWithDims('job-abc', {
+      addLoggedHoursExtra: true,
+      hasAcceptedQuoteLines: false,
+      jobBillTaxRate: 10,
+    })).toEqual([
+      JOB_BILL_INVOICE_PREVIEW_QUERY_PREFIX,
+      'job-abc',
+      true,
+      false,
+      10,
     ]);
   });
 

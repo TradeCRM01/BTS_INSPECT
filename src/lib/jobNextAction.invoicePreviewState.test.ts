@@ -7,6 +7,16 @@ import {
 } from './invoiceFromJobBill';
 import { recommendJobAction } from './jobNextAction';
 
+const paperworkReady = {
+  jhaCount: 1,
+  inspectionCount: 1,
+  invoiceCount: 0,
+  hasAcceptedQuote: false,
+  hasBillLines: false,
+  scheduledDate: '2026-10-08',
+  crewCount: 1,
+};
+
 const invoiceCtx = {
   status: 'completed' as const,
   scheduledDate: '2026-10-01',
@@ -52,6 +62,34 @@ describe('invoice preview state on job Next', () => {
       billInvoicePreviewState: 'ready',
     });
     expect(action.detail).toBe(JOB_BILL_INVOICE_EMPTY);
+  });
+
+  it('in-progress clocked on stays On track while preview loads or errors', () => {
+    for (const billInvoicePreviewState of ['loading', 'error'] as const) {
+      const action = recommendJobAction({
+        ...paperworkReady,
+        status: 'in_progress',
+        clockedOn: true,
+        clockedOff: false,
+        billInvoicePreviewState,
+      });
+      expect(action.key).toBe('none');
+      expect(action.label).toBe('On track');
+    }
+  });
+
+  it('in-progress not clocked on stays Clock on while preview loads or errors', () => {
+    for (const billInvoicePreviewState of ['loading', 'error'] as const) {
+      const action = recommendJobAction({
+        ...paperworkReady,
+        status: 'in_progress',
+        clockedOn: false,
+        clockedOff: false,
+        billInvoicePreviewState,
+      });
+      expect(action.key).toBe('clock');
+      expect(action.label).toBe('Clock on');
+    }
   });
 
   it('uses only the inc-GST money line when the plan is ready', () => {

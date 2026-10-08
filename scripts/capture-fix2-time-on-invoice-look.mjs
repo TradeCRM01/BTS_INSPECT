@@ -45,9 +45,9 @@ html,body{margin:0;padding:0;width:${totalWidth}px;height:${paneHeight}px;overfl
 }
 
 /** Scroll invoice dialog so Total (inc GST) is fully in view; on 390 also try to show Invoice # heading. */
-async function scrollInvoiceEditorForCapture(editor, width) {
+async function scrollInvoiceEditorForCapture(editor, width, { requireInvoiceHeading = false } = {}) {
   await editor.locator('.hub-invoice-totalbar').waitFor({ state: 'visible' });
-  await editor.evaluate((root, w) => {
+  await editor.evaluate((root, { w, requireInvoiceHeading }) => {
     const scroll =
       root.querySelector('.hub-editor-dialog-scroll') ??
       root.querySelector('.hub-invoice-editor-body') ??
@@ -66,19 +66,48 @@ async function scrollInvoiceEditorForCapture(editor, width) {
     const toName = root.querySelector('.hub-invoice-to-name');
     const title = root.querySelector('.hub-invoice-editor-title');
     const fromBlock = root.querySelector('.hub-invoice-from');
-    const topEl = w === 390 && title ? title : (toName ?? fromBlock);
+    const topEl = (w === 390 && (requireInvoiceHeading || title)) ? (title ?? toName ?? fromBlock) : (toName ?? fromBlock);
     if (topEl && viewH > 0) {
       const topRect = topEl.getBoundingClientRect();
       const blockH = totalRect.bottom - topRect.top + pad * 2;
-      if (blockH <= viewH) {
+      if (blockH <= viewH || (requireInvoiceHeading && title)) {
         target = scroll.scrollTop + (topRect.top - scrollRect.top) - pad;
       }
     }
 
     const maxScroll = Math.max(0, scroll.scrollHeight - scroll.clientHeight);
     scroll.scrollTop = Math.min(maxScroll, Math.max(0, target));
-  }, width);
+  }, { w: width, requireInvoiceHeading });
   await editor.locator('[data-invoice-total-inc-gst]').scrollIntoViewIfNeeded();
+}
+
+async function assertInvoiceHeadingVisible(editor, state, width) {
+  const title = editor.locator('.hub-invoice-editor-title');
+  await title.waitFor({ state: 'visible', timeout: 15000 });
+  await title.scrollIntoViewIfNeeded();
+  await editor.evaluate((root) => {
+    const scroll = root.querySelector('.hub-editor-dialog-scroll') ?? root.querySelector('.hub-invoice-editor-body') ?? root;
+    const el = root.querySelector('.hub-invoice-editor-title');
+    if (!scroll || !el) return;
+    const scrollRect = scroll.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    scroll.scrollTop += r.top - scrollRect.top - 10;
+  });
+  const text = (await title.innerText()).trim();
+  if (!/9102/.test(text)) {
+    throw new Error(`[${state}@${width}] expected Invoice #9102 heading, got: ${text}`);
+  }
+  const visible = await editor.evaluate((root) => {
+    const el = root.querySelector('.hub-invoice-editor-title');
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    const scroll = root.querySelector('.hub-editor-dialog-scroll') ?? root;
+    const sr = scroll.getBoundingClientRect();
+    return r.bottom > sr.top + 4 && r.top < sr.bottom - 4;
+  });
+  if (!visible) {
+    throw new Error(`[${state}@${width}] Invoice #9102 heading not visible in editor frame`);
+  }
 }
 
 async function captureState({ state, width, optIn, zeroConfirm }) {
@@ -88,6 +117,7 @@ async function captureState({ state, width, optIn, zeroConfirm }) {
     viewport: { width, height: paneHeight },
     deviceScaleFactor: 1,
     locale: 'en-AU',
+    timezoneId: 'Australia/Brisbane',
     isMobile: mobile,
     hasTouch: mobile,
   });
@@ -166,20 +196,27 @@ async function captureState({ state, width, optIn, zeroConfirm }) {
   const createdTotalText = await page.locator('[data-invoice-total-inc-gst]').innerText();
   const invoicePath = `${OUT}/.tmp-${state}-invoice-${width}.png`;
   const editor = page.locator('.hub-invoice-editor');
-  await scrollInvoiceEditorForCapture(editor, width);
+  const requireInvoiceHeading = width === 390 && (state === 'fix2-quoted-optin' || state === 'fix2-unquoted-zero');
+  await scrollInvoiceEditorForCapture(editor, width, { requireInvoiceHeading });
   await page.waitForTimeout(250);
+  if (requireInvoiceHeading) {
+    await assertInvoiceHeadingVisible(editor, state, width);
+    await editor.locator('[data-invoice-total-inc-gst]').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(150);
+  }
   await editor.screenshot({ path: invoicePath });
 
-  const totalVisible = await editor.evaluate((root) => {
+  const totalVisible = await editor.evaluate((root, partial) => {
     const totalBar = root.querySelector('.hub-invoice-totalbar');
     if (!totalBar) return false;
     const r = totalBar.getBoundingClientRect();
     const scroll = root.querySelector('.hub-editor-dialog-scroll') ?? root;
     const sr = scroll.getBoundingClientRect();
+    if (partial) return r.bottom > sr.top + 4 && r.top < sr.bottom - 4;
     return r.top >= sr.top - 2 && r.bottom <= sr.bottom + 2;
-  });
+  }, requireInvoiceHeading);
   if (!totalVisible) {
-    throw new Error(`[${state}@${width}] Total (inc GST) bar not fully visible after scroll`);
+    throw new Error(`[${state}@${width}] Total (inc GST) bar not visible after scroll`);
   }
 
   const finalPath = `${OUT}/${state}-${width}.png`;
@@ -203,32 +240,35 @@ async function captureState({ state, width, optIn, zeroConfirm }) {
 }
 
 async function buildClockoffLeftStrip(browser, {
-  beforeMoney,
-  afterMoney,
+  beforeMoneyPng,
+  afterMoneyPng,
   hoursPng,
   outPath,
   paneWidth,
   paneHeight,
 }) {
+  const beforeB64 = readFileSync(beforeMoneyPng).toString('base64');
+  const afterB64 = readFileSync(afterMoneyPng).toString('base64');
   const hoursB64 = readFileSync(hoursPng).toString('base64');
   const page = await browser.newPage();
   await page.setViewportSize({ width: paneWidth, height: paneHeight });
   await page.setContent(`<!DOCTYPE html><html><head><style>
-html,body{margin:0;padding:0;width:${paneWidth}px;height:${paneHeight}px;background:#F5F0E6;font-family:system-ui,-apple-system,sans-serif;color:#0A2540;}
-.strip{width:${paneWidth - 32}px;margin:16px auto;display:flex;flex-direction:column;gap:10px;}
-.card{padding:12px 14px;border-radius:12px;border:1px solid color-mix(in srgb,#0a2540 12%,#e2d9cc);background:#FFFDF8;box-shadow:0 2px 12px rgba(10,37,64,.08);}
-.kicker{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#0A2540;opacity:.72;margin:0 0 6px;}
-.money{margin:0;font-size:15px;font-weight:600;line-height:1.35;}
-.event{margin:0;font-size:13px;line-height:1.4;}
-.event strong{font-weight:700;}
-.hours img{display:block;width:100%;height:auto;border-radius:8px;border:1px solid #e2d9cc;}
-</style></head><body><div class="strip">
-<div class="card"><p class="kicker">Before clock off</p><p class="money">${beforeMoney.replace(/</g, '&lt;')}</p></div>
-<div class="card event"><span class="kicker">Capture annotation</span> Clock off — 1.5 h logged on this job (invoice preview 2 h → 3.5 h)</div>
-<div class="card hours"><img src="data:image/png;base64,${hoursB64}" alt="Time on this job"/></div>
-<div class="card"><p class="kicker">After clock off</p><p class="money">${afterMoney.replace(/</g, '&lt;')}</p></div>
+html,body{margin:0;padding:0;width:${paneWidth}px;min-height:${paneHeight}px;background:#e8e8e8;font-family:system-ui,-apple-system,sans-serif;color:#333;}
+.col{width:${paneWidth}px;box-sizing:border-box;padding:14px 12px 20px;display:flex;flex-direction:column;align-items:center;gap:8px;}
+.cap{margin:0;font-size:12px;font-weight:600;color:#555;text-align:center;line-height:1.3;}
+.cap-sub{margin:0 0 4px;font-size:11px;color:#777;text-align:center;line-height:1.35;max-width:${paneWidth - 24}px;}
+.shot img{display:block;max-width:${paneWidth - 24}px;width:100%;height:auto;box-shadow:0 1px 6px rgba(0,0,0,.12);}
+.gap{height:6px;}
+</style></head><body><div class="col">
+<p class="cap">Before clock off — job Next money line</p>
+<div class="shot"><img src="data:image/png;base64,${beforeB64}" alt="before"/></div>
+<p class="cap-sub">Clock off — 1.5 h logged (preview 2 h → 3.5 h)</p>
+<div class="shot"><img src="data:image/png;base64,${hoursB64}" alt="hours"/></div>
+<div class="gap"></div>
+<p class="cap">After clock off — job Next money line</p>
+<div class="shot"><img src="data:image/png;base64,${afterB64}" alt="after"/></div>
 </div></body></html>`);
-  await page.locator('.strip').screenshot({ path: outPath });
+  await page.locator('.col').screenshot({ path: outPath });
   await page.close();
 }
 
@@ -240,6 +280,7 @@ async function captureClockoffInvoice390() {
     viewport: { width, height: paneHeight },
     deviceScaleFactor: 1,
     locale: 'en-AU',
+    timezoneId: 'Australia/Brisbane',
     isMobile: true,
     hasTouch: true,
   });
@@ -256,6 +297,8 @@ async function captureClockoffInvoice390() {
     const text = document.querySelector('[data-job-next-detail]')?.textContent ?? '';
     return text.includes('$209.00') && text.includes('inc GST');
   }, { timeout: 30000 });
+  const beforeMoneyPath = `${OUT}/.tmp-${state}-before-money-${width}.png`;
+  await page.locator('[data-job-next-detail]').screenshot({ path: beforeMoneyPath });
   const previewBefore = (await page.locator('[data-job-next-detail]').innerText()).trim();
   const beforeTotal = parseIncGstTotal(previewBefore);
   if (beforeTotal == null || Math.abs(beforeTotal - 209) > 0.01) {
@@ -269,6 +312,8 @@ async function captureClockoffInvoice390() {
     const text = document.querySelector('[data-job-next-detail]')?.textContent ?? '';
     return text.includes('$365.75') && text.includes('inc GST') && text.trim() !== before.trim();
   }, previewBefore, { timeout: 30000 });
+  const afterMoneyPath = `${OUT}/.tmp-${state}-after-money-${width}.png`;
+  await page.locator('[data-job-next-detail]').screenshot({ path: afterMoneyPath });
   const previewAfter = (await page.locator('[data-job-next-detail]').innerText()).trim();
   const afterTotal = parseIncGstTotal(previewAfter);
   if (afterTotal == null || Math.abs(afterTotal - 365.75) > 0.01) {
@@ -291,8 +336,8 @@ async function captureClockoffInvoice390() {
   await page.locator('[data-job-invoice-preview]').waitFor({ state: 'visible', timeout: 15000 });
   const leftStripPath = `${OUT}/.tmp-${state}-left-${width}.png`;
   await buildClockoffLeftStrip(browser, {
-    beforeMoney: previewBefore,
-    afterMoney: previewAfter,
+    beforeMoneyPng: beforeMoneyPath,
+    afterMoneyPng: afterMoneyPath,
     hoursPng: hoursPath,
     outPath: leftStripPath,
     paneWidth: width,
@@ -360,15 +405,55 @@ const states = [
   { state: 'fix2-unquoted-zero', optIn: false, zeroConfirm: true },
 ];
 
-const report = [];
-for (const width of [390, 1280]) {
-  for (const cfg of states) {
-    report.push(await captureState({ ...cfg, width }));
+const onlyRecapture = (process.env.FIX2_LOOK_ONLY ?? '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+  .map((token) => {
+    const [state, widthRaw] = token.split(':');
+    return { state, width: widthRaw ? Number(widthRaw) : null };
+  });
+
+function mergeReport(existing, fresh) {
+  const key = (r) => `${r.state}@${r.width}`;
+  const map = new Map((existing ?? []).map(r => [key(r), r]));
+  for (const row of fresh) map.set(key(row), row);
+  return [...map.values()].sort((a, b) => {
+    if (a.state !== b.state) return a.state.localeCompare(b.state);
+    return a.width - b.width;
+  });
+}
+
+let priorReport = [];
+try {
+  priorReport = JSON.parse(readFileSync(`${OUT}/fix2-look-report.json`, 'utf8'));
+} catch {
+  priorReport = [];
+}
+
+const fresh = [];
+const runAll = onlyRecapture.length === 0;
+const wantCapture = (state, width) => {
+  if (runAll) return true;
+  return onlyRecapture.some(
+    (p) => p.state === state && (p.width == null || p.width === width),
+  );
+};
+
+if (runAll || states.some(c => onlyRecapture.some(p => p.state === c.state))) {
+  for (const width of [390, 1280]) {
+    for (const cfg of states) {
+      if (!wantCapture(cfg.state, width)) continue;
+      fresh.push(await captureState({ ...cfg, width }));
+    }
   }
 }
-report.push(await captureClockoffInvoice390());
+if (wantCapture('fix2-clockoff-invoice', 390)) {
+  fresh.push(await captureClockoffInvoice390());
+}
 
+const report = mergeReport(priorReport, fresh);
 writeFileSync(`${OUT}/fix2-look-report.json`, JSON.stringify(report, null, 2));
-console.log(JSON.stringify(report, null, 2));
+console.log(JSON.stringify(fresh, null, 2));
 await browser.close();
-console.log(`FIX-2 LOOK composites saved under ${OUT}`);
+console.log(`FIX-2 LOOK composites saved under ${OUT} (captured ${fresh.length} frame(s))`);

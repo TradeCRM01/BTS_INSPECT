@@ -44,7 +44,10 @@ import {
 import { LabourRatePickerSheet } from './LabourRatePickerSheet';
 import { JobBillZeroLabourConfirmSheet } from './JobBillZeroLabourConfirmSheet';
 import { JOB_BILL_INVOICE_NO_CLIENT } from '../../lib/invoiceFromJobBill';
-import { invalidateJobBillInvoicePreview } from '../../lib/jobBillInvoicePreviewQuery';
+import {
+  invalidateJobBillInvoicePreview,
+  jobBillInvoicePreviewQueryKeyWithDims,
+} from '../../lib/jobBillInvoicePreviewQuery';
 import { jobInvoicesAfterCreate, type JobInvoiceListRow } from '../../lib/invoiceFromQuote';
 import {
   Plus, Package, Trash2, DollarSign, Layers, HardHat, Wrench,
@@ -159,7 +162,11 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
 
   const jobBillTaxRate = Number(company?.default_tax_rate) || DEFAULT_TAX_RATE;
   const { data: jobBillInvoicePreview } = useQuery({
-    queryKey: ['job-bill-invoice-preview', jobId, addLoggedHoursExtra, hasAcceptedQuoteLines, jobBillTaxRate],
+    queryKey: jobBillInvoicePreviewQueryKeyWithDims(jobId, {
+      addLoggedHoursExtra,
+      hasAcceptedQuoteLines,
+      jobBillTaxRate,
+    }),
     queryFn: async () => {
       if (!profile?.company_id || !profile.id) throw new Error('No company');
       return loadJobBillInvoicePreview({
@@ -171,6 +178,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       });
     },
     enabled: !!profile?.company_id && !!profile.id,
+    staleTime: 0,
   });
 
   const loggedHoursNotBilledNote = hasAcceptedQuoteLines

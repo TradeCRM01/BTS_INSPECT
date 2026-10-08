@@ -50,7 +50,10 @@ import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { isJobBillQuoted, pickMostRecentlyAcceptedQuote } from '../lib/acceptedQuotePick';
 import { createInvoiceFromJobBill, loadJobBillInvoicePreview } from '../lib/createInvoiceFromJobBill';
 import { invalidateJobBillAfterHoursChange, invalidateJobBillHoursQueries } from '../lib/hoursToJobBill';
-import { invalidateJobBillInvoicePreview } from '../lib/jobBillInvoicePreviewQuery';
+import {
+  invalidateJobBillInvoicePreview,
+  jobBillInvoicePreviewQueryKeyWithDims,
+} from '../lib/jobBillInvoicePreviewQuery';
 import type { JobBillInvoicePreviewState } from '../lib/invoiceFromJobBill';
 import { countZeroLabourBeforeJobBillInvoice } from '../lib/requestJobBillInvoice';
 import {
@@ -2512,7 +2515,11 @@ export function JobDetailPage() {
     isPending: jobBillPreviewPending,
     isError: jobBillPreviewError,
   } = useQuery({
-    queryKey: ['job-bill-invoice-preview', id, addLoggedHoursExtra, hasAcceptedQuoteLines, jobBillTaxRate],
+    queryKey: jobBillInvoicePreviewQueryKeyWithDims(id ?? '', {
+      addLoggedHoursExtra,
+      hasAcceptedQuoteLines,
+      jobBillTaxRate,
+    }),
     queryFn: async () => {
       if (!profile?.company_id || !profile.id || !id) throw new Error('No company');
       return loadJobBillInvoicePreview({
@@ -2524,6 +2531,7 @@ export function JobDetailPage() {
       });
     },
     enabled: jobBillPreviewQueryEnabled,
+    staleTime: 0,
   });
   const jobBillPreviewState: JobBillInvoicePreviewState = quotedLookOn || fix2MemoPreviewOn
     ? 'ready'
@@ -2699,15 +2707,11 @@ export function JobDetailPage() {
     inspectionCount: (inspections ?? []).length,
     ...jobInvoiceActionFlags(invoices ?? []),
     hasAcceptedQuote: hasAcceptedQuoteLines,
-    hasBillLines: jobBillPreviewState !== 'ready'
-      || (costTotals?.lines ?? 0) > 0
+    hasBillLines: (costTotals?.lines ?? 0) > 0
       || hasAcceptedQuoteLines
-      || (invoicePreviewForNext?.lineCount ?? 0) > 0,
+      || (jobBillPreviewState === 'ready' && (invoicePreviewForNext?.lineCount ?? 0) > 0),
     billLineCount: jobBillPreviewState === 'ready'
       ? (invoicePreviewForNext?.lineCount ?? costTotals?.lines)
-      : undefined,
-    billTotal: jobBillPreviewState === 'ready'
-      ? (invoicePreviewForNext?.totalIncGst ?? costTotals?.charge)
       : undefined,
     billInvoiceMoneyLine: jobBillPreviewState === 'ready' ? invoicePreviewForNext?.moneyLine : undefined,
     billInvoicePreviewState: jobBillPreviewState,
