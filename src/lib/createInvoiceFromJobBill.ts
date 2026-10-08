@@ -263,6 +263,9 @@ export async function createInvoiceFromJobBill(input: {
   });
 
   if (auditFix2Create) {
+    if (sessionStorage.getItem('fix2b-fail-create') === '1') {
+      throw new Error('Could not create invoice');
+    }
     try {
       if (sessionStorage.getItem('fix2b-slow-create') === '1') {
         await new Promise(resolve => setTimeout(resolve, 3500));

@@ -162,6 +162,44 @@ describe('quoted job invoice lines', () => {
     expect(preview.totalIncGst).toBe(898);
   });
 
+  it('quoted opt-in with price-book rate does not warn when bill labour row is $0', () => {
+    const zeroOnBill = {
+      cost_type: 'labor',
+      charge_type: 'Labour',
+      description: 'Labour 3.5 h @ $0',
+      quantity: 3.5,
+      unit_price: 0,
+      unit_cost: 45,
+      markup_percent: 0,
+      timesheet_entry_id: 'ts-extra',
+    };
+    const lines = planJobBillInvoiceLines({
+      quoteLineItems: quoteLines,
+      costs: [zeroOnBill],
+      plannedLabourPull: [],
+      includeLoggedHoursExtra: true,
+      labourSell,
+    });
+    const preview = jobBillInvoicePreviewFromLines(lines, 10, {
+      quoteNumber: 2,
+      quoteLineItems: quoteLines,
+      costs: [zeroOnBill],
+      plannedLabourPull: [],
+      includeLoggedHoursExtra: true,
+      labourSell,
+    });
+    expect(preview.unpricedExtraLabour).toBe(false);
+    expect(preview.moneyLine).not.toContain('no rate set');
+    expect(preview.totalIncGst).toBe(1263.75);
+    const inv = buildInvoiceFromJobBill({
+      clientId: 'c',
+      jobId: 'j',
+      taxRate: 10,
+      lines,
+    });
+    expect(preview.totalIncGst).toBe(inv.total);
+  });
+
   it('quoted + opt-in preview total matches create total', () => {
     const lines = planJobBillInvoiceLines({
       quoteLineItems: quoteLines,

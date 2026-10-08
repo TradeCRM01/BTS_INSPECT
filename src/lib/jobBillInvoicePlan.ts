@@ -148,17 +148,33 @@ export function planJobBillInvoiceLinesFromCosts(input: {
   });
 }
 
+export function quotedOptInUnpricedExtraLabourLines(input: {
+  quoteLineItems: QuoteLineItem[] | null | undefined;
+  costs: JobBillCostLine[];
+  plannedLabourPull: JobCostFromHoursInsert[];
+  includeLoggedHoursExtra: boolean;
+  labourSell: LabourSellResolution;
+}): InvoiceLineItem[] {
+  if (!input.includeLoggedHoursExtra) return [];
+  const quoteLines = invoiceLinesFromQuote(input.quoteLineItems);
+  const lines = planJobBillInvoiceLines({
+    quoteLineItems: input.quoteLineItems,
+    costs: input.costs,
+    plannedLabourPull: input.plannedLabourPull,
+    includeLoggedHoursExtra: input.includeLoggedHoursExtra,
+    labourSell: input.labourSell,
+  });
+  return lines.slice(quoteLines.length).filter(line => lineNeedsLabourRate(line));
+}
+
 export function quotedOptInHasUnpricedExtraLabour(input: {
+  quoteLineItems: QuoteLineItem[] | null | undefined;
   costs: JobBillCostLine[];
   plannedLabourPull: JobCostFromHoursInsert[];
   includeLoggedHoursExtra: boolean;
   labourSell: LabourSellResolution;
 }): boolean {
-  if (!input.includeLoggedHoursExtra) return false;
-  const extraCosts = quotedOptInExtraLabourCosts(input.costs, input.plannedLabourPull);
-  if (extraCosts.length === 0) return false;
-  if (input.labourSell.needsRate || input.labourSell.needsPicker) return true;
-  return extraCosts.some(c => (Number(c.unit_price) || 0) === 0);
+  return quotedOptInUnpricedExtraLabourLines(input).length > 0;
 }
 
 export function jobBillInvoiceMoneyLineIncGst(input: {
@@ -213,18 +229,21 @@ export function jobBillInvoicePreviewFromLines(
   totalIncGst: number;
   moneyLine: string;
   unpricedExtraLabour: boolean;
+  unpricedExtraLabourLineCount: number;
   /** @deprecated use moneyLine */
   detail: string;
 } {
   const { subtotal, taxAmount, total } = calcLineDocumentTotals(lines, taxRate);
-  const hasUnpricedExtraLabour = moneyLineInput
-    ? quotedOptInHasUnpricedExtraLabour({
+  const unpricedExtraLines = moneyLineInput
+    ? quotedOptInUnpricedExtraLabourLines({
+      quoteLineItems: moneyLineInput.quoteLineItems,
       costs: moneyLineInput.costs,
       plannedLabourPull: moneyLineInput.plannedLabourPull,
       includeLoggedHoursExtra: moneyLineInput.includeLoggedHoursExtra,
       labourSell: moneyLineInput.labourSell,
     })
-    : false;
+    : [];
+  const hasUnpricedExtraLabour = unpricedExtraLines.length > 0;
   const moneyLine = moneyLineInput
     ? jobBillInvoiceMoneyLineIncGst({
       ...moneyLineInput,
@@ -239,6 +258,7 @@ export function jobBillInvoicePreviewFromLines(
     totalIncGst: total,
     moneyLine,
     unpricedExtraLabour: hasUnpricedExtraLabour,
+    unpricedExtraLabourLineCount: unpricedExtraLines.length,
     detail: moneyLine,
   };
 }

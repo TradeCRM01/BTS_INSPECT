@@ -30,10 +30,13 @@ describe('jobBillInvoiceCreateFlow', () => {
           skipZeroCheck: true,
           countZeroLabour: async () => 0,
           onZeroLabour: () => {},
-          createInvoice: create,
+          createInvoice: async () => {
+            await create();
+            return true;
+          },
         });
         expect(second).toBe('skipped_in_flight');
-        return 'done';
+        return true;
       },
     });
     await first;
@@ -42,7 +45,7 @@ describe('jobBillInvoiceCreateFlow', () => {
 
   it('surfaces zero-labour count without creating', async () => {
     const onZero = vi.fn();
-    const create = vi.fn();
+    const create = vi.fn(async () => true);
     const result = await runJobBillInvoiceCreateFlow({
       guard: { inFlight: false },
       skipZeroCheck: false,
@@ -53,5 +56,16 @@ describe('jobBillInvoiceCreateFlow', () => {
     expect(result).toBe('zero_blocked');
     expect(onZero).toHaveBeenCalledWith(2);
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it('returns create_failed when createInvoice reports failure', async () => {
+    const result = await runJobBillInvoiceCreateFlow({
+      guard: { inFlight: false },
+      skipZeroCheck: true,
+      countZeroLabour: async () => 0,
+      onZeroLabour: () => {},
+      createInvoice: async () => false,
+    });
+    expect(result).toBe('create_failed');
   });
 });

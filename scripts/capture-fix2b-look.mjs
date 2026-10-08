@@ -7,6 +7,7 @@ import { chromium } from 'playwright';
 const BASE = process.env.LOOK_BASE_URL || 'http://127.0.0.1:5173';
 const OUT = process.env.LOOK_OUT_DIR || '/opt/cursor/artifacts';
 const FIX2B_RELEASE_PREVIEW_EVENT = 'fix2b-release-preview';
+const FIX2B_INVALIDATE_PREVIEW_EVENT = 'fix2b-invalidate-preview';
 
 mkdirSync(OUT, { recursive: true });
 
@@ -414,6 +415,108 @@ async function captureNoRate(width) {
   };
 }
 
+async function captureErrorToast390() {
+  const width = 390;
+  const height = 844;
+  const context = await browser.newContext({
+    viewport: { width, height },
+    deviceScaleFactor: 1,
+    locale: 'en-AU',
+    timezoneId: 'Australia/Brisbane',
+    isMobile: true,
+    hasTouch: true,
+  });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    sessionStorage.setItem('fix2b-fail-create', '1');
+    sessionStorage.removeItem('audit-fix2-invoice-row');
+  });
+  const href = `/jobs/audit-doc-job?auditAuth=1&look=fix2-unquoted-rate&tab=paperwork`;
+  await page.goto(`${BASE}${href}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('[data-job-invoice-preview]', { timeout: 30000 });
+  await page.locator('.hub-job-invoice-next-preview .btn-primary').click();
+  await page.waitForSelector('.ops-toast-host .border-red-200', { timeout: 15000 });
+  const toastCount = await page.locator('.ops-toast-host > div').count();
+  if (toastCount !== 1) {
+    throw new Error(`[fix2b-error-toast@390] expected 1 toast, got ${toastCount}`);
+  }
+  const successTicks = await page.locator('.ops-toast-host .text-green-500').count();
+  if (successTicks > 0) {
+    throw new Error('[fix2b-error-toast@390] success-styled toast present');
+  }
+  const outPath = `${OUT}/fix2b-error-toast-390.png`;
+  await page.setViewportSize({ width, height });
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(200);
+  const hero = page.locator('h1.hub-jobs-hero');
+  const card = page.locator('[data-job-invoice-preview]');
+  const toastHost = page.locator('.ops-toast-host');
+  const boxes = await Promise.all([
+    hero.boundingBox(),
+    card.boundingBox(),
+    toastHost.boundingBox(),
+  ]);
+  if (boxes.some(b => !b)) throw new Error('[fix2b-error-toast@390] layout missing');
+  const pad = 8;
+  const x = Math.max(0, Math.min(...boxes.map(b => b.x)) - pad);
+  const y = Math.max(0, Math.min(...boxes.map(b => b.y)) - pad);
+  const right = Math.min(width, Math.max(...boxes.map(b => b.x + b.width)) + pad);
+  const bottom = Math.min(height, Math.max(...boxes.map(b => b.y + b.height)) + pad);
+  await page.screenshot({
+    path: outPath,
+    clip: { x, y, width: right - x, height: bottom - y },
+  });
+  await context.close();
+  return { outPath };
+}
+
+async function captureTimeSaved390() {
+  const width = 390;
+  const height = 844;
+  const context = await browser.newContext({
+    viewport: { width, height },
+    deviceScaleFactor: 1,
+    locale: 'en-AU',
+    timezoneId: 'Australia/Brisbane',
+    isMobile: true,
+    hasTouch: true,
+  });
+  const page = await context.newPage();
+  let releaseDelay;
+  await page.route('**/*', async (route) => {
+    const url = route.request().url();
+    if (releaseDelay && url.includes('/rest/v1/')) {
+      await releaseDelay;
+    }
+    await route.continue();
+  });
+  const href = `/jobs/audit-doc-job?auditAuth=1&look=fix2-clockoff-invoice&tab=paperwork`;
+  await page.goto(`${BASE}${href}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('[data-job-invoice-preview]', { timeout: 30000 });
+  await page.waitForFunction(() => {
+    const el = document.querySelector('[data-job-next-detail]');
+    const text = el?.textContent ?? '';
+    return text.includes('inc GST') && !text.includes('Job bill is empty');
+  }, { timeout: 45000 });
+  const cachedDetail = (await page.locator('[data-job-next-detail]').innerText()).trim();
+  releaseDelay = new Promise(r => setTimeout(r, 6000));
+  await page.evaluate((evt) => {
+    window.dispatchEvent(new Event(evt));
+  }, FIX2B_INVALIDATE_PREVIEW_EVENT);
+  await page.waitForTimeout(150);
+  const midDetail = (await page.locator('[data-job-next-detail]').innerText()).trim();
+  if (midDetail.includes('Job bill is empty')) {
+    throw new Error('[fix2b-d-time-saved@390] empty-bill flash during preview refetch');
+  }
+  if (!midDetail.includes('inc GST') && !midDetail.includes('From job')) {
+    throw new Error(`[fix2b-d-time-saved@390] unexpected mid-refetch detail: ${midDetail}`);
+  }
+  const outPath = `${OUT}/fix2b-d-time-saved-390.png`;
+  await captureInvoiceHeaderBlock(page, outPath, width, height);
+  await context.close();
+  return { outPath, cachedDetail, midDetail };
+}
+
 const report = [];
 const allMd5 = new Map();
 function trackMd5(path, label) {
@@ -440,6 +543,16 @@ for (const width of [390, 1280]) {
 for (const width of [390, 1280]) {
   const row = await captureNoRate(width);
   row.md5 = trackMd5(row.finalPath, `fix2b-d-norate-${width}`);
+  report.push(row);
+}
+{
+  const row = await captureErrorToast390();
+  row.md5 = trackMd5(row.outPath, 'fix2b-error-toast-390');
+  report.push(row);
+}
+{
+  const row = await captureTimeSaved390();
+  row.md5 = trackMd5(row.outPath, 'fix2b-d-time-saved-390');
   report.push(row);
 }
 

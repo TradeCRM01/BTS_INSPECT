@@ -7,7 +7,11 @@ export function shouldSkipZeroLabourBeforeJobBillInvoice(input: {
   return input.hasAcceptedQuote && !input.includeLoggedHoursExtra;
 }
 
-export type JobBillInvoiceCreateFlowResult = 'skipped_in_flight' | 'zero_blocked' | 'created';
+export type JobBillInvoiceCreateFlowResult =
+  | 'skipped_in_flight'
+  | 'zero_blocked'
+  | 'created'
+  | 'create_failed';
 
 /**
  * One create path for header Invoice and quoted sheet — ref guard blocks double tap.
@@ -17,7 +21,7 @@ export async function runJobBillInvoiceCreateFlow(input: {
   skipZeroCheck: boolean;
   countZeroLabour: () => Promise<number>;
   onZeroLabour: (count: number) => void;
-  createInvoice: () => Promise<unknown>;
+  createInvoice: () => Promise<boolean>;
 }): Promise<JobBillInvoiceCreateFlowResult> {
   if (input.guard.inFlight) return 'skipped_in_flight';
   input.guard.inFlight = true;
@@ -29,8 +33,8 @@ export async function runJobBillInvoiceCreateFlow(input: {
         return 'zero_blocked';
       }
     }
-    await input.createInvoice();
-    return 'created';
+    const created = await input.createInvoice();
+    return created ? 'created' : 'create_failed';
   } finally {
     input.guard.inFlight = false;
   }

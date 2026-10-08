@@ -337,6 +337,7 @@ export function isFix2bHoldMemoPreview(): boolean {
 }
 
 export const FIX2B_RELEASE_PREVIEW_EVENT = 'fix2b-release-preview';
+export const FIX2B_INVALIDATE_PREVIEW_EVENT = 'fix2b-invalidate-preview';
 
 export function getAuditFix2AcceptedQuote(): {
   quoteId: string;

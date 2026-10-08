@@ -14,6 +14,7 @@ export function JobBillQuotedInvoiceSheet({
   onCreate,
   pending,
   unpricedExtraLabour,
+  unpricedExtraLabourLineCount = 1,
 }: {
   open: boolean;
   loggedHoursNote: string | null;
@@ -24,6 +25,7 @@ export function JobBillQuotedInvoiceSheet({
   onCreate: () => void;
   pending?: boolean;
   unpricedExtraLabour?: boolean;
+  unpricedExtraLabourLineCount?: number;
 }) {
   if (!open) return null;
 
@@ -55,7 +57,9 @@ export function JobBillQuotedInvoiceSheet({
           <div className="hub-job-bill-zero-labour-nudge" role="status" data-job-bill-quoted-unpriced-warning>
             <div className="hub-job-bill-zero-labour-nudge-row">
               <AlertTriangle size={20} className="hub-job-bill-zero-labour-icon" aria-hidden />
-              <p className="hub-job-bill-zero-labour-message">{zeroLabourInvoiceConfirmMessage(1)}</p>
+              <p className="hub-job-bill-zero-labour-message">
+                {zeroLabourInvoiceConfirmMessage(unpricedExtraLabourLineCount)}
+              </p>
             </div>
             <div className="hub-job-bill-zero-labour-actions">
               <Link

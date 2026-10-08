@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -38,6 +38,7 @@ import {
   fix2LookActive,
   isFix2bHoldMemoPreview,
   FIX2B_RELEASE_PREVIEW_EVENT,
+  FIX2B_INVALIDATE_PREVIEW_EVENT,
   getAuditClient,
   getAuditEmptyList,
   getAuditFix2LabourSell,
@@ -64,6 +65,7 @@ import {
   shouldSkipZeroLabourBeforeJobBillInvoice,
   type JobBillInvoiceCreateGuard,
 } from '../lib/jobBillInvoiceCreateFlow';
+import { jobBillInvoiceMutateSilentlyOnReject } from '../lib/jobBillInvoiceMutateStep';
 import { jobInvoiceHeaderDetailContent } from '../lib/jobInvoiceHeaderDetail';
 import {
   jobBillInvoicePreviewFromLines,
@@ -2198,6 +2200,7 @@ export function JobDetailPage() {
       if (id) {
         queryClient.invalidateQueries({ queryKey: ['job', id] });
         queryClient.invalidateQueries({ queryKey: ['job-costs', id] });
+        queryClient.invalidateQueries({ queryKey: ['job-cost-totals', id] });
         invalidateJobBillInvoicePreview(queryClient, id);
         invalidateJobBillHoursQueries(queryClient, id);
       }
@@ -2212,7 +2215,7 @@ export function JobDetailPage() {
       });
     },
     onError: (e: Error) => {
-      showToast(e.message, 'info');
+      showToast(e.message, 'error');
       if (e.message === JOB_BILL_INVOICE_NO_LINES) {
         setBillOpen(true);
         revealSection('job-bill');
@@ -2534,6 +2537,14 @@ export function JobDetailPage() {
     window.addEventListener(FIX2B_RELEASE_PREVIEW_EVENT, sync);
     return () => window.removeEventListener(FIX2B_RELEASE_PREVIEW_EVENT, sync);
   }, []);
+  useEffect(() => {
+    if (!import.meta.env.DEV || !id) return;
+    const invalidate = () => {
+      invalidateJobBillInvoicePreview(queryClient, id);
+    };
+    window.addEventListener(FIX2B_INVALIDATE_PREVIEW_EVENT, invalidate);
+    return () => window.removeEventListener(FIX2B_INVALIDATE_PREVIEW_EVENT, invalidate);
+  }, [id, queryClient]);
   const fix2bHoldPreview = fix2MemoPreviewOn && fix2bHoldMemoPreview;
   const jobBillPreviewQueryEnabled = !!id && !!profile?.company_id && !!profile.id && !!job
     && !quotedLookOn && !fix2MemoPreviewOn;
@@ -2559,6 +2570,7 @@ export function JobDetailPage() {
     },
     enabled: jobBillPreviewQueryEnabled,
     staleTime: 0,
+    placeholderData: keepPreviousData,
   });
   const jobBillPreviewState: JobBillInvoicePreviewState = fix2bHoldPreview
     ? 'loading'
@@ -2701,11 +2713,13 @@ export function JobDetailPage() {
           setPendingInvoiceExtra(includeLoggedHoursExtra);
           setZeroLabourConfirmCount(zeroCount);
         },
-        createInvoice: () => invoiceFromJobBill.mutateAsync(includeLoggedHoursExtra),
+        createInvoice: () => jobBillInvoiceMutateSilentlyOnReject(
+          () => invoiceFromJobBill.mutateAsync(includeLoggedHoursExtra),
+        ),
       });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Could not create invoice';
-      showToast(message);
+      showToast(message, 'error');
     } finally {
       setInvoiceBillFlowBusy(false);
     }
@@ -4297,6 +4311,7 @@ export function JobDetailPage() {
         unpricedExtraLabour={
           addLoggedHoursExtra && Boolean(invoicePreviewForNext?.unpricedExtraLabour)
         }
+        unpricedExtraLabourLineCount={invoicePreviewForNext?.unpricedExtraLabourLineCount}
       />
       <JobBillZeroLabourConfirmSheet
         open={zeroLabourConfirmCount > 0}
