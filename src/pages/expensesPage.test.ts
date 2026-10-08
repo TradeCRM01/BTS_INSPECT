@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  buildExpenseSaveAmounts,
   expenseAmountTypingFromEx,
   expenseGstBlurStep,
   expenseGstInputStep,
@@ -10,6 +11,7 @@ import {
   expenseTaxRateStep,
   initialExpenseAmountFieldDrafts,
   moneyTax,
+  round2,
   sanitizeExpenseDecimalDraft,
   typeExpenseIncGstKeystrokes,
 } from './ExpensesPage';
@@ -50,7 +52,7 @@ describe('EXPENSE-AMT inc-GST / GST typing', () => {
     const at555 = typeExpenseIncGstKeystrokes(empty, '55.5');
     expect(at555.incDraft).toBe('55.5');
     expect(at555.exAmount).toBe('50.45');
-    expect(at555.gstDraft).toBe('5.04');
+    expect(at555.gstDraft).toBe('5.05');
   });
 
   it('formats inc-GST to 2dp on blur and supports paste', () => {
@@ -109,6 +111,89 @@ describe('EXPENSE-AMT inc-GST / GST typing', () => {
     expect(drafts.incDraft).toBe('55.00');
     expect(drafts.gstDraft).toBe('5.00');
   });
+
+  it('GST edit sets inc to ex + gst (55 inc then GST 4.50 → 54.50 save)', () => {
+    const at55 = expenseIncGstBlurStep(typeExpenseIncGstKeystrokes(empty, '55'));
+    const gstTyped = expenseGstInputStep(at55, '4.50');
+    expect(gstTyped.incDraft).toBe('54.5');
+    const gstBlurred = expenseGstBlurStep(gstTyped);
+    expect(gstBlurred.incDraft).toBe('54.50');
+    const saved = buildExpenseSaveAmounts({
+      amountSource: gstBlurred.amountSource,
+      incDraft: gstBlurred.incDraft,
+      exAmount: gstBlurred.exAmount,
+      taxRate: gstBlurred.taxRate,
+    });
+    expect(saved.total).toBe(54.5);
+    expect(saved.amount).toBe(50);
+    expect(saved.tax_amount).toBe(4.5);
+  });
+});
+
+function sweepIncSaveCents(taxRate: string, fromCents = 1, toCents = 200_000): { checked: number; mismatches: number } {
+  let mismatches = 0;
+  for (let cents = fromCents; cents <= toCents; cents += 1) {
+    const inc = cents / 100;
+    const incText = inc.toFixed(2);
+    let state = expenseAmountTypingFromEx('', taxRate);
+    state = typeExpenseIncGstKeystrokes(state, incText);
+    state = expenseIncGstBlurStep(state);
+    const saved = buildExpenseSaveAmounts({
+      amountSource: state.amountSource,
+      incDraft: state.incDraft,
+      exAmount: state.exAmount,
+      taxRate: state.taxRate,
+    });
+    const totalCents = Math.round(saved.total * 100);
+    const sumCents = Math.round((saved.amount + saved.tax_amount) * 100);
+    if (totalCents !== cents || sumCents !== totalCents) mismatches += 1;
+  }
+  return { checked: toCents - fromCents + 1, mismatches };
+}
+
+describe('EXPENSE-AMT money-truth save payload', () => {
+  it('sweep 0.01–2000.00 inc at 10%: saved total matches typed inc (cents)', () => {
+    const { checked, mismatches } = sweepIncSaveCents('10');
+    expect(mismatches).toBe(0);
+    expect(checked).toBe(200_000);
+  });
+
+  it('sweep 0.01–2000.00 inc at 0% (GST-free)', () => {
+    const { checked, mismatches } = sweepIncSaveCents('0');
+    expect(mismatches).toBe(0);
+    expect(checked).toBe(200_000);
+  });
+
+  it('sweep 0.01–2000.00 inc at 15%', () => {
+    const { checked, mismatches } = sweepIncSaveCents('15');
+    expect(mismatches).toBe(0);
+    expect(checked).toBe(200_000);
+  });
+
+  it('known 10% inc totals do not drift by 1c (50.00, 70.35, 52.96, 74.42)', () => {
+    for (const inc of [50, 70.35, 52.96, 74.42]) {
+      const state = expenseIncGstBlurStep(typeExpenseIncGstKeystrokes(expenseAmountTypingFromEx('', '10'), inc.toFixed(2)));
+      const saved = buildExpenseSaveAmounts({
+        amountSource: 'inc',
+        incDraft: state.incDraft,
+        exAmount: state.exAmount,
+        taxRate: '10',
+      });
+      expect(saved.total).toBe(inc);
+      expect(round2(saved.amount + saved.tax_amount)).toBe(saved.total);
+      expect(saved.total).not.toBe(moneyTax(saved.amount, 10).total);
+    }
+  });
+
+  it('ex-sourced path still uses moneyTax when inc draft is empty', () => {
+    const saved = buildExpenseSaveAmounts({
+      amountSource: 'ex',
+      incDraft: '',
+      exAmount: '100',
+      taxRate: '10',
+    });
+    expect(saved).toEqual({ amount: 100, tax_rate: 10, tax_amount: 10, total: 110 });
+  });
 });
 
 describe('EXPENSE-AMT ExpensesPage wiring', () => {
@@ -120,6 +205,7 @@ describe('EXPENSE-AMT ExpensesPage wiring', () => {
     expect(page).toContain('handleIncGstInput');
     expect(page).toContain('handleGstInput');
     expect(page).toContain('handleIncGstBlur');
+    expect(page).toContain('buildExpenseSaveAmounts');
     expect(page).not.toMatch(/value=\{form\.amount === '' \? '' : total\.toFixed\(2\)\}/);
     expect(page).not.toMatch(/value=\{form\.amount === '' \? '' : tax_amount\.toFixed\(2\)\}/);
     const incInputs = page.match(/Amount \(inc GST\)[\s\S]{0,400}inputMode="decimal"/g) ?? [];
