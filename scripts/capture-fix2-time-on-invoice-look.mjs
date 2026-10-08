@@ -20,12 +20,12 @@ function parseIncGstTotal(moneyLine) {
   return Number(m[1].replace(/,/g, ''));
 }
 
-async function compositePair(browser, leftPng, rightPng, outPath, paneWidth, paneHeight) {
+async function compositePair(browser, leftPng, rightPng, outPath, paneWidth, paneHeight, { rightContain = false } = {}) {
   const leftB64 = readFileSync(leftPng).toString('base64');
   const rightB64 = readFileSync(rightPng).toString('base64');
   const page = await browser.newPage();
   const totalWidth = paneWidth * 2;
-  const rightFit = paneWidth >= 1280 ? 'contain' : 'cover';
+  const rightFit = paneWidth >= 1280 || rightContain ? 'contain' : 'cover';
   const leftMax = paneWidth >= 1280 ? Math.min(paneWidth - 48, 1180) : Math.min(paneWidth - 32, 520);
   await page.setViewportSize({ width: totalWidth, height: paneHeight });
   await page.setContent(`<!DOCTYPE html><html><head><style>
@@ -70,7 +70,7 @@ async function scrollInvoiceEditorForCapture(editor, width, { requireInvoiceHead
     if (topEl && viewH > 0) {
       const topRect = topEl.getBoundingClientRect();
       const blockH = totalRect.bottom - topRect.top + pad * 2;
-      if (blockH <= viewH || (requireInvoiceHeading && title)) {
+      if (blockH <= viewH || requireInvoiceHeading) {
         target = scroll.scrollTop + (topRect.top - scrollRect.top) - pad;
       }
     }
@@ -78,35 +78,166 @@ async function scrollInvoiceEditorForCapture(editor, width, { requireInvoiceHead
     const maxScroll = Math.max(0, scroll.scrollHeight - scroll.clientHeight);
     scroll.scrollTop = Math.min(maxScroll, Math.max(0, target));
   }, { w: width, requireInvoiceHeading });
-  await editor.locator('[data-invoice-total-inc-gst]').scrollIntoViewIfNeeded();
+  if (!requireInvoiceHeading) {
+    await editor.locator('[data-invoice-total-inc-gst]').scrollIntoViewIfNeeded();
+  }
 }
 
-async function assertInvoiceHeadingVisible(editor, state, width) {
+/** FIX-2 @390: Invoice #9102 heading and total pill must both fit inside the editor screenshot. */
+async function fitInvoiceEditorHeadingAndTotal(page, editor, state, width, basePaneHeight) {
   const title = editor.locator('.hub-invoice-editor-title');
   await title.waitFor({ state: 'visible', timeout: 15000 });
-  await title.scrollIntoViewIfNeeded();
-  await editor.evaluate((root) => {
-    const scroll = root.querySelector('.hub-editor-dialog-scroll') ?? root.querySelector('.hub-invoice-editor-body') ?? root;
-    const el = root.querySelector('.hub-invoice-editor-title');
-    if (!scroll || !el) return;
-    const scrollRect = scroll.getBoundingClientRect();
-    const r = el.getBoundingClientRect();
-    scroll.scrollTop += r.top - scrollRect.top - 10;
-  });
-  const text = (await title.innerText()).trim();
-  if (!/9102/.test(text)) {
-    throw new Error(`[${state}@${width}] expected Invoice #9102 heading, got: ${text}`);
+  let viewportH = basePaneHeight;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await page.setViewportSize({ width, height: viewportH });
+    await scrollInvoiceEditorForCapture(editor, width, { requireInvoiceHeading: true });
+    await page.waitForTimeout(200);
+    const metrics = await editor.evaluate((root) => {
+      const scroll =
+        root.querySelector('.hub-editor-dialog-scroll') ??
+        root.querySelector('.hub-invoice-editor-body') ??
+        root;
+      const titleEl = root.querySelector('.hub-invoice-editor-title');
+      const totalBar = root.querySelector('.hub-invoice-totalbar');
+      if (!titleEl || !totalBar) return null;
+      const er = root.getBoundingClientRect();
+      const tr = titleEl.getBoundingClientRect();
+      const br = totalBar.getBoundingClientRect();
+      const titleInEditor = tr.top >= er.top - 2 && tr.bottom <= er.bottom + 2;
+      const totalInEditor = br.top >= er.top - 2 && br.bottom <= er.bottom + 2;
+      const span = br.bottom - tr.top;
+      const scrollViewH = scroll?.clientHeight ?? 0;
+      return {
+        titleInEditor,
+        totalInEditor,
+        span,
+        scrollViewH,
+        editorH: er.height,
+      };
+    });
+    if (metrics?.titleInEditor && metrics.totalInEditor) {
+      const text = (await title.innerText()).trim();
+      if (!/9102/.test(text)) {
+        throw new Error(`[${state}@${width}] expected Invoice #9102 heading, got: ${text}`);
+      }
+      return;
+    }
+    const growBy = Math.max(
+      120,
+      Math.ceil((metrics?.span ?? 0) - (metrics?.scrollViewH ?? 0)) + 48,
+      Math.ceil((metrics?.span ?? 0) - (metrics?.editorH ?? 0)) + 80,
+    );
+    viewportH += growBy;
   }
-  const visible = await editor.evaluate((root) => {
-    const el = root.querySelector('.hub-invoice-editor-title');
-    if (!el) return false;
-    const r = el.getBoundingClientRect();
-    const scroll = root.querySelector('.hub-editor-dialog-scroll') ?? root;
-    const sr = scroll.getBoundingClientRect();
-    return r.bottom > sr.top + 4 && r.top < sr.bottom - 4;
+  throw new Error(`[${state}@${width}] could not fit Invoice #9102 heading and total pill in editor view`);
+}
+
+/** Let the full invoice body paint for clip capture (capture-only DOM tweak). */
+async function expandInvoiceEditorForCapture(page, editor) {
+  await editor.evaluate((root) => {
+    const scroll =
+      root.querySelector('.hub-editor-dialog-scroll') ??
+      root.querySelector('.hub-invoice-editor-body');
+    if (scroll) {
+      scroll.style.overflow = 'visible';
+      scroll.style.maxHeight = 'none';
+      scroll.style.height = 'auto';
+    }
+    root.style.maxHeight = 'none';
+    root.style.overflow = 'visible';
+    root.style.height = 'auto';
+    const footer = root.querySelector('.hub-editor-sticky-footer');
+    if (footer) footer.style.display = 'none';
   });
-  if (!visible) {
-    throw new Error(`[${state}@${width}] Invoice #9102 heading not visible in editor frame`);
+  await page.waitForTimeout(100);
+}
+
+async function measureInvoiceHeadingTotalBoxes(editor) {
+  const titleBox = await editor.locator('.hub-invoice-editor-title').boundingBox();
+  const totalBox = await editor.locator('.hub-invoice-totalbar').boundingBox();
+  return { titleBox, totalBox };
+}
+
+function buildHeadingTotalClip(title, total, pad = 12) {
+  const totalBottom = total.y + total.height + 28;
+  return {
+    x: Math.max(0, Math.min(title.x, total.x) - pad),
+    y: Math.max(0, title.y - pad),
+    width: Math.max(title.width, total.width) + pad * 2,
+    height: totalBottom - title.y + pad,
+  };
+}
+
+async function captureInvoiceHeadingThroughTotal(page, editor, state, width, invoicePath, basePaneHeight) {
+  await fitInvoiceEditorHeadingAndTotal(page, editor, state, width, basePaneHeight);
+  await expandInvoiceEditorForCapture(page, editor);
+  const pad = 12;
+  let clip = null;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    await scrollInvoiceEditorForCapture(editor, width, { requireInvoiceHeading: true });
+    await page.waitForTimeout(120);
+    const { titleBox, totalBox } = await measureInvoiceHeadingTotalBoxes(editor);
+    if (!titleBox || !totalBox) {
+      throw new Error(`[${state}@${width}] could not measure invoice heading/total for capture clip`);
+    }
+    clip = buildHeadingTotalClip(titleBox, totalBox, pad);
+    const vp = page.viewportSize();
+    const needH = Math.ceil(clip.y + clip.height + 16);
+    if (vp && (titleBox.y < 0 || clip.y + clip.height > vp.height || needH > vp.height)) {
+      await page.setViewportSize({ width, height: Math.max(needH, basePaneHeight) });
+      continue;
+    }
+    break;
+  }
+  if (!clip) {
+    throw new Error(`[${state}@${width}] failed to build invoice capture clip`);
+  }
+  const headingText = (await editor.locator('.hub-invoice-editor-title').innerText()).trim();
+  if (!/9102/.test(headingText)) {
+    throw new Error(`[${state}@${width}] expected Invoice #9102 heading, got: ${headingText}`);
+  }
+  const vpFinal = page.viewportSize();
+  if (vpFinal && clip.y + clip.height > vpFinal.height + 1) {
+    throw new Error(
+      `[${state}@${width}] capture clip taller than viewport (${clip.y + clip.height} > ${vpFinal.height})`,
+    );
+  }
+  await page.screenshot({ path: invoicePath, clip });
+  const shot = readFileSync(invoicePath);
+  if (shot.length < 800) {
+    throw new Error(`[${state}@${width}] invoice capture PNG suspiciously small`);
+  }
+  await assertInvoiceHeadingAndTotalInEditor(editor, state, width);
+}
+
+async function assertInvoiceHeadingAndTotalInEditor(editor, state, width) {
+  const check = await editor.evaluate((root) => {
+    const titleEl = root.querySelector('.hub-invoice-editor-title');
+    const totalBar = root.querySelector('.hub-invoice-totalbar');
+    const totalInc = root.querySelector('[data-invoice-total-inc-gst]');
+    if (!titleEl || !totalBar || !totalInc) {
+      return { ok: false, reason: 'missing nodes' };
+    }
+    const er = root.getBoundingClientRect();
+    const tr = titleEl.getBoundingClientRect();
+    const br = totalBar.getBoundingClientRect();
+    const titleOk = tr.top >= er.top - 2 && tr.bottom <= er.bottom + 2;
+    const totalOk = br.top >= er.top - 2 && br.bottom <= er.bottom + 2;
+    const heading = (titleEl.textContent ?? '').trim();
+    const totalText = (totalInc.textContent ?? '').trim();
+    return {
+      ok: titleOk && totalOk && /9102/.test(heading),
+      titleOk,
+      totalOk,
+      heading,
+      totalText,
+    };
+  });
+  if (!check.ok) {
+    throw new Error(
+      `[${state}@${width}] invoice editor capture missing heading or total pill `
+      + `(titleOk=${check.titleOk} totalOk=${check.totalOk} heading="${check.heading}")`,
+    );
   }
 }
 
@@ -197,30 +328,32 @@ async function captureState({ state, width, optIn, zeroConfirm }) {
   const invoicePath = `${OUT}/.tmp-${state}-invoice-${width}.png`;
   const editor = page.locator('.hub-invoice-editor');
   const requireInvoiceHeading = width === 390 && (state === 'fix2-quoted-optin' || state === 'fix2-unquoted-zero');
-  await scrollInvoiceEditorForCapture(editor, width, { requireInvoiceHeading });
-  await page.waitForTimeout(250);
   if (requireInvoiceHeading) {
-    await assertInvoiceHeadingVisible(editor, state, width);
-    await editor.locator('[data-invoice-total-inc-gst]').scrollIntoViewIfNeeded();
-    await page.waitForTimeout(150);
+    await captureInvoiceHeadingThroughTotal(page, editor, state, width, invoicePath, paneHeight);
+  } else {
+    await scrollInvoiceEditorForCapture(editor, width, { requireInvoiceHeading });
+    await page.waitForTimeout(250);
+    await editor.screenshot({ path: invoicePath });
   }
-  await editor.screenshot({ path: invoicePath });
 
-  const totalVisible = await editor.evaluate((root, partial) => {
-    const totalBar = root.querySelector('.hub-invoice-totalbar');
-    if (!totalBar) return false;
-    const r = totalBar.getBoundingClientRect();
-    const scroll = root.querySelector('.hub-editor-dialog-scroll') ?? root;
-    const sr = scroll.getBoundingClientRect();
-    if (partial) return r.bottom > sr.top + 4 && r.top < sr.bottom - 4;
-    return r.top >= sr.top - 2 && r.bottom <= sr.bottom + 2;
-  }, requireInvoiceHeading);
-  if (!totalVisible) {
-    throw new Error(`[${state}@${width}] Total (inc GST) bar not visible after scroll`);
+  if (!requireInvoiceHeading) {
+    const totalVisible = await editor.evaluate((root) => {
+      const totalBar = root.querySelector('.hub-invoice-totalbar');
+      if (!totalBar) return false;
+      const r = totalBar.getBoundingClientRect();
+      const scroll = root.querySelector('.hub-editor-dialog-scroll') ?? root;
+      const sr = scroll.getBoundingClientRect();
+      return r.top >= sr.top - 2 && r.bottom <= sr.bottom + 2;
+    });
+    if (!totalVisible) {
+      throw new Error(`[${state}@${width}] Total (inc GST) bar not visible after scroll`);
+    }
   }
 
   const finalPath = `${OUT}/${state}-${width}.png`;
-  await compositePair(browser, previewPath, invoicePath, finalPath, width, paneHeight);
+  await compositePair(browser, previewPath, invoicePath, finalPath, width, paneHeight, {
+    rightContain: requireInvoiceHeading,
+  });
 
   const previewTotal = parseIncGstTotal(previewString);
   const createdTotal = parseIncGstTotal(`${createdTotalText} inc GST`) ?? Number(createdTotalText.replace(/[^0-9.-]/g, ''));
