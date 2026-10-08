@@ -39,14 +39,14 @@ export function JobBillQuotedInvoiceSheet({
         </button>
       </div>
       <div className="hub-job-bill-zero-labour-body">
-        <div className="hub-job-bill-zero-labour-nudge">
-          {loggedHoursNote ? (
-            <p className="hub-job-bill-zero-labour-message" role="status">{loggedHoursNote}</p>
-          ) : null}
-          {moneyLine ? (
-            <p className="hub-labour-rate-sheet-rate" data-job-bill-quoted-invoice-money>{moneyLine}</p>
-          ) : null}
-        </div>
+        {loggedHoursNote ? (
+          <div className="hub-job-bill-quoted-invoice-note-card" role="status">
+            <p className="hub-job-bill-quoted-invoice-note">{loggedHoursNote}</p>
+          </div>
+        ) : null}
+        {moneyLine ? (
+          <p className="hub-labour-rate-sheet-rate" data-job-bill-quoted-invoice-money>{moneyLine}</p>
+        ) : null}
         <label className="hub-ops-form-check">
           <input
             type="checkbox"

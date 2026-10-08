@@ -20,7 +20,8 @@ export type RequestJobBillInvoiceInput = {
 export async function countZeroLabourBeforeJobBillInvoice(
   input: RequestJobBillInvoiceInput,
 ): Promise<number> {
-  if (isDevFieldAuditAuth() && auditLookTag() === 'fix2-zero-header') {
+  const look = auditLookTag();
+  if (isDevFieldAuditAuth() && (look === 'fix2-zero-header' || look === 'fix2-unquoted-zero')) {
     return zeroLabourLineCountForInvoicePlan({
       hasAcceptedQuote: input.hasAcceptedQuote,
       includeLoggedHoursExtra: input.includeLoggedHoursExtra,

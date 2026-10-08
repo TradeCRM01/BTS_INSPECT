@@ -1,6 +1,6 @@
 import type { InvoiceLineItem } from '../types/fsm';
 import { formatMoney } from '../types/fsm';
-import { calcDocumentTotals } from './gst';
+import { calcLineDocumentTotals } from './gst';
 import { INVOICE_SOURCE_JOB_BILL, pickReusableInvoice } from './invoiceFromQuote';
 import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
 
@@ -93,8 +93,7 @@ export function buildInvoiceFromJobBill(input: {
   quoteId?: string | null;
   now?: Date;
 }) {
-  const rawSubtotal = input.lines.reduce((s, li) => s + li.quantity * li.unit_price, 0);
-  const { subtotal, taxAmount, total } = calcDocumentTotals(rawSubtotal, input.taxRate);
+  const { subtotal, taxAmount, total } = calcLineDocumentTotals(input.lines, input.taxRate);
   return {
     client_id: input.clientId,
     job_id: input.jobId,

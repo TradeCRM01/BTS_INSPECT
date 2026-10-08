@@ -31,15 +31,26 @@ import {
   jobInvoicesAfterCreate,
   jobQuoteInvoiceButton,
 } from '../lib/invoiceFromQuote';
-import { AUDIT_DOC_JOB_ID, AUDIT_INVOICE_ID, crew2LookOn, getAuditClient, getAuditEmptyList, getAuditJob, getAuditJobBillCosts, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import {
+  AUDIT_DOC_JOB_ID,
+  AUDIT_INVOICE_ID,
+  crew2LookOn,
+  fix2LookActive,
+  getAuditClient,
+  getAuditEmptyList,
+  getAuditFix2PlannedLabourPull,
+  getAuditJob,
+  getAuditJobBillCosts,
+  getAuditTeamMembers,
+} from '../lib/devFieldAuditDocs';
+import { isJobBillQuoted, pickMostRecentlyAcceptedQuote } from '../lib/acceptedQuotePick';
 import { createInvoiceFromJobBill, loadJobBillInvoicePreview } from '../lib/createInvoiceFromJobBill';
 import { invalidateJobBillHoursQueries } from '../lib/hoursToJobBill';
 import { countZeroLabourBeforeJobBillInvoice } from '../lib/requestJobBillInvoice';
 import {
   jobBillInvoicePreviewFromLines,
   jobBillLoggedHoursNotBilledNote,
-  jobBillQuotedInvoiceSheetMoneyLine,
-  planJobBillInvoiceLinesFromCosts,
+  planJobBillInvoiceLines,
   totalLoggedBillableHoursOnJob,
 } from '../lib/jobBillInvoicePlan';
 import { JobBillZeroLabourConfirmSheet } from '../components/jobs/JobBillZeroLabourConfirmSheet';
@@ -289,6 +300,9 @@ const P307_REUSE_LOOK = 'p307-reuse';
 /** Playwright: quote Invoice becomes Open invoice after any-source invoice. */
 const P307_QUOTED_LOOK = 'p307-quoted';
 const FIX2_QUOTED_LOOK = 'fix2-quoted';
+const FIX2_QUOTED_OPTIN_LOOK = 'fix2-quoted-optin';
+const FIX2_UNQUOTED_RATE_LOOK = 'fix2-unquoted-rate';
+const FIX2_UNQUOTED_ZERO_LOOK = 'fix2-unquoted-zero';
 const FIX2_ZERO_HEADER_LOOK = 'fix2-zero-header';
 const LOOK_PHOTO_DIR = '/look/photos';
 
@@ -330,10 +344,11 @@ function p305LookKind(): 'bill' | 'empty' | null {
   return null;
 }
 
-function fix2LookKind(): 'quoted' | 'zero-header' | null {
+function fix2LookKind(): 'quoted' | 'unquoted-rate' | 'unquoted-zero' | 'zero-header' | null {
   const look = lookSearchParam();
-  if (look === FIX2_QUOTED_LOOK) return 'quoted';
-  if (look === FIX2_ZERO_HEADER_LOOK) return 'zero-header';
+  if (look === FIX2_QUOTED_LOOK || look === FIX2_QUOTED_OPTIN_LOOK) return 'quoted';
+  if (look === FIX2_UNQUOTED_RATE_LOOK) return 'unquoted-rate';
+  if (look === FIX2_UNQUOTED_ZERO_LOOK || look === FIX2_ZERO_HEADER_LOOK) return 'unquoted-zero';
   return null;
 }
 
@@ -341,7 +356,7 @@ function p307LookKind(): 'agree' | 'reuse' | 'quoted' | null {
   const look = lookSearchParam();
   if (look === P307_LOOK) return 'agree';
   if (look === P307_REUSE_LOOK) return 'reuse';
-  if (look === P307_QUOTED_LOOK || look === FIX2_QUOTED_LOOK) return 'quoted';
+  if (look === P307_QUOTED_LOOK || look === FIX2_QUOTED_LOOK || look === FIX2_QUOTED_OPTIN_LOOK) return 'quoted';
   try {
     if (window.location.pathname.endsWith('/look-job-p307')) return 'agree';
   } catch {
@@ -1537,7 +1552,9 @@ export function JobDetailPage() {
   const [arrivingSent, setArrivingSent] = useState(false);
   const [arrivingBusy, setArrivingBusy] = useState(false);
   const [quotedInvoiceSheetOpen, setQuotedInvoiceSheetOpen] = useState(false);
-  const [addLoggedHoursExtra, setAddLoggedHoursExtra] = useState(false);
+  const [addLoggedHoursExtra, setAddLoggedHoursExtra] = useState(
+    () => lookSearchParam() === FIX2_QUOTED_OPTIN_LOOK,
+  );
   const [zeroLabourConfirmCount, setZeroLabourConfirmCount] = useState(0);
   const [pendingInvoiceExtra, setPendingInvoiceExtra] = useState(false);
   const visitPhotoRef = useRef<HTMLInputElement>(null);
@@ -1828,11 +1845,11 @@ export function JobDetailPage() {
           id: 'look-quote-0002',
           quote_number: 2,
           status: 'accepted',
-          total: 880,
+          total: 898,
           created_at: '2026-09-01T00:00:00.000Z',
           line_items: [
-            { description: 'Call-out fee', quantity: 1, unit_price: 180 },
-            { description: 'Re-pipe kitchen', quantity: 1, unit_price: 700 },
+            { description: 'Call-out fee', quantity: 1, unit_price: 180, gst_rate: 10 },
+            { description: 'Re-pipe kitchen', quantity: 1, unit_price: 700, gst_rate: 0 },
           ],
         }] as JobQuote[];
       }
@@ -1853,7 +1870,7 @@ export function JobDetailPage() {
     queryKey: ['job-invoices', id],
     queryFn: async () => {
       const p307 = p307LookKind();
-      if (fix2LookKind() === 'quoted') return [] as JobInvoice[];
+      if (fix2LookActive()) return [] as JobInvoice[];
       if (p307 === 'quoted') {
         return [{
           id: AUDIT_INVOICE_ID,
@@ -1881,25 +1898,18 @@ export function JobDetailPage() {
   const { data: timesheets, isPending: timesheetsPending, isError: timesheetsError, refetch: refetchTimesheets } = useQuery<JobTimesheet[]>({
     queryKey: ['job-timesheets', id],
     queryFn: async () => {
-      if (fix2LookKind() === 'quoted') {
+      if (fix2LookActive()) {
+        const hours = fix2LookKind() === 'unquoted-zero' || fix2LookKind() === 'zero-header' ? 2 : 3.5;
+        const start = new Date('2026-10-06T08:00:00.000Z');
+        const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
         return [{
-          id: 'fix2-ts-quoted',
+          id: fix2LookKind() === 'unquoted-rate' || fix2LookKind() === 'unquoted-zero'
+            ? 'fix2-ts-unquoted'
+            : 'fix2-ts-quoted',
           timesheet_id: 'fix2-ts-sheet',
           job_id: id!,
-          start_time: '2026-10-06T08:00:00.000Z',
-          end_time: '2026-10-06T11:30:00.000Z',
-          work_type: 'Plumbing',
-          billable: true,
-          notes: null,
-        }] as JobTimesheet[];
-      }
-      if (fix2LookKind() === 'zero-header') {
-        return [{
-          id: 'fix2-ts-zero',
-          timesheet_id: 'fix2-ts-sheet',
-          job_id: id!,
-          start_time: '2026-10-06T09:00:00.000Z',
-          end_time: '2026-10-06T11:00:00.000Z',
+          start_time: start.toISOString(),
+          end_time: end.toISOString(),
           work_type: 'Plumbing',
           billable: true,
           notes: null,
@@ -2061,8 +2071,8 @@ export function JobDetailPage() {
     queryFn: async () => {
       const p305 = p305LookKind();
       const p307 = p307LookKind();
-      if (fix2LookKind() === 'zero-header') {
-        return { cost: 0, charge: 0, lines: 1 };
+      if (fix2LookActive()) {
+        return { cost: 0, charge: 0, lines: 0 };
       }
       if (p305 === 'bill' || p307 === 'agree' || p307 === 'reuse' || p307 === 'quoted') {
         return { cost: 400, charge: 545, lines: 2 };
@@ -2433,78 +2443,84 @@ export function JobDetailPage() {
     return () => window.clearTimeout(t);
   }, [job, rescheduleAsked, navigate]);
 
-  const acceptedQuoteEarly = (quotes ?? []).find(q => q.status === 'accepted');
-  const hasAcceptedQuoteLines = Boolean(
-    acceptedQuoteEarly && (acceptedQuoteEarly.line_items?.length ?? 0) > 0,
+  const acceptedQuoteEarly = useMemo(
+    () => pickMostRecentlyAcceptedQuote((quotes ?? []).filter(q => q.status === 'accepted')),
+    [quotes],
   );
+  const hasAcceptedQuoteLines = isJobBillQuoted(acceptedQuoteEarly?.line_items);
+  const jobBillTaxRate = Number(company?.default_tax_rate) || DEFAULT_TAX_RATE;
   const loggedHoursOnJob = useMemo(
     () => totalLoggedBillableHoursOnJob(timesheets ?? [], id ?? ''),
     [timesheets, id],
   );
   const loggedHoursNotBilledNote = hasAcceptedQuoteLines
-    ? jobBillLoggedHoursNotBilledNote(loggedHoursOnJob)
+    ? jobBillLoggedHoursNotBilledNote(loggedHoursOnJob, addLoggedHoursExtra)
     : null;
   const quotedLookOn = p307LookKind() === 'quoted' || fix2LookKind() === 'quoted';
+  const fix2LookOn = fix2LookActive();
   const { data: jobBillInvoicePreview } = useQuery({
-    queryKey: ['job-bill-invoice-preview', id, addLoggedHoursExtra, hasAcceptedQuoteLines],
+    queryKey: ['job-bill-invoice-preview', id, addLoggedHoursExtra, hasAcceptedQuoteLines, jobBillTaxRate],
     queryFn: async () => {
-      if (!profile?.company_id || !id) throw new Error('No company');
+      if (!profile?.company_id || !profile.id || !id) throw new Error('No company');
       return loadJobBillInvoicePreview({
         jobId: id,
         companyId: profile.company_id,
+        profileId: profile.id,
+        taxRate: jobBillTaxRate,
         includeLoggedHoursExtra: addLoggedHoursExtra,
       });
     },
-    enabled: !!id && !!profile?.company_id && !!job && !quotedLookOn,
+    enabled: !!id && !!profile?.company_id && !!profile.id && !!job && !quotedLookOn && !fix2LookOn,
   });
   const quotedLookLabourSell = useMemo(() => ({
-    unitPrice: 95,
+    unitPrice: fix2LookKind() === 'unquoted-zero' || fix2LookKind() === 'zero-header' ? 0 : 95,
     priceBookItemId: 'look-pb',
     needsRate: false,
     needsPicker: false,
     pickerItems: [],
   }), []);
-  const quotedLookBillCosts = useMemo((): import('../lib/invoiceFromJobBill').JobBillCostLine[] => {
-    if (fix2LookKind() !== 'quoted') return [];
+  const auditLookBillCosts = useMemo((): import('../lib/invoiceFromJobBill').JobBillCostLine[] => {
+    if (!fix2LookOn && !quotedLookOn) return [];
     return (getAuditJobBillCosts() ?? []) as import('../lib/invoiceFromJobBill').JobBillCostLine[];
-  }, []);
-  const quotedLookPreview = useMemo(() => {
-    if (!quotedLookOn || !acceptedQuoteEarly?.line_items) return null;
-    const lines = planJobBillInvoiceLinesFromCosts({
-      quoteLineItems: acceptedQuoteEarly.line_items,
-      costs: quotedLookBillCosts,
+  }, [fix2LookOn, quotedLookOn]);
+  const auditLookPlannedPull = useMemo(
+    () => (fix2LookOn ? getAuditFix2PlannedLabourPull() ?? [] : []),
+    [fix2LookOn],
+  );
+  const auditLookPreview = useMemo(() => {
+    if ((!quotedLookOn && !fix2LookOn) || !profile) return null;
+    const quoteLineItems = fix2LookKind() === 'quoted' || p307LookKind() === 'quoted'
+      ? acceptedQuoteEarly?.line_items
+      : null;
+    const lines = planJobBillInvoiceLines({
+      quoteLineItems,
+      costs: auditLookBillCosts,
+      plannedLabourPull: auditLookPlannedPull,
       includeLoggedHoursExtra: addLoggedHoursExtra,
       labourSell: quotedLookLabourSell,
     });
-    return jobBillInvoicePreviewFromLines(lines);
-  }, [quotedLookOn, acceptedQuoteEarly?.line_items, addLoggedHoursExtra, quotedLookBillCosts, quotedLookLabourSell]);
-  const invoicePreviewForNext = quotedLookPreview ?? jobBillInvoicePreview;
-  const quotedInvoiceSheetMoneyLine = useMemo(() => {
-    if (!hasAcceptedQuoteLines || !acceptedQuoteEarly?.line_items) return '';
-    if (quotedLookOn) {
-      return jobBillQuotedInvoiceSheetMoneyLine({
-        quoteLineItems: acceptedQuoteEarly.line_items,
-        costs: quotedLookBillCosts,
-        includeLoggedHoursExtra: addLoggedHoursExtra,
-        labourSell: quotedLookLabourSell,
-      });
-    }
-    if (addLoggedHoursExtra && invoicePreviewForNext?.detail) return invoicePreviewForNext.detail;
-    return jobBillQuotedInvoiceSheetMoneyLine({
-      quoteLineItems: acceptedQuoteEarly.line_items,
-      costs: [],
-      includeLoggedHoursExtra: false,
+    return jobBillInvoicePreviewFromLines(lines, jobBillTaxRate, {
+      quoteNumber: acceptedQuoteEarly?.quote_number ?? null,
+      quoteLineItems,
+      costs: auditLookBillCosts,
+      plannedLabourPull: auditLookPlannedPull,
+      includeLoggedHoursExtra: addLoggedHoursExtra,
       labourSell: quotedLookLabourSell,
     });
   }, [
-    hasAcceptedQuoteLines,
-    acceptedQuoteEarly?.line_items,
     quotedLookOn,
-    quotedLookBillCosts,
+    fix2LookOn,
+    acceptedQuoteEarly?.line_items,
+    acceptedQuoteEarly?.quote_number,
     addLoggedHoursExtra,
+    auditLookBillCosts,
+    auditLookPlannedPull,
     quotedLookLabourSell,
-    invoicePreviewForNext?.detail,
+    jobBillTaxRate,
+    profile,
   ]);
+  const invoicePreviewForNext = auditLookPreview ?? jobBillInvoicePreview;
+  const quotedInvoiceSheetMoneyLine = invoicePreviewForNext?.moneyLine ?? '';
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !job) return <AppShell><PageError message="Could not load this job" /></AppShell>;
@@ -2521,7 +2537,6 @@ export function JobDetailPage() {
     cost_code: job.cost_code,
     parent_job_number: parentJob?.job_number ?? null,
   });
-  const acceptedQuote = acceptedQuoteEarly;
   const stages = childJobs ?? [];
 
   const jhaStartHref = (templateId: string) => {
@@ -2563,7 +2578,7 @@ export function JobDetailPage() {
       jobId: id,
       companyId: profile.company_id,
       profileId: profile.id,
-      hasAcceptedQuote: hasAcceptedQuoteLines,
+      hasAcceptedQuote: isJobBillQuoted(acceptedQuoteEarly?.line_items),
       includeLoggedHoursExtra,
     });
     if (zeroCount > 0) {
@@ -2618,10 +2633,12 @@ export function JobDetailPage() {
     jhaCount: (jhas ?? []).length,
     inspectionCount: (inspections ?? []).length,
     ...jobInvoiceActionFlags(invoices ?? []),
-    hasAcceptedQuote: !!acceptedQuote,
-    hasBillLines: (costTotals?.lines ?? 0) > 0 || hasAcceptedQuoteLines,
+    hasAcceptedQuote: hasAcceptedQuoteLines,
+    hasBillLines: (costTotals?.lines ?? 0) > 0 || hasAcceptedQuoteLines
+      || (invoicePreviewForNext?.lineCount ?? 0) > 0,
     billLineCount: invoicePreviewForNext?.lineCount ?? costTotals?.lines,
-    billTotal: invoicePreviewForNext?.subtotal ?? costTotals?.charge,
+    billTotal: invoicePreviewForNext?.totalIncGst ?? costTotals?.charge,
+    billInvoiceMoneyLine: invoicePreviewForNext?.moneyLine,
     clockedOn: !!runningEntry,
     clockedOff: (timesheets ?? []).some(e => e.end_time != null),
     arrivingSent,

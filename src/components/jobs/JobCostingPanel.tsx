@@ -23,9 +23,9 @@ import { DEFAULT_TAX_RATE } from '../../lib/gst';
 import { Link } from 'react-router-dom';
 import { createInvoiceFromJobBill, loadJobBillInvoicePreview } from '../../lib/createInvoiceFromJobBill';
 import { countZeroLabourBeforeJobBillInvoice } from '../../lib/requestJobBillInvoice';
+import { isJobBillQuoted, pickMostRecentlyAcceptedQuote } from '../../lib/acceptedQuotePick';
 import {
   jobBillLoggedHoursNotBilledNote,
-  jobBillQuotedInvoiceSheetMoneyLine,
   totalLoggedBillableHoursOnJob,
 } from '../../lib/jobBillInvoicePlan';
 import { JobBillQuotedInvoiceSheet } from './JobBillQuotedInvoiceSheet';
@@ -42,7 +42,7 @@ import {
 } from '../../lib/hoursToJobBill';
 import { LabourRatePickerSheet } from './LabourRatePickerSheet';
 import { JobBillZeroLabourConfirmSheet } from './JobBillZeroLabourConfirmSheet';
-import { JOB_BILL_INVOICE_NO_CLIENT, type JobBillCostLine } from '../../lib/invoiceFromJobBill';
+import { JOB_BILL_INVOICE_NO_CLIENT } from '../../lib/invoiceFromJobBill';
 import { jobInvoicesAfterCreate, type JobInvoiceListRow } from '../../lib/invoiceFromQuote';
 import {
   Plus, Package, Trash2, DollarSign, Layers, HardHat, Wrench,
@@ -139,65 +139,46 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       if (empty) return null;
       const { data, error } = await supabase
         .from('quotes')
-        .select('id, quote_number, total, line_items')
+        .select('id, quote_number, total, line_items, created_at')
         .eq('job_id', jobId)
         .eq('status', 'accepted')
-        .maybeSingle();
+        .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      const picked = pickMostRecentlyAcceptedQuote(data ?? []);
+      if (!picked) return null;
+      return picked;
     },
   });
-  const hasAcceptedQuoteLines = Boolean(acceptedQuote?.line_items?.length);
-  const loggedHoursNotBilledNote = hasAcceptedQuoteLines
-    ? jobBillLoggedHoursNotBilledNote(totalLoggedBillableHoursOnJob(timesheetEntries, jobId))
-    : null;
+  const hasAcceptedQuoteLines = isJobBillQuoted(acceptedQuote?.line_items);
 
   const [addLoggedHoursExtra, setAddLoggedHoursExtra] = useState(false);
   const [quotedInvoiceSheetOpen, setQuotedInvoiceSheetOpen] = useState(false);
   const [pendingInvoiceExtra, setPendingInvoiceExtra] = useState(false);
 
+  const jobBillTaxRate = Number(company?.default_tax_rate) || DEFAULT_TAX_RATE;
   const { data: jobBillInvoicePreview } = useQuery({
-    queryKey: ['job-bill-invoice-preview', jobId, addLoggedHoursExtra, hasAcceptedQuoteLines],
+    queryKey: ['job-bill-invoice-preview', jobId, addLoggedHoursExtra, hasAcceptedQuoteLines, jobBillTaxRate],
     queryFn: async () => {
-      if (!profile?.company_id) throw new Error('No company');
+      if (!profile?.company_id || !profile.id) throw new Error('No company');
       return loadJobBillInvoicePreview({
         jobId,
         companyId: profile.company_id,
+        profileId: profile.id,
+        taxRate: jobBillTaxRate,
         includeLoggedHoursExtra: addLoggedHoursExtra,
       });
     },
-    enabled: !!profile?.company_id,
+    enabled: !!profile?.company_id && !!profile.id,
   });
 
-  const billCostsForPlan = useMemo((): JobBillCostLine[] => costs.map(c => ({
-    description: c.description,
-    quantity: c.quantity,
-    unit_price: c.unit_price,
-    unit_cost: c.unit_cost,
-    markup_percent: c.markup_percent,
-    charge_type: c.charge_type,
-    stock_item_id: c.stock_item_id,
-    cost_model_id: c.cost_model_id,
-    cost_type: c.cost_type,
-    timesheet_entry_id: (c as { timesheet_entry_id?: string | null }).timesheet_entry_id ?? null,
-  })), [costs]);
+  const loggedHoursNotBilledNote = hasAcceptedQuoteLines
+    ? jobBillLoggedHoursNotBilledNote(
+      totalLoggedBillableHoursOnJob(timesheetEntries, jobId),
+      addLoggedHoursExtra,
+    )
+    : null;
 
-  const quotedInvoiceMoneyLine = useMemo(() => {
-    if (!acceptedQuote?.line_items?.length) return '';
-    if (addLoggedHoursExtra && jobBillInvoicePreview?.detail) return jobBillInvoicePreview.detail;
-    return jobBillQuotedInvoiceSheetMoneyLine({
-      quoteLineItems: acceptedQuote.line_items,
-      costs: billCostsForPlan,
-      includeLoggedHoursExtra: false,
-      labourSell: {
-        unitPrice: 0,
-        priceBookItemId: null,
-        needsRate: false,
-        needsPicker: false,
-        pickerItems: [],
-      },
-    });
-  }, [acceptedQuote?.line_items, addLoggedHoursExtra, jobBillInvoicePreview, billCostsForPlan]);
+  const quotedInvoiceMoneyLine = jobBillInvoicePreview?.moneyLine ?? '';
 
   const costTotal = useMemo(
     () => costs.reduce((s, c) => s + Number(c.total_cost), 0),

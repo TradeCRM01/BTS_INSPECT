@@ -44,6 +44,8 @@ export type JobActionContext = {
   billLineCount?: number;
   /** Job-bill charge total for Next detail. */
   billTotal?: number;
+  /** Inc-GST invoice preview money line — same string as the quoted invoice sheet. */
+  billInvoiceMoneyLine?: string;
   clockedOn: boolean;
   /** Closed timesheet on this job — the van has clocked off. Optional for older callers. */
   clockedOff?: boolean;
@@ -119,10 +121,12 @@ function jobInvoiceNext(ctx: JobActionContext): RecommendedJobAction {
     };
   }
   if (ctx.billLineCount != null && ctx.billLineCount > 0) {
+    const detail = ctx.billInvoiceMoneyLine
+      ?? jobBillInvoiceNextDetail(ctx.billLineCount, ctx.billTotal ?? 0);
     return {
       key: 'invoice',
       label: 'Invoice',
-      detail: jobBillInvoiceNextDetail(ctx.billLineCount, ctx.billTotal ?? 0),
+      detail,
     };
   }
   return {

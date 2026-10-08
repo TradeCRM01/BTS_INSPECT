@@ -5199,6 +5199,22 @@
     padding: 8px 12px 16px;
   }
 
+  .hub-job-bill-quoted-invoice-note-card {
+    margin: 0 0 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--ops-navy, #0a2540) 12%, #e2d9cc);
+    background: var(--quote-sheet, #fffdf8);
+  }
+
+  .hub-job-bill-quoted-invoice-note {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.45;
+    color: var(--ops-navy, #0a2540);
+  }
+
   .hub-job-bill-zero-labour-nudge {
     display: flex;
     flex-direction: column;
