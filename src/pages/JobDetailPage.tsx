@@ -40,6 +40,7 @@ import {
   getAuditEmptyList,
   getAuditFix2LabourSell,
   getAuditFix2PlannedLabourPull,
+  getAuditFix2JobInvoiceList,
   getAuditFix2ClockoffTimesheetEntries,
   AUDIT_FIX2_CLIENT_ID,
   getAuditJob,
@@ -56,6 +57,12 @@ import {
 } from '../lib/jobBillInvoicePreviewQuery';
 import type { JobBillInvoicePreviewState } from '../lib/invoiceFromJobBill';
 import { countZeroLabourBeforeJobBillInvoice } from '../lib/requestJobBillInvoice';
+import {
+  runJobBillInvoiceCreateFlow,
+  shouldSkipZeroLabourBeforeJobBillInvoice,
+  type JobBillInvoiceCreateGuard,
+} from '../lib/jobBillInvoiceCreateFlow';
+import { jobInvoiceHeaderDetailContent } from '../lib/jobInvoiceHeaderDetail';
 import {
   jobBillInvoicePreviewFromLines,
   jobBillLoggedHoursNotBilledNote,
@@ -314,6 +321,7 @@ const FIX2_UNQUOTED_RATE_LOOK = 'fix2-unquoted-rate';
 const FIX2_UNQUOTED_ZERO_LOOK = 'fix2-unquoted-zero';
 const FIX2_ZERO_HEADER_LOOK = 'fix2-zero-header';
 const FIX2_CLOCKOFF_INVOICE_LOOK = 'fix2-clockoff-invoice';
+const FIX2B_D_NORATE_LOOK = 'fix2b-d-norate';
 const LOOK_PHOTO_DIR = '/look/photos';
 
 function lookSearchParam(): string | null {
@@ -356,7 +364,9 @@ function p305LookKind(): 'bill' | 'empty' | null {
 
 function fix2LookKind(): 'quoted' | 'unquoted-rate' | 'unquoted-zero' | 'zero-header' | null {
   const look = lookSearchParam();
-  if (look === FIX2_QUOTED_LOOK || look === FIX2_QUOTED_OPTIN_LOOK) return 'quoted';
+  if (look === FIX2_QUOTED_LOOK || look === FIX2_QUOTED_OPTIN_LOOK || look === FIX2B_D_NORATE_LOOK) {
+    return 'quoted';
+  }
   if (look === FIX2_UNQUOTED_RATE_LOOK) return 'unquoted-rate';
   if (look === FIX2_UNQUOTED_ZERO_LOOK || look === FIX2_ZERO_HEADER_LOOK) return 'unquoted-zero';
   return null;
@@ -1567,7 +1577,7 @@ export function JobDetailPage() {
   const [arrivingBusy, setArrivingBusy] = useState(false);
   const [quotedInvoiceSheetOpen, setQuotedInvoiceSheetOpen] = useState(false);
   const [addLoggedHoursExtra, setAddLoggedHoursExtra] = useState(
-    () => lookSearchParam() === FIX2_QUOTED_OPTIN_LOOK,
+    () => lookSearchParam() === FIX2_QUOTED_OPTIN_LOOK || lookSearchParam() === FIX2B_D_NORATE_LOOK,
   );
   const [zeroLabourConfirmCount, setZeroLabourConfirmCount] = useState(0);
   const [pendingInvoiceExtra, setPendingInvoiceExtra] = useState(false);
@@ -1581,6 +1591,8 @@ export function JobDetailPage() {
   const moreRef = useRef<HTMLDetailsElement>(null);
   const reminderRef = useRef<JobClientReminderHandle>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
+  const invoiceBillFlowGuard = useRef<JobBillInvoiceCreateGuard>({ inFlight: false });
+  const [invoiceBillFlowBusy, setInvoiceBillFlowBusy] = useState(false);
 
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ['job', id],
@@ -1886,7 +1898,7 @@ export function JobDetailPage() {
     queryKey: ['job-invoices', id],
     queryFn: async () => {
       const p307 = p307LookKind();
-      if (fix2LookActive()) return [] as JobInvoice[];
+      if (fix2LookActive()) return getAuditFix2JobInvoiceList() as JobInvoice[];
       if (p307 === 'quoted') {
         return [{
           id: AUDIT_INVOICE_ID,
@@ -2173,6 +2185,7 @@ export function JobDetailPage() {
       });
     },
     onSuccess: (result) => {
+      setQuotedInvoiceSheetOpen(false);
       if (result.invoice) {
         queryClient.setQueryData<JobInvoice[]>(['job-invoices', id], prev =>
           jobInvoicesAfterCreate(prev, result.invoice),
@@ -2180,8 +2193,12 @@ export function JobDetailPage() {
       }
       queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      if (id) invalidateJobBillInvoicePreview(queryClient, id);
-      if (id) invalidateJobBillHoursQueries(queryClient, id);
+      if (id) {
+        queryClient.invalidateQueries({ queryKey: ['job', id] });
+        queryClient.invalidateQueries({ queryKey: ['job-costs', id] });
+        invalidateJobBillInvoicePreview(queryClient, id);
+        invalidateJobBillHoursQueries(queryClient, id);
+      }
       const reuse = result.existing ? invoiceReuseOpen(result.id) : null;
       if (reuse) {
         showToast(reuse.toast, 'success', { label: 'Open', onClick: () => navigate(reuse.href) });
@@ -2644,22 +2661,42 @@ export function JobDetailPage() {
     navigate(take5FillPath(parent.id));
   };
 
-  const runInvoiceFromJobBill = async (includeLoggedHoursExtra: boolean) => {
+  const runInvoiceFromJobBill = async (
+    includeLoggedHoursExtra: boolean,
+    opts?: { forceSkipZeroCheck?: boolean },
+  ) => {
     if (!profile?.company_id || !profile.id || !id) return;
-    const zeroCount = await countZeroLabourBeforeJobBillInvoice({
-      client: supabase,
-      jobId: id,
-      companyId: profile.company_id,
-      profileId: profile.id,
-      hasAcceptedQuote: isJobBillQuoted(acceptedQuoteEarly?.line_items),
-      includeLoggedHoursExtra,
-    });
-    if (zeroCount > 0) {
-      setPendingInvoiceExtra(includeLoggedHoursExtra);
-      setZeroLabourConfirmCount(zeroCount);
-      return;
+    setInvoiceBillFlowBusy(true);
+    try {
+      const quoted = isJobBillQuoted(acceptedQuoteEarly?.line_items);
+      await runJobBillInvoiceCreateFlow({
+        guard: invoiceBillFlowGuard.current,
+        skipZeroCheck: opts?.forceSkipZeroCheck === true
+          || shouldSkipZeroLabourBeforeJobBillInvoice({
+            hasAcceptedQuote: quoted,
+            includeLoggedHoursExtra,
+          })
+          || (quoted && includeLoggedHoursExtra && Boolean(invoicePreviewForNext?.unpricedExtraLabour)),
+        countZeroLabour: () => countZeroLabourBeforeJobBillInvoice({
+          client: supabase,
+          jobId: id,
+          companyId: profile.company_id,
+          profileId: profile.id,
+          hasAcceptedQuote: isJobBillQuoted(acceptedQuoteEarly?.line_items),
+          includeLoggedHoursExtra,
+        }),
+        onZeroLabour: (zeroCount) => {
+          setPendingInvoiceExtra(includeLoggedHoursExtra);
+          setZeroLabourConfirmCount(zeroCount);
+        },
+        createInvoice: () => invoiceFromJobBill.mutateAsync(includeLoggedHoursExtra),
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Could not create invoice';
+      showToast(message);
+    } finally {
+      setInvoiceBillFlowBusy(false);
     }
-    invoiceFromJobBill.mutate(includeLoggedHoursExtra);
   };
 
   const handleInvoice = () => {
@@ -2742,8 +2779,9 @@ export function JobDetailPage() {
     clientError,
   });
 
+  const invoiceNextBusy = invoiceFromJobBill.isPending || invoiceBillFlowBusy;
   const nextBusy =
-    (next.key === 'invoice' && invoiceFromJobBill.isPending) ||
+    (next.key === 'invoice' && invoiceNextBusy) ||
     (arrivingPrimary && arrivingBusy) ||
     (next.key === 'clock' && clockOnJob.isPending) ||
     (next.key === 'phone' && saveClientPhone.isPending);
@@ -3056,9 +3094,10 @@ export function JobDetailPage() {
                       className="btn-primary ops-next-control-block"
                       title={next.detail}
                       disabled={nextBusy}
+                      aria-busy={next.key === 'invoice' && invoiceNextBusy ? true : undefined}
                       onClick={runNext}
                     >
-                      {nextLabel}
+                      {next.key === 'invoice' && invoiceNextBusy ? 'Creating…' : nextLabel}
                     </button>
                   ) : (
                     <>
@@ -3070,7 +3109,23 @@ export function JobDetailPage() {
                   )}
                 </div>
               );
-              const nextDetail = headerPrimaryHeld ? (
+              const invoiceDetail = jobInvoiceHeaderDetailContent({
+                nextKey: next.key,
+                headerPrimaryHeld,
+                previewState: jobBillPreviewState,
+                detail: next.detail,
+              });
+              const nextDetail = next.key === 'invoice' ? (
+                <p
+                  className="ops-next-detail"
+                  data-job-next-detail
+                  data-job-invoice-detail-reserved={invoiceDetail.reserveHeight ? '1' : undefined}
+                >
+                  {invoiceDetail.showSkeleton
+                    ? <span className="skeleton inline-block h-4 w-40 max-w-full rounded" />
+                    : invoiceDetail.text}
+                </p>
+              ) : headerPrimaryHeld ? (
                 <p className="ops-next-detail" data-job-next-detail data-job-next-detail-held="1">
                   <span className="skeleton inline-block h-4 w-40 rounded" />
                 </p>
@@ -4220,10 +4275,16 @@ export function JobDetailPage() {
         onAddLoggedHoursExtraChange={setAddLoggedHoursExtra}
         onClose={() => setQuotedInvoiceSheetOpen(false)}
         onCreate={() => {
-          setQuotedInvoiceSheetOpen(false);
-          void runInvoiceFromJobBill(addLoggedHoursExtra);
+          void runInvoiceFromJobBill(addLoggedHoursExtra, {
+            forceSkipZeroCheck: Boolean(
+              addLoggedHoursExtra && invoicePreviewForNext?.unpricedExtraLabour,
+            ),
+          });
         }}
-        pending={invoiceFromJobBill.isPending}
+        pending={invoiceNextBusy}
+        unpricedExtraLabour={
+          addLoggedHoursExtra && Boolean(invoicePreviewForNext?.unpricedExtraLabour)
+        }
       />
       <JobBillZeroLabourConfirmSheet
         open={zeroLabourConfirmCount > 0}
@@ -4231,7 +4292,7 @@ export function JobDetailPage() {
         onClose={() => setZeroLabourConfirmCount(0)}
         onCreateAnyway={() => {
           setZeroLabourConfirmCount(0);
-          invoiceFromJobBill.mutate(pendingInvoiceExtra);
+          void runInvoiceFromJobBill(pendingInvoiceExtra, { forceSkipZeroCheck: true });
         }}
       />
       {showEdit && (

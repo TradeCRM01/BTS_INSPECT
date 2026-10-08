@@ -111,6 +111,7 @@ export function getAuditJobBillCosts(): JobCost[] | null {
   if (
     look === 'fix2-quoted'
     || look === 'fix2-quoted-optin'
+    || look === 'fix2b-d-norate'
     ||     look === 'fix2-unquoted-rate'
     || look === 'fix2-unquoted-zero'
     || look === 'fix2-clockoff-invoice'
@@ -165,7 +166,7 @@ export function getAuditJobBillCosts(): JobCost[] | null {
 /** Same shape as production resolveLabourSell — not planned row unit_cost. */
 export function getAuditFix2LabourSell(): import('./hoursToJobBill').LabourSellResolution {
   const look = auditLookTag();
-  if (look === 'fix2-unquoted-zero' || look === 'fix2-zero-header') {
+  if (look === 'fix2b-d-norate' || look === 'fix2-unquoted-zero' || look === 'fix2-zero-header') {
     return {
       unitPrice: 0,
       priceBookItemId: null,
@@ -200,7 +201,27 @@ export function getAuditFix2Client() {
 
 export function getAuditFix2PlannedLabourPull(): import('./hoursToJobBill').JobCostFromHoursInsert[] | null {
   const look = auditLookTag();
-  if (!isDevFieldAuditAuth() || !look?.startsWith('fix2-')) return null;
+  if (!isDevFieldAuditAuth() || !(look?.startsWith('fix2-') || look?.startsWith('fix2b-'))) return null;
+  if (look === 'fix2b-d-norate') {
+    return [{
+      company_id: DEV_AUDIT_COMPANY.id,
+      job_id: AUDIT_DOC_JOB_ID,
+      cost_type: 'labor',
+      description: 'Labour 3.5 h @ $0',
+      quantity: 3.5,
+      unit_cost: 0,
+      total_cost: 0,
+      markup_percent: 0,
+      unit_price: 0,
+      total_price: 0,
+      charge_type: 'Labour',
+      stock_item_id: null,
+      purchase_order_id: null,
+      cost_model_id: null,
+      created_by: DEV_AUDIT_PROFILE.id,
+      timesheet_entry_id: 'fix2b-ts-norate',
+    }];
+  }
   if (look === 'fix2-zero-header') {
     return [{
       company_id: DEV_AUDIT_COMPANY.id,
@@ -302,7 +323,7 @@ export function getAuditFix2ClockoffTimesheetEntries(
 
 export function fix2LookActive(): boolean {
   const look = auditLookTag();
-  return Boolean(look?.startsWith('fix2-'));
+  return Boolean(look?.startsWith('fix2-') || look?.startsWith('fix2b-'));
 }
 
 export function getAuditFix2AcceptedQuote(): {
@@ -312,7 +333,7 @@ export function getAuditFix2AcceptedQuote(): {
   isQuoted: boolean;
 } | null {
   const look = auditLookTag();
-  if (!isDevFieldAuditAuth() || !look?.startsWith('fix2-')) return null;
+  if (!isDevFieldAuditAuth() || !(look?.startsWith('fix2-') || look?.startsWith('fix2b-'))) return null;
   if (
     look === 'fix2-unquoted-rate'
     || look === 'fix2-unquoted-zero'
@@ -755,6 +776,41 @@ export function getAuditTemplates() {
     report_renderer: 'generic_inspection',
     schema: inspection?.template_snapshot.schema,
   }];
+}
+
+export function getAuditFix2JobInvoiceList(): {
+  id: string;
+  invoice_number: number;
+  status: 'draft';
+  total: number;
+  due_date: string | null;
+  created_at: string;
+  quote_id: string | null;
+}[] {
+  if (!isDevFieldAuditAuth() || !fix2LookActive()) return [];
+  try {
+    const raw = sessionStorage.getItem('audit-fix2-invoice-row');
+    if (!raw) return [];
+    const row = JSON.parse(raw) as {
+      id: string;
+      invoice_number: number;
+      total: number;
+      due_date?: string | null;
+      created_at?: string;
+      quote_id?: string | null;
+    };
+    return [{
+      id: row.id,
+      invoice_number: row.invoice_number,
+      status: 'draft',
+      total: Number(row.total),
+      due_date: row.due_date ?? null,
+      created_at: row.created_at ?? new Date().toISOString(),
+      quote_id: row.quote_id ?? null,
+    }];
+  } catch {
+    return [];
+  }
 }
 
 export function getAuditInvoiceEditorRow(invoiceId: string) {

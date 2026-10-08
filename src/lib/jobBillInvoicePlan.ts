@@ -148,6 +148,19 @@ export function planJobBillInvoiceLinesFromCosts(input: {
   });
 }
 
+export function quotedOptInHasUnpricedExtraLabour(input: {
+  costs: JobBillCostLine[];
+  plannedLabourPull: JobCostFromHoursInsert[];
+  includeLoggedHoursExtra: boolean;
+  labourSell: LabourSellResolution;
+}): boolean {
+  if (!input.includeLoggedHoursExtra) return false;
+  const extraCosts = quotedOptInExtraLabourCosts(input.costs, input.plannedLabourPull);
+  if (extraCosts.length === 0) return false;
+  if (input.labourSell.needsRate || input.labourSell.needsPicker) return true;
+  return extraCosts.some(c => (Number(c.unit_price) || 0) === 0);
+}
+
 export function jobBillInvoiceMoneyLineIncGst(input: {
   quoteNumber: number | null | undefined;
   quoteLineItems: QuoteLineItem[] | null | undefined;
@@ -156,6 +169,7 @@ export function jobBillInvoiceMoneyLineIncGst(input: {
   includeLoggedHoursExtra: boolean;
   labourSell: LabourSellResolution;
   taxRate: number;
+  hasUnpricedExtraLabour?: boolean;
 }): string {
   const lines = planJobBillInvoiceLines({
     quoteLineItems: input.quoteLineItems,
@@ -175,6 +189,9 @@ export function jobBillInvoiceMoneyLineIncGst(input: {
       const extraH = formatLabourHoursOneDecimal(
         extraTimesheetHoursForQuotedOptIn(input.costs, input.plannedLabourPull),
       );
+      if (input.hasUnpricedExtraLabour) {
+        return `Quote #${quoteNo} + ${extraH} h extra · no rate set`;
+      }
       return `Quote #${quoteNo} + ${extraH} h extra · ${lineLabel} · ${money}`;
     }
     return `Quote #${quoteNo} · ${lineLabel} · ${money}`;
@@ -195,12 +212,25 @@ export function jobBillInvoicePreviewFromLines(
   taxAmount: number;
   totalIncGst: number;
   moneyLine: string;
+  unpricedExtraLabour: boolean;
   /** @deprecated use moneyLine */
   detail: string;
 } {
   const { subtotal, taxAmount, total } = calcLineDocumentTotals(lines, taxRate);
+  const hasUnpricedExtraLabour = moneyLineInput
+    ? quotedOptInHasUnpricedExtraLabour({
+      costs: moneyLineInput.costs,
+      plannedLabourPull: moneyLineInput.plannedLabourPull,
+      includeLoggedHoursExtra: moneyLineInput.includeLoggedHoursExtra,
+      labourSell: moneyLineInput.labourSell,
+    })
+    : false;
   const moneyLine = moneyLineInput
-    ? jobBillInvoiceMoneyLineIncGst({ ...moneyLineInput, taxRate })
+    ? jobBillInvoiceMoneyLineIncGst({
+      ...moneyLineInput,
+      taxRate,
+      hasUnpricedExtraLabour,
+    })
     : `From job · ${lines.length} ${lines.length === 1 ? 'line' : 'lines'} · ${formatMoney(total)} inc GST`;
   return {
     lineCount: lines.length,
@@ -208,6 +238,7 @@ export function jobBillInvoicePreviewFromLines(
     taxAmount,
     totalIncGst: total,
     moneyLine,
+    unpricedExtraLabour: hasUnpricedExtraLabour,
     detail: moneyLine,
   };
 }

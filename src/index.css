@@ -2365,6 +2365,11 @@
     background: var(--quote-sheet, #fffdf8);
   }
 
+  .hub-job-invoice-next-preview .ops-next-detail[data-job-invoice-detail-reserved='1'] {
+    min-height: 2.75rem;
+    display: block;
+  }
+
   .hub-time-entry-chips {
     display: flex;
     flex-wrap: wrap;

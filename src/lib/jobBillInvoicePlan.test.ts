@@ -119,6 +119,47 @@ describe('quoted job invoice lines', () => {
     expect(preview.totalIncGst).toBe(898);
   });
 
+  it('quoted opt-in with no rate sets unpriced flag and no rate set money line', () => {
+    const needsRateSell: LabourSellResolution = {
+      unitPrice: 0,
+      priceBookItemId: null,
+      needsRate: true,
+      needsPicker: false,
+      pickerItems: [],
+    };
+    const plannedZero: JobCostFromHoursInsert = {
+      ...plannedTimesheetExtra,
+      unit_price: 0,
+      total_price: 0,
+      description: 'Labour 3.5 h @ $0',
+    };
+    const lines = planJobBillInvoiceLines({
+      quoteLineItems: quoteLines,
+      costs: [],
+      plannedLabourPull: [plannedZero],
+      includeLoggedHoursExtra: true,
+      labourSell: needsRateSell,
+    });
+    const preview = jobBillInvoicePreviewFromLines(lines, 10, {
+      quoteNumber: 2,
+      quoteLineItems: quoteLines,
+      costs: [],
+      plannedLabourPull: [plannedZero],
+      includeLoggedHoursExtra: true,
+      labourSell: needsRateSell,
+    });
+    expect(preview.unpricedExtraLabour).toBe(true);
+    expect(preview.moneyLine).toContain('no rate set');
+    expect(preview.moneyLine).not.toContain('inc GST');
+    const inv = buildInvoiceFromJobBill({
+      clientId: 'c',
+      jobId: 'j',
+      taxRate: 10,
+      lines,
+    });
+    expect(preview.totalIncGst).toBe(inv.total);
+  });
+
   it('quoted + opt-in preview total matches create total', () => {
     const lines = planJobBillInvoiceLines({
       quoteLineItems: quoteLines,

@@ -1,6 +1,7 @@
-import { X } from 'lucide-react';
+import { AlertTriangle, X } from 'lucide-react';
 import { AppDialog } from '../ui/AppDialog';
 import { JOB_BILL_ADD_LOGGED_HOURS_EXTRA_LABEL } from '../../lib/jobBillInvoicePlan';
+import { zeroLabourInvoiceConfirmMessage } from '../../lib/hoursToJobBill';
 
 export function JobBillQuotedInvoiceSheet({
   open,
@@ -11,6 +12,7 @@ export function JobBillQuotedInvoiceSheet({
   onClose,
   onCreate,
   pending,
+  unpricedExtraLabour,
 }: {
   open: boolean;
   loggedHoursNote: string | null;
@@ -20,6 +22,7 @@ export function JobBillQuotedInvoiceSheet({
   onClose: () => void;
   onCreate: () => void;
   pending?: boolean;
+  unpricedExtraLabour?: boolean;
 }) {
   if (!open) return null;
 
@@ -46,6 +49,14 @@ export function JobBillQuotedInvoiceSheet({
         ) : null}
         {moneyLine ? (
           <p className="hub-labour-rate-sheet-rate" data-job-bill-quoted-invoice-money>{moneyLine}</p>
+        ) : null}
+        {unpricedExtraLabour ? (
+          <div className="hub-job-bill-zero-labour-nudge" role="status" data-job-bill-quoted-unpriced-warning>
+            <div className="hub-job-bill-zero-labour-nudge-row">
+              <AlertTriangle size={20} className="hub-job-bill-zero-labour-icon" aria-hidden />
+              <p className="hub-job-bill-zero-labour-message">{zeroLabourInvoiceConfirmMessage(1)}</p>
+            </div>
+          </div>
         ) : null}
         <label className="hub-ops-form-check">
           <input
