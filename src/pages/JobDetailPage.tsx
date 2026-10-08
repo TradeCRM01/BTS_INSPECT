@@ -40,6 +40,7 @@ import {
   getAuditEmptyList,
   getAuditFix2LabourSell,
   getAuditFix2PlannedLabourPull,
+  getAuditFix2ClockoffTimesheetEntries,
   AUDIT_FIX2_CLIENT_ID,
   getAuditJob,
   getAuditJobBillCosts,
@@ -1915,16 +1916,7 @@ export function JobDetailPage() {
         const hours = 3.5;
         const start = new Date('2026-10-06T08:00:00.000Z');
         if (fix2ClockoffInvoiceLook()) {
-          return [{
-            id: 'fix2-ts-running',
-            timesheet_id: 'fix2-ts-sheet',
-            job_id: id!,
-            start_time: start.toISOString(),
-            end_time: null,
-            work_type: 'Plumbing',
-            billable: true,
-            notes: null,
-          }] as JobTimesheet[];
+          return getAuditFix2ClockoffTimesheetEntries(id!, false) as JobTimesheet[];
         }
         const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
         return [{
@@ -2468,13 +2460,9 @@ export function JobDetailPage() {
         } catch {
           /* ignore */
         }
-        const end = new Date().toISOString();
-        queryClient.setQueryData<JobTimesheet[]>(['job-timesheets', id], prev =>
-          (prev ?? []).map(entry => (
-            entry.end_time == null
-              ? { ...entry, end_time: end }
-              : entry
-          )),
+        queryClient.setQueryData<JobTimesheet[]>(
+          ['job-timesheets', id],
+          getAuditFix2ClockoffTimesheetEntries(id, true) as JobTimesheet[],
         );
         invalidateTime();
         showToast('Clocked off');

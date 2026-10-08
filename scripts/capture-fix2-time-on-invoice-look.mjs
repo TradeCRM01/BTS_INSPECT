@@ -202,6 +202,36 @@ async function captureState({ state, width, optIn, zeroConfirm }) {
   };
 }
 
+async function buildClockoffLeftStrip(browser, {
+  beforeMoney,
+  afterMoney,
+  hoursPng,
+  outPath,
+  paneWidth,
+  paneHeight,
+}) {
+  const hoursB64 = readFileSync(hoursPng).toString('base64');
+  const page = await browser.newPage();
+  await page.setViewportSize({ width: paneWidth, height: paneHeight });
+  await page.setContent(`<!DOCTYPE html><html><head><style>
+html,body{margin:0;padding:0;width:${paneWidth}px;height:${paneHeight}px;background:#F5F0E6;font-family:system-ui,-apple-system,sans-serif;color:#0A2540;}
+.strip{width:${paneWidth - 32}px;margin:16px auto;display:flex;flex-direction:column;gap:10px;}
+.card{padding:12px 14px;border-radius:12px;border:1px solid color-mix(in srgb,#0a2540 12%,#e2d9cc);background:#FFFDF8;box-shadow:0 2px 12px rgba(10,37,64,.08);}
+.kicker{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#0A2540;opacity:.72;margin:0 0 6px;}
+.money{margin:0;font-size:15px;font-weight:600;line-height:1.35;}
+.event{margin:0;font-size:13px;line-height:1.4;}
+.event strong{font-weight:700;}
+.hours img{display:block;width:100%;height:auto;border-radius:8px;border:1px solid #e2d9cc;}
+</style></head><body><div class="strip">
+<div class="card"><p class="kicker">Before clock off</p><p class="money">${beforeMoney.replace(/</g, '&lt;')}</p></div>
+<div class="card event"><strong>Clock off</strong> — 1.5 h logged on this job (now 3.5 h billable)</div>
+<div class="card hours"><img src="data:image/png;base64,${hoursB64}" alt="Time on this job"/></div>
+<div class="card"><p class="kicker">After clock off</p><p class="money">${afterMoney.replace(/</g, '&lt;')}</p></div>
+</div></body></html>`);
+  await page.locator('.strip').screenshot({ path: outPath });
+  await page.close();
+}
+
 async function captureClockoffInvoice390() {
   const width = 390;
   const paneHeight = 844;
@@ -221,44 +251,98 @@ async function captureClockoffInvoice390() {
     sessionStorage.removeItem('fix2-clockoff-closed');
   });
   await page.setViewportSize({ width, height: paneHeight });
+  await page.waitForSelector('[data-job-invoice-preview]', { timeout: 25000 });
+  await page.waitForFunction(() => {
+    const text = document.querySelector('[data-job-next-detail]')?.textContent ?? '';
+    return text.includes('$209.00') && text.includes('inc GST');
+  }, { timeout: 30000 });
+  const previewBefore = (await page.locator('[data-job-next-detail]').innerText()).trim();
+  const beforeTotal = parseIncGstTotal(previewBefore);
+  if (beforeTotal == null || Math.abs(beforeTotal - 209) > 0.01) {
+    throw new Error(`[${state}] expected previewBefore ~209 inc GST, got: ${previewBefore}`);
+  }
+
   await page.locator('.hub-job-more summary').click();
   await page.locator('.hub-job-more-menu button', { hasText: 'Clock off' }).click();
   await page.waitForFunction(() => sessionStorage.getItem('fix2-clockoff-closed') === '1', { timeout: 10000 });
-  await page.waitForFunction(() => {
-    const el = document.querySelector('[data-job-next-detail]');
-    const text = el?.textContent ?? '';
-    return text.includes('inc GST') && /\$[\d,]+\.\d{2}/.test(text);
-  }, { timeout: 30000 });
-  const previewString = await page.locator('[data-job-next-detail]').innerText();
-  const previewPath = `${OUT}/.tmp-${state}-preview-${width}.png`;
-  await page.locator('[data-job-invoice-preview]').screenshot({ path: previewPath });
+  await page.waitForFunction((before) => {
+    const text = document.querySelector('[data-job-next-detail]')?.textContent ?? '';
+    return text.includes('$365.75') && text.includes('inc GST') && text.trim() !== before.trim();
+  }, previewBefore, { timeout: 30000 });
+  const previewAfter = (await page.locator('[data-job-next-detail]').innerText()).trim();
+  const afterTotal = parseIncGstTotal(previewAfter);
+  if (afterTotal == null || Math.abs(afterTotal - 365.75) > 0.01) {
+    throw new Error(`[${state}] expected previewAfter ~365.75 inc GST, got: ${previewAfter}`);
+  }
+  if (previewBefore === previewAfter) {
+    throw new Error(`[${state}] preview did not change after clock off (same session)`);
+  }
+
+  await page.locator('[role="tab"][data-tab="schedule"]').click();
+  await page.locator('#job-hours').waitFor({ state: 'visible', timeout: 15000 });
+  const hoursPath = `${OUT}/.tmp-${state}-hours-${width}.png`;
+  await page.locator('#job-hours').screenshot({ path: hoursPath });
+  await page.locator('[role="tab"][data-tab="paperwork"]').click();
+  await page.locator('[data-job-invoice-preview]').waitFor({ state: 'visible', timeout: 15000 });
+  const leftStripPath = `${OUT}/.tmp-${state}-left-${width}.png`;
+  await buildClockoffLeftStrip(browser, {
+    beforeMoney: previewBefore,
+    afterMoney: previewAfter,
+    hoursPng: hoursPath,
+    outPath: leftStripPath,
+    paneWidth: width,
+    paneHeight,
+  });
+
   await page.locator('.hub-jobs-tools .btn-primary').click();
   await page.waitForFunction(() => sessionStorage.getItem('audit-fix2-invoice-row'), { timeout: 15000 });
   const stored = await page.evaluate(() => sessionStorage.getItem('audit-fix2-invoice-row'));
   const row = JSON.parse(stored);
   const expectedTotal = Number(row.total);
   const invoiceNumber = row.invoice_number;
+
   await page.goto(`${BASE}/invoices?id=audit-fix2-invoice`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.hub-invoice-editor', { timeout: 20000 });
   await page.waitForSelector('[data-invoice-total-inc-gst]', { timeout: 15000 });
+  await page.waitForFunction((expected) => {
+    const el = document.querySelector('[data-invoice-total-inc-gst]');
+    const text = el?.textContent ?? '';
+    const n = Number(text.replace(/[^0-9.-]/g, ''));
+    return Math.abs(n - expected) < 0.01;
+  }, expectedTotal);
   const createdTotalText = await page.locator('[data-invoice-total-inc-gst]').innerText();
   const invoicePath = `${OUT}/.tmp-${state}-invoice-${width}.png`;
   const editor = page.locator('.hub-invoice-editor');
   await scrollInvoiceEditorForCapture(editor, width);
+  await page.waitForTimeout(250);
   await editor.screenshot({ path: invoicePath });
-  const finalPath = `${OUT}/${state}-${width}.png`;
-  await compositePair(browser, previewPath, invoicePath, finalPath, width, paneHeight);
-  const previewTotal = parseIncGstTotal(previewString);
-  const createdTotal = parseIncGstTotal(`${createdTotalText} inc GST`) ?? Number(createdTotalText.replace(/[^0-9.-]/g, ''));
-  if (previewTotal != null && Math.abs(previewTotal - createdTotal) > 0.01) {
-    throw new Error(`[${state}] preview ${previewTotal} != created ${createdTotal}`);
+  const totalVisible = await editor.evaluate((root) => {
+    const totalBar = root.querySelector('.hub-invoice-totalbar');
+    if (!totalBar) return false;
+    const r = totalBar.getBoundingClientRect();
+    const scroll = root.querySelector('.hub-editor-dialog-scroll') ?? root;
+    const sr = scroll.getBoundingClientRect();
+    return r.top >= sr.top - 2 && r.bottom <= sr.bottom + 2;
+  });
+  if (!totalVisible) {
+    throw new Error(`[${state}@${width}] Total (inc GST) bar not fully visible after scroll`);
   }
+
+  const finalPath = `${OUT}/${state}-${width}.png`;
+  await compositePair(browser, leftStripPath, invoicePath, finalPath, width, paneHeight);
+  const createdTotal = parseIncGstTotal(`${createdTotalText} inc GST`) ?? Number(createdTotalText.replace(/[^0-9.-]/g, ''));
+  if (Math.abs(afterTotal - createdTotal) > 0.01) {
+    throw new Error(`[${state}] previewAfter ${afterTotal} != created ${createdTotal}`);
+  }
+
   await context.close();
   return {
     state,
     width,
     finalPath,
-    previewString: previewString.trim(),
+    previewBefore,
+    previewAfter,
+    previewString: previewAfter,
     invoiceNumber,
     createdTotalIncGst: createdTotal,
   };

@@ -201,13 +201,6 @@ export function getAuditFix2Client() {
 export function getAuditFix2PlannedLabourPull(): import('./hoursToJobBill').JobCostFromHoursInsert[] | null {
   const look = auditLookTag();
   if (!isDevFieldAuditAuth() || !look?.startsWith('fix2-')) return null;
-  if (look === 'fix2-clockoff-invoice') {
-    try {
-      if (sessionStorage.getItem('fix2-clockoff-closed') !== '1') return [];
-    } catch {
-      return [];
-    }
-  }
   if (look === 'fix2-zero-header') {
     return [{
       company_id: DEV_AUDIT_COMPANY.id,
@@ -229,7 +222,14 @@ export function getAuditFix2PlannedLabourPull(): import('./hoursToJobBill').JobC
     }];
   }
   const unitPrice = look === 'fix2-unquoted-zero' ? 0 : 95;
-  const hours = 3.5;
+  let hours = 3.5;
+  if (look === 'fix2-clockoff-invoice') {
+    try {
+      hours = sessionStorage.getItem('fix2-clockoff-closed') === '1' ? 3.5 : 2;
+    } catch {
+      hours = 2;
+    }
+  }
   return [{
     company_id: DEV_AUDIT_COMPANY.id,
     job_id: AUDIT_DOC_JOB_ID,
@@ -252,6 +252,36 @@ export function getAuditFix2PlannedLabourPull(): import('./hoursToJobBill').JobC
         ? 'fix2-ts-unquoted'
         : 'fix2-ts-quoted',
   }];
+}
+
+/** FIX-2 clock-off LOOK: 2 h closed + 1.5 h running until audit clock-off closes the run. */
+export function getAuditFix2ClockoffTimesheetEntries(jobId: string, runningClosed = false) {
+  const start = new Date('2026-10-06T08:00:00.000Z');
+  const twoEnd = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+  const runStart = twoEnd;
+  const runEnd = new Date(runStart.getTime() + 1.5 * 60 * 60 * 1000);
+  return [
+    {
+      id: 'fix2-ts-2h-closed',
+      timesheet_id: 'fix2-ts-sheet',
+      job_id: jobId,
+      start_time: start.toISOString(),
+      end_time: twoEnd.toISOString(),
+      work_type: 'Plumbing',
+      billable: true,
+      notes: null,
+    },
+    {
+      id: 'fix2-ts-running',
+      timesheet_id: 'fix2-ts-sheet',
+      job_id: jobId,
+      start_time: runStart.toISOString(),
+      end_time: runningClosed ? runEnd.toISOString() : null,
+      work_type: 'Plumbing',
+      billable: true,
+      notes: null,
+    },
+  ];
 }
 
 export function fix2LookActive(): boolean {
