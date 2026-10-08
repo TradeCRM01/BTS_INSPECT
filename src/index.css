@@ -5298,6 +5298,8 @@
     text-decoration: none;
   }
 
+  .hub-job-bill-zero-labour-primary:disabled { opacity: .55; cursor: not-allowed; }
+
   .hub-job-bill-zero-labour-secondary {
     display: inline-flex;
     align-items: center;
