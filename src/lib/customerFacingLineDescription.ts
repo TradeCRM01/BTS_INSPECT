@@ -1,9 +1,10 @@
 /** Client PDF / portal line text — name only, no price-book code prefix. */
-const SPACED_DASH_SEPARATORS = [' — ', ' – ', ' - '] as const;
+const STORED_CODE_DASH_SEPARATORS = [' — ', ' – ', ' - '] as const;
+const HEURISTIC_DASH_SEPARATORS = [' — ', ' – '] as const;
 
-function stripSpacedDashPrefix(trimmed: string, prefix: string): string | null {
-  for (const sep of SPACED_DASH_SEPARATORS) {
-    const lead = `${prefix}${sep}`;
+function stripStoredCodePrefix(trimmed: string, code: string): string | null {
+  for (const sep of STORED_CODE_DASH_SEPARATORS) {
+    const lead = `${code}${sep}`;
     if (trimmed.startsWith(lead)) {
       return trimmed.slice(lead.length).trim();
     }
@@ -15,7 +16,7 @@ function stripSpacedDashPrefix(trimmed: string, prefix: string): string | null {
 const HEURISTIC_CODE_PREFIX = /^[A-Za-z0-9._/-]*\d[A-Za-z0-9._/-]*$/;
 
 function stripHeuristicCodePrefix(trimmed: string): string {
-  for (const sep of SPACED_DASH_SEPARATORS) {
+  for (const sep of HEURISTIC_DASH_SEPARATORS) {
     const idx = trimmed.indexOf(sep);
     if (idx <= 0) continue;
     const prefix = trimmed.slice(0, idx);
@@ -34,9 +35,8 @@ export function customerFacingLineDescription(
 
   const code = (storedPriceBookCode ?? '').trim();
   if (code) {
-    const stripped = stripSpacedDashPrefix(trimmed, code);
+    const stripped = stripStoredCodePrefix(trimmed, code);
     if (stripped != null) return stripped;
-    return trimmed;
   }
 
   return stripHeuristicCodePrefix(trimmed);
