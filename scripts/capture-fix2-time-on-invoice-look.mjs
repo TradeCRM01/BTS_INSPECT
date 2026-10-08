@@ -25,6 +25,7 @@ async function compositePair(browser, leftPng, rightPng, outPath, paneWidth, pan
   const rightB64 = readFileSync(rightPng).toString('base64');
   const page = await browser.newPage();
   const totalWidth = paneWidth * 2;
+  const rightFit = paneWidth >= 1280 ? 'contain' : 'cover';
   await page.setViewportSize({ width: totalWidth, height: paneHeight });
   await page.setContent(`<!DOCTYPE html><html><head><style>
 html,body{margin:0;padding:0;width:${totalWidth}px;height:${paneHeight}px;overflow:hidden;background:#F5F0E6;}
@@ -32,13 +33,50 @@ html,body{margin:0;padding:0;width:${totalWidth}px;height:${paneHeight}px;overfl
 .pane{width:${paneWidth}px;height:${paneHeight}px;box-sizing:border-box;background:#F5F0E6;}
 .pane-left{display:flex;justify-content:center;align-items:flex-start;padding:20px 24px;overflow:hidden;}
 .pane-left img{max-width:min(100%,520px);max-height:calc(100% - 8px);width:auto;height:auto;object-fit:contain;object-position:top center;box-shadow:0 2px 12px rgba(10,37,64,.08);}
-.pane-right img{display:block;width:100%;height:100%;object-fit:cover;object-position:top left;}
+.pane-right{display:flex;justify-content:center;align-items:flex-start;padding:12px 16px 16px;box-sizing:border-box;overflow:hidden;}
+.pane-right img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:${rightFit};object-position:top center;}
 </style></head><body><div class="wrap">
 <div class="pane pane-left"><img src="data:image/png;base64,${leftB64}" alt="preview"/></div>
 <div class="pane pane-right"><img src="data:image/png;base64,${rightB64}" alt="invoice"/></div>
 </div></body></html>`);
   await page.screenshot({ path: outPath, type: 'png', clip: { x: 0, y: 0, width: totalWidth, height: paneHeight } });
   await page.close();
+}
+
+/** Scroll invoice dialog so Total (inc GST) is fully in view; keep TO when it still fits. */
+async function scrollInvoiceEditorForCapture(editor) {
+  await editor.locator('.hub-invoice-totalbar').waitFor({ state: 'visible' });
+  await editor.evaluate((root) => {
+    const scroll =
+      root.querySelector('.hub-editor-dialog-scroll') ??
+      root.querySelector('.hub-invoice-editor-body') ??
+      root;
+    const totalBar = root.querySelector('.hub-invoice-totalbar');
+    if (!scroll || !totalBar) return;
+
+    const pad = 12;
+    const scrollRect = scroll.getBoundingClientRect();
+    const totalRect = totalBar.getBoundingClientRect();
+    const viewH = scrollRect.height;
+
+    let target =
+      scroll.scrollTop + (totalRect.bottom - scrollRect.bottom) + pad;
+
+    const toName = root.querySelector('.hub-invoice-to-name');
+    const fromBlock = root.querySelector('.hub-invoice-from');
+    const topEl = toName ?? fromBlock;
+    if (topEl && viewH > 0) {
+      const topRect = topEl.getBoundingClientRect();
+      const blockH = totalRect.bottom - topRect.top + pad * 2;
+      if (blockH <= viewH) {
+        target = scroll.scrollTop + (topRect.top - scrollRect.top) - pad;
+      }
+    }
+
+    const maxScroll = Math.max(0, scroll.scrollHeight - scroll.clientHeight);
+    scroll.scrollTop = Math.min(maxScroll, Math.max(0, target));
+  });
+  await editor.locator('[data-invoice-total-inc-gst]').scrollIntoViewIfNeeded();
 }
 
 async function captureState({ state, width, optIn, zeroConfirm }) {
@@ -126,18 +164,21 @@ async function captureState({ state, width, optIn, zeroConfirm }) {
   const createdTotalText = await page.locator('[data-invoice-total-inc-gst]').innerText();
   const invoicePath = `${OUT}/.tmp-${state}-invoice-${width}.png`;
   const editor = page.locator('.hub-invoice-editor');
-  await editor.locator('[data-invoice-total-inc-gst]').scrollIntoViewIfNeeded();
+  await scrollInvoiceEditorForCapture(editor);
   await page.waitForTimeout(250);
-  const body = editor.locator('.hub-invoice-editor-body');
-  if (await body.count()) {
-    await body.evaluate(el => {
-      el.scrollTop = el.scrollHeight;
-    });
-    await page.waitForTimeout(150);
-  }
-  await editor.locator('.hub-invoice-totalbar').scrollIntoViewIfNeeded();
-  await page.waitForTimeout(200);
   await editor.screenshot({ path: invoicePath });
+
+  const totalVisible = await editor.evaluate((root) => {
+    const totalBar = root.querySelector('.hub-invoice-totalbar');
+    if (!totalBar) return false;
+    const r = totalBar.getBoundingClientRect();
+    const scroll = root.querySelector('.hub-editor-dialog-scroll') ?? root;
+    const sr = scroll.getBoundingClientRect();
+    return r.top >= sr.top - 2 && r.bottom <= sr.bottom + 2;
+  });
+  if (!totalVisible) {
+    throw new Error(`[${state}@${width}] Total (inc GST) bar not fully visible after scroll`);
+  }
 
   const finalPath = `${OUT}/${state}-${width}.png`;
   await compositePair(browser, previewPath, invoicePath, finalPath, width, paneHeight);
