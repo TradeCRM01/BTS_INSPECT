@@ -90,6 +90,20 @@ describe('invoiceLinesFromJobCosts', () => {
     expect(lines[0].unit_price).toBe(0);
   });
 
+  it('does not replace a zero labour sell with unit_cost on the invoice line', () => {
+    const lines = invoiceLinesFromJobCosts([
+      {
+        description: 'Labour 3.5 h @ $0',
+        quantity: 3.5,
+        unit_price: 0,
+        unit_cost: 45,
+        charge_type: 'Labour',
+      },
+    ]);
+    expect(lines[0].unit_price).toBe(0);
+    expect(lines[0].description).toBe('Labour 3.5 h @ $0');
+  });
+
   it('returns nothing when the bill is empty', () => {
     expect(invoiceLinesFromJobCosts([])).toEqual([]);
     expect(invoiceLinesFromJobCosts(null)).toEqual([]);

@@ -61,7 +61,9 @@ export function invoiceLinesFromJobCosts(
       const description = (c.description ?? '').trim() || (c.charge_type ?? '').trim();
       const quantity = Number(c.quantity) || 0;
       const unitCost = Number(c.unit_cost) || 0;
-      const unitPrice = Number(c.unit_price) || unitCost;
+      const unitPrice = c.unit_price != null && c.unit_price !== ''
+        ? Number(c.unit_price)
+        : unitCost;
       return {
         description,
         quantity,

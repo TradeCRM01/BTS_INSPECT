@@ -27,10 +27,11 @@ import type { QuoteLineItem } from '../types/fsm';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isDevFieldAuditAuth } from './devFieldAuditAuth';
 import {
-  AUDIT_DOC_CLIENT_ID,
+  AUDIT_FIX2_CLIENT_ID,
   AUDIT_DOC_JOB_ID,
   fix2LookActive,
   getAuditFix2AcceptedQuote,
+  getAuditFix2LabourSell,
   getAuditFix2PlannedLabourPull,
   getAuditJob,
   getAuditJobBillCosts,
@@ -143,13 +144,7 @@ export async function loadJobBillInvoiceLinePlan(
       pickedPriceBookItemId: pickedPb,
     });
   const labourSell = auditFix2
-    ? {
-      unitPrice: (getAuditFix2PlannedLabourPull()?.[0]?.unit_price ?? 95) as number,
-      priceBookItemId: 'audit-fix2-pb',
-      needsRate: false,
-      needsPicker: false,
-      pickerItems: [],
-    }
+    ? getAuditFix2LabourSell()
     : await resolveLabourSellForJobBill(client, input.companyId);
   const lines = planJobBillInvoiceLines({
     quoteLineItems: input.quote.quoteLineItems,
@@ -223,7 +218,7 @@ export async function createInvoiceFromJobBill(input: {
 
   let job: { id: string; client_id: string | null } | null = null;
   if (auditFix2Create) {
-    job = { id: input.jobId, client_id: AUDIT_DOC_CLIENT_ID };
+    job = { id: input.jobId, client_id: AUDIT_FIX2_CLIENT_ID };
   } else {
     const { data, error: jobErr } = await supabase
       .from('jobs')

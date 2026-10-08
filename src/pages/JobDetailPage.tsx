@@ -38,7 +38,9 @@ import {
   fix2LookActive,
   getAuditClient,
   getAuditEmptyList,
+  getAuditFix2LabourSell,
   getAuditFix2PlannedLabourPull,
+  AUDIT_FIX2_CLIENT_ID,
   getAuditJob,
   getAuditJobBillCosts,
   getAuditTeamMembers,
@@ -1592,6 +1594,8 @@ export function JobDetailPage() {
             ...(fix2 ? {
               title: 'Hot water replacement',
               description: 'Replace the failed hot water unit and test the system.',
+              client_id: AUDIT_FIX2_CLIENT_ID,
+              address: '42 Harbour Esplanade, Brisbane QLD 4000',
             } : {}),
             ...(p307 === 'agree' || p307 === 'reuse' ? { assigned_team: [] } : {}),
           } as Job;
@@ -1899,7 +1903,7 @@ export function JobDetailPage() {
     queryKey: ['job-timesheets', id],
     queryFn: async () => {
       if (fix2LookActive()) {
-        const hours = fix2LookKind() === 'unquoted-zero' || fix2LookKind() === 'zero-header' ? 2 : 3.5;
+        const hours = 3.5;
         const start = new Date('2026-10-06T08:00:00.000Z');
         const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
         return [{
@@ -2472,13 +2476,16 @@ export function JobDetailPage() {
     },
     enabled: !!id && !!profile?.company_id && !!profile.id && !!job && !quotedLookOn && !fix2LookOn,
   });
-  const quotedLookLabourSell = useMemo(() => ({
-    unitPrice: fix2LookKind() === 'unquoted-zero' || fix2LookKind() === 'zero-header' ? 0 : 95,
-    priceBookItemId: 'look-pb',
-    needsRate: false,
-    needsPicker: false,
-    pickerItems: [],
-  }), []);
+  const quotedLookLabourSell = useMemo(
+    () => (fix2LookOn ? getAuditFix2LabourSell() : {
+      unitPrice: 95,
+      priceBookItemId: 'look-pb',
+      needsRate: false,
+      needsPicker: false,
+      pickerItems: [],
+    }),
+    [fix2LookOn],
+  );
   const auditLookBillCosts = useMemo((): import('../lib/invoiceFromJobBill').JobBillCostLine[] => {
     if (!fix2LookOn && !quotedLookOn) return [];
     return (getAuditJobBillCosts() ?? []) as import('../lib/invoiceFromJobBill').JobBillCostLine[];

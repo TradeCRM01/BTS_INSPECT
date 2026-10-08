@@ -189,4 +189,36 @@ describe('quoted job invoice lines', () => {
   it('exposes opt-in label', () => {
     expect(JOB_BILL_ADD_LOGGED_HOURS_EXTRA_LABEL).toBe('Add logged hours as extra');
   });
+
+  it('zero-rate labour bills $0 inc GST with description @ $0', () => {
+    const plannedTimesheetZero: JobCostFromHoursInsert = {
+      ...plannedTimesheetExtra,
+      description: 'Labour 3.5 h @ $0',
+      unit_price: 0,
+      total_price: 0,
+    };
+    const zeroSell: LabourSellResolution = {
+      unitPrice: 0,
+      priceBookItemId: null,
+      needsRate: true,
+      needsPicker: false,
+      pickerItems: [],
+    };
+    const lines = planJobBillInvoiceLines({
+      quoteLineItems: null,
+      costs: [],
+      plannedLabourPull: [plannedTimesheetZero],
+      includeLoggedHoursExtra: false,
+      labourSell: zeroSell,
+    });
+    expect(lines[0].unit_price).toBe(0);
+    expect(lines[0].description).toBe('Labour 3.5 h @ $0');
+    const inv = buildInvoiceFromJobBill({
+      clientId: 'c',
+      jobId: 'j',
+      taxRate: 10,
+      lines,
+    });
+    expect(inv.total).toBe(0);
+  });
 });

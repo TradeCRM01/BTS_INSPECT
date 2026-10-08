@@ -124,7 +124,19 @@ async function captureState({ state, width, optIn, zeroConfirm }) {
 
   const createdTotalText = await page.locator('[data-invoice-total-inc-gst]').innerText();
   const invoicePath = `${OUT}/.tmp-${state}-invoice-${width}.png`;
-  await page.locator('.hub-invoice-editor').screenshot({ path: invoicePath });
+  const editor = page.locator('.hub-invoice-editor');
+  await editor.locator('[data-invoice-total-inc-gst]').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(250);
+  const body = editor.locator('.hub-invoice-editor-body');
+  if (await body.count()) {
+    await body.evaluate(el => {
+      el.scrollTop = el.scrollHeight;
+    });
+    await page.waitForTimeout(150);
+  }
+  await editor.locator('.hub-invoice-totalbar').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(200);
+  await editor.screenshot({ path: invoicePath });
 
   const finalPath = `${OUT}/${state}-${width}.png`;
   await compositePair(browser, previewPath, invoicePath, finalPath, width, paneHeight);

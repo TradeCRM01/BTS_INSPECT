@@ -18,6 +18,8 @@ export const AUDIT_PO_ID = 'audit-po-send';
 export const AUDIT_REPORT_ID = 'audit-report-send';
 export const AUDIT_DOC_JOB_ID = 'audit-doc-job';
 export const AUDIT_DOC_CLIENT_ID = 'audit-doc-client';
+/** FIX-2 LOOK only — plumber-neutral client (does not replace AUDIT_DOC_CLIENT_ID elsewhere). */
+export const AUDIT_FIX2_CLIENT_ID = 'audit-fix2-client';
 export const AUDIT_PRICE_BOOK_ID = 'audit-price-book';
 export const AUDIT_LIST_DEF_ID = 'audit-list-def';
 export const AUDIT_CREW_ID = 'audit-crew-1';
@@ -159,6 +161,42 @@ export function getAuditJobBillCosts(): JobCost[] | null {
 }
 
 /** FIX-2 LOOK: timesheet hours only — not pre-loaded on job bill. */
+/** Same shape as production resolveLabourSell — not planned row unit_cost. */
+export function getAuditFix2LabourSell(): import('./hoursToJobBill').LabourSellResolution {
+  const look = auditLookTag();
+  if (look === 'fix2-unquoted-zero' || look === 'fix2-zero-header') {
+    return {
+      unitPrice: 0,
+      priceBookItemId: null,
+      needsRate: true,
+      needsPicker: false,
+      pickerItems: [],
+    };
+  }
+  return {
+    unitPrice: 95,
+    priceBookItemId: 'audit-fix2-pb',
+    needsRate: false,
+    needsPicker: false,
+    pickerItems: [],
+  };
+}
+
+export function getAuditFix2Client() {
+  return {
+    id: AUDIT_FIX2_CLIENT_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    name: 'Harbour View Body Corporate',
+    contact_person: 'Building manager',
+    email: 'strata-manager@example.com',
+    phone: '07 3000 0000',
+    address: '42 Harbour Esplanade, Brisbane QLD 4000',
+    notes: null,
+    archived: false,
+    created_at: NOW,
+  };
+}
+
 export function getAuditFix2PlannedLabourPull(): import('./hoursToJobBill').JobCostFromHoursInsert[] | null {
   const look = auditLookTag();
   if (!isDevFieldAuditAuth() || !look?.startsWith('fix2-')) return null;
@@ -391,6 +429,9 @@ export function getAuditJob(id: string) {
 }
 
 export function getAuditClient(id: string) {
+  if (isDevFieldAuditAuth() && id === AUDIT_FIX2_CLIENT_ID) {
+    return getAuditFix2Client();
+  }
   const clients = getAuditClients();
   return clients?.find(c => c.id === id) ?? null;
 }

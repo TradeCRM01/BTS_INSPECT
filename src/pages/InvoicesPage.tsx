@@ -121,7 +121,7 @@ function invoiceRef(invoice: { invoice_number?: number | null }): string {
 
 function invoiceMoney(total: number | string | null | undefined): string | null {
   const n = Number(total ?? 0);
-  return n > 0 ? formatMoney(n) : null;
+  return Number.isFinite(n) && n >= 0 ? formatMoney(n) : null;
 }
 
 function suburbFromSite(site: string): string {
